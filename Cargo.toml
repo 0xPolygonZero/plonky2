@@ -1,0 +1,14 @@
+[package]
+name = "plonky2"
+version = "0.1.0"
+authors = ["Daniel Lubarov <daniel@lubarov.com>"]
+edition = "2018"
+
+[dependencies]
+unroll = "0.1.5"
+rayon = "1.5.0"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
