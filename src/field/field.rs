@@ -25,7 +25,11 @@ pub trait Field: 'static
     fn cube(&self) -> Self;
 
     /// Compute the multiplicative inverse of this field element.
-    fn inverse(&self) -> Self;
+    fn try_inverse(&self) -> Option<Self>;
+
+    fn inverse(&self) -> Self {
+        self.try_inverse().expect("Tried to invert zero")
+    }
 
     fn primitive_root_of_unity(n_power: usize) -> Self;
 

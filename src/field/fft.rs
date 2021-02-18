@@ -34,10 +34,10 @@ impl<F: Field> FftPrecomputation<F> {
     }
 }
 
-// pub fn fft<F: Field>(coefficients: &[F]) -> Vec<F> {
-//     let precomputation = fft_precompute(coefficients.len());
-//     fft_with_precomputation(coefficients, &precomputation)
-// }
+pub fn fft<F: Field>(coefficients: Vec<F>) -> Vec<F> {
+    let precomputation = fft_precompute(coefficients.len());
+    fft_with_precomputation_power_of_2(coefficients, &precomputation)
+}
 
 pub fn fft_precompute<F: Field>(degree: usize) -> FftPrecomputation<F> {
     let degree_pow = log2_ceil(degree);
@@ -54,11 +54,11 @@ pub fn fft_precompute<F: Field>(degree: usize) -> FftPrecomputation<F> {
 }
 
 pub fn ifft_with_precomputation_power_of_2<F: Field>(
-    points: &[F],
+    points: Vec<F>,
     precomputation: &FftPrecomputation<F>,
 ) -> Vec<F> {
     let n = points.len();
-    let n_inv = Field(n as u64).multiplicative_inverse().unwrap();
+    let n_inv = F::from_canonical_usize(n).try_inverse().unwrap();
     let mut result = fft_with_precomputation_power_of_2(points, precomputation);
 
     // We reverse all values except the first, and divide each by n.

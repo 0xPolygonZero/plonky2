@@ -50,7 +50,7 @@ impl Field for CrandallField {
         *self * *self * *self
     }
 
-    fn inverse(&self) -> Self {
+    fn try_inverse(&self) -> Option<Self> {
         unimplemented!()
     }
 
