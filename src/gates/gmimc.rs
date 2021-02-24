@@ -1,4 +1,5 @@
 use std::convert::TryInto;
+use std::sync::Arc;
 
 use crate::circuit_data::CircuitConfig;
 use crate::constraint_polynomial::ConstraintPolynomial;
@@ -10,7 +11,6 @@ use crate::gmimc::gmimc_permute;
 use crate::target::Target2;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
-use std::sync::Arc;
 
 /// Evaluates a full GMiMC permutation, and writes the output to the next gate's first `width`
 /// wires (which could be the input of another `GMiMCGate`).
@@ -32,7 +32,27 @@ impl<F: Field, const W: usize, const R: usize> Gate<F> for GMiMCGate<F, W, R> {
     }
 
     fn constraints(&self, config: CircuitConfig) -> Vec<ConstraintPolynomial<F>> {
-        unimplemented!()
+        let mut state = (0..W)
+            .map(|i| ConstraintPolynomial::local_wire_value(i))
+            .collect::<Vec<_>>();
+
+        // Value that is implicitly added to each element.
+        // See https://affine.group/2020/02/starkware-challenge
+        let mut addition_buffer = ConstraintPolynomial::zero();
+
+        for r in 0..R {
+            let active = r % W;
+            let round_constant = ConstraintPolynomial::constant(self.round_constants[r]);
+            let f = (&state[active] + &addition_buffer + round_constant).cube();
+            addition_buffer += &f;
+            state[active] -= f;
+        }
+
+        for i in 0..W {
+            state[i] += &addition_buffer;
+        }
+
+        state
     }
 
     fn generators(&self, config: CircuitConfig, gate_index: usize, local_constants: Vec<F>, next_constants: Vec<F>) -> Vec<Box<dyn WitnessGenerator2<F>>> {

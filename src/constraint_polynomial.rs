@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
-use std::ops::{Add, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use std::ptr;
 use std::rc::Rc;
 
@@ -101,6 +101,10 @@ impl<F: Field> ConstraintPolynomial<F> {
         self * self
     }
 
+    pub fn cube(&self) -> Self {
+        self * self * self
+    }
+
     pub(crate) fn degree(&self) -> usize {
         (self.0).0.degree()
     }
@@ -181,7 +185,7 @@ impl<F: Field> Neg for &ConstraintPolynomial<F> {
 /// Takes the following arguments:
 /// - `$trait`: the name of the binary operation trait to implement
 /// - `$method`: the name of the method in the trait. It is assumed that `ConstraintPolynomial`
-///   contains a method with the same name, implementing the `Self . Self` variant.
+///   contains a method with the same name, implementing the `&Self . &Self` variant.
 macro_rules! binop_variants {
     ($trait:ident, $method:ident) => {
         impl<F: Field> $trait<Self> for ConstraintPolynomial<F> {
@@ -250,9 +254,53 @@ macro_rules! binop_variants {
     };
 }
 
+/// Generates the following variants of a binary operation assignment:
+/// - `.= Self`
+/// - `.= &Self`
+/// - `.= F`
+/// - `.= usize`
+/// where `Self` is `ConstraintPolynomial<F>`.
+///
+/// Takes the following arguments:
+/// - `$trait`: the name of the binary operation trait to implement
+/// - `$assign_method`: the name of the method in the trait
+/// - `$binop_method`: the name of a method in `ConstraintPolynomial`
+///   which implements the `&Self . &Self` operation.
+macro_rules! binop_assign_variants {
+    ($trait:ident, $assign_method:ident, $binop_method:ident) => {
+        impl<F: Field> $trait<Self> for ConstraintPolynomial<F> {
+            fn $assign_method(&mut self, rhs: Self) {
+                *self = ConstraintPolynomial::$binop_method(self, &rhs);
+            }
+        }
+
+        impl<F: Field> $trait<&Self> for ConstraintPolynomial<F> {
+            fn $assign_method(&mut self, rhs: &Self) {
+                *self = ConstraintPolynomial::$binop_method(self, rhs);
+            }
+        }
+
+        impl<F: Field> $trait<F> for ConstraintPolynomial<F> {
+            fn $assign_method(&mut self, rhs: F) {
+                *self = ConstraintPolynomial::$binop_method(self, &ConstraintPolynomial::constant(rhs));
+            }
+        }
+
+        impl<F: Field> $trait<usize> for ConstraintPolynomial<F> {
+            fn $assign_method(&mut self, rhs: usize) {
+                *self = ConstraintPolynomial::$binop_method(self, &ConstraintPolynomial::constant_usize(rhs));
+            }
+        }
+    }
+}
+
 binop_variants!(Add, add);
 binop_variants!(Sub, sub);
 binop_variants!(Mul, mul);
+
+binop_assign_variants!(AddAssign, add_assign, add);
+binop_assign_variants!(SubAssign, sub_assign, sub);
+binop_assign_variants!(MulAssign, mul_assign, mul);
 
 impl<F: Field> Sum for ConstraintPolynomial<F> {
     fn sum<I: Iterator<Item=Self>>(iter: I) -> Self {
