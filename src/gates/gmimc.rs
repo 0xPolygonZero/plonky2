@@ -16,11 +16,15 @@ use crate::witness::PartialWitness;
 /// wires (which could be the input of another `GMiMCGate`).
 #[derive(Debug)]
 pub struct GMiMCGate<F: Field, const W: usize, const R: usize> {
-    round_constants: Arc<[F; R]>,
+    constants: Arc<[F; R]>,
 }
 
 impl<F: Field, const W: usize, const R: usize> GMiMCGate<F, W, R> {
-    fn new() -> GateRef<F> {
+    pub fn with_constants(constants: Arc<[F; R]>) -> GateRef<F> {
+        GateRef::new(GMiMCGate { constants })
+    }
+
+    pub fn with_automatic_constants() -> GateRef<F> {
         todo!()
     }
 }
@@ -42,7 +46,7 @@ impl<F: Field, const W: usize, const R: usize> Gate<F> for GMiMCGate<F, W, R> {
 
         for r in 0..R {
             let active = r % W;
-            let round_constant = ConstraintPolynomial::constant(self.round_constants[r]);
+            let round_constant = ConstraintPolynomial::constant(self.constants[r]);
             let f = (&state[active] + &addition_buffer + round_constant).cube();
             addition_buffer += &f;
             state[active] -= f;
@@ -55,9 +59,15 @@ impl<F: Field, const W: usize, const R: usize> Gate<F> for GMiMCGate<F, W, R> {
         state
     }
 
-    fn generators(&self, config: CircuitConfig, gate_index: usize, local_constants: Vec<F>, next_constants: Vec<F>) -> Vec<Box<dyn WitnessGenerator2<F>>> {
+    fn generators(
+        &self,
+        config: CircuitConfig,
+        gate_index: usize,
+        local_constants: Vec<F>,
+        next_constants: Vec<F>,
+    ) -> Vec<Box<dyn WitnessGenerator2<F>>> {
         let generator = GMiMCGenerator::<F, W, R> {
-            round_constants: self.round_constants.clone(),
+            round_constants: self.constants.clone(),
             gate_index,
         };
         vec![Box::new(generator)]
