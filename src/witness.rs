@@ -5,19 +5,19 @@ use crate::target::Target2;
 use crate::wire::Wire;
 
 #[derive(Debug)]
-pub struct PartialWitness2<F: Field> {
+pub struct PartialWitness<F: Field> {
     target_values: HashMap<Target2, F>,
 }
 
-impl<F: Field> PartialWitness2<F> {
+impl<F: Field> PartialWitness<F> {
     pub fn new() -> Self {
-        PartialWitness2 {
+        PartialWitness {
             target_values: HashMap::new(),
         }
     }
 
     pub fn singleton(target: Target2, value: F) -> Self {
-        let mut witness = PartialWitness2::new();
+        let mut witness = PartialWitness::new();
         witness.set_target(target, value);
         witness
     }

@@ -15,7 +15,9 @@ pub trait Field: 'static
 + MulAssign<Self>
 + Div<Self, Output=Self>
 + DivAssign<Self>
-+ Debug {
++ Debug
++ Send
++ Sync {
     const ZERO: Self;
     const ONE: Self;
     const NEG_ONE: Self;

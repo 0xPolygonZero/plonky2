@@ -1,6 +1,6 @@
 use crate::field::field::Field;
 use crate::target::Target2;
-use crate::witness::PartialWitness2;
+use crate::witness::PartialWitness;
 
 /// A generator participates in the generation of the witness.
 pub trait WitnessGenerator2<F: Field>: 'static {
@@ -12,14 +12,14 @@ pub trait WitnessGenerator2<F: Field>: 'static {
     /// flag indicating whether the generator is finished. If the flag is true, the generator will
     /// never be run again, otherwise it will be queued for another run next time a target in its
     /// watch list is populated.
-    fn run(&mut self, witness: &PartialWitness2<F>) -> (PartialWitness2<F>, bool);
+    fn run(&mut self, witness: &PartialWitness<F>) -> (PartialWitness<F>, bool);
 }
 
 /// A generator which runs once after a list of dependencies is present in the witness.
 pub trait SimpleGenerator<F: Field>: 'static {
     fn dependencies(&self) -> Vec<Target2>;
 
-    fn run_once(&mut self, witness: &PartialWitness2<F>) -> PartialWitness2<F>;
+    fn run_once(&mut self, witness: &PartialWitness<F>) -> PartialWitness<F>;
 }
 
 impl<F: Field, SG: SimpleGenerator<F>> WitnessGenerator2<F> for SG {
@@ -27,11 +27,11 @@ impl<F: Field, SG: SimpleGenerator<F>> WitnessGenerator2<F> for SG {
         self.dependencies()
     }
 
-    fn run(&mut self, witness: &PartialWitness2<F>) -> (PartialWitness2<F>, bool) {
+    fn run(&mut self, witness: &PartialWitness<F>) -> (PartialWitness<F>, bool) {
         if witness.contains_all(&self.dependencies()) {
             (self.run_once(witness), true)
         } else {
-            (PartialWitness2::new(), false)
+            (PartialWitness::new(), false)
         }
     }
 }
@@ -47,8 +47,8 @@ impl<F: Field> SimpleGenerator<F> for CopyGenerator {
         vec![self.src]
     }
 
-    fn run_once(&mut self, witness: &PartialWitness2<F>) -> PartialWitness2<F> {
+    fn run_once(&mut self, witness: &PartialWitness<F>) -> PartialWitness<F> {
         let value = witness.get_target(self.src);
-        PartialWitness2::singleton(self.dst, value)
+        PartialWitness::singleton(self.dst, value)
     }
 }

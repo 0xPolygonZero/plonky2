@@ -8,7 +8,7 @@ use crate::generator::WitnessGenerator2;
 
 /// A custom gate.
 // TODO: Remove CircuitConfig params? Could just use fields within each struct.
-pub trait Gate2<F: Field>: 'static {
+pub trait Gate<F: Field>: 'static {
     fn id(&self) -> String;
 
     /// A set of expressions which must evaluate to zero.
@@ -52,10 +52,10 @@ pub trait Gate2<F: Field>: 'static {
 
 /// A wrapper around an `Rc<Gate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
 #[derive(Clone)]
-pub struct GateRef<F: Field>(pub(crate) Rc<dyn Gate2<F>>);
+pub struct GateRef<F: Field>(pub(crate) Rc<dyn Gate<F>>);
 
 impl<F: Field> GateRef<F> {
-    pub fn new<G: Gate2<F>>(gate: G) -> GateRef<F> {
+    pub fn new<G: Gate<F>>(gate: G) -> GateRef<F> {
         GateRef(Rc::new(gate))
     }
 }

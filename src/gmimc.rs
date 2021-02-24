@@ -1,39 +1,35 @@
+use std::sync::Arc;
+
 use unroll::unroll_for_loops;
 
 use crate::field::field::Field;
 
-const GMIMC_CONSTANTS: [u64; GMIMC_ROUNDS] = [11875528958976719239, 6107683892976199900, 7756999550758271958, 14819109722912164804, 9716579428412441110, 13627117528901194436, 16260683900833506663, 5942251937084147420, 3340009544523273897, 5103423085715007461, 17051583366444092101, 11122892258227244197, 16564300648907092407, 978667924592675864, 17676416205210517593, 1938246372790494499, 8857737698008340728, 1616088456497468086, 15961521580811621978, 17427220057097673602, 14693961562064090188, 694121596646283736, 554241305747273747, 5783347729647881086, 14933083198980931734, 2600898787591841337, 9178797321043036456, 18068112389665928586, 14493389459750307626, 1650694762687203587, 12538946551586403559, 10144328970401184255, 4215161528137084719, 17559540991336287827, 1632269449854444901, 986434918028205468, 14921385763379308253, 4345141219277982730, 2645897826751167170, 9815223670029373528, 7687983869685434132, 13956100321958014639, 519639453142393369, 15617837024229225911, 1557446238053329052, 8130006133842942201, 864716631341688017, 2860289738131495304, 16723700803638270299, 8363528906277648001, 13196016034228493087, 2514677332206134618, 15626342185220554936, 466271571343554681, 17490024028988898434, 6454235936129380878, 15187752952940298536, 18043495619660620405, 17118101079533798167, 13420382916440963101, 535472393366793763, 1071152303676936161, 6351382326603870931, 12029593435043638097, 9983185196487342247, 414304527840226604, 1578977347398530191, 13594880016528059526, 13219707576179925776, 6596253305527634647, 17708788597914990288, 7005038999589109658, 10171979740390484633, 1791376803510914239, 2405996319967739434, 12383033218117026776, 17648019043455213923, 6600216741450137683, 5359884112225925883, 1501497388400572107, 11860887439428904719, 64080876483307031, 11909038931518362287, 14166132102057826906, 14172584203466994499, 593515702472765471, 3423583343794830614, 10041710997716717966, 13434212189787960052, 9943803922749087030, 3216887087479209126, 17385898166602921353, 617799950397934255, 9245115057096506938, 13290383521064450731, 10193883853810413351, 14648839921475785656, 14635698366607946133, 9134302981480720532, 10045888297267997632, 10752096344939765738, 12049167771599274839, 16471532489936095930, 7118567245891966484, 272840212090177715, 7530334979534674340, 12300300144661791831, 14334496540665732547];
-
-const GMIMC_ROUNDS: usize = 108;
-
-const W: usize = 12;
-
-pub fn gmimc_compress<F: Field>(a: [F; 4], b: [F; 4]) -> [F; 4] {
+pub fn gmimc_compress<F: Field, const R: usize>(a: [F; 4], b: [F; 4], constants: Arc<[F; R]>) -> [F; 4] {
     // Sponge with r=8, c=4.
     let state_0 = [a[0], a[1], a[2], a[3], b[0],
         b[1], b[2], b[3],
         F::ZERO, F::ZERO, F::ZERO, F::ZERO];
-    let state_1 = gmimc_permute(state_0);
+    let state_1 = gmimc_permute::<F, 12, R>(state_0, constants.clone());
     [state_1[0], state_1[1], state_1[2], state_1[3]]
 }
 
 #[unroll_for_loops]
-pub fn gmimc_permute<F: Field>(mut xs: [F; W]) -> [F; W] {
-    // TODO: Hardcoded width and num rounds for now, since unroll_for_loops doesn't work with
-    // constants or anything. Maybe use const generics when stable?
-
+pub fn gmimc_permute<F: Field, const W: usize, const R: usize>(
+    mut xs: [F; W],
+    constants: Arc<[F; R]>,
+) -> [F; W] {
     // Value that is implicitly added to each element.
     // See https://affine.group/2020/02/starkware-challenge
     let mut addition_buffer = F::ZERO;
 
-    for r in 0..108 {
-        let active = r % 12;
-        let f = (xs[active] + addition_buffer + F::from_canonical_u64(GMIMC_CONSTANTS[r])).cube();
+    for r in 0..R {
+        let active = r % W;
+        let f = (xs[active] + addition_buffer + constants[r]).cube();
         addition_buffer += f;
         xs[active] -= f;
     }
 
-    for i in 0..12 {
+    for i in 0..W {
         xs[i] += addition_buffer;
     }
 
@@ -41,14 +37,14 @@ pub fn gmimc_permute<F: Field>(mut xs: [F; W]) -> [F; W] {
 }
 
 #[unroll_for_loops]
-pub fn gmimc_permute_naive<F: Field>(mut xs: [F; W]) -> [F; W] {
-    // TODO: Hardcoded width and num rounds for now, since unroll_for_loops doesn't work with
-    // constants or anything. Maybe use const generics when stable?
-
-    for r in 0..108 {
-        let active = r % 12;
-        let f = (xs[active] + F::from_canonical_u64(GMIMC_CONSTANTS[r])).cube();
-        for i in 0..12 {
+pub fn gmimc_permute_naive<F: Field, const W: usize, const R: usize>(
+    mut xs: [F; W],
+    constants: Arc<[F; R]>,
+) -> [F; W] {
+    for r in 0..R {
+        let active = r % W;
+        let f = (xs[active] + constants[r]).cube();
+        for i in 0..W {
             if i != active {
                 xs[i] = xs[i] + f;
             }
@@ -71,8 +67,8 @@ mod tests {
         for i in 0..12 {
             xs[i] = F::from_canonical_usize(i);
         }
-        let out = gmimc_permute(xs);
-        let out_naive = gmimc_permute_naive(xs);
+        let out = gmimc_permute::<_, _, 108>(xs);
+        let out_naive = gmimc_permute_naive::<_, _, 108>(xs);
         assert_eq!(out, out_naive);
     }
 }

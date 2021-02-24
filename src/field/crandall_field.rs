@@ -152,14 +152,6 @@ impl DivAssign for CrandallField {
     }
 }
 
-#[inline(always)]
-fn reduce64(x: u64) -> u64 {
-    // TODO: slow? try cond sub
-    // x % P
-    let over = x > P;
-    x - (over as u64) * P
-}
-
 /// no final reduction
 #[inline(always)]
 fn reduce128(x: u128) -> CrandallField {

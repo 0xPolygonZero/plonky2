@@ -3,11 +3,11 @@ use std::marker::PhantomData;
 use crate::circuit_data::CircuitConfig;
 use crate::constraint_polynomial::{ConstraintPolynomial, EvaluationVars};
 use crate::field::field::Field;
-use crate::gates::gate::Gate2;
+use crate::gates::gate::Gate;
 use crate::generator::{SimpleGenerator, WitnessGenerator2};
 use crate::target::Target2;
 use crate::wire::Wire;
-use crate::witness::PartialWitness2;
+use crate::witness::PartialWitness;
 
 /// A deterministic gate. Each entry in `outputs()` describes how that output is evaluated; this is
 /// used to create both the constraint set and the generator set.
@@ -52,7 +52,7 @@ impl<F: Field, DG: DeterministicGate<F>> DeterministicGateAdapter<F, DG> {
     }
 }
 
-impl<F: Field, DG: DeterministicGate<F>> Gate2<F> for DeterministicGateAdapter<F, DG> {
+impl<F: Field, DG: DeterministicGate<F>> Gate<F> for DeterministicGateAdapter<F, DG> {
     fn id(&self) -> String {
         self.gate.id()
     }
@@ -110,7 +110,7 @@ impl<F: Field> SimpleGenerator<F> for OutputGenerator<F> {
             .collect()
     }
 
-    fn run_once(&mut self, witness: &PartialWitness2<F>) -> PartialWitness2<F> {
+    fn run_once(&mut self, witness: &PartialWitness<F>) -> PartialWitness<F> {
         let mut local_wire_values = Vec::new();
         let mut next_wire_values = Vec::new();
 
@@ -141,6 +141,6 @@ impl<F: Field> SimpleGenerator<F> for OutputGenerator<F> {
 
         let result_wire = Wire { gate: self.gate_index, input: self.input_index };
         let result_value = self.out.evaluate(vars);
-        PartialWitness2::singleton(Target2::Wire(result_wire), result_value)
+        PartialWitness::singleton(Target2::Wire(result_wire), result_value)
     }
 }
