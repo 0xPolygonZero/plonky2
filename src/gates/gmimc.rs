@@ -7,7 +7,7 @@ use crate::field::field::Field;
 use crate::gates::deterministic_gate::DeterministicGate;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator2};
-use crate::gmimc::gmimc_permute;
+use crate::gmimc::{gmimc_permute_array, gmimc_permute};
 use crate::target::Target2;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;

@@ -53,12 +53,10 @@ fn bench_gmimc<F: Field>() {
     for i in 0..GMIMC_ROUNDS {
         constants[i] = F::from_canonical_u64(GMIMC_CONSTANTS[i]);
     }
-    let constants = Arc::new(constants);
 
     let threads = 12;
     let hashes_per_poly = 1 << (13 + 3);
     let threads = (0..threads).map(|_i| {
-        let constants = constants.clone();
         thread::spawn(move || {
             let mut x = [F::ZERO; 12];
             for i in 0..12 {
@@ -68,7 +66,7 @@ fn bench_gmimc<F: Field>() {
             let hashes_per_thread = hashes_per_poly * PROVER_POLYS / threads;
             let start = Instant::now();
             for _ in 0..hashes_per_thread {
-                x = gmimc::gmimc_permute::<_, 12, GMIMC_ROUNDS>(x, constants.clone());
+                x = gmimc::gmimc_permute_array::<_, 12, GMIMC_ROUNDS>(x, GMIMC_CONSTANTS);
             }
             let duration = start.elapsed();
             println!("took {:?}", duration);
