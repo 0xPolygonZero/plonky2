@@ -21,7 +21,7 @@ pub struct GMiMCGate<F: Field, const W: usize, const R: usize> {
 
 impl<F: Field, const W: usize, const R: usize> GMiMCGate<F, W, R> {
     pub fn with_constants(constants: Arc<[F; R]>) -> GateRef<F> {
-        GateRef::new(GMiMCGate { constants })
+        GateRef::new(GMiMCGate::<F, W, R> { constants })
     }
 
     pub fn with_automatic_constants() -> GateRef<F> {
