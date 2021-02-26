@@ -20,6 +20,7 @@ pub trait Field: 'static
 + Sync {
     const ZERO: Self;
     const ONE: Self;
+    const TWO: Self;
     const NEG_ONE: Self;
 
     fn sq(&self) -> Self;

@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 unroll = "0.1.5"
 rayon = "1.5.0"
+num = "0.3"
 
 [profile.release]
 opt-level = 3

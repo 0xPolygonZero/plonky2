@@ -4,11 +4,12 @@ use std::sync::Arc;
 use crate::circuit_data::CircuitConfig;
 use crate::constraint_polynomial::ConstraintPolynomial;
 use crate::field::field::Field;
-use crate::gates::deterministic_gate::DeterministicGate;
+use crate::gates::deterministic_gate::{DeterministicGate, DeterministicGateAdapter};
 use crate::gates::gate::{Gate, GateRef};
+use crate::gates::output_graph::{GateOutputLocation, OutputGraph};
 use crate::generator::{SimpleGenerator, WitnessGenerator2};
-use crate::gmimc::{gmimc_permute_array, gmimc_permute};
-use crate::target::Target2;
+use crate::gmimc::{gmimc_permute, gmimc_permute_array};
+use crate::target::Target;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -21,24 +22,59 @@ pub struct GMiMCGate<F: Field, const W: usize, const R: usize> {
 
 impl<F: Field, const W: usize, const R: usize> GMiMCGate<F, W, R> {
     pub fn with_constants(constants: Arc<[F; R]>) -> GateRef<F> {
-        GateRef::new(GMiMCGate::<F, W, R> { constants })
+        let gate = GMiMCGate::<F, W, R> { constants };
+        let adapter = DeterministicGateAdapter::new(gate);
+        GateRef::new(adapter)
     }
 
     pub fn with_automatic_constants() -> GateRef<F> {
         todo!()
     }
+
+    /// If this is set to 1, the first four inputs will be swapped with the next four inputs. This
+    /// is useful for ordering hashes in Merkle proofs. Otherwise, this should be set to 0.
+    // TODO: Assert binary.
+    pub const WIRE_SWITCH: usize = 0;
+
+    /// The wire index for the i'th input to the permutation.
+    pub fn wire_input(i: usize) -> usize {
+        i + 1
+    }
+
+    /// The wire index for the i'th output to the permutation.
+    /// Note that outputs are written to the next gate's wires.
+    pub fn wire_output(i: usize) -> usize {
+        i + 1
+    }
 }
 
-impl<F: Field, const W: usize, const R: usize> Gate<F> for GMiMCGate<F, W, R> {
+impl<F: Field, const W: usize, const R: usize> DeterministicGate<F> for GMiMCGate<F, W, R> {
     fn id(&self) -> String {
-        // TODO: Add W/R
+        // TODO: This won't include generic params?
         format!("{:?}", self)
     }
 
-    fn constraints(&self, config: CircuitConfig) -> Vec<ConstraintPolynomial<F>> {
-        let mut state = (0..W)
-            .map(|i| ConstraintPolynomial::local_wire_value(i))
+    fn outputs(&self, config: CircuitConfig) -> OutputGraph<F> {
+        let original_inputs = (0..W)
+            .map(|i| ConstraintPolynomial::local_wire_value(Self::wire_input(i)))
             .collect::<Vec<_>>();
+
+        // Conditionally switch inputs based on the (boolean) switch wire.
+        let switch = ConstraintPolynomial::local_wire_value(Self::WIRE_SWITCH);
+        let mut state = Vec::new();
+        for i in 0..4 {
+            let a = &original_inputs[i];
+            let b = &original_inputs[i + 4];
+            state.push(a + &switch * (b - a));
+        }
+        for i in 0..4 {
+            let a = &original_inputs[i + 4];
+            let b = &original_inputs[i];
+            state.push(a + &switch * (b - a));
+        }
+        for i in 8..W {
+            state.push(original_inputs[i].clone());
+        }
 
         // Value that is implicitly added to each element.
         // See https://affine.group/2020/02/starkware-challenge
@@ -56,52 +92,19 @@ impl<F: Field, const W: usize, const R: usize> Gate<F> for GMiMCGate<F, W, R> {
             state[i] += &addition_buffer;
         }
 
-        state
+        let outputs = state.into_iter()
+            .enumerate()
+            .map(|(i, out)| (GateOutputLocation::NextWire(Self::wire_output(i)), out))
+            .collect();
+
+        // A degree of 9 is reasonable for most circuits, and it means that we only need wires for
+        // every other addition buffer state.
+        OutputGraph { outputs }.shrink_degree(9)
     }
 
-    fn generators(
-        &self,
-        config: CircuitConfig,
-        gate_index: usize,
-        local_constants: Vec<F>,
-        next_constants: Vec<F>,
-    ) -> Vec<Box<dyn WitnessGenerator2<F>>> {
-        let generator = GMiMCGenerator::<F, W, R> {
-            round_constants: self.constants.clone(),
-            gate_index,
-        };
-        vec![Box::new(generator)]
-    }
-}
-
-struct GMiMCGenerator<F: Field, const W: usize, const R: usize> {
-    round_constants: Arc<[F; R]>,
-    gate_index: usize,
-}
-
-impl<F: Field, const W: usize, const R: usize> SimpleGenerator<F> for GMiMCGenerator<F, W, R> {
-    fn dependencies(&self) -> Vec<Target2> {
-        (0..W)
-            .map(|i| Target2::Wire(
-                Wire { gate: self.gate_index, input: i }))
-            .collect()
-    }
-
-    fn run_once(&mut self, witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let mut inputs: [F; W] = [F::ZERO; W];
-        for i in 0..W {
-            inputs[i] = witness.get_wire(
-                Wire { gate: self.gate_index, input: i });
-        }
-
-        let outputs = gmimc_permute::<F, W, R>(inputs, self.round_constants.clone());
-
-        let mut result = PartialWitness::new();
-        for i in 0..W {
-            result.set_wire(
-                Wire { gate: self.gate_index + 1, input: i },
-                outputs[i]);
-        }
-        result
+    fn additional_constraints(&self, _config: CircuitConfig) -> Vec<ConstraintPolynomial<F>> {
+        let switch = ConstraintPolynomial::local_wire_value(Self::WIRE_SWITCH);
+        let switch_bool_constraint = &switch * (&switch - 1);
+        vec![switch_bool_constraint]
     }
 }

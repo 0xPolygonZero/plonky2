@@ -5,6 +5,7 @@ use crate::circuit_data::CircuitConfig;
 use crate::constraint_polynomial::ConstraintPolynomial;
 use crate::field::field::Field;
 use crate::generator::WitnessGenerator2;
+use num::ToPrimitive;
 
 /// A custom gate.
 // TODO: Remove CircuitConfig params? Could just use fields within each struct.
@@ -44,7 +45,7 @@ pub trait Gate<F: Field>: 'static {
     fn degree(&self, config: CircuitConfig) -> usize {
         self.constraints(config)
             .into_iter()
-            .map(|c| c.degree())
+            .map(|c| c.degree().to_usize().expect("degree too large"))
             .max()
             .unwrap_or(0)
     }

@@ -38,6 +38,7 @@ impl Debug for CrandallField {
 impl Field for CrandallField {
     const ZERO: Self = Self(0);
     const ONE: Self = Self(1);
+    const TWO: Self = Self(2);
     const NEG_ONE: Self = Self(P - 1);
 
     #[inline(always)]

@@ -5,9 +5,10 @@ use crate::constraint_polynomial::{ConstraintPolynomial, EvaluationVars};
 use crate::field::field::Field;
 use crate::gates::gate::Gate;
 use crate::generator::{SimpleGenerator, WitnessGenerator2};
-use crate::target::Target2;
+use crate::target::Target;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
+use crate::gates::output_graph::{OutputGraph, GateOutputLocation};
 
 /// A deterministic gate. Each entry in `outputs()` describes how that output is evaluated; this is
 /// used to create both the constraint set and the generator set.
@@ -18,9 +19,9 @@ pub trait DeterministicGate<F: Field>: 'static {
     /// A unique identifier for this gate.
     fn id(&self) -> String;
 
-    /// A vector of `(i, c)` pairs, where `i` is the index of an output and `c` is the polynomial
-    /// defining how that output is evaluated.
-    fn outputs(&self, config: CircuitConfig) -> Vec<(usize, ConstraintPolynomial<F>)>;
+    /// A vector of `(loc, out)` pairs, where `loc` is the location of an output and `out` is a
+    /// polynomial defining how that output is evaluated.
+    fn outputs(&self, config: CircuitConfig) -> OutputGraph<F>;
 
     /// Any additional constraints to be enforced, besides the (automatically provided) ones that
     /// constraint output values.
@@ -60,8 +61,8 @@ impl<F: Field, DG: DeterministicGate<F>> Gate<F> for DeterministicGateAdapter<F,
     fn constraints(&self, config: CircuitConfig) -> Vec<ConstraintPolynomial<F>> {
         // For each output, we add a constraint of the form `out - expression = 0`,
         // then we append any additional constraints that the gate defines.
-        self.gate.outputs(config).into_iter()
-            .map(|(i, out)| out - ConstraintPolynomial::local_wire_value(i))
+        self.gate.outputs(config).outputs.into_iter()
+            .map(|(output_loc, out)| out - ConstraintPolynomial::from_gate_output(output_loc))
             .chain(self.gate.additional_constraints(config).into_iter())
             .collect()
     }
@@ -73,12 +74,12 @@ impl<F: Field, DG: DeterministicGate<F>> Gate<F> for DeterministicGateAdapter<F,
         local_constants: Vec<F>,
         next_constants: Vec<F>,
     ) -> Vec<Box<dyn WitnessGenerator2<F>>> {
-        self.gate.outputs(config)
+        self.gate.outputs(config).outputs
             .into_iter()
-            .map(|(input_index, out)| {
+            .map(|(location, out)| {
                 let og = OutputGenerator {
                     gate_index,
-                    input_index,
+                    location,
                     out,
                     local_constants: local_constants.clone(),
                     next_constants: next_constants.clone(),
@@ -96,17 +97,17 @@ impl<F: Field, DG: DeterministicGate<F>> Gate<F> for DeterministicGateAdapter<F,
 
 struct OutputGenerator<F: Field> {
     gate_index: usize,
-    input_index: usize,
+    location: GateOutputLocation,
     out: ConstraintPolynomial<F>,
     local_constants: Vec<F>,
     next_constants: Vec<F>,
 }
 
 impl<F: Field> SimpleGenerator<F> for OutputGenerator<F> {
-    fn dependencies(&self) -> Vec<Target2> {
+    fn dependencies(&self) -> Vec<Target> {
         self.out.dependencies(self.gate_index)
             .into_iter()
-            .map(Target2::Wire)
+            .map(Target::Wire)
             .collect()
     }
 
@@ -125,8 +126,8 @@ impl<F: Field> SimpleGenerator<F> for OutputGenerator<F> {
             // Lookup the values if they exist. If not, we can just insert a zero, knowing
             // that it will not be used. (If it was used, it would have been included in our
             // dependencies, and this generator would not have run yet.)
-            let local_value = witness.try_get_target(Target2::Wire(local_wire)).unwrap_or(F::ZERO);
-            let next_value = witness.try_get_target(Target2::Wire(next_wire)).unwrap_or(F::ZERO);
+            let local_value = witness.try_get_target(Target::Wire(local_wire)).unwrap_or(F::ZERO);
+            let next_value = witness.try_get_target(Target::Wire(next_wire)).unwrap_or(F::ZERO);
 
             local_wire_values.push(local_value);
             next_wire_values.push(next_value);
@@ -139,8 +140,14 @@ impl<F: Field> SimpleGenerator<F> for OutputGenerator<F> {
             next_wire_values: &next_wire_values,
         };
 
-        let result_wire = Wire { gate: self.gate_index, input: self.input_index };
+        let result_wire = match self.location {
+            GateOutputLocation::LocalWire(input) =>
+                Wire { gate: self.gate_index, input },
+            GateOutputLocation::NextWire(input) =>
+                Wire { gate: self.gate_index + 1, input },
+        };
+
         let result_value = self.out.evaluate(vars);
-        PartialWitness::singleton(Target2::Wire(result_wire), result_value)
+        PartialWitness::singleton(Target::Wire(result_wire), result_value)
     }
 }

@@ -11,8 +11,8 @@ use field::fft::fft_precompute;
 
 use crate::field::field::Field;
 use crate::util::log2_ceil;
-use std::sync::Arc;
 
+mod circuit_builder;
 mod circuit_data;
 mod constraint_polynomial;
 mod field;
@@ -22,6 +22,7 @@ mod generator;
 mod gmimc;
 mod proof;
 mod prover;
+mod recursive_verifier;
 mod rescue;
 mod target;
 mod util;

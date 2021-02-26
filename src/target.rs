@@ -7,22 +7,22 @@ use crate::wire::Wire;
 
 /// A location in the witness.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub enum Target2 {
+pub enum Target {
     Wire(Wire),
     PublicInput { index: usize },
     VirtualAdviceTarget { index: usize },
 }
 
-impl Target2 {
+impl Target {
     pub fn wire(gate: usize, input: usize) -> Self {
         Self::Wire(Wire { gate, input })
     }
 
     pub fn is_routable(&self, config: CircuitConfig) -> bool {
         match self {
-            Target2::Wire(wire) => wire.is_routable(config),
-            Target2::PublicInput { .. } => true,
-            Target2::VirtualAdviceTarget { .. } => false,
+            Target::Wire(wire) => wire.is_routable(config),
+            Target::PublicInput { .. } => true,
+            Target::VirtualAdviceTarget { .. } => false,
         }
     }
 }

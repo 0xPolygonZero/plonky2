@@ -1,12 +1,12 @@
 use crate::field::field::Field;
-use crate::target::Target2;
+use crate::target::Target;
 
 pub struct Hash<F: Field> {
     elements: Vec<F>,
 }
 
 pub struct HashTarget {
-    elements: Vec<Target2>,
+    elements: Vec<Target>,
 }
 
 pub struct Proof2<F: Field> {
@@ -34,7 +34,24 @@ pub struct ProofTarget2 {
     /// Purported values of each polynomial at each challenge point.
     pub openings: Vec<OpeningSetTarget>,
 
-    // TODO: FRI Merkle proofs.
+    /// A FRI argument for each FRI query.
+    pub fri_proofs: Vec<FriProofTarget>,
+}
+
+/// Represents a single FRI query, i.e. a path through the reduction tree.
+pub struct FriProofTarget {
+    /// Merkle proofs for the original purported codewords, i.e. the subject of the LDT.
+    pub initial_merkle_proofs: Vec<MerkleProofTarget>,
+    /// Merkle proofs for the reduced polynomials that were sent in the commit phase.
+    pub intermediate_merkle_proofs: Vec<MerkleProofTarget>,
+    /// The final polynomial in point-value form.
+    pub final_poly: Vec<Target>,
+}
+
+pub struct MerkleProofTarget {
+    pub leaf: Vec<Target>,
+    pub siblings: Vec<Target>,
+    // TODO: Also need left/right turn info.
 }
 
 /// The purported values of each polynomial at a single point.
@@ -49,10 +66,10 @@ pub struct OpeningSet<F: Field> {
 
 /// The purported values of each polynomial at a single point.
 pub struct OpeningSetTarget {
-    pub constants: Vec<Target2>,
-    pub plonk_sigmas: Vec<Target2>,
-    pub wires: Vec<Target2>,
+    pub constants: Vec<Target>,
+    pub plonk_sigmas: Vec<Target>,
+    pub wires: Vec<Target>,
     // TODO: One or multiple?
-    pub plonk_z: Vec<Target2>,
-    pub plonk_t: Vec<Target2>,
+    pub plonk_z: Vec<Target>,
+    pub plonk_t: Vec<Target>,
 }

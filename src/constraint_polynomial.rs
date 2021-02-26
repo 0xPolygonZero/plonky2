@@ -5,8 +5,11 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use std::ptr;
 use std::rc::Rc;
 
+use num::{BigUint, FromPrimitive, One, Zero};
+
 use crate::field::field::Field;
 use crate::wire::Wire;
+use crate::gates::output_graph::GateOutputLocation;
 
 pub(crate) struct EvaluationVars<'a, F: Field> {
     pub(crate) local_constants: &'a [F],
@@ -58,6 +61,13 @@ impl<F: Field> ConstraintPolynomial<F> {
         Self::from_inner(ConstraintPolynomialInner::NextWireValue(index))
     }
 
+    pub fn from_gate_output(gate_output: GateOutputLocation) -> Self {
+        match gate_output {
+            GateOutputLocation::LocalWire(i) => Self::local_wire_value(i),
+            GateOutputLocation::NextWire(i) => Self::next_wire_value(i),
+        }
+    }
+
     // TODO: Have these take references?
     pub fn add(&self, rhs: &Self) -> Self {
         // TODO: Special case for either operand being 0.
@@ -105,7 +115,7 @@ impl<F: Field> ConstraintPolynomial<F> {
         self * self * self
     }
 
-    pub(crate) fn degree(&self) -> usize {
+    pub(crate) fn degree(&self) -> BigUint {
         (self.0).0.degree()
     }
 
@@ -147,6 +157,15 @@ impl<F: Field> ConstraintPolynomial<F> {
         polynomials.iter()
             .map(|p| p.0.evaluate_memoized(&vars, &mut mem))
             .collect()
+    }
+
+    /// Replace all occurrences of `from` with `to` in this polynomial graph.
+    pub(crate) fn replace_all(
+        &self,
+        from: Self,
+        to: Self,
+    ) -> Self {
+        Self(self.0.replace_all(from.0, to.0))
     }
 
     fn from_inner(inner: ConstraintPolynomialInner<F>) -> Self {
@@ -413,16 +432,17 @@ impl<F: Field> ConstraintPolynomialInner<F> {
         }
     }
 
-    fn degree(&self) -> usize {
+    fn degree(&self) -> BigUint {
         match self {
-            ConstraintPolynomialInner::Constant(_) => 0,
-            ConstraintPolynomialInner::LocalConstant(_) => 1,
-            ConstraintPolynomialInner::NextConstant(_) => 1,
-            ConstraintPolynomialInner::LocalWireValue(_) => 1,
-            ConstraintPolynomialInner::NextWireValue(_) => 1,
+            ConstraintPolynomialInner::Constant(_) => BigUint::zero(),
+            ConstraintPolynomialInner::LocalConstant(_) => BigUint::one(),
+            ConstraintPolynomialInner::NextConstant(_) => BigUint::one(),
+            ConstraintPolynomialInner::LocalWireValue(_) => BigUint::one(),
+            ConstraintPolynomialInner::NextWireValue(_) => BigUint::one(),
             ConstraintPolynomialInner::Sum { lhs, rhs } => lhs.0.degree().max(rhs.0.degree()),
             ConstraintPolynomialInner::Product { lhs, rhs } => lhs.0.degree() + rhs.0.degree(),
-            ConstraintPolynomialInner::Exponentiation { base, exponent } => base.0.degree() * exponent,
+            ConstraintPolynomialInner::Exponentiation { base, exponent } =>
+                base.0.degree() * BigUint::from_usize(*exponent).unwrap(),
         }
     }
 }
@@ -431,7 +451,7 @@ impl<F: Field> ConstraintPolynomialInner<F> {
 /// than content. This is useful when we want to use constraint polynomials as `HashMap` keys, but
 /// we want address-based hashing for performance reasons.
 #[derive(Clone)]
-struct ConstraintPolynomialRef<F: Field>(Rc<ConstraintPolynomialInner<F>>);
+pub(crate) struct ConstraintPolynomialRef<F: Field>(Rc<ConstraintPolynomialInner<F>>);
 
 impl<F: Field> ConstraintPolynomialRef<F> {
     fn new(inner: ConstraintPolynomialInner<F>) -> Self {
@@ -450,6 +470,15 @@ impl<F: Field> ConstraintPolynomialRef<F> {
             mem.insert(self.clone(), result);
             result
         }
+    }
+
+    /// Replace all occurrences of `from` with `to` in this polynomial graph.
+    fn replace_all(
+        &self,
+        from: ConstraintPolynomialRef<F>,
+        to: ConstraintPolynomialRef<F>,
+    ) -> ConstraintPolynomialRef<F> {
+        todo!()
     }
 }
 
