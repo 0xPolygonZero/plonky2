@@ -2,6 +2,8 @@ use std::iter;
 
 use crate::constraint_polynomial::{ConstraintPolynomial};
 use crate::field::field::Field;
+use std::collections::HashMap;
+use num::BigUint;
 
 /// Represents a set of deterministic gate outputs, expressed as polynomials over witness
 /// values.
@@ -29,8 +31,18 @@ impl<F: Field> OutputGraph<F> {
     ///
     /// Note that this uses a simple greedy algorithm, so the result may not be optimal in terms of wire
     /// count.
+    // TODO: This doesn't yet work with large exponentiations, i.e. x^n where n > new_degree. Not an
+    // immediate problem since our gates don't use those.
     pub fn shrink_degree(&self, new_degree: usize) -> Self {
         todo!()
+    }
+
+    fn degree_map(&self) -> HashMap<ConstraintPolynomial<F>, BigUint> {
+        let mut degrees = HashMap::new();
+        for (_loc, out) in &self.outputs {
+            out.populate_degree_map(&mut degrees);
+        }
+        degrees
     }
 
     /// Allocate a new wire for the given target polynomial, and return a new output graph with

@@ -26,7 +26,7 @@ pub(crate) struct EvaluationVars<'a, F: Field> {
 /// than content. This is useful when we want to use constraint polynomials as `HashMap` keys, but
 /// we want address-based hashing for performance reasons.
 #[derive(Clone)]
-pub struct ConstraintPolynomial<F: Field>(Rc<ConstraintPolynomialInner<F>>);
+pub struct ConstraintPolynomial<F: Field>(pub(crate) Rc<ConstraintPolynomialInner<F>>);
 
 impl<F: Field> ConstraintPolynomial<F> {
     pub fn constant(c: F) -> Self {
@@ -112,11 +112,46 @@ impl<F: Field> ConstraintPolynomial<F> {
     }
 
     pub fn cube(&self) -> Self {
-        self * self * self
+        self.exp(3)
     }
 
-    pub(crate) fn degree(&self) -> BigUint {
+    pub fn degree(&self) -> BigUint {
         self.0.degree()
+    }
+
+    pub(crate) fn populate_degree_map(&self, degrees: &mut HashMap<Self, BigUint>) {
+        if degrees.contains_key(self) {
+            // Already visited this node in the polynomial graph.
+            return;
+        }
+
+        match self.0.as_ref() {
+            ConstraintPolynomialInner::Constant(_) =>
+                degrees.insert(self.clone(), BigUint::zero()),
+            ConstraintPolynomialInner::LocalConstant(_) =>
+                degrees.insert(self.clone(), BigUint::one()),
+            ConstraintPolynomialInner::NextConstant(_) =>
+                degrees.insert(self.clone(), BigUint::one()),
+            ConstraintPolynomialInner::LocalWireValue(_) =>
+                degrees.insert(self.clone(), BigUint::one()),
+            ConstraintPolynomialInner::NextWireValue(_) =>
+                degrees.insert(self.clone(), BigUint::one()),
+            ConstraintPolynomialInner::Sum { lhs, rhs } => {
+                lhs.populate_degree_map(degrees);
+                rhs.populate_degree_map(degrees);
+                degrees.insert(self.clone(), (&degrees[lhs]).max(&degrees[rhs]).clone())
+            }
+            ConstraintPolynomialInner::Product { lhs, rhs } => {
+                lhs.populate_degree_map(degrees);
+                rhs.populate_degree_map(degrees);
+                degrees.insert(self.clone(), &degrees[lhs] + &degrees[rhs])
+            }
+            ConstraintPolynomialInner::Exponentiation { base, exponent } => {
+                base.populate_degree_map(degrees);
+                degrees.insert(self.clone(),
+                               &degrees[base] * BigUint::from_usize(*exponent).unwrap())
+            }
+        };
     }
 
     /// Returns the set of wires that this constraint would depend on if it were applied at a
@@ -365,7 +400,7 @@ impl<F: Field> Product for ConstraintPolynomial<F> {
     }
 }
 
-enum ConstraintPolynomialInner<F: Field> {
+pub(crate) enum ConstraintPolynomialInner<F: Field> {
     Constant(F),
 
     LocalConstant(usize),
