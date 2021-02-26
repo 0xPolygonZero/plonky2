@@ -21,12 +21,12 @@ pub(crate) struct EvaluationVars<'a, F: Field> {
 /// A polynomial over all the variables that are subject to constraints (local constants, next
 /// constants, local wire values, and next wire values). This representation does not require any
 /// particular form; it permits arbitrary forms such as `(x + 1)^3 + y z`.
-// Implementation note: This is a wrapper because we want to hide complexity behind
-// `ConstraintPolynomialInner` and `ConstraintPolynomialRef`. In particular, the caller shouldn't
-// need to know that we use reference counting internally, and shouldn't have to deal with wrapper
-// types related to reference counting.
+///
+/// This type implements `Hash` and `Eq` based on references rather
+/// than content. This is useful when we want to use constraint polynomials as `HashMap` keys, but
+/// we want address-based hashing for performance reasons.
 #[derive(Clone)]
-pub struct ConstraintPolynomial<F: Field>(ConstraintPolynomialRef<F>);
+pub struct ConstraintPolynomial<F: Field>(Rc<ConstraintPolynomialInner<F>>);
 
 impl<F: Field> ConstraintPolynomial<F> {
     pub fn constant(c: F) -> Self {
@@ -72,8 +72,8 @@ impl<F: Field> ConstraintPolynomial<F> {
     pub fn add(&self, rhs: &Self) -> Self {
         // TODO: Special case for either operand being 0.
         Self::from_inner(ConstraintPolynomialInner::Sum {
-            lhs: self.0.clone(),
-            rhs: rhs.0.clone(),
+            lhs: self.clone(),
+            rhs: rhs.clone(),
         })
     }
 
@@ -95,14 +95,14 @@ impl<F: Field> ConstraintPolynomial<F> {
     pub fn mul(&self, rhs: &Self) -> Self {
         // TODO: Special case for either operand being 1.
         Self::from_inner(ConstraintPolynomialInner::Product {
-            lhs: self.0.clone(),
-            rhs: rhs.0.clone(),
+            lhs: self.clone(),
+            rhs: rhs.clone(),
         })
     }
 
     pub fn exp(&self, exponent: usize) -> Self {
         Self::from_inner(ConstraintPolynomialInner::Exponentiation {
-            base: self.0.clone(),
+            base: self.clone(),
             exponent,
         })
     }
@@ -116,14 +116,14 @@ impl<F: Field> ConstraintPolynomial<F> {
     }
 
     pub(crate) fn degree(&self) -> BigUint {
-        (self.0).0.degree()
+        self.0.degree()
     }
 
     /// Returns the set of wires that this constraint would depend on if it were applied at a
     /// certain gate index.
     pub(crate) fn dependencies(&self, gate: usize) -> Vec<Wire> {
         let mut deps = HashSet::new();
-        self.0.0.add_dependencies(gate, &mut deps);
+        self.0.add_dependencies(gate, &mut deps);
         deps.into_iter().collect()
     }
 
@@ -137,7 +137,7 @@ impl<F: Field> ConstraintPolynomial<F> {
 
     pub(crate) fn max_constant_index(&self) -> Option<usize> {
         let mut indices = HashSet::new();
-        self.0.0.add_constant_indices(&mut indices);
+        self.0.add_constant_indices(&mut indices);
         indices.into_iter().max()
     }
 
@@ -155,8 +155,22 @@ impl<F: Field> ConstraintPolynomial<F> {
     ) -> Vec<F> {
         let mut mem = HashMap::new();
         polynomials.iter()
-            .map(|p| p.0.evaluate_memoized(&vars, &mut mem))
+            .map(|p| p.evaluate_memoized(&vars, &mut mem))
             .collect()
+    }
+
+    fn evaluate_memoized(
+        &self,
+        vars: &EvaluationVars<F>,
+        mem: &mut HashMap<Self, F>,
+    ) -> F {
+        if let Some(&result) = mem.get(self) {
+            result
+        } else {
+            let result = self.0.evaluate(vars, mem);
+            mem.insert(self.clone(), result);
+            result
+        }
     }
 
     /// Replace all occurrences of `from` with `to` in this polynomial graph.
@@ -165,11 +179,25 @@ impl<F: Field> ConstraintPolynomial<F> {
         from: Self,
         to: Self,
     ) -> Self {
-        Self(self.0.replace_all(from.0, to.0))
+        Self::from_inner(self.0.replace_all(from, to))
     }
 
     fn from_inner(inner: ConstraintPolynomialInner<F>) -> Self {
-        Self(ConstraintPolynomialRef::new(inner))
+        Self(Rc::new(inner))
+    }
+}
+
+impl<F: Field> PartialEq for ConstraintPolynomial<F> {
+    fn eq(&self, other: &Self) -> bool {
+        ptr::eq(&*self.0, &*other.0)
+    }
+}
+
+impl<F: Field> Eq for ConstraintPolynomial<F> {}
+
+impl<F: Field> Hash for ConstraintPolynomial<F> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        ptr::hash(&*self.0, state);
     }
 }
 
@@ -346,15 +374,15 @@ enum ConstraintPolynomialInner<F: Field> {
     NextWireValue(usize),
 
     Sum {
-        lhs: ConstraintPolynomialRef<F>,
-        rhs: ConstraintPolynomialRef<F>,
+        lhs: ConstraintPolynomial<F>,
+        rhs: ConstraintPolynomial<F>,
     },
     Product {
-        lhs: ConstraintPolynomialRef<F>,
-        rhs: ConstraintPolynomialRef<F>,
+        lhs: ConstraintPolynomial<F>,
+        rhs: ConstraintPolynomial<F>,
     },
     Exponentiation {
-        base: ConstraintPolynomialRef<F>,
+        base: ConstraintPolynomial<F>,
         exponent: usize,
     },
 }
@@ -407,7 +435,7 @@ impl<F: Field> ConstraintPolynomialInner<F> {
     fn evaluate(
         &self,
         vars: &EvaluationVars<F>,
-        mem: &mut HashMap<ConstraintPolynomialRef<F>, F>,
+        mem: &mut HashMap<ConstraintPolynomial<F>, F>,
     ) -> F {
         match self {
             ConstraintPolynomialInner::Constant(c) => *c,
@@ -445,53 +473,12 @@ impl<F: Field> ConstraintPolynomialInner<F> {
                 base.0.degree() * BigUint::from_usize(*exponent).unwrap(),
         }
     }
-}
 
-/// Wraps `Rc<ConstraintPolynomialRef>`, and implements `Hash` and `Eq` based on references rather
-/// than content. This is useful when we want to use constraint polynomials as `HashMap` keys, but
-/// we want address-based hashing for performance reasons.
-#[derive(Clone)]
-pub(crate) struct ConstraintPolynomialRef<F: Field>(Rc<ConstraintPolynomialInner<F>>);
-
-impl<F: Field> ConstraintPolynomialRef<F> {
-    fn new(inner: ConstraintPolynomialInner<F>) -> Self {
-        Self(Rc::new(inner))
-    }
-
-    fn evaluate_memoized(
-        &self,
-        vars: &EvaluationVars<F>,
-        mem: &mut HashMap<Self, F>,
-    ) -> F {
-        if let Some(&result) = mem.get(self) {
-            result
-        } else {
-            let result = self.0.evaluate(vars, mem);
-            mem.insert(self.clone(), result);
-            result
-        }
-    }
-
-    /// Replace all occurrences of `from` with `to` in this polynomial graph.
     fn replace_all(
         &self,
-        from: ConstraintPolynomialRef<F>,
-        to: ConstraintPolynomialRef<F>,
-    ) -> ConstraintPolynomialRef<F> {
+        from: ConstraintPolynomial<F>,
+        to: ConstraintPolynomial<F>,
+    ) -> Self {
         todo!()
-    }
-}
-
-impl<F: Field> PartialEq for ConstraintPolynomialRef<F> {
-    fn eq(&self, other: &Self) -> bool {
-        ptr::eq(&*self.0, &*other.0)
-    }
-}
-
-impl<F: Field> Eq for ConstraintPolynomialRef<F> {}
-
-impl<F: Field> Hash for ConstraintPolynomialRef<F> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        ptr::hash(&*self.0, state);
     }
 }

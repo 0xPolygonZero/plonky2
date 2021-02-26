@@ -1,6 +1,6 @@
 use std::iter;
 
-use crate::constraint_polynomial::{ConstraintPolynomial, ConstraintPolynomialRef};
+use crate::constraint_polynomial::{ConstraintPolynomial};
 use crate::field::field::Field;
 
 /// Represents a set of deterministic gate outputs, expressed as polynomials over witness
