@@ -99,12 +99,41 @@ impl<F: Field, const W: usize, const R: usize> DeterministicGate<F> for GMiMCGat
 
         // A degree of 9 is reasonable for most circuits, and it means that we only need wires for
         // every other addition buffer state.
-        OutputGraph { outputs }.shrink_degree(9)
+        println!("before");
+        let out = OutputGraph { outputs }.shrink_degree(9);
+        println!("after");
+        out
     }
 
     fn additional_constraints(&self, _config: CircuitConfig) -> Vec<ConstraintPolynomial<F>> {
         let switch = ConstraintPolynomial::local_wire_value(Self::WIRE_SWITCH);
         let switch_bool_constraint = &switch * (&switch - 1);
         vec![switch_bool_constraint]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::field::crandall_field::CrandallField;
+    use crate::gates::gmimc::GMiMCGate;
+    use crate::field::field::Field;
+    use crate::circuit_data::CircuitConfig;
+    use crate::gates::deterministic_gate::DeterministicGate;
+
+    #[test]
+    fn degree() {
+        type F = CrandallField;
+        const W: usize = 12;
+        const R: usize = 101;
+        let gate = GMiMCGate::<F, W, R> { constants: Arc::new([F::TWO; R]) };
+        let config = CircuitConfig {
+            num_wires: 200,
+            num_routed_wires: 200,
+            security_bits: 128
+        };
+        let outs = gate.outputs(config);
+        assert_eq!(outs.max_wire_input_index(), Some(50));
     }
 }

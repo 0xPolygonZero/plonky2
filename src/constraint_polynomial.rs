@@ -10,6 +10,7 @@ use num::{BigUint, FromPrimitive, One, Zero};
 use crate::field::field::Field;
 use crate::wire::Wire;
 use crate::gates::output_graph::GateOutputLocation;
+use std::borrow::Borrow;
 
 pub(crate) struct EvaluationVars<'a, F: Field> {
     pub(crate) local_constants: &'a [F],
@@ -25,7 +26,7 @@ pub(crate) struct EvaluationVars<'a, F: Field> {
 /// This type implements `Hash` and `Eq` based on references rather
 /// than content. This is useful when we want to use constraint polynomials as `HashMap` keys, but
 /// we want address-based hashing for performance reasons.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ConstraintPolynomial<F: Field>(pub(crate) Rc<ConstraintPolynomialInner<F>>);
 
 impl<F: Field> ConstraintPolynomial<F> {
@@ -214,11 +215,67 @@ impl<F: Field> ConstraintPolynomial<F> {
         from: Self,
         to: Self,
     ) -> Self {
-        Self::from_inner(self.0.replace_all(from, to))
+        self.replace_all_helper(from, to, &mut HashMap::new())
+    }
+
+    /// Replace all occurrences of `from` with `to` in this polynomial graph. In order to preserve
+    /// the structure of the graph, we keep track of any `ConstraintPolynomial`s that have been
+    /// replaced already.
+    fn replace_all_helper(
+        &self, from: Self,
+        to: Self,
+        replacements: &mut HashMap<Self, Self>,
+    ) -> Self {
+        if *self == from {
+            return to;
+        }
+
+        if let Some(replacement) = replacements.get(self) {
+            return replacement.clone();
+        }
+
+        match self.0.borrow() {
+            ConstraintPolynomialInner::Constant(_) => self.clone(),
+            ConstraintPolynomialInner::LocalConstant(_) => self.clone(),
+            ConstraintPolynomialInner::NextConstant(_) => self.clone(),
+            ConstraintPolynomialInner::LocalWireValue(_) => self.clone(),
+            ConstraintPolynomialInner::NextWireValue(_) => self.clone(),
+            ConstraintPolynomialInner::Sum { lhs, rhs } => {
+                let lhs = lhs.replace_all_helper(from.clone(), to.clone(), replacements);
+                let rhs = rhs.replace_all_helper(from, to, replacements);
+                let replacement = Self::from_inner(ConstraintPolynomialInner::Sum { lhs, rhs });
+                debug_assert!(!replacements.contains_key(self));
+                replacements.insert(self.clone(), replacement.clone());
+                replacement
+            }
+            ConstraintPolynomialInner::Product { lhs, rhs } => {
+                let lhs = lhs.replace_all_helper(from.clone(), to.clone(), replacements);
+                let rhs = rhs.replace_all_helper(from, to, replacements);
+                let replacement = Self::from_inner(ConstraintPolynomialInner::Product { lhs, rhs });
+                debug_assert!(!replacements.contains_key(self));
+                replacements.insert(self.clone(), replacement.clone());
+                replacement
+            }
+            ConstraintPolynomialInner::Exponentiation { base, exponent } => {
+                let base = base.replace_all_helper(from, to, replacements);
+                let replacement = Self::from_inner(
+                    ConstraintPolynomialInner::Exponentiation { base, exponent: *exponent });
+                debug_assert!(!replacements.contains_key(self));
+                replacements.insert(self.clone(), replacement.clone());
+                replacement
+            }
+        }
     }
 
     fn from_inner(inner: ConstraintPolynomialInner<F>) -> Self {
         Self(Rc::new(inner))
+    }
+
+    /// The number of polynomials in this graph.
+    fn graph_size(&self) -> usize {
+        let mut degrees = HashMap::new();
+        self.populate_degree_map(&mut degrees);
+        degrees.len()
     }
 }
 
@@ -400,6 +457,7 @@ impl<F: Field> Product for ConstraintPolynomial<F> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub(crate) enum ConstraintPolynomialInner<F: Field> {
     Constant(F),
 
@@ -429,41 +487,41 @@ impl<F: Field> ConstraintPolynomialInner<F> {
             ConstraintPolynomialInner::LocalConstant(_) => (),
             ConstraintPolynomialInner::NextConstant(_) => (),
             ConstraintPolynomialInner::LocalWireValue(i) =>
-                { deps.insert(Wire { gate, input: *i }); },
+                { deps.insert(Wire { gate, input: *i }); }
             ConstraintPolynomialInner::NextWireValue(i) =>
                 { deps.insert(Wire { gate: gate + 1, input: *i }); }
             ConstraintPolynomialInner::Sum { lhs, rhs } => {
                 lhs.0.add_dependencies(gate, deps);
                 rhs.0.add_dependencies(gate, deps);
-            },
+            }
             ConstraintPolynomialInner::Product { lhs, rhs } => {
                 lhs.0.add_dependencies(gate, deps);
                 rhs.0.add_dependencies(gate, deps);
-            },
+            }
             ConstraintPolynomialInner::Exponentiation { base, exponent: _ } => {
                 base.0.add_dependencies(gate, deps);
-            },
+            }
         }
     }
 
     fn add_constant_indices(&self, indices: &mut HashSet<usize>) {
         match self {
             ConstraintPolynomialInner::Constant(_) => (),
-            ConstraintPolynomialInner::LocalConstant(i) => { indices.insert(*i); },
-            ConstraintPolynomialInner::NextConstant(i) => { indices.insert(*i); },
+            ConstraintPolynomialInner::LocalConstant(i) => { indices.insert(*i); }
+            ConstraintPolynomialInner::NextConstant(i) => { indices.insert(*i); }
             ConstraintPolynomialInner::LocalWireValue(_) => (),
             ConstraintPolynomialInner::NextWireValue(_) => (),
             ConstraintPolynomialInner::Sum { lhs, rhs } => {
                 lhs.0.add_constant_indices(indices);
                 rhs.0.add_constant_indices(indices);
-            },
+            }
             ConstraintPolynomialInner::Product { lhs, rhs } => {
                 lhs.0.add_constant_indices(indices);
                 rhs.0.add_constant_indices(indices);
-            },
+            }
             ConstraintPolynomialInner::Exponentiation { base, exponent: _ } => {
                 base.0.add_constant_indices(indices);
-            },
+            }
         }
     }
 
@@ -482,16 +540,16 @@ impl<F: Field> ConstraintPolynomialInner<F> {
                 let lhs = lhs.evaluate_memoized(vars, mem);
                 let rhs = rhs.evaluate_memoized(vars, mem);
                 lhs + rhs
-            },
+            }
             ConstraintPolynomialInner::Product { lhs, rhs } => {
                 let lhs = lhs.evaluate_memoized(vars, mem);
                 let rhs = rhs.evaluate_memoized(vars, mem);
                 lhs * rhs
-            },
+            }
             ConstraintPolynomialInner::Exponentiation { base, exponent } => {
                 let base = base.evaluate_memoized(vars, mem);
                 base.exp_usize(*exponent)
-            },
+            }
         }
     }
 
@@ -508,12 +566,52 @@ impl<F: Field> ConstraintPolynomialInner<F> {
                 base.0.degree() * BigUint::from_usize(*exponent).unwrap(),
         }
     }
+}
 
-    fn replace_all(
-        &self,
-        from: ConstraintPolynomial<F>,
-        to: ConstraintPolynomial<F>,
-    ) -> Self {
-        todo!()
+#[cfg(test)]
+mod tests {
+    use crate::constraint_polynomial::ConstraintPolynomial;
+    use crate::field::crandall_field::CrandallField;
+
+    #[test]
+    fn equality() {
+        type F = CrandallField;
+        let wire0 = ConstraintPolynomial::<F>::local_wire_value(0);
+        // == should compare the pointers, and the clone should point to the same underlying
+        // ConstraintPolynomialInner.
+        assert_eq!(wire0.clone(), wire0);
+    }
+
+    #[test]
+    fn replace_all() {
+        type F = CrandallField;
+        let wire0 = ConstraintPolynomial::<F>::local_wire_value(0);
+        let wire1 = ConstraintPolynomial::<F>::local_wire_value(1);
+        let wire2 = ConstraintPolynomial::<F>::local_wire_value(2);
+        let wire3 = ConstraintPolynomial::<F>::local_wire_value(3);
+        let wire4 = ConstraintPolynomial::<F>::local_wire_value(4);
+        let sum01 = &wire0 + &wire1;
+        let sum12 = &wire1 + &wire2;
+        let sum23 = &wire2 + &wire3;
+        let product = &sum01 * &sum12 * &sum23;
+
+        assert_eq!(
+            wire0.replace_all(wire0.clone(), wire1.clone()),
+            wire1);
+
+        assert_eq!(
+            wire0.replace_all(wire1.clone(), wire2.clone()),
+            wire0);
+
+        // This should be a no-op, since wire 4 is not present in the product.
+        assert_eq!(
+            product.replace_all(wire4.clone(), wire3.clone()).graph_size(),
+            product.graph_size());
+
+        // This shouldn't change the graph structure at all, since the replacement wire 4 was not
+        // previously present.
+        assert_eq!(
+            product.replace_all(wire3.clone(), wire4.clone()).graph_size(),
+            product.graph_size());
     }
 }
