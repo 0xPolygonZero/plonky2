@@ -123,10 +123,11 @@ mod tests {
     use crate::gates::deterministic_gate::DeterministicGate;
 
     #[test]
+    #[ignore]
     fn degree() {
         type F = CrandallField;
         const W: usize = 12;
-        const R: usize = 101;
+        const R: usize = 20;
         let gate = GMiMCGate::<F, W, R> { constants: Arc::new([F::TWO; R]) };
         let config = CircuitConfig {
             num_wires: 200,

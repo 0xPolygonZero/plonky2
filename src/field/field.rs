@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// A finite field with prime order less than 2^64.
@@ -16,6 +16,7 @@ pub trait Field: 'static
 + Div<Self, Output=Self>
 + DivAssign<Self>
 + Debug
++ Display
 + Send
 + Sync {
     const ZERO: Self;

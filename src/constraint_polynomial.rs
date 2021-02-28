@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use std::ptr;
+use std::{ptr, fmt};
 use std::rc::Rc;
 
 use num::{BigUint, FromPrimitive, One, Zero};
@@ -11,6 +11,7 @@ use crate::field::field::Field;
 use crate::wire::Wire;
 use crate::gates::output_graph::GateOutputLocation;
 use std::borrow::Borrow;
+use std::fmt::{Display, Formatter, Debug};
 
 pub(crate) struct EvaluationVars<'a, F: Field> {
     pub(crate) local_constants: &'a [F],
@@ -279,6 +280,12 @@ impl<F: Field> ConstraintPolynomial<F> {
     }
 }
 
+impl<F: Field> Display for ConstraintPolynomial<F> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
 impl<F: Field> PartialEq for ConstraintPolynomial<F> {
     fn eq(&self, other: &Self) -> bool {
         ptr::eq(&*self.0, &*other.0)
@@ -478,6 +485,29 @@ pub(crate) enum ConstraintPolynomialInner<F: Field> {
         base: ConstraintPolynomial<F>,
         exponent: usize,
     },
+}
+
+impl<F: Field> Display for ConstraintPolynomialInner<F> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ConstraintPolynomialInner::Constant(c) =>
+                write!(f, "{}", c),
+            ConstraintPolynomialInner::LocalConstant(i) =>
+                write!(f, "local_const_{}", i),
+            ConstraintPolynomialInner::NextConstant(i) =>
+                write!(f, "next_const_{}", i),
+            ConstraintPolynomialInner::LocalWireValue(i) =>
+                write!(f, "local_wire_{}", i),
+            ConstraintPolynomialInner::NextWireValue(i) =>
+                write!(f, "next_wire_{}", i),
+            ConstraintPolynomialInner::Sum { lhs, rhs } =>
+                write!(f, "({} + {})", lhs, rhs),
+            ConstraintPolynomialInner::Product { lhs, rhs } =>
+                write!(f, "({} * {})", lhs, rhs),
+            ConstraintPolynomialInner::Exponentiation { base, exponent } =>
+                write!(f, "({} ^ {})", base, exponent),
+        }
+    }
 }
 
 impl<F: Field> ConstraintPolynomialInner<F> {
