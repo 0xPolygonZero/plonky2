@@ -57,18 +57,19 @@ fn bench_gmimc<F: Field>() {
 
     const THREADS: usize = 12;
     const LDE_BITS: i32 = 4;
+    const W: usize = 13;
     let hashes_per_poly = 1 << (13 + LDE_BITS);
     let threads = (0..THREADS).map(|_i| {
         thread::spawn(move || {
-            let mut x = [F::ZERO; 12];
-            for i in 0..12 {
+            let mut x = [F::ZERO; W];
+            for i in 0..W {
                 x[i] = F::from_canonical_u64((i as u64) * 123456 + 789);
             }
 
             let hashes_per_thread = hashes_per_poly * PROVER_POLYS / THREADS;
             let start = Instant::now();
             for _ in 0..hashes_per_thread {
-                x = gmimc::gmimc_permute_array::<_, 12, GMIMC_ROUNDS>(x, GMIMC_CONSTANTS);
+                x = gmimc::gmimc_permute_array::<_, W, GMIMC_ROUNDS>(x, GMIMC_CONSTANTS);
             }
             let duration = start.elapsed();
             println!("took {:?}", duration);
