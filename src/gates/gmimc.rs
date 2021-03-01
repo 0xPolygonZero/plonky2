@@ -1,19 +1,13 @@
-use std::convert::TryInto;
 use std::sync::Arc;
 
-use num::{BigUint, One};
+use num::{BigUint, FromPrimitive, One};
 
 use crate::circuit_data::CircuitConfig;
 use crate::constraint_polynomial::ConstraintPolynomial;
 use crate::field::field::Field;
 use crate::gates::deterministic_gate::{DeterministicGate, DeterministicGateAdapter};
-use crate::gates::gate::{Gate, GateRef};
+use crate::gates::gate::GateRef;
 use crate::gates::output_graph::{GateOutputLocation, OutputGraph};
-use crate::generator::{SimpleGenerator, WitnessGenerator2};
-use crate::gmimc::{gmimc_permute, gmimc_permute_array};
-use crate::target::Target;
-use crate::wire::Wire;
-use crate::witness::PartialWitness;
 
 /// Evaluates a full GMiMC permutation, and writes the output to the next gate's first `width`
 /// wires (which could be the input of another `GMiMCGate`).
@@ -126,14 +120,20 @@ impl<F: Field, const W: usize, const R: usize> DeterministicGate<F> for GMiMCGat
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryInto;
     use std::sync::Arc;
+
+    use num::ToPrimitive;
 
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::field::Field;
     use crate::gates::deterministic_gate::DeterministicGate;
     use crate::gates::gmimc::GMiMCGate;
-    use crate::circuit_builder::CircuitBuilder2;
+    use crate::generator::generate_partial_witness;
+    use crate::gmimc::gmimc_permute_naive;
+    use crate::wire::Wire;
+    use crate::witness::PartialWitness;
 
     #[test]
     fn degree() {
@@ -147,10 +147,7 @@ mod tests {
             security_bits: 128,
         };
         let outs = gate.outputs(config);
-
         assert_eq!(outs.degree(), 3);
-        assert_eq!(outs.max_local_output_index(), Some(57));
-        panic!();
     }
 
     #[test]
@@ -159,17 +156,38 @@ mod tests {
         const W: usize = 12;
         const R: usize = 101;
         let constants = Arc::new([F::TWO; R]);
-        let gate = GMiMCGate::<F, W, R>::with_constants(constants);
+        type Gate = GMiMCGate::<F, W, R>;
+        let gate = Gate::with_constants(constants.clone());
 
         let config = CircuitConfig {
             num_wires: 200,
             num_routed_wires: 200,
             security_bits: 128,
         };
-        let mut builder = CircuitBuilder2::new(config);
-        builder.add_gate(gate, Vec::new());
-        // let circuit = builder.build();
 
-        // TODO: generate witness & compare output to normal GMiMC function.
+        let permutation_inputs = (0..W)
+            .map(F::from_canonical_usize)
+            .collect::<Vec<_>>();
+
+        let mut witness = PartialWitness::new();
+        witness.set_wire(Wire { gate: 0, input: Gate::WIRE_SWITCH }, F::ZERO);
+        for i in 0..W {
+            witness.set_wire(
+                Wire { gate: 0, input: Gate::wire_input(i) },
+                permutation_inputs[i]);
+        }
+
+        let generators = gate.0.generators(config, 0, vec![], vec![]);
+        generate_partial_witness(&mut witness, generators);
+
+        let expected_outputs: [F; W] = gmimc_permute_naive(
+            permutation_inputs.try_into().unwrap(),
+            constants);
+
+        for i in 0..W {
+            let out = witness.get_wire(
+                Wire { gate: 1, input: Gate::wire_output(i) });
+            assert_eq!(out, expected_outputs[i]);
+        }
     }
 }

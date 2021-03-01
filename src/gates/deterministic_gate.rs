@@ -4,7 +4,7 @@ use crate::circuit_data::CircuitConfig;
 use crate::constraint_polynomial::{ConstraintPolynomial, EvaluationVars};
 use crate::field::field::Field;
 use crate::gates::gate::Gate;
-use crate::generator::{SimpleGenerator, WitnessGenerator2};
+use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
@@ -35,7 +35,7 @@ pub trait DeterministicGate<F: Field>: 'static {
         &self,
         _config: CircuitConfig,
         _gate_index: usize,
-    ) -> Vec<Box<dyn WitnessGenerator2<F>>> {
+    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         Vec::new()
     }
 }
@@ -73,7 +73,7 @@ impl<F: Field, DG: DeterministicGate<F>> Gate<F> for DeterministicGateAdapter<F,
         gate_index: usize,
         local_constants: Vec<F>,
         next_constants: Vec<F>,
-    ) -> Vec<Box<dyn WitnessGenerator2<F>>> {
+    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         self.gate.outputs(config).outputs
             .into_iter()
             .map(|(location, out)| {
@@ -87,7 +87,7 @@ impl<F: Field, DG: DeterministicGate<F>> Gate<F> for DeterministicGateAdapter<F,
 
                 // We need the type system to treat this as a boxed `WitnessGenerator2<F>`, rather
                 // than a boxed `OutputGenerator<F>`.
-                let b: Box::<dyn WitnessGenerator2<F>> = Box::new(og);
+                let b: Box::<dyn WitnessGenerator<F>> = Box::new(og);
                 b
             })
             .chain(self.gate.additional_generators(config, gate_index))

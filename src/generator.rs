@@ -1,9 +1,65 @@
+use std::borrow::Borrow;
+use std::collections::{HashMap, HashSet};
+
 use crate::field::field::Field;
 use crate::target::Target;
 use crate::witness::PartialWitness;
 
+pub(crate) fn generate_partial_witness<F: Field>(
+    witness: &mut PartialWitness<F>,
+    mut generators: Vec<Box<dyn WitnessGenerator<F>>>,
+) {
+    // Index generator indices by their watched targets.
+    let mut generator_indices_by_watches: HashMap<Target, Vec<usize>> = HashMap::new();
+    for (i, generator) in generators.iter().enumerate() {
+        for watch in generator.watch_list() {
+            generator_indices_by_watches
+                .entry(watch)
+                .or_insert_with(Vec::new)
+                .push(i);
+        }
+    }
+
+    // Build a list of "pending" generators which are queued to be run. Initially, all generators
+    // are queued.
+    let mut pending_generator_indices = HashSet::new();
+    for i in 0..generators.len() {
+        pending_generator_indices.insert(i);
+    }
+
+    // We also track a list of "expired" generators which have already returned false.
+    let mut expired_generator_indices = HashSet::new();
+
+    // Keep running generators until no generators are queued.
+    while !pending_generator_indices.is_empty() {
+        let mut next_pending_generator_indices = HashSet::new();
+
+        for &generator_idx in &pending_generator_indices {
+            let (result, finished) = generators[generator_idx].run(&witness);
+            if finished {
+                expired_generator_indices.insert(generator_idx);
+            }
+
+            // Enqueue unfinished generators that were watching one of the newly populated targets.
+            for watch in result.target_values.keys() {
+                if let Some(watching_generator_indices) = generator_indices_by_watches.get(watch) {
+                    for watching_generator_idx in watching_generator_indices {
+                        if !expired_generator_indices.contains(watching_generator_idx) {
+                            next_pending_generator_indices.insert(*watching_generator_idx);
+                        }
+                    }
+                }
+            }
+
+            witness.extend(result);
+        }
+
+        pending_generator_indices = next_pending_generator_indices;
+    }
+}
+
 /// A generator participates in the generation of the witness.
-pub trait WitnessGenerator2<F: Field>: 'static {
+pub trait WitnessGenerator<F: Field>: 'static {
     /// Targets to be "watched" by this generator. Whenever a target in the watch list is populated,
     /// the generator will be queued to run.
     fn watch_list(&self) -> Vec<Target>;
@@ -22,7 +78,7 @@ pub trait SimpleGenerator<F: Field>: 'static {
     fn run_once(&mut self, witness: &PartialWitness<F>) -> PartialWitness<F>;
 }
 
-impl<F: Field, SG: SimpleGenerator<F>> WitnessGenerator2<F> for SG {
+impl<F: Field, SG: SimpleGenerator<F>> WitnessGenerator<F> for SG {
     fn watch_list(&self) -> Vec<Target> {
         self.dependencies()
     }

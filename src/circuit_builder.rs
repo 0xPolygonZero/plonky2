@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::circuit_data::CircuitConfig;
 use crate::field::field::Field;
 use crate::gates::gate::{GateInstance, GateRef};
-use crate::generator::{CopyGenerator, WitnessGenerator2};
+use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::gates::constant::ConstantGate2;
 use crate::wire::Wire;
@@ -12,7 +12,7 @@ pub struct CircuitBuilder2<F: Field> {
     config: CircuitConfig,
     gates: HashSet<GateRef<F>>,
     gate_instances: Vec<GateInstance<F>>,
-    generators: Vec<Box<dyn WitnessGenerator2<F>>>,
+    generators: Vec<Box<dyn WitnessGenerator<F>>>,
 }
 
 impl<F: Field> CircuitBuilder2<F> {
@@ -62,7 +62,7 @@ impl<F: Field> CircuitBuilder2<F> {
         assert!(y.is_routable(self.config));
     }
 
-    pub fn add_generator<G: WitnessGenerator2<F>>(&mut self, generator: G) {
+    pub fn add_generator<G: WitnessGenerator<F>>(&mut self, generator: G) {
         self.generators.push(Box::new(generator));
     }
 

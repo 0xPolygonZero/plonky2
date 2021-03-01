@@ -4,7 +4,7 @@ use std::rc::Rc;
 use crate::circuit_data::CircuitConfig;
 use crate::constraint_polynomial::ConstraintPolynomial;
 use crate::field::field::Field;
-use crate::generator::WitnessGenerator2;
+use crate::generator::WitnessGenerator;
 use num::ToPrimitive;
 
 /// A custom gate.
@@ -21,7 +21,7 @@ pub trait Gate<F: Field>: 'static {
         gate_index: usize,
         local_constants: Vec<F>,
         next_constants: Vec<F>,
-    ) -> Vec<Box<dyn WitnessGenerator2<F>>>;
+    ) -> Vec<Box<dyn WitnessGenerator<F>>>;
 
     /// The number of constants used by this gate.
     fn num_constants(&self, config: CircuitConfig) -> usize {

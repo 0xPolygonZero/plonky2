@@ -4,9 +4,9 @@ use crate::field::field::Field;
 use crate::target::Target;
 use crate::wire::Wire;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PartialWitness<F: Field> {
-    target_values: HashMap<Target, F>,
+    pub(crate) target_values: HashMap<Target, F>,
 }
 
 impl<F: Field> PartialWitness<F> {
@@ -52,5 +52,11 @@ impl<F: Field> PartialWitness<F> {
 
     pub fn set_wire(&mut self, wire: Wire, value: F) {
         self.set_target(Target::Wire(wire), value)
+    }
+
+    pub fn extend(&mut self, other: PartialWitness<F>) {
+        for (target, value) in other.target_values {
+            self.set_target(target, value);
+        }
     }
 }

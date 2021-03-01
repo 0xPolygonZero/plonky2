@@ -30,8 +30,8 @@ mod verifier;
 mod wire;
 mod witness;
 
-// 12 wire polys, 3 Z polys, 4 parts of quotient poly.
-const PROVER_POLYS: usize = 64 + 3 + (9 + 1); // TODO: Check
+// 112 wire polys, 3 Z polys, 4 parts of quotient poly.
+const PROVER_POLYS: usize = 113 + 3 + 4;
 
 fn main() {
     let overall_start = Instant::now();
@@ -56,7 +56,7 @@ fn bench_gmimc<F: Field>() {
     }
 
     const THREADS: usize = 12;
-    const LDE_BITS: i32 = 4;
+    const LDE_BITS: i32 = 3;
     const W: usize = 13;
     let hashes_per_poly = 1 << (13 + LDE_BITS);
     let threads = (0..THREADS).map(|_i| {
