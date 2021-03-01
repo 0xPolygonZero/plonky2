@@ -97,12 +97,7 @@ impl<F: Field, const W: usize, const R: usize> DeterministicGate<F> for GMiMCGat
             .map(|(i, out)| (GateOutputLocation::NextWire(Self::wire_output(i)), out))
             .collect();
 
-        // A degree of 9 is reasonable for most circuits, and it means that we only need wires for
-        // every other addition buffer state.
-        println!("before");
-        let out = OutputGraph { outputs }.shrink_degree(9);
-        println!("after");
-        out
+        OutputGraph { outputs }
     }
 
     fn additional_constraints(&self, _config: CircuitConfig) -> Vec<ConstraintPolynomial<F>> {

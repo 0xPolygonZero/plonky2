@@ -31,7 +31,7 @@ mod wire;
 mod witness;
 
 // 12 wire polys, 3 Z polys, 4 parts of quotient poly.
-const PROVER_POLYS: usize = 101 + 3 + 4; // TODO: Check
+const PROVER_POLYS: usize = 64 + 3 + (9 + 1); // TODO: Check
 
 fn main() {
     let overall_start = Instant::now();
@@ -55,16 +55,17 @@ fn bench_gmimc<F: Field>() {
         constants[i] = F::from_canonical_u64(GMIMC_CONSTANTS[i]);
     }
 
-    let threads = 12;
-    let hashes_per_poly = 1 << (13 + 3);
-    let threads = (0..threads).map(|_i| {
+    const THREADS: usize = 12;
+    const LDE_BITS: i32 = 4;
+    let hashes_per_poly = 1 << (13 + LDE_BITS);
+    let threads = (0..THREADS).map(|_i| {
         thread::spawn(move || {
             let mut x = [F::ZERO; 12];
             for i in 0..12 {
                 x[i] = F::from_canonical_u64((i as u64) * 123456 + 789);
             }
 
-            let hashes_per_thread = hashes_per_poly * PROVER_POLYS / threads;
+            let hashes_per_thread = hashes_per_poly * PROVER_POLYS / THREADS;
             let start = Instant::now();
             for _ in 0..hashes_per_thread {
                 x = gmimc::gmimc_permute_array::<_, 12, GMIMC_ROUNDS>(x, GMIMC_CONSTANTS);
