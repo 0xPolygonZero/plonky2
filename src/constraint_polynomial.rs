@@ -1,17 +1,17 @@
+use std::{fmt, ptr};
+use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
+use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use std::{ptr, fmt};
 use std::rc::Rc;
 
 use num::{BigUint, FromPrimitive, One, Zero};
 
 use crate::field::field::Field;
-use crate::wire::Wire;
 use crate::gates::output_graph::GateOutputLocation;
-use std::borrow::Borrow;
-use std::fmt::{Display, Formatter, Debug};
+use crate::wire::Wire;
 
 pub(crate) struct EvaluationVars<'a, F: Field> {
     pub(crate) local_constants: &'a [F],
@@ -119,41 +119,6 @@ impl<F: Field> ConstraintPolynomial<F> {
 
     pub fn degree(&self) -> BigUint {
         self.0.degree()
-    }
-
-    pub(crate) fn populate_degree_map(&self, degrees: &mut HashMap<Self, BigUint>) {
-        if degrees.contains_key(self) {
-            // Already visited this node in the polynomial graph.
-            return;
-        }
-
-        match self.0.as_ref() {
-            ConstraintPolynomialInner::Constant(_) =>
-                degrees.insert(self.clone(), BigUint::zero()),
-            ConstraintPolynomialInner::LocalConstant(_) =>
-                degrees.insert(self.clone(), BigUint::one()),
-            ConstraintPolynomialInner::NextConstant(_) =>
-                degrees.insert(self.clone(), BigUint::one()),
-            ConstraintPolynomialInner::LocalWireValue(_) =>
-                degrees.insert(self.clone(), BigUint::one()),
-            ConstraintPolynomialInner::NextWireValue(_) =>
-                degrees.insert(self.clone(), BigUint::one()),
-            ConstraintPolynomialInner::Sum { lhs, rhs } => {
-                lhs.populate_degree_map(degrees);
-                rhs.populate_degree_map(degrees);
-                degrees.insert(self.clone(), (&degrees[lhs]).max(&degrees[rhs]).clone())
-            }
-            ConstraintPolynomialInner::Product { lhs, rhs } => {
-                lhs.populate_degree_map(degrees);
-                rhs.populate_degree_map(degrees);
-                degrees.insert(self.clone(), &degrees[lhs] + &degrees[rhs])
-            }
-            ConstraintPolynomialInner::Exponentiation { base, exponent } => {
-                base.populate_degree_map(degrees);
-                degrees.insert(self.clone(),
-                               &degrees[base] * BigUint::from_usize(*exponent).unwrap())
-            }
-        };
     }
 
     /// Returns the set of wires that this constraint would depend on if it were applied at a
@@ -270,13 +235,6 @@ impl<F: Field> ConstraintPolynomial<F> {
 
     fn from_inner(inner: ConstraintPolynomialInner<F>) -> Self {
         Self(Rc::new(inner))
-    }
-
-    /// The number of polynomials in this graph.
-    fn graph_size(&self) -> usize {
-        let mut degrees = HashMap::new();
-        self.populate_degree_map(&mut degrees);
-        degrees.len()
     }
 }
 
@@ -610,38 +568,5 @@ mod tests {
         // == should compare the pointers, and the clone should point to the same underlying
         // ConstraintPolynomialInner.
         assert_eq!(wire0.clone(), wire0);
-    }
-
-    #[test]
-    fn replace_all() {
-        type F = CrandallField;
-        let wire0 = ConstraintPolynomial::<F>::local_wire_value(0);
-        let wire1 = ConstraintPolynomial::<F>::local_wire_value(1);
-        let wire2 = ConstraintPolynomial::<F>::local_wire_value(2);
-        let wire3 = ConstraintPolynomial::<F>::local_wire_value(3);
-        let wire4 = ConstraintPolynomial::<F>::local_wire_value(4);
-        let sum01 = &wire0 + &wire1;
-        let sum12 = &wire1 + &wire2;
-        let sum23 = &wire2 + &wire3;
-        let product = &sum01 * &sum12 * &sum23;
-
-        assert_eq!(
-            wire0.replace_all(wire0.clone(), wire1.clone()),
-            wire1);
-
-        assert_eq!(
-            wire0.replace_all(wire1.clone(), wire2.clone()),
-            wire0);
-
-        // This should be a no-op, since wire 4 is not present in the product.
-        assert_eq!(
-            product.replace_all(wire4.clone(), wire3.clone()).graph_size(),
-            product.graph_size());
-
-        // This shouldn't change the graph structure at all, since the replacement wire 4 was not
-        // previously present.
-        assert_eq!(
-            product.replace_all(wire3.clone(), wire4.clone()).graph_size(),
-            product.graph_size());
     }
 }

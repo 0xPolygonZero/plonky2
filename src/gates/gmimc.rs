@@ -1,6 +1,8 @@
 use std::convert::TryInto;
 use std::sync::Arc;
 
+use num::{BigUint, One};
+
 use crate::circuit_data::CircuitConfig;
 use crate::constraint_polynomial::ConstraintPolynomial;
 use crate::field::field::Field;
@@ -34,17 +36,31 @@ impl<F: Field, const W: usize, const R: usize> GMiMCGate<F, W, R> {
     /// If this is set to 1, the first four inputs will be swapped with the next four inputs. This
     /// is useful for ordering hashes in Merkle proofs. Otherwise, this should be set to 0.
     // TODO: Assert binary.
-    pub const WIRE_SWITCH: usize = 0;
+    pub const WIRE_SWITCH: usize = W;
 
     /// The wire index for the i'th input to the permutation.
     pub fn wire_input(i: usize) -> usize {
-        i + 1
+        i
     }
 
     /// The wire index for the i'th output to the permutation.
     /// Note that outputs are written to the next gate's wires.
     pub fn wire_output(i: usize) -> usize {
-        i + 1
+        i
+    }
+
+    /// Adds a local wire output to this output graph. Returns a `ConstraintPolynomial` which
+    /// references the newly-created wire.
+    ///
+    /// This may seem like it belongs in `OutputGraph`, but it is not that general, since it uses
+    /// a notion of "next available" local wire indices specific to this gate.
+    fn add_local(
+        outputs: &mut OutputGraph<F>,
+        poly: ConstraintPolynomial<F>,
+    ) -> ConstraintPolynomial<F> {
+        let index = outputs.max_local_output_index().map_or(W + 1, |i| i + 1);
+        outputs.add(GateOutputLocation::LocalWire(index), poly);
+        ConstraintPolynomial::local_wire_value(index)
     }
 }
 
@@ -58,6 +74,8 @@ impl<F: Field, const W: usize, const R: usize> DeterministicGate<F> for GMiMCGat
         let original_inputs = (0..W)
             .map(|i| ConstraintPolynomial::local_wire_value(Self::wire_input(i)))
             .collect::<Vec<_>>();
+
+        let mut outputs = OutputGraph::new();
 
         // Conditionally switch inputs based on the (boolean) switch wire.
         let switch = ConstraintPolynomial::local_wire_value(Self::WIRE_SWITCH);
@@ -83,21 +101,20 @@ impl<F: Field, const W: usize, const R: usize> DeterministicGate<F> for GMiMCGat
         for r in 0..R {
             let active = r % W;
             let round_constant = ConstraintPolynomial::constant(self.constants[r]);
-            let f = (&state[active] + &addition_buffer + round_constant).cube();
-            addition_buffer += &f;
-            state[active] -= f;
+            let mut f_input = &state[active] + &addition_buffer + round_constant;
+            if f_input.degree() > BigUint::one() {
+                f_input = Self::add_local(&mut outputs, f_input);
+            }
+            let f_output = f_input.cube();
+            addition_buffer += &f_output;
+            state[active] -= f_output;
         }
 
         for i in 0..W {
-            state[i] += &addition_buffer;
+            outputs.add(GateOutputLocation::NextWire(i), &state[i] + &addition_buffer);
         }
 
-        let outputs = state.into_iter()
-            .enumerate()
-            .map(|(i, out)| (GateOutputLocation::NextWire(Self::wire_output(i)), out))
-            .collect();
-
-        OutputGraph { outputs }
+        outputs
     }
 
     fn additional_constraints(&self, _config: CircuitConfig) -> Vec<ConstraintPolynomial<F>> {
@@ -111,25 +128,48 @@ impl<F: Field, const W: usize, const R: usize> DeterministicGate<F> for GMiMCGat
 mod tests {
     use std::sync::Arc;
 
-    use crate::field::crandall_field::CrandallField;
-    use crate::gates::gmimc::GMiMCGate;
-    use crate::field::field::Field;
     use crate::circuit_data::CircuitConfig;
+    use crate::field::crandall_field::CrandallField;
+    use crate::field::field::Field;
     use crate::gates::deterministic_gate::DeterministicGate;
+    use crate::gates::gmimc::GMiMCGate;
+    use crate::circuit_builder::CircuitBuilder2;
 
     #[test]
-    #[ignore]
     fn degree() {
         type F = CrandallField;
         const W: usize = 12;
-        const R: usize = 20;
+        const R: usize = 101;
         let gate = GMiMCGate::<F, W, R> { constants: Arc::new([F::TWO; R]) };
         let config = CircuitConfig {
             num_wires: 200,
             num_routed_wires: 200,
-            security_bits: 128
+            security_bits: 128,
         };
         let outs = gate.outputs(config);
-        assert_eq!(outs.max_wire_input_index(), Some(50));
+
+        assert_eq!(outs.degree(), 3);
+        assert_eq!(outs.max_local_output_index(), Some(57));
+        panic!();
+    }
+
+    #[test]
+    fn generated_output() {
+        type F = CrandallField;
+        const W: usize = 12;
+        const R: usize = 101;
+        let constants = Arc::new([F::TWO; R]);
+        let gate = GMiMCGate::<F, W, R>::with_constants(constants);
+
+        let config = CircuitConfig {
+            num_wires: 200,
+            num_routed_wires: 200,
+            security_bits: 128,
+        };
+        let mut builder = CircuitBuilder2::new(config);
+        builder.add_gate(gate, Vec::new());
+        // let circuit = builder.build();
+
+        // TODO: generate witness & compare output to normal GMiMC function.
     }
 }

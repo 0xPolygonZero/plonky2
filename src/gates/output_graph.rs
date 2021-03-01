@@ -1,11 +1,11 @@
+use std::{fmt, iter};
 use std::collections::HashMap;
-use std::{iter, fmt};
+use std::fmt::{Display, Formatter};
 
 use num::{BigUint, FromPrimitive, One, ToPrimitive};
 
-use crate::constraint_polynomial::ConstraintPolynomial;
+use crate::constraint_polynomial::{ConstraintPolynomial, EvaluationVars};
 use crate::field::field::Field;
-use std::fmt::{Display, Formatter};
 
 /// Represents a set of deterministic gate outputs, expressed as polynomials over witness
 /// values.
@@ -15,15 +15,35 @@ pub struct OutputGraph<F: Field> {
 }
 
 impl<F: Field> OutputGraph<F> {
+    /// Creates a new output graph with no outputs.
+    pub fn new() -> Self {
+        Self { outputs: Vec::new() }
+    }
+
     /// Creates an output graph with a single output.
     pub fn single_output(loc: GateOutputLocation, out: ConstraintPolynomial<F>) -> Self {
         Self { outputs: vec![(loc, out)] }
     }
 
-    /// The largest local wire index in this entire graph.
-    pub(crate) fn max_wire_input_index(&self) -> Option<usize> {
+    pub fn add(&mut self, location: GateOutputLocation, poly: ConstraintPolynomial<F>) {
+        self.outputs.push((location, poly))
+    }
+
+    /// The largest polynomial degree among all polynomials in this graph.
+    pub fn degree(&self) -> usize {
         self.outputs.iter()
-            .flat_map(|(loc, out)| out.max_wire_input_index())
+            .map(|(loc, out)| out.degree().to_usize().unwrap())
+            .max()
+            .unwrap_or(0)
+    }
+
+    /// The largest local wire index among this graph's output locations.
+    pub fn max_local_output_index(&self) -> Option<usize> {
+        self.outputs.iter()
+            .filter_map(|(loc, out)| match loc {
+                GateOutputLocation::LocalWire(i) => Some(*i),
+                GateOutputLocation::NextWire(_) => None
+            })
             .max()
     }
 }
