@@ -16,8 +16,8 @@ use crate::wire::Wire;
 pub(crate) struct EvaluationVars<'a, F: Field> {
     pub(crate) local_constants: &'a [F],
     pub(crate) next_constants: &'a [F],
-    pub(crate) local_wire_values: &'a [F],
-    pub(crate) next_wire_values: &'a [F],
+    pub(crate) local_wires: &'a [F],
+    pub(crate) next_wires: &'a [F],
 }
 
 /// A polynomial over all the variables that are subject to constraints (local constants, next
@@ -39,6 +39,7 @@ impl<F: Field> ConstraintPolynomial<F> {
         Self::constant(F::from_canonical_usize(c))
     }
 
+    // TODO: const?
     pub fn zero() -> Self {
         Self::constant(F::ZERO)
     }
@@ -55,18 +56,18 @@ impl<F: Field> ConstraintPolynomial<F> {
         Self::from_inner(ConstraintPolynomialInner::NextConstant(index))
     }
 
-    pub fn local_wire_value(index: usize) -> Self {
+    pub fn local_wire(index: usize) -> Self {
         Self::from_inner(ConstraintPolynomialInner::LocalWireValue(index))
     }
 
-    pub fn next_wire_value(index: usize) -> Self {
+    pub fn next_wire(index: usize) -> Self {
         Self::from_inner(ConstraintPolynomialInner::NextWireValue(index))
     }
 
     pub fn from_gate_output(gate_output: GateOutputLocation) -> Self {
         match gate_output {
-            GateOutputLocation::LocalWire(i) => Self::local_wire_value(i),
-            GateOutputLocation::NextWire(i) => Self::next_wire_value(i),
+            GateOutputLocation::LocalWire(i) => Self::local_wire(i),
+            GateOutputLocation::NextWire(i) => Self::next_wire(i),
         }
     }
 
@@ -522,8 +523,8 @@ impl<F: Field> ConstraintPolynomialInner<F> {
             ConstraintPolynomialInner::Constant(c) => *c,
             ConstraintPolynomialInner::LocalConstant(i) => vars.local_constants[*i],
             ConstraintPolynomialInner::NextConstant(i) => vars.next_constants[*i],
-            ConstraintPolynomialInner::LocalWireValue(i) => vars.local_wire_values[*i],
-            ConstraintPolynomialInner::NextWireValue(i) => vars.next_wire_values[*i],
+            ConstraintPolynomialInner::LocalWireValue(i) => vars.local_wires[*i],
+            ConstraintPolynomialInner::NextWireValue(i) => vars.next_wires[*i],
             ConstraintPolynomialInner::Sum { lhs, rhs } => {
                 let lhs = lhs.evaluate_memoized(vars, mem);
                 let rhs = rhs.evaluate_memoized(vars, mem);
@@ -564,7 +565,7 @@ mod tests {
     #[test]
     fn equality() {
         type F = CrandallField;
-        let wire0 = ConstraintPolynomial::<F>::local_wire_value(0);
+        let wire0 = ConstraintPolynomial::<F>::local_wire(0);
         // == should compare the pointers, and the clone should point to the same underlying
         // ConstraintPolynomialInner.
         assert_eq!(wire0.clone(), wire0);

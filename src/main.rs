@@ -17,6 +17,7 @@ mod circuit_data;
 mod constraint_polynomial;
 mod field;
 mod fri;
+mod gadgets;
 mod gates;
 mod generator;
 mod gmimc;

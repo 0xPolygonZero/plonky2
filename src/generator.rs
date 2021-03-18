@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 
 use crate::field::field::Field;

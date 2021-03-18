@@ -47,7 +47,11 @@ impl<F: Field> PartialWitness<F> {
     }
 
     pub fn set_target(&mut self, target: Target, value: F) {
-        self.target_values.insert(target, value);
+        let opt_old_value = self.target_values.insert(target, value);
+        if let Some(old_value) = opt_old_value {
+            assert_eq!(old_value, value,
+                       "Target was set twice with different values: {:?}", target);
+        }
     }
 
     pub fn set_wire(&mut self, wire: Wire, value: F) {

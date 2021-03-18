@@ -121,6 +121,22 @@ pub fn fft_with_precomputation_power_of_2<F: Field>(
     reverse_index_bits(evaluations)
 }
 
+pub fn coset_fft<F: Field>(coefficients: Vec<F>, shift: F) -> Vec<F> {
+    fft(coefficients)
+        .into_iter()
+        .map(|x| x * shift)
+        .collect()
+}
+
+pub fn coset_ifft<F: Field>(points: Vec<F>, shift: F) -> Vec<F> {
+    let shift_inv = shift.inverse();
+    let precomputation = fft_precompute(points.len());
+    ifft_with_precomputation_power_of_2(points, &precomputation)
+        .into_iter()
+        .map(|x| x * shift_inv)
+        .collect()
+}
+
 // #[cfg(test)]
 // mod tests {
 //     use crate::{Bls12377Scalar, fft_precompute, fft_with_precomputation, CrandallField, ifft_with_precomputation_power_of_2};

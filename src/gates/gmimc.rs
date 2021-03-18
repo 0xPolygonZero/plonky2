@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use num::{BigUint, FromPrimitive, One};
+use num::{BigUint, One};
 
 use crate::circuit_data::CircuitConfig;
 use crate::constraint_polynomial::ConstraintPolynomial;
@@ -29,7 +29,6 @@ impl<F: Field, const W: usize, const R: usize> GMiMCGate<F, W, R> {
 
     /// If this is set to 1, the first four inputs will be swapped with the next four inputs. This
     /// is useful for ordering hashes in Merkle proofs. Otherwise, this should be set to 0.
-    // TODO: Assert binary.
     pub const WIRE_SWITCH: usize = W;
 
     /// The wire index for the i'th input to the permutation.
@@ -48,13 +47,14 @@ impl<F: Field, const W: usize, const R: usize> GMiMCGate<F, W, R> {
     ///
     /// This may seem like it belongs in `OutputGraph`, but it is not that general, since it uses
     /// a notion of "next available" local wire indices specific to this gate.
+    // TODO: Switch to `ExpandableOutputGraph`.
     fn add_local(
         outputs: &mut OutputGraph<F>,
         poly: ConstraintPolynomial<F>,
     ) -> ConstraintPolynomial<F> {
         let index = outputs.max_local_output_index().map_or(W + 1, |i| i + 1);
         outputs.add(GateOutputLocation::LocalWire(index), poly);
-        ConstraintPolynomial::local_wire_value(index)
+        ConstraintPolynomial::local_wire(index)
     }
 }
 
@@ -64,15 +64,15 @@ impl<F: Field, const W: usize, const R: usize> DeterministicGate<F> for GMiMCGat
         format!("{:?}", self)
     }
 
-    fn outputs(&self, config: CircuitConfig) -> OutputGraph<F> {
+    fn outputs(&self, _config: CircuitConfig) -> OutputGraph<F> {
         let original_inputs = (0..W)
-            .map(|i| ConstraintPolynomial::local_wire_value(Self::wire_input(i)))
+            .map(|i| ConstraintPolynomial::local_wire(Self::wire_input(i)))
             .collect::<Vec<_>>();
 
         let mut outputs = OutputGraph::new();
 
         // Conditionally switch inputs based on the (boolean) switch wire.
-        let switch = ConstraintPolynomial::local_wire_value(Self::WIRE_SWITCH);
+        let switch = ConstraintPolynomial::local_wire(Self::WIRE_SWITCH);
         let mut state = Vec::new();
         for i in 0..4 {
             let a = &original_inputs[i];
@@ -112,7 +112,7 @@ impl<F: Field, const W: usize, const R: usize> DeterministicGate<F> for GMiMCGat
     }
 
     fn additional_constraints(&self, _config: CircuitConfig) -> Vec<ConstraintPolynomial<F>> {
-        let switch = ConstraintPolynomial::local_wire_value(Self::WIRE_SWITCH);
+        let switch = ConstraintPolynomial::local_wire(Self::WIRE_SWITCH);
         let switch_bool_constraint = &switch * (&switch - 1);
         vec![switch_bool_constraint]
     }
@@ -122,8 +122,6 @@ impl<F: Field, const W: usize, const R: usize> DeterministicGate<F> for GMiMCGat
 mod tests {
     use std::convert::TryInto;
     use std::sync::Arc;
-
-    use num::ToPrimitive;
 
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;

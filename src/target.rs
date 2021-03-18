@@ -1,8 +1,4 @@
-use std::convert::Infallible;
-use std::marker::PhantomData;
-
 use crate::circuit_data::CircuitConfig;
-use crate::field::field::Field;
 use crate::wire::Wire;
 
 /// A location in the witness.
