@@ -13,7 +13,7 @@ pub(crate) fn log2_ceil(n: usize) -> usize {
 }
 
 /// Computes `log_2(n)`, panicking if `n` is not a power of two.
-pub fn log2_strict(n: usize) -> usize {
+pub(crate) fn log2_strict(n: usize) -> usize {
     assert!(n.is_power_of_two(), "Not a power of two");
     log2_ceil(n)
 }

@@ -10,8 +10,12 @@ use crate::wire::Wire;
 
 pub struct CircuitBuilder2<F: Field> {
     config: CircuitConfig,
+
+    /// The types of gates used in this circuit.
     gates: HashSet<GateRef<F>>,
+
     gate_instances: Vec<GateInstance<F>>,
+
     generators: Vec<Box<dyn WitnessGenerator<F>>>,
 }
 

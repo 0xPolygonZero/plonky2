@@ -128,10 +128,14 @@ pub fn coset_fft<F: Field>(coefficients: Vec<F>, shift: F) -> Vec<F> {
         .collect()
 }
 
-pub fn coset_ifft<F: Field>(points: Vec<F>, shift: F) -> Vec<F> {
-    let shift_inv = shift.inverse();
+pub fn ifft<F: Field>(points: Vec<F>) -> Vec<F> {
     let precomputation = fft_precompute(points.len());
     ifft_with_precomputation_power_of_2(points, &precomputation)
+}
+
+pub fn coset_ifft<F: Field>(points: Vec<F>, shift: F) -> Vec<F> {
+    let shift_inv = shift.inverse();
+    ifft(points)
         .into_iter()
         .map(|x| x * shift_inv)
         .collect()

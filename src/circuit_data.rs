@@ -5,6 +5,7 @@ use crate::proof::{Hash, Proof2};
 use crate::prover::prove;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
+use crate::gates::gate::{GateRef, Gate};
 
 #[derive(Copy, Clone)]
 pub struct CircuitConfig {
@@ -14,7 +15,7 @@ pub struct CircuitConfig {
 }
 
 impl CircuitConfig {
-    pub fn advice_wires(&self) -> usize {
+    pub fn num_advice_wires(&self) -> usize {
         self.num_wires - self.num_routed_wires
     }
 }
@@ -74,9 +75,21 @@ pub(crate) struct CommonCircuitData<F: Field> {
 
     pub degree: usize,
 
+    /// The types of gates used in this circuit.
+    pub gates: Vec<GateRef<F>>,
+
     /// A commitment to each constant polynomial.
     pub constants_root: Hash<F>,
 
     /// A commitment to each permutation polynomial.
     pub sigmas_root: Hash<F>,
+}
+
+impl<F: Field> CommonCircuitData<F> {
+    pub fn constraint_degree(&self, config: CircuitConfig) -> usize {
+        self.gates.iter()
+            .map(|g| g.0.degree(config))
+            .max()
+            .expect("No gates?")
+    }
 }
