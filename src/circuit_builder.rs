@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
-use crate::circuit_data::CircuitConfig;
+use crate::circuit_data::{CircuitConfig, CircuitData, ProverCircuitData, VerifierCircuitData};
 use crate::field::field::Field;
+use crate::gates::constant::ConstantGate2;
 use crate::gates::gate::{GateInstance, GateRef};
 use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::target::Target;
-use crate::gates::constant::ConstantGate2;
 use crate::wire::Wire;
 
 pub struct CircuitBuilder2<F: Field> {
@@ -90,5 +90,20 @@ impl<F: Field> CircuitBuilder2<F> {
     pub fn constant(&mut self, c: F) -> Target {
         let gate = self.add_gate(ConstantGate2::get(), vec![c]);
         Target::Wire(Wire { gate, input: ConstantGate2::WIRE_OUTPUT })
+    }
+
+    /// Builds a "full circuit", with both prover and verifier data.
+    pub fn build(&self) -> CircuitData<F> {
+        todo!()
+    }
+
+    /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
+    pub fn build_prover(&self) -> ProverCircuitData<F> {
+        todo!()
+    }
+
+    /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
+    pub fn build_verifier(&self) -> VerifierCircuitData<F> {
+        todo!()
     }
 }

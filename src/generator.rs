@@ -4,9 +4,11 @@ use crate::field::field::Field;
 use crate::target::Target;
 use crate::witness::PartialWitness;
 
+/// Given a `PartialWitness` that has only inputs set, populates the rest of the witness using the
+/// given set of generators.
 pub(crate) fn generate_partial_witness<F: Field>(
     witness: &mut PartialWitness<F>,
-    mut generators: Vec<Box<dyn WitnessGenerator<F>>>,
+    mut generators: &[Box<dyn WitnessGenerator<F>>],
 ) {
     // Index generator indices by their watched targets.
     let mut generator_indices_by_watches: HashMap<Target, Vec<usize>> = HashMap::new();
@@ -67,14 +69,14 @@ pub trait WitnessGenerator<F: Field>: 'static {
     /// flag indicating whether the generator is finished. If the flag is true, the generator will
     /// never be run again, otherwise it will be queued for another run next time a target in its
     /// watch list is populated.
-    fn run(&mut self, witness: &PartialWitness<F>) -> (PartialWitness<F>, bool);
+    fn run(&self, witness: &PartialWitness<F>) -> (PartialWitness<F>, bool);
 }
 
 /// A generator which runs once after a list of dependencies is present in the witness.
 pub trait SimpleGenerator<F: Field>: 'static {
     fn dependencies(&self) -> Vec<Target>;
 
-    fn run_once(&mut self, witness: &PartialWitness<F>) -> PartialWitness<F>;
+    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F>;
 }
 
 impl<F: Field, SG: SimpleGenerator<F>> WitnessGenerator<F> for SG {
@@ -82,7 +84,7 @@ impl<F: Field, SG: SimpleGenerator<F>> WitnessGenerator<F> for SG {
         self.dependencies()
     }
 
-    fn run(&mut self, witness: &PartialWitness<F>) -> (PartialWitness<F>, bool) {
+    fn run(&self, witness: &PartialWitness<F>) -> (PartialWitness<F>, bool) {
         if witness.contains_all(&self.dependencies()) {
             (self.run_once(witness), true)
         } else {
@@ -102,7 +104,7 @@ impl<F: Field> SimpleGenerator<F> for CopyGenerator {
         vec![self.src]
     }
 
-    fn run_once(&mut self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
         let value = witness.get_target(self.src);
         PartialWitness::singleton(self.dst, value)
     }

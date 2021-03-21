@@ -176,7 +176,7 @@ mod tests {
         }
 
         let generators = gate.0.generators(config, 0, vec![], vec![]);
-        generate_partial_witness(&mut witness, generators);
+        generate_partial_witness(&mut witness, &generators);
 
         let expected_outputs: [F; W] = gmimc_permute_naive(
             permutation_inputs.try_into().unwrap(),

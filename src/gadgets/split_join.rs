@@ -53,7 +53,7 @@ impl<F: Field> SimpleGenerator<F> for SplitGenerator {
         vec![self.integer]
     }
 
-    fn run_once(&mut self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
         let mut integer_value = witness.get_target(self.integer).to_canonical_u64();
 
         let mut result = PartialWitness::new();

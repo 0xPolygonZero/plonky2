@@ -308,7 +308,7 @@ impl<F: Field> SimpleGenerator<F> for InterpolantGenerator<F> {
         deps
     }
 
-    fn run_once(&mut self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
         let mut result = PartialWitness::new();
 
         for commit_idx in 0..self.gate.num_commits {

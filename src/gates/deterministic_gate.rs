@@ -114,7 +114,7 @@ impl<F: Field> SimpleGenerator<F> for OutputGenerator<F> {
             .collect()
     }
 
-    fn run_once(&mut self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
         let mut local_wire_values = Vec::new();
         let mut next_wire_values = Vec::new();
 

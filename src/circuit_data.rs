@@ -1,8 +1,10 @@
 use crate::field::fft::FftPrecomputation;
 use crate::field::field::Field;
+use crate::generator::WitnessGenerator;
 use crate::proof::{Hash, Proof2};
-use crate::prover::prove2;
-use crate::verifier::verify2;
+use crate::prover::prove;
+use crate::verifier::verify;
+use crate::witness::PartialWitness;
 
 #[derive(Copy, Clone)]
 pub struct CircuitConfig {
@@ -25,12 +27,12 @@ pub struct CircuitData<F: Field> {
 }
 
 impl<F: Field> CircuitData<F> {
-    pub fn prove2(&self) -> Proof2<F> {
-        prove2(&self.prover_only, &self.common)
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof2<F> {
+        prove(&self.prover_only, &self.common, inputs)
     }
 
-    pub fn verify2(&self) {
-        verify2(&self.verifier_only, &self.common)
+    pub fn verify(&self) {
+        verify(&self.verifier_only, &self.common)
     }
 }
 
@@ -41,8 +43,8 @@ pub struct ProverCircuitData<F: Field> {
 }
 
 impl<F: Field> ProverCircuitData<F> {
-    pub fn prove2(&self) -> Proof2<F> {
-        prove2(&self.prover_only, &self.common)
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof2<F> {
+        prove(&self.prover_only, &self.common, inputs)
     }
 }
 
@@ -54,14 +56,13 @@ pub struct VerifierCircuitData<F: Field> {
 
 impl<F: Field> VerifierCircuitData<F> {
     pub fn verify2(&self) {
-        verify2(&self.verifier_only, &self.common)
+        verify(&self.verifier_only, &self.common)
     }
 }
 
 /// Circuit data required by the prover, but not the verifier.
 pub(crate) struct ProverOnlyCircuitData<F: Field> {
-    /// A precomputation used for FFTs of degree 8n, where n is the number of gates.
-    pub fft_precomputation_8n: FftPrecomputation<F>,
+    pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
 }
 
 /// Circuit data required by the verifier, but not the prover.
@@ -78,7 +79,4 @@ pub(crate) struct CommonCircuitData<F: Field> {
 
     /// A commitment to each permutation polynomial.
     pub sigmas_root: Hash<F>,
-
-    /// A precomputation used for FFTs of degree n, where n is the number of gates.
-    pub fft_precomputation_n: FftPrecomputation<F>,
 }
