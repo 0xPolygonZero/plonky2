@@ -30,6 +30,7 @@ mod util;
 mod verifier;
 mod wire;
 mod witness;
+mod hash;
 
 // 112 wire polys, 3 Z polys, 4 parts of quotient poly.
 const PROVER_POLYS: usize = 113 + 3 + 4;

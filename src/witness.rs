@@ -38,6 +38,10 @@ impl<F: Field> PartialWitness<F> {
         self.get_target(Target::Wire(wire))
     }
 
+    pub fn try_get_wire(&self, wire: Wire) -> Option<F> {
+        self.try_get_target(Target::Wire(wire))
+    }
+
     pub fn contains(&self, target: Target) -> bool {
         self.target_values.contains_key(&target)
     }

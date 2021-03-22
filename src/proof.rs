@@ -2,7 +2,7 @@ use crate::field::field::Field;
 use crate::target::Target;
 
 pub struct Hash<F: Field> {
-    elements: Vec<F>,
+    pub(crate) elements: Vec<F>,
 }
 
 pub struct HashTarget {
