@@ -1,12 +1,17 @@
+use std::time::Instant;
+
+use log::info;
+
 use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
-use crate::field::fft::{fft, ifft};
+use crate::field::fft::{fft, ifft, lde};
 use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
-use crate::proof::{Proof2, Hash};
-use crate::util::{log2_ceil, transpose};
+use crate::hash::{compress, hash_n_to_hash, hash_n_to_m, hash_or_noop, merkle_root_bit_rev_order};
+use crate::proof::{Hash, Proof2};
+use crate::util::{log2_ceil, reverse_index_bits};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
-use crate::hash::{hash_n_to_hash, hash_n_to_m};
+use rayon::prelude::*;
 
 pub(crate) fn prove<F: Field>(
     prover_data: &ProverOnlyCircuitData<F>,
@@ -14,22 +19,33 @@ pub(crate) fn prove<F: Field>(
     inputs: PartialWitness<F>,
 ) -> Proof2<F> {
     let mut witness = inputs;
+    let start_witness = Instant::now();
+    info!("Running {} generators", prover_data.generators.len());
     generate_partial_witness(&mut witness, &prover_data.generators);
+    info!("Witness generation took {}s", start_witness.elapsed().as_secs_f32());
 
     let config = common_data.config;
-    let constraint_degree = 1 << log2_ceil(common_data.constraint_degree(config));
-    let lde_size = constraint_degree * common_data.degree;
-
     let num_wires = config.num_wires;
+
+    let start_wire_ldes = Instant::now();
+    // TODO: Simplify using lde_multiple.
+    // TODO: Parallelize.
     let wire_ldes = (0..num_wires)
-        .map(|i| compute_wire_lde(i, &witness, common_data.degree, lde_size))
+        .map(|i| compute_wire_lde(i, &witness, common_data.degree, config.rate_bits))
         .collect::<Vec<_>>();
-    let wires_root = merkle_root(wire_ldes);
+    info!("Computing wire LDEs took {}s", start_wire_ldes.elapsed().as_secs_f32());
 
-    let z_ldes = todo!();
-    let plonk_z_root = merkle_root(z_ldes);
+    let start_wires_root = Instant::now();
+    let wires_root = merkle_root_bit_rev_order(wire_ldes);
+    info!("Merklizing wire LDEs took {}s", start_wires_root.elapsed().as_secs_f32());
 
-    let plonk_t_root = todo!();
+    let plonk_z_vecs = todo!();
+    let plonk_z_ldes = todo!();
+    let plonk_z_root = merkle_root_bit_rev_order(plonk_z_ldes);
+
+    let plonk_t_vecs = todo!();
+    let plonk_t_ldes = todo!();
+    let plonk_t_root = merkle_root_bit_rev_order(plonk_t_ldes);
 
     let openings = todo!();
 
@@ -41,37 +57,18 @@ pub(crate) fn prove<F: Field>(
     }
 }
 
-/// Given `n` vectors, each of length `l`, constructs a Merkle tree with `l` leaves, where each leaf
-/// is a hash obtained by hashing a "leaf set" consisting of `n` elements. If `n <= 4`, this hashing
-/// is skipped, as there is no need to compress leaf data.
-fn merkle_root<F: Field>(vecs: Vec<Vec<F>>) -> Hash<F> {
-    let n = vecs.len();
-    let mut vecs_t = transpose(&vecs);
-    let l = vecs_t.len();
-    if n > 4 {
-        vecs_t = vecs_t.into_iter()
-            .map(|leaf_set| hash_n_to_hash(leaf_set, false).elements)
-            .collect();
-    }
-    todo!()
-}
-
 fn compute_wire_lde<F: Field>(
     input: usize,
     witness: &PartialWitness<F>,
     degree: usize,
-    lde_size: usize,
+    rate_bits: usize,
 ) -> Vec<F> {
-    let wire = (0..degree)
+    let wire_values = (0..degree)
         // Some gates do not use all wires, and we do not require that generators populate unused
         // wires, so some wire values will not be set. We can set these to any value; here we
         // arbitrary pick zero. Ideally we would verify that no constraints operate on these unset
         // wires, but that isn't trivial.
         .map(|gate| witness.try_get_wire(Wire { gate, input }).unwrap_or(F::ZERO))
         .collect();
-    let mut coeffs = ifft(wire);
-    for _ in 0..(lde_size - degree) {
-        coeffs.push(F::ZERO);
-    }
-    fft(coeffs)
+    lde(wire_values, rate_bits)
 }

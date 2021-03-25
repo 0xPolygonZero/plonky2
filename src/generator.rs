@@ -1,4 +1,8 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
+use std::time::Instant;
+
+use log::trace;
 
 use crate::field::field::Field;
 use crate::target::Target;
@@ -36,7 +40,9 @@ pub(crate) fn generate_partial_witness<F: Field>(
         let mut next_pending_generator_indices = HashSet::new();
 
         for &generator_idx in &pending_generator_indices {
+            let start = Instant::now();
             let (result, finished) = generators[generator_idx].run(&witness);
+            trace!("run {:?} took {}", generators[generator_idx], start.elapsed().as_secs_f32());
             if finished {
                 expired_generator_indices.insert(generator_idx);
             }
@@ -60,7 +66,7 @@ pub(crate) fn generate_partial_witness<F: Field>(
 }
 
 /// A generator participates in the generation of the witness.
-pub trait WitnessGenerator<F: Field>: 'static {
+pub trait WitnessGenerator<F: Field>: 'static + Debug {
     /// Targets to be "watched" by this generator. Whenever a target in the watch list is populated,
     /// the generator will be queued to run.
     fn watch_list(&self) -> Vec<Target>;
@@ -73,7 +79,7 @@ pub trait WitnessGenerator<F: Field>: 'static {
 }
 
 /// A generator which runs once after a list of dependencies is present in the witness.
-pub trait SimpleGenerator<F: Field>: 'static {
+pub trait SimpleGenerator<F: Field>: 'static + Debug {
     fn dependencies(&self) -> Vec<Target>;
 
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F>;
@@ -94,6 +100,7 @@ impl<F: Field, SG: SimpleGenerator<F>> WitnessGenerator<F> for SG {
 }
 
 /// A generator which copies one wire to another.
+#[derive(Debug)]
 pub(crate) struct CopyGenerator {
     pub(crate) src: Target,
     pub(crate) dst: Target,

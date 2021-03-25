@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use crate::circuit_data::CircuitConfig;
-use crate::constraint_polynomial::ConstraintPolynomial;
+use crate::constraint_polynomial::{ConstraintPolynomial, EvaluationVars};
 use crate::field::field::Field;
 use crate::generator::WitnessGenerator;
 use num::ToPrimitive;
@@ -15,10 +15,18 @@ pub trait Gate<F: Field>: 'static {
     /// A set of expressions which must evaluate to zero.
     fn constraints(&self, config: CircuitConfig) -> Vec<ConstraintPolynomial<F>>;
 
+    // fn eval_constraints(&self, config: CircuitConfig, vars: EvaluationVars<F>) -> Vec<F> {
+    //     self.constraints(config)
+    //         .into_iter()
+    //         .map(|c| c.evaluate(vars))
+    //         .collect()
+    // }
+
     fn generators(
         &self,
         config: CircuitConfig,
         gate_index: usize,
+        // TODO: Switch to slices?
         local_constants: Vec<F>,
         next_constants: Vec<F>,
     ) -> Vec<Box<dyn WitnessGenerator<F>>>;

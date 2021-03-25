@@ -1,17 +1,17 @@
-use crate::field::fft::FftPrecomputation;
 use crate::field::field::Field;
 use crate::generator::WitnessGenerator;
 use crate::proof::{Hash, Proof2};
 use crate::prover::prove;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
-use crate::gates::gate::{GateRef, Gate};
+use crate::gates::gate::{GateRef};
 
 #[derive(Copy, Clone)]
 pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
     pub security_bits: usize,
+    pub rate_bits: usize,
 }
 
 impl CircuitConfig {
@@ -22,9 +22,9 @@ impl CircuitConfig {
 
 /// Circuit data required by the prover or the verifier.
 pub struct CircuitData<F: Field> {
-    prover_only: ProverOnlyCircuitData<F>,
-    verifier_only: VerifierOnlyCircuitData,
-    common: CommonCircuitData<F>,
+    pub(crate) prover_only: ProverOnlyCircuitData<F>,
+    pub(crate) verifier_only: VerifierOnlyCircuitData,
+    pub(crate) common: CommonCircuitData<F>,
 }
 
 impl<F: Field> CircuitData<F> {
@@ -39,8 +39,8 @@ impl<F: Field> CircuitData<F> {
 
 /// Circuit data required by the prover.
 pub struct ProverCircuitData<F: Field> {
-    prover_only: ProverOnlyCircuitData<F>,
-    common: CommonCircuitData<F>,
+    pub(crate) prover_only: ProverOnlyCircuitData<F>,
+    pub(crate) common: CommonCircuitData<F>,
 }
 
 impl<F: Field> ProverCircuitData<F> {
@@ -51,8 +51,8 @@ impl<F: Field> ProverCircuitData<F> {
 
 /// Circuit data required by the prover.
 pub struct VerifierCircuitData<F: Field> {
-    verifier_only: VerifierOnlyCircuitData,
-    common: CommonCircuitData<F>,
+    pub(crate) verifier_only: VerifierOnlyCircuitData,
+    pub(crate) common: CommonCircuitData<F>,
 }
 
 impl<F: Field> VerifierCircuitData<F> {
@@ -71,18 +71,18 @@ pub(crate) struct VerifierOnlyCircuitData {}
 
 /// Circuit data required by both the prover and the verifier.
 pub(crate) struct CommonCircuitData<F: Field> {
-    pub config: CircuitConfig,
+    pub(crate) config: CircuitConfig,
 
-    pub degree: usize,
+    pub(crate) degree: usize,
 
     /// The types of gates used in this circuit.
-    pub gates: Vec<GateRef<F>>,
+    pub(crate) gates: Vec<GateRef<F>>,
 
     /// A commitment to each constant polynomial.
-    pub constants_root: Hash<F>,
+    pub(crate) constants_root: Hash<F>,
 
     /// A commitment to each permutation polynomial.
-    pub sigmas_root: Hash<F>,
+    pub(crate) sigmas_root: Hash<F>,
 }
 
 impl<F: Field> CommonCircuitData<F> {

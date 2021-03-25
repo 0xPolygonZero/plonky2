@@ -27,7 +27,7 @@ pub(crate) struct EvaluationVars<'a, F: Field> {
 /// This type implements `Hash` and `Eq` based on references rather
 /// than content. This is useful when we want to use constraint polynomials as `HashMap` keys, but
 /// we want address-based hashing for performance reasons.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ConstraintPolynomial<F: Field>(pub(crate) Rc<ConstraintPolynomialInner<F>>);
 
 impl<F: Field> ConstraintPolynomial<F> {
@@ -115,7 +115,7 @@ impl<F: Field> ConstraintPolynomial<F> {
     }
 
     pub fn cube(&self) -> Self {
-        self.exp(3)
+        self * self * self
     }
 
     pub fn degree(&self) -> BigUint {
@@ -236,6 +236,12 @@ impl<F: Field> ConstraintPolynomial<F> {
 
     fn from_inner(inner: ConstraintPolynomialInner<F>) -> Self {
         Self(Rc::new(inner))
+    }
+}
+
+impl<F: Field> Debug for ConstraintPolynomial<F> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
     }
 }
 

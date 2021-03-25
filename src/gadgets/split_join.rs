@@ -43,6 +43,7 @@ pub fn split_le_generator_local_wires<F: Field>(
     Box::new(SplitGenerator { integer, bits })
 }
 
+#[derive(Debug)]
 struct SplitGenerator {
     integer: Target,
     bits: Vec<Target>,

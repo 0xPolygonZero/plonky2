@@ -141,6 +141,20 @@ pub fn coset_ifft<F: Field>(points: Vec<F>, shift: F) -> Vec<F> {
         .collect()
 }
 
+pub fn lde_multiple<F: Field>(points: Vec<Vec<F>>, rate_bits: usize) -> Vec<Vec<F>> {
+    points.into_iter().map(|p| lde(p, rate_bits)).collect()
+}
+
+pub fn lde<F: Field>(points: Vec<F>, rate_bits: usize) -> Vec<F> {
+    let original_size = points.len();
+    let lde_size = original_size << rate_bits;
+    let mut coeffs = ifft(points);
+    for _ in 0..(lde_size - original_size) {
+        coeffs.push(F::ZERO);
+    }
+    fft(coeffs)
+}
+
 // #[cfg(test)]
 // mod tests {
 //     use crate::{Bls12377Scalar, fft_precompute, fft_with_precomputation, CrandallField, ifft_with_precomputation_power_of_2};

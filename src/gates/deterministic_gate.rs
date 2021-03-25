@@ -98,6 +98,7 @@ impl<F: Field, DG: DeterministicGate<F>> Gate<F> for DeterministicGateAdapter<F,
     }
 }
 
+#[derive(Debug)]
 struct OutputGenerator<F: Field> {
     gate_index: usize,
     location: GateOutputLocation,

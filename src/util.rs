@@ -1,4 +1,3 @@
-// TODO: Can this impl usize?
 pub(crate) fn ceil_div_usize(a: usize, b: usize) -> usize {
     (a + b - 1) / b
 }
@@ -28,4 +27,49 @@ pub(crate) fn transpose<T: Clone>(matrix: &[Vec<T>]) -> Vec<Vec<T>> {
         }
     }
     transposed
+}
+
+/// Permutes `arr` such that each index is mapped to its reverse in binary.
+pub(crate) fn reverse_index_bits<T: Copy>(arr: Vec<T>) -> Vec<T> {
+    let n = arr.len();
+    let n_power = log2_strict(n);
+
+    let mut result = Vec::with_capacity(n);
+    for i in 0..n {
+        result.push(arr[reverse_bits(i, n_power)]);
+    }
+    result
+}
+
+fn reverse_bits(n: usize, num_bits: usize) -> usize {
+    let mut result = 0;
+    for i in 0..num_bits {
+        let i_rev = num_bits - i - 1;
+        result |= (n >> i & 1) << i_rev;
+    }
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::util::{reverse_bits, reverse_index_bits};
+
+    #[test]
+    fn test_reverse_bits() {
+        assert_eq!(reverse_bits(0b0000000000, 10), 0b0000000000);
+        assert_eq!(reverse_bits(0b0000000001, 10), 0b1000000000);
+        assert_eq!(reverse_bits(0b1000000000, 10), 0b0000000001);
+        assert_eq!(reverse_bits(0b00000, 5), 0b00000);
+        assert_eq!(reverse_bits(0b01011, 5), 0b11010);
+    }
+
+    #[test]
+    fn test_reverse_index_bits() {
+        assert_eq!(
+            reverse_index_bits(vec![10, 20, 30, 40]),
+            vec![10, 30, 20, 40]);
+        assert_eq!(
+            reverse_index_bits(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+            vec![0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15]);
+    }
 }

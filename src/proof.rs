@@ -1,8 +1,20 @@
 use crate::field::field::Field;
 use crate::target::Target;
 
+/// Represents a ~256 bit hash output.
+#[derive(Copy, Clone)]
 pub struct Hash<F: Field> {
-    pub(crate) elements: Vec<F>,
+    pub(crate) elements: [F; 4],
+}
+
+impl<F: Field> Hash<F> {
+    pub(crate) fn from_partial(mut elements: Vec<F>) -> Self {
+        debug_assert!(elements.len() <= 4);
+        while elements.len() < 4 {
+            elements.push(F::ZERO);
+        }
+        Self { elements: [elements[0], elements[1], elements[2], elements[3]] }
+    }
 }
 
 pub struct HashTarget {

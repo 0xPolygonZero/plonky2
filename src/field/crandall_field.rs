@@ -3,6 +3,7 @@ use std::fmt;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::field::field::Field;
+use num::Integer;
 
 /// P = 2**64 - EPSILON
 ///   = 2**64 - 9 * 2**28 + 1
@@ -58,7 +59,55 @@ impl Field for CrandallField {
     }
 
     fn try_inverse(&self) -> Option<Self> {
-        unimplemented!()
+        if *self == Self::ZERO {
+            return None;
+        }
+
+        // Based on Algorithm 16 of "Efficient Software-Implementation of Finite Fields with
+        // Applications to Cryptography".
+
+        let mut u = self.0;
+        let mut v = P;
+        let mut b = 1;
+        let mut c = 0;
+
+        while u != 1 && v != 1 {
+            while u.is_even() {
+                u >>= 1;
+                if b.is_odd() {
+                    b += P;
+                }
+                b >>= 1;
+            }
+
+            while v.is_even() {
+                v >>= 1;
+                if c.is_odd() {
+                    c += P;
+                }
+                c >>= 1;
+            }
+
+            if u < v {
+                v -= u;
+                if c < b {
+                    c += P;
+                }
+                c -= b;
+            } else {
+                u -= v;
+                if b < c {
+                    b += P;
+                }
+                b -= c;
+            }
+        }
+
+        Some(Self(if u == 1 {
+            b
+        } else {
+            c
+        }))
     }
 
     fn primitive_root_of_unity(n_power: usize) -> Self {

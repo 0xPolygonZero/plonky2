@@ -34,7 +34,7 @@ use crate::gadgets::conditionals::conditional_multiply_poly;
 ///   - Evaluates the purported interpolant at `y`, and checks that the result matches the opening
 ///     of `f^(i + 1)(y)`.
 #[derive(Debug, Copy, Clone)]
-struct FriConsistencyGate {
+pub(crate) struct FriConsistencyGate {
     /// The arity of this reduction step.
     arity_bits: usize,
 
@@ -163,6 +163,7 @@ impl FriConsistencyGate {
         for i in 0..shared_path_bits {
             let bit = ConstraintPolynomial::local_wire(self.wire_path_bit_i(i));
             g_exp_path_common = conditional_multiply_poly(&g_exp_path_common, &squares[i], &bit);
+            g_exp_path_common = output_graph.add(g_exp_path_common);
         }
 
         // Then, we factor in the "extra" powers of g specific to each child.
@@ -231,7 +232,7 @@ impl<F: Field> DeterministicGate<F> for FriConsistencyGate {
         format!("{:?}", self)
     }
 
-    fn outputs(&self, config: CircuitConfig) -> OutputGraph<F> {
+    fn outputs(&self, _config: CircuitConfig) -> OutputGraph<F> {
         let mut output_graph = ExpandableOutputGraph::new(self.start_unnamed_wires());
         self.add_s_j_outputs(&mut output_graph);
         self.add_y_output(&mut output_graph);
@@ -263,7 +264,7 @@ impl<F: Field> DeterministicGate<F> for FriConsistencyGate {
         _config: CircuitConfig,
         gate_index: usize,
         local_constants: Vec<F>,
-        next_constants: Vec<F>,
+        _next_constants: Vec<F>,
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let interpolant_generator = Box::new(
             InterpolantGenerator {
@@ -283,6 +284,7 @@ impl<F: Field> DeterministicGate<F> for FriConsistencyGate {
     }
 }
 
+#[derive(Debug)]
 struct InterpolantGenerator<F: Field> {
     gate: FriConsistencyGate,
     gate_index: usize,
