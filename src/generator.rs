@@ -79,6 +79,7 @@ pub trait WitnessGenerator<F: Field>: 'static + Debug {
 }
 
 /// A generator which runs once after a list of dependencies is present in the witness.
+// TODO: Remove Debug. Here temporarily to debug generator issues.
 pub trait SimpleGenerator<F: Field>: 'static + Debug {
     fn dependencies(&self) -> Vec<Target>;
 

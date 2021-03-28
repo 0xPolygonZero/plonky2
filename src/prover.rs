@@ -1,17 +1,20 @@
+use std::env::var;
 use std::time::Instant;
 
 use log::info;
+use rayon::prelude::*;
 
-use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
-use crate::field::fft::{fft, ifft, lde};
+use crate::circuit_data::{CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData};
+use crate::constraint_polynomial::EvaluationVars;
+use crate::field::fft::{fft, ifft, lde, lde_multiple};
 use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
 use crate::hash::{compress, hash_n_to_hash, hash_n_to_m, hash_or_noop, merkle_root_bit_rev_order};
+use crate::plonk_common::reduce_with_powers;
 use crate::proof::{Hash, Proof2};
-use crate::util::{log2_ceil, reverse_index_bits};
+use crate::util::{log2_ceil, reverse_index_bits, transpose};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
-use rayon::prelude::*;
 
 pub(crate) fn prove<F: Field>(
     prover_data: &ProverOnlyCircuitData<F>,
@@ -31,21 +34,33 @@ pub(crate) fn prove<F: Field>(
     // TODO: Simplify using lde_multiple.
     // TODO: Parallelize.
     let wire_ldes = (0..num_wires)
-        .map(|i| compute_wire_lde(i, &witness, common_data.degree, config.rate_bits))
+        .map(|i| compute_wire_lde(i, &witness, common_data.degree(), config.rate_bits))
         .collect::<Vec<_>>();
     info!("Computing wire LDEs took {}s", start_wire_ldes.elapsed().as_secs_f32());
 
     let start_wires_root = Instant::now();
-    let wires_root = merkle_root_bit_rev_order(wire_ldes);
+    let wire_ldes_t = transpose(&wire_ldes);
+    // TODO: Could avoid cloning if it's significant?
+    let wires_root = merkle_root_bit_rev_order(wire_ldes_t.clone());
     info!("Merklizing wire LDEs took {}s", start_wires_root.elapsed().as_secs_f32());
 
-    let plonk_z_vecs = todo!();
-    let plonk_z_ldes = todo!();
-    let plonk_z_root = merkle_root_bit_rev_order(plonk_z_ldes);
+    let plonk_z_vecs = compute_zs(&common_data);
+    let plonk_z_ldes = lde_multiple(plonk_z_vecs, config.rate_bits);
+    let plonk_z_ldes_t = transpose(&plonk_z_ldes);
+    let plonk_z_root = merkle_root_bit_rev_order(plonk_z_ldes_t.clone());
 
-    let plonk_t_vecs = todo!();
-    let plonk_t_ldes = todo!();
-    let plonk_t_root = merkle_root_bit_rev_order(plonk_t_ldes);
+    let alpha = F::ZERO; // TODO
+
+    let start_vanishing_poly = Instant::now();
+    let vanishing_poly = compute_vanishing_poly(
+        common_data, prover_data, wire_ldes_t, plonk_z_ldes_t, alpha);
+    info!("Computing vanishing poly took {}s", start_vanishing_poly.elapsed().as_secs_f32());
+
+    let plonk_t: Vec<F> = todo!(); // vanishing_poly / Z_H
+    // Need to convert to coeff form and back?
+    let plonk_t_parts = todo!();
+    let plonk_t_ldes = lde_multiple(plonk_t_parts, config.rate_bits);
+    let plonk_t_root = merkle_root_bit_rev_order(transpose(&plonk_t_ldes));
 
     let openings = todo!();
 
@@ -55,6 +70,70 @@ pub(crate) fn prove<F: Field>(
         plonk_t_root,
         openings,
     }
+}
+
+fn compute_zs<F: Field>(common_data: &CommonCircuitData<F>) -> Vec<Vec<F>> {
+    (0..common_data.config.num_checks)
+        .map(|i| compute_z(common_data, i))
+        .collect()
+}
+
+fn compute_z<F: Field>(common_data: &CommonCircuitData<F>, i: usize) -> Vec<F> {
+    vec![F::ZERO; common_data.degree()] // TODO
+}
+
+fn compute_vanishing_poly<F: Field>(
+    common_data: &CommonCircuitData<F>,
+    prover_data: &ProverOnlyCircuitData<F>,
+    wire_ldes_t: Vec<Vec<F>>,
+    plonk_z_lde_t: Vec<Vec<F>>,
+    alpha: F,
+) -> Vec<F> {
+    let lde_size = common_data.lde_size();
+    let lde_gen = common_data.lde_generator();
+
+    let mut result = Vec::with_capacity(lde_size);
+    let mut point = F::ONE;
+    for i in 0..lde_size {
+        debug_assert!(point != F::ONE);
+
+        let i_next = (i + 1) % lde_size;
+        let local_wires = &wire_ldes_t[i];
+        let next_wires = &wire_ldes_t[i_next];
+        let local_constants = &prover_data.constant_ldes_t[i];
+        let next_constants = &prover_data.constant_ldes_t[i_next];
+        let local_plonk_zs = &plonk_z_lde_t[i];
+        let next_plonk_zs = &plonk_z_lde_t[i_next];
+
+        debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
+        debug_assert_eq!(local_plonk_zs.len(), common_data.config.num_checks);
+
+        let vars = EvaluationVars {
+            local_constants,
+            next_constants,
+            local_wires,
+            next_wires,
+        };
+        result.push(compute_vanishing_poly_entry(
+            common_data, vars, local_plonk_zs, next_plonk_zs, alpha));
+
+        point *= lde_gen;
+    }
+    debug_assert_eq!(point, F::ONE);
+    result
+}
+
+fn compute_vanishing_poly_entry<F: Field>(
+    common_data: &CommonCircuitData<F>,
+    vars: EvaluationVars<F>,
+    local_plonk_zs: &[F],
+    next_plonk_zs: &[F],
+    alpha: F,
+) -> F {
+    let mut constraints = Vec::with_capacity(common_data.total_constraints());
+    // TODO: Add Z constraints.
+    constraints.extend(common_data.evaluate(vars));
+    reduce_with_powers(constraints, alpha)
 }
 
 fn compute_wire_lde<F: Field>(

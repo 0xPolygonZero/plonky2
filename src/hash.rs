@@ -8,7 +8,7 @@ use rayon::prelude::*;
 use crate::field::field::Field;
 use crate::gmimc::{gmimc_compress, gmimc_permute_array};
 use crate::proof::Hash;
-use crate::util::{reverse_index_bits, transpose};
+use crate::util::{reverse_index_bits, transpose, reverse_index_bits_in_place};
 
 const RATE: usize = 8;
 const CAPACITY: usize = 4;
@@ -80,11 +80,9 @@ pub fn hash_n_to_1<F: Field>(inputs: Vec<F>, pad: bool) -> F {
 }
 
 /// Like `merkle_root`, but first reorders each vector so that `new[i] = old[i.reverse_bits()]`.
-pub(crate) fn merkle_root_bit_rev_order<F: Field>(vecs: Vec<Vec<F>>) -> Hash<F> {
-    let vecs_reordered = vecs.into_par_iter()
-        .map(reverse_index_bits)
-        .collect();
-    merkle_root(vecs_reordered)
+pub(crate) fn merkle_root_bit_rev_order<F: Field>(mut vecs: Vec<Vec<F>>) -> Hash<F> {
+    reverse_index_bits_in_place(&mut vecs);
+    merkle_root(vecs)
 }
 
 /// Given `n` vectors, each of length `l`, constructs a Merkle tree with `l` leaves, where each leaf
@@ -92,8 +90,7 @@ pub(crate) fn merkle_root_bit_rev_order<F: Field>(vecs: Vec<Vec<F>>) -> Hash<F> 
 /// is skipped, as there is no need to compress leaf data.
 pub(crate) fn merkle_root<F: Field>(vecs: Vec<Vec<F>>) -> Hash<F> {
     // TODO: Parallelize.
-    let mut vecs_t = transpose(&vecs);
-    let mut hashes = vecs_t.into_iter()
+    let mut hashes = vecs.into_iter()
         .map(|leaf_set| hash_or_noop(leaf_set))
         .collect::<Vec<_>>();
     while hashes.len() > 1 {

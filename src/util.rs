@@ -30,15 +30,27 @@ pub(crate) fn transpose<T: Clone>(matrix: &[Vec<T>]) -> Vec<Vec<T>> {
 }
 
 /// Permutes `arr` such that each index is mapped to its reverse in binary.
-pub(crate) fn reverse_index_bits<T: Copy>(arr: Vec<T>) -> Vec<T> {
+pub(crate) fn reverse_index_bits<T: Clone>(arr: Vec<T>) -> Vec<T> {
     let n = arr.len();
     let n_power = log2_strict(n);
 
     let mut result = Vec::with_capacity(n);
     for i in 0..n {
-        result.push(arr[reverse_bits(i, n_power)]);
+        result.push(arr[reverse_bits(i, n_power)].clone());
     }
     result
+}
+
+pub(crate) fn reverse_index_bits_in_place<T>(arr: &mut Vec<T>) {
+    let n = arr.len();
+    let n_power = log2_strict(n);
+
+    for src in 0..n {
+        let dst = reverse_bits(src, n_power);
+        if src < dst {
+            arr.swap(src, dst);
+        }
+    }
 }
 
 fn reverse_bits(n: usize, num_bits: usize) -> usize {

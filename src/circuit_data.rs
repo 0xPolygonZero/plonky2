@@ -5,6 +5,8 @@ use crate::prover::prove;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
 use crate::gates::gate::{GateRef};
+use crate::constraint_polynomial::{EvaluationVars, EvaluationTargets};
+use crate::target::Target;
 
 #[derive(Copy, Clone)]
 pub struct CircuitConfig {
@@ -12,6 +14,20 @@ pub struct CircuitConfig {
     pub num_routed_wires: usize,
     pub security_bits: usize,
     pub rate_bits: usize,
+    /// The number of times to repeat checks that have soundness errors of (roughly) `degree / |F|`.
+    pub num_checks: usize,
+}
+
+impl Default for CircuitConfig {
+    fn default() -> Self {
+        CircuitConfig {
+            num_wires: 3,
+            num_routed_wires: 3,
+            security_bits: 128,
+            rate_bits: 3,
+            num_checks: 3,
+        }
+    }
 }
 
 impl CircuitConfig {
@@ -64,6 +80,7 @@ impl<F: Field> VerifierCircuitData<F> {
 /// Circuit data required by the prover, but not the verifier.
 pub(crate) struct ProverOnlyCircuitData<F: Field> {
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
+    pub constant_ldes_t: Vec<Vec<F>>,
 }
 
 /// Circuit data required by the verifier, but not the prover.
@@ -73,10 +90,12 @@ pub(crate) struct VerifierOnlyCircuitData {}
 pub(crate) struct CommonCircuitData<F: Field> {
     pub(crate) config: CircuitConfig,
 
-    pub(crate) degree: usize,
+    pub(crate) degree_bits: usize,
 
     /// The types of gates used in this circuit.
     pub(crate) gates: Vec<GateRef<F>>,
+
+    pub(crate) num_gate_constraints: usize,
 
     /// A commitment to each constant polynomial.
     pub(crate) constants_root: Hash<F>,
@@ -86,10 +105,42 @@ pub(crate) struct CommonCircuitData<F: Field> {
 }
 
 impl<F: Field> CommonCircuitData<F> {
-    pub fn constraint_degree(&self, config: CircuitConfig) -> usize {
+    pub fn degree(&self) -> usize {
+        1 << self.degree_bits
+    }
+
+    pub fn lde_size(&self) -> usize {
+        1 << (self.degree_bits + self.config.rate_bits)
+    }
+
+    pub fn lde_generator(&self) -> F {
+        F::primitive_root_of_unity(self.degree_bits + self.config.rate_bits)
+    }
+
+    pub fn constraint_degree(&self) -> usize {
         self.gates.iter()
-            .map(|g| g.0.degree(config))
+            .map(|g| g.0.degree())
             .max()
             .expect("No gates?")
+    }
+
+    pub fn total_constraints(&self) -> usize {
+        // 2 constraints for each Z check.
+        self.config.num_checks * 2 + self.num_gate_constraints
+    }
+
+    pub fn evaluate(&self, vars: EvaluationVars<F>) -> Vec<F> {
+        let mut constraints = vec![F::ZERO; self.num_gate_constraints];
+        for gate in &self.gates {
+            let gate_constraints = gate.0.eval_filtered(vars);
+            for (i, c) in gate_constraints.into_iter().enumerate() {
+                constraints[i] += c;
+            }
+        }
+        constraints
+    }
+
+    pub fn evaluate_recursive(&self, vars: EvaluationTargets) -> Vec<Target> {
+        todo!()
     }
 }

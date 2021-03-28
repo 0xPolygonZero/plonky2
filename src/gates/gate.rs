@@ -1,62 +1,48 @@
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-use crate::circuit_data::CircuitConfig;
-use crate::constraint_polynomial::{ConstraintPolynomial, EvaluationVars};
-use crate::field::field::Field;
-use crate::generator::WitnessGenerator;
 use num::ToPrimitive;
 
+use crate::circuit_builder::CircuitBuilder;
+use crate::constraint_polynomial::{EvaluationTargets, EvaluationVars};
+use crate::field::field::Field;
+use crate::generator::WitnessGenerator;
+use crate::target::Target;
+
 /// A custom gate.
-// TODO: Remove CircuitConfig params? Could just use fields within each struct.
 pub trait Gate<F: Field>: 'static {
     fn id(&self) -> String;
 
-    /// A set of expressions which must evaluate to zero.
-    fn constraints(&self, config: CircuitConfig) -> Vec<ConstraintPolynomial<F>>;
+    fn eval_unfiltered(&self, vars: EvaluationVars<F>) -> Vec<F>;
 
-    // fn eval_constraints(&self, config: CircuitConfig, vars: EvaluationVars<F>) -> Vec<F> {
-    //     self.constraints(config)
-    //         .into_iter()
-    //         .map(|c| c.evaluate(vars))
-    //         .collect()
-    // }
+    fn eval_unfiltered_recursively(
+        &self,
+        builder: &mut CircuitBuilder<F>,
+        vars: EvaluationTargets,
+    ) -> Vec<Target>;
+
+    fn eval_filtered(&self, vars: EvaluationVars<F>) -> Vec<F> {
+        // TODO: Filter
+        self.eval_unfiltered(vars)
+    }
 
     fn generators(
         &self,
-        config: CircuitConfig,
         gate_index: usize,
-        // TODO: Switch to slices?
-        local_constants: Vec<F>,
-        next_constants: Vec<F>,
+        local_constants: &[F],
+        next_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>>;
 
-    /// The number of constants used by this gate.
-    fn num_constants(&self, config: CircuitConfig) -> usize {
-        self.constraints(config)
-            .into_iter()
-            .map(|c| c.max_constant_index().map_or(0, |i| i + 1))
-            .max()
-            .unwrap_or(0)
-    }
+    /// The number of wires used by this gate.
+    fn num_wires(&self) -> usize;
 
-    /// The minimum number of wires required to use this gate.
-    fn min_wires(&self, config: CircuitConfig) -> usize {
-        self.constraints(config)
-            .into_iter()
-            .map(|c| c.max_wire_input_index().map_or(0, |i| i + 1))
-            .max()
-            .unwrap_or(0)
-    }
+    /// The number of constants used by this gate.
+    fn num_constants(&self) -> usize;
 
     /// The maximum degree among this gate's constraint polynomials.
-    fn degree(&self, config: CircuitConfig) -> usize {
-        self.constraints(config)
-            .into_iter()
-            .map(|c| c.degree().to_usize().expect("degree too large"))
-            .max()
-            .unwrap_or(0)
-    }
+    fn degree(&self) -> usize;
+
+    fn num_constraints(&self) -> usize;
 }
 
 /// A wrapper around an `Rc<Gate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.

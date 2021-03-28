@@ -14,11 +14,11 @@ use crate::util::log2_ceil;
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::CircuitConfig;
 use crate::witness::PartialWitness;
-use crate::gates::fri_consistency_gate::FriConsistencyGate;
 use env_logger::Env;
 use crate::gates::gmimc::GMiMCGate;
 use std::sync::Arc;
 use std::convert::TryInto;
+use crate::gates::constant::ConstantGate;
 
 mod circuit_builder;
 mod circuit_data;
@@ -29,6 +29,7 @@ mod gadgets;
 mod gates;
 mod generator;
 mod gmimc;
+mod plonk_common;
 mod proof;
 mod prover;
 mod recursive_verifier;
@@ -69,7 +70,7 @@ fn bench_prove<F: Field>() {
     for i in 0..GMIMC_ROUNDS {
         gmimc_constants[i] = F::from_canonical_u64(GMIMC_CONSTANTS[i]);
     }
-    let gmimc_gate = GMiMCGate::<F, 12, GMIMC_ROUNDS>::with_constants(
+    let gmimc_gate = GMiMCGate::<F, GMIMC_ROUNDS>::with_constants(
         Arc::new(gmimc_constants));
 
     let config = CircuitConfig {
@@ -77,6 +78,7 @@ fn bench_prove<F: Field>() {
         num_routed_wires: 12,
         security_bits: 128,
         rate_bits: 3,
+        num_checks: 3,
     };
 
     let mut builder = CircuitBuilder::<F>::new(config);
@@ -85,11 +87,13 @@ fn bench_prove<F: Field>() {
         builder.add_gate_no_constants(gmimc_gate.clone());
     }
 
-    for _ in 0..(40 * 5) {
-        builder.add_gate(
-            FriConsistencyGate::new(2, 3, 13),
-            vec![F::primitive_root_of_unity(13)]);
-    }
+    builder.add_gate(ConstantGate::get(), vec![F::NEG_ONE]);
+
+    // for _ in 0..(40 * 5) {
+    //     builder.add_gate(
+    //         FriConsistencyGate::new(2, 3, 13),
+    //         vec![F::primitive_root_of_unity(13)]);
+    // }
 
     let prover = builder.build_prover();
     let inputs = PartialWitness::new();

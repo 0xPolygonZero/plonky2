@@ -1,25 +1,24 @@
 use std::iter;
 
-use crate::constraint_polynomial::ConstraintPolynomial;
 use crate::field::field::Field;
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::witness::PartialWitness;
 use crate::wire::Wire;
 
-/// Constraints for a little-endian split.
-pub fn split_le_constraints<F: Field>(
-    integer: ConstraintPolynomial<F>,
-    bits: &[ConstraintPolynomial<F>],
-) -> Vec<ConstraintPolynomial<F>> {
-    let weighted_sum = bits.iter()
-        .fold(ConstraintPolynomial::zero(), |acc, b| acc.double() + b);
-    bits.iter()
-        .rev()
-        .map(|b| b * (b - 1))
-        .chain(iter::once(weighted_sum - integer))
-        .collect()
-}
+// /// Constraints for a little-endian split.
+// pub fn split_le_constraints<F: Field>(
+//     integer: ConstraintPolynomial<F>,
+//     bits: &[ConstraintPolynomial<F>],
+// ) -> Vec<ConstraintPolynomial<F>> {
+//     let weighted_sum = bits.iter()
+//         .fold(ConstraintPolynomial::zero(), |acc, b| acc.double() + b);
+//     bits.iter()
+//         .rev()
+//         .map(|b| b * (b - 1))
+//         .chain(iter::once(weighted_sum - integer))
+//         .collect()
+// }
 
 /// Generator for a little-endian split.
 pub fn split_le_generator<F: Field>(

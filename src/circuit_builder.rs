@@ -6,17 +6,17 @@ use log::info;
 use crate::circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData, VerifierCircuitData, VerifierOnlyCircuitData};
 use crate::field::fft::lde_multiple;
 use crate::field::field::Field;
-use crate::gates::constant::ConstantGate2;
-use crate::gates::gate::{GateInstance, GateRef};
+use crate::gates::constant::ConstantGate;
+use crate::gates::gate::{Gate, GateInstance, GateRef};
+use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::hash::merkle_root_bit_rev_order;
 use crate::target::Target;
+use crate::util::{transpose, log2_strict};
 use crate::wire::Wire;
-use crate::gates::noop::NoopGate;
-use crate::util::transpose;
 
 pub struct CircuitBuilder<F: Field> {
-    config: CircuitConfig,
+    pub(crate) config: CircuitConfig,
 
     /// The types of gates used in this circuit.
     gates: HashSet<GateRef<F>>,
@@ -55,7 +55,7 @@ impl<F: Field> CircuitBuilder<F> {
     }
 
     fn check_gate_compatibility(&self, gate: &GateRef<F>) {
-        assert!(gate.0.min_wires(self.config) <= self.config.num_wires);
+        assert!(gate.0.num_wires() <= self.config.num_wires);
     }
 
     /// Shorthand for `generate_copy` and `assert_equal`.
@@ -103,8 +103,8 @@ impl<F: Field> CircuitBuilder<F> {
 
     /// Returns a routable target with the given constant value.
     pub fn constant(&mut self, c: F) -> Target {
-        let gate = self.add_gate(ConstantGate2::get(), vec![c]);
-        Target::Wire(Wire { gate, input: ConstantGate2::WIRE_OUTPUT })
+        let gate = self.add_gate(ConstantGate::get(), vec![c]);
+        Target::Wire(Wire { gate, input: ConstantGate::WIRE_OUTPUT })
     }
 
     fn blind_and_pad(&mut self) {
@@ -119,10 +119,9 @@ impl<F: Field> CircuitBuilder<F> {
         self.gate_instances.iter()
             .enumerate()
             .flat_map(|(gate_index, gate_inst)| gate_inst.gate_type.0.generators(
-                self.config,
                 gate_index,
-                gate_inst.constants.clone(),
-                vec![])) // TODO: Not supporting next_const for now.
+                &gate_inst.constants,
+                &[])) // TODO: Not supporting next_const for now.
             .collect()
     }
 
@@ -157,20 +156,32 @@ impl<F: Field> CircuitBuilder<F> {
 
         let constant_vecs = self.constant_vecs();
         let constant_ldes = lde_multiple(constant_vecs, self.config.rate_bits);
-        let constants_root = merkle_root_bit_rev_order(constant_ldes);
+        let constant_ldes_t = transpose(&constant_ldes);
+        let constants_root = merkle_root_bit_rev_order(constant_ldes_t.clone());
 
         let sigma_vecs = self.sigma_vecs();
         let sigma_ldes = lde_multiple(sigma_vecs, self.config.rate_bits);
-        let sigmas_root = merkle_root_bit_rev_order(sigma_ldes);
+        let sigmas_root = merkle_root_bit_rev_order(transpose(&sigma_ldes));
 
         let generators = self.get_generators();
-        let prover_only = ProverOnlyCircuitData { generators };
+        let prover_only = ProverOnlyCircuitData { generators, constant_ldes_t };
         let verifier_only = VerifierOnlyCircuitData {};
+
+        // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
+        // sort by ID to make the ordering deterministic.
+        let mut gates = self.gates.iter().cloned().collect::<Vec<_>>();
+        gates.sort_unstable_by_key(|gate| gate.0.id());
+
+        let num_gate_constraints = gates.iter()
+            .map(|gate| gate.0.num_constraints())
+            .max()
+            .expect("No gates?");
 
         let common = CommonCircuitData {
             config: self.config,
-            degree,
-            gates: self.gates.iter().cloned().collect(),
+            degree_bits: log2_strict(degree),
+            gates,
+            num_gate_constraints,
             constants_root,
             sigmas_root,
         };

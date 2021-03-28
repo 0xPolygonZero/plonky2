@@ -5,30 +5,25 @@ use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::witness::PartialWitness;
-use crate::wire::Wire;
 
-/// A gate which takes a single constant parameter and outputs that value.
-pub struct ConstantGate;
+/// Performs some arithmetic involved in the evaluation of GMiMC's constraint polynomials for one
+/// round.
+#[derive(Debug)]
+pub struct GMiMCEvalGate;
 
-impl ConstantGate {
+impl GMiMCEvalGate {
     pub fn get<F: Field>() -> GateRef<F> {
-        GateRef::new(ConstantGate)
+        GateRef::new(GMiMCEvalGate)
     }
-
-    pub const CONST_INPUT: usize = 0;
-
-    pub const WIRE_OUTPUT: usize = 0;
 }
 
-impl<F: Field> Gate<F> for ConstantGate {
+impl<F: Field> Gate<F> for GMiMCEvalGate {
     fn id(&self) -> String {
-        "ConstantGate".into()
+        format!("{:?}", self)
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F>) -> Vec<F> {
-        let input = vars.local_constants[Self::CONST_INPUT];
-        let output = vars.local_wires[Self::WIRE_OUTPUT];
-        vec![output - input]
+        todo!()
     }
 
     fn eval_unfiltered_recursively(
@@ -36,18 +31,16 @@ impl<F: Field> Gate<F> for ConstantGate {
         builder: &mut CircuitBuilder<F>,
         vars: EvaluationTargets,
     ) -> Vec<Target> {
-        let input = vars.local_constants[Self::CONST_INPUT];
-        let output = vars.local_wires[Self::WIRE_OUTPUT];
-        vec![builder.sub(output, input)]
+        unimplemented!()
     }
 
     fn generators(
         &self,
         gate_index: usize,
         local_constants: &[F],
-        next_constants: &[F],
+        _next_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = ConstantGenerator {
+        let gen = GMiMCEvalGenerator::<F> {
             gate_index,
             constant: local_constants[0],
         };
@@ -55,7 +48,7 @@ impl<F: Field> Gate<F> for ConstantGate {
     }
 
     fn num_wires(&self) -> usize {
-        1
+        6
     }
 
     fn num_constants(&self) -> usize {
@@ -63,27 +56,26 @@ impl<F: Field> Gate<F> for ConstantGate {
     }
 
     fn degree(&self) -> usize {
-        1
+        3
     }
 
     fn num_constraints(&self) -> usize {
-        1
+        unimplemented!()
     }
 }
 
 #[derive(Debug)]
-struct ConstantGenerator<F: Field> {
+struct GMiMCEvalGenerator<F: Field> {
     gate_index: usize,
     constant: F,
 }
 
-impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
+impl<F: Field> SimpleGenerator<F> for GMiMCEvalGenerator<F> {
     fn dependencies(&self) -> Vec<Target> {
-        Vec::new()
+        todo!()
     }
 
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let wire = Wire { gate: self.gate_index, input: ConstantGate::WIRE_OUTPUT };
-        PartialWitness::singleton(Target::Wire(wire), self.constant)
+        todo!()
     }
 }
