@@ -1,12 +1,12 @@
+use crate::constraint_polynomial::{EvaluationTargets, EvaluationVars};
 use crate::field::field::Field;
+use crate::gates::gate::GateRef;
 use crate::generator::WitnessGenerator;
-use crate::proof::{Hash, Proof2};
+use crate::proof::{Hash, Proof};
 use crate::prover::prove;
+use crate::target::Target;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
-use crate::gates::gate::{GateRef};
-use crate::constraint_polynomial::{EvaluationVars, EvaluationTargets};
-use crate::target::Target;
 
 #[derive(Copy, Clone)]
 pub struct CircuitConfig {
@@ -44,7 +44,7 @@ pub struct CircuitData<F: Field> {
 }
 
 impl<F: Field> CircuitData<F> {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof2<F> {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F> {
         prove(&self.prover_only, &self.common, inputs)
     }
 
@@ -60,7 +60,7 @@ pub struct ProverCircuitData<F: Field> {
 }
 
 impl<F: Field> ProverCircuitData<F> {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof2<F> {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F> {
         prove(&self.prover_only, &self.common, inputs)
     }
 }

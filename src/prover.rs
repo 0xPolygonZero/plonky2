@@ -11,7 +11,7 @@ use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
 use crate::hash::{compress, hash_n_to_hash, hash_n_to_m, hash_or_noop, merkle_root_bit_rev_order};
 use crate::plonk_common::reduce_with_powers;
-use crate::proof::{Hash, Proof2};
+use crate::proof::{Hash, Proof};
 use crate::util::{log2_ceil, reverse_index_bits, transpose};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
@@ -20,7 +20,7 @@ pub(crate) fn prove<F: Field>(
     prover_data: &ProverOnlyCircuitData<F>,
     common_data: &CommonCircuitData<F>,
     inputs: PartialWitness<F>,
-) -> Proof2<F> {
+) -> Proof<F> {
     let mut witness = inputs;
     let start_witness = Instant::now();
     info!("Running {} generators", prover_data.generators.len());
@@ -31,16 +31,21 @@ pub(crate) fn prove<F: Field>(
     let num_wires = config.num_wires;
 
     let start_wire_ldes = Instant::now();
-    // TODO: Simplify using lde_multiple.
-    // TODO: Parallelize.
+    let degree = common_data.degree();
     let wire_ldes = (0..num_wires)
-        .map(|i| compute_wire_lde(i, &witness, common_data.degree(), config.rate_bits))
+        .into_par_iter()
+        .map(|i| compute_wire_lde(i, &witness, degree, config.rate_bits))
         .collect::<Vec<_>>();
     info!("Computing wire LDEs took {}s", start_wire_ldes.elapsed().as_secs_f32());
 
-    let start_wires_root = Instant::now();
+    // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
+    // merkle_root_bit_rev_order do it implicitly.
+    let start_wire_transpose = Instant::now();
     let wire_ldes_t = transpose(&wire_ldes);
+    info!("Transposing wire LDEs took {}s", start_wire_transpose.elapsed().as_secs_f32());
+
     // TODO: Could avoid cloning if it's significant?
+    let start_wires_root = Instant::now();
     let wires_root = merkle_root_bit_rev_order(wire_ldes_t.clone());
     info!("Merklizing wire LDEs took {}s", start_wires_root.elapsed().as_secs_f32());
 
@@ -64,7 +69,7 @@ pub(crate) fn prove<F: Field>(
 
     let openings = todo!();
 
-    Proof2 {
+    Proof {
         wires_root,
         plonk_z_root,
         plonk_t_root,

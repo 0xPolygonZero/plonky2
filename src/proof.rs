@@ -21,7 +21,7 @@ pub struct HashTarget {
     elements: Vec<Target>,
 }
 
-pub struct Proof2<F: Field> {
+pub struct Proof<F: Field> {
     /// Merkle root of LDEs of wire values.
     pub wires_root: Hash<F>,
     /// Merkle root of LDEs of Z, in the context of Plonk's permutation argument.
@@ -35,7 +35,7 @@ pub struct Proof2<F: Field> {
     // TODO: FRI Merkle proofs.
 }
 
-pub struct ProofTarget2 {
+pub struct ProofTarget {
     /// Merkle root of LDEs of wire values.
     pub wires_root: HashTarget,
     /// Merkle root of LDEs of Z, in the context of Plonk's permutation argument.

@@ -75,6 +75,7 @@ impl<F: Field> CircuitBuilder<F> {
     pub fn assert_equal(&mut self, x: Target, y: Target) {
         assert!(x.is_routable(self.config));
         assert!(y.is_routable(self.config));
+        // TODO: Add to copy_constraints.
     }
 
     pub fn add_generator<G: WitnessGenerator<F>>(&mut self, generator: G) {
