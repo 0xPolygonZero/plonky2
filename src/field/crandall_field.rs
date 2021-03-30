@@ -48,6 +48,8 @@ impl Field for CrandallField {
     const TWO: Self = Self(2);
     const NEG_ONE: Self = Self(P - 1);
 
+    const MULTIPLICATIVE_SUBGROUP_GENERATOR: Self = Self(5); // TODO: Double check.
+
     #[inline(always)]
     fn sq(&self) -> Self {
         *self * *self

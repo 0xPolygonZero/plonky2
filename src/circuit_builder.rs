@@ -4,15 +4,15 @@ use std::time::Instant;
 use log::info;
 
 use crate::circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData, VerifierCircuitData, VerifierOnlyCircuitData};
-use crate::field::fft::lde_multiple;
 use crate::field::field::Field;
 use crate::gates::constant::ConstantGate;
-use crate::gates::gate::{Gate, GateInstance, GateRef};
+use crate::gates::gate::{GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::hash::merkle_root_bit_rev_order;
+use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
-use crate::util::{transpose, log2_strict};
+use crate::util::{log2_strict, transpose, transpose_poly_values};
 use crate::wire::Wire;
 
 pub struct CircuitBuilder<F: Field> {
@@ -126,7 +126,7 @@ impl<F: Field> CircuitBuilder<F> {
             .collect()
     }
 
-    fn constant_vecs(&self) -> Vec<Vec<F>> {
+    fn constant_polys(&self) -> Vec<PolynomialValues<F>> {
         let num_constants = self.gate_instances.iter()
             .map(|gate_inst| gate_inst.constants.len())
             .max()
@@ -140,11 +140,15 @@ impl<F: Field> CircuitBuilder<F> {
                 padded_constants
             })
             .collect::<Vec<_>>();
+
         transpose(&constants_per_gate)
+            .into_iter()
+            .map(PolynomialValues::new)
+            .collect()
     }
 
-    fn sigma_vecs(&self) -> Vec<Vec<F>> {
-        vec![vec![F::ZERO]] // TODO
+    fn sigma_vecs(&self) -> Vec<PolynomialValues<F>> {
+        vec![PolynomialValues::zero(self.gate_instances.len())] // TODO
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
@@ -155,14 +159,14 @@ impl<F: Field> CircuitBuilder<F> {
         let degree = self.gate_instances.len();
         info!("degree after blinding & padding: {}", degree);
 
-        let constant_vecs = self.constant_vecs();
-        let constant_ldes = lde_multiple(constant_vecs, self.config.rate_bits);
-        let constant_ldes_t = transpose(&constant_ldes);
+        let constant_vecs = self.constant_polys();
+        let constant_ldes = PolynomialValues::lde_multiple(constant_vecs, self.config.rate_bits);
+        let constant_ldes_t = transpose_poly_values(constant_ldes);
         let constants_root = merkle_root_bit_rev_order(constant_ldes_t.clone());
 
         let sigma_vecs = self.sigma_vecs();
-        let sigma_ldes = lde_multiple(sigma_vecs, self.config.rate_bits);
-        let sigmas_root = merkle_root_bit_rev_order(transpose(&sigma_ldes));
+        let sigma_ldes = PolynomialValues::lde_multiple(sigma_vecs, self.config.rate_bits);
+        let sigmas_root = merkle_root_bit_rev_order(transpose_poly_values(sigma_ldes));
 
         let generators = self.get_generators();
         let prover_only = ProverOnlyCircuitData { generators, constant_ldes_t };

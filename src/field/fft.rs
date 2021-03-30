@@ -1,5 +1,6 @@
 use crate::field::field::Field;
 use crate::util::{log2_ceil, log2_strict};
+use crate::polynomial::polynomial::{PolynomialValues, PolynomialCoeffs};
 
 /// Permutes `arr` such that each index is mapped to its reverse in binary.
 fn reverse_index_bits<T: Copy>(arr: Vec<T>) -> Vec<T> {
@@ -22,7 +23,7 @@ fn reverse_bits(n: usize, num_bits: usize) -> usize {
     result
 }
 
-pub struct FftPrecomputation<F: Field> {
+pub(crate) struct FftPrecomputation<F: Field> {
     /// For each layer index i, stores the cyclic subgroup corresponding to the evaluation domain of
     /// layer i. The indices within these subgroup vectors are bit-reversed.
     subgroups_rev: Vec<Vec<F>>,
@@ -34,12 +35,12 @@ impl<F: Field> FftPrecomputation<F> {
     }
 }
 
-pub fn fft<F: Field>(coefficients: Vec<F>) -> Vec<F> {
-    let precomputation = fft_precompute(coefficients.len());
-    fft_with_precomputation_power_of_2(coefficients, &precomputation)
+pub(crate) fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
+    let precomputation = fft_precompute(poly.len());
+    fft_with_precomputation_power_of_2(poly, &precomputation)
 }
 
-pub fn fft_precompute<F: Field>(degree: usize) -> FftPrecomputation<F> {
+pub(crate) fn fft_precompute<F: Field>(degree: usize) -> FftPrecomputation<F> {
     let degree_pow = log2_ceil(degree);
 
     let mut subgroups_rev = Vec::new();
@@ -53,13 +54,17 @@ pub fn fft_precompute<F: Field>(degree: usize) -> FftPrecomputation<F> {
     FftPrecomputation { subgroups_rev }
 }
 
-pub fn ifft_with_precomputation_power_of_2<F: Field>(
-    points: Vec<F>,
+pub(crate) fn ifft_with_precomputation_power_of_2<F: Field>(
+    poly: PolynomialValues<F>,
     precomputation: &FftPrecomputation<F>,
-) -> Vec<F> {
-    let n = points.len();
+) -> PolynomialCoeffs<F> {
+    let n = poly.len();
     let n_inv = F::from_canonical_usize(n).try_inverse().unwrap();
-    let mut result = fft_with_precomputation_power_of_2(points, precomputation);
+
+    let PolynomialValues { values } = poly;
+    let PolynomialValues { values: mut result } = fft_with_precomputation_power_of_2(
+        PolynomialCoeffs { coeffs: values },
+        precomputation);
 
     // We reverse all values except the first, and divide each by n.
     result[0] = result[0] * n_inv;
@@ -71,26 +76,26 @@ pub fn ifft_with_precomputation_power_of_2<F: Field>(
         result[i] = result_i;
         result[j] = result_j;
     }
-    result
+    PolynomialCoeffs { coeffs: result }
 }
 
-pub fn fft_with_precomputation_power_of_2<F: Field>(
-    coefficients: Vec<F>,
+pub(crate) fn fft_with_precomputation_power_of_2<F: Field>(
+    poly: PolynomialCoeffs<F>,
     precomputation: &FftPrecomputation<F>,
-) -> Vec<F> {
+) -> PolynomialValues<F> {
     debug_assert_eq!(
-        coefficients.len(),
+        poly.len(),
         precomputation.subgroups_rev.last().unwrap().len(),
         "Number of coefficients does not match size of subgroup in precomputation"
     );
 
-    let degree = coefficients.len();
-    let half_degree = coefficients.len() >> 1;
-    let degree_pow = log2_strict(degree);
+    let half_degree = poly.len() >> 1;
+    let degree_pow = poly.log_len();
 
     // In the base layer, we're just evaluating "degree 0 polynomials", i.e. the coefficients
     // themselves.
-    let mut evaluations = reverse_index_bits(coefficients);
+    let PolynomialCoeffs { coeffs } = poly;
+    let mut evaluations = reverse_index_bits(coeffs);
 
     for i in 1..=degree_pow {
         // In layer i, we're evaluating a series of polynomials, each at 2^i points. In practice
@@ -118,47 +123,34 @@ pub fn fft_with_precomputation_power_of_2<F: Field>(
     }
 
     // Reorder so that evaluations' indices correspond to (g_0, g_1, g_2, ...)
-    reverse_index_bits(evaluations)
+    let values = reverse_index_bits(evaluations);
+    PolynomialValues { values }
 }
 
-pub fn coset_fft<F: Field>(coefficients: Vec<F>, shift: F) -> Vec<F> {
-    let mut points = fft(coefficients);
+pub(crate) fn coset_fft<F: Field>(poly: PolynomialCoeffs<F>, shift: F) -> PolynomialValues<F> {
+    let mut points = fft(poly);
     let mut shift_exp_i = F::ONE;
-    for p in points.iter_mut() {
+    for p in points.values.iter_mut() {
         *p *= shift_exp_i;
         shift_exp_i *= shift;
     }
     points
 }
 
-pub fn ifft<F: Field>(points: Vec<F>) -> Vec<F> {
-    let precomputation = fft_precompute(points.len());
-    ifft_with_precomputation_power_of_2(points, &precomputation)
+pub(crate) fn ifft<F: Field>(poly: PolynomialValues<F>) -> PolynomialCoeffs<F> {
+    let precomputation = fft_precompute(poly.len());
+    ifft_with_precomputation_power_of_2(poly, &precomputation)
 }
 
-pub fn coset_ifft<F: Field>(points: Vec<F>, shift: F) -> Vec<F> {
+pub(crate) fn coset_ifft<F: Field>(poly: PolynomialValues<F>, shift: F) -> PolynomialCoeffs<F> {
     let shift_inv = shift.inverse();
     let mut shift_inv_exp_i = F::ONE;
-    let mut coeffs = ifft(points);
-    for c in coeffs.iter_mut() {
+    let mut coeffs = ifft(poly);
+    for c in coeffs.coeffs.iter_mut() {
         *c *= shift_inv_exp_i;
         shift_inv_exp_i *= shift_inv;
     }
     coeffs
-}
-
-pub fn lde_multiple<F: Field>(points: Vec<Vec<F>>, rate_bits: usize) -> Vec<Vec<F>> {
-    points.into_iter().map(|p| lde(p, rate_bits)).collect()
-}
-
-pub fn lde<F: Field>(points: Vec<F>, rate_bits: usize) -> Vec<F> {
-    let original_size = points.len();
-    let lde_size = original_size << rate_bits;
-    let mut coeffs = ifft(points);
-    for _ in 0..(lde_size - original_size) {
-        coeffs.push(F::ZERO);
-    }
-    fft(coeffs)
 }
 
 // #[cfg(test)]

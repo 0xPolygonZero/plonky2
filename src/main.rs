@@ -7,18 +7,16 @@ use rayon::prelude::*;
 
 use field::crandall_field::CrandallField;
 use field::fft;
-use field::fft::fft_precompute;
 
 use crate::field::field::Field;
-use crate::util::log2_ceil;
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::CircuitConfig;
 use crate::witness::PartialWitness;
 use env_logger::Env;
 use crate::gates::gmimc::GMiMCGate;
 use std::sync::Arc;
-use std::convert::TryInto;
 use crate::gates::constant::ConstantGate;
+use crate::polynomial::polynomial::PolynomialCoeffs;
 
 mod circuit_builder;
 mod circuit_data;
@@ -29,7 +27,9 @@ mod gadgets;
 mod gates;
 mod generator;
 mod gmimc;
+mod hash;
 mod plonk_common;
+mod polynomial;
 mod proof;
 mod prover;
 mod recursive_verifier;
@@ -39,7 +39,6 @@ mod util;
 mod verifier;
 mod wire;
 mod witness;
-mod hash;
 
 // 112 wire polys, 3 Z polys, 4 parts of quotient poly.
 const PROVER_POLYS: usize = 113 + 3 + 4;
@@ -146,10 +145,10 @@ fn bench_fft() {
         }
 
         let start = Instant::now();
-        let result = fft::fft(coeffs);
+        let result = fft::fft(PolynomialCoeffs { coeffs });
         let duration = start.elapsed();
         println!("FFT took {:?}", duration);
-        println!("FFT result: {:?}", result[0]);
+        println!("FFT result: {:?}", result.values[0]);
     });
     println!("FFT overall took {:?}", start.elapsed());
 }

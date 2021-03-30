@@ -1,3 +1,6 @@
+use crate::polynomial::polynomial::PolynomialValues;
+use crate::field::field::Field;
+
 pub(crate) fn ceil_div_usize(a: usize, b: usize) -> usize {
     (a + b - 1) / b
 }
@@ -15,6 +18,13 @@ pub(crate) fn log2_ceil(n: usize) -> usize {
 pub(crate) fn log2_strict(n: usize) -> usize {
     assert!(n.is_power_of_two(), "Not a power of two");
     log2_ceil(n)
+}
+
+pub(crate) fn transpose_poly_values<F: Field>(polys: Vec<PolynomialValues<F>>) -> Vec<Vec<F>> {
+    let poly_values = polys.into_iter()
+        .map(|p| p.values)
+        .collect::<Vec<_>>();
+    transpose(&poly_values)
 }
 
 pub(crate) fn transpose<T: Clone>(matrix: &[Vec<T>]) -> Vec<Vec<T>> {

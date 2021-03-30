@@ -8,7 +8,7 @@ use rayon::prelude::*;
 use crate::field::field::Field;
 use crate::gmimc::{gmimc_compress, gmimc_permute_array};
 use crate::proof::Hash;
-use crate::util::{reverse_index_bits, transpose, reverse_index_bits_in_place};
+use crate::util::{reverse_index_bits, reverse_index_bits_in_place, transpose};
 
 const RATE: usize = 8;
 const CAPACITY: usize = 4;
