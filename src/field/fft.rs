@@ -122,10 +122,13 @@ pub fn fft_with_precomputation_power_of_2<F: Field>(
 }
 
 pub fn coset_fft<F: Field>(coefficients: Vec<F>, shift: F) -> Vec<F> {
-    fft(coefficients)
-        .into_iter()
-        .map(|x| x * shift)
-        .collect()
+    let mut points = fft(coefficients);
+    let mut shift_exp_i = F::ONE;
+    for p in points.iter_mut() {
+        *p *= shift_exp_i;
+        shift_exp_i *= shift;
+    }
+    points
 }
 
 pub fn ifft<F: Field>(points: Vec<F>) -> Vec<F> {
@@ -135,10 +138,13 @@ pub fn ifft<F: Field>(points: Vec<F>) -> Vec<F> {
 
 pub fn coset_ifft<F: Field>(points: Vec<F>, shift: F) -> Vec<F> {
     let shift_inv = shift.inverse();
-    ifft(points)
-        .into_iter()
-        .map(|x| x * shift_inv)
-        .collect()
+    let mut shift_inv_exp_i = F::ONE;
+    let mut coeffs = ifft(points);
+    for c in coeffs.iter_mut() {
+        *c *= shift_inv_exp_i;
+        shift_inv_exp_i *= shift_inv;
+    }
+    coeffs
 }
 
 pub fn lde_multiple<F: Field>(points: Vec<Vec<F>>, rate_bits: usize) -> Vec<Vec<F>> {

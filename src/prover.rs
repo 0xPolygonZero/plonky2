@@ -61,6 +61,10 @@ pub(crate) fn prove<F: Field>(
         common_data, prover_data, wire_ldes_t, plonk_z_ldes_t, alpha);
     info!("Computing vanishing poly took {}s", start_vanishing_poly.elapsed().as_secs_f32());
 
+    let div_z_h_start = Instant::now();
+    // TODO
+    info!("Division by Z_H took {}s", div_z_h_start.elapsed().as_secs_f32());
+
     let plonk_t: Vec<F> = todo!(); // vanishing_poly / Z_H
     // Need to convert to coeff form and back?
     let plonk_t_parts = todo!();
