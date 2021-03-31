@@ -1,22 +1,20 @@
-#![feature(const_generics)]
-
+use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
 
+use env_logger::Env;
 use rayon::prelude::*;
 
 use field::crandall_field::CrandallField;
 use field::fft;
 
-use crate::field::field::Field;
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::CircuitConfig;
-use crate::witness::PartialWitness;
-use env_logger::Env;
-use crate::gates::gmimc::GMiMCGate;
-use std::sync::Arc;
+use crate::field::field::Field;
 use crate::gates::constant::ConstantGate;
+use crate::gates::gmimc::GMiMCGate;
 use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::witness::PartialWitness;
 
 mod circuit_builder;
 mod circuit_data;
