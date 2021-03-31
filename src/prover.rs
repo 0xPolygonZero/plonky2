@@ -9,7 +9,7 @@ use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
 use crate::hash::merkle_root_bit_rev_order;
-use crate::plonk_common::reduce_with_powers;
+use crate::plonk_common::{reduce_with_powers, eval_l_1};
 use crate::polynomial::division::divide_by_z_h;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
@@ -56,11 +56,13 @@ pub(crate) fn prove<F: Field>(
     let plonk_z_ldes_t = transpose_poly_values(plonk_z_ldes);
     let plonk_z_root = merkle_root_bit_rev_order(plonk_z_ldes_t.clone());
 
+    let beta = F::ZERO; // TODO
+    let gamma = F::ZERO; // TODO
     let alpha = F::ZERO; // TODO
 
     let start_vanishing_poly = Instant::now();
     let vanishing_poly = compute_vanishing_poly(
-        common_data, prover_data, wire_ldes_t, plonk_z_ldes_t, alpha);
+        common_data, prover_data, wire_ldes_t, plonk_z_ldes_t, beta, gamma, alpha);
     info!("Computing vanishing poly took {}s", start_vanishing_poly.elapsed().as_secs_f32());
 
     let quotient_poly_start = Instant::now();
@@ -102,6 +104,8 @@ fn compute_vanishing_poly<F: Field>(
     prover_data: &ProverOnlyCircuitData<F>,
     wire_ldes_t: Vec<Vec<F>>,
     plonk_z_lde_t: Vec<Vec<F>>,
+    beta: F,
+    gamma: F,
     alpha: F,
 ) -> PolynomialValues<F> {
     let lde_size = common_data.lde_size();
@@ -119,6 +123,7 @@ fn compute_vanishing_poly<F: Field>(
         let next_constants = &prover_data.constant_ldes_t[i_next];
         let local_plonk_zs = &plonk_z_lde_t[i];
         let next_plonk_zs = &plonk_z_lde_t[i_next];
+        let s_sigmas = &prover_data.sigma_ldes_t[i];
 
         debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
         debug_assert_eq!(local_plonk_zs.len(), common_data.config.num_checks);
@@ -130,7 +135,7 @@ fn compute_vanishing_poly<F: Field>(
             next_wires,
         };
         result.push(compute_vanishing_poly_entry(
-            common_data, vars, local_plonk_zs, next_plonk_zs, alpha));
+            common_data, point, vars, local_plonk_zs, next_plonk_zs, s_sigmas, beta, gamma, alpha));
 
         point *= lde_gen;
     }
@@ -138,17 +143,52 @@ fn compute_vanishing_poly<F: Field>(
     PolynomialValues::new(result)
 }
 
+/// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
+/// linear combination of gate constraints, plus some other terms relating to the permutation
+/// argument. All such terms should vanish on `H`.
 fn compute_vanishing_poly_entry<F: Field>(
     common_data: &CommonCircuitData<F>,
+    x: F,
     vars: EvaluationVars<F>,
     local_plonk_zs: &[F],
     next_plonk_zs: &[F],
+    s_sigmas: &[F],
+    beta: F,
+    gamma: F,
     alpha: F,
 ) -> F {
-    let mut constraints = Vec::with_capacity(common_data.total_constraints());
-    // TODO: Add Z constraints.
-    constraints.extend(common_data.evaluate(vars));
-    reduce_with_powers(constraints, alpha)
+    let constraint_terms = common_data.evaluate(vars);
+
+    // The L_1(x) (Z(x) - 1) vanishing terms.
+    let mut vanishing_z_1_terms = Vec::new();
+    // The Z(x) f'(x) - g'(x) Z(g x) terms.
+    let mut vanishing_v_shift_terms = Vec::new();
+
+    for i in 0..common_data.config.num_checks {
+        let z_x = local_plonk_zs[i];
+        let z_gz = next_plonk_zs[i];
+        vanishing_z_1_terms.push(eval_l_1(common_data.degree(), x) * (z_x - F::ONE));
+
+        let mut f_prime = F::ONE;
+        let mut g_prime = F::ONE;
+        for j in 0..common_data.config.num_routed_wires {
+            let wire_value = vars.local_wires[j];
+            let k_i = common_data.k_is[j];
+            let s_id = k_i * x;
+            let s_sigma = s_sigmas[j];
+            f_prime *= wire_value + beta * s_id + gamma;
+            g_prime *= wire_value + beta * s_sigma + gamma;
+        }
+        vanishing_v_shift_terms.push(f_prime * z_x - g_prime * z_gz);
+    }
+
+    let vanishing_terms = [
+        vanishing_z_1_terms,
+        vanishing_v_shift_terms,
+        constraint_terms,
+    ].concat();
+
+    reduce_with_powers(vanishing_terms, alpha)
 }
 
 fn compute_wire_lde<F: Field>(

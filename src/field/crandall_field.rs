@@ -6,11 +6,6 @@ use num::Integer;
 
 use crate::field::field::Field;
 
-/// P = 2**64 - EPSILON
-///   = 2**64 - 9 * 2**28 + 1
-///   = 2**28 * (2**36 - 9) + 1
-const P: u64 = 18446744071293632513;
-
 /// EPSILON = 9 * 2**28 - 1
 const EPSILON: u64 = 2415919103;
 
@@ -19,6 +14,13 @@ const TWO_ADICITY: usize = 28;
 const POWER_OF_TWO_GENERATOR: CrandallField = CrandallField(10281950781551402419);
 
 /// A field designed for use with the Crandall reduction algorithm.
+///
+/// Its order is
+/// ```
+/// P = 2**64 - EPSILON
+///   = 2**64 - 9 * 2**28 + 1
+///   = 2**28 * (2**36 - 9) + 1
+/// ```
 // TODO: [Partial]Eq should compare canonical representations.
 #[derive(Copy, Clone)]
 pub struct CrandallField(pub u64);
@@ -47,8 +49,9 @@ impl Field for CrandallField {
     const ZERO: Self = Self(0);
     const ONE: Self = Self(1);
     const TWO: Self = Self(2);
-    const NEG_ONE: Self = Self(P - 1);
+    const NEG_ONE: Self = Self(Self::ORDER - 1);
 
+    const ORDER: u64 = 18446744071293632513;
     const MULTIPLICATIVE_SUBGROUP_GENERATOR: Self = Self(5); // TODO: Double check.
 
     #[inline(always)]
@@ -70,7 +73,7 @@ impl Field for CrandallField {
         // Applications to Cryptography".
 
         let mut u = self.0;
-        let mut v = P;
+        let mut v = Self::ORDER;
         let mut b = 1;
         let mut c = 0;
 
@@ -78,7 +81,7 @@ impl Field for CrandallField {
             while u.is_even() {
                 u >>= 1;
                 if b.is_odd() {
-                    b += P;
+                    b += Self::ORDER;
                 }
                 b >>= 1;
             }
@@ -86,7 +89,7 @@ impl Field for CrandallField {
             while v.is_even() {
                 v >>= 1;
                 if c.is_odd() {
-                    c += P;
+                    c += Self::ORDER;
                 }
                 c >>= 1;
             }
@@ -94,13 +97,13 @@ impl Field for CrandallField {
             if u < v {
                 v -= u;
                 if c < b {
-                    c += P;
+                    c += Self::ORDER;
                 }
                 c -= b;
             } else {
                 u -= v;
                 if b < c {
-                    b += P;
+                    b += Self::ORDER;
                 }
                 b -= c;
             }
@@ -145,8 +148,8 @@ impl Neg for CrandallField {
 
     #[inline]
     fn neg(self) -> Self {
-        let (diff, under) = P.overflowing_sub(self.0);
-        Self(diff.overflowing_add((under as u64) * P).0)
+        let (diff, under) = Self::ORDER.overflowing_sub(self.0);
+        Self(diff.overflowing_add((under as u64) * Self::ORDER).0)
     }
 }
 
@@ -156,7 +159,7 @@ impl Add for CrandallField {
     #[inline]
     fn add(self, rhs: Self) -> Self {
         let (sum, over) = self.0.overflowing_add(rhs.0);
-        Self(sum.overflowing_sub((over as u64) * P).0)
+        Self(sum.overflowing_sub((over as u64) * Self::ORDER).0)
     }
 }
 
@@ -172,7 +175,7 @@ impl Sub for CrandallField {
     #[inline]
     fn sub(self, rhs: Self) -> Self {
         let (diff, under) = self.0.overflowing_sub(rhs.0);
-        Self(diff.overflowing_add((under as u64) * P).0)
+        Self(diff.overflowing_add((under as u64) * Self::ORDER).0)
     }
 }
 

@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Display};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use rand::Rng;
 
 /// A finite field with prime order less than 2^64.
 pub trait Field: 'static
@@ -23,11 +24,24 @@ pub trait Field: 'static
     const TWO: Self;
     const NEG_ONE: Self;
 
+    const ORDER: u64;
     const MULTIPLICATIVE_SUBGROUP_GENERATOR: Self;
 
-    fn sq(&self) -> Self;
+    fn is_zero(&self) -> bool {
+        *self == Self::ZERO
+    }
 
-    fn cube(&self) -> Self;
+    fn is_one(&self) -> bool {
+        *self == Self::ONE
+    }
+
+    fn sq(&self) -> Self {
+        *self * *self
+    }
+
+    fn cube(&self) -> Self {
+        *self * *self * *self
+    }
 
     /// Compute the multiplicative inverse of this field element.
     fn try_inverse(&self) -> Option<Self>;
@@ -96,5 +110,9 @@ pub trait Field: 'static
 
     fn exp_usize(&self, power: usize) -> Self {
         self.exp(Self::from_canonical_usize(power))
+    }
+
+    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+        Self::from_canonical_u64(rng.gen_range(0, Self::ORDER))
     }
 }

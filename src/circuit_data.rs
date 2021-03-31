@@ -81,6 +81,8 @@ impl<F: Field> VerifierCircuitData<F> {
 pub(crate) struct ProverOnlyCircuitData<F: Field> {
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
     pub constant_ldes_t: Vec<Vec<F>>,
+    /// Transpose of LDEs of sigma polynomials (in the context of Plonk's permutation argument).
+    pub sigma_ldes_t: Vec<Vec<F>>,
 }
 
 /// Circuit data required by the verifier, but not the prover.
@@ -102,6 +104,9 @@ pub(crate) struct CommonCircuitData<F: Field> {
 
     /// A commitment to each permutation polynomial.
     pub(crate) sigmas_root: Hash<F>,
+
+    /// {k_i}. See `get_subgroup_shift`.
+    pub(crate) k_is: Vec<F>,
 }
 
 impl<F: Field> CommonCircuitData<F> {

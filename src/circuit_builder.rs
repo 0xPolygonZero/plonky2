@@ -14,6 +14,7 @@ use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
 use crate::util::{log2_strict, transpose, transpose_poly_values};
 use crate::wire::Wire;
+use crate::partition::get_subgroup_shift;
 
 pub struct CircuitBuilder<F: Field> {
     pub(crate) config: CircuitConfig,
@@ -148,7 +149,7 @@ impl<F: Field> CircuitBuilder<F> {
     }
 
     fn sigma_vecs(&self) -> Vec<PolynomialValues<F>> {
-        vec![PolynomialValues::zero(self.gate_instances.len())] // TODO
+        vec![PolynomialValues::zero(self.gate_instances.len()); self.config.num_routed_wires] // TODO
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
@@ -166,10 +167,11 @@ impl<F: Field> CircuitBuilder<F> {
 
         let sigma_vecs = self.sigma_vecs();
         let sigma_ldes = PolynomialValues::lde_multiple(sigma_vecs, self.config.rate_bits);
-        let sigmas_root = merkle_root_bit_rev_order(transpose_poly_values(sigma_ldes));
+        let sigma_ldes_t = transpose_poly_values(sigma_ldes);
+        let sigmas_root = merkle_root_bit_rev_order(sigma_ldes_t.clone());
 
         let generators = self.get_generators();
-        let prover_only = ProverOnlyCircuitData { generators, constant_ldes_t };
+        let prover_only = ProverOnlyCircuitData { generators, constant_ldes_t, sigma_ldes_t };
         let verifier_only = VerifierOnlyCircuitData {};
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
@@ -182,6 +184,10 @@ impl<F: Field> CircuitBuilder<F> {
             .max()
             .expect("No gates?");
 
+        let k_is = (0..self.config.num_routed_wires)
+            .map(get_subgroup_shift)
+            .collect();
+
         let common = CommonCircuitData {
             config: self.config,
             degree_bits: log2_strict(degree),
@@ -189,6 +195,7 @@ impl<F: Field> CircuitBuilder<F> {
             num_gate_constraints,
             constants_root,
             sigmas_root,
+            k_is,
         };
 
         info!("Building circuit took {}s", start.elapsed().as_secs_f32());
