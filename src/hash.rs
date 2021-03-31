@@ -2,13 +2,12 @@
 
 use std::convert::TryInto;
 
-use num::traits::real::Real;
 use rayon::prelude::*;
 
 use crate::field::field::Field;
-use crate::gmimc::{gmimc_compress, gmimc_permute_array};
+use crate::gmimc::gmimc_permute_array;
 use crate::proof::Hash;
-use crate::util::{reverse_index_bits, reverse_index_bits_in_place, transpose};
+use crate::util::reverse_index_bits_in_place;
 
 const RATE: usize = 8;
 const CAPACITY: usize = 4;

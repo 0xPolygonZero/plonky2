@@ -8,14 +8,14 @@ use crate::constraint_polynomial::EvaluationVars;
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
-use crate::hash::{merkle_root_bit_rev_order};
+use crate::hash::merkle_root_bit_rev_order;
 use crate::plonk_common::reduce_with_powers;
-use crate::proof::{Proof};
-use crate::util::{transpose, transpose_poly_values};
+use crate::polynomial::division::divide_by_z_h;
+use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::proof::Proof;
+use crate::util::transpose_poly_values;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
-use crate::polynomial::division::divide_by_z_h;
-use crate::polynomial::polynomial::{PolynomialValues, PolynomialCoeffs};
 
 pub(crate) fn prove<F: Field>(
     prover_data: &ProverOnlyCircuitData<F>,

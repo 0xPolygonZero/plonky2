@@ -1,5 +1,5 @@
-use crate::polynomial::polynomial::PolynomialValues;
 use crate::field::field::Field;
+use crate::polynomial::polynomial::PolynomialValues;
 
 pub(crate) fn ceil_div_usize(a: usize, b: usize) -> usize {
     (a + b - 1) / b

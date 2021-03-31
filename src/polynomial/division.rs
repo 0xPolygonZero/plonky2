@@ -1,7 +1,7 @@
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
-use crate::util::{log2_ceil, log2_strict};
 use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::util::log2_strict;
 
 /// Takes a polynomial `a` in coefficient form, and divides it by `Z_H = X^n - 1`.
 ///

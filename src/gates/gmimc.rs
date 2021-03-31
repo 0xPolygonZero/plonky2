@@ -1,17 +1,13 @@
 use std::sync::Arc;
 
-use num::{BigUint, One};
-
 use crate::circuit_builder::CircuitBuilder;
-use crate::circuit_data::CircuitConfig;
 use crate::constraint_polynomial::{EvaluationTargets, EvaluationVars};
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
-use crate::witness::PartialWitness;
 use crate::wire::Wire;
-use crate::gates::noop::NoopGate;
+use crate::witness::PartialWitness;
 
 /// The width of the permutation, in field elements.
 const W: usize = 12;

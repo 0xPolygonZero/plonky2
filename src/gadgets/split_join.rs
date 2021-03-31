@@ -1,10 +1,8 @@
-use std::iter;
-
 use crate::field::field::Field;
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
-use crate::witness::PartialWitness;
 use crate::wire::Wire;
+use crate::witness::PartialWitness;
 
 // /// Constraints for a little-endian split.
 // pub fn split_le_constraints<F: Field>(

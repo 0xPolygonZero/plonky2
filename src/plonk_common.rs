@@ -1,6 +1,6 @@
+use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::target::Target;
-use crate::circuit_builder::CircuitBuilder;
 
 pub(crate) fn reduce_with_powers<F: Field>(terms: Vec<F>, alpha: F) -> F {
     let mut sum = F::ZERO;

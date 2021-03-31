@@ -80,10 +80,11 @@ pub fn gmimc_permute_naive<F: Field, const W: usize, const R: usize>(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use crate::field::crandall_field::CrandallField;
     use crate::field::field::Field;
     use crate::gmimc::{gmimc_permute, gmimc_permute_naive};
-    use std::sync::Arc;
 
     #[test]
     fn consistency() {

@@ -1,17 +1,5 @@
-use std::{fmt, ptr};
-use std::borrow::Borrow;
-use std::collections::{HashMap, HashSet};
-use std::fmt::{Debug, Display, Formatter};
-use std::hash::{Hash, Hasher};
-use std::iter::{Product, Sum};
-use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use std::rc::Rc;
-
-use num::{BigUint, FromPrimitive, One, Zero};
-
 use crate::field::field::Field;
 use crate::target::Target;
-use crate::wire::Wire;
 
 #[derive(Copy, Clone)]
 pub struct EvaluationVars<'a, F: Field> {

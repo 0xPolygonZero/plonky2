@@ -202,14 +202,14 @@ impl<F: Field> CircuitBuilder<F> {
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
     pub fn build_prover(mut self) -> ProverCircuitData<F> {
         // TODO: Can skip parts of this.
-        let CircuitData { prover_only, verifier_only, common } = self.build();
+        let CircuitData { prover_only, common, .. } = self.build();
         ProverCircuitData { prover_only, common }
     }
 
     /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
     pub fn build_verifier(mut self) -> VerifierCircuitData<F> {
         // TODO: Can skip parts of this.
-        let CircuitData { prover_only, verifier_only, common } = self.build();
+        let CircuitData { verifier_only, common, .. } = self.build();
         VerifierCircuitData { verifier_only, common }
     }
 }

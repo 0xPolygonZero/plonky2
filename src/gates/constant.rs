@@ -4,8 +4,8 @@ use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
-use crate::witness::PartialWitness;
 use crate::wire::Wire;
+use crate::witness::PartialWitness;
 
 /// A gate which takes a single constant parameter and outputs that value.
 pub struct ConstantGate;
@@ -45,7 +45,7 @@ impl<F: Field> Gate<F> for ConstantGate {
         &self,
         gate_index: usize,
         local_constants: &[F],
-        next_constants: &[F],
+        _next_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = ConstantGenerator {
             gate_index,
@@ -82,7 +82,7 @@ impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
         Vec::new()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, _witness: &PartialWitness<F>) -> PartialWitness<F> {
         let wire = Wire { gate: self.gate_index, input: ConstantGate::WIRE_OUTPUT };
         PartialWitness::singleton(Target::Wire(wire), self.constant)
     }

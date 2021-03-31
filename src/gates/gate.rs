@@ -1,8 +1,6 @@
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-use num::ToPrimitive;
-
 use crate::circuit_builder::CircuitBuilder;
 use crate::constraint_polynomial::{EvaluationTargets, EvaluationVars};
 use crate::field::field::Field;

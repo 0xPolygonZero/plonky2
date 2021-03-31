@@ -1,6 +1,6 @@
+use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::util::log2_strict;
-use crate::field::fft::{ifft, fft};
 
 /// A polynomial in point-value form. The number of values must be a power of two.
 ///

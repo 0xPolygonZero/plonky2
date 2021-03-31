@@ -1,6 +1,6 @@
 use crate::field::field::Field;
+use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_ceil, log2_strict};
-use crate::polynomial::polynomial::{PolynomialValues, PolynomialCoeffs};
 
 /// Permutes `arr` such that each index is mapped to its reverse in binary.
 fn reverse_index_bits<T: Copy>(arr: Vec<T>) -> Vec<T> {

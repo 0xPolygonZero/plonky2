@@ -1,9 +1,10 @@
-use std::fmt::{Debug, Formatter, Display};
+use std::fmt::{Debug, Display, Formatter};
 use std::fmt;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use crate::field::field::Field;
 use num::Integer;
+
+use crate::field::field::Field;
 
 /// P = 2**64 - EPSILON
 ///   = 2**64 - 9 * 2**28 + 1
