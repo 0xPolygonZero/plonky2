@@ -22,13 +22,15 @@ pub(crate) fn prove<F: Field>(
     common_data: &CommonCircuitData<F>,
     inputs: PartialWitness<F>,
 ) -> Proof<F> {
-    let mut witness = inputs;
+    let start_proof_gen = Instant::now();
+
     let start_witness = Instant::now();
+    let mut witness = inputs;
     info!("Running {} generators", prover_data.generators.len());
     generate_partial_witness(&mut witness, &prover_data.generators);
-    info!("Witness generation took {}s", start_witness.elapsed().as_secs_f32());
+    info!("{} to generate witness",
+          start_witness.elapsed().as_secs_f32());
 
-    let start_proof_gen = Instant::now();
     let config = common_data.config;
     let num_wires = config.num_wires;
 
@@ -38,23 +40,33 @@ pub(crate) fn prove<F: Field>(
         .into_par_iter()
         .map(|i| compute_wire_lde(i, &witness, degree, config.rate_bits))
         .collect::<Vec<_>>();
-    info!("Computing wire LDEs took {}s", start_wire_ldes.elapsed().as_secs_f32());
+    info!("{} to compute wire LDEs",
+          start_wire_ldes.elapsed().as_secs_f32());
 
     // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
     // merkle_root_bit_rev_order do it implicitly.
     let start_wire_transpose = Instant::now();
     let wire_ldes_t = transpose_poly_values(wire_ldes);
-    info!("Transposing wire LDEs took {}s", start_wire_transpose.elapsed().as_secs_f32());
+    info!("{} to transpose wire LDEs",
+          start_wire_transpose.elapsed().as_secs_f32());
 
     // TODO: Could avoid cloning if it's significant?
     let start_wires_root = Instant::now();
     let wires_root = merkle_root_bit_rev_order(wire_ldes_t.clone());
-    info!("Merklizing wire LDEs took {}s", start_wires_root.elapsed().as_secs_f32());
+    info!("{} to Merklizing wire LDEs",
+          start_wires_root.elapsed().as_secs_f32());
 
+    let start_plonk_z = Instant::now();
     let plonk_z_vecs = compute_zs(&common_data);
     let plonk_z_ldes = PolynomialValues::lde_multiple(plonk_z_vecs, config.rate_bits);
     let plonk_z_ldes_t = transpose_poly_values(plonk_z_ldes);
+    info!("{}s to compute Z's and their LDEs",
+          start_plonk_z.elapsed().as_secs_f32());
+
+    let start_plonk_z_root = Instant::now();
     let plonk_z_root = merkle_root_bit_rev_order(plonk_z_ldes_t.clone());
+    info!("{}s to Merklize Z's",
+          start_plonk_z_root.elapsed().as_secs_f32());
 
     let beta = F::ZERO; // TODO
     let gamma = F::ZERO; // TODO
@@ -63,14 +75,16 @@ pub(crate) fn prove<F: Field>(
     let start_vanishing_poly = Instant::now();
     let vanishing_poly = compute_vanishing_poly(
         common_data, prover_data, wire_ldes_t, plonk_z_ldes_t, beta, gamma, alpha);
-    info!("Computing vanishing poly took {}s", start_vanishing_poly.elapsed().as_secs_f32());
+    info!("{} to compute vanishing poly",
+          start_vanishing_poly.elapsed().as_secs_f32());
 
     let quotient_poly_start = Instant::now();
     let vanishing_poly_coeffs = ifft(vanishing_poly);
     let plonk_t = divide_by_z_h(vanishing_poly_coeffs, degree);
     // Split t into degree-n chunks.
     let plonk_t_chunks = plonk_t.chunks(degree);
-    info!("Computing quotient poly took {}s", quotient_poly_start.elapsed().as_secs_f32());
+    info!("{} to compute quotient poly",
+          quotient_poly_start.elapsed().as_secs_f32());
 
     // Need to convert to coeff form and back?
     let plonk_t_ldes = PolynomialCoeffs::lde_multiple(plonk_t_chunks, config.rate_bits);
@@ -79,7 +93,8 @@ pub(crate) fn prove<F: Field>(
 
     let openings = Vec::new(); // TODO
 
-    info!("Proof generation took {}s", start_proof_gen.elapsed().as_secs_f32());
+    info!("{}s for overall witness+proof generation",
+          start_proof_gen.elapsed().as_secs_f32());
 
     Proof {
         wires_root,
@@ -99,6 +114,7 @@ fn compute_z<F: Field>(common_data: &CommonCircuitData<F>, i: usize) -> Polynomi
     PolynomialValues::zero(common_data.degree()) // TODO
 }
 
+// TODO: Parallelize.
 fn compute_vanishing_poly<F: Field>(
     common_data: &CommonCircuitData<F>,
     prover_data: &ProverOnlyCircuitData<F>,
