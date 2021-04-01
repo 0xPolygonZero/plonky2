@@ -129,6 +129,10 @@ impl<F: Field> CommonCircuitData<F> {
             .expect("No gates?")
     }
 
+    pub fn quotient_degree(&self) -> usize {
+        self.constraint_degree() - 1
+    }
+
     pub fn total_constraints(&self) -> usize {
         // 2 constraints for each Z check.
         self.config.num_checks * 2 + self.num_gate_constraints

@@ -22,7 +22,14 @@ pub(crate) fn eval_l_1<F: Field>(n: usize, x: F) -> F {
     eval_zero_poly(n, x) / (F::from_canonical_usize(n) * (x - F::ONE))
 }
 
-pub(crate) fn reduce_with_powers<F: Field>(terms: Vec<F>, alpha: F) -> F {
+/// For each alpha in alphas, compute a reduction of the given terms using powers of alpha.
+pub(crate) fn reduce_with_powers_multi<F: Field>(terms: &[F], alphas: &[F]) -> Vec<F> {
+    alphas.iter()
+        .map(|&alpha| reduce_with_powers(terms, alpha))
+        .collect()
+}
+
+pub(crate) fn reduce_with_powers<F: Field>(terms: &[F], alpha: F) -> F {
     let mut sum = F::ZERO;
     for &term in terms.iter().rev() {
         sum = sum * alpha + term;

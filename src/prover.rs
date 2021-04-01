@@ -9,14 +9,14 @@ use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
 use crate::hash::merkle_root_bit_rev_order;
-use crate::plonk_common::{reduce_with_powers, eval_l_1};
+use crate::plonk_challenger::Challenger;
+use crate::plonk_common::{eval_l_1, reduce_with_powers_multi};
 use crate::polynomial::division::divide_by_z_h;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::util::transpose_poly_values;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
-use crate::plonk_challenger::Challenger;
 
 pub(crate) fn prove<F: Field>(
     prover_data: &ProverOnlyCircuitData<F>,
@@ -34,6 +34,8 @@ pub(crate) fn prove<F: Field>(
 
     let config = common_data.config;
     let num_wires = config.num_wires;
+    let num_checks = config.num_checks;
+    let quotient_degree = common_data.quotient_degree();
 
     let start_wire_ldes = Instant::now();
     let degree = common_data.degree();
@@ -59,8 +61,8 @@ pub(crate) fn prove<F: Field>(
 
     let mut challenger = Challenger::new();
     challenger.observe_hash(&wires_root);
-    let betas = challenger.get_n_challenges(config.num_checks);
-    let gammas = challenger.get_n_challenges(config.num_checks);
+    let betas = challenger.get_n_challenges(num_checks);
+    let gammas = challenger.get_n_challenges(num_checks);
 
     let start_plonk_z = Instant::now();
     let plonk_z_vecs = compute_zs(&common_data);
@@ -76,30 +78,36 @@ pub(crate) fn prove<F: Field>(
 
     challenger.observe_hash(&plonk_zs_root);
 
-    let alphas = challenger.get_n_challenges(config.num_checks);
+    let alphas = challenger.get_n_challenges(num_checks);
 
     // TODO
     let beta = betas[0];
     let gamma = gammas[0];
-    let alpha = alphas[0];
 
-    let start_vanishing_poly = Instant::now();
-    let vanishing_poly = compute_vanishing_poly(
-        common_data, prover_data, wire_ldes_t, plonk_z_ldes_t, beta, gamma, alpha);
-    info!("{:.2}s to compute vanishing poly",
-          start_vanishing_poly.elapsed().as_secs_f32());
+    let start_vanishing_polys = Instant::now();
+    let vanishing_polys = compute_vanishing_polys(
+        common_data, prover_data, wire_ldes_t, plonk_z_ldes_t, beta, gamma, &alphas);
+    info!("{:.2}s to compute vanishing polys",
+          start_vanishing_polys.elapsed().as_secs_f32());
 
-    // Compute the quotient polynomial, aka `t` in the Plonk paper.
-    let quotient_poly_start = Instant::now();
-    let vanishing_poly_coeff = ifft(vanishing_poly);
-    let quotient_poly_coeff = divide_by_z_h(vanishing_poly_coeff, degree);
-    // Split t into degree-n chunks.
-    let quotient_poly_coeff_chunks = quotient_poly_coeff.chunks(degree);
-    let quotient_poly_coeff_ldes = PolynomialCoeffs::lde_multiple(quotient_poly_coeff_chunks, config.rate_bits);
-    let quotient_poly_value_ldes = quotient_poly_coeff_ldes.into_iter().map(fft).collect();
-    let quotient_polys_root = merkle_root_bit_rev_order(transpose_poly_values(quotient_poly_value_ldes));
-    info!("{:.2}s to compute quotient poly and LDE",
-          quotient_poly_start.elapsed().as_secs_f32());
+    // Compute the quotient polynomials, aka `t` in the Plonk paper.
+    let quotient_polys_start = Instant::now();
+    let mut all_quotient_poly_chunk_ldes = Vec::with_capacity(num_checks * quotient_degree);
+    for vanishing_poly in vanishing_polys.into_iter() {
+        let vanishing_poly_coeff = ifft(vanishing_poly);
+        let quotient_poly_coeff = divide_by_z_h(vanishing_poly_coeff, degree);
+        // Split t into degree-n chunks.
+        let quotient_poly_coeff_chunks = quotient_poly_coeff.chunks(degree);
+        let quotient_poly_coeff_ldes = PolynomialCoeffs::lde_multiple(
+            quotient_poly_coeff_chunks, config.rate_bits);
+        let quotient_poly_chunk_ldes: Vec<PolynomialValues<F>> =
+            quotient_poly_coeff_ldes.into_par_iter().map(fft).collect();
+        all_quotient_poly_chunk_ldes.extend(quotient_poly_chunk_ldes);
+    }
+    let quotient_polys_root = merkle_root_bit_rev_order(
+        transpose_poly_values(all_quotient_poly_chunk_ldes));
+    info!("{:.2}s to compute quotient polys and their LDEs",
+          quotient_polys_start.elapsed().as_secs_f32());
 
     let openings = Vec::new(); // TODO
 
@@ -125,19 +133,20 @@ fn compute_z<F: Field>(common_data: &CommonCircuitData<F>, i: usize) -> Polynomi
 }
 
 // TODO: Parallelize.
-fn compute_vanishing_poly<F: Field>(
+fn compute_vanishing_polys<F: Field>(
     common_data: &CommonCircuitData<F>,
     prover_data: &ProverOnlyCircuitData<F>,
     wire_ldes_t: Vec<Vec<F>>,
     plonk_z_lde_t: Vec<Vec<F>>,
     beta: F,
     gamma: F,
-    alpha: F,
-) -> PolynomialValues<F> {
+    alphas: &[F],
+) -> Vec<PolynomialValues<F>> {
     let lde_size = common_data.lde_size();
     let lde_gen = common_data.lde_generator();
+    let num_checks = common_data.config.num_checks;
 
-    let mut result = Vec::with_capacity(lde_size);
+    let mut values = vec![Vec::with_capacity(lde_size); num_checks];
     let mut point = F::ONE;
     for i in 0..lde_size {
         debug_assert!(point != F::ONE);
@@ -152,7 +161,7 @@ fn compute_vanishing_poly<F: Field>(
         let s_sigmas = &prover_data.sigma_ldes_t[i];
 
         debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
-        debug_assert_eq!(local_plonk_zs.len(), common_data.config.num_checks);
+        debug_assert_eq!(local_plonk_zs.len(), num_checks);
 
         let vars = EvaluationVars {
             local_constants,
@@ -160,13 +169,20 @@ fn compute_vanishing_poly<F: Field>(
             local_wires,
             next_wires,
         };
-        result.push(compute_vanishing_poly_entry(
-            common_data, point, vars, local_plonk_zs, next_plonk_zs, s_sigmas, beta, gamma, alpha));
+        let values_i = compute_vanishing_poly_entry(
+            common_data, point, vars, local_plonk_zs, next_plonk_zs, s_sigmas, beta, gamma, alphas);
+        for check in 0..num_checks {
+            values[check].push(values_i[check])
+        }
 
         point *= lde_gen;
     }
+
     debug_assert_eq!(point, F::ONE);
-    PolynomialValues::new(result)
+
+    values.into_iter()
+        .map(PolynomialValues::new)
+        .collect()
 }
 
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
@@ -181,8 +197,8 @@ fn compute_vanishing_poly_entry<F: Field>(
     s_sigmas: &[F],
     beta: F,
     gamma: F,
-    alpha: F,
-) -> F {
+    alphas: &[F],
+) -> Vec<F> {
     let constraint_terms = common_data.evaluate(vars);
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
@@ -214,7 +230,7 @@ fn compute_vanishing_poly_entry<F: Field>(
         constraint_terms,
     ].concat();
 
-    reduce_with_powers(vanishing_terms, alpha)
+    reduce_with_powers_multi(&vanishing_terms, alphas)
 }
 
 fn compute_wire_lde<F: Field>(
