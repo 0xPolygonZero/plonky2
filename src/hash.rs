@@ -91,25 +91,24 @@ pub fn hash_n_to_1<F: Field>(inputs: Vec<F>, pad: bool) -> F {
 /// Like `merkle_root`, but first reorders each vector so that `new[i] = old[i.reverse_bits()]`.
 pub(crate) fn merkle_root_bit_rev_order<F: Field>(mut vecs: Vec<Vec<F>>) -> Hash<F> {
     reverse_index_bits_in_place(&mut vecs);
-    merkle_root(&vecs)
+    merkle_root(vecs)
 }
 
 /// Given `n` vectors, each of length `l`, constructs a Merkle tree with `l` leaves, where each leaf
 /// is a hash obtained by hashing a "leaf set" consisting of `n` elements. If `n <= 4`, this hashing
 /// is skipped, as there is no need to compress leaf data.
-pub(crate) fn merkle_root<F: Field>(vecs: &[Vec<F>]) -> Hash<F> {
+pub(crate) fn merkle_root<F: Field>(vecs: Vec<Vec<F>>) -> Hash<F> {
     let elems_per_leaf = vecs[0].len();
     let leaves_per_chunk = (ELEMS_PER_CHUNK / elems_per_leaf).next_power_of_two();
     let subtree_roots: Vec<Vec<F>> = vecs.par_chunks(leaves_per_chunk)
-        .map(|chunk| merkle_root_inner(chunk).elements.to_vec())
+        .map(|chunk| merkle_root_inner(chunk.to_vec()).elements.to_vec())
         .collect();
-    merkle_root_inner(&subtree_roots)
+    merkle_root_inner(subtree_roots)
 }
 
-pub(crate) fn merkle_root_inner<F: Field>(vecs: &[Vec<F>]) -> Hash<F> {
-    // TODO: to_vec() not really needed.
+pub(crate) fn merkle_root_inner<F: Field>(vecs: Vec<Vec<F>>) -> Hash<F> {
     let mut hashes = vecs.into_iter()
-        .map(|leaf_set| hash_or_noop(leaf_set.to_vec()))
+        .map(|leaf_set| hash_or_noop(leaf_set))
         .collect::<Vec<_>>();
     while hashes.len() > 1 {
         hashes = hashes.chunks(2)
