@@ -29,7 +29,7 @@ pub(crate) fn prove<F: Field>(
     let mut witness = inputs;
     info!("Running {} generators", prover_data.generators.len());
     generate_partial_witness(&mut witness, &prover_data.generators);
-    info!("{} to generate witness",
+    info!("{:.2}s to generate witness",
           start_witness.elapsed().as_secs_f32());
 
     let config = common_data.config;
@@ -41,20 +41,20 @@ pub(crate) fn prove<F: Field>(
         .into_par_iter()
         .map(|i| compute_wire_lde(i, &witness, degree, config.rate_bits))
         .collect::<Vec<_>>();
-    info!("{} to compute wire LDEs",
+    info!("{:.2}s to compute wire LDEs",
           start_wire_ldes.elapsed().as_secs_f32());
 
     // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
     // merkle_root_bit_rev_order do it implicitly.
     let start_wire_transpose = Instant::now();
     let wire_ldes_t = transpose_poly_values(wire_ldes);
-    info!("{} to transpose wire LDEs",
+    info!("{:.2}s to transpose wire LDEs",
           start_wire_transpose.elapsed().as_secs_f32());
 
     // TODO: Could avoid cloning if it's significant?
     let start_wires_root = Instant::now();
     let wires_root = merkle_root_bit_rev_order(wire_ldes_t.clone());
-    info!("{} to Merklize wire LDEs",
+    info!("{:.2}s to Merklize wire LDEs",
           start_wires_root.elapsed().as_secs_f32());
 
     let mut challenger = Challenger::new();
@@ -66,15 +66,15 @@ pub(crate) fn prove<F: Field>(
     let plonk_z_vecs = compute_zs(&common_data);
     let plonk_z_ldes = PolynomialValues::lde_multiple(plonk_z_vecs, config.rate_bits);
     let plonk_z_ldes_t = transpose_poly_values(plonk_z_ldes);
-    info!("{}s to compute Z's and their LDEs",
+    info!("{:.2}s to compute Z's and their LDEs",
           start_plonk_z.elapsed().as_secs_f32());
 
     let start_plonk_z_root = Instant::now();
-    let plonk_z_root = merkle_root_bit_rev_order(plonk_z_ldes_t.clone());
-    info!("{}s to Merklize Z's",
+    let plonk_zs_root = merkle_root_bit_rev_order(plonk_z_ldes_t.clone());
+    info!("{:.2}s to Merklize Z's",
           start_plonk_z_root.elapsed().as_secs_f32());
 
-    challenger.observe_hash(&plonk_z_root);
+    challenger.observe_hash(&plonk_zs_root);
 
     let alphas = challenger.get_n_challenges(config.num_checks);
 
@@ -86,31 +86,30 @@ pub(crate) fn prove<F: Field>(
     let start_vanishing_poly = Instant::now();
     let vanishing_poly = compute_vanishing_poly(
         common_data, prover_data, wire_ldes_t, plonk_z_ldes_t, beta, gamma, alpha);
-    info!("{} to compute vanishing poly",
+    info!("{:.2}s to compute vanishing poly",
           start_vanishing_poly.elapsed().as_secs_f32());
 
+    // Compute the quotient polynomial, aka `t` in the Plonk paper.
     let quotient_poly_start = Instant::now();
-    let vanishing_poly_coeffs = ifft(vanishing_poly);
-    let plonk_t = divide_by_z_h(vanishing_poly_coeffs, degree);
+    let vanishing_poly_coeff = ifft(vanishing_poly);
+    let quotient_poly_coeff = divide_by_z_h(vanishing_poly_coeff, degree);
     // Split t into degree-n chunks.
-    let plonk_t_chunks = plonk_t.chunks(degree);
-    info!("{} to compute quotient poly",
+    let quotient_poly_coeff_chunks = quotient_poly_coeff.chunks(degree);
+    let quotient_poly_coeff_ldes = PolynomialCoeffs::lde_multiple(quotient_poly_coeff_chunks, config.rate_bits);
+    let quotient_poly_value_ldes = quotient_poly_coeff_ldes.into_iter().map(fft).collect();
+    let quotient_polys_root = merkle_root_bit_rev_order(transpose_poly_values(quotient_poly_value_ldes));
+    info!("{:.2}s to compute quotient poly and LDE",
           quotient_poly_start.elapsed().as_secs_f32());
-
-    // Need to convert to coeff form and back?
-    let plonk_t_ldes = PolynomialCoeffs::lde_multiple(plonk_t_chunks, config.rate_bits);
-    let plonk_t_ldes = plonk_t_ldes.into_iter().map(fft).collect();
-    let plonk_t_root = merkle_root_bit_rev_order(transpose_poly_values(plonk_t_ldes));
 
     let openings = Vec::new(); // TODO
 
-    info!("{}s for overall witness+proof generation",
+    info!("{:.2}s for overall witness+proof generation",
           start_proof_gen.elapsed().as_secs_f32());
 
     Proof {
         wires_root,
-        plonk_z_root,
-        plonk_t_root,
+        plonk_zs_root,
+        quotient_polys_root,
         openings,
     }
 }

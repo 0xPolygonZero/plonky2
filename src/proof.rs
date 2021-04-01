@@ -25,9 +25,9 @@ pub struct Proof<F: Field> {
     /// Merkle root of LDEs of wire values.
     pub wires_root: Hash<F>,
     /// Merkle root of LDEs of Z, in the context of Plonk's permutation argument.
-    pub plonk_z_root: Hash<F>,
+    pub plonk_zs_root: Hash<F>,
     /// Merkle root of LDEs of the quotient polynomial components.
-    pub plonk_t_root: Hash<F>,
+    pub quotient_polys_root: Hash<F>,
 
     /// Purported values of each polynomial at each challenge point.
     pub openings: Vec<OpeningSet<F>>,
@@ -39,9 +39,9 @@ pub struct ProofTarget {
     /// Merkle root of LDEs of wire values.
     pub wires_root: HashTarget,
     /// Merkle root of LDEs of Z, in the context of Plonk's permutation argument.
-    pub plonk_z_root: HashTarget,
+    pub plonk_zs_root: HashTarget,
     /// Merkle root of LDEs of the quotient polynomial components.
-    pub plonk_t_root: HashTarget,
+    pub quotient_polys_root: HashTarget,
 
     /// Purported values of each polynomial at each challenge point.
     pub openings: Vec<OpeningSetTarget>,
@@ -71,9 +71,8 @@ pub struct OpeningSet<F: Field> {
     pub constants: Vec<F>,
     pub plonk_sigmas: Vec<F>,
     pub wires: Vec<F>,
-    // TODO: One or multiple?
-    pub plonk_z: Vec<F>,
-    pub plonk_t: Vec<F>,
+    pub plonk_zs: Vec<F>,
+    pub quotient_polys: Vec<F>,
 }
 
 /// The purported values of each polynomial at a single point.
@@ -81,7 +80,6 @@ pub struct OpeningSetTarget {
     pub constants: Vec<Target>,
     pub plonk_sigmas: Vec<Target>,
     pub wires: Vec<Target>,
-    // TODO: One or multiple?
-    pub plonk_z: Vec<Target>,
-    pub plonk_t: Vec<Target>,
+    pub plonk_zs: Vec<Target>,
+    pub quotient_polys: Vec<Target>,
 }
