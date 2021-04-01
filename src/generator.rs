@@ -66,7 +66,7 @@ pub(crate) fn generate_partial_witness<F: Field>(
 }
 
 /// A generator participates in the generation of the witness.
-pub trait WitnessGenerator<F: Field>: 'static + Debug {
+pub trait WitnessGenerator<F: Field>: 'static + Debug + Send + Sync {
     /// Targets to be "watched" by this generator. Whenever a target in the watch list is populated,
     /// the generator will be queued to run.
     fn watch_list(&self) -> Vec<Target>;
@@ -80,7 +80,7 @@ pub trait WitnessGenerator<F: Field>: 'static + Debug {
 
 /// A generator which runs once after a list of dependencies is present in the witness.
 // TODO: Remove Debug. Here temporarily to debug generator issues.
-pub trait SimpleGenerator<F: Field>: 'static + Debug {
+pub trait SimpleGenerator<F: Field>: 'static + Debug + Send + Sync {
     fn dependencies(&self) -> Vec<Target>;
 
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F>;

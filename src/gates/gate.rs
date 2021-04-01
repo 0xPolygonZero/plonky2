@@ -1,5 +1,5 @@
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::constraint_polynomial::{EvaluationTargets, EvaluationVars};
@@ -8,7 +8,7 @@ use crate::generator::WitnessGenerator;
 use crate::target::Target;
 
 /// A custom gate.
-pub trait Gate<F: Field>: 'static {
+pub trait Gate<F: Field>: 'static + Send + Sync {
     fn id(&self) -> String;
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F>) -> Vec<F>;
@@ -45,11 +45,11 @@ pub trait Gate<F: Field>: 'static {
 
 /// A wrapper around an `Rc<Gate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
 #[derive(Clone)]
-pub struct GateRef<F: Field>(pub(crate) Rc<dyn Gate<F>>);
+pub struct GateRef<F: Field>(pub(crate) Arc<dyn Gate<F>>);
 
 impl<F: Field> GateRef<F> {
     pub fn new<G: Gate<F>>(gate: G) -> GateRef<F> {
-        GateRef(Rc::new(gate))
+        GateRef(Arc::new(gate))
     }
 }
 

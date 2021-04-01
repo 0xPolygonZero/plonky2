@@ -14,7 +14,7 @@ use crate::plonk_common::{eval_l_1, reduce_with_powers_multi};
 use crate::polynomial::division::divide_by_z_h;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
-use crate::util::transpose_poly_values;
+use crate::util::{transpose_poly_values, transpose};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -146,11 +146,9 @@ fn compute_vanishing_polys<F: Field>(
     let lde_gen = common_data.lde_generator();
     let num_checks = common_data.config.num_checks;
 
-    let mut values = vec![Vec::with_capacity(lde_size); num_checks];
-    let mut point = F::ONE;
-    for i in 0..lde_size {
-        debug_assert!(point != F::ONE);
-
+    // let mut values = vec![Vec::with_capacity(lde_size); num_checks];
+    let points = F::cyclic_subgroup_known_order(lde_gen, lde_size);
+    let values: Vec<Vec<F>> = points.into_par_iter().enumerate().map(|(i, x)| {
         let i_next = (i + 1) % lde_size;
         let local_wires = &wire_ldes_t[i];
         let next_wires = &wire_ldes_t[i_next];
@@ -169,18 +167,12 @@ fn compute_vanishing_polys<F: Field>(
             local_wires,
             next_wires,
         };
-        let values_i = compute_vanishing_poly_entry(
-            common_data, point, vars, local_plonk_zs, next_plonk_zs, s_sigmas, beta, gamma, alphas);
-        for check in 0..num_checks {
-            values[check].push(values_i[check])
-        }
+        compute_vanishing_poly_entry(
+            common_data, x, vars, local_plonk_zs, next_plonk_zs, s_sigmas, beta, gamma, alphas)
+    }).collect();
 
-        point *= lde_gen;
-    }
-
-    debug_assert_eq!(point, F::ONE);
-
-    values.into_iter()
+    transpose(&values)
+        .into_iter()
         .map(PolynomialValues::new)
         .collect()
 }
