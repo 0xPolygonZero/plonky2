@@ -16,6 +16,7 @@ use crate::proof::Proof;
 use crate::util::transpose_poly_values;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
+use crate::plonk_challenger::Challenger;
 
 pub(crate) fn prove<F: Field>(
     prover_data: &ProverOnlyCircuitData<F>,
@@ -53,8 +54,13 @@ pub(crate) fn prove<F: Field>(
     // TODO: Could avoid cloning if it's significant?
     let start_wires_root = Instant::now();
     let wires_root = merkle_root_bit_rev_order(wire_ldes_t.clone());
-    info!("{} to Merklizing wire LDEs",
+    info!("{} to Merklize wire LDEs",
           start_wires_root.elapsed().as_secs_f32());
+
+    let mut challenger = Challenger::new();
+    challenger.observe_hash(&wires_root);
+    let betas = challenger.get_n_challenges(config.num_checks);
+    let gammas = challenger.get_n_challenges(config.num_checks);
 
     let start_plonk_z = Instant::now();
     let plonk_z_vecs = compute_zs(&common_data);
@@ -68,9 +74,14 @@ pub(crate) fn prove<F: Field>(
     info!("{}s to Merklize Z's",
           start_plonk_z_root.elapsed().as_secs_f32());
 
-    let beta = F::ZERO; // TODO
-    let gamma = F::ZERO; // TODO
-    let alpha = F::ZERO; // TODO
+    challenger.observe_hash(&plonk_z_root);
+
+    let alphas = challenger.get_n_challenges(config.num_checks);
+
+    // TODO
+    let beta = betas[0];
+    let gamma = gammas[0];
+    let alpha = alphas[0];
 
     let start_vanishing_poly = Instant::now();
     let vanishing_poly = compute_vanishing_poly(

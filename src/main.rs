@@ -27,6 +27,7 @@ mod generator;
 mod gmimc;
 mod hash;
 mod partition;
+mod plonk_challenger;
 mod plonk_common;
 mod polynomial;
 mod proof;
@@ -49,16 +50,11 @@ fn main() {
     // change this to info or warn later.
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    let overall_start = Instant::now();
-
     bench_prove::<CrandallField>();
 
     // bench_fft();
     println!();
     // bench_gmimc::<CrandallField>();
-
-    let overall_duration = overall_start.elapsed();
-    println!("Overall time: {:?}", overall_duration);
 
     // field_search()
 }

@@ -109,6 +109,10 @@ impl<F: Field> CircuitBuilder<F> {
         Target::Wire(Wire { gate, input: ConstantGate::WIRE_OUTPUT })
     }
 
+    pub fn permute(&mut self, inputs: [Target; 12]) -> [Target; 12] {
+        todo!()
+    }
+
     fn blind_and_pad(&mut self) {
         // TODO: Blind.
 

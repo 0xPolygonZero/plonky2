@@ -2,7 +2,7 @@ use crate::field::field::Field;
 use crate::target::Target;
 
 /// Represents a ~256 bit hash output.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Hash<F: Field> {
     pub(crate) elements: [F; 4],
 }
@@ -18,7 +18,7 @@ impl<F: Field> Hash<F> {
 }
 
 pub struct HashTarget {
-    elements: Vec<Target>,
+    pub(crate) elements: Vec<Target>,
 }
 
 pub struct Proof<F: Field> {
