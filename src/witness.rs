@@ -28,6 +28,12 @@ impl<F: Field> PartialWitness<F> {
 
     pub fn get_target(&self, target: Target) -> F {
         self.target_values[&target]
+}
+
+    pub fn get_targets(&self, targets: &[Target]) -> Vec<F> {
+        targets.iter()
+            .map(|&t| self.get_target(t))
+            .collect()
     }
 
     pub fn try_get_target(&self, target: Target) -> Option<F> {

@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
+use rand::rngs::OsRng;
 
 /// A finite field with prime order less than 2^64.
 pub trait Field: 'static
@@ -114,5 +115,9 @@ pub trait Field: 'static
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self::from_canonical_u64(rng.gen_range(0, Self::ORDER))
+    }
+
+    fn rand() -> Self {
+        Self::rand_from_rng(&mut OsRng)
     }
 }

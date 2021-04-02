@@ -194,12 +194,14 @@ impl RecursiveChallenger {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CircuitBuilder, Curve, Field, PartialWitness, Target, Tweedledum};
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::generator::generate_partial_witness;
     use crate::plonk_challenger::{Challenger, RecursiveChallenger};
     use crate::target::Target;
+    use crate::circuit_builder::CircuitBuilder;
+    use crate::witness::PartialWitness;
+    use crate::field::field::Field;
 
     /// Tests for consistency between `Challenger` and `RecursiveChallenger`.
     #[test]
@@ -217,7 +219,7 @@ mod tests {
             .map(|&n| (0..n).map(|_| F::rand()).collect::<Vec<_>>())
             .collect();
 
-        let mut challenger = Challenger::new(128);
+        let mut challenger = Challenger::new();
         let mut outputs_per_round: Vec<Vec<F>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
             challenger.observe_elements(inputs);
@@ -230,7 +232,7 @@ mod tests {
         let mut recursive_outputs_per_round: Vec<Vec<Target>> =
             Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
-            recursive_challenger.observe_elements(&builder.constant_wires(inputs));
+            recursive_challenger.observe_elements(&builder.constants(inputs));
             recursive_outputs_per_round.push(
                 recursive_challenger.get_n_challenges(&mut builder, num_outputs_per_round[r]),
             );

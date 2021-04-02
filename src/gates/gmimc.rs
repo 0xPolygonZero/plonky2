@@ -212,7 +212,6 @@ mod tests {
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::field::Field;
-    use crate::gates::deterministic_gate::DeterministicGate;
     use crate::gates::gmimc::{GMiMCGate, W};
     use crate::generator::generate_partial_witness;
     use crate::gmimc::gmimc_permute_naive;

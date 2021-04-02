@@ -54,12 +54,12 @@ impl Field for CrandallField {
     const ORDER: u64 = 18446744071293632513;
     const MULTIPLICATIVE_SUBGROUP_GENERATOR: Self = Self(5); // TODO: Double check.
 
-    #[inline(always)]
+    #[inline]
     fn sq(&self) -> Self {
         *self * *self
     }
 
-    #[inline(always)]
+    #[inline]
     fn cube(&self) -> Self {
         *self * *self * *self
     }
@@ -132,12 +132,12 @@ impl Field for CrandallField {
         subgroup
     }
 
-    #[inline(always)]
+    #[inline]
     fn to_canonical_u64(&self) -> u64 {
         self.0
     }
 
-    #[inline(always)]
+    #[inline]
     fn from_canonical_u64(n: u64) -> Self {
         Self(n)
     }
@@ -180,6 +180,7 @@ impl Sub for CrandallField {
 }
 
 impl SubAssign for CrandallField {
+    #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
@@ -195,6 +196,7 @@ impl Mul for CrandallField {
 }
 
 impl MulAssign for CrandallField {
+    #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
@@ -215,7 +217,7 @@ impl DivAssign for CrandallField {
 }
 
 /// no final reduction
-#[inline(always)]
+#[inline]
 fn reduce128(x: u128) -> CrandallField {
     // This is Crandall's algorithm. When we have some high-order bits (i.e. with a weight of 2^64),
     // we convert them to low-order bits by multiplying by EPSILON (the logic is a simple
@@ -229,7 +231,7 @@ fn reduce128(x: u128) -> CrandallField {
     CrandallField(lo_2) + CrandallField(lo_3)
 }
 
-#[inline(always)]
+#[inline]
 fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
 }

@@ -52,11 +52,27 @@ fn main() {
 
     bench_prove::<CrandallField>();
 
+    // bench_field_mul::<CrandallField>();
+
     // bench_fft();
     println!();
     // bench_gmimc::<CrandallField>();
 
     // field_search()
+}
+
+fn bench_field_mul<F: Field>() {
+    let m = F::from_canonical_u64(12345678901234567890);
+    let mut x = F::ONE;
+    let start = Instant::now();
+    let num_muls = 2000000000;
+    for _ in 0..num_muls {
+        x *= m;
+    }
+    let duration = start.elapsed();
+    println!("result {:?}", x);
+    println!("took {:?}", duration);
+    println!("avg {:?}ns", duration.as_secs_f64() * 1e9 / (num_muls as f64));
 }
 
 fn bench_prove<F: Field>() {

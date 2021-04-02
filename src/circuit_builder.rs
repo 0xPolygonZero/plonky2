@@ -109,6 +109,10 @@ impl<F: Field> CircuitBuilder<F> {
         Target::Wire(Wire { gate, input: ConstantGate::WIRE_OUTPUT })
     }
 
+    pub fn constants(&mut self, constants: &[F]) -> Vec<Target> {
+        constants.iter().map(|&c| self.constant(c)).collect()
+    }
+
     pub fn permute(&mut self, inputs: [Target; 12]) -> [Target; 12] {
         todo!()
     }
