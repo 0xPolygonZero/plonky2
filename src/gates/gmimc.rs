@@ -5,6 +5,7 @@ use crate::constraint_polynomial::{EvaluationTargets, EvaluationVars};
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
+use crate::gmimc::gmimc_automatic_constants;
 use crate::target::Target;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
@@ -26,7 +27,8 @@ impl<F: Field, const R: usize> GMiMCGate<F, R> {
     }
 
     pub fn with_automatic_constants() -> GateRef<F> {
-        todo!()
+        let constants = Arc::new(gmimc_automatic_constants::<F, R>());
+        Self::with_constants(constants)
     }
 
     /// If this is set to 1, the first four inputs will be swapped with the next four inputs. This

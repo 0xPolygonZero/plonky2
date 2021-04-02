@@ -1,8 +1,5 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
-use std::time::Instant;
-
-use log::trace;
 
 use crate::field::field::Field;
 use crate::target::Target;
@@ -12,10 +9,10 @@ use crate::witness::PartialWitness;
 /// given set of generators.
 pub(crate) fn generate_partial_witness<F: Field>(
     witness: &mut PartialWitness<F>,
-    mut generators: &[Box<dyn WitnessGenerator<F>>],
+    generators: &[Box<dyn WitnessGenerator<F>>],
 ) {
     // Index generator indices by their watched targets.
-    let mut generator_indices_by_watches: HashMap<Target, Vec<usize>> = HashMap::new();
+    let mut generator_indices_by_watches = HashMap::new();
     for (i, generator) in generators.iter().enumerate() {
         for watch in generator.watch_list() {
             generator_indices_by_watches
@@ -40,9 +37,7 @@ pub(crate) fn generate_partial_witness<F: Field>(
         let mut next_pending_generator_indices = HashSet::new();
 
         for &generator_idx in &pending_generator_indices {
-            let start = Instant::now();
             let (result, finished) = generators[generator_idx].run(&witness);
-            trace!("run {:?} took {}", generators[generator_idx], start.elapsed().as_secs_f32());
             if finished {
                 expired_generator_indices.insert(generator_idx);
             }
@@ -66,7 +61,7 @@ pub(crate) fn generate_partial_witness<F: Field>(
 }
 
 /// A generator participates in the generation of the witness.
-pub trait WitnessGenerator<F: Field>: 'static + Debug + Send + Sync {
+pub trait WitnessGenerator<F: Field>: 'static + Send + Sync {
     /// Targets to be "watched" by this generator. Whenever a target in the watch list is populated,
     /// the generator will be queued to run.
     fn watch_list(&self) -> Vec<Target>;
@@ -80,7 +75,7 @@ pub trait WitnessGenerator<F: Field>: 'static + Debug + Send + Sync {
 
 /// A generator which runs once after a list of dependencies is present in the witness.
 // TODO: Remove Debug. Here temporarily to debug generator issues.
-pub trait SimpleGenerator<F: Field>: 'static + Debug + Send + Sync {
+pub trait SimpleGenerator<F: Field>: 'static + Send + Sync {
     fn dependencies(&self) -> Vec<Target>;
 
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F>;
@@ -114,6 +109,6 @@ impl<F: Field> SimpleGenerator<F> for CopyGenerator {
 
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
         let value = witness.get_target(self.src);
-        PartialWitness::singleton(self.dst, value)
+        PartialWitness::singleton_target(self.dst, value)
     }
 }

@@ -84,6 +84,6 @@ impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
 
     fn run_once(&self, _witness: &PartialWitness<F>) -> PartialWitness<F> {
         let wire = Wire { gate: self.gate_index, input: ConstantGate::WIRE_OUTPUT };
-        PartialWitness::singleton(Target::Wire(wire), self.constant)
+        PartialWitness::singleton_target(Target::Wire(wire), self.constant)
     }
 }

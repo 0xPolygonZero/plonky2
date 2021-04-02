@@ -1,8 +1,19 @@
 use std::sync::Arc;
 
+use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
 use unroll::unroll_for_loops;
 
 use crate::field::field::Field;
+
+pub(crate) fn gmimc_automatic_constants<F: Field, const R: usize>() -> [F; R] {
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let mut constants = [F::ZERO; R];
+    for i in 0..R {
+        constants[i] = F::rand_from_rng(&mut rng);
+    }
+    constants
+}
 
 pub fn gmimc_compress<F: Field, const R: usize>(a: [F; 4], b: [F; 4], constants: Arc<[F; R]>) -> [F; 4] {
     // Sponge with r=8, c=4.

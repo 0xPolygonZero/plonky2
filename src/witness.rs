@@ -16,7 +16,11 @@ impl<F: Field> PartialWitness<F> {
         }
     }
 
-    pub fn singleton(target: Target, value: F) -> Self {
+    pub fn singleton_wire(wire: Wire, value: F) -> Self {
+        Self::singleton_target(Target::Wire(wire), value)
+    }
+
+    pub fn singleton_target(target: Target, value: F) -> Self {
         let mut witness = PartialWitness::new();
         witness.set_target(target, value);
         witness

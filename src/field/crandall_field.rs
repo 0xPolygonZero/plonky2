@@ -80,18 +80,22 @@ impl Field for CrandallField {
         while u != 1 && v != 1 {
             while u.is_even() {
                 u >>= 1;
-                if b.is_odd() {
-                    b += Self::ORDER;
+                if b.is_even() {
+                    b >>= 1;
+                } else {
+                    // b = (b + p)/2, avoiding overflow
+                    b = (b >> 1) + (Self::ORDER >> 1) + 1;
                 }
-                b >>= 1;
             }
 
             while v.is_even() {
                 v >>= 1;
-                if c.is_odd() {
-                    c += Self::ORDER;
+                if c.is_even() {
+                    c >>= 1;
+                } else {
+                    // c = (c + p)/2, avoiding overflow
+                    c = (c >> 1) + (Self::ORDER >> 1) + 1;
                 }
-                c >>= 1;
             }
 
             if u < v {

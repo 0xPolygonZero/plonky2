@@ -226,7 +226,11 @@ mod tests {
             outputs_per_round.push(challenger.get_n_challenges(num_outputs_per_round[r]));
         }
 
-        let config = CircuitConfig::default();
+        let config = CircuitConfig {
+            num_wires: 114,
+            num_routed_wires: 13,
+            ..CircuitConfig::default()
+        };
         let mut builder = CircuitBuilder::<F>::new(config);
         let mut recursive_challenger = RecursiveChallenger::new(&mut builder);
         let mut recursive_outputs_per_round: Vec<Vec<Target>> =

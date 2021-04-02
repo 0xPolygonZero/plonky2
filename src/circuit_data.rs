@@ -21,8 +21,8 @@ pub struct CircuitConfig {
 impl Default for CircuitConfig {
     fn default() -> Self {
         CircuitConfig {
-            num_wires: 3,
-            num_routed_wires: 3,
+            num_wires: 4,
+            num_routed_wires: 4,
             security_bits: 128,
             rate_bits: 3,
             num_checks: 3,

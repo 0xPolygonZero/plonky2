@@ -1,3 +1,4 @@
+pub(crate) mod arithmetic;
 pub(crate) mod constant;
 pub(crate) mod fri_consistency_gate;
 pub(crate) mod gate;
