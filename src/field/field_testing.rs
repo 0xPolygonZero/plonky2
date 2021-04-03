@@ -37,7 +37,7 @@ pub fn test_inputs(modulus: u64, word_bits: usize) -> Vec<u64> {
     // Inputs 'difference from' modulus value
     let diff_mod = basic_inputs
         .iter()
-        .filter(|x| **x < modulus && **x != 0)
+        .filter(|&&x| x < modulus && x != 0)
         .map(|&x| modulus - x)
         .collect();
     let basics = basic_inputs
@@ -70,15 +70,19 @@ pub fn run_unaryop_test_cases<F, UnaryOp, ExpectedOp>(
         ExpectedOp: Fn(u64) -> u64,
 {
     let inputs = test_inputs(modulus, word_bits);
-    let expected = inputs.iter().map(|&x| expected_op(x));
-    let output = inputs
+    let expected: Vec<_> = inputs.iter()
+        .map(|&x| expected_op(x))
+        .collect();
+    let output: Vec<_> = inputs
         .iter()
-        .map(|&x| op(F::from_canonical_u64(x)).to_canonical_u64());
+        .map(|&x| op(F::from_canonical_u64(x)).to_canonical_u64())
+        .collect();
     // Compare expected outputs with actual outputs
-    assert!(
-        output.zip(expected).all(|(x, y)| x == y),
-        "output differs from expected"
-    );
+    for i in 0..inputs.len() {
+        assert_eq!(output[i], expected[i],
+                   "Expected {}, got {} for input {}",
+                   expected[i], output[i], inputs[i]);
+    }
 }
 
 /// Apply the binary functions `op` and `expected_op` to each pair
@@ -174,7 +178,7 @@ macro_rules! test_arithmetic {
             fn arithmetic_multiplication() {
                 let modulus = <$field>::ORDER;
                 crate::field::field_testing::run_binaryop_test_cases(modulus, WORD_BITS, <$field>::mul, |x, y| {
-                    x * y % modulus
+                    ((x as u128) * (y as u128)) as u64 % modulus
                 })
             }
 
@@ -184,7 +188,7 @@ macro_rules! test_arithmetic {
                 crate::field::field_testing::run_unaryop_test_cases(
                     modulus, WORD_BITS,
                     |x: $field| x.square(),
-                    |x| x * x % modulus)
+                    |x| ((x as u128) * (x as u128) % (modulus as u128)) as u64)
             }
 
             // #[test]

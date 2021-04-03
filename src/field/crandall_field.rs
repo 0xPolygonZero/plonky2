@@ -152,8 +152,11 @@ impl Neg for CrandallField {
 
     #[inline]
     fn neg(self) -> Self {
-        let (diff, under) = Self::ORDER.overflowing_sub(self.0);
-        Self(diff.overflowing_add((under as u64) * Self::ORDER).0)
+        if self.is_zero() {
+            Self::ZERO
+        } else {
+            Self(Self::ORDER - self.0)
+        }
     }
 }
 
