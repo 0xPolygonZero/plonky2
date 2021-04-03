@@ -138,7 +138,11 @@ impl Field for CrandallField {
 
     #[inline]
     fn to_canonical_u64(&self) -> u64 {
-        self.0
+        let mut c = self.0;
+        while c >= Self::ORDER {
+            c -= Self::ORDER;
+        }
+        c
     }
 
     #[inline]
