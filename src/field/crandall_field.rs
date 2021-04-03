@@ -9,9 +9,6 @@ use crate::field::field::Field;
 /// EPSILON = 9 * 2**28 - 1
 const EPSILON: u64 = 2415919103;
 
-const TWO_ADICITY: usize = 28;
-const POWER_OF_TWO_GENERATOR: CrandallField = CrandallField(10281950781551402419);
-
 /// A field designed for use with the Crandall reduction algorithm.
 ///
 /// Its order is
@@ -51,7 +48,10 @@ impl Field for CrandallField {
     const NEG_ONE: Self = Self(Self::ORDER - 1);
 
     const ORDER: u64 = 18446744071293632513;
-    const MULTIPLICATIVE_SUBGROUP_GENERATOR: Self = Self(5);
+    const TWO_ADICITY: usize = 28;
+
+    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(5);
+    const POWER_OF_TWO_GENERATOR: Self = Self(10281950781551402419);
 
     #[inline]
     fn square(&self) -> Self {
@@ -117,22 +117,6 @@ impl Field for CrandallField {
         } else {
             c
         }))
-    }
-
-    fn primitive_root_of_unity(n_power: usize) -> Self {
-        assert!(n_power <= TWO_ADICITY);
-        let base = POWER_OF_TWO_GENERATOR;
-        base.exp(CrandallField(1u64 << (TWO_ADICITY - n_power)))
-    }
-
-    fn cyclic_subgroup_known_order(generator: Self, order: usize) -> Vec<Self> {
-        let mut subgroup = Vec::new();
-        let mut current = Self::ONE;
-        for _i in 0..order {
-            subgroup.push(current);
-            current = current * generator;
-        }
-        subgroup
     }
 
     #[inline]

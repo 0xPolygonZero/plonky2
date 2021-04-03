@@ -12,7 +12,7 @@ pub(crate) fn divide_by_z_h<F: Field>(mut a: PolynomialCoeffs<F>, n: usize) -> P
         return a.clone();
     }
 
-    let g = F::MULTIPLICATIVE_SUBGROUP_GENERATOR;
+    let g = F::MULTIPLICATIVE_GROUP_GENERATOR;
     let mut g_pow = F::ONE;
     // Multiply the i-th coefficient of `a` by `g^i`. Then `new_a(w^j) = old_a(g.w^j)`.
     a.coeffs.iter_mut().for_each(|x| {

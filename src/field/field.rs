@@ -27,7 +27,12 @@ pub trait Field: 'static
     const NEG_ONE: Self;
 
     const ORDER: u64;
-    const MULTIPLICATIVE_SUBGROUP_GENERATOR: Self;
+    const TWO_ADICITY: usize;
+
+    /// Generator of the entire multiplicative group, i.e. all non-zero elements.
+    const MULTIPLICATIVE_GROUP_GENERATOR: Self;
+    /// Generator of a multiplicative subgroup of order `2^TWO_ADICITY`.
+    const POWER_OF_TWO_GENERATOR: Self;
 
     fn is_zero(&self) -> bool {
         *self == Self::ZERO
@@ -81,9 +86,21 @@ pub trait Field: 'static
         x_inv
     }
 
-    fn primitive_root_of_unity(n_power: usize) -> Self;
+    fn primitive_root_of_unity(n_power: usize) -> Self {
+        assert!(n_power <= Self::TWO_ADICITY);
+        let base = Self::POWER_OF_TWO_GENERATOR;
+        base.exp(Self::from_canonical_u64(1u64 << (Self::TWO_ADICITY - n_power)))
+    }
 
-    fn cyclic_subgroup_known_order(generator: Self, order: usize) -> Vec<Self>;
+    fn cyclic_subgroup_known_order(generator: Self, order: usize) -> Vec<Self> {
+        let mut subgroup = Vec::new();
+        let mut current = Self::ONE;
+        for _i in 0..order {
+            subgroup.push(current);
+            current = current * generator;
+        }
+        subgroup
+    }
 
     fn to_canonical_u64(&self) -> u64;
 
