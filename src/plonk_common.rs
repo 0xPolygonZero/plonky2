@@ -4,6 +4,11 @@ use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::gates::gate::GateRef;
 
+/// Evaluates all gate constraints.
+///
+/// `num_gate_constraints` is the largest number of constraints imposed by any gate. It is not
+/// strictly necessary, but it helps performance by ensuring that we allocate a vector with exactly
+/// the capacity that we need.
 pub fn evaluate_gate_constraints<F: Field>(
     gates: &[GateRef<F>],
     num_gate_constraints: usize,

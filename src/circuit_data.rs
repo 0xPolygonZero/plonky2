@@ -1,12 +1,12 @@
+use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::gates::gate::GateRef;
 use crate::generator::WitnessGenerator;
-use crate::proof::{Hash, Proof};
+use crate::proof::{Hash, Proof, HashTarget};
 use crate::prover::prove;
 use crate::target::Target;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
-use crate::circuit_builder::CircuitBuilder;
 
 #[derive(Copy, Clone)]
 pub struct CircuitConfig {
@@ -53,7 +53,13 @@ impl<F: Field> CircuitData<F> {
     }
 }
 
-/// Circuit data required by the prover.
+/// Circuit data required by the prover. This may be thought of as a proving key, although it
+/// includes code for witness generation.
+///
+/// The goal here is to make proof generation as fast as we can, rather than making this prover
+/// structure as succinct as we can. Thus we include various precomputed data which isn't strictly
+/// required, like LDEs of preprocessed polynomials. If more succinctness was desired, we could
+/// construct a more minimal prover structure and convert back and forth.
 pub struct ProverCircuitData<F: Field> {
     pub(crate) prover_only: ProverOnlyCircuitData<F>,
     pub(crate) common: CommonCircuitData<F>,
@@ -138,4 +144,16 @@ impl<F: Field> CommonCircuitData<F> {
         // 2 constraints for each Z check.
         self.config.num_checks * 2 + self.num_gate_constraints
     }
+}
+
+/// The `Target` version of `VerifierCircuitData`, for use inside recursive circuits. Note that this
+/// is intentionally missing certain fields, such as `CircuitConfig`, because we support only a
+/// limited form of dynamic inner circuits. We can't practically make things like the wire count
+/// dynamic, at least not without setting a maximum wire count and paying for the worst case.
+pub(crate) struct VerifierCircuitTarget {
+    /// A commitment to each constant polynomial.
+    pub(crate) constants_root: HashTarget,
+
+    /// A commitment to each permutation polynomial.
+    pub(crate) sigmas_root: HashTarget,
 }
