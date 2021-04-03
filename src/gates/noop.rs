@@ -1,5 +1,5 @@
 use crate::circuit_builder::CircuitBuilder;
-use crate::constraint_polynomial::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::WitnessGenerator;

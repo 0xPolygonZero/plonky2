@@ -4,7 +4,7 @@ use log::info;
 use rayon::prelude::*;
 
 use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
-use crate::constraint_polynomial::EvaluationVars;
+use crate::vars::EvaluationVars;
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::generator::generate_partial_witness;

@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use crate::circuit_builder::CircuitBuilder;
-use crate::constraint_polynomial::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::field::field::Field;
 use crate::generator::WitnessGenerator;
 use crate::target::Target;

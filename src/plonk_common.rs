@@ -1,7 +1,7 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::target::Target;
-use crate::constraint_polynomial::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::gates::gate::GateRef;
 
 pub fn evaluate_gate_constraints<F: Field>(

@@ -18,7 +18,7 @@ use crate::witness::PartialWitness;
 
 mod circuit_builder;
 mod circuit_data;
-mod constraint_polynomial;
+mod vars;
 mod field;
 mod fri;
 mod gadgets;
