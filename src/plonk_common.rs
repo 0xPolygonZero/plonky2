@@ -1,6 +1,39 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::target::Target;
+use crate::constraint_polynomial::{EvaluationTargets, EvaluationVars};
+use crate::gates::gate::GateRef;
+
+pub fn evaluate_gate_constraints<F: Field>(
+    gates: &[GateRef<F>],
+    num_gate_constraints: usize,
+    vars: EvaluationVars<F>,
+) -> Vec<F> {
+    let mut constraints = vec![F::ZERO; num_gate_constraints];
+    for gate in gates {
+        let gate_constraints = gate.0.eval_filtered(vars);
+        for (i, c) in gate_constraints.into_iter().enumerate() {
+            constraints[i] += c;
+        }
+    }
+    constraints
+}
+
+pub fn evaluate_gate_constraints_recursively<F: Field>(
+    builder: &mut CircuitBuilder<F>,
+    gates: &[GateRef<F>],
+    num_gate_constraints: usize,
+    vars: EvaluationTargets,
+) -> Vec<Target> {
+    let mut constraints = vec![builder.zero(); num_gate_constraints];
+    for gate in gates {
+        let gate_constraints = gate.0.eval_filtered_recursively(builder, vars);
+        for (i, c) in gate_constraints.into_iter().enumerate() {
+            constraints[i] = builder.add(constraints[i], c);
+        }
+    }
+    constraints
+}
 
 /// Evaluate the polynomial which vanishes on any multiplicative subgroup of a given order `n`.
 pub(crate) fn eval_zero_poly<F: Field>(n: usize, x: F) -> F {

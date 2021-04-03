@@ -10,7 +10,7 @@ use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
 use crate::hash::merkle_root_bit_rev_order;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{eval_l_1, reduce_with_powers_multi};
+use crate::plonk_common::{eval_l_1, reduce_with_powers_multi, evaluate_gate_constraints};
 use crate::polynomial::division::divide_by_z_h;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
@@ -190,7 +190,8 @@ fn compute_vanishing_poly_entry<F: Field>(
     gamma: F,
     alphas: &[F],
 ) -> Vec<F> {
-    let constraint_terms = common_data.evaluate(vars);
+    let constraint_terms = evaluate_gate_constraints(
+        &common_data.gates, common_data.num_gate_constraints, vars);
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::new();

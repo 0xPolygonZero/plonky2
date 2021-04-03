@@ -9,6 +9,7 @@ pub struct EvaluationVars<'a, F: Field> {
     pub(crate) next_wires: &'a [F],
 }
 
+#[derive(Copy, Clone)]
 pub struct EvaluationTargets<'a> {
     pub(crate) local_constants: &'a [Target],
     pub(crate) next_constants: &'a [Target],

@@ -1,4 +1,3 @@
-use crate::constraint_polynomial::{EvaluationTargets, EvaluationVars};
 use crate::field::field::Field;
 use crate::gates::gate::GateRef;
 use crate::generator::WitnessGenerator;
@@ -7,6 +6,7 @@ use crate::prover::prove;
 use crate::target::Target;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
+use crate::circuit_builder::CircuitBuilder;
 
 #[derive(Copy, Clone)]
 pub struct CircuitConfig {
@@ -97,6 +97,7 @@ pub(crate) struct CommonCircuitData<F: Field> {
     /// The types of gates used in this circuit.
     pub(crate) gates: Vec<GateRef<F>>,
 
+    /// The largest number of constraints imposed by any gate.
     pub(crate) num_gate_constraints: usize,
 
     /// A commitment to each constant polynomial.
@@ -136,20 +137,5 @@ impl<F: Field> CommonCircuitData<F> {
     pub fn total_constraints(&self) -> usize {
         // 2 constraints for each Z check.
         self.config.num_checks * 2 + self.num_gate_constraints
-    }
-
-    pub fn evaluate(&self, vars: EvaluationVars<F>) -> Vec<F> {
-        let mut constraints = vec![F::ZERO; self.num_gate_constraints];
-        for gate in &self.gates {
-            let gate_constraints = gate.0.eval_filtered(vars);
-            for (i, c) in gate_constraints.into_iter().enumerate() {
-                constraints[i] += c;
-            }
-        }
-        constraints
-    }
-
-    pub fn evaluate_recursive(&self, vars: EvaluationTargets) -> Vec<Target> {
-        todo!()
     }
 }

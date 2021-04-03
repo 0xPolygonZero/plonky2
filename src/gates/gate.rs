@@ -24,6 +24,15 @@ pub trait Gate<F: Field>: 'static + Send + Sync {
         self.eval_unfiltered(vars)
     }
 
+    fn eval_filtered_recursively(
+        &self,
+        builder: &mut CircuitBuilder<F>,
+        vars: EvaluationTargets,
+    ) -> Vec<Target> {
+        // TODO: Filter
+        self.eval_unfiltered_recursively(builder, vars)
+    }
+
     fn generators(
         &self,
         gate_index: usize,
