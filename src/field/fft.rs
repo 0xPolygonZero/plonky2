@@ -153,79 +153,69 @@ pub(crate) fn coset_ifft<F: Field>(poly: PolynomialValues<F>, shift: F) -> Polyn
     coeffs
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use crate::{Bls12377Scalar, fft_precompute, fft_with_precomputation, CrandallField, ifft_with_precomputation_power_of_2};
-//     use crate::fft::{log2_strict, reverse_bits, reverse_index_bits};
-//     use crate::util::log2_ceil;
-//
-//     #[test]
-//     fn fft_and_ifft() {
-//         let degree = 200;
-//         let degree_padded = log2_ceil(degree);
-//         let mut coefficients = Vec::new();
-//         for i in 0..degree {
-//             coefficients.push(Bls12377Scalar::from_canonical_usize(i * 1337 % 100));
-//         }
-//
-//         let precomputation = fft_precompute(degree);
-//         let points = fft_with_precomputation(&coefficients, &precomputation);
-//         assert_eq!(points, evaluate_naive(&coefficients));
-//
-//         let interpolated_coefficients =
-//             ifft_with_precomputation_power_of_2(&points, &precomputation);
-//         for i in 0..degree {
-//             assert_eq!(interpolated_coefficients[i], coefficients[i]);
-//         }
-//         for i in degree..degree_padded {
-//             assert_eq!(interpolated_coefficients[i], Bls12377Scalar::ZERO);
-//         }
-//     }
-//
-//     #[test]
-//     fn test_reverse_bits() {
-//         assert_eq!(reverse_bits(0b00110101, 8), 0b10101100);
-//         assert_eq!(reverse_index_bits(vec!["a", "b"]), vec!["a", "b"]);
-//         assert_eq!(
-//             reverse_index_bits(vec!["a", "b", "c", "d"]),
-//             vec!["a", "c", "b", "d"]
-//         );
-//     }
-//
-//     fn evaluate_naive(coefficients: &[CrandallField]) -> Vec<CrandallField> {
-//         let degree = coefficients.len();
-//         let degree_padded = 1 << log2_ceil(degree);
-//
-//         let mut coefficients_padded = Vec::with_capacity(degree_padded);
-//         for c in coefficients {
-//             coefficients_padded.push(*c);
-//         }
-//         for _i in degree..degree_padded {
-//             coefficients_padded.push(F::ZERO);
-//         }
-//         evaluate_naive_power_of_2(&coefficients_padded)
-//     }
-//
-//     fn evaluate_naive_power_of_2(coefficients: &[CrandallField]) -> Vec<CrandallField> {
-//         let degree = coefficients.len();
-//         let degree_pow = log2_strict(degree);
-//
-//         let g = F::primitive_root_of_unity(degree_pow);
-//         let powers_of_g = F::cyclic_subgroup_known_order(g, degree);
-//
-//         powers_of_g
-//             .into_iter()
-//             .map(|x| evaluate_at_naive(&coefficients, x))
-//             .collect()
-//     }
-//
-//     fn evaluate_at_naive(coefficients: &[CrandallField], point: F) -> F {
-//         let mut sum = F::ZERO;
-//         let mut point_power = F::ONE;
-//         for &c in coefficients {
-//             sum = sum + c * point_power;
-//             point_power = point_power * point;
-//         }
-//         sum
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use crate::util::{log2_ceil, log2_strict};
+    use crate::field::fft::{ifft, fft};
+    use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+    use crate::field::field::Field;
+    use crate::field::crandall_field::CrandallField;
+
+    #[test]
+    fn fft_and_ifft() {
+        type F = CrandallField;
+        let degree = 200;
+        let degree_padded = log2_ceil(degree);
+        let mut coefficients = Vec::new();
+        for i in 0..degree {
+            coefficients.push(F::from_canonical_usize(i * 1337 % 100));
+        }
+        let coefficients = PolynomialCoeffs::pad(coefficients);
+
+        let points = fft(coefficients.clone());
+        assert_eq!(points, evaluate_naive(&coefficients));
+
+        let interpolated_coefficients = ifft(points);
+        for i in 0..degree {
+            assert_eq!(interpolated_coefficients.coeffs[i], coefficients.coeffs[i]);
+        }
+        for i in degree..degree_padded {
+            assert_eq!(interpolated_coefficients.coeffs[i], F::ZERO);
+        }
+    }
+
+    fn evaluate_naive<F: Field>(coefficients: &PolynomialCoeffs<F>) -> PolynomialValues<F> {
+        let degree = coefficients.len();
+        let degree_padded = 1 << log2_ceil(degree);
+
+        let mut coefficients_padded = coefficients.clone();
+        for _i in degree..degree_padded {
+            coefficients_padded.coeffs.push(F::ZERO);
+        }
+        evaluate_naive_power_of_2(&coefficients_padded)
+    }
+
+    fn evaluate_naive_power_of_2<F: Field>(coefficients: &PolynomialCoeffs<F>) -> PolynomialValues<F> {
+        let degree = coefficients.len();
+        let degree_pow = log2_strict(degree);
+
+        let g = F::primitive_root_of_unity(degree_pow);
+        let powers_of_g = F::cyclic_subgroup_known_order(g, degree);
+
+        let values = powers_of_g
+            .into_iter()
+            .map(|x| evaluate_at_naive(&coefficients, x))
+            .collect();
+        PolynomialValues::new(values)
+    }
+
+    fn evaluate_at_naive<F: Field>(coefficients: &PolynomialCoeffs<F>, point: F) -> F {
+        let mut sum = F::ZERO;
+        let mut point_power = F::ONE;
+        for &c in &coefficients.coeffs {
+            sum = sum + c * point_power;
+            point_power = point_power * point;
+        }
+        sum
+    }
+}

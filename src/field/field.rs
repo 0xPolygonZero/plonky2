@@ -2,6 +2,7 @@ use std::fmt::{Debug, Display};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use rand::Rng;
 use rand::rngs::OsRng;
+use crate::util::bits_u64;
 
 /// A finite field with prime order less than 2^64.
 pub trait Field: 'static
@@ -36,7 +37,7 @@ pub trait Field: 'static
         *self == Self::ONE
     }
 
-    fn sq(&self) -> Self {
+    fn square(&self) -> Self {
         *self * *self
     }
 
@@ -93,7 +94,7 @@ pub trait Field: 'static
     }
 
     fn bits(&self) -> usize {
-        64 - self.to_canonical_u64().leading_zeros() as usize
+        bits_u64(self.to_canonical_u64())
     }
 
     fn exp(&self, power: Self) -> Self {
@@ -104,7 +105,7 @@ pub trait Field: 'static
             if (power.to_canonical_u64() >> j & 1) != 0 {
                 product = product * current;
             }
-            current = current.sq();
+            current = current.square();
         }
         product
     }

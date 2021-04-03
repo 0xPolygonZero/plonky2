@@ -55,7 +55,7 @@ impl Field for CrandallField {
     const MULTIPLICATIVE_SUBGROUP_GENERATOR: Self = Self(5); // TODO: Double check.
 
     #[inline]
-    fn sq(&self) -> Self {
+    fn square(&self) -> Self {
         *self * *self
     }
 
@@ -242,4 +242,7 @@ fn split(x: u128) -> (u64, u64) {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_arithmetic;
+
+    test_arithmetic!(crate::CrandallField);
 }

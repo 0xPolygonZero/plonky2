@@ -95,7 +95,7 @@ fn sbox_a<F: Field>(x: F) -> F {
         if ((EXP >> i) & 1) != 0 {
             product = product * current;
         }
-        current = current.sq();
+        current = current.square();
     }
     product
 }
@@ -103,7 +103,7 @@ fn sbox_a<F: Field>(x: F) -> F {
 #[inline(always)]
 fn sbox_b<F: Field>(x: F) -> F {
     // x^5
-    let x2 = x.sq();
+    let x2 = x.square();
     let x3 = x2 * x;
     x2 * x3
 }

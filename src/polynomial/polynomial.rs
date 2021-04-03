@@ -6,7 +6,7 @@ use crate::util::log2_strict;
 ///
 /// The points are implicitly `g^i`, where `g` generates the subgroup whose size equals the number
 /// of points.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PolynomialValues<F: Field> {
     pub(crate) values: Vec<F>,
 }
@@ -42,7 +42,7 @@ impl<F: Field> PolynomialValues<F> {
 }
 
 /// A polynomial in coefficient form. The number of coefficients must be a power of two.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PolynomialCoeffs<F: Field> {
     pub(crate) coeffs: Vec<F>,
 }
@@ -50,6 +50,13 @@ pub(crate) struct PolynomialCoeffs<F: Field> {
 impl<F: Field> PolynomialCoeffs<F> {
     pub(crate) fn new(coeffs: Vec<F>) -> Self {
         assert!(coeffs.len().is_power_of_two());
+        PolynomialCoeffs { coeffs }
+    }
+
+    pub(crate) fn pad(mut coeffs: Vec<F>) -> Self {
+        while !coeffs.len().is_power_of_two() {
+            coeffs.push(F::ZERO);
+        }
         PolynomialCoeffs { coeffs }
     }
 
