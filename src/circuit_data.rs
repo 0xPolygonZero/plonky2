@@ -150,7 +150,7 @@ impl<F: Field> CommonCircuitData<F> {
 /// is intentionally missing certain fields, such as `CircuitConfig`, because we support only a
 /// limited form of dynamic inner circuits. We can't practically make things like the wire count
 /// dynamic, at least not without setting a maximum wire count and paying for the worst case.
-pub(crate) struct VerifierCircuitTarget {
+pub struct VerifierCircuitTarget {
     /// A commitment to each constant polynomial.
     pub(crate) constants_root: HashTarget,
 
