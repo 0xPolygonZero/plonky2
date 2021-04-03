@@ -65,9 +65,9 @@ pub fn run_unaryop_test_cases<F, UnaryOp, ExpectedOp>(
     op: UnaryOp,
     expected_op: ExpectedOp,
 ) where
-        F: Field,
-        UnaryOp: Fn(F) -> F,
-        ExpectedOp: Fn(u64) -> u64,
+    F: Field,
+    UnaryOp: Fn(F) -> F,
+    ExpectedOp: Fn(u64) -> u64,
 {
     let inputs = test_inputs(modulus, word_bits);
     let expected: Vec<_> = inputs.iter()
@@ -96,9 +96,9 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
     op: BinaryOp,
     expected_op: ExpectedOp,
 ) where
-        F: Field,
-        BinaryOp: Fn(F, F) -> F,
-        ExpectedOp: Fn(u64, u64) -> u64,
+    F: Field,
+    BinaryOp: Fn(F, F) -> F,
+    ExpectedOp: Fn(u64, u64) -> u64,
 {
     let inputs = test_inputs(modulus, word_bits);
 
@@ -106,21 +106,29 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
         // Iterator over inputs rotated right by i places. Since
         // cycle().skip(i) rotates left by i, we need to rotate by
         // n_input_elts - i.
-        let shifted_inputs = inputs.iter().cycle().skip(inputs.len() - i);
+        let shifted_inputs: Vec<_> = inputs.iter()
+            .cycle()
+            .skip(inputs.len() - i)
+            .take(inputs.len())
+            .collect();
+
         // Calculate pointwise operations
-        let expected = inputs
+        let expected: Vec<_> = inputs
             .iter()
             .zip(shifted_inputs.clone())
-            .map(|(x, y)| expected_op(x.clone(), y.clone()));
-        let output = inputs.iter().zip(shifted_inputs).map(|(&x, &y)| {
+            .map(|(x, y)| expected_op(x.clone(), y.clone()))
+            .collect();
+
+        let output: Vec<_> = inputs.iter().zip(shifted_inputs.clone()).map(|(&x, &y)| {
             op(F::from_canonical_u64(x), F::from_canonical_u64(y)).to_canonical_u64()
-        });
+        }).collect();
+
         // Compare expected outputs with actual outputs
-        assert!(
-            output.zip(expected).all(|(x, y)| x == y),
-            "output differs from expected at rotation {}",
-            i
-        );
+        for i in 0..inputs.len() {
+            assert_eq!(output[i], expected[i],
+                       "On inputs {} . {}, expected {} but got {}",
+                       inputs[i], shifted_inputs[i], expected[i], output[i]);
+        }
     }
 }
 
@@ -178,7 +186,7 @@ macro_rules! test_arithmetic {
             fn arithmetic_multiplication() {
                 let modulus = <$field>::ORDER;
                 crate::field::field_testing::run_binaryop_test_cases(modulus, WORD_BITS, <$field>::mul, |x, y| {
-                    ((x as u128) * (y as u128)) as u64 % modulus
+                    ((x as u128) * (y as u128) % (modulus as u128)) as u64
                 })
             }
 

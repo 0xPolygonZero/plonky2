@@ -9,7 +9,6 @@ use crate::field::field::Field;
 /// EPSILON = 9 * 2**28 - 1
 const EPSILON: u64 = 2415919103;
 
-const GENERATOR: CrandallField = CrandallField(5);
 const TWO_ADICITY: usize = 28;
 const POWER_OF_TWO_GENERATOR: CrandallField = CrandallField(10281950781551402419);
 
@@ -52,7 +51,7 @@ impl Field for CrandallField {
     const NEG_ONE: Self = Self(Self::ORDER - 1);
 
     const ORDER: u64 = 18446744071293632513;
-    const MULTIPLICATIVE_SUBGROUP_GENERATOR: Self = Self(5); // TODO: Double check.
+    const MULTIPLICATIVE_SUBGROUP_GENERATOR: Self = Self(5);
 
     #[inline]
     fn square(&self) -> Self {
