@@ -1,52 +1,22 @@
-use std::collections::HashSet;
-
-use rand::SeedableRng;
-use rand_chacha::ChaCha8Rng;
-
 use crate::field::field::Field;
 
-/// Finds a set of shifts that result in unique cosets for the subgroup of size `2^subgroup_bits`.
+/// Finds a set of shifts that result in unique cosets for the multiplicative subgroup of size
+/// `2^subgroup_bits`.
 pub(crate) fn get_unique_coset_shifts<F: Field>(
-    subgroup_bits: usize,
+    subgroup_size: usize,
     num_shifts: usize,
 ) -> Vec<F> {
-    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    // From Lagrange's theorem.
+    let num_cosets = (F::ORDER - 1) / (subgroup_size as u64);
+    assert!(num_shifts as u64 <= num_cosets,
+            "The subgroup does not have enough distinct cosets");
 
-    let generator = F::primitive_root_of_unity(subgroup_bits);
-    let subgroup_size = 1 << subgroup_bits;
-
-    let mut shifts = Vec::with_capacity(num_shifts);
-
-    // We start with the trivial coset. This isn't necessary, but there may be a slight cost
-    // savings, since multiplication by 1 can be free in some settings.
-    shifts.push(F::ONE);
-
-    let subgroup = F::cyclic_subgroup_known_order(generator, subgroup_size)
-        .into_iter()
-        .collect::<HashSet<F>>();
-
-    while shifts.len() < num_shifts {
-        let candidate_shift = F::rand_from_rng(&mut rng);
-        if candidate_shift.is_zero() {
-            continue;
-        }
-        let candidate_shift_inv = candidate_shift.inverse();
-
-        // If this coset was not disjoint from the others, then there would exist some i, j with
-        //     candidate_shift g^i = existing_shift g^j
-        // or
-        //     existing_shift / candidate_shift = g^(i - j).
-        // In other words, `existing_shift / candidate_shift` would be in the subgroup.
-        let quotients = shifts.iter()
-            .map(|&shift| shift * candidate_shift_inv)
-            .collect::<HashSet<F>>();
-
-        if quotients.is_disjoint(&subgroup) {
-            shifts.push(candidate_shift);
-        }
-    }
-
-    shifts
+    // Let g be a generator of the entire multiplicative group. Let n be the order of the subgroup.
+    // The subgroup can be written as <g^(|F*| / n)>. We can use g^0, ..., g^(num_shifts - 1) as our
+    // shifts, since g^i <g^(|F*| / n)> are distinct cosets provided i < |F*| / n, which we checked.
+    (0..num_shifts)
+        .map(|i| F::MULTIPLICATIVE_GROUP_GENERATOR.exp_usize(i))
+        .collect()
 }
 
 #[cfg(test)]

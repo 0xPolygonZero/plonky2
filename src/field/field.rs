@@ -91,6 +91,7 @@ pub trait Field: 'static
     fn primitive_root_of_unity(n_power: usize) -> Self {
         assert!(n_power <= Self::TWO_ADICITY);
         let base = Self::POWER_OF_TWO_GENERATOR;
+        // TODO: Just repeated squaring should be a bit faster, to avoid conditionals.
         base.exp(Self::from_canonical_u64(1u64 << (Self::TWO_ADICITY - n_power)))
     }
 

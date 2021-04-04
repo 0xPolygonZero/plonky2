@@ -189,7 +189,7 @@ impl<F: Field> CircuitBuilder<F> {
             .expect("No gates?");
 
         let degree_bits = log2_strict(degree);
-        let k_is = get_unique_coset_shifts(degree_bits, self.config.num_routed_wires);
+        let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
 
         let common = CommonCircuitData {
             config: self.config,
