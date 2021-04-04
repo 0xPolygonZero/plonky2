@@ -3,11 +3,13 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use rand::Rng;
 use rand::rngs::OsRng;
 use crate::util::bits_u64;
+use std::hash::Hash;
 
 /// A finite field with prime order less than 2^64.
 pub trait Field: 'static
 + Copy
 + Eq
++ Hash
 + Neg<Output=Self>
 + Add<Self, Output=Self>
 + AddAssign<Self>
@@ -92,14 +94,23 @@ pub trait Field: 'static
         base.exp(Self::from_canonical_u64(1u64 << (Self::TWO_ADICITY - n_power)))
     }
 
+    /// Computes a multiplicative subgroup whose order is known in advance.
     fn cyclic_subgroup_known_order(generator: Self, order: usize) -> Vec<Self> {
-        let mut subgroup = Vec::new();
+        let mut subgroup = Vec::with_capacity(order);
         let mut current = Self::ONE;
         for _i in 0..order {
             subgroup.push(current);
             current = current * generator;
         }
         subgroup
+    }
+
+    /// Computes a coset of a multiplicative subgroup whose order is known in advance.
+    fn cyclic_subgroup_coset_known_order(generator: Self, shift: Self, order: usize) -> Vec<Self> {
+        let subgroup = Self::cyclic_subgroup_known_order(generator, order);
+        subgroup.into_iter()
+            .map(|x| x * shift)
+            .collect()
     }
 
     fn to_canonical_u64(&self) -> u64;

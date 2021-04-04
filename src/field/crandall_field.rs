@@ -5,6 +5,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use num::Integer;
 
 use crate::field::field::Field;
+use std::hash::{Hash, Hasher};
 
 /// EPSILON = 9 * 2**28 - 1
 const EPSILON: u64 = 2415919103;
@@ -17,7 +18,6 @@ const EPSILON: u64 = 2415919103;
 ///   = 2**64 - 9 * 2**28 + 1
 ///   = 2**28 * (2**36 - 9) + 1
 /// ```
-// TODO: [Partial]Eq should compare canonical representations.
 #[derive(Copy, Clone)]
 pub struct CrandallField(pub u64);
 
@@ -28,6 +28,12 @@ impl PartialEq for CrandallField {
 }
 
 impl Eq for CrandallField {}
+
+impl Hash for CrandallField {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.to_canonical_u64())
+    }
+}
 
 impl Display for CrandallField {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -64,59 +70,69 @@ impl Field for CrandallField {
     }
 
     fn try_inverse(&self) -> Option<Self> {
-        if *self == Self::ZERO {
+        if self.is_zero() {
             return None;
         }
 
         // Based on Algorithm 16 of "Efficient Software-Implementation of Finite Fields with
         // Applications to Cryptography".
 
-        let mut u = self.0;
-        let mut v = Self::ORDER;
-        let mut b = 1;
-        let mut c = 0;
+        let p = Self::ORDER;
+        let mut u = self.to_canonical_u64();
+        let mut v = p;
+        let mut b = 1u64;
+        let mut c = 0u64;
 
         while u != 1 && v != 1 {
             while u.is_even() {
-                u >>= 1;
+                u /= 2;
                 if b.is_even() {
-                    b >>= 1;
+                    b /= 2;
                 } else {
                     // b = (b + p)/2, avoiding overflow
-                    b = (b >> 1) + (Self::ORDER >> 1) + 1;
+                    b = (b / 2) + (p / 2) + 1;
                 }
             }
 
             while v.is_even() {
-                v >>= 1;
+                v /= 2;
                 if c.is_even() {
-                    c >>= 1;
+                    c /= 2;
                 } else {
                     // c = (c + p)/2, avoiding overflow
-                    c = (c >> 1) + (Self::ORDER >> 1) + 1;
+                    c = (c / 2) + (p / 2) + 1;
                 }
             }
 
-            if u < v {
-                v -= u;
-                if c < b {
-                    c += Self::ORDER;
-                }
-                c -= b;
-            } else {
+            if u >= v {
                 u -= v;
-                if b < c {
-                    b += Self::ORDER;
+                // b -= c
+                let (mut diff, under) = b.overflowing_sub(c);
+                if under {
+                    diff = diff.overflowing_add(p).0;
                 }
-                b -= c;
+                b = diff;
+            } else {
+                v -= u;
+                // c -= b
+                let (mut diff, under) = c.overflowing_sub(b);
+                if under {
+                    diff = diff.overflowing_add(p).0;
+                }
+                c = diff;
             }
         }
 
-        Some(Self(if u == 1 {
+        let inverse = Self(if u == 1 {
             b
         } else {
             c
-        }))
+        });
+
+        // Should change to debug_assert_eq; using assert_eq as an extra precaution for now until
+        // we're more confident the impl is correct.
+        assert_eq!(*self * inverse, Self::ONE);
+        Some(inverse)
     }
 
     #[inline]
