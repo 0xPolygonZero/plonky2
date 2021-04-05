@@ -3,11 +3,13 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use rand::Rng;
 use rand::rngs::OsRng;
 use crate::util::bits_u64;
+use std::hash::Hash;
 
 /// A finite field with prime order less than 2^64.
 pub trait Field: 'static
 + Copy
 + Eq
++ Hash
 + Neg<Output=Self>
 + Add<Self, Output=Self>
 + AddAssign<Self>
@@ -89,17 +91,27 @@ pub trait Field: 'static
     fn primitive_root_of_unity(n_power: usize) -> Self {
         assert!(n_power <= Self::TWO_ADICITY);
         let base = Self::POWER_OF_TWO_GENERATOR;
+        // TODO: Just repeated squaring should be a bit faster, to avoid conditionals.
         base.exp(Self::from_canonical_u64(1u64 << (Self::TWO_ADICITY - n_power)))
     }
 
+    /// Computes a multiplicative subgroup whose order is known in advance.
     fn cyclic_subgroup_known_order(generator: Self, order: usize) -> Vec<Self> {
-        let mut subgroup = Vec::new();
+        let mut subgroup = Vec::with_capacity(order);
         let mut current = Self::ONE;
         for _i in 0..order {
             subgroup.push(current);
             current = current * generator;
         }
         subgroup
+    }
+
+    /// Computes a coset of a multiplicative subgroup whose order is known in advance.
+    fn cyclic_subgroup_coset_known_order(generator: Self, shift: Self, order: usize) -> Vec<Self> {
+        let subgroup = Self::cyclic_subgroup_known_order(generator, order);
+        subgroup.into_iter()
+            .map(|x| x * shift)
+            .collect()
     }
 
     fn to_canonical_u64(&self) -> u64;
@@ -131,11 +143,31 @@ pub trait Field: 'static
         self.exp(Self::from_canonical_usize(power))
     }
 
+    fn powers(&self) -> Powers<Self> {
+        Powers { base: *self, current: Self::ONE }
+    }
+
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self::from_canonical_u64(rng.gen_range(0, Self::ORDER))
     }
 
     fn rand() -> Self {
         Self::rand_from_rng(&mut OsRng)
+    }
+}
+
+/// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
+pub struct Powers<F: Field> {
+    base: F,
+    current: F,
+}
+
+impl<F: Field> Iterator for Powers<F> {
+    type Item = F;
+
+    fn next(&mut self) -> Option<F> {
+        let result = self.current;
+        self.current *= self.base;
+        Some(result)
     }
 }

@@ -26,7 +26,6 @@ mod gates;
 mod generator;
 mod gmimc;
 mod hash;
-mod partition;
 mod plonk_challenger;
 mod plonk_common;
 mod polynomial;
