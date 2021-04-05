@@ -14,8 +14,8 @@ pub(crate) fn get_unique_coset_shifts<F: Field>(
     // Let g be a generator of the entire multiplicative group. Let n be the order of the subgroup.
     // The subgroup can be written as <g^(|F*| / n)>. We can use g^0, ..., g^(num_shifts - 1) as our
     // shifts, since g^i <g^(|F*| / n)> are distinct cosets provided i < |F*| / n, which we checked.
-    (0..num_shifts)
-        .map(|i| F::MULTIPLICATIVE_GROUP_GENERATOR.exp_usize(i))
+    F::MULTIPLICATIVE_GROUP_GENERATOR.powers()
+        .take(num_shifts)
         .collect()
 }
 

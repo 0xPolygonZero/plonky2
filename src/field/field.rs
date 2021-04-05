@@ -143,11 +143,31 @@ pub trait Field: 'static
         self.exp(Self::from_canonical_usize(power))
     }
 
+    fn powers(&self) -> Powers<Self> {
+        Powers { base: *self, current: Self::ONE }
+    }
+
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self::from_canonical_u64(rng.gen_range(0, Self::ORDER))
     }
 
     fn rand() -> Self {
         Self::rand_from_rng(&mut OsRng)
+    }
+}
+
+/// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
+pub struct Powers<F: Field> {
+    base: F,
+    current: F,
+}
+
+impl<F: Field> Iterator for Powers<F> {
+    type Item = F;
+
+    fn next(&mut self) -> Option<F> {
+        let result = self.current;
+        self.current *= self.base;
+        Some(result)
     }
 }
