@@ -1,10 +1,8 @@
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::gates::gate::GateRef;
 use crate::generator::WitnessGenerator;
-use crate::proof::{Hash, Proof, HashTarget};
+use crate::proof::{Hash, HashTarget, Proof};
 use crate::prover::prove;
-use crate::target::Target;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
 
@@ -112,7 +110,7 @@ pub(crate) struct CommonCircuitData<F: Field> {
     /// A commitment to each permutation polynomial.
     pub(crate) sigmas_root: Hash<F>,
 
-    /// {k_i}. See `get_subgroup_shift`.
+    /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
     pub(crate) k_is: Vec<F>,
 }
 

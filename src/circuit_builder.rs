@@ -10,7 +10,7 @@ use crate::gates::gate::{GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::hash::merkle_root_bit_rev_order;
-use crate::partition::get_subgroup_shift;
+use crate::field::cosets::get_unique_coset_shifts;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
 use crate::util::{log2_strict, transpose, transpose_poly_values};
@@ -188,13 +188,12 @@ impl<F: Field> CircuitBuilder<F> {
             .max()
             .expect("No gates?");
 
-        let k_is = (0..self.config.num_routed_wires)
-            .map(get_subgroup_shift)
-            .collect();
+        let degree_bits = log2_strict(degree);
+        let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
 
         let common = CommonCircuitData {
             config: self.config,
-            degree_bits: log2_strict(degree),
+            degree_bits,
             gates,
             num_gate_constraints,
             constants_root,
