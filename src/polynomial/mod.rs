@@ -1,2 +1,2 @@
 pub(crate) mod division;
-pub(crate) mod polynomial;
+pub mod polynomial;
