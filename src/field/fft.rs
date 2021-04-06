@@ -35,7 +35,7 @@ impl<F: Field> FftPrecomputation<F> {
     }
 }
 
-pub(crate) fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
+pub fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
     let precomputation = fft_precompute(poly.len());
     fft_with_precomputation_power_of_2(poly, &precomputation)
 }

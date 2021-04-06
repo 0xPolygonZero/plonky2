@@ -1,8 +1,15 @@
 [package]
 name = "plonky2"
+description = "Recursive SNARKs based on Plonk and FRI"
 version = "0.1.0"
-authors = ["Daniel Lubarov <daniel@lubarov.com>"]
+authors = ["Daniel Lubarov <daniel@mirprotocol.org>"]
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/mir-protocol/plonky2"
+keywords = ["cryptography", "SNARK"]
+categories = ["cryptography"]
 edition = "2018"
+default-run = "bench_recursion"
 
 [dependencies]
 env_logger = "0.8.3"

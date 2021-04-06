@@ -13,7 +13,7 @@ const EPSILON: u64 = 2415919103;
 /// A field designed for use with the Crandall reduction algorithm.
 ///
 /// Its order is
-/// ```
+/// ```ignore
 /// P = 2**64 - EPSILON
 ///   = 2**64 - 9 * 2**28 + 1
 ///   = 2**28 * (2**36 - 9) + 1
@@ -158,6 +158,7 @@ impl Neg for CrandallField {
         if self.is_zero() {
             Self::ZERO
         } else {
+            // TODO: This could underflow if we're not canonical.
             Self(Self::ORDER - self.0)
         }
     }
@@ -226,7 +227,8 @@ impl DivAssign for CrandallField {
     }
 }
 
-/// no final reduction
+/// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
+/// field order and `2^64`.
 #[inline]
 fn reduce128(x: u128) -> CrandallField {
     // This is Crandall's algorithm. When we have some high-order bits (i.e. with a weight of 2^64),
@@ -250,5 +252,5 @@ fn split(x: u128) -> (u64, u64) {
 mod tests {
     use crate::test_arithmetic;
 
-    test_arithmetic!(crate::CrandallField);
+    test_arithmetic!(crate::field::crandall_field::CrandallField);
 }
