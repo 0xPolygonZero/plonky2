@@ -7,12 +7,12 @@ use crate::util::log2_strict;
 /// The points are implicitly `g^i`, where `g` generates the subgroup whose size equals the number
 /// of points.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct PolynomialValues<F: Field> {
-    pub(crate) values: Vec<F>,
+pub struct PolynomialValues<F: Field> {
+    pub values: Vec<F>,
 }
 
 impl<F: Field> PolynomialValues<F> {
-    pub(crate) fn new(values: Vec<F>) -> Self {
+    pub fn new(values: Vec<F>) -> Self {
         assert!(values.len().is_power_of_two());
         PolynomialValues { values }
     }
@@ -35,7 +35,7 @@ impl<F: Field> PolynomialValues<F> {
             .collect()
     }
 
-    pub(crate) fn lde(self, rate_bits: usize) -> Self {
+    pub fn lde(self, rate_bits: usize) -> Self {
         let mut coeffs = ifft(self).lde(rate_bits);
         fft(coeffs)
     }
@@ -43,12 +43,12 @@ impl<F: Field> PolynomialValues<F> {
 
 /// A polynomial in coefficient form. The number of coefficients must be a power of two.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct PolynomialCoeffs<F: Field> {
+pub struct PolynomialCoeffs<F: Field> {
     pub(crate) coeffs: Vec<F>,
 }
 
 impl<F: Field> PolynomialCoeffs<F> {
-    pub(crate) fn new(coeffs: Vec<F>) -> Self {
+    pub fn new(coeffs: Vec<F>) -> Self {
         assert!(coeffs.len().is_power_of_two());
         PolynomialCoeffs { coeffs }
     }

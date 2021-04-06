@@ -1,7 +1,7 @@
 pub(crate) mod arithmetic;
-pub(crate) mod constant;
+pub mod constant;
 pub(crate) mod fri_consistency_gate;
 pub(crate) mod gate;
-pub(crate) mod gmimc;
+pub mod gmimc;
 pub(crate) mod gmimc_eval;
 pub(crate) mod noop;

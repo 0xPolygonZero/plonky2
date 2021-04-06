@@ -1,4 +1,4 @@
-fn field_search() {
+fn main() {
     for deg in (61..=64).rev() {
         for adic in (28..=32).rev() {
             for i in 1u128..100000 {
