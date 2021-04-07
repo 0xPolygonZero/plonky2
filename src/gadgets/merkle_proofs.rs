@@ -12,6 +12,14 @@ pub struct MerkleProofTarget {
     pub siblings: Vec<Target>,
 }
 
+pub(crate) fn verify_merkle_proof<F: Field>(
+    leaf_index: usize,
+    leaf_data: Vec<F>,
+    proof: MerkleProof<F>,
+) {
+    todo!()
+}
+
 impl<F: Field> CircuitBuilder<F> {
     pub(crate) fn verify_merkle_proof(
         &mut self,
