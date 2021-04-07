@@ -53,6 +53,8 @@ pub struct ProofTarget {
 }
 
 pub struct FriProof<F: Field> {
+    /// A Merkle root for each reduced polynomial in the commit phase.
+    pub commit_phase_merkle_roots: Vec<Hash<F>>,
     /// Merkle proofs for the original purported codewords, i.e. the subject of the LDT.
     pub initial_merkle_proofs: Vec<MerkleProof<F>>,
     /// Merkle proofs for the reduced polynomials that were sent in the commit phase.
@@ -63,6 +65,8 @@ pub struct FriProof<F: Field> {
 
 /// Represents a single FRI query, i.e. a path through the reduction tree.
 pub struct FriProofTarget {
+    /// A Merkle root for each reduced polynomial in the commit phase.
+    pub commit_phase_merkle_roots: Vec<HashTarget>,
     /// Merkle proofs for the original purported codewords, i.e. the subject of the LDT.
     pub initial_merkle_proofs: Vec<MerkleProofTarget>,
     /// Merkle proofs for the reduced polynomials that were sent in the commit phase.
