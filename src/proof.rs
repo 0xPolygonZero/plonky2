@@ -1,5 +1,6 @@
 use crate::field::field::Field;
 use crate::target::Target;
+use crate::gadgets::merkle_proofs::{MerkleProofTarget, MerkleProof};
 
 /// Represents a ~256 bit hash output.
 #[derive(Copy, Clone, Debug)]
@@ -32,7 +33,8 @@ pub struct Proof<F: Field> {
     /// Purported values of each polynomial at each challenge point.
     pub openings: Vec<OpeningSet<F>>,
 
-    // TODO: FRI Merkle proofs.
+    /// A FRI argument for each FRI query.
+    pub fri_proofs: Vec<FriProof<F>>,
 }
 
 pub struct ProofTarget {
@@ -50,20 +52,27 @@ pub struct ProofTarget {
     pub fri_proofs: Vec<FriProofTarget>,
 }
 
+pub struct FriProof<F: Field> {
+    /// A Merkle root for each reduced polynomial in the commit phase.
+    pub commit_phase_merkle_roots: Vec<Hash<F>>,
+    /// Merkle proofs for the original purported codewords, i.e. the subject of the LDT.
+    pub initial_merkle_proofs: Vec<MerkleProof<F>>,
+    /// Merkle proofs for the reduced polynomials that were sent in the commit phase.
+    pub intermediate_merkle_proofs: Vec<MerkleProof<F>>,
+    /// The final polynomial in coefficient form.
+    pub final_poly: Vec<F>,
+}
+
 /// Represents a single FRI query, i.e. a path through the reduction tree.
 pub struct FriProofTarget {
+    /// A Merkle root for each reduced polynomial in the commit phase.
+    pub commit_phase_merkle_roots: Vec<HashTarget>,
     /// Merkle proofs for the original purported codewords, i.e. the subject of the LDT.
     pub initial_merkle_proofs: Vec<MerkleProofTarget>,
     /// Merkle proofs for the reduced polynomials that were sent in the commit phase.
     pub intermediate_merkle_proofs: Vec<MerkleProofTarget>,
-    /// The final polynomial in point-value form.
+    /// The final polynomial in coefficient form.
     pub final_poly: Vec<Target>,
-}
-
-pub struct MerkleProofTarget {
-    pub leaf: Vec<Target>,
-    pub siblings: Vec<Target>,
-    // TODO: Also need left/right turn info.
 }
 
 /// The purported values of each polynomial at a single point.
