@@ -111,6 +111,8 @@ pub(crate) fn prove<F: Field>(
 
     let openings = Vec::new(); // TODO
 
+    let fri_proofs = Vec::new(); // TODO
+
     info!("{:.3}s for overall witness & proof generation",
           start_proof_gen.elapsed().as_secs_f32());
 
@@ -119,6 +121,7 @@ pub(crate) fn prove<F: Field>(
         plonk_zs_root,
         quotient_polys_root,
         openings,
+        fri_proofs,
     }
 }
 
