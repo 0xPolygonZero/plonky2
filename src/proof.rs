@@ -3,7 +3,7 @@ use crate::target::Target;
 use crate::gadgets::merkle_proofs::{MerkleProofTarget, MerkleProof};
 
 /// Represents a ~256 bit hash output.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Hash<F: Field> {
     pub(crate) elements: [F; 4],
 }
@@ -18,6 +18,7 @@ impl<F: Field> Hash<F> {
     }
 }
 
+/// Represents a ~256 bit hash output.
 pub struct HashTarget {
     pub(crate) elements: Vec<Target>,
 }
