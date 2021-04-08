@@ -3,20 +3,25 @@ use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
+use crate::circuit_builder::CircuitBuilder;
 
-// /// Constraints for a little-endian split.
-// pub fn split_le_constraints<F: Field>(
-//     integer: ConstraintPolynomial<F>,
-//     bits: &[ConstraintPolynomial<F>],
-// ) -> Vec<ConstraintPolynomial<F>> {
-//     let weighted_sum = bits.iter()
-//         .fold(ConstraintPolynomial::zero(), |acc, b| acc.double() + b);
-//     bits.iter()
-//         .rev()
-//         .map(|b| b * (b - 1))
-//         .chain(iter::once(weighted_sum - integer))
-//         .collect()
-// }
+impl<F: Field> CircuitBuilder<F> {
+    /// Split the given integer into a list of virtual advice targets, where each one represents a
+    /// bit of the integer, with little-endian ordering.
+    ///
+    /// Note that this only handles witness generation; it does not enforce that the decomposition
+    /// is correct. The output should be treated as a "purported" decomposition which must be
+    /// enforced elsewhere.
+    pub(crate) fn split_le_virtual(
+        &mut self,
+        integer: Target,
+        num_bits: usize,
+    ) -> Vec<Target> {
+        let bit_targets = self.add_virtual_advice_targets(num_bits);
+        split_le_generator::<F>(integer, bit_targets.clone());
+        bit_targets
+    }
+}
 
 /// Generator for a little-endian split.
 pub fn split_le_generator<F: Field>(

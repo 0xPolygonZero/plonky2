@@ -39,7 +39,7 @@ fn bench_prove<F: Field>() {
     let gmimc_gate = GMiMCGate::<F, GMIMC_ROUNDS>::with_automatic_constants();
 
     let config = CircuitConfig {
-        num_wires: 120,
+        num_wires: 134,
         num_routed_wires: 12,
         security_bits: 128,
         rate_bits: 3,

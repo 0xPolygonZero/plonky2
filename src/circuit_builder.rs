@@ -22,8 +22,13 @@ pub struct CircuitBuilder<F: Field> {
     /// The types of gates used in this circuit.
     gates: HashSet<GateRef<F>>,
 
+    /// The concrete placement of each gate.
     gate_instances: Vec<GateInstance<F>>,
 
+    /// The next available index for a VirtualAdviceTarget.
+    virtual_target_index: usize,
+
+    /// Generators used to generate the witness.
     generators: Vec<Box<dyn WitnessGenerator<F>>>,
 }
 
@@ -33,8 +38,27 @@ impl<F: Field> CircuitBuilder<F> {
             config,
             gates: HashSet::new(),
             gate_instances: Vec::new(),
+            virtual_target_index: 0,
             generators: Vec::new(),
         }
+    }
+
+    /// Adds a new "virtual" advice target. This is not an actual wire in the witness, but just a
+    /// target that help facilitate witness generation. In particular, a generator can assign a
+    /// values to a virtual target, which can then be copied to other (virtual or concrete) targets
+    /// via `generate_copy`. When we generate the final witness (a grid of wire values), these
+    /// virtual targets will go away.
+    ///
+    /// Since virtual targets are not part of the actual permutation argument, they cannot be used
+    /// with `assert_equal`.
+    pub fn add_virtual_advice_target(&mut self) -> Target {
+        let index = self.virtual_target_index;
+        self.virtual_target_index += 1;
+        Target::VirtualAdviceTarget { index }
+    }
+
+    pub fn add_virtual_advice_targets(&mut self, n: usize) -> Vec<Target> {
+        (0..n).map(|_i| self.add_virtual_advice_target()).collect()
     }
 
     pub fn add_gate_no_constants(&mut self, gate_type: GateRef<F>) -> usize {
