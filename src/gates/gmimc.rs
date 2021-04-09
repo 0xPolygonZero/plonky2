@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use crate::circuit_builder::CircuitBuilder;
-use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::gmimc::gmimc_automatic_constants;
 use crate::target::Target;
+use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -69,8 +69,8 @@ impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
     fn eval_unfiltered(&self, vars: EvaluationVars<F>) -> Vec<F> {
         let mut constraints = Vec::with_capacity(W + R);
 
-        let swap = vars.local_wires[Self::WIRE_SWAP];
         // Assert that `swap` is binary.
+        let swap = vars.local_wires[Self::WIRE_SWAP];
         constraints.push(swap * (swap - F::ONE));
 
         let old_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_OLD];
@@ -161,11 +161,15 @@ struct GMiMCGenerator<F: Field, const R: usize> {
 
 impl<F: Field, const R: usize> SimpleGenerator<F> for GMiMCGenerator<F, R> {
     fn dependencies(&self) -> Vec<Target> {
-        (0..W)
-            .map(|i| Target::Wire(Wire {
-                gate: self.gate_index,
-                input: GMiMCGate::<F, R>::wire_input(i),
-            }))
+        let mut dep_input_indices = Vec::with_capacity(W + 2);
+        for i in 0..W {
+            dep_input_indices.push(GMiMCGate::<F, R>::wire_input(i));
+        }
+        dep_input_indices.push(GMiMCGate::<F, R>::WIRE_SWAP);
+        dep_input_indices.push(GMiMCGate::<F, R>::WIRE_INDEX_ACCUMULATOR_OLD);
+
+        dep_input_indices.into_iter()
+            .map(|input| Target::Wire(Wire { gate: self.gate_index, input }))
             .collect()
     }
 
@@ -268,7 +272,12 @@ mod tests {
             .collect::<Vec<_>>();
 
         let mut witness = PartialWitness::new();
-        witness.set_wire(Wire { gate: 0, input: Gate::WIRE_SWAP }, F::ZERO);
+        witness.set_wire(
+            Wire { gate: 0, input: Gate::WIRE_INDEX_ACCUMULATOR_OLD },
+            F::from_canonical_usize(7));
+        witness.set_wire(
+            Wire { gate: 0, input: Gate::WIRE_SWAP },
+            F::ZERO);
         for i in 0..W {
             witness.set_wire(
                 Wire { gate: 0, input: Gate::wire_input(i) },
@@ -284,8 +293,12 @@ mod tests {
 
         for i in 0..W {
             let out = witness.get_wire(
-                Wire { gate: 1, input: Gate::wire_output(i) });
+                Wire { gate: 0, input: Gate::wire_output(i) });
             assert_eq!(out, expected_outputs[i]);
         }
+
+        let acc_new = witness.get_wire(
+            Wire { gate: 0, input: Gate::WIRE_INDEX_ACCUMULATOR_NEW });
+        assert_eq!(acc_new, F::from_canonical_usize(7 * 2));
     }
 }

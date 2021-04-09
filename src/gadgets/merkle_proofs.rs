@@ -3,7 +3,6 @@ use std::convert::TryInto;
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::gates::gmimc::GMiMCGate;
-use crate::gates::noop::NoopGate;
 use crate::hash::{compress, hash_or_noop};
 use crate::hash::GMIMC_ROUNDS;
 use crate::proof::{Hash, HashTarget};
@@ -41,10 +40,6 @@ pub(crate) fn verify_merkle_proof<F: Field>(
 }
 
 impl<F: Field> CircuitBuilder<F> {
-    pub(crate) fn permute(&mut self, state: [Target; 12]) -> [Target; 12] {
-        todo!()
-    }
-
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
     /// given root.
     pub(crate) fn verify_merkle_proof(
