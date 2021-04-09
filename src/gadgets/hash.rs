@@ -7,6 +7,7 @@ use crate::hash::GMIMC_ROUNDS;
 use crate::target::Target;
 use crate::wire::Wire;
 
+// TODO: Move to be next to native `permute`?
 impl<F: Field> CircuitBuilder<F> {
     pub fn permute(&mut self, inputs: [Target; 12]) -> [Target; 12] {
         let zero = self.zero();

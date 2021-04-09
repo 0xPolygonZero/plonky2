@@ -53,7 +53,8 @@ impl<F: Field> CircuitBuilder<F> {
         let height = proof.siblings.len();
         let purported_index_bits = self.split_le_virtual(leaf_index, height);
 
-        let mut state: Vec<Target> = todo!(); // hash leaf data
+        let mut state: HashTarget = self.hash_or_noop(leaf_data);
+        let mut acc_leaf_index = zero;
 
         for (bit, sibling) in purported_index_bits.into_iter().zip(proof.siblings) {
             let gate = self.add_gate_no_constants(
@@ -63,26 +64,39 @@ impl<F: Field> CircuitBuilder<F> {
             let swap_wire = Target::Wire(Wire { gate, input: swap_wire });
             self.generate_copy(bit, swap_wire);
 
+            let old_acc_wire = GMiMCGate::<F, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_OLD;
+            let old_acc_wire = Target::Wire(Wire { gate, input: old_acc_wire });
+            self.route(acc_leaf_index, old_acc_wire);
+
+            let new_acc_wire = GMiMCGate::<F, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_NEW;
+            let new_acc_wire = Target::Wire(Wire { gate, input: new_acc_wire });
+            acc_leaf_index = new_acc_wire;
+
             let input_wires = (0..12)
                 .map(|i| Target::Wire(
                     Wire { gate, input: GMiMCGate::<F, GMIMC_ROUNDS>::wire_input(i) }))
                 .collect::<Vec<_>>();
 
             for i in 0..4 {
-                self.route(state[i], input_wires[i]);
+                self.route(state.elements[i], input_wires[i]);
                 self.route(sibling.elements[i], input_wires[4 + i]);
                 self.route(zero, input_wires[8 + i]);
             }
 
-            state = (0..4)
+            state = HashTarget::from_vec((0..4)
                 .map(|i| Target::Wire(
                     Wire { gate, input: GMiMCGate::<F, GMIMC_ROUNDS>::wire_output(i) }))
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap();
+                .collect())
         }
 
-        // TODO: Verify that weighted sum of bits matches index.
-        // TODO: Verify that state matches merkle root.
+        self.assert_equal(acc_leaf_index, leaf_index);
+
+        self.assert_hashes_equal(state, merkle_root)
+    }
+
+    pub(crate) fn assert_hashes_equal(&mut self, x: HashTarget, y: HashTarget) {
+        for i in 0..4 {
+            self.assert_equal(x.elements[i], y.elements[i]);
+        }
     }
 }
