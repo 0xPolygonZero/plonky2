@@ -6,8 +6,10 @@ use rayon::prelude::*;
 
 use crate::field::field::Field;
 use crate::gmimc::gmimc_permute_array;
-use crate::proof::Hash;
+use crate::proof::{Hash, HashTarget};
 use crate::util::reverse_index_bits_in_place;
+use crate::circuit_builder::CircuitBuilder;
+use crate::target::Target;
 
 pub(crate) const SPONGE_RATE: usize = 8;
 pub(crate) const SPONGE_CAPACITY: usize = 4;
@@ -25,11 +27,26 @@ const ELEMS_PER_CHUNK: usize = 1 << 8;
 
 /// Hash the vector if necessary to reduce its length to ~256 bits. If it already fits, this is a
 /// no-op.
-pub fn hash_or_noop<F: Field>(mut inputs: Vec<F>) -> Hash<F> {
+pub fn hash_or_noop<F: Field>(inputs: Vec<F>) -> Hash<F> {
     if inputs.len() <= 4 {
         Hash::from_partial(inputs)
     } else {
         hash_n_to_hash(inputs, false)
+    }
+}
+
+impl<F: Field> CircuitBuilder<F> {
+    pub fn hash_or_noop(&mut self, inputs: Vec<Target>) -> HashTarget {
+        let zero = self.zero();
+        if inputs.len() <= 4 {
+            HashTarget::from_partial(inputs, zero)
+        } else {
+            self.hash_n_to_hash(inputs, false)
+        }
+    }
+
+    pub fn hash_n_to_hash(&mut self, inputs: Vec<Target>, pad: bool) -> HashTarget {
+        todo!()
     }
 }
 

@@ -1,6 +1,7 @@
 use crate::field::field::Field;
 use crate::target::Target;
-use crate::gadgets::merkle_proofs::{MerkleProofTarget, MerkleProof};
+use crate::merkle_proofs::{MerkleProofTarget, MerkleProof};
+use std::convert::TryInto;
 
 /// Represents a ~256 bit hash output.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -20,7 +21,22 @@ impl<F: Field> Hash<F> {
 
 /// Represents a ~256 bit hash output.
 pub struct HashTarget {
-    pub(crate) elements: Vec<Target>,
+    pub(crate) elements: [Target; 4],
+}
+
+impl HashTarget {
+    pub(crate) fn from_vec(elements: Vec<Target>) -> Self {
+        debug_assert!(elements.len() == 4);
+        HashTarget { elements: elements.try_into().unwrap() }
+    }
+
+    pub(crate) fn from_partial(mut elements: Vec<Target>, zero: Target) -> Self {
+        debug_assert!(elements.len() <= 4);
+        while elements.len() < 4 {
+            elements.push(zero);
+        }
+        Self { elements: [elements[0], elements[1], elements[2], elements[3]] }
+    }
 }
 
 pub struct Proof<F: Field> {
