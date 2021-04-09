@@ -179,6 +179,7 @@ impl RecursiveChallenger {
         for input_chunk in self.input_buffer.chunks(SPONGE_RATE) {
             // Add the inputs to our sponge state.
             for (i, &input) in input_chunk.iter().enumerate() {
+                // TODO: These adds are wasteful. Maybe GMiMCGate should have separates wires to be added in.
                 self.sponge_state[i] = builder.add(self.sponge_state[i], input);
             }
 

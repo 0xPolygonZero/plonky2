@@ -46,7 +46,48 @@ impl<F: Field> CircuitBuilder<F> {
     }
 
     pub fn hash_n_to_hash(&mut self, inputs: Vec<Target>, pad: bool) -> HashTarget {
-        todo!()
+        HashTarget::from_vec(self.hash_n_to_m(inputs, 4, pad))
+    }
+
+    pub fn hash_n_to_m(
+        &mut self,
+        mut inputs: Vec<Target>,
+        num_outputs: usize,
+        pad: bool,
+    ) -> Vec<Target> {
+        let zero = self.zero();
+        let one = self.one();
+
+        if pad {
+            inputs.push(zero);
+            while (inputs.len() + 1) % SPONGE_WIDTH != 0 {
+                inputs.push(one);
+            }
+            inputs.push(zero);
+        }
+
+        let mut state = [zero; SPONGE_WIDTH];
+
+        // Absorb all input chunks.
+        for input_chunk in inputs.chunks(SPONGE_WIDTH - 1) {
+            for i in 0..input_chunk.len() {
+                // TODO: These adds are wasteful. Maybe GMiMCGate should have separates wires to be added in.
+                state[i] = self.add(state[i], input_chunk[i]);
+            }
+            state = self.permute(state);
+        }
+
+        // Squeeze until we have the desired number of outputs.
+        let mut outputs = Vec::new();
+        loop {
+            for i in 0..(SPONGE_WIDTH - 1) {
+                outputs.push(state[i]);
+                if outputs.len() == num_outputs {
+                    return outputs;
+                }
+            }
+            state = self.permute(state);
+        }
     }
 }
 
@@ -98,8 +139,7 @@ pub fn hash_n_to_m<F: Field>(mut inputs: Vec<F>, num_outputs: usize, pad: bool) 
 }
 
 pub fn hash_n_to_hash<F: Field>(inputs: Vec<F>, pad: bool) -> Hash<F> {
-    let elements = hash_n_to_m(inputs, 4, pad).try_into().unwrap();
-    Hash { elements }
+    Hash::from_vec(hash_n_to_m(inputs, 4, pad))
 }
 
 pub fn hash_n_to_1<F: Field>(inputs: Vec<F>, pad: bool) -> F {

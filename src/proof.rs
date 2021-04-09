@@ -10,6 +10,11 @@ pub struct Hash<F: Field> {
 }
 
 impl<F: Field> Hash<F> {
+    pub(crate) fn from_vec(elements: Vec<F>) -> Self {
+        debug_assert!(elements.len() == 4);
+        Self { elements: elements.try_into().unwrap() }
+    }
+
     pub(crate) fn from_partial(mut elements: Vec<F>) -> Self {
         debug_assert!(elements.len() <= 4);
         while elements.len() < 4 {
@@ -27,7 +32,7 @@ pub struct HashTarget {
 impl HashTarget {
     pub(crate) fn from_vec(elements: Vec<Target>) -> Self {
         debug_assert!(elements.len() == 4);
-        HashTarget { elements: elements.try_into().unwrap() }
+        Self { elements: elements.try_into().unwrap() }
     }
 
     pub(crate) fn from_partial(mut elements: Vec<Target>, zero: Target) -> Self {
