@@ -228,7 +228,7 @@ mod tests {
 
         let config = CircuitConfig {
             num_wires: 114,
-            num_routed_wires: 13,
+            num_routed_wires: 27,
             ..CircuitConfig::default()
         };
         let mut builder = CircuitBuilder::<F>::new(config);
