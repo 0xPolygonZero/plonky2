@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::gates::gmimc::GMiMCGate;
