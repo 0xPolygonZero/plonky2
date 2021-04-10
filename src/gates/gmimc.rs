@@ -149,7 +149,7 @@ impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
     }
 
     fn num_constraints(&self) -> usize {
-        R + W
+        R + W + 2
     }
 }
 
