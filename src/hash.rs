@@ -69,10 +69,12 @@ impl<F: Field> CircuitBuilder<F> {
         let mut state = [zero; SPONGE_WIDTH];
 
         // Absorb all input chunks.
-        for input_chunk in inputs.chunks(SPONGE_WIDTH - 1) {
+        for input_chunk in inputs.chunks(SPONGE_RATE) {
+            // Overwrite the first r elements with the inputs. This differs from a standard sponge,
+            // where we would xor or add in the inputs. This is a well-known variant, though,
+            // sometimes called "overwrite mode".
             for i in 0..input_chunk.len() {
-                // TODO: These adds are wasteful. Maybe GMiMCGate should have separates wires to be added in.
-                state[i] = self.add(state[i], input_chunk[i]);
+                state[i] = input_chunk[i];
             }
             state = self.permute(state);
         }
@@ -80,7 +82,7 @@ impl<F: Field> CircuitBuilder<F> {
         // Squeeze until we have the desired number of outputs.
         let mut outputs = Vec::new();
         loop {
-            for i in 0..(SPONGE_WIDTH - 1) {
+            for i in 0..SPONGE_RATE {
                 outputs.push(state[i]);
                 if outputs.len() == num_outputs {
                     return outputs;
@@ -118,7 +120,7 @@ pub fn hash_n_to_m<F: Field>(mut inputs: Vec<F>, num_outputs: usize, pad: bool) 
     let mut state = [F::ZERO; SPONGE_WIDTH];
 
     // Absorb all input chunks.
-    for input_chunk in inputs.chunks(SPONGE_WIDTH - 1) {
+    for input_chunk in inputs.chunks(SPONGE_RATE) {
         for i in 0..input_chunk.len() {
             state[i] += input_chunk[i];
         }
@@ -128,7 +130,7 @@ pub fn hash_n_to_m<F: Field>(mut inputs: Vec<F>, num_outputs: usize, pad: bool) 
     // Squeeze until we have the desired number of outputs.
     let mut outputs = Vec::new();
     loop {
-        for i in 0..(SPONGE_WIDTH - 1) {
+        for i in 0..SPONGE_RATE {
             outputs.push(state[i]);
             if outputs.len() == num_outputs {
                 return outputs;
