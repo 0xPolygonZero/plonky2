@@ -79,9 +79,11 @@ impl<F: Field> Challenger<F> {
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
     fn absorb_buffered_inputs(&mut self) {
         for input_chunk in self.input_buffer.chunks(SPONGE_RATE) {
-            // Add the inputs to our sponge state.
+            // Overwrite the first r elements with the inputs. This differs from a standard sponge,
+            // where we would xor or add in the inputs. This is a well-known variant, though,
+            // sometimes called "overwrite mode".
             for (i, &input) in input_chunk.iter().enumerate() {
-                self.sponge_state[i] = self.sponge_state[i] + input;
+                self.sponge_state[i] = input;
             }
 
             // Apply the permutation.
@@ -177,10 +179,11 @@ impl RecursiveChallenger {
         builder: &mut CircuitBuilder<F>,
     ) {
         for input_chunk in self.input_buffer.chunks(SPONGE_RATE) {
-            // Add the inputs to our sponge state.
+            // Overwrite the first r elements with the inputs. This differs from a standard sponge,
+            // where we would xor or add in the inputs. This is a well-known variant, though,
+            // sometimes called "overwrite mode".
             for (i, &input) in input_chunk.iter().enumerate() {
-                // TODO: These adds are wasteful. Maybe GMiMCGate should have separates wires to be added in.
-                self.sponge_state[i] = builder.add(self.sponge_state[i], input);
+                self.sponge_state[i] = input;
             }
 
             // Apply the permutation.
