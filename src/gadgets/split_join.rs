@@ -18,12 +18,13 @@ impl<F: Field> CircuitBuilder<F> {
         num_bits: usize,
     ) -> Vec<Target> {
         let bit_targets = self.add_virtual_advice_targets(num_bits);
-        split_le_generator::<F>(integer, bit_targets.clone());
+        self.add_generator(SplitGenerator { integer, bits: bit_targets.clone() });
         bit_targets
     }
 }
 
 /// Generator for a little-endian split.
+#[must_use]
 pub fn split_le_generator<F: Field>(
     integer: Target,
     bits: Vec<Target>,
@@ -32,6 +33,7 @@ pub fn split_le_generator<F: Field>(
 }
 
 /// Generator for a little-endian split.
+#[must_use]
 pub fn split_le_generator_local_wires<F: Field>(
     gate: usize,
     integer_input_index: usize,

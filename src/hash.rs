@@ -1,15 +1,13 @@
 //! Concrete instantiation of a hash function.
 
-use std::convert::TryInto;
-
 use rayon::prelude::*;
 
+use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::gmimc::gmimc_permute_array;
 use crate::proof::{Hash, HashTarget};
-use crate::util::reverse_index_bits_in_place;
-use crate::circuit_builder::CircuitBuilder;
 use crate::target::Target;
+use crate::util::reverse_index_bits_in_place;
 
 pub(crate) const SPONGE_RATE: usize = 8;
 pub(crate) const SPONGE_CAPACITY: usize = 4;
