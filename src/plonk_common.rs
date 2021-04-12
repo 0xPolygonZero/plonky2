@@ -18,6 +18,8 @@ pub fn evaluate_gate_constraints<F: Field>(
     for gate in gates {
         let gate_constraints = gate.0.eval_filtered(vars);
         for (i, c) in gate_constraints.into_iter().enumerate() {
+            debug_assert!(i < num_gate_constraints,
+                          "num_constraints() gave too low of a number");
             constraints[i] += c;
         }
     }
