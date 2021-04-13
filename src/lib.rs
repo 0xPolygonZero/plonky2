@@ -8,6 +8,7 @@ pub mod gates;
 pub mod generator;
 pub mod gmimc;
 pub mod hash;
+pub mod merkle_proofs;
 pub mod plonk_challenger;
 pub mod plonk_common;
 pub mod polynomial;
