@@ -261,7 +261,7 @@ mod tests {
         let gate = Gate::with_constants(constants.clone());
 
         let config = CircuitConfig {
-            num_wires: 200,
+            num_wires: 134,
             num_routed_wires: 200,
             ..Default::default()
         };
