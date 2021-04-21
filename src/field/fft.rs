@@ -62,9 +62,8 @@ pub(crate) fn ifft_with_precomputation_power_of_2<F: Field>(
     let n_inv = F::from_canonical_usize(n).try_inverse().unwrap();
 
     let PolynomialValues { values } = poly;
-    let PolynomialValues { values: mut result } = fft_with_precomputation_power_of_2(
-        PolynomialCoeffs { coeffs: values },
-        precomputation);
+    let PolynomialValues { values: mut result } =
+        fft_with_precomputation_power_of_2(PolynomialCoeffs { coeffs: values }, precomputation);
 
     // We reverse all values except the first, and divide each by n.
     result[0] = result[0] * n_inv;
@@ -155,11 +154,11 @@ pub(crate) fn coset_ifft<F: Field>(poly: PolynomialValues<F>, shift: F) -> Polyn
 
 #[cfg(test)]
 mod tests {
-    use crate::util::{log2_ceil, log2_strict};
-    use crate::field::fft::{ifft, fft};
-    use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-    use crate::field::field::Field;
     use crate::field::crandall_field::CrandallField;
+    use crate::field::fft::{fft, ifft};
+    use crate::field::field::Field;
+    use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+    use crate::util::{log2_ceil, log2_strict};
 
     #[test]
     fn fft_and_ifft() {
@@ -195,7 +194,9 @@ mod tests {
         evaluate_naive_power_of_2(&coefficients_padded)
     }
 
-    fn evaluate_naive_power_of_2<F: Field>(coefficients: &PolynomialCoeffs<F>) -> PolynomialValues<F> {
+    fn evaluate_naive_power_of_2<F: Field>(
+        coefficients: &PolynomialCoeffs<F>,
+    ) -> PolynomialValues<F> {
         let degree = coefficients.len();
         let degree_pow = log2_strict(degree);
 

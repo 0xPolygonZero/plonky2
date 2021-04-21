@@ -1,9 +1,9 @@
+use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
-use crate::circuit_builder::CircuitBuilder;
 
 impl<F: Field> CircuitBuilder<F> {
     /// Split the given integer into a list of virtual advice targets, where each one represents a
@@ -12,11 +12,7 @@ impl<F: Field> CircuitBuilder<F> {
     /// Note that this only handles witness generation; it does not enforce that the decomposition
     /// is correct. The output should be treated as a "purported" decomposition which must be
     /// enforced elsewhere.
-    pub(crate) fn split_le_virtual(
-        &mut self,
-        integer: Target,
-        num_bits: usize,
-    ) -> Vec<Target> {
+    pub(crate) fn split_le_virtual(&mut self, integer: Target, num_bits: usize) -> Vec<Target> {
         let bit_targets = self.add_virtual_advice_targets(num_bits);
         split_le_generator::<F>(integer, bit_targets.clone());
         bit_targets
@@ -37,9 +33,12 @@ pub fn split_le_generator_local_wires<F: Field>(
     integer_input_index: usize,
     bit_input_indices: &[usize],
 ) -> Box<dyn WitnessGenerator<F>> {
-    let integer = Target::Wire(
-        Wire { gate, input: integer_input_index });
-    let bits = bit_input_indices.iter()
+    let integer = Target::Wire(Wire {
+        gate,
+        input: integer_input_index,
+    });
+    let bits = bit_input_indices
+        .iter()
         .map(|&input| Target::Wire(Wire { gate, input }))
         .collect();
     Box::new(SplitGenerator { integer, bits })
@@ -66,8 +65,10 @@ impl<F: Field> SimpleGenerator<F> for SplitGenerator {
             integer_value >>= 1;
         }
 
-        debug_assert_eq!(integer_value, 0,
-                         "Integer too large to fit in given number of bits");
+        debug_assert_eq!(
+            integer_value, 0,
+            "Integer too large to fit in given number of bits"
+        );
 
         result
     }

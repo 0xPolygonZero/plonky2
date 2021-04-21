@@ -3,14 +3,17 @@ use std::time::Instant;
 
 use log::info;
 
-use crate::circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData, VerifierCircuitData, VerifierOnlyCircuitData};
+use crate::circuit_data::{
+    CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
+    VerifierCircuitData, VerifierOnlyCircuitData,
+};
+use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::field::Field;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::hash::merkle_root_bit_rev_order;
-use crate::field::cosets::get_unique_coset_shifts;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
 use crate::util::{log2_strict, transpose, transpose_poly_values};
@@ -79,14 +82,21 @@ impl<F: Field> CircuitBuilder<F> {
         // TODO: Not passing next constants for now. Not sure if it's really useful...
         self.add_generators(gate_type.0.generators(index, &constants, &[]));
 
-        self.gate_instances.push(GateInstance { gate_type, constants });
+        self.gate_instances.push(GateInstance {
+            gate_type,
+            constants,
+        });
         index
     }
 
     fn check_gate_compatibility(&self, gate: &GateRef<F>) {
-        assert!(gate.0.num_wires() <= self.config.num_wires,
-                "{:?} requires {} wires, but our GateConfig has only {}",
-                gate.0.id(), gate.0.num_wires(), self.config.num_wires);
+        assert!(
+            gate.0.num_wires() <= self.config.num_wires,
+            "{:?} requires {} wires, but our GateConfig has only {}",
+            gate.0.id(),
+            gate.0.num_wires(),
+            self.config.num_wires
+        );
     }
 
     /// Shorthand for `generate_copy` and `assert_equal`.
@@ -104,8 +114,14 @@ impl<F: Field> CircuitBuilder<F> {
     /// Uses Plonk's permutation argument to require that two elements be equal.
     /// Both elements must be routable, otherwise this method will panic.
     pub fn assert_equal(&mut self, x: Target, y: Target) {
-        assert!(x.is_routable(self.config), "Tried to route a wire that isn't routable");
-        assert!(y.is_routable(self.config), "Tried to route a wire that isn't routable");
+        assert!(
+            x.is_routable(self.config),
+            "Tried to route a wire that isn't routable"
+        );
+        assert!(
+            y.is_routable(self.config),
+            "Tried to route a wire that isn't routable"
+        );
         // TODO: Add to copy_constraints.
     }
 
@@ -140,7 +156,10 @@ impl<F: Field> CircuitBuilder<F> {
     /// Returns a routable target with the given constant value.
     pub fn constant(&mut self, c: F) -> Target {
         let gate = self.add_gate(ConstantGate::get(), vec![c]);
-        Target::Wire(Wire { gate, input: ConstantGate::WIRE_OUTPUT })
+        Target::Wire(Wire {
+            gate,
+            input: ConstantGate::WIRE_OUTPUT,
+        })
     }
 
     pub fn constants(&mut self, constants: &[F]) -> Vec<Target> {
@@ -156,11 +175,15 @@ impl<F: Field> CircuitBuilder<F> {
     }
 
     fn constant_polys(&self) -> Vec<PolynomialValues<F>> {
-        let num_constants = self.gate_instances.iter()
+        let num_constants = self
+            .gate_instances
+            .iter()
             .map(|gate_inst| gate_inst.constants.len())
             .max()
             .unwrap();
-        let constants_per_gate = self.gate_instances.iter()
+        let constants_per_gate = self
+            .gate_instances
+            .iter()
             .map(|gate_inst| {
                 let mut padded_constants = gate_inst.constants.clone();
                 for _ in padded_constants.len()..num_constants {
@@ -177,13 +200,17 @@ impl<F: Field> CircuitBuilder<F> {
     }
 
     fn sigma_vecs(&self) -> Vec<PolynomialValues<F>> {
-        vec![PolynomialValues::zero(self.gate_instances.len()); self.config.num_routed_wires] // TODO
+        vec![PolynomialValues::zero(self.gate_instances.len()); self.config.num_routed_wires]
+        // TODO
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
     pub fn build(mut self) -> CircuitData<F> {
         let start = Instant::now();
-        info!("degree before blinding & padding: {}", self.gate_instances.len());
+        info!(
+            "degree before blinding & padding: {}",
+            self.gate_instances.len()
+        );
         self.blind_and_pad();
         let degree = self.gate_instances.len();
         info!("degree after blinding & padding: {}", degree);
@@ -199,7 +226,11 @@ impl<F: Field> CircuitBuilder<F> {
         let sigmas_root = merkle_root_bit_rev_order(sigma_ldes_t.clone());
 
         let generators = self.generators;
-        let prover_only = ProverOnlyCircuitData { generators, constant_ldes_t, sigma_ldes_t };
+        let prover_only = ProverOnlyCircuitData {
+            generators,
+            constant_ldes_t,
+            sigma_ldes_t,
+        };
         let verifier_only = VerifierOnlyCircuitData {};
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
@@ -207,7 +238,8 @@ impl<F: Field> CircuitBuilder<F> {
         let mut gates = self.gates.iter().cloned().collect::<Vec<_>>();
         gates.sort_unstable_by_key(|gate| gate.0.id());
 
-        let num_gate_constraints = gates.iter()
+        let num_gate_constraints = gates
+            .iter()
             .map(|gate| gate.0.num_constraints())
             .max()
             .expect("No gates?");
@@ -236,14 +268,28 @@ impl<F: Field> CircuitBuilder<F> {
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
     pub fn build_prover(self) -> ProverCircuitData<F> {
         // TODO: Can skip parts of this.
-        let CircuitData { prover_only, common, .. } = self.build();
-        ProverCircuitData { prover_only, common }
+        let CircuitData {
+            prover_only,
+            common,
+            ..
+        } = self.build();
+        ProverCircuitData {
+            prover_only,
+            common,
+        }
     }
 
     /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
     pub fn build_verifier(self) -> VerifierCircuitData<F> {
         // TODO: Can skip parts of this.
-        let CircuitData { verifier_only, common, .. } = self.build();
-        VerifierCircuitData { verifier_only, common }
+        let CircuitData {
+            verifier_only,
+            common,
+            ..
+        } = self.build();
+        VerifierCircuitData {
+            verifier_only,
+            common,
+        }
     }
 }

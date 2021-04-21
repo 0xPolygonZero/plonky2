@@ -17,5 +17,8 @@ fn main() {
 
     println!("result {:?}", x);
     println!("took {:?}", duration);
-    println!("avg {:?}ns", duration.as_secs_f64() * 1e9 / (num_muls as f64));
+    println!(
+        "avg {:?}ns",
+        duration.as_secs_f64() * 1e9 / (num_muls as f64)
+    );
 }

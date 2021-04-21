@@ -1,9 +1,9 @@
 use crate::circuit_builder::CircuitBuilder;
-use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
+use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -137,8 +137,7 @@ impl<F: Field> SimpleGenerator<F> for ArithmeticGenerator<F> {
         let multiplicand_1 = witness.get_wire(multiplicand_1_target);
         let addend = witness.get_wire(addend_target);
 
-        let output = self.const_0 * multiplicand_0 * multiplicand_1
-            + self.const_1 * addend;
+        let output = self.const_0 * multiplicand_0 * multiplicand_1 + self.const_1 * addend;
 
         PartialWitness::singleton_wire(output_target, output)
     }

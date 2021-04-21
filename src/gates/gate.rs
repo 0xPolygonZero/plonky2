@@ -2,10 +2,10 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use crate::circuit_builder::CircuitBuilder;
-use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::field::field::Field;
 use crate::generator::WitnessGenerator;
 use crate::target::Target;
+use crate::vars::{EvaluationTargets, EvaluationVars};
 
 /// A custom gate.
 pub trait Gate<F: Field>: 'static + Send + Sync {

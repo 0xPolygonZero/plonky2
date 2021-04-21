@@ -1,8 +1,8 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
+use crate::gates::gate::GateRef;
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
-use crate::gates::gate::GateRef;
 
 /// Evaluates all gate constraints.
 ///
@@ -18,8 +18,10 @@ pub fn evaluate_gate_constraints<F: Field>(
     for gate in gates {
         let gate_constraints = gate.0.eval_filtered(vars);
         for (i, c) in gate_constraints.into_iter().enumerate() {
-            debug_assert!(i < num_gate_constraints,
-                          "num_constraints() gave too low of a number");
+            debug_assert!(
+                i < num_gate_constraints,
+                "num_constraints() gave too low of a number"
+            );
             constraints[i] += c;
         }
     }
@@ -64,7 +66,8 @@ pub(crate) fn eval_l_1<F: Field>(n: usize, x: F) -> F {
 
 /// For each alpha in alphas, compute a reduction of the given terms using powers of alpha.
 pub(crate) fn reduce_with_powers_multi<F: Field>(terms: &[F], alphas: &[F]) -> Vec<F> {
-    alphas.iter()
+    alphas
+        .iter()
         .map(|&alpha| reduce_with_powers(terms, alpha))
         .collect()
 }
