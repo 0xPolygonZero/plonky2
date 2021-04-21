@@ -1,7 +1,5 @@
 //! Concrete instantiation of a hash function.
 
-use std::convert::TryInto;
-
 use rayon::prelude::*;
 
 use crate::circuit_builder::CircuitBuilder;

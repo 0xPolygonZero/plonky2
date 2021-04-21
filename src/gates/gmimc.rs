@@ -62,8 +62,7 @@ impl<F: Field, const R: usize> GMiMCGate<F, R> {
 
 impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
     fn id(&self) -> String {
-        // TODO: This won't include generic params?
-        format!("{:?}", self)
+        format!("<R={}> {:?}", R, self)
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F>) -> Vec<F> {
@@ -273,7 +272,7 @@ mod tests {
         let gate = Gate::with_constants(constants.clone());
 
         let config = CircuitConfig {
-            num_wires: 200,
+            num_wires: 134,
             num_routed_wires: 200,
             ..Default::default()
         };
