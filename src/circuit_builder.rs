@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::time::Instant;
 
 use log::info;
@@ -30,6 +30,9 @@ pub struct CircuitBuilder<F: Field> {
 
     /// Generators used to generate the witness.
     generators: Vec<Box<dyn WitnessGenerator<F>>>,
+
+    constants_to_targets: HashMap<F, Target>,
+    targets_to_constants: HashMap<Target, F>,
 }
 
 impl<F: Field> CircuitBuilder<F> {
@@ -40,6 +43,8 @@ impl<F: Field> CircuitBuilder<F> {
             gate_instances: Vec::new(),
             virtual_target_index: 0,
             generators: Vec::new(),
+            constants_to_targets: HashMap::new(),
+            targets_to_constants: HashMap::new(),
         }
     }
 
@@ -139,12 +144,26 @@ impl<F: Field> CircuitBuilder<F> {
 
     /// Returns a routable target with the given constant value.
     pub fn constant(&mut self, c: F) -> Target {
+        if let Some(&target) = self.constants_to_targets.get(&c) {
+            // We already have a wire for this constant.
+            return target;
+        }
+
         let gate = self.add_gate(ConstantGate::get(), vec![c]);
-        Target::Wire(Wire { gate, input: ConstantGate::WIRE_OUTPUT })
+        let target = Target::Wire(Wire { gate, input: ConstantGate::WIRE_OUTPUT });
+        self.constants_to_targets.insert(c, target);
+        self.targets_to_constants.insert(target, c);
+        target
     }
 
     pub fn constants(&mut self, constants: &[F]) -> Vec<Target> {
         constants.iter().map(|&c| self.constant(c)).collect()
+    }
+
+    /// If the given target is a constant (i.e. it was created by the `constant(F)` method), returns
+    /// its constant value. Otherwise, returns `None`.
+    pub fn target_as_constant(&self, target: Target) -> Option<F> {
+        self.targets_to_constants.get(&target).cloned()
     }
 
     fn blind_and_pad(&mut self) {
