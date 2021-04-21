@@ -55,7 +55,6 @@ pub fn test_inputs(modulus: u64, word_bits: usize) -> Vec<u64> {
     //     .collect()
 }
 
-
 /// Apply the unary functions `op` and `expected_op`
 /// coordinate-wise to the inputs from `test_inputs(modulus,
 /// word_bits)` and panic if the two resulting vectors differ.
@@ -70,18 +69,18 @@ pub fn run_unaryop_test_cases<F, UnaryOp, ExpectedOp>(
     ExpectedOp: Fn(u64) -> u64,
 {
     let inputs = test_inputs(modulus, word_bits);
-    let expected: Vec<_> = inputs.iter()
-        .map(|&x| expected_op(x))
-        .collect();
+    let expected: Vec<_> = inputs.iter().map(|&x| expected_op(x)).collect();
     let output: Vec<_> = inputs
         .iter()
         .map(|&x| op(F::from_canonical_u64(x)).to_canonical_u64())
         .collect();
     // Compare expected outputs with actual outputs
     for i in 0..inputs.len() {
-        assert_eq!(output[i], expected[i],
-                   "Expected {}, got {} for input {}",
-                   expected[i], output[i], inputs[i]);
+        assert_eq!(
+            output[i], expected[i],
+            "Expected {}, got {} for input {}",
+            expected[i], output[i], inputs[i]
+        );
     }
 }
 
@@ -106,7 +105,8 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
         // Iterator over inputs rotated right by i places. Since
         // cycle().skip(i) rotates left by i, we need to rotate by
         // n_input_elts - i.
-        let shifted_inputs: Vec<_> = inputs.iter()
+        let shifted_inputs: Vec<_> = inputs
+            .iter()
             .cycle()
             .skip(inputs.len() - i)
             .take(inputs.len())
@@ -119,15 +119,21 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
             .map(|(x, y)| expected_op(x.clone(), y.clone()))
             .collect();
 
-        let output: Vec<_> = inputs.iter().zip(shifted_inputs.clone()).map(|(&x, &y)| {
-            op(F::from_canonical_u64(x), F::from_canonical_u64(y)).to_canonical_u64()
-        }).collect();
+        let output: Vec<_> = inputs
+            .iter()
+            .zip(shifted_inputs.clone())
+            .map(|(&x, &y)| {
+                op(F::from_canonical_u64(x), F::from_canonical_u64(y)).to_canonical_u64()
+            })
+            .collect();
 
         // Compare expected outputs with actual outputs
         for i in 0..inputs.len() {
-            assert_eq!(output[i], expected[i],
-                       "On inputs {} . {}, expected {} but got {}",
-                       inputs[i], shifted_inputs[i], expected[i], output[i]);
+            assert_eq!(
+                output[i], expected[i],
+                "On inputs {} . {}, expected {} but got {}",
+                inputs[i], shifted_inputs[i], expected[i], output[i]
+            );
         }
     }
 }
@@ -146,57 +152,77 @@ macro_rules! test_arithmetic {
             #[test]
             fn arithmetic_addition() {
                 let modulus = <$field>::ORDER;
-                crate::field::field_testing::run_binaryop_test_cases(modulus, WORD_BITS, <$field>::add, |x, y| {
-                    let (z, over) = x.overflowing_add(y);
-                    if over {
-                        z.overflowing_sub(modulus).0
-                    } else if z >= modulus {
-                        z - modulus
-                    } else {
-                        z
-                    }
-                })
+                crate::field::field_testing::run_binaryop_test_cases(
+                    modulus,
+                    WORD_BITS,
+                    <$field>::add,
+                    |x, y| {
+                        let (z, over) = x.overflowing_add(y);
+                        if over {
+                            z.overflowing_sub(modulus).0
+                        } else if z >= modulus {
+                            z - modulus
+                        } else {
+                            z
+                        }
+                    },
+                )
             }
 
             #[test]
             fn arithmetic_subtraction() {
                 let modulus = <$field>::ORDER;
-                crate::field::field_testing::run_binaryop_test_cases(modulus, WORD_BITS, <$field>::sub, |x, y| {
-                    if x >= y {
-                        x - y
-                    } else {
-                        &modulus - y + x
-                    }
-                })
+                crate::field::field_testing::run_binaryop_test_cases(
+                    modulus,
+                    WORD_BITS,
+                    <$field>::sub,
+                    |x, y| {
+                        if x >= y {
+                            x - y
+                        } else {
+                            &modulus - y + x
+                        }
+                    },
+                )
             }
 
             #[test]
             fn arithmetic_negation() {
                 let modulus = <$field>::ORDER;
-                crate::field::field_testing::run_unaryop_test_cases(modulus, WORD_BITS, <$field>::neg, |x| {
-                    if x == 0 {
-                        0
-                    } else {
-                        modulus - x
-                    }
-                })
+                crate::field::field_testing::run_unaryop_test_cases(
+                    modulus,
+                    WORD_BITS,
+                    <$field>::neg,
+                    |x| {
+                        if x == 0 {
+                            0
+                        } else {
+                            modulus - x
+                        }
+                    },
+                )
             }
 
             #[test]
             fn arithmetic_multiplication() {
                 let modulus = <$field>::ORDER;
-                crate::field::field_testing::run_binaryop_test_cases(modulus, WORD_BITS, <$field>::mul, |x, y| {
-                    ((x as u128) * (y as u128) % (modulus as u128)) as u64
-                })
+                crate::field::field_testing::run_binaryop_test_cases(
+                    modulus,
+                    WORD_BITS,
+                    <$field>::mul,
+                    |x, y| ((x as u128) * (y as u128) % (modulus as u128)) as u64,
+                )
             }
 
             #[test]
             fn arithmetic_square() {
                 let modulus = <$field>::ORDER;
                 crate::field::field_testing::run_unaryop_test_cases(
-                    modulus, WORD_BITS,
+                    modulus,
+                    WORD_BITS,
                     |x: $field| x.square(),
-                    |x| ((x as u128) * (x as u128) % (modulus as u128)) as u64)
+                    |x| ((x as u128) * (x as u128) % (modulus as u128)) as u64,
+                )
             }
 
             // #[test]

@@ -15,11 +15,26 @@ pub(crate) fn gmimc_automatic_constants<F: Field, const R: usize>() -> [F; R] {
     constants
 }
 
-pub fn gmimc_compress<F: Field, const R: usize>(a: [F; 4], b: [F; 4], constants: Arc<[F; R]>) -> [F; 4] {
+pub fn gmimc_compress<F: Field, const R: usize>(
+    a: [F; 4],
+    b: [F; 4],
+    constants: Arc<[F; R]>,
+) -> [F; 4] {
     // Sponge with r=8, c=4.
-    let state_0 = [a[0], a[1], a[2], a[3], b[0],
-        b[1], b[2], b[3],
-        F::ZERO, F::ZERO, F::ZERO, F::ZERO];
+    let state_0 = [
+        a[0],
+        a[1],
+        a[2],
+        a[3],
+        b[0],
+        b[1],
+        b[2],
+        b[3],
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+    ];
     let state_1 = gmimc_permute::<F, 12, R>(state_0, constants.clone());
     [state_1[0], state_1[1], state_1[2], state_1[3]]
 }

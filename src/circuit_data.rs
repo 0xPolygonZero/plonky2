@@ -128,7 +128,8 @@ impl<F: Field> CommonCircuitData<F> {
     }
 
     pub fn constraint_degree(&self) -> usize {
-        self.gates.iter()
+        self.gates
+            .iter()
             .map(|g| g.0.degree())
             .max()
             .expect("No gates?")

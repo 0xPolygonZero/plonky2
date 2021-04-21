@@ -25,9 +25,7 @@ pub(crate) fn log2_strict(n: usize) -> usize {
 }
 
 pub(crate) fn transpose_poly_values<F: Field>(polys: Vec<PolynomialValues<F>>) -> Vec<Vec<F>> {
-    let poly_values = polys.into_iter()
-        .map(|p| p.values)
-        .collect::<Vec<_>>();
+    let poly_values = polys.into_iter().map(|p| p.values).collect::<Vec<_>>();
     transpose(&poly_values)
 }
 
@@ -67,7 +65,7 @@ pub(crate) fn reverse_index_bits_in_place<T>(arr: &mut Vec<T>) {
     }
 }
 
-fn reverse_bits(n: usize, num_bits: usize) -> usize {
+pub(crate) fn reverse_bits(n: usize, num_bits: usize) -> usize {
     let mut result = 0;
     for i in 0..num_bits {
         let i_rev = num_bits - i - 1;
@@ -93,9 +91,11 @@ mod tests {
     fn test_reverse_index_bits() {
         assert_eq!(
             reverse_index_bits(vec![10, 20, 30, 40]),
-            vec![10, 30, 20, 40]);
+            vec![10, 30, 20, 40]
+        );
         assert_eq!(
             reverse_index_bits(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
-            vec![0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15]);
+            vec![0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15]
+        );
     }
 }

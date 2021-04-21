@@ -17,24 +17,29 @@ fn main() {
     const W: usize = 13;
     const HASHES_PER_POLY: usize = 1 << (13 + LDE_BITS);
 
-    let threads = (0..THREADS).map(|_i| {
-        thread::spawn(move || {
-            let mut x = [F::ZERO; W];
-            for i in 0..W {
-                x[i] = F::from_canonical_u64((i as u64) * 123456 + 789);
-            }
+    let threads = (0..THREADS)
+        .map(|_i| {
+            thread::spawn(move || {
+                let mut x = [F::ZERO; W];
+                for i in 0..W {
+                    x[i] = F::from_canonical_u64((i as u64) * 123456 + 789);
+                }
 
-            let hashes_per_thread = HASHES_PER_POLY * PROVER_POLYS / THREADS;
-            let start = Instant::now();
-            for _ in 0..hashes_per_thread {
-                x = gmimc_permute_array::<_, W, GMIMC_ROUNDS>(x, GMIMC_CONSTANTS);
-            }
-            let duration = start.elapsed();
-            println!("took {:?}", duration);
-            println!("avg {:?}us", duration.as_secs_f64() * 1e6 / (hashes_per_thread as f64));
-            println!("result {:?}", x);
+                let hashes_per_thread = HASHES_PER_POLY * PROVER_POLYS / THREADS;
+                let start = Instant::now();
+                for _ in 0..hashes_per_thread {
+                    x = gmimc_permute_array::<_, W, GMIMC_ROUNDS>(x, GMIMC_CONSTANTS);
+                }
+                let duration = start.elapsed();
+                println!("took {:?}", duration);
+                println!(
+                    "avg {:?}us",
+                    duration.as_secs_f64() * 1e6 / (hashes_per_thread as f64)
+                );
+                println!("result {:?}", x);
+            })
         })
-    }).collect::<Vec<_>>();
+        .collect::<Vec<_>>();
 
     for t in threads {
         t.join().expect("oops");

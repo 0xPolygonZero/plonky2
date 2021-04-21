@@ -168,8 +168,14 @@ impl<F: Field, const R: usize> SimpleGenerator<F> for GMiMCGenerator<F, R> {
         dep_input_indices.push(GMiMCGate::<F, R>::WIRE_SWAP);
         dep_input_indices.push(GMiMCGate::<F, R>::WIRE_INDEX_ACCUMULATOR_OLD);
 
-        dep_input_indices.into_iter()
-            .map(|input| Target::Wire(Wire { gate: self.gate_index, input }))
+        dep_input_indices
+            .into_iter()
+            .map(|input| {
+                Target::Wire(Wire {
+                    gate: self.gate_index,
+                    input,
+                })
+            })
             .collect()
     }
 
@@ -177,10 +183,12 @@ impl<F: Field, const R: usize> SimpleGenerator<F> for GMiMCGenerator<F, R> {
         let mut result = PartialWitness::new();
 
         let mut state = (0..W)
-            .map(|i| witness.get_wire(Wire {
-                gate: self.gate_index,
-                input: GMiMCGate::<F, R>::wire_input(i),
-            }))
+            .map(|i| {
+                witness.get_wire(Wire {
+                    gate: self.gate_index,
+                    input: GMiMCGate::<F, R>::wire_input(i),
+                })
+            })
             .collect::<Vec<_>>();
 
         let swap_value = witness.get_wire(Wire {
@@ -205,7 +213,8 @@ impl<F: Field, const R: usize> SimpleGenerator<F> for GMiMCGenerator<F, R> {
                 gate: self.gate_index,
                 input: GMiMCGate::<F, R>::WIRE_INDEX_ACCUMULATOR_NEW,
             },
-            new_index_acc_value);
+            new_index_acc_value,
+        );
 
         // Value that is implicitly added to each element.
         // See https://affine.group/2020/02/starkware-challenge
@@ -219,7 +228,8 @@ impl<F: Field, const R: usize> SimpleGenerator<F> for GMiMCGenerator<F, R> {
                     gate: self.gate_index,
                     input: GMiMCGate::<F, R>::wire_cubing_input(r),
                 },
-                cubing_input);
+                cubing_input,
+            );
             let f = cubing_input.cube();
             addition_buffer += f;
             state[active] -= f;
@@ -232,7 +242,8 @@ impl<F: Field, const R: usize> SimpleGenerator<F> for GMiMCGenerator<F, R> {
                     gate: self.gate_index,
                     input: GMiMCGate::<F, R>::wire_output(i),
                 },
-                state[i]);
+                state[i],
+            );
         }
 
         result
@@ -258,7 +269,7 @@ mod tests {
         type F = CrandallField;
         const R: usize = 101;
         let constants = Arc::new([F::TWO; R]);
-        type Gate = GMiMCGate::<F, R>;
+        type Gate = GMiMCGate<F, R>;
         let gate = Gate::with_constants(constants.clone());
 
         let config = CircuitConfig {
@@ -267,38 +278,51 @@ mod tests {
             ..Default::default()
         };
 
-        let permutation_inputs = (0..W)
-            .map(F::from_canonical_usize)
-            .collect::<Vec<_>>();
+        let permutation_inputs = (0..W).map(F::from_canonical_usize).collect::<Vec<_>>();
 
         let mut witness = PartialWitness::new();
         witness.set_wire(
-            Wire { gate: 0, input: Gate::WIRE_INDEX_ACCUMULATOR_OLD },
-            F::from_canonical_usize(7));
+            Wire {
+                gate: 0,
+                input: Gate::WIRE_INDEX_ACCUMULATOR_OLD,
+            },
+            F::from_canonical_usize(7),
+        );
         witness.set_wire(
-            Wire { gate: 0, input: Gate::WIRE_SWAP },
-            F::ZERO);
+            Wire {
+                gate: 0,
+                input: Gate::WIRE_SWAP,
+            },
+            F::ZERO,
+        );
         for i in 0..W {
             witness.set_wire(
-                Wire { gate: 0, input: Gate::wire_input(i) },
-                permutation_inputs[i]);
+                Wire {
+                    gate: 0,
+                    input: Gate::wire_input(i),
+                },
+                permutation_inputs[i],
+            );
         }
 
         let generators = gate.0.generators(0, &[], &[]);
         generate_partial_witness(&mut witness, &generators);
 
-        let expected_outputs: [F; W] = gmimc_permute_naive(
-            permutation_inputs.try_into().unwrap(),
-            constants);
+        let expected_outputs: [F; W] =
+            gmimc_permute_naive(permutation_inputs.try_into().unwrap(), constants);
 
         for i in 0..W {
-            let out = witness.get_wire(
-                Wire { gate: 0, input: Gate::wire_output(i) });
+            let out = witness.get_wire(Wire {
+                gate: 0,
+                input: Gate::wire_output(i),
+            });
             assert_eq!(out, expected_outputs[i]);
         }
 
-        let acc_new = witness.get_wire(
-            Wire { gate: 0, input: Gate::WIRE_INDEX_ACCUMULATOR_NEW });
+        let acc_new = witness.get_wire(Wire {
+            gate: 0,
+            input: Gate::WIRE_INDEX_ACCUMULATOR_NEW,
+        });
         assert_eq!(acc_new, F::from_canonical_usize(7 * 2));
     }
 }

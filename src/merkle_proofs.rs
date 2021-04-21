@@ -1,12 +1,14 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::gates::gmimc::GMiMCGate;
-use crate::hash::{compress, hash_or_noop};
 use crate::hash::GMIMC_ROUNDS;
+use crate::hash::{compress, hash_or_noop};
 use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
+use crate::util::reverse_index_bits;
 use crate::wire::Wire;
 
+#[derive(Clone, Debug)]
 pub struct MerkleProof<F: Field> {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.
     pub siblings: Vec<Hash<F>>,
@@ -23,18 +25,24 @@ pub(crate) fn verify_merkle_proof<F: Field>(
     leaf_data: Vec<F>,
     leaf_index: usize,
     merkle_root: Hash<F>,
-    proof: MerkleProof<F>,
-) -> bool {
+    proof: &MerkleProof<F>,
+    reverse_bits: bool,
+) -> Option<()> {
+    let index = if reverse_bits {
+        crate::util::reverse_bits(leaf_index, proof.siblings.len())
+    } else {
+        leaf_index
+    };
     let mut current_digest = hash_or_noop(leaf_data);
-    for (i, sibling_digest) in proof.siblings.into_iter().enumerate() {
-        let bit = (leaf_index >> i & 1) == 1;
+    for (i, &sibling_digest) in proof.siblings.iter().enumerate() {
+        let bit = (index >> i & 1) == 1;
         current_digest = if bit {
             compress(sibling_digest, current_digest)
         } else {
             compress(current_digest, sibling_digest)
         }
     }
-    current_digest == merkle_root
+    (current_digest == merkle_root).then(|| ())
 }
 
 impl<F: Field> CircuitBuilder<F> {
@@ -55,24 +63,37 @@ impl<F: Field> CircuitBuilder<F> {
         let mut acc_leaf_index = zero;
 
         for (bit, sibling) in purported_index_bits.into_iter().zip(proof.siblings) {
-            let gate = self.add_gate_no_constants(
-                GMiMCGate::<F, GMIMC_ROUNDS>::with_automatic_constants());
+            let gate = self
+                .add_gate_no_constants(GMiMCGate::<F, GMIMC_ROUNDS>::with_automatic_constants());
 
             let swap_wire = GMiMCGate::<F, GMIMC_ROUNDS>::WIRE_SWAP;
-            let swap_wire = Target::Wire(Wire { gate, input: swap_wire });
+            let swap_wire = Target::Wire(Wire {
+                gate,
+                input: swap_wire,
+            });
             self.generate_copy(bit, swap_wire);
 
             let old_acc_wire = GMiMCGate::<F, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_OLD;
-            let old_acc_wire = Target::Wire(Wire { gate, input: old_acc_wire });
+            let old_acc_wire = Target::Wire(Wire {
+                gate,
+                input: old_acc_wire,
+            });
             self.route(acc_leaf_index, old_acc_wire);
 
             let new_acc_wire = GMiMCGate::<F, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_NEW;
-            let new_acc_wire = Target::Wire(Wire { gate, input: new_acc_wire });
+            let new_acc_wire = Target::Wire(Wire {
+                gate,
+                input: new_acc_wire,
+            });
             acc_leaf_index = new_acc_wire;
 
             let input_wires = (0..12)
-                .map(|i| Target::Wire(
-                    Wire { gate, input: GMiMCGate::<F, GMIMC_ROUNDS>::wire_input(i) }))
+                .map(|i| {
+                    Target::Wire(Wire {
+                        gate,
+                        input: GMiMCGate::<F, GMIMC_ROUNDS>::wire_input(i),
+                    })
+                })
                 .collect::<Vec<_>>();
 
             for i in 0..4 {
@@ -81,10 +102,16 @@ impl<F: Field> CircuitBuilder<F> {
                 self.route(zero, input_wires[8 + i]);
             }
 
-            state = HashTarget::from_vec((0..4)
-                .map(|i| Target::Wire(
-                    Wire { gate, input: GMiMCGate::<F, GMIMC_ROUNDS>::wire_output(i) }))
-                .collect())
+            state = HashTarget::from_vec(
+                (0..4)
+                    .map(|i| {
+                        Target::Wire(Wire {
+                            gate,
+                            input: GMiMCGate::<F, GMIMC_ROUNDS>::wire_output(i),
+                        })
+                    })
+                    .collect(),
+            )
         }
 
         self.assert_equal(acc_leaf_index, leaf_index);
