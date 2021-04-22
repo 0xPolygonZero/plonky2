@@ -76,6 +76,17 @@ impl<F: Field> Challenger<F> {
         (0..n).map(|_| self.get_challenge()).collect()
     }
 
+    pub fn get_hash(&mut self) -> Hash<F> {
+        Hash {
+            elements: [
+                self.get_challenge(),
+                self.get_challenge(),
+                self.get_challenge(),
+                self.get_challenge(),
+            ],
+        }
+    }
+
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
     fn absorb_buffered_inputs(&mut self) {
         for input_chunk in self.input_buffer.chunks(SPONGE_RATE) {
