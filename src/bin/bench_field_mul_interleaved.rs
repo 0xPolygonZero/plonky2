@@ -28,6 +28,8 @@ fn main() {
     let duration = start.elapsed();
 
     println!("Result: {:?}", state);
-    println!("Average field mul: {:?}ns",
-             duration.as_secs_f64() * 1e9 / (WIDTH * EXPONENT) as f64);
+    println!(
+        "Average field mul: {:?}ns",
+        duration.as_secs_f64() * 1e9 / (WIDTH * EXPONENT) as f64
+    );
 }
