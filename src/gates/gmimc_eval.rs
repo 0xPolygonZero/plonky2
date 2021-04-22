@@ -1,9 +1,9 @@
 use crate::circuit_builder::CircuitBuilder;
-use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
+use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::witness::PartialWitness;
 
 /// Performs some arithmetic involved in the evaluation of GMiMC's constraint polynomials for one

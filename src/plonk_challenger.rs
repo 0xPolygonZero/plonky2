@@ -1,8 +1,8 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
-use crate::hash::{permute, SPONGE_WIDTH, SPONGE_RATE};
-use crate::target::Target;
+use crate::hash::{permute, SPONGE_RATE, SPONGE_WIDTH};
 use crate::proof::{Hash, HashTarget};
+use crate::target::Target;
 
 /// Observes prover messages, and generates challenges by hashing the transcript.
 #[derive(Clone)]
@@ -76,6 +76,17 @@ impl<F: Field> Challenger<F> {
         (0..n).map(|_| self.get_challenge()).collect()
     }
 
+    pub fn get_hash(&mut self) -> Hash<F> {
+        Hash {
+            elements: [
+                self.get_challenge(),
+                self.get_challenge(),
+                self.get_challenge(),
+                self.get_challenge(),
+            ],
+        }
+    }
+
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
     fn absorb_buffered_inputs(&mut self) {
         for input_chunk in self.input_buffer.chunks(SPONGE_RATE) {
@@ -130,10 +141,7 @@ impl RecursiveChallenger {
         self.observe_elements(&hash.elements)
     }
 
-    pub(crate) fn get_challenge<F: Field>(
-        &mut self,
-        builder: &mut CircuitBuilder<F>,
-    ) -> Target {
+    pub(crate) fn get_challenge<F: Field>(&mut self, builder: &mut CircuitBuilder<F>) -> Target {
         self.absorb_buffered_inputs(builder);
 
         if self.output_buffer.is_empty() {
@@ -174,10 +182,7 @@ impl RecursiveChallenger {
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
-    fn absorb_buffered_inputs<F: Field>(
-        &mut self,
-        builder: &mut CircuitBuilder<F>,
-    ) {
+    fn absorb_buffered_inputs<F: Field>(&mut self, builder: &mut CircuitBuilder<F>) {
         for input_chunk in self.input_buffer.chunks(SPONGE_RATE) {
             // Overwrite the first r elements with the inputs. This differs from a standard sponge,
             // where we would xor or add in the inputs. This is a well-known variant, though,
@@ -198,14 +203,14 @@ impl RecursiveChallenger {
 
 #[cfg(test)]
 mod tests {
+    use crate::circuit_builder::CircuitBuilder;
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
+    use crate::field::field::Field;
     use crate::generator::generate_partial_witness;
     use crate::plonk_challenger::{Challenger, RecursiveChallenger};
     use crate::target::Target;
-    use crate::circuit_builder::CircuitBuilder;
     use crate::witness::PartialWitness;
-    use crate::field::field::Field;
 
     /// Tests for consistency between `Challenger` and `RecursiveChallenger`.
     #[test]
@@ -237,8 +242,7 @@ mod tests {
         };
         let mut builder = CircuitBuilder::<F>::new(config);
         let mut recursive_challenger = RecursiveChallenger::new(&mut builder);
-        let mut recursive_outputs_per_round: Vec<Vec<Target>> =
-            Vec::new();
+        let mut recursive_outputs_per_round: Vec<Vec<Target>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
             recursive_challenger.observe_elements(&builder.constants(inputs));
             recursive_outputs_per_round.push(

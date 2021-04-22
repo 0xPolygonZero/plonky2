@@ -32,12 +32,10 @@ impl<F: Field> PartialWitness<F> {
 
     pub fn get_target(&self, target: Target) -> F {
         self.target_values[&target]
-}
+    }
 
     pub fn get_targets(&self, targets: &[Target]) -> Vec<F> {
-        targets.iter()
-            .map(|&t| self.get_target(t))
-            .collect()
+        targets.iter().map(|&t| self.get_target(t)).collect()
     }
 
     pub fn try_get_target(&self, target: Target) -> Option<F> {
@@ -63,8 +61,11 @@ impl<F: Field> PartialWitness<F> {
     pub fn set_target(&mut self, target: Target, value: F) {
         let opt_old_value = self.target_values.insert(target, value);
         if let Some(old_value) = opt_old_value {
-            assert_eq!(old_value, value,
-                       "Target was set twice with different values: {:?}", target);
+            assert_eq!(
+                old_value, value,
+                "Target was set twice with different values: {:?}",
+                target
+            );
         }
     }
 

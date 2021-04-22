@@ -1,28 +1,30 @@
-use std::fmt::{Debug, Display};
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use rand::Rng;
-use rand::rngs::OsRng;
 use crate::util::bits_u64;
+use rand::rngs::OsRng;
+use rand::Rng;
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// A finite field with prime order less than 2^64.
-pub trait Field: 'static
-+ Copy
-+ Eq
-+ Hash
-+ Neg<Output=Self>
-+ Add<Self, Output=Self>
-+ AddAssign<Self>
-+ Sub<Self, Output=Self>
-+ SubAssign<Self>
-+ Mul<Self, Output=Self>
-+ MulAssign<Self>
-+ Div<Self, Output=Self>
-+ DivAssign<Self>
-+ Debug
-+ Display
-+ Send
-+ Sync {
+pub trait Field:
+    'static
+    + Copy
+    + Eq
+    + Hash
+    + Neg<Output = Self>
+    + Add<Self, Output = Self>
+    + AddAssign<Self>
+    + Sub<Self, Output = Self>
+    + SubAssign<Self>
+    + Mul<Self, Output = Self>
+    + MulAssign<Self>
+    + Div<Self, Output = Self>
+    + DivAssign<Self>
+    + Debug
+    + Display
+    + Send
+    + Sync
+{
     const ZERO: Self;
     const ONE: Self;
     const TWO: Self;
@@ -92,7 +94,9 @@ pub trait Field: 'static
         assert!(n_power <= Self::TWO_ADICITY);
         let base = Self::POWER_OF_TWO_GENERATOR;
         // TODO: Just repeated squaring should be a bit faster, to avoid conditionals.
-        base.exp(Self::from_canonical_u64(1u64 << (Self::TWO_ADICITY - n_power)))
+        base.exp(Self::from_canonical_u64(
+            1u64 << (Self::TWO_ADICITY - n_power),
+        ))
     }
 
     /// Computes a multiplicative subgroup whose order is known in advance.
@@ -109,9 +113,7 @@ pub trait Field: 'static
     /// Computes a coset of a multiplicative subgroup whose order is known in advance.
     fn cyclic_subgroup_coset_known_order(generator: Self, shift: Self, order: usize) -> Vec<Self> {
         let subgroup = Self::cyclic_subgroup_known_order(generator, order);
-        subgroup.into_iter()
-            .map(|x| x * shift)
-            .collect()
+        subgroup.into_iter().map(|x| x * shift).collect()
     }
 
     fn to_canonical_u64(&self) -> u64;
@@ -144,7 +146,10 @@ pub trait Field: 'static
     }
 
     fn powers(&self) -> Powers<Self> {
-        Powers { base: *self, current: Self::ONE }
+        Powers {
+            base: *self,
+            current: Self::ONE,
+        }
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {

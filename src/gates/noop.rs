@@ -1,9 +1,9 @@
 use crate::circuit_builder::CircuitBuilder;
-use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::WitnessGenerator;
 use crate::target::Target;
+use crate::vars::{EvaluationTargets, EvaluationVars};
 
 /// A gate which takes a single constant parameter and outputs that value.
 pub struct NoopGate;
