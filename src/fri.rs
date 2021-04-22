@@ -7,7 +7,7 @@ use crate::plonk_challenger::Challenger;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriEvaluations, FriMerkleProofs, FriProof, FriQueryRound, Hash};
 use crate::util::log2_strict;
-use std::cmp::min;
+use anyhow::{ensure, Result};
 
 /// Somewhat arbitrary. Smaller values will increase delta, but with diminishing returns,
 /// while increasing L, potentially requiring more challenge points.
@@ -57,7 +57,7 @@ fn fri_l(codeword_len: usize, rate_log: usize, conjecture: bool) -> f64 {
 /// Builds a FRI proof.
 fn fri_proof<F: Field>(
     // Coefficients of the polynomial on which the LDT is performed.
-    // Only the first `1/rate_bits` coefficients are non-zero.
+    // Only the first `1/rate` coefficients are non-zero.
     polynomial_coeffs: &PolynomialCoeffs<F>,
     // Evaluation of the polynomial on the large domain.
     polynomial_values: &PolynomialValues<F>,
@@ -108,27 +108,27 @@ fn fri_proof<F: Field>(
         let x = challenger.get_challenge();
         let mut domain_size = n;
         let mut x_index = x.to_canonical_u64() as usize;
-        for i in 0..config.reduction_count {
-            let domain_size2 = domain_size >> 1;
+        for (i, tree) in trees.iter().enumerate() {
+            let next_domain_size = domain_size >> 1;
             x_index %= domain_size;
-            let minus_x_index = (domain_size2 + x_index) % domain_size;
+            let minus_x_index = (next_domain_size + x_index) % domain_size;
             if i == 0 {
                 // For the first layer, we need to send the evaluation at `x` and `-x`.
-                evals.first_layer = (trees[i].get(x_index)[0], trees[i].get(minus_x_index)[0]);
+                evals.first_layer = (tree.get(x_index)[0], tree.get(minus_x_index)[0]);
             } else {
                 // For the other layers, we only need to send the `-x`, the one at `x` can be inferred
                 // by the verifier. See the `compute_evaluation` function.
-                evals.rest.push(trees[i].get(minus_x_index)[0]);
+                evals.rest.push(tree.get(minus_x_index)[0]);
             }
             merkle_proofs
                 .proofs
-                .push((trees[i].prove(x_index), trees[i].prove(minus_x_index)));
+                .push((tree.prove(x_index), tree.prove(minus_x_index)));
 
-            domain_size = domain_size2;
+            domain_size = next_domain_size;
         }
         query_round_proofs.push(FriQueryRound {
-            merkle_proofs,
             evals,
+            merkle_proofs,
         });
     }
 
@@ -141,7 +141,7 @@ fn fri_proof<F: Field>(
 }
 
 /// Computes P'(x^2) from P_even(x) and P_odd(x), where P' is the FRI reduced polynomial,
-/// P_even is the even coefficients polynomial and P_off is the odd coefficients polynomial.
+/// P_even is the even coefficients polynomial and P_odd is the odd coefficients polynomial.
 fn compute_evaluation<F: Field>(x: F, last_e_x: F, last_e_x_minus: F, beta: F) -> F {
     // P(x) = P_0(x^2) + xP_1(x^2)
     // P'(x^2) = P_0(x^2) + beta*P_1(x^2)
@@ -153,7 +153,7 @@ fn verify_fri_proof<F: Field>(
     proof: &FriProof<F>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
-) -> Option<()> {
+) -> Result<()> {
     // Size of the LDE domain.
     let n = proof.final_poly.len() << config.reduction_count;
 
@@ -168,8 +168,14 @@ fn verify_fri_proof<F: Field>(
     challenger.observe_hash(proof.commit_phase_merkle_roots.last().unwrap());
 
     // Check that parameters are coherent.
-    assert_eq!(config.num_query_rounds, proof.query_round_proofs.len());
-    assert!(config.reduction_count > 0);
+    ensure!(
+        config.num_query_rounds == proof.query_round_proofs.len(),
+        "Number of query rounds does not match config."
+    );
+    ensure!(
+        config.reduction_count > 0,
+        "Number of reductions should be non-zero."
+    );
 
     for round in 0..config.num_query_rounds {
         let round_proof = &proof.query_round_proofs[round];
@@ -181,8 +187,8 @@ fn verify_fri_proof<F: Field>(
         let mut subgroup_x = F::primitive_root_of_unity(log2_strict(n)).exp_usize(x_index % n);
         for i in 0..config.reduction_count {
             x_index %= domain_size;
-            let domain_size2 = domain_size >> 1;
-            let minus_x_index = (domain_size2 + x_index) % domain_size;
+            let next_domain_size = domain_size >> 1;
+            let minus_x_index = (next_domain_size + x_index) % domain_size;
             let (e_x, e_x_minus, merkle_proof, merkle_proof_minus) = if i == 0 {
                 let (e_x, e_x_minus) = round_proof.evals.first_layer;
                 let (merkle_proof, merkle_proof_minus) = &round_proof.merkle_proofs.proofs[i];
@@ -196,27 +202,24 @@ fn verify_fri_proof<F: Field>(
                 e_xs.push((e_x, e_x_minus));
                 (e_x, e_x_minus, merkle_proof, merkle_proof_minus)
             };
-            (verify_merkle_proof(
+            verify_merkle_proof(
                 vec![e_x],
                 x_index,
                 proof.commit_phase_merkle_roots[i],
                 merkle_proof,
                 true,
-            )
-            .is_some()
-                && verify_merkle_proof(
-                    vec![e_x_minus],
-                    minus_x_index,
-                    proof.commit_phase_merkle_roots[i],
-                    merkle_proof_minus,
-                    true,
-                )
-                .is_some())
-            .then(|| ())?;
+            )?;
+            verify_merkle_proof(
+                vec![e_x_minus],
+                minus_x_index,
+                proof.commit_phase_merkle_roots[i],
+                merkle_proof_minus,
+                true,
+            )?;
             if i > 0 {
                 subgroup_x = subgroup_x.square();
             }
-            domain_size = domain_size2;
+            domain_size = next_domain_size;
         }
         let (last_e_x, last_e_x_minus) = e_xs[config.reduction_count - 1];
         let purported_eval = compute_evaluation(
@@ -227,9 +230,13 @@ fn verify_fri_proof<F: Field>(
         );
         // Final check of FRI. After all the reduction, we check that the final polynomial is equal
         // to the one sent by the prover.
-        (proof.final_poly.eval(subgroup_x.square()) == purported_eval).then(|| ())?;
+        ensure!(
+            proof.final_poly.eval(subgroup_x.square()) == purported_eval,
+            "Final polynomial evaluation is invalid."
+        );
     }
-    Some(())
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -237,8 +244,14 @@ mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
     use crate::field::fft::ifft;
+    use anyhow::Result;
 
-    fn test_fri(degree: usize, rate_bits: usize, reduction_count: usize, num_query_rounds: usize) {
+    fn test_fri(
+        degree: usize,
+        rate_bits: usize,
+        reduction_count: usize,
+        num_query_rounds: usize,
+    ) -> Result<()> {
         type F = CrandallField;
 
         let n = degree;
@@ -254,19 +267,22 @@ mod tests {
         let proof = fri_proof(&ifft(lde.clone()), &lde, &mut challenger, &config);
 
         let mut challenger = Challenger::new();
-        assert!(verify_fri_proof(&proof, &mut challenger, &config).is_some());
+        verify_fri_proof(&proof, &mut challenger, &config)?;
+
+        Ok(())
     }
 
     #[test]
-    fn test_fri_multi_params() {
+    fn test_fri_multi_params() -> Result<()> {
         for degree_log in 1..6 {
             for rate_bits in 0..4 {
                 for reduction_count in 1..=(degree_log + rate_bits) {
                     for num_query_round in 0..4 {
-                        test_fri(1 << degree_log, rate_bits, reduction_count, num_query_round);
+                        test_fri(1 << degree_log, rate_bits, reduction_count, num_query_round)?;
                     }
                 }
             }
         }
+        Ok(())
     }
 }

@@ -84,9 +84,10 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::merkle_proofs::verify_merkle_proof;
     use crate::polynomial::division::divide_by_z_h;
+    use anyhow::Result;
 
     #[test]
-    fn test_merkle_trees() {
+    fn test_merkle_trees() -> Result<()> {
         type F = CrandallField;
 
         let n = 1 << 10;
@@ -97,22 +98,15 @@ mod tests {
         let tree = MerkleTree::new(leaves.clone(), false);
         for i in 0..n {
             let proof = tree.prove(i);
-            assert!(
-                verify_merkle_proof(tree.leaves[i].clone(), i, tree.root, &proof, false).is_some()
-            );
+            verify_merkle_proof(tree.leaves[i].clone(), i, tree.root, &proof, false)?;
         }
 
         let tree_reversed_bits = MerkleTree::new(leaves.clone(), true);
         for i in 0..n {
             let proof = tree_reversed_bits.prove(i);
-            assert!(verify_merkle_proof(
-                leaves[i].clone(),
-                i,
-                tree_reversed_bits.root,
-                &proof,
-                true
-            )
-            .is_some());
+            verify_merkle_proof(leaves[i].clone(), i, tree_reversed_bits.root, &proof, true)?;
         }
+
+        Ok(())
     }
 }

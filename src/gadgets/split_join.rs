@@ -14,7 +14,10 @@ impl<F: Field> CircuitBuilder<F> {
     /// enforced elsewhere.
     pub(crate) fn split_le_virtual(&mut self, integer: Target, num_bits: usize) -> Vec<Target> {
         let bit_targets = self.add_virtual_advice_targets(num_bits);
-        self.add_generator(SplitGenerator { integer, bits: bit_targets.clone() });
+        self.add_generator(SplitGenerator {
+            integer,
+            bits: bit_targets.clone(),
+        });
         bit_targets
     }
 }

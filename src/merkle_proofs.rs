@@ -7,6 +7,7 @@ use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
 use crate::util::reverse_index_bits;
 use crate::wire::Wire;
+use anyhow::{ensure, Result};
 
 #[derive(Clone, Debug)]
 pub struct MerkleProof<F: Field> {
@@ -27,7 +28,7 @@ pub(crate) fn verify_merkle_proof<F: Field>(
     merkle_root: Hash<F>,
     proof: &MerkleProof<F>,
     reverse_bits: bool,
-) -> Option<()> {
+) -> Result<()> {
     let index = if reverse_bits {
         crate::util::reverse_bits(leaf_index, proof.siblings.len())
     } else {
@@ -42,7 +43,9 @@ pub(crate) fn verify_merkle_proof<F: Field>(
             compress(current_digest, sibling_digest)
         }
     }
-    (current_digest == merkle_root).then(|| ())
+    ensure!(current_digest == merkle_root, "Invalid Merkle proof.");
+
+    Ok(())
 }
 
 impl<F: Field> CircuitBuilder<F> {
