@@ -68,6 +68,10 @@ pub(crate) fn prove<F: Field>(
     );
 
     let mut challenger = Challenger::new();
+    // Observe the instance.
+    // TODO: Need to include public inputs as well.
+    challenger.observe_hash(&common_data.circuit_digest);
+
     challenger.observe_hash(&wires_root);
     let betas = challenger.get_n_challenges(num_checks);
     let gammas = challenger.get_n_challenges(num_checks);

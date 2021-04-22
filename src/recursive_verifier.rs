@@ -17,4 +17,6 @@ pub fn add_recursive_verifier<F: Field>(
 ) {
     assert!(builder.config.num_wires >= MIN_WIRES);
     assert!(builder.config.num_wires >= MIN_ROUTED_WIRES);
+
+    todo!()
 }
