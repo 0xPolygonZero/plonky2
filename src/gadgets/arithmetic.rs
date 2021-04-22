@@ -1,7 +1,7 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
-use crate::target::Target;
 use crate::gates::arithmetic::ArithmeticGate;
+use crate::target::Target;
 use crate::wire::Wire;
 use crate::generator::SimpleGenerator;
 use crate::witness::PartialWitness;
@@ -29,10 +29,22 @@ impl<F: Field> CircuitBuilder<F> {
 
         let gate = self.add_gate(ArithmeticGate::new(), vec![const_0, const_1]);
 
-        let wire_multiplicand_0 = Wire { gate, input: ArithmeticGate::WIRE_MULTIPLICAND_0 };
-        let wire_multiplicand_1 = Wire { gate, input: ArithmeticGate::WIRE_MULTIPLICAND_1 };
-        let wire_addend = Wire { gate, input: ArithmeticGate::WIRE_ADDEND };
-        let wire_output = Wire { gate, input: ArithmeticGate::WIRE_OUTPUT };
+        let wire_multiplicand_0 = Wire {
+            gate,
+            input: ArithmeticGate::WIRE_MULTIPLICAND_0,
+        };
+        let wire_multiplicand_1 = Wire {
+            gate,
+            input: ArithmeticGate::WIRE_MULTIPLICAND_1,
+        };
+        let wire_addend = Wire {
+            gate,
+            input: ArithmeticGate::WIRE_ADDEND,
+        };
+        let wire_output = Wire {
+            gate,
+            input: ArithmeticGate::WIRE_OUTPUT,
+        };
 
         self.route(multiplicand_0, Target::Wire(wire_multiplicand_0));
         self.route(multiplicand_1, Target::Wire(wire_multiplicand_1));

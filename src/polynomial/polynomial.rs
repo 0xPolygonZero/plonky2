@@ -26,13 +26,8 @@ impl<F: Field> PolynomialValues<F> {
         self.values.len()
     }
 
-    pub fn lde_multiple(
-        polys: Vec<Self>,
-        rate_bits: usize,
-    ) -> Vec<Self> {
-        polys.into_iter()
-            .map(|p| p.lde(rate_bits))
-            .collect()
+    pub fn lde_multiple(polys: Vec<Self>, rate_bits: usize) -> Vec<Self> {
+        polys.into_iter().map(|p| p.lde(rate_bits)).collect()
     }
 
     pub fn lde(self, rate_bits: usize) -> Self {
@@ -82,13 +77,15 @@ impl<F: Field> PolynomialCoeffs<F> {
             .collect()
     }
 
-    pub fn lde_multiple(
-        polys: Vec<Self>,
-        rate_bits: usize,
-    ) -> Vec<Self> {
-        polys.into_iter()
-            .map(|p| p.lde(rate_bits))
-            .collect()
+    pub fn eval(&self, x: F) -> F {
+        self.coeffs
+            .iter()
+            .rev()
+            .fold(F::ZERO, |acc, &c| acc * x + c)
+    }
+
+    pub fn lde_multiple(polys: Vec<Self>, rate_bits: usize) -> Vec<Self> {
+        polys.into_iter().map(|p| p.lde(rate_bits)).collect()
     }
 
     pub(crate) fn lde(mut self, rate_bits: usize) -> Self {

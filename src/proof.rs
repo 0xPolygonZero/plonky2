@@ -1,6 +1,7 @@
 use crate::field::field::Field;
+use crate::merkle_proofs::{MerkleProof, MerkleProofTarget};
+use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
-use crate::merkle_proofs::{MerkleProofTarget, MerkleProof};
 use std::convert::TryInto;
 
 /// Represents a ~256 bit hash output.
@@ -12,7 +13,9 @@ pub struct Hash<F: Field> {
 impl<F: Field> Hash<F> {
     pub(crate) fn from_vec(elements: Vec<F>) -> Self {
         debug_assert!(elements.len() == 4);
-        Self { elements: elements.try_into().unwrap() }
+        Self {
+            elements: elements.try_into().unwrap(),
+        }
     }
 
     pub(crate) fn from_partial(mut elements: Vec<F>) -> Self {
@@ -20,7 +23,9 @@ impl<F: Field> Hash<F> {
         while elements.len() < 4 {
             elements.push(F::ZERO);
         }
-        Self { elements: [elements[0], elements[1], elements[2], elements[3]] }
+        Self {
+            elements: [elements[0], elements[1], elements[2], elements[3]],
+        }
     }
 }
 
@@ -32,7 +37,9 @@ pub struct HashTarget {
 impl HashTarget {
     pub(crate) fn from_vec(elements: Vec<Target>) -> Self {
         debug_assert!(elements.len() == 4);
-        Self { elements: elements.try_into().unwrap() }
+        Self {
+            elements: elements.try_into().unwrap(),
+        }
     }
 
     pub(crate) fn from_partial(mut elements: Vec<Target>, zero: Target) -> Self {
@@ -40,7 +47,9 @@ impl HashTarget {
         while elements.len() < 4 {
             elements.push(zero);
         }
-        Self { elements: [elements[0], elements[1], elements[2], elements[3]] }
+        Self {
+            elements: [elements[0], elements[1], elements[2], elements[3]],
+        }
     }
 }
 
@@ -74,15 +83,35 @@ pub struct ProofTarget {
     pub fri_proofs: Vec<FriProofTarget>,
 }
 
+// TODO: Implement FriEvaluationsTarget
+#[derive(Debug)]
+pub struct FriEvaluations<F: Field> {
+    pub first_layer: (F, F),
+    pub rest: Vec<F>,
+}
+
+// TODO: Implement FriEvaluationsTarget
+pub struct FriMerkleProofs<F: Field> {
+    pub proofs: Vec<(MerkleProof<F>, MerkleProof<F>)>,
+}
+
+// TODO: Implement FriQueryRoundTarget
+pub struct FriQueryRound<F: Field> {
+    pub evals: FriEvaluations<F>,
+    pub merkle_proofs: FriMerkleProofs<F>,
+}
+
 pub struct FriProof<F: Field> {
     /// A Merkle root for each reduced polynomial in the commit phase.
     pub commit_phase_merkle_roots: Vec<Hash<F>>,
     /// Merkle proofs for the original purported codewords, i.e. the subject of the LDT.
     pub initial_merkle_proofs: Vec<MerkleProof<F>>,
-    /// Merkle proofs for the reduced polynomials that were sent in the commit phase.
-    pub intermediate_merkle_proofs: Vec<MerkleProof<F>>,
+    /// Query rounds proofs
+    pub query_round_proofs: Vec<FriQueryRound<F>>,
     /// The final polynomial in coefficient form.
-    pub final_poly: Vec<F>,
+    pub final_poly: PolynomialCoeffs<F>,
+    /// Witness showing that the prover did PoW.
+    pub pow_witness: F,
 }
 
 /// Represents a single FRI query, i.e. a path through the reduction tree.

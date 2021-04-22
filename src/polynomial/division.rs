@@ -38,7 +38,8 @@ pub(crate) fn divide_by_z_h<F: Field>(mut a: PolynomialCoeffs<F>, n: usize) -> P
     let denominators_inv = F::batch_multiplicative_inverse(&denominators);
     // Divide every element of `a_eval` by the corresponding denominator.
     // Then, `a_eval` is the evaluation of `a/Z_H` on `{g.w^i}`.
-    a_eval.values
+    a_eval
+        .values
         .iter_mut()
         .zip(denominators_inv.iter())
         .for_each(|(x, &d)| {

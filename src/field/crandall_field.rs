@@ -1,5 +1,5 @@
-use std::fmt::{Debug, Display, Formatter};
 use std::fmt;
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::Integer;
@@ -123,11 +123,7 @@ impl Field for CrandallField {
             }
         }
 
-        let inverse = Self(if u == 1 {
-            b
-        } else {
-            c
-        });
+        let inverse = Self(if u == 1 { b } else { c });
 
         // Should change to debug_assert_eq; using assert_eq as an extra precaution for now until
         // we're more confident the impl is correct.

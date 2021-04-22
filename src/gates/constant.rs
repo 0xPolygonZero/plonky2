@@ -1,9 +1,9 @@
 use crate::circuit_builder::CircuitBuilder;
-use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
+use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -83,7 +83,10 @@ impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
     }
 
     fn run_once(&self, _witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let wire = Wire { gate: self.gate_index, input: ConstantGate::WIRE_OUTPUT };
+        let wire = Wire {
+            gate: self.gate_index,
+            input: ConstantGate::WIRE_OUTPUT,
+        };
         PartialWitness::singleton_target(Target::Wire(wire), self.constant)
     }
 }
