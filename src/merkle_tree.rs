@@ -1,5 +1,5 @@
 use crate::field::field::Field;
-use crate::hash::{compress, hash_n_to_hash, hash_or_noop};
+use crate::hash::{compress, hash_or_noop};
 use crate::merkle_proofs::MerkleProof;
 use crate::proof::Hash;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
@@ -33,11 +33,11 @@ impl<F: Field> MerkleTree<F> {
             if l.len() == 1 {
                 break;
             }
-            layers.push(
-                l.chunks(2)
-                    .map(|chunk| compress(chunk[0], chunk[1]))
-                    .collect::<Vec<_>>(),
-            );
+            let next_layer = l
+                .chunks(2)
+                .map(|chunk| compress(chunk[0], chunk[1]))
+                .collect::<Vec<_>>();
+            layers.push(next_layer);
         }
         let root = layers.pop().unwrap()[0];
         Self {
