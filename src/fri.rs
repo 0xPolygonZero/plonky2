@@ -5,9 +5,10 @@ use crate::merkle_proofs::verify_merkle_proof;
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::proof::{FriEvaluations, FriMerkleProofs, FriProof, FriQueryRound};
+use crate::proof::{FriEvaluations, FriMerkleProofs, FriProof, FriQueryRound, Hash};
 use crate::util::log2_strict;
 use anyhow::{ensure, Result};
+use std::iter::FromIterator;
 
 /// Somewhat arbitrary. Smaller values will increase delta, but with diminishing returns,
 /// while increasing L, potentially requiring more challenge points.
@@ -71,7 +72,7 @@ fn fri_proof<F: Field>(
     let (trees, final_coeffs) =
         fri_committed_trees(polynomial_coeffs, polynomial_values, challenger, config);
 
-    let current_hash = challenger.get_challenge();
+    let current_hash = challenger.get_hash();
     let pow_witness = fri_proof_of_work(current_hash, config);
 
     // Query phase
@@ -121,16 +122,50 @@ fn fri_committed_trees<F: Field>(
     (trees, coeffs)
 }
 
-fn fri_proof_of_work<F: Field>(current_hash: F, config: &FriConfig) -> F {
+fn fri_proof_of_work<F: Field>(current_hash: Hash<F>, config: &FriConfig) -> F {
     (0u64..)
         .find(|&i| {
-            hash_n_to_1(vec![current_hash, F::from_canonical_u64(i)], false)
-                .to_canonical_u64()
-                .leading_zeros()
+            hash_n_to_1(
+                Vec::from_iter(
+                    current_hash
+                        .elements
+                        .iter()
+                        .copied()
+                        .chain(Some(F::from_canonical_u64(i))),
+                ),
+                false,
+            )
+            .to_canonical_u64()
+            .leading_zeros()
                 >= config.proof_of_work_bits
         })
         .map(F::from_canonical_u64)
         .expect("Proof of work failed.")
+}
+
+fn fri_verify_proof_of_work<F: Field>(
+    proof: &FriProof<F>,
+    challenger: &mut Challenger<F>,
+    config: &FriConfig,
+) -> Result<()> {
+    let hash = hash_n_to_1(
+        Vec::from_iter(
+            challenger
+                .get_hash()
+                .elements
+                .iter()
+                .copied()
+                .chain(Some(proof.pow_witness)),
+        ),
+        false,
+    );
+    ensure!(
+        hash.to_canonical_u64().leading_zeros()
+            >= config.proof_of_work_bits + F::ORDER.leading_zeros(),
+        "Invalid proof of work witness."
+    );
+
+    Ok(())
 }
 
 fn fri_query_rounds<F: Field>(
@@ -205,14 +240,7 @@ fn verify_fri_proof<F: Field>(
     challenger.observe_hash(proof.commit_phase_merkle_roots.last().unwrap());
 
     // Check PoW.
-    ensure!(
-        hash_n_to_1(vec![challenger.get_challenge(), proof.pow_witness], false)
-            .to_canonical_u64()
-            .leading_zeros()
-            >= config.proof_of_work_bits,
-        "Invalid proof of work witness."
-    );
-
+    fri_verify_proof_of_work(proof, challenger, config)?;
     // Check that parameters are coherent.
     ensure!(
         config.num_query_rounds == proof.query_round_proofs.len(),
