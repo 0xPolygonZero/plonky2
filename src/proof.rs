@@ -110,6 +110,8 @@ pub struct FriProof<F: Field> {
     pub query_round_proofs: Vec<FriQueryRound<F>>,
     /// The final polynomial in coefficient form.
     pub final_poly: PolynomialCoeffs<F>,
+    /// Witness showing that the prover did PoW.
+    pub pow_witness: F,
 }
 
 /// Represents a single FRI query, i.e. a path through the reduction tree.

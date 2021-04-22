@@ -5,7 +5,6 @@ use crate::hash::GMIMC_ROUNDS;
 use crate::hash::{compress, hash_or_noop};
 use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
-use crate::util::reverse_index_bits;
 use crate::wire::Wire;
 use anyhow::{ensure, Result};
 

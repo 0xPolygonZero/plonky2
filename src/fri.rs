@@ -1,11 +1,11 @@
 use crate::field::fft::fft;
 use crate::field::field::Field;
-use crate::hash::{compress, hash_n_to_hash};
+use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::proof::{FriEvaluations, FriMerkleProofs, FriProof, FriQueryRound, Hash};
+use crate::proof::{FriEvaluations, FriMerkleProofs, FriProof, FriQueryRound};
 use crate::util::log2_strict;
 use anyhow::{ensure, Result};
 
@@ -14,7 +14,7 @@ use anyhow::{ensure, Result};
 const EPSILON: f64 = 0.01;
 
 struct FriConfig {
-    proof_of_work_bits: usize,
+    proof_of_work_bits: u32,
 
     /// The arity of each FRI reduction step, expressed (i.e. the log2 of the actual arity).
     /// For example, `[3, 2, 1]` would describe a FRI reduction tree with 8-to-1 reduction, then
@@ -67,17 +67,41 @@ fn fri_proof<F: Field>(
     let n = polynomial_values.values.len();
     assert_eq!(polynomial_coeffs.coeffs.len(), n);
 
+    // Commit phase
+    let (trees, final_coeffs) =
+        fri_committed_trees(polynomial_coeffs, polynomial_values, challenger, config);
+
+    let current_hash = challenger.get_challenge();
+    let pow_witness = fri_proof_of_work(current_hash, config);
+
+    // Query phase
+    let query_round_proofs = fri_query_rounds(&trees, challenger, n, config);
+
+    FriProof {
+        commit_phase_merkle_roots: trees.iter().map(|t| t.root).collect(),
+        // TODO: Fix this
+        initial_merkle_proofs: vec![],
+        query_round_proofs,
+        final_poly: final_coeffs,
+        pow_witness,
+    }
+}
+
+fn fri_committed_trees<F: Field>(
+    polynomial_coeffs: &PolynomialCoeffs<F>,
+    polynomial_values: &PolynomialValues<F>,
+    challenger: &mut Challenger<F>,
+    config: &FriConfig,
+) -> (Vec<MerkleTree<F>>, PolynomialCoeffs<F>) {
     let mut trees = vec![MerkleTree::new(
         polynomial_values.values.iter().map(|&v| vec![v]).collect(),
         true,
     )];
-    let mut root = trees[0].root;
     let mut coeffs = polynomial_coeffs.clone();
     let mut values;
 
-    challenger.observe_hash(&root);
+    challenger.observe_hash(&trees[0].root);
 
-    // Commit phase
     for _ in 0..config.reduction_count {
         let beta = challenger.get_challenge();
         // P(x) = P_0(x^2) + xP_1(x^2) becomes P_0(x) + beta*P_1(x)
@@ -94,8 +118,27 @@ fn fri_proof<F: Field>(
         challenger.observe_hash(&tree.root);
         trees.push(tree);
     }
+    (trees, coeffs)
+}
 
-    // Query phase
+fn fri_proof_of_work<F: Field>(current_hash: F, config: &FriConfig) -> F {
+    (0u64..)
+        .find(|&i| {
+            hash_n_to_1(vec![current_hash, F::from_canonical_u64(i)], false)
+                .to_canonical_u64()
+                .leading_zeros()
+                >= config.proof_of_work_bits
+        })
+        .map(F::from_canonical_u64)
+        .expect("Proof of work failed.")
+}
+
+fn fri_query_rounds<F: Field>(
+    trees: &[MerkleTree<F>],
+    challenger: &mut Challenger<F>,
+    n: usize,
+    config: &FriConfig,
+) -> Vec<FriQueryRound<F>> {
     let mut query_round_proofs = Vec::new();
     for _ in 0..config.num_query_rounds {
         let mut merkle_proofs = FriMerkleProofs { proofs: Vec::new() };
@@ -131,13 +174,7 @@ fn fri_proof<F: Field>(
             merkle_proofs,
         });
     }
-
-    FriProof {
-        commit_phase_merkle_roots: trees.iter().map(|t| t.root).collect(),
-        initial_merkle_proofs: vec![],
-        query_round_proofs,
-        final_poly: coeffs,
-    }
+    query_round_proofs
 }
 
 /// Computes P'(x^2) from P_even(x) and P_odd(x), where P' is the FRI reduced polynomial,
@@ -166,6 +203,15 @@ fn verify_fri_proof<F: Field>(
         })
         .collect::<Vec<_>>();
     challenger.observe_hash(proof.commit_phase_merkle_roots.last().unwrap());
+
+    // Check PoW.
+    ensure!(
+        hash_n_to_1(vec![challenger.get_challenge(), proof.pow_witness], false)
+            .to_canonical_u64()
+            .leading_zeros()
+            >= config.proof_of_work_bits,
+        "Invalid proof of work witness."
+    );
 
     // Check that parameters are coherent.
     ensure!(
@@ -228,7 +274,7 @@ fn verify_fri_proof<F: Field>(
             last_e_x_minus,
             betas[config.reduction_count - 1],
         );
-        // Final check of FRI. After all the reduction, we check that the final polynomial is equal
+        // Final check of FRI. After all the reductions, we check that the final polynomial is equal
         // to the one sent by the prover.
         ensure!(
             proof.final_poly.eval(subgroup_x.square()) == purported_eval,
@@ -260,7 +306,7 @@ mod tests {
         let config = FriConfig {
             reduction_count,
             num_query_rounds,
-            proof_of_work_bits: 0,
+            proof_of_work_bits: 2,
             reduction_arity_bits: Vec::new(),
         };
         let mut challenger = Challenger::new();
