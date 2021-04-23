@@ -225,35 +225,61 @@ macro_rules! test_arithmetic {
                 )
             }
 
-            // #[test]
-            // #[ignore]
-            // fn arithmetic_division() {
-            //     // This test takes ages to finish so is #[ignore]d by default.
-            //     // TODO: Re-enable and reimplement when
-            //     // https://github.com/rust-num/num-bigint/issues/60 is finally resolved.
-            //     let modulus = <$field>::ORDER;
-            //     crate::field::field_testing::run_binaryop_test_cases(
-            //         modulus,
-            //         WORD_BITS,
-            //         // Need to help the compiler infer the type of y here
-            //         |x: $field, y: $field| {
-            //             // TODO: Work out how to check that div() panics
-            //             // appropriately when given a zero divisor.
-            //             if !y.is_zero() {
-            //                 <$field>::div(x, y)
-            //             } else {
-            //                 <$field>::ZERO
-            //             }
-            //         },
-            //         |x, y| {
-            //             // yinv = y^-1 (mod modulus)
-            //             let exp = modulus - 2u64;
-            //             let yinv = y.modpow(exp, modulus);
-            //             // returns 0 if y was 0
-            //             x * yinv % modulus
-            //         },
-            //     )
-            // }
+            #[test]
+            fn inversion() {
+                let zero = <$field>::ZERO;
+                let one = <$field>::ONE;
+                let order = <$field>::ORDER;
+
+                assert_eq!(zero.try_inverse(), None);
+
+                for &x in &[1, 2, 3, order - 3, order - 2, order - 1] {
+                    let x = <$field>::from_canonical_u64(x);
+                    let inv = x.inverse();
+                    assert_eq!(x * inv, one);
+                }
+            }
+
+            #[test]
+            fn batch_inversion() {
+                let xs = (1..=3)
+                    .map(|i| <$field>::from_canonical_u64(i))
+                    .collect::<Vec<_>>();
+                let invs = <$field>::batch_multiplicative_inverse(&xs);
+                for (x, inv) in xs.into_iter().zip(invs) {
+                    assert_eq!(x * inv, <$field>::ONE);
+                }
+            }
+
+            #[test]
+            fn primitive_root_order() {
+                for n_power in 0..8 {
+                    let root = <$field>::primitive_root_of_unity(n_power);
+                    let order = <$field>::generator_order(root);
+                    assert_eq!(order, 1 << n_power, "2^{}'th primitive root", n_power);
+                }
+            }
+
+            #[test]
+            fn negation() {
+                let zero = <$field>::ZERO;
+                let order = <$field>::ORDER;
+
+                for &i in &[0, 1, 2, order - 2, order - 1] {
+                    let i_f = <$field>::from_canonical_u64(i);
+                    assert_eq!(i_f + -i_f, zero);
+                }
+            }
+
+            #[test]
+            fn bits() {
+                assert_eq!(<$field>::ZERO.bits(), 0);
+                assert_eq!(<$field>::ONE.bits(), 1);
+                assert_eq!(<$field>::TWO.bits(), 2);
+                assert_eq!(<$field>::from_canonical_u64(3).bits(), 2);
+                assert_eq!(<$field>::from_canonical_u64(4).bits(), 3);
+                assert_eq!(<$field>::from_canonical_u64(5).bits(), 3);
+            }
         }
     };
 }

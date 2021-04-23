@@ -110,6 +110,21 @@ pub trait Field:
         subgroup
     }
 
+    fn cyclic_subgroup_unknown_order(generator: Self) -> Vec<Self> {
+        let mut subgroup = Vec::new();
+        for power in generator.powers() {
+            if power.is_one() && !subgroup.is_empty() {
+                break;
+            }
+            subgroup.push(power);
+        }
+        subgroup
+    }
+
+    fn generator_order(generator: Self) -> usize {
+        Self::cyclic_subgroup_unknown_order(generator).len()
+    }
+
     /// Computes a coset of a multiplicative subgroup whose order is known in advance.
     fn cyclic_subgroup_coset_known_order(generator: Self, shift: Self, order: usize) -> Vec<Self> {
         let subgroup = Self::cyclic_subgroup_known_order(generator, order);
