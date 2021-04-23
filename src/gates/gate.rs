@@ -37,7 +37,6 @@ pub trait Gate<F: Field>: 'static + Send + Sync {
         &self,
         gate_index: usize,
         local_constants: &[F],
-        next_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>>;
 
     /// The number of wires used by this gate.
