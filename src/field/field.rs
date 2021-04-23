@@ -122,7 +122,7 @@ pub trait Field:
     }
 
     fn generator_order(generator: Self) -> usize {
-        Self::cyclic_subgroup_unknown_order(generator).len()
+        generator.powers().skip(1).position(|y| y.is_one()).unwrap() + 1
     }
 
     /// Computes a coset of a multiplicative subgroup whose order is known in advance.
