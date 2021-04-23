@@ -96,18 +96,14 @@ pub(crate) fn prove<F: Field>(
 
     let alphas = challenger.get_n_challenges(num_checks);
 
-    // TODO
-    let beta = betas[0];
-    let gamma = gammas[0];
-
     let start_vanishing_polys = Instant::now();
     let vanishing_polys = compute_vanishing_polys(
         common_data,
         prover_data,
         wire_ldes_t,
         plonk_z_ldes_t,
-        beta,
-        gamma,
+        &betas,
+        &gammas,
         &alphas,
     );
     info!(
@@ -170,8 +166,8 @@ fn compute_vanishing_polys<F: Field>(
     prover_data: &ProverOnlyCircuitData<F>,
     wire_ldes_t: Vec<Vec<F>>,
     plonk_z_lde_t: Vec<Vec<F>>,
-    beta: F,
-    gamma: F,
+    betas: &[F],
+    gammas: &[F],
     alphas: &[F],
 ) -> Vec<PolynomialValues<F>> {
     let lde_size = common_data.lde_size();
@@ -208,8 +204,8 @@ fn compute_vanishing_polys<F: Field>(
                 local_plonk_zs,
                 next_plonk_zs,
                 s_sigmas,
-                beta,
-                gamma,
+                betas,
+                gammas,
                 alphas,
             )
         })
@@ -231,8 +227,8 @@ fn compute_vanishing_poly_entry<F: Field>(
     local_plonk_zs: &[F],
     next_plonk_zs: &[F],
     s_sigmas: &[F],
-    beta: F,
-    gamma: F,
+    betas: &[F],
+    gammas: &[F],
     alphas: &[F],
 ) -> Vec<F> {
     let constraint_terms =
@@ -255,8 +251,8 @@ fn compute_vanishing_poly_entry<F: Field>(
             let k_i = common_data.k_is[j];
             let s_id = k_i * x;
             let s_sigma = s_sigmas[j];
-            f_prime *= wire_value + beta * s_id + gamma;
-            g_prime *= wire_value + beta * s_sigma + gamma;
+            f_prime *= wire_value + betas[i] * s_id + gammas[i];
+            g_prime *= wire_value + betas[i] * s_sigma + gammas[i];
         }
         vanishing_v_shift_terms.push(f_prime * z_x - g_prime * z_gz);
     }
