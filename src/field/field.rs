@@ -105,7 +105,7 @@ pub trait Field:
         let mut current = Self::ONE;
         for _i in 0..order {
             subgroup.push(current);
-            current = current * generator;
+            current *= generator;
         }
         subgroup
     }
@@ -149,7 +149,7 @@ pub trait Field:
 
         for j in 0..power.bits() {
             if (power.to_canonical_u64() >> j & 1) != 0 {
-                product = product * current;
+                product *= current;
             }
             current = current.square();
         }
