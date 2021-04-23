@@ -502,6 +502,7 @@ fn sbox_layer_b<F: Field>(x: [F; W]) -> [F; W] {
 #[unroll_for_loops]
 fn sbox_a<F: Field>(x: F) -> F {
     // x^{-5}, via Fermat's little theorem
+    // TODO: This only works for our current field.
     const EXP: u64 = 7378697628517453005;
 
     let mut product = F::ONE;
