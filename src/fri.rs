@@ -8,7 +8,6 @@ use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriEvaluations, FriMerkleProofs, FriProof, FriQueryRound, Hash};
 use crate::util::log2_strict;
 use anyhow::{ensure, Result};
-use std::iter::FromIterator;
 
 /// Somewhat arbitrary. Smaller values will increase delta, but with diminishing returns,
 /// while increasing L, potentially requiring more challenge points.

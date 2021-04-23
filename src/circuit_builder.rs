@@ -13,11 +13,12 @@ use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, WitnessGenerator};
-use crate::hash::{hash_n_to_hash, merkle_root_bit_rev_order};
+use crate::hash::hash_n_to_hash;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
 use crate::util::{log2_strict, transpose, transpose_poly_values};
 use crate::wire::Wire;
+use crate::merkle_tree::MerkleTree;
 
 pub struct CircuitBuilder<F: Field> {
     pub(crate) config: CircuitConfig,
@@ -236,20 +237,26 @@ impl<F: Field> CircuitBuilder<F> {
         let constant_vecs = self.constant_polys();
         let constant_ldes = PolynomialValues::lde_multiple(constant_vecs, self.config.rate_bits);
         let constant_ldes_t = transpose_poly_values(constant_ldes);
-        let constants_root = merkle_root_bit_rev_order(constant_ldes_t.clone());
+        let constants_tree = MerkleTree::new(constant_ldes_t, true);
 
         let sigma_vecs = self.sigma_vecs();
         let sigma_ldes = PolynomialValues::lde_multiple(sigma_vecs, self.config.rate_bits);
         let sigma_ldes_t = transpose_poly_values(sigma_ldes);
-        let sigmas_root = merkle_root_bit_rev_order(sigma_ldes_t.clone());
+        let sigmas_tree = MerkleTree::new(sigma_ldes_t, true);
+
+        let constants_root = constants_tree.root;
+        let sigmas_root = sigmas_tree.root;
+        let verifier_only = VerifierOnlyCircuitData {
+            constants_root,
+            sigmas_root,
+        };
 
         let generators = self.generators;
         let prover_only = ProverOnlyCircuitData {
             generators,
-            constant_ldes_t,
-            sigma_ldes_t,
+            constants_tree,
+            sigmas_tree,
         };
-        let verifier_only = VerifierOnlyCircuitData {};
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
         // sort by ID to make the ordering deterministic.
@@ -274,8 +281,6 @@ impl<F: Field> CircuitBuilder<F> {
             degree_bits,
             gates,
             num_gate_constraints,
-            constants_root,
-            sigmas_root,
             k_is,
             circuit_digest,
         };

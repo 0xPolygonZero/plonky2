@@ -1,3 +1,5 @@
+use rayon::prelude::*;
+
 use crate::field::field::Field;
 use crate::hash::{compress, hash_or_noop};
 use crate::merkle_proofs::MerkleProof;
@@ -26,7 +28,7 @@ impl<F: Field> MerkleTree<F> {
             reverse_index_bits_in_place(&mut leaves);
         }
         let mut layers = vec![leaves
-            .iter()
+            .par_iter()
             .map(|l| hash_or_noop(l.clone()))
             .collect::<Vec<_>>()];
         while let Some(l) = layers.last() {
@@ -34,7 +36,7 @@ impl<F: Field> MerkleTree<F> {
                 break;
             }
             let next_layer = l
-                .chunks(2)
+                .par_chunks(2)
                 .map(|chunk| compress(chunk[0], chunk[1]))
                 .collect::<Vec<_>>();
             layers.push(next_layer);
@@ -80,11 +82,13 @@ impl<F: Field> MerkleTree<F> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use anyhow::Result;
+
     use crate::field::crandall_field::CrandallField;
     use crate::merkle_proofs::verify_merkle_proof;
     use crate::polynomial::division::divide_by_z_h;
-    use anyhow::Result;
+
+    use super::*;
 
     #[test]
     fn test_merkle_trees() -> Result<()> {

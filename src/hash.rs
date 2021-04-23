@@ -1,13 +1,10 @@
 //! Concrete instantiation of a hash function.
 
-use rayon::prelude::*;
-
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::gmimc::gmimc_permute_array;
 use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
-use crate::util::reverse_index_bits_in_place;
 
 pub(crate) const SPONGE_RATE: usize = 8;
 pub(crate) const SPONGE_CAPACITY: usize = 4;
@@ -244,34 +241,4 @@ pub fn hash_n_to_hash<F: Field>(inputs: Vec<F>, pad: bool) -> Hash<F> {
 
 pub fn hash_n_to_1<F: Field>(inputs: Vec<F>, pad: bool) -> F {
     hash_n_to_m(inputs, 1, pad)[0]
-}
-
-/// Like `merkle_root`, but first reorders each vector so that `new[i] = old[i.reverse_bits()]`.
-pub(crate) fn merkle_root_bit_rev_order<F: Field>(mut vecs: Vec<Vec<F>>) -> Hash<F> {
-    reverse_index_bits_in_place(&mut vecs);
-    merkle_root(vecs)
-}
-
-/// Given `n` vectors, each of length `l`, constructs a Merkle tree with `l` leaves, where each leaf
-/// is a hash obtained by hashing a "leaf set" consisting of `n` elements. If `n <= 4`, this hashing
-/// is skipped, as there is no need to compress leaf data.
-pub(crate) fn merkle_root<F: Field>(vecs: Vec<Vec<F>>) -> Hash<F> {
-    let elems_per_leaf = vecs[0].len();
-    let leaves_per_chunk = (ELEMS_PER_CHUNK / elems_per_leaf).next_power_of_two();
-    let subtree_roots: Vec<Vec<F>> = vecs
-        .par_chunks(leaves_per_chunk)
-        .map(|chunk| merkle_root_inner(chunk.to_vec()).elements.to_vec())
-        .collect();
-    merkle_root_inner(subtree_roots)
-}
-
-pub(crate) fn merkle_root_inner<F: Field>(vecs: Vec<Vec<F>>) -> Hash<F> {
-    let mut hashes = vecs.into_iter().map(hash_or_noop).collect::<Vec<_>>();
-    while hashes.len() > 1 {
-        hashes = hashes
-            .chunks(2)
-            .map(|pair| compress(pair[0], pair[1]))
-            .collect();
-    }
-    hashes[0]
 }
