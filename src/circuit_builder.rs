@@ -267,10 +267,7 @@ impl<F: Field> CircuitBuilder<F> {
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
 
         // TODO: This should also include an encoding of gate constraints.
-        let circuit_digest_parts = [
-            constants_root.elements,
-            sigmas_root.elements,
-        ];
+        let circuit_digest_parts = [constants_root.elements, sigmas_root.elements];
         let circuit_digest = hash_n_to_hash(circuit_digest_parts.concat(), false);
 
         let common = CommonCircuitData {
