@@ -169,7 +169,7 @@ mod tests {
         for i in 0..degree {
             coefficients.push(F::from_canonical_usize(i * 1337 % 100));
         }
-        let coefficients = PolynomialCoeffs::pad(coefficients);
+        let coefficients = PolynomialCoeffs::new_padded(coefficients);
 
         let points = fft(coefficients.clone());
         assert_eq!(points, evaluate_naive(&coefficients));

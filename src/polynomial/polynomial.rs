@@ -2,7 +2,7 @@ use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::util::log2_strict;
 
-/// A polynomial in point-value form. The number of values must be a power of two.
+/// A polynomial in point-value form.
 ///
 /// The points are implicitly `g^i`, where `g` generates the subgroup whose size equals the number
 /// of points.
@@ -13,7 +13,6 @@ pub struct PolynomialValues<F: Field> {
 
 impl<F: Field> PolynomialValues<F> {
     pub fn new(values: Vec<F>) -> Self {
-        assert!(values.len().is_power_of_two());
         PolynomialValues { values }
     }
 
@@ -36,7 +35,7 @@ impl<F: Field> PolynomialValues<F> {
     }
 }
 
-/// A polynomial in coefficient form. The number of coefficients must be a power of two.
+/// A polynomial in coefficient form.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PolynomialCoeffs<F: Field> {
     pub(crate) coeffs: Vec<F>,
@@ -44,11 +43,11 @@ pub struct PolynomialCoeffs<F: Field> {
 
 impl<F: Field> PolynomialCoeffs<F> {
     pub fn new(coeffs: Vec<F>) -> Self {
-        assert!(coeffs.len().is_power_of_two());
         PolynomialCoeffs { coeffs }
     }
 
-    pub(crate) fn pad(mut coeffs: Vec<F>) -> Self {
+    /// Create a new polynomial with its coefficient list padded to the next power of two.
+    pub(crate) fn new_padded(mut coeffs: Vec<F>) -> Self {
         while !coeffs.len().is_power_of_two() {
             coeffs.push(F::ZERO);
         }
@@ -70,7 +69,6 @@ impl<F: Field> PolynomialCoeffs<F> {
     }
 
     pub(crate) fn chunks(&self, chunk_size: usize) -> Vec<Self> {
-        assert!(chunk_size.is_power_of_two());
         self.coeffs
             .chunks(chunk_size)
             .map(|chunk| PolynomialCoeffs::new(chunk.to_vec()))
@@ -96,5 +94,18 @@ impl<F: Field> PolynomialCoeffs<F> {
             coeffs.push(F::ZERO);
         }
         Self { coeffs }
+    }
+
+    /// Removes leading zero coefficients.
+    pub fn trim(&mut self) {
+        self.coeffs.drain(self.degree_plus_one()..);
+    }
+
+    /// Degree of the polynomial + 1.
+    fn degree_plus_one(&self) -> usize {
+        (0usize..self.len())
+            .rev()
+            .find(|&i| self.coeffs[i].is_nonzero())
+            .map_or(0, |i| i + 1)
     }
 }
