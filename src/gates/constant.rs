@@ -45,7 +45,6 @@ impl<F: Field> Gate<F> for ConstantGate {
         &self,
         gate_index: usize,
         local_constants: &[F],
-        _next_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = ConstantGenerator {
             gate_index,
