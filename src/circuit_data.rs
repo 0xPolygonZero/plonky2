@@ -112,6 +112,10 @@ pub(crate) struct CommonCircuitData<F: Field> {
 
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
     pub(crate) k_is: Vec<F>,
+
+    /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
+    /// seed Fiat-Shamir.
+    pub(crate) circuit_digest: Hash<F>,
 }
 
 impl<F: Field> CommonCircuitData<F> {
