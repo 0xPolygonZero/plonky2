@@ -107,6 +107,12 @@ impl<F: Field> Challenger<F> {
     }
 }
 
+impl<F: Field> Default for Challenger<F> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A recursive version of `Challenger`.
 pub(crate) struct RecursiveChallenger {
     sponge_state: [Target; SPONGE_WIDTH],

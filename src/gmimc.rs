@@ -35,7 +35,7 @@ pub fn gmimc_compress<F: Field, const R: usize>(
         F::ZERO,
         F::ZERO,
     ];
-    let state_1 = gmimc_permute::<F, 12, R>(state_0, constants.clone());
+    let state_1 = gmimc_permute::<F, 12, R>(state_0, constants);
     [state_1[0], state_1[1], state_1[2], state_1[3]]
 }
 
@@ -96,7 +96,7 @@ pub fn gmimc_permute_naive<F: Field, const W: usize, const R: usize>(
         let f = (xs[active] + constants[r]).cube();
         for i in 0..W {
             if i != active {
-                xs[i] = xs[i] + f;
+                xs[i] += f;
             }
         }
     }
