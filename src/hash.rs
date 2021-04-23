@@ -273,7 +273,6 @@ pub(crate) fn merkle_root_inner<F: Field>(vecs: Vec<Vec<F>>) -> Hash<F> {
         .map(|leaf_set| hash_or_noop(leaf_set))
         .collect::<Vec<_>>();
     while hashes.len() > 1 {
-        dbg!(&hashes);
         hashes = hashes
             .chunks(2)
             .map(|pair| compress(pair[0], pair[1]))

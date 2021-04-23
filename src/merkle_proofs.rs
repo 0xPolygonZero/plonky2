@@ -5,7 +5,6 @@ use crate::hash::{compress, hash_or_noop};
 use crate::hash::{merkle_root_inner, GMIMC_ROUNDS};
 use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
-use crate::util::reverse_index_bits_in_place;
 use crate::wire::Wire;
 use anyhow::{ensure, Result};
 
@@ -51,21 +50,18 @@ pub(crate) fn verify_merkle_proof<F: Field>(
 /// Verifies that the given subtree is present at the given index in the Merkle tree with the
 /// given root.
 pub(crate) fn verify_merkle_proof_subtree<F: Field>(
-    mut subtree_leaves_data: Vec<Vec<F>>,
+    subtree_leaves_data: Vec<Vec<F>>,
     subtree_index: usize,
     merkle_root: Hash<F>,
     proof: &MerkleProof<F>,
     reverse_bits: bool,
 ) -> Result<()> {
     let index = if reverse_bits {
-        // reverse_index_bits_in_place(&mut subtree_leaves_data);
         crate::util::reverse_bits(subtree_index, proof.siblings.len())
     } else {
         subtree_index
     };
-    dbg!(&subtree_leaves_data);
     let mut current_digest = merkle_root_inner(subtree_leaves_data);
-    dbg!(current_digest);
     for (i, &sibling_digest) in proof.siblings.iter().enumerate() {
         let bit = (index >> i & 1) == 1;
         current_digest = if bit {

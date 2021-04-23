@@ -79,7 +79,7 @@ impl<F: Field> MerkleTree<F> {
 
     /// Create a Merkle proof for an entire subtree.
     /// Example:
-    /// ```
+    /// ```tree
     ///         G
     ///        / \
     ///       /   \
@@ -132,7 +132,7 @@ mod tests {
     fn test_merkle_trees() -> Result<()> {
         type F = CrandallField;
 
-        let log_n = 3;
+        let log_n = 8;
         let n = 1 << log_n;
         let leaves = random_data::<F>(n, 7);
 
@@ -162,25 +162,25 @@ mod tests {
         }
 
         let (height, i) = (1, 0);
-        dbg!(height, i);
         let subtree_proof = tree_reversed_bits.prove_subtree(i, height);
-        dbg!(&tree_reversed_bits, &subtree_proof);
+        let reversed_index = reverse_bits(i, log_n - height);
         verify_merkle_proof_subtree(
-            (i << height..(i + 1) << height)
-                .map(|j| tree_reversed_bits.leaves[j].to_vec())
+            (reversed_index << height..(reversed_index + 1) << height)
+                .map(|j| tree_reversed_bits.leaves[j].clone())
                 .collect(),
             i,
             tree_reversed_bits.root,
             &subtree_proof,
             true,
         )?;
-        for height in 1..=log_n {
+
+        for height in 0..=log_n {
             for i in 0..(n >> height) {
-                dbg!(height, i);
+                let reversed_index = reverse_bits(i, log_n - height);
                 let subtree_proof = tree_reversed_bits.prove_subtree(i, height);
                 verify_merkle_proof_subtree(
-                    (i << height..(i + 1) << height)
-                        .map(|j| tree_reversed_bits.leaves[j].to_vec())
+                    (reversed_index << height..(reversed_index + 1) << height)
+                        .map(|j| tree_reversed_bits.leaves[j].clone())
                         .collect(),
                     i,
                     tree_reversed_bits.root,
