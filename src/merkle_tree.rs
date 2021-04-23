@@ -128,6 +128,45 @@ mod tests {
             .collect()
     }
 
+    fn verify_all_leaves<F: Field>(
+        leaves: Vec<Vec<F>>,
+        n: usize,
+        reverse_bits: bool,
+    ) -> Result<()> {
+        let tree = MerkleTree::new(leaves.clone(), reverse_bits);
+        for i in 0..n {
+            let proof = tree.prove(i);
+            verify_merkle_proof(leaves[i].clone(), i, tree.root, &proof, reverse_bits)?;
+        }
+        Ok(())
+    }
+    fn verify_all_subtrees<F: Field>(
+        leaves: Vec<Vec<F>>,
+        n: usize,
+        log_n: usize,
+        reverse_bits: bool,
+    ) -> Result<()> {
+        let tree = MerkleTree::new(leaves.clone(), reverse_bits);
+        for height in 0..=log_n {
+            for i in 0..(n >> height) {
+                let index = if reverse_bits {
+                    crate::util::reverse_bits(i, log_n - height)
+                } else {
+                    i
+                };
+                let subtree_proof = tree.prove_subtree(i, height);
+                verify_merkle_proof_subtree(
+                    tree.leaves[index << height..(index + 1) << height].to_vec(),
+                    i,
+                    tree.root,
+                    &subtree_proof,
+                    reverse_bits,
+                )?;
+            }
+        }
+        Ok(())
+    }
+
     #[test]
     fn test_merkle_trees() -> Result<()> {
         type F = CrandallField;
@@ -136,59 +175,11 @@ mod tests {
         let n = 1 << log_n;
         let leaves = random_data::<F>(n, 7);
 
-        let tree = MerkleTree::new(leaves.clone(), false);
-        for i in 0..n {
-            let proof = tree.prove(i);
-            verify_merkle_proof(tree.leaves[i].clone(), i, tree.root, &proof, false)?;
-        }
+        verify_all_leaves(leaves.clone(), n, false)?;
+        verify_all_subtrees(leaves.clone(), n, log_n, false)?;
 
-        for height in 0..=log_n {
-            for i in 0..(n >> height) {
-                let subtree_proof = tree.prove_subtree(i, height);
-                verify_merkle_proof_subtree(
-                    tree.leaves[i << height..(i + 1) << height].to_vec(),
-                    i,
-                    tree.root,
-                    &subtree_proof,
-                    false,
-                )?;
-            }
-        }
-
-        let tree_reversed_bits = MerkleTree::new(leaves.clone(), true);
-        for i in 0..n {
-            let proof = tree_reversed_bits.prove(i);
-            verify_merkle_proof(leaves[i].clone(), i, tree_reversed_bits.root, &proof, true)?;
-        }
-
-        let (height, i) = (1, 0);
-        let subtree_proof = tree_reversed_bits.prove_subtree(i, height);
-        let reversed_index = reverse_bits(i, log_n - height);
-        verify_merkle_proof_subtree(
-            (reversed_index << height..(reversed_index + 1) << height)
-                .map(|j| tree_reversed_bits.leaves[j].clone())
-                .collect(),
-            i,
-            tree_reversed_bits.root,
-            &subtree_proof,
-            true,
-        )?;
-
-        for height in 0..=log_n {
-            for i in 0..(n >> height) {
-                let reversed_index = reverse_bits(i, log_n - height);
-                let subtree_proof = tree_reversed_bits.prove_subtree(i, height);
-                verify_merkle_proof_subtree(
-                    (reversed_index << height..(reversed_index + 1) << height)
-                        .map(|j| tree_reversed_bits.leaves[j].clone())
-                        .collect(),
-                    i,
-                    tree_reversed_bits.root,
-                    &subtree_proof,
-                    true,
-                )?;
-            }
-        }
+        verify_all_leaves(leaves.clone(), n, true)?;
+        verify_all_subtrees(leaves, n, log_n, true)?;
 
         Ok(())
     }
