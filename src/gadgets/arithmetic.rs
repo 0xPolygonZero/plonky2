@@ -91,10 +91,8 @@ impl<F: Field> CircuitBuilder<F> {
             return Some(self.constant(x + y));
         }
 
-        if first_term_zero {
-            if const_1.is_one() {
-                return Some(addend);
-            }
+        if first_term_zero && const_1.is_one() {
+            return Some(addend);
         }
 
         if second_term_zero {

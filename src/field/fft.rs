@@ -66,8 +66,8 @@ pub(crate) fn ifft_with_precomputation_power_of_2<F: Field>(
         fft_with_precomputation_power_of_2(PolynomialCoeffs { coeffs: values }, precomputation);
 
     // We reverse all values except the first, and divide each by n.
-    result[0] = result[0] * n_inv;
-    result[n / 2] = result[n / 2] * n_inv;
+    result[0] *= n_inv;
+    result[n / 2] *= n_inv;
     for i in 1..(n / 2) {
         let j = n - i;
         let result_i = result[j] * n_inv;
