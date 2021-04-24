@@ -84,8 +84,7 @@ impl<F: Field> CircuitBuilder<F> {
 
         let index = self.gate_instances.len();
 
-        // TODO: Not passing next constants for now. Not sure if it's really useful...
-        self.add_generators(gate_type.0.generators(index, &constants, &[]));
+        self.add_generators(gate_type.0.generators(index, &constants));
 
         self.gate_instances.push(GateInstance {
             gate_type,

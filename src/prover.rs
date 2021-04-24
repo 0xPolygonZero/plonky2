@@ -197,9 +197,7 @@ fn compute_vanishing_polys<F: Field>(
 
             let vars = EvaluationVars {
                 local_constants,
-                next_constants,
                 local_wires,
-                next_wires,
             };
             compute_vanishing_poly_entry(
                 common_data,
