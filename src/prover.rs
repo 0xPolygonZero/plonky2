@@ -7,6 +7,7 @@ use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
+use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::{eval_l_1, evaluate_gate_constraints, reduce_with_powers_multi};
 use crate::polynomial::division::divide_by_z_h;
@@ -16,7 +17,6 @@ use crate::util::{transpose, transpose_poly_values};
 use crate::vars::EvaluationVars;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
-use crate::merkle_tree::MerkleTree;
 
 pub(crate) fn prove<F: Field>(
     prover_data: &ProverOnlyCircuitData<F>,
@@ -61,7 +61,7 @@ pub(crate) fn prove<F: Field>(
 
     // TODO: Could avoid cloning if it's significant?
     let start_wires_root = Instant::now();
-    let wires_tree = MerkleTree::new(wire_ldes_t.clone(), true);
+    let wires_tree = MerkleTree::new(wire_ldes_t, true);
     info!(
         "{:.3}s to Merklize wire LDEs",
         start_wires_root.elapsed().as_secs_f32()
@@ -86,7 +86,7 @@ pub(crate) fn prove<F: Field>(
     );
 
     let start_plonk_z_root = Instant::now();
-    let plonk_zs_tree = MerkleTree::new(plonk_z_ldes_t.clone(), true);
+    let plonk_zs_tree = MerkleTree::new(plonk_z_ldes_t, true);
     info!(
         "{:.3}s to Merklize Z's",
         start_plonk_z_root.elapsed().as_secs_f32()
@@ -100,8 +100,8 @@ pub(crate) fn prove<F: Field>(
     let vanishing_polys = compute_vanishing_polys(
         common_data,
         prover_data,
-        wire_ldes_t,
-        plonk_z_ldes_t,
+        &wires_tree,
+        &plonk_zs_tree,
         &betas,
         &gammas,
         &alphas,
@@ -164,8 +164,8 @@ fn compute_z<F: Field>(common_data: &CommonCircuitData<F>, i: usize) -> Polynomi
 fn compute_vanishing_polys<F: Field>(
     common_data: &CommonCircuitData<F>,
     prover_data: &ProverOnlyCircuitData<F>,
-    wire_ldes_t: Vec<Vec<F>>,
-    plonk_z_lde_t: Vec<Vec<F>>,
+    wires_tree: &MerkleTree<F>,
+    plonk_zs_tree: &MerkleTree<F>,
     betas: &[F],
     gammas: &[F],
     alphas: &[F],
@@ -180,12 +180,10 @@ fn compute_vanishing_polys<F: Field>(
         .enumerate()
         .map(|(i, x)| {
             let i_next = (i + 1) % lde_size;
-            let local_wires = &wire_ldes_t[i];
-            let next_wires = &wire_ldes_t[i_next];
+            let local_wires = &wires_tree.leaves[i];
             let local_constants = &prover_data.constants_tree.leaves[i];
-            let next_constants = &prover_data.constants_tree.leaves[i_next]; // TODO: "next" is deprecated
-            let local_plonk_zs = &plonk_z_lde_t[i];
-            let next_plonk_zs = &plonk_z_lde_t[i_next];
+            let local_plonk_zs = &plonk_zs_tree.leaves[i];
+            let next_plonk_zs = &plonk_zs_tree.leaves[i_next];
             let s_sigmas = &prover_data.sigmas_tree.leaves[i];
 
             debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
