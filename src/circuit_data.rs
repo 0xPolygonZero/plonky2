@@ -1,11 +1,11 @@
 use crate::field::field::Field;
 use crate::gates::gate::GateRef;
 use crate::generator::WitnessGenerator;
+use crate::merkle_tree::MerkleTree;
 use crate::proof::{Hash, HashTarget, Proof};
 use crate::prover::prove;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
-use crate::merkle_tree::MerkleTree;
 
 #[derive(Copy, Clone)]
 pub struct CircuitConfig {

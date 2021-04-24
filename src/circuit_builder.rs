@@ -14,11 +14,11 @@ use crate::gates::gate::{GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::hash::hash_n_to_hash;
+use crate::merkle_tree::MerkleTree;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
 use crate::util::{log2_strict, transpose, transpose_poly_values};
 use crate::wire::Wire;
-use crate::merkle_tree::MerkleTree;
 
 pub struct CircuitBuilder<F: Field> {
     pub(crate) config: CircuitConfig,
