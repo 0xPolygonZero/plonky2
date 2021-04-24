@@ -31,7 +31,7 @@ impl<F: Field> PolynomialValues<F> {
     }
 
     pub fn lde(self, rate_bits: usize) -> Self {
-        let mut coeffs = ifft(self).lde(rate_bits);
+        let coeffs = ifft(self).lde(rate_bits);
         fft(coeffs)
     }
 }
@@ -88,7 +88,7 @@ impl<F: Field> PolynomialCoeffs<F> {
         polys.into_iter().map(|p| p.lde(rate_bits)).collect()
     }
 
-    pub(crate) fn lde(mut self, rate_bits: usize) -> Self {
+    pub(crate) fn lde(self, rate_bits: usize) -> Self {
         let original_size = self.len();
         let lde_size = original_size << rate_bits;
         let Self { mut coeffs } = self;

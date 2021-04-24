@@ -14,8 +14,8 @@ const EXPONENT: usize = 1000000000;
 
 fn main() {
     let mut bases = [F::ZERO; WIDTH];
-    for i in 0..WIDTH {
-        bases[i] = F::rand();
+    for base_i in bases.iter_mut() {
+        *base_i = F::rand();
     }
     let mut state = [F::ONE; WIDTH];
 

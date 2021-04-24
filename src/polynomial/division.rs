@@ -9,15 +9,15 @@ use crate::util::log2_strict;
 pub(crate) fn divide_by_z_h<F: Field>(mut a: PolynomialCoeffs<F>, n: usize) -> PolynomialCoeffs<F> {
     // TODO: Is this special case needed?
     if a.coeffs.iter().all(|p| *p == F::ZERO) {
-        return a.clone();
+        return a;
     }
 
     let g = F::MULTIPLICATIVE_GROUP_GENERATOR;
     let mut g_pow = F::ONE;
     // Multiply the i-th coefficient of `a` by `g^i`. Then `new_a(w^j) = old_a(g.w^j)`.
     a.coeffs.iter_mut().for_each(|x| {
-        *x = (*x) * g_pow;
-        g_pow = g * g_pow;
+        *x *= g_pow;
+        g_pow *= g;
     });
 
     let root = F::primitive_root_of_unity(log2_strict(a.len()));
@@ -43,7 +43,7 @@ pub(crate) fn divide_by_z_h<F: Field>(mut a: PolynomialCoeffs<F>, n: usize) -> P
         .iter_mut()
         .zip(denominators_inv.iter())
         .for_each(|(x, &d)| {
-            *x = (*x) * d;
+            *x *= d;
         });
     // `p` is the interpolating polynomial of `a_eval` on `{w^i}`.
     let mut p = ifft(a_eval);
@@ -52,8 +52,8 @@ pub(crate) fn divide_by_z_h<F: Field>(mut a: PolynomialCoeffs<F>, n: usize) -> P
     let g_inv = g.inverse();
     let mut g_inv_pow = F::ONE;
     p.coeffs.iter_mut().for_each(|x| {
-        *x = (*x) * g_inv_pow;
-        g_inv_pow = g_inv_pow * g_inv;
+        *x *= g_inv_pow;
+        g_inv_pow *= g_inv;
     });
     p
 }

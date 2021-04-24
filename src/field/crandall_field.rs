@@ -69,6 +69,7 @@ impl Field for CrandallField {
         *self * *self * *self
     }
 
+    #[allow(clippy::many_single_char_names)] // The names are from the paper.
     fn try_inverse(&self) -> Option<Self> {
         if self.is_zero() {
             return None;
@@ -164,6 +165,7 @@ impl Add for CrandallField {
     type Output = Self;
 
     #[inline]
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, rhs: Self) -> Self {
         let (sum, over) = self.0.overflowing_add(rhs.0);
         Self(sum.overflowing_sub((over as u64) * Self::ORDER).0)
@@ -180,6 +182,7 @@ impl Sub for CrandallField {
     type Output = Self;
 
     #[inline]
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: Self) -> Self {
         let (diff, under) = self.0.overflowing_sub(rhs.0);
         Self(diff.overflowing_add((under as u64) * Self::ORDER).0)
@@ -212,6 +215,7 @@ impl MulAssign for CrandallField {
 impl Div for CrandallField {
     type Output = Self;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn div(self, rhs: Self) -> Self::Output {
         self * rhs.inverse()
     }

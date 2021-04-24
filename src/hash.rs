@@ -173,9 +173,7 @@ impl<F: Field> CircuitBuilder<F> {
             // Overwrite the first r elements with the inputs. This differs from a standard sponge,
             // where we would xor or add in the inputs. This is a well-known variant, though,
             // sometimes called "overwrite mode".
-            for i in 0..input_chunk.len() {
-                state[i] = input_chunk[i];
-            }
+            state[..input_chunk.len()].copy_from_slice(input_chunk);
             state = self.permute(state);
         }
 
@@ -268,10 +266,7 @@ pub(crate) fn merkle_root<F: Field>(vecs: Vec<Vec<F>>) -> Hash<F> {
 }
 
 pub(crate) fn merkle_root_inner<F: Field>(vecs: Vec<Vec<F>>) -> Hash<F> {
-    let mut hashes = vecs
-        .into_iter()
-        .map(|leaf_set| hash_or_noop(leaf_set))
-        .collect::<Vec<_>>();
+    let mut hashes = vecs.into_iter().map(hash_or_noop).collect::<Vec<_>>();
     while hashes.len() > 1 {
         hashes = hashes
             .chunks(2)
