@@ -35,7 +35,6 @@ impl<F: Field> Gate<F> for NoopGate {
         &self,
         _gate_index: usize,
         _local_constants: &[F],
-        _next_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         Vec::new()
     }

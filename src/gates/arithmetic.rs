@@ -64,7 +64,6 @@ impl<F: Field> Gate<F> for ArithmeticGate {
         &self,
         gate_index: usize,
         local_constants: &[F],
-        _next_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = ArithmeticGenerator {
             gate_index,
