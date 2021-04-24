@@ -160,6 +160,16 @@ pub trait Field:
         self.exp(Self::from_canonical_usize(power))
     }
 
+    fn kth_root(&self, k: usize) -> Self {
+        let p_minus_1 = Self::ORDER - 1;
+        debug_assert!(p_minus_1 % k as u64 != 0, "Not a permutation in this field");
+        todo!()
+    }
+
+    fn cube_root(&self) -> Self {
+        self.kth_root(3)
+    }
+
     fn powers(&self) -> Powers<Self> {
         Powers {
             base: *self,

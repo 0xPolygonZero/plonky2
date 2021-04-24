@@ -145,6 +145,85 @@ impl Field for CrandallField {
     fn from_canonical_u64(n: u64) -> Self {
         Self(n)
     }
+
+    fn cube_root(&self) -> Self {
+        let x0 = *self;
+        let x1 = x0.square();
+        let x2 = x1.square();
+        let x3 = x2 * x0;
+        let x4 = x3.square();
+        let x5 = x4.square();
+        // let x6 = x4.square();
+        let x7 = x5.square();
+        let x8 = x7.square();
+        let x9 = x8.square();
+        let x10 = x9.square();
+        let x11 = x10 * x5;
+        let x12 = x11.square();
+        let x13 = x12.square();
+        let x14 = x13.square();
+        // let x15 = x13.square();
+        let x16 = x14.square();
+        let x17 = x16.square();
+        let x18 = x17.square();
+        let x19 = x18.square();
+        let x20 = x19.square();
+        let x21 = x20 * x11;
+        let x22 = x21.square();
+        let x23 = x22.square();
+        let x24 = x23.square();
+        let x25 = x24.square();
+        let x26 = x25.square();
+        let x27 = x26.square();
+        let x28 = x27.square();
+        let x29 = x28.square();
+        let x30 = x29.square();
+        let x31 = x30.square();
+        let x32 = x31.square();
+        let x33 = x32 * x14;
+        let x34 = x33 * x3;
+        let x35 = x34.square();
+        let x36 = x35 * x34;
+        let x37 = x36 * x5;
+        let x38 = x37 * x34;
+        let x39 = x38 * x37;
+        let x40 = x39.square();
+        let x41 = x40.square();
+        let x42 = x41 * x38;
+        let x43 = x42.square();
+        let x44 = x43.square();
+        let x45 = x44.square();
+        let x46 = x45.square();
+        let x47 = x46.square();
+        let x48 = x47.square();
+        let x49 = x48.square();
+        let x50 = x49.square();
+        let x51 = x50.square();
+        let x52 = x51.square();
+        let x53 = x52.square();
+        let x54 = x53.square();
+        let x55 = x54.square();
+        let x56 = x55.square();
+        let x57 = x56.square();
+        let x58 = x57.square();
+        let x59 = x58.square();
+        let x60 = x59.square();
+        let x61 = x60.square();
+        let x62 = x61.square();
+        let x63 = x62.square();
+        let x64 = x63.square();
+        let x65 = x64.square();
+        let x66 = x65.square();
+        let x67 = x66.square();
+        let x68 = x67.square();
+        let x69 = x68.square();
+        let x70 = x69.square();
+        let x71 = x70.square();
+        let x72 = x71.square();
+        let x73 = x72.square();
+        let x74 = x73 * x39;
+        x74
+    }
 }
 
 impl Neg for CrandallField {
