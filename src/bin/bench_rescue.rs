@@ -3,8 +3,7 @@ use std::time::Instant;
 
 use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::field::Field;
-use plonky2::gmimc::gmimc_permute_array;
-use plonky2::hash::{GMIMC_CONSTANTS, GMIMC_ROUNDS};
+use plonky2::rescue::rescue;
 
 type F = CrandallField;
 
@@ -15,7 +14,7 @@ fn main() {
     const THREADS: usize = 12;
     const LDE_BITS: i32 = 3;
     const W: usize = 12;
-    const HASHES_PER_POLY: usize = 1 << (13 + LDE_BITS) / 6;
+    const HASHES_PER_POLY: usize = (1 << (13 + LDE_BITS)) / 6;
 
     let threads = (0..THREADS)
         .map(|_i| {
@@ -28,7 +27,7 @@ fn main() {
                 let hashes_per_thread = HASHES_PER_POLY * PROVER_POLYS / THREADS;
                 let start = Instant::now();
                 for _ in 0..hashes_per_thread {
-                    x = gmimc_permute_array::<_, W, GMIMC_ROUNDS>(x, GMIMC_CONSTANTS);
+                    x = rescue(x);
                 }
                 let duration = start.elapsed();
                 println!("took {:?}", duration);
