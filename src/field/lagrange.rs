@@ -3,7 +3,7 @@ use crate::field::field::Field;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::log2_ceil;
 
-/// Computes the interpolant of an arbitrary list of (point, value) pairs.
+/// Computes the unique degree < n interpolant of an arbitrary list of n (point, value) pairs.
 ///
 /// Note that the implementation assumes that `F` is two-adic, in particular that
 /// `2^{F::TWO_ADICITY} >= points.len()`. This leads to a simple FFT-based implementation.
@@ -14,9 +14,10 @@ pub(crate) fn interpolant<F: Field>(points: &[(F, F)]) -> PolynomialCoeffs<F> {
 
     let g = F::primitive_root_of_unity(n_log);
     let subgroup = F::cyclic_subgroup_known_order(g, n_padded);
+    let barycentric_weights = barycentric_weights(points);
     let subgroup_evals = subgroup
         .into_iter()
-        .map(|x| interpolate(points, x))
+        .map(|x| interpolate(points, x, &barycentric_weights))
         .collect();
 
     let mut coeffs = ifft(PolynomialValues {
@@ -28,35 +29,39 @@ pub(crate) fn interpolant<F: Field>(points: &[(F, F)]) -> PolynomialCoeffs<F> {
 
 /// Interpolate the polynomial defined by an arbitrary set of (point, value) pairs at the given
 /// point `x`.
-fn interpolate<F: Field>(points: &[(F, F)], x: F) -> F {
-    (0..points.len())
-        .map(|i| {
-            let y_i = points[i].1;
-            let l_i_x = eval_basis(points, i, x);
-            y_i * l_i_x
-        })
-        .sum()
-}
-
-/// Evaluate the `i`th Lagrange basis, i.e. the one that vanishes except on the `i`th point.
-fn eval_basis<F: Field>(points: &[(F, F)], i: usize, x: F) -> F {
-    let n = points.len();
-    let x_i = points[i].0;
-    let mut numerator = F::ONE;
-    let mut denominator_parts = Vec::with_capacity(n - 1);
-
-    for j in 0..n {
-        if i != j {
-            let x_j = points[j].0;
-            numerator *= x - x_j;
-            denominator_parts.push(x_i - x_j);
+fn interpolate<F: Field>(points: &[(F, F)], x: F, barycentric_weights: &[F]) -> F {
+    // If x is in the list of points, the Lagrange formula would divide by zero.
+    for &(x_i, y_i) in points {
+        if x_i == x {
+            return y_i;
         }
     }
 
-    let denominator_inv = F::batch_multiplicative_inverse(&denominator_parts)
-        .into_iter()
-        .product();
-    numerator * denominator_inv
+    let l_x: F = points.iter().map(|&(x_i, y_i)| x - x_i).product();
+
+    let sum = (0..points.len())
+        .map(|i| {
+            let x_i = points[i].0;
+            let y_i = points[i].1;
+            let w_i = barycentric_weights[i];
+            w_i / (x - x_i) * y_i
+        })
+        .sum();
+
+    l_x * sum
+}
+
+fn barycentric_weights<F: Field>(points: &[(F, F)]) -> Vec<F> {
+    let n = points.len();
+    (0..n)
+        .map(|i| {
+            (0..n)
+                .filter(|&j| j != i)
+                .map(|j| points[i].0 - points[j].0)
+                .product::<F>()
+                .inverse()
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -72,6 +77,22 @@ mod tests {
 
         for deg in 0..10 {
             let domain = (0..deg).map(|_| F::rand()).collect::<Vec<_>>();
+            let coeffs = (0..deg).map(|_| F::rand()).collect();
+            let coeffs = PolynomialCoeffs { coeffs };
+
+            let points = eval_naive(&coeffs, &domain);
+            assert_eq!(interpolant(&points), coeffs);
+        }
+    }
+
+    #[test]
+    fn interpolant_random_roots_of_unity() {
+        type F = CrandallField;
+
+        for deg_log in 0..4 {
+            let deg = 1 << deg_log;
+            let g = F::primitive_root_of_unity(deg_log);
+            let domain = F::cyclic_subgroup_known_order(g, deg);
             let coeffs = (0..deg).map(|_| F::rand()).collect();
             let coeffs = PolynomialCoeffs { coeffs };
 
