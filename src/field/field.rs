@@ -1,9 +1,12 @@
-use crate::util::bits_u64;
-use rand::rngs::OsRng;
-use rand::Rng;
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
+use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+
+use rand::rngs::OsRng;
+use rand::Rng;
+
+use crate::util::bits_u64;
 
 /// A finite field with prime order less than 2^64.
 pub trait Field:
@@ -14,10 +17,12 @@ pub trait Field:
     + Neg<Output = Self>
     + Add<Self, Output = Self>
     + AddAssign<Self>
+    + Sum
     + Sub<Self, Output = Self>
     + SubAssign<Self>
     + Mul<Self, Output = Self>
     + MulAssign<Self>
+    + Product
     + Div<Self, Output = Self>
     + DivAssign<Self>
     + Debug
@@ -40,6 +45,10 @@ pub trait Field:
 
     fn is_zero(&self) -> bool {
         *self == Self::ZERO
+    }
+
+    fn is_nonzero(&self) -> bool {
+        *self != Self::ZERO
     }
 
     fn is_one(&self) -> bool {
@@ -90,12 +99,12 @@ pub trait Field:
         x_inv
     }
 
-    fn primitive_root_of_unity(n_power: usize) -> Self {
-        assert!(n_power <= Self::TWO_ADICITY);
+    fn primitive_root_of_unity(n_log: usize) -> Self {
+        assert!(n_log <= Self::TWO_ADICITY);
         let base = Self::POWER_OF_TWO_GENERATOR;
         // TODO: Just repeated squaring should be a bit faster, to avoid conditionals.
         base.exp(Self::from_canonical_u64(
-            1u64 << (Self::TWO_ADICITY - n_power),
+            1u64 << (Self::TWO_ADICITY - n_log),
         ))
     }
 

@@ -6,6 +6,7 @@ use num::Integer;
 
 use crate::field::field::Field;
 use std::hash::{Hash, Hasher};
+use std::iter::{Product, Sum};
 
 /// EPSILON = 9 * 2**28 - 1
 const EPSILON: u64 = 2415919103;
@@ -257,6 +258,12 @@ impl AddAssign for CrandallField {
     }
 }
 
+impl Sum for CrandallField {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Self::ZERO, |acc, x| acc + x)
+    }
+}
+
 impl Sub for CrandallField {
     type Output = Self;
 
@@ -288,6 +295,12 @@ impl MulAssign for CrandallField {
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
+    }
+}
+
+impl Product for CrandallField {
+    fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Self::ONE, |acc, x| acc * x)
     }
 }
 
