@@ -120,9 +120,7 @@ impl WirePartitions {
             .map(|chunk| {
                 let values = chunk
                     .par_iter()
-                    .map(|&x| {
-                        k_is[x / degree] * subgroup_generator.exp_usize(x % degree)
-                    })
+                    .map(|&x| k_is[x / degree] * subgroup_generator.exp_usize(x % degree))
                     .collect::<Vec<_>>();
                 PolynomialValues::new(values)
             })
