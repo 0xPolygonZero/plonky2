@@ -69,6 +69,7 @@ fn fri_proof<F: Field>(
     let (trees, final_coeffs) =
         fri_committed_trees(polynomial_coeffs, polynomial_values, challenger, config);
 
+    // PoW phase
     let current_hash = challenger.get_hash();
     let pow_witness = fri_proof_of_work(current_hash, config);
 
@@ -113,6 +114,8 @@ fn fri_committed_trees<F: Field>(
                 .collect::<Vec<_>>(),
         );
         if i == num_reductions - 1 {
+            // We don't need a Merkle root for the final polynomial, since we send its
+            // coefficients directly to the verifier.
             break;
         }
         values = fft(coeffs.clone());
@@ -182,18 +185,6 @@ fn fri_query_rounds<F: Field>(
     query_round_proofs
 }
 
-/// Returns the indices of all `y` in `F` with `y^arity=x^arity`, starting with `x` itself.
-fn index_roots_coset(
-    x_index: usize,
-    next_domain_size: usize,
-    domain_size: usize,
-    arity: usize,
-) -> Vec<usize> {
-    (0..arity)
-        .map(|i| (i * next_domain_size + x_index) % domain_size)
-        .collect()
-}
-
 fn fri_query_round<F: Field>(
     trees: &[MerkleTree<F>],
     challenger: &mut Challenger<F>,
@@ -244,8 +235,22 @@ fn fri_query_round<F: Field>(
     });
 }
 
-/// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity and P' is the FRI reduced polynomial.
+/// Returns the indices in the domain of all `y` in `F` with `y^arity=x^arity`, starting with `x` itself.
+fn index_roots_coset(
+    x_index: usize,
+    next_domain_size: usize,
+    domain_size: usize,
+    arity: usize,
+) -> Vec<usize> {
+    (0..arity)
+        .map(|i| (i * next_domain_size + x_index) % domain_size)
+        .collect()
+}
+
+/// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
+/// and P' is the FRI reduced polynomial.
 fn compute_evaluation<F: Field>(x: F, arity_bits: usize, last_evals: &[F], beta: F) -> F {
+    // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
     let g = F::primitive_root_of_unity(arity_bits);
     let points = g
         .powers()
@@ -269,11 +274,11 @@ fn verify_fri_proof<F: Field>(
             == log2_strict(proof.final_poly.len()) + total_arities - config.rate_bits,
         "Final polynomial has wrong degree."
     );
+
     // Size of the LDE domain.
     let n = proof.final_poly.len() << total_arities;
 
     // Recover the random betas used in the FRI reductions.
-    // let betas = proof.commit_phase_merkle_roots[..proof.commit_phase_merkle_roots.len() - 1]
     let betas = proof
         .commit_phase_merkle_roots
         .iter()
@@ -282,11 +287,11 @@ fn verify_fri_proof<F: Field>(
             challenger.get_challenge()
         })
         .collect::<Vec<_>>();
-    // challenger.observe_hash(proof.commit_phase_merkle_roots.last().unwrap());
     challenger.observe_elements(&proof.final_poly.coeffs);
 
     // Check PoW.
     fri_verify_proof_of_work(proof, challenger, config)?;
+
     // Check that parameters are coherent.
     ensure!(
         config.num_query_rounds == proof.query_round_proofs.len(),
@@ -299,7 +304,7 @@ fn verify_fri_proof<F: Field>(
 
     for round in 0..config.num_query_rounds {
         let round_proof = &proof.query_round_proofs[round];
-        let mut e_xs = Vec::new();
+        let mut evaluations = Vec::new();
         let x = challenger.get_challenge();
         let mut domain_size = n;
         let mut x_index = x.to_canonical_u64() as usize;
@@ -309,13 +314,12 @@ fn verify_fri_proof<F: Field>(
             let arity = 1 << arity_bits;
             x_index %= domain_size;
             let next_domain_size = domain_size >> arity_bits;
-            let roots_coset_indices =
-                index_roots_coset(x_index, next_domain_size, domain_size, arity);
             if i == 0 {
                 let evals = round_proof.evals.evals[0].clone();
-                e_xs.push(evals);
+                evaluations.push(evals);
             } else {
-                let last_evals = &e_xs[i - 1];
+                let last_evals = &evaluations[i - 1];
+                // Infer P(y) from {P(x)}_{x^arity=y}.
                 let e_x = compute_evaluation(
                     subgroup_x,
                     config.reduction_arity_bits[i - 1],
@@ -323,11 +327,16 @@ fn verify_fri_proof<F: Field>(
                     betas[i - 1],
                 );
                 let mut evals = round_proof.evals.evals[i].clone();
+                // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
                 evals.insert(0, e_x);
-                e_xs.push(evals);
+                evaluations.push(evals);
             };
             let sorted_evals = {
-                let mut sorted_evals_enumerate = e_xs[i].iter().enumerate().collect::<Vec<_>>();
+                let roots_coset_indices =
+                    index_roots_coset(x_index, next_domain_size, domain_size, arity);
+                let mut sorted_evals_enumerate =
+                    evaluations[i].iter().enumerate().collect::<Vec<_>>();
+                // We need to sort the evaluations so that they match their order in the Merkle tree.
                 sorted_evals_enumerate.sort_by_key(|&(j, _)| {
                     reverse_bits(roots_coset_indices[j], log2_strict(domain_size))
                 });
@@ -343,14 +352,17 @@ fn verify_fri_proof<F: Field>(
                 &round_proof.merkle_proofs.proofs[i],
                 true,
             )?;
+
             if i > 0 {
+                // Update the point x to x^arity.
                 for _ in 0..config.reduction_arity_bits[i - 1] {
                     subgroup_x = subgroup_x.square();
                 }
             }
             domain_size = next_domain_size;
         }
-        let last_evals = e_xs.last().unwrap();
+
+        let last_evals = evaluations.last().unwrap();
         let final_arity_bits = *config.reduction_arity_bits.last().unwrap();
         let purported_eval = compute_evaluation(
             subgroup_x,
@@ -361,6 +373,7 @@ fn verify_fri_proof<F: Field>(
         for _ in 0..final_arity_bits {
             subgroup_x = subgroup_x.square();
         }
+
         // Final check of FRI. After all the reductions, we check that the final polynomial is equal
         // to the one sent by the prover.
         ensure!(
