@@ -29,7 +29,7 @@ pub(crate) fn interpolant<F: Field>(points: &[(F, F)]) -> PolynomialCoeffs<F> {
 
 /// Interpolate the polynomial defined by an arbitrary set of (point, value) pairs at the given
 /// point `x`.
-fn interpolate<F: Field>(points: &[(F, F)], x: F, barycentric_weights: &[F]) -> F {
+pub fn interpolate<F: Field>(points: &[(F, F)], x: F, barycentric_weights: &[F]) -> F {
     // If x is in the list of points, the Lagrange formula would divide by zero.
     for &(x_i, y_i) in points {
         if x_i == x {
@@ -37,7 +37,7 @@ fn interpolate<F: Field>(points: &[(F, F)], x: F, barycentric_weights: &[F]) -> 
         }
     }
 
-    let l_x: F = points.iter().map(|&(x_i, y_i)| x - x_i).product();
+    let l_x: F = points.iter().map(|&(x_i, _y_i)| x - x_i).product();
 
     let sum = (0..points.len())
         .map(|i| {
@@ -51,7 +51,7 @@ fn interpolate<F: Field>(points: &[(F, F)], x: F, barycentric_weights: &[F]) -> 
     l_x * sum
 }
 
-fn barycentric_weights<F: Field>(points: &[(F, F)]) -> Vec<F> {
+pub fn barycentric_weights<F: Field>(points: &[(F, F)]) -> Vec<F> {
     let n = points.len();
     (0..n)
         .map(|i| {
