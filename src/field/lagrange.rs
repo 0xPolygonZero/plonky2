@@ -53,15 +53,16 @@ fn interpolate<F: Field>(points: &[(F, F)], x: F, barycentric_weights: &[F]) -> 
 
 fn barycentric_weights<F: Field>(points: &[(F, F)]) -> Vec<F> {
     let n = points.len();
-    (0..n)
-        .map(|i| {
-            (0..n)
-                .filter(|&j| j != i)
-                .map(|j| points[i].0 - points[j].0)
-                .product::<F>()
-                .inverse()
-        })
-        .collect()
+    F::batch_multiplicative_inverse(
+        &(0..n)
+            .map(|i| {
+                (0..n)
+                    .filter(|&j| j != i)
+                    .map(|j| points[i].0 - points[j].0)
+                    .product::<F>()
+            })
+            .collect::<Vec<_>>(),
+    )
 }
 
 #[cfg(test)]
@@ -117,16 +118,6 @@ mod tests {
     }
 
     fn eval_naive<F: Field>(coeffs: &PolynomialCoeffs<F>, domain: &[F]) -> Vec<(F, F)> {
-        domain
-            .iter()
-            .map(|&x| {
-                let eval = x
-                    .powers()
-                    .zip(&coeffs.coeffs)
-                    .map(|(x_power, &coeff)| coeff * x_power)
-                    .sum();
-                (x, eval)
-            })
-            .collect()
+        domain.iter().map(|&x| (x, coeffs.eval(x))).collect()
     }
 }
