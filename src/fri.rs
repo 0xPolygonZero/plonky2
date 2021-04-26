@@ -8,8 +8,6 @@ use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriEvaluations, FriMerkleProofs, FriProof, FriQueryRound, Hash};
 use crate::util::log2_strict;
 use anyhow::{ensure, Result};
-use std::intrinsics::rotate_left;
-use std::iter::FromIterator;
 
 /// Somewhat arbitrary. Smaller values will increase delta, but with diminishing returns,
 /// while increasing L, potentially requiring more challenge points.
@@ -127,13 +125,12 @@ fn fri_proof_of_work<F: Field>(current_hash: Hash<F>, config: &FriConfig) -> F {
     (0u64..)
         .find(|&i| {
             hash_n_to_1(
-                Vec::from_iter(
-                    current_hash
-                        .elements
-                        .iter()
-                        .copied()
-                        .chain(Some(F::from_canonical_u64(i))),
-                ),
+                current_hash
+                    .elements
+                    .iter()
+                    .copied()
+                    .chain(Some(F::from_canonical_u64(i)))
+                    .collect(),
                 false,
             )
             .to_canonical_u64()
@@ -150,14 +147,13 @@ fn fri_verify_proof_of_work<F: Field>(
     config: &FriConfig,
 ) -> Result<()> {
     let hash = hash_n_to_1(
-        Vec::from_iter(
-            challenger
-                .get_hash()
-                .elements
-                .iter()
-                .copied()
-                .chain(Some(proof.pow_witness)),
-        ),
+        challenger
+            .get_hash()
+            .elements
+            .iter()
+            .copied()
+            .chain(Some(proof.pow_witness))
+            .collect(),
         false,
     );
     ensure!(

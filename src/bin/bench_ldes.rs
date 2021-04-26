@@ -3,9 +3,8 @@ use std::time::Instant;
 use rayon::prelude::*;
 
 use plonky2::field::crandall_field::CrandallField;
-use plonky2::field::fft;
 use plonky2::field::field::Field;
-use plonky2::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+use plonky2::polynomial::polynomial::PolynomialValues;
 
 type F = CrandallField;
 
@@ -18,9 +17,9 @@ fn main() {
 
     let start = Instant::now();
     (0usize..PROVER_POLYS).into_par_iter().for_each(|i| {
-        let mut values = vec![CrandallField::ZERO; DEGREE];
+        let mut values = vec![F::ZERO; DEGREE];
         for j in 0usize..DEGREE {
-            values[j] = CrandallField((i * j) as u64);
+            values[j] = F::from_canonical_u64((i * j) as u64);
         }
         let poly_values = PolynomialValues::new(values);
         let start = Instant::now();

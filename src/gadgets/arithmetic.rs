@@ -1,9 +1,9 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::gates::arithmetic::ArithmeticGate;
+use crate::generator::SimpleGenerator;
 use crate::target::Target;
 use crate::wire::Wire;
-use crate::generator::SimpleGenerator;
 use crate::witness::PartialWitness;
 
 impl<F: Field> CircuitBuilder<F> {
@@ -22,8 +22,9 @@ impl<F: Field> CircuitBuilder<F> {
         addend: Target,
     ) -> Target {
         // See if we can determine the result without adding an `ArithmeticGate`.
-        if let Some(result) = self.arithmetic_special_cases(
-            const_0, multiplicand_0, multiplicand_1, const_1, addend) {
+        if let Some(result) =
+            self.arithmetic_special_cases(const_0, multiplicand_0, multiplicand_1, const_1, addend)
+        {
             return result;
         }
 
@@ -69,7 +70,8 @@ impl<F: Field> CircuitBuilder<F> {
         let mul_1_const = self.target_as_constant(multiplicand_1);
         let addend_const = self.target_as_constant(addend);
 
-        let first_term_zero = const_0 == F::ZERO || multiplicand_0 == zero || multiplicand_1 == zero;
+        let first_term_zero =
+            const_0 == F::ZERO || multiplicand_0 == zero || multiplicand_1 == zero;
         let second_term_zero = const_1 == F::ZERO || addend == zero;
 
         // If both terms are constant, return their (constant) sum.
@@ -89,10 +91,8 @@ impl<F: Field> CircuitBuilder<F> {
             return Some(self.constant(x + y));
         }
 
-        if first_term_zero {
-            if const_1.is_one() {
-                return Some(addend);
-            }
+        if first_term_zero && const_1.is_one() {
+            return Some(addend);
         }
 
         if second_term_zero {
@@ -156,17 +156,31 @@ impl<F: Field> CircuitBuilder<F> {
         if y == one {
             return x;
         }
-        if let (Some(x_const), Some(y_const)) = (self.target_as_constant(x), self.target_as_constant(y)) {
+        if let (Some(x_const), Some(y_const)) =
+            (self.target_as_constant(x), self.target_as_constant(y))
+        {
             return self.constant(x_const / y_const);
         }
 
         // Add an `ArithmeticGate` to compute `q * y`.
         let gate = self.add_gate(ArithmeticGate::new(), vec![F::ONE, F::ZERO]);
 
-        let wire_multiplicand_0 = Wire { gate, input: ArithmeticGate::WIRE_MULTIPLICAND_0 };
-        let wire_multiplicand_1 = Wire { gate, input: ArithmeticGate::WIRE_MULTIPLICAND_1 };
-        let wire_addend = Wire { gate, input: ArithmeticGate::WIRE_ADDEND };
-        let wire_output = Wire { gate, input: ArithmeticGate::WIRE_OUTPUT };
+        let wire_multiplicand_0 = Wire {
+            gate,
+            input: ArithmeticGate::WIRE_MULTIPLICAND_0,
+        };
+        let wire_multiplicand_1 = Wire {
+            gate,
+            input: ArithmeticGate::WIRE_MULTIPLICAND_1,
+        };
+        let wire_addend = Wire {
+            gate,
+            input: ArithmeticGate::WIRE_ADDEND,
+        };
+        let wire_output = Wire {
+            gate,
+            input: ArithmeticGate::WIRE_OUTPUT,
+        };
 
         let q = Target::Wire(wire_multiplicand_0);
         self.add_generator(QuotientGenerator {

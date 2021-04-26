@@ -1,8 +1,10 @@
+//! Implements Rescue Prime.
+
 use unroll::unroll_for_loops;
 
 use crate::field::field::Field;
 
-const ROUNDS: usize = 10;
+const ROUNDS: usize = 8;
 
 const W: usize = 12;
 
@@ -177,7 +179,7 @@ const MDS: [[u64; W]; W] = [
     ],
 ];
 
-const RESCUE_CONSTANTS: [[u64; W]; 20] = [
+const RESCUE_CONSTANTS: [[u64; W]; 16] = [
     [
         12050887499329086906,
         1748247961703512657,
@@ -402,66 +404,10 @@ const RESCUE_CONSTANTS: [[u64; W]; 20] = [
         16465224002344550280,
         10282380383506806095,
     ],
-    [
-        12608209810104211593,
-        11808578423511814760,
-        16177950852717156460,
-        9394439296563712221,
-        12586575762376685187,
-        17703393198607870393,
-        9811861465513647715,
-        14126450959506560131,
-        12713673607080398908,
-        18301828072718562389,
-        11180556590297273821,
-        4451415492203885059,
-    ],
-    [
-        10465807219916311101,
-        1213997644391575261,
-        17672155373280862521,
-        1491206970207330736,
-        10977478805896263804,
-        13260961975618373124,
-        16060889403827043708,
-        3223573072465920682,
-        17624203443801796697,
-        10247205738678800822,
-        11100653267668698651,
-        14328592975764892571,
-    ],
-    [
-        6984072551318461094,
-        3416562710010527326,
-        12847783919251969270,
-        12223185134739244472,
-        12073170519625198198,
-        6221124633828606855,
-        17596623990006806590,
-        1153871693574764968,
-        2548851681903410721,
-        9823373270182377847,
-        16708030507924899244,
-        9619306826188519218,
-    ],
-    [
-        5842685042453818473,
-        12400879353954910914,
-        647112787845575111,
-        4893664959929687347,
-        3759391664155971284,
-        15871181179823725763,
-        3629377713951158273,
-        3439101502554162312,
-        8325686353010019444,
-        10630488935940555500,
-        3478529754946055748,
-        12681233130980545828,
-    ],
 ];
 
-fn rescue<F: Field>(mut xs: [F; W]) -> [F; W] {
-    for r in 0..10 {
+pub fn rescue<F: Field>(mut xs: [F; W]) -> [F; W] {
+    for r in 0..8 {
         xs = sbox_layer_a(xs);
         xs = mds_layer(xs);
         xs = constant_layer(xs, &RESCUE_CONSTANTS[r * 2]);
@@ -470,61 +416,27 @@ fn rescue<F: Field>(mut xs: [F; W]) -> [F; W] {
         xs = mds_layer(xs);
         xs = constant_layer(xs, &RESCUE_CONSTANTS[r * 2 + 1]);
     }
-
-    // for i in 0..W {
-    //     xs[i] = xs[i].to_canonical();
-    // }
-
     xs
 }
 
-// #[inline(always)]
 #[unroll_for_loops]
 fn sbox_layer_a<F: Field>(x: [F; W]) -> [F; W] {
     let mut result = [F::ZERO; W];
     for i in 0..W {
-        result[i] = sbox_a(x[i]);
+        result[i] = x[i].cube();
     }
     result
 }
 
-// #[inline(always)]
 #[unroll_for_loops]
 fn sbox_layer_b<F: Field>(x: [F; W]) -> [F; W] {
     let mut result = [F::ZERO; W];
     for i in 0..W {
-        result[i] = sbox_b(x[i]);
+        result[i] = x[i].cube_root();
     }
     result
 }
 
-// #[inline(always)]
-#[unroll_for_loops]
-fn sbox_a<F: Field>(x: F) -> F {
-    // x^{-5}, via Fermat's little theorem
-    const EXP: u64 = 7378697628517453005;
-
-    let mut product = F::ONE;
-    let mut current = x;
-
-    for i in 0..64 {
-        if ((EXP >> i) & 1) != 0 {
-            product = product * current;
-        }
-        current = current.square();
-    }
-    product
-}
-
-#[inline(always)]
-fn sbox_b<F: Field>(x: F) -> F {
-    // x^5
-    let x2 = x.square();
-    let x3 = x2 * x;
-    x2 * x3
-}
-
-// #[inline(always)]
 #[unroll_for_loops]
 fn mds_layer<F: Field>(x: [F; W]) -> [F; W] {
     let mut result = [F::ZERO; W];
@@ -536,7 +448,6 @@ fn mds_layer<F: Field>(x: [F; W]) -> [F; W] {
     result
 }
 
-#[inline(always)]
 #[unroll_for_loops]
 fn constant_layer<F: Field>(xs: [F; W], con: &[u64; W]) -> [F; W] {
     let mut result = [F::ZERO; W];
