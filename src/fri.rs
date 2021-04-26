@@ -8,6 +8,7 @@ use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriEvaluations, FriMerkleProofs, FriProof, FriQueryRound, Hash};
 use crate::util::log2_strict;
 use anyhow::{ensure, Result};
+use std::intrinsics::rotate_left;
 use std::iter::FromIterator;
 
 /// Somewhat arbitrary. Smaller values will increase delta, but with diminishing returns,
@@ -54,7 +55,6 @@ fn fri_l(codeword_len: usize, rate_log: usize, conjecture: bool) -> f64 {
     }
 }
 
-// TODO: Different arity  + PoW.
 /// Builds a FRI proof.
 fn fri_proof<F: Field>(
     // Coefficients of the polynomial on which the LDT is performed.
@@ -103,14 +103,15 @@ fn fri_committed_trees<F: Field>(
 
     challenger.observe_hash(&trees[0].root);
 
-    for _ in 0..config.reduction_count {
+    for &arity_bits in &config.reduction_arity_bits {
+        let arity = 1 << arity_bits;
         let beta = challenger.get_challenge();
-        // P(x) = P_0(x^2) + xP_1(x^2) becomes P_0(x) + beta*P_1(x)
+        // P(x) = sum_{i<r} x^i * P_i(x^r) becomes sum_{i<r} beta^i * P_i(x).
         coeffs = PolynomialCoeffs::new(
             coeffs
                 .coeffs
-                .chunks_exact(2)
-                .map(|chunk| chunk[0] + beta * chunk[1])
+                .chunks_exact(arity)
+                .map(|chunk| chunk.iter().rev().fold(F::ZERO, |acc, &c| acc * beta + c))
                 .collect::<Vec<_>>(),
         );
         values = fft(coeffs.clone());
@@ -176,48 +177,85 @@ fn fri_query_rounds<F: Field>(
 ) -> Vec<FriQueryRound<F>> {
     let mut query_round_proofs = Vec::new();
     for _ in 0..config.num_query_rounds {
-        let mut merkle_proofs = FriMerkleProofs { proofs: Vec::new() };
-        let mut evals = FriEvaluations {
-            first_layer: (F::ZERO, F::ZERO),
-            rest: Vec::new(),
-        };
-        // TODO: Challenger doesn't change between query rounds, so x is always the same.
-        // Once PoW is added, this should be fixed.
-        let x = challenger.get_challenge();
-        let mut domain_size = n;
-        let mut x_index = x.to_canonical_u64() as usize;
-        for (i, tree) in trees.iter().enumerate() {
-            let next_domain_size = domain_size >> 1;
-            x_index %= domain_size;
-            let minus_x_index = (next_domain_size + x_index) % domain_size;
-            if i == 0 {
-                // For the first layer, we need to send the evaluation at `x` and `-x`.
-                evals.first_layer = (tree.get(x_index)[0], tree.get(minus_x_index)[0]);
-            } else {
-                // For the other layers, we only need to send the `-x`, the one at `x` can be inferred
-                // by the verifier. See the `compute_evaluation` function.
-                evals.rest.push(tree.get(minus_x_index)[0]);
-            }
-            merkle_proofs
-                .proofs
-                .push((tree.prove(x_index), tree.prove(minus_x_index)));
-
-            domain_size = next_domain_size;
-        }
-        query_round_proofs.push(FriQueryRound {
-            evals,
-            merkle_proofs,
-        });
+        fri_query_round(trees, challenger, n, &mut query_round_proofs, config);
     }
     query_round_proofs
 }
 
-/// Computes P'(x^2) from P_even(x) and P_odd(x), where P' is the FRI reduced polynomial,
-/// P_even is the even coefficients polynomial and P_odd is the odd coefficients polynomial.
-fn compute_evaluation<F: Field>(x: F, last_e_x: F, last_e_x_minus: F, beta: F) -> F {
-    // P(x) = P_0(x^2) + xP_1(x^2)
-    // P'(x^2) = P_0(x^2) + beta*P_1(x^2)
-    // P'(x^2) = ((P(x)+P(-x))/2) + beta*((P(x)-P(-x))/(2x)
+/// Returns the indices of all `y` in `F` with `y^arity=x^arity`, starting with `x` itself.
+fn index_roots_coset(
+    x_index: usize,
+    next_domain_size: usize,
+    domain_size: usize,
+    arity: usize,
+) -> Vec<usize> {
+    (0..arity)
+        .map(|i| (i * next_domain_size + x_index) % domain_size)
+        .collect()
+}
+
+fn fri_query_round<F: Field>(
+    trees: &[MerkleTree<F>],
+    challenger: &mut Challenger<F>,
+    n: usize,
+    query_round_proofs: &mut Vec<FriQueryRound<F>>,
+    config: &FriConfig,
+) {
+    let mut merkle_proofs = FriMerkleProofs { proofs: Vec::new() };
+    let mut evals = FriEvaluations { evals: Vec::new() };
+    // TODO: Challenger doesn't change between query rounds, so x is always the same.
+    let x = challenger.get_challenge();
+    let mut domain_size = n;
+    let mut x_index = x.to_canonical_u64() as usize;
+    for (i, tree) in trees.iter().enumerate() {
+        let arity_bits = config.reduction_arity_bits[i];
+        let arity = 1 << arity_bits;
+        let next_domain_size = domain_size >> arity_bits;
+        x_index %= domain_size;
+        let roots_coset_indices = index_roots_coset(x_index, next_domain_size, domain_size, arity);
+        if i == 0 {
+            // For the first layer, we need to send the evaluation at `x` too.
+            evals.evals.push(
+                roots_coset_indices[1..]
+                    .iter()
+                    .map(|&index| tree.get(index)[0])
+                    .collect(),
+            );
+        } else {
+            // For the other layers, we don't need to send the evaluation at `x`, since it can
+            // be inferred by the verifier. See the `compute_evaluation` function.
+            evals.evals.push(
+                roots_coset_indices
+                    .iter()
+                    .map(|&index| tree.get(index)[0])
+                    .collect(),
+            );
+        }
+        dbg!(roots_coset_indices
+            .into_iter()
+            .map(|i| i & ((1 << log2_strict(next_domain_size)) - 1))
+            .collect::<Vec<_>>());
+        merkle_proofs.proofs.push(tree.prove_subtree(
+            x_index & ((1 << log2_strict(next_domain_size)) - 1),
+            arity_bits,
+        ));
+
+        domain_size = next_domain_size;
+    }
+    query_round_proofs.push(FriQueryRound {
+        evals,
+        merkle_proofs,
+    });
+}
+
+/// Computes P'(x^2) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity and P' is the FRI reduced polynomial.
+fn compute_evaluation<F: Field>(x: F, arity_bits: usize, last_evals: Vec<F>, beta: F) -> F {
+    let g = F::primitive_root_of_unity(arity_bits);
+    let points = g
+        .powers()
+        .take(1 << arity_bits)
+        .map(|y| x * y)
+        .collect::<Vec<_>>();
     (last_e_x + last_e_x_minus) / F::TWO + beta * (last_e_x - last_e_x_minus) / (F::TWO * x)
 }
 
