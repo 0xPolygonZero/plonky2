@@ -3,8 +3,9 @@ use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use rand::rngs::OsRng;
+use num::Integer;
 use rand::Rng;
+use rand::rngs::OsRng;
 
 use crate::util::bits_u64;
 
@@ -101,11 +102,11 @@ pub trait Field:
 
     fn primitive_root_of_unity(n_log: usize) -> Self {
         assert!(n_log <= Self::TWO_ADICITY);
-        let base = Self::POWER_OF_TWO_GENERATOR;
-        // TODO: Just repeated squaring should be a bit faster, to avoid conditionals.
-        base.exp(Self::from_canonical_u64(
-            1u64 << (Self::TWO_ADICITY - n_log),
-        ))
+        let mut base = Self::POWER_OF_TWO_GENERATOR;
+        for _ in n_log..Self::TWO_ADICITY {
+            base = base.square();
+        }
+        base
     }
 
     /// Computes a multiplicative subgroup whose order is known in advance.
@@ -144,6 +145,10 @@ pub trait Field:
 
     fn from_canonical_u64(n: u64) -> Self;
 
+    fn from_canonical_u32(n: u32) -> Self {
+        Self::from_canonical_u64(n as u64)
+    }
+
     fn from_canonical_usize(n: usize) -> Self {
         Self::from_canonical_u64(n as u64)
     }
@@ -165,18 +170,59 @@ pub trait Field:
         product
     }
 
+    fn exp_u32(&self, power: u32) -> Self {
+        self.exp(Self::from_canonical_u32(power))
+    }
+
     fn exp_usize(&self, power: usize) -> Self {
         self.exp(Self::from_canonical_usize(power))
     }
 
-    fn kth_root(&self, k: usize) -> Self {
-        let p_minus_1 = Self::ORDER - 1;
-        debug_assert!(p_minus_1 % k as u64 != 0, "Not a permutation in this field");
-        todo!()
+    /// Returns whether `x^power` is a permutation of this field.
+    fn is_monomial_permutation(power: Self) -> bool {
+        if power.is_zero() {
+            return false;
+        }
+        if power.is_one() {
+            return true;
+        }
+        (Self::ORDER - 1).gcd(&power.to_canonical_u64()) == 1
+    }
+
+    fn kth_root(&self, k: Self) -> Self {
+        let p = Self::ORDER;
+        let p_minus_1 = p - 1;
+        debug_assert!(
+            Self::is_monomial_permutation(k),
+            "Not a permutation of this field"
+        );
+        let k = k.to_canonical_u64();
+
+        // By Fermat's little theorem, x^p = x and x^(p - 1) = 1, so x^(p + n(p - 1)) = x for any n.
+        // Our assumption that the k'th root operation is a permutation implies gcd(p - 1, k) = 1,
+        // so there exists some n such that p + n(p - 1) is a multiple of k. Once we find such an n,
+        // we can rewrite the above as
+        //    x^((p + n(p - 1))/k)^k = x,
+        // implying that x^((p + n(p - 1))/k) is a k'th root of x.
+        for n in 0..k {
+            let numerator = p as u128 + n as u128 * p_minus_1 as u128;
+            if numerator % k as u128 == 0 {
+                let power = (numerator / k as u128) as u64 % p_minus_1;
+                return self.exp(Self::from_canonical_u64(power));
+            }
+        }
+        panic!(
+            "x^{} and x^(1/{}) are not permutations of this field, or we have a bug!",
+            k, k
+        );
+    }
+
+    fn kth_root_u32(&self, k: u32) -> Self {
+        self.kth_root(Self::from_canonical_u32(k))
     }
 
     fn cube_root(&self) -> Self {
-        self.kth_root(3)
+        self.kth_root_u32(3)
     }
 
     fn powers(&self) -> Powers<Self> {
