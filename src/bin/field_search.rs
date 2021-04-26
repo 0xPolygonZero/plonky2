@@ -53,5 +53,5 @@ fn is_prime(n: u64) -> bool {
         d += 2;
     }
 
-    return true;
+    true
 }

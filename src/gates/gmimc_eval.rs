@@ -38,7 +38,6 @@ impl<F: Field> Gate<F> for GMiMCEvalGate {
         &self,
         gate_index: usize,
         local_constants: &[F],
-        _next_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = GMiMCEvalGenerator::<F> {
             gate_index,

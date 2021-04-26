@@ -41,10 +41,10 @@ pub fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
 }
 
 pub(crate) fn fft_precompute<F: Field>(degree: usize) -> FftPrecomputation<F> {
-    let degree_pow = log2_ceil(degree);
+    let degree_log = log2_ceil(degree);
 
     let mut subgroups_rev = Vec::new();
-    for i in 0..=degree_pow {
+    for i in 0..=degree_log {
         let g_i = F::primitive_root_of_unity(i);
         let subgroup = F::cyclic_subgroup_known_order(g_i, 1 << i);
         let subgroup_rev = reverse_index_bits(subgroup);
@@ -66,8 +66,8 @@ pub(crate) fn ifft_with_precomputation_power_of_2<F: Field>(
         fft_with_precomputation_power_of_2(PolynomialCoeffs { coeffs: values }, precomputation);
 
     // We reverse all values except the first, and divide each by n.
-    result[0] = result[0] * n_inv;
-    result[n / 2] = result[n / 2] * n_inv;
+    result[0] *= n_inv;
+    result[n / 2] *= n_inv;
     for i in 1..(n / 2) {
         let j = n - i;
         let result_i = result[j] * n_inv;
@@ -89,14 +89,14 @@ pub(crate) fn fft_with_precomputation_power_of_2<F: Field>(
     );
 
     let half_degree = poly.len() >> 1;
-    let degree_pow = poly.log_len();
+    let degree_log = poly.log_len();
 
     // In the base layer, we're just evaluating "degree 0 polynomials", i.e. the coefficients
     // themselves.
     let PolynomialCoeffs { coeffs } = poly;
     let mut evaluations = reverse_index_bits(coeffs);
 
-    for i in 1..=degree_pow {
+    for i in 1..=degree_log {
         // In layer i, we're evaluating a series of polynomials, each at 2^i points. In practice
         // we evaluate a pair of points together, so we have 2^(i - 1) pairs.
         let points_per_poly = 1 << i;
@@ -169,7 +169,7 @@ mod tests {
         for i in 0..degree {
             coefficients.push(F::from_canonical_usize(i * 1337 % 100));
         }
-        let coefficients = PolynomialCoeffs::pad(coefficients);
+        let coefficients = PolynomialCoeffs::new_padded(coefficients);
 
         let points = fft(coefficients.clone());
         assert_eq!(points, evaluate_naive(&coefficients));
@@ -198,9 +198,9 @@ mod tests {
         coefficients: &PolynomialCoeffs<F>,
     ) -> PolynomialValues<F> {
         let degree = coefficients.len();
-        let degree_pow = log2_strict(degree);
+        let degree_log = log2_strict(degree);
 
-        let g = F::primitive_root_of_unity(degree_pow);
+        let g = F::primitive_root_of_unity(degree_log);
         let powers_of_g = F::cyclic_subgroup_known_order(g, degree);
 
         let values = powers_of_g

@@ -79,3 +79,9 @@ impl<F: Field> PartialWitness<F> {
         }
     }
 }
+
+impl<F: Field> Default for PartialWitness<F> {
+    fn default() -> Self {
+        Self::new()
+    }
+}

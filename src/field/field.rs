@@ -1,9 +1,13 @@
-use crate::util::bits_u64;
-use rand::rngs::OsRng;
-use rand::Rng;
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
+use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+
+use num::Integer;
+use rand::Rng;
+use rand::rngs::OsRng;
+
+use crate::util::bits_u64;
 
 /// A finite field with prime order less than 2^64.
 pub trait Field:
@@ -14,10 +18,12 @@ pub trait Field:
     + Neg<Output = Self>
     + Add<Self, Output = Self>
     + AddAssign<Self>
+    + Sum
     + Sub<Self, Output = Self>
     + SubAssign<Self>
     + Mul<Self, Output = Self>
     + MulAssign<Self>
+    + Product
     + Div<Self, Output = Self>
     + DivAssign<Self>
     + Debug
@@ -40,6 +46,10 @@ pub trait Field:
 
     fn is_zero(&self) -> bool {
         *self == Self::ZERO
+    }
+
+    fn is_nonzero(&self) -> bool {
+        *self != Self::ZERO
     }
 
     fn is_one(&self) -> bool {
@@ -90,13 +100,13 @@ pub trait Field:
         x_inv
     }
 
-    fn primitive_root_of_unity(n_power: usize) -> Self {
-        assert!(n_power <= Self::TWO_ADICITY);
-        let base = Self::POWER_OF_TWO_GENERATOR;
-        // TODO: Just repeated squaring should be a bit faster, to avoid conditionals.
-        base.exp(Self::from_canonical_u64(
-            1u64 << (Self::TWO_ADICITY - n_power),
-        ))
+    fn primitive_root_of_unity(n_log: usize) -> Self {
+        assert!(n_log <= Self::TWO_ADICITY);
+        let mut base = Self::POWER_OF_TWO_GENERATOR;
+        for _ in n_log..Self::TWO_ADICITY {
+            base = base.square();
+        }
+        base
     }
 
     /// Computes a multiplicative subgroup whose order is known in advance.
@@ -105,9 +115,24 @@ pub trait Field:
         let mut current = Self::ONE;
         for _i in 0..order {
             subgroup.push(current);
-            current = current * generator;
+            current *= generator;
         }
         subgroup
+    }
+
+    fn cyclic_subgroup_unknown_order(generator: Self) -> Vec<Self> {
+        let mut subgroup = Vec::new();
+        for power in generator.powers() {
+            if power.is_one() && !subgroup.is_empty() {
+                break;
+            }
+            subgroup.push(power);
+        }
+        subgroup
+    }
+
+    fn generator_order(generator: Self) -> usize {
+        generator.powers().skip(1).position(|y| y.is_one()).unwrap() + 1
     }
 
     /// Computes a coset of a multiplicative subgroup whose order is known in advance.
@@ -119,6 +144,10 @@ pub trait Field:
     fn to_canonical_u64(&self) -> u64;
 
     fn from_canonical_u64(n: u64) -> Self;
+
+    fn from_canonical_u32(n: u32) -> Self {
+        Self::from_canonical_u64(n as u64)
+    }
 
     fn from_canonical_usize(n: usize) -> Self {
         Self::from_canonical_u64(n as u64)
@@ -134,15 +163,66 @@ pub trait Field:
 
         for j in 0..power.bits() {
             if (power.to_canonical_u64() >> j & 1) != 0 {
-                product = product * current;
+                product *= current;
             }
             current = current.square();
         }
         product
     }
 
+    fn exp_u32(&self, power: u32) -> Self {
+        self.exp(Self::from_canonical_u32(power))
+    }
+
     fn exp_usize(&self, power: usize) -> Self {
         self.exp(Self::from_canonical_usize(power))
+    }
+
+    /// Returns whether `x^power` is a permutation of this field.
+    fn is_monomial_permutation(power: Self) -> bool {
+        if power.is_zero() {
+            return false;
+        }
+        if power.is_one() {
+            return true;
+        }
+        (Self::ORDER - 1).gcd(&power.to_canonical_u64()) == 1
+    }
+
+    fn kth_root(&self, k: Self) -> Self {
+        let p = Self::ORDER;
+        let p_minus_1 = p - 1;
+        debug_assert!(
+            Self::is_monomial_permutation(k),
+            "Not a permutation of this field"
+        );
+        let k = k.to_canonical_u64();
+
+        // By Fermat's little theorem, x^p = x and x^(p - 1) = 1, so x^(p + n(p - 1)) = x for any n.
+        // Our assumption that the k'th root operation is a permutation implies gcd(p - 1, k) = 1,
+        // so there exists some n such that p + n(p - 1) is a multiple of k. Once we find such an n,
+        // we can rewrite the above as
+        //    x^((p + n(p - 1))/k)^k = x,
+        // implying that x^((p + n(p - 1))/k) is a k'th root of x.
+        for n in 0..k {
+            let numerator = p as u128 + n as u128 * p_minus_1 as u128;
+            if numerator % k as u128 == 0 {
+                let power = (numerator / k as u128) as u64 % p_minus_1;
+                return self.exp(Self::from_canonical_u64(power));
+            }
+        }
+        panic!(
+            "x^{} and x^(1/{}) are not permutations of this field, or we have a bug!",
+            k, k
+        );
+    }
+
+    fn kth_root_u32(&self, k: u32) -> Self {
+        self.kth_root(Self::from_canonical_u32(k))
+    }
+
+    fn cube_root(&self) -> Self {
+        self.kth_root_u32(3)
     }
 
     fn powers(&self) -> Powers<Self> {

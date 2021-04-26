@@ -1,6 +1,7 @@
 use crate::field::field::Field;
 use crate::gates::gate::GateRef;
 use crate::generator::WitnessGenerator;
+use crate::merkle_tree::MerkleTree;
 use crate::proof::{Hash, HashTarget, Proof};
 use crate::prover::prove;
 use crate::verifier::verify;
@@ -37,7 +38,7 @@ impl CircuitConfig {
 /// Circuit data required by the prover or the verifier.
 pub struct CircuitData<F: Field> {
     pub(crate) prover_only: ProverOnlyCircuitData<F>,
-    pub(crate) verifier_only: VerifierOnlyCircuitData,
+    pub(crate) verifier_only: VerifierOnlyCircuitData<F>,
     pub(crate) common: CommonCircuitData<F>,
 }
 
@@ -71,7 +72,7 @@ impl<F: Field> ProverCircuitData<F> {
 
 /// Circuit data required by the prover.
 pub struct VerifierCircuitData<F: Field> {
-    pub(crate) verifier_only: VerifierOnlyCircuitData,
+    pub(crate) verifier_only: VerifierOnlyCircuitData<F>,
     pub(crate) common: CommonCircuitData<F>,
 }
 
@@ -84,13 +85,20 @@ impl<F: Field> VerifierCircuitData<F> {
 /// Circuit data required by the prover, but not the verifier.
 pub(crate) struct ProverOnlyCircuitData<F: Field> {
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
-    pub constant_ldes_t: Vec<Vec<F>>,
-    /// Transpose of LDEs of sigma polynomials (in the context of Plonk's permutation argument).
-    pub sigma_ldes_t: Vec<Vec<F>>,
+    /// Merkle tree containing LDEs of each constant polynomial.
+    pub constants_tree: MerkleTree<F>,
+    /// Merkle tree containing LDEs of each sigma polynomial.
+    pub sigmas_tree: MerkleTree<F>,
 }
 
 /// Circuit data required by the verifier, but not the prover.
-pub(crate) struct VerifierOnlyCircuitData {}
+pub(crate) struct VerifierOnlyCircuitData<F: Field> {
+    /// A commitment to each constant polynomial.
+    pub(crate) constants_root: Hash<F>,
+
+    /// A commitment to each permutation polynomial.
+    pub(crate) sigmas_root: Hash<F>,
+}
 
 /// Circuit data required by both the prover and the verifier.
 pub(crate) struct CommonCircuitData<F: Field> {
@@ -104,14 +112,12 @@ pub(crate) struct CommonCircuitData<F: Field> {
     /// The largest number of constraints imposed by any gate.
     pub(crate) num_gate_constraints: usize,
 
-    /// A commitment to each constant polynomial.
-    pub(crate) constants_root: Hash<F>,
-
-    /// A commitment to each permutation polynomial.
-    pub(crate) sigmas_root: Hash<F>,
-
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
     pub(crate) k_is: Vec<F>,
+
+    /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
+    /// seed Fiat-Shamir.
+    pub(crate) circuit_digest: Hash<F>,
 }
 
 impl<F: Field> CommonCircuitData<F> {

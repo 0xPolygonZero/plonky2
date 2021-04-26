@@ -126,7 +126,6 @@ impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
         &self,
         gate_index: usize,
         _local_constants: &[F],
-        _next_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = GMiMCGenerator {
             gate_index,
@@ -304,7 +303,7 @@ mod tests {
             );
         }
 
-        let generators = gate.0.generators(0, &[], &[]);
+        let generators = gate.0.generators(0, &[]);
         generate_partial_witness(&mut witness, &generators);
 
         let expected_outputs: [F; W] =
