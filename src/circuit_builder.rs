@@ -15,6 +15,7 @@ use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::hash::hash_n_to_hash;
 use crate::merkle_tree::MerkleTree;
+use crate::permutation_argument::TargetPartitions;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
 use crate::util::{log2_strict, transpose, transpose_poly_values};
@@ -29,8 +30,13 @@ pub struct CircuitBuilder<F: Field> {
     /// The concrete placement of each gate.
     gate_instances: Vec<GateInstance<F>>,
 
+    /// The next available index for a public input.
+    public_input_index: usize,
+
     /// The next available index for a VirtualAdviceTarget.
     virtual_target_index: usize,
+
+    copy_constraints: Vec<(Target, Target)>,
 
     /// Generators used to generate the witness.
     generators: Vec<Box<dyn WitnessGenerator<F>>>,
@@ -45,11 +51,23 @@ impl<F: Field> CircuitBuilder<F> {
             config,
             gates: HashSet::new(),
             gate_instances: Vec::new(),
+            public_input_index: 0,
             virtual_target_index: 0,
+            copy_constraints: Vec::new(),
             generators: Vec::new(),
             constants_to_targets: HashMap::new(),
             targets_to_constants: HashMap::new(),
         }
+    }
+
+    pub fn add_public_input(&mut self) -> Target {
+        let index = self.public_input_index;
+        self.public_input_index += 1;
+        Target::PublicInput { index }
+    }
+
+    pub fn add_public_inputs(&mut self, n: usize) -> Vec<Target> {
+        (0..n).map(|_i| self.add_public_input()).collect()
     }
 
     /// Adds a new "virtual" advice target. This is not an actual wire in the witness, but just a
@@ -127,7 +145,7 @@ impl<F: Field> CircuitBuilder<F> {
             y.is_routable(self.config),
             "Tried to route a wire that isn't routable"
         );
-        // TODO: Add to copy_constraints.
+        self.copy_constraints.push((x, y));
     }
 
     pub fn add_generators(&mut self, generators: Vec<Box<dyn WitnessGenerator<F>>>) {
@@ -218,9 +236,27 @@ impl<F: Field> CircuitBuilder<F> {
             .collect()
     }
 
-    fn sigma_vecs(&self) -> Vec<PolynomialValues<F>> {
-        vec![PolynomialValues::zero(self.gate_instances.len()); self.config.num_routed_wires]
-        // TODO
+    fn sigma_vecs(&self, k_is: &[F]) -> Vec<PolynomialValues<F>> {
+        let degree = self.gate_instances.len();
+        let degree_log = log2_strict(degree);
+        let mut target_partitions = TargetPartitions::new();
+
+        for gate in 0..degree {
+            for input in 0..self.config.num_routed_wires {
+                target_partitions.add_partition(Target::Wire(Wire { gate, input }));
+            }
+        }
+
+        for index in 0..self.public_input_index {
+            target_partitions.add_partition(Target::PublicInput { index })
+        }
+
+        for &(a, b) in &self.copy_constraints {
+            target_partitions.merge(a, b);
+        }
+
+        let wire_partitions = target_partitions.to_wire_partitions();
+        wire_partitions.get_sigma_polys(degree_log, k_is)
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
@@ -239,7 +275,8 @@ impl<F: Field> CircuitBuilder<F> {
         let constant_ldes_t = transpose_poly_values(constant_ldes);
         let constants_tree = MerkleTree::new(constant_ldes_t, true);
 
-        let sigma_vecs = self.sigma_vecs();
+        let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
+        let sigma_vecs = self.sigma_vecs(&k_is);
         let sigma_ldes = PolynomialValues::lde_multiple(sigma_vecs, self.config.rate_bits);
         let sigma_ldes_t = transpose_poly_values(sigma_ldes);
         let sigmas_tree = MerkleTree::new(sigma_ldes_t, true);
@@ -270,7 +307,6 @@ impl<F: Field> CircuitBuilder<F> {
             .expect("No gates?");
 
         let degree_bits = log2_strict(degree);
-        let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
 
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [constants_root.elements, sigmas_root.elements];

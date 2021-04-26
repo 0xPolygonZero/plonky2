@@ -9,6 +9,7 @@ pub mod gmimc;
 pub mod hash;
 pub mod merkle_proofs;
 mod merkle_tree;
+mod permutation_argument;
 pub mod plonk_challenger;
 pub mod plonk_common;
 pub mod polynomial;
