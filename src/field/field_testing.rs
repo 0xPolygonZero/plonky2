@@ -280,6 +280,31 @@ macro_rules! test_arithmetic {
                 assert_eq!(<$field>::from_canonical_u64(4).bits(), 3);
                 assert_eq!(<$field>::from_canonical_u64(5).bits(), 3);
             }
+
+            #[test]
+            fn exponentiation() {
+                type F = $field;
+
+                assert_eq!(F::ZERO.exp_u32(0), <F>::ONE);
+                assert_eq!(F::ONE.exp_u32(0), <F>::ONE);
+                assert_eq!(F::TWO.exp_u32(0), <F>::ONE);
+
+                assert_eq!(F::ZERO.exp_u32(1), <F>::ZERO);
+                assert_eq!(F::ONE.exp_u32(1), <F>::ONE);
+                assert_eq!(F::TWO.exp_u32(1), <F>::TWO);
+
+                assert_eq!(F::ZERO.kth_root_u32(1), <F>::ZERO);
+                assert_eq!(F::ONE.kth_root_u32(1), <F>::ONE);
+                assert_eq!(F::TWO.kth_root_u32(1), <F>::TWO);
+
+                for power in 1..10 {
+                    let power = F::from_canonical_u32(power);
+                    if F::is_monomial_permutation(power) {
+                        let x = F::rand();
+                        assert_eq!(x.exp(power).kth_root(power), x);
+                    }
+                }
+            }
         }
     };
 }
