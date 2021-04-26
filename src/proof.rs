@@ -84,15 +84,19 @@ pub struct ProofTarget {
 }
 
 // TODO: Implement FriEvaluationsTarget
+/// Evaluations of the FRI committed polynomials.
 #[derive(Debug)]
 pub struct FriEvaluations<F: Field> {
-    pub first_layer: (F, F),
-    pub rest: Vec<F>,
+    /// The first element of `evals` contains `arity` evaluations.
+    /// The other elements contain `arity-1` evaluations.
+    pub evals: Vec<Vec<F>>,
 }
 
 // TODO: Implement FriEvaluationsTarget
+/// Merkle proofs corresponding to the evaluations in a `FriEvaluation`.
+/// These proofs are actually Merkle subtree proofs, for subtrees of height `arity_bits`.
 pub struct FriMerkleProofs<F: Field> {
-    pub proofs: Vec<(MerkleProof<F>, MerkleProof<F>)>,
+    pub proofs: Vec<MerkleProof<F>>,
 }
 
 // TODO: Implement FriQueryRoundTarget
