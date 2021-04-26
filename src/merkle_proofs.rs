@@ -1,8 +1,9 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::gates::gmimc::GMiMCGate;
+use crate::hash::GMIMC_ROUNDS;
 use crate::hash::{compress, hash_or_noop};
-use crate::hash::{merkle_root_inner, GMIMC_ROUNDS};
+use crate::merkle_tree::MerkleTree;
 use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
 use crate::wire::Wire;
@@ -61,7 +62,7 @@ pub(crate) fn verify_merkle_proof_subtree<F: Field>(
     } else {
         subtree_index
     };
-    let mut current_digest = merkle_root_inner(subtree_leaves_data);
+    let mut current_digest = MerkleTree::new(subtree_leaves_data, false).root;
     for (i, &sibling_digest) in proof.siblings.iter().enumerate() {
         let bit = (index >> i & 1) == 1;
         current_digest = if bit {
