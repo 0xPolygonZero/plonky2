@@ -136,7 +136,8 @@ impl Field for CrandallField {
     #[inline]
     fn to_canonical_u64(&self) -> u64 {
         let mut c = self.0;
-        while c >= Self::ORDER {
+        // We only need one condition subtraction, since 2 * ORDER would not fit in a u64.
+        if c >= Self::ORDER {
             c -= Self::ORDER;
         }
         c
@@ -154,7 +155,6 @@ impl Field for CrandallField {
         let x3 = x2 * x0;
         let x4 = x3.square();
         let x5 = x4.square();
-        // let x6 = x4.square();
         let x7 = x5.square();
         let x8 = x7.square();
         let x9 = x8.square();
@@ -163,7 +163,6 @@ impl Field for CrandallField {
         let x12 = x11.square();
         let x13 = x12.square();
         let x14 = x13.square();
-        // let x15 = x13.square();
         let x16 = x14.square();
         let x17 = x16.square();
         let x18 = x17.square();
@@ -235,8 +234,7 @@ impl Neg for CrandallField {
         if self.is_zero() {
             Self::ZERO
         } else {
-            // TODO: This could underflow if we're not canonical.
-            Self(Self::ORDER - self.0)
+            Self(Self::ORDER - self.to_canonical_u64())
         }
     }
 }
