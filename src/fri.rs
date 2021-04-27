@@ -218,8 +218,8 @@ fn fri_query_round<F: Field>(
         let merkle_proof = tree.prove_subtree(x_index & (next_domain_size - 1), arity_bits);
 
         query_steps.push(FriQueryStep {
-            merkle_proof,
             evals,
+            merkle_proof,
         });
 
         domain_size = next_domain_size;
@@ -294,85 +294,95 @@ fn verify_fri_proof<F: Field>(
         "Number of reductions should be non-zero."
     );
 
-    for round in 0..config.num_query_rounds {
-        let round_proof = &proof.query_round_proofs[round];
-        let mut evaluations = Vec::new();
-        let x = challenger.get_challenge();
-        let mut domain_size = n;
-        let mut x_index = x.to_canonical_u64() as usize;
-        // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
-        let mut subgroup_x = F::primitive_root_of_unity(log2_strict(n)).exp_usize(x_index % n);
-        for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
-            let arity = 1 << arity_bits;
-            x_index %= domain_size;
-            let next_domain_size = domain_size >> arity_bits;
-            if i == 0 {
-                let evals = round_proof.steps[0].evals.clone();
-                evaluations.push(evals);
-            } else {
-                let last_evals = &evaluations[i - 1];
-                // Infer P(y) from {P(x)}_{x^arity=y}.
-                let e_x = compute_evaluation(
-                    subgroup_x,
-                    config.reduction_arity_bits[i - 1],
-                    last_evals,
-                    betas[i - 1],
-                );
-                let mut evals = round_proof.steps[i].evals.clone();
-                // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
-                evals.insert(0, e_x);
-                evaluations.push(evals);
-            };
-            let sorted_evals = {
-                let roots_coset_indices =
-                    coset_indices(x_index, next_domain_size, domain_size, arity);
-                let mut sorted_evals_enumerate =
-                    evaluations[i].iter().enumerate().collect::<Vec<_>>();
-                // We need to sort the evaluations so that they match their order in the Merkle tree.
-                sorted_evals_enumerate.sort_by_key(|&(j, _)| {
-                    reverse_bits(roots_coset_indices[j], log2_strict(domain_size))
-                });
-                sorted_evals_enumerate
-                    .into_iter()
-                    .map(|(_, &e)| vec![e])
-                    .collect()
-            };
-            verify_merkle_proof_subtree(
-                sorted_evals,
-                x_index & (next_domain_size - 1),
-                proof.commit_phase_merkle_roots[i],
-                &round_proof.steps[i].merkle_proof,
-                true,
-            )?;
-
-            if i > 0 {
-                // Update the point x to x^arity.
-                for _ in 0..config.reduction_arity_bits[i - 1] {
-                    subgroup_x = subgroup_x.square();
-                }
-            }
-            domain_size = next_domain_size;
-        }
-
-        let last_evals = evaluations.last().unwrap();
-        let final_arity_bits = *config.reduction_arity_bits.last().unwrap();
-        let purported_eval = compute_evaluation(
-            subgroup_x,
-            final_arity_bits,
-            last_evals,
-            *betas.last().unwrap(),
-        );
-        for _ in 0..final_arity_bits {
-            subgroup_x = subgroup_x.square();
-        }
-
-        // Final check of FRI. After all the reductions, we check that the final polynomial is equal
-        // to the one sent by the prover.
-        ensure!(
-            proof.final_poly.eval(subgroup_x) == purported_eval,
-            "Final polynomial evaluation is invalid."
-        );
+    for round_proof in &proof.query_round_proofs {
+        fri_verifier_query_round(&proof, challenger, n, &betas, round_proof, config)?;
     }
+
+    Ok(())
+}
+
+fn fri_verifier_query_round<F: Field>(
+    proof: &FriProof<F>,
+    challenger: &mut Challenger<F>,
+    n: usize,
+    betas: &[F],
+    round_proof: &FriQueryRound<F>,
+    config: &FriConfig,
+) -> Result<()> {
+    let mut evaluations = Vec::new();
+    let x = challenger.get_challenge();
+    let mut domain_size = n;
+    let mut x_index = x.to_canonical_u64() as usize;
+    // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
+    let mut subgroup_x = F::primitive_root_of_unity(log2_strict(n)).exp_usize(x_index % n);
+    for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
+        let arity = 1 << arity_bits;
+        x_index %= domain_size;
+        let next_domain_size = domain_size >> arity_bits;
+        if i == 0 {
+            let evals = round_proof.steps[0].evals.clone();
+            evaluations.push(evals);
+        } else {
+            let last_evals = &evaluations[i - 1];
+            // Infer P(y) from {P(x)}_{x^arity=y}.
+            let e_x = compute_evaluation(
+                subgroup_x,
+                config.reduction_arity_bits[i - 1],
+                last_evals,
+                betas[i - 1],
+            );
+            let mut evals = round_proof.steps[i].evals.clone();
+            // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
+            evals.insert(0, e_x);
+            evaluations.push(evals);
+        };
+        let sorted_evals = {
+            let roots_coset_indices = coset_indices(x_index, next_domain_size, domain_size, arity);
+            let mut sorted_evals_enumerate = evaluations[i].iter().enumerate().collect::<Vec<_>>();
+            // We need to sort the evaluations so that they match their order in the Merkle tree.
+            sorted_evals_enumerate.sort_by_key(|&(j, _)| {
+                reverse_bits(roots_coset_indices[j], log2_strict(domain_size))
+            });
+            sorted_evals_enumerate
+                .into_iter()
+                .map(|(_, &e)| vec![e])
+                .collect()
+        };
+        verify_merkle_proof_subtree(
+            sorted_evals,
+            x_index & (next_domain_size - 1),
+            proof.commit_phase_merkle_roots[i],
+            &round_proof.steps[i].merkle_proof,
+            true,
+        )?;
+
+        if i > 0 {
+            // Update the point x to x^arity.
+            for _ in 0..config.reduction_arity_bits[i - 1] {
+                subgroup_x = subgroup_x.square();
+            }
+        }
+        domain_size = next_domain_size;
+    }
+
+    let last_evals = evaluations.last().unwrap();
+    let final_arity_bits = *config.reduction_arity_bits.last().unwrap();
+    let purported_eval = compute_evaluation(
+        subgroup_x,
+        final_arity_bits,
+        last_evals,
+        *betas.last().unwrap(),
+    );
+    for _ in 0..final_arity_bits {
+        subgroup_x = subgroup_x.square();
+    }
+
+    // Final check of FRI. After all the reductions, we check that the final polynomial is equal
+    // to the one sent by the prover.
+    ensure!(
+        proof.final_poly.eval(subgroup_x) == purported_eval,
+        "Final polynomial evaluation is invalid."
+    );
 
     Ok(())
 }
