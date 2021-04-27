@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
+use crate::gates::gmimc_eval::GMiMCEvalGate;
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::gmimc::gmimc_automatic_constants;
 use crate::target::Target;
@@ -66,7 +67,7 @@ impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(W + R);
+        let mut constraints = Vec::with_capacity(self.num_constraints());
 
         // Assert that `swap` is binary.
         let swap = vars.local_wires[Self::WIRE_SWAP];
@@ -119,7 +120,94 @@ impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
         builder: &mut CircuitBuilder<F>,
         vars: EvaluationTargets,
     ) -> Vec<Target> {
-        unimplemented!()
+        let mut constraints = Vec::with_capacity(self.num_constraints());
+
+        // Assert that `swap` is binary. Usually we would assert that
+        //     swap(swap - 1) = 0
+        // but to make it work with a single ArithmeticGate, we will instead write it as
+        //     swap*swap - swap = 0
+        let swap = vars.local_wires[Self::WIRE_SWAP];
+        constraints.push(builder.mul_sub(swap, swap, swap));
+
+        let old_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_OLD];
+        let new_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_NEW];
+        // computed_new_index_acc = 2 * old_index_acc + swap
+        let two = builder.two();
+        let computed_new_index_acc = builder.mul_add(two, old_index_acc, swap);
+        constraints.push(builder.sub(computed_new_index_acc, new_index_acc));
+
+        let mut state = Vec::with_capacity(12);
+        for i in 0..4 {
+            let a = vars.local_wires[i];
+            let b = vars.local_wires[i + 4];
+            let delta = builder.sub(b, a);
+            state.push(builder.mul_add(swap, delta, a));
+        }
+        for i in 0..4 {
+            let a = vars.local_wires[i + 4];
+            let b = vars.local_wires[i];
+            let delta = builder.sub(b, a);
+            state.push(builder.mul_add(swap, delta, a));
+        }
+        for i in 8..12 {
+            state.push(vars.local_wires[i]);
+        }
+
+        // Value that is implicitly added to each element.
+        // See https://affine.group/2020/02/starkware-challenge
+        let mut addition_buffer = builder.zero();
+
+        for r in 0..R {
+            let active = r % W;
+            let gate = builder.add_gate(GMiMCEvalGate::get(), vec![self.constants[r]]);
+
+            let cubing_input = vars.local_wires[Self::wire_cubing_input(r)];
+            builder.route(
+                cubing_input,
+                Target::Wire(Wire {
+                    gate,
+                    input: GMiMCEvalGate::WIRE_CUBING_INPUT,
+                }),
+            );
+
+            builder.route(
+                addition_buffer,
+                Target::Wire(Wire {
+                    gate,
+                    input: GMiMCEvalGate::WIRE_ADDITION_BUFFER_OLD,
+                }),
+            );
+
+            builder.route(
+                state[active],
+                Target::Wire(Wire {
+                    gate,
+                    input: GMiMCEvalGate::WIRE_STATE_A_OLD,
+                }),
+            );
+
+            constraints.push(Target::Wire(Wire {
+                gate,
+                input: GMiMCEvalGate::WIRE_CONSTRAINT,
+            }));
+
+            addition_buffer = Target::Wire(Wire {
+                gate,
+                input: GMiMCEvalGate::WIRE_ADDITION_BUFFER_NEW,
+            });
+
+            state[active] = Target::Wire(Wire {
+                gate,
+                input: GMiMCEvalGate::WIRE_STATE_A_NEW,
+            });
+        }
+
+        for i in 0..W {
+            state[i] = builder.add(state[i], addition_buffer);
+            constraints.push(builder.sub(state[i], vars.local_wires[Self::wire_output(i)]));
+        }
+
+        constraints
     }
 
     fn generators(
