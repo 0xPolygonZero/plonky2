@@ -122,7 +122,6 @@ mod tests {
 
     use crate::field::crandall_field::CrandallField;
     use crate::merkle_proofs::{verify_merkle_proof, verify_merkle_proof_subtree};
-    use crate::polynomial::division::divide_by_z_h;
 
     use super::*;
 
