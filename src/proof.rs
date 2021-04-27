@@ -83,22 +83,17 @@ pub struct ProofTarget {
     pub fri_proofs: Vec<FriProofTarget>,
 }
 
-// TODO: Implement FriEvaluationsTarget
-#[derive(Debug)]
-pub struct FriEvaluations<F: Field> {
-    pub first_layer: (F, F),
-    pub rest: Vec<F>,
+/// Evaluations and Merkle proof produced by the prover in a FRI query step.
+// TODO: Implement FriQueryStepTarget
+pub struct FriQueryStep<F: Field> {
+    pub evals: Vec<F>,
+    pub merkle_proof: MerkleProof<F>,
 }
 
-// TODO: Implement FriEvaluationsTarget
-pub struct FriMerkleProofs<F: Field> {
-    pub proofs: Vec<(MerkleProof<F>, MerkleProof<F>)>,
-}
-
+/// Proof for a FRI query round.
 // TODO: Implement FriQueryRoundTarget
 pub struct FriQueryRound<F: Field> {
-    pub evals: FriEvaluations<F>,
-    pub merkle_proofs: FriMerkleProofs<F>,
+    pub steps: Vec<FriQueryStep<F>>,
 }
 
 pub struct FriProof<F: Field> {
