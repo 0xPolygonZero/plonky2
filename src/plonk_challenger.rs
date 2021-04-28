@@ -89,6 +89,10 @@ impl<F: Field> Challenger<F> {
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
     fn absorb_buffered_inputs(&mut self) {
+        if self.input_buffer.is_empty() {
+            return;
+        }
+
         for input_chunk in self.input_buffer.chunks(SPONGE_RATE) {
             // Overwrite the first r elements with the inputs. This differs from a standard sponge,
             // where we would xor or add in the inputs. This is a well-known variant, though,
@@ -189,6 +193,10 @@ impl RecursiveChallenger {
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
     fn absorb_buffered_inputs<F: Field>(&mut self, builder: &mut CircuitBuilder<F>) {
+        if self.input_buffer.is_empty() {
+            return;
+        }
+
         for input_chunk in self.input_buffer.chunks(SPONGE_RATE) {
             // Overwrite the first r elements with the inputs. This differs from a standard sponge,
             // where we would xor or add in the inputs. This is a well-known variant, though,
@@ -217,6 +225,25 @@ mod tests {
     use crate::plonk_challenger::{Challenger, RecursiveChallenger};
     use crate::target::Target;
     use crate::witness::PartialWitness;
+
+    #[test]
+    fn no_duplicate_challenges() {
+        type F = CrandallField;
+        let mut challenger = Challenger::new();
+        let mut challenges = Vec::new();
+
+        for i in 1..10 {
+            challenges.extend(challenger.get_n_challenges(i));
+            challenger.observe_element(F::rand());
+        }
+
+        let dedup_challenges = {
+            let mut dedup = challenges.clone();
+            dedup.dedup();
+            dedup
+        };
+        assert_eq!(dedup_challenges, challenges);
+    }
 
     /// Tests for consistency between `Challenger` and `RecursiveChallenger`.
     #[test]
