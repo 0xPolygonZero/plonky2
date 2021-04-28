@@ -2,7 +2,7 @@ use crate::field::fft::fft;
 use crate::field::field::Field;
 use crate::field::lagrange::{barycentric_weights, interpolate};
 use crate::hash::hash_n_to_1;
-use crate::merkle_proofs::{verify_merkle_proof, verify_merkle_proof_subtree};
+use crate::merkle_proofs::verify_merkle_proof;
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
