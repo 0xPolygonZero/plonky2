@@ -3,6 +3,8 @@
 use std::time::Instant;
 
 use plonky2::field::crandall_field::CrandallField;
+use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::proth_field::ProthField;
 use plonky2::field::field::Field;
 
 type F = CrandallField;
