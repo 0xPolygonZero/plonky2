@@ -6,6 +6,7 @@ use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
+use std::marker::PhantomData;
 
 /// Performs some arithmetic involved in the evaluation of GMiMC's constraint polynomials for one
 /// round. In particular, this performs the following computations:
@@ -20,11 +21,13 @@ use crate::witness::PartialWitness;
 /// element; see https://affine.group/2020/02/starkware-challenge. `C_r` represents the round
 /// constant for round `r`.
 #[derive(Debug)]
-pub struct GMiMCEvalGate;
+pub struct GMiMCEvalGate<F: Field> {
+    _phantom: PhantomData<F>,
+}
 
-impl GMiMCEvalGate {
-    pub fn get<F: Field>() -> GateRef<F> {
-        GateRef::new(GMiMCEvalGate)
+impl<F: Field> GMiMCEvalGate<F> {
+    pub fn get() -> GateRef<F> {
+        GateRef::new(GMiMCEvalGate { _phantom: PhantomData })
     }
 
     pub const CONST_C_R: usize = 0;
@@ -38,7 +41,7 @@ impl GMiMCEvalGate {
     const WIRE_F: usize = 6;
 }
 
-impl<F: Field> Gate<F> for GMiMCEvalGate {
+impl<F: Field> Gate<F> for GMiMCEvalGate<F> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
@@ -151,15 +154,15 @@ impl<F: Field> SimpleGenerator<F> for GMiMCEvalGenerator<F> {
         vec![
             Target::Wire(Wire {
                 gate,
-                input: GMiMCEvalGate::WIRE_CUBING_INPUT,
+                input: GMiMCEvalGate::<F>::WIRE_CUBING_INPUT,
             }),
             Target::Wire(Wire {
                 gate,
-                input: GMiMCEvalGate::WIRE_ADDITION_BUFFER_OLD,
+                input: GMiMCEvalGate::<F>::WIRE_ADDITION_BUFFER_OLD,
             }),
             Target::Wire(Wire {
                 gate,
-                input: GMiMCEvalGate::WIRE_STATE_A_OLD,
+                input: GMiMCEvalGate::<F>::WIRE_STATE_A_OLD,
             }),
         ]
     }
@@ -168,31 +171,31 @@ impl<F: Field> SimpleGenerator<F> for GMiMCEvalGenerator<F> {
         let gate = self.gate_index;
         let wire_constraint = Wire {
             gate,
-            input: GMiMCEvalGate::WIRE_CONSTRAINT,
+            input: GMiMCEvalGate::<F>::WIRE_CONSTRAINT,
         };
         let wire_state_a_old = Wire {
             gate,
-            input: GMiMCEvalGate::WIRE_STATE_A_OLD,
+            input: GMiMCEvalGate::<F>::WIRE_STATE_A_OLD,
         };
         let wire_state_a_new = Wire {
             gate,
-            input: GMiMCEvalGate::WIRE_STATE_A_NEW,
+            input: GMiMCEvalGate::<F>::WIRE_STATE_A_NEW,
         };
         let wire_addition_buffer_old = Wire {
             gate,
-            input: GMiMCEvalGate::WIRE_ADDITION_BUFFER_OLD,
+            input: GMiMCEvalGate::<F>::WIRE_ADDITION_BUFFER_OLD,
         };
         let wire_addition_buffer_new = Wire {
             gate,
-            input: GMiMCEvalGate::WIRE_ADDITION_BUFFER_NEW,
+            input: GMiMCEvalGate::<F>::WIRE_ADDITION_BUFFER_NEW,
         };
         let wire_cubing_input = Wire {
             gate,
-            input: GMiMCEvalGate::WIRE_CUBING_INPUT,
+            input: GMiMCEvalGate::<F>::WIRE_CUBING_INPUT,
         };
         let wire_f = Wire {
             gate,
-            input: GMiMCEvalGate::WIRE_F,
+            input: GMiMCEvalGate::<F>::WIRE_F,
         };
 
         let addition_buffer_old = witness.get_wire(wire_addition_buffer_old);

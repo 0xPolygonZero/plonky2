@@ -166,7 +166,7 @@ impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
                 cubing_input,
                 Target::Wire(Wire {
                     gate,
-                    input: GMiMCEvalGate::WIRE_CUBING_INPUT,
+                    input: GMiMCEvalGate::<F>::WIRE_CUBING_INPUT,
                 }),
             );
 
@@ -174,7 +174,7 @@ impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
                 addition_buffer,
                 Target::Wire(Wire {
                     gate,
-                    input: GMiMCEvalGate::WIRE_ADDITION_BUFFER_OLD,
+                    input: GMiMCEvalGate::<F>::WIRE_ADDITION_BUFFER_OLD,
                 }),
             );
 
@@ -182,23 +182,23 @@ impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
                 state[active],
                 Target::Wire(Wire {
                     gate,
-                    input: GMiMCEvalGate::WIRE_STATE_A_OLD,
+                    input: GMiMCEvalGate::<F>::WIRE_STATE_A_OLD,
                 }),
             );
 
             constraints.push(Target::Wire(Wire {
                 gate,
-                input: GMiMCEvalGate::WIRE_CONSTRAINT,
+                input: GMiMCEvalGate::<F>::WIRE_CONSTRAINT,
             }));
 
             addition_buffer = Target::Wire(Wire {
                 gate,
-                input: GMiMCEvalGate::WIRE_ADDITION_BUFFER_NEW,
+                input: GMiMCEvalGate::<F>::WIRE_ADDITION_BUFFER_NEW,
             });
 
             state[active] = Target::Wire(Wire {
                 gate,
-                input: GMiMCEvalGate::WIRE_STATE_A_NEW,
+                input: GMiMCEvalGate::<F>::WIRE_STATE_A_NEW,
             });
         }
 
