@@ -5,8 +5,8 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::Integer;
-use rand::Rng;
 use rand::rngs::OsRng;
+use rand::Rng;
 
 use crate::util::bits_u64;
 
