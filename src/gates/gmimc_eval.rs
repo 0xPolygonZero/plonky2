@@ -27,7 +27,9 @@ pub struct GMiMCEvalGate<F: Field> {
 
 impl<F: Field> GMiMCEvalGate<F> {
     pub fn get() -> GateRef<F> {
-        GateRef::new(GMiMCEvalGate { _phantom: PhantomData })
+        GateRef::new(GMiMCEvalGate {
+            _phantom: PhantomData,
+        })
     }
 
     pub const CONST_C_R: usize = 0;
