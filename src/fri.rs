@@ -124,6 +124,7 @@ fn fri_committed_trees<F: Field>(
                 .map(|chunk| reduce_with_powers(chunk, beta))
                 .collect::<Vec<_>>(),
         );
+        // TODO: Is it faster to interpolate?
         values = fft(coeffs.clone());
     }
 
@@ -196,12 +197,11 @@ fn fri_prover_query_round<F: Field>(
     // TODO: Challenger doesn't change between query rounds, so x is always the same.
     let x = challenger.get_challenge();
     let mut domain_size = n;
-    let mut x_index = x.to_canonical_u64() as usize;
+    let mut x_index = x.to_canonical_u64() as usize % n;
     for (i, tree) in trees.iter().enumerate() {
         let arity_bits = config.reduction_arity_bits[i];
         let arity = 1 << arity_bits;
         let next_domain_size = domain_size >> arity_bits;
-        x_index %= domain_size;
         let evals = if i == 0 {
             // For the first layer, we need to send the evaluation at `x` too.
             tree.get(x_index >> arity_bits).to_vec()
@@ -311,12 +311,11 @@ fn fri_verifier_query_round<F: Field>(
     let mut evaluations = Vec::new();
     let x = challenger.get_challenge();
     let mut domain_size = n;
-    let mut x_index = x.to_canonical_u64() as usize;
+    let mut x_index = x.to_canonical_u64() as usize % n;
     let mut old_x_index = 0;
     // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
     let log_n = log2_strict(n);
-    let mut subgroup_x =
-        F::primitive_root_of_unity(log_n).exp_usize(reverse_bits(x_index % n, log_n));
+    let mut subgroup_x = F::primitive_root_of_unity(log_n).exp_usize(reverse_bits(x_index, log_n));
     for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
         let arity = 1 << arity_bits;
         let next_domain_size = domain_size >> arity_bits;
