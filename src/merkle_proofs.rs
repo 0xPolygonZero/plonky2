@@ -29,6 +29,11 @@ pub(crate) fn verify_merkle_proof<F: Field>(
     proof: &MerkleProof<F>,
     reverse_bits: bool,
 ) -> Result<()> {
+    ensure!(
+        leaf_index >> proof.siblings.len() == 0,
+        "Merkle leaf index is too large."
+    );
+
     let index = if reverse_bits {
         crate::util::reverse_bits(leaf_index, proof.siblings.len())
     } else {

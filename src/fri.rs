@@ -246,7 +246,7 @@ fn compute_evaluation<F: Field>(
     // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
     let points = g
         .powers()
-        .zip(evals.into_iter())
+        .zip(evals)
         .map(|(y, e)| (x * y, e))
         .collect::<Vec<_>>();
     let barycentric_weights = barycentric_weights(&points);
