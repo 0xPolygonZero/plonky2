@@ -38,13 +38,13 @@ impl Hash for CrandallField {
 
 impl Display for CrandallField {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.0, f)
+        Display::fmt(&self.to_canonical_u64(), f)
     }
 }
 
 impl Debug for CrandallField {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Debug::fmt(&self.0, f)
+        Debug::fmt(&self.to_canonical_u64(), f)
     }
 }
 
