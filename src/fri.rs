@@ -98,6 +98,7 @@ fn fri_committed_trees<F: Field>(
 
     let mut trees = Vec::new();
 
+    let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
     let num_reductions = config.reduction_arity_bits.len();
     for i in 0..num_reductions {
         let arity = 1 << config.reduction_arity_bits[i];
@@ -124,8 +125,9 @@ fn fri_committed_trees<F: Field>(
                 .map(|chunk| reduce_with_powers(chunk, beta))
                 .collect::<Vec<_>>(),
         );
+        shift = shift.exp_u32(arity as u32);
         // TODO: Is it faster to interpolate?
-        values = fft(coeffs.clone());
+        values = coeffs.clone().coset_fft(shift);
     }
 
     challenger.observe_elements(&coeffs.coeffs);
@@ -315,7 +317,8 @@ fn fri_verifier_query_round<F: Field>(
     let mut old_x_index = 0;
     // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
     let log_n = log2_strict(n);
-    let mut subgroup_x = F::primitive_root_of_unity(log_n).exp_usize(reverse_bits(x_index, log_n));
+    let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
+        * F::primitive_root_of_unity(log_n).exp_usize(reverse_bits(x_index, log_n));
     for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
         let arity = 1 << arity_bits;
         let next_domain_size = domain_size >> arity_bits;
@@ -397,8 +400,8 @@ mod tests {
         type F = CrandallField;
 
         let n = 1 << degree_log;
-        let evals = PolynomialValues::new((0..n).map(|_| F::rand()).collect());
-        let lde = evals.clone().lde(rate_bits);
+        let coeffs = PolynomialCoeffs::new((0..n).map(|_| F::rand()).collect()).lde(rate_bits);
+        let coset_lde = coeffs.clone().coset_fft(F::MULTIPLICATIVE_GROUP_GENERATOR);
         let config = FriConfig {
             num_query_rounds,
             rate_bits,
@@ -406,7 +409,7 @@ mod tests {
             reduction_arity_bits,
         };
         let mut challenger = Challenger::new();
-        let proof = fri_proof(&ifft(lde.clone()), &lde, &mut challenger, &config);
+        let proof = fri_proof(&coeffs, &coset_lde, &mut challenger, &config);
 
         let mut challenger = Challenger::new();
         verify_fri_proof(degree_log, &proof, &mut challenger, &config)?;
