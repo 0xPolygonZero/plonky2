@@ -1,6 +1,7 @@
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::util::log2_strict;
+use std::slice::Iter;
 
 /// A polynomial in point-value form.
 ///
@@ -32,6 +33,12 @@ impl<F: Field> PolynomialValues<F> {
     pub fn lde(self, rate_bits: usize) -> Self {
         let coeffs = ifft(self).lde(rate_bits);
         fft(coeffs)
+    }
+}
+
+impl<F: Field> From<Vec<F>> for PolynomialValues<F> {
+    fn from(values: Vec<F>) -> Self {
+        Self::new(values)
     }
 }
 

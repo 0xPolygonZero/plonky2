@@ -15,19 +15,20 @@ use anyhow::{ensure, Result};
 /// while increasing L, potentially requiring more challenge points.
 const EPSILON: f64 = 0.01;
 
-struct FriConfig {
-    proof_of_work_bits: u32,
+#[derive(Debug, Clone)]
+pub struct FriConfig {
+    pub proof_of_work_bits: u32,
 
-    rate_bits: usize,
+    pub rate_bits: usize,
 
     /// The arity of each FRI reduction step, expressed (i.e. the log2 of the actual arity).
     /// For example, `[3, 2, 1]` would describe a FRI reduction tree with 8-to-1 reduction, then
     /// a 4-to-1 reduction, then a 2-to-1 reduction. After these reductions, the reduced polynomial
     /// is sent directly.
-    reduction_arity_bits: Vec<usize>,
+    pub reduction_arity_bits: Vec<usize>,
 
     /// Number of query rounds to perform.
-    num_query_rounds: usize,
+    pub num_query_rounds: usize,
 }
 
 fn fri_delta(rate_log: usize, conjecture: bool) -> f64 {
@@ -54,7 +55,7 @@ fn fri_l(codeword_len: usize, rate_log: usize, conjecture: bool) -> f64 {
 }
 
 /// Builds a FRI proof.
-fn fri_proof<F: Field>(
+pub fn fri_proof<F: Field>(
     // Coefficients of the polynomial on which the LDT is performed.
     // Only the first `1/rate` coefficients are non-zero.
     polynomial_coeffs: &PolynomialCoeffs<F>,
