@@ -1,13 +1,11 @@
-use crate::field::fft::fft;
 use crate::field::field::Field;
-use crate::field::lagrange::{interpolant, interpolate};
+use crate::field::lagrange::interpolant;
 use crate::fri::{fri_proof, verify_fri_proof, FriConfig};
-use crate::merkle_proofs::verify_merkle_proof;
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
 use crate::polynomial::old_polynomial::Polynomial;
-use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::proof::{FriProof, Hash};
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
 use anyhow::Result;
@@ -27,7 +25,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         blinding: bool,
     ) -> Self {
         let degree = polynomials[0].len();
-        let mut lde_values = polynomials
+        let lde_values = polynomials
             .iter()
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degree invalid.");
@@ -82,18 +80,12 @@ impl<F: Field> ListPolynomialCommitment<F> {
         challenger.observe_hash(&self.merkle_tree.root);
         let alpha = challenger.get_challenge();
 
-        dbg!(self
-            .polynomials
-            .iter()
-            .map(|p| p.eval(F::MULTIPLICATIVE_GROUP_GENERATOR))
-            .collect::<Vec<_>>());
         let scaled_poly = self
             .polynomials
             .iter()
             .rev()
             .map(|p| p.clone().into())
             .fold(Polynomial::empty(), |acc, p| acc.scalar_mul(alpha).add(&p));
-        dbg!(scaled_poly.eval(F::MULTIPLICATIVE_GROUP_GENERATOR));
         let scaled_evals = evaluations
             .iter()
             .map(|e| reduce_with_powers(e, alpha))
@@ -106,30 +98,21 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .collect::<Vec<_>>();
         debug_assert!(pairs.iter().all(|&(x, e)| scaled_poly.eval(x) == e));
 
-        dbg!(&pairs);
         let interpolant: Polynomial<F> = interpolant(&pairs).into();
         let denominator = points
             .iter()
             .fold(Polynomial::from(vec![F::ONE]), |acc, &x| {
                 acc.mul(&vec![-x, F::ONE].into())
             });
-        dbg!(&denominator);
         let numerator = scaled_poly.add(&interpolant.neg());
-        for x in points {
-            dbg!(numerator.eval(*x));
-        }
-        dbg!(numerator.eval(F::MULTIPLICATIVE_GROUP_GENERATOR));
-        dbg!(denominator.eval(F::MULTIPLICATIVE_GROUP_GENERATOR));
-        let (mut quotient, rem) = numerator.polynomial_long_division(&denominator);
-        dbg!(&numerator);
-        dbg!(quotient.mul(&denominator).add(&rem));
-        dbg!(&quotient);
-        dbg!(&rem);
+        let (mut quotient, rem) = numerator.polynomial_division(&denominator);
         debug_assert!(rem.is_zero());
 
-        quotient.pad(quotient.degree().next_power_of_two());
+        quotient.pad((quotient.degree() + 1).next_power_of_two());
         let lde_quotient = PolynomialCoeffs::from(quotient.clone()).lde(self.fri_config.rate_bits);
-        let lde_quotient_values = fft(lde_quotient.clone());
+        let lde_quotient_values = lde_quotient
+            .clone()
+            .coset_fft(F::MULTIPLICATIVE_GROUP_GENERATOR);
 
         let fri_proof = fri_proof(
             &[self.merkle_tree.clone()],
@@ -181,7 +164,6 @@ impl<F: Field> OpeningProof<F> {
             .map(|(&x, &e)| (x, e))
             .collect::<Vec<_>>();
 
-        dbg!(self.quotient_degree);
         verify_fri_proof(
             log2_strict(self.quotient_degree),
             &pairs,
@@ -204,27 +186,25 @@ mod tests {
     fn test_polynomial_commitment() -> Result<()> {
         type F = CrandallField;
 
-        let k = 1;
-        let degree_log = 3;
+        let k = 10;
+        let degree_log = 11;
         let degree = 1 << degree_log;
 
         let fri_config = FriConfig {
             proof_of_work_bits: 2,
             rate_bits: 2,
-            reduction_arity_bits: vec![3, 2, 1],
-            num_query_rounds: 1,
+            reduction_arity_bits: vec![3, 2, 1, 2],
+            num_query_rounds: 3,
         };
 
         let polys = (0..k)
-            // .map(|_| PolynomialCoeffs::new((0..degree).map(|_| F::rand()).collect()))
-            .map(|_| PolynomialCoeffs::new((0..degree).map(|i| F::from_canonical_u64(i)).collect()))
+            .map(|_| PolynomialCoeffs::new((0..degree).map(|_| F::rand()).collect()))
             .collect();
 
         let lpc = ListPolynomialCommitment::new(polys, &fri_config, false);
 
         let num_points = 3;
         let points = (0..num_points).map(|_| F::rand()).collect::<Vec<_>>();
-        let points = vec![-F::TWO, -F::ONE - F::TWO, -F::TWO - F::TWO];
 
         let proof = lpc.open(&points, &mut Challenger::new());
 

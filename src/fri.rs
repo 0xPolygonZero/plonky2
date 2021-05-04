@@ -1,4 +1,3 @@
-use crate::field::fft::fft;
 use crate::field::field::Field;
 use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
 use crate::hash::hash_n_to_1;
@@ -204,9 +203,7 @@ fn fri_prover_query_round<F: Field>(
     let mut query_steps = Vec::new();
     // TODO: Challenger doesn't change between query rounds, so x is always the same.
     let x = challenger.get_challenge();
-    let mut domain_size = n;
     let mut x_index = x.to_canonical_u64() as usize % n;
-    let mut x_index = 0;
     let initial_proof = initial_merkle_trees
         .iter()
         .map(|t| (t.get(x_index).to_vec(), t.prove(x_index)))
@@ -215,7 +212,6 @@ fn fri_prover_query_round<F: Field>(
         let arity_bits = config.reduction_arity_bits[i];
         let arity = 1 << arity_bits;
         let mut evals = tree.get(x_index >> arity_bits).to_vec();
-        dbg!(i, x_index, x_index & (arity - 1), &evals);
         evals.remove(x_index & (arity - 1));
         let merkle_proof = tree.prove(x_index >> arity_bits);
 
@@ -224,7 +220,6 @@ fn fri_prover_query_round<F: Field>(
             merkle_proof,
         });
 
-        domain_size >>= arity_bits;
         x_index >>= arity_bits;
     }
     FriQueryRound {
@@ -275,13 +270,6 @@ pub fn verify_fri_proof<F: Field>(
     config: &FriConfig,
 ) -> Result<()> {
     let total_arities = config.reduction_arity_bits.iter().sum::<usize>();
-    dbg!(
-        purported_degree_log,
-        log2_strict(proof.final_poly.len()) + total_arities - config.rate_bits,
-        log2_strict(proof.final_poly.len()),
-        total_arities,
-        config.rate_bits,
-    );
     ensure!(
         purported_degree_log
             == log2_strict(proof.final_poly.len()) + total_arities - config.rate_bits,
@@ -315,7 +303,6 @@ pub fn verify_fri_proof<F: Field>(
         "Number of reductions should be non-zero."
     );
 
-    dbg!(&points);
     let interpolant = interpolant(points);
     for round_proof in &proof.query_round_proofs {
         fri_verifier_query_round(
@@ -354,11 +341,6 @@ fn fri_combine_initial<F: Field>(
     points: &[(F, F)],
     subgroup_x: F,
 ) -> F {
-    dbg!(proof
-        .evals_proofs
-        .iter()
-        .map(|(v, _)| v)
-        .collect::<Vec<_>>());
     let e = proof
         .evals_proofs
         .iter()
@@ -366,12 +348,8 @@ fn fri_combine_initial<F: Field>(
         .flatten()
         .rev()
         .fold(F::ZERO, |acc, &e| alpha * acc + e);
-    dbg!(e);
     let numerator = e - interpolant.eval(subgroup_x);
-    dbg!(numerator);
-    dbg!(&points);
-    let denominator = points.iter().fold(F::ONE, |acc, &(x, _)| subgroup_x - x);
-    dbg!(denominator);
+    let denominator = points.iter().map(|&(x, _)| subgroup_x - x).product();
     numerator / denominator
 }
 
@@ -391,7 +369,6 @@ fn fri_verifier_query_round<F: Field>(
     let x = challenger.get_challenge();
     let mut domain_size = n;
     let mut x_index = x.to_canonical_u64() as usize % n;
-    let mut x_index = 0;
     fri_verify_initial_proof(
         x_index,
         &round_proof.initial_trees_proof,
@@ -428,7 +405,6 @@ fn fri_verifier_query_round<F: Field>(
         // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
         evals.insert(x_index & (arity - 1), e_x);
         evaluations.push(evals);
-        dbg!(i, &evaluations[i]);
         verify_merkle_proof(
             evaluations[i].clone(),
             x_index >> arity_bits,
