@@ -276,16 +276,11 @@ impl<F: Field> Polynomial<F> {
                 let cur_q_degree = remainder.degree() - b_degree;
                 quotient[cur_q_degree] = cur_q_coeff;
 
-                dbg!(cur_q_coeff, cur_q_degree);
-                dbg!(&b);
                 for (i, &div_coeff) in b.iter().enumerate() {
-                    dbg!(i, div_coeff, remainder[cur_q_degree + i]);
                     remainder[cur_q_degree + i] =
                         remainder[cur_q_degree + i] - (cur_q_coeff * div_coeff);
-                    dbg!(remainder[cur_q_degree + i]);
                 }
                 remainder.trim();
-                dbg!(&remainder);
             }
             (quotient, remainder)
         }
