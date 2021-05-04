@@ -235,10 +235,11 @@ impl<F: Field> Polynomial<F> {
         }
         let a_deg = self.degree();
         let b_deg = b.degree();
-        let a_pad = self.padded(a_deg + b_deg + 1);
-        let b_pad = b.padded(a_deg + b_deg + 1);
+        let new_deg = (a_deg + b_deg + 1).next_power_of_two();
+        let a_pad = self.padded(new_deg);
+        let b_pad = b.padded(new_deg);
 
-        let precomputation = fft_precompute(a_deg + b_deg + 1);
+        let precomputation = fft_precompute(new_deg);
         let a_evals = fft_with_precomputation_power_of_2(a_pad.0.to_vec().into(), &precomputation);
         let b_evals = fft_with_precomputation_power_of_2(b_pad.0.to_vec().into(), &precomputation);
 
@@ -275,11 +276,16 @@ impl<F: Field> Polynomial<F> {
                 let cur_q_degree = remainder.degree() - b_degree;
                 quotient[cur_q_degree] = cur_q_coeff;
 
+                dbg!(cur_q_coeff, cur_q_degree);
+                dbg!(&b);
                 for (i, &div_coeff) in b.iter().enumerate() {
+                    dbg!(i, div_coeff, remainder[cur_q_degree + i]);
                     remainder[cur_q_degree + i] =
                         remainder[cur_q_degree + i] - (cur_q_coeff * div_coeff);
+                    dbg!(remainder[cur_q_degree + i]);
                 }
                 remainder.trim();
+                dbg!(&remainder);
             }
             (quotient, remainder)
         }

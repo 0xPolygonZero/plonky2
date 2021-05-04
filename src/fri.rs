@@ -1,13 +1,13 @@
 use crate::field::fft::fft;
 use crate::field::field::Field;
-use crate::field::lagrange::{barycentric_weights, interpolate};
+use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::proof::{FriProof, FriQueryRound, FriQueryStep, Hash};
+use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep, Hash};
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 use anyhow::{ensure, Result};
 
@@ -56,32 +56,35 @@ fn fri_l(codeword_len: usize, rate_log: usize, conjecture: bool) -> f64 {
 
 /// Builds a FRI proof.
 pub fn fri_proof<F: Field>(
-    // Coefficients of the polynomial on which the LDT is performed.
-    // Only the first `1/rate` coefficients are non-zero.
-    polynomial_coeffs: &PolynomialCoeffs<F>,
+    initial_merkle_trees: &[MerkleTree<F>],
+    // Coefficients of the polynomial on which the LDT is performed. Only the first `1/rate` coefficients are non-zero.
+    lde_polynomial_coeffs: &PolynomialCoeffs<F>,
     // Evaluation of the polynomial on the large domain.
-    polynomial_values: &PolynomialValues<F>,
+    lde_polynomial_values: &PolynomialValues<F>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
 ) -> FriProof<F> {
-    let n = polynomial_values.values.len();
-    assert_eq!(polynomial_coeffs.coeffs.len(), n);
+    let n = lde_polynomial_values.values.len();
+    assert_eq!(lde_polynomial_coeffs.coeffs.len(), n);
 
     // Commit phase
-    let (trees, final_coeffs) =
-        fri_committed_trees(polynomial_coeffs, polynomial_values, challenger, config);
+    let (trees, final_coeffs) = fri_committed_trees(
+        lde_polynomial_coeffs,
+        lde_polynomial_values,
+        challenger,
+        config,
+    );
 
     // PoW phase
     let current_hash = challenger.get_hash();
     let pow_witness = fri_proof_of_work(current_hash, config);
 
     // Query phase
-    let query_round_proofs = fri_prover_query_rounds(&trees, challenger, n, config);
+    let query_round_proofs =
+        fri_prover_query_rounds(initial_merkle_trees, &trees, challenger, n, config);
 
     FriProof {
         commit_phase_merkle_roots: trees.iter().map(|t| t.root).collect(),
-        // TODO: Fix this
-        initial_merkle_proofs: vec![],
         query_round_proofs,
         final_poly: final_coeffs,
         pow_witness,
@@ -180,17 +183,19 @@ fn fri_verify_proof_of_work<F: Field>(
 }
 
 fn fri_prover_query_rounds<F: Field>(
+    initial_merkle_trees: &[MerkleTree<F>],
     trees: &[MerkleTree<F>],
     challenger: &mut Challenger<F>,
     n: usize,
     config: &FriConfig,
 ) -> Vec<FriQueryRound<F>> {
     (0..config.num_query_rounds)
-        .map(|_| fri_prover_query_round(trees, challenger, n, config))
+        .map(|_| fri_prover_query_round(initial_merkle_trees, trees, challenger, n, config))
         .collect()
 }
 
 fn fri_prover_query_round<F: Field>(
+    initial_merkle_trees: &[MerkleTree<F>],
     trees: &[MerkleTree<F>],
     challenger: &mut Challenger<F>,
     n: usize,
@@ -201,20 +206,17 @@ fn fri_prover_query_round<F: Field>(
     let x = challenger.get_challenge();
     let mut domain_size = n;
     let mut x_index = x.to_canonical_u64() as usize % n;
+    let mut x_index = 0;
+    let initial_proof = initial_merkle_trees
+        .iter()
+        .map(|t| (t.get(x_index).to_vec(), t.prove(x_index)))
+        .collect::<Vec<_>>();
     for (i, tree) in trees.iter().enumerate() {
         let arity_bits = config.reduction_arity_bits[i];
         let arity = 1 << arity_bits;
-        let next_domain_size = domain_size >> arity_bits;
-        let evals = if i == 0 {
-            // For the first layer, we need to send the evaluation at `x` too.
-            tree.get(x_index >> arity_bits).to_vec()
-        } else {
-            // For the other layers, we don't need to send the evaluation at `x`, since it can
-            // be inferred by the verifier. See the `compute_evaluation` function.
-            let mut evals = tree.get(x_index >> arity_bits).to_vec();
-            evals.remove(x_index & (arity - 1));
-            evals
-        };
+        let mut evals = tree.get(x_index >> arity_bits).to_vec();
+        dbg!(i, x_index, x_index & (arity - 1), &evals);
+        evals.remove(x_index & (arity - 1));
         let merkle_proof = tree.prove(x_index >> arity_bits);
 
         query_steps.push(FriQueryStep {
@@ -222,10 +224,15 @@ fn fri_prover_query_round<F: Field>(
             merkle_proof,
         });
 
-        domain_size = next_domain_size;
+        domain_size >>= arity_bits;
         x_index >>= arity_bits;
     }
-    FriQueryRound { steps: query_steps }
+    FriQueryRound {
+        initial_trees_proof: FriInitialTreeProof {
+            evals_proofs: initial_proof,
+        },
+        steps: query_steps,
+    }
 }
 
 /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
@@ -256,13 +263,25 @@ fn compute_evaluation<F: Field>(
     interpolate(&points, beta, &barycentric_weights)
 }
 
-fn verify_fri_proof<F: Field>(
+pub fn verify_fri_proof<F: Field>(
     purported_degree_log: usize,
+    // Point-evaluation pairs for polynomial commitments.
+    points: &[(F, F)],
+    // Scaling factor to combine polynomials.
+    alpha: F,
+    initial_merkle_roots: &[Hash<F>],
     proof: &FriProof<F>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
 ) -> Result<()> {
     let total_arities = config.reduction_arity_bits.iter().sum::<usize>();
+    dbg!(
+        purported_degree_log,
+        log2_strict(proof.final_poly.len()) + total_arities - config.rate_bits,
+        log2_strict(proof.final_poly.len()),
+        total_arities,
+        config.rate_bits,
+    );
     ensure!(
         purported_degree_log
             == log2_strict(proof.final_poly.len()) + total_arities - config.rate_bits,
@@ -296,14 +315,71 @@ fn verify_fri_proof<F: Field>(
         "Number of reductions should be non-zero."
     );
 
+    dbg!(&points);
+    let interpolant = interpolant(points);
     for round_proof in &proof.query_round_proofs {
-        fri_verifier_query_round(&proof, challenger, n, &betas, round_proof, config)?;
+        fri_verifier_query_round(
+            &interpolant,
+            points,
+            alpha,
+            initial_merkle_roots,
+            &proof,
+            challenger,
+            n,
+            &betas,
+            round_proof,
+            config,
+        )?;
     }
 
     Ok(())
 }
 
+fn fri_verify_initial_proof<F: Field>(
+    x_index: usize,
+    proof: &FriInitialTreeProof<F>,
+    initial_merkle_roots: &[Hash<F>],
+) -> Result<()> {
+    for ((evals, merkle_proof), &root) in proof.evals_proofs.iter().zip(initial_merkle_roots) {
+        verify_merkle_proof(evals.clone(), x_index, root, merkle_proof, false)?;
+    }
+
+    Ok(())
+}
+
+fn fri_combine_initial<F: Field>(
+    proof: &FriInitialTreeProof<F>,
+    alpha: F,
+    interpolant: &PolynomialCoeffs<F>,
+    points: &[(F, F)],
+    subgroup_x: F,
+) -> F {
+    dbg!(proof
+        .evals_proofs
+        .iter()
+        .map(|(v, _)| v)
+        .collect::<Vec<_>>());
+    let e = proof
+        .evals_proofs
+        .iter()
+        .map(|(v, _)| v)
+        .flatten()
+        .rev()
+        .fold(F::ZERO, |acc, &e| alpha * acc + e);
+    dbg!(e);
+    let numerator = e - interpolant.eval(subgroup_x);
+    dbg!(numerator);
+    dbg!(&points);
+    let denominator = points.iter().fold(F::ONE, |acc, &(x, _)| subgroup_x - x);
+    dbg!(denominator);
+    numerator / denominator
+}
+
 fn fri_verifier_query_round<F: Field>(
+    interpolant: &PolynomialCoeffs<F>,
+    points: &[(F, F)],
+    alpha: F,
+    initial_merkle_roots: &[Hash<F>],
     proof: &FriProof<F>,
     challenger: &mut Challenger<F>,
     n: usize,
@@ -311,10 +387,16 @@ fn fri_verifier_query_round<F: Field>(
     round_proof: &FriQueryRound<F>,
     config: &FriConfig,
 ) -> Result<()> {
-    let mut evaluations = Vec::new();
+    let mut evaluations: Vec<Vec<F>> = Vec::new();
     let x = challenger.get_challenge();
     let mut domain_size = n;
     let mut x_index = x.to_canonical_u64() as usize % n;
+    let mut x_index = 0;
+    fri_verify_initial_proof(
+        x_index,
+        &round_proof.initial_trees_proof,
+        initial_merkle_roots,
+    )?;
     let mut old_x_index = 0;
     // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
     let log_n = log2_strict(n);
@@ -323,24 +405,30 @@ fn fri_verifier_query_round<F: Field>(
     for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
         let arity = 1 << arity_bits;
         let next_domain_size = domain_size >> arity_bits;
-        if i == 0 {
-            let evals = round_proof.steps[0].evals.clone();
-            evaluations.push(evals);
+        let e_x = if i == 0 {
+            fri_combine_initial(
+                &round_proof.initial_trees_proof,
+                alpha,
+                interpolant,
+                points,
+                subgroup_x,
+            )
         } else {
             let last_evals = &evaluations[i - 1];
             // Infer P(y) from {P(x)}_{x^arity=y}.
-            let e_x = compute_evaluation(
+            compute_evaluation(
                 subgroup_x,
                 old_x_index,
                 config.reduction_arity_bits[i - 1],
                 last_evals,
                 betas[i - 1],
-            );
-            let mut evals = round_proof.steps[i].evals.clone();
-            // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
-            evals.insert(x_index & (arity - 1), e_x);
-            evaluations.push(evals);
+            )
         };
+        let mut evals = round_proof.steps[i].evals.clone();
+        // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
+        evals.insert(x_index & (arity - 1), e_x);
+        evaluations.push(evals);
+        dbg!(i, &evaluations[i]);
         verify_merkle_proof(
             evaluations[i].clone(),
             x_index >> arity_bits,
@@ -409,11 +497,29 @@ mod tests {
             proof_of_work_bits: 2,
             reduction_arity_bits,
         };
+        let tree = {
+            let mut leaves = coset_lde
+                .values
+                .iter()
+                .map(|&x| vec![x])
+                .collect::<Vec<_>>();
+            reverse_index_bits_in_place(&mut leaves);
+            MerkleTree::new(leaves, false)
+        };
+        let root = tree.root;
         let mut challenger = Challenger::new();
-        let proof = fri_proof(&coeffs, &coset_lde, &mut challenger, &config);
+        let proof = fri_proof(&[tree], &coeffs, &coset_lde, &mut challenger, &config);
 
         let mut challenger = Challenger::new();
-        verify_fri_proof(degree_log, &proof, &mut challenger, &config)?;
+        verify_fri_proof(
+            degree_log,
+            &[],
+            F::ONE,
+            &[root],
+            &proof,
+            &mut challenger,
+            &config,
+        )?;
 
         Ok(())
     }
