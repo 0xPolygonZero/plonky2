@@ -3,7 +3,6 @@ use crate::field::field::Field;
 use crate::gates::gmimc::GMiMCGate;
 use crate::hash::GMIMC_ROUNDS;
 use crate::hash::{compress, hash_or_noop};
-use crate::merkle_tree::MerkleTree;
 use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
 use crate::wire::Wire;

@@ -1,6 +1,6 @@
 use crate::field::field::Field;
 use crate::field::lagrange::interpolant;
-use crate::fri::{fri_proof, verify_fri_proof, FriConfig};
+use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
