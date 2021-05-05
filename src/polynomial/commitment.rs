@@ -48,7 +48,11 @@ impl<F: Field> ListPolynomialCommitment<F> {
         }
     }
 
-    pub fn open(&self, points: &[F], challenger: &mut Challenger<F>) -> OpeningProof<F> {
+    pub fn open(
+        &self,
+        points: &[F],
+        challenger: &mut Challenger<F>,
+    ) -> (OpeningProof<F>, Vec<Vec<F>>) {
         for p in points {
             assert_ne!(
                 p.exp_usize(self.degree),
@@ -74,19 +78,19 @@ impl<F: Field> ListPolynomialCommitment<F> {
         let alpha = challenger.get_challenge();
 
         // Scale polynomials by `alpha`.
-        let scaled_poly = self
+        let composition_poly = self
             .polynomials
             .iter()
             .rev()
             .map(|p| p.clone().into())
             .fold(Polynomial::empty(), |acc, p| acc.scalar_mul(alpha).add(&p));
         // Scale evaluations by `alpha`.
-        let scaled_evals = evaluations
+        let composition_evals = evaluations
             .iter()
             .map(|e| reduce_with_powers(e, alpha))
             .collect::<Vec<_>>();
 
-        let quotient = Self::compute_quotient(points, &scaled_evals, &scaled_poly);
+        let quotient = Self::compute_quotient(points, &composition_evals, &composition_poly);
 
         let lde_quotient = PolynomialCoeffs::from(quotient.clone()).lde(self.fri_config.rate_bits);
         let lde_quotient_values = lde_quotient
@@ -101,12 +105,14 @@ impl<F: Field> ListPolynomialCommitment<F> {
             &self.fri_config,
         );
 
-        OpeningProof {
+        (
+            OpeningProof {
+                merkle_root: self.merkle_tree.root,
+                fri_proof,
+                quotient_degree: quotient.len(),
+            },
             evaluations,
-            merkle_root: self.merkle_tree.root,
-            fri_proof,
-            quotient_degree: quotient.len(),
-        }
+        )
     }
 
     /// Given `points=(x_i)`, `evals=(y_i)` and `poly=P` with `P(x_i)=y_i`, computes the polynomial
@@ -135,7 +141,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
 }
 
 pub struct OpeningProof<F: Field> {
-    evaluations: Vec<Vec<F>>,
     merkle_root: Hash<F>,
     fri_proof: FriProof<F>,
     quotient_degree: usize,
@@ -145,18 +150,18 @@ impl<F: Field> OpeningProof<F> {
     pub fn verify(
         &self,
         points: &[F],
+        evaluations: &[Vec<F>],
         challenger: &mut Challenger<F>,
         fri_config: &FriConfig,
     ) -> Result<()> {
-        for evals in &self.evaluations {
+        for evals in evaluations {
             challenger.observe_elements(evals);
         }
 
         challenger.observe_hash(&self.merkle_root);
         let alpha = challenger.get_challenge();
 
-        let scaled_evals = self
-            .evaluations
+        let scaled_evals = evaluations
             .iter()
             .map(|e| reduce_with_powers(e, alpha))
             .collect::<Vec<_>>();
@@ -224,8 +229,8 @@ mod tests {
         let (polys, points) = gen_random_test_case::<F>(k, degree_log, num_points);
 
         let lpc = ListPolynomialCommitment::new(polys, &fri_config);
-        let proof = lpc.open(&points, &mut Challenger::new());
-        proof.verify(&points, &mut Challenger::new(), &fri_config)
+        let (proof, evaluations) = lpc.open(&points, &mut Challenger::new());
+        proof.verify(&points, &evaluations, &mut Challenger::new(), &fri_config)
     }
 
     #[test]
@@ -245,7 +250,7 @@ mod tests {
         let (polys, points) = gen_random_test_case::<F>(k, degree_log, num_points);
 
         let lpc = ListPolynomialCommitment::new(polys, &fri_config);
-        let proof = lpc.open(&points, &mut Challenger::new());
-        proof.verify(&points, &mut Challenger::new(), &fri_config)
+        let (proof, evaluations) = lpc.open(&points, &mut Challenger::new());
+        proof.verify(&points, &evaluations, &mut Challenger::new(), &fri_config)
     }
 }
