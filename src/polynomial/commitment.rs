@@ -15,15 +15,10 @@ struct ListPolynomialCommitment<F: Field> {
     pub fri_config: FriConfig,
     pub merkle_tree: MerkleTree<F>,
     pub degree: usize,
-    pub blinding: bool,
 }
 
 impl<F: Field> ListPolynomialCommitment<F> {
-    pub fn new(
-        polynomials: Vec<PolynomialCoeffs<F>>,
-        fri_config: &FriConfig,
-        blinding: bool,
-    ) -> Self {
+    pub fn new(polynomials: Vec<PolynomialCoeffs<F>>, fri_config: &FriConfig) -> Self {
         let degree = polynomials[0].len();
         let lde_values = polynomials
             .iter()
@@ -34,7 +29,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
                     .coset_fft(F::MULTIPLICATIVE_GROUP_GENERATOR)
                     .values
             })
-            .chain(blinding.then(|| {
+            .chain(fri_config.blinding.then(|| {
                 (0..(degree << fri_config.rate_bits))
                     .map(|_| F::rand())
                     .collect()
@@ -43,7 +38,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
         let mut leaves = transpose(&lde_values);
         reverse_index_bits_in_place(&mut leaves);
-        // let merkle_tree = MerkleTree::new(transpose(&lde_values), false);
         let merkle_tree = MerkleTree::new(leaves, false);
 
         Self {
@@ -51,7 +45,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
             fri_config: fri_config.clone(),
             merkle_tree,
             degree,
-            blinding,
         }
     }
 
@@ -182,32 +175,67 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use anyhow::Result;
 
+    fn rand_vec<F: Field>(n: usize) -> Vec<F> {
+        (0..n).map(|_| F::rand()).collect()
+    }
+
+    fn gen_random_test_case<F: Field>(
+        k: usize,
+        degree_log: usize,
+        num_points: usize,
+    ) -> (Vec<PolynomialCoeffs<F>>, Vec<F>) {
+        let degree = 1 << degree_log;
+
+        let polys = (0..k)
+            .map(|_| PolynomialCoeffs::new(rand_vec(degree)))
+            .collect();
+        let mut points = rand_vec::<F>(num_points);
+        while points.iter().any(|&x| x.exp_usize(degree).is_one()) {
+            points = rand_vec(num_points);
+        }
+
+        (polys, points)
+    }
+
     #[test]
     fn test_polynomial_commitment() -> Result<()> {
         type F = CrandallField;
 
         let k = 10;
         let degree_log = 11;
-        let degree = 1 << degree_log;
-
+        let num_points = 3;
         let fri_config = FriConfig {
             proof_of_work_bits: 2,
             rate_bits: 2,
             reduction_arity_bits: vec![3, 2, 1, 2],
             num_query_rounds: 3,
+            blinding: false,
         };
+        let (polys, points) = gen_random_test_case::<F>(k, degree_log, num_points);
 
-        let polys = (0..k)
-            .map(|_| PolynomialCoeffs::new((0..degree).map(|_| F::rand()).collect()))
-            .collect();
-
-        let lpc = ListPolynomialCommitment::new(polys, &fri_config, false);
-
-        let num_points = 3;
-        let points = (0..num_points).map(|_| F::rand()).collect::<Vec<_>>();
-
+        let lpc = ListPolynomialCommitment::new(polys, &fri_config);
         let proof = lpc.open(&points, &mut Challenger::new());
+        proof.verify(&points, &mut Challenger::new(), &fri_config)
+    }
 
+    #[test]
+    fn test_polynomial_commitment_blinding() -> Result<()> {
+        type F = CrandallField;
+
+        let k = 10;
+        let degree_log = 11;
+        let num_points = 3;
+        let fri_config = FriConfig {
+            proof_of_work_bits: 2,
+            rate_bits: 2,
+            reduction_arity_bits: vec![3, 2, 1, 2],
+            num_query_rounds: 3,
+            blinding: true,
+        };
+        let (polys, points) = gen_random_test_case::<F>(k, degree_log, num_points);
+
+        let lpc = ListPolynomialCommitment::new(polys, &fri_config);
+        let proof = lpc.open(&points, &mut Challenger::new());
         proof.verify(&points, &mut Challenger::new(), &fri_config)
     }
 }
