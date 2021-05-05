@@ -73,35 +73,21 @@ impl<F: Field> ListPolynomialCommitment<F> {
         challenger.observe_hash(&self.merkle_tree.root);
         let alpha = challenger.get_challenge();
 
+        // Scale polynomials by `alpha`.
         let scaled_poly = self
             .polynomials
             .iter()
             .rev()
             .map(|p| p.clone().into())
             .fold(Polynomial::empty(), |acc, p| acc.scalar_mul(alpha).add(&p));
+        // Scale evaluations by `alpha`.
         let scaled_evals = evaluations
             .iter()
             .map(|e| reduce_with_powers(e, alpha))
             .collect::<Vec<_>>();
 
-        let pairs = points
-            .iter()
-            .zip(&scaled_evals)
-            .map(|(&x, &e)| (x, e))
-            .collect::<Vec<_>>();
-        debug_assert!(pairs.iter().all(|&(x, e)| scaled_poly.eval(x) == e));
+        let quotient = Self::compute_quotient(points, &scaled_evals, &scaled_poly);
 
-        let interpolant: Polynomial<F> = interpolant(&pairs).into();
-        let denominator = points
-            .iter()
-            .fold(Polynomial::from(vec![F::ONE]), |acc, &x| {
-                acc.mul(&vec![-x, F::ONE].into())
-            });
-        let numerator = scaled_poly.add(&interpolant.neg());
-        let (mut quotient, rem) = numerator.polynomial_division(&denominator);
-        debug_assert!(rem.is_zero());
-
-        quotient.pad((quotient.degree() + 1).next_power_of_two());
         let lde_quotient = PolynomialCoeffs::from(quotient.clone()).lde(self.fri_config.rate_bits);
         let lde_quotient_values = lde_quotient
             .clone()
@@ -121,6 +107,30 @@ impl<F: Field> ListPolynomialCommitment<F> {
             fri_proof,
             quotient_degree: quotient.len(),
         }
+    }
+
+    /// Given `points=(x_i)`, `evals=(y_i)` and `poly=P` with `P(x_i)=y_i`, computes the polynomial
+    /// `Q=(P-I)/Z` where `I` interpolates `(x_i, y_i)` and `Z` is the vanishing polynomial on `(x_i)`.
+    fn compute_quotient(points: &[F], evals: &[F], poly: &Polynomial<F>) -> Polynomial<F> {
+        let pairs = points
+            .iter()
+            .zip(evals)
+            .map(|(&x, &e)| (x, e))
+            .collect::<Vec<_>>();
+        debug_assert!(pairs.iter().all(|&(x, e)| poly.eval(x) == e));
+
+        let interpolant: Polynomial<F> = interpolant(&pairs).into();
+        let denominator = points
+            .iter()
+            .fold(Polynomial::from(vec![F::ONE]), |acc, &x| {
+                acc.mul(&vec![-x, F::ONE].into())
+            });
+        let numerator = poly.add(&interpolant.neg());
+        let (mut quotient, rem) = numerator.polynomial_division(&denominator);
+        debug_assert!(rem.is_zero());
+
+        quotient.pad((quotient.degree() + 1).next_power_of_two());
+        quotient
     }
 }
 
