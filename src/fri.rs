@@ -28,6 +28,9 @@ pub struct FriConfig {
 
     /// Number of query rounds to perform.
     pub num_query_rounds: usize,
+
+    /// True if the last element of the Merkle trees' leaf vectors is a blinding element.
+    pub blinding: bool,
 }
 
 fn fri_delta(rate_log: usize, conjecture: bool) -> f64 {
@@ -340,6 +343,7 @@ fn fri_combine_initial<F: Field>(
     interpolant: &PolynomialCoeffs<F>,
     points: &[(F, F)],
     subgroup_x: F,
+    config: &FriConfig,
 ) -> F {
     let e = proof
         .evals_proofs
@@ -347,6 +351,7 @@ fn fri_combine_initial<F: Field>(
         .map(|(v, _)| v)
         .flatten()
         .rev()
+        .skip(if config.blinding { 1 } else { 0 })
         .fold(F::ZERO, |acc, &e| alpha * acc + e);
     let numerator = e - interpolant.eval(subgroup_x);
     let denominator = points.iter().map(|&(x, _)| subgroup_x - x).product();
@@ -389,6 +394,7 @@ fn fri_verifier_query_round<F: Field>(
                 interpolant,
                 points,
                 subgroup_x,
+                config,
             )
         } else {
             let last_evals = &evaluations[i - 1];
@@ -472,6 +478,7 @@ mod tests {
             rate_bits,
             proof_of_work_bits: 2,
             reduction_arity_bits,
+            blinding: false,
         };
         let tree = {
             let mut leaves = coset_lde
