@@ -29,11 +29,18 @@ impl<F: Field> ListPolynomialCommitment<F> {
                     .coset_fft(F::MULTIPLICATIVE_GROUP_GENERATOR)
                     .values
             })
-            .chain(fri_config.blinding.then(|| {
-                (0..(degree << fri_config.rate_bits))
-                    .map(|_| F::rand())
+            .chain(if fri_config.blinding {
+                // If blinding, salt with two random elements to each leaf vector.
+                (0..2)
+                    .map(|_| {
+                        (0..(degree << fri_config.rate_bits))
+                            .map(|_| F::rand())
+                            .collect()
+                    })
                     .collect()
-            }))
+            } else {
+                Vec::new()
+            })
             .collect::<Vec<_>>();
 
         let mut leaves = transpose(&lde_values);
