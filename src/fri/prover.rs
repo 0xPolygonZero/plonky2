@@ -132,7 +132,6 @@ fn fri_prover_query_round<F: Field>(
     config: &FriConfig,
 ) -> FriQueryRound<F> {
     let mut query_steps = Vec::new();
-    // TODO: Challenger doesn't change between query rounds, so x is always the same.
     let x = challenger.get_challenge();
     let mut x_index = x.to_canonical_u64() as usize % n;
     let initial_proof = initial_merkle_trees
