@@ -151,7 +151,7 @@ fn fri_combine_initial<F: Field>(
         .map(|(v, _)| v)
         .flatten()
         .rev()
-        .skip(if config.blinding { 1 } else { 0 })
+        .skip(if config.blinding { 2 } else { 0 }) // If blinding, the last two element are salt.
         .fold(F::ZERO, |acc, &e| alpha * acc + e);
     let numerator = e - interpolant.eval(subgroup_x);
     let denominator = points.iter().map(|&(x, _)| subgroup_x - x).product();
