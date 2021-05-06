@@ -77,7 +77,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
             challenger.observe_elements(evals);
         }
 
-        challenger.observe_hash(&self.merkle_tree.root);
         let alpha = challenger.get_challenge();
 
         // Scale polynomials by `alpha`.
@@ -161,7 +160,6 @@ impl<F: Field> OpeningProof<F> {
             challenger.observe_elements(evals);
         }
 
-        challenger.observe_hash(&merkle_root);
         let alpha = challenger.get_challenge();
 
         let scaled_evals = evaluations
