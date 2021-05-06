@@ -110,7 +110,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
         (
             OpeningProof {
-                merkle_root: self.merkle_tree.root,
                 fri_proof,
                 quotient_degree: quotient.len(),
             },
@@ -144,7 +143,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
 }
 
 pub struct OpeningProof<F: Field> {
-    merkle_root: Hash<F>,
     fri_proof: FriProof<F>,
     // TODO: Get the degree from `CommonCircuitData` instead.
     quotient_degree: usize,
@@ -155,6 +153,7 @@ impl<F: Field> OpeningProof<F> {
         &self,
         points: &[F],
         evaluations: &[Vec<F>],
+        merkle_root: Hash<F>,
         challenger: &mut Challenger<F>,
         fri_config: &FriConfig,
     ) -> Result<()> {
@@ -162,7 +161,7 @@ impl<F: Field> OpeningProof<F> {
             challenger.observe_elements(evals);
         }
 
-        challenger.observe_hash(&self.merkle_root);
+        challenger.observe_hash(&merkle_root);
         let alpha = challenger.get_challenge();
 
         let scaled_evals = evaluations
@@ -180,7 +179,7 @@ impl<F: Field> OpeningProof<F> {
             log2_strict(self.quotient_degree),
             &pairs,
             alpha,
-            &[self.merkle_root],
+            &[merkle_root],
             &self.fri_proof,
             challenger,
             fri_config,
@@ -230,7 +229,13 @@ mod tests {
 
         let lpc = ListPolynomialCommitment::new(polys, &fri_config);
         let (proof, evaluations) = lpc.open(&points, &mut Challenger::new());
-        proof.verify(&points, &evaluations, &mut Challenger::new(), &fri_config)
+        proof.verify(
+            &points,
+            &evaluations,
+            lpc.merkle_tree.root,
+            &mut Challenger::new(),
+            &fri_config,
+        )
     }
 
     #[test]
@@ -251,6 +256,12 @@ mod tests {
 
         let lpc = ListPolynomialCommitment::new(polys, &fri_config);
         let (proof, evaluations) = lpc.open(&points, &mut Challenger::new());
-        proof.verify(&points, &evaluations, &mut Challenger::new(), &fri_config)
+        proof.verify(
+            &points,
+            &evaluations,
+            lpc.merkle_tree.root,
+            &mut Challenger::new(),
+            &fri_config,
+        )
     }
 }
