@@ -148,7 +148,7 @@ mod tests {
 
         let k = 8;
         let n = 1 << k;
-        let poly = PolynomialCoeffs::new((0..n).map(|_| F::rand()).collect());
+        let poly = PolynomialCoeffs::new(F::rand_vec(n));
         let shift = F::rand();
         let coset_evals = poly.clone().coset_fft(shift).values;
 

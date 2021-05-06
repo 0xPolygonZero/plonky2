@@ -258,7 +258,7 @@ mod tests {
         // Generate random input messages.
         let inputs_per_round: Vec<Vec<F>> = num_inputs_per_round
             .iter()
-            .map(|&n| (0..n).map(|_| F::rand()).collect::<Vec<_>>())
+            .map(|&n| F::rand_vec(n))
             .collect();
 
         let mut challenger = Challenger::new();

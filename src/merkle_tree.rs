@@ -90,9 +90,7 @@ mod tests {
     use super::*;
 
     fn random_data<F: Field>(n: usize, k: usize) -> Vec<Vec<F>> {
-        (0..n)
-            .map(|_| (0..k).map(|_| F::rand()).collect())
-            .collect()
+        (0..n).map(|_| F::rand_vec(k)).collect()
     }
 
     fn verify_all_leaves<F: Field>(

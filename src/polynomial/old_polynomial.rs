@@ -417,8 +417,8 @@ mod test {
         type F = CrandallField;
         let mut rng = thread_rng();
         let (a_deg, b_deg) = (rng.gen_range(1, 10_000), rng.gen_range(1, 10_000));
-        let a = Polynomial((0..a_deg).map(|_| F::rand()).collect());
-        let b = Polynomial((0..b_deg).map(|_| F::rand()).collect());
+        let a = Polynomial(F::rand_vec(a_deg));
+        let b = Polynomial(F::rand_vec(b_deg));
         let m1 = a.mul(&b);
         let m2 = a.mul(&b);
         for _ in 0..1000 {
@@ -434,7 +434,7 @@ mod test {
         let mut rng = thread_rng();
         let a_deg = rng.gen_range(1, 1_000);
         let n = rng.gen_range(1, 1_000);
-        let a = Polynomial((0..a_deg).map(|_| F::rand()).collect());
+        let a = Polynomial(F::rand_vec(a_deg));
         let b = a.inv_mod_xn(n);
         let mut m = a.mul(&b);
         m.drain(n..);
@@ -455,8 +455,8 @@ mod test {
         type F = CrandallField;
         let mut rng = thread_rng();
         let (a_deg, b_deg) = (rng.gen_range(1, 10_000), rng.gen_range(1, 10_000));
-        let a = Polynomial((0..a_deg).map(|_| F::rand()).collect());
-        let b = Polynomial((0..b_deg).map(|_| F::rand()).collect());
+        let a = Polynomial(F::rand_vec(a_deg));
+        let b = Polynomial(F::rand_vec(b_deg));
         let (q, r) = a.polynomial_long_division(&b);
         for _ in 0..1000 {
             let x = F::rand();
@@ -469,8 +469,8 @@ mod test {
         type F = CrandallField;
         let mut rng = thread_rng();
         let (a_deg, b_deg) = (rng.gen_range(1, 10_000), rng.gen_range(1, 10_000));
-        let a = Polynomial((0..a_deg).map(|_| F::rand()).collect());
-        let b = Polynomial((0..b_deg).map(|_| F::rand()).collect());
+        let a = Polynomial(F::rand_vec(a_deg));
+        let b = Polynomial(F::rand_vec(b_deg));
         let (q, r) = a.polynomial_division(&b);
         for _ in 0..1000 {
             let x = F::rand();
@@ -483,7 +483,7 @@ mod test {
         type F = CrandallField;
         let mut rng = thread_rng();
         let a_deg = rng.gen_range(1, 10_000);
-        let a = Polynomial((0..a_deg).map(|_| F::rand()).collect());
+        let a = Polynomial(F::rand_vec(a_deg));
         let b = Polynomial::from(vec![F::rand()]);
         let (q, r) = a.polynomial_division(&b);
         for _ in 0..1000 {
@@ -498,7 +498,7 @@ mod test {
         let mut rng = thread_rng();
         let a_deg = rng.gen_range(1, 10_000);
         let n = rng.gen_range(1, a_deg);
-        let mut a = Polynomial((0..a_deg).map(|_| F::rand()).collect());
+        let mut a = Polynomial(F::rand_vec(a_deg));
         a.trim();
         let z_h = {
             let mut z_h_vec = vec![F::ZERO; n + 1];
