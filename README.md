@@ -1,6 +1,15 @@
 # plonky2
 
-TODO: Write a readme...
+plonky2 is an implementation of recursive arguments, using techniques from TurboPLONK and DEEP-FRI.
+
+
+## Running
+
+To run the recursion benchmark,
+
+```sh
+RUSTFLAGS=-Ctarget-cpu=native cargo run --release
+```
 
 
 ## Disclaimer
