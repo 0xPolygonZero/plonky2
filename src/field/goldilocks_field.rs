@@ -268,7 +268,7 @@ impl Sub for GoldilocksField {
     #[inline]
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: Self) -> Self {
-        let (diff, under) = self.0.overflowing_sub(rhs.0);
+        let (diff, under) = self.0.overflowing_sub(rhs.to_canonical_u64());
         Self(diff.overflowing_add((under as u64) * Self::ORDER).0)
     }
 }
