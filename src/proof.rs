@@ -90,17 +90,23 @@ pub struct FriQueryStep<F: Field> {
     pub merkle_proof: MerkleProof<F>,
 }
 
+/// Evaluations and Merkle proofs of the original set of polynomials,
+/// before they are combined into a composition polynomial.
+// TODO: Implement FriInitialTreeProofTarget
+pub struct FriInitialTreeProof<F: Field> {
+    pub evals_proofs: Vec<(Vec<F>, MerkleProof<F>)>,
+}
+
 /// Proof for a FRI query round.
 // TODO: Implement FriQueryRoundTarget
 pub struct FriQueryRound<F: Field> {
+    pub initial_trees_proof: FriInitialTreeProof<F>,
     pub steps: Vec<FriQueryStep<F>>,
 }
 
 pub struct FriProof<F: Field> {
     /// A Merkle root for each reduced polynomial in the commit phase.
     pub commit_phase_merkle_roots: Vec<Hash<F>>,
-    /// Merkle proofs for the original purported codewords, i.e. the subject of the LDT.
-    pub initial_merkle_proofs: Vec<MerkleProof<F>>,
     /// Query rounds proofs
     pub query_round_proofs: Vec<FriQueryRound<F>>,
     /// The final polynomial in coefficient form.
