@@ -5,7 +5,7 @@ pub mod verifier;
 /// while increasing L, potentially requiring more challenge points.
 const EPSILON: f64 = 0.01;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FriConfig {
     pub proof_of_work_bits: u32,
 
@@ -92,7 +92,7 @@ mod tests {
         };
         let root = tree.root;
         let mut challenger = Challenger::new();
-        let proof = fri_proof(&[tree], &coeffs, &coset_lde, &mut challenger, &config);
+        let proof = fri_proof(&[&tree], &coeffs, &coset_lde, &mut challenger, &config);
 
         let mut challenger = Challenger::new();
         verify_fri_proof(
