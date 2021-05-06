@@ -307,20 +307,14 @@ impl DivAssign for ProthField {
     }
 }
 
-/// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
-/// field order and `2^64`.
+/// Reduces to a 64-bit value. The result is not in canonical form;
 #[inline]
 fn reduce128(x: u128) -> ProthField {
-    const LO_55b_MASK: u64 = (1u64 << 55) - 1u64;
-    let (lo, hi) = split(x);
-    let C0 = lo & LO_55b_MASK;
-    let C1 = (lo >> 55) | (hi << 9);
-    ProthField(5 * C1 - C0)
-}
-
-#[inline]
-fn split(x: u128) -> (u64, u64) {
-    (x as u64, (x >> 64) as u64)
+    const MASK_LO_55_BITS: u64 = (1u64 << 55) - 1u64;
+    let c0 = (x as u64) & MASK_LO_55_BITS;
+    let c1 = (x >> 55) as u64;
+    let (d, under) = (5 * c0).overflowing_sub(c1);
+    ProthField(d)
 }
 
 #[cfg(test)]

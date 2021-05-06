@@ -319,16 +319,44 @@ impl DivAssign for GoldilocksField {
 
 /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
 /// field order and `2^64`.
+/*
 #[inline]
 fn reduce128(x: u128) -> GoldilocksField {
     // hihi = hi >> 32;
     // hilo = hi & (1<<32)-1;
     // lo + (hilo<<32) - hilo - hihi
-    const LO_32b_MASK: u64 = (1u64 << 32) - 1u64;
+    const MASK_LO_32_BITS: u64 = (1u64 << 32) - 1u64;
     let (lo, hi) = split(x);
     let hihi = hi >> 32;
-    let hilo = hi & LO_32b_MASK;
-    GoldilocksField(lo + (hilo << 32) - hilo - hihi)
+    let hilo = hi & MASK_LO_32_BITS;
+    let x = hilo + hihi;
+    let (y, br) = (hilo << 32).overflowing_sub(x);
+    let (z, cy1) = y.overflowing_add((br as u64) * GoldilocksField::ORDER);
+    let (w, cy2) = lo.overflowing_add(z);
+    GoldilocksField(w.overflowing_sub(((cy1 | cy2) as u64) * GoldilocksField::ORDER).0)
+}
+*/
+
+#[inline]
+fn reduce128(x: u128) -> GoldilocksField {
+    // hihi = hi >> 32;
+    // hilo = hi & (1<<32)-1;
+    // lo + (hilo<<32) - hilo - hihi
+    const MASK_LO_32_BITS: u64 = (1u64 << 32) - 1u64;
+    let (lo, hi) = split(x);
+    let hihi = hi >> 32;
+    let hilo = hi & MASK_LO_32_BITS;
+    let x = (hilo << 32) - hilo;
+    let (y, cy) = x.overflowing_add(lo);
+    let (mut z, br) = y.overflowing_sub(hihi);
+
+    if cy {
+        z = z.overflowing_sub(GoldilocksField::ORDER).0;
+    }
+    if br {
+        z = z.overflowing_add(GoldilocksField::ORDER).0;
+    }
+    GoldilocksField(z)
 }
 
 #[inline]
