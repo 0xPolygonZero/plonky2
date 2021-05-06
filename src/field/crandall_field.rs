@@ -11,6 +11,90 @@ use std::iter::{Product, Sum};
 /// EPSILON = 9 * 2**28 - 1
 const EPSILON: u64 = 2415919103;
 
+/// A precomputed 8*8 Cauchy matrix, generated with `Field::mds_8`.
+const CAUCHY_MDS_8: [[CrandallField; 8]; 8] = [
+    [
+        CrandallField(16140901062381928449),
+        CrandallField(2635249153041947502),
+        CrandallField(3074457345215605419),
+        CrandallField(11068046442776179508),
+        CrandallField(13835058053470224385),
+        CrandallField(6148914690431210838),
+        CrandallField(9223372035646816257),
+        CrandallField(1),
+    ],
+    [
+        CrandallField(2049638230143736946),
+        CrandallField(16140901062381928449),
+        CrandallField(2635249153041947502),
+        CrandallField(3074457345215605419),
+        CrandallField(11068046442776179508),
+        CrandallField(13835058053470224385),
+        CrandallField(6148914690431210838),
+        CrandallField(9223372035646816257),
+    ],
+    [
+        CrandallField(5534023221388089754),
+        CrandallField(2049638230143736946),
+        CrandallField(16140901062381928449),
+        CrandallField(2635249153041947502),
+        CrandallField(3074457345215605419),
+        CrandallField(11068046442776179508),
+        CrandallField(13835058053470224385),
+        CrandallField(6148914690431210838),
+    ],
+    [
+        CrandallField(16769767337539665921),
+        CrandallField(5534023221388089754),
+        CrandallField(2049638230143736946),
+        CrandallField(16140901062381928449),
+        CrandallField(2635249153041947502),
+        CrandallField(3074457345215605419),
+        CrandallField(11068046442776179508),
+        CrandallField(13835058053470224385),
+    ],
+    [
+        CrandallField(10760600708254618966),
+        CrandallField(16769767337539665921),
+        CrandallField(5534023221388089754),
+        CrandallField(2049638230143736946),
+        CrandallField(16140901062381928449),
+        CrandallField(2635249153041947502),
+        CrandallField(3074457345215605419),
+        CrandallField(11068046442776179508),
+    ],
+    [
+        CrandallField(5675921252705733081),
+        CrandallField(10760600708254618966),
+        CrandallField(16769767337539665921),
+        CrandallField(5534023221388089754),
+        CrandallField(2049638230143736946),
+        CrandallField(16140901062381928449),
+        CrandallField(2635249153041947502),
+        CrandallField(3074457345215605419),
+    ],
+    [
+        CrandallField(1317624576520973751),
+        CrandallField(5675921252705733081),
+        CrandallField(10760600708254618966),
+        CrandallField(16769767337539665921),
+        CrandallField(5534023221388089754),
+        CrandallField(2049638230143736946),
+        CrandallField(16140901062381928449),
+        CrandallField(2635249153041947502),
+    ],
+    [
+        CrandallField(15987178195121148178),
+        CrandallField(1317624576520973751),
+        CrandallField(5675921252705733081),
+        CrandallField(10760600708254618966),
+        CrandallField(16769767337539665921),
+        CrandallField(5534023221388089754),
+        CrandallField(2049638230143736946),
+        CrandallField(16140901062381928449),
+    ],
+];
+
 /// A field designed for use with the Crandall reduction algorithm.
 ///
 /// Its order is
@@ -38,13 +122,13 @@ impl Hash for CrandallField {
 
 impl Display for CrandallField {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.0, f)
+        Display::fmt(&self.to_canonical_u64(), f)
     }
 }
 
 impl Debug for CrandallField {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Debug::fmt(&self.0, f)
+        Debug::fmt(&self.to_canonical_u64(), f)
     }
 }
 
@@ -224,6 +308,17 @@ impl Field for CrandallField {
         let x74 = x73 * x39;
         x74
     }
+
+    fn mds_8(vec: [Self; 8]) -> [Self; 8] {
+        let mut result = [Self::ZERO; 8];
+        for r in 0..8 {
+            for c in 0..8 {
+                let entry = CAUCHY_MDS_8[r][c];
+                result[r] += entry * vec[c];
+            }
+        }
+        result
+    }
 }
 
 impl Neg for CrandallField {
@@ -268,7 +363,7 @@ impl Sub for CrandallField {
     #[inline]
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: Self) -> Self {
-        let (diff, under) = self.0.overflowing_sub(rhs.0);
+        let (diff, under) = self.0.overflowing_sub(rhs.to_canonical_u64());
         Self(diff.overflowing_add((under as u64) * Self::ORDER).0)
     }
 }

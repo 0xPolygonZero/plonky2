@@ -7,9 +7,20 @@ use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
 impl<F: Field> CircuitBuilder<F> {
+    /// Computes `-x`.
     pub fn neg(&mut self, x: Target) -> Target {
         let neg_one = self.neg_one();
         self.mul(x, neg_one)
+    }
+
+    /// Computes `x^2`.
+    pub fn square(&mut self, x: Target) -> Target {
+        self.mul(x, x)
+    }
+
+    /// Computes `x^3`.
+    pub fn cube(&mut self, x: Target) -> Target {
+        self.mul_many(&[x, x, x])
     }
 
     /// Computes `const_0 * multiplicand_0 * multiplicand_1 + const_1 * addend`.
@@ -111,6 +122,17 @@ impl<F: Field> CircuitBuilder<F> {
         None
     }
 
+    /// Computes `x * y + z`.
+    pub fn mul_add(&mut self, x: Target, y: Target, z: Target) -> Target {
+        self.arithmetic(F::ONE, x, y, F::ONE, z)
+    }
+
+    /// Computes `x * y - z`.
+    pub fn mul_sub(&mut self, x: Target, y: Target, z: Target) -> Target {
+        self.arithmetic(F::ONE, x, y, F::NEG_ONE, z)
+    }
+
+    /// Computes `x + y`.
     pub fn add(&mut self, x: Target, y: Target) -> Target {
         let one = self.one();
         // x + y = 1 * x * 1 + 1 * y
@@ -125,12 +147,14 @@ impl<F: Field> CircuitBuilder<F> {
         sum
     }
 
+    /// Computes `x - y`.
     pub fn sub(&mut self, x: Target, y: Target) -> Target {
         let one = self.one();
         // x - y = 1 * x * 1 + (-1) * y
         self.arithmetic(F::ONE, x, one, F::NEG_ONE, y)
     }
 
+    /// Computes `x * y`.
     pub fn mul(&mut self, x: Target, y: Target) -> Target {
         // x * y = 1 * x * y + 0 * x
         self.arithmetic(F::ONE, x, y, F::ZERO, x)

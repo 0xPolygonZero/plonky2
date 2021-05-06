@@ -29,40 +29,17 @@ pub(crate) fn verify_merkle_proof<F: Field>(
     proof: &MerkleProof<F>,
     reverse_bits: bool,
 ) -> Result<()> {
+    ensure!(
+        leaf_index >> proof.siblings.len() == 0,
+        "Merkle leaf index is too large."
+    );
+
     let index = if reverse_bits {
         crate::util::reverse_bits(leaf_index, proof.siblings.len())
     } else {
         leaf_index
     };
     let mut current_digest = hash_or_noop(leaf_data);
-    for (i, &sibling_digest) in proof.siblings.iter().enumerate() {
-        let bit = (index >> i & 1) == 1;
-        current_digest = if bit {
-            compress(sibling_digest, current_digest)
-        } else {
-            compress(current_digest, sibling_digest)
-        }
-    }
-    ensure!(current_digest == merkle_root, "Invalid Merkle proof.");
-
-    Ok(())
-}
-
-/// Verifies that the given subtree is present at the given index in the Merkle tree with the
-/// given root.
-pub(crate) fn verify_merkle_proof_subtree<F: Field>(
-    subtree_leaves_data: Vec<Vec<F>>,
-    subtree_index: usize,
-    merkle_root: Hash<F>,
-    proof: &MerkleProof<F>,
-    reverse_bits: bool,
-) -> Result<()> {
-    let index = if reverse_bits {
-        crate::util::reverse_bits(subtree_index, proof.siblings.len())
-    } else {
-        subtree_index
-    };
-    let mut current_digest = MerkleTree::new(subtree_leaves_data, false).root;
     for (i, &sibling_digest) in proof.siblings.iter().enumerate() {
         let bit = (index >> i & 1) == 1;
         current_digest = if bit {
