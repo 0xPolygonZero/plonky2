@@ -269,6 +269,10 @@ pub trait Field:
     fn rand() -> Self {
         Self::rand_from_rng(&mut OsRng)
     }
+
+    fn rand_vec(n: usize) -> Vec<Self> {
+        (0..n).map(|_| Self::rand()).collect()
+    }
 }
 
 /// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.

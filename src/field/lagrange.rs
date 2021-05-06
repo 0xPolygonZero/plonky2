@@ -77,8 +77,8 @@ mod tests {
         type F = CrandallField;
 
         for deg in 0..10 {
-            let domain = (0..deg).map(|_| F::rand()).collect::<Vec<_>>();
-            let coeffs = (0..deg).map(|_| F::rand()).collect();
+            let domain = F::rand_vec(deg);
+            let coeffs = F::rand_vec(deg);
             let coeffs = PolynomialCoeffs { coeffs };
 
             let points = eval_naive(&coeffs, &domain);
@@ -94,7 +94,7 @@ mod tests {
             let deg = 1 << deg_log;
             let g = F::primitive_root_of_unity(deg_log);
             let domain = F::cyclic_subgroup_known_order(g, deg);
-            let coeffs = (0..deg).map(|_| F::rand()).collect();
+            let coeffs = F::rand_vec(deg);
             let coeffs = PolynomialCoeffs { coeffs };
 
             let points = eval_naive(&coeffs, &domain);
@@ -108,8 +108,8 @@ mod tests {
 
         for deg in 0..10 {
             let points = deg + 5;
-            let domain = (0..points).map(|_| F::rand()).collect::<Vec<_>>();
-            let coeffs = (0..deg).map(|_| F::rand()).collect();
+            let domain = F::rand_vec(points);
+            let coeffs = F::rand_vec(deg);
             let coeffs = PolynomialCoeffs { coeffs };
 
             let points = eval_naive(&coeffs, &domain);

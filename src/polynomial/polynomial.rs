@@ -1,6 +1,7 @@
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::util::log2_strict;
+use std::slice::Iter;
 
 /// A polynomial in point-value form.
 ///
@@ -32,6 +33,12 @@ impl<F: Field> PolynomialValues<F> {
     pub fn lde(self, rate_bits: usize) -> Self {
         let coeffs = ifft(self).lde(rate_bits);
         fft(coeffs)
+    }
+}
+
+impl<F: Field> From<Vec<F>> for PolynomialValues<F> {
+    fn from(values: Vec<F>) -> Self {
+        Self::new(values)
     }
 }
 
@@ -107,5 +114,50 @@ impl<F: Field> PolynomialCoeffs<F> {
             .rev()
             .find(|&i| self.coeffs[i].is_nonzero())
             .map_or(0, |i| i + 1)
+    }
+
+    pub fn fft(self) -> PolynomialValues<F> {
+        fft(self)
+    }
+
+    pub fn coset_fft(self, shift: F) -> PolynomialValues<F> {
+        let modified_poly: Self = shift
+            .powers()
+            .zip(self.coeffs)
+            .map(|(r, c)| r * c)
+            .collect::<Vec<_>>()
+            .into();
+        modified_poly.fft()
+    }
+}
+
+impl<F: Field> From<Vec<F>> for PolynomialCoeffs<F> {
+    fn from(coeffs: Vec<F>) -> Self {
+        Self::new(coeffs)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::field::crandall_field::CrandallField;
+
+    #[test]
+    fn test_coset_fft() {
+        type F = CrandallField;
+
+        let k = 8;
+        let n = 1 << k;
+        let poly = PolynomialCoeffs::new(F::rand_vec(n));
+        let shift = F::rand();
+        let coset_evals = poly.clone().coset_fft(shift).values;
+
+        let generator = F::primitive_root_of_unity(k);
+        let naive_coset_evals = F::cyclic_subgroup_coset_known_order(generator, shift, n)
+            .into_iter()
+            .map(|x| poly.eval(x))
+            .collect::<Vec<_>>();
+
+        assert_eq!(coset_evals, naive_coset_evals);
     }
 }
