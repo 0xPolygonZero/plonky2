@@ -32,11 +32,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .chain(if fri_config.blinding {
                 // If blinding, salt with two random elements to each leaf vector.
                 (0..2)
-                    .map(|_| {
-                        (0..(degree << fri_config.rate_bits))
-                            .map(|_| F::rand())
-                            .collect()
-                    })
+                    .map(|_| F::rand_vec(degree << fri_config.rate_bits))
                     .collect()
             } else {
                 Vec::new()
@@ -150,6 +146,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
 pub struct OpeningProof<F: Field> {
     merkle_root: Hash<F>,
     fri_proof: FriProof<F>,
+    // TODO: Get the degree from `CommonCircuitData` instead.
     quotient_degree: usize,
 }
 
@@ -197,10 +194,6 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use anyhow::Result;
 
-    fn rand_vec<F: Field>(n: usize) -> Vec<F> {
-        (0..n).map(|_| F::rand()).collect()
-    }
-
     fn gen_random_test_case<F: Field>(
         k: usize,
         degree_log: usize,
@@ -209,11 +202,11 @@ mod tests {
         let degree = 1 << degree_log;
 
         let polys = (0..k)
-            .map(|_| PolynomialCoeffs::new(rand_vec(degree)))
+            .map(|_| PolynomialCoeffs::new(F::rand_vec(degree)))
             .collect();
-        let mut points = rand_vec::<F>(num_points);
+        let mut points = F::rand_vec(num_points);
         while points.iter().any(|&x| x.exp_usize(degree).is_one()) {
-            points = rand_vec(num_points);
+            points = F::rand_vec(num_points);
         }
 
         (polys, points)

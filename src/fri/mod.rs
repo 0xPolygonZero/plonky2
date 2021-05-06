@@ -72,7 +72,7 @@ mod tests {
         type F = CrandallField;
 
         let n = 1 << degree_log;
-        let coeffs = PolynomialCoeffs::new((0..n).map(|_| F::rand()).collect()).lde(rate_bits);
+        let coeffs = PolynomialCoeffs::new(F::rand_vec(n)).lde(rate_bits);
         let coset_lde = coeffs.clone().coset_fft(F::MULTIPLICATIVE_GROUP_GENERATOR);
         let config = FriConfig {
             num_query_rounds,

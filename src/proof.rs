@@ -90,7 +90,8 @@ pub struct FriQueryStep<F: Field> {
     pub merkle_proof: MerkleProof<F>,
 }
 
-/// Evaluations and Merkle proof produced by the prover in a FRI query step.
+/// Evaluations and Merkle proofs of the original set of polynomials,
+/// before they are combined into a composition polynomial.
 // TODO: Implement FriInitialTreeProofTarget
 pub struct FriInitialTreeProof<F: Field> {
     pub evals_proofs: Vec<(Vec<F>, MerkleProof<F>)>,
