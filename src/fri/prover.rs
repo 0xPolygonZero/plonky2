@@ -10,7 +10,7 @@ use crate::util::reverse_index_bits_in_place;
 
 /// Builds a FRI proof.
 pub fn fri_proof<F: Field>(
-    initial_merkle_trees: &[MerkleTree<F>],
+    initial_merkle_trees: &[&MerkleTree<F>],
     // Coefficients of the polynomial on which the LDT is performed. Only the first `1/rate` coefficients are non-zero.
     lde_polynomial_coeffs: &PolynomialCoeffs<F>,
     // Evaluation of the polynomial on the large domain.
@@ -113,7 +113,7 @@ fn fri_proof_of_work<F: Field>(current_hash: Hash<F>, config: &FriConfig) -> F {
 }
 
 fn fri_prover_query_rounds<F: Field>(
-    initial_merkle_trees: &[MerkleTree<F>],
+    initial_merkle_trees: &[&MerkleTree<F>],
     trees: &[MerkleTree<F>],
     challenger: &mut Challenger<F>,
     n: usize,
@@ -125,7 +125,7 @@ fn fri_prover_query_rounds<F: Field>(
 }
 
 fn fri_prover_query_round<F: Field>(
-    initial_merkle_trees: &[MerkleTree<F>],
+    initial_merkle_trees: &[&MerkleTree<F>],
     trees: &[MerkleTree<F>],
     challenger: &mut Challenger<F>,
     n: usize,

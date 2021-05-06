@@ -4,6 +4,7 @@ use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::Challenger;
+use crate::polynomial::commitment::SALT_SIZE;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash};
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
@@ -148,10 +149,8 @@ fn fri_combine_initial<F: Field>(
     let e = proof
         .evals_proofs
         .iter()
-        .map(|(v, _)| v)
-        .flatten()
+        .flat_map(|(v, _)| &v[..v.len() - if config.blinding { SALT_SIZE } else { 0 }])
         .rev()
-        .skip(if config.blinding { 2 } else { 0 }) // If blinding, the last two element are salt.
         .fold(F::ZERO, |acc, &e| alpha * acc + e);
     let numerator = e - interpolant.eval(subgroup_x);
     let denominator = points.iter().map(|&(x, _)| subgroup_x - x).product();
