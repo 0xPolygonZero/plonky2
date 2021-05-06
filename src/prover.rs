@@ -6,13 +6,15 @@ use rayon::prelude::*;
 use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
+use crate::fri::FriConfig;
 use crate::generator::generate_partial_witness;
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::{eval_l_1, evaluate_gate_constraints, reduce_with_powers_multi};
+use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::division::divide_by_z_h;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::proof::Proof;
+use crate::proof::{OpeningSet, Proof};
 use crate::util::{transpose, transpose_poly_values};
 use crate::vars::EvaluationVars;
 use crate::wire::Wire;
@@ -23,6 +25,14 @@ pub(crate) fn prove<F: Field>(
     common_data: &CommonCircuitData<F>,
     inputs: PartialWitness<F>,
 ) -> Proof<F> {
+    // TODO: Change this to real values.
+    let fri_config = FriConfig {
+        proof_of_work_bits: 1,
+        rate_bits: 1,
+        reduction_arity_bits: vec![1],
+        num_query_rounds: 1,
+        blinding: true,
+    };
     let start_proof_gen = Instant::now();
 
     let start_witness = Instant::now();
@@ -41,10 +51,10 @@ pub(crate) fn prove<F: Field>(
 
     let start_wire_ldes = Instant::now();
     let degree = common_data.degree();
-    let wire_ldes = (0..num_wires)
+    let wires_polynomials: Vec<PolynomialCoeffs<F>> = (0..num_wires)
         .into_par_iter()
-        .map(|i| compute_wire_lde(i, &witness, degree, config.rate_bits))
-        .collect::<Vec<_>>();
+        .map(|i| compute_wire_polynomial(i, &witness, degree))
+        .collect();
     info!(
         "{:.3}s to compute wire LDEs",
         start_wire_ldes.elapsed().as_secs_f32()
@@ -52,19 +62,11 @@ pub(crate) fn prove<F: Field>(
 
     // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
     // merkle_root_bit_rev_order do it implicitly.
-    let start_wire_transpose = Instant::now();
-    let wire_ldes_t = transpose_poly_values(wire_ldes);
+    let start_wires_commitment = Instant::now();
+    let wires_commitment = ListPolynomialCommitment::new(wires_polynomials, &fri_config);
     info!(
         "{:.3}s to transpose wire LDEs",
-        start_wire_transpose.elapsed().as_secs_f32()
-    );
-
-    // TODO: Could avoid cloning if it's significant?
-    let start_wires_root = Instant::now();
-    let wires_tree = MerkleTree::new(wire_ldes_t, true);
-    info!(
-        "{:.3}s to Merklize wire LDEs",
-        start_wires_root.elapsed().as_secs_f32()
+        start_wires_commitment.elapsed().as_secs_f32()
     );
 
     let mut challenger = Challenger::new();
@@ -72,27 +74,25 @@ pub(crate) fn prove<F: Field>(
     // TODO: Need to include public inputs as well.
     challenger.observe_hash(&common_data.circuit_digest);
 
-    challenger.observe_hash(&wires_tree.root);
+    challenger.observe_hash(&wires_commitment.merkle_tree.root);
     let betas = challenger.get_n_challenges(num_checks);
     let gammas = challenger.get_n_challenges(num_checks);
 
     let start_plonk_z = Instant::now();
     let plonk_z_vecs = compute_zs(&common_data);
-    let plonk_z_ldes = PolynomialValues::lde_multiple(plonk_z_vecs, config.rate_bits);
-    let plonk_z_ldes_t = transpose_poly_values(plonk_z_ldes);
     info!(
-        "{:.3}s to compute Z's and their LDEs",
+        "{:.3}s to compute Z's",
         start_plonk_z.elapsed().as_secs_f32()
     );
 
     let start_plonk_z_root = Instant::now();
-    let plonk_zs_tree = MerkleTree::new(plonk_z_ldes_t, true);
+    let plonk_zs_commitment = ListPolynomialCommitment::new(plonk_z_vecs, &fri_config);
     info!(
         "{:.3}s to Merklize Z's",
         start_plonk_z_root.elapsed().as_secs_f32()
     );
 
-    challenger.observe_hash(&plonk_zs_tree.root);
+    challenger.observe_hash(&plonk_zs_commitment.merkle_tree.root);
 
     let alphas = challenger.get_n_challenges(num_checks);
 
@@ -100,8 +100,8 @@ pub(crate) fn prove<F: Field>(
     let vanishing_polys = compute_vanishing_polys(
         common_data,
         prover_data,
-        &wires_tree,
-        &plonk_zs_tree,
+        &wires_commitment.merkle_tree,
+        &plonk_zs_commitment.merkle_tree,
         &betas,
         &gammas,
         &alphas,
@@ -113,28 +113,53 @@ pub(crate) fn prove<F: Field>(
 
     // Compute the quotient polynomials, aka `t` in the Plonk paper.
     let quotient_polys_start = Instant::now();
-    let mut all_quotient_poly_chunk_ldes = Vec::with_capacity(num_checks * quotient_degree);
+    let mut all_quotient_poly_chunks = Vec::with_capacity(num_checks * quotient_degree);
     for vanishing_poly in vanishing_polys.into_iter() {
         let vanishing_poly_coeff = ifft(vanishing_poly);
         let quotient_poly_coeff = divide_by_z_h(vanishing_poly_coeff, degree);
         // Split t into degree-n chunks.
         let quotient_poly_coeff_chunks = quotient_poly_coeff.chunks(degree);
-        let quotient_poly_coeff_ldes =
-            PolynomialCoeffs::lde_multiple(quotient_poly_coeff_chunks, config.rate_bits);
-        let quotient_poly_chunk_ldes: Vec<PolynomialValues<F>> =
-            quotient_poly_coeff_ldes.into_par_iter().map(fft).collect();
-        all_quotient_poly_chunk_ldes.extend(quotient_poly_chunk_ldes);
+        all_quotient_poly_chunks.extend(quotient_poly_coeff_chunks);
     }
-    let quotient_polys_tree =
-        MerkleTree::new(transpose_poly_values(all_quotient_poly_chunk_ldes), true);
+    let quotient_polys_commitment =
+        ListPolynomialCommitment::new(all_quotient_poly_chunks, &fri_config);
     info!(
         "{:.3}s to compute quotient polys and their LDEs",
         quotient_polys_start.elapsed().as_secs_f32()
     );
 
-    let openings = Vec::new(); // TODO
+    challenger.observe_hash(&plonk_zs_commitment.merkle_tree.root);
 
-    let fri_proofs = Vec::new(); // TODO
+    // TODO: How many do we need?
+    let num_zetas = 2;
+    let zetas = challenger.get_n_challenges(num_zetas);
+
+    let openings = zetas
+        .iter()
+        .map(|&z| {
+            OpeningSet::new(
+                z,
+                todo!(),
+                todo!(),
+                &wires_commitment,
+                &plonk_zs_commitment,
+                &quotient_polys_commitment,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    // TODO: This re-evaluates the polynomial and is thus redundant with the openings above.
+    let fri_proofs = ListPolynomialCommitment::batch_open(
+        &[
+            &todo!(),
+            &todo!(),
+            &wires_commitment,
+            &plonk_zs_commitment,
+            &quotient_polys_commitment,
+        ],
+        &zetas,
+        &mut challenger,
+    );
 
     info!(
         "{:.3}s for overall witness & proof generation",
@@ -142,22 +167,22 @@ pub(crate) fn prove<F: Field>(
     );
 
     Proof {
-        wires_root: wires_tree.root,
-        plonk_zs_root: plonk_zs_tree.root,
-        quotient_polys_root: quotient_polys_tree.root,
+        wires_root: wires_commitment.merkle_tree.root,
+        plonk_zs_root: plonk_zs_commitment.merkle_tree.root,
+        quotient_polys_root: quotient_polys_commitment.merkle_tree.root,
         openings,
         fri_proofs,
     }
 }
 
-fn compute_zs<F: Field>(common_data: &CommonCircuitData<F>) -> Vec<PolynomialValues<F>> {
+fn compute_zs<F: Field>(common_data: &CommonCircuitData<F>) -> Vec<PolynomialCoeffs<F>> {
     (0..common_data.config.num_checks)
         .map(|i| compute_z(common_data, i))
         .collect()
 }
 
-fn compute_z<F: Field>(common_data: &CommonCircuitData<F>, i: usize) -> PolynomialValues<F> {
-    PolynomialValues::zero(common_data.degree()) // TODO
+fn compute_z<F: Field>(common_data: &CommonCircuitData<F>, i: usize) -> PolynomialCoeffs<F> {
+    PolynomialCoeffs::zero(common_data.degree()) // TODO
 }
 
 // TODO: Parallelize.
@@ -261,6 +286,25 @@ fn compute_vanishing_poly_entry<F: Field>(
     .concat();
 
     reduce_with_powers_multi(&vanishing_terms, alphas)
+}
+
+fn compute_wire_polynomial<F: Field>(
+    input: usize,
+    witness: &PartialWitness<F>,
+    degree: usize,
+) -> PolynomialCoeffs<F> {
+    let wire_values = (0..degree)
+        // Some gates do not use all wires, and we do not require that generators populate unused
+        // wires, so some wire values will not be set. We can set these to any value; here we
+        // arbitrary pick zero. Ideally we would verify that no constraints operate on these unset
+        // wires, but that isn't trivial.
+        .map(|gate| {
+            witness
+                .try_get_wire(Wire { gate, input })
+                .unwrap_or(F::ZERO)
+        })
+        .collect();
+    PolynomialValues::new(wire_values).ifft()
 }
 
 fn compute_wire_lde<F: Field>(
