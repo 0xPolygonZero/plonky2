@@ -1,5 +1,6 @@
 use crate::field::field::Field;
 use crate::merkle_proofs::{MerkleProof, MerkleProofTarget};
+use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
 use std::convert::TryInto;
@@ -134,6 +135,28 @@ pub struct OpeningSet<F: Field> {
     pub wires: Vec<F>,
     pub plonk_zs: Vec<F>,
     pub quotient_polys: Vec<F>,
+}
+
+impl<F: Field> OpeningSet<F> {
+    pub fn new(
+        z: F,
+        constant_commitment: &ListPolynomialCommitment<F>,
+        plonk_sigmas_commitment: &ListPolynomialCommitment<F>,
+        wires_commitment: &ListPolynomialCommitment<F>,
+        plonk_zs_commitment: &ListPolynomialCommitment<F>,
+        quotient_polys_commitment: &ListPolynomialCommitment<F>,
+    ) -> Self {
+        let eval_commitment = |z: F, c: &ListPolynomialCommitment<F>| {
+            c.polynomials.iter().map(|p| p.eval(z)).collect::<Vec<_>>()
+        };
+        Self {
+            constants: eval_commitment(z, constant_commitment),
+            plonk_sigmas: eval_commitment(z, plonk_sigmas_commitment),
+            wires: eval_commitment(z, wires_commitment),
+            plonk_zs: eval_commitment(z, plonk_zs_commitment),
+            quotient_polys: eval_commitment(z, quotient_polys_commitment),
+        }
+    }
 }
 
 /// The purported values of each polynomial at a single point.

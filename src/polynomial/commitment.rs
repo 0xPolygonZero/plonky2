@@ -12,7 +12,7 @@ use anyhow::Result;
 
 pub const SALT_SIZE: usize = 2;
 
-struct ListPolynomialCommitment<F: Field> {
+pub struct ListPolynomialCommitment<F: Field> {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
     pub fri_config: FriConfig,
     pub merkle_tree: MerkleTree<F>,
