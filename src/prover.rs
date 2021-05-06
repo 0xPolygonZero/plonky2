@@ -127,6 +127,7 @@ pub(crate) fn prove<F: Field>(
     }
     let quotient_polys_tree =
         MerkleTree::new(transpose_poly_values(all_quotient_poly_chunk_ldes), true);
+    challenger.observe_hash(&quotient_polys_tree.root);
     info!(
         "{:.3}s to compute quotient polys and their LDEs",
         quotient_polys_start.elapsed().as_secs_f32()
