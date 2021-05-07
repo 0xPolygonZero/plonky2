@@ -120,22 +120,7 @@ pub(crate) fn prove<F: Field>(
     let num_zetas = 2;
     let zetas = challenger.get_n_challenges(num_zetas);
 
-    let openings = zetas
-        .iter()
-        .map(|&z| {
-            OpeningSet::new(
-                z,
-                todo!(),
-                todo!(),
-                &wires_commitment,
-                &plonk_zs_commitment,
-                &quotient_polys_commitment,
-            )
-        })
-        .collect::<Vec<_>>();
-
-    // TODO: This re-evaluates the polynomial and is thus redundant with the openings above.
-    let fri_proofs = ListPolynomialCommitment::batch_open_plonk(
+    let (fri_proofs, openings) = ListPolynomialCommitment::batch_open_plonk(
         &[
             &prover_data.constants_commitment,
             &prover_data.sigmas_commitment,
