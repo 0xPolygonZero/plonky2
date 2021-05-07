@@ -37,7 +37,7 @@ fn bench_prove<F: Field>() {
         num_checks: 3,
         fri_config: FriConfig {
             proof_of_work_bits: 1,
-            rate_bits: 1,
+            rate_bits: 3,
             reduction_arity_bits: vec![1],
             num_query_rounds: 1,
             blinding: true,

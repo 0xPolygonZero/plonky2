@@ -1,6 +1,6 @@
 use crate::field::field::Field;
 use crate::merkle_proofs::{MerkleProof, MerkleProofTarget};
-use crate::polynomial::commitment::ListPolynomialCommitment;
+use crate::polynomial::commitment::{ListPolynomialCommitment, OpeningProof};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
 use std::convert::TryInto;
@@ -66,7 +66,7 @@ pub struct Proof<F: Field> {
     pub openings: Vec<OpeningSet<F>>,
 
     /// A FRI argument for each FRI query.
-    pub fri_proofs: Vec<FriProof<F>>,
+    pub opening_proof: OpeningProof<F>,
 }
 
 pub struct ProofTarget {

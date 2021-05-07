@@ -89,8 +89,8 @@ pub(crate) fn prove<F: Field>(
         compute_vanishing_polys(
             common_data,
             prover_data,
-            &wires_commitment.merkle_tree,
-            &plonk_zs_commitment.merkle_tree,
+            &wires_commitment,
+            &plonk_zs_commitment,
             &betas,
             &gammas,
             &alphas,
@@ -120,7 +120,7 @@ pub(crate) fn prove<F: Field>(
     let num_zetas = 2;
     let zetas = challenger.get_n_challenges(num_zetas);
 
-    let (fri_proofs, openings) = ListPolynomialCommitment::batch_open_plonk(
+    let (opening_proof, openings) = ListPolynomialCommitment::batch_open_plonk(
         &[
             &prover_data.constants_commitment,
             &prover_data.sigmas_commitment,
@@ -142,7 +142,7 @@ pub(crate) fn prove<F: Field>(
         plonk_zs_root: plonk_zs_commitment.merkle_tree.root,
         quotient_polys_root: quotient_polys_commitment.merkle_tree.root,
         openings,
-        fri_proofs: todo!(),
+        opening_proof,
     }
 }
 
@@ -160,8 +160,8 @@ fn compute_z<F: Field>(common_data: &CommonCircuitData<F>, i: usize) -> Polynomi
 fn compute_vanishing_polys<F: Field>(
     common_data: &CommonCircuitData<F>,
     prover_data: &ProverOnlyCircuitData<F>,
-    wires_tree: &MerkleTree<F>,
-    plonk_zs_tree: &MerkleTree<F>,
+    wires_commitment: &ListPolynomialCommitment<F>,
+    plonk_zs_commitment: &ListPolynomialCommitment<F>,
     betas: &[F],
     gammas: &[F],
     alphas: &[F],
@@ -172,15 +172,16 @@ fn compute_vanishing_polys<F: Field>(
 
     let points = F::cyclic_subgroup_known_order(lde_gen, lde_size);
     let values: Vec<Vec<F>> = points
-        .into_par_iter()
+        // .into_par_iter()
+        .into_iter()
         .enumerate()
         .map(|(i, x)| {
             let i_next = (i + 1) % lde_size;
-            let local_wires = &wires_tree.leaves[i];
-            let local_constants = &prover_data.constants_commitment.merkle_tree.leaves[i];
-            let local_plonk_zs = &plonk_zs_tree.leaves[i];
-            let next_plonk_zs = &plonk_zs_tree.leaves[i_next];
-            let s_sigmas = &prover_data.sigmas_commitment.merkle_tree.leaves[i];
+            let local_wires = wires_commitment.leaf(i);
+            let local_constants = prover_data.constants_commitment.leaf(i);
+            let local_plonk_zs = plonk_zs_commitment.leaf(i);
+            let next_plonk_zs = plonk_zs_commitment.leaf(i);
+            let s_sigmas = prover_data.sigmas_commitment.leaf(i);
 
             debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
             debug_assert_eq!(local_plonk_zs.len(), num_checks);

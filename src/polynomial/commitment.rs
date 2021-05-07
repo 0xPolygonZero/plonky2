@@ -53,6 +53,11 @@ impl<F: Field> ListPolynomialCommitment<F> {
         }
     }
 
+    pub fn leaf(&self, index: usize) -> &[F] {
+        let leaf = &self.merkle_tree.leaves[index];
+        &leaf[0..leaf.len() - if self.fri_config.blinding { 2 } else { 0 }]
+    }
+
     pub fn open(
         &self,
         points: &[F],
@@ -166,10 +171,14 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .map(|p| p.clone().into())
             .fold(Polynomial::empty(), |acc, p| acc.scalar_mul(alpha).add(&p));
         // Scale evaluations by `alpha`.
-        let composition_evals = evaluations
+        let composition_evals = &evaluations
             .iter()
-            .flatten()
-            .map(|e| reduce_with_powers(e, alpha))
+            .map(|v| {
+                v.iter()
+                    .flatten()
+                    .rev()
+                    .fold(F::ZERO, |acc, &e| acc * alpha + e)
+            })
             .collect::<Vec<_>>();
 
         let quotient = Self::compute_quotient(points, &composition_evals, &composition_poly);
@@ -256,21 +265,33 @@ impl<F: Field> OpeningProof<F> {
     pub fn verify(
         &self,
         points: &[F],
-        evaluations: &[Vec<F>],
+        evaluations: &[Vec<Vec<F>>],
         merkle_roots: &[Hash<F>],
         challenger: &mut Challenger<F>,
         fri_config: &FriConfig,
     ) -> Result<()> {
-        for evals in evaluations {
-            challenger.observe_elements(evals);
+        for evals_per_point in evaluations {
+            for evals in evals_per_point {
+                challenger.observe_elements(evals);
+            }
         }
 
         let alpha = challenger.get_challenge();
 
         let scaled_evals = evaluations
             .iter()
-            .map(|e| reduce_with_powers(e, alpha))
+            .map(|v| {
+                v.iter()
+                    .flatten()
+                    .rev()
+                    .fold(F::ZERO, |acc, &e| acc * alpha + e)
+            })
             .collect::<Vec<_>>();
+        // let scaled_evals = evaluations
+        //     .iter()
+        //     .flatten()
+        //     .map(|e| reduce_with_powers(e, alpha))
+        //     .collect::<Vec<_>>();
 
         let pairs = points
             .iter()
@@ -334,7 +355,7 @@ mod tests {
         let (proof, evaluations) = lpc.open(&points, &mut Challenger::new());
         proof.verify(
             &points,
-            &evaluations,
+            &evaluations.into_iter().map(|e| vec![e]).collect::<Vec<_>>(),
             &[lpc.merkle_tree.root],
             &mut Challenger::new(),
             &fri_config,
@@ -361,7 +382,7 @@ mod tests {
         let (proof, evaluations) = lpc.open(&points, &mut Challenger::new());
         proof.verify(
             &points,
-            &evaluations,
+            &evaluations.into_iter().map(|e| vec![e]).collect::<Vec<_>>(),
             &[lpc.merkle_tree.root],
             &mut Challenger::new(),
             &fri_config,
