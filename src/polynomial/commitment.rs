@@ -6,7 +6,7 @@ use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
 use crate::polynomial::old_polynomial::Polynomial;
 use crate::polynomial::polynomial::PolynomialCoeffs;
-use crate::proof::{FriProof, Hash};
+use crate::proof::{FriProof, Hash, OpeningSet};
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
 use anyhow::Result;
 
@@ -122,7 +122,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         commitments: &[&Self],
         points: &[F],
         challenger: &mut Challenger<F>,
-    ) -> (OpeningProof<F>, Vec<Vec<F>>) {
+    ) -> (OpeningProof<F>, Vec<Vec<Vec<F>>>) {
         let degree = commitments[0].degree;
         assert!(
             commitments.iter().all(|c| c.degree == degree),
@@ -146,12 +146,14 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .map(|&x| {
                 commitments
                     .iter()
-                    .flat_map(move |c| c.polynomials.iter().map(|p| p.eval(x)).collect::<Vec<_>>())
+                    .map(move |c| c.polynomials.iter().map(|p| p.eval(x)).collect::<Vec<_>>())
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        for evals in &evaluations {
-            challenger.observe_elements(evals);
+        for evals_per_point in &evaluations {
+            for evals in evals_per_point {
+                challenger.observe_elements(evals);
+            }
         }
 
         let alpha = challenger.get_challenge();
@@ -166,6 +168,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         // Scale evaluations by `alpha`.
         let composition_evals = evaluations
             .iter()
+            .flatten()
             .map(|e| reduce_with_powers(e, alpha))
             .collect::<Vec<_>>();
 
@@ -194,6 +197,28 @@ impl<F: Field> ListPolynomialCommitment<F> {
             },
             evaluations,
         )
+    }
+
+    pub fn batch_open_plonk(
+        commitments: &[&Self; 5],
+        points: &[F],
+        challenger: &mut Challenger<F>,
+    ) -> (OpeningProof<F>, Vec<OpeningSet<F>>) {
+        let (op, mut evaluations) = Self::batch_open(commitments, points, challenger);
+        let opening_sets = evaluations
+            .iter_mut()
+            .map(|evals| {
+                evals.reverse();
+                OpeningSet {
+                    constants: evals.pop().unwrap(),
+                    plonk_sigmas: evals.pop().unwrap(),
+                    wires: evals.pop().unwrap(),
+                    plonk_zs: evals.pop().unwrap(),
+                    quotient_polys: evals.pop().unwrap(),
+                }
+            })
+            .collect();
+        (op, opening_sets)
     }
 
     /// Given `points=(x_i)`, `evals=(y_i)` and `poly=P` with `P(x_i)=y_i`, computes the polynomial

@@ -20,53 +20,49 @@ use crate::vars::EvaluationVars;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
+macro_rules! timed {
+    ($a:expr, $msg:expr) => {{
+        let timer = Instant::now();
+        let res = $a;
+        info!("{:.3}s {}", timer.elapsed().as_secs_f32(), $msg);
+        res
+    }};
+}
 pub(crate) fn prove<F: Field>(
     prover_data: &ProverOnlyCircuitData<F>,
     common_data: &CommonCircuitData<F>,
     inputs: PartialWitness<F>,
 ) -> Proof<F> {
-    // TODO: Change this to real values.
-    let fri_config = FriConfig {
-        proof_of_work_bits: 1,
-        rate_bits: 1,
-        reduction_arity_bits: vec![1],
-        num_query_rounds: 1,
-        blinding: true,
-    };
+    let fri_config = &common_data.config.fri_config;
+
     let start_proof_gen = Instant::now();
 
-    let start_witness = Instant::now();
     let mut witness = inputs;
     info!("Running {} generators", prover_data.generators.len());
-    generate_partial_witness(&mut witness, &prover_data.generators);
-    info!(
-        "{:.3}s to generate witness",
-        start_witness.elapsed().as_secs_f32()
+    timed!(
+        generate_partial_witness(&mut witness, &prover_data.generators),
+        "to generate witness"
     );
 
-    let config = common_data.config;
+    let config = &common_data.config;
     let num_wires = config.num_wires;
     let num_checks = config.num_checks;
     let quotient_degree = common_data.quotient_degree();
 
-    let start_wire_ldes = Instant::now();
     let degree = common_data.degree();
-    let wires_polynomials: Vec<PolynomialCoeffs<F>> = (0..num_wires)
-        .into_par_iter()
-        .map(|i| compute_wire_polynomial(i, &witness, degree))
-        .collect();
-    info!(
-        "{:.3}s to compute wire LDEs",
-        start_wire_ldes.elapsed().as_secs_f32()
+    let wires_polynomials: Vec<PolynomialCoeffs<F>> = timed!(
+        (0..num_wires)
+            .into_par_iter()
+            .map(|i| compute_wire_polynomial(i, &witness, degree))
+            .collect(),
+        "to compute wire polynomials"
     );
 
     // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
     // merkle_root_bit_rev_order do it implicitly.
-    let start_wires_commitment = Instant::now();
-    let wires_commitment = ListPolynomialCommitment::new(wires_polynomials, &fri_config);
-    info!(
-        "{:.3}s to transpose wire LDEs",
-        start_wires_commitment.elapsed().as_secs_f32()
+    let wires_commitment = timed!(
+        ListPolynomialCommitment::new(wires_polynomials, &fri_config),
+        "to compute wires commitment"
     );
 
     let mut challenger = Challenger::new();
@@ -78,54 +74,44 @@ pub(crate) fn prove<F: Field>(
     let betas = challenger.get_n_challenges(num_checks);
     let gammas = challenger.get_n_challenges(num_checks);
 
-    let start_plonk_z = Instant::now();
-    let plonk_z_vecs = compute_zs(&common_data);
-    info!(
-        "{:.3}s to compute Z's",
-        start_plonk_z.elapsed().as_secs_f32()
-    );
+    let plonk_z_vecs = timed!(compute_zs(&common_data), "to compute Z's");
 
-    let start_plonk_z_root = Instant::now();
-    let plonk_zs_commitment = ListPolynomialCommitment::new(plonk_z_vecs, &fri_config);
-    info!(
-        "{:.3}s to Merklize Z's",
-        start_plonk_z_root.elapsed().as_secs_f32()
+    let plonk_zs_commitment = timed!(
+        ListPolynomialCommitment::new(plonk_z_vecs, &fri_config),
+        "to commit to Z's"
     );
 
     challenger.observe_hash(&plonk_zs_commitment.merkle_tree.root);
 
     let alphas = challenger.get_n_challenges(num_checks);
 
-    let start_vanishing_polys = Instant::now();
-    let vanishing_polys = compute_vanishing_polys(
-        common_data,
-        prover_data,
-        &wires_commitment.merkle_tree,
-        &plonk_zs_commitment.merkle_tree,
-        &betas,
-        &gammas,
-        &alphas,
-    );
-    info!(
-        "{:.3}s to compute vanishing polys",
-        start_vanishing_polys.elapsed().as_secs_f32()
+    let vanishing_polys = timed!(
+        compute_vanishing_polys(
+            common_data,
+            prover_data,
+            &wires_commitment.merkle_tree,
+            &plonk_zs_commitment.merkle_tree,
+            &betas,
+            &gammas,
+            &alphas,
+        ),
+        "to compute vanishing polys"
     );
 
     // Compute the quotient polynomials, aka `t` in the Plonk paper.
-    let quotient_polys_start = Instant::now();
-    let mut all_quotient_poly_chunks = Vec::with_capacity(num_checks * quotient_degree);
-    for vanishing_poly in vanishing_polys.into_iter() {
-        let vanishing_poly_coeff = ifft(vanishing_poly);
-        let quotient_poly_coeff = divide_by_z_h(vanishing_poly_coeff, degree);
-        // Split t into degree-n chunks.
-        let quotient_poly_coeff_chunks = quotient_poly_coeff.chunks(degree);
-        all_quotient_poly_chunks.extend(quotient_poly_coeff_chunks);
-    }
-    let quotient_polys_commitment =
-        ListPolynomialCommitment::new(all_quotient_poly_chunks, &fri_config);
-    info!(
-        "{:.3}s to compute quotient polys and their LDEs",
-        quotient_polys_start.elapsed().as_secs_f32()
+    let quotient_polys_commitment = timed!(
+        {
+            let mut all_quotient_poly_chunks = Vec::with_capacity(num_checks * quotient_degree);
+            for vanishing_poly in vanishing_polys.into_iter() {
+                let vanishing_poly_coeff = ifft(vanishing_poly);
+                let quotient_poly_coeff = divide_by_z_h(vanishing_poly_coeff, degree);
+                // Split t into degree-n chunks.
+                let quotient_poly_coeff_chunks = quotient_poly_coeff.chunks(degree);
+                all_quotient_poly_chunks.extend(quotient_poly_coeff_chunks);
+            }
+            ListPolynomialCommitment::new(all_quotient_poly_chunks, &fri_config)
+        },
+        "to compute quotient polys and commit to them"
     );
 
     challenger.observe_hash(&plonk_zs_commitment.merkle_tree.root);
@@ -149,10 +135,10 @@ pub(crate) fn prove<F: Field>(
         .collect::<Vec<_>>();
 
     // TODO: This re-evaluates the polynomial and is thus redundant with the openings above.
-    let fri_proofs = ListPolynomialCommitment::batch_open(
+    let fri_proofs = ListPolynomialCommitment::batch_open_plonk(
         &[
-            &todo!(),
-            &todo!(),
+            &prover_data.constants_commitment,
+            &prover_data.sigmas_commitment,
             &wires_commitment,
             &plonk_zs_commitment,
             &quotient_polys_commitment,
@@ -171,7 +157,7 @@ pub(crate) fn prove<F: Field>(
         plonk_zs_root: plonk_zs_commitment.merkle_tree.root,
         quotient_polys_root: quotient_polys_commitment.merkle_tree.root,
         openings,
-        fri_proofs,
+        fri_proofs: todo!(),
     }
 }
 
@@ -206,10 +192,10 @@ fn compute_vanishing_polys<F: Field>(
         .map(|(i, x)| {
             let i_next = (i + 1) % lde_size;
             let local_wires = &wires_tree.leaves[i];
-            let local_constants = &prover_data.constants_tree.leaves[i];
+            let local_constants = &prover_data.constants_commitment.merkle_tree.leaves[i];
             let local_plonk_zs = &plonk_zs_tree.leaves[i];
             let next_plonk_zs = &plonk_zs_tree.leaves[i_next];
-            let s_sigmas = &prover_data.sigmas_tree.leaves[i];
+            let s_sigmas = &prover_data.sigmas_commitment.merkle_tree.leaves[i];
 
             debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
             debug_assert_eq!(local_plonk_zs.len(), num_checks);
