@@ -46,7 +46,7 @@ fn bench_prove<F: Field>() {
 
     let mut builder = CircuitBuilder::<F>::new(config);
 
-    for _ in 0..5000 {
+    for _ in 0..10000 {
         builder.add_gate_no_constants(gmimc_gate.clone());
     }
 
