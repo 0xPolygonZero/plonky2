@@ -120,16 +120,19 @@ pub(crate) fn prove<F: Field>(
     let num_zetas = 2;
     let zetas = challenger.get_n_challenges(num_zetas);
 
-    let (opening_proof, openings) = ListPolynomialCommitment::batch_open_plonk(
-        &[
-            &prover_data.constants_commitment,
-            &prover_data.sigmas_commitment,
-            &wires_commitment,
-            &plonk_zs_commitment,
-            &quotient_polys_commitment,
-        ],
-        &zetas,
-        &mut challenger,
+    let (opening_proof, openings) = timed!(
+        ListPolynomialCommitment::batch_open_plonk(
+            &[
+                &prover_data.constants_commitment,
+                &prover_data.sigmas_commitment,
+                &wires_commitment,
+                &plonk_zs_commitment,
+                &quotient_polys_commitment,
+            ],
+            &zetas,
+            &mut challenger,
+        ),
+        "to compute opening proofs"
     );
 
     info!(
@@ -172,8 +175,7 @@ fn compute_vanishing_polys<F: Field>(
 
     let points = F::cyclic_subgroup_known_order(lde_gen, lde_size);
     let values: Vec<Vec<F>> = points
-        // .into_par_iter()
-        .into_iter()
+        .into_par_iter()
         .enumerate()
         .map(|(i, x)| {
             let i_next = (i + 1) % lde_size;

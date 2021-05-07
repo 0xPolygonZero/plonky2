@@ -9,6 +9,7 @@ use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::proof::{FriProof, Hash, OpeningSet};
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
 use anyhow::Result;
+use rayon::prelude::*;
 
 pub const SALT_SIZE: usize = 2;
 
@@ -23,7 +24,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
     pub fn new(polynomials: Vec<PolynomialCoeffs<F>>, fri_config: &FriConfig) -> Self {
         let degree = polynomials[0].len();
         let lde_values = polynomials
-            .iter()
+            .par_iter()
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degree invalid.");
                 p.clone()
@@ -72,7 +73,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         }
 
         let evaluations = points
-            .iter()
+            .par_iter()
             .map(|&x| {
                 self.polynomials
                     .iter()
@@ -95,7 +96,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .fold(Polynomial::empty(), |acc, p| acc.scalar_mul(alpha).add(&p));
         // Scale evaluations by `alpha`.
         let composition_evals = evaluations
-            .iter()
+            .par_iter()
             .map(|e| reduce_with_powers(e, alpha))
             .collect::<Vec<_>>();
 
@@ -147,7 +148,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         }
 
         let evaluations = points
-            .iter()
+            .par_iter()
             .map(|&x| {
                 commitments
                     .iter()
@@ -172,7 +173,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .fold(Polynomial::empty(), |acc, p| acc.scalar_mul(alpha).add(&p));
         // Scale evaluations by `alpha`.
         let composition_evals = &evaluations
-            .iter()
+            .par_iter()
             .map(|v| {
                 v.iter()
                     .flatten()
@@ -190,7 +191,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
         let fri_proof = fri_proof(
             &commitments
-                .iter()
+                .par_iter()
                 .map(|c| &c.merkle_tree)
                 .collect::<Vec<_>>(),
             &lde_quotient,
@@ -215,7 +216,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
     ) -> (OpeningProof<F>, Vec<OpeningSet<F>>) {
         let (op, mut evaluations) = Self::batch_open(commitments, points, challenger);
         let opening_sets = evaluations
-            .iter_mut()
+            .par_iter_mut()
             .map(|evals| {
                 evals.reverse();
                 OpeningSet {
@@ -279,7 +280,7 @@ impl<F: Field> OpeningProof<F> {
         let alpha = challenger.get_challenge();
 
         let scaled_evals = evaluations
-            .iter()
+            .par_iter()
             .map(|v| {
                 v.iter()
                     .flatten()
@@ -287,11 +288,6 @@ impl<F: Field> OpeningProof<F> {
                     .fold(F::ZERO, |acc, &e| acc * alpha + e)
             })
             .collect::<Vec<_>>();
-        // let scaled_evals = evaluations
-        //     .iter()
-        //     .flatten()
-        //     .map(|e| reduce_with_powers(e, alpha))
-        //     .collect::<Vec<_>>();
 
         let pairs = points
             .iter()
