@@ -130,7 +130,7 @@ impl<F: Field> PolynomialCoeffs<F> {
     pub(crate) fn div_rem(&self, rhs: &Self) -> (Self, Self) {
         let lhs = Polynomial::from(self.clone());
         let rhs = Polynomial::from(rhs.clone());
-        let (q, r) = lhs.polynomial_long_division(&rhs);
+        let (q, r) = lhs.polynomial_division(&rhs);
         (q.into(), r.into())
     }
 
