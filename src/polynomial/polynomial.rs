@@ -160,11 +160,9 @@ impl<F: Field> Add for &PolynomialCoeffs<F> {
 
     fn add(self, rhs: Self) -> Self::Output {
         let len = max(self.len(), rhs.len());
-        let mut coeffs = self.coeffs.clone();
-        coeffs.resize(len, F::ZERO);
-        for (i, &c) in rhs.coeffs.iter().enumerate() {
-            coeffs[i] += c;
-        }
+        let a = self.padded(len).coeffs;
+        let b = rhs.padded(len).coeffs;
+        let coeffs = a.into_iter().zip(b).map(|(x, y)| x + y).collect();
         PolynomialCoeffs::new(coeffs)
     }
 }
