@@ -97,9 +97,7 @@ impl<F: Field> PolynomialCoeffs<F> {
         let original_size = self.len();
         let lde_size = original_size << rate_bits;
         let Self { mut coeffs } = self;
-        for _ in 0..(lde_size - original_size) {
-            coeffs.push(F::ZERO);
-        }
+        coeffs.resize(lde_size, F::ZERO);
         Self { coeffs }
     }
 
