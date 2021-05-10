@@ -4,18 +4,16 @@ use log::info;
 use rayon::prelude::*;
 
 use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
-use crate::field::fft::{fft, ifft};
+use crate::field::fft::ifft;
 use crate::field::field::Field;
-use crate::fri::FriConfig;
 use crate::generator::generate_partial_witness;
-use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::{eval_l_1, evaluate_gate_constraints, reduce_with_powers_multi};
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::division::divide_by_z_h;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::proof::{OpeningSet, Proof};
-use crate::util::{transpose, transpose_poly_values};
+use crate::proof::Proof;
+use crate::util::transpose;
 use crate::vars::EvaluationVars;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
@@ -155,7 +153,7 @@ fn compute_zs<F: Field>(common_data: &CommonCircuitData<F>) -> Vec<PolynomialCoe
         .collect()
 }
 
-fn compute_z<F: Field>(common_data: &CommonCircuitData<F>, i: usize) -> PolynomialCoeffs<F> {
+fn compute_z<F: Field>(common_data: &CommonCircuitData<F>, _i: usize) -> PolynomialCoeffs<F> {
     PolynomialCoeffs::zero(common_data.degree()) // TODO
 }
 
@@ -182,7 +180,7 @@ fn compute_vanishing_polys<F: Field>(
             let local_wires = wires_commitment.leaf(i);
             let local_constants = prover_data.constants_commitment.leaf(i);
             let local_plonk_zs = plonk_zs_commitment.leaf(i);
-            let next_plonk_zs = plonk_zs_commitment.leaf(i);
+            let next_plonk_zs = plonk_zs_commitment.leaf(i_next);
             let s_sigmas = prover_data.sigmas_commitment.leaf(i);
 
             debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
