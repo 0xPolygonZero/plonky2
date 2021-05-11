@@ -116,7 +116,7 @@ pub(crate) fn prove<F: Field>(
         "to compute quotient polys and commit to them"
     );
 
-    challenger.observe_hash(&plonk_zs_commitment.merkle_tree.root);
+    challenger.observe_hash(&quotient_polys_commitment.merkle_tree.root);
 
     // TODO: How many do we need?
     let num_zetas = 2;
@@ -282,24 +282,4 @@ fn compute_wire_polynomial<F: Field>(
         })
         .collect();
     PolynomialValues::new(wire_values).ifft()
-}
-
-fn compute_wire_lde<F: Field>(
-    input: usize,
-    witness: &PartialWitness<F>,
-    degree: usize,
-    rate_bits: usize,
-) -> PolynomialValues<F> {
-    let wire_values = (0..degree)
-        // Some gates do not use all wires, and we do not require that generators populate unused
-        // wires, so some wire values will not be set. We can set these to any value; here we
-        // arbitrary pick zero. Ideally we would verify that no constraints operate on these unset
-        // wires, but that isn't trivial.
-        .map(|gate| {
-            witness
-                .try_get_wire(Wire { gate, input })
-                .unwrap_or(F::ZERO)
-        })
-        .collect();
-    PolynomialValues::new(wire_values).lde(rate_bits)
 }
