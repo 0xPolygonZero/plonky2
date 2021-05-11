@@ -149,7 +149,8 @@ fn fri_combine_initial<F: Field>(
     let e = proof
         .evals_proofs
         .iter()
-        .flat_map(|(v, _)| &v[..v.len() - if config.blinding { SALT_SIZE } else { 0 }])
+        .enumerate()
+        .flat_map(|(i, (v, _))| &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }])
         .rev()
         .fold(F::ZERO, |acc, &e| alpha * acc + e);
     let numerator = e - interpolant.eval(subgroup_x);
