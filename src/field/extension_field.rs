@@ -1,5 +1,6 @@
 use crate::field::crandall_field::{reduce128, CrandallField};
 use crate::field::field::Field;
+use rand::Rng;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
@@ -130,11 +131,25 @@ impl Field for QuarticCrandallField {
     }
 
     fn to_canonical_u64(&self) -> u64 {
-        todo!()
+        self.0[0].to_canonical_u64()
     }
 
     fn from_canonical_u64(n: u64) -> Self {
-        todo!()
+        Self([
+            <Self as QuarticFieldExtension>::BaseField::from_canonical_u64(n),
+            <Self as QuarticFieldExtension>::BaseField::ZERO,
+            <Self as QuarticFieldExtension>::BaseField::ZERO,
+            <Self as QuarticFieldExtension>::BaseField::ZERO,
+        ])
+    }
+
+    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+        Self([
+            <Self as QuarticFieldExtension>::BaseField::rand_from_rng(rng),
+            <Self as QuarticFieldExtension>::BaseField::rand_from_rng(rng),
+            <Self as QuarticFieldExtension>::BaseField::rand_from_rng(rng),
+            <Self as QuarticFieldExtension>::BaseField::rand_from_rng(rng),
+        ])
     }
 }
 
@@ -217,20 +232,11 @@ impl Mul for QuarticCrandallField {
     fn mul(self, rhs: Self) -> Self {
         let Self([a0, a1, a2, a3]) = self;
         let Self([b0, b1, b2, b3]) = rhs;
-        let a0 = a0.0 as u128;
-        let a1 = a1.0 as u128;
-        let a2 = a2.0 as u128;
-        let a3 = a3.0 as u128;
-        let b0 = b0.0 as u128;
-        let b1 = b1.0 as u128;
-        let b2 = b2.0 as u128;
-        let b3 = b3.0 as u128;
-        let w = Self::W.0 as u128;
 
-        let c0 = reduce128(a0 * b0 + w * (a1 * b3 + a2 * b2 + a3 * b1));
-        let c1 = reduce128(a0 * b1 + a1 * b0 + w * (a2 * b3 + a3 * b2));
-        let c2 = reduce128(a0 * b2 + a1 * b1 + a2 * b0 + w * a3 * b3);
-        let c3 = reduce128(a0 * b3 + a1 * b2 + a2 * b1 + a3 * b0);
+        let c0 = a0 * b0 + Self::W * (a1 * b3 + a2 * b2 + a3 * b1);
+        let c1 = a0 * b1 + a1 * b0 + Self::W * (a2 * b3 + a3 * b2);
+        let c2 = a0 * b2 + a1 * b1 + a2 * b0 + Self::W * a3 * b3;
+        let c3 = a0 * b3 + a1 * b2 + a2 * b1 + a3 * b0;
 
         Self([c0, c1, c2, c3])
     }
@@ -271,11 +277,56 @@ mod tests {
     use crate::field::field::Field;
     use crate::test_arithmetic;
 
-    test_arithmetic!(crate::field::crandall_field::QuarticCrandallField);
+    fn exp_naive<F: Field>(x: F, power: u64) -> F {
+        let mut current = x;
+        let mut product = F::ONE;
+
+        for j in 0..64 {
+            if (power >> j & 1) != 0 {
+                product *= current;
+            }
+            current = current.square();
+        }
+        product
+    }
+
+    #[test]
+    fn test_add_neg_sub_mul() {
+        type F = QuarticCrandallField;
+        let x = F::rand();
+        let y = F::rand();
+        let z = F::rand();
+        assert_eq!(x + (-x), F::ZERO);
+        assert_eq!(-x, F::ZERO - x);
+        assert_eq!(
+            x + x,
+            x.scalar_mul(<F as QuarticFieldExtension>::BaseField::TWO)
+        );
+        assert_eq!(x * (-x), -x.square());
+        assert_eq!(x + y, y + x);
+        assert_eq!(x * y, y * x);
+        assert_eq!(x * (y * z), (x * y) * z);
+        assert_eq!(x - (y + z), (x - y) - z);
+        assert_eq!((x + y) - z, x + (y - z));
+    }
+
+    #[test]
+    fn test_inv_div() {
+        type F = QuarticCrandallField;
+        let x = F::rand();
+        let y = F::rand();
+        let z = F::rand();
+        assert_eq!(x * x.inverse(), F::ONE);
+        assert_eq!(x.inverse() * x, F::ONE);
+        assert_eq!(x.square().inverse(), x.inverse().square());
+        assert_eq!((x / y) * y, x);
+        assert_eq!(x / (y * z), (x / y) / z);
+        assert_eq!((x * y) / z, x * (y / z));
+    }
 
     #[test]
     fn test_frobenius() {
         let x = QuarticCrandallField::rand();
-        assert_eq!(x.exp_usize(CrandallField::ORDER as usize), x.frobenius());
+        assert_eq!(exp_naive(x, CrandallField::ORDER), x.frobenius());
     }
 }
