@@ -26,6 +26,9 @@ impl<F: Field> PolynomialValues<F> {
         self.values.len()
     }
 
+    pub fn ifft(self) -> PolynomialCoeffs<F> {
+        ifft(self)
+    }
     pub fn lde_multiple(polys: Vec<Self>, rate_bits: usize) -> Vec<Self> {
         polys.into_iter().map(|p| p.lde(rate_bits)).collect()
     }
