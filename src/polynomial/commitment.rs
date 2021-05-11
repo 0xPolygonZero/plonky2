@@ -6,33 +6,37 @@ use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
 use crate::polynomial::old_polynomial::Polynomial;
 use crate::polynomial::polynomial::PolynomialCoeffs;
-use crate::proof::{FriProof, Hash};
+use crate::proof::{FriProof, Hash, OpeningSet};
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
 use anyhow::Result;
+use rayon::prelude::*;
 
-struct ListPolynomialCommitment<F: Field> {
+pub const SALT_SIZE: usize = 2;
+
+pub struct ListPolynomialCommitment<F: Field> {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
-    pub fri_config: FriConfig,
     pub merkle_tree: MerkleTree<F>,
     pub degree: usize,
+    pub rate_bits: usize,
+    pub blinding: bool,
 }
 
 impl<F: Field> ListPolynomialCommitment<F> {
-    pub fn new(polynomials: Vec<PolynomialCoeffs<F>>, fri_config: &FriConfig) -> Self {
+    pub fn new(polynomials: Vec<PolynomialCoeffs<F>>, rate_bits: usize, blinding: bool) -> Self {
         let degree = polynomials[0].len();
         let lde_values = polynomials
-            .iter()
+            .par_iter()
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degree invalid.");
                 p.clone()
-                    .lde(fri_config.rate_bits)
+                    .lde(rate_bits)
                     .coset_fft(F::MULTIPLICATIVE_GROUP_GENERATOR)
                     .values
             })
-            .chain(if fri_config.blinding {
+            .chain(if blinding {
                 // If blinding, salt with two random elements to each leaf vector.
-                (0..2)
-                    .map(|_| F::rand_vec(degree << fri_config.rate_bits))
+                (0..SALT_SIZE)
+                    .map(|_| F::rand_vec(degree << rate_bits))
                     .collect()
             } else {
                 Vec::new()
@@ -45,17 +49,27 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
         Self {
             polynomials,
-            fri_config: fri_config.clone(),
             merkle_tree,
             degree,
+            rate_bits,
+            blinding,
         }
+    }
+
+    pub fn leaf(&self, index: usize) -> &[F] {
+        let leaf = &self.merkle_tree.leaves[index];
+        &leaf[0..leaf.len() - if self.blinding { SALT_SIZE } else { 0 }]
     }
 
     pub fn open(
         &self,
         points: &[F],
         challenger: &mut Challenger<F>,
+        config: &FriConfig,
     ) -> (OpeningProof<F>, Vec<Vec<F>>) {
+        assert_eq!(self.rate_bits, config.rate_bits);
+        assert_eq!(config.blinding.len(), 1);
+        assert_eq!(self.blinding, config.blinding[0]);
         for p in points {
             assert_ne!(
                 p.exp_usize(self.degree),
@@ -65,7 +79,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         }
 
         let evaluations = points
-            .iter()
+            .par_iter()
             .map(|&x| {
                 self.polynomials
                     .iter()
@@ -88,23 +102,23 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .fold(Polynomial::empty(), |acc, p| acc.scalar_mul(alpha).add(&p));
         // Scale evaluations by `alpha`.
         let composition_evals = evaluations
-            .iter()
+            .par_iter()
             .map(|e| reduce_with_powers(e, alpha))
             .collect::<Vec<_>>();
 
         let quotient = Self::compute_quotient(points, &composition_evals, &composition_poly);
 
-        let lde_quotient = PolynomialCoeffs::from(quotient.clone()).lde(self.fri_config.rate_bits);
+        let lde_quotient = PolynomialCoeffs::from(quotient.clone()).lde(self.rate_bits);
         let lde_quotient_values = lde_quotient
             .clone()
             .coset_fft(F::MULTIPLICATIVE_GROUP_GENERATOR);
 
         let fri_proof = fri_proof(
-            &[self.merkle_tree.clone()],
+            &[&self.merkle_tree],
             &lde_quotient,
             &lde_quotient_values,
             challenger,
-            &self.fri_config,
+            &config,
         );
 
         (
@@ -114,6 +128,118 @@ impl<F: Field> ListPolynomialCommitment<F> {
             },
             evaluations,
         )
+    }
+
+    pub fn batch_open(
+        commitments: &[&Self],
+        points: &[F],
+        challenger: &mut Challenger<F>,
+        config: &FriConfig,
+    ) -> (OpeningProof<F>, Vec<Vec<Vec<F>>>) {
+        let degree = commitments[0].degree;
+        assert_eq!(config.blinding.len(), commitments.len());
+        for (i, commitment) in commitments.iter().enumerate() {
+            assert_eq!(commitment.rate_bits, config.rate_bits, "Invalid rate.");
+            assert_eq!(
+                commitment.blinding, config.blinding[i],
+                "Invalid blinding paramater."
+            );
+            assert_eq!(
+                commitment.degree, degree,
+                "Trying to open polynomial commitments of different degrees."
+            );
+        }
+        for p in points {
+            assert_ne!(
+                p.exp_usize(degree),
+                F::ONE,
+                "Opening point is in the subgroup."
+            );
+        }
+
+        let evaluations = points
+            .par_iter()
+            .map(|&x| {
+                commitments
+                    .iter()
+                    .map(move |c| c.polynomials.iter().map(|p| p.eval(x)).collect::<Vec<_>>())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        for evals_per_point in &evaluations {
+            for evals in evals_per_point {
+                challenger.observe_elements(evals);
+            }
+        }
+
+        let alpha = challenger.get_challenge();
+
+        // Scale polynomials by `alpha`.
+        let composition_poly = commitments
+            .iter()
+            .flat_map(|c| &c.polynomials)
+            .rev()
+            .map(|p| p.clone().into())
+            .fold(Polynomial::empty(), |acc, p| acc.scalar_mul(alpha).add(&p));
+        // Scale evaluations by `alpha`.
+        let composition_evals = &evaluations
+            .par_iter()
+            .map(|v| {
+                v.iter()
+                    .flatten()
+                    .rev()
+                    .fold(F::ZERO, |acc, &e| acc * alpha + e)
+            })
+            .collect::<Vec<_>>();
+
+        let quotient = Self::compute_quotient(points, &composition_evals, &composition_poly);
+
+        let lde_quotient = PolynomialCoeffs::from(quotient.clone()).lde(config.rate_bits);
+        let lde_quotient_values = lde_quotient
+            .clone()
+            .coset_fft(F::MULTIPLICATIVE_GROUP_GENERATOR);
+
+        let fri_proof = fri_proof(
+            &commitments
+                .par_iter()
+                .map(|c| &c.merkle_tree)
+                .collect::<Vec<_>>(),
+            &lde_quotient,
+            &lde_quotient_values,
+            challenger,
+            &config,
+        );
+
+        (
+            OpeningProof {
+                fri_proof,
+                quotient_degree: quotient.len(),
+            },
+            evaluations,
+        )
+    }
+
+    pub fn batch_open_plonk(
+        commitments: &[&Self; 5],
+        points: &[F],
+        challenger: &mut Challenger<F>,
+        config: &FriConfig,
+    ) -> (OpeningProof<F>, Vec<OpeningSet<F>>) {
+        let (op, mut evaluations) = Self::batch_open(commitments, points, challenger, config);
+        let opening_sets = evaluations
+            .par_iter_mut()
+            .map(|evals| {
+                evals.reverse();
+                OpeningSet {
+                    constants: evals.pop().unwrap(),
+                    plonk_sigmas: evals.pop().unwrap(),
+                    wires: evals.pop().unwrap(),
+                    plonk_zs: evals.pop().unwrap(),
+                    quotient_polys: evals.pop().unwrap(),
+                }
+            })
+            .collect();
+        (op, opening_sets)
     }
 
     /// Given `points=(x_i)`, `evals=(y_i)` and `poly=P` with `P(x_i)=y_i`, computes the polynomial
@@ -151,20 +277,27 @@ impl<F: Field> OpeningProof<F> {
     pub fn verify(
         &self,
         points: &[F],
-        evaluations: &[Vec<F>],
-        merkle_root: Hash<F>,
+        evaluations: &[Vec<Vec<F>>],
+        merkle_roots: &[Hash<F>],
         challenger: &mut Challenger<F>,
         fri_config: &FriConfig,
     ) -> Result<()> {
-        for evals in evaluations {
-            challenger.observe_elements(evals);
+        for evals_per_point in evaluations {
+            for evals in evals_per_point {
+                challenger.observe_elements(evals);
+            }
         }
 
         let alpha = challenger.get_challenge();
 
         let scaled_evals = evaluations
-            .iter()
-            .map(|e| reduce_with_powers(e, alpha))
+            .par_iter()
+            .map(|v| {
+                v.iter()
+                    .flatten()
+                    .rev()
+                    .fold(F::ZERO, |acc, &e| acc * alpha + e)
+            })
             .collect::<Vec<_>>();
 
         let pairs = points
@@ -177,7 +310,7 @@ impl<F: Field> OpeningProof<F> {
             log2_strict(self.quotient_degree),
             &pairs,
             alpha,
-            &[merkle_root],
+            merkle_roots,
             &self.fri_proof,
             challenger,
             fri_config,
@@ -221,16 +354,16 @@ mod tests {
             rate_bits: 2,
             reduction_arity_bits: vec![3, 2, 1, 2],
             num_query_rounds: 3,
-            blinding: false,
+            blinding: vec![false],
         };
         let (polys, points) = gen_random_test_case::<F>(k, degree_log, num_points);
 
-        let lpc = ListPolynomialCommitment::new(polys, &fri_config);
-        let (proof, evaluations) = lpc.open(&points, &mut Challenger::new());
+        let lpc = ListPolynomialCommitment::new(polys, fri_config.rate_bits, false);
+        let (proof, evaluations) = lpc.open(&points, &mut Challenger::new(), &fri_config);
         proof.verify(
             &points,
-            &evaluations,
-            lpc.merkle_tree.root,
+            &evaluations.into_iter().map(|e| vec![e]).collect::<Vec<_>>(),
+            &[lpc.merkle_tree.root],
             &mut Challenger::new(),
             &fri_config,
         )
@@ -248,16 +381,102 @@ mod tests {
             rate_bits: 2,
             reduction_arity_bits: vec![3, 2, 1, 2],
             num_query_rounds: 3,
-            blinding: true,
+            blinding: vec![true],
         };
         let (polys, points) = gen_random_test_case::<F>(k, degree_log, num_points);
 
-        let lpc = ListPolynomialCommitment::new(polys, &fri_config);
-        let (proof, evaluations) = lpc.open(&points, &mut Challenger::new());
+        let lpc = ListPolynomialCommitment::new(polys, fri_config.rate_bits, true);
+        let (proof, evaluations) = lpc.open(&points, &mut Challenger::new(), &fri_config);
+        proof.verify(
+            &points,
+            &evaluations.into_iter().map(|e| vec![e]).collect::<Vec<_>>(),
+            &[lpc.merkle_tree.root],
+            &mut Challenger::new(),
+            &fri_config,
+        )
+    }
+
+    #[test]
+    fn test_batch_polynomial_commitment() -> Result<()> {
+        type F = CrandallField;
+
+        let k0 = 10;
+        let k1 = 3;
+        let k2 = 7;
+        let degree_log = 11;
+        let num_points = 5;
+        let fri_config = FriConfig {
+            proof_of_work_bits: 2,
+            rate_bits: 2,
+            reduction_arity_bits: vec![2, 3, 1, 2],
+            num_query_rounds: 3,
+            blinding: vec![false, false, false],
+        };
+        let (polys0, _) = gen_random_test_case::<F>(k0, degree_log, num_points);
+        let (polys1, _) = gen_random_test_case::<F>(k0, degree_log, num_points);
+        let (polys2, points) = gen_random_test_case::<F>(k0, degree_log, num_points);
+
+        let lpc0 = ListPolynomialCommitment::new(polys0, fri_config.rate_bits, false);
+        let lpc1 = ListPolynomialCommitment::new(polys1, fri_config.rate_bits, false);
+        let lpc2 = ListPolynomialCommitment::new(polys2, fri_config.rate_bits, false);
+
+        let (proof, evaluations) = ListPolynomialCommitment::batch_open(
+            &[&lpc0, &lpc1, &lpc2],
+            &points,
+            &mut Challenger::new(),
+            &fri_config,
+        );
         proof.verify(
             &points,
             &evaluations,
-            lpc.merkle_tree.root,
+            &[
+                lpc0.merkle_tree.root,
+                lpc1.merkle_tree.root,
+                lpc2.merkle_tree.root,
+            ],
+            &mut Challenger::new(),
+            &fri_config,
+        )
+    }
+
+    #[test]
+    fn test_batch_polynomial_commitment_blinding() -> Result<()> {
+        type F = CrandallField;
+
+        let k0 = 10;
+        let k1 = 3;
+        let k2 = 7;
+        let degree_log = 11;
+        let num_points = 5;
+        let fri_config = FriConfig {
+            proof_of_work_bits: 2,
+            rate_bits: 2,
+            reduction_arity_bits: vec![2, 3, 1, 2],
+            num_query_rounds: 3,
+            blinding: vec![true, false, true],
+        };
+        let (polys0, _) = gen_random_test_case::<F>(k0, degree_log, num_points);
+        let (polys1, _) = gen_random_test_case::<F>(k0, degree_log, num_points);
+        let (polys2, points) = gen_random_test_case::<F>(k0, degree_log, num_points);
+
+        let lpc0 = ListPolynomialCommitment::new(polys0, fri_config.rate_bits, true);
+        let lpc1 = ListPolynomialCommitment::new(polys1, fri_config.rate_bits, false);
+        let lpc2 = ListPolynomialCommitment::new(polys2, fri_config.rate_bits, true);
+
+        let (proof, evaluations) = ListPolynomialCommitment::batch_open(
+            &[&lpc0, &lpc1, &lpc2],
+            &points,
+            &mut Challenger::new(),
+            &fri_config,
+        );
+        proof.verify(
+            &points,
+            &evaluations,
+            &[
+                lpc0.merkle_tree.root,
+                lpc1.merkle_tree.root,
+                lpc2.merkle_tree.root,
+            ],
             &mut Challenger::new(),
             &fri_config,
         )

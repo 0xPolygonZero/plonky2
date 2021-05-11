@@ -4,9 +4,11 @@ use plonky2::circuit_builder::CircuitBuilder;
 use plonky2::circuit_data::CircuitConfig;
 use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::field::Field;
+use plonky2::fri::FriConfig;
 use plonky2::gates::constant::ConstantGate;
 use plonky2::gates::gmimc::GMiMCGate;
 use plonky2::hash::GMIMC_ROUNDS;
+use plonky2::prover::PLONK_BLINDING;
 use plonky2::witness::PartialWitness;
 
 fn main() {
@@ -34,11 +36,18 @@ fn bench_prove<F: Field>() {
         security_bits: 128,
         rate_bits: 3,
         num_checks: 3,
+        fri_config: FriConfig {
+            proof_of_work_bits: 1,
+            rate_bits: 3,
+            reduction_arity_bits: vec![1],
+            num_query_rounds: 1,
+            blinding: PLONK_BLINDING.to_vec(),
+        },
     };
 
     let mut builder = CircuitBuilder::<F>::new(config);
 
-    for _ in 0..5000 {
+    for _ in 0..10000 {
         builder.add_gate_no_constants(gmimc_gate.clone());
     }
 
