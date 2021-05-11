@@ -20,8 +20,9 @@ pub struct FriConfig {
     /// Number of query rounds to perform.
     pub num_query_rounds: usize,
 
-    /// True if the last element of the Merkle trees' leaf vectors is a blinding element.
-    pub blinding: bool,
+    /// Vector of the same length as the number of initial Merkle trees.
+    /// `blinding[i]==true` iff the i-th tree is salted.  
+    pub blinding: Vec<bool>,
 }
 
 fn fri_delta(rate_log: usize, conjecture: bool) -> f64 {
@@ -79,7 +80,7 @@ mod tests {
             rate_bits,
             proof_of_work_bits: 2,
             reduction_arity_bits,
-            blinding: false,
+            blinding: vec![false],
         };
         let tree = {
             let mut leaves = coset_lde

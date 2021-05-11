@@ -274,14 +274,16 @@ impl<F: Field> CircuitBuilder<F> {
         let constant_vecs = self.constant_polys();
         let constants_commitment = ListPolynomialCommitment::new(
             constant_vecs.into_iter().map(|v| v.ifft()).collect(),
-            &self.config.fri_config,
+            self.config.fri_config.rate_bits,
+            false,
         );
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let sigma_vecs = self.sigma_vecs(&k_is);
         let sigmas_commitment = ListPolynomialCommitment::new(
             sigma_vecs.into_iter().map(|v| v.ifft()).collect(),
-            &self.config.fri_config,
+            self.config.fri_config.rate_bits,
+            false,
         );
 
         let constants_root = constants_commitment.merkle_tree.root;

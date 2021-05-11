@@ -26,6 +26,10 @@ macro_rules! timed {
         res
     }};
 }
+
+/// Corresponds to constants - sigmas - wires - zs - quotient — polynomial commitments.
+pub const PLONK_BLINDING: [bool; 5] = [false, false, true, true, true];
+
 pub(crate) fn prove<F: Field>(
     prover_data: &ProverOnlyCircuitData<F>,
     common_data: &CommonCircuitData<F>,
@@ -59,7 +63,7 @@ pub(crate) fn prove<F: Field>(
     // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
     // merkle_root_bit_rev_order do it implicitly.
     let wires_commitment = timed!(
-        ListPolynomialCommitment::new(wires_polynomials, &fri_config),
+        ListPolynomialCommitment::new(wires_polynomials, fri_config.rate_bits, true),
         "to compute wires commitment"
     );
 
@@ -75,7 +79,7 @@ pub(crate) fn prove<F: Field>(
     let plonk_z_vecs = timed!(compute_zs(&common_data), "to compute Z's");
 
     let plonk_zs_commitment = timed!(
-        ListPolynomialCommitment::new(plonk_z_vecs, &fri_config),
+        ListPolynomialCommitment::new(plonk_z_vecs, fri_config.rate_bits, true),
         "to commit to Z's"
     );
 
@@ -107,7 +111,7 @@ pub(crate) fn prove<F: Field>(
                 let quotient_poly_coeff_chunks = quotient_poly_coeff.chunks(degree);
                 all_quotient_poly_chunks.extend(quotient_poly_coeff_chunks);
             }
-            ListPolynomialCommitment::new(all_quotient_poly_chunks, &fri_config)
+            ListPolynomialCommitment::new(all_quotient_poly_chunks, fri_config.rate_bits, true)
         },
         "to compute quotient polys and commit to them"
     );
@@ -129,6 +133,7 @@ pub(crate) fn prove<F: Field>(
             ],
             &zetas,
             &mut challenger,
+            &common_data.config.fri_config
         ),
         "to compute opening proofs"
     );
