@@ -415,7 +415,7 @@ impl DivAssign for CrandallField {
 /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
 /// field order and `2^64`.
 #[inline]
-fn reduce128(x: u128) -> CrandallField {
+pub fn reduce128(x: u128) -> CrandallField {
     // This is Crandall's algorithm. When we have some high-order bits (i.e. with a weight of 2^64),
     // we convert them to low-order bits by multiplying by EPSILON (the logic is a simple
     // generalization of Mersenne prime reduction). The first time we do this, the product will take
