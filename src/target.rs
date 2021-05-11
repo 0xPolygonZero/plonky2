@@ -14,7 +14,7 @@ impl Target {
         Self::Wire(Wire { gate, input })
     }
 
-    pub fn is_routable(&self, config: CircuitConfig) -> bool {
+    pub fn is_routable(&self, config: &CircuitConfig) -> bool {
         match self {
             Target::Wire(wire) => wire.is_routable(config),
             Target::PublicInput { .. } => true,

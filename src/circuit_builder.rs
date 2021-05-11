@@ -16,6 +16,7 @@ use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::hash::hash_n_to_hash;
 use crate::merkle_tree::MerkleTree;
 use crate::permutation_argument::TargetPartitions;
+use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
 use crate::util::{log2_strict, transpose, transpose_poly_values};
@@ -138,11 +139,11 @@ impl<F: Field> CircuitBuilder<F> {
     /// Both elements must be routable, otherwise this method will panic.
     pub fn assert_equal(&mut self, x: Target, y: Target) {
         assert!(
-            x.is_routable(self.config),
+            x.is_routable(&self.config),
             "Tried to route a wire that isn't routable"
         );
         assert!(
-            y.is_routable(self.config),
+            y.is_routable(&self.config),
             "Tried to route a wire that isn't routable"
         );
         self.copy_constraints.push((x, y));
@@ -271,18 +272,22 @@ impl<F: Field> CircuitBuilder<F> {
         info!("degree after blinding & padding: {}", degree);
 
         let constant_vecs = self.constant_polys();
-        let constant_ldes = PolynomialValues::lde_multiple(constant_vecs, self.config.rate_bits);
-        let constant_ldes_t = transpose_poly_values(constant_ldes);
-        let constants_tree = MerkleTree::new(constant_ldes_t, true);
+        let constants_commitment = ListPolynomialCommitment::new(
+            constant_vecs.into_iter().map(|v| v.ifft()).collect(),
+            self.config.fri_config.rate_bits,
+            false,
+        );
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let sigma_vecs = self.sigma_vecs(&k_is);
-        let sigma_ldes = PolynomialValues::lde_multiple(sigma_vecs, self.config.rate_bits);
-        let sigma_ldes_t = transpose_poly_values(sigma_ldes);
-        let sigmas_tree = MerkleTree::new(sigma_ldes_t, true);
+        let sigmas_commitment = ListPolynomialCommitment::new(
+            sigma_vecs.into_iter().map(|v| v.ifft()).collect(),
+            self.config.fri_config.rate_bits,
+            false,
+        );
 
-        let constants_root = constants_tree.root;
-        let sigmas_root = sigmas_tree.root;
+        let constants_root = constants_commitment.merkle_tree.root;
+        let sigmas_root = sigmas_commitment.merkle_tree.root;
         let verifier_only = VerifierOnlyCircuitData {
             constants_root,
             sigmas_root,
@@ -291,8 +296,8 @@ impl<F: Field> CircuitBuilder<F> {
         let generators = self.generators;
         let prover_only = ProverOnlyCircuitData {
             generators,
-            constants_tree,
-            sigmas_tree,
+            constants_commitment,
+            sigmas_commitment,
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
