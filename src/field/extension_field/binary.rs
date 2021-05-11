@@ -14,6 +14,8 @@ pub trait BinaryFieldExtension: Field {
 
     fn to_canonical_representation(&self) -> [Self::BaseField; 2];
 
+    fn from_canonical_representation(v: [Self::BaseField; 2]) -> Self;
+
     fn is_in_basefield(&self) -> bool {
         self.to_canonical_representation()[1..]
             .iter()
@@ -21,7 +23,13 @@ pub trait BinaryFieldExtension: Field {
     }
 
     /// Frobenius automorphisms: x -> x^p, where p is the order of BaseField.
-    fn frobenius(&self) -> Self;
+    fn frobenius(&self) -> Self {
+        let [a0, a1] = self.to_canonical_representation();
+        let k = (Self::BaseField::ORDER - 1) / 2;
+        let z = Self::W.exp_usize(k as usize);
+
+        Self::from_canonical_representation([a0, a1 * z])
+    }
 
     fn scalar_mul(&self, c: Self::BaseField) -> Self;
 }
@@ -39,12 +47,8 @@ impl BinaryFieldExtension for BinaryCrandallField {
         self.0
     }
 
-    fn frobenius(&self) -> Self {
-        let [a0, a1] = self.to_canonical_representation();
-        let k = (Self::BaseField::ORDER - 1) / 2;
-        let z = Self::W.exp_usize(k as usize);
-
-        Self([a0, a1 * z])
+    fn from_canonical_representation(v: [Self::BaseField; 2]) -> Self {
+        Self(v)
     }
 
     fn scalar_mul(&self, c: Self::BaseField) -> Self {
@@ -217,10 +221,8 @@ impl DivAssign for BinaryCrandallField {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::binary::{BinaryCrandallField, BinaryFieldExtension};
     use crate::field::field::Field;
-    use crate::test_arithmetic;
 
     fn exp_naive<F: Field>(x: F, power: u64) -> F {
         let mut current = x;

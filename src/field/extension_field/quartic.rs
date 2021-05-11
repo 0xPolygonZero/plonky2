@@ -14,6 +14,8 @@ pub trait QuarticFieldExtension: Field {
 
     fn to_canonical_representation(&self) -> [Self::BaseField; 4];
 
+    fn from_canonical_representation(v: [Self::BaseField; 4]) -> Self;
+
     fn is_in_basefield(&self) -> bool {
         self.to_canonical_representation()[1..]
             .iter()
@@ -21,7 +23,21 @@ pub trait QuarticFieldExtension: Field {
     }
 
     /// Frobenius automorphisms: x -> x^p, where p is the order of BaseField.
-    fn frobenius(&self) -> Self;
+    fn frobenius(&self) -> Self {
+        let [a0, a1, a2, a3] = self.to_canonical_representation();
+        let k = (Self::BaseField::ORDER - 1) / 4;
+        let z0 = Self::W.exp_usize(k as usize);
+        let mut z = Self::BaseField::ONE;
+        let b0 = a0 * z;
+        z *= z0;
+        let b1 = a1 * z;
+        z *= z0;
+        let b2 = a2 * z;
+        z *= z0;
+        let b3 = a3 * z;
+
+        Self::from_canonical_representation([b0, b1, b2, b3])
+    }
 
     fn scalar_mul(&self, c: Self::BaseField) -> Self;
 }
@@ -39,20 +55,8 @@ impl QuarticFieldExtension for QuarticCrandallField {
         self.0
     }
 
-    fn frobenius(&self) -> Self {
-        let [a0, a1, a2, a3] = self.to_canonical_representation();
-        let k = (Self::BaseField::ORDER - 1) / 4;
-        let z0 = Self::W.exp_usize(k as usize);
-        let mut z = Self::BaseField::ONE;
-        let b0 = a0 * z;
-        z *= z0;
-        let b1 = a1 * z;
-        z *= z0;
-        let b2 = a2 * z;
-        z *= z0;
-        let b3 = a3 * z;
-
-        Self([b0, b1, b2, b3])
+    fn from_canonical_representation(v: [Self::BaseField; 4]) -> Self {
+        Self(v)
     }
 
     fn scalar_mul(&self, c: Self::BaseField) -> Self {
@@ -272,10 +276,8 @@ impl DivAssign for QuarticCrandallField {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::{QuarticCrandallField, QuarticFieldExtension};
     use crate::field::field::Field;
-    use crate::test_arithmetic;
 
     fn exp_naive<F: Field>(x: F, power: u128) -> F {
         let mut current = x;
