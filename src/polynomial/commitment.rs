@@ -4,7 +4,6 @@ use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
-use crate::polynomial::old_polynomial::Polynomial;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::proof::{FriProof, Hash, OpeningSet};
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
@@ -98,8 +97,9 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .polynomials
             .iter()
             .rev()
-            .map(|p| p.clone().into())
-            .fold(Polynomial::empty(), |acc, p| acc.scalar_mul(alpha).add(&p));
+            .fold(PolynomialCoeffs::zero(self.degree), |acc, p| {
+                &(&acc * alpha) + &p
+            });
         // Scale evaluations by `alpha`.
         let composition_evals = evaluations
             .par_iter()
@@ -244,7 +244,11 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
     /// Given `points=(x_i)`, `evals=(y_i)` and `poly=P` with `P(x_i)=y_i`, computes the polynomial
     /// `Q=(P-I)/Z` where `I` interpolates `(x_i, y_i)` and `Z` is the vanishing polynomial on `(x_i)`.
-    fn compute_quotient(points: &[F], evals: &[F], poly: &Polynomial<F>) -> Polynomial<F> {
+    fn compute_quotient(
+        points: &[F],
+        evals: &[F],
+        poly: &PolynomialCoeffs<F>,
+    ) -> PolynomialCoeffs<F> {
         let pairs = points
             .iter()
             .zip(evals)
@@ -252,18 +256,15 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .collect::<Vec<_>>();
         debug_assert!(pairs.iter().all(|&(x, e)| poly.eval(x) == e));
 
-        let interpolant: Polynomial<F> = interpolant(&pairs).into();
-        let denominator = points
-            .iter()
-            .fold(Polynomial::from(vec![F::ONE]), |acc, &x| {
-                acc.mul(&vec![-x, F::ONE].into())
-            });
-        let numerator = poly.add(&interpolant.neg());
-        let (mut quotient, rem) = numerator.polynomial_division(&denominator);
+        let interpolant = interpolant(&pairs);
+        let denominator = points.iter().fold(PolynomialCoeffs::one(), |acc, &x| {
+            &acc * &PolynomialCoeffs::new(vec![-x, F::ONE])
+        });
+        let numerator = poly - &interpolant;
+        let (mut quotient, rem) = numerator.div_rem(&denominator);
         debug_assert!(rem.is_zero());
 
-        quotient.pad((quotient.degree() + 1).next_power_of_two());
-        quotient
+        quotient.padded(quotient.degree_plus_one().next_power_of_two())
     }
 }
 

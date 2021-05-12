@@ -11,6 +11,8 @@ use std::ops::{Index, IndexMut, RangeBounds};
 use std::slice::{Iter, IterMut, SliceIndex};
 
 /// Polynomial struct holding a polynomial in coefficient form.
+// TODO: Finish merging this with `PolynomialCoeffs`.
+#[deprecated]
 #[derive(Debug, Clone)]
 pub struct Polynomial<F: Field>(Vec<F>);
 
@@ -258,6 +260,10 @@ impl<F: Field> Polynomial<F> {
     /// Returns `(q,r)` the quotient and remainder of the polynomial division of `a` by `b`.
     /// Generally slower that the equivalent function `Polynomial::polynomial_division`.
     pub fn polynomial_long_division(&self, b: &Self) -> (Self, Self) {
+        // Trim b.
+        let mut b = b.clone();
+        b.trim();
+
         let (a_degree, b_degree) = (self.degree(), b.degree());
         if self.is_zero() {
             (Self::zero(1), Self::empty())
