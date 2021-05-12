@@ -4,7 +4,6 @@ use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
-use crate::polynomial::old_polynomial::Polynomial;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::proof::{FriProof, Hash, OpeningSet};
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
@@ -181,7 +180,9 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .flat_map(|c| &c.polynomials)
             .rev()
             .map(|p| p.clone().into())
-            .fold(Polynomial::empty(), |acc, p| acc.scalar_mul(alpha).add(&p));
+            .fold(PolynomialCoeffs::zero(degree), |acc, p| {
+                &(&acc * alpha) + &p
+            });
         // Scale evaluations by `alpha`.
         let composition_evals = &evaluations
             .par_iter()
