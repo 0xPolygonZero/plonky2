@@ -4,6 +4,7 @@ use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
+use crate::polynomial::old_polynomial::Polynomial;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::proof::{FriProof, Hash, OpeningSet};
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
