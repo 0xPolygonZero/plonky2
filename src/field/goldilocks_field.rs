@@ -322,33 +322,15 @@ impl DivAssign for GoldilocksField {
 /*
 #[inline]
 fn reduce128(x: u128) -> GoldilocksField {
-    // hihi = hi >> 32;
-    // hilo = hi & (1<<32)-1;
-    // lo + (hilo<<32) - hilo - hihi
+    // Write x = a0 + a1*2^64  (0 <= a0, a1 < 2^64)
+    //         = b0 + b1*2^32 + b2*2^64 + b3*2^96  (0 <= b0, b1, b2, b3 < 2^32)
     const MASK_LO_32_BITS: u64 = (1u64 << 32) - 1u64;
-    let (lo, hi) = split(x);
-    let hihi = hi >> 32;
-    let hilo = hi & MASK_LO_32_BITS;
-    let x = hilo + hihi;
-    let (y, br) = (hilo << 32).overflowing_sub(x);
-    let (z, cy1) = y.overflowing_add((br as u64) * GoldilocksField::ORDER);
-    let (w, cy2) = lo.overflowing_add(z);
-    GoldilocksField(w.overflowing_sub(((cy1 | cy2) as u64) * GoldilocksField::ORDER).0)
-}
-*/
-
-#[inline]
-fn reduce128(x: u128) -> GoldilocksField {
-    // hihi = hi >> 32;
-    // hilo = hi & (1<<32)-1;
-    // lo + (hilo<<32) - hilo - hihi
-    const MASK_LO_32_BITS: u64 = (1u64 << 32) - 1u64;
-    let (lo, hi) = split(x);
-    let hihi = hi >> 32;
-    let hilo = hi & MASK_LO_32_BITS;
-    let x = (hilo << 32) - hilo;
-    let (y, cy) = x.overflowing_add(lo);
-    let (mut z, br) = y.overflowing_sub(hihi);
+    let (a0, a1) = split(x);
+    let b3 = a1 >> 32;
+    let b2 = a1 & MASK_LO_32_BITS;
+    let x = (b2 << 32) - b2;
+    let (y, cy) = x.overflowing_add(a0);
+    let (mut z, br) = y.overflowing_sub(b3);
 
     if cy {
         z = z.overflowing_sub(GoldilocksField::ORDER).0;
@@ -358,6 +340,29 @@ fn reduce128(x: u128) -> GoldilocksField {
     }
     GoldilocksField(z)
 }
+*/
+
+
+#[inline]
+fn reduce128(x: u128) -> GoldilocksField {
+    // Write x = a0 + a1*2^64  (0 <= a0, a1 < 2^64)
+    //         = b0 + b1*2^32 + b2*2^64 + b3*2^96  (0 <= b0, b1, b2, b3 < 2^32)
+    const MASK_LO_32_BITS: u64 = (1u64 << 32) - 1u64;
+    const LAMBDA: u64 = MASK_LO_32_BITS;
+    let (a0, a1) = split(x);
+    let b3 = a1 >> 32;
+    let b2 = a1 & MASK_LO_32_BITS;
+    let x = (b2 << 32) - b2;
+    let y = GoldilocksField::ORDER - b3;
+    let (z, cy1) = x.overflowing_add(y);
+    let (w, cy2) = z.overflowing_add(a0);
+
+    let (res, blah) = w.overflowing_add((cy1 as u64 + cy2 as u64) * LAMBDA);
+    //assert_eq!(blah, false, "unexpected overflow on input = ({},, {}, {}), b2*λ = {}, q-b3 = {}, e = {} cy1 = {}, f = {}, cy2 = {}, res = {}", a0, b2, b3, x, y, z, cy1, w, cy2, res);
+
+    GoldilocksField(res + (blah as u64)*LAMBDA)
+}
+
 
 #[inline]
 fn split(x: u128) -> (u64, u64) {
