@@ -1,16 +1,16 @@
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::polynomial::polynomial::PolynomialCoeffs;
-use crate::util::log2_strict;
+use crate::util::{log2_strict, log2_ceil};
 
 impl<F: Field> PolynomialCoeffs<F> {
     /// Polynomial division.
     /// Returns `(q, r)`, the quotient and remainder of the polynomial division of `a` by `b`.
     pub(crate) fn div_rem(&self, b: &Self) -> (Self, Self) {
         let (a_degree_plug_1, b_degree_plus_1) = (self.degree_plus_one(), b.degree_plus_one());
-        if self.is_zero() {
+        if a_degree_plug_1 == 0 {
             (Self::zero(1), Self::empty())
-        } else if b.is_zero() {
+        } else if b_degree_plus_1 == 0 {
             panic!("Division by zero polynomial");
         } else if a_degree_plug_1 < b_degree_plus_1 {
             (Self::zero(1), self.clone())
@@ -41,9 +41,9 @@ impl<F: Field> PolynomialCoeffs<F> {
         let b = b.trimmed();
 
         let (a_degree_plus_1, b_degree_plus_1) = (self.degree_plus_one(), b.degree_plus_one());
-        if self.is_zero() {
+        if a_degree_plus_1 == 0 {
             (Self::zero(1), Self::empty())
-        } else if b.is_zero() {
+        } else if b_degree_plus_1 == 0 {
             panic!("Division by zero polynomial");
         } else if a_degree_plus_1 < b_degree_plus_1 {
             (Self::zero(1), self.clone())
@@ -123,6 +123,38 @@ impl<F: Field> PolynomialCoeffs<F> {
             g_inv_pow *= g_inv;
         });
         p
+    }
+
+    /// Computes the inverse of `self` modulo `x^n`.
+    pub(crate) fn inv_mod_xn(&self, n: usize) -> Self {
+        assert!(self.coeffs[0].is_nonzero(), "Inverse doesn't exist.");
+        let mut h = self.padded(n);
+        let mut a = Self::empty();
+        a.coeffs.push(h.coeffs[0].inverse());
+        for i in 0..log2_ceil(n) {
+            let l = 1 << i;
+            let h0 = h.coeffs[..l].to_vec().into();
+            let mut h1: Self = h.coeffs[l..].to_vec().into();
+            let mut c = &a * &h0;
+            if l == c.len() {
+                c = Self::zero(1);
+            } else {
+                c.coeffs.drain(0..l);
+            }
+            h1.trim();
+            let mut tmp = &a * &h1;
+            tmp = &tmp + &c;
+            tmp.coeffs.iter_mut().for_each(|x| *x = -(*x));
+            tmp.trim();
+            let mut b = &a * &tmp;
+            b.trim();
+            if b.len() > l {
+                b.coeffs.drain(l..);
+            }
+            a.coeffs.extend_from_slice(&b.coeffs);
+        }
+        a.coeffs.drain(n..);
+        a
     }
 }
 
