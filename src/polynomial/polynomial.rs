@@ -149,38 +149,6 @@ impl<F: Field> PolynomialCoeffs<F> {
             .map_or(F::ZERO, |x| *x)
     }
 
-    /// Computes the inverse of `self` modulo `x^n`.
-    pub(crate) fn inv_mod_xn(&self, n: usize) -> Self {
-        assert!(self.coeffs[0].is_nonzero(), "Inverse doesn't exist.");
-        let mut h = self.padded(n);
-        let mut a = Self::empty();
-        a.coeffs.push(h.coeffs[0].inverse());
-        for i in 0..log2_ceil(n) {
-            let l = 1 << i;
-            let h0 = h.coeffs[..l].to_vec().into();
-            let mut h1: Self = h.coeffs[l..].to_vec().into();
-            let mut c = &a * &h0;
-            if l == c.len() {
-                c = Self::zero(1);
-            } else {
-                c.coeffs.drain(0..l);
-            }
-            h1.trim();
-            let mut tmp = a.mul(&h1);
-            tmp = tmp.add(&c);
-            tmp.coeffs.iter_mut().for_each(|x| *x = -(*x));
-            tmp.trim();
-            let mut b = &a * &tmp;
-            b.trim();
-            if b.len() > l {
-                b.coeffs.drain(l..);
-            }
-            a.coeffs.extend_from_slice(&b.coeffs);
-        }
-        a.coeffs.drain(n..);
-        a
-    }
-
     /// Reverse the order of the coefficients, not taking into account the leading zero coefficients.
     pub(crate) fn rev(&self) -> Self {
         Self::new(self.trimmed().coeffs.into_iter().rev().collect())
