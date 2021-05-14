@@ -1,3 +1,5 @@
+pub(crate) mod timing;
+
 use crate::field::field::Field;
 use crate::polynomial::polynomial::PolynomialValues;
 

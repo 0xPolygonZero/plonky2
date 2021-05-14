@@ -13,19 +13,11 @@ use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::division::divide_by_z_h;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
+use crate::timed;
 use crate::util::transpose;
 use crate::vars::EvaluationVars;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
-
-macro_rules! timed {
-    ($a:expr, $msg:expr) => {{
-        let timer = Instant::now();
-        let res = $a;
-        info!("{:.3}s {}", timer.elapsed().as_secs_f32(), $msg);
-        res
-    }};
-}
 
 /// Corresponds to constants - sigmas - wires - zs - quotient — polynomial commitments.
 pub const PLONK_BLINDING: [bool; 5] = [false, false, true, true, true];
