@@ -35,7 +35,7 @@ fn bench_prove<F: Field>() {
         num_routed_wires: 12,
         security_bits: 128,
         rate_bits: 3,
-        num_checks: 3,
+        num_challenges: 3,
         fri_config: FriConfig {
             proof_of_work_bits: 1,
             rate_bits: 3,
