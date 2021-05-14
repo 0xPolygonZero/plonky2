@@ -10,7 +10,6 @@ use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::{eval_l_1, evaluate_gate_constraints, reduce_with_powers_multi};
 use crate::polynomial::commitment::ListPolynomialCommitment;
-use crate::polynomial::division::divide_by_z_h;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::util::transpose;
@@ -106,7 +105,7 @@ pub(crate) fn prove<F: Field>(
             let mut all_quotient_poly_chunks = Vec::with_capacity(num_checks * quotient_degree);
             for vanishing_poly in vanishing_polys.into_iter() {
                 let vanishing_poly_coeff = ifft(vanishing_poly);
-                let quotient_poly_coeff = divide_by_z_h(vanishing_poly_coeff, degree);
+                let quotient_poly_coeff = vanishing_poly_coeff.divide_by_z_h(degree);
                 // Split t into degree-n chunks.
                 let quotient_poly_coeff_chunks = quotient_poly_coeff.chunks(degree);
                 all_quotient_poly_chunks.extend(quotient_poly_coeff_chunks);

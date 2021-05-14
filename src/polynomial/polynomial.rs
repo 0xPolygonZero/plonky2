@@ -3,8 +3,7 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
-use crate::polynomial::old_polynomial::Polynomial;
-use crate::util::log2_strict;
+use crate::util::{log2_ceil, log2_strict};
 
 /// A polynomial in point-value form.
 ///
@@ -49,7 +48,7 @@ impl<F: Field> From<Vec<F>> for PolynomialValues<F> {
 }
 
 /// A polynomial in coefficient form.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct PolynomialCoeffs<F: Field> {
     pub(crate) coeffs: Vec<F>,
 }
@@ -65,6 +64,10 @@ impl<F: Field> PolynomialCoeffs<F> {
             coeffs.push(F::ZERO);
         }
         PolynomialCoeffs { coeffs }
+    }
+
+    pub(crate) fn empty() -> Self {
+        Self::new(Vec::new())
     }
 
     pub(crate) fn zero(len: usize) -> Self {
@@ -112,6 +115,7 @@ impl<F: Field> PolynomialCoeffs<F> {
     }
 
     pub(crate) fn padded(&self, new_len: usize) -> Self {
+        assert!(new_len >= self.len());
         let mut coeffs = self.coeffs.clone();
         coeffs.resize(new_len, F::ZERO);
         Self { coeffs }
@@ -119,10 +123,16 @@ impl<F: Field> PolynomialCoeffs<F> {
 
     /// Removes leading zero coefficients.
     pub fn trim(&mut self) {
-        self.coeffs.drain(self.degree_plus_one()..);
+        self.coeffs.truncate(self.degree_plus_one());
     }
 
-    /// Degree of the polynomial + 1.
+    /// Removes leading zero coefficients.
+    pub fn trimmed(&self) -> Self {
+        let coeffs = self.coeffs[..self.degree_plus_one()].to_vec();
+        Self { coeffs }
+    }
+
+    /// Degree of the polynomial + 1, or 0 for a polynomial with no non-zero coefficients.
     pub(crate) fn degree_plus_one(&self) -> usize {
         (0usize..self.len())
             .rev()
@@ -130,11 +140,18 @@ impl<F: Field> PolynomialCoeffs<F> {
             .map_or(0, |i| i + 1)
     }
 
-    pub(crate) fn div_rem(&self, rhs: &Self) -> (Self, Self) {
-        let lhs = Polynomial::from(self.clone());
-        let rhs = Polynomial::from(rhs.clone());
-        let (q, r) = lhs.polynomial_division(&rhs);
-        (q.into(), r.into())
+    /// Leading coefficient.
+    pub fn lead(&self) -> F {
+        self.coeffs
+            .iter()
+            .rev()
+            .find(|x| x.is_nonzero())
+            .map_or(F::ZERO, |x| *x)
+    }
+
+    /// Reverse the order of the coefficients, not taking into account the leading zero coefficients.
+    pub(crate) fn rev(&self) -> Self {
+        Self::new(self.trimmed().coeffs.into_iter().rev().collect())
     }
 
     pub fn fft(self) -> PolynomialValues<F> {
@@ -151,6 +168,22 @@ impl<F: Field> PolynomialCoeffs<F> {
         modified_poly.fft()
     }
 }
+
+impl<F: Field> PartialEq for PolynomialCoeffs<F> {
+    fn eq(&self, other: &Self) -> bool {
+        let max_terms = self.coeffs.len().max(other.coeffs.len());
+        for i in 0..max_terms {
+            let self_i = self.coeffs.get(i).cloned().unwrap_or(F::ZERO);
+            let other_i = other.coeffs.get(i).cloned().unwrap_or(F::ZERO);
+            if self_i != other_i {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+impl<F: Field> Eq for PolynomialCoeffs<F> {}
 
 impl<F: Field> From<Vec<F>> for PolynomialCoeffs<F> {
     fn from(coeffs: Vec<F>) -> Self {
@@ -215,9 +248,39 @@ impl<F: Field> Mul for &PolynomialCoeffs<F> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
+    use rand::{thread_rng, Rng};
+
     use crate::field::crandall_field::CrandallField;
 
     use super::*;
+
+    #[test]
+    fn test_trimmed() {
+        type F = CrandallField;
+
+        assert_eq!(
+            PolynomialCoeffs::<F> { coeffs: vec![] }.trimmed(),
+            PolynomialCoeffs::<F> { coeffs: vec![] }
+        );
+        assert_eq!(
+            PolynomialCoeffs::<F> {
+                coeffs: vec![F::ZERO]
+            }
+            .trimmed(),
+            PolynomialCoeffs::<F> { coeffs: vec![] }
+        );
+        assert_eq!(
+            PolynomialCoeffs::<F> {
+                coeffs: vec![F::ONE, F::TWO, F::ZERO, F::ZERO]
+            }
+            .trimmed(),
+            PolynomialCoeffs::<F> {
+                coeffs: vec![F::ONE, F::TWO]
+            }
+        );
+    }
 
     #[test]
     fn test_coset_fft() {
@@ -236,5 +299,180 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(coset_evals, naive_coset_evals);
+    }
+
+    #[test]
+    fn test_polynomial_multiplication() {
+        type F = CrandallField;
+        let mut rng = thread_rng();
+        let (a_deg, b_deg) = (rng.gen_range(1, 10_000), rng.gen_range(1, 10_000));
+        let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
+        let b = PolynomialCoeffs::new(F::rand_vec(b_deg));
+        let m1 = &a * &b;
+        let m2 = &a * &b;
+        for _ in 0..1000 {
+            let x = F::rand();
+            assert_eq!(m1.eval(x), a.eval(x) * b.eval(x));
+            assert_eq!(m2.eval(x), a.eval(x) * b.eval(x));
+        }
+    }
+
+    #[test]
+    fn test_inv_mod_xn() {
+        type F = CrandallField;
+        let mut rng = thread_rng();
+        let a_deg = rng.gen_range(1, 1_000);
+        let n = rng.gen_range(1, 1_000);
+        let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
+        let b = a.inv_mod_xn(n);
+        let mut m = &a * &b;
+        m.coeffs.drain(n..);
+        m.trim();
+        assert_eq!(
+            m,
+            PolynomialCoeffs::new(vec![F::ONE]),
+            "a: {:#?}, b:{:#?}, n:{:#?}, m:{:#?}",
+            a,
+            b,
+            n,
+            m
+        );
+    }
+
+    #[test]
+    fn test_polynomial_long_division() {
+        type F = CrandallField;
+        let mut rng = thread_rng();
+        let (a_deg, b_deg) = (rng.gen_range(1, 10_000), rng.gen_range(1, 10_000));
+        let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
+        let b = PolynomialCoeffs::new(F::rand_vec(b_deg));
+        let (q, r) = a.div_rem_long_division(&b);
+        for _ in 0..1000 {
+            let x = F::rand();
+            assert_eq!(a.eval(x), b.eval(x) * q.eval(x) + r.eval(x));
+        }
+    }
+
+    #[test]
+    fn test_polynomial_division() {
+        type F = CrandallField;
+        let mut rng = thread_rng();
+        let (a_deg, b_deg) = (rng.gen_range(1, 10_000), rng.gen_range(1, 10_000));
+        let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
+        let b = PolynomialCoeffs::new(F::rand_vec(b_deg));
+        let (q, r) = a.div_rem(&b);
+        for _ in 0..1000 {
+            let x = F::rand();
+            assert_eq!(a.eval(x), b.eval(x) * q.eval(x) + r.eval(x));
+        }
+    }
+
+    #[test]
+    fn test_polynomial_division_by_constant() {
+        type F = CrandallField;
+        let mut rng = thread_rng();
+        let a_deg = rng.gen_range(1, 10_000);
+        let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
+        let b = PolynomialCoeffs::from(vec![F::rand()]);
+        let (q, r) = a.div_rem(&b);
+        for _ in 0..1000 {
+            let x = F::rand();
+            assert_eq!(a.eval(x), b.eval(x) * q.eval(x) + r.eval(x));
+        }
+    }
+
+    #[test]
+    fn test_division_by_z_h() {
+        type F = CrandallField;
+        let mut rng = thread_rng();
+        let a_deg = rng.gen_range(1, 10_000);
+        let n = rng.gen_range(1, a_deg);
+        let mut a = PolynomialCoeffs::new(F::rand_vec(a_deg));
+        a.trim();
+        let z_h = {
+            let mut z_h_vec = vec![F::ZERO; n + 1];
+            z_h_vec[n] = F::ONE;
+            z_h_vec[0] = F::NEG_ONE;
+            PolynomialCoeffs::new(z_h_vec)
+        };
+        let m = &a * &z_h;
+        let now = Instant::now();
+        let mut a_test = m.divide_by_z_h(n);
+        a_test.trim();
+        println!("Division time: {:?}", now.elapsed());
+        assert_eq!(a, a_test);
+    }
+
+    #[test]
+    fn divide_zero_poly_by_z_h() {
+        let zero_poly = PolynomialCoeffs::<CrandallField>::empty();
+        zero_poly.divide_by_z_h(16);
+    }
+
+    // Test to see which polynomial division method is faster for divisions of the type
+    // `(X^n - 1)/(X - a)
+    #[test]
+    fn test_division_linear() {
+        type F = CrandallField;
+        let mut rng = thread_rng();
+        let l = 14;
+        let n = 1 << l;
+        let g = F::primitive_root_of_unity(l);
+        let xn_minus_one = {
+            let mut xn_min_one_vec = vec![F::ZERO; n + 1];
+            xn_min_one_vec[n] = F::ONE;
+            xn_min_one_vec[0] = F::NEG_ONE;
+            PolynomialCoeffs::new(xn_min_one_vec)
+        };
+
+        let a = g.exp_usize(rng.gen_range(0, n));
+        let denom = PolynomialCoeffs::new(vec![-a, F::ONE]);
+        let now = Instant::now();
+        xn_minus_one.div_rem(&denom);
+        println!("Division time: {:?}", now.elapsed());
+        let now = Instant::now();
+        xn_minus_one.div_rem_long_division(&denom);
+        println!("Division time: {:?}", now.elapsed());
+    }
+
+    #[test]
+    fn eq() {
+        type F = CrandallField;
+        assert_eq!(
+            PolynomialCoeffs::<F>::new(vec![]),
+            PolynomialCoeffs::new(vec![])
+        );
+        assert_eq!(
+            PolynomialCoeffs::<F>::new(vec![F::ZERO]),
+            PolynomialCoeffs::new(vec![F::ZERO])
+        );
+        assert_eq!(
+            PolynomialCoeffs::<F>::new(vec![]),
+            PolynomialCoeffs::new(vec![F::ZERO])
+        );
+        assert_eq!(
+            PolynomialCoeffs::<F>::new(vec![F::ZERO]),
+            PolynomialCoeffs::new(vec![])
+        );
+        assert_eq!(
+            PolynomialCoeffs::<F>::new(vec![F::ZERO]),
+            PolynomialCoeffs::new(vec![F::ZERO, F::ZERO])
+        );
+        assert_eq!(
+            PolynomialCoeffs::<F>::new(vec![F::ONE]),
+            PolynomialCoeffs::new(vec![F::ONE, F::ZERO])
+        );
+        assert_ne!(
+            PolynomialCoeffs::<F>::new(vec![]),
+            PolynomialCoeffs::new(vec![F::ONE])
+        );
+        assert_ne!(
+            PolynomialCoeffs::<F>::new(vec![F::ZERO]),
+            PolynomialCoeffs::new(vec![F::ZERO, F::ONE])
+        );
+        assert_ne!(
+            PolynomialCoeffs::<F>::new(vec![F::ZERO]),
+            PolynomialCoeffs::new(vec![F::ONE, F::ZERO])
+        );
     }
 }
