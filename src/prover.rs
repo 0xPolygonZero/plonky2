@@ -118,9 +118,7 @@ pub(crate) fn prove<F: Field>(
 
     challenger.observe_hash(&quotient_polys_commitment.merkle_tree.root);
 
-    // TODO: How many do we need?
-    let num_zetas = 2;
-    let zetas = challenger.get_n_challenges(num_zetas);
+    let zetas = challenger.get_n_challenges(config.num_checks);
 
     let (opening_proof, openings) = timed!(
         ListPolynomialCommitment::batch_open_plonk(
