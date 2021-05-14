@@ -39,7 +39,7 @@ pub(crate) fn prove<F: Field>(
 
     let config = &common_data.config;
     let num_wires = config.num_wires;
-    let num_checks = config.num_checks;
+    let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
 
     let degree = common_data.degree();
@@ -64,8 +64,8 @@ pub(crate) fn prove<F: Field>(
     challenger.observe_hash(&common_data.circuit_digest);
 
     challenger.observe_hash(&wires_commitment.merkle_tree.root);
-    let betas = challenger.get_n_challenges(num_checks);
-    let gammas = challenger.get_n_challenges(num_checks);
+    let betas = challenger.get_n_challenges(num_challenges);
+    let gammas = challenger.get_n_challenges(num_challenges);
 
     let plonk_z_vecs = timed!(compute_zs(&common_data), "to compute Z's");
 
@@ -76,7 +76,7 @@ pub(crate) fn prove<F: Field>(
 
     challenger.observe_hash(&plonk_zs_commitment.merkle_tree.root);
 
-    let alphas = challenger.get_n_challenges(num_checks);
+    let alphas = challenger.get_n_challenges(num_challenges);
 
     let vanishing_polys = timed!(
         compute_vanishing_polys(
@@ -94,7 +94,7 @@ pub(crate) fn prove<F: Field>(
     // Compute the quotient polynomials, aka `t` in the Plonk paper.
     let quotient_polys_commitment = timed!(
         {
-            let mut all_quotient_poly_chunks = Vec::with_capacity(num_checks * quotient_degree);
+            let mut all_quotient_poly_chunks = Vec::with_capacity(num_challenges * quotient_degree);
             for vanishing_poly in vanishing_polys.into_iter() {
                 let vanishing_poly_coeff = ifft(vanishing_poly);
                 let quotient_poly_coeff = vanishing_poly_coeff.divide_by_z_h(degree);
@@ -109,9 +109,7 @@ pub(crate) fn prove<F: Field>(
 
     challenger.observe_hash(&quotient_polys_commitment.merkle_tree.root);
 
-    // TODO: How many do we need?
-    let num_zetas = 2;
-    let zetas = challenger.get_n_challenges(num_zetas);
+    let zetas = challenger.get_n_challenges(config.num_challenges);
 
     let (opening_proof, openings) = timed!(
         ListPolynomialCommitment::batch_open_plonk(
@@ -144,7 +142,7 @@ pub(crate) fn prove<F: Field>(
 }
 
 fn compute_zs<F: Field>(common_data: &CommonCircuitData<F>) -> Vec<PolynomialCoeffs<F>> {
-    (0..common_data.config.num_checks)
+    (0..common_data.config.num_challenges)
         .map(|i| compute_z(common_data, i))
         .collect()
 }
@@ -165,7 +163,7 @@ fn compute_vanishing_polys<F: Field>(
 ) -> Vec<PolynomialValues<F>> {
     let lde_size = common_data.lde_size();
     let lde_gen = common_data.lde_generator();
-    let num_checks = common_data.config.num_checks;
+    let num_challenges = common_data.config.num_challenges;
 
     let points = F::cyclic_subgroup_known_order(lde_gen, lde_size);
     let values: Vec<Vec<F>> = points
@@ -180,7 +178,7 @@ fn compute_vanishing_polys<F: Field>(
             let s_sigmas = prover_data.sigmas_commitment.leaf(i);
 
             debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
-            debug_assert_eq!(local_plonk_zs.len(), num_checks);
+            debug_assert_eq!(local_plonk_zs.len(), num_challenges);
 
             let vars = EvaluationVars {
                 local_constants,
@@ -228,7 +226,7 @@ fn compute_vanishing_poly_entry<F: Field>(
     // The Z(x) f'(x) - g'(x) Z(g x) terms.
     let mut vanishing_v_shift_terms = Vec::new();
 
-    for i in 0..common_data.config.num_checks {
+    for i in 0..common_data.config.num_challenges {
         let z_x = local_plonk_zs[i];
         let z_gz = next_plonk_zs[i];
         vanishing_z_1_terms.push(eval_l_1(common_data.degree(), x) * (z_x - F::ONE));
