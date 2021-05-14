@@ -1,3 +1,6 @@
+use anyhow::Result;
+use rayon::prelude::*;
+
 use crate::field::field::Field;
 use crate::field::lagrange::interpolant;
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
@@ -6,9 +9,8 @@ use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::proof::{FriProof, Hash, OpeningSet};
+use crate::timed;
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
-use anyhow::Result;
-use rayon::prelude::*;
 
 pub const SALT_SIZE: usize = 2;
 
@@ -23,7 +25,31 @@ pub struct ListPolynomialCommitment<F: Field> {
 impl<F: Field> ListPolynomialCommitment<F> {
     pub fn new(polynomials: Vec<PolynomialCoeffs<F>>, rate_bits: usize, blinding: bool) -> Self {
         let degree = polynomials[0].len();
-        let lde_values = polynomials
+        let lde_values = timed!(
+            Self::lde_values(&polynomials, rate_bits, blinding),
+            "to compute LDE"
+        );
+
+        let mut leaves = timed!(transpose(&lde_values), "to transpose LDEs");
+        reverse_index_bits_in_place(&mut leaves);
+        let merkle_tree = timed!(MerkleTree::new(leaves, false), "to build Merkle tree");
+
+        Self {
+            polynomials,
+            merkle_tree,
+            degree,
+            rate_bits,
+            blinding,
+        }
+    }
+
+    fn lde_values(
+        polynomials: &[PolynomialCoeffs<F>],
+        rate_bits: usize,
+        blinding: bool,
+    ) -> Vec<Vec<F>> {
+        let degree = polynomials[0].len();
+        polynomials
             .par_iter()
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degree invalid.");
@@ -40,19 +66,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             } else {
                 Vec::new()
             })
-            .collect::<Vec<_>>();
-
-        let mut leaves = transpose(&lde_values);
-        reverse_index_bits_in_place(&mut leaves);
-        let merkle_tree = MerkleTree::new(leaves, false);
-
-        Self {
-            polynomials,
-            merkle_tree,
-            degree,
-            rate_bits,
-            blinding,
-        }
+            .collect()
     }
 
     pub fn leaf(&self, index: usize) -> &[F] {
@@ -323,9 +337,11 @@ impl<F: Field> OpeningProof<F> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::field::crandall_field::CrandallField;
     use anyhow::Result;
+
+    use crate::field::crandall_field::CrandallField;
+
+    use super::*;
 
     fn gen_random_test_case<F: Field>(
         k: usize,
