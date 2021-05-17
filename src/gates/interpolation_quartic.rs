@@ -107,21 +107,26 @@ impl<QFE: QuarticFieldExtension> Gate<QFE::BaseField> for QuarticInterpolationGa
     fn generators(
         &self,
         gate_index: usize,
-        local_constants: &[QFE::BaseField],
+        _local_constants: &[QFE::BaseField],
     ) -> Vec<Box<dyn WitnessGenerator<QFE::BaseField>>> {
-        todo!()
+        let gen = QuarticInterpolationGenerator::<QFE> {
+            gate_index,
+            num_points: self.num_points,
+            _phantom: PhantomData,
+        };
+        vec![Box::new(gen)]
     }
 
     fn num_wires(&self) -> usize {
-        todo!()
+        self.start_coeffs() + self.num_points * EXT_SIZE
     }
 
     fn num_constants(&self) -> usize {
-        todo!()
+        0
     }
 
     fn degree(&self) -> usize {
-        todo!()
+        self.num_points - 1
     }
 
     fn num_constraints(&self) -> usize {
@@ -130,6 +135,8 @@ impl<QFE: QuarticFieldExtension> Gate<QFE::BaseField> for QuarticInterpolationGa
 }
 
 struct QuarticInterpolationGenerator<QFE: QuarticFieldExtension> {
+    gate_index: usize,
+    num_points: usize,
     _phantom: PhantomData<QFE>,
 }
 
@@ -149,8 +156,9 @@ impl<QFE: QuarticFieldExtension> SimpleGenerator<QFE::BaseField>
 mod tests {
     use std::marker::PhantomData;
 
-    use crate::gates::interpolation_quartic::QuarticInterpolationGate;
     use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::gates::gate::Gate;
+    use crate::gates::interpolation_quartic::QuarticInterpolationGate;
 
     #[test]
     fn wire_indices() {
@@ -165,5 +173,6 @@ mod tests {
         assert_eq!(gate.wires_interpolated_value(), vec![14, 15, 16, 17]);
         assert_eq!(gate.wires_coeff(0), vec![18, 19, 20, 21]);
         assert_eq!(gate.wires_coeff(1), vec![22, 23, 24, 25]);
+        assert_eq!(gate.num_wires(), 26);
     }
 }
