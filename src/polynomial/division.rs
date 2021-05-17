@@ -1,7 +1,7 @@
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::polynomial::polynomial::PolynomialCoeffs;
-use crate::util::{log2_strict, log2_ceil};
+use crate::util::{log2_ceil, log2_strict};
 
 impl<F: Field> PolynomialCoeffs<F> {
     /// Polynomial division.
