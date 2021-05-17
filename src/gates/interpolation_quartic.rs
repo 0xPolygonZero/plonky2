@@ -59,7 +59,9 @@ impl<QFE: QuarticFieldExtension> QuarticInterpolationGate<QFE> {
 
     /// Wire indices of the point to evaluate the interpolant at.
     pub fn wires_interpolated_point(&self) -> Vec<usize> {
-        (0..EXT_SIZE).map(|j| self.start_interpolated_point() + j).collect()
+        (0..EXT_SIZE)
+            .map(|j| self.start_interpolated_point() + j)
+            .collect()
     }
 
     fn start_interpolated_value(&self) -> usize {
@@ -162,7 +164,10 @@ mod tests {
 
     #[test]
     fn wire_indices() {
-        let gate = QuarticInterpolationGate::<QuarticCrandallField> { num_points: 2, _phantom: PhantomData };
+        let gate = QuarticInterpolationGate::<QuarticCrandallField> {
+            num_points: 2,
+            _phantom: PhantomData,
+        };
         // The exact indices aren't really important, but we want to make sure we don't have any
         // overlaps or gaps.
         assert_eq!(gate.wire_point(0), 0);
