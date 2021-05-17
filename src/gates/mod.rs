@@ -4,4 +4,5 @@ pub(crate) mod fri_consistency_gate;
 pub(crate) mod gate;
 pub mod gmimc;
 pub(crate) mod gmimc_eval;
+mod interpolation_quartic;
 pub(crate) mod noop;
