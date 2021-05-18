@@ -1,4 +1,4 @@
-use crate::field::extension_field::{flatten, unflatten, Extendable, FieldExtension};
+use crate::field::extension_field::{flatten, unflatten, Extendable};
 use crate::field::field::Field;
 use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
