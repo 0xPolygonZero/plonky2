@@ -1,6 +1,7 @@
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::merkle_proofs::{MerkleProof, MerkleProofTarget};
-use crate::polynomial::commitment::{ListPolynomialCommitment, OpeningProof};
+use crate::polynomial::commitment::{ListPolynomialCommitment, OpeningProof, EXTENSION_DEGREE};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
 use std::convert::TryInto;
@@ -54,7 +55,7 @@ impl HashTarget {
     }
 }
 
-pub struct Proof<F: Field> {
+pub struct Proof<F: Field + Extendable<EXTENSION_DEGREE>> {
     /// Merkle root of LDEs of wire values.
     pub wires_root: Hash<F>,
     /// Merkle root of LDEs of Z, in the context of Plonk's permutation argument.
@@ -63,7 +64,7 @@ pub struct Proof<F: Field> {
     pub quotient_polys_root: Hash<F>,
 
     /// Purported values of each polynomial at each challenge point.
-    pub openings: Vec<OpeningSet<F>>,
+    pub openings: Vec<OpeningSet<F::Extension>>,
 
     /// A FRI argument for each FRI query.
     pub opening_proof: OpeningProof<F>,
@@ -86,8 +87,8 @@ pub struct ProofTarget {
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
 // TODO: Implement FriQueryStepTarget
-pub struct FriQueryStep<F: Field> {
-    pub evals: Vec<F>,
+pub struct FriQueryStep<F: Field + Extendable<EXTENSION_DEGREE>> {
+    pub evals: Vec<F::Extension>,
     pub merkle_proof: MerkleProof<F>,
 }
 
@@ -100,18 +101,18 @@ pub struct FriInitialTreeProof<F: Field> {
 
 /// Proof for a FRI query round.
 // TODO: Implement FriQueryRoundTarget
-pub struct FriQueryRound<F: Field> {
+pub struct FriQueryRound<F: Field + Extendable<EXTENSION_DEGREE>> {
     pub initial_trees_proof: FriInitialTreeProof<F>,
     pub steps: Vec<FriQueryStep<F>>,
 }
 
-pub struct FriProof<F: Field> {
+pub struct FriProof<F: Field + Extendable<EXTENSION_DEGREE>> {
     /// A Merkle root for each reduced polynomial in the commit phase.
     pub commit_phase_merkle_roots: Vec<Hash<F>>,
     /// Query rounds proofs
     pub query_round_proofs: Vec<FriQueryRound<F>>,
     /// The final polynomial in coefficient form.
-    pub final_poly: PolynomialCoeffs<F>,
+    pub final_poly: PolynomialCoeffs<F::Extension>,
     /// Witness showing that the prover did PoW.
     pub pow_witness: F,
 }

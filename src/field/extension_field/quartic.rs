@@ -6,7 +6,7 @@ use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-pub trait QuarticFieldExtension: Field {
+pub trait QuarticFieldExtension: Field + From<<Self as QuarticFieldExtension>::BaseField> {
     type BaseField: Field;
 
     // Element W of BaseField, such that `X^4 - W` is irreducible over BaseField.
@@ -65,6 +65,17 @@ impl QuarticFieldExtension for QuarticCrandallField {
     }
 }
 
+impl From<<Self as QuarticFieldExtension>::BaseField> for QuarticCrandallField {
+    fn from(x: <Self as QuarticFieldExtension>::BaseField) -> Self {
+        Self([
+            x,
+            <Self as QuarticFieldExtension>::BaseField::ZERO,
+            <Self as QuarticFieldExtension>::BaseField::ZERO,
+            <Self as QuarticFieldExtension>::BaseField::ZERO,
+        ])
+    }
+}
+
 impl PartialEq for QuarticCrandallField {
     fn eq(&self, other: &Self) -> bool {
         self.to_canonical_representation() == other.to_canonical_representation()
@@ -103,7 +114,7 @@ impl Field for QuarticCrandallField {
     ]);
 
     // Does not fit in 64-bits.
-    const ORDER: u64 = 0;
+    const ORDER: u64 = 0xffffffffffffffff; // Otherwise F::ORDER.leading_zeros() is misleading.
     const TWO_ADICITY: usize = 30;
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([
         CrandallField(3),
@@ -132,6 +143,27 @@ impl Field for QuarticCrandallField {
         debug_assert!(a_pow_r.is_in_basefield());
 
         Some(a_pow_r_minus_1.scalar_mul(a_pow_r.0[0].inverse()))
+    }
+
+    // It's important that the primitive roots of unity are the same as the ones in the base field,
+    // otherwise the FFT doesn't commute with field inclusion.
+    fn primitive_root_of_unity(n_log: usize) -> Self {
+        if n_log <= CrandallField::TWO_ADICITY {
+            Self([
+                CrandallField::primitive_root_of_unity(n_log),
+                CrandallField::ZERO,
+                CrandallField::ZERO,
+                CrandallField::ZERO,
+            ])
+        } else {
+            // The root of unity isn't in the base field so we need to compute it manually.
+            assert!(n_log <= Self::TWO_ADICITY);
+            let mut base = Self::POWER_OF_TWO_GENERATOR;
+            for _ in n_log..Self::TWO_ADICITY {
+                base = base.square();
+            }
+            base
+        }
     }
 
     fn to_canonical_u64(&self) -> u64 {

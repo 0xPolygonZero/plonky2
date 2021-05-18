@@ -1,6 +1,7 @@
 use std::cmp::max;
 use std::ops::{Add, Mul, Sub};
 
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::util::{log2_ceil, log2_strict};
@@ -166,6 +167,13 @@ impl<F: Field> PolynomialCoeffs<F> {
             .collect::<Vec<_>>()
             .into();
         modified_poly.fft()
+    }
+
+    pub fn to_extension<const D: usize>(&self) -> PolynomialCoeffs<F::Extension>
+    where
+        F: Extendable<D>,
+    {
+        PolynomialCoeffs::new(self.coeffs.iter().map(|&c| c.into()).collect())
     }
 }
 

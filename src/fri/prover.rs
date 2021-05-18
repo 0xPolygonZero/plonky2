@@ -1,9 +1,11 @@
+use crate::field::extension_field::{flatten, unflatten, Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
+use crate::polynomial::commitment::EXTENSION_DEGREE;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep, Hash};
 use crate::util::reverse_index_bits_in_place;
@@ -12,12 +14,15 @@ use crate::util::reverse_index_bits_in_place;
 pub fn fri_proof<F: Field>(
     initial_merkle_trees: &[&MerkleTree<F>],
     // Coefficients of the polynomial on which the LDT is performed. Only the first `1/rate` coefficients are non-zero.
-    lde_polynomial_coeffs: &PolynomialCoeffs<F>,
+    lde_polynomial_coeffs: &PolynomialCoeffs<F::Extension>,
     // Evaluation of the polynomial on the large domain.
-    lde_polynomial_values: &PolynomialValues<F>,
+    lde_polynomial_values: &PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
-) -> FriProof<F> {
+) -> FriProof<F>
+where
+    F: Extendable<EXTENSION_DEGREE>,
+{
     let n = lde_polynomial_values.values.len();
     assert_eq!(lde_polynomial_coeffs.coeffs.len(), n);
 
@@ -46,11 +51,14 @@ pub fn fri_proof<F: Field>(
 }
 
 fn fri_committed_trees<F: Field>(
-    polynomial_coeffs: &PolynomialCoeffs<F>,
-    polynomial_values: &PolynomialValues<F>,
+    polynomial_coeffs: &PolynomialCoeffs<F::Extension>,
+    polynomial_values: &PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
-) -> (Vec<MerkleTree<F>>, PolynomialCoeffs<F>) {
+) -> (Vec<MerkleTree<F>>, PolynomialCoeffs<F::Extension>)
+where
+    F: Extendable<EXTENSION_DEGREE>,
+{
     let mut values = polynomial_values.clone();
     let mut coeffs = polynomial_coeffs.clone();
 
@@ -66,7 +74,7 @@ fn fri_committed_trees<F: Field>(
             values
                 .values
                 .chunks(arity)
-                .map(|chunk| chunk.to_vec())
+                .map(|chunk: &[F::Extension]| flatten(chunk))
                 .collect(),
             false,
         );
@@ -74,7 +82,7 @@ fn fri_committed_trees<F: Field>(
         challenger.observe_hash(&tree.root);
         trees.push(tree);
 
-        let beta = challenger.get_challenge();
+        let beta = challenger.get_extension_challenge();
         // P(x) = sum_{i<r} x^i * P_i(x^r) becomes sum_{i<r} beta^i * P_i(x).
         coeffs = PolynomialCoeffs::new(
             coeffs
@@ -85,10 +93,10 @@ fn fri_committed_trees<F: Field>(
         );
         shift = shift.exp_u32(arity as u32);
         // TODO: Is it faster to interpolate?
-        values = coeffs.clone().coset_fft(shift);
+        values = coeffs.clone().coset_fft(shift.into())
     }
 
-    challenger.observe_elements(&coeffs.coeffs);
+    challenger.observe_extension_elements(&coeffs.coeffs);
     (trees, coeffs)
 }
 
@@ -112,7 +120,7 @@ fn fri_proof_of_work<F: Field>(current_hash: Hash<F>, config: &FriConfig) -> F {
         .expect("Proof of work failed.")
 }
 
-fn fri_prover_query_rounds<F: Field>(
+fn fri_prover_query_rounds<F: Field + Extendable<EXTENSION_DEGREE>>(
     initial_merkle_trees: &[&MerkleTree<F>],
     trees: &[MerkleTree<F>],
     challenger: &mut Challenger<F>,
@@ -124,7 +132,7 @@ fn fri_prover_query_rounds<F: Field>(
         .collect()
 }
 
-fn fri_prover_query_round<F: Field>(
+fn fri_prover_query_round<F: Field + Extendable<EXTENSION_DEGREE>>(
     initial_merkle_trees: &[&MerkleTree<F>],
     trees: &[MerkleTree<F>],
     challenger: &mut Challenger<F>,
@@ -134,6 +142,7 @@ fn fri_prover_query_round<F: Field>(
     let mut query_steps = Vec::new();
     let x = challenger.get_challenge();
     let mut x_index = x.to_canonical_u64() as usize % n;
+    dbg!(x_index, n);
     let initial_proof = initial_merkle_trees
         .iter()
         .map(|t| (t.get(x_index).to_vec(), t.prove(x_index)))
@@ -141,7 +150,7 @@ fn fri_prover_query_round<F: Field>(
     for (i, tree) in trees.iter().enumerate() {
         let arity_bits = config.reduction_arity_bits[i];
         let arity = 1 << arity_bits;
-        let mut evals = tree.get(x_index >> arity_bits).to_vec();
+        let mut evals = unflatten(tree.get(x_index >> arity_bits));
         evals.remove(x_index & (arity - 1));
         let merkle_proof = tree.prove(x_index >> arity_bits);
 

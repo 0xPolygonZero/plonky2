@@ -4,6 +4,9 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use num::Integer;
 
+use crate::field::extension_field::quadratic::QuadraticCrandallField;
+use crate::field::extension_field::quartic::QuarticCrandallField;
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
@@ -410,6 +413,14 @@ impl DivAssign for CrandallField {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
+}
+
+impl Extendable<2> for CrandallField {
+    type Extension = QuadraticCrandallField;
+}
+
+impl Extendable<4> for CrandallField {
+    type Extension = QuarticCrandallField;
 }
 
 /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the

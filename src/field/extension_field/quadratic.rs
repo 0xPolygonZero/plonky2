@@ -6,7 +6,9 @@ use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-pub trait BinaryFieldExtension: Field {
+pub trait QuadraticFieldExtension:
+    Field + From<<Self as QuadraticFieldExtension>::BaseField>
+{
     type BaseField: Field;
 
     // Element W of BaseField, such that `X^2 - W` is irreducible over BaseField.
@@ -35,9 +37,9 @@ pub trait BinaryFieldExtension: Field {
 }
 
 #[derive(Copy, Clone)]
-pub struct BinaryCrandallField([CrandallField; 2]);
+pub struct QuadraticCrandallField([CrandallField; 2]);
 
-impl BinaryFieldExtension for BinaryCrandallField {
+impl QuadraticFieldExtension for QuadraticCrandallField {
     type BaseField = CrandallField;
     // Verifiable in Sage with
     // ``R.<x> = GF(p)[]; assert (x^2 -3).is_irreducible()`.
@@ -57,15 +59,21 @@ impl BinaryFieldExtension for BinaryCrandallField {
     }
 }
 
-impl PartialEq for BinaryCrandallField {
+impl From<<Self as QuadraticFieldExtension>::BaseField> for QuadraticCrandallField {
+    fn from(x: <Self as QuadraticFieldExtension>::BaseField) -> Self {
+        Self([x, <Self as QuadraticFieldExtension>::BaseField::ZERO])
+    }
+}
+
+impl PartialEq for QuadraticCrandallField {
     fn eq(&self, other: &Self) -> bool {
         self.to_canonical_representation() == other.to_canonical_representation()
     }
 }
 
-impl Eq for BinaryCrandallField {}
+impl Eq for QuadraticCrandallField {}
 
-impl Hash for BinaryCrandallField {
+impl Hash for QuadraticCrandallField {
     fn hash<H: Hasher>(&self, state: &mut H) {
         for l in &self.to_canonical_representation() {
             Hash::hash(l, state);
@@ -73,14 +81,14 @@ impl Hash for BinaryCrandallField {
     }
 }
 
-impl Field for BinaryCrandallField {
+impl Field for QuadraticCrandallField {
     const ZERO: Self = Self([CrandallField::ZERO; 2]);
     const ONE: Self = Self([CrandallField::ONE, CrandallField::ZERO]);
     const TWO: Self = Self([CrandallField::TWO, CrandallField::ZERO]);
     const NEG_ONE: Self = Self([CrandallField::NEG_ONE, CrandallField::ZERO]);
 
     // Does not fit in 64-bits.
-    const ORDER: u64 = 0;
+    const ORDER: u64 = 0xffffffffffffffff; // Otherwise F::ORDER.leading_zeros() is misleading.
     const TWO_ADICITY: usize = 29;
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([CrandallField(3), CrandallField::ONE]);
     const POWER_OF_TWO_GENERATOR: Self =
@@ -99,38 +107,57 @@ impl Field for BinaryCrandallField {
         Some(a_pow_r_minus_1.scalar_mul(a_pow_r.0[0].inverse()))
     }
 
+    // It's important that the primitive roots of unity are the same as the ones in the base field,
+    // otherwise the FFT doesn't commute with field inclusion.
+    fn primitive_root_of_unity(n_log: usize) -> Self {
+        if n_log <= CrandallField::TWO_ADICITY {
+            Self([
+                CrandallField::primitive_root_of_unity(n_log),
+                CrandallField::ZERO,
+            ])
+        } else {
+            // The root of unity isn't in the base field so we need to compute it manually.
+            assert!(n_log <= Self::TWO_ADICITY);
+            let mut base = Self::POWER_OF_TWO_GENERATOR;
+            for _ in n_log..Self::TWO_ADICITY {
+                base = base.square();
+            }
+            base
+        }
+    }
+
     fn to_canonical_u64(&self) -> u64 {
         self.0[0].to_canonical_u64()
     }
 
     fn from_canonical_u64(n: u64) -> Self {
         Self([
-            <Self as BinaryFieldExtension>::BaseField::from_canonical_u64(n),
-            <Self as BinaryFieldExtension>::BaseField::ZERO,
+            <Self as QuadraticFieldExtension>::BaseField::from_canonical_u64(n),
+            <Self as QuadraticFieldExtension>::BaseField::ZERO,
         ])
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self([
-            <Self as BinaryFieldExtension>::BaseField::rand_from_rng(rng),
-            <Self as BinaryFieldExtension>::BaseField::rand_from_rng(rng),
+            <Self as QuadraticFieldExtension>::BaseField::rand_from_rng(rng),
+            <Self as QuadraticFieldExtension>::BaseField::rand_from_rng(rng),
         ])
     }
 }
 
-impl Display for BinaryCrandallField {
+impl Display for QuadraticCrandallField {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} + {}*a", self.0[0], self.0[1])
     }
 }
 
-impl Debug for BinaryCrandallField {
+impl Debug for QuadraticCrandallField {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl Neg for BinaryCrandallField {
+impl Neg for QuadraticCrandallField {
     type Output = Self;
 
     #[inline]
@@ -139,7 +166,7 @@ impl Neg for BinaryCrandallField {
     }
 }
 
-impl Add for BinaryCrandallField {
+impl Add for QuadraticCrandallField {
     type Output = Self;
 
     #[inline]
@@ -148,19 +175,19 @@ impl Add for BinaryCrandallField {
     }
 }
 
-impl AddAssign for BinaryCrandallField {
+impl AddAssign for QuadraticCrandallField {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
 
-impl Sum for BinaryCrandallField {
+impl Sum for QuadraticCrandallField {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::ZERO, |acc, x| acc + x)
     }
 }
 
-impl Sub for BinaryCrandallField {
+impl Sub for QuadraticCrandallField {
     type Output = Self;
 
     #[inline]
@@ -169,14 +196,14 @@ impl Sub for BinaryCrandallField {
     }
 }
 
-impl SubAssign for BinaryCrandallField {
+impl SubAssign for QuadraticCrandallField {
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
 }
 
-impl Mul for BinaryCrandallField {
+impl Mul for QuadraticCrandallField {
     type Output = Self;
 
     #[inline]
@@ -191,20 +218,20 @@ impl Mul for BinaryCrandallField {
     }
 }
 
-impl MulAssign for BinaryCrandallField {
+impl MulAssign for QuadraticCrandallField {
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
 
-impl Product for BinaryCrandallField {
+impl Product for QuadraticCrandallField {
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::ONE, |acc, x| acc * x)
     }
 }
 
-impl Div for BinaryCrandallField {
+impl Div for QuadraticCrandallField {
     type Output = Self;
 
     #[allow(clippy::suspicious_arithmetic_impl)]
@@ -213,7 +240,7 @@ impl Div for BinaryCrandallField {
     }
 }
 
-impl DivAssign for BinaryCrandallField {
+impl DivAssign for QuadraticCrandallField {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
@@ -221,7 +248,9 @@ impl DivAssign for BinaryCrandallField {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::extension_field::binary::{BinaryCrandallField, BinaryFieldExtension};
+    use crate::field::extension_field::quadratic::{
+        QuadraticCrandallField, QuadraticFieldExtension,
+    };
     use crate::field::field::Field;
 
     fn exp_naive<F: Field>(x: F, power: u64) -> F {
@@ -239,7 +268,7 @@ mod tests {
 
     #[test]
     fn test_add_neg_sub_mul() {
-        type F = BinaryCrandallField;
+        type F = QuadraticCrandallField;
         let x = F::rand();
         let y = F::rand();
         let z = F::rand();
@@ -247,7 +276,7 @@ mod tests {
         assert_eq!(-x, F::ZERO - x);
         assert_eq!(
             x + x,
-            x.scalar_mul(<F as BinaryFieldExtension>::BaseField::TWO)
+            x.scalar_mul(<F as QuadraticFieldExtension>::BaseField::TWO)
         );
         assert_eq!(x * (-x), -x.square());
         assert_eq!(x + y, y + x);
@@ -260,7 +289,7 @@ mod tests {
 
     #[test]
     fn test_inv_div() {
-        type F = BinaryCrandallField;
+        type F = QuadraticCrandallField;
         let x = F::rand();
         let y = F::rand();
         let z = F::rand();
@@ -274,10 +303,10 @@ mod tests {
 
     #[test]
     fn test_frobenius() {
-        type F = BinaryCrandallField;
+        type F = QuadraticCrandallField;
         let x = F::rand();
         assert_eq!(
-            exp_naive(x, <F as BinaryFieldExtension>::BaseField::ORDER),
+            exp_naive(x, <F as QuadraticFieldExtension>::BaseField::ORDER),
             x.frobenius()
         );
     }
@@ -285,7 +314,7 @@ mod tests {
     #[test]
     fn test_field_order() {
         // F::ORDER = 340282366831806780677557380898690695169 = 18446744071293632512 *18446744071293632514 + 1
-        type F = BinaryCrandallField;
+        type F = QuadraticCrandallField;
         let x = F::rand();
         assert_eq!(
             exp_naive(exp_naive(x, 18446744071293632512), 18446744071293632514),

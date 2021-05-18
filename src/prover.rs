@@ -4,12 +4,13 @@ use log::info;
 use rayon::prelude::*;
 
 use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
+use crate::field::extension_field::Extendable;
 use crate::field::fft::ifft;
 use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::{eval_l_1, evaluate_gate_constraints, reduce_with_powers_multi};
-use crate::polynomial::commitment::ListPolynomialCommitment;
+use crate::polynomial::commitment::{ListPolynomialCommitment, EXTENSION_DEGREE};
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::timed;
@@ -21,7 +22,7 @@ use crate::witness::PartialWitness;
 /// Corresponds to constants - sigmas - wires - zs - quotient — polynomial commitments.
 pub const PLONK_BLINDING: [bool; 5] = [false, false, true, true, true];
 
-pub(crate) fn prove<F: Field>(
+pub(crate) fn prove<F: Field + Extendable<EXTENSION_DEGREE>>(
     prover_data: &ProverOnlyCircuitData<F>,
     common_data: &CommonCircuitData<F>,
     inputs: PartialWitness<F>,
@@ -109,7 +110,7 @@ pub(crate) fn prove<F: Field>(
 
     challenger.observe_hash(&quotient_polys_commitment.merkle_tree.root);
 
-    let zetas = challenger.get_n_challenges(config.num_challenges);
+    let zetas = challenger.get_n_extension_challenges(config.num_challenges);
 
     let (opening_proof, openings) = timed!(
         ListPolynomialCommitment::batch_open_plonk(
