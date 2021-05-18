@@ -95,13 +95,6 @@ impl<F: Field> Challenger<F> {
         (0..n).map(|_| self.get_challenge()).collect()
     }
 
-    pub fn get_n_extension_challenges<const D: usize>(&mut self, n: usize) -> Vec<F::Extension>
-    where
-        F: Extendable<D>,
-    {
-        (0..n).map(|_| self.get_extension_challenge()).collect()
-    }
-
     pub fn get_hash(&mut self) -> Hash<F> {
         Hash {
             elements: [
@@ -120,6 +113,13 @@ impl<F: Field> Challenger<F> {
         let mut arr = [F::ZERO; D];
         arr.copy_from_slice(&self.get_n_challenges(D));
         F::Extension::from_basefield_array(arr)
+    }
+
+    pub fn get_n_extension_challenges<const D: usize>(&mut self, n: usize) -> Vec<F::Extension>
+    where
+        F: Extendable<D>,
+    {
+        (0..n).map(|_| self.get_extension_challenge()).collect()
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
