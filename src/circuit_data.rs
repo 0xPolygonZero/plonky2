@@ -4,7 +4,7 @@ use crate::fri::FriConfig;
 use crate::gates::gate::GateRef;
 use crate::generator::WitnessGenerator;
 use crate::merkle_tree::MerkleTree;
-use crate::polynomial::commitment::{ListPolynomialCommitment, EXTENSION_DEGREE};
+use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::proof::{Hash, HashTarget, Proof};
 use crate::prover::prove;
 use crate::verifier::verify;

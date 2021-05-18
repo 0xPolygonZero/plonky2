@@ -1,7 +1,7 @@
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::merkle_proofs::{MerkleProof, MerkleProofTarget};
-use crate::polynomial::commitment::{ListPolynomialCommitment, OpeningProof, EXTENSION_DEGREE};
+use crate::polynomial::commitment::{ListPolynomialCommitment, OpeningProof};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
 use std::convert::TryInto;

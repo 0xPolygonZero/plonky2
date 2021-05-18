@@ -381,10 +381,7 @@ mod tests {
         (polys, points)
     }
 
-    #[test]
-    fn test_polynomial_commitment() -> Result<()> {
-        type F = CrandallField;
-
+    fn check_polynomial_commitment<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
         let k = 10;
         let degree_log = 11;
         let num_points = 3;
@@ -395,10 +392,10 @@ mod tests {
             num_query_rounds: 3,
             blinding: vec![false],
         };
-        let (polys, points) = gen_random_test_case::<F, 2>(k, degree_log, num_points);
+        let (polys, points) = gen_random_test_case::<F, D>(k, degree_log, num_points);
 
         let lpc = ListPolynomialCommitment::new(polys, fri_config.rate_bits, false);
-        let (proof, evaluations) = lpc.open::<2>(&points, &mut Challenger::new(), &fri_config);
+        let (proof, evaluations) = lpc.open::<D>(&points, &mut Challenger::new(), &fri_config);
         proof.verify(
             &points,
             &evaluations.into_iter().map(|e| vec![e]).collect::<Vec<_>>(),
@@ -408,10 +405,8 @@ mod tests {
         )
     }
 
-    #[test]
-    fn test_polynomial_commitment_blinding() -> Result<()> {
-        type F = CrandallField;
-
+    fn check_polynomial_commitment_blinding<F: Field + Extendable<D>, const D: usize>() -> Result<()>
+    {
         let k = 10;
         let degree_log = 11;
         let num_points = 3;
@@ -422,10 +417,10 @@ mod tests {
             num_query_rounds: 3,
             blinding: vec![true],
         };
-        let (polys, points) = gen_random_test_case::<F, 2>(k, degree_log, num_points);
+        let (polys, points) = gen_random_test_case::<F, D>(k, degree_log, num_points);
 
         let lpc = ListPolynomialCommitment::new(polys, fri_config.rate_bits, true);
-        let (proof, evaluations) = lpc.open::<2>(&points, &mut Challenger::new(), &fri_config);
+        let (proof, evaluations) = lpc.open::<D>(&points, &mut Challenger::new(), &fri_config);
         proof.verify(
             &points,
             &evaluations.into_iter().map(|e| vec![e]).collect::<Vec<_>>(),
@@ -435,10 +430,7 @@ mod tests {
         )
     }
 
-    #[test]
-    fn test_batch_polynomial_commitment() -> Result<()> {
-        type F = CrandallField;
-
+    fn check_batch_polynomial_commitment<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
         let k0 = 10;
         let k1 = 3;
         let k2 = 7;
@@ -451,15 +443,15 @@ mod tests {
             num_query_rounds: 3,
             blinding: vec![false, false, false],
         };
-        let (polys0, _) = gen_random_test_case::<F, 2>(k0, degree_log, num_points);
-        let (polys1, _) = gen_random_test_case::<F, 2>(k0, degree_log, num_points);
-        let (polys2, points) = gen_random_test_case::<F, 2>(k0, degree_log, num_points);
+        let (polys0, _) = gen_random_test_case::<F, D>(k0, degree_log, num_points);
+        let (polys1, _) = gen_random_test_case::<F, D>(k1, degree_log, num_points);
+        let (polys2, points) = gen_random_test_case::<F, D>(k2, degree_log, num_points);
 
         let lpc0 = ListPolynomialCommitment::new(polys0, fri_config.rate_bits, false);
         let lpc1 = ListPolynomialCommitment::new(polys1, fri_config.rate_bits, false);
         let lpc2 = ListPolynomialCommitment::new(polys2, fri_config.rate_bits, false);
 
-        let (proof, evaluations) = ListPolynomialCommitment::batch_open::<2>(
+        let (proof, evaluations) = ListPolynomialCommitment::batch_open::<D>(
             &[&lpc0, &lpc1, &lpc2],
             &points,
             &mut Challenger::new(),
@@ -478,10 +470,8 @@ mod tests {
         )
     }
 
-    #[test]
-    fn test_batch_polynomial_commitment_blinding() -> Result<()> {
-        type F = CrandallField;
-
+    fn check_batch_polynomial_commitment_blinding<F: Field + Extendable<D>, const D: usize>(
+    ) -> Result<()> {
         let k0 = 10;
         let k1 = 3;
         let k2 = 7;
@@ -494,15 +484,15 @@ mod tests {
             num_query_rounds: 3,
             blinding: vec![true, false, true],
         };
-        let (polys0, _) = gen_random_test_case::<F, 2>(k0, degree_log, num_points);
-        let (polys1, _) = gen_random_test_case::<F, 2>(k0, degree_log, num_points);
-        let (polys2, points) = gen_random_test_case::<F, 2>(k0, degree_log, num_points);
+        let (polys0, _) = gen_random_test_case::<F, D>(k0, degree_log, num_points);
+        let (polys1, _) = gen_random_test_case::<F, D>(k1, degree_log, num_points);
+        let (polys2, points) = gen_random_test_case::<F, D>(k2, degree_log, num_points);
 
         let lpc0 = ListPolynomialCommitment::new(polys0, fri_config.rate_bits, true);
         let lpc1 = ListPolynomialCommitment::new(polys1, fri_config.rate_bits, false);
         let lpc2 = ListPolynomialCommitment::new(polys2, fri_config.rate_bits, true);
 
-        let (proof, evaluations) = ListPolynomialCommitment::batch_open::<2>(
+        let (proof, evaluations) = ListPolynomialCommitment::batch_open::<D>(
             &[&lpc0, &lpc1, &lpc2],
             &points,
             &mut Challenger::new(),
@@ -519,5 +509,83 @@ mod tests {
             &mut Challenger::new(),
             &fri_config,
         )
+    }
+
+    mod base {
+        use super::*;
+        type F = CrandallField;
+        const D: usize = 1;
+
+        #[test]
+        fn test_polynomial_commitment() -> Result<()> {
+            check_polynomial_commitment::<F, D>()
+        }
+
+        #[test]
+        fn test_polynomial_commitment_blinding() -> Result<()> {
+            check_polynomial_commitment_blinding::<F, D>()
+        }
+
+        #[test]
+        fn test_batch_polynomial_commitment() -> Result<()> {
+            check_batch_polynomial_commitment::<F, D>()
+        }
+
+        #[test]
+        fn test_batch_polynomial_commitment_blinding() -> Result<()> {
+            check_batch_polynomial_commitment_blinding::<F, D>()
+        }
+    }
+
+    mod quadratic {
+        use super::*;
+        type F = CrandallField;
+        const D: usize = 2;
+
+        #[test]
+        fn test_polynomial_commitment() -> Result<()> {
+            check_polynomial_commitment::<F, D>()
+        }
+
+        #[test]
+        fn test_polynomial_commitment_blinding() -> Result<()> {
+            check_polynomial_commitment_blinding::<F, D>()
+        }
+
+        #[test]
+        fn test_batch_polynomial_commitment() -> Result<()> {
+            check_batch_polynomial_commitment::<F, D>()
+        }
+
+        #[test]
+        fn test_batch_polynomial_commitment_blinding() -> Result<()> {
+            check_batch_polynomial_commitment_blinding::<F, D>()
+        }
+    }
+
+    mod quartic {
+        use super::*;
+        type F = CrandallField;
+        const D: usize = 4;
+
+        #[test]
+        fn test_polynomial_commitment() -> Result<()> {
+            check_polynomial_commitment::<F, D>()
+        }
+
+        #[test]
+        fn test_polynomial_commitment_blinding() -> Result<()> {
+            check_polynomial_commitment_blinding::<F, D>()
+        }
+
+        #[test]
+        fn test_batch_polynomial_commitment() -> Result<()> {
+            check_batch_polynomial_commitment::<F, D>()
+        }
+
+        #[test]
+        fn test_batch_polynomial_commitment_blinding() -> Result<()> {
+            check_batch_polynomial_commitment_blinding::<F, D>()
+        }
     }
 }

@@ -5,7 +5,6 @@ use crate::hash::hash_n_to_1;
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
-use crate::polynomial::commitment::EXTENSION_DEGREE;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep, Hash};
 use crate::util::reverse_index_bits_in_place;
@@ -136,7 +135,6 @@ fn fri_prover_query_round<F: Field + Extendable<D>, const D: usize>(
     let mut query_steps = Vec::new();
     let x = challenger.get_challenge();
     let mut x_index = x.to_canonical_u64() as usize % n;
-    dbg!(x_index, n);
     let initial_proof = initial_merkle_trees
         .iter()
         .map(|t| (t.get(x_index).to_vec(), t.prove(x_index)))
