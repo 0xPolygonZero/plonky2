@@ -52,13 +52,17 @@ fn fri_l(codeword_len: usize, rate_log: usize, conjecture: bool) -> f64 {
 mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::quadratic::QuadraticCrandallField;
+    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::{flatten, FieldExtension};
     use crate::field::fft::ifft;
     use crate::field::field::Field;
     use crate::fri::prover::fri_proof;
     use crate::fri::verifier::verify_fri_proof;
     use crate::merkle_tree::MerkleTree;
     use crate::plonk_challenger::Challenger;
-    use crate::polynomial::polynomial::PolynomialCoeffs;
+    use crate::polynomial::commitment::EXTENSION_DEGREE;
+    use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
     use crate::util::reverse_index_bits_in_place;
     use anyhow::Result;
     use rand::rngs::ThreadRng;
@@ -71,6 +75,7 @@ mod tests {
         num_query_rounds: usize,
     ) -> Result<()> {
         type F = CrandallField;
+        type F2 = QuadraticCrandallField;
 
         let n = 1 << degree_log;
         let coeffs = PolynomialCoeffs::new(F::rand_vec(n)).lde(rate_bits);
@@ -91,15 +96,23 @@ mod tests {
             reverse_index_bits_in_place(&mut leaves);
             MerkleTree::new(leaves, false)
         };
+        let coset_lde =
+            PolynomialValues::new(coset_lde.values.into_iter().map(|x| F2::from(x)).collect());
         let root = tree.root;
         let mut challenger = Challenger::new();
-        let proof = fri_proof(&[&tree], &coeffs, &coset_lde, &mut challenger, &config);
+        let proof = fri_proof(
+            &[&tree],
+            &coeffs.to_extension::<EXTENSION_DEGREE>(),
+            &coset_lde,
+            &mut challenger,
+            &config,
+        );
 
         let mut challenger = Challenger::new();
         verify_fri_proof(
             degree_log,
             &[],
-            F::ONE,
+            F2::ONE,
             &[root],
             &proof,
             &mut challenger,

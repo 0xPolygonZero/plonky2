@@ -1,9 +1,10 @@
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::fri::FriConfig;
 use crate::gates::gate::GateRef;
 use crate::generator::WitnessGenerator;
 use crate::merkle_tree::MerkleTree;
-use crate::polynomial::commitment::ListPolynomialCommitment;
+use crate::polynomial::commitment::{ListPolynomialCommitment, EXTENSION_DEGREE};
 use crate::proof::{Hash, HashTarget, Proof};
 use crate::prover::prove;
 use crate::verifier::verify;
@@ -55,7 +56,7 @@ pub struct CircuitData<F: Field> {
     pub(crate) common: CommonCircuitData<F>,
 }
 
-impl<F: Field> CircuitData<F> {
+impl<F: Field + Extendable<EXTENSION_DEGREE>> CircuitData<F> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F> {
         prove(&self.prover_only, &self.common, inputs)
     }
@@ -77,7 +78,7 @@ pub struct ProverCircuitData<F: Field> {
     pub(crate) common: CommonCircuitData<F>,
 }
 
-impl<F: Field> ProverCircuitData<F> {
+impl<F: Field + Extendable<EXTENSION_DEGREE>> ProverCircuitData<F> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F> {
         prove(&self.prover_only, &self.common, inputs)
     }

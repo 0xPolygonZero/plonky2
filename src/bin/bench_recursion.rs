@@ -3,11 +3,13 @@ use env_logger::Env;
 use plonky2::circuit_builder::CircuitBuilder;
 use plonky2::circuit_data::CircuitConfig;
 use plonky2::field::crandall_field::CrandallField;
+use plonky2::field::extension_field::Extendable;
 use plonky2::field::field::Field;
 use plonky2::fri::FriConfig;
 use plonky2::gates::constant::ConstantGate;
 use plonky2::gates::gmimc::GMiMCGate;
 use plonky2::hash::GMIMC_ROUNDS;
+use plonky2::polynomial::commitment::EXTENSION_DEGREE;
 use plonky2::prover::PLONK_BLINDING;
 use plonky2::witness::PartialWitness;
 
@@ -27,7 +29,7 @@ fn main() {
     // bench_gmimc::<CrandallField>();
 }
 
-fn bench_prove<F: Field>() {
+fn bench_prove<F: Field + Extendable<EXTENSION_DEGREE>>() {
     let gmimc_gate = GMiMCGate::<F, GMIMC_ROUNDS>::with_automatic_constants();
 
     let config = CircuitConfig {
