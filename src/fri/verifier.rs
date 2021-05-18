@@ -13,16 +13,13 @@ use anyhow::{ensure, Result};
 
 /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
 /// and P' is the FRI reduced polynomial.
-fn compute_evaluation<F: Field>(
+fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     x: F,
     old_x_index: usize,
     arity_bits: usize,
     last_evals: &[F::Extension],
     beta: F::Extension,
-) -> F::Extension
-where
-    F: Extendable<EXTENSION_DEGREE>,
-{
+) -> F::Extension {
     debug_assert_eq!(last_evals.len(), 1 << arity_bits);
 
     let g = F::primitive_root_of_unity(arity_bits);
@@ -43,14 +40,11 @@ where
     interpolate(&points, beta, &barycentric_weights)
 }
 
-fn fri_verify_proof_of_work<F: Field>(
-    proof: &FriProof<F>,
+fn fri_verify_proof_of_work<F: Field + Extendable<D>, const D: usize>(
+    proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
-) -> Result<()>
-where
-    F: Extendable<EXTENSION_DEGREE>,
-{
+) -> Result<()> {
     let hash = hash_n_to_1(
         challenger
             .get_hash()
@@ -70,20 +64,17 @@ where
     Ok(())
 }
 
-pub fn verify_fri_proof<F: Field>(
+pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     purported_degree_log: usize,
     // Point-evaluation pairs for polynomial commitments.
     points: &[(F::Extension, F::Extension)],
     // Scaling factor to combine polynomials.
     alpha: F::Extension,
     initial_merkle_roots: &[Hash<F>],
-    proof: &FriProof<F>,
+    proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
-) -> Result<()>
-where
-    F: Extendable<EXTENSION_DEGREE>,
-{
+) -> Result<()> {
     let total_arities = config.reduction_arity_bits.iter().sum::<usize>();
     ensure!(
         purported_degree_log
@@ -149,17 +140,14 @@ fn fri_verify_initial_proof<F: Field>(
     Ok(())
 }
 
-fn fri_combine_initial<F: Field>(
+fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     proof: &FriInitialTreeProof<F>,
     alpha: F::Extension,
     interpolant: &PolynomialCoeffs<F::Extension>,
     points: &[(F::Extension, F::Extension)],
     subgroup_x: F,
     config: &FriConfig,
-) -> F::Extension
-where
-    F: Extendable<EXTENSION_DEGREE>,
-{
+) -> F::Extension {
     let e = proof
         .evals_proofs
         .iter()
@@ -175,21 +163,18 @@ where
     numerator / denominator
 }
 
-fn fri_verifier_query_round<F: Field>(
+fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
     interpolant: &PolynomialCoeffs<F::Extension>,
     points: &[(F::Extension, F::Extension)],
     alpha: F::Extension,
     initial_merkle_roots: &[Hash<F>],
-    proof: &FriProof<F>,
+    proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     n: usize,
     betas: &[F::Extension],
-    round_proof: &FriQueryRound<F>,
+    round_proof: &FriQueryRound<F, D>,
     config: &FriConfig,
-) -> Result<()>
-where
-    F: Extendable<EXTENSION_DEGREE>,
-{
+) -> Result<()> {
     let mut evaluations: Vec<Vec<F::Extension>> = Vec::new();
     let x = challenger.get_challenge();
     let mut domain_size = n;

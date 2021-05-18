@@ -15,7 +15,6 @@ use crate::timed;
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
 
 pub const SALT_SIZE: usize = 2;
-pub const EXTENSION_DEGREE: usize = 2;
 
 pub struct ListPolynomialCommitment<F: Field> {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
@@ -77,14 +76,14 @@ impl<F: Field> ListPolynomialCommitment<F> {
         &leaf[0..leaf.len() - if self.blinding { SALT_SIZE } else { 0 }]
     }
 
-    pub fn open(
+    pub fn open<const D: usize>(
         &self,
         points: &[F::Extension],
         challenger: &mut Challenger<F>,
         config: &FriConfig,
-    ) -> (OpeningProof<F>, Vec<Vec<F::Extension>>)
+    ) -> (OpeningProof<F, D>, Vec<Vec<F::Extension>>)
     where
-        F: Extendable<EXTENSION_DEGREE>,
+        F: Extendable<D>,
     {
         assert_eq!(self.rate_bits, config.rate_bits);
         assert_eq!(config.blinding.len(), 1);
@@ -152,14 +151,14 @@ impl<F: Field> ListPolynomialCommitment<F> {
         )
     }
 
-    pub fn batch_open(
+    pub fn batch_open<const D: usize>(
         commitments: &[&Self],
         points: &[F::Extension],
         challenger: &mut Challenger<F>,
         config: &FriConfig,
-    ) -> (OpeningProof<F>, Vec<Vec<Vec<F::Extension>>>)
+    ) -> (OpeningProof<F, D>, Vec<Vec<Vec<F::Extension>>>)
     where
-        F: Extendable<EXTENSION_DEGREE>,
+        F: Extendable<D>,
     {
         let degree = commitments[0].degree;
         assert_eq!(config.blinding.len(), commitments.len());
@@ -250,14 +249,14 @@ impl<F: Field> ListPolynomialCommitment<F> {
         )
     }
 
-    pub fn batch_open_plonk(
+    pub fn batch_open_plonk<const D: usize>(
         commitments: &[&Self; 5],
         points: &[F::Extension],
         challenger: &mut Challenger<F>,
         config: &FriConfig,
-    ) -> (OpeningProof<F>, Vec<OpeningSet<F::Extension>>)
+    ) -> (OpeningProof<F, D>, Vec<OpeningSet<F::Extension>>)
     where
-        F: Extendable<EXTENSION_DEGREE>,
+        F: Extendable<D>,
     {
         let (op, mut evaluations) = Self::batch_open(commitments, points, challenger, config);
         let opening_sets = evaluations
@@ -278,13 +277,13 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
     /// Given `points=(x_i)`, `evals=(y_i)` and `poly=P` with `P(x_i)=y_i`, computes the polynomial
     /// `Q=(P-I)/Z` where `I` interpolates `(x_i, y_i)` and `Z` is the vanishing polynomial on `(x_i)`.
-    fn compute_quotient(
+    fn compute_quotient<const D: usize>(
         points: &[F::Extension],
         evals: &[F::Extension],
         poly: &PolynomialCoeffs<F::Extension>,
     ) -> PolynomialCoeffs<F::Extension>
     where
-        F: Extendable<EXTENSION_DEGREE>,
+        F: Extendable<D>,
     {
         let pairs = points
             .iter()
@@ -305,13 +304,13 @@ impl<F: Field> ListPolynomialCommitment<F> {
     }
 }
 
-pub struct OpeningProof<F: Field + Extendable<EXTENSION_DEGREE>> {
-    fri_proof: FriProof<F>,
+pub struct OpeningProof<F: Field + Extendable<D>, const D: usize> {
+    fri_proof: FriProof<F, D>,
     // TODO: Get the degree from `CommonCircuitData` instead.
     quotient_degree: usize,
 }
 
-impl<F: Field + Extendable<EXTENSION_DEGREE>> OpeningProof<F> {
+impl<F: Field + Extendable<D>, const D: usize> OpeningProof<F, D> {
     pub fn verify(
         &self,
         points: &[F::Extension],
@@ -364,7 +363,7 @@ mod tests {
 
     use super::*;
 
-    fn gen_random_test_case<F: Field + Extendable<EXTENSION_DEGREE>>(
+    fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(
         k: usize,
         degree_log: usize,
         num_points: usize,
@@ -396,10 +395,10 @@ mod tests {
             num_query_rounds: 3,
             blinding: vec![false],
         };
-        let (polys, points) = gen_random_test_case::<F>(k, degree_log, num_points);
+        let (polys, points) = gen_random_test_case::<F, 2>(k, degree_log, num_points);
 
         let lpc = ListPolynomialCommitment::new(polys, fri_config.rate_bits, false);
-        let (proof, evaluations) = lpc.open(&points, &mut Challenger::new(), &fri_config);
+        let (proof, evaluations) = lpc.open::<2>(&points, &mut Challenger::new(), &fri_config);
         proof.verify(
             &points,
             &evaluations.into_iter().map(|e| vec![e]).collect::<Vec<_>>(),
@@ -423,10 +422,10 @@ mod tests {
             num_query_rounds: 3,
             blinding: vec![true],
         };
-        let (polys, points) = gen_random_test_case::<F>(k, degree_log, num_points);
+        let (polys, points) = gen_random_test_case::<F, 2>(k, degree_log, num_points);
 
         let lpc = ListPolynomialCommitment::new(polys, fri_config.rate_bits, true);
-        let (proof, evaluations) = lpc.open(&points, &mut Challenger::new(), &fri_config);
+        let (proof, evaluations) = lpc.open::<2>(&points, &mut Challenger::new(), &fri_config);
         proof.verify(
             &points,
             &evaluations.into_iter().map(|e| vec![e]).collect::<Vec<_>>(),
@@ -452,15 +451,15 @@ mod tests {
             num_query_rounds: 3,
             blinding: vec![false, false, false],
         };
-        let (polys0, _) = gen_random_test_case::<F>(k0, degree_log, num_points);
-        let (polys1, _) = gen_random_test_case::<F>(k0, degree_log, num_points);
-        let (polys2, points) = gen_random_test_case::<F>(k0, degree_log, num_points);
+        let (polys0, _) = gen_random_test_case::<F, 2>(k0, degree_log, num_points);
+        let (polys1, _) = gen_random_test_case::<F, 2>(k0, degree_log, num_points);
+        let (polys2, points) = gen_random_test_case::<F, 2>(k0, degree_log, num_points);
 
         let lpc0 = ListPolynomialCommitment::new(polys0, fri_config.rate_bits, false);
         let lpc1 = ListPolynomialCommitment::new(polys1, fri_config.rate_bits, false);
         let lpc2 = ListPolynomialCommitment::new(polys2, fri_config.rate_bits, false);
 
-        let (proof, evaluations) = ListPolynomialCommitment::batch_open(
+        let (proof, evaluations) = ListPolynomialCommitment::batch_open::<2>(
             &[&lpc0, &lpc1, &lpc2],
             &points,
             &mut Challenger::new(),
@@ -495,15 +494,15 @@ mod tests {
             num_query_rounds: 3,
             blinding: vec![true, false, true],
         };
-        let (polys0, _) = gen_random_test_case::<F>(k0, degree_log, num_points);
-        let (polys1, _) = gen_random_test_case::<F>(k0, degree_log, num_points);
-        let (polys2, points) = gen_random_test_case::<F>(k0, degree_log, num_points);
+        let (polys0, _) = gen_random_test_case::<F, 2>(k0, degree_log, num_points);
+        let (polys1, _) = gen_random_test_case::<F, 2>(k0, degree_log, num_points);
+        let (polys2, points) = gen_random_test_case::<F, 2>(k0, degree_log, num_points);
 
         let lpc0 = ListPolynomialCommitment::new(polys0, fri_config.rate_bits, true);
         let lpc1 = ListPolynomialCommitment::new(polys1, fri_config.rate_bits, false);
         let lpc2 = ListPolynomialCommitment::new(polys2, fri_config.rate_bits, true);
 
-        let (proof, evaluations) = ListPolynomialCommitment::batch_open(
+        let (proof, evaluations) = ListPolynomialCommitment::batch_open::<2>(
             &[&lpc0, &lpc1, &lpc2],
             &points,
             &mut Challenger::new(),

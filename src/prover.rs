@@ -22,11 +22,11 @@ use crate::witness::PartialWitness;
 /// Corresponds to constants - sigmas - wires - zs - quotient — polynomial commitments.
 pub const PLONK_BLINDING: [bool; 5] = [false, false, true, true, true];
 
-pub(crate) fn prove<F: Field + Extendable<EXTENSION_DEGREE>>(
+pub(crate) fn prove<F: Field + Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F>,
     common_data: &CommonCircuitData<F>,
     inputs: PartialWitness<F>,
-) -> Proof<F> {
+) -> Proof<F, D> {
     let fri_config = &common_data.config.fri_config;
 
     let start_proof_gen = Instant::now();

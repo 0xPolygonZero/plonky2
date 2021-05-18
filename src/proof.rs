@@ -55,7 +55,7 @@ impl HashTarget {
     }
 }
 
-pub struct Proof<F: Field + Extendable<EXTENSION_DEGREE>> {
+pub struct Proof<F: Field + Extendable<D>, const D: usize> {
     /// Merkle root of LDEs of wire values.
     pub wires_root: Hash<F>,
     /// Merkle root of LDEs of Z, in the context of Plonk's permutation argument.
@@ -67,7 +67,7 @@ pub struct Proof<F: Field + Extendable<EXTENSION_DEGREE>> {
     pub openings: Vec<OpeningSet<F::Extension>>,
 
     /// A FRI argument for each FRI query.
-    pub opening_proof: OpeningProof<F>,
+    pub opening_proof: OpeningProof<F, D>,
 }
 
 pub struct ProofTarget {
@@ -87,7 +87,7 @@ pub struct ProofTarget {
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
 // TODO: Implement FriQueryStepTarget
-pub struct FriQueryStep<F: Field + Extendable<EXTENSION_DEGREE>> {
+pub struct FriQueryStep<F: Field + Extendable<D>, const D: usize> {
     pub evals: Vec<F::Extension>,
     pub merkle_proof: MerkleProof<F>,
 }
@@ -101,16 +101,16 @@ pub struct FriInitialTreeProof<F: Field> {
 
 /// Proof for a FRI query round.
 // TODO: Implement FriQueryRoundTarget
-pub struct FriQueryRound<F: Field + Extendable<EXTENSION_DEGREE>> {
+pub struct FriQueryRound<F: Field + Extendable<D>, const D: usize> {
     pub initial_trees_proof: FriInitialTreeProof<F>,
-    pub steps: Vec<FriQueryStep<F>>,
+    pub steps: Vec<FriQueryStep<F, D>>,
 }
 
-pub struct FriProof<F: Field + Extendable<EXTENSION_DEGREE>> {
+pub struct FriProof<F: Field + Extendable<D>, const D: usize> {
     /// A Merkle root for each reduced polynomial in the commit phase.
     pub commit_phase_merkle_roots: Vec<Hash<F>>,
     /// Query rounds proofs
-    pub query_round_proofs: Vec<FriQueryRound<F>>,
+    pub query_round_proofs: Vec<FriQueryRound<F, D>>,
     /// The final polynomial in coefficient form.
     pub final_poly: PolynomialCoeffs<F::Extension>,
     /// Witness showing that the prover did PoW.

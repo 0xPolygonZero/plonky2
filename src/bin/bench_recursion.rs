@@ -20,7 +20,7 @@ fn main() {
     // change this to info or warn later.
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    bench_prove::<CrandallField>();
+    bench_prove::<CrandallField, 2>();
 
     // bench_field_mul::<CrandallField>();
 
@@ -29,7 +29,7 @@ fn main() {
     // bench_gmimc::<CrandallField>();
 }
 
-fn bench_prove<F: Field + Extendable<EXTENSION_DEGREE>>() {
+fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
     let gmimc_gate = GMiMCGate::<F, GMIMC_ROUNDS>::with_automatic_constants();
 
     let config = CircuitConfig {
