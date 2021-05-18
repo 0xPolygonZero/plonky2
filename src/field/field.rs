@@ -267,7 +267,7 @@ pub trait Field:
     }
 
     fn rand() -> Self {
-        Self::rand_from_rng(&mut OsRng)
+        Self::rand_from_rng(&mut rand::thread_rng())
     }
 
     fn rand_vec(n: usize) -> Vec<Self> {

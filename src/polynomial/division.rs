@@ -128,7 +128,13 @@ impl<F: Field> PolynomialCoeffs<F> {
     /// Computes the inverse of `self` modulo `x^n`.
     pub(crate) fn inv_mod_xn(&self, n: usize) -> Self {
         assert!(self.coeffs[0].is_nonzero(), "Inverse doesn't exist.");
-        let mut h = self.padded(n);
+
+        let h = if self.len() < n {
+            self.padded(n)
+        } else {
+            self.clone()
+        };
+
         let mut a = Self::empty();
         a.coeffs.push(h.coeffs[0].inverse());
         for i in 0..log2_ceil(n) {
