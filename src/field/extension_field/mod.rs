@@ -86,6 +86,7 @@ pub fn unflatten<F: Field, const D: usize>(l: &[F]) -> Vec<F::Extension>
 where
     F: Extendable<D>,
 {
+    debug_assert_eq!(l.len() % D, 0);
     l.chunks_exact(D)
         .map(|c| {
             let mut arr = [F::ZERO; D];
