@@ -114,7 +114,7 @@ impl Field for QuarticCrandallField {
     ]);
 
     // Does not fit in 64-bits.
-    const ORDER: u64 = 0xffffffffffffffff; // Otherwise F::ORDER.leading_zeros() is misleading.
+    const ORDER: u64 = 0;
     const TWO_ADICITY: usize = 30;
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([
         CrandallField(3),
