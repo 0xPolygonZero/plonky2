@@ -96,7 +96,7 @@ mod tests {
             coset_lde
                 .values
                 .into_iter()
-                .map(|x| F::Extension::from(x))
+                .map(F::Extension::from)
                 .collect(),
         );
         let root = tree.root;
@@ -155,34 +155,28 @@ mod tests {
 
     mod base {
         use super::*;
-        type F = CrandallField;
-        const D: usize = 1;
 
         #[test]
         fn test_fri_multi_params() -> Result<()> {
-            check_fri_multi_params::<F, D>()
+            check_fri_multi_params::<CrandallField, 1>()
         }
     }
 
     mod quadratic {
         use super::*;
-        type F = CrandallField;
-        const D: usize = 2;
 
         #[test]
         fn test_fri_multi_params() -> Result<()> {
-            check_fri_multi_params::<F, D>()
+            check_fri_multi_params::<CrandallField, 2>()
         }
     }
 
     mod quartic {
         use super::*;
-        type F = CrandallField;
-        const D: usize = 4;
 
         #[test]
         fn test_fri_multi_params() -> Result<()> {
-            check_fri_multi_params::<F, D>()
+            check_fri_multi_params::<CrandallField, 4>()
         }
     }
 }

@@ -511,81 +511,42 @@ mod tests {
         )
     }
 
+    macro_rules! tests_commitments {
+        ($F:ty, $D:expr) => {
+            use super::*;
+
+            #[test]
+            fn test_polynomial_commitment() -> Result<()> {
+                check_polynomial_commitment::<$F, $D>()
+            }
+
+            #[test]
+            fn test_polynomial_commitment_blinding() -> Result<()> {
+                check_polynomial_commitment_blinding::<$F, $D>()
+            }
+
+            #[test]
+            fn test_batch_polynomial_commitment() -> Result<()> {
+                check_batch_polynomial_commitment::<$F, $D>()
+            }
+
+            #[test]
+            fn test_batch_polynomial_commitment_blinding() -> Result<()> {
+                check_batch_polynomial_commitment_blinding::<$F, $D>()
+            }
+        };
+    }
+
     mod base {
-        use super::*;
-        type F = CrandallField;
-        const D: usize = 1;
-
-        #[test]
-        fn test_polynomial_commitment() -> Result<()> {
-            check_polynomial_commitment::<F, D>()
-        }
-
-        #[test]
-        fn test_polynomial_commitment_blinding() -> Result<()> {
-            check_polynomial_commitment_blinding::<F, D>()
-        }
-
-        #[test]
-        fn test_batch_polynomial_commitment() -> Result<()> {
-            check_batch_polynomial_commitment::<F, D>()
-        }
-
-        #[test]
-        fn test_batch_polynomial_commitment_blinding() -> Result<()> {
-            check_batch_polynomial_commitment_blinding::<F, D>()
-        }
+        tests_commitments!(crate::field::crandall_field::CrandallField, 1);
     }
 
     mod quadratic {
-        use super::*;
-        type F = CrandallField;
-        const D: usize = 2;
-
-        #[test]
-        fn test_polynomial_commitment() -> Result<()> {
-            check_polynomial_commitment::<F, D>()
-        }
-
-        #[test]
-        fn test_polynomial_commitment_blinding() -> Result<()> {
-            check_polynomial_commitment_blinding::<F, D>()
-        }
-
-        #[test]
-        fn test_batch_polynomial_commitment() -> Result<()> {
-            check_batch_polynomial_commitment::<F, D>()
-        }
-
-        #[test]
-        fn test_batch_polynomial_commitment_blinding() -> Result<()> {
-            check_batch_polynomial_commitment_blinding::<F, D>()
-        }
+        tests_commitments!(crate::field::crandall_field::CrandallField, 2);
     }
 
     mod quartic {
         use super::*;
-        type F = CrandallField;
-        const D: usize = 4;
-
-        #[test]
-        fn test_polynomial_commitment() -> Result<()> {
-            check_polynomial_commitment::<F, D>()
-        }
-
-        #[test]
-        fn test_polynomial_commitment_blinding() -> Result<()> {
-            check_polynomial_commitment_blinding::<F, D>()
-        }
-
-        #[test]
-        fn test_batch_polynomial_commitment() -> Result<()> {
-            check_batch_polynomial_commitment::<F, D>()
-        }
-
-        #[test]
-        fn test_batch_polynomial_commitment_blinding() -> Result<()> {
-            check_batch_polynomial_commitment_blinding::<F, D>()
-        }
+        tests_commitments!(crate::field::crandall_field::CrandallField, 4);
     }
 }

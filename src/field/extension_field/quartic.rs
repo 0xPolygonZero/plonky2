@@ -149,12 +149,7 @@ impl Field for QuarticCrandallField {
     // otherwise the FFT doesn't commute with field inclusion.
     fn primitive_root_of_unity(n_log: usize) -> Self {
         if n_log <= CrandallField::TWO_ADICITY {
-            Self([
-                CrandallField::primitive_root_of_unity(n_log),
-                CrandallField::ZERO,
-                CrandallField::ZERO,
-                CrandallField::ZERO,
-            ])
+            CrandallField::primitive_root_of_unity(n_log).into()
         } else {
             // The root of unity isn't in the base field so we need to compute it manually.
             assert!(n_log <= Self::TWO_ADICITY);
