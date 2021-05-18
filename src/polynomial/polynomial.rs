@@ -1,10 +1,10 @@
 use std::cmp::max;
 use std::ops::{Add, Mul, Sub};
 
-use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::extension_field::Extendable;
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
-use crate::util::{log2_ceil, log2_strict};
+use crate::util::log2_strict;
 
 /// A polynomial in point-value form.
 ///
@@ -237,6 +237,7 @@ impl<F: Field> Mul<F> for &PolynomialCoeffs<F> {
 impl<F: Field> Mul for &PolynomialCoeffs<F> {
     type Output = PolynomialCoeffs<F>;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn mul(self, rhs: Self) -> Self::Output {
         let new_len = (self.len() + rhs.len()).next_power_of_two();
         let a = self.padded(new_len);

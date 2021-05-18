@@ -6,7 +6,7 @@ use num::Integer;
 
 use crate::field::extension_field::quadratic::QuadraticCrandallField;
 use crate::field::extension_field::quartic::QuarticCrandallField;
-use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
