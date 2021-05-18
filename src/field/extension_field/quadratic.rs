@@ -32,8 +32,6 @@ pub trait QuadraticFieldExtension:
 
         Self::from_canonical_representation([a0, a1 * z])
     }
-
-    fn scalar_mul(&self, c: Self::BaseField) -> Self;
 }
 
 #[derive(Copy, Clone)]
@@ -51,11 +49,6 @@ impl QuadraticFieldExtension for QuadraticCrandallField {
 
     fn from_canonical_representation(v: [Self::BaseField; 2]) -> Self {
         Self(v)
-    }
-
-    fn scalar_mul(&self, c: Self::BaseField) -> Self {
-        let [a0, a1] = self.to_canonical_representation();
-        Self([a0 * c, a1 * c])
     }
 }
 
@@ -104,7 +97,7 @@ impl Field for QuadraticCrandallField {
         let a_pow_r = a_pow_r_minus_1 * *self;
         debug_assert!(a_pow_r.is_in_basefield());
 
-        Some(a_pow_r_minus_1.scalar_mul(a_pow_r.0[0].inverse()))
+        Some(a_pow_r_minus_1 * a_pow_r.0[0].inverse().into())
     }
 
     // It's important that the primitive roots of unity are the same as the ones in the base field,
@@ -273,7 +266,7 @@ mod tests {
         assert_eq!(-x, F::ZERO - x);
         assert_eq!(
             x + x,
-            x.scalar_mul(<F as QuadraticFieldExtension>::BaseField::TWO)
+            x * <F as QuadraticFieldExtension>::BaseField::TWO.into()
         );
         assert_eq!(x * (-x), -x.square());
         assert_eq!(x + y, y + x);
