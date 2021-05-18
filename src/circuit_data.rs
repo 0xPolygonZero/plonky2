@@ -56,8 +56,11 @@ pub struct CircuitData<F: Field> {
     pub(crate) common: CommonCircuitData<F>,
 }
 
-impl<F: Field + Extendable<EXTENSION_DEGREE>> CircuitData<F> {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F> {
+impl<F: Field> CircuitData<F> {
+    pub fn prove<const D: usize>(&self, inputs: PartialWitness<F>) -> Proof<F, D>
+    where
+        F: Extendable<D>,
+    {
         prove(&self.prover_only, &self.common, inputs)
     }
 
@@ -78,8 +81,11 @@ pub struct ProverCircuitData<F: Field> {
     pub(crate) common: CommonCircuitData<F>,
 }
 
-impl<F: Field + Extendable<EXTENSION_DEGREE>> ProverCircuitData<F> {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F> {
+impl<F: Field> ProverCircuitData<F> {
+    pub fn prove<const D: usize>(&self, inputs: PartialWitness<F>) -> Proof<F, D>
+    where
+        F: Extendable<D>,
+    {
         prove(&self.prover_only, &self.common, inputs)
     }
 }

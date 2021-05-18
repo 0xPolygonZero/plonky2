@@ -100,9 +100,9 @@ mod tests {
             PolynomialValues::new(coset_lde.values.into_iter().map(|x| F2::from(x)).collect());
         let root = tree.root;
         let mut challenger = Challenger::new();
-        let proof = fri_proof(
+        let proof = fri_proof::<F, 2>(
             &[&tree],
-            &coeffs.to_extension::<EXTENSION_DEGREE>(),
+            &coeffs.to_extension::<2>(),
             &coset_lde,
             &mut challenger,
             &config,
