@@ -88,7 +88,7 @@ impl Field for QuadraticCrandallField {
     const NEG_ONE: Self = Self([CrandallField::NEG_ONE, CrandallField::ZERO]);
 
     // Does not fit in 64-bits.
-    const ORDER: u64 = 0xffffffffffffffff; // Otherwise F::ORDER.leading_zeros() is misleading.
+    const ORDER: u64 = 0;
     const TWO_ADICITY: usize = 29;
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([CrandallField(3), CrandallField::ONE]);
     const POWER_OF_TWO_GENERATOR: Self =
