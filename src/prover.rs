@@ -10,7 +10,7 @@ use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::{eval_l_1, evaluate_gate_constraints, reduce_with_powers_multi};
-use crate::polynomial::commitment::{ListPolynomialCommitment, EXTENSION_DEGREE};
+use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::timed;

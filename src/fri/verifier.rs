@@ -5,7 +5,7 @@ use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::Challenger;
-use crate::polynomial::commitment::{EXTENSION_DEGREE, SALT_SIZE};
+use crate::polynomial::commitment::SALT_SIZE;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash};
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
@@ -35,7 +35,6 @@ fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
         .zip(evals)
         .map(|(y, e)| ((x * y).into(), e))
         .collect::<Vec<_>>();
-    dbg!(&points);
     let barycentric_weights = barycentric_weights(&points);
     interpolate(&points, beta, &barycentric_weights)
 }
