@@ -174,14 +174,16 @@ impl<F: Field + Extendable<D>, const D: usize> SimpleGenerator<F>
 
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
         let n = self.gate.num_points;
+
+        let local_wire = |input| {
+            Wire { gate: self.gate_index, input }
+        };
+
         let lookup_fe = |wire_range: Range<usize>| {
             debug_assert_eq!(wire_range.len(), D);
             let values = wire_range
                 .map(|input| {
-                    witness.get_wire(Wire {
-                        gate: self.gate_index,
-                        input,
-                    })
+                    witness.get_wire(local_wire(input))
                 })
                 .collect::<Vec<_>>();
             let arr = values.try_into().unwrap();
@@ -201,6 +203,13 @@ impl<F: Field + Extendable<D>, const D: usize> SimpleGenerator<F>
             })
             .collect::<Vec<_>>();
         let interpolant = interpolant(&points);
+
+        let mut result = PartialWitness::<F>::new();
+        for (i, &coeff) in interpolant.coeffs.iter().enumerate() {
+            let wire_range = self.gate.wires_coeff(i);
+            let wires = wire_range.map(|i| local_wire(i)).collect::<Vec<_>>();
+            result.set_ext_wires(&wires, coeff);
+        }
 
         todo!()
     }
