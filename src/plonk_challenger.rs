@@ -1,4 +1,5 @@
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::hash::{permute, SPONGE_RATE, SPONGE_WIDTH};
 use crate::proof::{Hash, HashTarget};
@@ -36,9 +37,27 @@ impl<F: Field> Challenger<F> {
         self.input_buffer.push(element);
     }
 
+    pub fn observe_extension_element<const D: usize>(&mut self, element: &F::Extension)
+    where
+        F: Extendable<D>,
+    {
+        for &e in &element.to_basefield_array() {
+            self.observe_element(e);
+        }
+    }
+
     pub fn observe_elements(&mut self, elements: &[F]) {
         for &element in elements {
             self.observe_element(element);
+        }
+    }
+
+    pub fn observe_extension_elements<const D: usize>(&mut self, elements: &[F::Extension])
+    where
+        F: Extendable<D>,
+    {
+        for element in elements {
+            self.observe_extension_element(element);
         }
     }
 
@@ -85,6 +104,22 @@ impl<F: Field> Challenger<F> {
                 self.get_challenge(),
             ],
         }
+    }
+
+    pub fn get_extension_challenge<const D: usize>(&mut self) -> F::Extension
+    where
+        F: Extendable<D>,
+    {
+        let mut arr = [F::ZERO; D];
+        arr.copy_from_slice(&self.get_n_challenges(D));
+        F::Extension::from_basefield_array(arr)
+    }
+
+    pub fn get_n_extension_challenges<const D: usize>(&mut self, n: usize) -> Vec<F::Extension>
+    where
+        F: Extendable<D>,
+    {
+        (0..n).map(|_| self.get_extension_challenge()).collect()
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
@@ -258,7 +293,7 @@ mod tests {
         // Generate random input messages.
         let inputs_per_round: Vec<Vec<F>> = num_inputs_per_round
             .iter()
-            .map(|&n| (0..n).map(|_| F::rand()).collect::<Vec<_>>())
+            .map(|&n| F::rand_vec(n))
             .collect();
 
         let mut challenger = Challenger::new();

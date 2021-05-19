@@ -5,7 +5,6 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::Integer;
-use rand::rngs::OsRng;
 use rand::Rng;
 
 use crate::util::bits_u64;
@@ -267,7 +266,11 @@ pub trait Field:
     }
 
     fn rand() -> Self {
-        Self::rand_from_rng(&mut OsRng)
+        Self::rand_from_rng(&mut rand::thread_rng())
+    }
+
+    fn rand_vec(n: usize) -> Vec<Self> {
+        (0..n).map(|_| Self::rand()).collect()
     }
 }
 

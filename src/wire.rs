@@ -10,7 +10,7 @@ pub struct Wire {
 }
 
 impl Wire {
-    pub fn is_routable(&self, config: CircuitConfig) -> bool {
+    pub fn is_routable(&self, config: &CircuitConfig) -> bool {
         self.input < config.num_routed_wires
     }
 }

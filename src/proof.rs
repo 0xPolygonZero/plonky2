@@ -1,5 +1,7 @@
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::merkle_proofs::{MerkleProof, MerkleProofTarget};
+use crate::polynomial::commitment::{ListPolynomialCommitment, OpeningProof};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
 use std::convert::TryInto;
@@ -53,7 +55,7 @@ impl HashTarget {
     }
 }
 
-pub struct Proof<F: Field> {
+pub struct Proof<F: Field + Extendable<D>, const D: usize> {
     /// Merkle root of LDEs of wire values.
     pub wires_root: Hash<F>,
     /// Merkle root of LDEs of Z, in the context of Plonk's permutation argument.
@@ -62,10 +64,10 @@ pub struct Proof<F: Field> {
     pub quotient_polys_root: Hash<F>,
 
     /// Purported values of each polynomial at each challenge point.
-    pub openings: Vec<OpeningSet<F>>,
+    pub openings: Vec<OpeningSet<F::Extension>>,
 
     /// A FRI argument for each FRI query.
-    pub fri_proofs: Vec<FriProof<F>>,
+    pub opening_proof: OpeningProof<F, D>,
 }
 
 pub struct ProofTarget {
@@ -85,26 +87,32 @@ pub struct ProofTarget {
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
 // TODO: Implement FriQueryStepTarget
-pub struct FriQueryStep<F: Field> {
-    pub evals: Vec<F>,
+pub struct FriQueryStep<F: Field + Extendable<D>, const D: usize> {
+    pub evals: Vec<F::Extension>,
     pub merkle_proof: MerkleProof<F>,
+}
+
+/// Evaluations and Merkle proofs of the original set of polynomials,
+/// before they are combined into a composition polynomial.
+// TODO: Implement FriInitialTreeProofTarget
+pub struct FriInitialTreeProof<F: Field> {
+    pub evals_proofs: Vec<(Vec<F>, MerkleProof<F>)>,
 }
 
 /// Proof for a FRI query round.
 // TODO: Implement FriQueryRoundTarget
-pub struct FriQueryRound<F: Field> {
-    pub steps: Vec<FriQueryStep<F>>,
+pub struct FriQueryRound<F: Field + Extendable<D>, const D: usize> {
+    pub initial_trees_proof: FriInitialTreeProof<F>,
+    pub steps: Vec<FriQueryStep<F, D>>,
 }
 
-pub struct FriProof<F: Field> {
+pub struct FriProof<F: Field + Extendable<D>, const D: usize> {
     /// A Merkle root for each reduced polynomial in the commit phase.
     pub commit_phase_merkle_roots: Vec<Hash<F>>,
-    /// Merkle proofs for the original purported codewords, i.e. the subject of the LDT.
-    pub initial_merkle_proofs: Vec<MerkleProof<F>>,
     /// Query rounds proofs
-    pub query_round_proofs: Vec<FriQueryRound<F>>,
+    pub query_round_proofs: Vec<FriQueryRound<F, D>>,
     /// The final polynomial in coefficient form.
-    pub final_poly: PolynomialCoeffs<F>,
+    pub final_poly: PolynomialCoeffs<F::Extension>,
     /// Witness showing that the prover did PoW.
     pub pow_witness: F,
 }
@@ -128,6 +136,28 @@ pub struct OpeningSet<F: Field> {
     pub wires: Vec<F>,
     pub plonk_zs: Vec<F>,
     pub quotient_polys: Vec<F>,
+}
+
+impl<F: Field> OpeningSet<F> {
+    pub fn new(
+        z: F,
+        constant_commitment: &ListPolynomialCommitment<F>,
+        plonk_sigmas_commitment: &ListPolynomialCommitment<F>,
+        wires_commitment: &ListPolynomialCommitment<F>,
+        plonk_zs_commitment: &ListPolynomialCommitment<F>,
+        quotient_polys_commitment: &ListPolynomialCommitment<F>,
+    ) -> Self {
+        let eval_commitment = |z: F, c: &ListPolynomialCommitment<F>| {
+            c.polynomials.iter().map(|p| p.eval(z)).collect::<Vec<_>>()
+        };
+        Self {
+            constants: eval_commitment(z, constant_commitment),
+            plonk_sigmas: eval_commitment(z, plonk_sigmas_commitment),
+            wires: eval_commitment(z, wires_commitment),
+            plonk_zs: eval_commitment(z, plonk_zs_commitment),
+            quotient_polys: eval_commitment(z, quotient_polys_commitment),
+        }
+    }
 }
 
 /// The purported values of each polynomial at a single point.

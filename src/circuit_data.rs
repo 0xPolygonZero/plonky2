@@ -1,20 +1,27 @@
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
+use crate::fri::FriConfig;
 use crate::gates::gate::GateRef;
 use crate::generator::WitnessGenerator;
 use crate::merkle_tree::MerkleTree;
+use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::proof::{Hash, HashTarget, Proof};
 use crate::prover::prove;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
     pub security_bits: usize,
     pub rate_bits: usize,
-    /// The number of times to repeat checks that have soundness errors of (roughly) `degree / |F|`.
-    pub num_checks: usize,
+    /// The number of challenge points to generate, for IOPs that have soundness errors of (roughly)
+    /// `degree / |F|`.
+    pub num_challenges: usize,
+
+    // TODO: Find a better place for this.
+    pub fri_config: FriConfig,
 }
 
 impl Default for CircuitConfig {
@@ -24,7 +31,14 @@ impl Default for CircuitConfig {
             num_routed_wires: 4,
             security_bits: 128,
             rate_bits: 3,
-            num_checks: 3,
+            num_challenges: 3,
+            fri_config: FriConfig {
+                proof_of_work_bits: 1,
+                rate_bits: 1,
+                reduction_arity_bits: vec![1],
+                num_query_rounds: 1,
+                blinding: vec![true],
+            },
         }
     }
 }
@@ -43,7 +57,10 @@ pub struct CircuitData<F: Field> {
 }
 
 impl<F: Field> CircuitData<F> {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F> {
+    pub fn prove<const D: usize>(&self, inputs: PartialWitness<F>) -> Proof<F, D>
+    where
+        F: Extendable<D>,
+    {
         prove(&self.prover_only, &self.common, inputs)
     }
 
@@ -65,7 +82,10 @@ pub struct ProverCircuitData<F: Field> {
 }
 
 impl<F: Field> ProverCircuitData<F> {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F> {
+    pub fn prove<const D: usize>(&self, inputs: PartialWitness<F>) -> Proof<F, D>
+    where
+        F: Extendable<D>,
+    {
         prove(&self.prover_only, &self.common, inputs)
     }
 }
@@ -85,10 +105,10 @@ impl<F: Field> VerifierCircuitData<F> {
 /// Circuit data required by the prover, but not the verifier.
 pub(crate) struct ProverOnlyCircuitData<F: Field> {
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
-    /// Merkle tree containing LDEs of each constant polynomial.
-    pub constants_tree: MerkleTree<F>,
-    /// Merkle tree containing LDEs of each sigma polynomial.
-    pub sigmas_tree: MerkleTree<F>,
+    /// Commitments to the constants polynomial.
+    pub constants_commitment: ListPolynomialCommitment<F>,
+    /// Commitments to the sigma polynomial.
+    pub sigmas_commitment: ListPolynomialCommitment<F>,
 }
 
 /// Circuit data required by the verifier, but not the prover.
@@ -147,7 +167,7 @@ impl<F: Field> CommonCircuitData<F> {
 
     pub fn total_constraints(&self) -> usize {
         // 2 constraints for each Z check.
-        self.config.num_checks * 2 + self.num_gate_constraints
+        self.config.num_challenges * 2 + self.num_gate_constraints
     }
 }
 
