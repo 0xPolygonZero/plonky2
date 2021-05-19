@@ -1,7 +1,10 @@
+use std::convert::TryInto;
 use std::marker::PhantomData;
+use std::ops::Range;
 
 use crate::circuit_builder::CircuitBuilder;
-use crate::field::extension_field::quartic::QuarticFieldExtension;
+use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
@@ -17,13 +20,13 @@ const EXT_SIZE: usize = 4;
 /// to evaluate the interpolant at. It computes the interpolant and outputs its evaluation at the
 /// given point.
 #[derive(Debug)]
-pub(crate) struct QuarticInterpolationGate<QFE: QuarticFieldExtension> {
+pub(crate) struct QuarticInterpolationGate<F: Field + Extendable<D>, const D: usize> {
     num_points: usize,
-    _phantom: PhantomData<QFE>,
+    _phantom: PhantomData<F>,
 }
 
-impl<QFE: QuarticFieldExtension> QuarticInterpolationGate<QFE> {
-    pub fn new(num_points: usize) -> GateRef<QFE::BaseField> {
+impl<F: Field + Extendable<D>, const D: usize> QuarticInterpolationGate<F, D> {
+    pub fn new(num_points: usize) -> GateRef<F> {
         let gate = Self {
             num_points,
             _phantom: PhantomData,
@@ -46,61 +49,69 @@ impl<QFE: QuarticFieldExtension> QuarticInterpolationGate<QFE> {
     }
 
     /// Wire indices of the `i`th interpolant value.
-    pub fn wires_value(&self, i: usize) -> Vec<usize> {
+    pub fn wires_value(&self, i: usize) -> Range<usize> {
         debug_assert!(i < self.num_points);
-        (0..EXT_SIZE)
-            .map(|j| self.start_values() + i * EXT_SIZE + j)
-            .collect()
+        let start = self.start_values() + i * EXT_SIZE;
+        start..start + EXT_SIZE
     }
 
-    fn start_interpolated_point(&self) -> usize {
+    fn start_evaluation_point(&self) -> usize {
         self.start_values() + self.num_points * EXT_SIZE
     }
 
     /// Wire indices of the point to evaluate the interpolant at.
-    pub fn wires_interpolated_point(&self) -> Vec<usize> {
-        (0..EXT_SIZE)
-            .map(|j| self.start_interpolated_point() + j)
-            .collect()
+    pub fn wires_evaluation_point(&self) -> Range<usize> {
+        let start = self.start_evaluation_point();
+        start..start + EXT_SIZE
     }
 
-    fn start_interpolated_value(&self) -> usize {
-        self.start_interpolated_point() + EXT_SIZE
+    fn start_evaluation_value(&self) -> usize {
+        self.start_evaluation_point() + EXT_SIZE
     }
 
     /// Wire indices of the interpolated value.
-    pub fn wires_interpolated_value(&self) -> Vec<usize> {
-        (0..EXT_SIZE)
-            .map(|j| self.start_interpolated_value() + j)
-            .collect()
+    pub fn wires_evaluation_value(&self) -> Range<usize> {
+        let start = self.start_evaluation_value();
+        start..start + EXT_SIZE
     }
 
     fn start_coeffs(&self) -> usize {
-        self.start_interpolated_value() + EXT_SIZE
+        self.start_evaluation_value() + EXT_SIZE
     }
 
     /// Wire indices of the interpolant's `i`th coefficient.
-    pub fn wires_coeff(&self, i: usize) -> Vec<usize> {
+    pub fn wires_coeff(&self, i: usize) -> Range<usize> {
         debug_assert!(i < self.num_points);
-        (0..EXT_SIZE)
-            .map(|j| self.start_coeffs() + i * EXT_SIZE + j)
-            .collect()
+        let start = self.start_coeffs() + i * EXT_SIZE;
+        start..start + EXT_SIZE
+    }
+
+    fn end(&self) -> usize {
+        self.start_coeffs() + self.num_points * EXT_SIZE
     }
 }
 
-impl<QFE: QuarticFieldExtension> Gate<QFE::BaseField> for QuarticInterpolationGate<QFE> {
+impl<F: Field + Extendable<D>, const D: usize> Gate<F> for QuarticInterpolationGate<F, D> {
     fn id(&self) -> String {
-        let qfe_name = std::any::type_name::<QFE>();
+        let qfe_name = std::any::type_name::<F::Extension>();
         format!("{} {:?}", qfe_name, self)
     }
 
-    fn eval_unfiltered(&self, vars: EvaluationVars<QFE::BaseField>) -> Vec<QFE::BaseField> {
-        todo!()
+    fn eval_unfiltered(&self, vars: EvaluationVars<F>) -> Vec<F> {
+        let mut constraints = Vec::with_capacity(self.num_constraints());
+
+        let x_eval = F::Extension::from_basefield_array(
+            vars.local_wires[self.wires_evaluation_point()].try_into().unwrap());
+        let x_eval_powers = x_eval.powers().take(self.num_points);
+
+        // TODO
+
+        constraints
     }
 
     fn eval_unfiltered_recursively(
         &self,
-        builder: &mut CircuitBuilder<QFE::BaseField>,
+        builder: &mut CircuitBuilder<F>,
         vars: EvaluationTargets,
     ) -> Vec<Target> {
         todo!()
@@ -109,9 +120,9 @@ impl<QFE: QuarticFieldExtension> Gate<QFE::BaseField> for QuarticInterpolationGa
     fn generators(
         &self,
         gate_index: usize,
-        _local_constants: &[QFE::BaseField],
-    ) -> Vec<Box<dyn WitnessGenerator<QFE::BaseField>>> {
-        let gen = QuarticInterpolationGenerator::<QFE> {
+        _local_constants: &[F],
+    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+        let gen = QuarticInterpolationGenerator::<F, D> {
             gate_index,
             num_points: self.num_points,
             _phantom: PhantomData,
@@ -120,7 +131,7 @@ impl<QFE: QuarticFieldExtension> Gate<QFE::BaseField> for QuarticInterpolationGa
     }
 
     fn num_wires(&self) -> usize {
-        self.start_coeffs() + self.num_points * EXT_SIZE
+        self.end()
     }
 
     fn num_constants(&self) -> usize {
@@ -136,20 +147,20 @@ impl<QFE: QuarticFieldExtension> Gate<QFE::BaseField> for QuarticInterpolationGa
     }
 }
 
-struct QuarticInterpolationGenerator<QFE: QuarticFieldExtension> {
+struct QuarticInterpolationGenerator<F: Field + Extendable<D>, const D: usize> {
     gate_index: usize,
     num_points: usize,
-    _phantom: PhantomData<QFE>,
+    _phantom: PhantomData<F>,
 }
 
-impl<QFE: QuarticFieldExtension> SimpleGenerator<QFE::BaseField>
-    for QuarticInterpolationGenerator<QFE>
+impl<F: Field + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for QuarticInterpolationGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
         todo!()
     }
 
-    fn run_once(&self, witness: &PartialWitness<QFE::BaseField>) -> PartialWitness<QFE::BaseField> {
+    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
         todo!()
     }
 }
@@ -158,13 +169,13 @@ impl<QFE: QuarticFieldExtension> SimpleGenerator<QFE::BaseField>
 mod tests {
     use std::marker::PhantomData;
 
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::crandall_field::CrandallField;
     use crate::gates::gate::Gate;
     use crate::gates::interpolation_quartic::QuarticInterpolationGate;
 
     #[test]
-    fn wire_indices() {
-        let gate = QuarticInterpolationGate::<QuarticCrandallField> {
+    fn wire_indices_2_points() {
+        let gate = QuarticInterpolationGate::<CrandallField, 4> {
             num_points: 2,
             _phantom: PhantomData,
         };
@@ -172,12 +183,21 @@ mod tests {
         // overlaps or gaps.
         assert_eq!(gate.wire_point(0), 0);
         assert_eq!(gate.wire_point(1), 1);
-        assert_eq!(gate.wires_value(0), vec![2, 3, 4, 5]);
-        assert_eq!(gate.wires_value(1), vec![6, 7, 8, 9]);
-        assert_eq!(gate.wires_interpolated_point(), vec![10, 11, 12, 13]);
-        assert_eq!(gate.wires_interpolated_value(), vec![14, 15, 16, 17]);
-        assert_eq!(gate.wires_coeff(0), vec![18, 19, 20, 21]);
-        assert_eq!(gate.wires_coeff(1), vec![22, 23, 24, 25]);
+        assert_eq!(gate.wires_value(0), 2..6);
+        assert_eq!(gate.wires_value(1), 6..10);
+        assert_eq!(gate.wires_evaluation_point(), 10..14);
+        assert_eq!(gate.wires_evaluation_value(), 14..18);
+        assert_eq!(gate.wires_coeff(0), 18..22);
+        assert_eq!(gate.wires_coeff(1), 22..26);
         assert_eq!(gate.num_wires(), 26);
+    }
+
+    #[test]
+    fn wire_indices_4_points() {
+        let gate = QuarticInterpolationGate::<CrandallField, 4> {
+            num_points: 4,
+            _phantom: PhantomData,
+        };
+        assert_eq!(gate.num_wires(), 44);
     }
 }
