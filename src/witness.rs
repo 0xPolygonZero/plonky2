@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::target::Target;
 use crate::wire::Wire;
-use crate::field::extension_field::{Extendable, FieldExtension};
 
 #[derive(Clone, Debug)]
 pub struct PartialWitness<F: Field> {
@@ -74,16 +74,21 @@ impl<F: Field> PartialWitness<F> {
         self.set_target(Target::Wire(wire), value)
     }
 
-    pub fn set_wires(&mut self, wires: &[Wire], values: &[F]) {
-        debug_assert_eq!(wires.len(), values.len());
-        for (&wire, &value) in wires.iter().zip(values) {
+    pub fn set_wires<W>(&mut self, wires: W, values: &[F])
+    where
+        W: IntoIterator<Item = Wire>,
+    {
+        // If we used itertools, we could use zip_eq for extra safety.
+        for (wire, &value) in wires.into_iter().zip(values) {
             self.set_wire(wire, value);
         }
     }
 
-    pub fn set_ext_wires<const D: usize>(&mut self, wires: &[Wire], value: F::Extension)
-        where F: Extendable<D> {
-        debug_assert_eq!(wires.len(), D);
+    pub fn set_ext_wires<W, const D: usize>(&mut self, wires: W, value: F::Extension)
+    where
+        F: Extendable<D>,
+        W: IntoIterator<Item = Wire>,
+    {
         self.set_wires(wires, &value.to_basefield_array());
     }
 
