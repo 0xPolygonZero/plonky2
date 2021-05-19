@@ -90,7 +90,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         assert_eq!(self.blinding, config.blinding[0]);
         for p in points {
             assert_ne!(
-                p.exp_usize(self.degree),
+                p.exp(self.degree as u64),
                 F::Extension::ONE,
                 "Opening point is in the subgroup."
             );
@@ -175,7 +175,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         }
         for p in points {
             assert_ne!(
-                p.exp_usize(degree),
+                p.exp(degree as u64),
                 F::Extension::ONE,
                 "Opening point is in the subgroup."
             );
@@ -374,7 +374,7 @@ mod tests {
             .map(|_| PolynomialCoeffs::new(F::rand_vec(degree)))
             .collect();
         let mut points = F::Extension::rand_vec(num_points);
-        while points.iter().any(|&x| x.exp_usize(degree).is_one()) {
+        while points.iter().any(|&x| x.exp(degree as u64).is_one()) {
             points = F::Extension::rand_vec(num_points);
         }
 

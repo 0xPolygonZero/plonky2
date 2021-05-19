@@ -26,7 +26,7 @@ pub trait QuarticFieldExtension: Field + From<<Self as QuarticFieldExtension>::B
     fn frobenius(&self) -> Self {
         let [a0, a1, a2, a3] = self.to_canonical_representation();
         let k = (Self::BaseField::ORDER - 1) / 4;
-        let z0 = Self::W.exp_usize(k as usize);
+        let z0 = Self::W.exp(k);
         let mut z = Self::BaseField::ONE;
         let b0 = a0 * z;
         z *= z0;
@@ -373,9 +373,8 @@ mod tests {
             F::POWER_OF_TWO_GENERATOR
         );
         assert_eq!(
-            F::POWER_OF_TWO_GENERATOR.exp_usize(
-                1 << (F::TWO_ADICITY - <F as QuarticFieldExtension>::BaseField::TWO_ADICITY)
-            ),
+            F::POWER_OF_TWO_GENERATOR
+                .exp(1 << (F::TWO_ADICITY - <F as QuarticFieldExtension>::BaseField::TWO_ADICITY)),
             <F as QuarticFieldExtension>::BaseField::POWER_OF_TWO_GENERATOR.into()
         );
     }

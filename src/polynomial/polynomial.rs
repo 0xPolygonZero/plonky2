@@ -434,7 +434,7 @@ mod tests {
             PolynomialCoeffs::new(xn_min_one_vec)
         };
 
-        let a = g.exp_usize(rng.gen_range(0, n));
+        let a = g.exp(rng.gen_range(0, n as u64));
         let denom = PolynomialCoeffs::new(vec![-a, F::ONE]);
         let now = Instant::now();
         xn_minus_one.div_rem(&denom);
