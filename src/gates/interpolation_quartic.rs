@@ -5,10 +5,13 @@ use std::ops::Range;
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
+use crate::field::lagrange::interpolant;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
+use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
+use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
 /// The size of the field extension, in terms of number of base elements per extension element.
@@ -19,7 +22,7 @@ const EXT_SIZE: usize = 4;
 /// In particular, this gate takes as inputs `num_points` points, `num_points` values, and the point
 /// to evaluate the interpolant at. It computes the interpolant and outputs its evaluation at the
 /// given point.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct QuarticInterpolationGate<F: Field + Extendable<D>, const D: usize> {
     num_points: usize,
     _phantom: PhantomData<F>,
@@ -98,10 +101,19 @@ impl<F: Field + Extendable<D>, const D: usize> Gate<F> for QuarticInterpolationG
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F>) -> Vec<F> {
+        let lookup_fe = |wire_range: Range<usize>| {
+            debug_assert_eq!(wire_range.len(), D);
+            let arr = vars.local_wires[wire_range].try_into().unwrap();
+            F::Extension::from_basefield_array(arr)
+        };
+
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
-        let x_eval = F::Extension::from_basefield_array(
-            vars.local_wires[self.wires_evaluation_point()].try_into().unwrap());
+        let coeffs = (0..self.num_points)
+            .map(|i| lookup_fe(self.wires_coeff(i)))
+            .collect();
+        let interpolant = PolynomialCoeffs::new(coeffs);
+        let x_eval = lookup_fe(self.wires_evaluation_point());
         let x_eval_powers = x_eval.powers().take(self.num_points);
 
         // TODO
@@ -124,7 +136,7 @@ impl<F: Field + Extendable<D>, const D: usize> Gate<F> for QuarticInterpolationG
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = QuarticInterpolationGenerator::<F, D> {
             gate_index,
-            num_points: self.num_points,
+            gate: self.clone(),
             _phantom: PhantomData,
         };
         vec![Box::new(gen)]
@@ -149,7 +161,7 @@ impl<F: Field + Extendable<D>, const D: usize> Gate<F> for QuarticInterpolationG
 
 struct QuarticInterpolationGenerator<F: Field + Extendable<D>, const D: usize> {
     gate_index: usize,
-    num_points: usize,
+    gate: QuarticInterpolationGate<F, D>,
     _phantom: PhantomData<F>,
 }
 
@@ -161,6 +173,35 @@ impl<F: Field + Extendable<D>, const D: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+        let n = self.gate.num_points;
+        let lookup_fe = |wire_range: Range<usize>| {
+            debug_assert_eq!(wire_range.len(), D);
+            let values = wire_range
+                .map(|input| {
+                    witness.get_wire(Wire {
+                        gate: self.gate_index,
+                        input,
+                    })
+                })
+                .collect::<Vec<_>>();
+            let arr = values.try_into().unwrap();
+            F::Extension::from_basefield_array(arr)
+        };
+
+        // Compute the interpolant.
+        let points = (0..n)
+            .map(|i| {
+                (
+                    F::Extension::from_basefield(witness.get_wire(Wire {
+                        gate: self.gate_index,
+                        input: self.gate.wire_point(i),
+                    })),
+                    lookup_fe(self.gate.wires_value(i)),
+                )
+            })
+            .collect::<Vec<_>>();
+        let interpolant = interpolant(&points);
+
         todo!()
     }
 }
