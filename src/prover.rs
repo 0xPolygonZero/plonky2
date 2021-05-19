@@ -4,6 +4,7 @@ use log::info;
 use rayon::prelude::*;
 
 use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
+use crate::field::extension_field::Extendable;
 use crate::field::fft::ifft;
 use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
@@ -21,11 +22,11 @@ use crate::witness::PartialWitness;
 /// Corresponds to constants - sigmas - wires - zs - quotient — polynomial commitments.
 pub const PLONK_BLINDING: [bool; 5] = [false, false, true, true, true];
 
-pub(crate) fn prove<F: Field>(
+pub(crate) fn prove<F: Field + Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F>,
     common_data: &CommonCircuitData<F>,
     inputs: PartialWitness<F>,
-) -> Proof<F> {
+) -> Proof<F, D> {
     let fri_config = &common_data.config.fri_config;
 
     let start_proof_gen = Instant::now();
@@ -109,7 +110,7 @@ pub(crate) fn prove<F: Field>(
 
     challenger.observe_hash(&quotient_polys_commitment.merkle_tree.root);
 
-    let zetas = challenger.get_n_challenges(config.num_challenges);
+    let zetas = challenger.get_n_extension_challenges(config.num_challenges);
 
     let (opening_proof, openings) = timed!(
         ListPolynomialCommitment::batch_open_plonk(

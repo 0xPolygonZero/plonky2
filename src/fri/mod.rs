@@ -52,26 +52,27 @@ fn fri_l(codeword_len: usize, rate_log: usize, conjecture: bool) -> f64 {
 mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::quadratic::QuadraticCrandallField;
+    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::{flatten, Extendable, FieldExtension};
     use crate::field::fft::ifft;
     use crate::field::field::Field;
     use crate::fri::prover::fri_proof;
     use crate::fri::verifier::verify_fri_proof;
     use crate::merkle_tree::MerkleTree;
     use crate::plonk_challenger::Challenger;
-    use crate::polynomial::polynomial::PolynomialCoeffs;
+    use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
     use crate::util::reverse_index_bits_in_place;
     use anyhow::Result;
     use rand::rngs::ThreadRng;
     use rand::Rng;
 
-    fn test_fri(
+    fn check_fri<F: Field + Extendable<D>, const D: usize>(
         degree_log: usize,
         rate_bits: usize,
         reduction_arity_bits: Vec<usize>,
         num_query_rounds: usize,
     ) -> Result<()> {
-        type F = CrandallField;
-
         let n = 1 << degree_log;
         let coeffs = PolynomialCoeffs::new(F::rand_vec(n)).lde(rate_bits);
         let coset_lde = coeffs.clone().coset_fft(F::MULTIPLICATIVE_GROUP_GENERATOR);
@@ -91,15 +92,28 @@ mod tests {
             reverse_index_bits_in_place(&mut leaves);
             MerkleTree::new(leaves, false)
         };
+        let coset_lde = PolynomialValues::new(
+            coset_lde
+                .values
+                .into_iter()
+                .map(F::Extension::from)
+                .collect(),
+        );
         let root = tree.root;
         let mut challenger = Challenger::new();
-        let proof = fri_proof(&[&tree], &coeffs, &coset_lde, &mut challenger, &config);
+        let proof = fri_proof::<F, D>(
+            &[&tree],
+            &coeffs.to_extension::<D>(),
+            &coset_lde,
+            &mut challenger,
+            &config,
+        );
 
         let mut challenger = Challenger::new();
         verify_fri_proof(
             degree_log,
             &[],
-            F::ONE,
+            F::Extension::ONE,
             &[root],
             &proof,
             &mut challenger,
@@ -120,14 +134,13 @@ mod tests {
         arities
     }
 
-    #[test]
-    fn test_fri_multi_params() -> Result<()> {
+    fn check_fri_multi_params<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
         let mut rng = rand::thread_rng();
         for degree_log in 1..6 {
             for rate_bits in 0..3 {
                 for num_query_round in 0..4 {
                     for _ in 0..3 {
-                        test_fri(
+                        check_fri::<F, D>(
                             degree_log,
                             rate_bits,
                             gen_arities(degree_log, &mut rng),
@@ -138,5 +151,32 @@ mod tests {
             }
         }
         Ok(())
+    }
+
+    mod base {
+        use super::*;
+
+        #[test]
+        fn test_fri_multi_params() -> Result<()> {
+            check_fri_multi_params::<CrandallField, 1>()
+        }
+    }
+
+    mod quadratic {
+        use super::*;
+
+        #[test]
+        fn test_fri_multi_params() -> Result<()> {
+            check_fri_multi_params::<CrandallField, 2>()
+        }
+    }
+
+    mod quartic {
+        use super::*;
+
+        #[test]
+        fn test_fri_multi_params() -> Result<()> {
+            check_fri_multi_params::<CrandallField, 4>()
+        }
     }
 }

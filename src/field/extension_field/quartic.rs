@@ -6,7 +6,7 @@ use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-pub trait QuarticFieldExtension: Field {
+pub trait QuarticFieldExtension: Field + From<<Self as QuarticFieldExtension>::BaseField> {
     type BaseField: Field;
 
     // Element W of BaseField, such that `X^4 - W` is irreducible over BaseField.
@@ -38,8 +38,6 @@ pub trait QuarticFieldExtension: Field {
 
         Self::from_canonical_representation([b0, b1, b2, b3])
     }
-
-    fn scalar_mul(&self, c: Self::BaseField) -> Self;
 }
 
 #[derive(Copy, Clone)]
@@ -58,10 +56,16 @@ impl QuarticFieldExtension for QuarticCrandallField {
     fn from_canonical_representation(v: [Self::BaseField; 4]) -> Self {
         Self(v)
     }
+}
 
-    fn scalar_mul(&self, c: Self::BaseField) -> Self {
-        let [a0, a1, a2, a3] = self.to_canonical_representation();
-        Self([a0 * c, a1 * c, a2 * c, a3 * c])
+impl From<<Self as QuarticFieldExtension>::BaseField> for QuarticCrandallField {
+    fn from(x: <Self as QuarticFieldExtension>::BaseField) -> Self {
+        Self([
+            x,
+            <Self as QuarticFieldExtension>::BaseField::ZERO,
+            <Self as QuarticFieldExtension>::BaseField::ZERO,
+            <Self as QuarticFieldExtension>::BaseField::ZERO,
+        ])
     }
 }
 
@@ -106,16 +110,19 @@ impl Field for QuarticCrandallField {
     const ORDER: u64 = 0;
     const TWO_ADICITY: usize = 30;
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([
-        CrandallField(3),
-        CrandallField::ONE,
-        CrandallField::ZERO,
-        CrandallField::ZERO,
+        CrandallField(12476589904174392631),
+        CrandallField(896937834427772243),
+        CrandallField(7795248119019507390),
+        CrandallField(9005769437373554825),
     ]);
+    // Chosen so that when raised to the power `1<<(Self::TWO_ADICITY-Self::BaseField::TWO_ADICITY)`,
+    // we get `Self::BaseField::POWER_OF_TWO_GENERATOR`. This makes `primitive_root_of_unity` coherent
+    // with the base field which implies that the FFT commutes with field inclusion.
     const POWER_OF_TWO_GENERATOR: Self = Self([
         CrandallField::ZERO,
         CrandallField::ZERO,
         CrandallField::ZERO,
-        CrandallField(14096607364803438105),
+        CrandallField(15170983443234254033),
     ]);
 
     // Algorithm 11.3.4 in Handbook of Elliptic and Hyperelliptic Curve Cryptography.
@@ -131,7 +138,7 @@ impl Field for QuarticCrandallField {
         let a_pow_r = a_pow_r_minus_1 * *self;
         debug_assert!(a_pow_r.is_in_basefield());
 
-        Some(a_pow_r_minus_1.scalar_mul(a_pow_r.0[0].inverse()))
+        Some(a_pow_r_minus_1 * a_pow_r.0[0].inverse().into())
     }
 
     fn to_canonical_u64(&self) -> u64 {
@@ -302,7 +309,7 @@ mod tests {
         assert_eq!(-x, F::ZERO - x);
         assert_eq!(
             x + x,
-            x.scalar_mul(<F as QuarticFieldExtension>::BaseField::TWO)
+            x * <F as QuarticFieldExtension>::BaseField::TWO.into()
         );
         assert_eq!(x * (-x), -x.square());
         assert_eq!(x + y, y + x);
@@ -348,6 +355,28 @@ mod tests {
                 340282366831806780677557380898690695170
             ),
             F::ONE
+        );
+    }
+
+    #[test]
+    fn test_power_of_two_gen() {
+        type F = QuarticCrandallField;
+        // F::ORDER = 2^30 * 1090552343587053358839971118999869 * 98885475095492590491252558464653635 + 1
+        assert_eq!(
+            exp_naive(
+                exp_naive(
+                    F::MULTIPLICATIVE_GROUP_GENERATOR,
+                    1090552343587053358839971118999869
+                ),
+                98885475095492590491252558464653635
+            ),
+            F::POWER_OF_TWO_GENERATOR
+        );
+        assert_eq!(
+            F::POWER_OF_TWO_GENERATOR.exp_usize(
+                1 << (F::TWO_ADICITY - <F as QuarticFieldExtension>::BaseField::TWO_ADICITY)
+            ),
+            <F as QuarticFieldExtension>::BaseField::POWER_OF_TWO_GENERATOR.into()
         );
     }
 }

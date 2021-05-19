@@ -1,3 +1,4 @@
+use crate::field::extension_field::{flatten, Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
 use crate::fri::FriConfig;
@@ -12,13 +13,13 @@ use anyhow::{ensure, Result};
 
 /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
 /// and P' is the FRI reduced polynomial.
-fn compute_evaluation<F: Field>(
+fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     x: F,
     old_x_index: usize,
     arity_bits: usize,
-    last_evals: &[F],
-    beta: F,
-) -> F {
+    last_evals: &[F::Extension],
+    beta: F::Extension,
+) -> F::Extension {
     debug_assert_eq!(last_evals.len(), 1 << arity_bits);
 
     let g = F::primitive_root_of_unity(arity_bits);
@@ -32,14 +33,14 @@ fn compute_evaluation<F: Field>(
     let points = g
         .powers()
         .zip(evals)
-        .map(|(y, e)| (x * y, e))
+        .map(|(y, e)| ((x * y).into(), e))
         .collect::<Vec<_>>();
     let barycentric_weights = barycentric_weights(&points);
     interpolate(&points, beta, &barycentric_weights)
 }
 
-fn fri_verify_proof_of_work<F: Field>(
-    proof: &FriProof<F>,
+fn fri_verify_proof_of_work<F: Field + Extendable<D>, const D: usize>(
+    proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
 ) -> Result<()> {
@@ -62,14 +63,14 @@ fn fri_verify_proof_of_work<F: Field>(
     Ok(())
 }
 
-pub fn verify_fri_proof<F: Field>(
+pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     purported_degree_log: usize,
     // Point-evaluation pairs for polynomial commitments.
-    points: &[(F, F)],
+    points: &[(F::Extension, F::Extension)],
     // Scaling factor to combine polynomials.
-    alpha: F,
+    alpha: F::Extension,
     initial_merkle_roots: &[Hash<F>],
-    proof: &FriProof<F>,
+    proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
 ) -> Result<()> {
@@ -89,10 +90,10 @@ pub fn verify_fri_proof<F: Field>(
         .iter()
         .map(|root| {
             challenger.observe_hash(root);
-            challenger.get_challenge()
+            challenger.get_extension_challenge()
         })
         .collect::<Vec<_>>();
-    challenger.observe_elements(&proof.final_poly.coeffs);
+    challenger.observe_extension_elements(&proof.final_poly.coeffs);
 
     // Check PoW.
     fri_verify_proof_of_work(proof, challenger, config)?;
@@ -138,39 +139,42 @@ fn fri_verify_initial_proof<F: Field>(
     Ok(())
 }
 
-fn fri_combine_initial<F: Field>(
+fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     proof: &FriInitialTreeProof<F>,
-    alpha: F,
-    interpolant: &PolynomialCoeffs<F>,
-    points: &[(F, F)],
+    alpha: F::Extension,
+    interpolant: &PolynomialCoeffs<F::Extension>,
+    points: &[(F::Extension, F::Extension)],
     subgroup_x: F,
     config: &FriConfig,
-) -> F {
+) -> F::Extension {
     let e = proof
         .evals_proofs
         .iter()
         .enumerate()
         .flat_map(|(i, (v, _))| &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }])
         .rev()
-        .fold(F::ZERO, |acc, &e| alpha * acc + e);
-    let numerator = e - interpolant.eval(subgroup_x);
-    let denominator = points.iter().map(|&(x, _)| subgroup_x - x).product();
+        .fold(F::Extension::ZERO, |acc, &e| alpha * acc + e.into());
+    let numerator = e - interpolant.eval(subgroup_x.into());
+    let denominator = points
+        .iter()
+        .map(|&(x, _)| F::Extension::from_basefield(subgroup_x) - x)
+        .product();
     numerator / denominator
 }
 
-fn fri_verifier_query_round<F: Field>(
-    interpolant: &PolynomialCoeffs<F>,
-    points: &[(F, F)],
-    alpha: F,
+fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
+    interpolant: &PolynomialCoeffs<F::Extension>,
+    points: &[(F::Extension, F::Extension)],
+    alpha: F::Extension,
     initial_merkle_roots: &[Hash<F>],
-    proof: &FriProof<F>,
+    proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     n: usize,
-    betas: &[F],
-    round_proof: &FriQueryRound<F>,
+    betas: &[F::Extension],
+    round_proof: &FriQueryRound<F, D>,
     config: &FriConfig,
 ) -> Result<()> {
-    let mut evaluations: Vec<Vec<F>> = Vec::new();
+    let mut evaluations: Vec<Vec<F::Extension>> = Vec::new();
     let x = challenger.get_challenge();
     let mut domain_size = n;
     let mut x_index = x.to_canonical_u64() as usize % n;
@@ -212,7 +216,7 @@ fn fri_verifier_query_round<F: Field>(
         evals.insert(x_index & (arity - 1), e_x);
         evaluations.push(evals);
         verify_merkle_proof(
-            evaluations[i].clone(),
+            flatten(&evaluations[i]),
             x_index >> arity_bits,
             proof.commit_phase_merkle_roots[i],
             &round_proof.steps[i].merkle_proof,
@@ -246,7 +250,7 @@ fn fri_verifier_query_round<F: Field>(
     // Final check of FRI. After all the reductions, we check that the final polynomial is equal
     // to the one sent by the prover.
     ensure!(
-        proof.final_poly.eval(subgroup_x) == purported_eval,
+        proof.final_poly.eval(subgroup_x.into()) == purported_eval,
         "Final polynomial evaluation is invalid."
     );
 

@@ -3,6 +3,7 @@ use env_logger::Env;
 use plonky2::circuit_builder::CircuitBuilder;
 use plonky2::circuit_data::CircuitConfig;
 use plonky2::field::crandall_field::CrandallField;
+use plonky2::field::extension_field::Extendable;
 use plonky2::field::field::Field;
 use plonky2::fri::FriConfig;
 use plonky2::gates::constant::ConstantGate;
@@ -18,7 +19,7 @@ fn main() {
     // change this to info or warn later.
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    bench_prove::<CrandallField>();
+    bench_prove::<CrandallField, 2>();
 
     // bench_field_mul::<CrandallField>();
 
@@ -27,7 +28,7 @@ fn main() {
     // bench_gmimc::<CrandallField>();
 }
 
-fn bench_prove<F: Field>() {
+fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
     let gmimc_gate = GMiMCGate::<F, GMIMC_ROUNDS>::with_automatic_constants();
 
     let config = CircuitConfig {
