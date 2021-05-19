@@ -30,9 +30,20 @@ impl<F: Field> FftPrecomputation<F> {
     }
 }
 
+use std::time::Instant;
+
 pub fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
-    let precomputation = fft_precompute(poly.len());
-    fft_with_precomputation_power_of_2(poly, &precomputation)
+    let ll = poly.len();
+    let precompute_timer = Instant::now();
+    let precomputation = fft_precompute(ll);
+    let precompute_time = precompute_timer.elapsed().as_micros();
+
+    let fft_timer = Instant::now();
+    let res = fft_with_precomputation_power_of_2(poly, &precomputation);
+    let fft_time = fft_timer.elapsed().as_micros();
+    println!("FFT {}: {} + {} ~ {:.1}% us", ll, precompute_time, fft_time,
+             100.0 * precompute_time as f32 / ((precompute_time + fft_time) as f32));
+    res
 }
 
 pub(crate) fn fft_precompute<F: Field>(degree: usize) -> FftPrecomputation<F> {
@@ -54,6 +65,9 @@ pub(crate) fn ifft_with_precomputation_power_of_2<F: Field>(
     precomputation: &FftPrecomputation<F>,
 ) -> PolynomialCoeffs<F> {
     let n = poly.len();
+    // HL: TODO: The code below does a general inverse call; in fact, we
+    // can do an inverse of 2^t mod p in a couple of multiplications
+    // with Hensel's Lemma. OTOH it's not a significant part of the runtime
     let n_inv = F::from_canonical_usize(n).try_inverse().unwrap();
 
     let PolynomialValues { values } = poly;
@@ -105,9 +119,11 @@ pub(crate) fn fft_with_precomputation_power_of_2<F: Field>(
             let child_index_0 = poly_index * points_per_poly + pair_index_within_poly;
             let child_index_1 = child_index_0 + pairs_per_poly;
 
+            // HL: TODO: Cache badness here
             let even = evaluations[child_index_0];
             let odd = evaluations[child_index_1];
 
+            // HL: TODO: Cache badness here
             let point_0 = precomputation.subgroups_rev[i][pair_index_within_poly * 2];
             let product = point_0 * odd;
             new_evaluations.push(even + product);
@@ -132,8 +148,17 @@ pub(crate) fn coset_fft<F: Field>(poly: PolynomialCoeffs<F>, shift: F) -> Polyno
 }
 
 pub(crate) fn ifft<F: Field>(poly: PolynomialValues<F>) -> PolynomialCoeffs<F> {
-    let precomputation = fft_precompute(poly.len());
-    ifft_with_precomputation_power_of_2(poly, &precomputation)
+    let ll = poly.len();
+    let precompute_timer = Instant::now();
+    let precomputation = fft_precompute(ll);
+    let precompute_time = precompute_timer.elapsed().as_micros();
+
+    let fft_timer = Instant::now();
+    let res = ifft_with_precomputation_power_of_2(poly, &precomputation);
+    let fft_time = fft_timer.elapsed().as_micros();
+    println!("IFFT {}: {} + {} ~ {:.1}% us", ll, precompute_time, fft_time,
+             100.0 * precompute_time as f32 / ((precompute_time + fft_time) as f32));
+    res
 }
 
 pub(crate) fn coset_ifft<F: Field>(poly: PolynomialValues<F>, shift: F) -> PolynomialCoeffs<F> {
