@@ -83,9 +83,15 @@ impl Field for QuadraticCrandallField {
     // Does not fit in 64-bits.
     const ORDER: u64 = 0;
     const TWO_ADICITY: usize = 29;
-    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([CrandallField(3), CrandallField::ONE]);
+    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([
+        CrandallField(6483724566312148654),
+        CrandallField(12194665049945415126),
+    ]);
+    // Chosen so that when raised to the power `1<<(Self::TWO_ADICITY-Self::BaseField::TWO_ADICITY)`,
+    // we get `Self::BaseField::POWER_OF_TWO_GENERATOR`. This makes `primitive_root_of_unity` coherent
+    // with the base field which implies that the FFT commutes with field inclusion.
     const POWER_OF_TWO_GENERATOR: Self =
-        Self([CrandallField::ZERO, CrandallField(7889429148549342301)]);
+        Self([CrandallField::ZERO, CrandallField(14420468973723774561)]);
 
     // Algorithm 11.3.4 in Handbook of Elliptic and Hyperelliptic Curve Cryptography.
     fn try_inverse(&self) -> Option<Self> {
@@ -98,22 +104,6 @@ impl Field for QuadraticCrandallField {
         debug_assert!(a_pow_r.is_in_basefield());
 
         Some(a_pow_r_minus_1 * a_pow_r.0[0].inverse().into())
-    }
-
-    // It's important that the primitive roots of unity are the same as the ones in the base field,
-    // otherwise the FFT doesn't commute with field inclusion.
-    fn primitive_root_of_unity(n_log: usize) -> Self {
-        if n_log <= CrandallField::TWO_ADICITY {
-            CrandallField::primitive_root_of_unity(n_log).into()
-        } else {
-            // The root of unity isn't in the base field so we need to compute it manually.
-            assert!(n_log <= Self::TWO_ADICITY);
-            let mut base = Self::POWER_OF_TWO_GENERATOR;
-            for _ in n_log..Self::TWO_ADICITY {
-                base = base.square();
-            }
-            base
-        }
     }
 
     fn to_canonical_u64(&self) -> u64 {
@@ -309,6 +299,24 @@ mod tests {
         assert_eq!(
             exp_naive(exp_naive(x, 18446744071293632512), 18446744071293632514),
             F::ONE
+        );
+    }
+
+    #[test]
+    fn test_power_of_two_gen() {
+        type F = QuadraticCrandallField;
+        // F::ORDER = 2^29 * 2762315674048163 * 229454332791453 + 1
+        assert_eq!(
+            F::MULTIPLICATIVE_GROUP_GENERATOR
+                .exp_usize(2762315674048163)
+                .exp_usize(229454332791453),
+            F::POWER_OF_TWO_GENERATOR
+        );
+        assert_eq!(
+            F::POWER_OF_TWO_GENERATOR.exp_usize(
+                1 << (F::TWO_ADICITY - <F as QuadraticFieldExtension>::BaseField::TWO_ADICITY)
+            ),
+            <F as QuadraticFieldExtension>::BaseField::POWER_OF_TWO_GENERATOR.into()
         );
     }
 }
