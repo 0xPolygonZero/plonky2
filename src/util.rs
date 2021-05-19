@@ -66,12 +66,7 @@ pub(crate) fn reverse_index_bits_in_place<T>(arr: &mut Vec<T>) {
 }
 
 pub(crate) fn reverse_bits(n: usize, num_bits: usize) -> usize {
-    let mut result = 0;
-    for i in 0..num_bits {
-        let i_rev = num_bits - i - 1;
-        result |= (n >> i & 1) << i_rev;
-    }
-    result
+    n.reverse_bits() >> (usize::BITS as usize - num_bits)
 }
 
 #[cfg(test)]

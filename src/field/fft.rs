@@ -15,12 +15,7 @@ fn reverse_index_bits<T: Copy>(arr: Vec<T>) -> Vec<T> {
 }
 
 fn reverse_bits(n: usize, num_bits: usize) -> usize {
-    let mut result = 0;
-    for i in 0..num_bits {
-        let i_rev = num_bits - i - 1;
-        result |= (n >> i & 1) << i_rev;
-    }
-    result
+    n.reverse_bits() >> (usize::BITS as usize - num_bits)
 }
 
 pub(crate) struct FftPrecomputation<F: Field> {
