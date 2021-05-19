@@ -298,7 +298,6 @@ macro_rules! test_arithmetic {
                 assert_eq!(F::TWO.kth_root_u32(1), <F>::TWO);
 
                 for power in 1..10 {
-                    let power = F::from_canonical_u32(power);
                     if F::is_monomial_permutation(power) {
                         let x = F::rand();
                         assert_eq!(x.exp(power).kth_root(power), x);

@@ -157,12 +157,12 @@ pub trait Field:
         bits_u64(self.to_canonical_u64())
     }
 
-    fn exp(&self, power: Self) -> Self {
+    fn exp(&self, power: u64) -> Self {
         let mut current = *self;
         let mut product = Self::ONE;
 
-        for j in 0..power.bits() {
-            if (power.to_canonical_u64() >> j & 1) != 0 {
+        for j in 0..64 {
+            if (power >> j & 1) != 0 {
                 product *= current;
             }
             current = current.square();
@@ -171,32 +171,25 @@ pub trait Field:
     }
 
     fn exp_u32(&self, power: u32) -> Self {
-        self.exp(Self::from_canonical_u32(power))
-    }
-
-    fn exp_usize(&self, power: usize) -> Self {
-        self.exp(Self::from_canonical_usize(power))
+        self.exp(power as u64)
     }
 
     /// Returns whether `x^power` is a permutation of this field.
-    fn is_monomial_permutation(power: Self) -> bool {
-        if power.is_zero() {
-            return false;
+    fn is_monomial_permutation(power: u64) -> bool {
+        match power {
+            0 => false,
+            1 => true,
+            _ => (Self::ORDER - 1).gcd(&power) == 1,
         }
-        if power.is_one() {
-            return true;
-        }
-        (Self::ORDER - 1).gcd(&power.to_canonical_u64()) == 1
     }
 
-    fn kth_root(&self, k: Self) -> Self {
+    fn kth_root(&self, k: u64) -> Self {
         let p = Self::ORDER;
         let p_minus_1 = p - 1;
         debug_assert!(
             Self::is_monomial_permutation(k),
             "Not a permutation of this field"
         );
-        let k = k.to_canonical_u64();
 
         // By Fermat's little theorem, x^p = x and x^(p - 1) = 1, so x^(p + n(p - 1)) = x for any n.
         // Our assumption that the k'th root operation is a permutation implies gcd(p - 1, k) = 1,
@@ -208,7 +201,7 @@ pub trait Field:
             let numerator = p as u128 + n as u128 * p_minus_1 as u128;
             if numerator % k as u128 == 0 {
                 let power = (numerator / k as u128) as u64 % p_minus_1;
-                return self.exp(Self::from_canonical_u64(power));
+                return self.exp(power);
             }
         }
         panic!(
@@ -218,11 +211,11 @@ pub trait Field:
     }
 
     fn kth_root_u32(&self, k: u32) -> Self {
-        self.kth_root(Self::from_canonical_u32(k))
+        self.kth_root(k as u64)
     }
 
     fn cube_root(&self) -> Self {
-        self.kth_root_u32(3)
+        self.kth_root(3)
     }
 
     fn powers(&self) -> Powers<Self> {
