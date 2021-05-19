@@ -319,7 +319,6 @@ impl DivAssign for GoldilocksField {
 
 /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
 /// field order and `2^64`.
-/*
 #[inline]
 fn reduce128(x: u128) -> GoldilocksField {
     // Write x = a0 + a1*2^64  (0 <= a0, a1 < 2^64)
@@ -340,9 +339,8 @@ fn reduce128(x: u128) -> GoldilocksField {
     }
     GoldilocksField(z)
 }
-*/
 
-
+/*
 #[inline]
 fn reduce128(x: u128) -> GoldilocksField {
     // Write x = a0 + a1*2^64  (0 <= a0, a1 < 2^64)
@@ -358,10 +356,10 @@ fn reduce128(x: u128) -> GoldilocksField {
     let (w, cy2) = z.overflowing_add(a0);
 
     let (res, blah) = w.overflowing_add((cy1 as u64 + cy2 as u64) * LAMBDA);
-    //assert_eq!(blah, false, "unexpected overflow on input = ({},, {}, {}), b2*λ = {}, q-b3 = {}, e = {} cy1 = {}, f = {}, cy2 = {}, res = {}", a0, b2, b3, x, y, z, cy1, w, cy2, res);
 
     GoldilocksField(res + (blah as u64)*LAMBDA)
 }
+*/
 
 
 #[inline]
