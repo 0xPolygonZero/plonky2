@@ -258,7 +258,7 @@ impl Sub for ProthField {
     #[inline]
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: Self) -> Self {
-        let (diff, under) = self.0.overflowing_sub(rhs.0);
+        let (diff, under) = self.0.overflowing_sub(rhs.to_canonical_u64());
         Self(diff.overflowing_add((under as u64) * Self::ORDER).0)
     }
 }
@@ -311,11 +311,11 @@ impl DivAssign for ProthField {
 /// field order and `2^64`.
 #[inline]
 fn reduce128(x: u128) -> ProthField {
-    const LO_57b_MASK: u64 = (1u64 << 57) - 1u64;
-    let (lo, hi) = split(x);
-    let C0 = lo & LO_57b_MASK;
-    let C1 = (lo >> 57) | (hi << 7);
-    ProthField(29 * C1 - C0)
+    const MASK_LO_57_BITS: u64 = (1u64 << 57) - 1u64;
+    let c0 = (x as u64) & MASK_LO_57_BITS;
+    let c1 = (x >> 57) as u64;
+    let (d, under) = (29 * c0).overflowing_sub(c1);
+    ProthField(d)
 }
 
 #[inline]
