@@ -161,7 +161,7 @@ pub trait Field:
         let mut current = *self;
         let mut product = Self::ONE;
 
-        for j in 0..64 {
+        for j in 0..bits_u64(power) {
             if (power >> j & 1) != 0 {
                 product *= current;
             }
