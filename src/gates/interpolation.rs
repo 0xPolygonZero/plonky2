@@ -86,6 +86,7 @@ impl<F: Field + Extendable<D>, const D: usize> InterpolationGate<F, D> {
         start..start + D
     }
 
+    /// End of wire indices, exclusive.
     fn end(&self) -> usize {
         self.start_coeffs() + self.num_points * D
     }
