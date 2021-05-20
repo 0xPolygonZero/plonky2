@@ -106,10 +106,18 @@ impl<F: Field + Extendable<D>, const D: usize> Gate<F> for QuarticInterpolationG
             .map(|i| vars.get_local_ext(self.wires_coeff(i)))
             .collect();
         let interpolant = PolynomialCoeffs::new(coeffs);
-        let x_eval = vars.get_local_ext(self.wires_evaluation_point());
-        let x_eval_powers = x_eval.powers().take(self.num_points);
 
-        // TODO
+        for i in 0..self.num_points {
+            let point = F::Extension::from_basefield(vars.local_wires[self.wire_point(i)]);
+            let value = vars.get_local_ext(self.wires_value(i));
+            let computed_value = interpolant.eval(point);
+            constraints.extend(&(value - computed_value).to_basefield_array());
+        }
+
+        let evaluation_point = vars.get_local_ext(self.wires_evaluation_point());
+        let evaluation_value = vars.get_local_ext(self.wires_evaluation_value());
+        let computed_evaluation_value = interpolant.eval(evaluation_point);
+        constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
 
         constraints
     }
@@ -144,11 +152,15 @@ impl<F: Field + Extendable<D>, const D: usize> Gate<F> for QuarticInterpolationG
     }
 
     fn degree(&self) -> usize {
-        self.num_points - 1
+        // The highest power of x is `num_points - 1`, and then multiplication by the coefficient
+        // adds 1.
+        self.num_points
     }
 
     fn num_constraints(&self) -> usize {
-        todo!()
+        // num_points * D constraints to check for consistency between the coefficients and the
+        // point-value pairs, plus D constraints for the evaluation value.
+        self.num_points * D + D
     }
 }
 
@@ -231,14 +243,16 @@ mod tests {
 
     use crate::field::crandall_field::CrandallField;
     use crate::gates::gate::Gate;
+    use crate::gates::gate_testing::test_low_degree;
     use crate::gates::interpolation_quartic::QuarticInterpolationGate;
 
     #[test]
-    fn wire_indices_2_points() {
+    fn wire_indices() {
         let gate = QuarticInterpolationGate::<CrandallField, 4> {
             num_points: 2,
             _phantom: PhantomData,
         };
+
         // The exact indices aren't really important, but we want to make sure we don't have any
         // overlaps or gaps.
         assert_eq!(gate.wire_point(0), 0);
@@ -253,11 +267,12 @@ mod tests {
     }
 
     #[test]
-    fn wire_indices_4_points() {
-        let gate = QuarticInterpolationGate::<CrandallField, 4> {
+    fn low_degree() {
+        type F = CrandallField;
+        let gate = QuarticInterpolationGate::<F, 4> {
             num_points: 4,
             _phantom: PhantomData,
         };
-        assert_eq!(gate.num_wires(), 44);
+        test_low_degree(gate);
     }
 }
