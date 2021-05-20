@@ -14,9 +14,6 @@ use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
-/// The size of the field extension, in terms of number of base elements per extension element.
-const EXT_SIZE: usize = 4;
-
 /// Evaluates the interpolant of some given elements from a field extension.
 ///
 /// In particular, this gate takes as inputs `num_points` points, `num_points` values, and the point
@@ -54,43 +51,43 @@ impl<F: Field + Extendable<D>, const D: usize> InterpolationGate<F, D> {
     /// Wire indices of the `i`th interpolant value.
     pub fn wires_value(&self, i: usize) -> Range<usize> {
         debug_assert!(i < self.num_points);
-        let start = self.start_values() + i * EXT_SIZE;
-        start..start + EXT_SIZE
+        let start = self.start_values() + i * D;
+        start..start + D
     }
 
     fn start_evaluation_point(&self) -> usize {
-        self.start_values() + self.num_points * EXT_SIZE
+        self.start_values() + self.num_points * D
     }
 
     /// Wire indices of the point to evaluate the interpolant at.
     pub fn wires_evaluation_point(&self) -> Range<usize> {
         let start = self.start_evaluation_point();
-        start..start + EXT_SIZE
+        start..start + D
     }
 
     fn start_evaluation_value(&self) -> usize {
-        self.start_evaluation_point() + EXT_SIZE
+        self.start_evaluation_point() + D
     }
 
     /// Wire indices of the interpolated value.
     pub fn wires_evaluation_value(&self) -> Range<usize> {
         let start = self.start_evaluation_value();
-        start..start + EXT_SIZE
+        start..start + D
     }
 
     fn start_coeffs(&self) -> usize {
-        self.start_evaluation_value() + EXT_SIZE
+        self.start_evaluation_value() + D
     }
 
     /// Wire indices of the interpolant's `i`th coefficient.
     pub fn wires_coeff(&self, i: usize) -> Range<usize> {
         debug_assert!(i < self.num_points);
-        let start = self.start_coeffs() + i * EXT_SIZE;
-        start..start + EXT_SIZE
+        let start = self.start_coeffs() + i * D;
+        start..start + D
     }
 
     fn end(&self) -> usize {
-        self.start_coeffs() + self.num_points * EXT_SIZE
+        self.start_coeffs() + self.num_points * D
     }
 }
 
@@ -181,7 +178,7 @@ impl<F: Field + Extendable<D>, const D: usize> SimpleGenerator<F>
             })
         };
 
-        let local_targets = |inputs: Range<usize>| inputs.map(|i| local_target(i));
+        let local_targets = |inputs: Range<usize>| inputs.map(local_target);
 
         let mut deps = Vec::new();
         deps.extend(local_targets(self.gate.wires_evaluation_point()));
