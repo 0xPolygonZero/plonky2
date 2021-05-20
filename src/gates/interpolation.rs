@@ -17,18 +17,18 @@ use crate::witness::PartialWitness;
 /// The size of the field extension, in terms of number of base elements per extension element.
 const EXT_SIZE: usize = 4;
 
-/// Evaluates the interpolant of some given elements from a quartic field extension.
+/// Evaluates the interpolant of some given elements from a field extension.
 ///
 /// In particular, this gate takes as inputs `num_points` points, `num_points` values, and the point
 /// to evaluate the interpolant at. It computes the interpolant and outputs its evaluation at the
 /// given point.
 #[derive(Clone, Debug)]
-pub(crate) struct QuarticInterpolationGate<F: Field + Extendable<D>, const D: usize> {
+pub(crate) struct InterpolationGate<F: Field + Extendable<D>, const D: usize> {
     num_points: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Field + Extendable<D>, const D: usize> QuarticInterpolationGate<F, D> {
+impl<F: Field + Extendable<D>, const D: usize> InterpolationGate<F, D> {
     pub fn new(num_points: usize) -> GateRef<F> {
         let gate = Self {
             num_points,
@@ -94,7 +94,7 @@ impl<F: Field + Extendable<D>, const D: usize> QuarticInterpolationGate<F, D> {
     }
 }
 
-impl<F: Field + Extendable<D>, const D: usize> Gate<F> for QuarticInterpolationGate<F, D> {
+impl<F: Field + Extendable<D>, const D: usize> Gate<F> for InterpolationGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -135,7 +135,7 @@ impl<F: Field + Extendable<D>, const D: usize> Gate<F> for QuarticInterpolationG
         gate_index: usize,
         _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = QuarticInterpolationGenerator::<F, D> {
+        let gen = InterpolationGenerator::<F, D> {
             gate_index,
             gate: self.clone(),
             _phantom: PhantomData,
@@ -164,14 +164,14 @@ impl<F: Field + Extendable<D>, const D: usize> Gate<F> for QuarticInterpolationG
     }
 }
 
-struct QuarticInterpolationGenerator<F: Field + Extendable<D>, const D: usize> {
+struct InterpolationGenerator<F: Field + Extendable<D>, const D: usize> {
     gate_index: usize,
-    gate: QuarticInterpolationGate<F, D>,
+    gate: InterpolationGate<F, D>,
     _phantom: PhantomData<F>,
 }
 
 impl<F: Field + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for QuarticInterpolationGenerator<F, D>
+    for InterpolationGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| {
@@ -244,11 +244,11 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
-    use crate::gates::interpolation_quartic::QuarticInterpolationGate;
+    use crate::gates::interpolation::InterpolationGate;
 
     #[test]
     fn wire_indices() {
-        let gate = QuarticInterpolationGate::<CrandallField, 4> {
+        let gate = InterpolationGate::<CrandallField, 4> {
             num_points: 2,
             _phantom: PhantomData,
         };
@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn low_degree() {
         type F = CrandallField;
-        let gate = QuarticInterpolationGate::<F, 4> {
+        let gate = InterpolationGate::<F, 4> {
             num_points: 4,
             _phantom: PhantomData,
         };
