@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
@@ -6,7 +8,6 @@ use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
-use std::marker::PhantomData;
 
 /// Performs some arithmetic involved in the evaluation of GMiMC's constraint polynomials for one
 /// round. In particular, this performs the following computations:
@@ -222,5 +223,17 @@ impl<F: Field> SimpleGenerator<F> for GMiMCEvalGenerator<F> {
         witness.set_wire(wire_state_a_new, addition_buffer_new);
         witness.set_wire(wire_addition_buffer_new, state_a_new);
         witness
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::field::crandall_field::CrandallField;
+    use crate::gates::gate_testing::test_low_degree;
+    use crate::gates::gmimc_eval::GMiMCEvalGate;
+
+    #[test]
+    fn low_degree() {
+        test_low_degree(GMiMCEvalGate::<CrandallField>::get())
     }
 }

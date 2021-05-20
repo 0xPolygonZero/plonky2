@@ -266,10 +266,7 @@ mod tests {
     #[test]
     fn low_degree() {
         type F = CrandallField;
-        let gate = InterpolationGate::<F, 4> {
-            num_points: 4,
-            _phantom: PhantomData,
-        };
-        test_low_degree(gate);
+        test_low_degree(InterpolationGate::<F, 2>::new(4));
+        test_low_degree(InterpolationGate::<F, 4>::new(4));
     }
 }

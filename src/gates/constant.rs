@@ -89,3 +89,15 @@ impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
         PartialWitness::singleton_target(Target::Wire(wire), self.constant)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::field::crandall_field::CrandallField;
+    use crate::gates::constant::ConstantGate;
+    use crate::gates::gate_testing::test_low_degree;
+
+    #[test]
+    fn low_degree() {
+        test_low_degree(ConstantGate::get::<CrandallField>())
+    }
+}

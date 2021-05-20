@@ -142,13 +142,14 @@ impl<F: Field> SimpleGenerator<F> for ArithmeticGenerator<F> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use crate::{test_gate_low_degree, ArithmeticGate, Tweedledum};
-//
-//     test_gate_low_degree!(
-//         low_degree_ArithmeticGate,
-//         Tweedledum,
-//         ArithmeticGate<Tweedledum>
-//     );
-// }
+#[cfg(test)]
+mod tests {
+    use crate::field::crandall_field::CrandallField;
+    use crate::gates::arithmetic::ArithmeticGate;
+    use crate::gates::gate_testing::test_low_degree;
+
+    #[test]
+    fn low_degree() {
+        test_low_degree(ArithmeticGate::new::<CrandallField>())
+    }
+}
