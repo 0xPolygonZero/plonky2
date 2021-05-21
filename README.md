@@ -1,6 +1,8 @@
 # plonky2
 
-plonky2 is an implementation of recursive arguments, using techniques from TurboPLONK and DEEP-FRI.
+plonky2 is an implementation of recursive arguments based on Plonk and FRI. It is the successor of [plonky](https://github.com/mir-protocol/plonky), which was based on Plonk and Halo.
+
+plonky2 is largely focused on recursion performance. We use custom gates to mitigate the bottlenecks of FRI verification, such as hashing and interpolation. We also encode witness data in a ~64 bit field, so field operations take just a few cycles. We use an extension field to boost soundness when needed.
 
 
 ## Running
