@@ -12,7 +12,7 @@ type F = CrandallField;
 // from wire polynomials which "store" the outputs of S-boxes in our Poseidon gate.
 const NUM_LDES: usize = 8 + 8 + 3 + 86 + 3 + 8;
 
-const DEGREE: usize = 1 << 14;
+const DEGREE: usize = 1 << 13;
 
 const RATE_BITS: usize = 3;
 
@@ -31,5 +31,5 @@ fn main() {
         println!("LDE took {:?}", duration);
         println!("LDE result: {:?}", lde.values[0]);
     });
-    println!("FFT overall took {:?}", start.elapsed());
+    println!("All LDEs took {:?}", start.elapsed());
 }
