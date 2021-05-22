@@ -28,7 +28,7 @@ pub trait QuadraticFieldExtension:
     fn frobenius(&self) -> Self {
         let [a0, a1] = self.to_canonical_representation();
         let k = (Self::BaseField::ORDER - 1) / 2;
-        let z = Self::W.exp_usize(k as usize);
+        let z = Self::W.exp(k);
 
         Self::from_canonical_representation([a0, a1 * z])
     }
@@ -233,19 +233,6 @@ mod tests {
     };
     use crate::field::field::Field;
 
-    fn exp_naive<F: Field>(x: F, power: u64) -> F {
-        let mut current = x;
-        let mut product = F::ONE;
-
-        for j in 0..64 {
-            if (power >> j & 1) != 0 {
-                product *= current;
-            }
-            current = current.square();
-        }
-        product
-    }
-
     #[test]
     fn test_add_neg_sub_mul() {
         type F = QuadraticCrandallField;
@@ -286,7 +273,7 @@ mod tests {
         type F = QuadraticCrandallField;
         let x = F::rand();
         assert_eq!(
-            exp_naive(x, <F as QuadraticFieldExtension>::BaseField::ORDER),
+            x.exp(<F as QuadraticFieldExtension>::BaseField::ORDER),
             x.frobenius()
         );
     }
@@ -297,7 +284,7 @@ mod tests {
         type F = QuadraticCrandallField;
         let x = F::rand();
         assert_eq!(
-            exp_naive(exp_naive(x, 18446744071293632512), 18446744071293632514),
+            x.exp(18446744071293632512).exp(18446744071293632514),
             F::ONE
         );
     }
@@ -308,12 +295,12 @@ mod tests {
         // F::ORDER = 2^29 * 2762315674048163 * 229454332791453 + 1
         assert_eq!(
             F::MULTIPLICATIVE_GROUP_GENERATOR
-                .exp_usize(2762315674048163)
-                .exp_usize(229454332791453),
+                .exp(2762315674048163)
+                .exp(229454332791453),
             F::POWER_OF_TWO_GENERATOR
         );
         assert_eq!(
-            F::POWER_OF_TWO_GENERATOR.exp_usize(
+            F::POWER_OF_TWO_GENERATOR.exp(
                 1 << (F::TWO_ADICITY - <F as QuadraticFieldExtension>::BaseField::TWO_ADICITY)
             ),
             <F as QuadraticFieldExtension>::BaseField::POWER_OF_TWO_GENERATOR.into()

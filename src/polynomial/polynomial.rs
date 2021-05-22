@@ -32,6 +32,7 @@ impl<F: Field> PolynomialValues<F> {
     pub fn ifft(self) -> PolynomialCoeffs<F> {
         ifft(self)
     }
+
     pub fn lde_multiple(polys: Vec<Self>, rate_bits: usize) -> Vec<Self> {
         polys.into_iter().map(|p| p.lde(rate_bits)).collect()
     }
@@ -39,6 +40,16 @@ impl<F: Field> PolynomialValues<F> {
     pub fn lde(self, rate_bits: usize) -> Self {
         let coeffs = ifft(self).lde(rate_bits);
         fft(coeffs)
+    }
+
+    pub fn degree(&self) -> usize {
+        self.degree_plus_one()
+            .checked_sub(1)
+            .expect("deg(0) is undefined")
+    }
+
+    pub fn degree_plus_one(&self) -> usize {
+        self.clone().ifft().degree_plus_one()
     }
 }
 
@@ -434,7 +445,7 @@ mod tests {
             PolynomialCoeffs::new(xn_min_one_vec)
         };
 
-        let a = g.exp_usize(rng.gen_range(0, n));
+        let a = g.exp(rng.gen_range(0, n as u64));
         let denom = PolynomialCoeffs::new(vec![-a, F::ONE]);
         let now = Instant::now();
         xn_minus_one.div_rem(&denom);

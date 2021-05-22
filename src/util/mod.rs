@@ -32,6 +32,10 @@ pub(crate) fn transpose_poly_values<F: Field>(polys: Vec<PolynomialValues<F>>) -
 }
 
 pub(crate) fn transpose<T: Clone>(matrix: &[Vec<T>]) -> Vec<Vec<T>> {
+    if matrix.is_empty() {
+        return Vec::new();
+    }
+
     let old_rows = matrix.len();
     let old_cols = matrix[0].len();
     let mut transposed = vec![Vec::with_capacity(old_rows); old_cols];

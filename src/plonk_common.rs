@@ -47,7 +47,7 @@ pub fn evaluate_gate_constraints_recursively<F: Field>(
 /// Evaluate the polynomial which vanishes on any multiplicative subgroup of a given order `n`.
 pub(crate) fn eval_zero_poly<F: Field>(n: usize, x: F) -> F {
     // Z(x) = x^n - 1
-    x.exp_usize(n) - F::ONE
+    x.exp(n as u64) - F::ONE
 }
 
 /// Evaluate the Lagrange basis `L_1` with `L_1(1) = 1`, and `L_1(x) = 0` for other members of an

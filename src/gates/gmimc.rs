@@ -59,6 +59,11 @@ impl<F: Field, const R: usize> GMiMCGate<F, R> {
     fn wire_cubing_input(i: usize) -> usize {
         2 * W + 3 + i
     }
+
+    /// End of wire indices, exclusive.
+    fn end() -> usize {
+        2 * W + 3 + R
+    }
 }
 
 impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
@@ -223,7 +228,7 @@ impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
     }
 
     fn num_wires(&self) -> usize {
-        W + 1 + R
+        Self::end()
     }
 
     fn num_constants(&self) -> usize {
@@ -349,6 +354,7 @@ mod tests {
     use crate::gmimc::gmimc_permute_naive;
     use crate::wire::Wire;
     use crate::witness::PartialWitness;
+    use crate::gates::gate_testing::test_low_degree;
 
     #[test]
     fn generated_output() {
@@ -410,5 +416,15 @@ mod tests {
             input: Gate::WIRE_INDEX_ACCUMULATOR_NEW,
         });
         assert_eq!(acc_new, F::from_canonical_usize(7 * 2));
+    }
+
+    #[test]
+    fn low_degree() {
+        type F = CrandallField;
+        const R: usize = 101;
+        let constants = Arc::new([F::TWO; R]);
+        type Gate = GMiMCGate<F, R>;
+        let gate = Gate::with_constants(constants);
+        test_low_degree(gate)
     }
 }

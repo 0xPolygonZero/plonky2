@@ -187,7 +187,7 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
     // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
     let log_n = log2_strict(n);
     let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
-        * F::primitive_root_of_unity(log_n).exp_usize(reverse_bits(x_index, log_n));
+        * F::primitive_root_of_unity(log_n).exp(reverse_bits(x_index, log_n) as u64);
     for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
         let arity = 1 << arity_bits;
         let next_domain_size = domain_size >> arity_bits;

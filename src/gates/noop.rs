@@ -55,3 +55,15 @@ impl<F: Field> Gate<F> for NoopGate {
         0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::field::crandall_field::CrandallField;
+    use crate::gates::gate_testing::test_low_degree;
+    use crate::gates::noop::NoopGate;
+
+    #[test]
+    fn low_degree() {
+        test_low_degree(NoopGate::get::<CrandallField>())
+    }
+}
