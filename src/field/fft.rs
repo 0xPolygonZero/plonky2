@@ -1,32 +1,17 @@
 use crate::field::field::Field;
+use crate::field::crandall_field::CrandallField;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::util::{log2_ceil, log2_strict};
-
-/// Permutes `arr` such that each index is mapped to its reverse in binary.
-fn reverse_index_bits<T: Copy>(arr: Vec<T>) -> Vec<T> {
-    let n = arr.len();
-    let n_power = log2_strict(n);
-
-    let mut result = Vec::with_capacity(n);
-    for i in 0..n {
-        result.push(arr[reverse_bits(i, n_power)]);
-    }
-    result
-}
-
-fn reverse_bits(n: usize, num_bits: usize) -> usize {
-    n.reverse_bits() >> (usize::BITS as usize - num_bits)
-}
+use crate::util::{log2_ceil, log2_strict, reverse_index_bits, reverse_bits};
 
 pub(crate) struct FftPrecomputation<F: Field> {
     /// For each layer index i, stores the cyclic subgroup corresponding to the evaluation domain of
     /// layer i. The indices within these subgroup vectors are bit-reversed.
-    subgroups_rev: Vec<Vec<F>>,
+    subgroups_rev: Vec<F>,
 }
 
 impl<F: Field> FftPrecomputation<F> {
     pub fn size(&self) -> usize {
-        self.subgroups_rev.last().unwrap().len()
+        self.subgroups_rev.len()
     }
 }
 
@@ -41,23 +26,18 @@ pub fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
     let fft_timer = Instant::now();
     let res = fft_with_precomputation_power_of_2(poly, &precomputation);
     let fft_time = fft_timer.elapsed().as_micros();
-    println!("FFT {}: {} + {} ~ {:.1}% us", ll, precompute_time, fft_time,
-             100.0 * precompute_time as f32 / ((precompute_time + fft_time) as f32));
+//    println!("FFT {}: {} + {} ~ {:.1}% us", ll, precompute_time, fft_time,
+//             100.0 * precompute_time as f32 / ((precompute_time + fft_time) as f32));
     res
 }
 
 pub(crate) fn fft_precompute<F: Field>(degree: usize) -> FftPrecomputation<F> {
     let degree_log = log2_ceil(degree);
 
-    let mut subgroups_rev = Vec::new();
-    for i in 0..=degree_log {
-        let g_i = F::primitive_root_of_unity(i);
-        let subgroup = F::cyclic_subgroup_known_order(g_i, 1 << i);
-        let subgroup_rev = reverse_index_bits(subgroup);
-        subgroups_rev.push(subgroup_rev);
-    }
+    let g_i = F::primitive_root_of_unity(degree_log);
+    let subgroup = F::cyclic_subgroup_known_order(g_i, 1 << degree_log);
 
-    FftPrecomputation { subgroups_rev }
+    FftPrecomputation { subgroups_rev: reverse_index_bits(subgroup) }
 }
 
 pub(crate) fn ifft_with_precomputation_power_of_2<F: Field>(
@@ -93,7 +73,7 @@ pub(crate) fn fft_with_precomputation_power_of_2<F: Field>(
 ) -> PolynomialValues<F> {
     debug_assert_eq!(
         poly.len(),
-        precomputation.subgroups_rev.last().unwrap().len(),
+        precomputation.subgroups_rev.len(),
         "Number of coefficients does not match size of subgroup in precomputation"
     );
 
@@ -124,7 +104,7 @@ pub(crate) fn fft_with_precomputation_power_of_2<F: Field>(
             let odd = evaluations[child_index_1];
 
             // HL: TODO: Cache badness here
-            let point_0 = precomputation.subgroups_rev[i][pair_index_within_poly * 2];
+            let point_0 = precomputation.subgroups_rev[pair_index_within_poly * 2];
             let product = point_0 * odd;
             new_evaluations.push(even + product);
             new_evaluations.push(even - product);
@@ -156,8 +136,8 @@ pub(crate) fn ifft<F: Field>(poly: PolynomialValues<F>) -> PolynomialCoeffs<F> {
     let fft_timer = Instant::now();
     let res = ifft_with_precomputation_power_of_2(poly, &precomputation);
     let fft_time = fft_timer.elapsed().as_micros();
-    println!("IFFT {}: {} + {} ~ {:.1}% us", ll, precompute_time, fft_time,
-             100.0 * precompute_time as f32 / ((precompute_time + fft_time) as f32));
+    //println!("IFFT {}: {} + {} ~ {:.1}% us", ll, precompute_time, fft_time,
+    //         100.0 * precompute_time as f32 / ((precompute_time + fft_time) as f32));
     res
 }
 
