@@ -349,12 +349,12 @@ mod tests {
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::field::Field;
+    use crate::gates::gate_testing::test_low_degree;
     use crate::gates::gmimc::{GMiMCGate, W};
     use crate::generator::generate_partial_witness;
     use crate::gmimc::gmimc_permute_naive;
     use crate::wire::Wire;
     use crate::witness::PartialWitness;
-    use crate::gates::gate_testing::test_low_degree;
 
     #[test]
     fn generated_output() {

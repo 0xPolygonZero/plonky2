@@ -168,9 +168,7 @@ struct InterpolationGenerator<F: Field + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: Field + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for InterpolationGenerator<F, D>
-{
+impl<F: Field + Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| {
             Target::Wire(Wire {
