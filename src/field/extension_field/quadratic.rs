@@ -206,12 +206,6 @@ impl DivAssign for QuadraticCrandallField {
     }
 }
 
-pub struct ExtensionTarget(pub [Target; 2]);
-
-// impl<F: Field> CircuitBuilder<F> {
-//     fn mul
-// }
-
 #[cfg(test)]
 mod tests {
     use crate::field::extension_field::quadratic::QuadraticCrandallField;
