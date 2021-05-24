@@ -93,19 +93,22 @@ pub(crate) fn prove<F: Field + Extendable<D>, const D: usize>(
     );
 
     // Compute the quotient polynomials, aka `t` in the Plonk paper.
-    let quotient_polys_commitment = timed!(
-        {
-            let mut all_quotient_poly_chunks = Vec::with_capacity(num_challenges * quotient_degree);
-            for vanishing_poly in vanishing_polys.into_iter() {
+    let all_quotient_poly_chunks = timed!(
+        vanishing_polys
+            .into_par_iter()
+            .flat_map(|vanishing_poly| {
                 let vanishing_poly_coeff = ifft(vanishing_poly);
                 let quotient_poly_coeff = vanishing_poly_coeff.divide_by_z_h(degree);
                 // Split t into degree-n chunks.
-                let quotient_poly_coeff_chunks = quotient_poly_coeff.chunks(degree);
-                all_quotient_poly_chunks.extend(quotient_poly_coeff_chunks);
-            }
-            ListPolynomialCommitment::new(all_quotient_poly_chunks, fri_config.rate_bits, true)
-        },
-        "to compute quotient polys and commit to them"
+                quotient_poly_coeff.chunks(degree)
+            })
+            .collect(),
+        "to compute quotient polys"
+    );
+
+    let quotient_polys_commitment = timed!(
+        ListPolynomialCommitment::new(all_quotient_poly_chunks, fri_config.rate_bits, true),
+        "to commit to quotient polys"
     );
 
     challenger.observe_hash(&quotient_polys_commitment.merkle_tree.root);
