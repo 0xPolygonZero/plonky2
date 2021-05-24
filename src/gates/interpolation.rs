@@ -6,6 +6,7 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::field::lagrange::interpolant;
+use crate::gadgets::polynomial::PolynomialCoeffsTarget;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::polynomial::polynomial::PolynomialCoeffs;
@@ -125,7 +126,34 @@ impl<F: Field + Extendable<D>, const D: usize> Gate<F> for InterpolationGate<F, 
         builder: &mut CircuitBuilder<F>,
         vars: EvaluationTargets,
     ) -> Vec<Target> {
-        todo!()
+        let mut constraints = Vec::with_capacity(self.num_constraints());
+
+        let coeffs = (0..self.num_points)
+            .map(|i| vars.get_local_ext(self.wires_coeff(i)))
+            .collect();
+        let interpolant = PolynomialCoeffsTarget(coeffs);
+
+        for i in 0..self.num_points {
+            let point = vars.local_wires[self.wire_point(i)];
+            let value = vars.get_local_ext(self.wires_value(i));
+            let computed_value = interpolant.eval_scalar(builder, point);
+            constraints.extend(
+                &builder
+                    .sub_extension(value, computed_value)
+                    .to_target_array(),
+            );
+        }
+
+        let evaluation_point = vars.get_local_ext(self.wires_evaluation_point());
+        let evaluation_value = vars.get_local_ext(self.wires_evaluation_value());
+        let computed_evaluation_value = interpolant.eval(builder, evaluation_point);
+        constraints.extend(
+            &builder
+                .sub_extension(evaluation_value, computed_evaluation_value)
+                .to_target_array(),
+        );
+
+        constraints
     }
 
     fn generators(

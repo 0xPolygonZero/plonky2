@@ -1,4 +1,5 @@
 use crate::field::crandall_field::CrandallField;
+use crate::field::extension_field::{FieldExtension, OEF};
 use crate::field::field::Field;
 use rand::Rng;
 use std::fmt::{Debug, Display, Formatter};
@@ -6,61 +7,41 @@ use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-pub trait QuadraticFieldExtension:
-    Field + From<<Self as QuadraticFieldExtension>::BaseField>
-{
-    type BaseField: Field;
-
-    // Element W of BaseField, such that `X^2 - W` is irreducible over BaseField.
-    const W: Self::BaseField;
-
-    fn to_canonical_representation(&self) -> [Self::BaseField; 2];
-
-    fn from_canonical_representation(v: [Self::BaseField; 2]) -> Self;
-
-    fn is_in_basefield(&self) -> bool {
-        self.to_canonical_representation()[1..]
-            .iter()
-            .all(|x| x.is_zero())
-    }
-
-    /// Frobenius automorphisms: x -> x^p, where p is the order of BaseField.
-    fn frobenius(&self) -> Self {
-        let [a0, a1] = self.to_canonical_representation();
-        let k = (Self::BaseField::ORDER - 1) / 2;
-        let z = Self::W.exp(k);
-
-        Self::from_canonical_representation([a0, a1 * z])
-    }
-}
-
 #[derive(Copy, Clone)]
 pub struct QuadraticCrandallField([CrandallField; 2]);
 
-impl QuadraticFieldExtension for QuadraticCrandallField {
-    type BaseField = CrandallField;
+impl OEF<2> for QuadraticCrandallField {
     // Verifiable in Sage with
     // ``R.<x> = GF(p)[]; assert (x^2 -3).is_irreducible()`.
-    const W: Self::BaseField = CrandallField(3);
+    const W: CrandallField = CrandallField(3);
+}
 
-    fn to_canonical_representation(&self) -> [Self::BaseField; 2] {
+impl FieldExtension<2> for QuadraticCrandallField {
+    type BaseField = CrandallField;
+
+    fn to_basefield_array(&self) -> [Self::BaseField; 2] {
         self.0
     }
 
-    fn from_canonical_representation(v: [Self::BaseField; 2]) -> Self {
-        Self(v)
+    fn from_basefield_array(arr: [Self::BaseField; 2]) -> Self {
+        Self(arr)
+    }
+
+    fn from_basefield(x: Self::BaseField) -> Self {
+        x.into()
     }
 }
 
-impl From<<Self as QuadraticFieldExtension>::BaseField> for QuadraticCrandallField {
-    fn from(x: <Self as QuadraticFieldExtension>::BaseField) -> Self {
-        Self([x, <Self as QuadraticFieldExtension>::BaseField::ZERO])
+impl From<<Self as FieldExtension<2>>::BaseField> for QuadraticCrandallField {
+    fn from(x: <Self as FieldExtension<2>>::BaseField) -> Self {
+        Self([x, <Self as FieldExtension<2>>::BaseField::ZERO])
     }
 }
 
 impl PartialEq for QuadraticCrandallField {
     fn eq(&self, other: &Self) -> bool {
-        self.to_canonical_representation() == other.to_canonical_representation()
+        FieldExtension::<2>::to_basefield_array(self)
+            == FieldExtension::<2>::to_basefield_array(other)
     }
 }
 
@@ -68,7 +49,7 @@ impl Eq for QuadraticCrandallField {}
 
 impl Hash for QuadraticCrandallField {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        for l in &self.to_canonical_representation() {
+        for l in &FieldExtension::<2>::to_basefield_array(self) {
             Hash::hash(l, state);
         }
     }
@@ -99,9 +80,9 @@ impl Field for QuadraticCrandallField {
             return None;
         }
 
-        let a_pow_r_minus_1 = self.frobenius();
+        let a_pow_r_minus_1 = OEF::<2>::frobenius(self);
         let a_pow_r = a_pow_r_minus_1 * *self;
-        debug_assert!(a_pow_r.is_in_basefield());
+        debug_assert!(FieldExtension::<2>::is_in_basefield(&a_pow_r));
 
         Some(a_pow_r_minus_1 * a_pow_r.0[0].inverse().into())
     }
@@ -111,16 +92,13 @@ impl Field for QuadraticCrandallField {
     }
 
     fn from_canonical_u64(n: u64) -> Self {
-        Self([
-            <Self as QuadraticFieldExtension>::BaseField::from_canonical_u64(n),
-            <Self as QuadraticFieldExtension>::BaseField::ZERO,
-        ])
+        <Self as FieldExtension<2>>::BaseField::from_canonical_u64(n).into()
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self([
-            <Self as QuadraticFieldExtension>::BaseField::rand_from_rng(rng),
-            <Self as QuadraticFieldExtension>::BaseField::rand_from_rng(rng),
+            <Self as FieldExtension<2>>::BaseField::rand_from_rng(rng),
+            <Self as FieldExtension<2>>::BaseField::rand_from_rng(rng),
         ])
     }
 }
@@ -191,7 +169,7 @@ impl Mul for QuadraticCrandallField {
         let Self([a0, a1]) = self;
         let Self([b0, b1]) = rhs;
 
-        let c0 = a0 * b0 + Self::W * a1 * b1;
+        let c0 = a0 * b0 + <Self as OEF<2>>::W * a1 * b1;
         let c1 = a0 * b1 + a1 * b0;
 
         Self([c0, c1])
@@ -228,9 +206,8 @@ impl DivAssign for QuadraticCrandallField {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::extension_field::quadratic::{
-        QuadraticCrandallField, QuadraticFieldExtension,
-    };
+    use crate::field::extension_field::quadratic::QuadraticCrandallField;
+    use crate::field::extension_field::{FieldExtension, OEF};
     use crate::field::field::Field;
 
     #[test]
@@ -241,10 +218,7 @@ mod tests {
         let z = F::rand();
         assert_eq!(x + (-x), F::ZERO);
         assert_eq!(-x, F::ZERO - x);
-        assert_eq!(
-            x + x,
-            x * <F as QuadraticFieldExtension>::BaseField::TWO.into()
-        );
+        assert_eq!(x + x, x * <F as FieldExtension<2>>::BaseField::TWO.into());
         assert_eq!(x * (-x), -x.square());
         assert_eq!(x + y, y + x);
         assert_eq!(x * y, y * x);
@@ -273,8 +247,8 @@ mod tests {
         type F = QuadraticCrandallField;
         let x = F::rand();
         assert_eq!(
-            x.exp(<F as QuadraticFieldExtension>::BaseField::ORDER),
-            x.frobenius()
+            x.exp(<F as FieldExtension<2>>::BaseField::ORDER),
+            OEF::<2>::frobenius(&x)
         );
     }
 
@@ -300,10 +274,9 @@ mod tests {
             F::POWER_OF_TWO_GENERATOR
         );
         assert_eq!(
-            F::POWER_OF_TWO_GENERATOR.exp(
-                1 << (F::TWO_ADICITY - <F as QuadraticFieldExtension>::BaseField::TWO_ADICITY)
-            ),
-            <F as QuadraticFieldExtension>::BaseField::POWER_OF_TWO_GENERATOR.into()
+            F::POWER_OF_TWO_GENERATOR
+                .exp(1 << (F::TWO_ADICITY - <F as FieldExtension<2>>::BaseField::TWO_ADICITY)),
+            <F as FieldExtension<2>>::BaseField::POWER_OF_TWO_GENERATOR.into()
         );
     }
 }
