@@ -1,9 +1,30 @@
-use crate::field::extension_field::quadratic::QuadraticFieldExtension;
-use crate::field::extension_field::quartic::QuarticFieldExtension;
 use crate::field::field::Field;
 
 pub mod quadratic;
 pub mod quartic;
+
+/// Optimal extension field trait.
+/// A degree `d` field extension is optimal if there exists a base field element `W`,
+/// such that the extension is `F[X]/(X^d-W)`.
+pub trait OEF<const D: usize>: FieldExtension<D> {
+    // Element W of BaseField, such that `X^d - W` is irreducible over BaseField.
+    const W: Self::BaseField;
+
+    /// Frobenius automorphisms: x -> x^p, where p is the order of BaseField.
+    fn frobenius(&self) -> Self {
+        let arr = self.to_basefield_array();
+        let k = (Self::BaseField::ORDER - 1) / (D as u64);
+        let z0 = Self::W.exp(k);
+        let mut z = Self::BaseField::ONE;
+        let mut res = [Self::BaseField::ZERO; D];
+        for i in 0..D {
+            res[i] = arr[i] * z;
+            z *= z0;
+        }
+
+        Self::from_basefield_array(res)
+    }
+}
 
 pub trait Extendable<const D: usize>: Sized {
     type Extension: Field + FieldExtension<D, BaseField = Self> + From<Self>;
@@ -21,6 +42,10 @@ pub trait FieldExtension<const D: usize>: Field {
     fn from_basefield_array(arr: [Self::BaseField; D]) -> Self;
 
     fn from_basefield(x: Self::BaseField) -> Self;
+
+    fn is_in_basefield(&self) -> bool {
+        self.to_basefield_array()[1..].iter().all(|x| x.is_zero())
+    }
 }
 
 impl<F: Field> FieldExtension<1> for F {
@@ -36,38 +61,6 @@ impl<F: Field> FieldExtension<1> for F {
 
     fn from_basefield(x: Self::BaseField) -> Self {
         x
-    }
-}
-
-impl<FE: QuadraticFieldExtension> FieldExtension<2> for FE {
-    type BaseField = FE::BaseField;
-
-    fn to_basefield_array(&self) -> [Self::BaseField; 2] {
-        self.to_canonical_representation()
-    }
-
-    fn from_basefield_array(arr: [Self::BaseField; 2]) -> Self {
-        Self::from_canonical_representation(arr)
-    }
-
-    fn from_basefield(x: Self::BaseField) -> Self {
-        x.into()
-    }
-}
-
-impl<FE: QuarticFieldExtension> FieldExtension<4> for FE {
-    type BaseField = FE::BaseField;
-
-    fn to_basefield_array(&self) -> [Self::BaseField; 4] {
-        self.to_canonical_representation()
-    }
-
-    fn from_basefield_array(arr: [Self::BaseField; 4]) -> Self {
-        Self::from_canonical_representation(arr)
-    }
-
-    fn from_basefield(x: Self::BaseField) -> Self {
-        x.into()
     }
 }
 
