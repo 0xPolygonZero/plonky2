@@ -2,6 +2,7 @@ use crate::field::field::Field;
 
 pub mod quadratic;
 pub mod quartic;
+pub mod target;
 
 /// Optimal extension field trait.
 /// A degree `d` field extension is optimal if there exists a base field element `W`,
@@ -27,11 +28,7 @@ pub trait OEF<const D: usize>: FieldExtension<D> {
 }
 
 pub trait Extendable<const D: usize>: Sized {
-    type Extension: Field + FieldExtension<D, BaseField = Self> + From<Self>;
-}
-
-impl<F: Field> Extendable<1> for F {
-    type Extension = Self;
+    type Extension: Field + FieldExtension<D, BaseField = Self> + OEF<D> + From<Self>;
 }
 
 pub trait FieldExtension<const D: usize>: Field {
