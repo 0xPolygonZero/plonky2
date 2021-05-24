@@ -1,8 +1,6 @@
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::crandall_field::CrandallField;
 use crate::field::extension_field::{FieldExtension, OEF};
 use crate::field::field::Field;
-use crate::target::Target;
 use rand::Rng;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -82,7 +80,7 @@ impl Field for QuadraticCrandallField {
             return None;
         }
 
-        let a_pow_r_minus_1 = self.frobenius();
+        let a_pow_r_minus_1 = OEF::<2>::frobenius(self);
         let a_pow_r = a_pow_r_minus_1 * *self;
         debug_assert!(FieldExtension::<2>::is_in_basefield(&a_pow_r));
 
@@ -171,7 +169,7 @@ impl Mul for QuadraticCrandallField {
         let Self([a0, a1]) = self;
         let Self([b0, b1]) = rhs;
 
-        let c0 = a0 * b0 + Self::W * a1 * b1;
+        let c0 = a0 * b0 + <Self as OEF<2>>::W * a1 * b1;
         let c1 = a0 * b1 + a1 * b0;
 
         Self([c0, c1])
@@ -250,7 +248,7 @@ mod tests {
         let x = F::rand();
         assert_eq!(
             x.exp(<F as FieldExtension<2>>::BaseField::ORDER),
-            x.frobenius()
+            OEF::<2>::frobenius(&x)
         );
     }
 

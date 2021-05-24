@@ -28,8 +28,16 @@ pub trait OEF<const D: usize>: FieldExtension<D> {
     }
 }
 
+impl<F: Field> OEF<1> for F {
+    const W: Self::BaseField = F::ZERO;
+}
+
 pub trait Extendable<const D: usize>: Sized {
-    type Extension: Field + FieldExtension<D, BaseField = Self> + OEF<D> + From<Self>;
+    type Extension: Field + OEF<D, BaseField = Self> + From<Self>;
+}
+
+impl<F: Field> Extendable<1> for F {
+    type Extension = F;
 }
 
 pub trait FieldExtension<const D: usize>: Field {

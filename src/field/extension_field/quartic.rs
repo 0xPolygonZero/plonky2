@@ -106,9 +106,9 @@ impl Field for QuarticCrandallField {
             return None;
         }
 
-        let a_pow_p = self.frobenius();
+        let a_pow_p = OEF::<4>::frobenius(self);
         let a_pow_p_plus_1 = a_pow_p * *self;
-        let a_pow_p3_plus_p2 = a_pow_p_plus_1.frobenius().frobenius();
+        let a_pow_p3_plus_p2 = OEF::<4>::frobenius(&OEF::<4>::frobenius(&a_pow_p_plus_1));
         let a_pow_r_minus_1 = a_pow_p3_plus_p2 * a_pow_p;
         let a_pow_r = a_pow_r_minus_1 * *self;
         debug_assert!(FieldExtension::<4>::is_in_basefield(&a_pow_r));
@@ -214,9 +214,9 @@ impl Mul for QuarticCrandallField {
         let Self([a0, a1, a2, a3]) = self;
         let Self([b0, b1, b2, b3]) = rhs;
 
-        let c0 = a0 * b0 + Self::W * (a1 * b3 + a2 * b2 + a3 * b1);
-        let c1 = a0 * b1 + a1 * b0 + Self::W * (a2 * b3 + a3 * b2);
-        let c2 = a0 * b2 + a1 * b1 + a2 * b0 + Self::W * a3 * b3;
+        let c0 = a0 * b0 + <Self as OEF<4>>::W * (a1 * b3 + a2 * b2 + a3 * b1);
+        let c1 = a0 * b1 + a1 * b0 + <Self as OEF<4>>::W * (a2 * b3 + a3 * b2);
+        let c2 = a0 * b2 + a1 * b1 + a2 * b0 + <Self as OEF<4>>::W * a3 * b3;
         let c3 = a0 * b3 + a1 * b2 + a2 * b1 + a3 * b0;
 
         Self([c0, c1, c2, c3])
@@ -308,7 +308,7 @@ mod tests {
         let x = F::rand();
         assert_eq!(
             exp_naive(x, <F as FieldExtension<4>>::BaseField::ORDER as u128),
-            x.frobenius()
+            OEF::<4>::frobenius(&x)
         );
     }
 

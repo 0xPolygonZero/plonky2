@@ -63,8 +63,8 @@ impl<F: Field> CircuitBuilder<F> {
                 res[(i + j) % D] = if i + j < D {
                     self.mul_add(a.0[i], b.0[j], res[(i + j) % D])
                 } else {
-                    let tmp = self.mul_add(a.0[i], b.0[j], res[(i + j) % D]);
-                    self.mul(w, tmp)
+                    let tmp = self.mul(a.0[i], b.0[j]);
+                    self.mul_add(w, tmp, res[(i + j) % D])
                 }
             }
         }
