@@ -12,7 +12,7 @@ impl<const D: usize> PolynomialCoeffsTarget<D> {
         builder: &mut CircuitBuilder<F>,
         point: Target,
     ) -> ExtensionTarget<D> {
-        let mut acc = builder.zero_ext();
+        let mut acc = builder.zero_extension();
         for &c in self.0.iter().rev() {
             let tmp = builder.scalar_mul(point, acc);
             acc = builder.add_extension(tmp, c);
@@ -25,7 +25,7 @@ impl<const D: usize> PolynomialCoeffsTarget<D> {
         builder: &mut CircuitBuilder<F>,
         point: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let mut acc = builder.zero_ext();
+        let mut acc = builder.zero_extension();
         for &c in self.0.iter().rev() {
             let tmp = builder.mul_extension(point, acc);
             acc = builder.add_extension(tmp, c);

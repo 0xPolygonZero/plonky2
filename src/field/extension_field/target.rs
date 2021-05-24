@@ -13,7 +13,7 @@ impl<const D: usize> ExtensionTarget<D> {
 }
 
 impl<F: Field> CircuitBuilder<F> {
-    pub fn zero_ext<const D: usize>(&mut self) -> ExtensionTarget<D>
+    pub fn zero_extension<const D: usize>(&mut self) -> ExtensionTarget<D>
     where
         F: Extendable<D>,
     {

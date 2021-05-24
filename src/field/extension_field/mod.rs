@@ -7,6 +7,7 @@ pub mod target;
 /// Optimal extension field trait.
 /// A degree `d` field extension is optimal if there exists a base field element `W`,
 /// such that the extension is `F[X]/(X^d-W)`.
+#[allow(clippy::upper_case_acronyms)]
 pub trait OEF<const D: usize>: FieldExtension<D> {
     // Element W of BaseField, such that `X^d - W` is irreducible over BaseField.
     const W: Self::BaseField;
