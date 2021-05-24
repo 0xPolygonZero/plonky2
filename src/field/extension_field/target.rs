@@ -62,7 +62,7 @@ impl<F: Field> CircuitBuilder<F> {
                 res[(i + j) % D] = if i + j < D {
                     self.mul_add(a.0[i], b.0[j], res[(i + j) % D])
                 } else {
-                    // W * a[i] * b[i] + res[(i + j) % W]
+                    // W * a[i] * b[i] + res[(i + j) % D]
                     self.arithmetic(F::Extension::W, a.0[i], b.0[i], F::Extension::ONE, res[(i + j) % D]);
                 }
             }
