@@ -56,15 +56,14 @@ impl<F: Field> CircuitBuilder<F> {
     where
         F: Extendable<D>,
     {
-        let w = self.constant(F::Extension::W);
         let mut res = [self.zero(); D];
         for i in 0..D {
             for j in 0..D {
                 res[(i + j) % D] = if i + j < D {
                     self.mul_add(a.0[i], b.0[j], res[(i + j) % D])
                 } else {
-                    let tmp = self.mul(a.0[i], b.0[j]);
-                    self.mul_add(w, tmp, res[(i + j) % D])
+                    // W * a[i] * b[i] + res[(i + j) % D]
+                    self.arithmetic(F::Extension::W, a.0[i], b.0[i], F::Extension::ONE, res[(i + j) % D]);
                 }
             }
         }
