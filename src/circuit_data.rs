@@ -52,24 +52,18 @@ impl CircuitConfig {
 }
 
 /// Circuit data required by the prover or the verifier.
-pub struct CircuitData<F: Field> {
+pub struct CircuitData<F: Extendable<D>, const D: usize> {
     pub(crate) prover_only: ProverOnlyCircuitData<F>,
     pub(crate) verifier_only: VerifierOnlyCircuitData<F>,
-    pub(crate) common: CommonCircuitData<F>,
+    pub(crate) common: CommonCircuitData<F, D>,
 }
 
-impl<F: Field> CircuitData<F> {
-    pub fn prove<const D: usize>(&self, inputs: PartialWitness<F>) -> Proof<F, D>
-    where
-        F: Extendable<D>,
-    {
+impl<F: Extendable<D>, const D: usize> CircuitData<F, D> {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F, D> {
         prove(&self.prover_only, &self.common, inputs)
     }
 
-    pub fn verify<const D: usize>(&self, proof: Proof<F, D>) -> Result<()>
-    where
-        F: Extendable<D>,
-    {
+    pub fn verify(&self, proof: Proof<F, D>) -> Result<()> {
         verify(proof, &self.verifier_only, &self.common)
     }
 }
@@ -81,31 +75,25 @@ impl<F: Field> CircuitData<F> {
 /// structure as succinct as we can. Thus we include various precomputed data which isn't strictly
 /// required, like LDEs of preprocessed polynomials. If more succinctness was desired, we could
 /// construct a more minimal prover structure and convert back and forth.
-pub struct ProverCircuitData<F: Field> {
+pub struct ProverCircuitData<F: Extendable<D>, const D: usize> {
     pub(crate) prover_only: ProverOnlyCircuitData<F>,
-    pub(crate) common: CommonCircuitData<F>,
+    pub(crate) common: CommonCircuitData<F, D>,
 }
 
-impl<F: Field> ProverCircuitData<F> {
-    pub fn prove<const D: usize>(&self, inputs: PartialWitness<F>) -> Proof<F, D>
-    where
-        F: Extendable<D>,
-    {
+impl<F: Extendable<D>, const D: usize> ProverCircuitData<F, D> {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F, D> {
         prove(&self.prover_only, &self.common, inputs)
     }
 }
 
 /// Circuit data required by the prover.
-pub struct VerifierCircuitData<F: Field> {
+pub struct VerifierCircuitData<F: Extendable<D>, const D: usize> {
     pub(crate) verifier_only: VerifierOnlyCircuitData<F>,
-    pub(crate) common: CommonCircuitData<F>,
+    pub(crate) common: CommonCircuitData<F, D>,
 }
 
-impl<F: Field> VerifierCircuitData<F> {
-    pub fn verify<const D: usize>(&self, proof: Proof<F, D>) -> Result<()>
-    where
-        F: Extendable<D>,
-    {
+impl<F: Extendable<D>, const D: usize> VerifierCircuitData<F, D> {
+    pub fn verify(&self, proof: Proof<F, D>) -> Result<()> {
         verify(proof, &self.verifier_only, &self.common)
     }
 }
@@ -129,13 +117,13 @@ pub(crate) struct VerifierOnlyCircuitData<F: Field> {
 }
 
 /// Circuit data required by both the prover and the verifier.
-pub(crate) struct CommonCircuitData<F: Field> {
+pub(crate) struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
     pub(crate) degree_bits: usize,
 
     /// The types of gates used in this circuit.
-    pub(crate) gates: Vec<GateRef<F>>,
+    pub(crate) gates: Vec<GateRef<F, D>>,
 
     /// The largest number of constraints imposed by any gate.
     pub(crate) num_gate_constraints: usize,
@@ -148,7 +136,7 @@ pub(crate) struct CommonCircuitData<F: Field> {
     pub(crate) circuit_digest: Hash<F>,
 }
 
-impl<F: Field> CommonCircuitData<F> {
+impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     pub fn degree(&self) -> usize {
         1 << self.degree_bits
     }

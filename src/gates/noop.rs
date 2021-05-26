@@ -1,5 +1,6 @@
 use crate::circuit_builder::CircuitBuilder;
-use crate::field::field::Field;
+use crate::field::extension_field::target::ExtensionTarget;
+use crate::field::extension_field::Extendable;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::WitnessGenerator;
 use crate::target::Target;
@@ -9,25 +10,25 @@ use crate::vars::{EvaluationTargets, EvaluationVars};
 pub struct NoopGate;
 
 impl NoopGate {
-    pub fn get<F: Field>() -> GateRef<F> {
+    pub fn get<F: Extendable<D>, const D: usize>() -> GateRef<F, D> {
         GateRef::new(NoopGate)
     }
 }
 
-impl<F: Field> Gate<F> for NoopGate {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
     fn id(&self) -> String {
         "NoopGate".into()
     }
 
-    fn eval_unfiltered(&self, _vars: EvaluationVars<F>) -> Vec<F> {
+    fn eval_unfiltered(&self, _vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         Vec::new()
     }
 
     fn eval_unfiltered_recursively(
         &self,
-        _builder: &mut CircuitBuilder<F>,
-        _vars: EvaluationTargets,
-    ) -> Vec<Target> {
+        _builder: &mut CircuitBuilder<F, D>,
+        _vars: EvaluationTargets<D>,
+    ) -> Vec<ExtensionTarget<D>> {
         Vec::new()
     }
 
@@ -64,6 +65,6 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree(NoopGate::get::<CrandallField>())
+        test_low_degree(NoopGate::get::<CrandallField, 4>())
     }
 }

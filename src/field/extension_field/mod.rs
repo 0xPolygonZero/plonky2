@@ -32,7 +32,7 @@ impl<F: Field> OEF<1> for F {
     const W: Self::BaseField = F::ZERO;
 }
 
-pub trait Extendable<const D: usize>: Sized {
+pub trait Extendable<const D: usize>: Field + Sized {
     type Extension: Field + OEF<D, BaseField = Self> + From<Self>;
 }
 

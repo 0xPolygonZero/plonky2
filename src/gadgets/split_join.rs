@@ -1,11 +1,12 @@
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
-impl<F: Field> CircuitBuilder<F> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given integer into a list of virtual advice targets, where each one represents a
     /// bit of the integer, with little-endian ordering.
     ///

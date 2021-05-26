@@ -1,4 +1,6 @@
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::target::ExtensionTarget;
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
@@ -16,7 +18,7 @@ use crate::witness::PartialWitness;
 pub struct ArithmeticGate;
 
 impl ArithmeticGate {
-    pub fn new<F: Field>() -> GateRef<F> {
+    pub fn new<F: Extendable<D>, const D: usize>() -> GateRef<F, D> {
         GateRef::new(ArithmeticGate)
     }
 
@@ -26,12 +28,12 @@ impl ArithmeticGate {
     pub const WIRE_OUTPUT: usize = 3;
 }
 
-impl<F: Field> Gate<F> for ArithmeticGate {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticGate {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
 
-    fn eval_unfiltered(&self, vars: EvaluationVars<F>) -> Vec<F> {
+    fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let const_0 = vars.local_constants[0];
         let const_1 = vars.local_constants[1];
         let multiplicand_0 = vars.local_wires[Self::WIRE_MULTIPLICAND_0];
@@ -44,9 +46,9 @@ impl<F: Field> Gate<F> for ArithmeticGate {
 
     fn eval_unfiltered_recursively(
         &self,
-        builder: &mut CircuitBuilder<F>,
-        vars: EvaluationTargets,
-    ) -> Vec<Target> {
+        builder: &mut CircuitBuilder<F, D>,
+        vars: EvaluationTargets<D>,
+    ) -> Vec<ExtensionTarget<D>> {
         let const_0 = vars.local_constants[0];
         let const_1 = vars.local_constants[1];
         let multiplicand_0 = vars.local_wires[Self::WIRE_MULTIPLICAND_0];
@@ -54,10 +56,10 @@ impl<F: Field> Gate<F> for ArithmeticGate {
         let addend = vars.local_wires[Self::WIRE_ADDEND];
         let output = vars.local_wires[Self::WIRE_OUTPUT];
 
-        let product_term = builder.mul_many(&[const_0, multiplicand_0, multiplicand_1]);
-        let addend_term = builder.mul(const_1, addend);
-        let computed_output = builder.add_many(&[product_term, addend_term]);
-        vec![builder.sub(computed_output, output)]
+        let product_term = builder.mul_many_extension(&[const_0, multiplicand_0, multiplicand_1]);
+        let addend_term = builder.mul_extension(const_1, addend);
+        let computed_output = builder.add_many_extension(&[product_term, addend_term]);
+        vec![builder.sub_extension(computed_output, output)]
     }
 
     fn generators(
@@ -150,6 +152,6 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree(ArithmeticGate::new::<CrandallField>())
+        test_low_degree(ArithmeticGate::new::<CrandallField, 4>())
     }
 }

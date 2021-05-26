@@ -3,8 +3,8 @@ use std::marker::PhantomData;
 use std::ops::Range;
 
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field::Field;
 use crate::field::lagrange::interpolant;
 use crate::gadgets::polynomial::PolynomialCoeffsTarget;
 use crate::gates::gate::{Gate, GateRef};
@@ -21,13 +21,13 @@ use crate::witness::PartialWitness;
 /// to evaluate the interpolant at. It computes the interpolant and outputs its evaluation at the
 /// given point.
 #[derive(Clone, Debug)]
-pub(crate) struct InterpolationGate<F: Field + Extendable<D>, const D: usize> {
+pub(crate) struct InterpolationGate<F: Extendable<D>, const D: usize> {
     num_points: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Field + Extendable<D>, const D: usize> InterpolationGate<F, D> {
-    pub fn new(num_points: usize) -> GateRef<F> {
+impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D> {
+    pub fn new(num_points: usize) -> GateRef<F, D> {
         let gate = Self {
             num_points,
             _phantom: PhantomData,
@@ -93,12 +93,12 @@ impl<F: Field + Extendable<D>, const D: usize> InterpolationGate<F, D> {
     }
 }
 
-impl<F: Field + Extendable<D>, const D: usize> Gate<F> for InterpolationGate<F, D> {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
 
-    fn eval_unfiltered(&self, vars: EvaluationVars<F>) -> Vec<F> {
+    fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         let coeffs = (0..self.num_points)
@@ -107,25 +107,25 @@ impl<F: Field + Extendable<D>, const D: usize> Gate<F> for InterpolationGate<F, 
         let interpolant = PolynomialCoeffs::new(coeffs);
 
         for i in 0..self.num_points {
-            let point = F::Extension::from_basefield(vars.local_wires[self.wire_point(i)]);
+            let point = vars.local_wires[self.wire_point(i)];
             let value = vars.get_local_ext(self.wires_value(i));
             let computed_value = interpolant.eval(point);
-            constraints.extend(&(value - computed_value).to_basefield_array());
+            constraints.push(value - computed_value);
         }
 
         let evaluation_point = vars.get_local_ext(self.wires_evaluation_point());
         let evaluation_value = vars.get_local_ext(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval(evaluation_point);
-        constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
+        constraints.push(evaluation_value - computed_evaluation_value);
 
         constraints
     }
 
     fn eval_unfiltered_recursively(
         &self,
-        builder: &mut CircuitBuilder<F>,
-        vars: EvaluationTargets,
-    ) -> Vec<Target> {
+        builder: &mut CircuitBuilder<F, D>,
+        vars: EvaluationTargets<D>,
+    ) -> Vec<ExtensionTarget<D>> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         let coeffs = (0..self.num_points)
@@ -136,22 +136,14 @@ impl<F: Field + Extendable<D>, const D: usize> Gate<F> for InterpolationGate<F, 
         for i in 0..self.num_points {
             let point = vars.local_wires[self.wire_point(i)];
             let value = vars.get_local_ext(self.wires_value(i));
-            let computed_value = interpolant.eval_scalar(builder, point);
-            constraints.extend(
-                &builder
-                    .sub_extension(value, computed_value)
-                    .to_target_array(),
-            );
+            let computed_value = interpolant.eval(builder, point);
+            constraints.push(builder.sub_extension(value, computed_value));
         }
 
         let evaluation_point = vars.get_local_ext(self.wires_evaluation_point());
         let evaluation_value = vars.get_local_ext(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval(builder, evaluation_point);
-        constraints.extend(
-            &builder
-                .sub_extension(evaluation_value, computed_evaluation_value)
-                .to_target_array(),
-        );
+        constraints.push(builder.sub_extension(evaluation_value, computed_evaluation_value));
 
         constraints
     }
@@ -190,13 +182,13 @@ impl<F: Field + Extendable<D>, const D: usize> Gate<F> for InterpolationGate<F, 
     }
 }
 
-struct InterpolationGenerator<F: Field + Extendable<D>, const D: usize> {
+struct InterpolationGenerator<F: Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: InterpolationGate<F, D>,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Field + Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGenerator<F, D> {
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| {
             Target::Wire(Wire {

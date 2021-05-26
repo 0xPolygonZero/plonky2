@@ -7,9 +7,9 @@ use crate::target::Target;
 pub struct PolynomialCoeffsTarget<const D: usize>(pub Vec<ExtensionTarget<D>>);
 
 impl<const D: usize> PolynomialCoeffsTarget<D> {
-    pub fn eval_scalar<F: Field + Extendable<D>>(
+    pub fn eval_scalar<F: Extendable<D>>(
         &self,
-        builder: &mut CircuitBuilder<F>,
+        builder: &mut CircuitBuilder<F, D>,
         point: Target,
     ) -> ExtensionTarget<D> {
         let mut acc = builder.zero_extension();
@@ -20,9 +20,9 @@ impl<const D: usize> PolynomialCoeffsTarget<D> {
         acc
     }
 
-    pub fn eval<F: Field + Extendable<D>>(
+    pub fn eval<F: Extendable<D>>(
         &self,
-        builder: &mut CircuitBuilder<F>,
+        builder: &mut CircuitBuilder<F, D>,
         point: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
         let mut acc = builder.zero_extension();

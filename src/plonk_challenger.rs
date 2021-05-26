@@ -160,7 +160,9 @@ pub(crate) struct RecursiveChallenger {
 }
 
 impl RecursiveChallenger {
-    pub(crate) fn new<F: Field>(builder: &mut CircuitBuilder<F>) -> Self {
+    pub(crate) fn new<F: Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
         let zero = builder.zero();
         RecursiveChallenger {
             sponge_state: [zero; SPONGE_WIDTH],
@@ -186,7 +188,10 @@ impl RecursiveChallenger {
         self.observe_elements(&hash.elements)
     }
 
-    pub(crate) fn get_challenge<F: Field>(&mut self, builder: &mut CircuitBuilder<F>) -> Target {
+    pub(crate) fn get_challenge<F: Extendable<D>, const D: usize>(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Target {
         self.absorb_buffered_inputs(builder);
 
         if self.output_buffer.is_empty() {
@@ -200,16 +205,16 @@ impl RecursiveChallenger {
             .expect("Output buffer should be non-empty")
     }
 
-    pub(crate) fn get_2_challenges<F: Field>(
+    pub(crate) fn get_2_challenges<F: Extendable<D>, const D: usize>(
         &mut self,
-        builder: &mut CircuitBuilder<F>,
+        builder: &mut CircuitBuilder<F, D>,
     ) -> (Target, Target) {
         (self.get_challenge(builder), self.get_challenge(builder))
     }
 
-    pub(crate) fn get_3_challenges<F: Field>(
+    pub(crate) fn get_3_challenges<F: Extendable<D>, const D: usize>(
         &mut self,
-        builder: &mut CircuitBuilder<F>,
+        builder: &mut CircuitBuilder<F, D>,
     ) -> (Target, Target, Target) {
         (
             self.get_challenge(builder),
@@ -218,16 +223,19 @@ impl RecursiveChallenger {
         )
     }
 
-    pub(crate) fn get_n_challenges<F: Field>(
+    pub(crate) fn get_n_challenges<F: Extendable<D>, const D: usize>(
         &mut self,
-        builder: &mut CircuitBuilder<F>,
+        builder: &mut CircuitBuilder<F, D>,
         n: usize,
     ) -> Vec<Target> {
         (0..n).map(|_| self.get_challenge(builder)).collect()
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
-    fn absorb_buffered_inputs<F: Field>(&mut self, builder: &mut CircuitBuilder<F>) {
+    fn absorb_buffered_inputs<F: Extendable<D>, const D: usize>(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) {
         if self.input_buffer.is_empty() {
             return;
         }
