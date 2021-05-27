@@ -1,6 +1,8 @@
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::GateRef;
+use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 
@@ -78,6 +80,18 @@ pub(crate) fn reduce_with_powers<F: Field>(terms: &[F], alpha: F) -> F {
         sum = sum * alpha + term;
     }
     sum
+}
+
+pub(crate) fn reduce_polys_with_powers<F: Field + Extendable<D>, const D: usize>(
+    polynomials: &[PolynomialCoeffs<F>],
+    alpha: F::Extension,
+) -> PolynomialCoeffs<F::Extension> {
+    polynomials
+        .iter()
+        .rev()
+        .fold(PolynomialCoeffs::empty(), |acc, p| {
+            &(&acc * alpha) + &p.to_extension()
+        })
 }
 
 pub(crate) fn reduce_with_powers_recursive<F: Field>(

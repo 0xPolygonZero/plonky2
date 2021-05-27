@@ -1,14 +1,14 @@
 use anyhow::Result;
 use rayon::prelude::*;
 
-use crate::field::extension_field::Extendable;
 use crate::field::extension_field::FieldExtension;
+use crate::field::extension_field::{Extendable, OEF};
 use crate::field::field::Field;
 use crate::field::lagrange::interpolant;
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::reduce_with_powers;
+use crate::plonk_common::{reduce_polys_with_powers, reduce_with_powers};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::proof::{FriProof, Hash, OpeningSet};
 use crate::timed;
@@ -86,6 +86,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         F: Extendable<D>,
     {
         assert_eq!(self.rate_bits, config.rate_bits);
+        assert_eq!(config.check_basefield.len(), 1);
         assert_eq!(config.blinding.len(), 1);
         assert_eq!(self.blinding, config.blinding[0]);
         for p in points {
@@ -114,13 +115,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         let alpha = challenger.get_extension_challenge();
 
         // Scale polynomials by `alpha`.
-        let composition_poly = self
-            .polynomials
-            .iter()
-            .rev()
-            .fold(PolynomialCoeffs::zero(self.degree), |acc, p| {
-                &(&acc * alpha) + &p.to_extension()
-            });
+        let composition_poly = reduce_polys_with_powers(&self.polynomials, alpha);
         // Scale evaluations by `alpha`.
         let composition_evals = evaluations
             .par_iter()
@@ -128,6 +123,24 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .collect::<Vec<_>>();
 
         let quotient = Self::compute_quotient(points, &composition_evals, &composition_poly);
+
+        let quotient = if config.check_basefield[0] {
+            let composition_poly_conj = PolynomialCoeffs::<F>::frobenius(&composition_poly);
+            // This equality holds iff the polynomials in `self.polynomials` are defined over `F` and not `F::Extension`.
+            debug_assert_eq!(
+                composition_poly_conj.eval(points[0].frobenius()),
+                composition_evals[0].frobenius()
+            );
+            let quotient_conj = Self::compute_quotient(
+                &[points[0].frobenius()],
+                &[composition_evals[0].frobenius()],
+                &composition_poly_conj,
+            );
+
+            &(&quotient_conj * alpha.exp(self.polynomials.len() as u64)) + &quotient
+        } else {
+            quotient
+        };
 
         let lde_quotient = PolynomialCoeffs::from(quotient.clone()).lde(self.rate_bits);
         let lde_quotient_values = lde_quotient
@@ -391,6 +404,7 @@ mod tests {
             reduction_arity_bits: vec![3, 2, 1, 2],
             num_query_rounds: 3,
             blinding: vec![false],
+            check_basefield: vec![true],
         };
         let (polys, points) = gen_random_test_case::<F, D>(k, degree_log, num_points);
 
@@ -416,6 +430,7 @@ mod tests {
             reduction_arity_bits: vec![3, 2, 1, 2],
             num_query_rounds: 3,
             blinding: vec![true],
+            check_basefield: vec![false],
         };
         let (polys, points) = gen_random_test_case::<F, D>(k, degree_log, num_points);
 
@@ -442,6 +457,7 @@ mod tests {
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
             blinding: vec![false, false, false],
+            check_basefield: vec![false, false, false],
         };
         let (polys0, _) = gen_random_test_case::<F, D>(k0, degree_log, num_points);
         let (polys1, _) = gen_random_test_case::<F, D>(k1, degree_log, num_points);
@@ -483,6 +499,7 @@ mod tests {
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
             blinding: vec![true, false, true],
+            check_basefield: vec![true, false, true],
         };
         let (polys0, _) = gen_random_test_case::<F, D>(k0, degree_log, num_points);
         let (polys1, _) = gen_random_test_case::<F, D>(k1, degree_log, num_points);

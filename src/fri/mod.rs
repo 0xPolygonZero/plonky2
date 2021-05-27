@@ -23,6 +23,10 @@ pub struct FriConfig {
     /// Vector of the same length as the number of initial Merkle trees.
     /// `blinding[i]==true` iff the i-th tree is salted.  
     pub blinding: Vec<bool>,
+
+    /// Vector of the same length as the number of initial Merkle trees.
+    /// `check_basefield[i]==true` iff the polynomials in the i-th tree are checked to be in the base field.
+    pub check_basefield: Vec<bool>,
 }
 
 fn fri_delta(rate_log: usize, conjecture: bool) -> f64 {
@@ -82,6 +86,7 @@ mod tests {
             proof_of_work_bits: 2,
             reduction_arity_bits,
             blinding: vec![false],
+            check_basefield: vec![false],
         };
         let tree = {
             let mut leaves = coset_lde

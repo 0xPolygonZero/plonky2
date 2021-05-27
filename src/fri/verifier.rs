@@ -1,4 +1,4 @@
-use crate::field::extension_field::{flatten, Extendable, FieldExtension};
+use crate::field::extension_field::{flatten, Extendable, FieldExtension, OEF};
 use crate::field::field::Field;
 use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
 use crate::fri::FriConfig;
@@ -159,7 +159,23 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .iter()
         .map(|&(x, _)| F::Extension::from_basefield(subgroup_x) - x)
         .product();
-    numerator / denominator
+    let quotient = numerator / denominator;
+    let quotient = if config.check_basefield[0] {
+        let alpha_conj = alpha.frobenius();
+        let comp_conj = proof
+            .evals_proofs
+            .iter()
+            .enumerate()
+            .flat_map(|(i, (v, _))| &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }])
+            .rev()
+            .fold(F::Extension::ZERO, |acc, &e| alpha_conj * acc + e.into());
+        let numerator = comp_conj - points[0].1.frobenius();
+        let denominator = F::Extension::from_basefield(subgroup_x) - points[0].0.frobenius();
+        quotient + (numerator / denominator) * alpha.exp(proof.evals_proofs[0].0.len() as u64)
+    } else {
+        quotient
+    };
+    quotient
 }
 
 fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
