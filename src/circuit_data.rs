@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::fri::FriConfig;
@@ -64,8 +66,11 @@ impl<F: Field> CircuitData<F> {
         prove(&self.prover_only, &self.common, inputs)
     }
 
-    pub fn verify(&self) {
-        verify(&self.verifier_only, &self.common)
+    pub fn verify<const D: usize>(&self, proof: Proof<F, D>) -> Result<()>
+    where
+        F: Extendable<D>,
+    {
+        verify(proof, &self.verifier_only, &self.common)
     }
 }
 
@@ -97,8 +102,11 @@ pub struct VerifierCircuitData<F: Field> {
 }
 
 impl<F: Field> VerifierCircuitData<F> {
-    pub fn verify2(&self) {
-        verify(&self.verifier_only, &self.common)
+    pub fn verify<const D: usize>(&self, proof: Proof<F, D>) -> Result<()>
+    where
+        F: Extendable<D>,
+    {
+        verify(proof, &self.verifier_only, &self.common)
     }
 }
 
