@@ -24,6 +24,10 @@ impl<F: Field> PolynomialValues<F> {
         Self::new(vec![F::ZERO; len])
     }
 
+    pub(crate) fn is_zero(&self) -> bool {
+        self.values.iter().all(|x| x.is_zero())
+    }
+
     /// The number of values stored.
     pub(crate) fn len(&self) -> usize {
         self.values.len()

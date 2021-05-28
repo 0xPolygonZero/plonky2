@@ -19,12 +19,6 @@ use std::time::Instant;
 
 pub fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
     let ll = poly.len();
-
-    if poly.is_zero() {
-        println!("###zero");
-        return PolynomialValues::zero(ll)
-    }
-
     let precompute_timer = Instant::now();
     let precomputation = fft_precompute(ll);
     let precompute_time = precompute_timer.elapsed().as_micros();
@@ -89,36 +83,8 @@ pub(crate) fn fft_with_precomputation_power_of_2<F: Field>(
     // In the base layer, we're just evaluating "degree 0 polynomials", i.e. the coefficients
     // themselves.
     let PolynomialCoeffs { coeffs } = poly;
-    let nzeros = coeffs.iter().filter(|&x| x.is_zero()).count();
-
-    if nzeros + 1 == half_degree * 2 {
-        println!("###one nz");
-        /*
-        for i in 0..coeffs.len() {
-            if ! coeffs[i].is_zero() {
-                let mut values = vec![F::ZERO; half_degree * 2];
-                values[reverse_bits(i, degree_log)] = coeffs[i] * precomputation.subgroups_rev[i]; // FIXME wrong root
-                return PolynomialValues{ values }
-            }
-        }
-         */
-    } else {
-        println!("### number of zeros: {} / {}", nzeros, half_degree * 2); //you, 100.0 * (fuck as f32) / (you as f32));
-    }
-
-    /*
-    if half_degree * 2 == 65536 {
-        let mut buckets = [0u32; 64];
-        for i in 0..coeffs.len() {
-            if ! coeffs[i].is_zero() {
-                buckets[i >> 10] += 1;
-            }
-        }
-        println!("#zeros: {:?}", buckets);
-    }
-    */
-
     let mut evaluations = reverse_index_bits(coeffs);
+
     for i in 1..=degree_log {
         // In layer i, we're evaluating a series of polynomials, each at 2^i points. In practice
         // we evaluate a pair of points together, so we have 2^(i - 1) pairs.
@@ -151,96 +117,6 @@ pub(crate) fn fft_with_precomputation_power_of_2<F: Field>(
     PolynomialValues { values }
 }
 
-/*
-pub(crate) fn fft_cache_friendly<F: Field>(
-    poly: PolynomialCoeffs<F>,
-    _precomputation: &FftPrecomputation<F>,
-) -> PolynomialValues<F> {
-    debug_assert_eq!(
-        poly.len(),
-        precomputation.subgroups_rev.len(),
-        "Number of coefficients does not match size of subgroup in precomputation"
-    );
-
-    let mut root_table: Vec<F>;
-
-    let PolynomialCoeffs { coeffs } = poly;
-    let mut evals = reverse_index_bits(coeffs);
-
-    // TODO: First round is mult by 1; incorporate bit reversal to avoid copy
-    // TODO: Unroll later rounds.
-
-    let mut t = poly.len();
-    let mut m = 1;
-    loop {
-        if m == n {
-            break;
-        }
-        t /= 2;
-        let mut j1 = 0;
-        for i in 0 .. m {
-            let j2 = j1 + t;  // or j1 + t - 1?
-            let omega = root_table[m + i];
-            for j in j1..=j2 {
-                let u = evals[j];
-                let v = evals[j + t] * omega;
-                evals[j] = u + v;
-                evals[j + t] = u - v;
-            }
-        }
-        m *= 2;
-    }
-    // Reorder so that evaluations' indices correspond to (g_0, g_1, g_2, ...)
-    let values = reverse_index_bits(evals);
-    PolynomialValues { values }
-}
-*/
-
-/*
-pub(crate) fn ntt_negacyclic_harvey_lazy<F: Field>(
-    poly: PolynomialCoeffs<F>,
-    _precomputation: &FftPrecomputation<F>,
-) -> PolynomialValues<F> {
-    debug_assert_eq!(
-        poly.len(),
-        precomputation.subgroups_rev.len(),
-        "Number of coefficients does not match size of subgroup in precomputation"
-    );
-
-    let mut root_table: Vec<F>;
-
-    let PolynomialCoeffs { coeffs } = poly;
-    let mut evals = reverse_index_bits(coeffs);
-
-    // TODO: First round is mult by 1; incorporate bit reversal to avoid copy
-    // TODO: Unroll later rounds.
-
-    let mut t = poly.len();
-    let mut m = 1;
-    loop {
-        if m == n {
-            break;
-        }
-        t /= 2;
-        let mut j1 = 0;
-        for i in 0 .. m {
-            let j2 = j1 + t;  // or j1 + t - 1?
-            let omega = root_table[m + i];
-            for j in j1..=j2 {
-                let u = evals[j];
-                let v = evals[j + t] * omega;
-                evals[j] = u + v;
-                evals[j + t] = u - v;
-            }
-        }
-        m *= 2;
-    }
-    // Reorder so that evaluations' indices correspond to (g_0, g_1, g_2, ...)
-    let values = reverse_index_bits(evals);
-    PolynomialValues { values }
-}
-*/
-
 pub(crate) fn coset_fft<F: Field>(poly: PolynomialCoeffs<F>, shift: F) -> PolynomialValues<F> {
     let mut points = fft(poly);
     let mut shift_exp_i = F::ONE;
@@ -253,12 +129,6 @@ pub(crate) fn coset_fft<F: Field>(poly: PolynomialCoeffs<F>, shift: F) -> Polyno
 
 pub(crate) fn ifft<F: Field>(poly: PolynomialValues<F>) -> PolynomialCoeffs<F> {
     let ll = poly.len();
-
-    if poly.is_zero() {
-        println!("###zero inv");
-        return PolynomialCoeffs::zero(ll)
-    }
-
     let precompute_timer = Instant::now();
     let precomputation = fft_precompute(ll);
     let precompute_time = precompute_timer.elapsed().as_micros();
