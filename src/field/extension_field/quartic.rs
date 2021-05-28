@@ -1,14 +1,17 @@
-use crate::field::crandall_field::CrandallField;
-use crate::field::extension_field::{FieldExtension, OEF};
-use crate::field::field::Field;
-use rand::Rng;
 use std::fmt::{Debug, Display, Formatter};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-#[derive(Copy, Clone)]
-pub struct QuarticCrandallField([CrandallField; 4]);
+use rand::Rng;
+
+use crate::field::crandall_field::CrandallField;
+use crate::field::extension_field::quartic2::QuarticQuarticCrandallField;
+use crate::field::extension_field::{Extendable, FieldExtension, OEF};
+use crate::field::field::Field;
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub struct QuarticCrandallField(pub(crate) [CrandallField; 4]);
 
 impl OEF<4> for QuarticCrandallField {
     // Verifiable in Sage with
@@ -40,23 +43,6 @@ impl From<<Self as FieldExtension<4>>::BaseField> for QuarticCrandallField {
             <Self as FieldExtension<4>>::BaseField::ZERO,
             <Self as FieldExtension<4>>::BaseField::ZERO,
         ])
-    }
-}
-
-impl PartialEq for QuarticCrandallField {
-    fn eq(&self, other: &Self) -> bool {
-        FieldExtension::<4>::to_basefield_array(self)
-            == FieldExtension::<4>::to_basefield_array(other)
-    }
-}
-
-impl Eq for QuarticCrandallField {}
-
-impl Hash for QuarticCrandallField {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        for l in &FieldExtension::<4>::to_basefield_array(self) {
-            Hash::hash(l, state);
-        }
     }
 }
 
@@ -249,6 +235,10 @@ impl DivAssign for QuarticCrandallField {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
+}
+
+impl Extendable<4> for QuarticCrandallField {
+    type Extension = QuarticQuarticCrandallField;
 }
 
 #[cfg(test)]

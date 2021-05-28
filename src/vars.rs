@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 use std::ops::Range;
 
-use crate::field::extension_field::target::ExtensionTarget;
+use crate::field::extension_field::target::{ExtensionExtensionTarget, ExtensionTarget};
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 
@@ -18,14 +18,16 @@ pub struct EvaluationVarsBase<'a, F: Field> {
 }
 
 impl<'a, F: Extendable<D>, const D: usize> EvaluationVars<'a, F, D> {
-    #[deprecated]
-    pub fn get_local_ext(&self, wire_range: Range<usize>) -> F::Extension
+    pub fn get_local_ext(
+        &self,
+        wire_range: Range<usize>,
+    ) -> <<F as Extendable<D>>::Extension as Extendable<D>>::Extension
     where
-        F: Extendable<D>,
+        F::Extension: Extendable<D>,
     {
         debug_assert_eq!(wire_range.len(), D);
         let arr = self.local_wires[wire_range].try_into().unwrap();
-        F::Extension::from_basefield_array(arr)
+        <<F as Extendable<D>>::Extension as Extendable<D>>::Extension::from_basefield_array(arr)
     }
 }
 
@@ -36,10 +38,9 @@ pub struct EvaluationTargets<'a, const D: usize> {
 }
 
 impl<'a, const D: usize> EvaluationTargets<'a, D> {
-    #[deprecated]
-    pub fn get_local_ext(&self, wire_range: Range<usize>) -> ExtensionTarget<D> {
+    pub fn get_local_ext(&self, wire_range: Range<usize>) -> ExtensionExtensionTarget<D> {
         debug_assert_eq!(wire_range.len(), D);
         let arr = self.local_wires[wire_range].try_into().unwrap();
-        ExtensionTarget(arr)
+        ExtensionExtensionTarget(arr)
     }
 }

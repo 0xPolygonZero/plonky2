@@ -5,7 +5,6 @@ use crate::field::field::Field;
 use crate::fri::FriConfig;
 use crate::gates::gate::GateRef;
 use crate::generator::WitnessGenerator;
-use crate::merkle_tree::MerkleTree;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::proof::{Hash, HashTarget, Proof};
 use crate::prover::prove;

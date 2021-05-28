@@ -2,7 +2,6 @@ use anyhow::Result;
 
 use crate::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
 use crate::plonk_challenger::Challenger;
 use crate::proof::Proof;
 

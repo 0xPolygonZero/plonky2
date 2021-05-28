@@ -1,7 +1,6 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::{CircuitConfig, VerifierCircuitTarget};
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
 use crate::gates::gate::GateRef;
 use crate::proof::ProofTarget;
 

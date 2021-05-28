@@ -12,6 +12,15 @@ impl<const D: usize> ExtensionTarget<D> {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct ExtensionExtensionTarget<const D: usize>(pub [ExtensionTarget<D>; D]);
+
+impl<const D: usize> ExtensionExtensionTarget<D> {
+    pub fn to_ext_target_array(&self) -> [ExtensionTarget<D>; D] {
+        self.0
+    }
+}
+
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn constant_extension(&mut self, c: F) -> ExtensionTarget<D> {
         let c_parts = c.to_basefield_array();
@@ -64,6 +73,17 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a
     }
 
+    pub fn sub_ext_ext(
+        &mut self,
+        mut a: ExtensionExtensionTarget<D>,
+        b: ExtensionExtensionTarget<D>,
+    ) -> ExtensionExtensionTarget<D> {
+        for i in 0..D {
+            a.0[i] = self.sub_extension(a.0[i], b.0[i]);
+        }
+        a
+    }
+
     pub fn mul_extension(
         &mut self,
         a: ExtensionTarget<D>,
@@ -91,8 +111,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         product
     }
 
-    // Not sure if we should use this long term. It's just convenient during the switch to EF.
-    #[deprecated]
+    // TODO: Not sure if we should use this long term. It's just convenient during the switch to EF.
     pub fn mul_add_extension(
         &mut self,
         a: ExtensionTarget<D>,
@@ -103,7 +122,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.add_extension(product, c)
     }
 
-    /// Returns a*b where `b` is in the extension field and `a` is in the base field.
+    /// Returns `a * b`, where `b` is in the extension field and `a` is in the base field.
     pub fn scalar_mul(&mut self, a: Target, mut b: ExtensionTarget<D>) -> ExtensionTarget<D> {
         for i in 0..D {
             b.0[i] = self.mul(a, b.0[i]);

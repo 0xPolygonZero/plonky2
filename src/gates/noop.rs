@@ -3,7 +3,6 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::WitnessGenerator;
-use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 
 /// A gate which takes a single constant parameter and outputs that value.
