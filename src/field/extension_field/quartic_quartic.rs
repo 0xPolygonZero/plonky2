@@ -21,6 +21,7 @@ impl OEF<4> for QuarticQuarticCrandallField {
     //     F4.<y> = F.extension(x^4 - 3)
     //     PR_F4.<z> = PolynomialRing(F4)
     //     assert (x^4 - y).is_irreducible()
+    //     F44.<w> = F4.extension(x^4 - y)
     const W: QuarticCrandallField = QuarticCrandallField([
         CrandallField(0),
         CrandallField(1),
