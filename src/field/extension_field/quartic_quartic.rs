@@ -8,16 +8,22 @@ use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+/// A quartic extension of `QuarticCrandallField`.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct QuarticQuarticCrandallField(pub(crate) [QuarticCrandallField; 4]);
 
 impl OEF<4> for QuarticQuarticCrandallField {
     // Verifiable in Sage with
-    // ``R.<x> = GF(p)[]; assert (x^4 -3).is_irreducible()`.
-    // TODO
+    //     p = 2^64 - 9 * 2^28 + 1
+    //     F = GF(p)
+    //     PR_F.<x> = PolynomialRing(F)
+    //     assert (x^4 - 3).is_irreducible()
+    //     F4.<y> = F.extension(x^4 - 3)
+    //     PR_F4.<z> = PolynomialRing(F4)
+    //     assert (x^4 - y).is_irreducible()
     const W: QuarticCrandallField = QuarticCrandallField([
-        CrandallField(3),
         CrandallField(0),
+        CrandallField(1),
         CrandallField(0),
         CrandallField(0),
     ]);
@@ -73,10 +79,10 @@ impl Field for QuarticQuarticCrandallField {
 
     // Does not fit in 64-bits.
     const ORDER: u64 = 0;
-
+    const TWO_ADICITY: usize = 32;
     // TODO
-    const TWO_ADICITY: usize = 0;
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self::ZERO;
+    // TODO
     const POWER_OF_TWO_GENERATOR: Self = Self::ZERO;
 
     fn try_inverse(&self) -> Option<Self> {

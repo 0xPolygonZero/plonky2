@@ -2,7 +2,7 @@ use crate::field::field::Field;
 
 pub mod quadratic;
 pub mod quartic;
-mod quartic2;
+mod quartic_quartic;
 pub mod target;
 
 /// Optimal extension field trait.

@@ -6,16 +6,18 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use rand::Rng;
 
 use crate::field::crandall_field::CrandallField;
-use crate::field::extension_field::quartic2::QuarticQuarticCrandallField;
+use crate::field::extension_field::quartic_quartic::QuarticQuarticCrandallField;
 use crate::field::extension_field::{Extendable, FieldExtension, OEF};
 use crate::field::field::Field;
 
+/// A quartic extension of `CrandallField`.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct QuarticCrandallField(pub(crate) [CrandallField; 4]);
 
 impl OEF<4> for QuarticCrandallField {
     // Verifiable in Sage with
-    // ``R.<x> = GF(p)[]; assert (x^4 -3).is_irreducible()`.
+    //     R.<x> = GF(p)[]
+    //     assert (x^4 - 3).is_irreducible()
     const W: CrandallField = CrandallField(3);
 }
 
