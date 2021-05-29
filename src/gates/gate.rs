@@ -60,7 +60,8 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
 
     /// Like `eval_filtered`, but specialized for points in the base field.
     fn eval_filtered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        todo!()
+        // TODO: Filter
+        self.eval_unfiltered_base(vars)
     }
 
     fn eval_filtered_recursively(
