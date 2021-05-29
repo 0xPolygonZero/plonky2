@@ -171,7 +171,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         product
     }
 
-    // TODO: Not sure if we should use this long term. It's just convenient during the switch to EF.
+    /// Like `mul_add`, but for `ExtensionTarget`s. Note that, unlike `mul_add`, this has no
+    /// performance benefit over separate muls and adds.
     pub fn mul_add_extension(
         &mut self,
         a: ExtensionTarget<D>,

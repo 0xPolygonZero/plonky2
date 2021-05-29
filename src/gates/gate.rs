@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::Extendable;
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::generator::WitnessGenerator;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
@@ -14,8 +14,34 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension>;
 
     /// Like `eval_unfiltered`, but specialized for points in the base field.
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        todo!()
+    ///
+    /// By default, this just calls `eval_unfiltered`, which treats the point as an extension field
+    /// element. This isn't very efficient.
+    fn eval_unfiltered_base(&self, vars_base: EvaluationVarsBase<F>) -> Vec<F> {
+        let local_constants = &vars_base
+            .local_constants
+            .iter()
+            .map(|c| F::Extension::from_basefield(*c))
+            .collect::<Vec<_>>();
+        let local_wires = &vars_base
+            .local_wires
+            .iter()
+            .map(|w| F::Extension::from_basefield(*w))
+            .collect::<Vec<_>>();
+        let vars = EvaluationVars {
+            local_constants,
+            local_wires,
+        };
+        let values = self.eval_unfiltered(vars);
+
+        // Each value should be in the base field, i.e. only the degree-zero part should be nonzero.
+        values.into_iter().map(|value| {
+            let parts = value.to_basefield_array();
+            let deg_zero_part = parts[0];
+            // TODO: Make debug-only.
+            assert_eq!(value, F::Extension::from_basefield(deg_zero_part));
+            deg_zero_part
+        }).collect()
     }
 
     fn eval_unfiltered_recursively(

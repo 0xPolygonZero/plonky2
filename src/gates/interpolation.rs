@@ -111,19 +111,19 @@ where
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         let coeffs = (0..self.num_points)
-            .map(|i| vars.get_local_ext(self.wires_coeff(i)))
+            .map(|i| vars.get_local_ext_ext(self.wires_coeff(i)))
             .collect();
         let interpolant = PolynomialCoeffs::new(coeffs);
 
         for i in 0..self.num_points {
             let point = vars.local_wires[self.wire_point(i)];
-            let value = vars.get_local_ext(self.wires_value(i));
+            let value = vars.get_local_ext_ext(self.wires_value(i));
             let computed_value = interpolant.eval(point.into());
             constraints.extend(&(value - computed_value).to_basefield_array());
         }
 
-        let evaluation_point = vars.get_local_ext(self.wires_evaluation_point());
-        let evaluation_value = vars.get_local_ext(self.wires_evaluation_value());
+        let evaluation_point = vars.get_local_ext_ext(self.wires_evaluation_point());
+        let evaluation_value = vars.get_local_ext_ext(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval(evaluation_point);
         constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
 
@@ -138,13 +138,13 @@ where
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         let coeffs = (0..self.num_points)
-            .map(|i| vars.get_local_ext(self.wires_coeff(i)))
+            .map(|i| vars.get_local_ext_ext(self.wires_coeff(i)))
             .collect();
         let interpolant = PolynomialCoeffsExtExtTarget(coeffs);
 
         for i in 0..self.num_points {
             let point = vars.local_wires[self.wire_point(i)];
-            let value = vars.get_local_ext(self.wires_value(i));
+            let value = vars.get_local_ext_ext(self.wires_value(i));
             let computed_value = interpolant.eval_scalar(builder, point);
             constraints.extend(
                 &builder
@@ -153,8 +153,8 @@ where
             );
         }
 
-        let evaluation_point = vars.get_local_ext(self.wires_evaluation_point());
-        let evaluation_value = vars.get_local_ext(self.wires_evaluation_value());
+        let evaluation_point = vars.get_local_ext_ext(self.wires_evaluation_point());
+        let evaluation_value = vars.get_local_ext_ext(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval(builder, evaluation_point);
         constraints.extend(
             &builder

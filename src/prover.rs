@@ -160,7 +160,6 @@ fn compute_z<F: Extendable<D>, const D: usize>(
     PolynomialCoeffs::zero(common_data.degree()) // TODO
 }
 
-// TODO: Parallelize.
 fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     prover_data: &ProverOnlyCircuitData<F>,

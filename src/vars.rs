@@ -18,7 +18,7 @@ pub struct EvaluationVarsBase<'a, F: Field> {
 }
 
 impl<'a, F: Extendable<D>, const D: usize> EvaluationVars<'a, F, D> {
-    pub fn get_local_ext(
+    pub fn get_local_ext_ext(
         &self,
         wire_range: Range<usize>,
     ) -> <<F as Extendable<D>>::Extension as Extendable<D>>::Extension
@@ -38,7 +38,7 @@ pub struct EvaluationTargets<'a, const D: usize> {
 }
 
 impl<'a, const D: usize> EvaluationTargets<'a, D> {
-    pub fn get_local_ext(&self, wire_range: Range<usize>) -> ExtensionExtensionTarget<D> {
+    pub fn get_local_ext_ext(&self, wire_range: Range<usize>) -> ExtensionExtensionTarget<D> {
         debug_assert_eq!(wire_range.len(), D);
         let arr = self.local_wires[wire_range].try_into().unwrap();
         ExtensionExtensionTarget(arr)
