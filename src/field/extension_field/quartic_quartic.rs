@@ -112,7 +112,7 @@ impl Display for QuarticQuarticCrandallField {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{} + {}*a + {}*a^2 + {}*a^3",
+            "({}) + ({})*b + ({})*b^2 + ({})*b^3",
             self.0[0], self.0[1], self.0[2], self.0[3]
         )
     }
