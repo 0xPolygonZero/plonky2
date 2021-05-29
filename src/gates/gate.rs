@@ -35,13 +35,16 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
         let values = self.eval_unfiltered(vars);
 
         // Each value should be in the base field, i.e. only the degree-zero part should be nonzero.
-        values.into_iter().map(|value| {
-            let parts = value.to_basefield_array();
-            let deg_zero_part = parts[0];
-            // TODO: Make debug-only.
-            assert_eq!(value, F::Extension::from_basefield(deg_zero_part));
-            deg_zero_part
-        }).collect()
+        values
+            .into_iter()
+            .map(|value| {
+                let parts = value.to_basefield_array();
+                let deg_zero_part = parts[0];
+                // TODO: Make debug-only.
+                assert_eq!(value, F::Extension::from_basefield(deg_zero_part));
+                deg_zero_part
+            })
+            .collect()
     }
 
     fn eval_unfiltered_recursively(
