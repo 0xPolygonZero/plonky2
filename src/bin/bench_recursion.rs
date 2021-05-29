@@ -19,7 +19,7 @@ fn main() {
     // change this to info or warn later.
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    bench_prove::<CrandallField, 2>();
+    bench_prove::<CrandallField, 4>();
 
     // bench_field_mul::<CrandallField>();
 
