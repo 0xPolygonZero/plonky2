@@ -308,7 +308,6 @@ mod tests {
     #[test]
     fn low_degree() {
         type F = CrandallField;
-        test_low_degree(InterpolationGate::<F, 2>::new(4));
         test_low_degree(InterpolationGate::<F, 4>::new(4));
     }
 }

@@ -50,12 +50,12 @@ fn fri_l(codeword_len: usize, rate_log: usize, conjecture: bool) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use anyhow::Result;
+    use rand::rngs::ThreadRng;
+    use rand::Rng;
+
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quadratic::QuadraticCrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::extension_field::{flatten, Extendable, FieldExtension};
-    use crate::field::fft::ifft;
+    use crate::field::extension_field::Extendable;
     use crate::field::field::Field;
     use crate::fri::prover::fri_proof;
     use crate::fri::verifier::verify_fri_proof;
@@ -63,9 +63,8 @@ mod tests {
     use crate::plonk_challenger::Challenger;
     use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
     use crate::util::reverse_index_bits_in_place;
-    use anyhow::Result;
-    use rand::rngs::ThreadRng;
-    use rand::Rng;
+
+    use super::*;
 
     fn check_fri<F: Field + Extendable<D>, const D: usize>(
         degree_log: usize,

@@ -359,8 +359,6 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningProof<F, D> {
 mod tests {
     use anyhow::Result;
 
-    use crate::field::crandall_field::CrandallField;
-
     use super::*;
 
     fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(

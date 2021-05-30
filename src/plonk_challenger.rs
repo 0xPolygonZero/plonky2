@@ -316,7 +316,7 @@ mod tests {
             num_routed_wires: 27,
             ..CircuitConfig::default()
         };
-        let mut builder = CircuitBuilder::<F>::new(config);
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
         let mut recursive_challenger = RecursiveChallenger::new(&mut builder);
         let mut recursive_outputs_per_round: Vec<Vec<Target>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
