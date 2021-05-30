@@ -1,6 +1,7 @@
 //! Concrete instantiation of a hash function.
 
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gmimc::gmimc_permute_array;
 use crate::proof::{Hash, HashTarget};
@@ -132,7 +133,7 @@ pub fn hash_or_noop<F: Field>(inputs: Vec<F>) -> Hash<F> {
     }
 }
 
-impl<F: Field> CircuitBuilder<F> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn hash_or_noop(&mut self, inputs: Vec<Target>) -> HashTarget {
         let zero = self.zero();
         if inputs.len() <= 4 {

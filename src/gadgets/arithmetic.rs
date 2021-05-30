@@ -1,4 +1,5 @@
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::arithmetic::ArithmeticGate;
 use crate::generator::SimpleGenerator;
@@ -6,7 +7,7 @@ use crate::target::Target;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
-impl<F: Field> CircuitBuilder<F> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes `-x`.
     pub fn neg(&mut self, x: Target) -> Target {
         let neg_one = self.neg_one();

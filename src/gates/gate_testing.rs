@@ -1,3 +1,4 @@
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
@@ -9,12 +10,12 @@ const WITNESS_DEGREE: usize = WITNESS_SIZE - 1;
 
 /// Tests that the constraints imposed by the given gate are low-degree by applying them to random
 /// low-degree witness polynomials.
-pub(crate) fn test_low_degree<F: Field>(gate: GateRef<F>) {
+pub(crate) fn test_low_degree<F: Extendable<D>, const D: usize>(gate: GateRef<F, D>) {
     let gate = gate.0;
     let rate_bits = log2_ceil(gate.degree() + 1);
 
-    let wire_ldes = random_low_degree_matrix(gate.num_wires(), rate_bits);
-    let constant_ldes = random_low_degree_matrix::<F>(gate.num_constants(), rate_bits);
+    let wire_ldes = random_low_degree_matrix::<F::Extension>(gate.num_wires(), rate_bits);
+    let constant_ldes = random_low_degree_matrix::<F::Extension>(gate.num_constants(), rate_bits);
     assert_eq!(wire_ldes.len(), constant_ldes.len());
 
     let constraint_evals = wire_ldes

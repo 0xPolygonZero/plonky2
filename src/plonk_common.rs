@@ -1,20 +1,22 @@
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::target::ExtensionTarget;
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::GateRef;
 use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// Evaluates all gate constraints.
 ///
 /// `num_gate_constraints` is the largest number of constraints imposed by any gate. It is not
 /// strictly necessary, but it helps performance by ensuring that we allocate a vector with exactly
 /// the capacity that we need.
-pub fn evaluate_gate_constraints<F: Field>(
-    gates: &[GateRef<F>],
+pub fn evaluate_gate_constraints<F: Extendable<D>, const D: usize>(
+    gates: &[GateRef<F, D>],
     num_gate_constraints: usize,
-    vars: EvaluationVars<F>,
-) -> Vec<F> {
-    let mut constraints = vec![F::ZERO; num_gate_constraints];
+    vars: EvaluationVars<F, D>,
+) -> Vec<F::Extension> {
+    let mut constraints = vec![F::Extension::ZERO; num_gate_constraints];
     for gate in gates {
         let gate_constraints = gate.0.eval_filtered(vars);
         for (i, c) in gate_constraints.into_iter().enumerate() {
@@ -28,17 +30,36 @@ pub fn evaluate_gate_constraints<F: Field>(
     constraints
 }
 
-pub fn evaluate_gate_constraints_recursively<F: Field>(
-    builder: &mut CircuitBuilder<F>,
-    gates: &[GateRef<F>],
+pub fn evaluate_gate_constraints_base<F: Extendable<D>, const D: usize>(
+    gates: &[GateRef<F, D>],
     num_gate_constraints: usize,
-    vars: EvaluationTargets,
-) -> Vec<Target> {
-    let mut constraints = vec![builder.zero(); num_gate_constraints];
+    vars: EvaluationVarsBase<F>,
+) -> Vec<F> {
+    let mut constraints = vec![F::ZERO; num_gate_constraints];
+    for gate in gates {
+        let gate_constraints = gate.0.eval_filtered_base(vars);
+        for (i, c) in gate_constraints.into_iter().enumerate() {
+            debug_assert!(
+                i < num_gate_constraints,
+                "num_constraints() gave too low of a number"
+            );
+            constraints[i] += c;
+        }
+    }
+    constraints
+}
+
+pub fn evaluate_gate_constraints_recursively<F: Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    gates: &[GateRef<F, D>],
+    num_gate_constraints: usize,
+    vars: EvaluationTargets<D>,
+) -> Vec<ExtensionTarget<D>> {
+    let mut constraints = vec![builder.zero_extension(); num_gate_constraints];
     for gate in gates {
         let gate_constraints = gate.0.eval_filtered_recursively(builder, vars);
         for (i, c) in gate_constraints.into_iter().enumerate() {
-            constraints[i] = builder.add(constraints[i], c);
+            constraints[i] = builder.add_extension(constraints[i], c);
         }
     }
     constraints
@@ -80,8 +101,8 @@ pub(crate) fn reduce_with_powers<F: Field>(terms: &[F], alpha: F) -> F {
     sum
 }
 
-pub(crate) fn reduce_with_powers_recursive<F: Field>(
-    builder: &mut CircuitBuilder<F>,
+pub(crate) fn reduce_with_powers_recursive<F: Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
     terms: Vec<Target>,
     alpha: Target,
 ) -> Target {

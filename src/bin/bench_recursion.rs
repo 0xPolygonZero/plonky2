@@ -19,7 +19,7 @@ fn main() {
     // change this to info or warn later.
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    bench_prove::<CrandallField, 2>();
+    bench_prove::<CrandallField, 4>();
 
     // bench_field_mul::<CrandallField>();
 
@@ -29,7 +29,7 @@ fn main() {
 }
 
 fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
-    let gmimc_gate = GMiMCGate::<F, GMIMC_ROUNDS>::with_automatic_constants();
+    let gmimc_gate = GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants();
 
     let config = CircuitConfig {
         num_wires: 134,
@@ -46,7 +46,7 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
         },
     };
 
-    let mut builder = CircuitBuilder::<F>::new(config);
+    let mut builder = CircuitBuilder::<F, D>::new(config);
 
     for _ in 0..10000 {
         builder.add_gate_no_constants(gmimc_gate.clone());

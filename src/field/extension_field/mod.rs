@@ -2,6 +2,7 @@ use crate::field::field::Field;
 
 pub mod quadratic;
 pub mod quartic;
+mod quartic_quartic;
 pub mod target;
 
 /// Optimal extension field trait.
@@ -32,7 +33,7 @@ impl<F: Field> OEF<1> for F {
     const W: Self::BaseField = F::ZERO;
 }
 
-pub trait Extendable<const D: usize>: Sized {
+pub trait Extendable<const D: usize>: Field + Sized {
     type Extension: Field + OEF<D, BaseField = Self> + From<Self>;
 }
 
