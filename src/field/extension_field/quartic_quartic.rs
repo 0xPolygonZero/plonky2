@@ -34,15 +34,15 @@ impl FieldExtension<4> for QuarticQuarticCrandallField {
     type BaseField = QuarticCrandallField;
 
     fn to_basefield_array(&self) -> [Self::BaseField; 4] {
-        todo!()
+        self.0
     }
 
     fn from_basefield_array(arr: [Self::BaseField; 4]) -> Self {
-        todo!()
+        Self(arr)
     }
 
     fn from_basefield(x: Self::BaseField) -> Self {
-        todo!()
+        x.into()
     }
 }
 
