@@ -81,10 +81,43 @@ impl Field for QuarticQuarticCrandallField {
     // Does not fit in 64-bits.
     const ORDER: u64 = 0;
     const TWO_ADICITY: usize = 32;
-    // TODO
-    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self::ZERO;
-    // TODO
-    const POWER_OF_TWO_GENERATOR: Self = Self::ZERO;
+    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([
+        QuarticCrandallField([
+            CrandallField(7562951059982399618),
+            CrandallField(16734862117167184487),
+            CrandallField(8532193866847630013),
+            CrandallField(15462716295551021898),
+        ]),
+        QuarticCrandallField([
+            CrandallField(16143979237658148445),
+            CrandallField(12004617499933809221),
+            CrandallField(11826153143854535879),
+            CrandallField(14780824604953232397),
+        ]),
+        QuarticCrandallField([
+            CrandallField(12779077039546101185),
+            CrandallField(15745975127331074164),
+            CrandallField(4297791107105154033),
+            CrandallField(5966855376644799108),
+        ]),
+        QuarticCrandallField([
+            CrandallField(1942992936904935291),
+            CrandallField(6041097781717465159),
+            CrandallField(16875726992388585780),
+            CrandallField(17742746479895474446),
+        ]),
+    ]);
+    const POWER_OF_TWO_GENERATOR: Self = Self([
+        QuarticCrandallField::ZERO,
+        QuarticCrandallField([
+            CrandallField::ZERO,
+            CrandallField::ZERO,
+            CrandallField::ZERO,
+            CrandallField(6809469153480715254),
+        ]),
+        QuarticCrandallField::ZERO,
+        QuarticCrandallField::ZERO,
+    ]);
 
     fn try_inverse(&self) -> Option<Self> {
         todo!()

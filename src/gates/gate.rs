@@ -38,11 +38,9 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
         values
             .into_iter()
             .map(|value| {
-                let parts = value.to_basefield_array();
-                let deg_zero_part = parts[0];
-                // TODO: Make debug-only.
-                assert_eq!(value, F::Extension::from_basefield(deg_zero_part));
-                deg_zero_part
+                // TODO: Change to debug-only once our gate code is mostly finished/stable.
+                assert!(F::Extension::is_in_basefield(&value));
+                value.to_basefield_array()[0]
             })
             .collect()
     }
