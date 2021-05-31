@@ -315,7 +315,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
         F: Extendable<D>,
     {
         let g = F::Extension::primitive_root_of_unity(degree_log);
-        dbg!(degree_log);
         for &p in &[zeta, g * zeta] {
             assert_ne!(
                 p.exp(1 << degree_log as u64),
@@ -336,7 +335,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
         challenger.observe_opening_set(&os);
 
         let alpha = challenger.get_extension_challenge();
-        dbg!(alpha);
         let mut cur_alpha = F::Extension::ONE;
 
         // Final low-degree polynomial that goes into FRI.
@@ -360,15 +358,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
         let quotient = Self::compute_quotient(&[zeta], &[composition_eval], &composition_poly);
         final_poly = &final_poly + &(&quotient * cur_alpha);
-        {
-            let lde_final_poly = final_poly.lde(config.rate_bits);
-            let lde_final_values = lde_final_poly
-                .clone()
-                .coset_fft(F::Extension::from_basefield(
-                    F::MULTIPLICATIVE_GROUP_GENERATOR,
-                ));
-            dbg!(lde_final_values);
-        }
         cur_alpha = alpha.exp(poly_count);
 
         let zs_composition_poly =
@@ -391,16 +380,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
             &zs_composition_poly,
         );
         final_poly = &final_poly + &(&zs_quotient * cur_alpha);
-        {
-            let lde_final_poly = final_poly.lde(config.rate_bits);
-            let lde_final_values = lde_final_poly
-                .clone()
-                .coset_fft(F::Extension::from_basefield(
-                    F::MULTIPLICATIVE_GROUP_GENERATOR,
-                ));
-            dbg!(lde_final_values);
-            dbg!(cur_alpha);
-        }
         cur_alpha = alpha.exp(poly_count);
 
         if D > 1 {
@@ -425,7 +404,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
             final_poly = &final_poly + &(&wires_quotient * cur_alpha);
         }
 
-        dbg!(final_poly.coeffs.len());
         let lde_final_poly = final_poly.lde(config.rate_bits);
         let lde_final_values = lde_final_poly
             .clone()
@@ -470,7 +448,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .collect::<Vec<_>>();
         debug_assert!(pairs.iter().all(|&(x, e)| poly.eval(x) == e));
 
-        dbg!(&pairs);
         let interpolant = interpolant(&pairs);
         let denominator = points.iter().fold(PolynomialCoeffs::one(), |acc, &x| {
             &acc * &PolynomialCoeffs::new(vec![-x, F::Extension::ONE])
@@ -501,7 +478,6 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningProof<F, D> {
         challenger.observe_opening_set(os);
 
         let alpha = challenger.get_extension_challenge();
-        dbg!(alpha);
 
         verify_fri_proof(
             log2_strict(self.quotient_degree),
@@ -523,6 +499,7 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
 
     use super::*;
+    use rand::Rng;
     use std::convert::TryInto;
 
     fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(
@@ -549,6 +526,17 @@ mod tests {
         point
     }
 
+    fn random_blindings() -> Vec<bool> {
+        let mut rng = rand::thread_rng();
+        vec![
+            rng.gen_bool(0.5),
+            rng.gen_bool(0.5),
+            rng.gen_bool(0.5),
+            rng.gen_bool(0.5),
+            rng.gen_bool(0.5),
+        ]
+    }
+
     fn check_batch_polynomial_commitment<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
         let ks = [1, 2, 3, 5, 8];
         let degree_log = 11;
@@ -557,17 +545,16 @@ mod tests {
             rate_bits: 2,
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
-            blinding: vec![false, false, false, false, false],
+            blinding: random_blindings(),
             check_basefield: vec![false, false, false],
         };
 
-        let lpcs = ks
-            .iter()
-            .map(|&k| {
+        let lpcs = (0..5)
+            .map(|i| {
                 ListPolynomialCommitment::<F>::new(
-                    gen_random_test_case(k, degree_log),
+                    gen_random_test_case(ks[i], degree_log),
                     fri_config.rate_bits,
-                    false,
+                    fri_config.blinding[i],
                 )
             })
             .collect::<Vec<_>>();

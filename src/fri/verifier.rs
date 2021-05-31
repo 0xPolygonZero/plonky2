@@ -141,44 +141,6 @@ fn fri_verify_initial_proof<F: Field>(
     Ok(())
 }
 
-// fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
-//     proof: &FriInitialTreeProof<F>,
-//     alpha: F::Extension,
-//     opening_set: &OpeningSet<F, D>,
-//     zeta: F::Extension,
-//     subgroup_x: F,
-//     config: &FriConfig,
-// ) -> F::Extension {
-//     let e = proof
-//         .evals_proofs
-//         .iter()
-//         .enumerate()
-//         .flat_map(|(i, (v, _))| &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }])
-//         .rev()
-//         .fold(F::Extension::ZERO, |acc, &e| alpha * acc + e.into());
-//     let numerator = e - interpolant.eval(subgroup_x.into());
-//     let denominator = points
-//         .iter()
-//         .map(|&(x, _)| F::Extension::from_basefield(subgroup_x) - x)
-//         .product();
-//     let quotient = numerator / denominator;
-//     let quotient = if config.check_basefield[0] {
-//         let alpha_conj = alpha.frobenius();
-//         let comp_conj = proof
-//             .evals_proofs
-//             .iter()
-//             .enumerate()
-//             .flat_map(|(i, (v, _))| &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }])
-//             .rev()
-//             .fold(F::Extension::ZERO, |acc, &e| alpha_conj * acc + e.into());
-//         let numerator = comp_conj - points[0].1.frobenius();
-//         let denominator = F::Extension::from_basefield(subgroup_x) - points[0].0.frobenius();
-//         quotient + (numerator / denominator) * alpha.exp(proof.evals_proofs[0].0.len() as u64)
-//     } else {
-//         quotient
-//     };
-//     quotient
-// }
 fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     proof: &FriInitialTreeProof<F>,
     alpha: F::Extension,
@@ -196,9 +158,10 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
 
     let ev = [0, 1, 4]
         .iter()
-        .map(|&i| &proof.evals_proofs[i])
-        .enumerate()
-        .flat_map(|(j, (v, _))| &v[..v.len() - if config.blinding[j] { SALT_SIZE } else { 0 }])
+        .flat_map(|&i| {
+            let v = &proof.evals_proofs[i].0;
+            &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }]
+        })
         .rev()
         .fold(F::Extension::ZERO, |acc, &e| {
             poly_count += 1;
@@ -213,7 +176,6 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     let denominator = F::Extension::from_basefield(subgroup_x) - zeta;
     e += cur_alpha * numerator / denominator;
     cur_alpha = alpha.exp(poly_count);
-    dbg!(e);
 
     let ev = proof.evals_proofs[3].0
         [..proof.evals_proofs[3].0.len() - if config.blinding[3] { SALT_SIZE } else { 0 }]
@@ -224,7 +186,6 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
             alpha * acc + e.into()
         });
     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
-    dbg!(degree_log);
     let zs_interpol = interpolant(&[
         (zeta, reduce_with_powers(&os.plonk_zs, alpha)),
         (zeta_right, reduce_with_powers(&os.plonk_zs_right, alpha)),
@@ -233,8 +194,6 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     let denominator = (F::Extension::from_basefield(subgroup_x) - zeta)
         * (F::Extension::from_basefield(subgroup_x) - zeta_right);
     e += cur_alpha * numerator / denominator;
-    dbg!(e);
-    dbg!(cur_alpha);
     cur_alpha = alpha.exp(poly_count);
 
     if D > 1 {
