@@ -5,9 +5,10 @@ use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::Challenger;
+use crate::plonk_common::reduce_with_powers;
 use crate::polynomial::commitment::SALT_SIZE;
 use crate::polynomial::polynomial::PolynomialCoeffs;
-use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash};
+use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash, OpeningSet};
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 use anyhow::{ensure, Result};
 
@@ -65,8 +66,10 @@ fn fri_verify_proof_of_work<F: Field + Extendable<D>, const D: usize>(
 
 pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     purported_degree_log: usize,
-    // Point-evaluation pairs for polynomial commitments.
-    points: &[(F::Extension, F::Extension)],
+    // Openings of the PLONK polynomials.
+    os: &OpeningSet<F, D>,
+    // Point at which the PLONK polynomials are opened.
+    zeta: F::Extension,
     // Scaling factor to combine polynomials.
     alpha: F::Extension,
     initial_merkle_roots: &[Hash<F>],
@@ -108,11 +111,10 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
         "Number of reductions should be non-zero."
     );
 
-    let interpolant = interpolant(points);
     for round_proof in &proof.query_round_proofs {
         fri_verifier_query_round(
-            &interpolant,
-            points,
+            os,
+            zeta,
             alpha,
             initial_merkle_roots,
             &proof,
@@ -139,48 +141,128 @@ fn fri_verify_initial_proof<F: Field>(
     Ok(())
 }
 
+// fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
+//     proof: &FriInitialTreeProof<F>,
+//     alpha: F::Extension,
+//     opening_set: &OpeningSet<F, D>,
+//     zeta: F::Extension,
+//     subgroup_x: F,
+//     config: &FriConfig,
+// ) -> F::Extension {
+//     let e = proof
+//         .evals_proofs
+//         .iter()
+//         .enumerate()
+//         .flat_map(|(i, (v, _))| &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }])
+//         .rev()
+//         .fold(F::Extension::ZERO, |acc, &e| alpha * acc + e.into());
+//     let numerator = e - interpolant.eval(subgroup_x.into());
+//     let denominator = points
+//         .iter()
+//         .map(|&(x, _)| F::Extension::from_basefield(subgroup_x) - x)
+//         .product();
+//     let quotient = numerator / denominator;
+//     let quotient = if config.check_basefield[0] {
+//         let alpha_conj = alpha.frobenius();
+//         let comp_conj = proof
+//             .evals_proofs
+//             .iter()
+//             .enumerate()
+//             .flat_map(|(i, (v, _))| &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }])
+//             .rev()
+//             .fold(F::Extension::ZERO, |acc, &e| alpha_conj * acc + e.into());
+//         let numerator = comp_conj - points[0].1.frobenius();
+//         let denominator = F::Extension::from_basefield(subgroup_x) - points[0].0.frobenius();
+//         quotient + (numerator / denominator) * alpha.exp(proof.evals_proofs[0].0.len() as u64)
+//     } else {
+//         quotient
+//     };
+//     quotient
+// }
 fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     proof: &FriInitialTreeProof<F>,
     alpha: F::Extension,
-    interpolant: &PolynomialCoeffs<F::Extension>,
-    points: &[(F::Extension, F::Extension)],
+    os: &OpeningSet<F, D>,
+    zeta: F::Extension,
     subgroup_x: F,
     config: &FriConfig,
 ) -> F::Extension {
-    let e = proof
-        .evals_proofs
+    let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
+
+    let mut cur_alpha = F::Extension::ONE;
+
+    let mut poly_count = 0;
+    let mut e = F::Extension::ZERO;
+
+    let ev = [0, 1, 4]
         .iter()
+        .map(|&i| &proof.evals_proofs[i])
         .enumerate()
-        .flat_map(|(i, (v, _))| &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }])
+        .flat_map(|(j, (v, _))| &v[..v.len() - if config.blinding[j] { SALT_SIZE } else { 0 }])
         .rev()
-        .fold(F::Extension::ZERO, |acc, &e| alpha * acc + e.into());
-    let numerator = e - interpolant.eval(subgroup_x.into());
-    let denominator = points
+        .fold(F::Extension::ZERO, |acc, &e| {
+            poly_count += 1;
+            alpha * acc + e.into()
+        });
+    let composition_eval = [&os.constants, &os.plonk_sigmas, &os.quotient_polys]
         .iter()
-        .map(|&(x, _)| F::Extension::from_basefield(subgroup_x) - x)
-        .product();
-    let quotient = numerator / denominator;
-    let quotient = if config.check_basefield[0] {
-        let alpha_conj = alpha.frobenius();
-        let comp_conj = proof
-            .evals_proofs
-            .iter()
-            .enumerate()
-            .flat_map(|(i, (v, _))| &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }])
-            .rev()
-            .fold(F::Extension::ZERO, |acc, &e| alpha_conj * acc + e.into());
-        let numerator = comp_conj - points[0].1.frobenius();
-        let denominator = F::Extension::from_basefield(subgroup_x) - points[0].0.frobenius();
-        quotient + (numerator / denominator) * alpha.exp(proof.evals_proofs[0].0.len() as u64)
-    } else {
-        quotient
-    };
-    quotient
+        .flat_map(|v| v.iter())
+        .rev()
+        .fold(F::Extension::ZERO, |acc, &e| acc * alpha + e);
+    let numerator = ev - composition_eval;
+    let denominator = F::Extension::from_basefield(subgroup_x) - zeta;
+    e += cur_alpha * numerator / denominator;
+    cur_alpha = alpha.exp(poly_count);
+    dbg!(e);
+
+    let ev = proof.evals_proofs[3].0
+        [..proof.evals_proofs[3].0.len() - if config.blinding[3] { SALT_SIZE } else { 0 }]
+        .iter()
+        .rev()
+        .fold(F::Extension::ZERO, |acc, &e| {
+            poly_count += 1;
+            alpha * acc + e.into()
+        });
+    let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
+    dbg!(degree_log);
+    let zs_interpol = interpolant(&[
+        (zeta, reduce_with_powers(&os.plonk_zs, alpha)),
+        (zeta_right, reduce_with_powers(&os.plonk_zs_right, alpha)),
+    ]);
+    let numerator = ev - zs_interpol.eval(subgroup_x.into());
+    let denominator = (F::Extension::from_basefield(subgroup_x) - zeta)
+        * (F::Extension::from_basefield(subgroup_x) - zeta_right);
+    e += cur_alpha * numerator / denominator;
+    dbg!(e);
+    dbg!(cur_alpha);
+    cur_alpha = alpha.exp(poly_count);
+
+    let ev = proof.evals_proofs[2].0
+        [..proof.evals_proofs[2].0.len() - if config.blinding[2] { SALT_SIZE } else { 0 }]
+        .iter()
+        .rev()
+        .fold(F::Extension::ZERO, |acc, &e| {
+            poly_count += 1;
+            alpha * acc + e.into()
+        });
+    let zeta_frob = zeta.frobenius();
+    let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
+    let wires_interpol = interpolant(&[
+        (zeta, reduce_with_powers(&os.wires, alpha)),
+        (zeta_frob, reduce_with_powers(&wire_evals_frob, alpha)),
+    ]);
+    let numerator = ev - wires_interpol.eval(subgroup_x.into());
+    let denominator = (F::Extension::from_basefield(subgroup_x) - zeta)
+        * (F::Extension::from_basefield(subgroup_x) - zeta_frob);
+    e += cur_alpha * numerator / denominator;
+    cur_alpha = alpha.exp(poly_count);
+
+    e
 }
 
 fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
-    interpolant: &PolynomialCoeffs<F::Extension>,
-    points: &[(F::Extension, F::Extension)],
+    os: &OpeningSet<F, D>,
+    zeta: F::Extension,
     alpha: F::Extension,
     initial_merkle_roots: &[Hash<F>],
     proof: &FriProof<F, D>,
@@ -211,8 +293,8 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
             fri_combine_initial(
                 &round_proof.initial_trees_proof,
                 alpha,
-                interpolant,
-                points,
+                os,
+                zeta,
                 subgroup_x,
                 config,
             )

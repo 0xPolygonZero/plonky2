@@ -2,7 +2,7 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::hash::{permute, SPONGE_RATE, SPONGE_WIDTH};
-use crate::proof::{Hash, HashTarget};
+use crate::proof::{Hash, HashTarget, OpeningSet};
 use crate::target::Target;
 
 /// Observes prover messages, and generates challenges by hashing the transcript.
@@ -58,6 +58,30 @@ impl<F: Field> Challenger<F> {
     {
         for element in elements {
             self.observe_extension_element(element);
+        }
+    }
+
+    pub fn observe_opening_set<const D: usize>(&mut self, os: &OpeningSet<F, D>)
+    where
+        F: Extendable<D>,
+    {
+        let OpeningSet {
+            constants,
+            plonk_sigmas,
+            wires,
+            plonk_zs,
+            plonk_zs_right,
+            quotient_polys,
+        } = os;
+        for v in &[
+            constants,
+            plonk_sigmas,
+            wires,
+            plonk_zs,
+            plonk_zs_right,
+            quotient_polys,
+        ] {
+            self.observe_extension_elements(v);
         }
     }
 

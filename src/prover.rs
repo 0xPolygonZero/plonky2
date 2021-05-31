@@ -14,7 +14,7 @@ use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::timed;
-use crate::util::transpose;
+use crate::util::{log2_strict, transpose};
 use crate::vars::EvaluationVars;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
@@ -116,10 +116,10 @@ pub(crate) fn prove<F: Field + Extendable<D>, const D: usize>(
 
     challenger.observe_hash(&quotient_polys_commitment.merkle_tree.root);
 
-    let zetas = challenger.get_n_extension_challenges(config.num_challenges);
+    let zeta = challenger.get_extension_challenge();
 
     let (opening_proof, openings) = timed!(
-        ListPolynomialCommitment::batch_open_plonk(
+        ListPolynomialCommitment::open_plonk(
             &[
                 &prover_data.constants_commitment,
                 &prover_data.sigmas_commitment,
@@ -127,7 +127,8 @@ pub(crate) fn prove<F: Field + Extendable<D>, const D: usize>(
                 &plonk_zs_commitment,
                 &quotient_polys_commitment,
             ],
-            &zetas,
+            zeta,
+            log2_strict(degree),
             &mut challenger,
             &common_data.config.fri_config
         ),
