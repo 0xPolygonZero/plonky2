@@ -9,7 +9,7 @@ use plonky2::fri::FriConfig;
 use plonky2::gates::constant::ConstantGate;
 use plonky2::gates::gmimc::GMiMCGate;
 use plonky2::hash::GMIMC_ROUNDS;
-use plonky2::prover::{PLONK_BLINDING, PLONK_CHECK_BASEFIELD};
+use plonky2::prover::PLONK_BLINDING;
 use plonky2::witness::PartialWitness;
 
 fn main() {
@@ -43,7 +43,6 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
             reduction_arity_bits: vec![1],
             num_query_rounds: 1,
             blinding: PLONK_BLINDING.to_vec(),
-            check_basefield: PLONK_CHECK_BASEFIELD.to_vec(),
         },
     };
 

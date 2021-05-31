@@ -38,7 +38,6 @@ impl Default for CircuitConfig {
                 reduction_arity_bits: vec![1],
                 num_query_rounds: 1,
                 blinding: vec![true],
-                check_basefield: vec![false],
             },
         }
     }
