@@ -403,27 +403,27 @@ impl<F: Field> ListPolynomialCommitment<F> {
         }
         cur_alpha = alpha.exp(poly_count);
 
-        let wires_composition_poly =
-            commitments[2]
-                .polynomials
-                .iter()
-                .rev()
-                .fold(PolynomialCoeffs::empty(), |acc, p| {
+        if D > 1 {
+            let wires_composition_poly = commitments[2].polynomials.iter().rev().fold(
+                PolynomialCoeffs::empty(),
+                |acc, p| {
                     poly_count += 1;
                     &(&acc * alpha) + &p.to_extension()
-                });
-        let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
-        let wires_composition_evals = [
-            reduce_with_powers(&os.wires, alpha),
-            reduce_with_powers(&wire_evals_frob, alpha),
-        ];
+                },
+            );
+            let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
+            let wires_composition_evals = [
+                reduce_with_powers(&os.wires, alpha),
+                reduce_with_powers(&wire_evals_frob, alpha),
+            ];
 
-        let wires_quotient = Self::compute_quotient(
-            &[zeta, zeta.frobenius()],
-            &wires_composition_evals,
-            &wires_composition_poly,
-        );
-        final_poly = &final_poly + &(&wires_quotient * cur_alpha);
+            let wires_quotient = Self::compute_quotient(
+                &[zeta, zeta.frobenius()],
+                &wires_composition_evals,
+                &wires_composition_poly,
+            );
+            final_poly = &final_poly + &(&wires_quotient * cur_alpha);
+        }
 
         dbg!(final_poly.coeffs.len());
         let lde_final_poly = final_poly.lde(config.rate_bits);
@@ -551,12 +551,11 @@ mod tests {
 
     fn check_batch_polynomial_commitment<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
         let ks = [1, 2, 3, 5, 8];
-        let degree_log = 2;
+        let degree_log = 11;
         let fri_config = FriConfig {
             proof_of_work_bits: 2,
-            rate_bits: 1,
-            // reduction_arity_bits: vec![2, 3, 1, 2],
-            reduction_arity_bits: vec![1],
+            rate_bits: 2,
+            reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
             blinding: vec![false, false, false, false, false],
             check_basefield: vec![false, false, false],
