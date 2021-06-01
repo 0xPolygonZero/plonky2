@@ -1,7 +1,7 @@
 use std::cmp::max;
 use std::ops::{Add, Mul, Sub};
 
-use crate::field::extension_field::{Extendable, OEF};
+use crate::field::extension_field::Extendable;
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::util::log2_strict;
@@ -185,15 +185,6 @@ impl<F: Field> PolynomialCoeffs<F> {
         F: Extendable<D>,
     {
         PolynomialCoeffs::new(self.coeffs.iter().map(|&c| c.into()).collect())
-    }
-
-    pub fn frobenius<const D: usize>(
-        poly: &PolynomialCoeffs<F::Extension>,
-    ) -> PolynomialCoeffs<F::Extension>
-    where
-        F: Extendable<D>,
-    {
-        PolynomialCoeffs::new(poly.coeffs.iter().map(|&c| c.frobenius()).collect())
     }
 }
 
