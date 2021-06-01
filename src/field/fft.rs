@@ -4,34 +4,30 @@ use crate::util::{log2_ceil, log2_strict, reverse_index_bits, reverse_bits};
 
 
 pub(crate) struct FftPrecomputation<F: Field> {
-    /// For each layer index i, stores the cyclic subgroup corresponding to the evaluation domain of
-    /// layer i. The indices within these subgroup vectors are bit-reversed.
-    subgroups_rev: Vec<Vec<F>>,
+    /// Store powers of a primitive root of unity of F. Specifically,
+    /// the ith element of subgroups_rev contains g**reverse_bits(i),
+    /// where g is the root.
+    subgroups_rev: Vec<F>,
 }
 
 impl<F: Field> FftPrecomputation<F> {
     pub fn size(&self) -> usize {
-        self.subgroups_rev.last().unwrap().len()
+        self.subgroups_rev.len()
     }
+}
+
+pub(crate) fn fft_precompute<F: Field>(degree: usize) -> FftPrecomputation<F> {
+    let degree_log = log2_ceil(degree);
+    let g = F::primitive_root_of_unity(degree_log);
+    let subgroup = F::cyclic_subgroup_known_order(g, 1 << degree_log);
+    let subgroups_rev = reverse_index_bits(subgroup);
+
+    FftPrecomputation { subgroups_rev }
 }
 
 pub fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
     let precomputation = fft_precompute(poly.len());
     fft_with_precomputation_power_of_2(poly, &precomputation)
-}
-
-pub(crate) fn fft_precompute<F: Field>(degree: usize) -> FftPrecomputation<F> {
-    let degree_log = log2_ceil(degree);
-
-    let mut subgroups_rev = Vec::new();
-    for i in 0..=degree_log {
-        let g_i = F::primitive_root_of_unity(i);
-        let subgroup = F::cyclic_subgroup_known_order(g_i, 1 << i);
-        let subgroup_rev = reverse_index_bits(subgroup);
-        subgroups_rev.push(subgroup_rev);
-    }
-
-    FftPrecomputation { subgroups_rev }
 }
 
 pub(crate) fn ifft_with_precomputation_power_of_2<F: Field>(
@@ -63,8 +59,7 @@ pub(crate) fn fft_with_precomputation_power_of_2<F: Field>(
     precomputation: &FftPrecomputation<F>,
 ) -> PolynomialValues<F> {
     debug_assert_eq!(
-        poly.len(),
-        precomputation.subgroups_rev.last().unwrap().len(),
+        poly.len(), precomputation.size(),
         "Number of coefficients does not match size of subgroup in precomputation"
     );
 
@@ -93,7 +88,7 @@ pub(crate) fn fft_with_precomputation_power_of_2<F: Field>(
             let even = evaluations[child_index_0];
             let odd = evaluations[child_index_1];
 
-            let point_0 = precomputation.subgroups_rev[i][pair_index_within_poly * 2];
+            let point_0 = precomputation.subgroups_rev[pair_index_within_poly * 2];
             let product = point_0 * odd;
             new_evaluations.push(even + product);
             new_evaluations.push(even - product);
