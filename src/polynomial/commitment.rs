@@ -114,19 +114,32 @@ impl<F: Field> ListPolynomialCommitment<F> {
         // Count the total number of polynomials accumulated into `final_poly`.
         let mut poly_count = 0;
 
-        let composition_poly = [0, 1, 4]
-            .iter()
-            .flat_map(|&i| &commitments[i].polynomials)
-            .rev()
-            .fold(PolynomialCoeffs::empty(), |acc, p| {
-                poly_count += 1;
-                &(&acc * alpha) + &p.to_extension()
-            });
-        let composition_eval = [&os.constants, &os.plonk_sigmas, &os.quotient_polys]
-            .iter()
-            .flat_map(|v| v.iter())
-            .rev()
-            .fold(F::Extension::ZERO, |acc, &e| acc * alpha + e);
+        let composition_poly = if D == 1 {
+            vec![0, 1, 2, 4]
+        } else {
+            vec![0, 1, 4]
+        }
+        .iter()
+        .flat_map(|&i| &commitments[i].polynomials)
+        .rev()
+        .fold(PolynomialCoeffs::empty(), |acc, p| {
+            poly_count += 1;
+            &(&acc * alpha) + &p.to_extension()
+        });
+        let composition_eval = if D == 1 {
+            vec![
+                &os.constants,
+                &os.plonk_sigmas,
+                &os.wires,
+                &os.quotient_polys,
+            ]
+        } else {
+            vec![&os.constants, &os.plonk_sigmas, &os.quotient_polys]
+
+        .iter()
+        .flat_map(|v| v.iter())
+        .rev()
+        .fold(F::Extension::ZERO, |acc, &e| acc * alpha + e);
 
         let quotient = Self::compute_quotient(&[zeta], &[composition_eval], &composition_poly);
         final_poly = &final_poly + &(&quotient * cur_alpha);
