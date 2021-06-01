@@ -3,11 +3,11 @@ use crate::field::extension_field::{FieldExtension, OEF};
 use crate::field::field::Field;
 use rand::Rng;
 use std::fmt::{Debug, Display, Formatter};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct QuadraticCrandallField([CrandallField; 2]);
 
 impl OEF<2> for QuadraticCrandallField {
@@ -35,23 +35,6 @@ impl FieldExtension<2> for QuadraticCrandallField {
 impl From<<Self as FieldExtension<2>>::BaseField> for QuadraticCrandallField {
     fn from(x: <Self as FieldExtension<2>>::BaseField) -> Self {
         Self([x, <Self as FieldExtension<2>>::BaseField::ZERO])
-    }
-}
-
-impl PartialEq for QuadraticCrandallField {
-    fn eq(&self, other: &Self) -> bool {
-        FieldExtension::<2>::to_basefield_array(self)
-            == FieldExtension::<2>::to_basefield_array(other)
-    }
-}
-
-impl Eq for QuadraticCrandallField {}
-
-impl Hash for QuadraticCrandallField {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        for l in &FieldExtension::<2>::to_basefield_array(self) {
-            Hash::hash(l, state);
-        }
     }
 }
 

@@ -9,22 +9,22 @@ use crate::field::fft::ifft;
 use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{eval_l_1, evaluate_gate_constraints, reduce_with_powers_multi};
+use crate::plonk_common::{eval_l_1, evaluate_gate_constraints_base, reduce_with_powers_multi};
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::timed;
-use crate::util::{log2_strict, transpose};
-use crate::vars::EvaluationVars;
+use crate::util::transpose;
+use crate::vars::EvaluationVarsBase;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
 /// Corresponds to constants - sigmas - wires - zs - quotient — polynomial commitments.
 pub const PLONK_BLINDING: [bool; 5] = [false, false, true, true, true];
 
-pub(crate) fn prove<F: Field + Extendable<D>, const D: usize>(
+pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F>,
-    common_data: &CommonCircuitData<F>,
+    common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
 ) -> Proof<F, D> {
     let fri_config = &common_data.config.fri_config;
@@ -125,7 +125,6 @@ pub(crate) fn prove<F: Field + Extendable<D>, const D: usize>(
                 &quotient_polys_commitment,
             ],
             zeta,
-            log2_strict(degree),
             &mut challenger,
             &common_data.config.fri_config
         ),
@@ -146,19 +145,23 @@ pub(crate) fn prove<F: Field + Extendable<D>, const D: usize>(
     }
 }
 
-fn compute_zs<F: Field>(common_data: &CommonCircuitData<F>) -> Vec<PolynomialCoeffs<F>> {
+fn compute_zs<F: Extendable<D>, const D: usize>(
+    common_data: &CommonCircuitData<F, D>,
+) -> Vec<PolynomialCoeffs<F>> {
     (0..common_data.config.num_challenges)
         .map(|i| compute_z(common_data, i))
         .collect()
 }
 
-fn compute_z<F: Field>(common_data: &CommonCircuitData<F>, _i: usize) -> PolynomialCoeffs<F> {
+fn compute_z<F: Extendable<D>, const D: usize>(
+    common_data: &CommonCircuitData<F, D>,
+    _i: usize,
+) -> PolynomialCoeffs<F> {
     PolynomialCoeffs::zero(common_data.degree()) // TODO
 }
 
-// TODO: Parallelize.
-fn compute_vanishing_polys<F: Field>(
-    common_data: &CommonCircuitData<F>,
+fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(
+    common_data: &CommonCircuitData<F, D>,
     prover_data: &ProverOnlyCircuitData<F>,
     wires_commitment: &ListPolynomialCommitment<F>,
     plonk_zs_commitment: &ListPolynomialCommitment<F>,
@@ -185,7 +188,7 @@ fn compute_vanishing_polys<F: Field>(
             debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
             debug_assert_eq!(local_plonk_zs.len(), num_challenges);
 
-            let vars = EvaluationVars {
+            let vars = EvaluationVarsBase {
                 local_constants,
                 local_wires,
             };
@@ -212,10 +215,10 @@ fn compute_vanishing_polys<F: Field>(
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
 /// linear combination of gate constraints, plus some other terms relating to the permutation
 /// argument. All such terms should vanish on `H`.
-fn compute_vanishing_poly_entry<F: Field>(
-    common_data: &CommonCircuitData<F>,
+fn compute_vanishing_poly_entry<F: Extendable<D>, const D: usize>(
+    common_data: &CommonCircuitData<F, D>,
     x: F,
-    vars: EvaluationVars<F>,
+    vars: EvaluationVarsBase<F>,
     local_plonk_zs: &[F],
     next_plonk_zs: &[F],
     s_sigmas: &[F],
@@ -224,7 +227,7 @@ fn compute_vanishing_poly_entry<F: Field>(
     alphas: &[F],
 ) -> Vec<F> {
     let constraint_terms =
-        evaluate_gate_constraints(&common_data.gates, common_data.num_gate_constraints, vars);
+        evaluate_gate_constraints_base(&common_data.gates, common_data.num_gate_constraints, vars);
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::new();

@@ -81,14 +81,13 @@ impl<F: Field> ListPolynomialCommitment<F> {
     pub fn open_plonk<const D: usize>(
         commitments: &[&Self; 5],
         zeta: F::Extension,
-        degree_log: usize,
         challenger: &mut Challenger<F>,
         config: &FriConfig,
     ) -> (OpeningProof<F, D>, OpeningSet<F, D>)
     where
         F: Extendable<D>,
     {
-        debug_assert!(commitments.iter().all(|c| c.degree == 1 << degree_log));
+        let degree_log = log2_strict(commitments[0].degree);
         let g = F::Extension::primitive_root_of_unity(degree_log);
         for &p in &[zeta, g * zeta] {
             assert_ne!(
@@ -289,11 +288,8 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningProof<F, D> {
 mod tests {
     use anyhow::Result;
 
-    use crate::field::crandall_field::CrandallField;
-
     use super::*;
     use rand::Rng;
-    use std::convert::TryInto;
 
     fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(
         k: usize,
@@ -355,19 +351,10 @@ mod tests {
         let (proof, os) = ListPolynomialCommitment::open_plonk::<D>(
             &[&lpcs[0], &lpcs[1], &lpcs[2], &lpcs[3], &lpcs[4]],
             zeta,
-            degree_log,
             &mut Challenger::new(),
             &fri_config,
         );
-        let os = OpeningSet::new(
-            zeta,
-            F::Extension::primitive_root_of_unity(degree_log),
-            &lpcs[0],
-            &lpcs[1],
-            &lpcs[2],
-            &lpcs[3],
-            &lpcs[4],
-        );
+
         proof.verify(
             zeta,
             &os,
@@ -383,19 +370,10 @@ mod tests {
         )
     }
 
-    macro_rules! tests_commitments {
-        ($F:ty, $D:expr) => {
-            use super::*;
-
-            #[test]
-            fn test_batch_polynomial_commitment() -> Result<()> {
-                check_batch_polynomial_commitment::<$F, $D>()
-            }
-        };
-    }
-
     mod base {
         use super::*;
+        use crate::field::crandall_field::CrandallField;
+
         #[test]
         fn test_batch_polynomial_commitment() -> Result<()> {
             check_batch_polynomial_commitment::<CrandallField, 1>()
@@ -404,6 +382,7 @@ mod tests {
 
     mod quadratic {
         use super::*;
+        use crate::field::crandall_field::CrandallField;
         #[test]
         fn test_batch_polynomial_commitment() -> Result<()> {
             check_batch_polynomial_commitment::<CrandallField, 2>()
@@ -412,6 +391,7 @@ mod tests {
 
     mod quartic {
         use super::*;
+        use crate::field::crandall_field::CrandallField;
         #[test]
         fn test_batch_polynomial_commitment() -> Result<()> {
             check_batch_polynomial_commitment::<CrandallField, 4>()

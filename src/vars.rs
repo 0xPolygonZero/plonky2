@@ -1,38 +1,46 @@
 use std::convert::TryInto;
 use std::ops::Range;
 
-use crate::field::extension_field::target::ExtensionTarget;
+use crate::field::extension_field::target::{ExtensionExtensionTarget, ExtensionTarget};
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
-use crate::target::Target;
 
 #[derive(Copy, Clone)]
-pub struct EvaluationVars<'a, F: Field> {
+pub struct EvaluationVars<'a, F: Extendable<D>, const D: usize> {
+    pub(crate) local_constants: &'a [F::Extension],
+    pub(crate) local_wires: &'a [F::Extension],
+}
+
+#[derive(Copy, Clone)]
+pub struct EvaluationVarsBase<'a, F: Field> {
     pub(crate) local_constants: &'a [F],
     pub(crate) local_wires: &'a [F],
 }
 
-impl<'a, F: Field> EvaluationVars<'a, F> {
-    pub fn get_local_ext<const D: usize>(&self, wire_range: Range<usize>) -> F::Extension
+impl<'a, F: Extendable<D>, const D: usize> EvaluationVars<'a, F, D> {
+    pub fn get_local_ext_ext(
+        &self,
+        wire_range: Range<usize>,
+    ) -> <<F as Extendable<D>>::Extension as Extendable<D>>::Extension
     where
-        F: Extendable<D>,
+        F::Extension: Extendable<D>,
     {
         debug_assert_eq!(wire_range.len(), D);
         let arr = self.local_wires[wire_range].try_into().unwrap();
-        F::Extension::from_basefield_array(arr)
+        <<F as Extendable<D>>::Extension as Extendable<D>>::Extension::from_basefield_array(arr)
     }
 }
 
 #[derive(Copy, Clone)]
-pub struct EvaluationTargets<'a> {
-    pub(crate) local_constants: &'a [Target],
-    pub(crate) local_wires: &'a [Target],
+pub struct EvaluationTargets<'a, const D: usize> {
+    pub(crate) local_constants: &'a [ExtensionTarget<D>],
+    pub(crate) local_wires: &'a [ExtensionTarget<D>],
 }
 
-impl<'a> EvaluationTargets<'a> {
-    pub fn get_local_ext<const D: usize>(&self, wire_range: Range<usize>) -> ExtensionTarget<D> {
+impl<'a, const D: usize> EvaluationTargets<'a, D> {
+    pub fn get_local_ext_ext(&self, wire_range: Range<usize>) -> ExtensionExtensionTarget<D> {
         debug_assert_eq!(wire_range.len(), D);
         let arr = self.local_wires[wire_range].try_into().unwrap();
-        ExtensionTarget(arr)
+        ExtensionExtensionTarget(arr)
     }
 }
