@@ -82,18 +82,6 @@ pub(crate) fn reduce_with_powers<F: Field>(terms: &[F], alpha: F) -> F {
     sum
 }
 
-pub(crate) fn reduce_polys_with_powers<F: Field + Extendable<D>, const D: usize>(
-    polynomials: &[PolynomialCoeffs<F>],
-    alpha: F::Extension,
-) -> PolynomialCoeffs<F::Extension> {
-    polynomials
-        .iter()
-        .rev()
-        .fold(PolynomialCoeffs::empty(), |acc, p| {
-            &(&acc * alpha) + &p.to_extension()
-        })
-}
-
 pub(crate) fn reduce_with_powers_recursive<F: Field>(
     builder: &mut CircuitBuilder<F>,
     terms: Vec<Target>,

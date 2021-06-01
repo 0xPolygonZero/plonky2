@@ -7,7 +7,6 @@ use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
 use crate::polynomial::commitment::SALT_SIZE;
-use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash, OpeningSet};
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 use anyhow::{ensure, Result};
@@ -228,7 +227,6 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         let denominator = (F::Extension::from_basefield(subgroup_x) - zeta)
             * (F::Extension::from_basefield(subgroup_x) - zeta_frob);
         e += cur_alpha * numerator / denominator;
-        cur_alpha = alpha.exp(poly_count);
     }
 
     e

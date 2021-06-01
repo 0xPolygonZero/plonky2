@@ -8,9 +8,9 @@ use crate::field::lagrange::interpolant;
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{reduce_polys_with_powers, reduce_with_powers};
+use crate::plonk_common::reduce_with_powers;
 use crate::polynomial::polynomial::PolynomialCoeffs;
-use crate::proof::{FriInitialTreeProof, FriProof, Hash, OpeningSet};
+use crate::proof::{FriProof, Hash, OpeningSet};
 use crate::timed;
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
 
@@ -76,6 +76,8 @@ impl<F: Field> ListPolynomialCommitment<F> {
         &leaf[0..leaf.len() - if self.blinding { SALT_SIZE } else { 0 }]
     }
 
+    /// Takes the commitments to the constants - sigmas - wires - zs - quotient — polynomials,
+    /// and an opening point `zeta` and produces a batched opening proof + opening set.
     pub fn open_plonk<const D: usize>(
         commitments: &[&Self; 5],
         zeta: F::Extension,
@@ -86,6 +88,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
     where
         F: Extendable<D>,
     {
+        debug_assert!(commitments.iter().all(|c| c.degree == 1 << degree_log));
         let g = F::Extension::primitive_root_of_unity(degree_log);
         for &p in &[zeta, g * zeta] {
             assert_ne!(
@@ -114,6 +117,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         // Count the total number of polynomials accumulated into `final_poly`.
         let mut poly_count = 0;
 
+        // Polynomials opened at a single point.
         let composition_poly = if D == 1 {
             vec![0, 1, 2, 4]
         } else {
@@ -135,7 +139,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             ]
         } else {
             vec![&os.constants, &os.plonk_sigmas, &os.quotient_polys]
-
+        }
         .iter()
         .flat_map(|v| v.iter())
         .rev()
@@ -145,6 +149,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         final_poly = &final_poly + &(&quotient * cur_alpha);
         cur_alpha = alpha.exp(poly_count);
 
+        // Zs polynomials are opened at `zeta` and `g*zeta`.
         let zs_composition_poly =
             commitments[3]
                 .polynomials
@@ -167,6 +172,9 @@ impl<F: Field> ListPolynomialCommitment<F> {
         final_poly = &final_poly + &(&zs_quotient * cur_alpha);
         cur_alpha = alpha.exp(poly_count);
 
+        // If working in an extension field, need to check that wires are in the base field.
+        // Check this by opening the wires polynomials at `zeta` and `zeta.frobenius()` and using the fact that
+        // a polynomial `f` is over the base field iff `f(z).frobenius()=f(z.frobenius())` with high probability.
         if D > 1 {
             let wires_composition_poly = commitments[2].polynomials.iter().rev().fold(
                 PolynomialCoeffs::empty(),
@@ -238,7 +246,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             &acc * &PolynomialCoeffs::new(vec![-x, F::Extension::ONE])
         });
         let numerator = poly - &interpolant;
-        let (mut quotient, rem) = numerator.div_rem(&denominator);
+        let (quotient, rem) = numerator.div_rem(&denominator);
         debug_assert!(rem.is_zero());
 
         quotient.padded(quotient.degree_plus_one().next_power_of_two())
@@ -311,7 +319,7 @@ mod tests {
         point
     }
 
-    fn random_blindings() -> Vec<bool> {
+    fn gen_random_blindings() -> Vec<bool> {
         let mut rng = rand::thread_rng();
         vec![
             rng.gen_bool(0.5),
@@ -330,7 +338,7 @@ mod tests {
             rate_bits: 2,
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
-            blinding: random_blindings(),
+            blinding: gen_random_blindings(),
         };
 
         let lpcs = (0..5)
@@ -375,48 +383,6 @@ mod tests {
         )
     }
 
-    // fn check_batch_polynomial_commitment_blinding<F: Field + Extendable<D>, const D: usize>(
-    // ) -> Result<()> {
-    //     let k0 = 10;
-    //     let k1 = 3;
-    //     let k2 = 7;
-    //     let degree_log = 11;
-    //     let num_points = 5;
-    //     let fri_config = FriConfig {
-    //         proof_of_work_bits: 2,
-    //         rate_bits: 2,
-    //         reduction_arity_bits: vec![2, 3, 1, 2],
-    //         num_query_rounds: 3,
-    //         blinding: vec![true, false, true],
-    //         check_basefield: vec![true, false, true],
-    //     };
-    //     let (polys0, _) = gen_random_test_case::<F, D>(k0, degree_log, num_points);
-    //     let (polys1, _) = gen_random_test_case::<F, D>(k1, degree_log, num_points);
-    //     let (polys2, points) = gen_random_test_case::<F, D>(k2, degree_log, num_points);
-    //
-    //     let lpc0 = ListPolynomialCommitment::new(polys0, fri_config.rate_bits, true);
-    //     let lpc1 = ListPolynomialCommitment::new(polys1, fri_config.rate_bits, false);
-    //     let lpc2 = ListPolynomialCommitment::new(polys2, fri_config.rate_bits, true);
-    //
-    //     let (proof, evaluations) = ListPolynomialCommitment::batch_open::<D>(
-    //         &[&lpc0, &lpc1, &lpc2],
-    //         &points,
-    //         &fri_config,
-    //         &mut Challenger::new(),
-    //     );
-    //     proof.verify(
-    //         &points,
-    //         &evaluations,
-    //         &[
-    //             lpc0.merkle_tree.root,
-    //             lpc1.merkle_tree.root,
-    //             lpc2.merkle_tree.root,
-    //         ],
-    //         &mut Challenger::new(),
-    //         &fri_config,
-    //     )
-    // }
-
     macro_rules! tests_commitments {
         ($F:ty, $D:expr) => {
             use super::*;
@@ -425,24 +391,30 @@ mod tests {
             fn test_batch_polynomial_commitment() -> Result<()> {
                 check_batch_polynomial_commitment::<$F, $D>()
             }
-
-            // #[test]
-            // fn test_batch_polynomial_commitment_blinding() -> Result<()> {
-            //     check_batch_polynomial_commitment_blinding::<$F, $D>()
-            // }
         };
     }
 
     mod base {
-        tests_commitments!(crate::field::crandall_field::CrandallField, 1);
+        use super::*;
+        #[test]
+        fn test_batch_polynomial_commitment() -> Result<()> {
+            check_batch_polynomial_commitment::<CrandallField, 1>()
+        }
     }
 
     mod quadratic {
-        tests_commitments!(crate::field::crandall_field::CrandallField, 2);
+        use super::*;
+        #[test]
+        fn test_batch_polynomial_commitment() -> Result<()> {
+            check_batch_polynomial_commitment::<CrandallField, 2>()
+        }
     }
 
     mod quartic {
         use super::*;
-        tests_commitments!(crate::field::crandall_field::CrandallField, 4);
+        #[test]
+        fn test_batch_polynomial_commitment() -> Result<()> {
+            check_batch_polynomial_commitment::<CrandallField, 4>()
+        }
     }
 }
