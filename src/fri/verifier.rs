@@ -148,6 +148,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     subgroup_x: F,
     config: &FriConfig,
 ) -> F::Extension {
+    assert!(D > 1, "Not implemented for D=1.");
     let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
 
     let mut cur_alpha = F::Extension::ONE;
@@ -155,35 +156,22 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     let mut poly_count = 0;
     let mut e = F::Extension::ZERO;
 
-    let ev = if D == 1 {
-        vec![0, 1, 2, 4]
-    } else {
-        vec![0, 1, 4]
-    }
-    .iter()
-    .flat_map(|&i| {
-        let v = &proof.evals_proofs[i].0;
-        &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }]
-    })
-    .rev()
-    .fold(F::Extension::ZERO, |acc, &e| {
-        poly_count += 1;
-        alpha * acc + e.into()
-    });
-    let composition_eval = if D == 1 {
-        vec![
-            &os.constants,
-            &os.plonk_sigmas,
-            &os.wires,
-            &os.quotient_polys,
-        ]
-    } else {
-        vec![&os.constants, &os.plonk_sigmas, &os.quotient_polys]
-    }
-    .iter()
-    .flat_map(|v| v.iter())
-    .rev()
-    .fold(F::Extension::ZERO, |acc, &e| acc * alpha + e);
+    let ev = vec![0, 1, 4]
+        .iter()
+        .flat_map(|&i| {
+            let v = &proof.evals_proofs[i].0;
+            &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }]
+        })
+        .rev()
+        .fold(F::Extension::ZERO, |acc, &e| {
+            poly_count += 1;
+            alpha * acc + e.into()
+        });
+    let composition_eval = [&os.constants, &os.plonk_sigmas, &os.quotient_polys]
+        .iter()
+        .flat_map(|v| v.iter())
+        .rev()
+        .fold(F::Extension::ZERO, |acc, &e| acc * alpha + e);
     let numerator = ev - composition_eval;
     let denominator = F::Extension::from_basefield(subgroup_x) - zeta;
     e += cur_alpha * numerator / denominator;
@@ -208,26 +196,24 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     e += cur_alpha * numerator / denominator;
     cur_alpha = alpha.exp(poly_count);
 
-    if D > 1 {
-        let ev = proof.evals_proofs[2].0
-            [..proof.evals_proofs[2].0.len() - if config.blinding[2] { SALT_SIZE } else { 0 }]
-            .iter()
-            .rev()
-            .fold(F::Extension::ZERO, |acc, &e| {
-                poly_count += 1;
-                alpha * acc + e.into()
-            });
-        let zeta_frob = zeta.frobenius();
-        let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
-        let wires_interpol = interpolant(&[
-            (zeta, reduce_with_powers(&os.wires, alpha)),
-            (zeta_frob, reduce_with_powers(&wire_evals_frob, alpha)),
-        ]);
-        let numerator = ev - wires_interpol.eval(subgroup_x.into());
-        let denominator = (F::Extension::from_basefield(subgroup_x) - zeta)
-            * (F::Extension::from_basefield(subgroup_x) - zeta_frob);
-        e += cur_alpha * numerator / denominator;
-    }
+    let ev = proof.evals_proofs[2].0
+        [..proof.evals_proofs[2].0.len() - if config.blinding[2] { SALT_SIZE } else { 0 }]
+        .iter()
+        .rev()
+        .fold(F::Extension::ZERO, |acc, &e| {
+            poly_count += 1;
+            alpha * acc + e.into()
+        });
+    let zeta_frob = zeta.frobenius();
+    let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
+    let wires_interpol = interpolant(&[
+        (zeta, reduce_with_powers(&os.wires, alpha)),
+        (zeta_frob, reduce_with_powers(&wire_evals_frob, alpha)),
+    ]);
+    let numerator = ev - wires_interpol.eval(subgroup_x.into());
+    let denominator = (F::Extension::from_basefield(subgroup_x) - zeta)
+        * (F::Extension::from_basefield(subgroup_x) - zeta_frob);
+    e += cur_alpha * numerator / denominator;
 
     e
 }

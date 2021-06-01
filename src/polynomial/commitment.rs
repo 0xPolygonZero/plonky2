@@ -87,6 +87,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
     where
         F: Extendable<D>,
     {
+        assert!(D > 1, "Not implemented for D=1.");
         let degree_log = log2_strict(commitments[0].degree);
         let g = F::Extension::primitive_root_of_unity(degree_log);
         for &p in &[zeta, g * zeta] {
@@ -117,32 +118,19 @@ impl<F: Field> ListPolynomialCommitment<F> {
         let mut poly_count = 0;
 
         // Polynomials opened at a single point.
-        let composition_poly = if D == 1 {
-            vec![0, 1, 2, 4]
-        } else {
-            vec![0, 1, 4]
-        }
-        .iter()
-        .flat_map(|&i| &commitments[i].polynomials)
-        .rev()
-        .fold(PolynomialCoeffs::empty(), |acc, p| {
-            poly_count += 1;
-            &(&acc * alpha) + &p.to_extension()
-        });
-        let composition_eval = if D == 1 {
-            vec![
-                &os.constants,
-                &os.plonk_sigmas,
-                &os.wires,
-                &os.quotient_polys,
-            ]
-        } else {
-            vec![&os.constants, &os.plonk_sigmas, &os.quotient_polys]
-        }
-        .iter()
-        .flat_map(|v| v.iter())
-        .rev()
-        .fold(F::Extension::ZERO, |acc, &e| acc * alpha + e);
+        let composition_poly = [0, 1, 4]
+            .iter()
+            .flat_map(|&i| &commitments[i].polynomials)
+            .rev()
+            .fold(PolynomialCoeffs::empty(), |acc, p| {
+                poly_count += 1;
+                &(&acc * alpha) + &p.to_extension()
+            });
+        let composition_eval = [&os.constants, &os.plonk_sigmas, &os.quotient_polys]
+            .iter()
+            .flat_map(|v| v.iter())
+            .rev()
+            .fold(F::Extension::ZERO, |acc, &e| acc * alpha + e);
 
         let quotient = Self::compute_quotient(&[zeta], &[composition_eval], &composition_poly);
         final_poly = &final_poly + &(&quotient * cur_alpha);
@@ -171,30 +159,30 @@ impl<F: Field> ListPolynomialCommitment<F> {
         final_poly = &final_poly + &(&zs_quotient * cur_alpha);
         cur_alpha = alpha.exp(poly_count);
 
-        // If working in an extension field, need to check that wires are in the base field.
+        // When working in an extension field, need to check that wires are in the base field.
         // Check this by opening the wires polynomials at `zeta` and `zeta.frobenius()` and using the fact that
         // a polynomial `f` is over the base field iff `f(z).frobenius()=f(z.frobenius())` with high probability.
-        if D > 1 {
-            let wires_composition_poly = commitments[2].polynomials.iter().rev().fold(
-                PolynomialCoeffs::empty(),
-                |acc, p| {
+        let wires_composition_poly =
+            commitments[2]
+                .polynomials
+                .iter()
+                .rev()
+                .fold(PolynomialCoeffs::empty(), |acc, p| {
                     poly_count += 1;
                     &(&acc * alpha) + &p.to_extension()
-                },
-            );
-            let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
-            let wires_composition_evals = [
-                reduce_with_powers(&os.wires, alpha),
-                reduce_with_powers(&wire_evals_frob, alpha),
-            ];
+                });
+        let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
+        let wires_composition_evals = [
+            reduce_with_powers(&os.wires, alpha),
+            reduce_with_powers(&wire_evals_frob, alpha),
+        ];
 
-            let wires_quotient = Self::compute_quotient(
-                &[zeta, zeta.frobenius()],
-                &wires_composition_evals,
-                &wires_composition_poly,
-            );
-            final_poly = &final_poly + &(&wires_quotient * cur_alpha);
-        }
+        let wires_quotient = Self::compute_quotient(
+            &[zeta, zeta.frobenius()],
+            &wires_composition_evals,
+            &wires_composition_poly,
+        );
+        final_poly = &final_poly + &(&wires_quotient * cur_alpha);
 
         let lde_final_poly = final_poly.lde(config.rate_bits);
         let lde_final_values = lde_final_poly
@@ -368,16 +356,6 @@ mod tests {
             &mut Challenger::new(),
             &fri_config,
         )
-    }
-
-    mod base {
-        use super::*;
-        use crate::field::crandall_field::CrandallField;
-
-        #[test]
-        fn test_batch_polynomial_commitment() -> Result<()> {
-            check_batch_polynomial_commitment::<CrandallField, 1>()
-        }
     }
 
     mod quadratic {
