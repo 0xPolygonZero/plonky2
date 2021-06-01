@@ -1,27 +1,7 @@
 use crate::field::field::Field;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::util::{log2_ceil, log2_strict};
+use crate::util::{log2_ceil, log2_strict, reverse_index_bits, reverse_bits};
 
-/// Permutes `arr` such that each index is mapped to its reverse in binary.
-fn reverse_index_bits<T: Copy>(arr: Vec<T>) -> Vec<T> {
-    let n = arr.len();
-    let n_power = log2_strict(n);
-
-    let mut result = Vec::with_capacity(n);
-    for i in 0..n {
-        result.push(arr[reverse_bits(i, n_power)]);
-    }
-    result
-}
-
-fn reverse_bits(n: usize, num_bits: usize) -> usize {
-    let mut result = 0;
-    for i in 0..num_bits {
-        let i_rev = num_bits - i - 1;
-        result |= (n >> i & 1) << i_rev;
-    }
-    result
-}
 
 pub(crate) struct FftPrecomputation<F: Field> {
     /// For each layer index i, stores the cyclic subgroup corresponding to the evaluation domain of
