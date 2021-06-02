@@ -1,3 +1,5 @@
+use crate::polynomial::commitment::SALT_SIZE;
+
 pub mod prover;
 pub mod verifier;
 
@@ -23,6 +25,16 @@ pub struct FriConfig {
     /// Vector of the same length as the number of initial Merkle trees.
     /// `blinding[i]==true` iff the i-th tree is salted.  
     pub blinding: Vec<bool>,
+}
+
+impl FriConfig {
+    pub(crate) fn salt_size(&self, i: usize) -> usize {
+        if self.blinding[i] {
+            SALT_SIZE
+        } else {
+            0
+        }
+    }
 }
 
 fn fri_delta(rate_log: usize, conjecture: bool) -> f64 {

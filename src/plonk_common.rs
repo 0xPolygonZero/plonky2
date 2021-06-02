@@ -108,3 +108,14 @@ pub(crate) fn reduce_with_powers_recursive<F: Extendable<D>, const D: usize>(
 ) -> Target {
     todo!()
 }
+
+pub(crate) fn reduce_with_iter<F: Field, I>(terms: &[F], coeffs: I) -> F
+where
+    I: IntoIterator<Item = F>,
+{
+    let mut sum = F::ZERO;
+    for (&term, coeff) in terms.iter().zip(coeffs) {
+        sum += coeff * term;
+    }
+    sum
+}

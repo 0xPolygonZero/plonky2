@@ -1,5 +1,6 @@
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
+use crate::fri::FriConfig;
 use crate::merkle_proofs::{MerkleProof, MerkleProofTarget};
 use crate::polynomial::commitment::{ListPolynomialCommitment, OpeningProof};
 use crate::polynomial::polynomial::PolynomialCoeffs;
@@ -97,6 +98,13 @@ pub struct FriQueryStep<F: Field + Extendable<D>, const D: usize> {
 // TODO: Implement FriInitialTreeProofTarget
 pub struct FriInitialTreeProof<F: Field> {
     pub evals_proofs: Vec<(Vec<F>, MerkleProof<F>)>,
+}
+
+impl<F: Field> FriInitialTreeProof<F> {
+    pub(crate) fn unsalted_evals(&self, i: usize, config: &FriConfig) -> &[F] {
+        let evals = &self.evals_proofs[i].0;
+        &evals[..evals.len() - config.salt_size(i)]
+    }
 }
 
 /// Proof for a FRI query round.

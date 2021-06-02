@@ -268,6 +268,7 @@ pub trait Field:
 }
 
 /// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
+#[derive(Clone)]
 pub struct Powers<F: Field> {
     base: F,
     current: F,

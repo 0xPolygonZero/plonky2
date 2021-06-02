@@ -1,3 +1,6 @@
+use anyhow::{ensure, Result};
+use itertools::izip;
+
 use crate::field::extension_field::{flatten, Extendable, FieldExtension, OEF};
 use crate::field::field::Field;
 use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
@@ -5,11 +8,9 @@ use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::reduce_with_powers;
-use crate::polynomial::commitment::SALT_SIZE;
+use crate::plonk_common::reduce_with_iter;
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash, OpeningSet};
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
-use anyhow::{ensure, Result};
 
 /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
 /// and P' is the FRI reduced polynomial.
@@ -150,72 +151,65 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
 ) -> F::Extension {
     assert!(D > 1, "Not implemented for D=1.");
     let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
+    let subgroup_x = F::Extension::from_basefield(subgroup_x);
+    let mut alpha_powers = alpha.powers();
+    let mut sum = F::Extension::ZERO;
 
-    let mut cur_alpha = F::Extension::ONE;
+    // We will add three terms to `sum`:
+    // - one for polynomials opened at `x` only
+    // - one for polynomials opened at `x` and `g x`
+    // - one for polynomials opened at `x` and its conjugate
 
-    let mut poly_count = 0;
-    let mut e = F::Extension::ZERO;
-
-    let ev = vec![0, 1, 4]
+    let evals = [0, 1, 4]
         .iter()
-        .flat_map(|&i| {
-            let v = &proof.evals_proofs[i].0;
-            &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }]
-        })
-        .rev()
-        .fold(F::Extension::ZERO, |acc, &e| {
-            poly_count += 1;
-            alpha * acc + e.into()
-        });
-    let composition_eval = [&os.constants, &os.plonk_sigmas, &os.quotient_polys]
+        .flat_map(|&i| proof.unsalted_evals(i, config))
+        .map(|&e| F::Extension::from_basefield(e));
+    let openings = os
+        .constants
         .iter()
-        .flat_map(|v| v.iter())
-        .rev()
-        .fold(F::Extension::ZERO, |acc, &e| acc * alpha + e);
-    let numerator = ev - composition_eval;
-    let denominator = F::Extension::from_basefield(subgroup_x) - zeta;
-    e += cur_alpha * numerator / denominator;
-    cur_alpha = alpha.exp(poly_count);
+        .chain(&os.plonk_sigmas)
+        .chain(&os.quotient_polys);
+    let numerator = izip!(evals, openings, &mut alpha_powers)
+        .map(|(e, &o, a)| a * (e - o))
+        .sum::<F::Extension>();
+    let denominator = subgroup_x - zeta;
+    sum += numerator / denominator;
 
-    let ev = proof.evals_proofs[3].0
-        [..proof.evals_proofs[3].0.len() - if config.blinding[3] { SALT_SIZE } else { 0 }]
+    let ev: F::Extension = proof
+        .unsalted_evals(3, config)
         .iter()
-        .rev()
-        .fold(F::Extension::ZERO, |acc, &e| {
-            poly_count += 1;
-            alpha * acc + e.into()
-        });
+        .zip(alpha_powers.clone())
+        .map(|(&e, a)| a * e.into())
+        .sum();
     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
     let zs_interpol = interpolant(&[
-        (zeta, reduce_with_powers(&os.plonk_zs, alpha)),
-        (zeta_right, reduce_with_powers(&os.plonk_zs_right, alpha)),
+        (zeta, reduce_with_iter(&os.plonk_zs, alpha_powers.clone())),
+        (
+            zeta_right,
+            reduce_with_iter(&os.plonk_zs_right, &mut alpha_powers),
+        ),
     ]);
-    let numerator = ev - zs_interpol.eval(subgroup_x.into());
-    let denominator = (F::Extension::from_basefield(subgroup_x) - zeta)
-        * (F::Extension::from_basefield(subgroup_x) - zeta_right);
-    e += cur_alpha * numerator / denominator;
-    cur_alpha = alpha.exp(poly_count);
+    let numerator = ev - zs_interpol.eval(subgroup_x);
+    let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
+    sum += numerator / denominator;
 
-    let ev = proof.evals_proofs[2].0
-        [..proof.evals_proofs[2].0.len() - if config.blinding[2] { SALT_SIZE } else { 0 }]
+    let ev: F::Extension = proof
+        .unsalted_evals(2, config)
         .iter()
-        .rev()
-        .fold(F::Extension::ZERO, |acc, &e| {
-            poly_count += 1;
-            alpha * acc + e.into()
-        });
+        .zip(alpha_powers.clone())
+        .map(|(&e, a)| a * e.into())
+        .sum();
     let zeta_frob = zeta.frobenius();
     let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
     let wires_interpol = interpolant(&[
-        (zeta, reduce_with_powers(&os.wires, alpha)),
-        (zeta_frob, reduce_with_powers(&wire_evals_frob, alpha)),
+        (zeta, reduce_with_iter(&os.wires, alpha_powers.clone())),
+        (zeta_frob, reduce_with_iter(&wire_evals_frob, alpha_powers)),
     ]);
-    let numerator = ev - wires_interpol.eval(subgroup_x.into());
-    let denominator = (F::Extension::from_basefield(subgroup_x) - zeta)
-        * (F::Extension::from_basefield(subgroup_x) - zeta_frob);
-    e += cur_alpha * numerator / denominator;
+    let numerator = ev - wires_interpol.eval(subgroup_x);
+    let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
+    sum += numerator / denominator;
 
-    e
+    sum
 }
 
 fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
