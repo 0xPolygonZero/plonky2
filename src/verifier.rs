@@ -41,13 +41,9 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
         proof.quotient_polys_root,
     ];
 
-    proof.opening_proof.verify(
-        &[zeta],
-        evaluations,
-        merkle_roots,
-        &mut challenger,
-        fri_config,
-    )?;
+    proof
+        .opening_proof
+        .verify(zeta, evaluations, merkle_roots, &mut challenger, fri_config)?;
 
     Ok(())
 }
