@@ -31,7 +31,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
 
     // TODO: Compute PI(zeta), Z_H(zeta), etc. and check the identity at zeta.
 
-    let evaluations = todo!();
+    let evaluations = proof.openings;
 
     let merkle_roots = &[
         verifier_data.constants_root,
@@ -41,9 +41,13 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
         proof.quotient_polys_root,
     ];
 
-    proof
-        .opening_proof
-        .verify(zeta, evaluations, merkle_roots, &mut challenger, fri_config)?;
+    proof.opening_proof.verify(
+        zeta,
+        &evaluations,
+        merkle_roots,
+        &mut challenger,
+        fri_config,
+    )?;
 
     Ok(())
 }
