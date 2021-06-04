@@ -10,7 +10,7 @@ use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
 use crate::polynomial::polynomial::PolynomialCoeffs;
-use crate::proof::{FriProof, Hash, OpeningSet};
+use crate::proof::{FriProof, FriProofTarget, Hash, OpeningSet};
 use crate::timed;
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
 
@@ -270,6 +270,10 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningProof<F, D> {
             fri_config,
         )
     }
+}
+
+pub struct OpeningProofTarget<const D: usize> {
+    fri_proof: FriProofTarget<D>,
 }
 
 #[cfg(test)]
