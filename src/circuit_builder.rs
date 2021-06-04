@@ -149,6 +149,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.copy_constraints.push((x, y));
     }
 
+    pub fn assert_zero(&mut self, x: Target) {
+        let zero = self.zero();
+        self.assert_equal(x, zero);
+    }
+
     pub fn add_generators(&mut self, generators: Vec<Box<dyn WitnessGenerator<F>>>) {
         self.generators.extend(generators);
     }

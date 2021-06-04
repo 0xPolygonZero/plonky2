@@ -49,14 +49,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inputs.push(proof.pow_witness);
 
         let hash = self.hash_n_to_m(inputs, 1, false)[0];
-        let purported_hash_bits = self.split_le_virtual(hash, 64);
-        // for &b in &purported_hash_bits {
-        //     self.generate_copy(b, self.zero());
-        // }
-        // ensure!(
-        //     hash.to_canonical_u64().trailing_zeros() >= config.proof_of_work_bits,
-        //     "Invalid proof of work witness."
-        // );
+        self.assert_trailing_zeros(hash, config.proof_of_work_bits);
 
         Ok(())
     }

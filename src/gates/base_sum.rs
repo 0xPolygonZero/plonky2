@@ -19,10 +19,8 @@ pub struct BaseSumGate<const B: usize> {
 }
 
 impl<const B: usize> BaseSumGate<B> {
-    pub fn new<F: Extendable<D>, const D: usize>(config: &CircuitConfig) -> GateRef<F, D> {
-        GateRef::new(BaseSumGate::<B> {
-            num_limbs: config.num_routed_wires - 1,
-        })
+    pub fn new<F: Extendable<D>, const D: usize>(num_limbs: usize) -> GateRef<F, D> {
+        GateRef::new(BaseSumGate::<B> { num_limbs })
     }
 
     pub const WIRE_SUM: usize = 0;
@@ -36,7 +34,7 @@ impl<const B: usize> BaseSumGate<B> {
 
 impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGate<B> {
     fn id(&self) -> String {
-        format!("{:?}", self)
+        format!("{:?} + Base: {}", self, B)
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
@@ -163,7 +161,6 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        let config = CircuitConfig::default();
-        test_low_degree(BaseSumGate::<6>::new::<CrandallField, 4>(&config))
+        test_low_degree(BaseSumGate::<6>::new::<CrandallField, 4>(11))
     }
 }
