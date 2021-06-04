@@ -102,7 +102,7 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
     }
 
     fn num_constraints(&self) -> usize {
-        1 + B
+        1 + self.num_limbs
     }
 }
 
