@@ -255,6 +255,20 @@ impl RecursiveChallenger {
         (0..n).map(|_| self.get_challenge(builder)).collect()
     }
 
+    pub fn get_hash<F: Extendable<D>, const D: usize>(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> HashTarget {
+        HashTarget {
+            elements: [
+                self.get_challenge(builder),
+                self.get_challenge(builder),
+                self.get_challenge(builder),
+                self.get_challenge(builder),
+            ],
+        }
+    }
+
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
     fn absorb_buffered_inputs<F: Extendable<D>, const D: usize>(
         &mut self,

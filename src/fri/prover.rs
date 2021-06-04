@@ -106,7 +106,7 @@ fn fri_proof_of_work<F: Field>(current_hash: Hash<F>, config: &FriConfig) -> F {
                 false,
             )
             .to_canonical_u64()
-            .leading_zeros()
+            .trailing_zeros()
                 >= config.proof_of_work_bits
         })
         .map(F::from_canonical_u64)

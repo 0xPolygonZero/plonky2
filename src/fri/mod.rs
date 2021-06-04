@@ -1,6 +1,7 @@
 use crate::polynomial::commitment::SALT_SIZE;
 
 pub mod prover;
+mod recursive_verifier;
 pub mod verifier;
 
 /// Somewhat arbitrary. Smaller values will increase delta, but with diminishing returns,
