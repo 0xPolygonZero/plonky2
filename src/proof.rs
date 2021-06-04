@@ -35,6 +35,7 @@ impl<F: Field> Hash<F> {
 }
 
 /// Represents a ~256 bit hash output.
+#[derive(Copy, Clone, Debug)]
 pub struct HashTarget {
     pub(crate) elements: [Target; 4],
 }
@@ -105,6 +106,13 @@ impl<F: Field> FriInitialTreeProof<F> {
 
 pub struct FriInitialTreeProofTarget {
     pub evals_proofs: Vec<(Vec<Target>, MerkleProofTarget)>,
+}
+
+impl FriInitialTreeProofTarget {
+    pub(crate) fn unsalted_evals(&self, i: usize, config: &FriConfig) -> &[Target] {
+        let evals = &self.evals_proofs[i].0;
+        &evals[..evals.len() - config.salt_size(i)]
+    }
 }
 
 /// Proof for a FRI query round.

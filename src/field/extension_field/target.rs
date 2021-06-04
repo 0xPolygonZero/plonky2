@@ -206,4 +206,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
         b
     }
+
+    pub fn convert_to_ext(&mut self, t: Target) -> ExtensionTarget<D> {
+        let zero = self.zero();
+        let mut arr = [zero; D];
+        arr[0] = t;
+        ExtensionTarget(arr)
+    }
 }

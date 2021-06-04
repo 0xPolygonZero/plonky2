@@ -2,6 +2,7 @@ use anyhow::{ensure, Result};
 use itertools::izip;
 
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{flatten, Extendable, FieldExtension, OEF};
 use crate::field::field::Field;
 use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
@@ -11,8 +12,10 @@ use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::{Challenger, RecursiveChallenger};
 use crate::plonk_common::reduce_with_iter;
 use crate::proof::{
-    FriInitialTreeProof, FriProof, FriProofTarget, FriQueryRound, Hash, OpeningSet,
+    FriInitialTreeProof, FriInitialTreeProofTarget, FriProof, FriProofTarget, FriQueryRound, Hash,
+    HashTarget, OpeningSet, OpeningSetTarget,
 };
+use crate::target::Target;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -119,88 +122,89 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     //     Ok(())
     // }
     //
-    // fn fri_verify_initial_proof<F: Field>(
-    //     x_index: usize,
-    //     proof: &FriInitialTreeProof<F>,
-    //     initial_merkle_roots: &[Hash<F>],
-    // ) -> Result<()> {
-    //     for ((evals, merkle_proof), &root) in proof.evals_proofs.iter().zip(initial_merkle_roots) {
-    //         verify_merkle_proof(evals.clone(), x_index, root, merkle_proof, false)?;
-    //     }
-    //
-    //     Ok(())
-    // }
-    //
-    // fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
-    //     proof: &FriInitialTreeProof<F>,
-    //     alpha: F::Extension,
-    //     os: &OpeningSet<F, D>,
-    //     zeta: F::Extension,
-    //     subgroup_x: F,
-    //     config: &FriConfig,
-    // ) -> F::Extension {
-    //     assert!(D > 1, "Not implemented for D=1.");
-    //     let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
-    //     let subgroup_x = F::Extension::from_basefield(subgroup_x);
-    //     let mut alpha_powers = alpha.powers();
-    //     let mut sum = F::Extension::ZERO;
-    //
-    //     // We will add three terms to `sum`:
-    //     // - one for polynomials opened at `x` only
-    //     // - one for polynomials opened at `x` and `g x`
-    //     // - one for polynomials opened at `x` and its conjugate
-    //
-    //     let evals = [0, 1, 4]
-    //         .iter()
-    //         .flat_map(|&i| proof.unsalted_evals(i, config))
-    //         .map(|&e| F::Extension::from_basefield(e));
-    //     let openings = os
-    //         .constants
-    //         .iter()
-    //         .chain(&os.plonk_sigmas)
-    //         .chain(&os.quotient_polys);
-    //     let numerator = izip!(evals, openings, &mut alpha_powers)
-    //         .map(|(e, &o, a)| a * (e - o))
-    //         .sum::<F::Extension>();
-    //     let denominator = subgroup_x - zeta;
-    //     sum += numerator / denominator;
-    //
-    //     let ev: F::Extension = proof
-    //         .unsalted_evals(3, config)
-    //         .iter()
-    //         .zip(alpha_powers.clone())
-    //         .map(|(&e, a)| a * e.into())
-    //         .sum();
-    //     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
-    //     let zs_interpol = interpolant(&[
-    //         (zeta, reduce_with_iter(&os.plonk_zs, alpha_powers.clone())),
-    //         (
-    //             zeta_right,
-    //             reduce_with_iter(&os.plonk_zs_right, &mut alpha_powers),
-    //         ),
-    //     ]);
-    //     let numerator = ev - zs_interpol.eval(subgroup_x);
-    //     let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
-    //     sum += numerator / denominator;
-    //
-    //     let ev: F::Extension = proof
-    //         .unsalted_evals(2, config)
-    //         .iter()
-    //         .zip(alpha_powers.clone())
-    //         .map(|(&e, a)| a * e.into())
-    //         .sum();
-    //     let zeta_frob = zeta.frobenius();
-    //     let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
-    //     let wires_interpol = interpolant(&[
-    //         (zeta, reduce_with_iter(&os.wires, alpha_powers.clone())),
-    //         (zeta_frob, reduce_with_iter(&wire_evals_frob, alpha_powers)),
-    //     ]);
-    //     let numerator = ev - wires_interpol.eval(subgroup_x);
-    //     let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
-    //     sum += numerator / denominator;
-    //
-    //     sum
-    // }
+
+    fn fri_verify_initial_proof(
+        &mut self,
+        x_index: Target,
+        proof: &FriInitialTreeProofTarget,
+        initial_merkle_roots: &[HashTarget],
+    ) {
+        for ((evals, merkle_proof), &root) in proof.evals_proofs.iter().zip(initial_merkle_roots) {
+            self.verify_merkle_proof(evals.clone(), x_index, root, merkle_proof);
+        }
+    }
+
+    fn fri_combine_initial(
+        &mut self,
+        proof: &FriInitialTreeProofTarget,
+        alpha: ExtensionTarget<D>,
+        os: &OpeningSetTarget<D>,
+        zeta: ExtensionTarget<D>,
+        subgroup_x: Target,
+    ) -> ExtensionTarget<D> {
+        assert!(D > 1, "Not implemented for D=1.");
+        let config = &self.config.fri_config;
+        let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
+        let subgroup_x = self.convert_to_ext(subgroup_x);
+        let mut alpha_powers = self.powers(alpha);
+        let mut sum = self.zero_extension();
+
+        // We will add three terms to `sum`:
+        // - one for polynomials opened at `x` only
+        // - one for polynomials opened at `x` and `g x`
+        // - one for polynomials opened at `x` and its conjugate
+
+        let evals = [0, 1, 4]
+            .iter()
+            .flat_map(|&i| proof.unsalted_evals(i, config))
+            .map(|&e| F::Extension::from_basefield(e));
+        let openings = os
+            .constants
+            .iter()
+            .chain(&os.plonk_sigmas)
+            .chain(&os.quotient_polys);
+        let numerator = izip!(evals, openings, &mut alpha_powers)
+            .map(|(e, &o, a)| a * (e - o))
+            .sum::<F::Extension>();
+        let denominator = subgroup_x - zeta;
+        sum += numerator / denominator;
+
+        let ev: F::Extension = proof
+            .unsalted_evals(3, config)
+            .iter()
+            .zip(alpha_powers.clone())
+            .map(|(&e, a)| a * e.into())
+            .sum();
+        let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
+        let zs_interpol = interpolant(&[
+            (zeta, reduce_with_iter(&os.plonk_zs, alpha_powers.clone())),
+            (
+                zeta_right,
+                reduce_with_iter(&os.plonk_zs_right, &mut alpha_powers),
+            ),
+        ]);
+        let numerator = ev - zs_interpol.eval(subgroup_x);
+        let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
+        sum += numerator / denominator;
+
+        let ev: F::Extension = proof
+            .unsalted_evals(2, config)
+            .iter()
+            .zip(alpha_powers.clone())
+            .map(|(&e, a)| a * e.into())
+            .sum();
+        let zeta_frob = zeta.frobenius();
+        let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
+        let wires_interpol = interpolant(&[
+            (zeta, reduce_with_iter(&os.wires, alpha_powers.clone())),
+            (zeta_frob, reduce_with_iter(&wire_evals_frob, alpha_powers)),
+        ]);
+        let numerator = ev - wires_interpol.eval(subgroup_x);
+        let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
+        sum += numerator / denominator;
+
+        sum
+    }
     //
     // fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
     //     os: &OpeningSet<F, D>,

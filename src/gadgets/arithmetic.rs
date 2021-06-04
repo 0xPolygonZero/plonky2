@@ -1,4 +1,5 @@
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::arithmetic::ArithmeticGate;
@@ -223,6 +224,30 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_equal(q_y, x);
 
         q
+    }
+}
+
+/// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
+#[derive(Clone)]
+pub struct PowersTarget<const D: usize> {
+    base: ExtensionTarget<D>,
+    current: ExtensionTarget<D>,
+}
+
+impl<F: Extendable<D>, const D: usize> PowersTarget<D> {
+    fn next(&mut self, builder: &mut CircuitBuilder<F, D>) -> Option<ExtensionTarget<D>> {
+        let result = self.current;
+        self.current = builder.mul_extension(self.base, self.current);
+        Some(result)
+    }
+}
+
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    pub fn powers(&mut self, base: ExtensionTarget<D>) -> PowersTarget<D> {
+        PowersTarget {
+            base,
+            current: self.one_extension(),
+        }
     }
 }
 
