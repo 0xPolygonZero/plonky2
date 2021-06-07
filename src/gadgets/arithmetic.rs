@@ -1,6 +1,6 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::Extendable;
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::gates::arithmetic::ArithmeticGate;
 use crate::generator::SimpleGenerator;
@@ -254,11 +254,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         };
 
         let q = Target::Wire(wire_multiplicand_0);
-        self.add_generator(QuotientGeneratorExtension {
-            numerator: x,
-            denominator: ExtensionTarget(),
-            quotient: ExtensionTarget(),
-        })
+        todo!()
+        // self.add_generator(QuotientGeneratorExtension {
+        //     numerator: x,
+        //     denominator: ExtensionTarget(),
+        //     quotient: ExtensionTarget(),
+        // })
     }
 }
 
@@ -286,7 +287,7 @@ struct QuotientGeneratorExtension<const D: usize> {
     quotient: ExtensionTarget<D>,
 }
 
-impl<F: Field, const D: usize> SimpleGenerator<F> for QuotientGeneratorExtension<D> {
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for QuotientGeneratorExtension<D> {
     fn dependencies(&self) -> Vec<Target> {
         let mut deps = self.numerator.to_target_array().to_vec();
         deps.extend(&self.denominator.to_target_array());
@@ -298,7 +299,12 @@ impl<F: Field, const D: usize> SimpleGenerator<F> for QuotientGeneratorExtension
         let dem = witness.get_extension_target(self.denominator);
         let quotient = num / dem;
         let mut pw = PartialWitness::new();
-        pw.set_ext_wires(self.quotient.to_target_array(), quotient);
+        for i in 0..D {
+            pw.set_target(
+                self.quotient.to_target_array()[i],
+                quotient.to_basefield_array()[i],
+            );
+        }
         pw
     }
 }

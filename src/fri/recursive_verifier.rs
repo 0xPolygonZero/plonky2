@@ -143,7 +143,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         subgroup_x: Target,
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
-        let config = &self.config.fri_config;
+        let config = &self.config.fri_config.clone();
         let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
         let subgroup_x = self.convert_to_ext(subgroup_x);
         let mut alpha_powers = self.powers(alpha);
@@ -157,7 +157,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let evals = [0, 1, 4]
             .iter()
             .flat_map(|&i| proof.unsalted_evals(i, config))
-            .map(|&e| self.convert_to_ext(e));
+            .map(|&e| self.convert_to_ext(e))
+            .collect::<Vec<_>>();
         let openings = os
             .constants
             .iter()
@@ -170,42 +171,42 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             numerator = self.mul_add_extension(a, diff, numerator);
         }
         let denominator = self.sub_extension(subgroup_x, zeta);
-        // let quotient = self.div_unsafe()
-        sum += numerator / denominator;
+        let quotient = self.div_unsafe_extension(numerator, denominator);
+        let sum = self.add_extension(sum, quotient);
 
-        let ev: F::Extension = proof
-            .unsalted_evals(3, config)
-            .iter()
-            .zip(alpha_powers.clone())
-            .map(|(&e, a)| a * e.into())
-            .sum();
-        let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
-        let zs_interpol = interpolant(&[
-            (zeta, reduce_with_iter(&os.plonk_zs, alpha_powers.clone())),
-            (
-                zeta_right,
-                reduce_with_iter(&os.plonk_zs_right, &mut alpha_powers),
-            ),
-        ]);
-        let numerator = ev - zs_interpol.eval(subgroup_x);
-        let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
-        sum += numerator / denominator;
-
-        let ev: F::Extension = proof
-            .unsalted_evals(2, config)
-            .iter()
-            .zip(alpha_powers.clone())
-            .map(|(&e, a)| a * e.into())
-            .sum();
-        let zeta_frob = zeta.frobenius();
-        let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
-        let wires_interpol = interpolant(&[
-            (zeta, reduce_with_iter(&os.wires, alpha_powers.clone())),
-            (zeta_frob, reduce_with_iter(&wire_evals_frob, alpha_powers)),
-        ]);
-        let numerator = ev - wires_interpol.eval(subgroup_x);
-        let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
-        sum += numerator / denominator;
+        // let ev: F::Extension = proof
+        //     .unsalted_evals(3, config)
+        //     .iter()
+        //     .zip(alpha_powers.clone())
+        //     .map(|(&e, a)| a * e.into())
+        //     .sum();
+        // let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
+        // let zs_interpol = interpolant(&[
+        //     (zeta, reduce_with_iter(&os.plonk_zs, alpha_powers.clone())),
+        //     (
+        //         zeta_right,
+        //         reduce_with_iter(&os.plonk_zs_right, &mut alpha_powers),
+        //     ),
+        // ]);
+        // let numerator = ev - zs_interpol.eval(subgroup_x);
+        // let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
+        // sum += numerator / denominator;
+        //
+        // let ev: F::Extension = proof
+        //     .unsalted_evals(2, config)
+        //     .iter()
+        //     .zip(alpha_powers.clone())
+        //     .map(|(&e, a)| a * e.into())
+        //     .sum();
+        // let zeta_frob = zeta.frobenius();
+        // let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
+        // let wires_interpol = interpolant(&[
+        //     (zeta, reduce_with_iter(&os.wires, alpha_powers.clone())),
+        //     (zeta_frob, reduce_with_iter(&wire_evals_frob, alpha_powers)),
+        // ]);
+        // let numerator = ev - wires_interpol.eval(subgroup_x);
+        // let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
+        // sum += numerator / denominator;
 
         sum
     }
