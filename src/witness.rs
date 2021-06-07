@@ -81,6 +81,26 @@ impl<F: Field> PartialWitness<F> {
         }
     }
 
+    pub fn set_extension_target<const D: usize>(
+        &mut self,
+        et: ExtensionTarget<D>,
+        value: F::Extension,
+    ) where
+        F: Extendable<D>,
+    {
+        let limbs = value.to_basefield_array();
+        for i in 0..D {
+            let opt_old_value = self.target_values.insert(et.0[i], limbs[i]);
+            if let Some(old_value) = opt_old_value {
+                assert_eq!(
+                    old_value, limbs[i],
+                    "Target was set twice with different values: {:?}",
+                    et.0[i]
+                );
+            }
+        }
+    }
+
     pub fn set_wire(&mut self, wire: Wire, value: F) {
         self.set_target(Target::Wire(wire), value)
     }

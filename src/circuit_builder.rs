@@ -8,6 +8,7 @@ use crate::circuit_data::{
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
 use crate::field::cosets::get_unique_coset_shifts;
+use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::constant::ConstantGate;
@@ -130,6 +131,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_equal(src, dst);
     }
 
+    pub fn route_extension(&mut self, src: ExtensionTarget<D>, dst: ExtensionTarget<D>) {
+        for i in 0..D {
+            self.route(src.0[i], dst.0[i]);
+        }
+    }
+
     /// Adds a generator which will copy `src` to `dst`.
     pub fn generate_copy(&mut self, src: Target, dst: Target) {
         self.add_generator(CopyGenerator { src, dst });
@@ -152,6 +159,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn assert_zero(&mut self, x: Target) {
         let zero = self.zero();
         self.assert_equal(x, zero);
+    }
+
+    pub fn assert_equal_extension(&mut self, x: ExtensionTarget<D>, y: ExtensionTarget<D>) {
+        for i in 0..D {
+            self.assert_equal(x.0[i], y.0[i]);
+        }
     }
 
     pub fn add_generators(&mut self, generators: Vec<Box<dyn WitnessGenerator<F>>>) {
