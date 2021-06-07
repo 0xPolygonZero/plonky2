@@ -174,23 +174,34 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let quotient = self.div_unsafe_extension(numerator, denominator);
         let sum = self.add_extension(sum, quotient);
 
-        // let ev: F::Extension = proof
-        //     .unsalted_evals(3, config)
-        //     .iter()
-        //     .zip(alpha_powers.clone())
-        //     .map(|(&e, a)| a * e.into())
-        //     .sum();
-        // let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
-        // let zs_interpol = interpolant(&[
-        //     (zeta, reduce_with_iter(&os.plonk_zs, alpha_powers.clone())),
-        //     (
-        //         zeta_right,
-        //         reduce_with_iter(&os.plonk_zs_right, &mut alpha_powers),
-        //     ),
-        // ]);
-        // let numerator = ev - zs_interpol.eval(subgroup_x);
-        // let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
-        // sum += numerator / denominator;
+        let evs = proof
+            .unsalted_evals(3, config)
+            .iter()
+            .map(|&e| self.convert_to_ext(e))
+            .collect::<Vec<_>>();
+        let mut ev = self.zero_extension();
+        for &e in &evs {
+            let a = alpha_powers.next(self);
+            let tmp = self.mul_extension(a, e);
+            ev = self.add_extension(ev, tmp);
+        }
+
+        let g = self.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
+        let zeta_right = self.mul_extension(g, zeta);
+        let zs_interpol = self.interpolate2([
+            (zeta, reduce_with_iter(&os.plonk_zs, alpha_powers.clone())),
+            (
+                zeta_right,
+                reduce_with_iter(&os.plonk_zs_right, &mut alpha_powers),
+            ),
+        ]);
+        let interpol_val = zs_interpol.eval(self, subgroup_x);
+        let numerator = self.sub_extension(ev, interpol_val);
+        let vanish = self.sub_extension(subgroup_x, zeta);
+        let vanish_right = self.sub_extension(subgroup_x, zeta_right);
+        let denominator = self.mul_extension(vanish, vanish_right);
+        let quotient = self.div_unsafe_extension(numerator, denominator);
+        let sum = self.add_extension(sum, quotient);
         //
         // let ev: F::Extension = proof
         //     .unsalted_evals(2, config)
