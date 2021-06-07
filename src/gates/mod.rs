@@ -8,3 +8,4 @@ pub(crate) mod noop;
 
 #[cfg(test)]
 mod gate_testing;
+mod mul_extension;

@@ -157,16 +157,20 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let evals = [0, 1, 4]
             .iter()
             .flat_map(|&i| proof.unsalted_evals(i, config))
-            .map(|&e| F::Extension::from_basefield(e));
+            .map(|&e| self.convert_to_ext(e));
         let openings = os
             .constants
             .iter()
             .chain(&os.plonk_sigmas)
             .chain(&os.quotient_polys);
-        let numerator = izip!(evals, openings, &mut alpha_powers)
-            .map(|(e, &o, a)| a * (e - o))
-            .sum::<F::Extension>();
-        let denominator = subgroup_x - zeta;
+        let mut numerator = self.zero_extension();
+        for (e, &o) in izip!(evals, openings) {
+            let a = alpha_powers.next(self);
+            let diff = self.sub_extension(e, o);
+            numerator = self.mul_add_extension(a, diff, numerator);
+        }
+        let denominator = self.sub_extension(subgroup_x, zeta);
+        // let quotient = self.div_unsafe()
         sum += numerator / denominator;
 
         let ev: F::Extension = proof

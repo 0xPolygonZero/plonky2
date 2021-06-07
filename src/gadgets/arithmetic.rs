@@ -225,29 +225,40 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         q
     }
-}
 
-/// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
-#[derive(Clone)]
-pub struct PowersTarget<const D: usize> {
-    base: ExtensionTarget<D>,
-    current: ExtensionTarget<D>,
-}
+    /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
+    /// some cases, as it allows `0 / 0 = <anything>`.
+    pub fn div_unsafe_extension(
+        &mut self,
+        x: ExtensionTarget<D>,
+        y: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        // Add an `ArithmeticGate` to compute `q * y`.
+        let gate = self.add_gate(ArithmeticGate::new(), vec![F::ONE, F::ZERO]);
 
-impl<F: Extendable<D>, const D: usize> PowersTarget<D> {
-    fn next(&mut self, builder: &mut CircuitBuilder<F, D>) -> Option<ExtensionTarget<D>> {
-        let result = self.current;
-        self.current = builder.mul_extension(self.base, self.current);
-        Some(result)
-    }
-}
+        let wire_multiplicand_0 = Wire {
+            gate,
+            input: ArithmeticGate::WIRE_MULTIPLICAND_0,
+        };
+        let wire_multiplicand_1 = Wire {
+            gate,
+            input: ArithmeticGate::WIRE_MULTIPLICAND_1,
+        };
+        let wire_addend = Wire {
+            gate,
+            input: ArithmeticGate::WIRE_ADDEND,
+        };
+        let wire_output = Wire {
+            gate,
+            input: ArithmeticGate::WIRE_OUTPUT,
+        };
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn powers(&mut self, base: ExtensionTarget<D>) -> PowersTarget<D> {
-        PowersTarget {
-            base,
-            current: self.one_extension(),
-        }
+        let q = Target::Wire(wire_multiplicand_0);
+        self.add_generator(QuotientGeneratorExtension {
+            numerator: x,
+            denominator: ExtensionTarget(),
+            quotient: ExtensionTarget(),
+        })
     }
 }
 
@@ -266,5 +277,55 @@ impl<F: Field> SimpleGenerator<F> for QuotientGenerator {
         let num = witness.get_target(self.numerator);
         let den = witness.get_target(self.denominator);
         PartialWitness::singleton_target(self.quotient, num / den)
+    }
+}
+
+struct QuotientGeneratorExtension<const D: usize> {
+    numerator: ExtensionTarget<D>,
+    denominator: ExtensionTarget<D>,
+    quotient: ExtensionTarget<D>,
+}
+
+impl<F: Field, const D: usize> SimpleGenerator<F> for QuotientGeneratorExtension<D> {
+    fn dependencies(&self) -> Vec<Target> {
+        let mut deps = self.numerator.to_target_array().to_vec();
+        deps.extend(&self.denominator.to_target_array());
+        deps
+    }
+
+    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+        let num = witness.get_extension_target(self.numerator);
+        let dem = witness.get_extension_target(self.denominator);
+        let quotient = num / dem;
+        let mut pw = PartialWitness::new();
+        pw.set_ext_wires(self.quotient.to_target_array(), quotient);
+        pw
+    }
+}
+
+/// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
+#[derive(Clone)]
+pub struct PowersTarget<const D: usize> {
+    base: ExtensionTarget<D>,
+    current: ExtensionTarget<D>,
+}
+
+impl<const D: usize> PowersTarget<D> {
+    pub fn next<F: Extendable<D>>(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> ExtensionTarget<D> {
+        let result = self.current;
+        self.current = builder.mul_extension(self.base, self.current);
+        result
+    }
+}
+
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    pub fn powers(&mut self, base: ExtensionTarget<D>) -> PowersTarget<D> {
+        PowersTarget {
+            base,
+            current: self.one_extension(),
+        }
     }
 }

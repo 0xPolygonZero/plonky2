@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
+use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::target::Target;
 use crate::wire::Wire;
+use std::convert::TryInto;
 
 #[derive(Clone, Debug)]
 pub struct PartialWitness<F: Field> {
@@ -37,6 +39,15 @@ impl<F: Field> PartialWitness<F> {
 
     pub fn get_targets(&self, targets: &[Target]) -> Vec<F> {
         targets.iter().map(|&t| self.get_target(t)).collect()
+    }
+
+    pub fn get_extension_target<const D: usize>(&self, et: ExtensionTarget<D>) -> F::Extension
+    where
+        F: Extendable<D>,
+    {
+        F::Extension::from_basefield_array(
+            self.get_targets(&et.to_target_array()).try_into().unwrap(),
+        )
     }
 
     pub fn try_get_target(&self, target: Target) -> Option<F> {
