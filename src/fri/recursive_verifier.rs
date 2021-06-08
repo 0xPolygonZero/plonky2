@@ -2,7 +2,7 @@ use anyhow::{ensure, Result};
 use itertools::izip;
 
 use crate::circuit_builder::CircuitBuilder;
-use crate::field::extension_field::target::ExtensionTarget;
+use crate::field::extension_field::target::{flatten_target, ExtensionTarget};
 use crate::field::extension_field::{flatten, Extendable, FieldExtension, OEF};
 use crate::field::field::Field;
 use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
@@ -12,8 +12,8 @@ use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::{Challenger, RecursiveChallenger};
 use crate::plonk_common::reduce_with_iter;
 use crate::proof::{
-    FriInitialTreeProof, FriInitialTreeProofTarget, FriProof, FriProofTarget, FriQueryRound, Hash,
-    HashTarget, OpeningSet, OpeningSetTarget,
+    FriInitialTreeProof, FriInitialTreeProofTarget, FriProof, FriProofTarget, FriQueryRound,
+    FriQueryRoundTarget, Hash, HashTarget, OpeningSet, OpeningSetTarget,
 };
 use crate::target::Target;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
@@ -21,7 +21,7 @@ use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
     /// and P' is the FRI reduced polynomial.
-    fn compute_evaluation() {
+    fn compute_evaluation(&mut self) {
         todo!();
         // debug_assert_eq!(last_evals.len(), 1 << arity_bits);
         //
@@ -243,99 +243,103 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         sum
     }
-    //
-    // fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
-    //     os: &OpeningSet<F, D>,
-    //     zeta: F::Extension,
-    //     alpha: F::Extension,
-    //     initial_merkle_roots: &[Hash<F>],
-    //     proof: &FriProof<F, D>,
-    //     challenger: &mut Challenger<F>,
-    //     n: usize,
-    //     betas: &[F::Extension],
-    //     round_proof: &FriQueryRound<F, D>,
-    //     config: &FriConfig,
-    // ) -> Result<()> {
-    //     let mut evaluations: Vec<Vec<F::Extension>> = Vec::new();
-    //     let x = challenger.get_challenge();
-    //     let mut domain_size = n;
-    //     let mut x_index = x.to_canonical_u64() as usize % n;
-    //     fri_verify_initial_proof(
-    //         x_index,
-    //         &round_proof.initial_trees_proof,
-    //         initial_merkle_roots,
-    //     )?;
-    //     let mut old_x_index = 0;
-    //     // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
-    //     let log_n = log2_strict(n);
-    //     let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
-    //         * F::primitive_root_of_unity(log_n).exp(reverse_bits(x_index, log_n) as u64);
-    //     for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
-    //         let arity = 1 << arity_bits;
-    //         let next_domain_size = domain_size >> arity_bits;
-    //         let e_x = if i == 0 {
-    //             fri_combine_initial(
-    //                 &round_proof.initial_trees_proof,
-    //                 alpha,
-    //                 os,
-    //                 zeta,
-    //                 subgroup_x,
-    //                 config,
-    //             )
-    //         } else {
-    //             let last_evals = &evaluations[i - 1];
-    //             // Infer P(y) from {P(x)}_{x^arity=y}.
-    //             compute_evaluation(
-    //                 subgroup_x,
-    //                 old_x_index,
-    //                 config.reduction_arity_bits[i - 1],
-    //                 last_evals,
-    //                 betas[i - 1],
-    //             )
-    //         };
-    //         let mut evals = round_proof.steps[i].evals.clone();
-    //         // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
-    //         evals.insert(x_index & (arity - 1), e_x);
-    //         evaluations.push(evals);
-    //         verify_merkle_proof(
-    //             flatten(&evaluations[i]),
-    //             x_index >> arity_bits,
-    //             proof.commit_phase_merkle_roots[i],
-    //             &round_proof.steps[i].merkle_proof,
-    //             false,
-    //         )?;
-    //
-    //         if i > 0 {
-    //             // Update the point x to x^arity.
-    //             for _ in 0..config.reduction_arity_bits[i - 1] {
-    //                 subgroup_x = subgroup_x.square();
-    //             }
-    //         }
-    //         domain_size = next_domain_size;
-    //         old_x_index = x_index;
-    //         x_index >>= arity_bits;
-    //     }
-    //
-    //     let last_evals = evaluations.last().unwrap();
-    //     let final_arity_bits = *config.reduction_arity_bits.last().unwrap();
-    //     let purported_eval = compute_evaluation(
-    //         subgroup_x,
-    //         old_x_index,
-    //         final_arity_bits,
-    //         last_evals,
-    //         *betas.last().unwrap(),
-    //     );
-    //     for _ in 0..final_arity_bits {
-    //         subgroup_x = subgroup_x.square();
-    //     }
-    //
-    //     // Final check of FRI. After all the reductions, we check that the final polynomial is equal
-    //     // to the one sent by the prover.
-    //     ensure!(
-    //         proof.final_poly.eval(subgroup_x.into()) == purported_eval,
-    //         "Final polynomial evaluation is invalid."
-    //     );
-    //
-    //     Ok(())
-    // }
+
+    fn fri_verifier_query_round(
+        &mut self,
+        os: &OpeningSetTarget<D>,
+        zeta: ExtensionTarget<D>,
+        alpha: ExtensionTarget<D>,
+        initial_merkle_roots: &[HashTarget],
+        proof: &FriProofTarget<D>,
+        challenger: &mut RecursiveChallenger,
+        n: usize,
+        betas: &[ExtensionTarget<D>],
+        round_proof: &FriQueryRoundTarget<D>,
+        config: &FriConfig,
+    ) -> Result<()> {
+        let mut evaluations: Vec<Vec<ExtensionTarget<D>>> = Vec::new();
+        // TODO: Do we need to range check `x_index` to a target smaller than `p`?
+        let mut x_index = challenger.get_challenge(self);
+        let mut domain_size = n;
+        self.fri_verify_initial_proof(
+            x_index,
+            &round_proof.initial_trees_proof,
+            initial_merkle_roots,
+        );
+        let mut old_x_index = self.zero();
+        // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
+        let log_n = log2_strict(n);
+        // TODO: The verifier will need to check these constants at some point (out of circuit).
+        let g = self.constant(F::MULTIPLICATIVE_GROUP_GENERATOR);
+        let phi = self.constant(F::primitive_root_of_unity(log_n));
+        // TODO: Gate for this.
+        let reversed_x = self.reverse_bits(x_index, log_n);
+        let phi = self.exp(phi, reversed_x);
+        let mut subgroup_x = self.mul(g, phi);
+        for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
+            let arity = 1 << arity_bits;
+            let next_domain_size = domain_size >> arity_bits;
+            let e_x = if i == 0 {
+                self.fri_combine_initial(
+                    &round_proof.initial_trees_proof,
+                    alpha,
+                    os,
+                    zeta,
+                    subgroup_x,
+                )
+            } else {
+                let last_evals = &evaluations[i - 1];
+                // Infer P(y) from {P(x)}_{x^arity=y}.
+                self.compute_evaluation(
+                    subgroup_x,
+                    old_x_index,
+                    config.reduction_arity_bits[i - 1],
+                    last_evals,
+                    betas[i - 1],
+                )
+            };
+            let mut evals = round_proof.steps[i].evals.clone();
+            // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
+            evals.insert(x_index & (arity - 1), e_x);
+            evaluations.push(evals);
+            self.verify_merkle_proof(
+                flatten_target(&evaluations[i]),
+                x_index >> arity_bits,
+                proof.commit_phase_merkle_roots[i],
+                &round_proof.steps[i].merkle_proof,
+            )?;
+
+            if i > 0 {
+                // Update the point x to x^arity.
+                for _ in 0..config.reduction_arity_bits[i - 1] {
+                    subgroup_x = self.mul(subgroup_x, subgroup_x);
+                }
+            }
+            domain_size = next_domain_size;
+            old_x_index = x_index;
+            x_index >>= arity_bits;
+        }
+
+        let last_evals = evaluations.last().unwrap();
+        let final_arity_bits = *config.reduction_arity_bits.last().unwrap();
+        let purported_eval = self.compute_evaluation(
+            subgroup_x,
+            old_x_index,
+            final_arity_bits,
+            last_evals,
+            *betas.last().unwrap(),
+        );
+        for _ in 0..final_arity_bits {
+            subgroup_x = self.mul(subgroup_x, subgroup_x);
+        }
+
+        // Final check of FRI. After all the reductions, we check that the final polynomial is equal
+        // to the one sent by the prover.
+        ensure!(
+            proof.final_poly.eval(subgroup_x.into()) == purported_eval,
+            "Final polynomial evaluation is invalid."
+        );
+
+        Ok(())
+    }
 }

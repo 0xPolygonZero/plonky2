@@ -228,3 +228,22 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         ExtensionTarget(arr)
     }
 }
+
+/// Flatten the slice by sending every extension target to its D-sized canonical representation.
+pub fn flatten_target<const D: usize>(l: &[ExtensionTarget<D>]) -> Vec<Target> {
+    l.iter()
+        .flat_map(|x| x.to_target_array().to_vec())
+        .collect()
+}
+
+/// Batch every D-sized chunks into extension targets.
+pub fn unflatten_target<const D: usize>(l: &[Target]) -> Vec<ExtensionTarget<D>> {
+    debug_assert_eq!(l.len() % D, 0);
+    l.chunks_exact(D)
+        .map(|c| {
+            let mut arr = Default::default();
+            arr.copy_from_slice(c);
+            ExtensionTarget(arr)
+        })
+        .collect()
+}
