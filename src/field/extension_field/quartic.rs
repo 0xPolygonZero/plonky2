@@ -6,8 +6,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use rand::Rng;
 
 use crate::field::crandall_field::CrandallField;
-use crate::field::extension_field::quartic_quartic::QuarticQuarticCrandallField;
-use crate::field::extension_field::{Extendable, FieldExtension, OEF};
+use crate::field::extension_field::{FieldExtension, OEF};
 use crate::field::field::Field;
 
 /// A quartic extension of `CrandallField`.
@@ -237,10 +236,6 @@ impl DivAssign for QuarticCrandallField {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
-}
-
-impl Extendable<4> for QuarticCrandallField {
-    type Extension = QuarticQuarticCrandallField;
 }
 
 #[cfg(test)]

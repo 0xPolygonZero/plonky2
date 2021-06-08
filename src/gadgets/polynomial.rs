@@ -43,7 +43,6 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
     ) -> ExtensionAlgebraTarget<D>
     where
         F: Extendable<D>,
-        F::Extension: Extendable<D>,
     {
         let mut acc = builder.zero_ext_algebra();
         for &c in self.0.iter().rev() {
@@ -60,7 +59,6 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
     ) -> ExtensionAlgebraTarget<D>
     where
         F: Extendable<D>,
-        F::Extension: Extendable<D>,
     {
         let mut acc = builder.zero_ext_algebra();
         for &c in self.0.iter().rev() {
