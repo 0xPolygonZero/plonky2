@@ -2,8 +2,8 @@ use std::convert::TryInto;
 use std::ops::Range;
 
 use crate::field::extension_field::algebra::ExtensionAlgebra;
-use crate::field::extension_field::target::{ExtensionExtensionTarget, ExtensionTarget};
-use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 
 #[derive(Copy, Clone)]
@@ -36,9 +36,9 @@ pub struct EvaluationTargets<'a, const D: usize> {
 }
 
 impl<'a, const D: usize> EvaluationTargets<'a, D> {
-    pub fn get_local_ext_ext(&self, wire_range: Range<usize>) -> ExtensionExtensionTarget<D> {
+    pub fn get_local_ext_algebra(&self, wire_range: Range<usize>) -> ExtensionAlgebraTarget<D> {
         debug_assert_eq!(wire_range.len(), D);
         let arr = self.local_wires[wire_range].try_into().unwrap();
-        ExtensionExtensionTarget(arr)
+        ExtensionAlgebraTarget(arr)
     }
 }

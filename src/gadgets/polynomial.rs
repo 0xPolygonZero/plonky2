@@ -1,5 +1,5 @@
 use crate::circuit_builder::CircuitBuilder;
-use crate::field::extension_field::target::{ExtensionExtensionTarget, ExtensionTarget};
+use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::Extendable;
 use crate::target::Target;
 
@@ -33,22 +33,22 @@ impl<const D: usize> PolynomialCoeffsExtTarget<D> {
     }
 }
 
-pub struct PolynomialCoeffsExtExtTarget<const D: usize>(pub Vec<ExtensionExtensionTarget<D>>);
+pub struct PolynomialCoeffsExtExtTarget<const D: usize>(pub Vec<ExtensionAlgebraTarget<D>>);
 
 impl<const D: usize> PolynomialCoeffsExtExtTarget<D> {
     pub fn eval_scalar<F>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         point: ExtensionTarget<D>,
-    ) -> ExtensionExtensionTarget<D>
+    ) -> ExtensionAlgebraTarget<D>
     where
         F: Extendable<D>,
         F::Extension: Extendable<D>,
     {
-        let mut acc = builder.zero_ext_ext();
+        let mut acc = builder.zero_ext_algebra();
         for &c in self.0.iter().rev() {
-            let tmp = builder.scalar_mul_ext_ext(point, acc);
-            acc = builder.add_ext_ext(tmp, c);
+            let tmp = builder.scalar_mul_ext_algebra(point, acc);
+            acc = builder.add_ext_algebra(tmp, c);
         }
         acc
     }
@@ -56,16 +56,16 @@ impl<const D: usize> PolynomialCoeffsExtExtTarget<D> {
     pub fn eval<F>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        point: ExtensionExtensionTarget<D>,
-    ) -> ExtensionExtensionTarget<D>
+        point: ExtensionAlgebraTarget<D>,
+    ) -> ExtensionAlgebraTarget<D>
     where
         F: Extendable<D>,
         F::Extension: Extendable<D>,
     {
-        let mut acc = builder.zero_ext_ext();
+        let mut acc = builder.zero_ext_algebra();
         for &c in self.0.iter().rev() {
-            let tmp = builder.mul_ext_ext(point, acc);
-            acc = builder.add_ext_ext(tmp, c);
+            let tmp = builder.mul_ext_algebra(point, acc);
+            acc = builder.add_ext_algebra(tmp, c);
         }
         acc
     }

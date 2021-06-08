@@ -10,7 +10,6 @@ use crate::field::lagrange::interpolant;
 use crate::gadgets::polynomial::PolynomialCoeffsExtExtTarget;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
-use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::wire::Wire;
@@ -139,27 +138,27 @@ where
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         let coeffs = (0..self.num_points)
-            .map(|i| vars.get_local_ext_ext(self.wires_coeff(i)))
+            .map(|i| vars.get_local_ext_algebra(self.wires_coeff(i)))
             .collect();
         let interpolant = PolynomialCoeffsExtExtTarget(coeffs);
 
         for i in 0..self.num_points {
             let point = vars.local_wires[self.wire_point(i)];
-            let value = vars.get_local_ext_ext(self.wires_value(i));
+            let value = vars.get_local_ext_algebra(self.wires_value(i));
             let computed_value = interpolant.eval_scalar(builder, point);
             constraints.extend(
                 &builder
-                    .sub_ext_ext(value, computed_value)
+                    .sub_ext_algebra(value, computed_value)
                     .to_ext_target_array(),
             );
         }
 
-        let evaluation_point = vars.get_local_ext_ext(self.wires_evaluation_point());
-        let evaluation_value = vars.get_local_ext_ext(self.wires_evaluation_value());
+        let evaluation_point = vars.get_local_ext_algebra(self.wires_evaluation_point());
+        let evaluation_value = vars.get_local_ext_algebra(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval(builder, evaluation_point);
         constraints.extend(
             &builder
-                .sub_ext_ext(evaluation_value, computed_evaluation_value)
+                .sub_ext_algebra(evaluation_value, computed_evaluation_value)
                 .to_ext_target_array(),
         );
 
@@ -359,7 +358,7 @@ mod tests {
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         }
 
-        /// Get a working row for InterpolationGate.
+        // Get a working row for InterpolationGate.
         let coeffs = PolynomialCoeffs::new(vec![FF::rand(), FF::rand()]);
         let points = vec![F::rand(), F::rand()];
         let eval_point = FF::rand();

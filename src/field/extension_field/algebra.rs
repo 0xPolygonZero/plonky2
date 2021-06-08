@@ -1,4 +1,4 @@
-use crate::field::extension_field::{FieldExtension, OEF};
+use crate::field::extension_field::OEF;
 use std::fmt::{Debug, Display, Formatter};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
