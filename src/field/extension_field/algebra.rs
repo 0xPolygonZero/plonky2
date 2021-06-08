@@ -34,11 +34,11 @@ impl<F: OEF<D>, const D: usize> From<F> for ExtensionAlgebra<F, D> {
 
 impl<F: OEF<D>, const D: usize> Display for ExtensionAlgebra<F, D> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}) + ", self.0[0])?;
-        for i in 1..D - 1 {
-            write!(f, "({})*b^{} + ", self.0[i], i)?;
+        write!(f, "({})", self.0[0])?;
+        for i in 1..D {
+            write!(f, " + ({})*b^{}", self.0[i], i)?;
         }
-        write!(f, "({})*b^{}", self.0[D - 1], D - 1)
+        Ok(())
     }
 }
 
