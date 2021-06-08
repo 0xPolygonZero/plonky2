@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 use std::ops::Range;
 
+use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::target::{ExtensionExtensionTarget, ExtensionTarget};
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
@@ -18,16 +19,13 @@ pub struct EvaluationVarsBase<'a, F: Field> {
 }
 
 impl<'a, F: Extendable<D>, const D: usize> EvaluationVars<'a, F, D> {
-    pub fn get_local_ext_ext(
+    pub fn get_local_ext_algebra(
         &self,
         wire_range: Range<usize>,
-    ) -> <<F as Extendable<D>>::Extension as Extendable<D>>::Extension
-    where
-        F::Extension: Extendable<D>,
-    {
+    ) -> ExtensionAlgebra<F::Extension, D> {
         debug_assert_eq!(wire_range.len(), D);
         let arr = self.local_wires[wire_range].try_into().unwrap();
-        <<F as Extendable<D>>::Extension as Extendable<D>>::Extension::from_basefield_array(arr)
+        ExtensionAlgebra::from_basefield_array(arr)
     }
 }
 
