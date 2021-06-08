@@ -38,7 +38,7 @@ impl<F: OEF<D>, const D: usize> Display for ExtensionAlgebra<F, D> {
         for i in 1..D - 1 {
             write!(f, "({})*b^{} + ", self.0[i], i)?;
         }
-        write!(f, "{}*b^{}", self.0[D - 1], D - 1)
+        write!(f, "({})*b^{}", self.0[D - 1], D - 1)
     }
 }
 
@@ -112,7 +112,7 @@ impl<F: OEF<D>, const D: usize> Mul for ExtensionAlgebra<F, D> {
                 res[(i + j) % D] += if i + j < D {
                     self.0[i] * rhs.0[j]
                 } else {
-                    w * self.0[i] * rhs.0[i]
+                    w * self.0[i] * rhs.0[j]
                 }
             }
         }
