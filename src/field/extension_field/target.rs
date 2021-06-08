@@ -11,6 +11,20 @@ impl<const D: usize> ExtensionTarget<D> {
     pub fn to_target_array(&self) -> [Target; D] {
         self.0
     }
+
+    pub fn frobenius<F: Extendable<D>>(&self, builder: &mut CircuitBuilder<F, D>) -> Self {
+        let arr = self.to_target_array();
+        let k = (F::ORDER - 1) / (D as u64);
+        let z0 = builder.constant(F::Extension::W.exp(k));
+        let mut z = builder.one();
+        let mut res = [builder.zero(); D];
+        for i in 0..D {
+            res[i] = builder.mul(arr[i], z);
+            z = builder.mul(z, z0);
+        }
+
+        Self(res)
+    }
 }
 
 /// `Target`s representing an element of an extension of an extension field.

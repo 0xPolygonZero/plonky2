@@ -187,5 +187,6 @@ pub struct OpeningSetTarget<const D: usize> {
     pub plonk_sigmas: Vec<ExtensionTarget<D>>,
     pub wires: Vec<ExtensionTarget<D>>,
     pub plonk_zs: Vec<ExtensionTarget<D>>,
+    pub plonk_zs_right: Vec<ExtensionTarget<D>>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
