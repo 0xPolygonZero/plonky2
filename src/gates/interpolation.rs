@@ -280,21 +280,15 @@ where
 mod tests {
     use std::marker::PhantomData;
 
-    use crate::circuit_builder::CircuitBuilder;
-    use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::extension_field::FieldExtension;
     use crate::field::field::Field;
-    use crate::fri::FriConfig;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::interpolation::InterpolationGate;
     use crate::polynomial::polynomial::PolynomialCoeffs;
-    use crate::prover::PLONK_BLINDING;
     use crate::vars::EvaluationVars;
-    use crate::verifier::verify;
-    use crate::witness::PartialWitness;
 
     #[test]
     fn wire_indices() {
