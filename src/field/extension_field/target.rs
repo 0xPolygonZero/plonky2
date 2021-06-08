@@ -1,4 +1,5 @@
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::{Extendable, FieldExtension, OEF};
 use crate::field::field::Field;
 use crate::target::Target;
@@ -35,11 +36,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn constant_ext_algebra(
         &mut self,
-        c: <<F as Extendable<D>>::Extension as Extendable<D>>::Extension,
-    ) -> ExtensionAlgebraTarget<D>
-    where
-        F::Extension: Extendable<D>,
-    {
+        c: ExtensionAlgebra<F::Extension, D>,
+    ) -> ExtensionAlgebraTarget<D> {
         let c_parts = c.to_basefield_array();
         let mut parts = [self.zero_extension(); D];
         for i in 0..D {
@@ -60,13 +58,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.constant_extension(F::Extension::TWO)
     }
 
-    pub fn zero_ext_algebra(&mut self) -> ExtensionAlgebraTarget<D>
-    where
-        F::Extension: Extendable<D>,
-    {
-        self.constant_ext_algebra(
-            <<F as Extendable<D>>::Extension as Extendable<D>>::Extension::ZERO,
-        )
+    pub fn zero_ext_algebra(&mut self) -> ExtensionAlgebraTarget<D> {
+        self.constant_ext_algebra(ExtensionAlgebra::ZERO)
     }
 
     pub fn add_extension(
@@ -142,7 +135,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn mul_ext_algebra(
         &mut self,
-        mut a: ExtensionAlgebraTarget<D>,
+        a: ExtensionAlgebraTarget<D>,
         b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
         let mut res = [self.zero_extension(); D];
@@ -195,10 +188,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         a: ExtensionTarget<D>,
         mut b: ExtensionAlgebraTarget<D>,
-    ) -> ExtensionAlgebraTarget<D>
-    where
-        F::Extension: Extendable<D>,
-    {
+    ) -> ExtensionAlgebraTarget<D> {
         for i in 0..D {
             b.0[i] = self.mul_extension(a, b.0[i]);
         }

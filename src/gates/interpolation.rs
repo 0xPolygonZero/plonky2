@@ -7,7 +7,7 @@ use crate::field::extension_field::algebra::PolynomialCoeffsAlgebra;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::lagrange::interpolant;
-use crate::gadgets::polynomial::PolynomialCoeffsExtExtTarget;
+use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
@@ -140,7 +140,7 @@ where
         let coeffs = (0..self.num_points)
             .map(|i| vars.get_local_ext_algebra(self.wires_coeff(i)))
             .collect();
-        let interpolant = PolynomialCoeffsExtExtTarget(coeffs);
+        let interpolant = PolynomialCoeffsExtAlgebraTarget(coeffs);
 
         for i in 0..self.num_points {
             let point = vars.local_wires[self.wire_point(i)];
@@ -280,15 +280,21 @@ where
 mod tests {
     use std::marker::PhantomData;
 
+    use crate::circuit_builder::CircuitBuilder;
+    use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::extension_field::FieldExtension;
     use crate::field::field::Field;
+    use crate::fri::FriConfig;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::interpolation::InterpolationGate;
     use crate::polynomial::polynomial::PolynomialCoeffs;
+    use crate::prover::PLONK_BLINDING;
     use crate::vars::EvaluationVars;
+    use crate::verifier::verify;
+    use crate::witness::PartialWitness;
 
     #[test]
     fn wire_indices() {

@@ -33,9 +33,9 @@ impl<const D: usize> PolynomialCoeffsExtTarget<D> {
     }
 }
 
-pub struct PolynomialCoeffsExtExtTarget<const D: usize>(pub Vec<ExtensionAlgebraTarget<D>>);
+pub struct PolynomialCoeffsExtAlgebraTarget<const D: usize>(pub Vec<ExtensionAlgebraTarget<D>>);
 
-impl<const D: usize> PolynomialCoeffsExtExtTarget<D> {
+impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
     pub fn eval_scalar<F>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
