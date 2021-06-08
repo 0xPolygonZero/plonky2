@@ -22,16 +22,12 @@ use crate::witness::PartialWitness;
 /// given point.
 #[derive(Clone, Debug)]
 pub(crate) struct InterpolationGate<F: Extendable<D>, const D: usize>
-where
-    F::Extension: Extendable<D>,
 {
     num_points: usize,
     _phantom: PhantomData<F>,
 }
 
 impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D>
-where
-    F::Extension: Extendable<D>,
 {
     pub fn new(num_points: usize) -> GateRef<F, D> {
         let gate = Self {
@@ -100,8 +96,6 @@ where
 }
 
 impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D>
-where
-    F::Extension: Extendable<D>,
 {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
@@ -200,8 +194,6 @@ where
 }
 
 struct InterpolationGenerator<F: Extendable<D>, const D: usize>
-where
-    F::Extension: Extendable<D>,
 {
     gate_index: usize,
     gate: InterpolationGate<F, D>,
@@ -209,8 +201,6 @@ where
 }
 
 impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGenerator<F, D>
-where
-    F::Extension: Extendable<D>,
 {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| {
