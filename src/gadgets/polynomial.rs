@@ -26,7 +26,7 @@ impl<const D: usize> PolynomialCoeffsExtTarget<D> {
     ) -> ExtensionTarget<D> {
         let mut acc = builder.zero_extension();
         for &c in self.0.iter().rev() {
-            let tmp = builder.mul_extension(point, acc);
+            let tmp = builder.mul_extension_naive(point, acc);
             acc = builder.add_extension(tmp, c);
         }
         acc

@@ -1,4 +1,5 @@
 use crate::field::field::Field;
+use std::convert::TryInto;
 
 pub mod algebra;
 pub mod quadratic;
@@ -88,10 +89,6 @@ where
 {
     debug_assert_eq!(l.len() % D, 0);
     l.chunks_exact(D)
-        .map(|c| {
-            let mut arr = [F::ZERO; D];
-            arr.copy_from_slice(c);
-            F::Extension::from_basefield_array(arr)
-        })
+        .map(|c| F::Extension::from_basefield_array(c.to_vec().try_into().unwrap()))
         .collect()
 }

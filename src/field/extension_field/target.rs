@@ -2,7 +2,10 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::{Extendable, FieldExtension, OEF};
 use crate::field::field::Field;
+use crate::gates::mul_extension::MulExtensionGate;
 use crate::target::Target;
+use std::convert::{TryFrom, TryInto};
+use std::ops::Range;
 
 /// `Target`s representing an element of an extension field.
 #[derive(Copy, Clone, Debug)]
@@ -25,6 +28,19 @@ impl<const D: usize> ExtensionTarget<D> {
         }
 
         Self(res)
+    }
+
+    pub fn from_range(gate: usize, range: Range<usize>) -> Self {
+        debug_assert_eq!(range.end - range.start, D);
+        Target::wires_from_range(gate, range).try_into().unwrap()
+    }
+}
+
+impl<const D: usize> TryFrom<Vec<Target>> for ExtensionTarget<D> {
+    type Error = Vec<Target>;
+
+    fn try_from(value: Vec<Target>) -> Result<Self, Self::Error> {
+        Ok(Self(value.try_into()?))
     }
 }
 
@@ -128,7 +144,34 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a
     }
 
+    pub fn mul_extension_with_const(
+        &mut self,
+        const_0: F,
+        multiplicand_0: ExtensionTarget<D>,
+        multiplicand_1: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        let gate = self.add_gate(MulExtensionGate::new(), vec![const_0]);
+
+        let wire_multiplicand_0 =
+            ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_multiplicand_0());
+        let wire_multiplicand_1 =
+            ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_multiplicand_1());
+        let wire_output = ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_output());
+
+        self.route_extension(multiplicand_0, wire_multiplicand_0);
+        self.route_extension(multiplicand_1, wire_multiplicand_1);
+        wire_output
+    }
+
     pub fn mul_extension(
+        &mut self,
+        multiplicand_0: ExtensionTarget<D>,
+        multiplicand_1: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        self.mul_extension_with_const(F::ONE, multiplicand_0, multiplicand_1)
+    }
+
+    pub fn mul_extension_naive(
         &mut self,
         a: ExtensionTarget<D>,
         b: ExtensionTarget<D>,
@@ -156,7 +199,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let w = self.constant(F::Extension::W);
         for i in 0..D {
             for j in 0..D {
-                let ai_bi = self.mul_extension(a.0[i], b.0[j]);
+                let ai_bi = self.mul_extension_naive(a.0[i], b.0[j]);
                 res[(i + j) % D] = if i + j < D {
                     self.add_extension(ai_bi, res[(i + j) % D])
                 } else {
@@ -171,7 +214,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn mul_many_extension(&mut self, terms: &[ExtensionTarget<D>]) -> ExtensionTarget<D> {
         let mut product = self.one_extension();
         for term in terms {
-            product = self.mul_extension(product, *term);
+            product = self.mul_extension_naive(product, *term);
         }
         product
     }
@@ -184,7 +227,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         b: ExtensionTarget<D>,
         c: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let product = self.mul_extension(a, b);
+        let product = self.mul_extension_naive(a, b);
         self.add_extension(product, c)
     }
 
@@ -204,7 +247,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         mut b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
         for i in 0..D {
-            b.0[i] = self.mul_extension(a, b.0[i]);
+            b.0[i] = self.mul_extension_naive(a, b.0[i]);
         }
         b
     }
@@ -225,13 +268,9 @@ pub fn flatten_target<const D: usize>(l: &[ExtensionTarget<D>]) -> Vec<Target> {
 }
 
 /// Batch every D-sized chunks into extension targets.
-pub fn unflatten_target<const D: usize>(l: &[Target]) -> Vec<ExtensionTarget<D>> {
+pub fn unflatten_target<F: Extendable<D>, const D: usize>(l: &[Target]) -> Vec<ExtensionTarget<D>> {
     debug_assert_eq!(l.len() % D, 0);
     l.chunks_exact(D)
-        .map(|c| {
-            let mut arr = Default::default();
-            arr.copy_from_slice(c);
-            ExtensionTarget(arr)
-        })
+        .map(|c| c.to_vec().try_into().unwrap())
         .collect()
 }

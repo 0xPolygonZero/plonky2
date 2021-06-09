@@ -19,9 +19,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             input: BaseSumGate::<B>::WIRE_SUM,
         });
         self.route(x, sum);
-        (BaseSumGate::<B>::WIRE_LIMBS_START..BaseSumGate::<B>::WIRE_LIMBS_START + num_limbs)
-            .map(|i| Target::Wire(Wire { gate, input: i }))
-            .collect()
+
+        Target::wires_from_range(
+            gate,
+            BaseSumGate::<B>::WIRE_LIMBS_START..BaseSumGate::<B>::WIRE_LIMBS_START + num_limbs,
+        )
     }
 
     /// Asserts that `x`'s bit representation has at least `trailing_zeros` trailing zeros.

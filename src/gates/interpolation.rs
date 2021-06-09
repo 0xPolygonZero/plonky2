@@ -357,9 +357,7 @@ mod tests {
         };
 
         assert!(
-            gate.eval_unfiltered(vars.clone())
-                .iter()
-                .all(|x| x.is_zero()),
+            gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),
             "Gate constraints are not satisfied."
         );
     }

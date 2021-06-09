@@ -1,7 +1,6 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::{Extendable, FieldExtension, OEF};
-use crate::field::field::Field;
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
@@ -10,77 +9,6 @@ use crate::wire::Wire;
 use crate::witness::PartialWitness;
 use std::convert::TryInto;
 use std::ops::Range;
-
-// TODO: Replace this when https://github.com/mir-protocol/plonky2/issues/56 is resolved.
-fn mul_vec<F: Field>(a: &[F], b: &[F], w: F) -> Vec<F> {
-    let (a0, a1, a2, a3) = (a[0], a[1], a[2], a[3]);
-    let (b0, b1, b2, b3) = (b[0], b[1], b[2], b[3]);
-
-    let c0 = a0 * b0 + w * (a1 * b3 + a2 * b2 + a3 * b1);
-    let c1 = a0 * b1 + a1 * b0 + w * (a2 * b3 + a3 * b2);
-    let c2 = a0 * b2 + a1 * b1 + a2 * b0 + w * a3 * b3;
-    let c3 = a0 * b3 + a1 * b2 + a2 * b1 + a3 * b0;
-
-    vec![c0, c1, c2, c3]
-}
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    fn mul_vec(
-        &mut self,
-        a: &[ExtensionTarget<D>],
-        b: &[ExtensionTarget<D>],
-        w: ExtensionTarget<D>,
-    ) -> Vec<ExtensionTarget<D>> {
-        let (a0, a1, a2, a3) = (a[0], a[1], a[2], a[3]);
-        let (b0, b1, b2, b3) = (b[0], b[1], b[2], b[3]);
-
-        // TODO: Optimize this.
-        let c0 = {
-            let tmp0 = self.mul_extension(a0, b0);
-            let tmp1 = self.mul_extension(a1, b3);
-            let tmp2 = self.mul_extension(a2, b2);
-            let tmp3 = self.mul_extension(a3, b1);
-            let tmp = self.add_extension(tmp1, tmp2);
-            let tmp = self.add_extension(tmp, tmp3);
-            let tmp = self.mul_extension(w, tmp);
-            let tmp = self.add_extension(tmp0, tmp);
-            tmp
-        };
-        let c1 = {
-            let tmp0 = self.mul_extension(a0, b1);
-            let tmp1 = self.mul_extension(a1, b0);
-            let tmp2 = self.mul_extension(a2, b3);
-            let tmp3 = self.mul_extension(a3, b2);
-            let tmp = self.add_extension(tmp2, tmp3);
-            let tmp = self.mul_extension(w, tmp);
-            let tmp = self.add_extension(tmp, tmp0);
-            let tmp = self.add_extension(tmp, tmp1);
-            tmp
-        };
-        let c2 = {
-            let tmp0 = self.mul_extension(a0, b2);
-            let tmp1 = self.mul_extension(a1, b1);
-            let tmp2 = self.mul_extension(a2, b0);
-            let tmp3 = self.mul_extension(a3, b3);
-            let tmp = self.mul_extension(w, tmp3);
-            let tmp = self.add_extension(tmp, tmp2);
-            let tmp = self.add_extension(tmp, tmp1);
-            let tmp = self.add_extension(tmp, tmp0);
-            tmp
-        };
-        let c3 = {
-            let tmp0 = self.mul_extension(a0, b3);
-            let tmp1 = self.mul_extension(a1, b2);
-            let tmp2 = self.mul_extension(a2, b1);
-            let tmp3 = self.mul_extension(a3, b0);
-            let tmp = self.add_extension(tmp3, tmp2);
-            let tmp = self.add_extension(tmp, tmp1);
-            let tmp = self.add_extension(tmp, tmp0);
-            tmp
-        };
-
-        vec![c0, c1, c2, c3]
-    }
-}
 
 /// A gate which can multiply two field extension elements.
 /// TODO: Add an addend if `NUM_ROUTED_WIRES` is large enough.
@@ -110,25 +38,11 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for MulExtensionGate<D> {
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let const_0 = vars.local_constants[0];
-        let multiplicand_0 = vars.local_wires[Self::wires_multiplicand_0()].to_vec();
-        let multiplicand_1 = vars.local_wires[Self::wires_multiplicand_1()].to_vec();
-        let output = vars.local_wires[Self::wires_output()].to_vec();
-        let computed_output = mul_vec(
-            &[
-                const_0,
-                F::Extension::ZERO,
-                F::Extension::ZERO,
-                F::Extension::ZERO,
-            ],
-            &multiplicand_0,
-            F::Extension::W.into(),
-        );
-        let computed_output = mul_vec(&computed_output, &multiplicand_1, F::Extension::W.into());
-        output
-            .into_iter()
-            .zip(computed_output)
-            .map(|(o, co)| o - co)
-            .collect()
+        let multiplicand_0 = vars.get_local_ext_algebra(Self::wires_multiplicand_0());
+        let multiplicand_1 = vars.get_local_ext_algebra(Self::wires_multiplicand_1());
+        let output = vars.get_local_ext_algebra(Self::wires_output());
+        let computed_output = multiplicand_0 * multiplicand_1 * const_0.into();
+        (output - computed_output).to_basefield_array().to_vec()
     }
 
     fn eval_unfiltered_recursively(
@@ -137,18 +51,13 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for MulExtensionGate<D> {
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
         let const_0 = vars.local_constants[0];
-        let multiplicand_0 = vars.local_wires[Self::wires_multiplicand_0()].to_vec();
-        let multiplicand_1 = vars.local_wires[Self::wires_multiplicand_1()].to_vec();
-        let output = vars.local_wires[Self::wires_output()].to_vec();
-        let w = builder.constant_extension(F::Extension::W.into());
-        let zero = builder.zero_extension();
-        let computed_output = builder.mul_vec(&[const_0, zero, zero, zero], &multiplicand_0, w);
-        let computed_output = builder.mul_vec(&computed_output, &multiplicand_1, w);
-        output
-            .into_iter()
-            .zip(computed_output)
-            .map(|(o, co)| builder.sub_extension(o, co))
-            .collect()
+        let multiplicand_0 = vars.get_local_ext_algebra(Self::wires_multiplicand_0());
+        let multiplicand_1 = vars.get_local_ext_algebra(Self::wires_multiplicand_1());
+        let output = vars.get_local_ext_algebra(Self::wires_output());
+        let computed_output = builder.mul_ext_algebra(multiplicand_0, multiplicand_1);
+        let computed_output = builder.scalar_mul_ext_algebra(const_0, computed_output);
+        let diff = builder.sub_ext_algebra(output, computed_output);
+        diff.to_ext_target_array().to_vec()
     }
 
     fn generators(
@@ -236,7 +145,6 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for MulExtensionGenera
 #[cfg(test)]
 mod tests {
     use crate::field::crandall_field::CrandallField;
-    use crate::gates::arithmetic::ArithmeticGate;
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::mul_extension::MulExtensionGate;
 

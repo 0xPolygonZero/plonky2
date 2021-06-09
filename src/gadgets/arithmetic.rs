@@ -238,17 +238,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Add an `ArithmeticGate` to compute `q * y`.
         let gate = self.add_gate(MulExtensionGate::new(), vec![F::ONE]);
 
-        let multiplicand_0 = MulExtensionGate::<D>::wires_multiplicand_0()
-            .map(|i| Target::Wire(Wire { gate, input: i }))
-            .collect::<Vec<_>>();
+        let multiplicand_0 =
+            Target::wires_from_range(gate, MulExtensionGate::<D>::wires_multiplicand_0());
         let multiplicand_0 = ExtensionTarget(multiplicand_0.try_into().unwrap());
-        let multiplicand_1 = MulExtensionGate::<D>::wires_multiplicand_1()
-            .map(|i| Target::Wire(Wire { gate, input: i }))
-            .collect::<Vec<_>>();
+        let multiplicand_1 =
+            Target::wires_from_range(gate, MulExtensionGate::<D>::wires_multiplicand_1());
         let multiplicand_1 = ExtensionTarget(multiplicand_1.try_into().unwrap());
-        let output = MulExtensionGate::<D>::wires_output()
-            .map(|i| Target::Wire(Wire { gate, input: i }))
-            .collect::<Vec<_>>();
+        let output = Target::wires_from_range(gate, MulExtensionGate::<D>::wires_output());
         let output = ExtensionTarget(output.try_into().unwrap());
 
         self.add_generator(QuotientGeneratorExtension {
@@ -324,7 +320,7 @@ impl<const D: usize> PowersTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D> {
         let result = self.current;
-        self.current = builder.mul_extension(self.base, self.current);
+        self.current = builder.mul_extension_naive(self.base, self.current);
         result
     }
 }
