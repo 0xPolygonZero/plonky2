@@ -38,7 +38,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
         local_wires,
     };
     let local_plonk_zs = &proof.openings.plonk_zs;
-    let next_plonk_zs = todo!(); // Not yet supported in OpeningSet or batch_open_plonk.
+    let next_plonk_zs = &proof.openings.plonk_zs_right;
     let s_sigmas = &proof.openings.plonk_s_sigmas;
 
     // Evaluate the vanishing polynomial at our challenge point, zeta.
