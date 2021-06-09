@@ -168,9 +168,8 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .iter()
         .chain(&os.plonk_s_sigmas)
         .chain(&os.quotient_polys);
-    let single_composition_eval = reduce_with_iter(single_evals, alpha_powers.clone());
-    let single_composition_opening = reduce_with_iter(single_openings, &mut alpha_powers);
-    let single_numerator = single_composition_eval - single_composition_opening;
+    let single_diffs = single_evals.zip(single_openings).map(|(e, &o)| e - o);
+    let single_numerator = reduce_with_iter(single_diffs, &mut alpha_powers);
     let single_denominator = subgroup_x - zeta;
     sum += single_numerator / single_denominator;
 
