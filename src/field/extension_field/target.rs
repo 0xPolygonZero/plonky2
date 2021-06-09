@@ -214,7 +214,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn mul_many_extension(&mut self, terms: &[ExtensionTarget<D>]) -> ExtensionTarget<D> {
         let mut product = self.one_extension();
         for term in terms {
-            product = self.mul_extension_naive(product, *term);
+            product = self.mul_extension(product, *term);
         }
         product
     }
@@ -227,7 +227,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         b: ExtensionTarget<D>,
         c: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let product = self.mul_extension_naive(a, b);
+        let product = self.mul_extension(a, b);
         self.add_extension(product, c)
     }
 
