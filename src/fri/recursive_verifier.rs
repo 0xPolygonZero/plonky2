@@ -194,7 +194,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let g = self.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
-        let zeta_right = self.mul_extension_naive(g, zeta);
+        let zeta_right = self.mul_extension(g, zeta);
         let mut ev_zeta = self.zero_extension();
         for &t in &os.plonk_zs {
             let a = alpha_powers.next(self);
@@ -210,7 +210,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let numerator = self.sub_extension(ev, interpol_val);
         let vanish = self.sub_extension(subgroup_x, zeta);
         let vanish_right = self.sub_extension(subgroup_x, zeta_right);
-        let denominator = self.mul_extension_naive(vanish, vanish_right);
+        let denominator = self.mul_extension(vanish, vanish_right);
         let quotient = self.div_unsafe_extension(numerator, denominator);
         let sum = self.add_extension(sum, quotient);
 
@@ -244,7 +244,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let interpol_val = wires_interpol.eval(self, subgroup_x);
         let numerator = self.sub_extension(ev, interpol_val);
         let vanish_frob = self.sub_extension(subgroup_x, zeta_frob);
-        let denominator = self.mul_extension_naive(vanish, vanish_frob);
+        let denominator = self.mul_extension(vanish, vanish_frob);
         let quotient = self.div_unsafe_extension(numerator, denominator);
         let sum = self.add_extension(sum, quotient);
 

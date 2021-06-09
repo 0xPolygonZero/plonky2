@@ -57,7 +57,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticGate {
         let output = vars.local_wires[Self::WIRE_OUTPUT];
 
         let product_term = builder.mul_many_extension(&[const_0, multiplicand_0, multiplicand_1]);
-        let addend_term = builder.mul_extension_naive(const_1, addend);
+        let addend_term = builder.mul_extension(const_1, addend);
         let computed_output = builder.add_many_extension(&[product_term, addend_term]);
         vec![builder.sub_extension(computed_output, output)]
     }

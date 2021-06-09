@@ -171,25 +171,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_extension_with_const(F::ONE, multiplicand_0, multiplicand_1)
     }
 
-    pub fn mul_extension_naive(
-        &mut self,
-        a: ExtensionTarget<D>,
-        b: ExtensionTarget<D>,
-    ) -> ExtensionTarget<D> {
-        let mut res = [self.zero(); D];
-        for i in 0..D {
-            for j in 0..D {
-                res[(i + j) % D] = if i + j < D {
-                    self.mul_add(a.0[i], b.0[j], res[(i + j) % D])
-                } else {
-                    // W * a[i] * b[i] + res[(i + j) % D]
-                    self.arithmetic(F::Extension::W, a.0[i], b.0[i], F::ONE, res[(i + j) % D])
-                }
-            }
-        }
-        ExtensionTarget(res)
-    }
-
     pub fn mul_ext_algebra(
         &mut self,
         a: ExtensionAlgebraTarget<D>,
@@ -199,7 +180,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let w = self.constant(F::Extension::W);
         for i in 0..D {
             for j in 0..D {
-                let ai_bi = self.mul_extension_naive(a.0[i], b.0[j]);
+                let ai_bi = self.mul_extension(a.0[i], b.0[j]);
                 res[(i + j) % D] = if i + j < D {
                     self.add_extension(ai_bi, res[(i + j) % D])
                 } else {
@@ -247,7 +228,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         mut b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
         for i in 0..D {
-            b.0[i] = self.mul_extension_naive(a, b.0[i]);
+            b.0[i] = self.mul_extension(a, b.0[i]);
         }
         b
     }

@@ -335,7 +335,7 @@ impl<const D: usize> PowersTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D> {
         let result = self.current;
-        self.current = builder.mul_extension_naive(self.base, self.current);
+        self.current = builder.mul_extension(self.base, self.current);
         result
     }
 }

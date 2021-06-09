@@ -131,7 +131,7 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
         let swap = vars.local_wires[Self::WIRE_SWAP];
         let one_ext = builder.one_extension();
         let not_swap = builder.sub_extension(swap, one_ext);
-        constraints.push(builder.mul_extension_naive(swap, not_swap));
+        constraints.push(builder.mul_extension(swap, not_swap));
 
         let old_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_OLD];
         let new_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_NEW];
@@ -168,8 +168,8 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
             let constant = builder.constant_extension(self.constants[r].into());
             let cubing_input =
                 builder.add_many_extension(&[state[active], addition_buffer, constant]);
-            let square = builder.mul_extension_naive(cubing_input, cubing_input);
-            let f = builder.mul_extension_naive(square, cubing_input);
+            let square = builder.mul_extension(cubing_input, cubing_input);
+            let f = builder.mul_extension(square, cubing_input);
             addition_buffer = builder.add_extension(addition_buffer, f);
             state[active] = builder.sub_extension(state[active], f);
         }

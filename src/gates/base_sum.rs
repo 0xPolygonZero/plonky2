@@ -79,7 +79,7 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
                 (0..B).for_each(|i| {
                     let it = builder.constant_extension(F::from_canonical_usize(i).into());
                     let diff = builder.sub_extension(limb, it);
-                    acc = builder.mul_extension_naive(acc, diff);
+                    acc = builder.mul_extension(acc, diff);
                 });
                 acc
             });
