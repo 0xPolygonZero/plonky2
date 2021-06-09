@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{ensure, Result};
 
 use crate::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::field::extension_field::Extendable;
@@ -58,7 +58,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     let quotient_polys_zeta = proof.openings.quotient_polys;
     let z_h_zeta = eval_zero_poly(common_data.degree(), zeta);
     for i in 0..num_challenges {
-        assert_eq!(vanishing_polys_zeta[i], z_h_zeta * quotient_polys_zeta[i]);
+        ensure!(vanishing_polys_zeta[i] == z_h_zeta * quotient_polys_zeta[i]);
     }
 
     let evaluations = todo!();
