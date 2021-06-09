@@ -9,7 +9,7 @@ use crate::field::fft::ifft;
 use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{eval_l_1, evaluate_gate_constraints_base, reduce_with_powers_multi};
+use crate::plonk_common::eval_vanishing_poly_base;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
@@ -115,7 +115,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     let zeta = challenger.get_extension_challenge();
 
-    let (opening_proof, openings) = timed!(
+    let (opening_proof, mut openings) = timed!(
         ListPolynomialCommitment::open_plonk(
             &[
                 &prover_data.constants_commitment,
@@ -192,7 +192,7 @@ fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(
                 local_constants,
                 local_wires,
             };
-            compute_vanishing_poly_entry(
+            eval_vanishing_poly_base(
                 common_data,
                 x,
                 vars,
@@ -210,56 +210,6 @@ fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(
         .into_iter()
         .map(PolynomialValues::new)
         .collect()
-}
-
-/// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
-/// linear combination of gate constraints, plus some other terms relating to the permutation
-/// argument. All such terms should vanish on `H`.
-fn compute_vanishing_poly_entry<F: Extendable<D>, const D: usize>(
-    common_data: &CommonCircuitData<F, D>,
-    x: F,
-    vars: EvaluationVarsBase<F>,
-    local_plonk_zs: &[F],
-    next_plonk_zs: &[F],
-    s_sigmas: &[F],
-    betas: &[F],
-    gammas: &[F],
-    alphas: &[F],
-) -> Vec<F> {
-    let constraint_terms =
-        evaluate_gate_constraints_base(&common_data.gates, common_data.num_gate_constraints, vars);
-
-    // The L_1(x) (Z(x) - 1) vanishing terms.
-    let mut vanishing_z_1_terms = Vec::new();
-    // The Z(x) f'(x) - g'(x) Z(g x) terms.
-    let mut vanishing_v_shift_terms = Vec::new();
-
-    for i in 0..common_data.config.num_challenges {
-        let z_x = local_plonk_zs[i];
-        let z_gz = next_plonk_zs[i];
-        vanishing_z_1_terms.push(eval_l_1(common_data.degree(), x) * (z_x - F::ONE));
-
-        let mut f_prime = F::ONE;
-        let mut g_prime = F::ONE;
-        for j in 0..common_data.config.num_routed_wires {
-            let wire_value = vars.local_wires[j];
-            let k_i = common_data.k_is[j];
-            let s_id = k_i * x;
-            let s_sigma = s_sigmas[j];
-            f_prime *= wire_value + betas[i] * s_id + gammas[i];
-            g_prime *= wire_value + betas[i] * s_sigma + gammas[i];
-        }
-        vanishing_v_shift_terms.push(f_prime * z_x - g_prime * z_gz);
-    }
-
-    let vanishing_terms = [
-        vanishing_z_1_terms,
-        vanishing_v_shift_terms,
-        constraint_terms,
-    ]
-    .concat();
-
-    reduce_with_powers_multi(&vanishing_terms, alphas)
 }
 
 fn compute_wire_polynomial<F: Field>(

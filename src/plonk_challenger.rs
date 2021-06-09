@@ -67,7 +67,7 @@ impl<F: Field> Challenger<F> {
     {
         let OpeningSet {
             constants,
-            plonk_sigmas,
+            plonk_s_sigmas,
             wires,
             plonk_zs,
             plonk_zs_right,
@@ -75,7 +75,7 @@ impl<F: Field> Challenger<F> {
         } = os;
         for v in &[
             constants,
-            plonk_sigmas,
+            plonk_s_sigmas,
             wires,
             plonk_zs,
             plonk_zs_right,

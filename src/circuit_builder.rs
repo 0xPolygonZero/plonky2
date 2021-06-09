@@ -9,7 +9,6 @@ use crate::circuit_data::{
 };
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{GateInstance, GateRef};
 use crate::gates::noop::NoopGate;

@@ -126,7 +126,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
                 poly_count += 1;
                 &(&acc * alpha) + &p.to_extension()
             });
-        let composition_eval = [&os.constants, &os.plonk_sigmas, &os.quotient_polys]
+        let composition_eval = [&os.constants, &os.plonk_s_sigmas, &os.quotient_polys]
             .iter()
             .flat_map(|v| v.iter())
             .rev()
