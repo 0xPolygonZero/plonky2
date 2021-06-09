@@ -5,6 +5,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::util::log2_strict;
+use std::iter::Sum;
 
 /// A polynomial in point-value form.
 ///
@@ -219,6 +220,12 @@ impl<F: Field> Add for &PolynomialCoeffs<F> {
         let b = rhs.padded(len).coeffs;
         let coeffs = a.into_iter().zip(b).map(|(x, y)| x + y).collect();
         PolynomialCoeffs::new(coeffs)
+    }
+}
+
+impl<F: Field> Sum for PolynomialCoeffs<F> {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Self::empty(), |acc, p| &acc + &p)
     }
 }
 
