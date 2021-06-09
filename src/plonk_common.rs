@@ -1,9 +1,12 @@
+use std::borrow::Borrow;
+
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::GateRef;
+use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
@@ -209,13 +212,26 @@ pub(crate) fn reduce_with_powers_recursive<F: Extendable<D>, const D: usize>(
     todo!()
 }
 
-pub(crate) fn reduce_with_iter<F: Field, I>(terms: &[F], coeffs: I) -> F
-where
-    I: IntoIterator<Item = F>,
-{
-    let mut sum = F::ZERO;
-    for (&term, coeff) in terms.iter().zip(coeffs) {
-        sum += coeff * term;
-    }
-    sum
+/// Reduce a sequence of field elements by the given coefficients.
+pub(crate) fn reduce_with_iter<F: Field>(
+    terms: impl IntoIterator<Item = impl Borrow<F>>,
+    coeffs: impl IntoIterator<Item = impl Borrow<F>>,
+) -> F {
+    terms
+        .into_iter()
+        .zip(coeffs)
+        .map(|(t, c)| *t.borrow() * *c.borrow())
+        .sum()
+}
+
+/// Reduce a sequence of polynomials by the given coefficients.
+pub(crate) fn reduce_polys_with_iter<F: Field>(
+    polys: impl IntoIterator<Item = impl Borrow<PolynomialCoeffs<F>>>,
+    coeffs: impl IntoIterator<Item = impl Borrow<F>>,
+) -> PolynomialCoeffs<F> {
+    polys
+        .into_iter()
+        .zip(coeffs)
+        .map(|(p, c)| p.borrow() * *c.borrow())
+        .sum()
 }
