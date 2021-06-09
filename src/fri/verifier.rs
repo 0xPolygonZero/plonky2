@@ -166,7 +166,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     let openings = os
         .constants
         .iter()
-        .chain(&os.plonk_sigmas)
+        .chain(&os.plonk_s_sigmas)
         .chain(&os.quotient_polys);
     let numerator = izip!(evals, openings, &mut alpha_powers)
         .map(|(e, &o, a)| a * (e - o))

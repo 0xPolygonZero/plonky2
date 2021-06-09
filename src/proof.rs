@@ -147,7 +147,7 @@ pub struct FriProofTarget<const D: usize> {
 /// The purported values of each polynomial at a single point.
 pub struct OpeningSet<F: Field + Extendable<D>, const D: usize> {
     pub constants: Vec<F::Extension>,
-    pub plonk_sigmas: Vec<F::Extension>,
+    pub plonk_s_sigmas: Vec<F::Extension>,
     pub wires: Vec<F::Extension>,
     pub plonk_zs: Vec<F::Extension>,
     pub plonk_zs_right: Vec<F::Extension>,
@@ -172,7 +172,7 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningSet<F, D> {
         };
         Self {
             constants: eval_commitment(z, constant_commitment),
-            plonk_sigmas: eval_commitment(z, plonk_sigmas_commitment),
+            plonk_s_sigmas: eval_commitment(z, plonk_sigmas_commitment),
             wires: eval_commitment(z, wires_commitment),
             plonk_zs: eval_commitment(z, plonk_zs_commitment),
             plonk_zs_right: eval_commitment(g * z, plonk_zs_commitment),
