@@ -172,6 +172,21 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         product
     }
 
+    // TODO: Optimize this, maybe with a new gate.
+    pub fn exp(&mut self, base: Target, exponent: Target) -> Target {
+        let mut current = base;
+        let one = self.one();
+        let mut product = one;
+        let exponent_bits = self.split_le(exponent);
+
+        for bit in exponent_bits.into_iter() {
+            product = self.mul_many(&[bit, current, product]);
+            current = self.mul(current, current);
+        }
+
+        product
+    }
+
     /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
     /// some cases, as it allows `0 / 0 = <anything>`.
     pub fn div_unsafe(&mut self, x: Target, y: Target) -> Target {

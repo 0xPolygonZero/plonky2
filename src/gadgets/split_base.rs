@@ -4,20 +4,17 @@ use crate::field::field::Field;
 use crate::gates::base_sum::{BaseSplitGenerator, BaseSumGate};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
-use crate::util::ceil_div_usize;
+use crate::util::{ceil_div_usize, log2_strict};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Split the given element into a list of 11 targets, where each one represents a
-    /// base-64 limb of the element, with little-endian ordering.
+    /// Split the given element into a list of targets, where each one represents a
+    /// base-B limb of the element, with little-endian ordering.
     pub(crate) fn split_le_base<const B: usize>(&mut self, x: Target) -> Vec<Target> {
         let num_limbs = num_limbs_to_check(64, B);
         let gate = self.add_gate(BaseSumGate::<B>::new(num_limbs), vec![]);
-        let sum = Target::Wire(Wire {
-            gate,
-            input: BaseSumGate::<B>::WIRE_SUM,
-        });
+        let sum = Target::wire(gate, BaseSumGate::<B>::WIRE_SUM);
         self.route(x, sum);
 
         Target::wires_from_range(
@@ -38,12 +35,21 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.assert_zero(limbs[i]);
         }
     }
+
+    pub(crate) fn reverse_bits<const B: usize>(&mut self, x: Target, num_limbs: usize) -> Target {
+        let gate = self.add_gate(BaseSumGate::<B>::new(num_limbs), vec![]);
+        let sum = Target::wire(gate, BaseSumGate::<B>::WIRE_SUM);
+        self.route(x, sum);
+
+        Target::wire(gate, BaseSumGate::<B>::WIRE_REVERSED_SUM)
+    }
 }
 
 /// Returns `k` such that any number with `k` trailing zeros in base `base` has at least
 /// `n` trailing zeros in base 2.
-fn num_limbs_to_check(n: u32, base: usize) -> usize {
-    (n as f64 * (2.0_f64.log(base as f64))).ceil() as usize
+const fn num_limbs_to_check(n: u32, base: usize) -> usize {
+    assert_eq!(base % 2, 0, "Base should be even.");
+    ceil_div_usize(n as usize, base.trailing_zeros() as usize)
 }
 
 #[cfg(test)]

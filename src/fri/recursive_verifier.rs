@@ -21,8 +21,15 @@ use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
     /// and P' is the FRI reduced polynomial.
-    fn compute_evaluation(&mut self) {
-        todo!();
+    fn compute_evaluation(
+        &mut self,
+        x: Target,
+        old_x_index: Target,
+        arity_bits: usize,
+        last_evals: &[ExtensionTarget<D>],
+        beta: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        todo!()
         // debug_assert_eq!(last_evals.len(), 1 << arity_bits);
         //
         // let g = F::primitive_root_of_unity(arity_bits);
@@ -272,10 +279,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // TODO: The verifier will need to check these constants at some point (out of circuit).
         let g = self.constant(F::MULTIPLICATIVE_GROUP_GENERATOR);
         let phi = self.constant(F::primitive_root_of_unity(log_n));
-        // TODO: Gate for this.
-        let reversed_x = self.reverse_bits(x_index, log_n);
+
+        let reversed_x = self.reverse_bits::<2>(x_index, log_n);
         let phi = self.exp(phi, reversed_x);
         let mut subgroup_x = self.mul(g, phi);
+
         for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
             let arity = 1 << arity_bits;
             let next_domain_size = domain_size >> arity_bits;

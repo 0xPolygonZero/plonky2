@@ -1,8 +1,10 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
+use crate::gates::base_sum::BaseSumGate;
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
+use crate::util::ceil_div_usize;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -20,6 +22,48 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             bits: bit_targets.clone(),
         });
         bit_targets
+    }
+
+    /// Split the given integer into a list of wires, where each one represents a
+    /// bit of the integer, with little-endian ordering.
+    /// Verifies that the decomposition is correct by using `k` `BaseSum<2>` gates
+    /// with `k` such that `k*num_routed_bits>=64`.
+    pub(crate) fn split_le(&mut self, integer: Target) -> Vec<Target> {
+        let num_limbs = self.config.num_routed_wires - BaseSumGate::WIRE_LIMBS_START;
+        let k = ceil_div_usize(64, num_limbs);
+        let gates = (0..k)
+            .map(|_| self.add_gate_no_constants(BaseSumGate::new(num_limbs)))
+            .collect::<Vec<_>>();
+
+        let mut bits = Vec::with_capacity(64);
+        for &gate in &gates {
+            bits.extend(Target::wires_from_range(
+                gate,
+                BaseSumGate::WIRE_LIMBS_START..BaseSumGate::WIRE_LIMBS_START + num_limbs,
+            ));
+        }
+
+        let zero = self.zero();
+        let mut acc = zero;
+        for &gate in gates.iter().rev() {
+            let sum = Target::wire(gate, BaseSumGate::WIRE_SUM);
+            acc = self.arithmetic(
+                F::from_canonical_usize(1 << num_limbs),
+                acc,
+                zero,
+                F::ONE,
+                sum,
+            );
+        }
+        self.assert_equal(acc, integer);
+
+        self.add_generator(WireSplitGenerator {
+            integer,
+            gates,
+            num_limbs,
+        });
+
+        bits
     }
 }
 
@@ -74,6 +118,42 @@ impl<F: Field> SimpleGenerator<F> for SplitGenerator {
         debug_assert_eq!(
             integer_value, 0,
             "Integer too large to fit in given number of bits"
+        );
+
+        result
+    }
+}
+
+#[derive(Debug)]
+struct WireSplitGenerator {
+    integer: Target,
+    gates: Vec<usize>,
+    num_limbs: usize,
+}
+
+impl<F: Field> SimpleGenerator<F> for WireSplitGenerator {
+    fn dependencies(&self) -> Vec<Target> {
+        vec![self.integer]
+    }
+
+    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+        let mut integer_value = witness.get_target(self.integer).to_canonical_u64();
+
+        let mut result = PartialWitness::new();
+        for gate in self.gates {
+            let sum = Target::wire(gate, BaseSumGate::WIRE_SUM);
+            result.set_target(
+                sum,
+                F::from_canonical_u64(integer_value & ((1 << self.num_limbs) - 1)),
+            );
+            integer_value >> self.num_limbs;
+        }
+
+        debug_assert_eq!(
+            integer_value,
+            0,
+            "Integer too large to fit in {} many `BaseSumGate`s",
+            self.gates.len()
         );
 
         result
