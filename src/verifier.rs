@@ -55,13 +55,13 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     );
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
-    let quotient_polys_zeta = proof.openings.quotient_polys;
+    let quotient_polys_zeta = &proof.openings.quotient_polys;
     let z_h_zeta = eval_zero_poly(common_data.degree(), zeta);
     for i in 0..num_challenges {
         ensure!(vanishing_polys_zeta[i] == z_h_zeta * quotient_polys_zeta[i]);
     }
 
-    let evaluations = proof.openings;
+    let evaluations = proof.openings.clone();
 
     let merkle_roots = &[
         verifier_data.constants_root,

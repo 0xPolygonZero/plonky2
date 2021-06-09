@@ -308,14 +308,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             };
             let mut evals = round_proof.steps[i].evals.clone();
             // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
-            evals.insert(x_index & (arity - 1), e_x);
-            evaluations.push(evals);
-            self.verify_merkle_proof(
-                flatten_target(&evaluations[i]),
-                x_index >> arity_bits,
-                proof.commit_phase_merkle_roots[i],
-                &round_proof.steps[i].merkle_proof,
-            )?;
+            // evals.insert(x_index & (arity - 1), e_x);
+            // evaluations.push(evals);
+            // self.verify_merkle_proof(
+            //     flatten_target(&evaluations[i]),
+            //     x_index >> arity_bits,
+            //     proof.commit_phase_merkle_roots[i],
+            //     &round_proof.steps[i].merkle_proof,
+            // )?;
 
             if i > 0 {
                 // Update the point x to x^arity.
@@ -325,7 +325,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             }
             domain_size = next_domain_size;
             old_x_index = x_index;
-            x_index >>= arity_bits;
+            // x_index >>= arity_bits;
         }
 
         let last_evals = evaluations.last().unwrap();
@@ -343,10 +343,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Final check of FRI. After all the reductions, we check that the final polynomial is equal
         // to the one sent by the prover.
-        ensure!(
-            proof.final_poly.eval(subgroup_x.into()) == purported_eval,
-            "Final polynomial evaluation is invalid."
-        );
+        let eval = proof.final_poly.eval_scalar(self, subgroup_x);
+        self.assert_equal_extension(eval, purported_eval);
 
         Ok(())
     }

@@ -48,8 +48,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 /// Returns `k` such that any number with `k` trailing zeros in base `base` has at least
 /// `n` trailing zeros in base 2.
 const fn num_limbs_to_check(n: u32, base: usize) -> usize {
-    assert_eq!(base % 2, 0, "Base should be even.");
-    ceil_div_usize(n as usize, base.trailing_zeros() as usize)
+    if base % 2 == 1 {
+        // Dirty trick to panic if the base is odd.
+        // TODO: replace with `assert_eq!(base % 2, 0, "Base should be even.")` when stable.
+        [][0]
+    } else {
+        ceil_div_usize(n as usize, base.trailing_zeros() as usize)
+    }
 }
 
 #[cfg(test)]

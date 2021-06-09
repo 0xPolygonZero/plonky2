@@ -144,6 +144,7 @@ pub struct FriProofTarget<const D: usize> {
     pub pow_witness: Target,
 }
 
+#[derive(Clone, Debug)]
 /// The purported values of each polynomial at a single point.
 pub struct OpeningSet<F: Field + Extendable<D>, const D: usize> {
     pub constants: Vec<F::Extension>,
