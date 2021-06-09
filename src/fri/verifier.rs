@@ -178,7 +178,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .unsalted_evals(3, config)
         .iter()
         .map(|&e| F::Extension::from_basefield(e));
-    let zs_composition_eval: F::Extension = reduce_with_iter(zs_evals, alpha_powers.clone());
+    let zs_composition_eval = reduce_with_iter(zs_evals, alpha_powers.clone());
     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
     let zs_interpol = interpolant(&[
         (zeta, reduce_with_iter(&os.plonk_zs, alpha_powers.clone())),
