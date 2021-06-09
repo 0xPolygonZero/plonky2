@@ -1,5 +1,7 @@
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
+use std::hash::{Hash, Hasher};
+use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::Integer;
@@ -8,8 +10,6 @@ use crate::field::extension_field::quadratic::QuadraticCrandallField;
 use crate::field::extension_field::quartic::QuarticCrandallField;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
-use std::hash::{Hash, Hasher};
-use std::iter::{Product, Sum};
 
 /// EPSILON = 9 * 2**28 - 1
 const EPSILON: u64 = 2415919103;

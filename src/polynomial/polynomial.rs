@@ -279,9 +279,8 @@ mod tests {
 
     use rand::{thread_rng, Rng};
 
-    use crate::field::crandall_field::CrandallField;
-
     use super::*;
+    use crate::field::crandall_field::CrandallField;
 
     #[test]
     fn test_trimmed() {

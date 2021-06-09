@@ -1,7 +1,8 @@
-use crate::field::extension_field::OEF;
 use std::fmt::{Debug, Display, Formatter};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+
+use crate::field::extension_field::OEF;
 
 /// Let `F_D` be the optimal extension field `F[X]/(X^D-W)`. Then `ExtensionAlgebra<F_D>` is the quotient `F_D[X]/(X^D-W)`.
 /// It's a `D`-dimensional algebra over `F_D` useful to lift the multiplication over `F_D` to a multiplication over `(F_D)^D`.
@@ -154,11 +155,12 @@ impl<F: OEF<D>, const D: usize> PolynomialCoeffsAlgebra<F, D> {
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::algebra::ExtensionAlgebra;
     use crate::field::extension_field::{Extendable, FieldExtension};
     use crate::field::field::Field;
-    use itertools::Itertools;
 
     /// Tests that the multiplication on the extension algebra lifts that of the field extension.
     fn test_extension_algebra<F: Extendable<D>, const D: usize>() {
