@@ -2,44 +2,21 @@ use crate::field::field::Field;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_ceil, log2_strict, reverse_index_bits, reverse_bits};
 
-
-pub(crate) struct FftPrecomputation<F: Field> {
-    /// Store powers of a primitive root of unity of F. Specifically,
-    /// the ith element of subgroups_rev contains g**reverse_bits(i),
-    /// where g is the root.
-    subgroups_rev: Vec<F>,
-}
-
-impl<F: Field> FftPrecomputation<F> {
-    pub fn size(&self) -> usize {
-        self.subgroups_rev.len()
-    }
-}
-
-pub(crate) fn fft_precompute<F: Field>(degree: usize) -> FftPrecomputation<F> {
-    let degree_log = log2_ceil(degree);
-    let g = F::primitive_root_of_unity(degree_log);
-    let subgroup = F::cyclic_subgroup_known_order(g, 1 << degree_log);
-    let subgroups_rev = reverse_index_bits(subgroup);
-
-    FftPrecomputation { subgroups_rev }
-}
-
 pub fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
-    let precomputation = fft_precompute(poly.len());
-    fft_with_precomputation_power_of_2(poly, &precomputation)
+    fft_barretenberg(poly)
+    //fft_classic(poly)
 }
 
-pub(crate) fn ifft_with_precomputation_power_of_2<F: Field>(
-    poly: PolynomialValues<F>,
-    precomputation: &FftPrecomputation<F>,
+pub fn ifft<F: Field>(
+    poly: PolynomialValues<F>
 ) -> PolynomialCoeffs<F> {
     let n = poly.len();
     let n_inv = F::from_canonical_usize(n).try_inverse().unwrap();
 
     let PolynomialValues { values } = poly;
     let PolynomialValues { values: mut result } =
-        fft_with_precomputation_power_of_2(PolynomialCoeffs { coeffs: values }, precomputation);
+        fft_barretenberg(PolynomialCoeffs { coeffs: values });
+        //fft_classic(PolynomialCoeffs { coeffs: values });
 
     // We reverse all values except the first, and divide each by n.
     result[0] *= n_inv;
@@ -54,52 +31,151 @@ pub(crate) fn ifft_with_precomputation_power_of_2<F: Field>(
     PolynomialCoeffs { coeffs: result }
 }
 
-pub(crate) fn fft_with_precomputation_power_of_2<F: Field>(
-    poly: PolynomialCoeffs<F>,
-    precomputation: &FftPrecomputation<F>,
+/// FFT implementation based on Section 32.3 of "Introduction to
+/// Algorithms" by Cormen et al.
+pub(crate) fn fft_classic<F: Field>(
+    poly: PolynomialCoeffs<F>
 ) -> PolynomialValues<F> {
-    debug_assert_eq!(
-        poly.len(), precomputation.size(),
-        "Number of coefficients does not match size of subgroup in precomputation"
-    );
-
-    let half_degree = poly.len() >> 1;
-    let degree_log = poly.log_len();
-
-    // In the base layer, we're just evaluating "degree 0 polynomials", i.e. the coefficients
-    // themselves.
     let PolynomialCoeffs { coeffs } = poly;
-    let mut evaluations = reverse_index_bits(coeffs);
+    let mut values = reverse_index_bits(coeffs);
 
-    for i in 1..=degree_log {
-        // In layer i, we're evaluating a series of polynomials, each at 2^i points. In practice
-        // we evaluate a pair of points together, so we have 2^(i - 1) pairs.
-        let points_per_poly = 1 << i;
-        let pairs_per_poly = 1 << (i - 1);
+    // TODO: First round is mult by 1, so should be done separately
+    // TODO: Unroll later rounds.
 
-        let mut new_evaluations = Vec::new();
-        for pair_index in 0..half_degree {
-            let poly_index = pair_index / pairs_per_poly;
-            let pair_index_within_poly = pair_index % pairs_per_poly;
-
-            let child_index_0 = poly_index * points_per_poly + pair_index_within_poly;
-            let child_index_1 = child_index_0 + pairs_per_poly;
-
-            let even = evaluations[child_index_0];
-            let odd = evaluations[child_index_1];
-
-            let point_0 = precomputation.subgroups_rev[pair_index_within_poly * 2];
-            let product = point_0 * odd;
-            new_evaluations.push(even + product);
-            new_evaluations.push(even - product);
+    let n = values.len();
+    let mut m = 2;
+    let mut lg_m = 1;
+    loop {
+        if m > n {
+            break;
         }
-        evaluations = new_evaluations;
-    }
 
-    // Reorder so that evaluations' indices correspond to (g_0, g_1, g_2, ...)
-    let values = reverse_index_bits(evaluations);
+        // TODO: calculate incrementally
+        let omega_m = F::primitive_root_of_unity(lg_m);
+        for k in (0..n).step_by(m) {
+            let mut omega = F::ONE;
+            let half_m = m/2;
+            for j in 0..half_m {
+                let t = omega * values[k + half_m + j];
+                let u = values[k + j];
+                values[k + j] = u + t;
+                values[k + half_m + j] = u - t;
+                omega *= omega_m;
+            }
+        }
+        m *= 2;
+        lg_m += 1;
+    }
     PolynomialValues { values }
 }
+
+/// FFT implementation inspired by Barretenberg's:
+/// https://github.com/AztecProtocol/barretenberg/blob/master/barretenberg/src/aztec/polynomials/polynomial_arithmetic.cpp#L58
+/// https://github.com/AztecProtocol/barretenberg/blob/master/barretenberg/src/aztec/polynomials/evaluation_domain.cpp#L30
+pub(crate) fn fft_barretenberg<F: Field>(
+    poly: PolynomialCoeffs<F>
+) -> PolynomialValues<F> {
+    let n = poly.len();
+    let lg_n = poly.log_len();
+
+    // Precompute a table of the roots of unity used in the main
+    // loops.
+    let rt = F::primitive_root_of_unity(lg_n);
+    let mut root_table = Vec::with_capacity(lg_n);
+    let mut m = 2;
+    loop {
+        if m >= n {
+            break;
+        }
+        // TODO: calculate incrementally
+        let round_root = rt.exp((n / (2 * m)) as u64);
+        let mut round_roots = Vec::with_capacity(m);
+        round_roots.push(F::ONE);
+        for j in 1..m {
+            round_roots.push(round_roots[j - 1] * round_root);
+        }
+        root_table.push(round_roots);
+        m *= 2;
+    }
+
+    let PolynomialCoeffs { coeffs } = poly;
+    let mut values = reverse_index_bits(coeffs);
+
+    // m = 1
+    for k in (0..n).step_by(2) {
+        let t = values[k + 1];
+        values[k + 1] = values[k] - t;
+        values[k] += t;
+    }
+
+    // m = 2
+    if n <= 2 {
+        return PolynomialValues { values }
+    }
+
+    for k in (0..n).step_by(4) {
+        // NB: Grouping statements as is done in the main loop below
+        // does not seem to help here (worse by a few millis).
+        let omega_0 = root_table[0][0];
+        let tmp_0 = omega_0 * values[k + 2 + 0];
+        values[k + 2 + 0] = values[k + 0] - tmp_0;
+        values[k + 0] += tmp_0;
+
+        let omega_1 = root_table[0][1];
+        let tmp_1 = omega_1 * values[k + 2 + 1];
+        values[k + 2 + 1] = values[k + 1] - tmp_1;
+        values[k + 1] += tmp_1;
+    }
+
+    // m >= 4
+    let mut m = 4;
+    let mut lg_m = 2;
+    loop {
+        if m >= n {
+            break;
+        }
+        for k in (0..n).step_by(2*m) {
+            // Unrolled the commented loop by groups of 4 and
+            // rearranged the lines. Improves runtime by about
+            // 10%.
+            /*
+            for j in (0..m) {
+                let omega = root_table[lg_m - 1][j];
+                let tmp = omega * values[k + m + j];
+                values[k + m + j] = values[k + j] - tmp;
+                values[k + j] += tmp;
+            }
+            */
+            for j in (0..m).step_by(4) {
+                let off1 = k + j;
+                let off2 = k + m + j;
+
+                let omega_0 = root_table[lg_m - 1][j + 0];
+                let omega_1 = root_table[lg_m - 1][j + 1];
+                let omega_2 = root_table[lg_m - 1][j + 2];
+                let omega_3 = root_table[lg_m - 1][j + 3];
+
+                let tmp_0 = omega_0 * values[off2 + 0];
+                let tmp_1 = omega_1 * values[off2 + 1];
+                let tmp_2 = omega_2 * values[off2 + 2];
+                let tmp_3 = omega_3 * values[off2 + 3];
+
+                values[off2 + 0] = values[off1 + 0] - tmp_0;
+                values[off2 + 1] = values[off1 + 1] - tmp_1;
+                values[off2 + 2] = values[off1 + 2] - tmp_2;
+                values[off2 + 3] = values[off1 + 3] - tmp_3;
+                values[off1 + 0] += tmp_0;
+                values[off1 + 1] += tmp_1;
+                values[off1 + 2] += tmp_2;
+                values[off1 + 3] += tmp_3;
+            }
+        }
+        m *= 2;
+        lg_m += 1;
+    }
+    PolynomialValues { values }
+}
+
 
 pub(crate) fn coset_fft<F: Field>(poly: PolynomialCoeffs<F>, shift: F) -> PolynomialValues<F> {
     let mut points = fft(poly);
@@ -109,11 +185,6 @@ pub(crate) fn coset_fft<F: Field>(poly: PolynomialCoeffs<F>, shift: F) -> Polyno
         shift_exp_i *= shift;
     }
     points
-}
-
-pub(crate) fn ifft<F: Field>(poly: PolynomialValues<F>) -> PolynomialCoeffs<F> {
-    let precomputation = fft_precompute(poly.len());
-    ifft_with_precomputation_power_of_2(poly, &precomputation)
 }
 
 pub(crate) fn coset_ifft<F: Field>(poly: PolynomialValues<F>, shift: F) -> PolynomialCoeffs<F> {
