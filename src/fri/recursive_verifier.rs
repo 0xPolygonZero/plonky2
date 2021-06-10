@@ -326,7 +326,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 }
             }
             domain_size = next_domain_size;
-            old_x_index = x_index;
+            old_x_index = low_x_index;
             x_index = high_x_index;
         }
 

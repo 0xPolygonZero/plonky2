@@ -279,7 +279,7 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
             }
         }
         domain_size = next_domain_size;
-        old_x_index = x_index;
+        old_x_index = x_index & (arity - 1);
         x_index >>= arity_bits;
     }
 
