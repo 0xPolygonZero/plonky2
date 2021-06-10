@@ -17,7 +17,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Returns `(a,b)` such that `x = a + 2^n_log * b` with `a < 2^n_log`.
     pub fn split_low_high(&mut self, x: Target, n_log: usize) -> (Target, Target) {
         let low_gate = self.add_gate(BaseSumGate::<2>::new(n_log), vec![]);
-        let high_gate = self.add_gate(BaseSumGate::<2>::new(n_log), vec![]);
+        let high_gate = self.add_gate(BaseSumGate::<2>::new(64 - n_log), vec![]);
         let low = Target::wire(low_gate, BaseSumGate::<2>::WIRE_SUM);
         let high = Target::wire(high_gate, BaseSumGate::<2>::WIRE_SUM);
         self.add_generator(LowHighGenerator {
