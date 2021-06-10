@@ -71,7 +71,7 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
         let reversed_computed_sum = reduce_with_powers_recursive(builder, &limbs, base);
         let mut constraints = vec![
             builder.sub_extension(computed_sum, sum),
-            builder.sub_extension(reversed_computed_sum, computed_sum),
+            builder.sub_extension(reversed_computed_sum, reversed_sum),
         ];
         for limb in limbs {
             constraints.push({
@@ -127,10 +127,7 @@ pub struct BaseSplitGenerator<const B: usize> {
 
 impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
     fn dependencies(&self) -> Vec<Target> {
-        vec![Target::Wire(Wire {
-            gate: self.gate_index,
-            input: BaseSumGate::<B>::WIRE_SUM,
-        })]
+        vec![Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM)]
     }
 
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
@@ -161,7 +158,7 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
 
         debug_assert_eq!(
             sum_value, 0,
-            "Integer too large to fit in given number of bits"
+            "Integer too large to fit in given number of limbs"
         );
 
         result
