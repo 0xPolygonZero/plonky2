@@ -1,11 +1,11 @@
 use std::cmp::max;
+use std::iter::Sum;
 use std::ops::{Add, Mul, Sub};
 
 use crate::field::extension_field::Extendable;
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
 use crate::util::log2_strict;
-use std::iter::Sum;
 
 /// A polynomial in point-value form.
 ///

@@ -340,9 +340,8 @@ mod tests {
     }
 
     mod quadratic {
-        use crate::field::crandall_field::CrandallField;
-
         use super::*;
+        use crate::field::crandall_field::CrandallField;
 
         #[test]
         fn test_batch_polynomial_commitment() -> Result<()> {
@@ -351,9 +350,8 @@ mod tests {
     }
 
     mod quartic {
-        use crate::field::crandall_field::CrandallField;
-
         use super::*;
+        use crate::field::crandall_field::CrandallField;
 
         #[test]
         fn test_batch_polynomial_commitment() -> Result<()> {
