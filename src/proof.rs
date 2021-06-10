@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::fri::FriConfig;
@@ -5,7 +7,6 @@ use crate::merkle_proofs::{MerkleProof, MerkleProofTarget};
 use crate::polynomial::commitment::{ListPolynomialCommitment, OpeningProof};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
-use std::convert::TryInto;
 
 /// Represents a ~256 bit hash output.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
