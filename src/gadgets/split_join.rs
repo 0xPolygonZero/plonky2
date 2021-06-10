@@ -146,7 +146,7 @@ impl<F: Field> SimpleGenerator<F> for WireSplitGenerator {
                 sum,
                 F::from_canonical_u64(integer_value & ((1 << self.num_limbs) - 1)),
             );
-            integer_value >> self.num_limbs;
+            integer_value >>= self.num_limbs;
         }
 
         debug_assert_eq!(

@@ -134,6 +134,12 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
         let sum_value = witness
             .get_target(Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM))
             .to_canonical_u64() as usize;
+        debug_assert_eq!(
+            (0..self.num_limbs).fold(sum_value, |acc, _| acc / B),
+            0,
+            "Integer too large to fit in given number of limbs"
+        );
+
         let limbs = (BaseSumGate::<B>::WIRE_LIMBS_START
             ..BaseSumGate::<B>::WIRE_LIMBS_START + self.num_limbs)
             .map(|i| Target::wire(self.gate_index, i));
@@ -155,11 +161,6 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
         for (b, b_value) in limbs.zip(limbs_value) {
             result.set_target(b, F::from_canonical_usize(b_value));
         }
-
-        debug_assert_eq!(
-            sum_value, 0,
-            "Integer too large to fit in given number of limbs"
-        );
 
         result
     }

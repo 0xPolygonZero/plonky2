@@ -11,8 +11,11 @@ use crate::witness::PartialWitness;
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given element into a list of targets, where each one represents a
     /// base-B limb of the element, with little-endian ordering.
-    pub(crate) fn split_le_base<const B: usize>(&mut self, x: Target) -> Vec<Target> {
-        let num_limbs = num_limbs_to_check(64, B);
+    pub(crate) fn split_le_base<const B: usize>(
+        &mut self,
+        x: Target,
+        num_limbs: usize,
+    ) -> Vec<Target> {
         let gate = self.add_gate(BaseSumGate::<B>::new(num_limbs), vec![]);
         let sum = Target::wire(gate, BaseSumGate::<B>::WIRE_SUM);
         self.route(x, sum);
@@ -25,8 +28,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Asserts that `x`'s bit representation has at least `trailing_zeros` trailing zeros.
     pub(crate) fn assert_trailing_zeros<const B: usize>(&mut self, x: Target, trailing_zeros: u32) {
-        let limbs = self.split_le_base::<B>(x);
+        let num_limbs = num_limbs(64, B);
         let num_limbs_to_check = num_limbs_to_check(trailing_zeros, B);
+        let limbs = self.split_le_base::<B>(x, num_limbs);
         assert!(
             num_limbs_to_check < self.config.num_routed_wires,
             "Not enough routed wires."
@@ -47,6 +51,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 /// Returns `k` such that any number with `k` trailing zeros in base `base` has at least
 /// `n` trailing zeros in base 2.
+#[allow(unconditional_panic)]
 const fn num_limbs_to_check(n: u32, base: usize) -> usize {
     if base % 2 == 1 {
         // Dirty trick to panic if the base is odd.
@@ -55,6 +60,10 @@ const fn num_limbs_to_check(n: u32, base: usize) -> usize {
     } else {
         ceil_div_usize(n as usize, base.trailing_zeros() as usize)
     }
+}
+
+fn num_limbs(n_log: u32, base: usize) -> usize {
+    ((n_log as f64) * 2.0_f64.log(base as f64)).ceil() as usize
 }
 
 #[cfg(test)]
@@ -68,7 +77,7 @@ mod tests {
     use anyhow::Result;
 
     #[test]
-    fn test_split_base() -> Result<()> {
+    fn test_split_base() {
         type F = CrandallField;
         let config = CircuitConfig {
             num_wires: 134,
@@ -85,24 +94,23 @@ mod tests {
             },
         };
         let mut builder = CircuitBuilder::<F, 4>::new(config);
-        let x = F::from_canonical_usize(0b10100000); // 160 =1120 in base 5.
+        let x = F::from_canonical_usize(0b110100000); // 416 = 1532 in base 6.
         let xt = builder.constant(x);
-        let limbs = builder.split_le_base::<5>(xt);
-        assert_eq!(limbs.len(), 28); // 5^27 < 2^64 <= 5^28
-        let zero = builder.zero();
+        let limbs = builder.split_le_base::<6>(xt, 24);
         let one = builder.one();
         let two = builder.two();
-        builder.assert_equal(limbs[0], zero);
-        builder.assert_equal(limbs[1], two);
-        builder.assert_equal(limbs[2], one);
+        let three = builder.constant(F::from_canonical_u64(3));
+        let five = builder.constant(F::from_canonical_u64(5));
+        builder.assert_equal(limbs[0], two);
+        builder.assert_equal(limbs[1], three);
+        builder.assert_equal(limbs[2], five);
         builder.assert_equal(limbs[3], one);
 
-        builder.assert_trailing_zeros::<3>(xt, 4);
-        builder.assert_trailing_zeros::<3>(xt, 5);
-        builder.assert_trailing_zeros::<13>(xt, 5);
+        builder.assert_trailing_zeros::<6>(xt, 4);
+        builder.assert_trailing_zeros::<4>(xt, 5);
+        builder.assert_trailing_zeros::<12>(xt, 5);
         let data = builder.build();
 
         let proof = data.prove(PartialWitness::new());
-        verify(proof, &data.verifier_only, &data.common)
     }
 }
