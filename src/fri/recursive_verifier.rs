@@ -264,9 +264,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         round_proof: &FriQueryRoundTarget<D>,
         config: &FriConfig,
     ) -> Result<()> {
+        let n_log = log2_strict(n);
         let mut evaluations: Vec<Vec<ExtensionTarget<D>>> = Vec::new();
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
         let mut x_index = challenger.get_challenge(self);
+        x_index = self.split_low_high(x_index, n_log).0;
         let mut domain_size = n;
         self.fri_verify_initial_proof(
             x_index,
@@ -275,12 +277,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         let mut old_x_index = self.zero();
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
-        let log_n = log2_strict(n);
         // TODO: The verifier will need to check these constants at some point (out of circuit).
         let g = self.constant(F::MULTIPLICATIVE_GROUP_GENERATOR);
-        let phi = self.constant(F::primitive_root_of_unity(log_n));
+        let phi = self.constant(F::primitive_root_of_unity(n_log));
 
-        let reversed_x = self.reverse_bits::<2>(x_index, log_n);
+        let reversed_x = self.reverse_bits::<2>(x_index, n_log);
         let phi = self.exp(phi, reversed_x);
         let mut subgroup_x = self.mul(g, phi);
 
@@ -308,6 +309,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             };
             let mut evals = round_proof.steps[i].evals.clone();
             // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
+            let (low_x_index, high_x_index) = self.split_low_high(x_index, arity_bits);
             // evals.insert(x_index & (arity - 1), e_x);
             // evaluations.push(evals);
             // self.verify_merkle_proof(
@@ -325,7 +327,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             }
             domain_size = next_domain_size;
             old_x_index = x_index;
-            // x_index >>= arity_bits;
+            x_index = high_x_index;
         }
 
         let last_evals = evaluations.last().unwrap();
