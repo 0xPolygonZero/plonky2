@@ -15,28 +15,29 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_sub(b, x, b_y_minus_y)
     }
 
-    /// Left-rotates an array if `b=1` else return the same array.
-    pub fn rotate_once(&mut self, b: Target, v: Vec<Target>, len: usize) -> Vec<Target> {
+    /// Left-rotates an array `k` times if `b=1` else return the same array.
+    pub fn rotate_fixed(&mut self, b: Target, k: usize, v: Vec<Target>, len: usize) -> Vec<Target> {
         debug_assert_eq!(v.len(), len);
         let mut res = Vec::new();
 
         for i in 0..len {
-            res.push(self.select(b, v[(i + 1) % len], v[i]));
+            res.push(self.select(b, v[(i + k) % len], v[i]));
         }
 
         res
     }
 
-    pub fn split_unary(&mut self, x: Target, len: usize) -> Vec<Target> {
-        todo!()
-    }
-
     /// Left-rotates an array by `num_rotation`. Assumes that `num_rotation` is range-checked to be
     /// less than `len`.
-    pub fn rotate(&mut self, num_rotation: Target, v: Vec<Target>, len: usize) -> Vec<Target> {
-        // Decompose `num_rotation` into `len` 1-ary limbs, possibly with a new gate.
-        // Then apply `rotate_once` `len` time using the 1-ary limbs.
-        todo!()
+    /// Note: We assume `len` is less than 8 since we won't use any arity greater than 8 in FRI (maybe?).
+    pub fn rotate(&mut self, num_rotation: Target, mut v: Vec<Target>, len: usize) -> Vec<Target> {
+        let bits = self.split_le_base::<2>(num_rotation, 3);
+
+        v = self.rotate_fixed(bits[0], 1, v, len);
+        v = self.rotate_fixed(bits[1], 2, v, len);
+        v = self.rotate_fixed(bits[2], 4, v, len);
+
+        v
     }
 }
 
