@@ -65,12 +65,16 @@ mod tests {
     use crate::field::field::Field;
     use crate::field::lagrange::{interpolant, interpolate};
     use crate::witness::PartialWitness;
+    use std::convert::TryInto;
 
     #[test]
     fn test_interpolate() {
         type F = CrandallField;
         type FF = QuarticCrandallField;
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig {
+            num_routed_wires: 18,
+            ..CircuitConfig::large_config()
+        };
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let len = 2;
@@ -96,6 +100,38 @@ mod tests {
         let zt = builder.constant_extension(z);
 
         let eval = builder.interpolate(&points_target, zt);
+        let true_eval_target = builder.constant_extension(true_eval);
+        builder.assert_equal_extension(eval, true_eval_target);
+
+        let data = builder.build();
+        let proof = data.prove(PartialWitness::new());
+    }
+
+    #[test]
+    fn test_interpolate2() {
+        type F = CrandallField;
+        type FF = QuarticCrandallField;
+        let config = CircuitConfig::large_config();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+
+        let len = 2;
+        let points = (0..len)
+            .map(|_| (FF::rand(), FF::rand()))
+            .collect::<Vec<_>>();
+
+        let true_interpolant = interpolant(&points);
+
+        let z = FF::rand();
+        let true_eval = true_interpolant.eval(z);
+
+        let points_target = points
+            .iter()
+            .map(|&(p, v)| (builder.constant_extension(p), builder.constant_extension(v)))
+            .collect::<Vec<_>>();
+
+        let zt = builder.constant_extension(z);
+
+        let eval = builder.interpolate2(points_target.try_into().unwrap(), zt);
         let true_eval_target = builder.constant_extension(true_eval);
         builder.assert_equal_extension(eval, true_eval_target);
 
