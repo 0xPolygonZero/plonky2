@@ -6,7 +6,7 @@ use num::Integer;
 
 use crate::field::extension_field::quadratic::QuadraticCrandallField;
 use crate::field::extension_field::quartic::QuarticCrandallField;
-use crate::field::extension_field::Extendable;
+use crate::field::extension_field::{Extendable, Frobeniable};
 use crate::field::field::Field;
 use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
@@ -442,6 +442,17 @@ fn reduce128(x: u128) -> CrandallField {
 #[inline]
 fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
+}
+
+impl Frobeniable for CrandallField {
+    const FROBENIUS_CONSTANTS_2: [u64; 1] = [9223372035646816256];
+    /// Placeholder since there's no OEF of degree 3 for `CrandallField`.
+    const FROBENIUS_CONSTANTS_3: [u64; 2] = [0, 0];
+    const FROBENIUS_CONSTANTS_4: [u64; 3] = [
+        4611686017823408128,
+        9223372035646816256,
+        13835058053470224384,
+    ];
 }
 
 #[cfg(test)]

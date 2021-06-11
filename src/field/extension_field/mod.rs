@@ -13,12 +13,32 @@ pub mod target;
 pub trait OEF<const D: usize>: FieldExtension<D> {
     // Element W of BaseField, such that `X^d - W` is irreducible over BaseField.
     const W: Self::BaseField;
+}
 
-    /// Frobenius automorphisms: x -> x^p, where p is the order of BaseField.
+impl<F: Field> OEF<1> for F {
+    const W: Self::BaseField = F::ZERO;
+}
+
+pub trait Frobenius<BF: Frobeniable, const D: usize>: OEF<D, BaseField = BF> {
+    /// FrobeniusField automorphisms: x -> x^p, where p is the order of BaseField.
     fn frobenius(&self) -> Self {
+        self.repeated_frobenius(1)
+    }
+
+    /// Repeated Frobenius automorphisms: x -> x^(p^k).
+    fn repeated_frobenius(&self, k: usize) -> Self {
+        if k == 0 {
+            return *self;
+        } else if k >= D {
+            return self.repeated_frobenius(k % D);
+        }
         let arr = self.to_basefield_array();
-        let k = (Self::BaseField::ORDER - 1) / (D as u64);
-        let z0 = Self::W.exp(k);
+        let z0 = match D {
+            2 => Self::W.exp(BF::FROBENIUS_CONSTANTS_2[k - 1]),
+            3 => Self::W.exp(BF::FROBENIUS_CONSTANTS_3[k - 1]),
+            4 => Self::W.exp(BF::FROBENIUS_CONSTANTS_4[k - 1]),
+            _ => unimplemented!("Only extensions of degree 2, 3, or 4 are allowed for now."),
+        };
         let mut z = Self::BaseField::ONE;
         let mut res = [Self::BaseField::ZERO; D];
         for i in 0..D {
@@ -28,25 +48,30 @@ pub trait OEF<const D: usize>: FieldExtension<D> {
 
         Self::from_basefield_array(res)
     }
+}
 
-    /// Repeated Frobenius automorphisms: x -> x^(p^k).
-    // TODO: Implement this. Is basically the same as `frobenius` above, but using
-    // `z = W^floor(j*p^k/D)`. I'm not sure there is a closed form for these so
-    // might require to hardcode them.
-    fn repeated_frobenius(&self, k: usize) -> Self {
-        todo!()
+impl<F: Frobeniable> Frobenius<F, 1> for F {
+    fn frobenius(&self) -> Self {
+        *self
+    }
+    fn repeated_frobenius(&self, _k: usize) -> Self {
+        *self
     }
 }
 
-impl<F: Field> OEF<1> for F {
-    const W: Self::BaseField = F::ZERO;
+/// Trait to hardcode constants used in the Frobenius automorphism.
+pub trait Frobeniable: Field {
+    //! `FROBENIUS_CONSTANTS_D[i-1] = floor( p^i / D) mod p-1`
+    const FROBENIUS_CONSTANTS_2: [u64; 1];
+    const FROBENIUS_CONSTANTS_3: [u64; 2];
+    const FROBENIUS_CONSTANTS_4: [u64; 3];
 }
 
-pub trait Extendable<const D: usize>: Field + Sized {
-    type Extension: Field + OEF<D, BaseField = Self> + From<Self>;
+pub trait Extendable<const D: usize>: Frobeniable + Sized {
+    type Extension: Field + OEF<D, BaseField = Self> + Frobenius<Self, D> + From<Self>;
 }
 
-impl<F: Field> Extendable<1> for F {
+impl<F: Frobeniable + Frobenius<F, 1>> Extendable<1> for F {
     type Extension = F;
 }
 

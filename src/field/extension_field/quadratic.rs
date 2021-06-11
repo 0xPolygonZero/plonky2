@@ -1,5 +1,5 @@
 use crate::field::crandall_field::CrandallField;
-use crate::field::extension_field::{FieldExtension, OEF};
+use crate::field::extension_field::{FieldExtension, Frobenius, OEF};
 use crate::field::field::Field;
 use rand::Rng;
 use std::fmt::{Debug, Display, Formatter};
@@ -15,6 +15,8 @@ impl OEF<2> for QuadraticCrandallField {
     // ``R.<x> = GF(p)[]; assert (x^2 -3).is_irreducible()`.
     const W: CrandallField = CrandallField(3);
 }
+
+impl Frobenius<CrandallField, 2> for QuadraticCrandallField {}
 
 impl FieldExtension<2> for QuadraticCrandallField {
     type BaseField = CrandallField;
@@ -63,7 +65,7 @@ impl Field for QuadraticCrandallField {
             return None;
         }
 
-        let a_pow_r_minus_1 = OEF::<2>::frobenius(self);
+        let a_pow_r_minus_1 = self.frobenius();
         let a_pow_r = a_pow_r_minus_1 * *self;
         debug_assert!(FieldExtension::<2>::is_in_basefield(&a_pow_r));
 
@@ -190,7 +192,7 @@ impl DivAssign for QuadraticCrandallField {
 #[cfg(test)]
 mod tests {
     use crate::field::extension_field::quadratic::QuadraticCrandallField;
-    use crate::field::extension_field::{FieldExtension, OEF};
+    use crate::field::extension_field::{FieldExtension, Frobenius, OEF};
     use crate::field::field::Field;
 
     #[test]
@@ -231,7 +233,7 @@ mod tests {
         let x = F::rand();
         assert_eq!(
             x.exp(<F as FieldExtension<2>>::BaseField::ORDER),
-            OEF::<2>::frobenius(&x)
+            x.frobenius()
         );
     }
 

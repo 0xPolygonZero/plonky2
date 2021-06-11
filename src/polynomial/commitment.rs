@@ -1,8 +1,8 @@
 use anyhow::Result;
 use rayon::prelude::*;
 
-use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
+use crate::field::extension_field::{FieldExtension, Frobenius};
 use crate::field::field::Field;
 use crate::field::lagrange::interpolant;
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};

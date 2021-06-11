@@ -1,7 +1,7 @@
 use anyhow::{ensure, Result};
 use itertools::izip;
 
-use crate::field::extension_field::{flatten, Extendable, FieldExtension, OEF};
+use crate::field::extension_field::{flatten, Extendable, FieldExtension, Frobenius, OEF};
 use crate::field::field::Field;
 use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
 use crate::fri::FriConfig;

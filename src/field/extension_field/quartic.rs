@@ -6,7 +6,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use rand::Rng;
 
 use crate::field::crandall_field::CrandallField;
-use crate::field::extension_field::{FieldExtension, OEF};
+use crate::field::extension_field::{FieldExtension, Frobenius, OEF};
 use crate::field::field::Field;
 
 /// A quartic extension of `CrandallField`.
@@ -19,6 +19,8 @@ impl OEF<4> for QuarticCrandallField {
     //     assert (x^4 - 3).is_irreducible()
     const W: CrandallField = CrandallField(3);
 }
+
+impl Frobenius<CrandallField, 4> for QuarticCrandallField {}
 
 impl FieldExtension<4> for QuarticCrandallField {
     type BaseField = CrandallField;
@@ -93,9 +95,9 @@ impl Field for QuarticCrandallField {
             return None;
         }
 
-        let a_pow_p = OEF::<4>::frobenius(self);
+        let a_pow_p = self.frobenius();
         let a_pow_p_plus_1 = a_pow_p * *self;
-        let a_pow_p3_plus_p2 = OEF::<4>::frobenius(&OEF::<4>::frobenius(&a_pow_p_plus_1));
+        let a_pow_p3_plus_p2 = a_pow_p_plus_1.repeated_frobenius(2);
         let a_pow_r_minus_1 = a_pow_p3_plus_p2 * a_pow_p;
         let a_pow_r = a_pow_r_minus_1 * *self;
         debug_assert!(FieldExtension::<4>::is_in_basefield(&a_pow_r));
@@ -241,7 +243,7 @@ impl DivAssign for QuarticCrandallField {
 #[cfg(test)]
 mod tests {
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::extension_field::{FieldExtension, OEF};
+    use crate::field::extension_field::{FieldExtension, Frobenius, OEF};
     use crate::field::field::Field;
 
     fn exp_naive<F: Field>(x: F, power: u128) -> F {
@@ -295,7 +297,12 @@ mod tests {
         let x = F::rand();
         assert_eq!(
             exp_naive(x, <F as FieldExtension<4>>::BaseField::ORDER as u128),
-            OEF::<4>::frobenius(&x)
+            x.frobenius()
+        );
+        assert_eq!(x.repeated_frobenius(2), x.frobenius().frobenius());
+        assert_eq!(
+            x.repeated_frobenius(3),
+            x.frobenius().frobenius().frobenius()
         );
     }
 
