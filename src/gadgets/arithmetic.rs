@@ -366,20 +366,7 @@ mod tests {
         type FF = QuarticCrandallField;
         const D: usize = 4;
 
-        let config = CircuitConfig {
-            num_wires: 134,
-            num_routed_wires: 12,
-            security_bits: 128,
-            rate_bits: 0,
-            num_challenges: 3,
-            fri_config: FriConfig {
-                proof_of_work_bits: 1,
-                rate_bits: 0,
-                reduction_arity_bits: vec![1],
-                num_query_rounds: 1,
-                blinding: PLONK_BLINDING.to_vec(),
-            },
-        };
+        let config = CircuitConfig::large_config();
 
         let mut builder = CircuitBuilder::<F, D>::new(config);
 

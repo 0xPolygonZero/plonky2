@@ -79,20 +79,7 @@ mod tests {
     #[test]
     fn test_split_base() {
         type F = CrandallField;
-        let config = CircuitConfig {
-            num_wires: 134,
-            num_routed_wires: 12,
-            security_bits: 128,
-            rate_bits: 3,
-            num_challenges: 3,
-            fri_config: FriConfig {
-                proof_of_work_bits: 1,
-                rate_bits: 3,
-                reduction_arity_bits: vec![1],
-                num_query_rounds: 1,
-                blinding: PLONK_BLINDING.to_vec(),
-            },
-        };
+        let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let x = F::from_canonical_usize(0b110100000); // 416 = 1532 in base 6.
         let xt = builder.constant(x);
