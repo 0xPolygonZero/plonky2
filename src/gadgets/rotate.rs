@@ -40,28 +40,3 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         v
     }
 }
-
-#[derive(Debug)]
-struct UnaryBaseGenerator {
-    integer: Target,
-    len: usize,
-    limbs: Vec<Target>,
-}
-
-impl<F: Field> SimpleGenerator<F> for UnaryBaseGenerator {
-    fn dependencies(&self) -> Vec<Target> {
-        vec![self.integer]
-    }
-
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let mut integer_value = witness.get_target(self.integer).to_canonical_u64();
-        let low = integer_value & ((1 << self.n_log) - 1);
-        let high = integer_value >> self.n_log;
-
-        let mut result = PartialWitness::new();
-        result.set_target(self.low, F::from_canonical_u64(low));
-        result.set_target(self.high, F::from_canonical_u64(high));
-
-        result
-    }
-}
