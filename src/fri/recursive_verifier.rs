@@ -225,22 +225,20 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             ev = self.mul_add_extension(a, e, ev);
         }
         let zeta_frob = zeta.frobenius(self);
-        let wire_evals_frob = os
+        let wire_eval = os.wires.iter().fold(self.zero_extension(), |acc, &w| {
+            let a = alpha_powers.next(self);
+            self.mul_add_extension(a, w, acc)
+        });
+        let mut alpha_powers_frob = alpha_powers.repeated_frobenius(D - 1, self);
+        let wire_eval_frob = os
             .wires
             .iter()
-            .map(|e| e.frobenius(self))
-            .collect::<Vec<_>>();
-        let mut ev_zeta = self.zero_extension();
-        for &t in &os.wires {
-            let a = alpha_powers.next(self);
-            ev_zeta = self.mul_add_extension(a, t, ev_zeta);
-        }
-        let mut ev_zeta_frob = self.zero_extension();
-        for &t in &wire_evals_frob {
-            let a = alpha_powers.next(self);
-            ev_zeta_right = self.mul_add_extension(a, t, ev_zeta);
-        }
-        let wires_interpol = self.interpolate2([(zeta, ev_zeta), (zeta_frob, ev_zeta_frob)]);
+            .fold(self.zero_extension(), |acc, &w| {
+                let a = alpha_powers_frob.next(self);
+                self.mul_add_extension(a, w, acc)
+            })
+            .frobenius(self);
+        let wires_interpol = self.interpolate2([(zeta, wire_eval), (zeta_frob, wire_eval_frob)]);
         let interpol_val = wires_interpol.eval(self, subgroup_x);
         let numerator = self.sub_extension(ev, interpol_val);
         let vanish_frob = self.sub_extension(subgroup_x, zeta_frob);

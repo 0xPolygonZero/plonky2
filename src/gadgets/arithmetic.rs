@@ -338,6 +338,18 @@ impl<const D: usize> PowersTarget<D> {
         self.current = builder.mul_extension(self.base, self.current);
         result
     }
+
+    pub fn repeated_frobenius<F: Extendable<D>>(
+        self,
+        k: usize,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        let Self { base, current } = self;
+        Self {
+            base: base.repeated_frobenius(k, builder),
+            current: current.repeated_frobenius(k, builder),
+        }
+    }
 }
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {

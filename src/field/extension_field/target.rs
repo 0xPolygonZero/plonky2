@@ -32,8 +32,7 @@ impl<const D: usize> ExtensionTarget<D> {
         res.try_into().unwrap()
     }
 
-    // TODO: Implement this. See comment in `OEF::repeated_frobenius`.
-    fn repeated_frobenius<F: Extendable<D>>(
+    pub fn repeated_frobenius<F: Extendable<D>>(
         &self,
         k: usize,
         builder: &mut CircuitBuilder<F, D>,
