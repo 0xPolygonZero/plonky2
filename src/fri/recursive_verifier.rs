@@ -29,24 +29,28 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         last_evals: &[ExtensionTarget<D>],
         beta: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        todo!()
-        // debug_assert_eq!(last_evals.len(), 1 << arity_bits);
-        //
-        // let g = F::primitive_root_of_unity(arity_bits);
-        //
-        // // The evaluation vector needs to be reordered first.
-        // let mut evals = last_evals.to_vec();
-        // reverse_index_bits_in_place(&mut evals);
-        // evals.rotate_left(reverse_bits(old_x_index, arity_bits));
-        //
-        // // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
-        // let points = g
-        //     .powers()
-        //     .zip(evals)
-        //     .map(|(y, e)| ((x * y).into(), e))
-        //     .collect::<Vec<_>>();
-        // let barycentric_weights = barycentric_weights(&points);
-        // interpolate(&points, beta, &barycentric_weights)
+        debug_assert_eq!(last_evals.len(), 1 << arity_bits);
+
+        let g = F::primitive_root_of_unity(arity_bits);
+
+        // The evaluation vector needs to be reordered first.
+        let mut evals = last_evals.to_vec();
+        reverse_index_bits_in_place(&mut evals);
+        let mut old_x_index_bits = self.split_le(old_x_index, arity_bits);
+        old_x_index_bits.reverse();
+        self.rotate_left_from_bits(&old_x_index_bits, &evals, arity_bits);
+
+        // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
+        let points = g
+            .powers()
+            .zip(evals)
+            .map(|(y, e)| {
+                let yt = self.constant(y);
+                (self.mul(x, yt), e)
+            })
+            .collect::<Vec<_>>();
+
+        self.interpolate(&points, beta)
     }
 
     fn fri_verify_proof_of_work(
@@ -205,8 +209,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let a = alpha_powers.next(self);
             ev_zeta_right = self.mul_add_extension(a, t, ev_zeta);
         }
-        let zs_interpol = self.interpolate2([(zeta, ev_zeta), (zeta_right, ev_zeta_right)]);
-        let interpol_val = zs_interpol.eval(self, subgroup_x);
+        let interpol_val =
+            self.interpolate2([(zeta, ev_zeta), (zeta_right, ev_zeta_right)], subgroup_x);
         let numerator = self.sub_extension(ev, interpol_val);
         let vanish = self.sub_extension(subgroup_x, zeta);
         let vanish_right = self.sub_extension(subgroup_x, zeta_right);
@@ -238,8 +242,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.mul_add_extension(a, w, acc)
             })
             .frobenius(self);
-        let wires_interpol = self.interpolate2([(zeta, wire_eval), (zeta_frob, wire_eval_frob)]);
-        let interpol_val = wires_interpol.eval(self, subgroup_x);
+        let interpol_val =
+            self.interpolate2([(zeta, wire_eval), (zeta_frob, wire_eval_frob)], subgroup_x);
         let numerator = self.sub_extension(ev, interpol_val);
         let vanish_frob = self.sub_extension(subgroup_x, zeta_frob);
         let denominator = self.mul_extension(vanish, vanish_frob);

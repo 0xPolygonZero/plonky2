@@ -22,8 +22,8 @@ use crate::witness::PartialWitness;
 /// given point.
 #[derive(Clone, Debug)]
 pub(crate) struct InterpolationGate<F: Extendable<D>, const D: usize> {
-    num_points: usize,
-    _phantom: PhantomData<F>,
+    pub num_points: usize,
+    pub _phantom: PhantomData<F>,
 }
 
 impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D> {

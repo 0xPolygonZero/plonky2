@@ -240,6 +240,18 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.add_extension(product, c)
     }
 
+    /// Like `mul_sub`, but for `ExtensionTarget`s. Note that, unlike `mul_sub`, this has no
+    /// performance benefit over separate muls and subs.
+    pub fn scalar_mul_sub_extension(
+        &mut self,
+        a: Target,
+        b: ExtensionTarget<D>,
+        c: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        let product = self.scalar_mul_ext(a, b);
+        self.sub_extension(product, c)
+    }
+
     /// Returns `a * b`, where `b` is in the extension field and `a` is in the base field.
     pub fn scalar_mul_ext(&mut self, a: Target, mut b: ExtensionTarget<D>) -> ExtensionTarget<D> {
         for i in 0..D {

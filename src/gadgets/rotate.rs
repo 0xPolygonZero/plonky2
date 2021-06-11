@@ -1,4 +1,5 @@
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::base_sum::BaseSumGate;
@@ -10,13 +11,24 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Selects `x` or `y` based on `b`, which is assumed to be binary.
     /// In particular, this returns `if b { x } else { y }`.
     /// Note: This does not range-check `b`.
-    pub fn select(&mut self, b: Target, x: Target, y: Target) -> Target {
-        let b_y_minus_y = self.mul_sub(b, y, y);
-        self.mul_sub(b, x, b_y_minus_y)
+    pub fn select(
+        &mut self,
+        b: Target,
+        x: ExtensionTarget<D>,
+        y: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        let b_y_minus_y = self.scalar_mul_sub_extension(b, y, y);
+        self.scalar_mul_sub_extension(b, x, b_y_minus_y)
     }
 
     /// Left-rotates an array `k` times if `b=1` else return the same array.
-    pub fn rotate_fixed(&mut self, b: Target, k: usize, v: &[Target], len: usize) -> Vec<Target> {
+    pub fn rotate_left_fixed(
+        &mut self,
+        b: Target,
+        k: usize,
+        v: &[ExtensionTarget<D>],
+        len: usize,
+    ) -> Vec<ExtensionTarget<D>> {
         let mut res = Vec::new();
 
         for i in 0..len {
@@ -29,15 +41,39 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Left-rotates an array by `num_rotation`. Assumes that `num_rotation` is range-checked to be
     /// less than `len`.
     /// Note: We assume `len` is less than 8 since we won't use any arity greater than 8 in FRI (maybe?).
-    pub fn rotate(&mut self, num_rotation: Target, v: &[Target], len: usize) -> Vec<Target> {
+    pub fn rotate_left_from_bits(
+        &mut self,
+        num_rotation_bits: &[Target],
+        v: &[ExtensionTarget<D>],
+        len_log: usize,
+    ) -> Vec<ExtensionTarget<D>> {
+        debug_assert_eq!(num_rotation_bits.len(), len_log);
+        let len = 1 << len_log;
         debug_assert_eq!(v.len(), len);
-        let bits = self.split_le_base::<2>(num_rotation, 3);
+        let mut v = v.to_vec();
 
-        let v = self.rotate_fixed(bits[0], 1, v, len);
-        let v = self.rotate_fixed(bits[1], 2, &v, len);
-        let v = self.rotate_fixed(bits[2], 4, &v, len);
+        for i in 0..len_log {
+            v = self.rotate_left_fixed(num_rotation_bits[i], 1 << i, &v, len);
+        }
 
         v
+    }
+
+    /// Left-rotates an array by `num_rotation`. Assumes that `num_rotation` is range-checked to be
+    /// less than `len`.
+    /// Note: We assume `len` is a power of two less than or equal to 8, since we won't use any
+    /// arity greater than 8 in FRI (maybe?).
+    pub fn rotate_left(
+        &mut self,
+        num_rotation: Target,
+        v: &[ExtensionTarget<D>],
+        len_log: usize,
+    ) -> Vec<ExtensionTarget<D>> {
+        let len = 1 << len_log;
+        debug_assert_eq!(v.len(), len);
+        let bits = self.split_le(num_rotation, len_log);
+
+        self.rotate_left_from_bits(&bits, v, len_log)
     }
 }
 
@@ -46,28 +82,34 @@ mod tests {
     use super::*;
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::quartic::QuarticCrandallField;
 
-    fn real_rotate(num_rotation: usize, v: &[Target]) -> Vec<Target> {
+    fn real_rotate<const D: usize>(
+        num_rotation: usize,
+        v: &[ExtensionTarget<D>],
+    ) -> Vec<ExtensionTarget<D>> {
         let mut res = v.to_vec();
         res.rotate_left(num_rotation);
         res
     }
 
-    fn test_rotate_given_len(len: usize) {
+    fn test_rotate_given_len(len_log: usize) {
         type F = CrandallField;
+        type FF = QuarticCrandallField;
+        let len = 1 << len_log;
         let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let v = (0..len)
-            .map(|_| builder.constant(F::rand()))
-            .collect::<Vec<_>>(); // 416 = 1532 in base 6.
+            .map(|_| builder.constant_extension(FF::rand()))
+            .collect::<Vec<_>>();
 
         for i in 0..len {
             let it = builder.constant(F::from_canonical_usize(i));
             let rotated = real_rotate(i, &v);
-            let purported_rotated = builder.rotate(it, &v, len);
+            let purported_rotated = builder.rotate_left(it, &v, len_log);
 
             for (x, y) in rotated.into_iter().zip(purported_rotated) {
-                builder.assert_equal(x, y);
+                builder.assert_equal_extension(x, y);
             }
         }
 
@@ -77,8 +119,8 @@ mod tests {
 
     #[test]
     fn test_rotate() {
-        for i_log in 1..4 {
-            test_rotate_given_len(1 << i_log);
+        for len_log in 1..4 {
+            test_rotate_given_len(len_log);
         }
     }
 }

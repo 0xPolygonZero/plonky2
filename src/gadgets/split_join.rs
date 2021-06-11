@@ -27,21 +27,22 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given integer into a list of wires, where each one represents a
     /// bit of the integer, with little-endian ordering.
     /// Verifies that the decomposition is correct by using `k` `BaseSum<2>` gates
-    /// with `k` such that `k*num_routed_bits>=64`.
-    pub(crate) fn split_le(&mut self, integer: Target) -> Vec<Target> {
+    /// with `k` such that `k*num_routed_wires>=num_bits`.
+    pub(crate) fn split_le(&mut self, integer: Target, num_bits: usize) -> Vec<Target> {
         let num_limbs = self.config.num_routed_wires - BaseSumGate::<2>::WIRE_LIMBS_START;
-        let k = ceil_div_usize(64, num_limbs);
+        let k = ceil_div_usize(num_bits, num_limbs);
         let gates = (0..k)
             .map(|_| self.add_gate_no_constants(BaseSumGate::<2>::new(num_limbs)))
             .collect::<Vec<_>>();
 
-        let mut bits = Vec::with_capacity(64);
+        let mut bits = Vec::with_capacity(num_bits);
         for &gate in &gates {
             bits.extend(Target::wires_from_range(
                 gate,
                 BaseSumGate::<2>::WIRE_LIMBS_START..BaseSumGate::<2>::WIRE_LIMBS_START + num_limbs,
             ));
         }
+        bits.drain(num_bits..);
 
         let zero = self.zero();
         let mut acc = zero;

@@ -177,7 +177,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut current = base;
         let one = self.one();
         let mut product = one;
-        let exponent_bits = self.split_le(exponent);
+        let exponent_bits = self.split_le(exponent, 64);
 
         for bit in exponent_bits.into_iter() {
             product = self.mul_many(&[bit, current, product]);
