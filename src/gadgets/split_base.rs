@@ -71,10 +71,6 @@ mod tests {
     use super::*;
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
-    use crate::fri::FriConfig;
-    use crate::prover::PLONK_BLINDING;
-    use crate::verifier::verify;
-    use anyhow::Result;
 
     #[test]
     fn test_split_base() {
