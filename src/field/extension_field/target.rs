@@ -31,6 +31,15 @@ impl<const D: usize> ExtensionTarget<D> {
         res.try_into().unwrap()
     }
 
+    // TODO: Implement this. See comment in `OEF::repeated_frobenius`.
+    fn repeated_frobenius<F: Extendable<D>>(
+        &self,
+        k: usize,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        todo!()
+    }
+
     pub fn from_range(gate: usize, range: Range<usize>) -> Self {
         debug_assert_eq!(range.end - range.start, D);
         Target::wires_from_range(gate, range).try_into().unwrap()

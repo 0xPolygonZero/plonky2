@@ -28,6 +28,14 @@ pub trait OEF<const D: usize>: FieldExtension<D> {
 
         Self::from_basefield_array(res)
     }
+
+    /// Repeated Frobenius automorphisms: x -> x^(p^k).
+    // TODO: Implement this. Is basically the same as `frobenius` above, but using
+    // `z = W^floor(j*p^k/D)`. I'm not sure there is a closed form for these so
+    // might require to hardcode them.
+    fn repeated_frobenius(&self, k: usize) -> Self {
+        todo!()
+    }
 }
 
 impl<F: Field> OEF<1> for F {

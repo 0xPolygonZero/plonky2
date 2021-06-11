@@ -199,11 +199,10 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .map(|(&e, a)| a * e.into())
         .sum();
     let zeta_frob = zeta.frobenius();
-    let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
-    let wires_interpol = interpolant(&[
-        (zeta, reduce_with_iter(&os.wires, alpha_powers.clone())),
-        (zeta_frob, reduce_with_iter(&wire_evals_frob, alpha_powers)),
-    ]);
+    let ev_zeta = reduce_with_iter(&os.wires, alpha_powers.clone());
+    let mut alpha_powers_frob = alpha_powers.repeated_frobenius(D - 1);
+    let ev_zeta_frob = reduce_with_iter(&os.wires, alpha_powers_frob).frobenius();
+    let wires_interpol = interpolant(&[(zeta, ev_zeta), (zeta_frob, ev_zeta_frob)]);
     let numerator = ev - wires_interpol.eval(subgroup_x);
     let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
     sum += numerator / denominator;
