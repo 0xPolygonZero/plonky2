@@ -294,7 +294,7 @@ impl<F: Field> Powers<F> {
         let Self { base, current } = self;
         Self {
             base: base.repeated_frobenius(k),
-            current: base.repeated_frobenius(k),
+            current: current.repeated_frobenius(k),
         }
     }
 }

@@ -4,6 +4,7 @@ use crate::field::extension_field::{Extendable, FieldExtension, OEF};
 use crate::field::field::Field;
 use crate::gates::mul_extension::MulExtensionGate;
 use crate::target::Target;
+use num::traits::real::Real;
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
 
@@ -37,7 +38,25 @@ impl<const D: usize> ExtensionTarget<D> {
         k: usize,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
-        todo!()
+        let arr = self.to_target_array();
+        let z0 = match D {
+            2 => F::Extension::W.exp(F::FROBENIUS_CONSTANTS_2[k - 1]),
+            3 => F::Extension::W.exp(F::FROBENIUS_CONSTANTS_3[k - 1]),
+            4 => F::Extension::W.exp(F::FROBENIUS_CONSTANTS_4[k - 1]),
+            _ => unimplemented!("Only extensions of degree 2, 3, or 4 are allowed for now."),
+        };
+        let zs = z0
+            .powers()
+            .take(D)
+            .map(|z| builder.constant(z))
+            .collect::<Vec<_>>();
+
+        let mut res = Vec::with_capacity(D);
+        for (z, a) in zs.into_iter().zip(arr) {
+            res.push(builder.mul(z, a));
+        }
+
+        res.try_into().unwrap()
     }
 
     pub fn from_range(gate: usize, range: Range<usize>) -> Self {
