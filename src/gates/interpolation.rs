@@ -209,11 +209,9 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGener
 
         let mut deps = Vec::new();
         deps.extend(local_targets(self.gate.wires_evaluation_point()));
-        deps.extend(local_targets(self.gate.wires_evaluation_value()));
         for i in 0..self.gate.num_points {
             deps.push(local_target(self.gate.wire_point(i)));
             deps.extend(local_targets(self.gate.wires_value(i)));
-            deps.extend(local_targets(self.gate.wires_coeff(i)));
         }
         deps
     }
