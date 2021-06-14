@@ -151,6 +151,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         sum
     }
 
+    /// TODO: Change this to using an `arithmetic_extension` function once `MulExtensionGate` supports addend.
     pub fn sub_extension(
         &mut self,
         mut a: ExtensionTarget<D>,
@@ -231,6 +232,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Like `mul_add`, but for `ExtensionTarget`s. Note that, unlike `mul_add`, this has no
     /// performance benefit over separate muls and adds.
+    /// TODO: Change this to using an `arithmetic_extension` function once `MulExtensionGate` supports addend.
     pub fn mul_add_extension(
         &mut self,
         a: ExtensionTarget<D>,
@@ -243,6 +245,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Like `mul_sub`, but for `ExtensionTarget`s. Note that, unlike `mul_sub`, this has no
     /// performance benefit over separate muls and subs.
+    /// TODO: Change this to using an `arithmetic_extension` function once `MulExtensionGate` supports addend.
     pub fn scalar_mul_sub_extension(
         &mut self,
         a: Target,

@@ -7,6 +7,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Selects `x` or `y` based on `b`, which is assumed to be binary.
     /// In particular, this returns `if b { x } else { y }`.
     /// Note: This does not range-check `b`.
+    // TODO: This uses 10 gates per call. If addends are added to `MulExtensionGate`, this will be
+    // reduced to 2 gates. We could also use a new degree 2 `SelectGate` for this.
+    // If `num_routed_wire` is larger than 26, we could batch two `select` in one gate.
     pub fn select(
         &mut self,
         b: Target,
