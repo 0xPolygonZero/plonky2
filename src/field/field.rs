@@ -7,7 +7,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use num::Integer;
 use rand::Rng;
 
-use crate::field::extension_field::{Extendable, FieldExtension, Frobeniable, Frobenius, OEF};
+use crate::field::extension_field::{Extendable, FieldExtension, Frobenius, OEF};
 use crate::util::bits_u64;
 
 /// A finite field with prime order less than 2^64.
@@ -287,9 +287,9 @@ impl<F: Field> Iterator for Powers<F> {
 
 impl<F: Field> Powers<F> {
     /// Apply the Frobenius automorphism `k` times.
-    pub fn repeated_frobenius<BF: Frobeniable, const D: usize>(self, k: usize) -> Self
+    pub fn repeated_frobenius<const D: usize>(self, k: usize) -> Self
     where
-        F: Frobenius<BF, D>,
+        F: Frobenius<D>,
     {
         let Self { base, current } = self;
         Self {

@@ -16,7 +16,7 @@ impl OEF<2> for QuadraticCrandallField {
     const W: CrandallField = CrandallField(3);
 }
 
-impl Frobenius<CrandallField, 2> for QuadraticCrandallField {}
+impl Frobenius<2> for QuadraticCrandallField {}
 
 impl FieldExtension<2> for QuadraticCrandallField {
     type BaseField = CrandallField;

@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn test_rotate() {
-        for len_log in 1..4 {
+        for len_log in 1..3 {
             test_rotate_given_len(len_log);
         }
     }

@@ -34,16 +34,17 @@ impl<const D: usize> ExtensionTarget<D> {
 
     pub fn repeated_frobenius<F: Extendable<D>>(
         &self,
-        k: usize,
+        count: usize,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
+        if count == 0 {
+            return *self;
+        } else if count >= D {
+            return self.repeated_frobenius(count % D, builder);
+        }
         let arr = self.to_target_array();
-        let z0 = match D {
-            2 => F::Extension::W.exp(F::FROBENIUS_CONSTANTS_2[k - 1]),
-            3 => F::Extension::W.exp(F::FROBENIUS_CONSTANTS_3[k - 1]),
-            4 => F::Extension::W.exp(F::FROBENIUS_CONSTANTS_4[k - 1]),
-            _ => unimplemented!("Only extensions of degree 2, 3, or 4 are allowed for now."),
-        };
+        let k = (F::ORDER - 1) / (D as u64);
+        let z0 = F::W.exp(k * count as u64);
         let zs = z0
             .powers()
             .take(D)

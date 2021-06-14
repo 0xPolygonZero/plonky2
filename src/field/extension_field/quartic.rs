@@ -20,7 +20,7 @@ impl OEF<4> for QuarticCrandallField {
     const W: CrandallField = CrandallField(3);
 }
 
-impl Frobenius<CrandallField, 4> for QuarticCrandallField {}
+impl Frobenius<4> for QuarticCrandallField {}
 
 impl FieldExtension<4> for QuarticCrandallField {
     type BaseField = CrandallField;
@@ -294,16 +294,18 @@ mod tests {
     #[test]
     fn test_frobenius() {
         type F = QuarticCrandallField;
+        const D: usize = 4;
         let x = F::rand();
         assert_eq!(
-            exp_naive(x, <F as FieldExtension<4>>::BaseField::ORDER as u128),
+            exp_naive(x, <F as FieldExtension<D>>::BaseField::ORDER as u128),
             x.frobenius()
         );
-        assert_eq!(x.repeated_frobenius(2), x.frobenius().frobenius());
-        assert_eq!(
-            x.repeated_frobenius(3),
-            x.frobenius().frobenius().frobenius()
-        );
+        for count in 2..D {
+            assert_eq!(
+                x.repeated_frobenius(count),
+                (0..count).fold(x, |acc, _| acc.frobenius())
+            );
+        }
     }
 
     #[test]
