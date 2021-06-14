@@ -1,9 +1,11 @@
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::hash::{permute, SPONGE_RATE, SPONGE_WIDTH};
 use crate::proof::{Hash, HashTarget, OpeningSet};
 use crate::target::Target;
+use std::convert::TryInto;
 
 /// Observes prover messages, and generates challenges by hashing the transcript.
 #[derive(Clone)]
@@ -41,9 +43,7 @@ impl<F: Field> Challenger<F> {
     where
         F: Extendable<D>,
     {
-        for &e in &element.to_basefield_array() {
-            self.observe_element(e);
-        }
+        self.observe_elements(&element.to_basefield_array());
     }
 
     pub fn observe_elements(&mut self, elements: &[F]) {
@@ -177,7 +177,7 @@ impl<F: Field> Default for Challenger<F> {
 }
 
 /// A recursive version of `Challenger`.
-pub(crate) struct RecursiveChallenger {
+pub struct RecursiveChallenger {
     sponge_state: [Target; SPONGE_WIDTH],
     input_buffer: Vec<Target>,
     output_buffer: Vec<Target>,
@@ -210,6 +210,16 @@ impl RecursiveChallenger {
 
     pub fn observe_hash(&mut self, hash: &HashTarget) {
         self.observe_elements(&hash.elements)
+    }
+
+    pub fn observe_extension_element<const D: usize>(&mut self, element: ExtensionTarget<D>) {
+        self.observe_elements(&element.0);
+    }
+
+    pub fn observe_extension_elements<const D: usize>(&mut self, elements: &[ExtensionTarget<D>]) {
+        for &element in elements {
+            self.observe_extension_element(element);
+        }
     }
 
     pub(crate) fn get_challenge<F: Extendable<D>, const D: usize>(
@@ -267,6 +277,13 @@ impl RecursiveChallenger {
                 self.get_challenge(builder),
             ],
         }
+    }
+
+    pub fn get_extension_challenge<F: Extendable<D>, const D: usize>(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> ExtensionTarget<D> {
+        self.get_n_challenges(builder, D).try_into().unwrap()
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.

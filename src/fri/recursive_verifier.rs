@@ -58,81 +58,78 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger,
         config: &FriConfig,
-    ) -> Result<()> {
+    ) {
         let mut inputs = challenger.get_hash(self).elements.to_vec();
         inputs.push(proof.pow_witness);
 
         let hash = self.hash_n_to_m(inputs, 1, false)[0];
-        self.assert_trailing_zeros::<64>(hash, config.proof_of_work_bits);
-
-        Ok(())
+        self.assert_trailing_zeros::<2>(hash, config.proof_of_work_bits);
     }
 
-    // pub fn verify_fri_proof<const D: usize>(
-    //     purported_degree_log: usize,
-    //     // Openings of the PLONK polynomials.
-    //     os: &OpeningSet<F, D>,
-    //     // Point at which the PLONK polynomials are opened.
-    //     zeta: F::Extension,
-    //     // Scaling factor to combine polynomials.
-    //     alpha: F::Extension,
-    //     initial_merkle_roots: &[Hash<F>],
-    //     proof: &FriProof<F, D>,
-    //     challenger: &mut Challenger<F>,
-    //     config: &FriConfig,
-    // ) -> Result<()> {
-    //     let total_arities = config.reduction_arity_bits.iter().sum::<usize>();
-    //     ensure!(
-    //         purported_degree_log
-    //             == log2_strict(proof.final_poly.len()) + total_arities - config.rate_bits,
-    //         "Final polynomial has wrong degree."
-    //     );
-    //
-    //     // Size of the LDE domain.
-    //     let n = proof.final_poly.len() << total_arities;
-    //
-    //     // Recover the random betas used in the FRI reductions.
-    //     let betas = proof
-    //         .commit_phase_merkle_roots
-    //         .iter()
-    //         .map(|root| {
-    //             challenger.observe_hash(root);
-    //             challenger.get_extension_challenge()
-    //         })
-    //         .collect::<Vec<_>>();
-    //     challenger.observe_extension_elements(&proof.final_poly.coeffs);
-    //
-    //     // Check PoW.
-    //     fri_verify_proof_of_work(proof, challenger, config)?;
-    //
-    //     // Check that parameters are coherent.
-    //     ensure!(
-    //         config.num_query_rounds == proof.query_round_proofs.len(),
-    //         "Number of query rounds does not match config."
-    //     );
-    //     ensure!(
-    //         !config.reduction_arity_bits.is_empty(),
-    //         "Number of reductions should be non-zero."
-    //     );
-    //
-    //     for round_proof in &proof.query_round_proofs {
-    //         fri_verifier_query_round(
-    //             os,
-    //             zeta,
-    //             alpha,
-    //             initial_merkle_roots,
-    //             &proof,
-    //             challenger,
-    //             n,
-    //             &betas,
-    //             round_proof,
-    //             config,
-    //         )?;
-    //     }
-    //
-    //     Ok(())
-    // }
-    //
+    pub fn verify_fri_proof(
+        &mut self,
+        purported_degree_log: usize,
+        // Openings of the PLONK polynomials.
+        os: &OpeningSetTarget<D>,
+        // Point at which the PLONK polynomials are opened.
+        zeta: ExtensionTarget<D>,
+        // Scaling factor to combine polynomials.
+        alpha: ExtensionTarget<D>,
+        initial_merkle_roots: &[HashTarget],
+        proof: &FriProofTarget<D>,
+        challenger: &mut RecursiveChallenger,
+        config: &FriConfig,
+    ) {
+        let total_arities = config.reduction_arity_bits.iter().sum::<usize>();
+        debug_assert_eq!(
+            purported_degree_log,
+            log2_strict(proof.final_poly.len()) + total_arities - config.rate_bits,
+            "Final polynomial has wrong degree."
+        );
+
+        // Size of the LDE domain.
+        let n = proof.final_poly.len() << total_arities;
+
+        // Recover the random betas used in the FRI reductions.
+        let betas = proof
+            .commit_phase_merkle_roots
+            .iter()
+            .map(|root| {
+                challenger.observe_hash(root);
+                challenger.get_extension_challenge(self)
+            })
+            .collect::<Vec<_>>();
+        challenger.observe_extension_elements(&proof.final_poly.0);
+
+        // Check PoW.
+        self.fri_verify_proof_of_work(proof, challenger, config);
+
+        // Check that parameters are coherent.
+        debug_assert_eq!(
+            config.num_query_rounds,
+            proof.query_round_proofs.len(),
+            "Number of query rounds does not match config."
+        );
+        debug_assert!(
+            !config.reduction_arity_bits.is_empty(),
+            "Number of reductions should be non-zero."
+        );
+
+        for round_proof in &proof.query_round_proofs {
+            self.fri_verifier_query_round(
+                os,
+                zeta,
+                alpha,
+                initial_merkle_roots,
+                &proof,
+                challenger,
+                n,
+                &betas,
+                round_proof,
+                config,
+            );
+        }
+    }
 
     fn fri_verify_initial_proof(
         &mut self,
@@ -265,7 +262,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         betas: &[ExtensionTarget<D>],
         round_proof: &FriQueryRoundTarget<D>,
         config: &FriConfig,
-    ) -> Result<()> {
+    ) {
         let n_log = log2_strict(n);
         let mut evaluations: Vec<Vec<ExtensionTarget<D>>> = Vec::new();
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
@@ -312,14 +309,15 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let mut evals = round_proof.steps[i].evals.clone();
             // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
             let (low_x_index, high_x_index) = self.split_low_high(x_index, arity_bits);
+            // TODO: Uncomment this.
             // evals.insert(x_index & (arity - 1), e_x);
-            // evaluations.push(evals);
-            // self.verify_merkle_proof(
-            //     flatten_target(&evaluations[i]),
-            //     x_index >> arity_bits,
-            //     proof.commit_phase_merkle_roots[i],
-            //     &round_proof.steps[i].merkle_proof,
-            // )?;
+            evaluations.push(evals);
+            self.verify_merkle_proof(
+                flatten_target(&evaluations[i]),
+                high_x_index,
+                proof.commit_phase_merkle_roots[i],
+                &round_proof.steps[i].merkle_proof,
+            );
 
             if i > 0 {
                 // Update the point x to x^arity.
@@ -349,7 +347,5 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // to the one sent by the prover.
         let eval = proof.final_poly.eval_scalar(self, subgroup_x);
         self.assert_equal_extension(eval, purported_eval);
-
-        Ok(())
     }
 }

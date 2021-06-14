@@ -6,6 +6,10 @@ use crate::target::Target;
 pub struct PolynomialCoeffsExtTarget<const D: usize>(pub Vec<ExtensionTarget<D>>);
 
 impl<const D: usize> PolynomialCoeffsExtTarget<D> {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     pub fn eval_scalar<F: Extendable<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
