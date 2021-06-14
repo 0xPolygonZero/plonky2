@@ -1,22 +1,16 @@
-use anyhow::{ensure, Result};
 use itertools::izip;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::{flatten_target, ExtensionTarget};
-use crate::field::extension_field::{flatten, Extendable, FieldExtension, OEF};
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
-use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
 use crate::fri::FriConfig;
-use crate::hash::hash_n_to_1;
-use crate::merkle_proofs::verify_merkle_proof;
-use crate::plonk_challenger::{Challenger, RecursiveChallenger};
-use crate::plonk_common::reduce_with_iter;
+use crate::plonk_challenger::RecursiveChallenger;
 use crate::proof::{
-    FriInitialTreeProof, FriInitialTreeProofTarget, FriProof, FriProofTarget, FriQueryRound,
-    FriQueryRoundTarget, Hash, HashTarget, OpeningSet, OpeningSetTarget,
+    FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, HashTarget, OpeningSetTarget,
 };
 use crate::target::Target;
-use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
+use crate::util::{log2_strict, reverse_index_bits_in_place};
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
@@ -180,7 +174,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
         let denominator = self.sub_extension(subgroup_x, zeta);
         let quotient = self.div_unsafe_extension(numerator, denominator);
-        let sum = self.add_extension(sum, quotient);
+        sum = self.add_extension(sum, quotient);
 
         let evs = proof
             .unsalted_evals(3, config)
@@ -213,7 +207,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let vanish_right = self.sub_extension(subgroup_x, zeta_right);
         let denominator = self.mul_extension(vanish, vanish_right);
         let quotient = self.div_unsafe_extension(numerator, denominator);
-        let sum = self.add_extension(sum, quotient);
+        sum = self.add_extension(sum, quotient);
 
         let evs = proof
             .unsalted_evals(2, config)
@@ -245,7 +239,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let vanish_frob = self.sub_extension(subgroup_x, zeta_frob);
         let denominator = self.mul_extension(vanish, vanish_frob);
         let quotient = self.div_unsafe_extension(numerator, denominator);
-        let sum = self.add_extension(sum, quotient);
+        sum = self.add_extension(sum, quotient);
 
         sum
     }
@@ -285,7 +279,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut subgroup_x = self.mul(g, phi);
 
         for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
-            let arity = 1 << arity_bits;
             let next_domain_size = domain_size >> arity_bits;
             let e_x = if i == 0 {
                 self.fri_combine_initial(
@@ -309,8 +302,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let mut evals = round_proof.steps[i].evals.clone();
             // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
             let (low_x_index, high_x_index) = self.split_low_high(x_index, arity_bits);
-            // TODO: Uncomment this.
-            // evals.insert(x_index & (arity - 1), e_x);
+            evals = self.insert(low_x_index, e_x, evals);
             evaluations.push(evals);
             self.verify_merkle_proof(
                 flatten_target(&evaluations[i]),

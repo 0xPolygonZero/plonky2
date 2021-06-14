@@ -37,6 +37,22 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         res
     }
 
+    pub fn rotate_right_fixed(
+        &mut self,
+        b: Target,
+        k: usize,
+        v: &[ExtensionTarget<D>],
+        len: usize,
+    ) -> Vec<ExtensionTarget<D>> {
+        let mut res = Vec::new();
+
+        for i in 0..len {
+            res.push(self.select(b, v[(i - k) % len], v[i]));
+        }
+
+        res
+    }
+
     /// Left-rotates an array by `num_rotation`. Assumes that `num_rotation` is range-checked to be
     /// less than `len`.
     /// Note: We assume `len` is less than 8 since we won't use any arity greater than 8 in FRI (maybe?).
@@ -58,6 +74,24 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         v
     }
 
+    pub fn rotate_right_from_bits(
+        &mut self,
+        num_rotation_bits: &[Target],
+        v: &[ExtensionTarget<D>],
+        len_log: usize,
+    ) -> Vec<ExtensionTarget<D>> {
+        debug_assert_eq!(num_rotation_bits.len(), len_log);
+        let len = 1 << len_log;
+        debug_assert_eq!(v.len(), len);
+        let mut v = v.to_vec();
+
+        for i in 0..len_log {
+            v = self.rotate_right_fixed(num_rotation_bits[i], 1 << i, &v, len);
+        }
+
+        v
+    }
+
     /// Left-rotates an array by `num_rotation`. Assumes that `num_rotation` is range-checked to be
     /// less than `len`.
     /// Note: We assume `len` is a power of two less than or equal to 8, since we won't use any
@@ -73,6 +107,19 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let bits = self.split_le(num_rotation, len_log);
 
         self.rotate_left_from_bits(&bits, v, len_log)
+    }
+
+    pub fn rotate_right(
+        &mut self,
+        num_rotation: Target,
+        v: &[ExtensionTarget<D>],
+        len_log: usize,
+    ) -> Vec<ExtensionTarget<D>> {
+        let len = 1 << len_log;
+        debug_assert_eq!(v.len(), len);
+        let bits = self.split_le(num_rotation, len_log);
+
+        self.rotate_right_from_bits(&bits, v, len_log)
     }
 }
 

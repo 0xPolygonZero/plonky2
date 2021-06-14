@@ -1,5 +1,6 @@
 pub mod arithmetic;
 pub mod hash;
+pub mod insert;
 pub mod interpolation;
 pub mod polynomial;
 pub mod range_check;

@@ -1,5 +1,4 @@
 use crate::circuit_builder::CircuitBuilder;
-use crate::circuit_data::CircuitConfig;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
@@ -8,7 +7,6 @@ use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::plonk_common::{reduce_with_powers, reduce_with_powers_recursive};
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
-use crate::wire::Wire;
 use crate::witness::PartialWitness;
 use std::ops::Range;
 
