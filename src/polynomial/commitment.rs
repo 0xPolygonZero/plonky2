@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rayon::prelude::*;
 
-use crate::field::extension_field::{Extendable, OEF};
+use crate::field::extension_field::Extendable;
 use crate::field::extension_field::{FieldExtension, Frobenius};
 use crate::field::field::Field;
 use crate::field::lagrange::interpolant;

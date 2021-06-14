@@ -1,7 +1,6 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::interpolation::InterpolationGate;
 use crate::target::Target;
 use std::marker::PhantomData;

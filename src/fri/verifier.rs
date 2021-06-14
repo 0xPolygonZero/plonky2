@@ -1,7 +1,7 @@
 use anyhow::{ensure, Result};
 use itertools::izip;
 
-use crate::field::extension_field::{flatten, Extendable, FieldExtension, Frobenius, OEF};
+use crate::field::extension_field::{flatten, Extendable, FieldExtension, Frobenius};
 use crate::field::field::Field;
 use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
 use crate::fri::FriConfig;
@@ -200,7 +200,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .sum();
     let zeta_frob = zeta.frobenius();
     let wire_eval = reduce_with_iter(&os.wires, alpha_powers.clone());
-    let mut alpha_powers_frob = alpha_powers.repeated_frobenius(D - 1);
+    let alpha_powers_frob = alpha_powers.repeated_frobenius(D - 1);
     let wire_eval_frob = reduce_with_iter(&os.wires, alpha_powers_frob).frobenius();
     let wires_interpol = interpolant(&[(zeta, wire_eval), (zeta_frob, wire_eval_frob)]);
     let numerator = ev - wires_interpol.eval(subgroup_x);

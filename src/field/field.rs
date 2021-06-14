@@ -7,7 +7,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use num::Integer;
 use rand::Rng;
 
-use crate::field::extension_field::{Extendable, FieldExtension, Frobenius, OEF};
+use crate::field::extension_field::Frobenius;
 use crate::util::bits_u64;
 
 /// A finite field with prime order less than 2^64.

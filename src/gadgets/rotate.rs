@@ -1,11 +1,7 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
-use crate::gates::base_sum::BaseSumGate;
-use crate::generator::SimpleGenerator;
 use crate::target::Target;
-use crate::witness::PartialWitness;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Selects `x` or `y` based on `b`, which is assumed to be binary.
