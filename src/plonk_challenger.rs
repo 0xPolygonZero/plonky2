@@ -289,6 +289,7 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::field::Field;
     use crate::generator::generate_partial_witness;
+    use crate::permutation_argument::TargetPartitions;
     use crate::plonk_challenger::{Challenger, RecursiveChallenger};
     use crate::target::Target;
     use crate::witness::PartialWitness;
@@ -337,7 +338,7 @@ mod tests {
 
         let config = CircuitConfig {
             num_wires: 12 + 12 + 3 + 101,
-            num_routed_wires: 27,
+            num_routed_wires: 200,
             ..CircuitConfig::default()
         };
         let mut builder = CircuitBuilder::<F, 4>::new(config);
@@ -351,7 +352,11 @@ mod tests {
         }
         let circuit = builder.build();
         let mut witness = PartialWitness::new();
-        generate_partial_witness(&mut witness, &circuit.prover_only.generators);
+        generate_partial_witness(
+            &mut witness,
+            &circuit.prover_only.generators,
+            &circuit.prover_only.targets_partition,
+        );
         let recursive_output_values_per_round: Vec<Vec<F>> = recursive_outputs_per_round
             .iter()
             .map(|outputs| witness.get_targets(outputs))

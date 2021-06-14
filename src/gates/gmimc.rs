@@ -323,6 +323,8 @@ mod tests {
     use crate::gates::gmimc::{GMiMCGate, W};
     use crate::generator::generate_partial_witness;
     use crate::gmimc::gmimc_permute_naive;
+    use crate::permutation_argument::TargetPartitions;
+    use crate::target::Target;
     use crate::wire::Wire;
     use crate::witness::PartialWitness;
 
@@ -368,7 +370,13 @@ mod tests {
         }
 
         let generators = gate.0.generators(0, &[]);
-        generate_partial_witness(&mut witness, &generators);
+        let mut tp = TargetPartitions::new();
+        for g in 0..10 {
+            for i in 0..config.num_routed_wires {
+                tp.add_partition(Target::wire(g, i));
+            }
+        }
+        generate_partial_witness(&mut witness, &generators, &tp);
 
         let expected_outputs: [F; W] =
             gmimc_permute_naive(permutation_inputs.try_into().unwrap(), constants);

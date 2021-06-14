@@ -59,6 +59,10 @@ impl<F: Field> PartialWitness<F> {
         targets.iter().all(|&t| self.contains(t))
     }
 
+    pub fn all_populated_targets(&self) -> Vec<Target> {
+        self.target_values.keys().cloned().collect()
+    }
+
     pub fn set_target(&mut self, target: Target, value: F) {
         let opt_old_value = self.target_values.insert(target, value);
         if let Some(old_value) = opt_old_value {
