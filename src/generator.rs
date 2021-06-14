@@ -17,17 +17,13 @@ pub(crate) fn generate_partial_witness<F: Field>(
         for watch in generator.watch_list() {
             generator_indices_by_watches
                 .entry(watch)
-                .or_insert_with(Vec::new)
-                .push(i);
+                .or_insert_with(|| vec![i]);
         }
     }
 
     // Build a list of "pending" generators which are queued to be run. Initially, all generators
     // are queued.
-    let mut pending_generator_indices = HashSet::new();
-    for i in 0..generators.len() {
-        pending_generator_indices.insert(i);
-    }
+    let mut pending_generator_indices: HashSet<_> = (0..generators.len()).collect();
 
     // We also track a list of "expired" generators which have already returned false.
     let mut expired_generator_indices = HashSet::new();
