@@ -19,7 +19,8 @@ pub(crate) fn generate_partial_witness<F: Field>(
         for watch in generator.watch_list() {
             generator_indices_by_watches
                 .entry(watch)
-                .or_insert_with(|| vec![i]);
+                .or_insert_with(Vec::new)
+                .push(i)
         }
     }
 
