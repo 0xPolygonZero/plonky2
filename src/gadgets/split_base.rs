@@ -67,6 +67,8 @@ mod tests {
     use super::*;
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
+    use crate::field::field::Field;
+    use crate::witness::PartialWitness;
 
     #[test]
     fn test_split_base() {

@@ -79,6 +79,8 @@ mod tests {
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::field::Field;
+    use crate::witness::PartialWitness;
 
     fn real_rotate<const D: usize>(
         num_rotation: usize,
