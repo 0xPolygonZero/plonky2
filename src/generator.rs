@@ -61,6 +61,11 @@ pub(crate) fn generate_partial_witness<F: Field>(
 
         pending_generator_indices = next_pending_generator_indices;
     }
+    assert_eq!(
+        expired_generator_indices.len(),
+        generators.len(),
+        "Some generators weren't run."
+    );
 }
 
 /// A generator participates in the generation of the witness.
