@@ -18,7 +18,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         Target::wires_from_range(
             gate,
-            BaseSumGate::<B>::WIRE_LIMBS_START..BaseSumGate::<B>::WIRE_LIMBS_START + num_limbs,
+            BaseSumGate::<B>::START_LIMBS..BaseSumGate::<B>::START_LIMBS + num_limbs,
         )
     }
 

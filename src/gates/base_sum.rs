@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
@@ -8,9 +10,8 @@ use crate::plonk_common::{reduce_with_powers, reduce_with_powers_recursive};
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::witness::PartialWitness;
-use std::ops::Range;
 
-/// A gate which can sum base W limbs and the reversed limbs.
+/// A gate which can sum base B limbs and the reversed limbs.
 #[derive(Debug)]
 pub struct BaseSumGate<const B: usize> {
     num_limbs: usize,
@@ -23,11 +24,11 @@ impl<const B: usize> BaseSumGate<B> {
 
     pub const WIRE_SUM: usize = 0;
     pub const WIRE_REVERSED_SUM: usize = 1;
-    pub const WIRE_LIMBS_START: usize = 2;
+    pub const START_LIMBS: usize = 2;
 
     /// Returns the index of the `i`th limb wire.
     pub fn limbs(&self) -> Range<usize> {
-        Self::WIRE_LIMBS_START..Self::WIRE_LIMBS_START + self.num_limbs
+        Self::START_LIMBS..Self::START_LIMBS + self.num_limbs
     }
 }
 
@@ -66,10 +67,10 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
         let mut limbs = vars.local_wires[self.limbs()].to_vec();
         let computed_sum = reduce_with_powers_recursive(builder, &limbs, base);
         limbs.reverse();
-        let reversed_computed_sum = reduce_with_powers_recursive(builder, &limbs, base);
+        let computed_reversed_sum = reduce_with_powers_recursive(builder, &limbs, base);
         let mut constraints = vec![
             builder.sub_extension(computed_sum, sum),
-            builder.sub_extension(reversed_computed_sum, reversed_sum),
+            builder.sub_extension(computed_reversed_sum, reversed_sum),
         ];
         for limb in limbs {
             constraints.push({
@@ -138,8 +139,7 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
             "Integer too large to fit in given number of limbs"
         );
 
-        let limbs = (BaseSumGate::<B>::WIRE_LIMBS_START
-            ..BaseSumGate::<B>::WIRE_LIMBS_START + self.num_limbs)
+        let limbs = (BaseSumGate::<B>::START_LIMBS..BaseSumGate::<B>::START_LIMBS + self.num_limbs)
             .map(|i| Target::wire(self.gate_index, i));
         let limbs_value = (0..self.num_limbs)
             .scan(sum_value, |acc, _| {

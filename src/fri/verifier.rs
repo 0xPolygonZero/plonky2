@@ -196,6 +196,11 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     let wire_composition_eval = reduce_with_iter(wire_evals, alpha_powers.clone());
     let zeta_frob = zeta.frobenius();
     let wire_eval = reduce_with_iter(&os.wires, alpha_powers.clone());
+    // We want to compute `sum a^i*phi(w_i)`, where `phi` denotes the Frobenius automorphism.
+    // Since `phi^D=id` and `phi` is a field automorphism, we have the following equalities:
+    // `sum a^i*phi(w_i) = sum phi(phi^(D-1)(a^i)*w_i) = phi(sum phi^(D-1)(a)^i*w_i)`
+    // So we can compute the original sum using only one call to the `D-1`-repeated Frobenius of alpha,
+    // and one call at the end of the sum.
     let alpha_powers_frob = alpha_powers.repeated_frobenius(D - 1);
     let wire_eval_frob = reduce_with_iter(&os.wires, alpha_powers_frob).frobenius();
     let wires_interpol = interpolant(&[(zeta, wire_eval), (zeta_frob, wire_eval_frob)]);
