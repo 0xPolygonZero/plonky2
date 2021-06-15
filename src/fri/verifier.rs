@@ -1,5 +1,4 @@
 use anyhow::{ensure, Result};
-use itertools::izip;
 
 use crate::field::extension_field::{flatten, Extendable, FieldExtension, Frobenius};
 use crate::field::field::Field;
@@ -155,31 +154,29 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     let mut sum = F::Extension::ZERO;
 
     // We will add three terms to `sum`:
-    // - one for polynomials opened at `x` only
-    // - one for polynomials opened at `x` and `g x`
-    // - one for polynomials opened at `x` and its conjugate
+    // - one for various polynomials which are opened at a single point `x`
+    // - one for Zs, which are opened at `x` and `g x`
+    // - one for wire polynomials, which are opened at `x` and its conjugate
 
-    let evals = [0, 1, 4]
+    let single_evals = [0, 1, 4]
         .iter()
         .flat_map(|&i| proof.unsalted_evals(i, config))
         .map(|&e| F::Extension::from_basefield(e));
-    let openings = os
+    let single_openings = os
         .constants
         .iter()
         .chain(&os.plonk_s_sigmas)
         .chain(&os.quotient_polys);
-    let numerator = izip!(evals, openings, &mut alpha_powers)
-        .map(|(e, &o, a)| a * (e - o))
-        .sum::<F::Extension>();
-    let denominator = subgroup_x - zeta;
-    sum += numerator / denominator;
+    let single_diffs = single_evals.zip(single_openings).map(|(e, &o)| e - o);
+    let single_numerator = reduce_with_iter(single_diffs, &mut alpha_powers);
+    let single_denominator = subgroup_x - zeta;
+    sum += single_numerator / single_denominator;
 
-    let ev: F::Extension = proof
+    let zs_evals = proof
         .unsalted_evals(3, config)
         .iter()
-        .zip(alpha_powers.clone())
-        .map(|(&e, a)| a * e.into())
-        .sum();
+        .map(|&e| F::Extension::from_basefield(e));
+    let zs_composition_eval = reduce_with_iter(zs_evals, alpha_powers.clone());
     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
     let zs_interpol = interpolant(&[
         (zeta, reduce_with_iter(&os.plonk_zs, alpha_powers.clone())),
@@ -188,22 +185,21 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
             reduce_with_iter(&os.plonk_zs_right, &mut alpha_powers),
         ),
     ]);
-    let numerator = ev - zs_interpol.eval(subgroup_x);
-    let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
-    sum += numerator / denominator;
+    let zs_numerator = zs_composition_eval - zs_interpol.eval(subgroup_x);
+    let zs_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
+    sum += zs_numerator / zs_denominator;
 
-    let ev: F::Extension = proof
+    let wire_evals = proof
         .unsalted_evals(2, config)
         .iter()
-        .zip(alpha_powers.clone())
-        .map(|(&e, a)| a * e.into())
-        .sum();
+        .map(|&e| F::Extension::from_basefield(e));
+    let wire_composition_eval = reduce_with_iter(wire_evals, alpha_powers.clone());
     let zeta_frob = zeta.frobenius();
     let wire_eval = reduce_with_iter(&os.wires, alpha_powers.clone());
     let alpha_powers_frob = alpha_powers.repeated_frobenius(D - 1);
     let wire_eval_frob = reduce_with_iter(&os.wires, alpha_powers_frob).frobenius();
     let wires_interpol = interpolant(&[(zeta, wire_eval), (zeta_frob, wire_eval_frob)]);
-    let numerator = ev - wires_interpol.eval(subgroup_x);
+    let numerator = wire_composition_eval - wires_interpol.eval(subgroup_x);
     let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
     sum += numerator / denominator;
 

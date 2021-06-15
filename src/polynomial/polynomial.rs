@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::iter::Sum;
 use std::ops::{Add, Mul, Sub};
 
 use crate::field::extension_field::Extendable;
@@ -222,6 +223,12 @@ impl<F: Field> Add for &PolynomialCoeffs<F> {
     }
 }
 
+impl<F: Field> Sum for PolynomialCoeffs<F> {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Self::empty(), |acc, p| &acc + &p)
+    }
+}
+
 impl<F: Field> Sub for &PolynomialCoeffs<F> {
     type Output = PolynomialCoeffs<F>;
 
@@ -272,9 +279,8 @@ mod tests {
 
     use rand::{thread_rng, Rng};
 
-    use crate::field::crandall_field::CrandallField;
-
     use super::*;
+    use crate::field::crandall_field::CrandallField;
 
     #[test]
     fn test_trimmed() {

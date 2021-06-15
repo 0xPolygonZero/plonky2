@@ -1,12 +1,12 @@
+use std::convert::{TryFrom, TryInto};
+use std::ops::Range;
+
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::{Extendable, FieldExtension, OEF};
 use crate::field::field::Field;
 use crate::gates::mul_extension::MulExtensionGate;
 use crate::target::Target;
-use num::traits::real::Real;
-use std::convert::{TryFrom, TryInto};
-use std::ops::Range;
 
 /// `Target`s representing an element of an extension field.
 #[derive(Copy, Clone, Debug)]

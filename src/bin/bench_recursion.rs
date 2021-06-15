@@ -1,5 +1,4 @@
 use env_logger::Env;
-
 use plonky2::circuit_builder::CircuitBuilder;
 use plonky2::circuit_data::CircuitConfig;
 use plonky2::field::crandall_field::CrandallField;
