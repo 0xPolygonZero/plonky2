@@ -49,7 +49,7 @@ impl CircuitConfig {
         self.num_wires - self.num_routed_wires
     }
 
-    pub fn large_config() -> Self {
+    pub(crate) fn large_config() -> Self {
         Self {
             num_wires: 134,
             num_routed_wires: 12,

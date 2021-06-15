@@ -89,16 +89,9 @@ impl<F: Field> PartialWitness<F> {
         F: Extendable<D>,
     {
         let limbs = value.to_basefield_array();
-        for i in 0..D {
-            let opt_old_value = self.target_values.insert(et.0[i], limbs[i]);
-            if let Some(old_value) = opt_old_value {
-                assert_eq!(
-                    old_value, limbs[i],
-                    "Target was set twice with different values: {:?}",
-                    et.0[i]
-                );
-            }
-        }
+        (0..D).for_each(|i| {
+            self.set_target(et.0[i], limbs[i]);
+        });
     }
 
     pub fn set_wire(&mut self, wire: Wire, value: F) {
