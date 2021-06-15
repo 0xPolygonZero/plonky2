@@ -18,18 +18,7 @@ impl<const D: usize> ExtensionTarget<D> {
     }
 
     pub fn frobenius<F: Extendable<D>>(&self, builder: &mut CircuitBuilder<F, D>) -> Self {
-        let arr = self.to_target_array();
-        let k = (F::ORDER - 1) / (D as u64);
-        let zs = (0..D as u64)
-            .map(|i| builder.constant(F::Extension::W.exp(k * i)))
-            .collect::<Vec<_>>();
-
-        let mut res = Vec::with_capacity(D);
-        for (z, a) in zs.into_iter().zip(arr) {
-            res.push(builder.mul(z, a));
-        }
-
-        res.try_into().unwrap()
+        self.repeated_frobenius(1, builder)
     }
 
     pub fn repeated_frobenius<F: Extendable<D>>(
