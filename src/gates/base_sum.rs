@@ -145,19 +145,22 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
             .scan(sum_value, |acc, _| {
                 let tmp = *acc % B;
                 *acc /= B;
-                Some(tmp)
+                Some(F::from_canonical_usize(tmp))
             })
             .collect::<Vec<_>>();
 
-        let reversed_sum = limbs_value.iter().rev().fold(0, |acc, &x| acc * B + x);
+        let b_field = F::from_canonical_usize(B);
+        let reversed_sum = limbs_value
+            .iter()
+            .fold(F::ZERO, |acc, &x| acc * b_field + x);
 
         let mut result = PartialWitness::new();
         result.set_target(
             Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_REVERSED_SUM),
-            F::from_canonical_usize(reversed_sum),
+            reversed_sum,
         );
         for (b, b_value) in limbs.zip(limbs_value) {
-            result.set_target(b, F::from_canonical_usize(b_value));
+            result.set_target(b, b_value);
         }
 
         result

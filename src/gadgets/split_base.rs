@@ -82,10 +82,13 @@ mod tests {
         let two = builder.two();
         let three = builder.constant(F::from_canonical_u64(3));
         let five = builder.constant(F::from_canonical_u64(5));
-        builder.assert_equal(limbs[0], two);
-        builder.assert_equal(limbs[1], three);
-        builder.assert_equal(limbs[2], five);
-        builder.assert_equal(limbs[3], one);
+        builder.route(limbs[0], two);
+        builder.route(limbs[1], three);
+        builder.route(limbs[2], five);
+        builder.route(limbs[3], one);
+        let rev = builder.constant(F::from_canonical_u64(11));
+        let revt = builder.reverse_bits::<2>(xt, 9);
+        builder.route(revt, rev);
 
         builder.assert_trailing_zeros::<6>(xt, 4);
         builder.assert_trailing_zeros::<4>(xt, 5);
