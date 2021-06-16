@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
@@ -8,7 +10,6 @@ use crate::generator::SimpleGenerator;
 use crate::target::Target;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
-use std::convert::TryInto;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes `-x`.
@@ -173,11 +174,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     // TODO: Optimize this, maybe with a new gate.
-    pub fn exp(&mut self, base: Target, exponent: Target) -> Target {
+    /// Exponentiate `base` to the power of `exponent`, where `exponent < 2^num_bits`.
+    pub fn exp(&mut self, base: Target, exponent: Target, num_bits: usize) -> Target {
         let mut current = base;
         let one = self.one();
         let mut product = one;
-        let exponent_bits = self.split_le(exponent, 64);
+        let exponent_bits = self.split_le(exponent, num_bits);
 
         for bit in exponent_bits.into_iter() {
             product = self.mul_many(&[bit, current, product]);

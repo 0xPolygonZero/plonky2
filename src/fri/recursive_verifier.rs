@@ -276,7 +276,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let phi = self.constant(F::primitive_root_of_unity(n_log));
 
         let reversed_x = self.reverse_bits::<2>(x_index, n_log);
-        let phi = self.exp(phi, reversed_x);
+        let phi = self.exp(phi, reversed_x, n_log);
         let mut subgroup_x = self.mul(g, phi);
 
         for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
