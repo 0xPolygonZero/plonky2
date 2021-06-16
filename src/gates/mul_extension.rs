@@ -1,3 +1,6 @@
+use std::convert::TryInto;
+use std::ops::Range;
+
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
@@ -7,8 +10,6 @@ use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
-use std::convert::TryInto;
-use std::ops::Range;
 
 /// A gate which can multiply two field extension elements.
 /// TODO: Add an addend if `NUM_ROUTED_WIRES` is large enough.
@@ -108,36 +109,26 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for MulExtensionGenera
     }
 
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let multiplicand_0 = MulExtensionGate::<D>::wires_multiplicand_0()
-            .map(|i| {
-                witness.get_wire(Wire {
-                    gate: self.gate_index,
-                    input: i,
-                })
-            })
-            .collect::<Vec<_>>();
-        let multiplicand_0 = F::Extension::from_basefield_array(multiplicand_0.try_into().unwrap());
-        let multiplicand_1 = MulExtensionGate::<D>::wires_multiplicand_1()
-            .map(|i| {
-                witness.get_wire(Wire {
-                    gate: self.gate_index,
-                    input: i,
-                })
-            })
-            .collect::<Vec<_>>();
-        let multiplicand_1 = F::Extension::from_basefield_array(multiplicand_1.try_into().unwrap());
-        let output = MulExtensionGate::<D>::wires_output()
-            .map(|i| Wire {
-                gate: self.gate_index,
-                input: i,
-            })
-            .collect::<Vec<_>>();
+        let multiplicand_0_target = ExtensionTarget::from_range(
+            self.gate_index,
+            MulExtensionGate::<D>::wires_multiplicand_0(),
+        );
+        let multiplicand_0 = witness.get_extension_target(multiplicand_0_target);
+
+        let multiplicand_1_target = ExtensionTarget::from_range(
+            self.gate_index,
+            MulExtensionGate::<D>::wires_multiplicand_1(),
+        );
+        let multiplicand_1 = witness.get_extension_target(multiplicand_1_target);
+
+        let output_target =
+            ExtensionTarget::from_range(self.gate_index, MulExtensionGate::<D>::wires_output());
 
         let computed_output =
             F::Extension::from_basefield(self.const_0) * multiplicand_0 * multiplicand_1;
 
         let mut pw = PartialWitness::new();
-        pw.set_ext_wires(output, computed_output);
+        pw.set_extension_target(output_target, computed_output);
         pw
     }
 }
