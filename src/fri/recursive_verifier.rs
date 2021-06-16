@@ -32,7 +32,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         reverse_index_bits_in_place(&mut evals);
         let mut old_x_index_bits = self.split_le(old_x_index, arity_bits);
         old_x_index_bits.reverse();
-        self.rotate_left_from_bits(&old_x_index_bits, &evals, arity_bits);
+        self.rotate_left_from_bits(&old_x_index_bits, &evals);
 
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
         let points = g

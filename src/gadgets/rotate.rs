@@ -2,6 +2,7 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::target::Target;
+use crate::util::bits_u64;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Selects `x` or `y` based on `b`, which is assumed to be binary.
@@ -26,8 +27,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         b: Target,
         k: usize,
         v: &[ExtensionTarget<D>],
-        len: usize,
     ) -> Vec<ExtensionTarget<D>> {
+        let len = v.len();
         let mut res = Vec::new();
 
         for i in 0..len {
@@ -37,38 +38,33 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         res
     }
 
+    /// Left-rotates an array `k` times if `b=1` else return the same array.
     pub fn rotate_right_fixed(
         &mut self,
         b: Target,
         k: usize,
         v: &[ExtensionTarget<D>],
-        len: usize,
     ) -> Vec<ExtensionTarget<D>> {
+        let len = v.len();
         let mut res = Vec::new();
 
         for i in 0..len {
-            res.push(self.select(b, v[(i - k) % len], v[i]));
+            res.push(self.select(b, v[(len + i - k) % len], v[i]));
         }
 
         res
     }
 
-    /// Left-rotates an array by `num_rotation`. Assumes that `num_rotation` is range-checked to be
-    /// less than `len`.
-    /// Note: We assume `len` is less than 8 since we won't use any arity greater than 8 in FRI (maybe?).
+    /// Left-rotates an vector by the `Target` having bits given in little-endian by `num_rotation_bits`.
     pub fn rotate_left_from_bits(
         &mut self,
         num_rotation_bits: &[Target],
         v: &[ExtensionTarget<D>],
-        len_log: usize,
     ) -> Vec<ExtensionTarget<D>> {
-        debug_assert_eq!(num_rotation_bits.len(), len_log);
-        let len = 1 << len_log;
-        debug_assert_eq!(v.len(), len);
         let mut v = v.to_vec();
 
-        for i in 0..len_log {
-            v = self.rotate_left_fixed(num_rotation_bits[i], 1 << i, &v, len);
+        for i in 0..num_rotation_bits.len() {
+            v = self.rotate_left_fixed(num_rotation_bits[i], 1 << i, &v);
         }
 
         v
@@ -78,48 +74,40 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         num_rotation_bits: &[Target],
         v: &[ExtensionTarget<D>],
-        len_log: usize,
     ) -> Vec<ExtensionTarget<D>> {
-        debug_assert_eq!(num_rotation_bits.len(), len_log);
-        let len = 1 << len_log;
-        debug_assert_eq!(v.len(), len);
         let mut v = v.to_vec();
 
-        for i in 0..len_log {
-            v = self.rotate_right_fixed(num_rotation_bits[i], 1 << i, &v, len);
+        for i in 0..num_rotation_bits.len() {
+            v = self.rotate_right_fixed(num_rotation_bits[i], 1 << i, &v);
         }
 
         v
     }
 
     /// Left-rotates an array by `num_rotation`. Assumes that `num_rotation` is range-checked to be
-    /// less than `len`.
-    /// Note: We assume `len` is a power of two less than or equal to 8, since we won't use any
-    /// arity greater than 8 in FRI (maybe?).
+    /// less than `2^len_bits`.
     pub fn rotate_left(
         &mut self,
         num_rotation: Target,
         v: &[ExtensionTarget<D>],
-        len_log: usize,
+        len_bits: usize,
     ) -> Vec<ExtensionTarget<D>> {
-        let len = 1 << len_log;
-        debug_assert_eq!(v.len(), len);
-        let bits = self.split_le(num_rotation, len_log);
+        debug_assert_eq!(bits_u64(v.len() as u64), len_bits);
+        let bits = self.split_le(num_rotation, len_bits);
 
-        self.rotate_left_from_bits(&bits, v, len_log)
+        self.rotate_left_from_bits(&bits, v)
     }
 
     pub fn rotate_right(
         &mut self,
         num_rotation: Target,
         v: &[ExtensionTarget<D>],
-        len_log: usize,
+        len_bits: usize,
     ) -> Vec<ExtensionTarget<D>> {
-        let len = 1 << len_log;
-        debug_assert_eq!(v.len(), len);
-        let bits = self.split_le(num_rotation, len_log);
+        debug_assert_eq!(bits_u64(v.len() as u64), len_bits);
+        let bits = self.split_le(num_rotation, len_bits);
 
-        self.rotate_right_from_bits(&bits, v, len_log)
+        self.rotate_right_from_bits(&bits, v)
     }
 }
 
@@ -141,10 +129,9 @@ mod tests {
         res
     }
 
-    fn test_rotate_given_len(len_log: usize) {
+    fn test_rotate_given_len(len: usize) {
         type F = CrandallField;
         type FF = QuarticCrandallField;
-        let len = 1 << len_log;
         let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let v = (0..len)
@@ -154,7 +141,7 @@ mod tests {
         for i in 0..len {
             let it = builder.constant(F::from_canonical_usize(i));
             let rotated = real_rotate(i, &v);
-            let purported_rotated = builder.rotate_left(it, &v, len_log);
+            let purported_rotated = builder.rotate_left(it, &v, bits_u64(len as u64));
 
             for (x, y) in rotated.into_iter().zip(purported_rotated) {
                 builder.assert_equal_extension(x, y);
@@ -167,8 +154,8 @@ mod tests {
 
     #[test]
     fn test_rotate() {
-        for len_log in 1..3 {
-            test_rotate_given_len(len_log);
+        for len in 1..6 {
+            test_rotate_given_len(len);
         }
     }
 }
