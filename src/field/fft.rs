@@ -2,9 +2,21 @@ use crate::field::field::Field;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_ceil, log2_strict, reverse_index_bits, reverse_bits};
 
+enum FftStrategy { Classic, Barretenberg }
+
+const FFT_STRATEGY: FftStrategy = FftStrategy::Classic;
+
+#[inline]
+fn fft_dispatch<F: Field>(input: Vec<F>) -> Vec<F> {
+    match FFT_STRATEGY {
+        FftStrategy::Classic => fft_classic(input),
+        FftStrategy::Barretenberg => fft_barretenberg(input)
+    }
+}
+
 pub fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
-    fft_barretenberg(poly)
-    //fft_classic(poly)
+    let PolynomialCoeffs { coeffs } = poly;
+    PolynomialValues { values: fft_dispatch(coeffs) }
 }
 
 pub fn ifft<F: Field>(
@@ -14,30 +26,27 @@ pub fn ifft<F: Field>(
     let n_inv = F::from_canonical_usize(n).try_inverse().unwrap();
 
     let PolynomialValues { values } = poly;
-    let PolynomialValues { values: mut result } =
-        fft_barretenberg(PolynomialCoeffs { coeffs: values });
-        //fft_classic(PolynomialCoeffs { coeffs: values });
+    let mut coeffs = fft_dispatch(values);
 
     // We reverse all values except the first, and divide each by n.
-    result[0] *= n_inv;
-    result[n / 2] *= n_inv;
+    coeffs[0] *= n_inv;
+    coeffs[n / 2] *= n_inv;
     for i in 1..(n / 2) {
         let j = n - i;
-        let result_i = result[j] * n_inv;
-        let result_j = result[i] * n_inv;
-        result[i] = result_i;
-        result[j] = result_j;
+        let coeffs_i = coeffs[j] * n_inv;
+        let coeffs_j = coeffs[i] * n_inv;
+        coeffs[i] = coeffs_i;
+        coeffs[j] = coeffs_j;
     }
-    PolynomialCoeffs { coeffs: result }
+    PolynomialCoeffs { coeffs }
 }
 
 /// FFT implementation based on Section 32.3 of "Introduction to
 /// Algorithms" by Cormen et al.
 pub(crate) fn fft_classic<F: Field>(
-    poly: PolynomialCoeffs<F>
-) -> PolynomialValues<F> {
-    let PolynomialCoeffs { coeffs } = poly;
-    let mut values = reverse_index_bits(coeffs);
+    input: Vec<F>
+) -> Vec<F> {
+    let mut values = reverse_index_bits(input);
 
     // TODO: First round is mult by 1, so should be done separately
     // TODO: Unroll later rounds.
@@ -66,24 +75,23 @@ pub(crate) fn fft_classic<F: Field>(
         m *= 2;
         lg_m += 1;
     }
-    PolynomialValues { values }
+    values
 }
 
 /// FFT implementation inspired by Barretenberg's:
 /// https://github.com/AztecProtocol/barretenberg/blob/master/barretenberg/src/aztec/polynomials/polynomial_arithmetic.cpp#L58
 /// https://github.com/AztecProtocol/barretenberg/blob/master/barretenberg/src/aztec/polynomials/evaluation_domain.cpp#L30
 pub(crate) fn fft_barretenberg<F: Field>(
-    poly: PolynomialCoeffs<F>
-) -> PolynomialValues<F> {
-    let n = poly.len();
-    let lg_n = poly.log_len();
+    input: Vec<F>
+) -> Vec<F> {
+    let n = input.len();
+    let lg_n = log2_strict(input.len());
 
-    let PolynomialCoeffs { coeffs } = poly;
-    let mut values = reverse_index_bits(coeffs);
+    let mut values = reverse_index_bits(input);
 
     // FFT of a constant polynomial (including zero) is itself.
     if n < 2 {
-        return PolynomialValues { values }
+        return values
     }
 
     // Precompute a table of the roots of unity used in the main
@@ -116,11 +124,11 @@ pub(crate) fn fft_barretenberg<F: Field>(
         values[k] += t;
     }
 
-    // m = 2
     if n == 2 {
-        return PolynomialValues { values }
+        return values
     }
 
+    // m = 2
     for k in (0..n).step_by(4) {
         // NB: Grouping statements as is done in the main loop below
         // does not seem to help here (worse by a few millis).
@@ -181,7 +189,7 @@ pub(crate) fn fft_barretenberg<F: Field>(
         m *= 2;
         lg_m += 1;
     }
-    PolynomialValues { values }
+    values
 }
 
 
