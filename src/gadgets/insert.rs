@@ -2,7 +2,6 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::target::Target;
-use crate::util::bits_u64;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Inserts a `Target` in a vector at a non-deterministic index. This is done by rotating to the
@@ -12,7 +11,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         index: Target,
         element: ExtensionTarget<D>,
-        mut v: Vec<ExtensionTarget<D>>,
+        v: Vec<ExtensionTarget<D>>,
     ) -> Vec<ExtensionTarget<D>> {
         let mut v = self.rotate_left(index, &v);
         v.insert(0, element);

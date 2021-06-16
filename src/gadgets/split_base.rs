@@ -22,13 +22,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         )
     }
 
-    /// Asserts that `x`'s bit representation has at least `trailing_zeros` trailing zeros.
+    /// Asserts that `x`'s big-endian bit representation has at least `trailing_zeros` trailing zeros.
     pub(crate) fn assert_trailing_zeros<const B: usize>(&mut self, x: Target, trailing_zeros: u32) {
         let num_limbs = num_limbs(64, B);
         let num_limbs_to_check = num_limbs_to_check(trailing_zeros, B);
         let limbs = self.split_le_base::<B>(x, num_limbs);
         assert!(
-            num_limbs_to_check < self.config.num_routed_wires,
+            num_limbs_to_check <= self.config.num_routed_wires,
             "Not enough routed wires."
         );
         for i in 0..num_limbs_to_check {

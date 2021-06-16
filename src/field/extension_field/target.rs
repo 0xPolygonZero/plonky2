@@ -246,7 +246,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Returns `a * b`, where `b` is in the extension field and `a` is in the base field.
-    pub fn scalar_mul_ext(&mut self, a: Target, mut b: ExtensionTarget<D>) -> ExtensionTarget<D> {
+    pub fn scalar_mul_ext(&mut self, a: Target, b: ExtensionTarget<D>) -> ExtensionTarget<D> {
         let a_ext = self.convert_to_ext(a);
         self.mul_extension(a_ext, b)
     }

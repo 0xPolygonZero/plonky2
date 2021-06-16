@@ -32,29 +32,30 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         if num_bits == 0 {
             return Vec::new();
         }
-        let num_limbs = self.config.num_routed_wires - BaseSumGate::<2>::START_LIMBS;
-        let k = ceil_div_usize(num_bits, num_limbs);
+        let bits_per_gate = self.config.num_routed_wires - BaseSumGate::<2>::START_LIMBS;
+        let k = ceil_div_usize(num_bits, bits_per_gate);
         let gates = (0..k)
-            .map(|_| self.add_gate_no_constants(BaseSumGate::<2>::new(num_limbs)))
+            .map(|_| self.add_gate_no_constants(BaseSumGate::<2>::new(bits_per_gate)))
             .collect::<Vec<_>>();
 
         let mut bits = Vec::with_capacity(num_bits);
         for &gate in &gates {
             bits.extend(Target::wires_from_range(
                 gate,
-                BaseSumGate::<2>::START_LIMBS..BaseSumGate::<2>::START_LIMBS + num_limbs,
+                BaseSumGate::<2>::START_LIMBS..BaseSumGate::<2>::START_LIMBS + bits_per_gate,
             ));
         }
         bits.drain(num_bits..);
 
         let zero = self.zero();
+        let one = self.one();
         let mut acc = zero;
         for &gate in gates.iter().rev() {
             let sum = Target::wire(gate, BaseSumGate::<2>::WIRE_SUM);
             acc = self.arithmetic(
-                F::from_canonical_usize(1 << num_limbs),
+                F::from_canonical_usize(1 << bits_per_gate),
                 acc,
-                zero,
+                one,
                 F::ONE,
                 sum,
             );
@@ -64,7 +65,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.add_generator(WireSplitGenerator {
             integer,
             gates,
-            num_limbs,
+            num_limbs: bits_per_gate,
         });
 
         bits

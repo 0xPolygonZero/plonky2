@@ -11,7 +11,8 @@ use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::witness::PartialWitness;
 
-/// A gate which can sum base B limbs and the reversed limbs.
+/// A gate which can decompose a number into base B little-endian limbs,
+/// and compute the limb-reversed (i.e. big-endian) sum.
 #[derive(Debug)]
 pub struct BaseSumGate<const B: usize> {
     num_limbs: usize,
