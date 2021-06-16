@@ -1,4 +1,6 @@
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::target::ExtensionTarget;
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
@@ -11,7 +13,7 @@ use crate::witness::PartialWitness;
 pub struct ConstantGate;
 
 impl ConstantGate {
-    pub fn get<F: Field>() -> GateRef<F> {
+    pub fn get<F: Extendable<D>, const D: usize>() -> GateRef<F, D> {
         GateRef::new(ConstantGate)
     }
 
@@ -20,12 +22,12 @@ impl ConstantGate {
     pub const WIRE_OUTPUT: usize = 0;
 }
 
-impl<F: Field> Gate<F> for ConstantGate {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     fn id(&self) -> String {
         "ConstantGate".into()
     }
 
-    fn eval_unfiltered(&self, vars: EvaluationVars<F>) -> Vec<F> {
+    fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let input = vars.local_constants[Self::CONST_INPUT];
         let output = vars.local_wires[Self::WIRE_OUTPUT];
         vec![output - input]
@@ -33,12 +35,12 @@ impl<F: Field> Gate<F> for ConstantGate {
 
     fn eval_unfiltered_recursively(
         &self,
-        builder: &mut CircuitBuilder<F>,
-        vars: EvaluationTargets,
-    ) -> Vec<Target> {
+        builder: &mut CircuitBuilder<F, D>,
+        vars: EvaluationTargets<D>,
+    ) -> Vec<ExtensionTarget<D>> {
         let input = vars.local_constants[Self::CONST_INPUT];
         let output = vars.local_wires[Self::WIRE_OUTPUT];
-        vec![builder.sub(output, input)]
+        vec![builder.sub_extension(output, input)]
     }
 
     fn generators(
@@ -98,6 +100,6 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree(ConstantGate::get::<CrandallField>())
+        test_low_degree(ConstantGate::get::<CrandallField, 4>())
     }
 }

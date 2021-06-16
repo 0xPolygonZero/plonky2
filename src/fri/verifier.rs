@@ -1,15 +1,15 @@
-use crate::field::extension_field::{flatten, Extendable, FieldExtension};
+use anyhow::{ensure, Result};
+
+use crate::field::extension_field::{flatten, Extendable, FieldExtension, OEF};
 use crate::field::field::Field;
 use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
 use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::Challenger;
-use crate::polynomial::commitment::SALT_SIZE;
-use crate::polynomial::polynomial::PolynomialCoeffs;
-use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash};
+use crate::plonk_common::reduce_with_iter;
+use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash, OpeningSet};
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
-use anyhow::{ensure, Result};
 
 /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
 /// and P' is the FRI reduced polynomial.
@@ -65,8 +65,10 @@ fn fri_verify_proof_of_work<F: Field + Extendable<D>, const D: usize>(
 
 pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     purported_degree_log: usize,
-    // Point-evaluation pairs for polynomial commitments.
-    points: &[(F::Extension, F::Extension)],
+    // Openings of the PLONK polynomials.
+    os: &OpeningSet<F, D>,
+    // Point at which the PLONK polynomials are opened.
+    zeta: F::Extension,
     // Scaling factor to combine polynomials.
     alpha: F::Extension,
     initial_merkle_roots: &[Hash<F>],
@@ -108,11 +110,10 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
         "Number of reductions should be non-zero."
     );
 
-    let interpolant = interpolant(points);
     for round_proof in &proof.query_round_proofs {
         fri_verifier_query_round(
-            &interpolant,
-            points,
+            os,
+            zeta,
             alpha,
             initial_merkle_roots,
             &proof,
@@ -142,29 +143,74 @@ fn fri_verify_initial_proof<F: Field>(
 fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     proof: &FriInitialTreeProof<F>,
     alpha: F::Extension,
-    interpolant: &PolynomialCoeffs<F::Extension>,
-    points: &[(F::Extension, F::Extension)],
+    os: &OpeningSet<F, D>,
+    zeta: F::Extension,
     subgroup_x: F,
     config: &FriConfig,
 ) -> F::Extension {
-    let e = proof
-        .evals_proofs
+    assert!(D > 1, "Not implemented for D=1.");
+    let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
+    let subgroup_x = F::Extension::from_basefield(subgroup_x);
+    let mut alpha_powers = alpha.powers();
+    let mut sum = F::Extension::ZERO;
+
+    // We will add three terms to `sum`:
+    // - one for various polynomials which are opened at a single point `x`
+    // - one for Zs, which are opened at `x` and `g x`
+    // - one for wire polynomials, which are opened at `x` and its conjugate
+
+    let single_evals = [0, 1, 4]
         .iter()
-        .enumerate()
-        .flat_map(|(i, (v, _))| &v[..v.len() - if config.blinding[i] { SALT_SIZE } else { 0 }])
-        .rev()
-        .fold(F::Extension::ZERO, |acc, &e| alpha * acc + e.into());
-    let numerator = e - interpolant.eval(subgroup_x.into());
-    let denominator = points
+        .flat_map(|&i| proof.unsalted_evals(i, config))
+        .map(|&e| F::Extension::from_basefield(e));
+    let single_openings = os
+        .constants
         .iter()
-        .map(|&(x, _)| F::Extension::from_basefield(subgroup_x) - x)
-        .product();
-    numerator / denominator
+        .chain(&os.plonk_s_sigmas)
+        .chain(&os.quotient_polys);
+    let single_diffs = single_evals.zip(single_openings).map(|(e, &o)| e - o);
+    let single_numerator = reduce_with_iter(single_diffs, &mut alpha_powers);
+    let single_denominator = subgroup_x - zeta;
+    sum += single_numerator / single_denominator;
+
+    let zs_evals = proof
+        .unsalted_evals(3, config)
+        .iter()
+        .map(|&e| F::Extension::from_basefield(e));
+    let zs_composition_eval = reduce_with_iter(zs_evals, alpha_powers.clone());
+    let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
+    let zs_interpol = interpolant(&[
+        (zeta, reduce_with_iter(&os.plonk_zs, alpha_powers.clone())),
+        (
+            zeta_right,
+            reduce_with_iter(&os.plonk_zs_right, &mut alpha_powers),
+        ),
+    ]);
+    let zs_numerator = zs_composition_eval - zs_interpol.eval(subgroup_x);
+    let zs_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
+    sum += zs_numerator / zs_denominator;
+
+    let wire_evals = proof
+        .unsalted_evals(2, config)
+        .iter()
+        .map(|&e| F::Extension::from_basefield(e));
+    let wire_composition_eval = reduce_with_iter(wire_evals, alpha_powers.clone());
+    let zeta_frob = zeta.frobenius();
+    let wire_evals_frob = os.wires.iter().map(|e| e.frobenius());
+    let wires_interpol = interpolant(&[
+        (zeta, reduce_with_iter(&os.wires, alpha_powers.clone())),
+        (zeta_frob, reduce_with_iter(wire_evals_frob, alpha_powers)),
+    ]);
+    let wires_numerator = wire_composition_eval - wires_interpol.eval(subgroup_x);
+    let wires_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
+    sum += wires_numerator / wires_denominator;
+
+    sum
 }
 
 fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
-    interpolant: &PolynomialCoeffs<F::Extension>,
-    points: &[(F::Extension, F::Extension)],
+    os: &OpeningSet<F, D>,
+    zeta: F::Extension,
     alpha: F::Extension,
     initial_merkle_roots: &[Hash<F>],
     proof: &FriProof<F, D>,
@@ -195,8 +241,8 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
             fri_combine_initial(
                 &round_proof.initial_trees_proof,
                 alpha,
-                interpolant,
-                points,
+                os,
+                zeta,
                 subgroup_x,
                 config,
             )

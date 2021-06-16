@@ -1,10 +1,12 @@
+use std::convert::TryInto;
+
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
+use crate::fri::FriConfig;
 use crate::merkle_proofs::{MerkleProof, MerkleProofTarget};
 use crate::polynomial::commitment::{ListPolynomialCommitment, OpeningProof};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
-use std::convert::TryInto;
 
 /// Represents a ~256 bit hash output.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -63,8 +65,8 @@ pub struct Proof<F: Field + Extendable<D>, const D: usize> {
     /// Merkle root of LDEs of the quotient polynomial components.
     pub quotient_polys_root: Hash<F>,
 
-    /// Purported values of each polynomial at each challenge point.
-    pub openings: Vec<OpeningSet<F::Extension>>,
+    /// Purported values of each polynomial at the challenge point.
+    pub openings: OpeningSet<F, D>,
 
     /// A FRI argument for each FRI query.
     pub opening_proof: OpeningProof<F, D>,
@@ -99,6 +101,13 @@ pub struct FriInitialTreeProof<F: Field> {
     pub evals_proofs: Vec<(Vec<F>, MerkleProof<F>)>,
 }
 
+impl<F: Field> FriInitialTreeProof<F> {
+    pub(crate) fn unsalted_evals(&self, i: usize, config: &FriConfig) -> &[F] {
+        let evals = &self.evals_proofs[i].0;
+        &evals[..evals.len() - config.salt_size(i)]
+    }
+}
+
 /// Proof for a FRI query round.
 // TODO: Implement FriQueryRoundTarget
 pub struct FriQueryRound<F: Field + Extendable<D>, const D: usize> {
@@ -130,31 +139,37 @@ pub struct FriProofTarget {
 }
 
 /// The purported values of each polynomial at a single point.
-pub struct OpeningSet<F: Field> {
-    pub constants: Vec<F>,
-    pub plonk_sigmas: Vec<F>,
-    pub wires: Vec<F>,
-    pub plonk_zs: Vec<F>,
-    pub quotient_polys: Vec<F>,
+pub struct OpeningSet<F: Field + Extendable<D>, const D: usize> {
+    pub constants: Vec<F::Extension>,
+    pub plonk_s_sigmas: Vec<F::Extension>,
+    pub wires: Vec<F::Extension>,
+    pub plonk_zs: Vec<F::Extension>,
+    pub plonk_zs_right: Vec<F::Extension>,
+    pub quotient_polys: Vec<F::Extension>,
 }
 
-impl<F: Field> OpeningSet<F> {
+impl<F: Field + Extendable<D>, const D: usize> OpeningSet<F, D> {
     pub fn new(
-        z: F,
+        z: F::Extension,
+        g: F::Extension,
         constant_commitment: &ListPolynomialCommitment<F>,
         plonk_sigmas_commitment: &ListPolynomialCommitment<F>,
         wires_commitment: &ListPolynomialCommitment<F>,
         plonk_zs_commitment: &ListPolynomialCommitment<F>,
         quotient_polys_commitment: &ListPolynomialCommitment<F>,
     ) -> Self {
-        let eval_commitment = |z: F, c: &ListPolynomialCommitment<F>| {
-            c.polynomials.iter().map(|p| p.eval(z)).collect::<Vec<_>>()
+        let eval_commitment = |z: F::Extension, c: &ListPolynomialCommitment<F>| {
+            c.polynomials
+                .iter()
+                .map(|p| p.to_extension().eval(z))
+                .collect::<Vec<_>>()
         };
         Self {
             constants: eval_commitment(z, constant_commitment),
-            plonk_sigmas: eval_commitment(z, plonk_sigmas_commitment),
+            plonk_s_sigmas: eval_commitment(z, plonk_sigmas_commitment),
             wires: eval_commitment(z, wires_commitment),
             plonk_zs: eval_commitment(z, plonk_zs_commitment),
+            plonk_zs_right: eval_commitment(g * z, plonk_zs_commitment),
             quotient_polys: eval_commitment(z, quotient_polys_commitment),
         }
     }

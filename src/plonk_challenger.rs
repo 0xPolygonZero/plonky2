@@ -2,7 +2,7 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::hash::{permute, SPONGE_RATE, SPONGE_WIDTH};
-use crate::proof::{Hash, HashTarget};
+use crate::proof::{Hash, HashTarget, OpeningSet};
 use crate::target::Target;
 
 /// Observes prover messages, and generates challenges by hashing the transcript.
@@ -58,6 +58,30 @@ impl<F: Field> Challenger<F> {
     {
         for element in elements {
             self.observe_extension_element(element);
+        }
+    }
+
+    pub fn observe_opening_set<const D: usize>(&mut self, os: &OpeningSet<F, D>)
+    where
+        F: Extendable<D>,
+    {
+        let OpeningSet {
+            constants,
+            plonk_s_sigmas,
+            wires,
+            plonk_zs,
+            plonk_zs_right,
+            quotient_polys,
+        } = os;
+        for v in &[
+            constants,
+            plonk_s_sigmas,
+            wires,
+            plonk_zs,
+            plonk_zs_right,
+            quotient_polys,
+        ] {
+            self.observe_extension_elements(v);
         }
     }
 
@@ -160,7 +184,9 @@ pub(crate) struct RecursiveChallenger {
 }
 
 impl RecursiveChallenger {
-    pub(crate) fn new<F: Field>(builder: &mut CircuitBuilder<F>) -> Self {
+    pub(crate) fn new<F: Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
         let zero = builder.zero();
         RecursiveChallenger {
             sponge_state: [zero; SPONGE_WIDTH],
@@ -186,7 +212,10 @@ impl RecursiveChallenger {
         self.observe_elements(&hash.elements)
     }
 
-    pub(crate) fn get_challenge<F: Field>(&mut self, builder: &mut CircuitBuilder<F>) -> Target {
+    pub(crate) fn get_challenge<F: Extendable<D>, const D: usize>(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Target {
         self.absorb_buffered_inputs(builder);
 
         if self.output_buffer.is_empty() {
@@ -200,16 +229,16 @@ impl RecursiveChallenger {
             .expect("Output buffer should be non-empty")
     }
 
-    pub(crate) fn get_2_challenges<F: Field>(
+    pub(crate) fn get_2_challenges<F: Extendable<D>, const D: usize>(
         &mut self,
-        builder: &mut CircuitBuilder<F>,
+        builder: &mut CircuitBuilder<F, D>,
     ) -> (Target, Target) {
         (self.get_challenge(builder), self.get_challenge(builder))
     }
 
-    pub(crate) fn get_3_challenges<F: Field>(
+    pub(crate) fn get_3_challenges<F: Extendable<D>, const D: usize>(
         &mut self,
-        builder: &mut CircuitBuilder<F>,
+        builder: &mut CircuitBuilder<F, D>,
     ) -> (Target, Target, Target) {
         (
             self.get_challenge(builder),
@@ -218,16 +247,19 @@ impl RecursiveChallenger {
         )
     }
 
-    pub(crate) fn get_n_challenges<F: Field>(
+    pub(crate) fn get_n_challenges<F: Extendable<D>, const D: usize>(
         &mut self,
-        builder: &mut CircuitBuilder<F>,
+        builder: &mut CircuitBuilder<F, D>,
         n: usize,
     ) -> Vec<Target> {
         (0..n).map(|_| self.get_challenge(builder)).collect()
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
-    fn absorb_buffered_inputs<F: Field>(&mut self, builder: &mut CircuitBuilder<F>) {
+    fn absorb_buffered_inputs<F: Extendable<D>, const D: usize>(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) {
         if self.input_buffer.is_empty() {
             return;
         }
@@ -308,7 +340,7 @@ mod tests {
             num_routed_wires: 27,
             ..CircuitConfig::default()
         };
-        let mut builder = CircuitBuilder::<F>::new(config);
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
         let mut recursive_challenger = RecursiveChallenger::new(&mut builder);
         let mut recursive_outputs_per_round: Vec<Vec<Target>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {

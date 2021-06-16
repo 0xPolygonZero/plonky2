@@ -84,10 +84,9 @@ impl<F: Field> MerkleTree<F> {
 mod tests {
     use anyhow::Result;
 
+    use super::*;
     use crate::field::crandall_field::CrandallField;
     use crate::merkle_proofs::verify_merkle_proof;
-
-    use super::*;
 
     fn random_data<F: Field>(n: usize, k: usize) -> Vec<Vec<F>> {
         (0..n).map(|_| F::rand_vec(k)).collect()

@@ -1,3 +1,5 @@
+use crate::polynomial::commitment::SALT_SIZE;
+
 pub mod prover;
 pub mod verifier;
 
@@ -25,6 +27,16 @@ pub struct FriConfig {
     pub blinding: Vec<bool>,
 }
 
+impl FriConfig {
+    pub(crate) fn salt_size(&self, i: usize) -> usize {
+        if self.blinding[i] {
+            SALT_SIZE
+        } else {
+            0
+        }
+    }
+}
+
 fn fri_delta(rate_log: usize, conjecture: bool) -> f64 {
     let rate = (1 << rate_log) as f64;
     if conjecture {
@@ -45,138 +57,5 @@ fn fri_l(codeword_len: usize, rate_log: usize, conjecture: bool) -> f64 {
     } else {
         // See the Johnson bound.
         1.0 / (2.0 * EPSILON * rate.sqrt())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quadratic::QuadraticCrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::extension_field::{flatten, Extendable, FieldExtension};
-    use crate::field::fft::ifft;
-    use crate::field::field::Field;
-    use crate::fri::prover::fri_proof;
-    use crate::fri::verifier::verify_fri_proof;
-    use crate::merkle_tree::MerkleTree;
-    use crate::plonk_challenger::Challenger;
-    use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-    use crate::util::reverse_index_bits_in_place;
-    use anyhow::Result;
-    use rand::rngs::ThreadRng;
-    use rand::Rng;
-
-    fn check_fri<F: Field + Extendable<D>, const D: usize>(
-        degree_log: usize,
-        rate_bits: usize,
-        reduction_arity_bits: Vec<usize>,
-        num_query_rounds: usize,
-    ) -> Result<()> {
-        let n = 1 << degree_log;
-        let coeffs = PolynomialCoeffs::new(F::rand_vec(n)).lde(rate_bits);
-        let coset_lde = coeffs.clone().coset_fft(F::MULTIPLICATIVE_GROUP_GENERATOR);
-        let config = FriConfig {
-            num_query_rounds,
-            rate_bits,
-            proof_of_work_bits: 2,
-            reduction_arity_bits,
-            blinding: vec![false],
-        };
-        let tree = {
-            let mut leaves = coset_lde
-                .values
-                .iter()
-                .map(|&x| vec![x])
-                .collect::<Vec<_>>();
-            reverse_index_bits_in_place(&mut leaves);
-            MerkleTree::new(leaves, false)
-        };
-        let coset_lde = PolynomialValues::new(
-            coset_lde
-                .values
-                .into_iter()
-                .map(F::Extension::from)
-                .collect(),
-        );
-        let root = tree.root;
-        let mut challenger = Challenger::new();
-        let proof = fri_proof::<F, D>(
-            &[&tree],
-            &coeffs.to_extension::<D>(),
-            &coset_lde,
-            &mut challenger,
-            &config,
-        );
-
-        let mut challenger = Challenger::new();
-        verify_fri_proof(
-            degree_log,
-            &[],
-            F::Extension::ONE,
-            &[root],
-            &proof,
-            &mut challenger,
-            &config,
-        )?;
-
-        Ok(())
-    }
-
-    fn gen_arities(degree_log: usize, rng: &mut ThreadRng) -> Vec<usize> {
-        let mut arities = Vec::new();
-        let mut remaining = degree_log;
-        while remaining > 0 {
-            let arity = rng.gen_range(0, remaining + 1);
-            arities.push(arity);
-            remaining -= arity;
-        }
-        arities
-    }
-
-    fn check_fri_multi_params<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
-        let mut rng = rand::thread_rng();
-        for degree_log in 1..6 {
-            for rate_bits in 0..3 {
-                for num_query_round in 0..4 {
-                    for _ in 0..3 {
-                        check_fri::<F, D>(
-                            degree_log,
-                            rate_bits,
-                            gen_arities(degree_log, &mut rng),
-                            num_query_round,
-                        )?;
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
-    mod base {
-        use super::*;
-
-        #[test]
-        fn test_fri_multi_params() -> Result<()> {
-            check_fri_multi_params::<CrandallField, 1>()
-        }
-    }
-
-    mod quadratic {
-        use super::*;
-
-        #[test]
-        fn test_fri_multi_params() -> Result<()> {
-            check_fri_multi_params::<CrandallField, 2>()
-        }
-    }
-
-    mod quartic {
-        use super::*;
-
-        #[test]
-        fn test_fri_multi_params() -> Result<()> {
-            check_fri_multi_params::<CrandallField, 4>()
-        }
     }
 }

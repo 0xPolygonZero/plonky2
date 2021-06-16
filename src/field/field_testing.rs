@@ -142,8 +142,9 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
 macro_rules! test_arithmetic {
     ($field:ty) => {
         mod arithmetic {
-            use crate::field::field::Field;
             use std::ops::{Add, Mul, Neg, Sub};
+
+            use crate::field::field::Field;
 
             // Can be 32 or 64; doesn't have to be computer's actual word
             // bits. Choosing 32 gives more tests...

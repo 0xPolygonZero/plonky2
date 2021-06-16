@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::target::ExtensionTarget;
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
-use crate::gates::gmimc_eval::GMiMCEvalGate;
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::gmimc::gmimc_automatic_constants;
 use crate::target::Target;
@@ -22,17 +23,17 @@ const W: usize = 12;
 /// sibling digests. It also has an accumulator that computes the weighted sum of these flags, for
 /// computing the index of the leaf based on these swap bits.
 #[derive(Debug)]
-pub struct GMiMCGate<F: Field, const R: usize> {
+pub struct GMiMCGate<F: Extendable<D>, const D: usize, const R: usize> {
     constants: Arc<[F; R]>,
 }
 
-impl<F: Field, const R: usize> GMiMCGate<F, R> {
-    pub fn with_constants(constants: Arc<[F; R]>) -> GateRef<F> {
-        let gate = GMiMCGate::<F, R> { constants };
+impl<F: Extendable<D>, const D: usize, const R: usize> GMiMCGate<F, D, R> {
+    pub fn with_constants(constants: Arc<[F; R]>) -> GateRef<F, D> {
+        let gate = GMiMCGate::<F, D, R> { constants };
         GateRef::new(gate)
     }
 
-    pub fn with_automatic_constants() -> GateRef<F> {
+    pub fn with_automatic_constants() -> GateRef<F, D> {
         let constants = Arc::new(gmimc_automatic_constants::<F, R>());
         Self::with_constants(constants)
     }
@@ -66,21 +67,21 @@ impl<F: Field, const R: usize> GMiMCGate<F, R> {
     }
 }
 
-impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
+impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<F, D, R> {
     fn id(&self) -> String {
         format!("<R={}> {:?}", R, self)
     }
 
-    fn eval_unfiltered(&self, vars: EvaluationVars<F>) -> Vec<F> {
+    fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         // Assert that `swap` is binary.
         let swap = vars.local_wires[Self::WIRE_SWAP];
-        constraints.push(swap * (swap - F::ONE));
+        constraints.push(swap * (swap - F::Extension::ONE));
 
         let old_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_OLD];
         let new_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_NEW];
-        let computed_new_index_acc = F::TWO * old_index_acc + swap;
+        let computed_new_index_acc = F::Extension::TWO * old_index_acc + swap;
         constraints.push(computed_new_index_acc - new_index_acc);
 
         let mut state = Vec::with_capacity(12);
@@ -100,11 +101,11 @@ impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
 
         // Value that is implicitly added to each element.
         // See https://affine.group/2020/02/starkware-challenge
-        let mut addition_buffer = F::ZERO;
+        let mut addition_buffer = F::Extension::ZERO;
 
         for r in 0..R {
             let active = r % W;
-            let cubing_input = state[active] + addition_buffer + self.constants[r];
+            let cubing_input = state[active] + addition_buffer + self.constants[r].into();
             let cubing_input_wire = vars.local_wires[Self::wire_cubing_input(r)];
             constraints.push(cubing_input - cubing_input_wire);
             let f = cubing_input_wire.cube();
@@ -122,37 +123,36 @@ impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
 
     fn eval_unfiltered_recursively(
         &self,
-        builder: &mut CircuitBuilder<F>,
-        vars: EvaluationTargets,
-    ) -> Vec<Target> {
+        builder: &mut CircuitBuilder<F, D>,
+        vars: EvaluationTargets<D>,
+    ) -> Vec<ExtensionTarget<D>> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
-        // Assert that `swap` is binary. Usually we would assert that
-        //     swap(swap - 1) = 0
-        // but to make it work with a single ArithmeticGate, we will instead write it as
-        //     swap*swap - swap = 0
         let swap = vars.local_wires[Self::WIRE_SWAP];
-        constraints.push(builder.mul_sub(swap, swap, swap));
+        let one_ext = builder.one_extension();
+        let not_swap = builder.sub_extension(swap, one_ext);
+        constraints.push(builder.mul_extension(swap, not_swap));
 
         let old_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_OLD];
         let new_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_NEW];
         // computed_new_index_acc = 2 * old_index_acc + swap
         let two = builder.two();
-        let computed_new_index_acc = builder.mul_add(two, old_index_acc, swap);
-        constraints.push(builder.sub(computed_new_index_acc, new_index_acc));
+        let double_old_index_acc = builder.scalar_mul_ext(two, old_index_acc);
+        let computed_new_index_acc = builder.add_extension(double_old_index_acc, swap);
+        constraints.push(builder.sub_extension(computed_new_index_acc, new_index_acc));
 
         let mut state = Vec::with_capacity(12);
         for i in 0..4 {
             let a = vars.local_wires[i];
             let b = vars.local_wires[i + 4];
-            let delta = builder.sub(b, a);
-            state.push(builder.mul_add(swap, delta, a));
+            let delta = builder.sub_extension(b, a);
+            state.push(builder.mul_add_extension(swap, delta, a));
         }
         for i in 0..4 {
             let a = vars.local_wires[i + 4];
             let b = vars.local_wires[i];
-            let delta = builder.sub(b, a);
-            state.push(builder.mul_add(swap, delta, a));
+            let delta = builder.sub_extension(b, a);
+            state.push(builder.mul_add_extension(swap, delta, a));
         }
         for i in 8..12 {
             state.push(vars.local_wires[i]);
@@ -160,56 +160,24 @@ impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
 
         // Value that is implicitly added to each element.
         // See https://affine.group/2020/02/starkware-challenge
-        let mut addition_buffer = builder.zero();
+        let mut addition_buffer = builder.zero_extension();
 
         for r in 0..R {
             let active = r % W;
-            let gate = builder.add_gate(GMiMCEvalGate::get(), vec![self.constants[r]]);
 
-            let cubing_input = vars.local_wires[Self::wire_cubing_input(r)];
-            builder.route(
-                cubing_input,
-                Target::Wire(Wire {
-                    gate,
-                    input: GMiMCEvalGate::<F>::WIRE_CUBING_INPUT,
-                }),
-            );
-
-            builder.route(
-                addition_buffer,
-                Target::Wire(Wire {
-                    gate,
-                    input: GMiMCEvalGate::<F>::WIRE_ADDITION_BUFFER_OLD,
-                }),
-            );
-
-            builder.route(
-                state[active],
-                Target::Wire(Wire {
-                    gate,
-                    input: GMiMCEvalGate::<F>::WIRE_STATE_A_OLD,
-                }),
-            );
-
-            constraints.push(Target::Wire(Wire {
-                gate,
-                input: GMiMCEvalGate::<F>::WIRE_CONSTRAINT,
-            }));
-
-            addition_buffer = Target::Wire(Wire {
-                gate,
-                input: GMiMCEvalGate::<F>::WIRE_ADDITION_BUFFER_NEW,
-            });
-
-            state[active] = Target::Wire(Wire {
-                gate,
-                input: GMiMCEvalGate::<F>::WIRE_STATE_A_NEW,
-            });
+            let constant = builder.constant_extension(self.constants[r].into());
+            let cubing_input =
+                builder.add_many_extension(&[state[active], addition_buffer, constant]);
+            let square = builder.mul_extension(cubing_input, cubing_input);
+            let f = builder.mul_extension(square, cubing_input);
+            addition_buffer = builder.add_extension(addition_buffer, f);
+            state[active] = builder.sub_extension(state[active], f);
         }
 
         for i in 0..W {
-            state[i] = builder.add(state[i], addition_buffer);
-            constraints.push(builder.sub(state[i], vars.local_wires[Self::wire_output(i)]));
+            state[i] = builder.add_extension(state[i], addition_buffer);
+            constraints
+                .push(builder.sub_extension(state[i], vars.local_wires[Self::wire_output(i)]));
         }
 
         constraints
@@ -245,19 +213,21 @@ impl<F: Field, const R: usize> Gate<F> for GMiMCGate<F, R> {
 }
 
 #[derive(Debug)]
-struct GMiMCGenerator<F: Field, const R: usize> {
+struct GMiMCGenerator<F: Extendable<D>, const D: usize, const R: usize> {
     gate_index: usize,
     constants: Arc<[F; R]>,
 }
 
-impl<F: Field, const R: usize> SimpleGenerator<F> for GMiMCGenerator<F, R> {
+impl<F: Extendable<D>, const D: usize, const R: usize> SimpleGenerator<F>
+    for GMiMCGenerator<F, D, R>
+{
     fn dependencies(&self) -> Vec<Target> {
         let mut dep_input_indices = Vec::with_capacity(W + 2);
         for i in 0..W {
-            dep_input_indices.push(GMiMCGate::<F, R>::wire_input(i));
+            dep_input_indices.push(GMiMCGate::<F, D, R>::wire_input(i));
         }
-        dep_input_indices.push(GMiMCGate::<F, R>::WIRE_SWAP);
-        dep_input_indices.push(GMiMCGate::<F, R>::WIRE_INDEX_ACCUMULATOR_OLD);
+        dep_input_indices.push(GMiMCGate::<F, D, R>::WIRE_SWAP);
+        dep_input_indices.push(GMiMCGate::<F, D, R>::WIRE_INDEX_ACCUMULATOR_OLD);
 
         dep_input_indices
             .into_iter()
@@ -277,14 +247,14 @@ impl<F: Field, const R: usize> SimpleGenerator<F> for GMiMCGenerator<F, R> {
             .map(|i| {
                 witness.get_wire(Wire {
                     gate: self.gate_index,
-                    input: GMiMCGate::<F, R>::wire_input(i),
+                    input: GMiMCGate::<F, D, R>::wire_input(i),
                 })
             })
             .collect::<Vec<_>>();
 
         let swap_value = witness.get_wire(Wire {
             gate: self.gate_index,
-            input: GMiMCGate::<F, R>::WIRE_SWAP,
+            input: GMiMCGate::<F, D, R>::WIRE_SWAP,
         });
         debug_assert!(swap_value == F::ZERO || swap_value == F::ONE);
         if swap_value == F::ONE {
@@ -296,13 +266,13 @@ impl<F: Field, const R: usize> SimpleGenerator<F> for GMiMCGenerator<F, R> {
         // Update the index accumulator.
         let old_index_acc_value = witness.get_wire(Wire {
             gate: self.gate_index,
-            input: GMiMCGate::<F, R>::WIRE_INDEX_ACCUMULATOR_OLD,
+            input: GMiMCGate::<F, D, R>::WIRE_INDEX_ACCUMULATOR_OLD,
         });
         let new_index_acc_value = F::TWO * old_index_acc_value + swap_value;
         result.set_wire(
             Wire {
                 gate: self.gate_index,
-                input: GMiMCGate::<F, R>::WIRE_INDEX_ACCUMULATOR_NEW,
+                input: GMiMCGate::<F, D, R>::WIRE_INDEX_ACCUMULATOR_NEW,
             },
             new_index_acc_value,
         );
@@ -317,7 +287,7 @@ impl<F: Field, const R: usize> SimpleGenerator<F> for GMiMCGenerator<F, R> {
             result.set_wire(
                 Wire {
                     gate: self.gate_index,
-                    input: GMiMCGate::<F, R>::wire_cubing_input(r),
+                    input: GMiMCGate::<F, D, R>::wire_cubing_input(r),
                 },
                 cubing_input,
             );
@@ -331,7 +301,7 @@ impl<F: Field, const R: usize> SimpleGenerator<F> for GMiMCGenerator<F, R> {
             result.set_wire(
                 Wire {
                     gate: self.gate_index,
-                    input: GMiMCGate::<F, R>::wire_output(i),
+                    input: GMiMCGate::<F, D, R>::wire_output(i),
                 },
                 state[i],
             );
@@ -361,7 +331,7 @@ mod tests {
         type F = CrandallField;
         const R: usize = 101;
         let constants = Arc::new([F::TWO; R]);
-        type Gate = GMiMCGate<F, R>;
+        type Gate = GMiMCGate<F, 4, R>;
         let gate = Gate::with_constants(constants.clone());
 
         let config = CircuitConfig {
@@ -423,7 +393,7 @@ mod tests {
         type F = CrandallField;
         const R: usize = 101;
         let constants = Arc::new([F::TWO; R]);
-        type Gate = GMiMCGate<F, R>;
+        type Gate = GMiMCGate<F, 4, R>;
         let gate = Gate::with_constants(constants);
         test_low_degree(gate)
     }

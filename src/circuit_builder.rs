@@ -8,28 +8,27 @@ use crate::circuit_data::{
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
 use crate::field::cosets::get_unique_coset_shifts;
-use crate::field::field::Field;
+use crate::field::extension_field::Extendable;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::hash::hash_n_to_hash;
-use crate::merkle_tree::MerkleTree;
 use crate::permutation_argument::TargetPartitions;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
-use crate::util::{log2_strict, transpose, transpose_poly_values};
+use crate::util::{log2_strict, transpose};
 use crate::wire::Wire;
 
-pub struct CircuitBuilder<F: Field> {
+pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
     /// The types of gates used in this circuit.
-    gates: HashSet<GateRef<F>>,
+    gates: HashSet<GateRef<F, D>>,
 
     /// The concrete placement of each gate.
-    gate_instances: Vec<GateInstance<F>>,
+    gate_instances: Vec<GateInstance<F, D>>,
 
     /// The next available index for a public input.
     public_input_index: usize,
@@ -46,7 +45,7 @@ pub struct CircuitBuilder<F: Field> {
     targets_to_constants: HashMap<Target, F>,
 }
 
-impl<F: Field> CircuitBuilder<F> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn new(config: CircuitConfig) -> Self {
         CircuitBuilder {
             config,
@@ -89,12 +88,12 @@ impl<F: Field> CircuitBuilder<F> {
         (0..n).map(|_i| self.add_virtual_advice_target()).collect()
     }
 
-    pub fn add_gate_no_constants(&mut self, gate_type: GateRef<F>) -> usize {
+    pub fn add_gate_no_constants(&mut self, gate_type: GateRef<F, D>) -> usize {
         self.add_gate(gate_type, Vec::new())
     }
 
     /// Adds a gate to the circuit, and returns its index.
-    pub fn add_gate(&mut self, gate_type: GateRef<F>, constants: Vec<F>) -> usize {
+    pub fn add_gate(&mut self, gate_type: GateRef<F, D>, constants: Vec<F>) -> usize {
         // If we haven't seen a gate of this type before, check that it's compatible with our
         // circuit configuration, then register it.
         if !self.gates.contains(&gate_type) {
@@ -113,7 +112,7 @@ impl<F: Field> CircuitBuilder<F> {
         index
     }
 
-    fn check_gate_compatibility(&self, gate: &GateRef<F>) {
+    fn check_gate_compatibility(&self, gate: &GateRef<F, D>) {
         assert!(
             gate.0.num_wires() <= self.config.num_wires,
             "{:?} requires {} wires, but our GateConfig has only {}",
@@ -261,7 +260,7 @@ impl<F: Field> CircuitBuilder<F> {
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
-    pub fn build(mut self) -> CircuitData<F> {
+    pub fn build(mut self) -> CircuitData<F, D> {
         let start = Instant::now();
         info!(
             "degree before blinding & padding: {}",
@@ -335,7 +334,7 @@ impl<F: Field> CircuitBuilder<F> {
     }
 
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
-    pub fn build_prover(self) -> ProverCircuitData<F> {
+    pub fn build_prover(self) -> ProverCircuitData<F, D> {
         // TODO: Can skip parts of this.
         let CircuitData {
             prover_only,
@@ -349,7 +348,7 @@ impl<F: Field> CircuitBuilder<F> {
     }
 
     /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
-    pub fn build_verifier(self) -> VerifierCircuitData<F> {
+    pub fn build_verifier(self) -> VerifierCircuitData<F, D> {
         // TODO: Can skip parts of this.
         let CircuitData {
             verifier_only,

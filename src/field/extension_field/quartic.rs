@@ -1,87 +1,49 @@
-use crate::field::crandall_field::CrandallField;
-use crate::field::field::Field;
-use rand::Rng;
 use std::fmt::{Debug, Display, Formatter};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-pub trait QuarticFieldExtension: Field + From<<Self as QuarticFieldExtension>::BaseField> {
-    type BaseField: Field;
+use rand::Rng;
 
-    // Element W of BaseField, such that `X^4 - W` is irreducible over BaseField.
-    const W: Self::BaseField;
+use crate::field::crandall_field::CrandallField;
+use crate::field::extension_field::{FieldExtension, OEF};
+use crate::field::field::Field;
 
-    fn to_canonical_representation(&self) -> [Self::BaseField; 4];
+/// A quartic extension of `CrandallField`.
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub struct QuarticCrandallField(pub(crate) [CrandallField; 4]);
 
-    fn from_canonical_representation(v: [Self::BaseField; 4]) -> Self;
-
-    fn is_in_basefield(&self) -> bool {
-        self.to_canonical_representation()[1..]
-            .iter()
-            .all(|x| x.is_zero())
-    }
-
-    /// Frobenius automorphisms: x -> x^p, where p is the order of BaseField.
-    fn frobenius(&self) -> Self {
-        let [a0, a1, a2, a3] = self.to_canonical_representation();
-        let k = (Self::BaseField::ORDER - 1) / 4;
-        let z0 = Self::W.exp(k);
-        let mut z = Self::BaseField::ONE;
-        let b0 = a0 * z;
-        z *= z0;
-        let b1 = a1 * z;
-        z *= z0;
-        let b2 = a2 * z;
-        z *= z0;
-        let b3 = a3 * z;
-
-        Self::from_canonical_representation([b0, b1, b2, b3])
-    }
+impl OEF<4> for QuarticCrandallField {
+    // Verifiable in Sage with
+    //     R.<x> = GF(p)[]
+    //     assert (x^4 - 3).is_irreducible()
+    const W: CrandallField = CrandallField(3);
 }
 
-#[derive(Copy, Clone)]
-pub struct QuarticCrandallField([CrandallField; 4]);
-
-impl QuarticFieldExtension for QuarticCrandallField {
+impl FieldExtension<4> for QuarticCrandallField {
     type BaseField = CrandallField;
-    // Verifiable in Sage with
-    // ``R.<x> = GF(p)[]; assert (x^4 -3).is_irreducible()`.
-    const W: Self::BaseField = CrandallField(3);
 
-    fn to_canonical_representation(&self) -> [Self::BaseField; 4] {
+    fn to_basefield_array(&self) -> [Self::BaseField; 4] {
         self.0
     }
 
-    fn from_canonical_representation(v: [Self::BaseField; 4]) -> Self {
-        Self(v)
+    fn from_basefield_array(arr: [Self::BaseField; 4]) -> Self {
+        Self(arr)
+    }
+
+    fn from_basefield(x: Self::BaseField) -> Self {
+        x.into()
     }
 }
 
-impl From<<Self as QuarticFieldExtension>::BaseField> for QuarticCrandallField {
-    fn from(x: <Self as QuarticFieldExtension>::BaseField) -> Self {
+impl From<<Self as FieldExtension<4>>::BaseField> for QuarticCrandallField {
+    fn from(x: <Self as FieldExtension<4>>::BaseField) -> Self {
         Self([
             x,
-            <Self as QuarticFieldExtension>::BaseField::ZERO,
-            <Self as QuarticFieldExtension>::BaseField::ZERO,
-            <Self as QuarticFieldExtension>::BaseField::ZERO,
+            <Self as FieldExtension<4>>::BaseField::ZERO,
+            <Self as FieldExtension<4>>::BaseField::ZERO,
+            <Self as FieldExtension<4>>::BaseField::ZERO,
         ])
-    }
-}
-
-impl PartialEq for QuarticCrandallField {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_canonical_representation() == other.to_canonical_representation()
-    }
-}
-
-impl Eq for QuarticCrandallField {}
-
-impl Hash for QuarticCrandallField {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        for l in &self.to_canonical_representation() {
-            Hash::hash(l, state);
-        }
     }
 }
 
@@ -131,12 +93,12 @@ impl Field for QuarticCrandallField {
             return None;
         }
 
-        let a_pow_p = self.frobenius();
+        let a_pow_p = OEF::<4>::frobenius(self);
         let a_pow_p_plus_1 = a_pow_p * *self;
-        let a_pow_p3_plus_p2 = a_pow_p_plus_1.frobenius().frobenius();
+        let a_pow_p3_plus_p2 = OEF::<4>::frobenius(&OEF::<4>::frobenius(&a_pow_p_plus_1));
         let a_pow_r_minus_1 = a_pow_p3_plus_p2 * a_pow_p;
         let a_pow_r = a_pow_r_minus_1 * *self;
-        debug_assert!(a_pow_r.is_in_basefield());
+        debug_assert!(FieldExtension::<4>::is_in_basefield(&a_pow_r));
 
         Some(a_pow_r_minus_1 * a_pow_r.0[0].inverse().into())
     }
@@ -146,20 +108,15 @@ impl Field for QuarticCrandallField {
     }
 
     fn from_canonical_u64(n: u64) -> Self {
-        Self([
-            <Self as QuarticFieldExtension>::BaseField::from_canonical_u64(n),
-            <Self as QuarticFieldExtension>::BaseField::ZERO,
-            <Self as QuarticFieldExtension>::BaseField::ZERO,
-            <Self as QuarticFieldExtension>::BaseField::ZERO,
-        ])
+        <Self as FieldExtension<4>>::BaseField::from_canonical_u64(n).into()
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self([
-            <Self as QuarticFieldExtension>::BaseField::rand_from_rng(rng),
-            <Self as QuarticFieldExtension>::BaseField::rand_from_rng(rng),
-            <Self as QuarticFieldExtension>::BaseField::rand_from_rng(rng),
-            <Self as QuarticFieldExtension>::BaseField::rand_from_rng(rng),
+            <Self as FieldExtension<4>>::BaseField::rand_from_rng(rng),
+            <Self as FieldExtension<4>>::BaseField::rand_from_rng(rng),
+            <Self as FieldExtension<4>>::BaseField::rand_from_rng(rng),
+            <Self as FieldExtension<4>>::BaseField::rand_from_rng(rng),
         ])
     }
 }
@@ -244,9 +201,9 @@ impl Mul for QuarticCrandallField {
         let Self([a0, a1, a2, a3]) = self;
         let Self([b0, b1, b2, b3]) = rhs;
 
-        let c0 = a0 * b0 + Self::W * (a1 * b3 + a2 * b2 + a3 * b1);
-        let c1 = a0 * b1 + a1 * b0 + Self::W * (a2 * b3 + a3 * b2);
-        let c2 = a0 * b2 + a1 * b1 + a2 * b0 + Self::W * a3 * b3;
+        let c0 = a0 * b0 + <Self as OEF<4>>::W * (a1 * b3 + a2 * b2 + a3 * b1);
+        let c1 = a0 * b1 + a1 * b0 + <Self as OEF<4>>::W * (a2 * b3 + a3 * b2);
+        let c2 = a0 * b2 + a1 * b1 + a2 * b0 + <Self as OEF<4>>::W * a3 * b3;
         let c3 = a0 * b3 + a1 * b2 + a2 * b1 + a3 * b0;
 
         Self([c0, c1, c2, c3])
@@ -283,7 +240,8 @@ impl DivAssign for QuarticCrandallField {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::extension_field::quartic::{QuarticCrandallField, QuarticFieldExtension};
+    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::{FieldExtension, OEF};
     use crate::field::field::Field;
 
     fn exp_naive<F: Field>(x: F, power: u128) -> F {
@@ -307,10 +265,7 @@ mod tests {
         let z = F::rand();
         assert_eq!(x + (-x), F::ZERO);
         assert_eq!(-x, F::ZERO - x);
-        assert_eq!(
-            x + x,
-            x * <F as QuarticFieldExtension>::BaseField::TWO.into()
-        );
+        assert_eq!(x + x, x * <F as FieldExtension<4>>::BaseField::TWO.into());
         assert_eq!(x * (-x), -x.square());
         assert_eq!(x + y, y + x);
         assert_eq!(x * y, y * x);
@@ -339,8 +294,8 @@ mod tests {
         type F = QuarticCrandallField;
         let x = F::rand();
         assert_eq!(
-            exp_naive(x, <F as QuarticFieldExtension>::BaseField::ORDER as u128),
-            x.frobenius()
+            exp_naive(x, <F as FieldExtension<4>>::BaseField::ORDER as u128),
+            OEF::<4>::frobenius(&x)
         );
     }
 
@@ -374,8 +329,8 @@ mod tests {
         );
         assert_eq!(
             F::POWER_OF_TWO_GENERATOR
-                .exp(1 << (F::TWO_ADICITY - <F as QuarticFieldExtension>::BaseField::TWO_ADICITY)),
-            <F as QuarticFieldExtension>::BaseField::POWER_OF_TWO_GENERATOR.into()
+                .exp(1 << (F::TWO_ADICITY - <F as FieldExtension<4>>::BaseField::TWO_ADICITY)),
+            <F as FieldExtension<4>>::BaseField::POWER_OF_TWO_GENERATOR.into()
         );
     }
 }

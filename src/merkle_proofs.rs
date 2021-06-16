@@ -1,4 +1,7 @@
+use anyhow::{ensure, Result};
+
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gmimc::GMiMCGate;
 use crate::hash::GMIMC_ROUNDS;
@@ -6,7 +9,6 @@ use crate::hash::{compress, hash_or_noop};
 use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
 use crate::wire::Wire;
-use anyhow::{ensure, Result};
 
 #[derive(Clone, Debug)]
 pub struct MerkleProof<F: Field> {
@@ -52,7 +54,7 @@ pub(crate) fn verify_merkle_proof<F: Field>(
     Ok(())
 }
 
-impl<F: Field> CircuitBuilder<F> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
     /// given root.
     pub(crate) fn verify_merkle_proof(
@@ -71,23 +73,23 @@ impl<F: Field> CircuitBuilder<F> {
 
         for (bit, sibling) in purported_index_bits.into_iter().zip(proof.siblings) {
             let gate = self
-                .add_gate_no_constants(GMiMCGate::<F, GMIMC_ROUNDS>::with_automatic_constants());
+                .add_gate_no_constants(GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants());
 
-            let swap_wire = GMiMCGate::<F, GMIMC_ROUNDS>::WIRE_SWAP;
+            let swap_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_SWAP;
             let swap_wire = Target::Wire(Wire {
                 gate,
                 input: swap_wire,
             });
             self.generate_copy(bit, swap_wire);
 
-            let old_acc_wire = GMiMCGate::<F, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_OLD;
+            let old_acc_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_OLD;
             let old_acc_wire = Target::Wire(Wire {
                 gate,
                 input: old_acc_wire,
             });
             self.route(acc_leaf_index, old_acc_wire);
 
-            let new_acc_wire = GMiMCGate::<F, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_NEW;
+            let new_acc_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_NEW;
             let new_acc_wire = Target::Wire(Wire {
                 gate,
                 input: new_acc_wire,
@@ -98,7 +100,7 @@ impl<F: Field> CircuitBuilder<F> {
                 .map(|i| {
                     Target::Wire(Wire {
                         gate,
-                        input: GMiMCGate::<F, GMIMC_ROUNDS>::wire_input(i),
+                        input: GMiMCGate::<F, D, GMIMC_ROUNDS>::wire_input(i),
                     })
                 })
                 .collect::<Vec<_>>();
@@ -114,7 +116,7 @@ impl<F: Field> CircuitBuilder<F> {
                     .map(|i| {
                         Target::Wire(Wire {
                             gate,
-                            input: GMiMCGate::<F, GMIMC_ROUNDS>::wire_output(i),
+                            input: GMiMCGate::<F, D, GMIMC_ROUNDS>::wire_output(i),
                         })
                     })
                     .collect(),
