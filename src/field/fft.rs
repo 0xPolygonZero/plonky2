@@ -78,6 +78,14 @@ pub(crate) fn fft_barretenberg<F: Field>(
     let n = poly.len();
     let lg_n = poly.log_len();
 
+    let PolynomialCoeffs { coeffs } = poly;
+    let mut values = reverse_index_bits(coeffs);
+
+    // FFT of a constant polynomial (including zero) is itself.
+    if n < 2 {
+        return PolynomialValues { values }
+    }
+
     // Precompute a table of the roots of unity used in the main
     // loops.
     let rt = F::primitive_root_of_unity(lg_n);
@@ -98,8 +106,8 @@ pub(crate) fn fft_barretenberg<F: Field>(
         m *= 2;
     }
 
-    let PolynomialCoeffs { coeffs } = poly;
-    let mut values = reverse_index_bits(coeffs);
+    // The 'm' here is the specialisation from the 'm' in the main
+    // loop (m >= 4) below.
 
     // m = 1
     for k in (0..n).step_by(2) {
@@ -109,7 +117,7 @@ pub(crate) fn fft_barretenberg<F: Field>(
     }
 
     // m = 2
-    if n <= 2 {
+    if n == 2 {
         return PolynomialValues { values }
     }
 
