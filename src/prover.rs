@@ -157,7 +157,26 @@ fn compute_z<F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     _i: usize,
 ) -> PolynomialCoeffs<F> {
-    PolynomialCoeffs::zero(common_data.degree()) // TODO
+    todo!()
+    // let subgroup =
+    // let mut plonk_z_points = vec![F::ONE];
+    // let k_is = common_data.k_is;
+    // for i in 1..common_data.degree() {
+    //     let x = subgroup[i - 1];
+    //     let mut numerator = F::ONE;
+    //     let mut denominator = F::ONE;
+    //     for j in 0..NUM_ROUTED_WIRES {
+    //         let wire_value = witness.get_indices(i - 1, j);
+    //         let k_i = k_is[j];
+    //         let s_id = k_i * x;
+    //         let s_sigma = sigma_values[j][8 * (i - 1)];
+    //         numerator = numerator * (wire_value + beta * s_id + gamma);
+    //         denominator = denominator * (wire_value + beta * s_sigma + gamma);
+    //     }
+    //     let last = *plonk_z_points.last().unwrap();
+    //     plonk_z_points.push(last * numerator / denominator);
+    // }
+    // plonk_z_points
 }
 
 fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(

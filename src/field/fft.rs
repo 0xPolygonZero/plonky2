@@ -44,12 +44,14 @@ pub(crate) fn fft_precompute<F: Field>(degree: usize) -> FftPrecomputation<F> {
     let degree_log = log2_ceil(degree);
 
     let mut subgroups_rev = Vec::new();
-    for i in 0..=degree_log {
-        let g_i = F::primitive_root_of_unity(i);
-        let subgroup = F::cyclic_subgroup_known_order(g_i, 1 << i);
+    let mut subgroup = F::two_adic_subgroup(degree_log);
+    for _i in 0..=degree_log {
+        let subsubgroup = subgroup.iter().step_by(2).copied().collect();
         let subgroup_rev = reverse_index_bits(subgroup);
         subgroups_rev.push(subgroup_rev);
+        subgroup = subsubgroup;
     }
+    subgroups_rev.reverse();
 
     FftPrecomputation { subgroups_rev }
 }
@@ -200,10 +202,9 @@ mod tests {
         let degree = coefficients.len();
         let degree_log = log2_strict(degree);
 
-        let g = F::primitive_root_of_unity(degree_log);
-        let powers_of_g = F::cyclic_subgroup_known_order(g, degree);
+        let subgroup = F::two_adic_subgroup(degree_log);
 
-        let values = powers_of_g
+        let values = subgroup
             .into_iter()
             .map(|x| evaluate_at_naive(&coefficients, x))
             .collect();

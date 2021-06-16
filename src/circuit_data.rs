@@ -104,6 +104,8 @@ pub(crate) struct ProverOnlyCircuitData<F: Field> {
     pub constants_commitment: ListPolynomialCommitment<F>,
     /// Commitments to the sigma polynomial.
     pub sigmas_commitment: ListPolynomialCommitment<F>,
+    /// Subgroup of order `degree`.
+    pub subgroup: Vec<F>,
 }
 
 /// Circuit data required by the verifier, but not the prover.

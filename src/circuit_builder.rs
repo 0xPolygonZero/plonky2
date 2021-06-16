@@ -236,7 +236,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn sigma_vecs(&self, k_is: &[F]) -> Vec<PolynomialValues<F>> {
+    fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> Vec<PolynomialValues<F>> {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
         let mut target_partitions = TargetPartitions::new();
@@ -256,7 +256,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let wire_partitions = target_partitions.to_wire_partitions();
-        wire_partitions.get_sigma_polys(degree_log, k_is)
+        wire_partitions.get_sigma_polys(degree_log, k_is, subgroup)
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
@@ -270,6 +270,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let degree = self.gate_instances.len();
         info!("degree after blinding & padding: {}", degree);
 
+        let degree_bits = log2_strict(degree);
+        let subgroup = F::two_adic_subgroup(degree_bits);
+
         let constant_vecs = self.constant_polys();
         let constants_commitment = ListPolynomialCommitment::new(
             constant_vecs.into_iter().map(|v| v.ifft()).collect(),
@@ -278,7 +281,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
-        let sigma_vecs = self.sigma_vecs(&k_is);
+        let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
         let sigmas_commitment = ListPolynomialCommitment::new(
             sigma_vecs.into_iter().map(|v| v.ifft()).collect(),
             self.config.fri_config.rate_bits,
@@ -292,11 +295,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             sigmas_root,
         };
 
-        let generators = self.generators;
         let prover_only = ProverOnlyCircuitData {
-            generators,
+            generators: self.generators,
             constants_commitment,
             sigmas_commitment,
+            subgroup,
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
@@ -309,8 +312,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .map(|gate| gate.0.num_constraints())
             .max()
             .expect("No gates?");
-
-        let degree_bits = log2_strict(degree);
 
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [constants_root.elements, sigmas_root.elements];
