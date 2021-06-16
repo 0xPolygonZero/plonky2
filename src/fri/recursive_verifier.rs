@@ -261,7 +261,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut evaluations: Vec<Vec<ExtensionTarget<D>>> = Vec::new();
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
         let mut x_index = challenger.get_challenge(self);
-        x_index = self.split_low_high(x_index, n_log).0;
+        x_index = self.split_low_high(x_index, n_log, 64).0;
+        let mut x_index_num_bits = n_log;
         let mut domain_size = n;
         self.fri_verify_initial_proof(
             x_index,
@@ -301,7 +302,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             };
             let mut evals = round_proof.steps[i].evals.clone();
             // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
-            let (low_x_index, high_x_index) = self.split_low_high(x_index, arity_bits);
+            let (low_x_index, high_x_index) =
+                self.split_low_high(x_index, arity_bits, x_index_num_bits);
             evals = self.insert(low_x_index, e_x, evals);
             evaluations.push(evals);
             self.verify_merkle_proof(
@@ -320,6 +322,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             domain_size = next_domain_size;
             old_x_index = low_x_index;
             x_index = high_x_index;
+            x_index_num_bits -= arity_bits;
         }
 
         let last_evals = evaluations.last().unwrap();
