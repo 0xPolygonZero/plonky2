@@ -14,15 +14,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         element: ExtensionTarget<D>,
         mut v: Vec<ExtensionTarget<D>>,
     ) -> Vec<ExtensionTarget<D>> {
-        let len = v.len();
-        let len_bits = bits_u64(len as u64);
-
-        let mut v = self.rotate_left(index, &v, len_bits);
-
+        let mut v = self.rotate_left(index, &v);
         v.insert(0, element);
-
-        let len_bits = bits_u64(len as u64 + 1);
-        self.rotate_right(index, &v, len_bits)
+        self.rotate_right(index, &v)
     }
 }
 #[cfg(test)]

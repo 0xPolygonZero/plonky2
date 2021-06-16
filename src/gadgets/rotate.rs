@@ -2,7 +2,7 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::target::Target;
-use crate::util::bits_u64;
+use crate::util::log2_ceil;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Selects `x` or `y` based on `b`, which is assumed to be binary.
@@ -29,6 +29,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         v: &[ExtensionTarget<D>],
     ) -> Vec<ExtensionTarget<D>> {
         let len = v.len();
+        debug_assert!(k < len, "Trying to rotate by more than the vector length.");
         let mut res = Vec::new();
 
         for i in 0..len {
@@ -46,6 +47,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         v: &[ExtensionTarget<D>],
     ) -> Vec<ExtensionTarget<D>> {
         let len = v.len();
+        debug_assert!(k < len, "Trying to rotate by more than the vector length.");
         let mut res = Vec::new();
 
         for i in 0..len {
@@ -90,9 +92,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         num_rotation: Target,
         v: &[ExtensionTarget<D>],
-        len_bits: usize,
     ) -> Vec<ExtensionTarget<D>> {
-        debug_assert_eq!(bits_u64(v.len() as u64), len_bits);
+        let len_bits = log2_ceil(v.len());
         let bits = self.split_le(num_rotation, len_bits);
 
         self.rotate_left_from_bits(&bits, v)
@@ -102,9 +103,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         num_rotation: Target,
         v: &[ExtensionTarget<D>],
-        len_bits: usize,
     ) -> Vec<ExtensionTarget<D>> {
-        debug_assert_eq!(bits_u64(v.len() as u64), len_bits);
+        let len_bits = log2_ceil(v.len());
         let bits = self.split_le(num_rotation, len_bits);
 
         self.rotate_right_from_bits(&bits, v)
@@ -141,7 +141,7 @@ mod tests {
         for i in 0..len {
             let it = builder.constant(F::from_canonical_usize(i));
             let rotated = real_rotate(i, &v);
-            let purported_rotated = builder.rotate_left(it, &v, bits_u64(len as u64));
+            let purported_rotated = builder.rotate_left(it, &v);
 
             for (x, y) in rotated.into_iter().zip(purported_rotated) {
                 builder.assert_equal_extension(x, y);
@@ -154,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_rotate() {
-        for len in 1..6 {
+        for len in 1..5 {
             test_rotate_given_len(len);
         }
     }

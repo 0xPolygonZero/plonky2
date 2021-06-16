@@ -29,6 +29,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the decomposition is correct by using `k` `BaseSum<2>` gates
     /// with `k` such that `k*num_routed_wires>=num_bits`.
     pub(crate) fn split_le(&mut self, integer: Target, num_bits: usize) -> Vec<Target> {
+        if num_bits == 0 {
+            return Vec::new();
+        }
         let num_limbs = self.config.num_routed_wires - BaseSumGate::<2>::START_LIMBS;
         let k = ceil_div_usize(num_bits, num_limbs);
         let gates = (0..k)
