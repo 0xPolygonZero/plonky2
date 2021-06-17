@@ -115,7 +115,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     let zeta = challenger.get_extension_challenge();
 
-    let (opening_proof, mut openings) = timed!(
+    let (opening_proof, openings) = timed!(
         ListPolynomialCommitment::open_plonk(
             &[
                 &prover_data.constants_commitment,

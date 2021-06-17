@@ -62,7 +62,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         leaf_data: Vec<Target>,
         leaf_index: Target,
         merkle_root: HashTarget,
-        proof: MerkleProofTarget,
+        proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
         let height = proof.siblings.len();
@@ -71,7 +71,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut state: HashTarget = self.hash_or_noop(leaf_data);
         let mut acc_leaf_index = zero;
 
-        for (bit, sibling) in purported_index_bits.into_iter().zip(proof.siblings) {
+        for (bit, &sibling) in purported_index_bits.into_iter().zip(&proof.siblings) {
             let gate = self
                 .add_gate_no_constants(GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants());
 

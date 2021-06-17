@@ -13,7 +13,7 @@ pub fn add_recursive_verifier<F: Extendable<D>, const D: usize>(
     inner_config: CircuitConfig,
     inner_circuit: VerifierCircuitTarget,
     inner_gates: Vec<GateRef<F, D>>,
-    inner_proof: ProofTarget,
+    inner_proof: ProofTarget<D>,
 ) {
     assert!(builder.config.num_wires >= MIN_WIRES);
     assert!(builder.config.num_wires >= MIN_ROUTED_WIRES);
