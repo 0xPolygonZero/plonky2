@@ -99,9 +99,9 @@ pub struct FriInitialTreeProof<F: Field> {
 }
 
 impl<F: Field> FriInitialTreeProof<F> {
-    pub(crate) fn unsalted_evals(&self, i: usize, config: &FriConfig) -> &[F] {
+    pub(crate) fn unsalted_evals(&self, i: usize, config: &FriConfig) -> Vec<F> {
         let evals = &self.evals_proofs[i].0;
-        &evals[..evals.len() - config.salt_size(i)]
+        evals[..evals.len() - config.salt_size(i)].to_vec()
     }
 }
 
