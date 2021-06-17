@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 
-use crate::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;

@@ -6,17 +6,15 @@ use rayon::prelude::*;
 use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::field::extension_field::Extendable;
 use crate::field::fft::ifft;
-use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::eval_vanishing_poly_base;
 use crate::polynomial::commitment::ListPolynomialCommitment;
-use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::polynomial::polynomial::PolynomialValues;
 use crate::proof::Proof;
 use crate::timed;
 use crate::util::transpose;
 use crate::vars::EvaluationVarsBase;
-use crate::wire::Wire;
 use crate::witness::{PartialWitness, Witness};
 
 /// Corresponds to constants - sigmas - wires - zs - quotient — polynomial commitments.
@@ -104,7 +102,15 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             .into_par_iter()
             .flat_map(|vanishing_poly| {
                 let vanishing_poly_coeff = ifft(vanishing_poly);
+                // TODO: run `padded` when the division works.
                 let quotient_poly_coeff = vanishing_poly_coeff.divide_by_z_h(degree);
+                let x = F::rand();
+                assert!(
+                    quotient_poly_coeff.eval(x) * (x.exp(degree as u64) - F::ONE)
+                        != vanishing_poly_coeff.eval(x),
+                    "That's good news, this should fail! The division by z_h doesn't work yet,\
+                    most likely because compute_vanishing_polys isn't complete (doesn't use filters for example)."
+                );
                 // Split t into degree-n chunks.
                 quotient_poly_coeff.chunks(degree)
             })
@@ -181,14 +187,14 @@ fn compute_z<F: Extendable<D>, const D: usize>(
         let x = subgroup[i - 1];
         let mut numerator = F::ONE;
         let mut denominator = F::ONE;
-        let s_sigmas = prover_data.sigmas_commitment.original_value(i - 1);
+        let s_sigmas = prover_data.sigmas_commitment.original_values(i - 1);
         for j in 0..common_data.config.num_routed_wires {
             let wire_value = witness.get_wire(i - 1, j);
             let k_i = k_is[j];
             let s_id = k_i * x;
             let s_sigma = s_sigmas[j];
-            numerator = numerator * (wire_value + beta * s_id + gamma);
-            denominator = denominator * (wire_value + beta * s_sigma + gamma);
+            numerator *= wire_value + beta * s_id + gamma;
+            denominator *= wire_value + beta * s_sigma + gamma;
         }
         let last = *plonk_z_points.last().unwrap();
         plonk_z_points.push(last * numerator / denominator);
@@ -211,6 +217,7 @@ fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(
     );
     let lde_size = points.len();
 
+    // Low-degree extend the polynomials commited in `comm` to the subgroup of size `lde_size`.
     let commitment_to_lde = |comm: &ListPolynomialCommitment<F>| -> Vec<PolynomialValues<F>> {
         comm.polynomials
             .iter()
@@ -223,6 +230,7 @@ fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(
     let wires_lde = commitment_to_lde(wires_commitment);
     let zs_lde = commitment_to_lde(plonk_zs_commitment);
 
+    // Retrieve the polynomial values at index `i`.
     let get_at_index = |ldes: &[PolynomialValues<F>], i: usize| {
         ldes.iter().map(|l| l.values[i]).collect::<Vec<_>>()
     };

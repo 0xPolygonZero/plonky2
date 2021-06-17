@@ -12,7 +12,7 @@ use crate::plonk_common::{reduce_polys_with_iter, reduce_with_iter};
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriProof, FriProofTarget, Hash, OpeningSet};
 use crate::timed;
-use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
+use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
 
 pub const SALT_SIZE: usize = 2;
 
@@ -107,7 +107,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .collect()
     }
 
-    pub fn original_value(&self, index: usize) -> Vec<F> {
+    pub fn original_values(&self, index: usize) -> Vec<F> {
         self.values.iter().map(|v| v.values[index]).collect()
     }
 

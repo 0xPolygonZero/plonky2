@@ -179,7 +179,7 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     pub fn quotient_degree(&self) -> usize {
-        1 << self.max_filtered_constraint_degree_bits - 1
+        ((1 << self.max_filtered_constraint_degree_bits) - 1) * self.degree()
     }
 
     pub fn total_constraints(&self) -> usize {

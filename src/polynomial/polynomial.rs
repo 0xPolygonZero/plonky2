@@ -128,7 +128,12 @@ impl<F: Field> PolynomialCoeffs<F> {
     }
 
     pub(crate) fn padded(&self, new_len: usize) -> Self {
-        assert!(new_len >= self.len());
+        assert!(
+            new_len >= self.len(),
+            "Trying to pad a polynomial of length {} to a length of {}.",
+            self.len(),
+            new_len
+        );
         let mut coeffs = self.coeffs.clone();
         coeffs.resize(new_len, F::ZERO);
         Self { coeffs }
