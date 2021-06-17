@@ -7,7 +7,7 @@ use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::reduce_with_iter;
+use crate::plonk_common::{reduce_with_iter, PlonkPolynomials};
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash, OpeningSet};
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
@@ -157,13 +157,17 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     // We will add three terms to `sum`:
     // - one for various polynomials which are opened at a single point `x`
     // - one for Zs, which are opened at `x` and `g x`
-    // - one for wire polynomials, which are opened at `x` and its conjugate
+    // - one for wire polynomials, which are opened at `x` and `x.frobenius()`
 
     // Polynomials opened at `x`, i.e., the constants, sigmas and quotient polynomials.
-    let single_evals = [0, 1, 4]
-        .iter()
-        .flat_map(|&i| proof.unsalted_evals(i, config))
-        .map(|&e| F::Extension::from_basefield(e));
+    let single_evals = [
+        PlonkPolynomials::CONSTANTS,
+        PlonkPolynomials::SIGMAS,
+        PlonkPolynomials::QUOTIENT,
+    ]
+    .iter()
+    .flat_map(|&p| proof.unsalted_evals(p))
+    .map(|&e| F::Extension::from_basefield(e));
     let single_openings = os
         .constants
         .iter()
@@ -176,7 +180,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
 
     // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
     let zs_evals = proof
-        .unsalted_evals(3, config)
+        .unsalted_evals(PlonkPolynomials::ZS)
         .iter()
         .map(|&e| F::Extension::from_basefield(e));
     let zs_composition_eval = reduce_with_iter(zs_evals, alpha_powers.clone());
@@ -194,7 +198,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
 
     // Polynomials opened at `x` and `x.frobenius()`, i.e., the wires polynomials.
     let wire_evals = proof
-        .unsalted_evals(2, config)
+        .unsalted_evals(PlonkPolynomials::WIRES)
         .iter()
         .map(|&e| F::Extension::from_basefield(e));
     let wire_composition_eval = reduce_with_iter(wire_evals, alpha_powers.clone());

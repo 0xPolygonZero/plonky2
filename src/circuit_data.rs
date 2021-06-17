@@ -7,7 +7,7 @@ use crate::gates::gate::GateRef;
 use crate::generator::WitnessGenerator;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::proof::{Hash, HashTarget, Proof};
-use crate::prover::{prove, PLONK_BLINDING};
+use crate::prover::prove;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
 
@@ -38,7 +38,6 @@ impl Default for CircuitConfig {
                 rate_bits: 1,
                 reduction_arity_bits: vec![1],
                 num_query_rounds: 1,
-                blinding: vec![true],
             },
         }
     }
@@ -61,7 +60,6 @@ impl CircuitConfig {
                 rate_bits: 3,
                 reduction_arity_bits: vec![1],
                 num_query_rounds: 1,
-                blinding: PLONK_BLINDING.to_vec(),
             },
         }
     }

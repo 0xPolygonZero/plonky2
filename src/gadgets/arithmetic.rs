@@ -371,7 +371,6 @@ mod tests {
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
     use crate::fri::FriConfig;
-    use crate::prover::PLONK_BLINDING;
     use crate::witness::PartialWitness;
 
     #[test]
