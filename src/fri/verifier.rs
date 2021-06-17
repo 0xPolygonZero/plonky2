@@ -168,17 +168,22 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     ]
     .iter()
     .flat_map(|&p| proof.unsalted_evals(p))
-    .map(|&e| F::Extension::from_basefield(e));
+    .map(|&e| F::Extension::from_basefield(e))
+    .collect::<Vec<_>>();
     let single_openings = os
         .constants
         .iter()
         .chain(&os.plonk_s_sigmas)
-        .chain(&os.quotient_polys);
-    let single_diffs = single_evals.zip(single_openings).map(|(e, &o)| e - o);
-    let single_numerator = reduce_with_iter(single_diffs, &mut alpha_powers);
+        .chain(&os.quotient_polys)
+        .collect::<Vec<_>>();
+    let single_diffs = single_evals
+        .into_iter()
+        .zip(single_openings)
+        .map(|(e, &o)| e - o);
+    let single_numerator = alpha.scale(single_diffs);
     let single_denominator = subgroup_x - zeta;
     sum += single_numerator / single_denominator;
-    alpha.shift(sum);
+    alpha.reset();
 
     // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
     let zs_evals = proof
@@ -188,13 +193,13 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     let zs_composition_eval = alpha.clone().scale(zs_evals);
     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
     let zs_interpol = interpolant(&[
-        (zeta, alpha.clone().scale(&os.plonk_zs)),
-        (zeta_right, alpha.scale(&os.plonk_zs_right)),
+        (zeta, alpha.clone().scale(os.plonk_zs.iter())),
+        (zeta_right, alpha.scale(os.plonk_zs_right.iter())),
     ]);
     let zs_numerator = zs_composition_eval - zs_interpol.eval(subgroup_x);
     let zs_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
+    sum = alpha.shift(sum);
     sum += zs_numerator / zs_denominator;
-    alpha.shift(sum);
 
     // Polynomials opened at `x` and `x.frobenius()`, i.e., the wires polynomials.
     let wire_evals = proof
@@ -203,17 +208,18 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .map(|&e| F::Extension::from_basefield(e));
     let wire_composition_eval = alpha.clone().scale(wire_evals);
     let zeta_frob = zeta.frobenius();
-    let wire_eval = alpha.clone().scale(&os.wires);
+    let wire_eval = alpha.clone().scale(os.wires.iter());
     // We want to compute `sum a^i*phi(w_i)`, where `phi` denotes the Frobenius automorphism.
     // Since `phi^D=id` and `phi` is a field automorphism, we have the following equalities:
     // `sum a^i*phi(w_i) = sum phi(phi^(D-1)(a^i)*w_i) = phi(sum phi^(D-1)(a)^i*w_i)`
     // So we can compute the original sum using only one call to the `D-1`-repeated Frobenius of alpha,
     // and one call at the end of the sum.
     let mut alpha_frob = alpha.repeated_frobenius(D - 1);
-    let wire_eval_frob = alpha_frob.scale(&os.wires).frobenius();
+    let wire_eval_frob = alpha_frob.scale(os.wires.iter()).frobenius();
     let wire_interpol = interpolant(&[(zeta, wire_eval), (zeta_frob, wire_eval_frob)]);
     let wire_numerator = wire_composition_eval - wire_interpol.eval(subgroup_x);
     let wire_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
+    sum = alpha_frob.shift(sum);
     sum += wire_numerator / wire_denominator;
 
     sum
