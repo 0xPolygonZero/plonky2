@@ -7,7 +7,7 @@ use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{reduce_with_iter, PlonkPolynomials};
+use crate::plonk_common::PlonkPolynomials;
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash, OpeningSet};
 use crate::util::scaling::ScalingFactor;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
