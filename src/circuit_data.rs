@@ -143,7 +143,7 @@ pub(crate) struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     /// The types of gates used in this circuit.
     pub(crate) gates: Vec<GateRef<F, D>>,
 
-    /// The largest number of constraints imposed by any gate.
+    /// The maximum degree of a filter times a constraint by any gate.
     pub(crate) max_filtered_constraint_degree_bits: usize,
 
     /// The largest number of constraints imposed by any gate.
