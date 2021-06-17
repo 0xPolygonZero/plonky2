@@ -173,6 +173,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     let single_denominator = subgroup_x - zeta;
     sum += single_numerator / single_denominator;
 
+    // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
     let zs_evals = proof
         .unsalted_evals(3, config)
         .iter()
@@ -190,6 +191,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     let zs_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
     sum += zs_numerator / zs_denominator;
 
+    // Polynomials opened at `x` and `x.frobenius()`, i.e., the wires polynomials.
     let wire_evals = proof
         .unsalted_evals(2, config)
         .iter()
@@ -204,10 +206,10 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     // and one call at the end of the sum.
     let alpha_powers_frob = alpha_powers.repeated_frobenius(D - 1);
     let wire_eval_frob = reduce_with_iter(&os.wires, alpha_powers_frob).frobenius();
-    let wires_interpol = interpolant(&[(zeta, wire_eval), (zeta_frob, wire_eval_frob)]);
-    let numerator = wire_composition_eval - wires_interpol.eval(subgroup_x);
-    let denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
-    sum += numerator / denominator;
+    let wire_interpol = interpolant(&[(zeta, wire_eval), (zeta_frob, wire_eval_frob)]);
+    let wire_numerator = wire_composition_eval - wire_interpol.eval(subgroup_x);
+    let wire_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
+    sum += wire_numerator / wire_denominator;
 
     sum
 }

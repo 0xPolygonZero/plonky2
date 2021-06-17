@@ -32,16 +32,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         reverse_index_bits_in_place(&mut evals);
         let mut old_x_index_bits = self.split_le(old_x_index, arity_bits);
         old_x_index_bits.reverse();
-        self.rotate_left_from_bits(&old_x_index_bits, &evals);
+        let evals = self.rotate_left_from_bits(&old_x_index_bits, &evals);
 
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
         let points = g
             .powers()
-            .zip(evals)
-            .map(|(y, e)| {
+            .map(|y| {
                 let yt = self.constant(y);
-                (self.mul(x, yt), e)
+                self.mul(x, yt)
             })
+            .zip(evals)
             .collect::<Vec<_>>();
 
         self.interpolate(&points, beta)
@@ -154,7 +154,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // We will add three terms to `sum`:
         // - one for polynomials opened at `x` only
         // - one for polynomials opened at `x` and `g x`
-        // - one for polynomials opened at `x` and its conjugate
+        // - one for polynomials opened at `x` and `x.frobenius()`
 
         let evals = [0, 1, 4]
             .iter()
@@ -166,62 +166,69 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .iter()
             .chain(&os.plonk_sigmas)
             .chain(&os.quotient_polys);
-        let mut numerator = self.zero_extension();
-        for (e, &o) in izip!(evals, openings) {
+        let mut single_numerator = self.zero_extension();
+        for (e, &o) in izip!(single_evals, single_openings) {
             let a = alpha_powers.next(self);
             let diff = self.sub_extension(e, o);
-            numerator = self.mul_add_extension(a, diff, numerator);
+            single_numerator = self.mul_add_extension(a, diff, single_numerator);
         }
-        let denominator = self.sub_extension(subgroup_x, zeta);
-        let quotient = self.div_unsafe_extension(numerator, denominator);
+        let single_denominator = self.sub_extension(subgroup_x, zeta);
+        let quotient = self.div_unsafe_extension(single_numerator, single_denominator);
         sum = self.add_extension(sum, quotient);
 
-        let evs = proof
+        // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
+        let zs_evals = proof
             .unsalted_evals(3, config)
             .iter()
             .map(|&e| self.convert_to_ext(e))
             .collect::<Vec<_>>();
         // TODO: Would probably be more efficient using `CircuitBuilder::reduce_with_powers_recursive`
-        let mut ev = self.zero_extension();
-        for &e in &evs {
-            let a = alpha_powers.next(self);
-            ev = self.mul_add_extension(a, e, ev);
+        let mut zs_composition_eval = self.zero_extension();
+        let mut alpha_powers_cloned = alpha_powers.clone();
+        for &e in &zs_evals {
+            let a = alpha_powers_cloned.next(self);
+            zs_composition_eval = self.mul_add_extension(a, e, zs_composition_eval);
         }
 
         let g = self.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
         let zeta_right = self.mul_extension(g, zeta);
-        let mut ev_zeta = self.zero_extension();
+        let mut zs_ev_zeta = self.zero_extension();
+        let mut alpha_powers_cloned = alpha_powers.clone();
         for &t in &os.plonk_zs {
-            let a = alpha_powers.next(self);
-            ev_zeta = self.mul_add_extension(a, t, ev_zeta);
+            let a = alpha_powers_cloned.next(self);
+            zs_ev_zeta = self.mul_add_extension(a, t, zs_ev_zeta);
         }
-        let mut ev_zeta_right = self.zero_extension();
+        let mut zs_ev_zeta_right = self.zero_extension();
         for &t in &os.plonk_zs_right {
             let a = alpha_powers.next(self);
-            ev_zeta_right = self.mul_add_extension(a, t, ev_zeta);
+            zs_ev_zeta_right = self.mul_add_extension(a, t, zs_ev_zeta);
         }
-        let interpol_val =
-            self.interpolate2([(zeta, ev_zeta), (zeta_right, ev_zeta_right)], subgroup_x);
-        let numerator = self.sub_extension(ev, interpol_val);
-        let vanish = self.sub_extension(subgroup_x, zeta);
-        let vanish_right = self.sub_extension(subgroup_x, zeta_right);
-        let denominator = self.mul_extension(vanish, vanish_right);
-        let quotient = self.div_unsafe_extension(numerator, denominator);
-        sum = self.add_extension(sum, quotient);
+        let interpol_val = self.interpolate2(
+            [(zeta, zs_ev_zeta), (zeta_right, zs_ev_zeta_right)],
+            subgroup_x,
+        );
+        let zs_numerator = self.sub_extension(zs_composition_eval, interpol_val);
+        let vanish_zeta = self.sub_extension(subgroup_x, zeta);
+        let vanish_zeta_right = self.sub_extension(subgroup_x, zeta_right);
+        let zs_denominator = self.mul_extension(vanish_zeta, vanish_zeta_right);
+        let zs_quotient = self.div_unsafe_extension(zs_numerator, zs_denominator);
+        sum = self.add_extension(sum, zs_quotient);
 
-        let evs = proof
+        // Polynomials opened at `x` and `x.frobenius()`, i.e., the wires polynomials.
+        let wire_evals = proof
             .unsalted_evals(2, config)
             .iter()
             .map(|&e| self.convert_to_ext(e))
             .collect::<Vec<_>>();
-        let mut ev = self.zero_extension();
-        for &e in &evs {
-            let a = alpha_powers.next(self);
-            ev = self.mul_add_extension(a, e, ev);
+        let mut wire_composition_eval = self.zero_extension();
+        let mut alpha_powers_cloned = alpha_powers.clone();
+        for &e in &wire_evals {
+            let a = alpha_powers_cloned.next(self);
+            wire_composition_eval = self.mul_add_extension(a, e, wire_composition_eval);
         }
-        let zeta_frob = zeta.frobenius(self);
+        let mut alpha_powers_cloned = alpha_powers.clone();
         let wire_eval = os.wires.iter().fold(self.zero_extension(), |acc, &w| {
-            let a = alpha_powers.next(self);
+            let a = alpha_powers_cloned.next(self);
             self.mul_add_extension(a, w, acc)
         });
         let mut alpha_powers_frob = alpha_powers.repeated_frobenius(D - 1, self);
@@ -233,13 +240,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.mul_add_extension(a, w, acc)
             })
             .frobenius(self);
-        let interpol_val =
+        let zeta_frob = zeta.frobenius(self);
+        let wire_interpol_val =
             self.interpolate2([(zeta, wire_eval), (zeta_frob, wire_eval_frob)], subgroup_x);
-        let numerator = self.sub_extension(ev, interpol_val);
-        let vanish_frob = self.sub_extension(subgroup_x, zeta_frob);
-        let denominator = self.mul_extension(vanish, vanish_frob);
-        let quotient = self.div_unsafe_extension(numerator, denominator);
-        sum = self.add_extension(sum, quotient);
+        let wire_numerator = self.sub_extension(wire_composition_eval, wire_interpol_val);
+        let vanish_zeta_frob = self.sub_extension(subgroup_x, zeta_frob);
+        let wire_denominator = self.mul_extension(vanish_zeta, vanish_zeta_frob);
+        let wire_quotient = self.div_unsafe_extension(wire_numerator, wire_denominator);
+        sum = self.add_extension(sum, wire_quotient);
 
         sum
     }
@@ -271,11 +279,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         let mut old_x_index = self.zero();
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
-        // TODO: The verifier will need to check these constants at some point (out of circuit).
         let g = self.constant(F::MULTIPLICATIVE_GROUP_GENERATOR);
         let phi = self.constant(F::primitive_root_of_unity(n_log));
 
-        let reversed_x = self.reverse_bits::<2>(x_index, n_log);
+        let reversed_x = self.reverse_limbs::<2>(x_index, n_log);
         let phi = self.exp(phi, reversed_x, n_log);
         let mut subgroup_x = self.mul(g, phi);
 
@@ -316,7 +323,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             if i > 0 {
                 // Update the point x to x^arity.
                 for _ in 0..config.reduction_arity_bits[i - 1] {
-                    subgroup_x = self.mul(subgroup_x, subgroup_x);
+                    subgroup_x = self.square(subgroup_x);
                 }
             }
             domain_size = next_domain_size;
@@ -335,7 +342,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             *betas.last().unwrap(),
         );
         for _ in 0..final_arity_bits {
-            subgroup_x = self.mul(subgroup_x, subgroup_x);
+            subgroup_x = self.square(subgroup_x);
         }
 
         // Final check of FRI. After all the reductions, we check that the final polynomial is equal
