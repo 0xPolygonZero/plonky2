@@ -9,7 +9,7 @@ use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::PlonkPolynomials;
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash, OpeningSet};
-use crate::util::scaling::ScalingFactor;
+use crate::util::scaling::ReducingFactor;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
 /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
@@ -152,7 +152,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     assert!(D > 1, "Not implemented for D=1.");
     let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
     let subgroup_x = F::Extension::from_basefield(subgroup_x);
-    let mut alpha = ScalingFactor::new(alpha);
+    let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;
 
     // We will add three terms to `sum`:
@@ -180,7 +180,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .into_iter()
         .zip(single_openings)
         .map(|(e, &o)| e - o);
-    let single_numerator = alpha.scale(single_diffs);
+    let single_numerator = alpha.reduce(single_diffs);
     let single_denominator = subgroup_x - zeta;
     sum += single_numerator / single_denominator;
     alpha.reset();
@@ -190,11 +190,11 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .unsalted_evals(PlonkPolynomials::ZS)
         .iter()
         .map(|&e| F::Extension::from_basefield(e));
-    let zs_composition_eval = alpha.clone().scale(zs_evals);
+    let zs_composition_eval = alpha.clone().reduce(zs_evals);
     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
     let zs_interpol = interpolant(&[
-        (zeta, alpha.clone().scale(os.plonk_zs.iter())),
-        (zeta_right, alpha.scale(os.plonk_zs_right.iter())),
+        (zeta, alpha.clone().reduce(os.plonk_zs.iter())),
+        (zeta_right, alpha.reduce(os.plonk_zs_right.iter())),
     ]);
     let zs_numerator = zs_composition_eval - zs_interpol.eval(subgroup_x);
     let zs_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
@@ -206,16 +206,16 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .unsalted_evals(PlonkPolynomials::WIRES)
         .iter()
         .map(|&e| F::Extension::from_basefield(e));
-    let wire_composition_eval = alpha.clone().scale(wire_evals);
+    let wire_composition_eval = alpha.clone().reduce(wire_evals);
     let zeta_frob = zeta.frobenius();
-    let wire_eval = alpha.clone().scale(os.wires.iter());
+    let wire_eval = alpha.clone().reduce(os.wires.iter());
     // We want to compute `sum a^i*phi(w_i)`, where `phi` denotes the Frobenius automorphism.
     // Since `phi^D=id` and `phi` is a field automorphism, we have the following equalities:
     // `sum a^i*phi(w_i) = sum phi(phi^(D-1)(a^i)*w_i) = phi(sum phi^(D-1)(a)^i*w_i)`
     // So we can compute the original sum using only one call to the `D-1`-repeated Frobenius of alpha,
     // and one call at the end of the sum.
     let mut alpha_frob = alpha.repeated_frobenius(D - 1);
-    let wire_eval_frob = alpha_frob.scale(os.wires.iter()).frobenius();
+    let wire_eval_frob = alpha_frob.reduce(os.wires.iter()).frobenius();
     let wire_interpol = interpolant(&[(zeta, wire_eval), (zeta_frob, wire_eval_frob)]);
     let wire_numerator = wire_composition_eval - wire_interpol.eval(subgroup_x);
     let wire_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);

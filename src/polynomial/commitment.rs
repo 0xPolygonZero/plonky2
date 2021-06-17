@@ -12,7 +12,7 @@ use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::proof::{FriProof, FriProofTarget, Hash, OpeningSet};
 use crate::timed;
-use crate::util::scaling::ScalingFactor;
+use crate::util::scaling::ReducingFactor;
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
 
 pub const SALT_SIZE: usize = 2;
@@ -111,7 +111,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         challenger.observe_opening_set(&os);
 
         let alpha = challenger.get_extension_challenge();
-        let mut alpha = ScalingFactor::new(alpha);
+        let mut alpha = ReducingFactor::new(alpha);
 
         // Final low-degree polynomial that goes into FRI.
         let mut final_poly = PolynomialCoeffs::empty();
@@ -127,8 +127,8 @@ impl<F: Field> ListPolynomialCommitment<F> {
         .map(|p| p.to_extension());
         let single_os = [&os.constants, &os.plonk_s_sigmas, &os.quotient_polys];
         let single_evals = single_os.iter().flat_map(|v| v.iter());
-        let single_composition_poly = alpha.clone().scale_polys(single_polys);
-        let single_composition_eval = alpha.scale(single_evals);
+        let single_composition_poly = alpha.clone().reduce_polys(single_polys);
+        let single_composition_eval = alpha.reduce(single_evals);
 
         let single_quotient = Self::compute_quotient(
             &[zeta],
@@ -143,10 +143,10 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .polynomials
             .iter()
             .map(|p| p.to_extension());
-        let zs_composition_poly = alpha.clone().scale_polys(zs_polys);
+        let zs_composition_poly = alpha.clone().reduce_polys(zs_polys);
         let zs_composition_evals = [
-            alpha.clone().scale(os.plonk_zs.iter()),
-            alpha.scale(os.plonk_zs_right.iter()),
+            alpha.clone().reduce(os.plonk_zs.iter()),
+            alpha.reduce(os.plonk_zs_right.iter()),
         ];
 
         let zs_quotient = Self::compute_quotient(
@@ -164,11 +164,11 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .polynomials
             .iter()
             .map(|p| p.to_extension());
-        let wire_composition_poly = alpha.clone().scale_polys(wire_polys);
+        let wire_composition_poly = alpha.clone().reduce_polys(wire_polys);
         let mut alpha_frob = alpha.repeated_frobenius(D - 1);
         let wire_composition_evals = [
-            alpha.clone().scale(os.wires.iter()),
-            alpha_frob.scale(os.wires.iter()).frobenius(),
+            alpha.clone().reduce(os.wires.iter()),
+            alpha_frob.reduce(os.wires.iter()).frobenius(),
         ];
 
         let wires_quotient = Self::compute_quotient(

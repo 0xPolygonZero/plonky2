@@ -5,12 +5,12 @@ use crate::field::field::Field;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 
 #[derive(Debug, Copy, Clone)]
-pub struct ScalingFactor<F: Field> {
+pub struct ReducingFactor<F: Field> {
     base: F,
     count: u64,
 }
 
-impl<F: Field> ScalingFactor<F> {
+impl<F: Field> ReducingFactor<F> {
     pub fn new(base: F) -> Self {
         Self { base, count: 0 }
     }
@@ -25,12 +25,12 @@ impl<F: Field> ScalingFactor<F> {
         &p * self.base
     }
 
-    pub fn scale(&mut self, iter: impl DoubleEndedIterator<Item = impl Borrow<F>>) -> F {
+    pub fn reduce(&mut self, iter: impl DoubleEndedIterator<Item = impl Borrow<F>>) -> F {
         iter.rev()
             .fold(F::ZERO, |acc, x| self.mul(acc) + *x.borrow())
     }
 
-    pub fn scale_polys(
+    pub fn reduce_polys(
         &mut self,
         polys: impl DoubleEndedIterator<Item = impl Borrow<PolynomialCoeffs<F>>>,
     ) -> PolynomialCoeffs<F> {
