@@ -292,19 +292,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let subgroup = F::two_adic_subgroup(degree_bits);
 
         let constant_vecs = self.constant_polys();
-        let constants_commitment = ListPolynomialCommitment::new(
-            constant_vecs.into_iter().map(|v| v.ifft()).collect(),
-            self.config.fri_config.rate_bits,
-            false,
-        );
+        let constants_commitment =
+            ListPolynomialCommitment::new(constant_vecs, self.config.fri_config.rate_bits, false);
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
-        let sigmas_commitment = ListPolynomialCommitment::new(
-            sigma_vecs.into_iter().map(|v| v.ifft()).collect(),
-            self.config.fri_config.rate_bits,
-            false,
-        );
+        let sigmas_commitment =
+            ListPolynomialCommitment::new(sigma_vecs, self.config.fri_config.rate_bits, false);
 
         let constants_root = constants_commitment.merkle_tree.root;
         let sigmas_root = sigmas_commitment.merkle_tree.root;
@@ -339,6 +333,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             config: self.config,
             degree_bits,
             gates,
+            max_filtered_constraint_degree_bits: 3, // TODO: compute this correctly once filters land.
             num_gate_constraints,
             k_is,
             circuit_digest,

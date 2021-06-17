@@ -9,37 +9,73 @@ use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::{reduce_polys_with_iter, reduce_with_iter};
-use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriProof, FriProofTarget, Hash, OpeningSet};
 use crate::timed;
-use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
+use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
 
 pub const SALT_SIZE: usize = 2;
 
 pub struct ListPolynomialCommitment<F: Field> {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
+    pub values: Vec<PolynomialValues<F>>,
     pub merkle_tree: MerkleTree<F>,
     pub degree: usize,
+    pub degree_log: usize,
     pub rate_bits: usize,
     pub blinding: bool,
 }
 
 impl<F: Field> ListPolynomialCommitment<F> {
-    pub fn new(polynomials: Vec<PolynomialCoeffs<F>>, rate_bits: usize, blinding: bool) -> Self {
-        let degree = polynomials[0].len();
+    /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
+    pub fn new(values: Vec<PolynomialValues<F>>, rate_bits: usize, blinding: bool) -> Self {
+        let degree = values[0].len();
+        let polynomials = values.iter().map(|v| v.clone().ifft()).collect::<Vec<_>>();
         let lde_values = timed!(
             Self::lde_values(&polynomials, rate_bits, blinding),
             "to compute LDE"
         );
 
+        Self::new_from_data(polynomials, values, lde_values, degree, rate_bits, blinding)
+    }
+
+    /// Creates a list polynomial commitment for the polynomials `polynomials`.
+    pub fn new_from_polys(
+        polynomials: Vec<PolynomialCoeffs<F>>,
+        rate_bits: usize,
+        blinding: bool,
+    ) -> Self {
+        let degree = polynomials[0].len();
+        let values = polynomials
+            .iter()
+            .map(|v| v.clone().fft())
+            .collect::<Vec<_>>();
+        let lde_values = timed!(
+            Self::lde_values(&polynomials, rate_bits, blinding),
+            "to compute LDE"
+        );
+
+        Self::new_from_data(polynomials, values, lde_values, degree, rate_bits, blinding)
+    }
+
+    fn new_from_data(
+        polynomials: Vec<PolynomialCoeffs<F>>,
+        values: Vec<PolynomialValues<F>>,
+        lde_values: Vec<Vec<F>>,
+        degree: usize,
+        rate_bits: usize,
+        blinding: bool,
+    ) -> Self {
         let mut leaves = timed!(transpose(&lde_values), "to transpose LDEs");
         reverse_index_bits_in_place(&mut leaves);
         let merkle_tree = timed!(MerkleTree::new(leaves, false), "to build Merkle tree");
 
         Self {
             polynomials,
+            values,
             merkle_tree,
             degree,
+            degree_log: log2_strict(degree),
             rate_bits,
             blinding,
         }
@@ -71,9 +107,8 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .collect()
     }
 
-    pub fn leaf(&self, index: usize) -> &[F] {
-        let leaf = &self.merkle_tree.leaves[index];
-        &leaf[0..leaf.len() - if self.blinding { SALT_SIZE } else { 0 }]
+    pub fn original_value(&self, index: usize) -> Vec<F> {
+        self.values.iter().map(|v| v.values[index]).collect()
     }
 
     /// Takes the commitments to the constants - sigmas - wires - zs - quotient — polynomials,
@@ -88,7 +123,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         F: Extendable<D>,
     {
         assert!(D > 1, "Not implemented for D=1.");
-        let degree_log = log2_strict(commitments[0].degree);
+        let degree_log = commitments[0].degree_log;
         let g = F::Extension::primitive_root_of_unity(degree_log);
         for p in &[zeta, g * zeta] {
             assert_ne!(
@@ -267,11 +302,11 @@ mod tests {
     fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(
         k: usize,
         degree_log: usize,
-    ) -> Vec<PolynomialCoeffs<F>> {
+    ) -> Vec<PolynomialValues<F>> {
         let degree = 1 << degree_log;
 
         (0..k)
-            .map(|_| PolynomialCoeffs::new(F::rand_vec(degree)))
+            .map(|_| PolynomialValues::new(F::rand_vec(degree)))
             .collect()
     }
 

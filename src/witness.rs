@@ -1,11 +1,23 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
 
+use crate::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::target::Target;
 use crate::wire::Wire;
-use std::convert::TryInto;
+
+#[derive(Clone, Debug)]
+pub struct Witness<F: Field> {
+    pub(crate) wire_values: Vec<Vec<F>>,
+}
+
+impl<F: Field> Witness<F> {
+    pub fn get_wire(&self, gate: usize, input: usize) -> F {
+        self.wire_values[input][gate]
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct PartialWitness<F: Field> {
@@ -120,6 +132,16 @@ impl<F: Field> PartialWitness<F> {
         for (target, value) in other.target_values {
             self.set_target(target, value);
         }
+    }
+
+    pub fn full_witness(self, degree: usize, num_wires: usize) -> Witness<F> {
+        let mut wire_values = vec![vec![F::ZERO; degree]; num_wires];
+        self.target_values.into_iter().for_each(|(t, v)| {
+            if let Target::Wire(Wire { gate, input }) = t {
+                wire_values[input][gate] = v;
+            }
+        });
+        Witness { wire_values }
     }
 }
 

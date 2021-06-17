@@ -17,7 +17,7 @@ use crate::timed;
 use crate::util::transpose;
 use crate::vars::EvaluationVarsBase;
 use crate::wire::Wire;
-use crate::witness::PartialWitness;
+use crate::witness::{PartialWitness, Witness};
 
 /// Corresponds to constants - sigmas - wires - zs - quotient — polynomial commitments.
 pub const PLONK_BLINDING: [bool; 5] = [false, false, true, true, true];
@@ -31,10 +31,10 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     let start_proof_gen = Instant::now();
 
-    let mut witness = inputs;
+    let mut partial_witness = inputs;
     info!("Running {} generators", prover_data.generators.len());
     timed!(
-        generate_partial_witness(&mut witness, &prover_data.generators),
+        generate_partial_witness(&mut partial_witness, &prover_data.generators),
         "to generate witness"
     );
 
@@ -42,12 +42,15 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let num_wires = config.num_wires;
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
-
     let degree = common_data.degree();
-    let wires_polynomials: Vec<PolynomialCoeffs<F>> = timed!(
-        (0..num_wires)
-            .into_par_iter()
-            .map(|i| compute_wire_polynomial(i, &witness, degree))
+
+    let witness = partial_witness.full_witness(degree, num_wires);
+
+    let wires_values: Vec<PolynomialValues<F>> = timed!(
+        witness
+            .wire_values
+            .iter()
+            .map(|column| PolynomialValues::new(column.clone()))
             .collect(),
         "to compute wire polynomials"
     );
@@ -55,7 +58,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
     // merkle_root_bit_rev_order do it implicitly.
     let wires_commitment = timed!(
-        ListPolynomialCommitment::new(wires_polynomials, fri_config.rate_bits, true),
+        ListPolynomialCommitment::new(wires_values, fri_config.rate_bits, true),
         "to compute wires commitment"
     );
 
@@ -68,7 +71,10 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let betas = challenger.get_n_challenges(num_challenges);
     let gammas = challenger.get_n_challenges(num_challenges);
 
-    let plonk_z_vecs = timed!(compute_zs(&common_data), "to compute Z's");
+    let plonk_z_vecs = timed!(
+        compute_zs(&witness, &betas, &gammas, &prover_data, &common_data),
+        "to compute Z's"
+    );
 
     let plonk_zs_commitment = timed!(
         ListPolynomialCommitment::new(plonk_z_vecs, fri_config.rate_bits, true),
@@ -107,7 +113,11 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     );
 
     let quotient_polys_commitment = timed!(
-        ListPolynomialCommitment::new(all_quotient_poly_chunks, fri_config.rate_bits, true),
+        ListPolynomialCommitment::new_from_polys(
+            all_quotient_poly_chunks,
+            fri_config.rate_bits,
+            true
+        ),
         "to commit to quotient polys"
     );
 
@@ -146,37 +156,44 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 }
 
 fn compute_zs<F: Extendable<D>, const D: usize>(
+    witness: &Witness<F>,
+    betas: &[F],
+    gammas: &[F],
+    prover_data: &ProverOnlyCircuitData<F>,
     common_data: &CommonCircuitData<F, D>,
-) -> Vec<PolynomialCoeffs<F>> {
+) -> Vec<PolynomialValues<F>> {
     (0..common_data.config.num_challenges)
-        .map(|i| compute_z(common_data, i))
+        .map(|i| compute_z(witness, betas[i], gammas[i], prover_data, common_data))
         .collect()
 }
 
 fn compute_z<F: Extendable<D>, const D: usize>(
+    witness: &Witness<F>,
+    beta: F,
+    gamma: F,
+    prover_data: &ProverOnlyCircuitData<F>,
     common_data: &CommonCircuitData<F, D>,
-    _i: usize,
-) -> PolynomialCoeffs<F> {
-    todo!()
-    // let subgroup =
-    // let mut plonk_z_points = vec![F::ONE];
-    // let k_is = common_data.k_is;
-    // for i in 1..common_data.degree() {
-    //     let x = subgroup[i - 1];
-    //     let mut numerator = F::ONE;
-    //     let mut denominator = F::ONE;
-    //     for j in 0..NUM_ROUTED_WIRES {
-    //         let wire_value = witness.get_indices(i - 1, j);
-    //         let k_i = k_is[j];
-    //         let s_id = k_i * x;
-    //         let s_sigma = sigma_values[j][8 * (i - 1)];
-    //         numerator = numerator * (wire_value + beta * s_id + gamma);
-    //         denominator = denominator * (wire_value + beta * s_sigma + gamma);
-    //     }
-    //     let last = *plonk_z_points.last().unwrap();
-    //     plonk_z_points.push(last * numerator / denominator);
-    // }
-    // plonk_z_points
+) -> PolynomialValues<F> {
+    let subgroup = &prover_data.subgroup;
+    let mut plonk_z_points = vec![F::ONE];
+    let k_is = &common_data.k_is;
+    for i in 1..common_data.degree() {
+        let x = subgroup[i - 1];
+        let mut numerator = F::ONE;
+        let mut denominator = F::ONE;
+        let s_sigmas = prover_data.sigmas_commitment.original_value(i - 1);
+        for j in 0..common_data.config.num_routed_wires {
+            let wire_value = witness.get_wire(i - 1, j);
+            let k_i = k_is[j];
+            let s_id = k_i * x;
+            let s_sigma = s_sigmas[j];
+            numerator = numerator * (wire_value + beta * s_id + gamma);
+            denominator = denominator * (wire_value + beta * s_sigma + gamma);
+        }
+        let last = *plonk_z_points.last().unwrap();
+        plonk_z_points.push(last * numerator / denominator);
+    }
+    plonk_z_points.into()
 }
 
 fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(
@@ -188,21 +205,38 @@ fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(
     gammas: &[F],
     alphas: &[F],
 ) -> Vec<PolynomialValues<F>> {
-    let lde_size = common_data.lde_size();
-    let lde_gen = common_data.lde_generator();
     let num_challenges = common_data.config.num_challenges;
+    let points = F::two_adic_subgroup(
+        common_data.degree_bits + common_data.max_filtered_constraint_degree_bits,
+    );
+    let lde_size = points.len();
 
-    let points = F::cyclic_subgroup_known_order(lde_gen, lde_size);
+    let commitment_to_lde = |comm: &ListPolynomialCommitment<F>| -> Vec<PolynomialValues<F>> {
+        comm.polynomials
+            .iter()
+            .map(|p| p.lde(common_data.max_filtered_constraint_degree_bits).fft())
+            .collect()
+    };
+
+    let constants_lde = commitment_to_lde(&prover_data.constants_commitment);
+    let sigmas_lde = commitment_to_lde(&prover_data.sigmas_commitment);
+    let wires_lde = commitment_to_lde(wires_commitment);
+    let zs_lde = commitment_to_lde(plonk_zs_commitment);
+
+    let get_at_index = |ldes: &[PolynomialValues<F>], i: usize| {
+        ldes.iter().map(|l| l.values[i]).collect::<Vec<_>>()
+    };
+
     let values: Vec<Vec<F>> = points
         .into_par_iter()
         .enumerate()
         .map(|(i, x)| {
             let i_next = (i + 1) % lde_size;
-            let local_wires = wires_commitment.leaf(i);
-            let local_constants = prover_data.constants_commitment.leaf(i);
-            let local_plonk_zs = plonk_zs_commitment.leaf(i);
-            let next_plonk_zs = plonk_zs_commitment.leaf(i_next);
-            let s_sigmas = prover_data.sigmas_commitment.leaf(i);
+            let local_constants = &get_at_index(&constants_lde, i);
+            let s_sigmas = &get_at_index(&sigmas_lde, i);
+            let local_wires = &get_at_index(&wires_lde, i);
+            let local_plonk_zs = &get_at_index(&zs_lde, i);
+            let next_plonk_zs = &get_at_index(&zs_lde, i_next);
 
             debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
             debug_assert_eq!(local_plonk_zs.len(), num_challenges);
@@ -229,23 +263,4 @@ fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(
         .into_iter()
         .map(PolynomialValues::new)
         .collect()
-}
-
-fn compute_wire_polynomial<F: Field>(
-    input: usize,
-    witness: &PartialWitness<F>,
-    degree: usize,
-) -> PolynomialCoeffs<F> {
-    let wire_values = (0..degree)
-        // Some gates do not use all wires, and we do not require that generators populate unused
-        // wires, so some wire values will not be set. We can set these to any value; here we
-        // arbitrary pick zero. Ideally we would verify that no constraints operate on these unset
-        // wires, but that isn't trivial.
-        .map(|gate| {
-            witness
-                .try_get_wire(Wire { gate, input })
-                .unwrap_or(F::ZERO)
-        })
-        .collect();
-    PolynomialValues::new(wire_values).ifft()
 }

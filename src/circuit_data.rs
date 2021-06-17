@@ -144,6 +144,9 @@ pub(crate) struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     pub(crate) gates: Vec<GateRef<F, D>>,
 
     /// The largest number of constraints imposed by any gate.
+    pub(crate) max_filtered_constraint_degree_bits: usize,
+
+    /// The largest number of constraints imposed by any gate.
     pub(crate) num_gate_constraints: usize,
 
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
@@ -176,7 +179,7 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     pub fn quotient_degree(&self) -> usize {
-        self.constraint_degree() - 1
+        1 << self.max_filtered_constraint_degree_bits - 1
     }
 
     pub fn total_constraints(&self) -> usize {
