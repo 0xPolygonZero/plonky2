@@ -57,7 +57,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inputs.push(proof.pow_witness);
 
         let hash = self.hash_n_to_m(inputs, 1, false)[0];
-        self.assert_trailing_zeros::<2>(hash, config.proof_of_work_bits);
+        self.assert_leading_zeros(hash, config.proof_of_work_bits + F::ORDER.leading_zeros());
     }
 
     pub fn verify_fri_proof(

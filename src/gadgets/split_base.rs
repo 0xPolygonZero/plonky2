@@ -22,18 +22,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         )
     }
 
-    /// Asserts that `x`'s big-endian bit representation has at least `trailing_zeros` trailing zeros.
-    pub(crate) fn assert_trailing_zeros<const B: usize>(&mut self, x: Target, trailing_zeros: u32) {
-        let num_limbs = num_limbs(64, B);
-        let num_limbs_to_check = num_limbs_to_check(trailing_zeros, B);
-        let limbs = self.split_le_base::<B>(x, num_limbs);
-        assert!(
-            num_limbs_to_check <= self.config.num_routed_wires,
-            "Not enough routed wires."
-        );
-        for i in 0..num_limbs_to_check {
-            self.assert_zero(limbs[i]);
-        }
+    /// Asserts that `x`'s big-endian bit representation has at least `leading_zeros` leading zeros.
+    pub(crate) fn assert_leading_zeros(&mut self, x: Target, leading_zeros: u32) {
+        self.range_check(x, (64 - leading_zeros) as usize);
     }
 
     pub(crate) fn reverse_bits<const B: usize>(&mut self, x: Target, num_limbs: usize) -> Target {
@@ -43,23 +34,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         Target::wire(gate, BaseSumGate::<B>::WIRE_REVERSED_SUM)
     }
-}
-
-/// Returns `k` such that any number with `k` trailing zeros in base `base` has at least
-/// `n` trailing zeros in base 2.
-#[allow(unconditional_panic)]
-const fn num_limbs_to_check(n: u32, base: usize) -> usize {
-    if base % 2 == 1 {
-        // Dirty trick to panic if the base is odd.
-        // TODO: replace with `assert_eq!(base % 2, 0, "Base should be even.")` when stable.
-        [][0]
-    } else {
-        ceil_div_usize(n as usize, base.trailing_zeros() as usize)
-    }
-}
-
-fn num_limbs(n_log: u32, base: usize) -> usize {
-    ((n_log as f64) * 2.0_f64.log(base as f64)).ceil() as usize
 }
 
 #[cfg(test)]
@@ -90,9 +64,7 @@ mod tests {
         let revt = builder.reverse_bits::<2>(xt, 9);
         builder.route(revt, rev);
 
-        builder.assert_trailing_zeros::<6>(xt, 4);
-        builder.assert_trailing_zeros::<4>(xt, 5);
-        builder.assert_trailing_zeros::<12>(xt, 5);
+        builder.assert_leading_zeros(xt, 64 - 9);
         let data = builder.build();
 
         let proof = data.prove(PartialWitness::new());

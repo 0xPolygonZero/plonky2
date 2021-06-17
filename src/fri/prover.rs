@@ -106,8 +106,8 @@ fn fri_proof_of_work<F: Field>(current_hash: Hash<F>, config: &FriConfig) -> F {
                 false,
             )
             .to_canonical_u64()
-            .trailing_zeros()
-                >= config.proof_of_work_bits
+            .leading_zeros()
+                >= config.proof_of_work_bits + F::ORDER.leading_zeros()
         })
         .map(F::from_canonical_u64)
         .expect("Proof of work failed.")
