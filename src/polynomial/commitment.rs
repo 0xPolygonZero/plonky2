@@ -260,9 +260,9 @@ pub struct OpeningProofTarget<const D: usize> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use rand::Rng;
 
     use super::*;
+    use crate::plonk_common::PlonkPolynomials;
 
     fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(
         k: usize,
@@ -288,17 +288,6 @@ mod tests {
         point
     }
 
-    fn gen_random_blindings() -> Vec<bool> {
-        let mut rng = rand::thread_rng();
-        vec![
-            rng.gen_bool(0.5),
-            rng.gen_bool(0.5),
-            rng.gen_bool(0.5),
-            rng.gen_bool(0.5),
-            rng.gen_bool(0.5),
-        ]
-    }
-
     fn check_batch_polynomial_commitment<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
         let ks = [1, 2, 3, 5, 8];
         let degree_log = 11;
@@ -307,7 +296,6 @@ mod tests {
             rate_bits: 2,
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
-            blinding: gen_random_blindings(),
         };
 
         let lpcs = (0..5)
@@ -315,7 +303,7 @@ mod tests {
                 ListPolynomialCommitment::<F>::new(
                     gen_random_test_case(ks[i], degree_log),
                     fri_config.rate_bits,
-                    fri_config.blinding[i],
+                    PlonkPolynomials::polynomials(i).blinding,
                 )
             })
             .collect::<Vec<_>>();

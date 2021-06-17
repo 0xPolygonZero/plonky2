@@ -19,9 +19,6 @@ use crate::vars::EvaluationVarsBase;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
-/// Corresponds to constants - sigmas - wires - zs - quotient — polynomial commitments.
-pub const PLONK_BLINDING: [bool; 5] = [false, false, true, true, true];
-
 pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F>,
     common_data: &CommonCircuitData<F, D>,
