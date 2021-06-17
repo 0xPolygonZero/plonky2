@@ -6,6 +6,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::fri::FriConfig;
 use crate::plonk_challenger::RecursiveChallenger;
+use crate::plonk_common::PlonkPolynomials;
 use crate::proof::{
     FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, HashTarget, OpeningSetTarget,
 };
@@ -157,11 +158,15 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // - one for polynomials opened at `x` and `x.frobenius()`
 
         // Polynomials opened at `x`, i.e., the constants, sigmas and quotient polynomials.
-        let single_evals = [0, 1, 4]
-            .iter()
-            .flat_map(|&i| proof.unsalted_evals(i, config))
-            .map(|&e| self.convert_to_ext(e))
-            .collect::<Vec<_>>();
+        let single_evals = [
+            PlonkPolynomials::CONSTANTS,
+            PlonkPolynomials::SIGMAS,
+            PlonkPolynomials::QUOTIENT,
+        ]
+        .iter()
+        .flat_map(|&p| proof.unsalted_evals(p))
+        .map(|&e| self.convert_to_ext(e))
+        .collect::<Vec<_>>();
         let single_openings = os
             .constants
             .iter()
@@ -179,7 +184,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
         let zs_evals = proof
-            .unsalted_evals(3, config)
+            .unsalted_evals(PlonkPolynomials::ZS)
             .iter()
             .map(|&e| self.convert_to_ext(e))
             .collect::<Vec<_>>();
@@ -217,7 +222,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Polynomials opened at `x` and `x.frobenius()`, i.e., the wires polynomials.
         let wire_evals = proof
-            .unsalted_evals(2, config)
+            .unsalted_evals(PlonkPolynomials::WIRES)
             .iter()
             .map(|&e| self.convert_to_ext(e))
             .collect::<Vec<_>>();

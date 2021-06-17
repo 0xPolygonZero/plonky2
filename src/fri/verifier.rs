@@ -7,7 +7,7 @@ use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::reduce_with_iter;
+use crate::plonk_common::{reduce_with_iter, PlonkPolynomials};
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash, OpeningSet};
 use crate::util::scaling::ScalingFactor;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
@@ -158,31 +158,31 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     // We will add three terms to `sum`:
     // - one for various polynomials which are opened at a single point `x`
     // - one for Zs, which are opened at `x` and `g x`
-    // - one for wire polynomials, which are opened at `x` and its conjugate
+    // - one for wire polynomials, which are opened at `x` and `x.frobenius()`
 
     // Polynomials opened at `x`, i.e., the constants, sigmas and quotient polynomials.
-    let single_evals = &proof
-        .unsalted_evals(0, config)
-        .into_iter()
-        .chain(proof.unsalted_evals(1, config))
-        .chain(proof.unsalted_evals(4, config))
-        .map(|e| F::Extension::from_basefield(e));
+    let single_evals = [
+        PlonkPolynomials::CONSTANTS,
+        PlonkPolynomials::SIGMAS,
+        PlonkPolynomials::QUOTIENT,
+    ]
+    .iter()
+    .flat_map(|&p| proof.unsalted_evals(p))
+    .map(|&e| F::Extension::from_basefield(e));
     let single_openings = os
         .constants
-        .clone()
-        .into_iter()
-        .chain(os.plonk_s_sigmas.clone())
-        .chain(os.quotient_polys.clone());
-    let single_diffs = single_evals.zip(single_openings).map(|(e, o)| e - o);
-    dbg!(single_diffs.rev());
-    let single_numerator = alpha.scale(single_diffs);
+        .iter()
+        .chain(&os.plonk_s_sigmas)
+        .chain(&os.quotient_polys);
+    let single_diffs = single_evals.zip(single_openings).map(|(e, &o)| e - o);
+    let single_numerator = reduce_with_iter(single_diffs, &mut alpha_powers);
     let single_denominator = subgroup_x - zeta;
     sum += single_numerator / single_denominator;
     alpha.shift(sum);
 
     // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
     let zs_evals = proof
-        .unsalted_evals(3, config)
+        .unsalted_evals(PlonkPolynomials::ZS)
         .iter()
         .map(|&e| F::Extension::from_basefield(e));
     let zs_composition_eval = alpha.clone().scale(zs_evals);
@@ -198,7 +198,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
 
     // Polynomials opened at `x` and `x.frobenius()`, i.e., the wires polynomials.
     let wire_evals = proof
-        .unsalted_evals(2, config)
+        .unsalted_evals(PlonkPolynomials::WIRES)
         .iter()
         .map(|&e| F::Extension::from_basefield(e));
     let wire_composition_eval = alpha.clone().scale(wire_evals);

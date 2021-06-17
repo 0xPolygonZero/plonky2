@@ -3,9 +3,9 @@ use std::convert::TryInto;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
-use crate::fri::FriConfig;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::merkle_proofs::{MerkleProof, MerkleProofTarget};
+use crate::plonk_common::PolynomialsIndexBlinding;
 use crate::polynomial::commitment::{ListPolynomialCommitment, OpeningProof, OpeningProofTarget};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
@@ -99,9 +99,9 @@ pub struct FriInitialTreeProof<F: Field> {
 }
 
 impl<F: Field> FriInitialTreeProof<F> {
-    pub(crate) fn unsalted_evals(&self, i: usize, config: &FriConfig) -> Vec<F> {
-        let evals = &self.evals_proofs[i].0;
-        evals[..evals.len() - config.salt_size(i)].to_vec()
+    pub(crate) fn unsalted_evals(&self, polynomials: PolynomialsIndexBlinding) -> &[F] {
+        let evals = &self.evals_proofs[polynomials.index].0;
+        &evals[..evals.len() - polynomials.salt_size()]
     }
 }
 
@@ -110,9 +110,9 @@ pub struct FriInitialTreeProofTarget {
 }
 
 impl FriInitialTreeProofTarget {
-    pub(crate) fn unsalted_evals(&self, i: usize, config: &FriConfig) -> &[Target] {
-        let evals = &self.evals_proofs[i].0;
-        &evals[..evals.len() - config.salt_size(i)]
+    pub(crate) fn unsalted_evals(&self, polynomials: PolynomialsIndexBlinding) -> &[Target] {
+        let evals = &self.evals_proofs[polynomials.index].0;
+        &evals[..evals.len() - polynomials.salt_size()]
     }
 }
 
