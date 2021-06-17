@@ -1,8 +1,8 @@
 use anyhow::Result;
 use rayon::prelude::*;
 
-use crate::field::extension_field::FieldExtension;
-use crate::field::extension_field::{Extendable, OEF};
+use crate::field::extension_field::Extendable;
+use crate::field::extension_field::{FieldExtension, Frobenius};
 use crate::field::field::Field;
 use crate::field::lagrange::interpolant;
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
@@ -10,7 +10,7 @@ use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::{reduce_polys_with_iter, reduce_with_iter};
 use crate::polynomial::polynomial::PolynomialCoeffs;
-use crate::proof::{FriProof, Hash, OpeningSet};
+use crate::proof::{FriProof, FriProofTarget, Hash, OpeningSet};
 use crate::timed;
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
 
@@ -251,6 +251,10 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningProof<F, D> {
             fri_config,
         )
     }
+}
+
+pub struct OpeningProofTarget<const D: usize> {
+    fri_proof: FriProofTarget<D>,
 }
 
 #[cfg(test)]

@@ -206,10 +206,15 @@ pub(crate) fn reduce_with_powers<F: Field>(terms: &[F], alpha: F) -> F {
 
 pub(crate) fn reduce_with_powers_recursive<F: Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    terms: Vec<Target>,
+    terms: &[ExtensionTarget<D>],
     alpha: Target,
-) -> Target {
-    todo!()
+) -> ExtensionTarget<D> {
+    let mut sum = builder.zero_extension();
+    for &term in terms.iter().rev() {
+        sum = builder.scalar_mul_ext(alpha, sum);
+        sum = builder.add_extension(sum, term);
+    }
+    sum
 }
 
 /// Reduce a sequence of field elements by the given coefficients.

@@ -7,7 +7,7 @@ pub(crate) fn bits_u64(n: u64) -> usize {
     (64 - n.leading_zeros()) as usize
 }
 
-pub(crate) fn ceil_div_usize(a: usize, b: usize) -> usize {
+pub(crate) const fn ceil_div_usize(a: usize, b: usize) -> usize {
     (a + b - 1) / b
 }
 

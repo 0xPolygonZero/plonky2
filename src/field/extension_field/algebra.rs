@@ -220,7 +220,6 @@ mod tests {
         let y = ExtensionAlgebra::from_basefield_array(arr1);
         let z = x * y;
 
-        dbg!(z.0, mul_mle(ts.clone()));
         assert_eq!(z.0, mul_mle(ts));
     }
 
