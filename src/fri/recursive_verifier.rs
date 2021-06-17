@@ -156,12 +156,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // - one for polynomials opened at `x` and `g x`
         // - one for polynomials opened at `x` and `x.frobenius()`
 
-        let evals = [0, 1, 4]
+        // Polynomials opened at `x`, i.e., the constants, sigmas and quotient polynomials.
+        let single_evals = [0, 1, 4]
             .iter()
             .flat_map(|&i| proof.unsalted_evals(i, config))
             .map(|&e| self.convert_to_ext(e))
             .collect::<Vec<_>>();
-        let openings = os
+        let single_openings = os
             .constants
             .iter()
             .chain(&os.plonk_sigmas)

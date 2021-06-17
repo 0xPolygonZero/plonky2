@@ -2,7 +2,6 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
 use crate::gates::base_sum::BaseSumGate;
 use crate::target::Target;
-use crate::util::ceil_div_usize;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given element into a list of targets, where each one represents a

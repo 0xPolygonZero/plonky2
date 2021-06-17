@@ -159,6 +159,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     // - one for Zs, which are opened at `x` and `g x`
     // - one for wire polynomials, which are opened at `x` and its conjugate
 
+    // Polynomials opened at `x`, i.e., the constants, sigmas and quotient polynomials.
     let single_evals = [0, 1, 4]
         .iter()
         .flat_map(|&i| proof.unsalted_evals(i, config))
