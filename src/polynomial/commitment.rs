@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::{FieldExtension, Frobenius};
 use crate::field::field::Field;
-use crate::field::lagrange::interpolant2;
+use crate::field::interpolation::interpolant2;
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;

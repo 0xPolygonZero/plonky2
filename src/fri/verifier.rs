@@ -2,7 +2,7 @@ use anyhow::{ensure, Result};
 
 use crate::field::extension_field::{flatten, Extendable, FieldExtension, Frobenius};
 use crate::field::field::Field;
-use crate::field::lagrange::{barycentric_weights, interpolate, interpolate2};
+use crate::field::interpolation::{barycentric_weights, interpolate, interpolate2};
 use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
