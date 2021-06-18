@@ -23,7 +23,8 @@ pub fn ifft<F: Field>(
     poly: PolynomialValues<F>
 ) -> PolynomialCoeffs<F> {
     let n = poly.len();
-    let n_inv = F::from_canonical_usize(n).try_inverse().unwrap();
+    let lg_n = log2_strict(n);
+    let n_inv = F::inverse_2exp(lg_n);
 
     let PolynomialValues { values } = poly;
     let mut coeffs = fft_dispatch(values);
