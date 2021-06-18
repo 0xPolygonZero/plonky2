@@ -219,7 +219,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
         let mut numerator = poly;
         numerator -= interpolant;
-        let (quotient, rem) = numerator.div_rem(&denominator);
+        let (quotient, rem) = numerator.div_rem_long_division(&denominator);
         debug_assert!(rem.is_zero());
 
         quotient.padded(quotient.degree_plus_one().next_power_of_two())
