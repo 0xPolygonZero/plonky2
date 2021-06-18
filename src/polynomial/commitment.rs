@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::{FieldExtension, Frobenius};
 use crate::field::field::Field;
-use crate::field::lagrange::{interpolant, interpolant2};
+use crate::field::lagrange::interpolant2;
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
@@ -120,8 +120,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .iter()
             .flat_map(|&i| &commitments[i].polynomials)
             .map(|p| p.to_extension());
-        let single_os = [&os.constants, &os.plonk_s_sigmas, &os.quotient_polys];
-        let single_evals = single_os.iter().flat_map(|v| v.iter());
         let single_composition_poly = reduce_polys_with_iter(single_polys, &mut alpha_powers);
 
         let single_quotient = Self::compute_quotient1(zeta, single_composition_poly);

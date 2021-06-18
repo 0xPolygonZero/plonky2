@@ -26,7 +26,7 @@ impl<F: Field> PolynomialCoeffs<F> {
                 .to_vec()
                 .into();
             let mut q = rev_q.rev();
-            let mut qb = &q * b;
+            let qb = &q * b;
             let mut r = self - &qb;
             q.trim();
             r.trim();
@@ -59,8 +59,7 @@ impl<F: Field> PolynomialCoeffs<F> {
                 quotient.coeffs[cur_q_degree] = cur_q_coeff;
 
                 for (i, &div_coeff) in b.coeffs.iter().enumerate() {
-                    remainder.coeffs[cur_q_degree + i] =
-                        remainder.coeffs[cur_q_degree + i] - (cur_q_coeff * div_coeff);
+                    remainder.coeffs[cur_q_degree + i] -= cur_q_coeff * div_coeff;
                 }
                 remainder.trim();
             }
@@ -97,7 +96,7 @@ impl<F: Field> PolynomialCoeffs<F> {
         let denominators = (0..a_eval.len())
             .map(|i| {
                 if i != 0 {
-                    root_pow = root_pow * root_n;
+                    root_pow *= root_n;
                 }
                 denominator_g * root_pow - F::ONE
             })
