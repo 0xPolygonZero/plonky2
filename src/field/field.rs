@@ -31,11 +31,14 @@ pub trait Field:
     + Send
     + Sync
 {
+    type PrimeField: Field;
+
     const ZERO: Self;
     const ONE: Self;
     const TWO: Self;
     const NEG_ONE: Self;
 
+    const CHARACTERISTIC: u64;
     const ORDER: u64;
     const TWO_ADICITY: usize;
 

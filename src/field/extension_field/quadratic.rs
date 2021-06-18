@@ -41,11 +41,14 @@ impl From<<Self as FieldExtension<2>>::BaseField> for QuadraticCrandallField {
 }
 
 impl Field for QuadraticCrandallField {
+    type PrimeField = CrandallField;
+
     const ZERO: Self = Self([CrandallField::ZERO; 2]);
     const ONE: Self = Self([CrandallField::ONE, CrandallField::ZERO]);
     const TWO: Self = Self([CrandallField::TWO, CrandallField::ZERO]);
     const NEG_ONE: Self = Self([CrandallField::NEG_ONE, CrandallField::ZERO]);
 
+    const CHARACTERISTIC: u64 = CrandallField::ORDER;
     // Does not fit in 64-bits.
     const ORDER: u64 = 0;
     const TWO_ADICITY: usize = 29;

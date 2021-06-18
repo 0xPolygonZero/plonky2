@@ -136,6 +136,8 @@ impl Debug for CrandallField {
 }
 
 impl Field for CrandallField {
+    type PrimeField = Self;
+
     const ZERO: Self = Self(0);
     const ONE: Self = Self(1);
     const TWO: Self = Self(2);
@@ -143,6 +145,7 @@ impl Field for CrandallField {
 
     const ORDER: u64 = 18446744071293632513;
     const TWO_ADICITY: usize = 28;
+    const CHARACTERISTIC: u64 = Self::ORDER;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(5);
     const POWER_OF_TWO_GENERATOR: Self = Self(10281950781551402419);
