@@ -2,7 +2,7 @@ use anyhow::{ensure, Result};
 
 use crate::field::extension_field::{flatten, Extendable, FieldExtension, Frobenius};
 use crate::field::field::Field;
-use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
+use crate::field::lagrange::{barycentric_weights, interpolant, interpolate, interpolate2};
 use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
@@ -185,14 +185,17 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .map(|&e| F::Extension::from_basefield(e));
     let zs_composition_eval = reduce_with_iter(zs_evals, alpha_powers.clone());
     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
-    let zs_interpol = interpolant(&[
-        (zeta, reduce_with_iter(&os.plonk_zs, alpha_powers.clone())),
-        (
-            zeta_right,
-            reduce_with_iter(&os.plonk_zs_right, &mut alpha_powers),
-        ),
-    ]);
-    let zs_numerator = zs_composition_eval - zs_interpol.eval(subgroup_x);
+    let zs_interpol = interpolate2(
+        [
+            (zeta, reduce_with_iter(&os.plonk_zs, alpha_powers.clone())),
+            (
+                zeta_right,
+                reduce_with_iter(&os.plonk_zs_right, &mut alpha_powers),
+            ),
+        ],
+        subgroup_x,
+    );
+    let zs_numerator = zs_composition_eval - zs_interpol;
     let zs_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
     sum += zs_numerator / zs_denominator;
 
@@ -211,8 +214,8 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     // and one call at the end of the sum.
     let alpha_powers_frob = alpha_powers.repeated_frobenius(D - 1);
     let wire_eval_frob = reduce_with_iter(&os.wires, alpha_powers_frob).frobenius();
-    let wire_interpol = interpolant(&[(zeta, wire_eval), (zeta_frob, wire_eval_frob)]);
-    let wire_numerator = wire_composition_eval - wire_interpol.eval(subgroup_x);
+    let wire_interpol = interpolate2([(zeta, wire_eval), (zeta_frob, wire_eval_frob)], subgroup_x);
+    let wire_numerator = wire_composition_eval - wire_interpol;
     let wire_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
     sum += wire_numerator / wire_denominator;
 
