@@ -53,15 +53,20 @@ pub(crate) fn fft_classic<F: Field>(
     // TODO: Unroll later rounds.
 
     let n = values.len();
-    let mut m = 2;
-    let mut lg_m = 1;
-    loop {
-        if m > n {
-            break;
-        }
+    let lg_n = log2_strict(n);
 
-        // TODO: calculate incrementally
-        let omega_m = F::primitive_root_of_unity(lg_m);
+    // Pre-calculate the primitive 2^m-th roots of unity
+    let mut roots_of_unity = Vec::with_capacity(lg_n);
+    let mut base = F::primitive_root_of_unity(lg_n);
+    roots_of_unity.push(base);
+    for _ in 2 .. lg_n + 1 {
+        base = base.square();
+        roots_of_unity.push(base);
+    }
+
+    let mut m = 2;
+    for lg_m in 1 .. lg_n + 1 {
+        let omega_m = roots_of_unity[lg_n - lg_m];
         for k in (0..n).step_by(m) {
             let mut omega = F::ONE;
             let half_m = m/2;
@@ -74,7 +79,6 @@ pub(crate) fn fft_classic<F: Field>(
             }
         }
         m *= 2;
-        lg_m += 1;
     }
     values
 }
@@ -146,11 +150,7 @@ pub(crate) fn fft_barretenberg<F: Field>(
 
     // m >= 4
     let mut m = 4;
-    let mut lg_m = 2;
-    loop {
-        if m >= n {
-            break;
-        }
+    for lg_m in 2 .. lg_n {
         for k in (0..n).step_by(2*m) {
             // Unrolled the commented loop by groups of 4 and
             // rearranged the lines. Improves runtime by about
@@ -188,7 +188,6 @@ pub(crate) fn fft_barretenberg<F: Field>(
             }
         }
         m *= 2;
-        lg_m += 1;
     }
     values
 }
