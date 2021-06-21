@@ -4,11 +4,10 @@ use rayon::prelude::*;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::{FieldExtension, Frobenius};
 use crate::field::field::Field;
-use crate::field::lagrange::interpolant;
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{reduce_polys_with_iter, reduce_with_iter};
+use crate::plonk_common::reduce_polys_with_iter;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::proof::{FriProof, FriProofTarget, Hash, OpeningSet};
 use crate::timed;
@@ -120,50 +119,27 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .iter()
             .flat_map(|&i| &commitments[i].polynomials)
             .map(|p| p.to_extension());
-        let single_os = [&os.constants, &os.plonk_s_sigmas, &os.quotient_polys];
-        let single_evals = single_os.iter().flat_map(|v| v.iter());
-        let single_composition_poly = reduce_polys_with_iter(single_polys, alpha_powers.clone());
-        let single_composition_eval = reduce_with_iter(single_evals, &mut alpha_powers);
+        let single_composition_poly = reduce_polys_with_iter(single_polys, &mut alpha_powers);
 
-        let single_quotient = Self::compute_quotient(
-            &[zeta],
-            &[single_composition_eval],
-            &single_composition_poly,
-        );
-        final_poly = &final_poly + &single_quotient;
+        let single_quotient = Self::compute_quotient([zeta], single_composition_poly);
+        final_poly += single_quotient;
 
         // Zs polynomials are opened at `zeta` and `g*zeta`.
         let zs_polys = commitments[3].polynomials.iter().map(|p| p.to_extension());
-        let zs_composition_poly = reduce_polys_with_iter(zs_polys, alpha_powers.clone());
-        let zs_composition_evals = [
-            reduce_with_iter(&os.plonk_zs, alpha_powers.clone()),
-            reduce_with_iter(&os.plonk_zs_right, &mut alpha_powers),
-        ];
+        let zs_composition_poly = reduce_polys_with_iter(zs_polys, &mut alpha_powers);
 
-        let zs_quotient = Self::compute_quotient(
-            &[zeta, g * zeta],
-            &zs_composition_evals,
-            &zs_composition_poly,
-        );
-        final_poly = &final_poly + &zs_quotient;
+        let zs_quotient = Self::compute_quotient([zeta, g * zeta], zs_composition_poly);
+        final_poly += zs_quotient;
 
         // When working in an extension field, need to check that wires are in the base field.
         // Check this by opening the wires polynomials at `zeta` and `zeta.frobenius()` and using the fact that
         // a polynomial `f` is over the base field iff `f(z).frobenius()=f(z.frobenius())` with high probability.
         let wire_polys = commitments[2].polynomials.iter().map(|p| p.to_extension());
-        let wire_composition_poly = reduce_polys_with_iter(wire_polys, alpha_powers.clone());
-        let wire_evals_frob = os.wires.iter().map(|e| e.frobenius()).collect::<Vec<_>>();
-        let wire_composition_evals = [
-            reduce_with_iter(&os.wires, alpha_powers.clone()),
-            reduce_with_iter(&wire_evals_frob, alpha_powers),
-        ];
+        let wire_composition_poly = reduce_polys_with_iter(wire_polys, &mut alpha_powers);
 
-        let wires_quotient = Self::compute_quotient(
-            &[zeta, zeta.frobenius()],
-            &wire_composition_evals,
-            &wire_composition_poly,
-        );
-        final_poly = &final_poly + &wires_quotient;
+        let wires_quotient =
+            Self::compute_quotient([zeta, zeta.frobenius()], wire_composition_poly);
+        final_poly += wires_quotient;
 
         let lde_final_poly = final_poly.lde(config.rate_bits);
         let lde_final_values = lde_final_poly
@@ -194,28 +170,27 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
     /// Given `points=(x_i)`, `evals=(y_i)` and `poly=P` with `P(x_i)=y_i`, computes the polynomial
     /// `Q=(P-I)/Z` where `I` interpolates `(x_i, y_i)` and `Z` is the vanishing polynomial on `(x_i)`.
-    fn compute_quotient<const D: usize>(
-        points: &[F::Extension],
-        evals: &[F::Extension],
-        poly: &PolynomialCoeffs<F::Extension>,
+    fn compute_quotient<const D: usize, const N: usize>(
+        points: [F::Extension; N],
+        poly: PolynomialCoeffs<F::Extension>,
     ) -> PolynomialCoeffs<F::Extension>
     where
         F: Extendable<D>,
     {
-        let pairs = points
-            .iter()
-            .zip(evals)
-            .map(|(&x, &e)| (x, e))
-            .collect::<Vec<_>>();
-        debug_assert!(pairs.iter().all(|&(x, e)| poly.eval(x) == e));
-
-        let interpolant = interpolant(&pairs);
-        let denominator = points.iter().fold(PolynomialCoeffs::one(), |acc, &x| {
-            &acc * &PolynomialCoeffs::new(vec![-x, F::Extension::ONE])
-        });
-        let numerator = poly - &interpolant;
-        let (quotient, rem) = numerator.div_rem(&denominator);
-        debug_assert!(rem.is_zero());
+        let quotient = if N == 1 {
+            poly.divide_by_linear(points[0]).0
+        } else if N == 2 {
+            // The denominator is `(X - p0)(X - p1) = p0 p1 - (p0 + p1) X + X^2`.
+            let denominator = vec![
+                points[0] * points[1],
+                -points[0] - points[1],
+                F::Extension::ONE,
+            ]
+            .into();
+            poly.div_rem_long_division(&denominator).0 // Could also use `divide_by_linear` twice.
+        } else {
+            unreachable!("This shouldn't happen. Plonk should open polynomials at 1 or 2 points.")
+        };
 
         quotient.padded(quotient.degree_plus_one().next_power_of_two())
     }
