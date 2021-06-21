@@ -180,6 +180,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         let quotient = if N == 1 {
             poly.divide_by_linear(points[0]).0
         } else if N == 2 {
+            // The denominator is `(X - p0)(X - p1) = p0 p1 - (p0 + p1) X + X^2`.
             let denominator = vec![
                 points[0] * points[1],
                 -points[0] - points[1],
