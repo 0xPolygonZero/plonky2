@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Error, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -112,6 +113,12 @@ impl<F: Extendable<D>, const D: usize> Hash for GateRef<F, D> {
 }
 
 impl<F: Extendable<D>, const D: usize> Eq for GateRef<F, D> {}
+
+impl<F: Extendable<D>, const D: usize> Debug for GateRef<F, D> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}", self.0.id())
+    }
+}
 
 /// A gate along with any constants used to configure it.
 pub struct GateInstance<F: Extendable<D>, const D: usize> {
