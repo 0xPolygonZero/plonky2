@@ -1,3 +1,5 @@
+use log::info;
+
 use crate::field::extension_field::Extendable;
 use crate::gates::gate::GateRef;
 
@@ -64,7 +66,7 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
         for max_degree in 1..100 {
             if let Some(mut tree) = Self::find_tree(&gates, max_degree) {
                 tree.shorten();
-                println!(
+                info!(
                     "Found tree with max degree {} in {}s.",
                     max_degree,
                     timer.elapsed().as_secs_f32()
@@ -199,9 +201,6 @@ mod tests {
 
         let tree = Tree::from_gates(gates.clone());
         let mut gates_with_prefix = tree.traversal();
-        for (g, p) in &gates_with_prefix {
-            println!("{}: {:?}", g.0.id(), p);
-        }
 
         assert_eq!(
             gates_with_prefix.len(),

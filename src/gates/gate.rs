@@ -1,7 +1,9 @@
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
+use std::ops::Index;
 use std::sync::Arc;
 
 use crate::circuit_builder::CircuitBuilder;
@@ -142,3 +144,15 @@ impl<F: Extendable<D>, const D: usize> From<Tree<GateRef<F, D>>> for GatePrefixe
         }
     }
 }
+
+impl<F: Extendable<D>, T: Borrow<GateRef<F, D>>, const D: usize> Index<T> for GatePrefixes<F, D> {
+    type Output = Vec<bool>;
+
+    fn index(&self, index: T) -> &Self::Output {
+        &self.prefixes[index.borrow()]
+    }
+}
+
+// impl<F: Extendable<D>, const D: usize> GatePrefixes<F, D> {
+//     pub fn prefix_len()
+// }

@@ -11,7 +11,8 @@ use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::gates::constant::ConstantGate;
-use crate::gates::gate::{GateInstance, GateRef};
+use crate::gates::gate::{GateInstance, GatePrefixes, GateRef};
+use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::hash::hash_n_to_hash;
@@ -229,22 +230,28 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn constant_polys(&self) -> Vec<PolynomialValues<F>> {
+    fn constant_polys(&self, prefixes: &GatePrefixes<F, D>) -> Vec<PolynomialValues<F>> {
         let num_constants = self
             .gate_instances
             .iter()
-            .map(|gate_inst| gate_inst.constants.len())
+            .map(|gate_inst| gate_inst.constants.len() + prefixes[&gate_inst.gate_type].len())
             .max()
             .unwrap();
         let constants_per_gate = self
             .gate_instances
             .iter()
             .map(|gate_inst| {
-                let mut padded_constants = gate_inst.constants.clone();
-                for _ in padded_constants.len()..num_constants {
-                    padded_constants.push(F::ZERO);
-                }
-                padded_constants
+                let mut prefixed_constants = Vec::new();
+                prefixed_constants.extend(prefixes[&gate_inst.gate_type].iter().map(|&b| {
+                    if b {
+                        F::ONE
+                    } else {
+                        F::ZERO
+                    }
+                }));
+                prefixed_constants.extend_from_slice(&gate_inst.constants);
+                prefixed_constants.resize(num_constants, F::ZERO);
+                prefixed_constants
             })
             .collect::<Vec<_>>();
 
@@ -288,7 +295,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let degree = self.gate_instances.len();
         info!("degree after blinding & padding: {}", degree);
 
-        let constant_vecs = self.constant_polys();
+        let gates = self.gates.iter().cloned().collect();
+        let gate_tree = Tree::from_gates(gates);
+
+        let constant_vecs = self.constant_polys(&gate_tree.into());
         let constants_commitment = ListPolynomialCommitment::new(
             constant_vecs.into_iter().map(|v| v.ifft()).collect(),
             self.config.fri_config.rate_bits,
