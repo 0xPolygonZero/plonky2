@@ -11,8 +11,7 @@ use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::gates::constant::ConstantGate;
-use crate::gates::gate::{GateInstance, GatePrefixes, GateRef};
-use crate::gates::gate_tree::Tree;
+use crate::gates::gate::{GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::hash::hash_n_to_hash;
@@ -280,12 +279,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Builds a "full circuit", with both prover and verifier data.
     pub fn build(mut self) -> CircuitData<F, D> {
-        let gates = self.gates.iter().cloned().collect();
-        let tree = Tree::from_gates(gates);
-        let prefixes = GatePrefixes::from(tree);
-        for (g, p) in &prefixes.prefixes {
-            println!("{}: {:?}", g.0.id(), p);
-        }
         let start = Instant::now();
         info!(
             "degree before blinding & padding: {}",

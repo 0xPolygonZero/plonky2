@@ -167,3 +167,71 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::field::crandall_field::CrandallField;
+    use crate::gates::arithmetic::ArithmeticGate;
+    use crate::gates::base_sum::BaseSumGate;
+    use crate::gates::constant::ConstantGate;
+    use crate::gates::gmimc::GMiMCGate;
+    use crate::gates::interpolation::InterpolationGate;
+    use crate::gates::mul_extension::MulExtensionGate;
+    use crate::gates::noop::NoopGate;
+    use crate::hash::GMIMC_ROUNDS;
+
+    #[test]
+    fn test_prefix_generation() {
+        type F = CrandallField;
+        const D: usize = 4;
+
+        let gates = vec![
+            NoopGate::get::<F, D>(),
+            ConstantGate::get(),
+            ArithmeticGate::new(),
+            BaseSumGate::<4>::new(4),
+            GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants(),
+            InterpolationGate::new(4),
+            MulExtensionGate::new(),
+        ];
+        let len = gates.len();
+
+        let tree = Tree::from_gates(gates.clone());
+        let mut gates_with_prefix = tree.traversal();
+        for (g, p) in &gates_with_prefix {
+            println!("{}: {:?}", g.0.id(), p);
+        }
+
+        assert_eq!(
+            gates_with_prefix.len(),
+            gates.len(),
+            "The tree has too much or too little gates."
+        );
+        assert!(
+            gates.iter().all(|g| gates_with_prefix
+                .iter()
+                .map(|(gg, _)| gg)
+                .find(|gg| *gg == g)
+                .is_some()),
+            "Some gates are not in the tree."
+        );
+        assert!(
+            gates_with_prefix
+                .iter()
+                .all(|(g, p)| g.0.degree() + g.0.num_constants() + p.len() <= 8),
+            "Total degree is larger than 8."
+        );
+
+        gates_with_prefix.sort_unstable_by_key(|(g, p)| p.len());
+        for i in 0..gates_with_prefix.len() {
+            for j in i + 1..gates_with_prefix.len() {
+                assert_ne!(
+                    &gates_with_prefix[i].1,
+                    &gates_with_prefix[j].1[0..gates_with_prefix[i].1.len()],
+                    "Some gates share the same prefix"
+                );
+            }
+        }
+    }
+}
