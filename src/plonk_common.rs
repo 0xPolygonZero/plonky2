@@ -5,7 +5,7 @@ use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
-use crate::gates::gate::GateRef;
+use crate::gates::gate::{GatePrefixes, GateRef};
 use crate::polynomial::commitment::SALT_SIZE;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
@@ -76,8 +76,12 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
     gammas: &[F],
     alphas: &[F],
 ) -> Vec<F::Extension> {
-    let constraint_terms =
-        evaluate_gate_constraints(&common_data.gates, common_data.num_gate_constraints, vars);
+    let constraint_terms = evaluate_gate_constraints(
+        &common_data.gates,
+        common_data.num_gate_constraints,
+        vars,
+        &common_data.gate_prefixes,
+    );
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::new();
@@ -125,8 +129,12 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     gammas: &[F],
     alphas: &[F],
 ) -> Vec<F> {
-    let constraint_terms =
-        evaluate_gate_constraints_base(&common_data.gates, common_data.num_gate_constraints, vars);
+    let constraint_terms = evaluate_gate_constraints_base(
+        &common_data.gates,
+        common_data.num_gate_constraints,
+        vars,
+        &common_data.gate_prefixes,
+    );
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::new();
@@ -170,10 +178,11 @@ pub fn evaluate_gate_constraints<F: Extendable<D>, const D: usize>(
     gates: &[GateRef<F, D>],
     num_gate_constraints: usize,
     vars: EvaluationVars<F, D>,
+    prefixes: &GatePrefixes<F, D>,
 ) -> Vec<F::Extension> {
     let mut constraints = vec![F::Extension::ZERO; num_gate_constraints];
     for gate in gates {
-        let gate_constraints = gate.0.eval_filtered(vars);
+        let gate_constraints = gate.0.eval_filtered(vars, &prefixes[gate]);
         for (i, c) in gate_constraints.into_iter().enumerate() {
             debug_assert!(
                 i < num_gate_constraints,
@@ -189,10 +198,11 @@ pub fn evaluate_gate_constraints_base<F: Extendable<D>, const D: usize>(
     gates: &[GateRef<F, D>],
     num_gate_constraints: usize,
     vars: EvaluationVarsBase<F>,
+    prefixes: &GatePrefixes<F, D>,
 ) -> Vec<F> {
     let mut constraints = vec![F::ZERO; num_gate_constraints];
     for gate in gates {
-        let gate_constraints = gate.0.eval_filtered_base(vars);
+        let gate_constraints = gate.0.eval_filtered_base(vars, &prefixes[gate]);
         for (i, c) in gate_constraints.into_iter().enumerate() {
             debug_assert!(
                 i < num_gate_constraints,

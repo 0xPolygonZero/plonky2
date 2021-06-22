@@ -3,7 +3,7 @@ use anyhow::Result;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::fri::FriConfig;
-use crate::gates::gate::GateRef;
+use crate::gates::gate::{GatePrefixes, GateRef};
 use crate::generator::WitnessGenerator;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::proof::{Hash, HashTarget, Proof};
@@ -138,6 +138,9 @@ pub(crate) struct CommonCircuitData<F: Extendable<D>, const D: usize> {
 
     /// The types of gates used in this circuit.
     pub(crate) gates: Vec<GateRef<F, D>>,
+
+    /// The gate prefixes used to construct the selector polynomials.
+    pub(crate) gate_prefixes: GatePrefixes<F, D>,
 
     /// The largest number of constraints imposed by any gate.
     pub(crate) num_gate_constraints: usize,

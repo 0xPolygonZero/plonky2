@@ -297,8 +297,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let gates = self.gates.iter().cloned().collect();
         let gate_tree = Tree::from_gates(gates);
+        let gate_prefixes = gate_tree.into();
 
-        let constant_vecs = self.constant_polys(&gate_tree.into());
+        let constant_vecs = self.constant_polys(&gate_prefixes);
         let constants_commitment = ListPolynomialCommitment::new(
             constant_vecs.into_iter().map(|v| v.ifft()).collect(),
             self.config.fri_config.rate_bits,
@@ -348,6 +349,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             config: self.config,
             degree_bits,
             gates,
+            gate_prefixes,
             num_gate_constraints,
             k_is,
             circuit_digest,

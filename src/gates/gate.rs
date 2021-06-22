@@ -9,6 +9,7 @@ use std::sync::Arc;
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::field::Field;
 use crate::gates::gate_tree::Tree;
 use crate::generator::WitnessGenerator;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
@@ -57,15 +58,41 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>>;
 
-    fn eval_filtered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
-        // TODO: Filter
+    fn eval_filtered(&self, vars: EvaluationVars<F, D>, prefix: &[bool]) -> Vec<F::Extension> {
+        let filter: F::Extension = prefix
+            .iter()
+            .enumerate()
+            .map(|(i, &b)| {
+                if b {
+                    vars.local_constants[i]
+                } else {
+                    F::Extension::ONE - vars.local_constants[i]
+                }
+            })
+            .product();
         self.eval_unfiltered(vars)
+            .into_iter()
+            .map(|c| filter * c)
+            .collect()
     }
 
     /// Like `eval_filtered`, but specialized for points in the base field.
-    fn eval_filtered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        // TODO: Filter
+    fn eval_filtered_base(&self, vars: EvaluationVarsBase<F>, prefix: &[bool]) -> Vec<F> {
+        let filter = prefix
+            .iter()
+            .enumerate()
+            .map(|(i, &b)| {
+                if b {
+                    vars.local_constants[i]
+                } else {
+                    F::ONE - vars.local_constants[i]
+                }
+            })
+            .product();
         self.eval_unfiltered_base(vars)
+            .into_iter()
+            .map(|c| c * filter)
+            .collect()
     }
 
     fn eval_filtered_recursively(
