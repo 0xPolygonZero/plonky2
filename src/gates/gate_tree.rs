@@ -12,19 +12,14 @@ enum Node<T> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Tree<T> {
-    node: Node<T>,
-    left: Option<Box<Tree<T>>>,
-    right: Option<Box<Tree<T>>>,
+pub enum Tree<T> {
+    Node(T),
+    Bifurcation(Option<Box<Tree<T>>>, Option<Box<Tree<T>>>),
 }
 
 impl<T> Default for Tree<T> {
     fn default() -> Self {
-        Self {
-            node: Node::Bifurcation,
-            left: None,
-            right: None,
-        }
+        Self::Bifurcation(None, None)
     }
 }
 
@@ -37,18 +32,21 @@ impl<T: Clone> Tree<T> {
     }
 
     fn traverse(&self, prefix: &[bool], current: &mut Vec<(T, Vec<bool>)>) {
-        if let Node::Terminus(t) = &self.node {
-            current.push((t.clone(), prefix.to_vec()));
-        } else {
-            if let Some(l) = &self.left {
-                let mut left_prefix = prefix.to_vec();
-                left_prefix.push(false);
-                l.traverse(&left_prefix, current);
+        match &self {
+            Tree::Node(t) => {
+                current.push((t.clone(), prefix.to_vec()));
             }
-            if let Some(r) = &self.right {
-                let mut right_prefix = prefix.to_vec();
-                right_prefix.push(true);
-                r.traverse(&right_prefix, current);
+            Tree::Bifurcation(left, right) => {
+                if let Some(l) = left {
+                    let mut left_prefix = prefix.to_vec();
+                    left_prefix.push(false);
+                    l.traverse(&left_prefix, current);
+                }
+                if let Some(r) = right {
+                    let mut right_prefix = prefix.to_vec();
+                    right_prefix.push(true);
+                    r.traverse(&right_prefix, current);
+                }
             }
         }
     }
@@ -98,57 +96,66 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
 
     fn try_add_gate(&mut self, g: &GateRef<F, D>, max_degree: usize) -> Option<()> {
         let depth = max_degree.checked_sub(g.0.num_constants() + g.0.degree())?;
-        self.try_add_gate_at_depth(g, depth).is_err().then(|| ())
+        self.try_add_gate_at_depth(g, depth)
     }
 
-    fn try_add_gate_at_depth(&mut self, g: &GateRef<F, D>, depth: usize) -> Result<(), GateAdded> {
+    fn try_add_gate_at_depth(&mut self, g: &GateRef<F, D>, depth: usize) -> Option<()> {
         if depth == 0 {
-            return if let Node::Bifurcation = self.node {
-                self.node = Node::Terminus(g.clone());
-                Err(GateAdded)
+            return if let Tree::Bifurcation(_, _) = self {
+                *self = Tree::Node(g.clone());
+                Some(())
             } else {
-                Ok(())
+                None
             };
         }
 
-        if let Node::Terminus(_) = self.node {
-            return Ok(());
+        if let Tree::Node(_) = self {
+            return None;
         }
 
-        if let Some(left) = &mut self.left {
-            left.try_add_gate_at_depth(g, depth - 1)?;
-        } else {
-            let mut left = Tree::default();
-            if left.try_add_gate_at_depth(g, depth - 1).is_err() {
-                self.left = Some(Box::new(left));
-                return Err(GateAdded);
+        if let Tree::Bifurcation(left, right) = self {
+            if let Some(left) = left {
+                if left.try_add_gate_at_depth(g, depth - 1).is_some() {
+                    return Some(());
+                }
+            } else {
+                let mut new_left = Tree::default();
+                if new_left.try_add_gate_at_depth(g, depth - 1).is_some() {
+                    *left = Some(Box::new(new_left));
+                    return Some(());
+                }
             }
-        }
-        if let Some(right) = &mut self.right {
-            right.try_add_gate_at_depth(g, depth - 1)?;
-        } else {
-            let mut right = Tree::default();
-            if right.try_add_gate_at_depth(g, depth - 1).is_err() {
-                self.right = Some(Box::new(right));
-                return Err(GateAdded);
+            if let Some(right) = right {
+                if right.try_add_gate_at_depth(g, depth - 1).is_some() {
+                    return Some(());
+                }
+            } else {
+                let mut new_right = Tree::default();
+                if new_right.try_add_gate_at_depth(g, depth - 1).is_some() {
+                    *right = Some(Box::new(new_right));
+                    return Some(());
+                }
             }
         }
 
-        Ok(())
+        None
     }
 
     fn prune(&mut self) {
-        if let (Some(left), None) = (&self.left, &self.right) {
-            debug_assert!(matches!(self.node, Node::Bifurcation));
-            let mut new = *left.clone();
-            new.prune();
-            *self = new;
+        if let Tree::Bifurcation(left, right) = self {
+            if let (Some(left), None) = (left, right) {
+                let mut new = *left.clone();
+                new.prune();
+                *self = new;
+            }
         }
-        if let Some(left) = &mut self.left {
-            left.prune();
-        }
-        if let Some(right) = &mut self.right {
-            right.prune();
+        if let Tree::Bifurcation(left, right) = self {
+            if let Some(left) = left {
+                left.prune();
+            }
+            if let Some(right) = right {
+                right.prune();
+            }
         }
     }
 }
