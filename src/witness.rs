@@ -1,11 +1,11 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::target::Target;
 use crate::wire::Wire;
-use std::convert::TryInto;
 
 #[derive(Clone, Debug)]
 pub struct PartialWitness<F: Field> {

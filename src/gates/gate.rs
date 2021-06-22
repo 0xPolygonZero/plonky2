@@ -1,10 +1,13 @@
+use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::hash::{Hash, Hasher};
+use std::iter::FromIterator;
 use std::sync::Arc;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::gates::gate_tree::Tree;
 use crate::generator::WitnessGenerator;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
@@ -124,4 +127,18 @@ impl<F: Extendable<D>, const D: usize> Debug for GateRef<F, D> {
 pub struct GateInstance<F: Extendable<D>, const D: usize> {
     pub gate_type: GateRef<F, D>,
     pub constants: Vec<F>,
+}
+
+/// Map each gate to a boolean prefix used to construct the gate's selector polynomial.
+#[derive(Debug, Clone)]
+pub struct GatePrefixes<F: Extendable<D>, const D: usize> {
+    pub prefixes: HashMap<GateRef<F, D>, Vec<bool>>,
+}
+
+impl<F: Extendable<D>, const D: usize> From<Tree<GateRef<F, D>>> for GatePrefixes<F, D> {
+    fn from(tree: Tree<GateRef<F, D>>) -> Self {
+        GatePrefixes {
+            prefixes: HashMap::from_iter(tree.traversal()),
+        }
+    }
 }
