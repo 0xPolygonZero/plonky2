@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
 
 use anyhow::{ensure, Result};
 
@@ -139,8 +140,8 @@ impl<F: Field> PartialWitness<F> {
                 let vb = self.target_values.get(&b).copied().unwrap_or(F::ZERO);
                 ensure!(
                     va == vb,
-                    "Copy constraint between wire {} of gate #{} (`{}`) and wire {} of gate #{} (`{}`) is not satisfied.\
-                     Got values of {} and {} respectively.",
+                    "Copy constraint between wire {} of gate #{} (`{}`) and wire {} of gate #{} (`{}`) is not satisfied. \
+                    Got values of {} and {} respectively.",
                     wa.input, wa.gate, gate_instances[wa.gate].gate_type.0.id(), wb.input, wb.gate,
                     gate_instances[wb.gate].gate_type.0.id(), va, vb);
             }
