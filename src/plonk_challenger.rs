@@ -352,11 +352,7 @@ mod tests {
         }
         let circuit = builder.build();
         let mut witness = PartialWitness::new();
-        generate_partial_witness(
-            &mut witness,
-            &circuit.prover_only.generators,
-            &circuit.prover_only.targets_partition,
-        );
+        generate_partial_witness(&mut witness, &circuit.prover_only.generators);
         let recursive_output_values_per_round: Vec<Vec<F>> = recursive_outputs_per_round
             .iter()
             .map(|outputs| witness.get_targets(outputs))

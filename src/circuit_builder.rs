@@ -236,7 +236,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn sigma_vecs(&self, k_is: &[F]) -> (Vec<PolynomialValues<F>>, TargetPartitions) {
+    fn sigma_vecs(&self, k_is: &[F]) -> Vec<PolynomialValues<F>> {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
         let mut target_partitions = TargetPartitions::new();
@@ -257,10 +257,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let wire_partitions = target_partitions.to_wire_partitions();
 
-        (
-            wire_partitions.get_sigma_polys(degree_log, k_is),
-            target_partitions,
-        )
+        wire_partitions.get_sigma_polys(degree_log, k_is)
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
@@ -282,7 +279,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
-        let (sigma_vecs, targets_partition) = self.sigma_vecs(&k_is);
+        let sigma_vecs = self.sigma_vecs(&k_is);
         let sigmas_commitment = ListPolynomialCommitment::new(
             sigma_vecs.into_iter().map(|v| v.ifft()).collect(),
             self.config.fri_config.rate_bits,
@@ -301,7 +298,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             generators,
             constants_commitment,
             sigmas_commitment,
-            targets_partition,
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we

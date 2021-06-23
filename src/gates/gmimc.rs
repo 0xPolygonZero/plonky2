@@ -370,13 +370,7 @@ mod tests {
         }
 
         let generators = gate.0.generators(0, &[]);
-        let mut tp = TargetPartitions::new();
-        for g in 0..10 {
-            for i in 0..config.num_routed_wires {
-                tp.add_partition(Target::wire(g, i));
-            }
-        }
-        generate_partial_witness(&mut witness, &generators, &tp);
+        generate_partial_witness(&mut witness, &generators);
 
         let expected_outputs: [F; W] =
             gmimc_permute_naive(permutation_inputs.try_into().unwrap(), constants);

@@ -5,7 +5,6 @@ use crate::field::field::Field;
 use crate::fri::FriConfig;
 use crate::gates::gate::GateRef;
 use crate::generator::WitnessGenerator;
-use crate::permutation_argument::TargetPartitions;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::proof::{Hash, HashTarget, Proof};
 use crate::prover::prove;
@@ -105,8 +104,6 @@ pub(crate) struct ProverOnlyCircuitData<F: Field> {
     pub constants_commitment: ListPolynomialCommitment<F>,
     /// Commitments to the sigma polynomial.
     pub sigmas_commitment: ListPolynomialCommitment<F>,
-    /// Partition of the targets into copy-constrained sets.
-    pub targets_partition: TargetPartitions,
 }
 
 /// Circuit data required by the verifier, but not the prover.

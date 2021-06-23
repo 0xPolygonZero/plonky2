@@ -6,7 +6,6 @@ use crate::field::field::Field;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
 use crate::wire::Wire;
-use crate::witness::PartialWitness;
 
 #[derive(Debug, Clone)]
 pub struct TargetPartitions {
@@ -82,26 +81,6 @@ impl TargetPartitions {
             partitions,
             indices,
         }
-    }
-    /// For the given set of targets, find any copy constraints involving those targets and populate
-    /// the witness with copies as needed.
-    pub fn generate_copies<F: Field>(&self, witness: &mut PartialWitness<F>, targets: &[Target]) {
-        let mut result = PartialWitness::new();
-
-        for &target in targets {
-            let value = witness.get_target(target);
-            let partition = self.get_partition(target);
-
-            for &sibling in partition {
-                if witness.contains(sibling) {
-                    // This sibling's value was already set; make sure it has the same value.
-                    assert_eq!(witness.get_target(sibling), value);
-                } else {
-                    result.set_target(sibling, value);
-                }
-            }
-        }
-        witness.extend(result);
     }
 }
 

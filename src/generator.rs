@@ -11,7 +11,6 @@ use crate::witness::PartialWitness;
 pub(crate) fn generate_partial_witness<F: Field>(
     witness: &mut PartialWitness<F>,
     generators: &[Box<dyn WitnessGenerator<F>>],
-    target_partition: &TargetPartitions,
 ) {
     // Index generator indices by their watched targets.
     let mut generator_indices_by_watches = HashMap::new();
@@ -20,11 +19,9 @@ pub(crate) fn generate_partial_witness<F: Field>(
             generator_indices_by_watches
                 .entry(watch)
                 .or_insert_with(Vec::new)
-                .push(i)
+                .push(i);
         }
     }
-
-    target_partition.generate_copies(witness, &witness.all_populated_targets());
 
     // Build a list of "pending" generators which are queued to be run. Initially, all generators
     // are queued.
@@ -38,13 +35,10 @@ pub(crate) fn generate_partial_witness<F: Field>(
         let mut next_pending_generator_indices = HashSet::new();
 
         for &generator_idx in &pending_generator_indices {
-            let (mut result, finished) = generators[generator_idx].run(&witness);
+            let (result, finished) = generators[generator_idx].run(&witness);
             if finished {
                 expired_generator_indices.insert(generator_idx);
             }
-
-            let new_targets = result.all_populated_targets();
-            target_partition.generate_copies(&mut result, &new_targets);
 
             // Enqueue unfinished generators that were watching one of the newly populated targets.
             for watch in result.target_values.keys() {
