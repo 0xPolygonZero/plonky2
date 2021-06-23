@@ -59,17 +59,7 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
     ) -> Vec<ExtensionTarget<D>>;
 
     fn eval_filtered(&self, vars: EvaluationVars<F, D>, prefix: &[bool]) -> Vec<F::Extension> {
-        let filter: F::Extension = prefix
-            .iter()
-            .enumerate()
-            .map(|(i, &b)| {
-                if b {
-                    vars.local_constants[i]
-                } else {
-                    F::Extension::ONE - vars.local_constants[i]
-                }
-            })
-            .product();
+        let filter = compute_filter(prefix, vars.local_constants);
         self.eval_unfiltered(vars)
             .into_iter()
             .map(|c| filter * c)
@@ -78,17 +68,7 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
 
     /// Like `eval_filtered`, but specialized for points in the base field.
     fn eval_filtered_base(&self, vars: EvaluationVarsBase<F>, prefix: &[bool]) -> Vec<F> {
-        let filter = prefix
-            .iter()
-            .enumerate()
-            .map(|(i, &b)| {
-                if b {
-                    vars.local_constants[i]
-                } else {
-                    F::ONE - vars.local_constants[i]
-                }
-            })
-            .product();
+        let filter = compute_filter(prefix, vars.local_constants);
         self.eval_unfiltered_base(vars)
             .into_iter()
             .map(|c| c * filter)
@@ -180,6 +160,16 @@ impl<F: Extendable<D>, T: Borrow<GateRef<F, D>>, const D: usize> Index<T> for Ga
     }
 }
 
-// impl<F: Extendable<D>, const D: usize> GatePrefixes<F, D> {
-//     pub fn prefix_len()
-// }
+fn compute_filter<K: Field>(prefix: &[bool], constants: &[K]) -> K {
+    prefix
+        .iter()
+        .enumerate()
+        .map(|(i, &b)| {
+            if b {
+                constants[i]
+            } else {
+                K::ONE - constants[i]
+            }
+        })
+        .product()
+}
