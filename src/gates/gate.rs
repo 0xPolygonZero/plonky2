@@ -162,6 +162,8 @@ impl<F: Extendable<D>, T: Borrow<GateRef<F, D>>, const D: usize> Index<T> for Ga
     }
 }
 
+/// A gate's filter is computed as `prod b_i*c_i + (1-b_i)*(1-c_i)`, with `(b_i)` the prefix and
+/// `(c_i)` the local constants, which is one if the prefix of `constants` matches `prefix`.
 fn compute_filter<K: Field>(prefix: &[bool], constants: &[K]) -> K {
     prefix
         .iter()
