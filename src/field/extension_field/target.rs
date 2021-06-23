@@ -1,11 +1,13 @@
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
 
+use itertools::Itertools;
+
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::{Extendable, FieldExtension, OEF};
 use crate::field::field::Field;
-use crate::gates::mul_extension::MulExtensionGate;
+use crate::gates::mul_extension::ArithmeticExtensionGate;
 use crate::target::Target;
 
 /// `Target`s representing an element of an extension field.
@@ -110,57 +112,155 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.constant_ext_algebra(ExtensionAlgebra::ZERO)
     }
 
+    pub fn double_arithmetic_extension(
+        &mut self,
+        const_0: F,
+        const_1: F,
+        fixed_multiplicand: ExtensionTarget<D>,
+        multiplicand_0: ExtensionTarget<D>,
+        addend_0: ExtensionTarget<D>,
+        multiplicand_1: ExtensionTarget<D>,
+        addend_1: ExtensionTarget<D>,
+    ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
+        let gate = self.add_gate(ArithmeticExtensionGate::new(), vec![const_0, const_1]);
+
+        let wire_fixed_multiplicand = ExtensionTarget::from_range(
+            gate,
+            ArithmeticExtensionGate::<D>::wires_fixed_multiplicand(),
+        );
+        let wire_multiplicand_0 =
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_multiplicand_0());
+        let wire_addend_0 =
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_addend_0());
+        let wire_multiplicand_1 =
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_multiplicand_1());
+        let wire_addend_1 =
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_addend_1());
+        let wire_output_0 =
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_output_0());
+        let wire_output_1 =
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_output_1());
+
+        self.route_extension(fixed_multiplicand, wire_fixed_multiplicand);
+        self.route_extension(multiplicand_0, wire_multiplicand_0);
+        self.route_extension(addend_0, wire_addend_0);
+        self.route_extension(multiplicand_1, wire_multiplicand_1);
+        self.route_extension(addend_1, wire_addend_1);
+        self.route_extension(multiplicand_1, wire_multiplicand_1);
+        (wire_output_0, wire_output_1)
+    }
+
+    pub fn arithmetic_extension(
+        &mut self,
+        const_0: F,
+        const_1: F,
+        multiplicand_0: ExtensionTarget<D>,
+        multiplicand_1: ExtensionTarget<D>,
+        addend: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        let zero = self.zero_extension();
+        self.double_arithmetic_extension(
+            const_0,
+            const_1,
+            multiplicand_0,
+            multiplicand_1,
+            addend,
+            zero,
+            zero,
+        )
+        .0
+    }
+
     pub fn add_extension(
         &mut self,
-        mut a: ExtensionTarget<D>,
+        a: ExtensionTarget<D>,
         b: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        for i in 0..D {
-            a.0[i] = self.add(a.0[i], b.0[i]);
-        }
-        a
+        let one = self.one_extension();
+        self.arithmetic_extension(F::ONE, F::ONE, one, a, b)
+    }
+
+    pub fn add_two_extension(
+        &mut self,
+        a0: ExtensionTarget<D>,
+        b0: ExtensionTarget<D>,
+        a1: ExtensionTarget<D>,
+        b1: ExtensionTarget<D>,
+    ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
+        let one = self.one_extension();
+        self.double_arithmetic_extension(F::ONE, F::ONE, one, a0, b0, a1, b1)
     }
 
     pub fn add_ext_algebra(
         &mut self,
-        mut a: ExtensionAlgebraTarget<D>,
+        a: ExtensionAlgebraTarget<D>,
         b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
-        for i in 0..D {
-            a.0[i] = self.add_extension(a.0[i], b.0[i]);
+        let mut res = vec![];
+        let d_even = D & (D ^ 1); // = 2 * (D/2)
+        for mut chunk in &(0..d_even).chunks(2) {
+            let i = chunk.next().unwrap();
+            let j = chunk.next().unwrap();
+            let (o0, o1) = self.add_two_extension(a.0[i], b.0[i], a.0[j], b.0[j]);
+            res.extend([o0, o1]);
         }
-        a
+        if D % 2 == 1 {
+            res.push(self.add_extension(a.0[D - 1], b.0[D - 1]));
+        }
+        ExtensionAlgebraTarget(res.try_into().unwrap())
     }
 
     pub fn add_many_extension(&mut self, terms: &[ExtensionTarget<D>]) -> ExtensionTarget<D> {
-        let mut sum = self.zero_extension();
-        for term in terms {
-            sum = self.add_extension(sum, *term);
+        let zero = self.zero_extension();
+        let mut terms = terms.to_vec();
+        if terms.len() % 2 == 1 {
+            terms.push(zero);
         }
-        sum
+        let mut acc0 = zero;
+        let mut acc1 = zero;
+        for chunk in terms.chunks_exact(2) {
+            (acc0, acc1) = self.add_two_extension(acc0, acc1, chunk[0], chunk[1]);
+        }
+        self.add_extension(acc0, acc1)
     }
 
-    /// TODO: Change this to using an `arithmetic_extension` function once `MulExtensionGate` supports addend.
     pub fn sub_extension(
         &mut self,
-        mut a: ExtensionTarget<D>,
+        a: ExtensionTarget<D>,
         b: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        for i in 0..D {
-            a.0[i] = self.sub(a.0[i], b.0[i]);
-        }
-        a
+        let one = self.one_extension();
+        self.arithmetic_extension(F::ONE, F::NEG_ONE, one, a, b)
+    }
+
+    pub fn sub_two_extension(
+        &mut self,
+        a0: ExtensionTarget<D>,
+        b0: ExtensionTarget<D>,
+        a1: ExtensionTarget<D>,
+        b1: ExtensionTarget<D>,
+    ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
+        let one = self.one_extension();
+        self.double_arithmetic_extension(F::ONE, F::NEG_ONE, one, a0, b0, a1, b1)
     }
 
     pub fn sub_ext_algebra(
         &mut self,
-        mut a: ExtensionAlgebraTarget<D>,
+        a: ExtensionAlgebraTarget<D>,
         b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
-        for i in 0..D {
-            a.0[i] = self.sub_extension(a.0[i], b.0[i]);
+        let mut res = vec![];
+        let d_even = D & (D ^ 1); // = 2 * (D/2)
+        for mut chunk in &(0..d_even).chunks(2) {
+            let i = chunk.next().unwrap();
+            let j = chunk.next().unwrap();
+            let (o0, o1) = self.sub_two_extension(a.0[i], b.0[i], a.0[j], b.0[j]);
+            res.extend([o0, o1]);
         }
-        a
+        if D % 2 == 1 {
+            res.push(self.add_extension(a.0[D - 1], b.0[D - 1]));
+        }
+        ExtensionAlgebraTarget(res.try_into().unwrap())
     }
 
     pub fn mul_extension_with_const(
@@ -169,17 +269,17 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         multiplicand_0: ExtensionTarget<D>,
         multiplicand_1: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let gate = self.add_gate(MulExtensionGate::new(), vec![const_0]);
-
-        let wire_multiplicand_0 =
-            ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_multiplicand_0());
-        let wire_multiplicand_1 =
-            ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_multiplicand_1());
-        let wire_output = ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_output());
-
-        self.route_extension(multiplicand_0, wire_multiplicand_0);
-        self.route_extension(multiplicand_1, wire_multiplicand_1);
-        wire_output
+        let zero = self.zero_extension();
+        self.double_arithmetic_extension(
+            const_0,
+            F::ZERO,
+            multiplicand_0,
+            multiplicand_1,
+            zero,
+            zero,
+            zero,
+        )
+        .0
     }
 
     pub fn mul_extension(
@@ -199,12 +299,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let w = self.constant(F::Extension::W);
         for i in 0..D {
             for j in 0..D {
-                let ai_bi = self.mul_extension(a.0[i], b.0[j]);
                 res[(i + j) % D] = if i + j < D {
-                    self.add_extension(ai_bi, res[(i + j) % D])
+                    self.mul_add_extension(a.0[i], b.0[j], res[(i + j) % D])
                 } else {
-                    let w_ai_bi = self.scalar_mul_ext(w, ai_bi);
-                    self.add_extension(w_ai_bi, res[(i + j) % D])
+                    let ai_bi = self.mul_extension(a.0[i], b.0[j]);
+                    self.scalar_mul_add_extension(w, ai_bi, res[(i + j) % D])
                 }
             }
         }
@@ -221,28 +320,35 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Like `mul_add`, but for `ExtensionTarget`s. Note that, unlike `mul_add`, this has no
     /// performance benefit over separate muls and adds.
-    /// TODO: Change this to using an `arithmetic_extension` function once `MulExtensionGate` supports addend.
     pub fn mul_add_extension(
         &mut self,
         a: ExtensionTarget<D>,
         b: ExtensionTarget<D>,
         c: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let product = self.mul_extension(a, b);
-        self.add_extension(product, c)
+        self.arithmetic_extension(F::ONE, F::ONE, a, b, c)
     }
 
-    /// Like `mul_sub`, but for `ExtensionTarget`s. Note that, unlike `mul_sub`, this has no
-    /// performance benefit over separate muls and subs.
-    /// TODO: Change this to using an `arithmetic_extension` function once `MulExtensionGate` supports addend.
+    /// Like `mul_add`, but for `ExtensionTarget`s.
+    pub fn scalar_mul_add_extension(
+        &mut self,
+        a: Target,
+        b: ExtensionTarget<D>,
+        c: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        let a_ext = self.convert_to_ext(a);
+        self.arithmetic_extension(F::ONE, F::ONE, a_ext, b, c)
+    }
+
+    /// Like `mul_sub`, but for `ExtensionTarget`s.
     pub fn scalar_mul_sub_extension(
         &mut self,
         a: Target,
         b: ExtensionTarget<D>,
         c: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let product = self.scalar_mul_ext(a, b);
-        self.sub_extension(product, c)
+        let a_ext = self.convert_to_ext(a);
+        self.arithmetic_extension(F::ONE, F::NEG_ONE, a_ext, b, c)
     }
 
     /// Returns `a * b`, where `b` is in the extension field and `a` is in the base field.

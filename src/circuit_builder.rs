@@ -95,6 +95,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Adds a gate to the circuit, and returns its index.
     pub fn add_gate(&mut self, gate_type: GateRef<F, D>, constants: Vec<F>) -> usize {
+        assert_eq!(
+            gate_type.0.num_constants(),
+            constants.len(),
+            "Number of constants doesn't match."
+        );
         // If we haven't seen a gate of this type before, check that it's compatible with our
         // circuit configuration, then register it.
         if !self.gates.contains(&gate_type) {

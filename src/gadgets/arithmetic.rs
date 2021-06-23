@@ -1,11 +1,9 @@
-use std::convert::TryInto;
-
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::gates::arithmetic::ArithmeticGate;
-use crate::gates::mul_extension::MulExtensionGate;
+use crate::gates::mul_extension::ArithmeticExtensionGate;
 use crate::generator::SimpleGenerator;
 use crate::target::Target;
 use crate::wire::Wire;
@@ -253,16 +251,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         y: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
         // Add an `ArithmeticGate` to compute `q * y`.
-        let gate = self.add_gate(MulExtensionGate::new(), vec![F::ONE]);
+        let gate = self.add_gate(ArithmeticExtensionGate::new(), vec![F::ONE, F::ZERO]);
 
         let multiplicand_0 =
-            Target::wires_from_range(gate, MulExtensionGate::<D>::wires_multiplicand_0());
-        let multiplicand_0 = ExtensionTarget(multiplicand_0.try_into().unwrap());
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_multiplicand_0());
         let multiplicand_1 =
-            Target::wires_from_range(gate, MulExtensionGate::<D>::wires_multiplicand_1());
-        let multiplicand_1 = ExtensionTarget(multiplicand_1.try_into().unwrap());
-        let output = Target::wires_from_range(gate, MulExtensionGate::<D>::wires_output());
-        let output = ExtensionTarget(output.try_into().unwrap());
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_multiplicand_1());
+        let output =
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_output_0());
 
         self.add_generator(QuotientGeneratorExtension {
             numerator: x,
