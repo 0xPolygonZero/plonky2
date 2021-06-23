@@ -7,10 +7,11 @@ use crate::field::field::Field;
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::reduce_polys_with_iter;
+use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::proof::{FriProof, FriProofTarget, Hash, OpeningSet};
 use crate::timed;
+use crate::util::scaling::ReducingFactor;
 use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
 
 pub const SALT_SIZE: usize = 2;
@@ -109,36 +110,49 @@ impl<F: Field> ListPolynomialCommitment<F> {
         challenger.observe_opening_set(&os);
 
         let alpha = challenger.get_extension_challenge();
-        let mut alpha_powers = alpha.powers();
+        let mut alpha = ReducingFactor::new(alpha);
 
         // Final low-degree polynomial that goes into FRI.
         let mut final_poly = PolynomialCoeffs::empty();
 
         // Polynomials opened at a single point.
-        let single_polys = [0, 1, 4]
-            .iter()
-            .flat_map(|&i| &commitments[i].polynomials)
-            .map(|p| p.to_extension());
-        let single_composition_poly = reduce_polys_with_iter(single_polys, &mut alpha_powers);
+        let single_polys = [
+            PlonkPolynomials::CONSTANTS,
+            PlonkPolynomials::SIGMAS,
+            PlonkPolynomials::QUOTIENT,
+        ]
+        .iter()
+        .flat_map(|&p| &commitments[p.index].polynomials)
+        .map(|p| p.to_extension());
+        let single_composition_poly = alpha.reduce_polys(single_polys);
 
         let single_quotient = Self::compute_quotient([zeta], single_composition_poly);
         final_poly += single_quotient;
+        alpha.reset();
 
         // Zs polynomials are opened at `zeta` and `g*zeta`.
-        let zs_polys = commitments[3].polynomials.iter().map(|p| p.to_extension());
-        let zs_composition_poly = reduce_polys_with_iter(zs_polys, &mut alpha_powers);
+        let zs_polys = commitments[PlonkPolynomials::ZS.index]
+            .polynomials
+            .iter()
+            .map(|p| p.to_extension());
+        let zs_composition_poly = alpha.reduce_polys(zs_polys);
 
         let zs_quotient = Self::compute_quotient([zeta, g * zeta], zs_composition_poly);
+        alpha.shift_poly(&mut final_poly);
         final_poly += zs_quotient;
 
         // When working in an extension field, need to check that wires are in the base field.
         // Check this by opening the wires polynomials at `zeta` and `zeta.frobenius()` and using the fact that
         // a polynomial `f` is over the base field iff `f(z).frobenius()=f(z.frobenius())` with high probability.
-        let wire_polys = commitments[2].polynomials.iter().map(|p| p.to_extension());
-        let wire_composition_poly = reduce_polys_with_iter(wire_polys, &mut alpha_powers);
+        let wire_polys = commitments[PlonkPolynomials::WIRES.index]
+            .polynomials
+            .iter()
+            .map(|p| p.to_extension());
+        let wire_composition_poly = alpha.reduce_polys(wire_polys);
 
         let wires_quotient =
             Self::compute_quotient([zeta, zeta.frobenius()], wire_composition_poly);
+        alpha.shift_poly(&mut final_poly);
         final_poly += wires_quotient;
 
         let lde_final_poly = final_poly.lde(config.rate_bits);

@@ -1,6 +1,6 @@
 use std::cmp::max;
 use std::iter::Sum;
-use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 use crate::field::extension_field::Extendable;
 use crate::field::fft::{fft, ifft};
@@ -253,11 +253,31 @@ impl<F: Field> AddAssign for PolynomialCoeffs<F> {
     }
 }
 
+impl<F: Field> AddAssign<&Self> for PolynomialCoeffs<F> {
+    fn add_assign(&mut self, rhs: &Self) {
+        let len = max(self.len(), rhs.len());
+        self.coeffs.resize(len, F::ZERO);
+        for (l, &r) in self.coeffs.iter_mut().zip(&rhs.coeffs) {
+            *l += r;
+        }
+    }
+}
+
 impl<F: Field> SubAssign for PolynomialCoeffs<F> {
     fn sub_assign(&mut self, rhs: Self) {
         let len = max(self.len(), rhs.len());
         self.coeffs.resize(len, F::ZERO);
         for (l, r) in self.coeffs.iter_mut().zip(rhs.coeffs) {
+            *l -= r;
+        }
+    }
+}
+
+impl<F: Field> SubAssign<&Self> for PolynomialCoeffs<F> {
+    fn sub_assign(&mut self, rhs: &Self) {
+        let len = max(self.len(), rhs.len());
+        self.coeffs.resize(len, F::ZERO);
+        for (l, &r) in self.coeffs.iter_mut().zip(&rhs.coeffs) {
             *l -= r;
         }
     }
@@ -269,6 +289,12 @@ impl<F: Field> Mul<F> for &PolynomialCoeffs<F> {
     fn mul(self, rhs: F) -> Self::Output {
         let coeffs = self.coeffs.iter().map(|&x| rhs * x).collect();
         PolynomialCoeffs::new(coeffs)
+    }
+}
+
+impl<F: Field> MulAssign<F> for PolynomialCoeffs<F> {
+    fn mul_assign(&mut self, rhs: F) {
+        self.coeffs.iter_mut().for_each(|x| *x *= rhs);
     }
 }
 
