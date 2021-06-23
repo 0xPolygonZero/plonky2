@@ -58,8 +58,9 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>>;
 
-    fn eval_filtered(&self, vars: EvaluationVars<F, D>, prefix: &[bool]) -> Vec<F::Extension> {
+    fn eval_filtered(&self, mut vars: EvaluationVars<F, D>, prefix: &[bool]) -> Vec<F::Extension> {
         let filter = compute_filter(prefix, vars.local_constants);
+        vars.remove_prefix(prefix);
         self.eval_unfiltered(vars)
             .into_iter()
             .map(|c| filter * c)
@@ -67,8 +68,9 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
     }
 
     /// Like `eval_filtered`, but specialized for points in the base field.
-    fn eval_filtered_base(&self, vars: EvaluationVarsBase<F>, prefix: &[bool]) -> Vec<F> {
+    fn eval_filtered_base(&self, mut vars: EvaluationVarsBase<F>, prefix: &[bool]) -> Vec<F> {
         let filter = compute_filter(prefix, vars.local_constants);
+        vars.remove_prefix(prefix);
         self.eval_unfiltered_base(vars)
             .into_iter()
             .map(|c| c * filter)
