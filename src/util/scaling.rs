@@ -4,6 +4,13 @@ use crate::field::extension_field::Frobenius;
 use crate::field::field::Field;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 
+/// When verifying the composition polynomial in FRI we have to compute sums of the form
+/// `(sum_0^k a^i * x_i)/d_0 + (sum_k^r a^i * y_i)/d_1`
+/// The most efficient way to do this is to compute both quotient separately using Horner's method,
+/// scale the second one by `a^(r-1-k)`, and add them up.
+/// This struct abstract away these operations by implementing Horner's method and keeping track
+/// of the number of multiplications by `a` to compute the scaling factor.
+/// See https://github.com/mir-protocol/plonky2/pull/69 for more details and discussions.
 #[derive(Debug, Copy, Clone)]
 pub struct ReducingFactor<F: Field> {
     base: F,
