@@ -2,7 +2,7 @@ use anyhow::{ensure, Result};
 
 use crate::field::extension_field::{flatten, Extendable, FieldExtension, Frobenius};
 use crate::field::field::Field;
-use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
+use crate::field::interpolation::{barycentric_weights, interpolate, interpolate2};
 use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
@@ -192,11 +192,14 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .map(|&e| F::Extension::from_basefield(e));
     let zs_composition_eval = alpha.clone().reduce(zs_evals);
     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
-    let zs_interpol = interpolant(&[
-        (zeta, alpha.clone().reduce(os.plonk_zs.iter())),
-        (zeta_right, alpha.reduce(os.plonk_zs_right.iter())),
-    ]);
-    let zs_numerator = zs_composition_eval - zs_interpol.eval(subgroup_x);
+    let zs_interpol = interpolate2(
+        [
+            (zeta, alpha.clone().reduce(os.plonk_zs.iter())),
+            (zeta_right, alpha.reduce(os.plonk_zs_right.iter())),
+        ],
+        subgroup_x,
+    );
+    let zs_numerator = zs_composition_eval - zs_interpol;
     let zs_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
     sum = alpha.shift(sum);
     sum += zs_numerator / zs_denominator;
@@ -208,18 +211,18 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .map(|&e| F::Extension::from_basefield(e));
     let wire_composition_eval = alpha.clone().reduce(wire_evals);
     let zeta_frob = zeta.frobenius();
-    let wire_eval = alpha.clone().reduce(os.wires.iter());
+    let mut alpha_frob = alpha.repeated_frobenius(D - 1);
+    let wire_eval = alpha.reduce(os.wires.iter());
     // We want to compute `sum a^i*phi(w_i)`, where `phi` denotes the Frobenius automorphism.
     // Since `phi^D=id` and `phi` is a field automorphism, we have the following equalities:
     // `sum a^i*phi(w_i) = sum phi(phi^(D-1)(a^i)*w_i) = phi(sum phi^(D-1)(a)^i*w_i)`
     // So we can compute the original sum using only one call to the `D-1`-repeated Frobenius of alpha,
     // and one call at the end of the sum.
-    let mut alpha_frob = alpha.repeated_frobenius(D - 1);
     let wire_eval_frob = alpha_frob.reduce(os.wires.iter()).frobenius();
-    let wire_interpol = interpolant(&[(zeta, wire_eval), (zeta_frob, wire_eval_frob)]);
-    let wire_numerator = wire_composition_eval - wire_interpol.eval(subgroup_x);
+    let wire_interpol = interpolate2([(zeta, wire_eval), (zeta_frob, wire_eval_frob)], subgroup_x);
+    let wire_numerator = wire_composition_eval - wire_interpol;
     let wire_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
-    sum = alpha_frob.shift(sum);
+    sum = alpha.shift(sum);
     sum += wire_numerator / wire_denominator;
 
     sum
