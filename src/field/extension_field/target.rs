@@ -196,7 +196,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a: ExtensionAlgebraTarget<D>,
         b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
-        let mut res = vec![];
+        let mut res = Vec::with_capacity(D);
         let d_even = D & (D ^ 1); // = 2 * (D/2)
         for mut chunk in &(0..d_even).chunks(2) {
             let i = chunk.next().unwrap();
@@ -249,7 +249,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a: ExtensionAlgebraTarget<D>,
         b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
-        let mut res = vec![];
+        let mut res = Vec::with_capacity(D);
         let d_even = D & (D ^ 1); // = 2 * (D/2)
         for mut chunk in &(0..d_even).chunks(2) {
             let i = chunk.next().unwrap();
