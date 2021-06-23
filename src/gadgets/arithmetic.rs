@@ -1,7 +1,11 @@
+use std::convert::TryInto;
+
 use crate::circuit_builder::CircuitBuilder;
-use crate::field::extension_field::Extendable;
+use crate::field::extension_field::target::ExtensionTarget;
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::gates::arithmetic::ArithmeticGate;
+use crate::gates::mul_extension::MulExtensionGate;
 use crate::generator::SimpleGenerator;
 use crate::target::Target;
 use crate::wire::Wire;
@@ -169,6 +173,22 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         product
     }
 
+    // TODO: Optimize this, maybe with a new gate.
+    /// Exponentiate `base` to the power of `exponent`, where `exponent < 2^num_bits`.
+    pub fn exp(&mut self, base: Target, exponent: Target, num_bits: usize) -> Target {
+        let mut current = base;
+        let one = self.one();
+        let mut product = one;
+        let exponent_bits = self.split_le(exponent, num_bits);
+
+        for bit in exponent_bits.into_iter() {
+            product = self.mul_many(&[bit, current, product]);
+            current = self.mul(current, current);
+        }
+
+        product
+    }
+
     /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
     /// some cases, as it allows `0 / 0 = <anything>`.
     pub fn div_unsafe(&mut self, x: Target, y: Target) -> Target {
@@ -224,6 +244,38 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         q
     }
+
+    /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
+    /// some cases, as it allows `0 / 0 = <anything>`.
+    pub fn div_unsafe_extension(
+        &mut self,
+        x: ExtensionTarget<D>,
+        y: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        // Add an `ArithmeticGate` to compute `q * y`.
+        let gate = self.add_gate(MulExtensionGate::new(), vec![F::ONE]);
+
+        let multiplicand_0 =
+            Target::wires_from_range(gate, MulExtensionGate::<D>::wires_multiplicand_0());
+        let multiplicand_0 = ExtensionTarget(multiplicand_0.try_into().unwrap());
+        let multiplicand_1 =
+            Target::wires_from_range(gate, MulExtensionGate::<D>::wires_multiplicand_1());
+        let multiplicand_1 = ExtensionTarget(multiplicand_1.try_into().unwrap());
+        let output = Target::wires_from_range(gate, MulExtensionGate::<D>::wires_output());
+        let output = ExtensionTarget(output.try_into().unwrap());
+
+        self.add_generator(QuotientGeneratorExtension {
+            numerator: x,
+            denominator: y,
+            quotient: multiplicand_0,
+        });
+
+        self.route_extension(y, multiplicand_1);
+
+        self.assert_equal_extension(output, x);
+
+        multiplicand_0
+    }
 }
 
 struct QuotientGenerator {
@@ -241,5 +293,108 @@ impl<F: Field> SimpleGenerator<F> for QuotientGenerator {
         let num = witness.get_target(self.numerator);
         let den = witness.get_target(self.denominator);
         PartialWitness::singleton_target(self.quotient, num / den)
+    }
+}
+
+struct QuotientGeneratorExtension<const D: usize> {
+    numerator: ExtensionTarget<D>,
+    denominator: ExtensionTarget<D>,
+    quotient: ExtensionTarget<D>,
+}
+
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for QuotientGeneratorExtension<D> {
+    fn dependencies(&self) -> Vec<Target> {
+        let mut deps = self.numerator.to_target_array().to_vec();
+        deps.extend(&self.denominator.to_target_array());
+        deps
+    }
+
+    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+        let num = witness.get_extension_target(self.numerator);
+        let dem = witness.get_extension_target(self.denominator);
+        let quotient = num / dem;
+        let mut pw = PartialWitness::new();
+        for i in 0..D {
+            pw.set_target(
+                self.quotient.to_target_array()[i],
+                quotient.to_basefield_array()[i],
+            );
+        }
+        pw
+    }
+}
+
+/// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
+#[derive(Clone)]
+pub struct PowersTarget<const D: usize> {
+    base: ExtensionTarget<D>,
+    current: ExtensionTarget<D>,
+}
+
+impl<const D: usize> PowersTarget<D> {
+    pub fn next<F: Extendable<D>>(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> ExtensionTarget<D> {
+        let result = self.current;
+        self.current = builder.mul_extension(self.base, self.current);
+        result
+    }
+
+    pub fn repeated_frobenius<F: Extendable<D>>(
+        self,
+        k: usize,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        let Self { base, current } = self;
+        Self {
+            base: base.repeated_frobenius(k, builder),
+            current: current.repeated_frobenius(k, builder),
+        }
+    }
+}
+
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    pub fn powers(&mut self, base: ExtensionTarget<D>) -> PowersTarget<D> {
+        PowersTarget {
+            base,
+            current: self.one_extension(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::circuit_builder::CircuitBuilder;
+    use crate::circuit_data::CircuitConfig;
+    use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::field::Field;
+    use crate::fri::FriConfig;
+    use crate::witness::PartialWitness;
+
+    #[test]
+    fn test_div_extension() {
+        type F = CrandallField;
+        type FF = QuarticCrandallField;
+        const D: usize = 4;
+
+        let config = CircuitConfig::large_config();
+
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let x = FF::rand();
+        let y = FF::rand();
+        let x = FF::TWO;
+        let y = FF::ONE;
+        let z = x / y;
+        let xt = builder.constant_extension(x);
+        let yt = builder.constant_extension(y);
+        let zt = builder.constant_extension(z);
+        let comp_zt = builder.div_unsafe_extension(xt, yt);
+        builder.assert_equal_extension(zt, comp_zt);
+
+        let data = builder.build();
+        let proof = data.prove(PartialWitness::new());
     }
 }

@@ -1,6 +1,5 @@
-use crate::polynomial::commitment::SALT_SIZE;
-
 pub mod prover;
+mod recursive_verifier;
 pub mod verifier;
 
 /// Somewhat arbitrary. Smaller values will increase delta, but with diminishing returns,
@@ -21,20 +20,6 @@ pub struct FriConfig {
 
     /// Number of query rounds to perform.
     pub num_query_rounds: usize,
-
-    /// Vector of the same length as the number of initial Merkle trees.
-    /// `blinding[i]==true` iff the i-th tree is salted.  
-    pub blinding: Vec<bool>,
-}
-
-impl FriConfig {
-    pub(crate) fn salt_size(&self, i: usize) -> usize {
-        if self.blinding[i] {
-            SALT_SIZE
-        } else {
-            0
-        }
-    }
 }
 
 fn fri_delta(rate_log: usize, conjecture: bool) -> f64 {

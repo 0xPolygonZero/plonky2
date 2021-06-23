@@ -6,9 +6,61 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::GateRef;
+use crate::polynomial::commitment::SALT_SIZE;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+
+/// Holds the Merkle tree index and blinding flag of a set of polynomials used in FRI.
+#[derive(Debug, Copy, Clone)]
+pub struct PolynomialsIndexBlinding {
+    pub(crate) index: usize,
+    pub(crate) blinding: bool,
+}
+impl PolynomialsIndexBlinding {
+    pub fn salt_size(&self) -> usize {
+        if self.blinding {
+            SALT_SIZE
+        } else {
+            0
+        }
+    }
+}
+/// Holds the indices and blinding flags of the Plonk polynomials.
+pub struct PlonkPolynomials;
+impl PlonkPolynomials {
+    pub const CONSTANTS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
+        index: 0,
+        blinding: false,
+    };
+    pub const SIGMAS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
+        index: 1,
+        blinding: false,
+    };
+    pub const WIRES: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
+        index: 2,
+        blinding: true,
+    };
+    pub const ZS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
+        index: 3,
+        blinding: true,
+    };
+    pub const QUOTIENT: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
+        index: 4,
+        blinding: true,
+    };
+
+    pub fn polynomials(i: usize) -> PolynomialsIndexBlinding {
+        match i {
+            0 => Self::CONSTANTS,
+            1 => Self::SIGMAS,
+            2 => Self::WIRES,
+            3 => Self::ZS,
+            4 => Self::QUOTIENT,
+            _ => panic!("There are only 5 sets of polynomials in Plonk."),
+        }
+    }
+}
 
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
 /// linear combination of gate constraints, plus some other terms relating to the permutation
@@ -206,10 +258,15 @@ pub(crate) fn reduce_with_powers<F: Field>(terms: &[F], alpha: F) -> F {
 
 pub(crate) fn reduce_with_powers_recursive<F: Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    terms: Vec<Target>,
+    terms: &[ExtensionTarget<D>],
     alpha: Target,
-) -> Target {
-    todo!()
+) -> ExtensionTarget<D> {
+    let mut sum = builder.zero_extension();
+    for &term in terms.iter().rev() {
+        sum = builder.scalar_mul_ext(alpha, sum);
+        sum = builder.add_extension(sum, term);
+    }
+    sum
 }
 
 /// Reduce a sequence of field elements by the given coefficients.

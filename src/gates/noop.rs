@@ -5,7 +5,7 @@ use crate::gates::gate::{Gate, GateRef};
 use crate::generator::WitnessGenerator;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 
-/// A gate which takes a single constant parameter and outputs that value.
+/// A gate which does nothing.
 pub struct NoopGate;
 
 impl NoopGate {

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{ensure, Result};
 
+use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::gates::gate::GateInstance;
@@ -42,6 +43,15 @@ impl<F: Field> PartialWitness<F> {
         targets.iter().map(|&t| self.get_target(t)).collect()
     }
 
+    pub fn get_extension_target<const D: usize>(&self, et: ExtensionTarget<D>) -> F::Extension
+    where
+        F: Extendable<D>,
+    {
+        F::Extension::from_basefield_array(
+            self.get_targets(&et.to_target_array()).try_into().unwrap(),
+        )
+    }
+
     pub fn try_get_target(&self, target: Target) -> Option<F> {
         self.target_values.get(&target).cloned()
     }
@@ -71,6 +81,19 @@ impl<F: Field> PartialWitness<F> {
                 target
             );
         }
+    }
+
+    pub fn set_extension_target<const D: usize>(
+        &mut self,
+        et: ExtensionTarget<D>,
+        value: F::Extension,
+    ) where
+        F: Extendable<D>,
+    {
+        let limbs = value.to_basefield_array();
+        (0..D).for_each(|i| {
+            self.set_target(et.0[i], limbs[i]);
+        });
     }
 
     pub fn set_wire(&mut self, wire: Wire, value: F) {

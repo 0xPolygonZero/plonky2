@@ -19,9 +19,6 @@ use crate::vars::EvaluationVarsBase;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
-/// Corresponds to constants - sigmas - wires - zs - quotient — polynomial commitments.
-pub const PLONK_BLINDING: [bool; 5] = [false, false, true, true, true];
-
 pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
@@ -122,7 +119,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     let zeta = challenger.get_extension_challenge();
 
-    let (opening_proof, mut openings) = timed!(
+    let (opening_proof, openings) = timed!(
         ListPolynomialCommitment::open_plonk(
             &[
                 &prover_data.constants_commitment,

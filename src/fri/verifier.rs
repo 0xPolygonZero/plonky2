@@ -1,14 +1,15 @@
 use anyhow::{ensure, Result};
 
-use crate::field::extension_field::{flatten, Extendable, FieldExtension, OEF};
+use crate::field::extension_field::{flatten, Extendable, FieldExtension, Frobenius};
 use crate::field::field::Field;
-use crate::field::lagrange::{barycentric_weights, interpolant, interpolate};
+use crate::field::interpolation::{barycentric_weights, interpolate, interpolate2};
 use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::reduce_with_iter;
+use crate::plonk_common::PlonkPolynomials;
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash, OpeningSet};
+use crate::util::scaling::ReducingFactor;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
 /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
@@ -151,59 +152,77 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     assert!(D > 1, "Not implemented for D=1.");
     let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
     let subgroup_x = F::Extension::from_basefield(subgroup_x);
-    let mut alpha_powers = alpha.powers();
+    let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;
 
     // We will add three terms to `sum`:
     // - one for various polynomials which are opened at a single point `x`
     // - one for Zs, which are opened at `x` and `g x`
-    // - one for wire polynomials, which are opened at `x` and its conjugate
+    // - one for wire polynomials, which are opened at `x` and `x.frobenius()`
 
-    let single_evals = [0, 1, 4]
-        .iter()
-        .flat_map(|&i| proof.unsalted_evals(i, config))
-        .map(|&e| F::Extension::from_basefield(e));
+    // Polynomials opened at `x`, i.e., the constants, sigmas and quotient polynomials.
+    let single_evals = [
+        PlonkPolynomials::CONSTANTS,
+        PlonkPolynomials::SIGMAS,
+        PlonkPolynomials::QUOTIENT,
+    ]
+    .iter()
+    .flat_map(|&p| proof.unsalted_evals(p))
+    .map(|&e| F::Extension::from_basefield(e));
     let single_openings = os
         .constants
         .iter()
         .chain(&os.plonk_s_sigmas)
         .chain(&os.quotient_polys);
-    let single_diffs = single_evals.zip(single_openings).map(|(e, &o)| e - o);
-    let single_numerator = reduce_with_iter(single_diffs, &mut alpha_powers);
+    let single_diffs = single_evals
+        .into_iter()
+        .zip(single_openings)
+        .map(|(e, &o)| e - o)
+        .collect::<Vec<_>>();
+    let single_numerator = alpha.reduce(single_diffs.iter());
     let single_denominator = subgroup_x - zeta;
     sum += single_numerator / single_denominator;
+    alpha.reset();
 
+    // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
     let zs_evals = proof
-        .unsalted_evals(3, config)
+        .unsalted_evals(PlonkPolynomials::ZS)
         .iter()
         .map(|&e| F::Extension::from_basefield(e));
-    let zs_composition_eval = reduce_with_iter(zs_evals, alpha_powers.clone());
+    let zs_composition_eval = alpha.clone().reduce(zs_evals);
     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
-    let zs_interpol = interpolant(&[
-        (zeta, reduce_with_iter(&os.plonk_zs, alpha_powers.clone())),
-        (
-            zeta_right,
-            reduce_with_iter(&os.plonk_zs_right, &mut alpha_powers),
-        ),
-    ]);
-    let zs_numerator = zs_composition_eval - zs_interpol.eval(subgroup_x);
+    let zs_interpol = interpolate2(
+        [
+            (zeta, alpha.clone().reduce(os.plonk_zs.iter())),
+            (zeta_right, alpha.reduce(os.plonk_zs_right.iter())),
+        ],
+        subgroup_x,
+    );
+    let zs_numerator = zs_composition_eval - zs_interpol;
     let zs_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
+    sum = alpha.shift(sum);
     sum += zs_numerator / zs_denominator;
 
+    // Polynomials opened at `x` and `x.frobenius()`, i.e., the wires polynomials.
     let wire_evals = proof
-        .unsalted_evals(2, config)
+        .unsalted_evals(PlonkPolynomials::WIRES)
         .iter()
         .map(|&e| F::Extension::from_basefield(e));
-    let wire_composition_eval = reduce_with_iter(wire_evals, alpha_powers.clone());
+    let wire_composition_eval = alpha.clone().reduce(wire_evals);
     let zeta_frob = zeta.frobenius();
-    let wire_evals_frob = os.wires.iter().map(|e| e.frobenius());
-    let wires_interpol = interpolant(&[
-        (zeta, reduce_with_iter(&os.wires, alpha_powers.clone())),
-        (zeta_frob, reduce_with_iter(wire_evals_frob, alpha_powers)),
-    ]);
-    let wires_numerator = wire_composition_eval - wires_interpol.eval(subgroup_x);
-    let wires_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
-    sum += wires_numerator / wires_denominator;
+    let mut alpha_frob = alpha.repeated_frobenius(D - 1);
+    let wire_eval = alpha.reduce(os.wires.iter());
+    // We want to compute `sum a^i*phi(w_i)`, where `phi` denotes the Frobenius automorphism.
+    // Since `phi^D=id` and `phi` is a field automorphism, we have the following equalities:
+    // `sum a^i*phi(w_i) = sum phi(phi^(D-1)(a^i)*w_i) = phi(sum phi^(D-1)(a)^i*w_i)`
+    // So we can compute the original sum using only one call to the `D-1`-repeated Frobenius of alpha,
+    // and one call at the end of the sum.
+    let wire_eval_frob = alpha_frob.reduce(os.wires.iter()).frobenius();
+    let wire_interpol = interpolate2([(zeta, wire_eval), (zeta_frob, wire_eval_frob)], subgroup_x);
+    let wire_numerator = wire_composition_eval - wire_interpol;
+    let wire_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_frob);
+    sum = alpha.shift(sum);
+    sum += wire_numerator / wire_denominator;
 
     sum
 }
@@ -276,7 +295,7 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
             }
         }
         domain_size = next_domain_size;
-        old_x_index = x_index;
+        old_x_index = x_index & (arity - 1);
         x_index >>= arity_bits;
     }
 

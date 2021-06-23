@@ -39,7 +39,6 @@ impl Default for CircuitConfig {
                 rate_bits: 1,
                 reduction_arity_bits: vec![1],
                 num_query_rounds: 1,
-                blinding: vec![true],
             },
         }
     }
@@ -48,6 +47,22 @@ impl Default for CircuitConfig {
 impl CircuitConfig {
     pub fn num_advice_wires(&self) -> usize {
         self.num_wires - self.num_routed_wires
+    }
+
+    pub(crate) fn large_config() -> Self {
+        Self {
+            num_wires: 134,
+            num_routed_wires: 12,
+            security_bits: 128,
+            rate_bits: 3,
+            num_challenges: 3,
+            fri_config: FriConfig {
+                proof_of_work_bits: 1,
+                rate_bits: 3,
+                reduction_arity_bits: vec![1],
+                num_query_rounds: 1,
+            },
+        }
     }
 }
 
