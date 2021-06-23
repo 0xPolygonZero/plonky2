@@ -1,6 +1,6 @@
 use std::cmp::max;
 use std::iter::Sum;
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 
 use crate::field::extension_field::Extendable;
 use crate::field::fft::{fft, ifft};
@@ -240,6 +240,26 @@ impl<F: Field> Sub for &PolynomialCoeffs<F> {
             coeffs[i] -= c;
         }
         PolynomialCoeffs::new(coeffs)
+    }
+}
+
+impl<F: Field> AddAssign for PolynomialCoeffs<F> {
+    fn add_assign(&mut self, rhs: Self) {
+        let len = max(self.len(), rhs.len());
+        self.coeffs.resize(len, F::ZERO);
+        for (l, r) in self.coeffs.iter_mut().zip(rhs.coeffs) {
+            *l += r;
+        }
+    }
+}
+
+impl<F: Field> SubAssign for PolynomialCoeffs<F> {
+    fn sub_assign(&mut self, rhs: Self) {
+        let len = max(self.len(), rhs.len());
+        self.coeffs.resize(len, F::ZERO);
+        for (l, r) in self.coeffs.iter_mut().zip(rhs.coeffs) {
+            *l -= r;
+        }
     }
 }
 
