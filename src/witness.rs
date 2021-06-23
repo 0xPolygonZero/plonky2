@@ -135,6 +135,7 @@ impl<F: Field> PartialWitness<F> {
         F: Extendable<D>,
     {
         for &(a, b) in copy_constraints {
+            // TODO: Take care of public inputs once they land.
             if let (Target::Wire(wa), Target::Wire(wb)) = (a, b) {
                 let va = self.target_values.get(&a).copied().unwrap_or(F::ZERO);
                 let vb = self.target_values.get(&b).copied().unwrap_or(F::ZERO);

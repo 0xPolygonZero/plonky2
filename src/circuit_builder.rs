@@ -274,7 +274,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let wire_partitions = target_partitions.to_wire_partitions();
-
         wire_partitions.get_sigma_polys(degree_log, k_is)
     }
 
