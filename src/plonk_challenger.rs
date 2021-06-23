@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
@@ -5,7 +7,6 @@ use crate::field::field::Field;
 use crate::hash::{permute, SPONGE_RATE, SPONGE_WIDTH};
 use crate::proof::{Hash, HashTarget, OpeningSet};
 use crate::target::Target;
-use std::convert::TryInto;
 
 /// Observes prover messages, and generates challenges by hashing the transcript.
 #[derive(Clone)]
@@ -369,7 +370,7 @@ mod tests {
 
         let config = CircuitConfig {
             num_wires: 12 + 12 + 3 + 101,
-            num_routed_wires: 200,
+            num_routed_wires: 27,
             ..CircuitConfig::default()
         };
         let mut builder = CircuitBuilder::<F, 4>::new(config);
