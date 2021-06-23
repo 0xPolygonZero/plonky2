@@ -20,9 +20,9 @@ impl<F: Field> ReducingFactor<F> {
         self.base * x
     }
 
-    fn mul_poly(&mut self, p: PolynomialCoeffs<F>) -> PolynomialCoeffs<F> {
+    fn mul_poly(&mut self, p: &mut PolynomialCoeffs<F>) {
         self.count += 1;
-        &p * self.base
+        *p *= self.base;
     }
 
     pub fn reduce(&mut self, iter: impl DoubleEndedIterator<Item = impl Borrow<F>>) -> F {
@@ -34,8 +34,10 @@ impl<F: Field> ReducingFactor<F> {
         &mut self,
         polys: impl DoubleEndedIterator<Item = impl Borrow<PolynomialCoeffs<F>>>,
     ) -> PolynomialCoeffs<F> {
-        polys.rev().fold(PolynomialCoeffs::empty(), |acc, x| {
-            &self.mul_poly(acc) + x.borrow()
+        polys.rev().fold(PolynomialCoeffs::empty(), |mut acc, x| {
+            self.mul_poly(&mut acc);
+            acc += x.borrow();
+            acc
         })
     }
 
@@ -45,10 +47,9 @@ impl<F: Field> ReducingFactor<F> {
         tmp
     }
 
-    pub fn shift_poly(&mut self, p: PolynomialCoeffs<F>) -> PolynomialCoeffs<F> {
-        let tmp = &p * self.base.exp(self.count);
+    pub fn shift_poly(&mut self, p: &mut PolynomialCoeffs<F>) {
+        *p *= self.base.exp(self.count);
         self.count = 0;
-        tmp
     }
 
     pub fn reset(&mut self) {

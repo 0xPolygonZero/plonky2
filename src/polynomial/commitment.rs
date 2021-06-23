@@ -4,7 +4,6 @@ use rayon::prelude::*;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::{FieldExtension, Frobenius};
 use crate::field::field::Field;
-use crate::field::interpolation::interpolate2;
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
@@ -139,7 +138,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         let zs_composition_poly = alpha.reduce_polys(zs_polys);
 
         let zs_quotient = Self::compute_quotient([zeta, g * zeta], zs_composition_poly);
-        final_poly = alpha.shift_poly(final_poly);
+        alpha.shift_poly(&mut final_poly);
         final_poly += zs_quotient;
 
         // When working in an extension field, need to check that wires are in the base field.
@@ -153,7 +152,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
         let wires_quotient =
             Self::compute_quotient([zeta, zeta.frobenius()], wire_composition_poly);
-        final_poly = alpha.shift_poly(final_poly);
+        alpha.shift_poly(&mut final_poly);
         final_poly += wires_quotient;
 
         let lde_final_poly = final_poly.lde(config.rate_bits);
