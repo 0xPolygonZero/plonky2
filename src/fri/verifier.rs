@@ -168,19 +168,18 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     ]
     .iter()
     .flat_map(|&p| proof.unsalted_evals(p))
-    .map(|&e| F::Extension::from_basefield(e))
-    .collect::<Vec<_>>();
+    .map(|&e| F::Extension::from_basefield(e));
     let single_openings = os
         .constants
         .iter()
         .chain(&os.plonk_s_sigmas)
-        .chain(&os.quotient_polys)
-        .collect::<Vec<_>>();
+        .chain(&os.quotient_polys);
     let single_diffs = single_evals
         .into_iter()
         .zip(single_openings)
-        .map(|(e, &o)| e - o);
-    let single_numerator = alpha.reduce(single_diffs);
+        .map(|(e, &o)| e - o)
+        .collect::<Vec<_>>();
+    let single_numerator = alpha.reduce(single_diffs.iter());
     let single_denominator = subgroup_x - zeta;
     sum += single_numerator / single_denominator;
     alpha.reset();
