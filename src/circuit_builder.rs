@@ -11,7 +11,7 @@ use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::gates::constant::ConstantGate;
-use crate::gates::gate::{GateInstance, GatePrefixes, GateRef};
+use crate::gates::gate::{GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, WitnessGenerator};
@@ -230,26 +230,24 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn constant_polys(&self, prefixes: &GatePrefixes<F, D>) -> Vec<PolynomialValues<F>> {
-        let num_constants = self
-            .gate_instances
+    fn constant_polys(&self, gates: &[PrefixedGate<F, D>]) -> Vec<PolynomialValues<F>> {
+        let num_constants = gates
             .iter()
-            .map(|gate_inst| gate_inst.constants.len() + prefixes[&gate_inst.gate_type].len())
+            .map(|gate| gate.gate.0.num_constants() + gate.prefix.len())
             .max()
             .unwrap();
         let constants_per_gate = self
             .gate_instances
             .iter()
-            .map(|gate_inst| {
+            .map(|gate| {
+                let prefix = &gates
+                    .iter()
+                    .find(|g| g.gate.0.id() == gate.gate_type.0.id())
+                    .unwrap()
+                    .prefix;
                 let mut prefixed_constants = Vec::new();
-                prefixed_constants.extend(prefixes[&gate_inst.gate_type].iter().map(|&b| {
-                    if b {
-                        F::ONE
-                    } else {
-                        F::ZERO
-                    }
-                }));
-                prefixed_constants.extend_from_slice(&gate_inst.constants);
+                prefixed_constants.extend(prefix.iter().map(|&b| if b { F::ONE } else { F::ZERO }));
+                prefixed_constants.extend_from_slice(&gate.constants);
                 prefixed_constants.resize(num_constants, F::ZERO);
                 prefixed_constants
             })
@@ -297,9 +295,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let gates = self.gates.iter().cloned().collect();
         let gate_tree = Tree::from_gates(gates);
-        let gate_prefixes = gate_tree.into();
+        let prefixed_gates = PrefixedGate::from_tree(gate_tree);
 
-        let constant_vecs = self.constant_polys(&gate_prefixes);
+        let constant_vecs = self.constant_polys(&prefixed_gates);
         let constants_commitment = ListPolynomialCommitment::new(
             constant_vecs.into_iter().map(|v| v.ifft()).collect(),
             self.config.fri_config.rate_bits,
@@ -348,8 +346,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let common = CommonCircuitData {
             config: self.config,
             degree_bits,
-            gates,
-            gate_prefixes,
+            gates: prefixed_gates,
             num_gate_constraints,
             k_is,
             circuit_digest,

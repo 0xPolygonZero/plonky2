@@ -142,23 +142,17 @@ pub struct GateInstance<F: Extendable<D>, const D: usize> {
 
 /// Map each gate to a boolean prefix used to construct the gate's selector polynomial.
 #[derive(Debug, Clone)]
-pub struct GatePrefixes<F: Extendable<D>, const D: usize> {
-    pub prefixes: HashMap<GateRef<F, D>, Vec<bool>>,
+pub struct PrefixedGate<F: Extendable<D>, const D: usize> {
+    pub gate: GateRef<F, D>,
+    pub prefix: Vec<bool>,
 }
 
-impl<F: Extendable<D>, const D: usize> From<Tree<GateRef<F, D>>> for GatePrefixes<F, D> {
-    fn from(tree: Tree<GateRef<F, D>>) -> Self {
-        GatePrefixes {
-            prefixes: HashMap::from_iter(tree.traversal()),
-        }
-    }
-}
-
-impl<F: Extendable<D>, T: Borrow<GateRef<F, D>>, const D: usize> Index<T> for GatePrefixes<F, D> {
-    type Output = Vec<bool>;
-
-    fn index(&self, index: T) -> &Self::Output {
-        &self.prefixes[index.borrow()]
+impl<F: Extendable<D>, const D: usize> PrefixedGate<F, D> {
+    pub fn from_tree(tree: Tree<GateRef<F, D>>) -> Vec<Self> {
+        tree.traversal()
+            .into_iter()
+            .map(|(gate, prefix)| PrefixedGate { gate, prefix })
+            .collect()
     }
 }
 
