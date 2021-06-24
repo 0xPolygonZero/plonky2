@@ -66,8 +66,8 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
             // The constraint polynomials are padded to the next power in `compute_vanishig_polys`.
             // So we can restrict our search space by setting `max_degree` to a power of 2.
             let max_degree = 1 << max_degree_bits;
-            for max_wires in 1..100 {
-                if let Some(mut tree) = Self::find_tree(&gates, max_degree, max_wires) {
+            for max_constants in 1..100 {
+                if let Some(mut tree) = Self::find_tree(&gates, max_degree, max_constants) {
                     tree.shorten();
                     info!(
                         "Found tree with max degree {} in {}s.",
@@ -83,11 +83,11 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
     }
 
     /// Greedily add gates wherever possible. Returns `None` if this fails.
-    fn find_tree(gates: &[GateRef<F, D>], max_degree: usize, max_wires: usize) -> Option<Self> {
+    fn find_tree(gates: &[GateRef<F, D>], max_degree: usize, max_constants: usize) -> Option<Self> {
         let mut tree = Tree::default();
 
         for g in gates {
-            tree.try_add_gate(g, max_degree, max_wires)?;
+            tree.try_add_gate(g, max_degree, max_constants)?;
         }
         Some(tree)
     }
@@ -97,12 +97,12 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
         &mut self,
         g: &GateRef<F, D>,
         max_degree: usize,
-        max_wires: usize,
+        max_constants: usize,
     ) -> Option<()> {
         // We want `gate.degree + depth <= max_degree` and `gate.num_constants + depth <= max_wires`.
         let depth = max_degree
             .checked_sub(g.0.degree())?
-            .min(max_wires.checked_sub(g.0.num_constants())?);
+            .min(max_constants.checked_sub(g.0.num_constants())?);
         self.try_add_gate_at_depth(g, depth)
     }
 
@@ -249,7 +249,7 @@ mod tests {
                 assert_ne!(
                     &gates_with_prefix[i].1,
                     &gates_with_prefix[j].1[0..gates_with_prefix[i].1.len()],
-                    "Some gates share the same prefix"
+                    "Some gates share an overlapping prefix"
                 );
             }
         }

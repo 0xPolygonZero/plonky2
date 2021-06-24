@@ -245,7 +245,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     .find(|g| g.gate.0.id() == gate.gate_type.0.id())
                     .unwrap()
                     .prefix;
-                let mut prefixed_constants = Vec::new();
+                let mut prefixed_constants = Vec::with_capacity(num_constants);
                 prefixed_constants.extend(prefix.iter().map(|&b| if b { F::ONE } else { F::ZERO }));
                 prefixed_constants.extend_from_slice(&gate.constants);
                 prefixed_constants.resize(num_constants, F::ZERO);
