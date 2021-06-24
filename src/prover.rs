@@ -23,6 +23,11 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     inputs: PartialWitness<F>,
 ) -> Proof<F, D> {
     let fri_config = &common_data.config.fri_config;
+    let config = &common_data.config;
+    let num_wires = config.num_wires;
+    let num_challenges = config.num_challenges;
+    let quotient_degree = common_data.quotient_degree();
+    let degree = common_data.degree();
 
     let start_proof_gen = Instant::now();
 
@@ -33,20 +38,17 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         "to generate witness"
     );
 
+    let witness = timed!(
+        partial_witness.full_witness(degree, num_wires),
+        "to compute full witness"
+    );
+
     timed!(
         witness
             .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)
             .unwrap(), // TODO: Change return value to `Result` and use `?` here.
         "to check copy constraints"
     );
-
-    let config = &common_data.config;
-    let num_wires = config.num_wires;
-    let num_challenges = config.num_challenges;
-    let quotient_degree = common_data.quotient_degree();
-    let degree = common_data.degree();
-
-    let witness = partial_witness.full_witness(degree, num_wires);
 
     let wires_values: Vec<PolynomialValues<F>> = timed!(
         witness
@@ -169,7 +171,7 @@ fn compute_zs<F: Extendable<D>, const D: usize>(
     witness: &Witness<F>,
     betas: &[F],
     gammas: &[F],
-    prover_data: &ProverOnlyCircuitData<F>,
+    prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Vec<PolynomialValues<F>> {
     (0..common_data.config.num_challenges)
@@ -181,7 +183,7 @@ fn compute_z<F: Extendable<D>, const D: usize>(
     witness: &Witness<F>,
     beta: F,
     gamma: F,
-    prover_data: &ProverOnlyCircuitData<F>,
+    prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> PolynomialValues<F> {
     let subgroup = &prover_data.subgroup;
