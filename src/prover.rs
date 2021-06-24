@@ -10,7 +10,7 @@ use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::eval_vanishing_poly_base;
 use crate::polynomial::commitment::ListPolynomialCommitment;
-use crate::polynomial::polynomial::PolynomialValues;
+use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::timed;
 use crate::util::transpose;
@@ -89,8 +89,8 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     let alphas = challenger.get_n_challenges(num_challenges);
 
-    let vanishing_polys = timed!(
-        compute_vanishing_polys(
+    let quotient_polys = timed!(
+        compute_quotient_polys(
             common_data,
             prover_data,
             &wires_commitment,
@@ -104,21 +104,13 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     // Compute the quotient polynomials, aka `t` in the Plonk paper.
     let all_quotient_poly_chunks = timed!(
-        vanishing_polys
+        quotient_polys
             .into_par_iter()
-            .flat_map(|vanishing_poly| {
-                let vanishing_poly_coeff = ifft(vanishing_poly);
-                // TODO: run `padded` when the division works.
-                let quotient_poly_coeff = vanishing_poly_coeff.divide_by_z_h(degree);
-                let x = F::rand();
-                assert!(
-                    quotient_poly_coeff.eval(x) * (x.exp(degree as u64) - F::ONE)
-                        != vanishing_poly_coeff.eval(x),
-                    "That's good news, this should fail! The division by z_h doesn't work yet,\
-                    most likely because compute_vanishing_polys isn't complete (doesn't use filters for example)."
-                );
+            .flat_map(|mut quotient_poly| {
+                quotient_poly.trim();
+                quotient_poly.pad(quotient_degree);
                 // Split t into degree-n chunks.
-                quotient_poly_coeff.chunks(degree)
+                quotient_poly.chunks(degree)
             })
             .collect(),
         "to compute quotient polys"
@@ -208,49 +200,50 @@ fn compute_z<F: Extendable<D>, const D: usize>(
     plonk_z_points.into()
 }
 
-fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(
+fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
-    prover_data: &ProverOnlyCircuitData<F, D>,
-    wires_commitment: &ListPolynomialCommitment<F>,
-    plonk_zs_commitment: &ListPolynomialCommitment<F>,
+    prover_data: &'a ProverOnlyCircuitData<F, D>,
+    wires_commitment: &'a ListPolynomialCommitment<F>,
+    plonk_zs_commitment: &'a ListPolynomialCommitment<F>,
     betas: &[F],
     gammas: &[F],
     alphas: &[F],
-) -> Vec<PolynomialValues<F>> {
+) -> Vec<PolynomialCoeffs<F>> {
     let num_challenges = common_data.config.num_challenges;
+    assert!(
+        common_data.max_filtered_constraint_degree_bits <= common_data.config.rate_bits,
+        "Having constraints of degree higher than the rate is not supported yet. \
+        If we need this in the future, we can precompute the larger LDE before computing the `ListPolynomialCommitment`s."
+    );
+
+    // We reuse the LDE computed in `ListPolynomialCommitment` and extract every `step` points to get
+    // an LDE matching `max_filtered_constraint_degree`.
+    let step =
+        1 << (common_data.config.rate_bits - common_data.max_filtered_constraint_degree_bits);
+    // When opening the `Z`s polys at the "next" point in Plonk, need to look at the point `next_step`
+    // steps away since we work on an LDE of degree `max_filtered_constraint_degree`.
+    let next_step = 1 << common_data.max_filtered_constraint_degree_bits;
+
     let points = F::two_adic_subgroup(
         common_data.degree_bits + common_data.max_filtered_constraint_degree_bits,
     );
     let lde_size = points.len();
 
-    // Low-degree extend the polynomials commited in `comm` to the subgroup of size `lde_size`.
-    let commitment_to_lde = |comm: &ListPolynomialCommitment<F>| -> Vec<PolynomialValues<F>> {
-        comm.polynomials
-            .iter()
-            .map(|p| p.lde(common_data.max_filtered_constraint_degree_bits).fft())
-            .collect()
+    // Retrieve the LDE values at index `i`.
+    let get_at_index = |comm: &'a ListPolynomialCommitment<F>, i: usize| -> &'a [F] {
+        comm.get_lde_values(i * step)
     };
 
-    let constants_lde = commitment_to_lde(&prover_data.constants_commitment);
-    let sigmas_lde = commitment_to_lde(&prover_data.sigmas_commitment);
-    let wires_lde = commitment_to_lde(wires_commitment);
-    let zs_lde = commitment_to_lde(plonk_zs_commitment);
-
-    // Retrieve the polynomial values at index `i`.
-    let get_at_index = |ldes: &[PolynomialValues<F>], i: usize| {
-        ldes.iter().map(|l| l.values[i]).collect::<Vec<_>>()
-    };
-
-    let values: Vec<Vec<F>> = points
+    let quotient_values: Vec<Vec<F>> = points
         .into_par_iter()
         .enumerate()
         .map(|(i, x)| {
-            let i_next = (i + 1) % lde_size;
-            let local_constants = &get_at_index(&constants_lde, i);
-            let s_sigmas = &get_at_index(&sigmas_lde, i);
-            let local_wires = &get_at_index(&wires_lde, i);
-            let local_plonk_zs = &get_at_index(&zs_lde, i);
-            let next_plonk_zs = &get_at_index(&zs_lde, i_next);
+            let i_next = (i + next_step) % lde_size;
+            let local_constants = get_at_index(&prover_data.constants_commitment, i);
+            let s_sigmas = get_at_index(&prover_data.sigmas_commitment, i);
+            let local_wires = get_at_index(&wires_commitment, i);
+            let local_plonk_zs = get_at_index(&plonk_zs_commitment, i);
+            let next_plonk_zs = get_at_index(&plonk_zs_commitment, i_next);
 
             debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
             debug_assert_eq!(local_plonk_zs.len(), num_challenges);
@@ -259,7 +252,7 @@ fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(
                 local_constants,
                 local_wires,
             };
-            eval_vanishing_poly_base(
+            let mut quotient_values = eval_vanishing_poly_base(
                 common_data,
                 x,
                 vars,
@@ -269,12 +262,19 @@ fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(
                 betas,
                 gammas,
                 alphas,
-            )
+            );
+            // TODO: We can avoid computing the exp.
+            let denominator_inv = x.exp(common_data.degree() as u64).inverse();
+            quotient_values
+                .iter_mut()
+                .for_each(|v| *v *= denominator_inv);
+            quotient_values
         })
         .collect();
 
-    transpose(&values)
+    transpose(&quotient_values)
         .into_iter()
         .map(PolynomialValues::new)
+        .map(|values| values.coset_ifft(F::MULTIPLICATIVE_GROUP_GENERATOR))
         .collect()
 }

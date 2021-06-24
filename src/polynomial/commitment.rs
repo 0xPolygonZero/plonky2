@@ -13,7 +13,7 @@ use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriProof, FriProofTarget, Hash, OpeningSet};
 use crate::timed;
 use crate::util::scaling::ReducingFactor;
-use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
+use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
 
 pub const SALT_SIZE: usize = 2;
 
@@ -110,6 +110,11 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
     pub fn original_values(&self, index: usize) -> Vec<F> {
         self.values.iter().map(|v| v.values[index]).collect()
+    }
+    pub fn get_lde_values(&self, mut index: usize) -> &[F] {
+        reverse_bits(index, self.degree_log + self.rate_bits);
+        let slice = &self.merkle_tree.leaves[index];
+        &slice[..slice.len() - if self.blinding { SALT_SIZE } else { 0 }]
     }
 
     /// Takes the commitments to the constants - sigmas - wires - zs - quotient — polynomials,

@@ -34,6 +34,18 @@ impl<F: Field> PolynomialValues<F> {
         ifft(self)
     }
 
+    pub fn coset_ifft(self, shift: F) -> PolynomialCoeffs<F> {
+        let mut shifted_coeffs = self.ifft();
+        shifted_coeffs
+            .coeffs
+            .iter_mut()
+            .zip(shift.inverse().powers())
+            .for_each(|(c, r)| {
+                *c *= r;
+            });
+        shifted_coeffs
+    }
+
     pub fn lde_multiple(polys: Vec<Self>, rate_bits: usize) -> Vec<Self> {
         polys.into_iter().map(|p| p.lde(rate_bits)).collect()
     }
@@ -127,16 +139,20 @@ impl<F: Field> PolynomialCoeffs<F> {
         self.padded(self.len() << rate_bits)
     }
 
-    pub(crate) fn padded(&self, new_len: usize) -> Self {
+    pub(crate) fn pad(&mut self, new_len: usize) {
         assert!(
             new_len >= self.len(),
             "Trying to pad a polynomial of length {} to a length of {}.",
             self.len(),
             new_len
         );
-        let mut coeffs = self.coeffs.clone();
-        coeffs.resize(new_len, F::ZERO);
-        Self { coeffs }
+        self.coeffs.resize(new_len, F::ZERO);
+    }
+
+    pub(crate) fn padded(&self, new_len: usize) -> Self {
+        let mut poly = self.clone();
+        poly.pad(new_len);
+        poly
     }
 
     /// Removes leading zero coefficients.
