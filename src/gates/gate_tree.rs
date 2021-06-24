@@ -61,17 +61,20 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
     /// i.e., the one with minimal `M` value.
     pub fn from_gates(mut gates: Vec<GateRef<F, D>>) -> Self {
         let timer = std::time::Instant::now();
-        gates.sort_unstable_by_key(|g| -((g.0.degree() + g.0.num_constants()) as isize));
+        gates.sort_unstable_by_key(|g| (-(g.0.degree() as isize), -(g.0.num_constants() as isize)));
 
-        for max_degree in 1..100 {
-            if let Some(mut tree) = Self::find_tree(&gates, max_degree) {
-                tree.shorten();
-                info!(
-                    "Found tree with max degree {} in {}s.",
-                    max_degree,
-                    timer.elapsed().as_secs_f32()
-                );
-                return tree;
+        for max_degree_bits in 1..10 {
+            let max_degree = 1 << max_degree_bits;
+            for max_wires in 1..100 {
+                if let Some(mut tree) = Self::find_tree(&gates, max_degree, max_wires) {
+                    tree.shorten();
+                    info!(
+                        "Found tree with max degree {} in {}s.",
+                        max_degree,
+                        timer.elapsed().as_secs_f32()
+                    );
+                    return tree;
+                }
             }
         }
 
@@ -79,18 +82,25 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
     }
 
     /// Greedily add gates wherever possible. Returns `None` if this fails.
-    fn find_tree(gates: &[GateRef<F, D>], max_degree: usize) -> Option<Self> {
+    fn find_tree(gates: &[GateRef<F, D>], max_degree: usize, max_wires: usize) -> Option<Self> {
         let mut tree = Tree::default();
 
         for g in gates {
-            tree.try_add_gate(g, max_degree)?;
+            tree.try_add_gate(g, max_degree, max_wires)?;
         }
         Some(tree)
     }
 
     /// Try to add a gate in the tree. Returns `None` if this fails.
-    fn try_add_gate(&mut self, g: &GateRef<F, D>, max_degree: usize) -> Option<()> {
-        let depth = max_degree.checked_sub(g.0.num_constants() + g.0.degree())?;
+    fn try_add_gate(
+        &mut self,
+        g: &GateRef<F, D>,
+        max_degree: usize,
+        max_wires: usize,
+    ) -> Option<()> {
+        let depth = max_degree
+            .checked_sub(g.0.degree())?
+            .min(max_wires.checked_sub(g.0.num_constants())?);
         self.try_add_gate_at_depth(g, depth)
     }
 
@@ -98,7 +108,7 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
     fn try_add_gate_at_depth(&mut self, g: &GateRef<F, D>, depth: usize) -> Option<()> {
         // If depth is 0, we have to insert the gate here.
         if depth == 0 {
-            return if let Tree::Bifurcation(_, _) = self {
+            return if let Tree::Bifurcation(None, None) = self {
                 // Insert the gate as a new leaf.
                 *self = Tree::Leaf(g.clone());
                 Some(())
@@ -185,6 +195,7 @@ mod tests {
 
     #[test]
     fn test_prefix_generation() {
+        env_logger::init();
         type F = CrandallField;
         const D: usize = 4;
 
@@ -201,6 +212,14 @@ mod tests {
 
         let tree = Tree::from_gates(gates.clone());
         let mut gates_with_prefix = tree.traversal();
+        for (g, p) in &gates_with_prefix {
+            println!("{} {:?}", &g.0.id()[..20.min(g.0.id().len())], p);
+            println!(
+                "{} {}",
+                g.0.degree() + p.len(),
+                g.0.num_constants() + p.len()
+            );
+        }
 
         assert_eq!(
             gates_with_prefix.len(),
