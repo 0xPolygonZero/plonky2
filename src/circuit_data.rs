@@ -3,7 +3,7 @@ use anyhow::Result;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::fri::FriConfig;
-use crate::gates::gate::{GateInstance, GateRef};
+use crate::gates::gate::{GateInstance, PrefixedGate};
 use crate::generator::WitnessGenerator;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::proof::{Hash, HashTarget, Proof};
@@ -143,8 +143,8 @@ pub(crate) struct CommonCircuitData<F: Extendable<D>, const D: usize> {
 
     pub(crate) degree_bits: usize,
 
-    /// The types of gates used in this circuit.
-    pub(crate) gates: Vec<GateRef<F, D>>,
+    /// The types of gates used in this circuit, along with their prefixes.
+    pub(crate) gates: Vec<PrefixedGate<F, D>>,
 
     /// The maximum degree of a filter times a constraint by any gate.
     pub(crate) max_filtered_constraint_degree_bits: usize,
@@ -176,7 +176,7 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     pub fn constraint_degree(&self) -> usize {
         self.gates
             .iter()
-            .map(|g| g.0.degree())
+            .map(|g| g.gate.0.degree())
             .max()
             .expect("No gates?")
     }
