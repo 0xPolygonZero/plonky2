@@ -385,8 +385,6 @@ mod tests {
 
         let x = FF::rand();
         let y = FF::rand();
-        let x = FF::TWO;
-        let y = FF::ONE;
         let z = x / y;
         let xt = builder.constant_extension(x);
         let yt = builder.constant_extension(y);

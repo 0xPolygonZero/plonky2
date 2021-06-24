@@ -323,6 +323,8 @@ mod tests {
     use crate::gates::gmimc::{GMiMCGate, W};
     use crate::generator::generate_partial_witness;
     use crate::gmimc::gmimc_permute_naive;
+    use crate::permutation_argument::TargetPartitions;
+    use crate::target::Target;
     use crate::wire::Wire;
     use crate::witness::PartialWitness;
 

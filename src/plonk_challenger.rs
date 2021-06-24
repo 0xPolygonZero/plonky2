@@ -321,6 +321,7 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::field::Field;
     use crate::generator::generate_partial_witness;
+    use crate::permutation_argument::TargetPartitions;
     use crate::plonk_challenger::{Challenger, RecursiveChallenger};
     use crate::target::Target;
     use crate::witness::PartialWitness;

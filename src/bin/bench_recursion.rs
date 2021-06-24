@@ -18,12 +18,6 @@ fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     bench_prove::<CrandallField, 4>();
-
-    // bench_field_mul::<CrandallField>();
-
-    // bench_fft();
-    println!();
-    // bench_gmimc::<CrandallField>();
 }
 
 fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
@@ -50,12 +44,6 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
     }
 
     builder.add_gate(ConstantGate::get(), vec![F::NEG_ONE]);
-
-    // for _ in 0..(40 * 5) {
-    //     builder.add_gate(
-    //         FriConsistencyGate::new(2, 3, 13),
-    //         vec![F::primitive_root_of_unity(13)]);
-    // }
 
     let prover = builder.build_prover();
     let inputs = PartialWitness::new();
