@@ -1,9 +1,5 @@
-use std::borrow::Borrow;
-use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::hash::{Hash, Hasher};
-use std::iter::FromIterator;
-use std::ops::Index;
 use std::sync::Arc;
 
 use crate::circuit_builder::CircuitBuilder;

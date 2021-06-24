@@ -3,7 +3,7 @@ use anyhow::Result;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::fri::FriConfig;
-use crate::gates::gate::{GateRef, PrefixedGate};
+use crate::gates::gate::PrefixedGate;
 use crate::generator::WitnessGenerator;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::proof::{Hash, HashTarget, Proof};
