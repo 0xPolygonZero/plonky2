@@ -231,11 +231,9 @@ mod tests {
             "The tree has too much or too little gates."
         );
         assert!(
-            gates.iter().all(|g| gates_with_prefix
+            gates
                 .iter()
-                .map(|(gg, _)| gg)
-                .find(|gg| *gg == g)
-                .is_some()),
+                .all(|g| gates_with_prefix.iter().map(|(gg, _)| gg).any(|gg| gg == g)),
             "Some gates are not in the tree."
         );
         assert!(
