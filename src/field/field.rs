@@ -272,6 +272,7 @@ pub trait Field:
         (0..n).map(|_| Self::rand()).collect()
     }
 
+    /// Representative `g` of the coset used in FRI, so that LDEs in FRI are done over `gH`.
     fn coset_shift() -> Self {
         Self::MULTIPLICATIVE_GROUP_GENERATOR
     }
