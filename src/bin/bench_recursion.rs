@@ -51,12 +51,6 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
 
     builder.add_gate(ConstantGate::get(), vec![F::NEG_ONE]);
 
-    // for _ in 0..(40 * 5) {
-    //     builder.add_gate(
-    //         FriConsistencyGate::new(2, 3, 13),
-    //         vec![F::primitive_root_of_unity(13)]);
-    // }
-
     let prover = builder.build_prover();
     let inputs = PartialWitness::new();
     prover.prove(inputs);
