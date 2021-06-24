@@ -51,19 +51,20 @@ impl<T: Clone> Tree<T> {
 }
 
 impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
-    /// Construct a binary tree of gates using the following greedy algorithm:
-    /// We want a tree where the maximum `M` of
-    /// `F(gate) = gate.degree() + gate.num_constants() + tree.depth(gate)`
-    /// over all gates is minimized. Such a tree is constructed by iterating over possible values of `M`
-    /// (from 1 to 99, then we give up) and then looking for a tree with this value of `M`
-    /// using `Self::find_tree`. This latter function greedily adds gates at the depth where
-    /// `F(gate)=M` to ensure no space is wasted. We return the first tree found in this manner,
-    /// i.e., the one with minimal `M` value.
+    /// The binary gate tree influences the degree `D` of the constraint polynomial and the number `C`
+    /// of constant wires in the circuit. We want to construct a tree minimizing both values. To do so
+    /// we iterate over possible values of `(D, C)` and try to construct a tree with these values.
+    /// For this construction, we use the greedy algorithm in `Self::find_tree`.
+    /// This latter function greedily adds gates at the depth where
+    /// `filtered_deg(gate)=D, constant_wires(gate)=C` to ensure no space is wasted.
+    /// We return the first tree found in this manner.
     pub fn from_gates(mut gates: Vec<GateRef<F, D>>) -> Self {
         let timer = std::time::Instant::now();
         gates.sort_unstable_by_key(|g| (-(g.0.degree() as isize), -(g.0.num_constants() as isize)));
 
         for max_degree_bits in 1..10 {
+            // The constraint polynomials are padded to the next power in `compute_vanishig_polys`.
+            // So we can restrict our search space by setting `max_degree` to a power of 2.
             let max_degree = 1 << max_degree_bits;
             for max_wires in 1..100 {
                 if let Some(mut tree) = Self::find_tree(&gates, max_degree, max_wires) {
@@ -98,6 +99,7 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
         max_degree: usize,
         max_wires: usize,
     ) -> Option<()> {
+        // We want `gate.degree + depth <= max_degree` and `gate.num_constants + depth <= max_wires`.
         let depth = max_degree
             .checked_sub(g.0.degree())?
             .min(max_wires.checked_sub(g.0.num_constants())?);
@@ -213,9 +215,11 @@ mod tests {
         let tree = Tree::from_gates(gates.clone());
         let mut gates_with_prefix = tree.traversal();
         for (g, p) in &gates_with_prefix {
-            println!("{} {:?}", &g.0.id()[..20.min(g.0.id().len())], p);
-            println!(
-                "{} {}",
+            info!(
+                "\nGate: {}, prefix: {:?}.\n\
+                Filtered constraint degree: {}, Num constant wires: {}",
+                &g.0.id()[..20.min(g.0.id().len())],
+                p,
                 g.0.degree() + p.len(),
                 g.0.num_constants() + p.len()
             );
