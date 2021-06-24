@@ -128,30 +128,9 @@ pub(crate) fn fft_with_precomputation_power_of_2<F: Field>(
     PolynomialValues { values }
 }
 
-pub(crate) fn coset_fft<F: Field>(poly: PolynomialCoeffs<F>, shift: F) -> PolynomialValues<F> {
-    let mut points = fft(poly);
-    let mut shift_exp_i = F::ONE;
-    for p in points.values.iter_mut() {
-        *p *= shift_exp_i;
-        shift_exp_i *= shift;
-    }
-    points
-}
-
 pub(crate) fn ifft<F: Field>(poly: PolynomialValues<F>) -> PolynomialCoeffs<F> {
     let precomputation = fft_precompute(poly.len());
     ifft_with_precomputation_power_of_2(poly, &precomputation)
-}
-
-pub(crate) fn coset_ifft<F: Field>(poly: PolynomialValues<F>, shift: F) -> PolynomialCoeffs<F> {
-    let shift_inv = shift.inverse();
-    let mut shift_inv_exp_i = F::ONE;
-    let mut coeffs = ifft(poly);
-    for c in coeffs.coeffs.iter_mut() {
-        *c *= shift_inv_exp_i;
-        shift_inv_exp_i *= shift_inv;
-    }
-    coeffs
 }
 
 #[cfg(test)]

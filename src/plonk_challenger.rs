@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
@@ -5,7 +7,6 @@ use crate::field::field::Field;
 use crate::hash::{permute, SPONGE_RATE, SPONGE_WIDTH};
 use crate::proof::{Hash, HashTarget, OpeningSet};
 use crate::target::Target;
-use std::convert::TryInto;
 
 /// Observes prover messages, and generates challenges by hashing the transcript.
 #[derive(Clone)]
@@ -320,6 +321,7 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::field::Field;
     use crate::generator::generate_partial_witness;
+    use crate::permutation_argument::TargetPartitions;
     use crate::plonk_challenger::{Challenger, RecursiveChallenger};
     use crate::target::Target;
     use crate::witness::PartialWitness;

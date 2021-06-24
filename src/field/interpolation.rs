@@ -63,11 +63,23 @@ pub fn barycentric_weights<F: Field>(points: &[(F, F)]) -> Vec<F> {
     )
 }
 
+/// Interpolate the linear polynomial passing through `points` on `x`.
+pub fn interpolate2<F: Field>(points: [(F, F); 2], x: F) -> F {
+    // a0 -> a1
+    // b0 -> b1
+    // x  -> a1 + (x-a0)*(b1-a1)/(b0-a0)
+    let (a0, a1) = points[0];
+    let (b0, b1) = points[1];
+    assert_ne!(a0, b0);
+    a1 + (x - a0) * (b1 - a1) / (b0 - a0)
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
-    use crate::field::lagrange::interpolant;
     use crate::polynomial::polynomial::PolynomialCoeffs;
 
     #[test]
@@ -116,5 +128,19 @@ mod tests {
 
     fn eval_naive<F: Field>(coeffs: &PolynomialCoeffs<F>, domain: &[F]) -> Vec<(F, F)> {
         domain.iter().map(|&x| (x, coeffs.eval(x))).collect()
+    }
+
+    #[test]
+    fn test_interpolate2() {
+        type F = QuarticCrandallField;
+        let points = [(F::rand(), F::rand()), (F::rand(), F::rand())];
+        let x = F::rand();
+
+        let ev0 = interpolant(&points).eval(x);
+        let ev1 = interpolate(&points, x, &barycentric_weights(&points));
+        let ev2 = interpolate2(points, x);
+
+        assert_eq!(ev0, ev1);
+        assert_eq!(ev0, ev2);
     }
 }

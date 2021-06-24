@@ -371,7 +371,6 @@ mod tests {
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
     use crate::fri::FriConfig;
-    use crate::prover::PLONK_BLINDING;
     use crate::witness::PartialWitness;
 
     #[test]
@@ -386,8 +385,6 @@ mod tests {
 
         let x = FF::rand();
         let y = FF::rand();
-        let x = FF::TWO;
-        let y = FF::ONE;
         let z = x / y;
         let xt = builder.constant_extension(x);
         let yt = builder.constant_extension(y);

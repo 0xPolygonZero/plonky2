@@ -1,3 +1,4 @@
+pub mod scaling;
 pub(crate) mod timing;
 
 use crate::field::field::Field;

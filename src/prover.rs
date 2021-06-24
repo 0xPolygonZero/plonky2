@@ -17,11 +17,8 @@ use crate::util::transpose;
 use crate::vars::EvaluationVarsBase;
 use crate::witness::{PartialWitness, Witness};
 
-/// Corresponds to constants - sigmas - wires - zs - quotient — polynomial commitments.
-pub const PLONK_BLINDING: [bool; 5] = [false, false, true, true, true];
-
 pub(crate) fn prove<F: Extendable<D>, const D: usize>(
-    prover_data: &ProverOnlyCircuitData<F>,
+    prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
 ) -> Proof<F, D> {
@@ -34,6 +31,13 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     timed!(
         generate_partial_witness(&mut partial_witness, &prover_data.generators),
         "to generate witness"
+    );
+
+    timed!(
+        witness
+            .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)
+            .unwrap(), // TODO: Change return value to `Result` and use `?` here.
+        "to check copy constraints"
     );
 
     let config = &common_data.config;
@@ -204,7 +208,7 @@ fn compute_z<F: Extendable<D>, const D: usize>(
 
 fn compute_vanishing_polys<F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
-    prover_data: &ProverOnlyCircuitData<F>,
+    prover_data: &ProverOnlyCircuitData<F, D>,
     wires_commitment: &ListPolynomialCommitment<F>,
     plonk_zs_commitment: &ListPolynomialCommitment<F>,
     betas: &[F],

@@ -312,6 +312,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_commitment,
             sigmas_commitment,
             subgroup,
+            copy_constraints: self.copy_constraints,
+            gate_instances: self.gate_instances,
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
