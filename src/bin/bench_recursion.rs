@@ -18,12 +18,6 @@ fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     bench_prove::<CrandallField, 4>();
-
-    // bench_field_mul::<CrandallField>();
-
-    // bench_fft();
-    println!();
-    // bench_gmimc::<CrandallField>();
 }
 
 fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
