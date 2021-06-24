@@ -8,7 +8,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::fft::ifft;
 use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::eval_vanishing_poly_base;
+use crate::plonk_common::{eval_vanishing_poly_base, ZeroPolyOnCoset};
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
@@ -234,6 +234,11 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
         comm.get_lde_values(i * step)
     };
 
+    let z_h_on_coset = ZeroPolyOnCoset::new(
+        common_data.degree_bits,
+        common_data.max_filtered_constraint_degree_bits,
+    );
+
     let quotient_values: Vec<Vec<F>> = points
         .into_par_iter()
         .enumerate()
@@ -255,6 +260,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
             };
             let mut quotient_values = eval_vanishing_poly_base(
                 common_data,
+                i,
                 shifted_x,
                 vars,
                 local_plonk_zs,
@@ -263,9 +269,9 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
                 betas,
                 gammas,
                 alphas,
+                &z_h_on_coset,
             );
-            // TODO: We can avoid computing the exp.
-            let denominator_inv = (shifted_x.exp(common_data.degree() as u64) - F::ONE).inverse();
+            let denominator_inv = z_h_on_coset.eval_inverse(i);
             quotient_values
                 .iter_mut()
                 .for_each(|v| *v *= denominator_inv);

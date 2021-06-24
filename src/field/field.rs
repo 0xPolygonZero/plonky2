@@ -104,10 +104,7 @@ pub trait Field:
     fn primitive_root_of_unity(n_log: usize) -> Self {
         assert!(n_log <= Self::TWO_ADICITY);
         let mut base = Self::POWER_OF_TWO_GENERATOR;
-        for _ in n_log..Self::TWO_ADICITY {
-            base = base.square();
-        }
-        base
+        base.exp_power_of_2(Self::TWO_ADICITY - n_log)
     }
 
     /// Computes a multiplicative subgroup whose order is known in advance.
@@ -156,6 +153,14 @@ pub trait Field:
 
     fn bits(&self) -> usize {
         bits_u64(self.to_canonical_u64())
+    }
+
+    fn exp_power_of_2(&self, power_log: usize) -> Self {
+        let mut res = *self;
+        for _ in 0..power_log {
+            res = res.square();
+        }
+        res
     }
 
     fn exp(&self, power: u64) -> Self {
