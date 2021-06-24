@@ -238,6 +238,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
         .into_par_iter()
         .enumerate()
         .map(|(i, x)| {
+            let shifted_x = F::coset_shift() * x;
             let i_next = (i + next_step) % lde_size;
             let local_constants = get_at_index(&prover_data.constants_commitment, i);
             let s_sigmas = get_at_index(&prover_data.sigmas_commitment, i);
@@ -254,7 +255,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
             };
             let mut quotient_values = eval_vanishing_poly_base(
                 common_data,
-                x,
+                shifted_x,
                 vars,
                 local_plonk_zs,
                 next_plonk_zs,
@@ -264,7 +265,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
                 alphas,
             );
             // TODO: We can avoid computing the exp.
-            let denominator_inv = x.exp(common_data.degree() as u64).inverse();
+            let denominator_inv = (shifted_x.exp(common_data.degree() as u64) - F::ONE).inverse();
             quotient_values
                 .iter_mut()
                 .for_each(|v| *v *= denominator_inv);
@@ -275,6 +276,6 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
     transpose(&quotient_values)
         .into_iter()
         .map(PolynomialValues::new)
-        .map(|values| values.coset_ifft(F::MULTIPLICATIVE_GROUP_GENERATOR))
+        .map(|values| values.coset_ifft(F::coset_shift()))
         .collect()
 }

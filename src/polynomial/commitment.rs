@@ -92,10 +92,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .par_iter()
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degree invalid.");
-                p.clone()
-                    .lde(rate_bits)
-                    .coset_fft(F::MULTIPLICATIVE_GROUP_GENERATOR)
-                    .values
+                p.clone().lde(rate_bits).coset_fft(F::coset_shift()).values
             })
             .chain(if blinding {
                 // If blinding, salt with two random elements to each leaf vector.
@@ -111,8 +108,8 @@ impl<F: Field> ListPolynomialCommitment<F> {
     pub fn original_values(&self, index: usize) -> Vec<F> {
         self.values.iter().map(|v| v.values[index]).collect()
     }
-    pub fn get_lde_values(&self, mut index: usize) -> &[F] {
-        reverse_bits(index, self.degree_log + self.rate_bits);
+    pub fn get_lde_values(&self, index: usize) -> &[F] {
+        let index = reverse_bits(index, self.degree_log + self.rate_bits);
         let slice = &self.merkle_tree.leaves[index];
         &slice[..slice.len() - if self.blinding { SALT_SIZE } else { 0 }]
     }
