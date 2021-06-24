@@ -279,7 +279,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
         .collect();
 
     transpose(&quotient_values)
-        .into_iter()
+        .into_par_iter()
         .map(PolynomialValues::new)
         .map(|values| values.coset_ifft(F::coset_shift()))
         .collect()
