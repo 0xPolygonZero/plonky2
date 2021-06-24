@@ -1,12 +1,9 @@
 use std::hash::{Hash, Hasher};
-use std::iter::FromIterator;
-use std::ops::Index;
 use std::sync::Arc;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field::Field;
 use crate::generator::WitnessGenerator;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 

@@ -5,7 +5,6 @@ use rayon::prelude::*;
 
 use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::field::extension_field::Extendable;
-use crate::field::fft::ifft;
 use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::{eval_vanishing_poly_base, ZeroPolyOnCoset};
@@ -76,7 +75,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let gammas = challenger.get_n_challenges(num_challenges);
 
     let plonk_z_vecs = timed!(
-        compute_zs(&witness, &betas, &gammas, &prover_data, &common_data),
+        compute_zs(&witness, &betas, &gammas, prover_data, common_data),
         "to compute Z's"
     );
 
@@ -247,9 +246,9 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
             let i_next = (i + next_step) % lde_size;
             let local_constants = get_at_index(&prover_data.constants_commitment, i);
             let s_sigmas = get_at_index(&prover_data.sigmas_commitment, i);
-            let local_wires = get_at_index(&wires_commitment, i);
-            let local_plonk_zs = get_at_index(&plonk_zs_commitment, i);
-            let next_plonk_zs = get_at_index(&plonk_zs_commitment, i_next);
+            let local_wires = get_at_index(wires_commitment, i);
+            let local_plonk_zs = get_at_index(plonk_zs_commitment, i);
+            let next_plonk_zs = get_at_index(plonk_zs_commitment, i_next);
 
             debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
             debug_assert_eq!(local_plonk_zs.len(), num_challenges);

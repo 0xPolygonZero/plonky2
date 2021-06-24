@@ -116,7 +116,7 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
 /// Like `eval_vanishing_poly`, but specialized for base field points.
 pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
-    i: usize,
+    index: usize,
     x: F,
     vars: EvaluationVarsBase<F>,
     local_plonk_zs: &[F],
@@ -138,7 +138,7 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     for i in 0..common_data.config.num_challenges {
         let z_x = local_plonk_zs[i];
         let z_gz = next_plonk_zs[i];
-        vanishing_z_1_terms.push(z_h_on_coset.eval_l1(i, x) * (z_x - F::ONE));
+        vanishing_z_1_terms.push(z_h_on_coset.eval_l1(index, x) * (z_x - F::ONE));
 
         let mut f_prime = F::ONE;
         let mut g_prime = F::ONE;

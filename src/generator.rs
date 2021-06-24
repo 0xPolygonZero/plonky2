@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
 use crate::field::field::Field;
-use crate::permutation_argument::TargetPartitions;
 use crate::target::Target;
 use crate::witness::PartialWitness;
 

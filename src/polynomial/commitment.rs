@@ -8,7 +8,6 @@ use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::PlonkPolynomials;
-use crate::plonk_common::{reduce_polys_with_iter, reduce_with_iter};
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriProof, FriProofTarget, Hash, OpeningSet};
 use crate::timed;
