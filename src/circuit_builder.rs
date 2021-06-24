@@ -300,7 +300,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let degree_bits = log2_strict(degree);
         let subgroup = F::two_adic_subgroup(degree_bits);
 
-        let constant_vecs = self.constant_polys();
+        let constant_vecs = self.constant_polys(&prefixed_gates);
         let constants_commitment =
             ListPolynomialCommitment::new(constant_vecs, self.config.fri_config.rate_bits, false);
 

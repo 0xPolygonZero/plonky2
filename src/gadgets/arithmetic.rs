@@ -374,6 +374,29 @@ mod tests {
     use crate::witness::PartialWitness;
 
     #[test]
+    fn test_div() {
+        type F = CrandallField;
+        type FF = QuarticCrandallField;
+        const D: usize = 4;
+
+        let config = CircuitConfig::large_config();
+
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let x = F::rand();
+        let y = F::rand();
+        let z = x / y;
+        let xt = builder.constant(x);
+        let yt = builder.constant(y);
+        let zt = builder.constant(z);
+        let comp_zt = builder.div_unsafe(xt, yt);
+        builder.assert_equal(zt, comp_zt);
+
+        let data = builder.build();
+        let proof = data.prove(PartialWitness::new());
+    }
+
+    #[test]
     fn test_div_extension() {
         type F = CrandallField;
         type FF = QuarticCrandallField;
