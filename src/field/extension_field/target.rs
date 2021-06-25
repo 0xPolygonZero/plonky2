@@ -146,7 +146,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.route_extension(addend_0, wire_addend_0);
         self.route_extension(multiplicand_1, wire_multiplicand_1);
         self.route_extension(addend_1, wire_addend_1);
-        self.route_extension(multiplicand_1, wire_multiplicand_1);
         (wire_output_0, wire_output_1)
     }
 

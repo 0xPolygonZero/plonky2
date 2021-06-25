@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
@@ -207,10 +209,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Add an `ArithmeticExtensionGate` to compute `q * y`.
         let gate = self.add_gate(ArithmeticExtensionGate::new(), vec![F::ONE, F::ZERO]);
 
-        let multiplicand_0 =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_multiplicand_0());
+        let multiplicand_0 = ExtensionTarget::from_range(
+            gate,
+            ArithmeticExtensionGate::<D>::wires_fixed_multiplicand(),
+        );
         let multiplicand_1 =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_multiplicand_1());
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_multiplicand_0());
         let output =
             ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_output_0());
 
@@ -219,30 +223,19 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             denominator: y,
             quotient: multiplicand_0,
         });
+        self.add_generator(ZeroOutGenerator {
+            gate_index: gate,
+            ranges: vec![
+                ArithmeticExtensionGate::<D>::wires_addend_0(),
+                ArithmeticExtensionGate::<D>::wires_multiplicand_1(),
+                ArithmeticExtensionGate::<D>::wires_addend_1(),
+            ],
+        });
 
         self.route_extension(y, multiplicand_1);
-
         self.assert_equal_extension(output, x);
 
         multiplicand_0
-    }
-}
-
-struct QuotientGenerator {
-    numerator: Target,
-    denominator: Target,
-    quotient: Target,
-}
-
-impl<F: Field> SimpleGenerator<F> for QuotientGenerator {
-    fn dependencies(&self) -> Vec<Target> {
-        vec![self.numerator, self.denominator]
-    }
-
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let num = witness.get_target(self.numerator);
-        let den = witness.get_target(self.denominator);
-        PartialWitness::singleton_target(self.quotient, num / den)
     }
 }
 
@@ -270,6 +263,32 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for QuotientGeneratorE
                 quotient.to_basefield_array()[i],
             );
         }
+
+        pw
+    }
+}
+
+/// Generator used to zero out wires at a given gate index and ranges.
+pub struct ZeroOutGenerator {
+    gate_index: usize,
+    ranges: Vec<Range<usize>>,
+}
+
+impl<F: Field> SimpleGenerator<F> for ZeroOutGenerator {
+    fn dependencies(&self) -> Vec<Target> {
+        Vec::new()
+    }
+
+    fn run_once(&self, _witness: &PartialWitness<F>) -> PartialWitness<F> {
+        let mut pw = PartialWitness::new();
+        for t in self
+            .ranges
+            .iter()
+            .flat_map(|r| Target::wires_from_range(self.gate_index, r.clone()))
+        {
+            pw.set_target(t, F::ZERO);
+        }
+
         pw
     }
 }
