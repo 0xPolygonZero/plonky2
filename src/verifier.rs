@@ -64,8 +64,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     let evaluations = proof.openings.clone();
 
     let merkle_roots = &[
-        verifier_data.constants_root,
-        verifier_data.sigmas_root,
+        verifier_data.constants_sigmas_root,
         proof.wires_root,
         proof.plonk_zs_root,
         proof.quotient_polys_root,

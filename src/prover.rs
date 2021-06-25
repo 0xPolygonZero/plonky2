@@ -134,15 +134,14 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let (opening_proof, openings) = timed!(
         ListPolynomialCommitment::open_plonk(
             &[
-                &prover_data.constants_commitment,
-                &prover_data.sigmas_commitment,
+                &prover_data.constants_sigmas_commitment,
                 &wires_commitment,
                 &plonk_zs_commitment,
                 &quotient_polys_commitment,
             ],
             zeta,
             &mut challenger,
-            &common_data.config.fri_config
+            common_data,
         ),
         "to compute opening proofs"
     );
@@ -187,7 +186,9 @@ fn compute_z<F: Extendable<D>, const D: usize>(
         let x = subgroup[i - 1];
         let mut numerator = F::ONE;
         let mut denominator = F::ONE;
-        let s_sigmas = prover_data.sigmas_commitment.original_values(i - 1);
+        let s_sigmas = &prover_data
+            .constants_sigmas_commitment
+            .original_values(i - 1)[common_data.sigmas_range()];
         for j in 0..common_data.config.num_routed_wires {
             let wire_value = witness.get_wire(i - 1, j);
             let k_i = k_is[j];
@@ -247,8 +248,9 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
         .map(|(i, x)| {
             let shifted_x = F::coset_shift() * x;
             let i_next = (i + next_step) % lde_size;
-            let local_constants = get_at_index(&prover_data.constants_commitment, i);
-            let s_sigmas = get_at_index(&prover_data.sigmas_commitment, i);
+            let local_constants_sigmas = get_at_index(&prover_data.constants_sigmas_commitment, i);
+            let local_constants = &local_constants_sigmas[common_data.constants_range()];
+            let s_sigmas = &local_constants_sigmas[common_data.sigmas_range()];
             let local_wires = get_at_index(wires_commitment, i);
             let local_plonk_zs = get_at_index(plonk_zs_commitment, i);
             let next_plonk_zs = get_at_index(plonk_zs_commitment, i_next);

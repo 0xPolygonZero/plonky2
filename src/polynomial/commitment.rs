@@ -1,6 +1,7 @@
 use anyhow::Result;
 use rayon::prelude::*;
 
+use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::{FieldExtension, Frobenius};
 use crate::field::field::Field;
@@ -119,14 +120,15 @@ impl<F: Field> ListPolynomialCommitment<F> {
     /// Takes the commitments to the constants - sigmas - wires - zs - quotient — polynomials,
     /// and an opening point `zeta` and produces a batched opening proof + opening set.
     pub fn open_plonk<const D: usize>(
-        commitments: &[&Self; 5],
+        commitments: &[&Self; 4],
         zeta: F::Extension,
         challenger: &mut Challenger<F>,
-        config: &FriConfig,
+        common_data: &CommonCircuitData<F, D>,
     ) -> (OpeningProof<F, D>, OpeningSet<F, D>)
     where
         F: Extendable<D>,
     {
+        let config = &common_data.config.fri_config;
         assert!(D > 1, "Not implemented for D=1.");
         let degree_log = commitments[0].degree_log;
         let g = F::Extension::primitive_root_of_unity(degree_log);
@@ -145,7 +147,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             commitments[1],
             commitments[2],
             commitments[3],
-            commitments[4],
+            common_data,
         );
         challenger.observe_opening_set(&os);
 
@@ -157,8 +159,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
         // Polynomials opened at a single point.
         let single_polys = [
-            PlonkPolynomials::CONSTANTS,
-            PlonkPolynomials::SIGMAS,
+            PlonkPolynomials::CONSTANTS_SIGMAS,
             PlonkPolynomials::QUOTIENT,
         ]
         .iter()
@@ -291,6 +292,7 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
+    use crate::circuit_data::CircuitConfig;
     use crate::plonk_common::PlonkPolynomials;
 
     fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(
@@ -318,7 +320,7 @@ mod tests {
     }
 
     fn check_batch_polynomial_commitment<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
-        let ks = [1, 2, 3, 5, 8];
+        let ks = [10, 2, 3, 8];
         let degree_log = 11;
         let fri_config = FriConfig {
             proof_of_work_bits: 2,
@@ -326,12 +328,26 @@ mod tests {
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
         };
+        // We only care about `fri_config, num_constants`, and the length of `k_is` here.
+        let common_data = CommonCircuitData {
+            config: CircuitConfig {
+                fri_config,
+                ..CircuitConfig::large_config()
+            },
+            degree_bits: 0,
+            gates: vec![],
+            max_filtered_constraint_degree_bits: 0,
+            num_gate_constraints: 0,
+            num_constants: 4,
+            k_is: vec![F::ONE; 6],
+            circuit_digest: Hash::from_partial(vec![]),
+        };
 
-        let lpcs = (0..5)
+        let lpcs = (0..4)
             .map(|i| {
                 ListPolynomialCommitment::<F>::new(
                     gen_random_test_case(ks[i], degree_log),
-                    fri_config.rate_bits,
+                    common_data.config.fri_config.rate_bits,
                     PlonkPolynomials::polynomials(i).blinding,
                 )
             })
@@ -339,10 +355,10 @@ mod tests {
 
         let zeta = gen_random_point::<F, D>(degree_log);
         let (proof, os) = ListPolynomialCommitment::open_plonk::<D>(
-            &[&lpcs[0], &lpcs[1], &lpcs[2], &lpcs[3], &lpcs[4]],
+            &[&lpcs[0], &lpcs[1], &lpcs[2], &lpcs[3]],
             zeta,
             &mut Challenger::new(),
-            &fri_config,
+            &common_data,
         );
 
         proof.verify(
@@ -353,10 +369,9 @@ mod tests {
                 lpcs[1].merkle_tree.root,
                 lpcs[2].merkle_tree.root,
                 lpcs[3].merkle_tree.root,
-                lpcs[4].merkle_tree.root,
             ],
             &mut Challenger::new(),
-            &fri_config,
+            &common_data.config.fri_config,
         )
     }
 

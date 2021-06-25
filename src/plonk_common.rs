@@ -29,34 +29,29 @@ impl PolynomialsIndexBlinding {
 /// Holds the indices and blinding flags of the Plonk polynomials.
 pub struct PlonkPolynomials;
 impl PlonkPolynomials {
-    pub const CONSTANTS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
+    pub const CONSTANTS_SIGMAS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
         index: 0,
         blinding: false,
     };
-    pub const SIGMAS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
-        index: 1,
-        blinding: false,
-    };
     pub const WIRES: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
-        index: 2,
+        index: 1,
         blinding: true,
     };
     pub const ZS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
-        index: 3,
+        index: 2,
         blinding: true,
     };
     pub const QUOTIENT: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
-        index: 4,
+        index: 3,
         blinding: true,
     };
 
     pub fn polynomials(i: usize) -> PolynomialsIndexBlinding {
         match i {
-            0 => Self::CONSTANTS,
-            1 => Self::SIGMAS,
-            2 => Self::WIRES,
-            3 => Self::ZS,
-            4 => Self::QUOTIENT,
+            0 => Self::CONSTANTS_SIGMAS,
+            1 => Self::WIRES,
+            2 => Self::ZS,
+            3 => Self::QUOTIENT,
             _ => panic!("There are only 5 sets of polynomials in Plonk."),
         }
     }

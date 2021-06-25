@@ -162,8 +162,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
 
     // Polynomials opened at `x`, i.e., the constants, sigmas and quotient polynomials.
     let single_evals = [
-        PlonkPolynomials::CONSTANTS,
-        PlonkPolynomials::SIGMAS,
+        PlonkPolynomials::CONSTANTS_SIGMAS,
         PlonkPolynomials::QUOTIENT,
     ]
     .iter()
