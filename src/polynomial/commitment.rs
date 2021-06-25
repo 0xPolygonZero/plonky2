@@ -30,7 +30,10 @@ impl<F: Field> ListPolynomialCommitment<F> {
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
     pub fn new(values: Vec<PolynomialValues<F>>, rate_bits: usize, blinding: bool) -> Self {
         let degree = values[0].len();
-        let polynomials = values.iter().map(|v| v.clone().ifft()).collect::<Vec<_>>();
+        let polynomials = values
+            .par_iter()
+            .map(|v| v.clone().ifft())
+            .collect::<Vec<_>>();
         let lde_values = timed!(
             Self::lde_values(&polynomials, rate_bits, blinding),
             "to compute LDE"
