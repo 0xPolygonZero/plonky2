@@ -4,7 +4,7 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
-use crate::gates::mul_extension::ArithmeticExtensionGate;
+use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::generator::SimpleGenerator;
 use crate::target::Target;
 use crate::util::bits_u64;

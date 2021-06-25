@@ -186,11 +186,11 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
 mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
+    use crate::gates::arithmetic::ArithmeticExtensionGate;
     use crate::gates::base_sum::BaseSumGate;
     use crate::gates::constant::ConstantGate;
     use crate::gates::gmimc::GMiMCGate;
     use crate::gates::interpolation::InterpolationGate;
-    use crate::gates::mul_extension::ArithmeticExtensionGate;
     use crate::gates::noop::NoopGate;
     use crate::hash::GMIMC_ROUNDS;
 
