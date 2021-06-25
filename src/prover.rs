@@ -7,7 +7,7 @@ use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::field::extension_field::Extendable;
 use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{eval_vanishing_poly_base, ZeroPolyOnCoset};
+use crate::plonk_common::{eval_vanishing_poly_base, PlonkPolynomials, ZeroPolyOnCoset};
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
@@ -61,7 +61,11 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
     // merkle_root_bit_rev_order do it implicitly.
     let wires_commitment = timed!(
-        ListPolynomialCommitment::new(wires_values, fri_config.rate_bits, true),
+        ListPolynomialCommitment::new(
+            wires_values,
+            fri_config.rate_bits,
+            PlonkPolynomials::WIRES.blinding
+        ),
         "to compute wires commitment"
     );
 
@@ -80,7 +84,11 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     );
 
     let plonk_zs_commitment = timed!(
-        ListPolynomialCommitment::new(plonk_z_vecs, fri_config.rate_bits, true),
+        ListPolynomialCommitment::new(
+            plonk_z_vecs,
+            fri_config.rate_bits,
+            PlonkPolynomials::ZS.blinding
+        ),
         "to commit to Z's"
     );
 
@@ -122,7 +130,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         ListPolynomialCommitment::new_from_polys(
             all_quotient_poly_chunks,
             fri_config.rate_bits,
-            true
+            PlonkPolynomials::QUOTIENT.blinding
         ),
         "to commit to quotient polys"
     );
