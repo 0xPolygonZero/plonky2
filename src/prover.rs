@@ -107,7 +107,10 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             .into_par_iter()
             .flat_map(|mut quotient_poly| {
                 quotient_poly.trim();
-                quotient_poly.pad(quotient_degree);
+                quotient_poly.pad(quotient_degree).expect(
+                    "The quotient polynomial doesn't have the right degree.\
+                     This may be because the `Z`s polynomials are still too high degree.",
+                );
                 // Split t into degree-n chunks.
                 quotient_poly.chunks(degree)
             })

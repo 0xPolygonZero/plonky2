@@ -2,6 +2,8 @@ use std::cmp::max;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
+use anyhow::{ensure, Result};
+
 use crate::field::extension_field::Extendable;
 use crate::field::fft::{fft, ifft};
 use crate::field::field::Field;
@@ -139,19 +141,20 @@ impl<F: Field> PolynomialCoeffs<F> {
         self.padded(self.len() << rate_bits)
     }
 
-    pub(crate) fn pad(&mut self, new_len: usize) {
-        assert!(
+    pub(crate) fn pad(&mut self, new_len: usize) -> Result<()> {
+        ensure!(
             new_len >= self.len(),
             "Trying to pad a polynomial of length {} to a length of {}.",
             self.len(),
             new_len
         );
         self.coeffs.resize(new_len, F::ZERO);
+        Ok(())
     }
 
     pub(crate) fn padded(&self, new_len: usize) -> Self {
         let mut poly = self.clone();
-        poly.pad(new_len);
+        poly.pad(new_len).unwrap();
         poly
     }
 
