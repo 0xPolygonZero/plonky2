@@ -218,7 +218,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut acc0 = zero;
         let mut acc1 = zero;
         for chunk in terms.chunks_exact(2) {
-            (acc0, acc1) = self.add_two_extension(acc0, acc1, chunk[0], chunk[1]);
+            (acc0, acc1) = self.add_two_extension(acc0, chunk[0], acc1, chunk[1]);
         }
         self.add_extension(acc0, acc1)
     }
@@ -257,7 +257,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             res.extend([o0, o1]);
         }
         if D % 2 == 1 {
-            res.push(self.add_extension(a.0[D - 1], b.0[D - 1]));
+            res.push(self.sub_extension(a.0[D - 1], b.0[D - 1]));
         }
         ExtensionAlgebraTarget(res.try_into().unwrap())
     }
