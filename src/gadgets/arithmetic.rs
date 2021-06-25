@@ -1,15 +1,7 @@
-use std::ops::Range;
-
 use crate::circuit_builder::CircuitBuilder;
-use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field::Field;
-use crate::gates::arithmetic::ArithmeticExtensionGate;
-use crate::generator::SimpleGenerator;
+use crate::field::extension_field::Extendable;
 use crate::target::Target;
 use crate::util::bits_u64;
-use crate::wire::Wire;
-use crate::witness::PartialWitness;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes `-x`.

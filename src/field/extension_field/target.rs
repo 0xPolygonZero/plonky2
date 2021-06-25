@@ -1,13 +1,10 @@
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
 
-use itertools::Itertools;
-
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::{Extendable, FieldExtension, OEF};
 use crate::field::field::Field;
-use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::target::Target;
 
 /// `Target`s representing an element of an extension field.

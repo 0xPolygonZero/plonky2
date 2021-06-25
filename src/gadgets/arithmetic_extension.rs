@@ -4,7 +4,6 @@ use std::ops::Range;
 use itertools::Itertools;
 
 use crate::circuit_builder::CircuitBuilder;
-use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::{Extendable, FieldExtension, OEF};
 use crate::field::field::Field;

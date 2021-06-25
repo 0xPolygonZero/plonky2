@@ -2,12 +2,11 @@ use std::ops::Range;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::extension_field::Extendable;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
-use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
 /// A gate which can a linear combination `c0*x*y+c1*z` twice with the same `x`.
