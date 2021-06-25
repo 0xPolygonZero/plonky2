@@ -176,16 +176,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Exponentiate `base` to the power of a known `exponent`.
     // TODO: Test
     pub fn exp_u64(&mut self, base: Target, exponent: u64) -> Target {
-        let mut current = base;
-        let mut product = self.one();
-
-        for j in 0..bits_u64(exponent as u64) {
-            if (exponent >> j & 1) != 0 {
-                product = self.mul(product, current);
-            }
-            current = self.square(current);
-        }
-        product
+        let base_ext = self.convert_to_ext(base);
+        self.exp_u64_extension(base_ext, exponent).0[0]
     }
 
     /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
