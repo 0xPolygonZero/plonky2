@@ -7,6 +7,7 @@ use crate::field::field::Field;
 use crate::gates::mul_extension::ArithmeticExtensionGate;
 use crate::generator::SimpleGenerator;
 use crate::target::Target;
+use crate::util::bits_u64;
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -20,6 +21,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes `x^2`.
     pub fn square(&mut self, x: Target) -> Target {
         self.mul(x, x)
+    }
+
+    /// Computes `x^2`.
+    pub fn square_extension(&mut self, x: ExtensionTarget<D>) -> ExtensionTarget<D> {
+        self.mul_extension(x, x)
     }
 
     /// Computes `x^3`.
@@ -161,18 +167,55 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     // TODO: Optimize this, maybe with a new gate.
+    // TODO: Test
     /// Exponentiate `base` to the power of `exponent`, where `exponent < 2^num_bits`.
     pub fn exp(&mut self, base: Target, exponent: Target, num_bits: usize) -> Target {
         let mut current = base;
-        let one = self.one();
-        let mut product = one;
+        let one_ext = self.one_extension();
+        let mut product = self.one();
         let exponent_bits = self.split_le(exponent, num_bits);
 
         for bit in exponent_bits.into_iter() {
-            product = self.mul_many(&[bit, current, product]);
+            let current_ext = self.convert_to_ext(current);
+            let multiplicand = self.select(bit, current_ext, one_ext);
+            product = self.mul(product, multiplicand.0[0]);
             current = self.mul(current, current);
         }
 
+        product
+    }
+
+    /// Exponentiate `base` to the power of a known `exponent`.
+    // TODO: Test
+    pub fn exp_u64(&mut self, base: Target, exponent: u64) -> Target {
+        let mut current = base;
+        let mut product = self.one();
+
+        for j in 0..bits_u64(exponent as u64) {
+            if (exponent >> j & 1) != 0 {
+                product = self.mul(product, current);
+            }
+            current = self.square(current);
+        }
+        product
+    }
+
+    /// Exponentiate `base` to the power of a known `exponent`.
+    // TODO: Test
+    pub fn exp_u64_extension(
+        &mut self,
+        base: ExtensionTarget<D>,
+        exponent: u64,
+    ) -> ExtensionTarget<D> {
+        let mut current = base;
+        let mut product = self.one_extension();
+
+        for j in 0..bits_u64(exponent as u64) {
+            if (exponent >> j & 1) != 0 {
+                product = self.mul_extension(product, current);
+            }
+            current = self.square_extension(current);
+        }
         product
     }
 
