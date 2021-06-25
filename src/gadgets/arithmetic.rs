@@ -2,7 +2,6 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
-use crate::gates::arithmetic::ArithmeticGate;
 use crate::gates::mul_extension::ArithmeticExtensionGate;
 use crate::generator::SimpleGenerator;
 use crate::target::Target;
@@ -41,30 +40,18 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         {
             return result;
         }
+        let multiplicand_0_ext = self.convert_to_ext(multiplicand_0);
+        let multiplicand_1_ext = self.convert_to_ext(multiplicand_1);
+        let addend_ext = self.convert_to_ext(addend);
 
-        let gate = self.add_gate(ArithmeticGate::new(), vec![const_0, const_1]);
-
-        let wire_multiplicand_0 = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_MULTIPLICAND_0,
-        };
-        let wire_multiplicand_1 = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_MULTIPLICAND_1,
-        };
-        let wire_addend = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_ADDEND,
-        };
-        let wire_output = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_OUTPUT,
-        };
-
-        self.route(multiplicand_0, Target::Wire(wire_multiplicand_0));
-        self.route(multiplicand_1, Target::Wire(wire_multiplicand_1));
-        self.route(addend, Target::Wire(wire_addend));
-        Target::Wire(wire_output)
+        self.arithmetic_extension(
+            const_0,
+            const_1,
+            multiplicand_0_ext,
+            multiplicand_1_ext,
+            addend_ext,
+        )
+        .0[0]
     }
 
     /// Checks for special cases where the value of
@@ -205,42 +192,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return self.constant(x_const / y_const);
         }
 
-        // Add an `ArithmeticGate` to compute `q * y`.
-        let gate = self.add_gate(ArithmeticGate::new(), vec![F::ONE, F::ZERO]);
-
-        let wire_multiplicand_0 = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_MULTIPLICAND_0,
-        };
-        let wire_multiplicand_1 = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_MULTIPLICAND_1,
-        };
-        let wire_addend = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_ADDEND,
-        };
-        let wire_output = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_OUTPUT,
-        };
-
-        let q = Target::Wire(wire_multiplicand_0);
-        self.add_generator(QuotientGenerator {
-            numerator: x,
-            denominator: y,
-            quotient: q,
-        });
-
-        self.route(y, Target::Wire(wire_multiplicand_1));
-
-        // This can be anything, since the whole second term has a weight of zero.
-        self.route(zero, Target::Wire(wire_addend));
-
-        let q_y = Target::Wire(wire_output);
-        self.assert_equal(q_y, x);
-
-        q
+        let x_ext = self.convert_to_ext(x);
+        let y_ext = self.convert_to_ext(y);
+        self.div_unsafe_extension(x_ext, y_ext).0[0]
     }
 
     /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
@@ -250,7 +204,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x: ExtensionTarget<D>,
         y: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        // Add an `ArithmeticGate` to compute `q * y`.
+        // Add an `ArithmeticExtensionGate` to compute `q * y`.
         let gate = self.add_gate(ArithmeticExtensionGate::new(), vec![F::ONE, F::ZERO]);
 
         let multiplicand_0 =
@@ -381,8 +335,6 @@ mod tests {
 
         let x = FF::rand();
         let y = FF::rand();
-        let x = FF::TWO;
-        let y = FF::ONE;
         let z = x / y;
         let xt = builder.constant_extension(x);
         let yt = builder.constant_extension(y);
