@@ -120,6 +120,8 @@ pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
     /// Commitments to the constants polynomials and sigma polynomials.
     pub constants_sigmas_commitment: ListPolynomialCommitment<F>,
+    /// The transpose of the list of sigma polynomials.
+    pub sigmas: Vec<Vec<F>>,
     /// Subgroup of order `degree`.
     pub subgroup: Vec<F>,
     /// The circuit's copy constraints.
