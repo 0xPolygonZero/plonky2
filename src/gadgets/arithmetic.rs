@@ -23,11 +23,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul(x, x)
     }
 
-    /// Computes `x^2`.
-    pub fn square_extension(&mut self, x: ExtensionTarget<D>) -> ExtensionTarget<D> {
-        self.mul_extension(x, x)
-    }
-
     /// Computes `x^3`.
     pub fn cube(&mut self, x: Target) -> Target {
         self.mul_many(&[x, x, x])
@@ -137,6 +132,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.arithmetic(F::ONE, x, one, F::ONE, y)
     }
 
+    // TODO: Can be made `2*D` times more efficient by using all wires of an `ArithmeticExtensionGate`.
     pub fn add_many(&mut self, terms: &[Target]) -> Target {
         let mut sum = self.zero();
         for term in terms {
@@ -200,25 +196,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         product
     }
 
-    /// Exponentiate `base` to the power of a known `exponent`.
-    // TODO: Test
-    pub fn exp_u64_extension(
-        &mut self,
-        base: ExtensionTarget<D>,
-        exponent: u64,
-    ) -> ExtensionTarget<D> {
-        let mut current = base;
-        let mut product = self.one_extension();
-
-        for j in 0..bits_u64(exponent as u64) {
-            if (exponent >> j & 1) != 0 {
-                product = self.mul_extension(product, current);
-            }
-            current = self.square_extension(current);
-        }
-        product
-    }
-
     /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
     /// some cases, as it allows `0 / 0 = <anything>`.
     pub fn div_unsafe(&mut self, x: Target, y: Target) -> Target {
@@ -240,171 +217,5 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let x_ext = self.convert_to_ext(x);
         let y_ext = self.convert_to_ext(y);
         self.div_unsafe_extension(x_ext, y_ext).0[0]
-    }
-
-    /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
-    /// some cases, as it allows `0 / 0 = <anything>`.
-    pub fn div_unsafe_extension(
-        &mut self,
-        x: ExtensionTarget<D>,
-        y: ExtensionTarget<D>,
-    ) -> ExtensionTarget<D> {
-        // Add an `ArithmeticExtensionGate` to compute `q * y`.
-        let gate = self.add_gate(ArithmeticExtensionGate::new(), vec![F::ONE, F::ZERO]);
-
-        let multiplicand_0 = ExtensionTarget::from_range(
-            gate,
-            ArithmeticExtensionGate::<D>::wires_fixed_multiplicand(),
-        );
-        let multiplicand_1 =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_multiplicand_0());
-        let output =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_output_0());
-
-        self.add_generator(QuotientGeneratorExtension {
-            numerator: x,
-            denominator: y,
-            quotient: multiplicand_0,
-        });
-        self.add_generator(ZeroOutGenerator {
-            gate_index: gate,
-            ranges: vec![
-                ArithmeticExtensionGate::<D>::wires_addend_0(),
-                ArithmeticExtensionGate::<D>::wires_multiplicand_1(),
-                ArithmeticExtensionGate::<D>::wires_addend_1(),
-            ],
-        });
-
-        self.route_extension(y, multiplicand_1);
-        self.assert_equal_extension(output, x);
-
-        multiplicand_0
-    }
-}
-
-struct QuotientGeneratorExtension<const D: usize> {
-    numerator: ExtensionTarget<D>,
-    denominator: ExtensionTarget<D>,
-    quotient: ExtensionTarget<D>,
-}
-
-impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for QuotientGeneratorExtension<D> {
-    fn dependencies(&self) -> Vec<Target> {
-        let mut deps = self.numerator.to_target_array().to_vec();
-        deps.extend(&self.denominator.to_target_array());
-        deps
-    }
-
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let num = witness.get_extension_target(self.numerator);
-        let dem = witness.get_extension_target(self.denominator);
-        let quotient = num / dem;
-        let mut pw = PartialWitness::new();
-        for i in 0..D {
-            pw.set_target(
-                self.quotient.to_target_array()[i],
-                quotient.to_basefield_array()[i],
-            );
-        }
-
-        pw
-    }
-}
-
-/// Generator used to zero out wires at a given gate index and ranges.
-pub struct ZeroOutGenerator {
-    gate_index: usize,
-    ranges: Vec<Range<usize>>,
-}
-
-impl<F: Field> SimpleGenerator<F> for ZeroOutGenerator {
-    fn dependencies(&self) -> Vec<Target> {
-        Vec::new()
-    }
-
-    fn run_once(&self, _witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let mut pw = PartialWitness::new();
-        for t in self
-            .ranges
-            .iter()
-            .flat_map(|r| Target::wires_from_range(self.gate_index, r.clone()))
-        {
-            pw.set_target(t, F::ZERO);
-        }
-
-        pw
-    }
-}
-
-/// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
-#[derive(Clone)]
-pub struct PowersTarget<const D: usize> {
-    base: ExtensionTarget<D>,
-    current: ExtensionTarget<D>,
-}
-
-impl<const D: usize> PowersTarget<D> {
-    pub fn next<F: Extendable<D>>(
-        &mut self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> ExtensionTarget<D> {
-        let result = self.current;
-        self.current = builder.mul_extension(self.base, self.current);
-        result
-    }
-
-    pub fn repeated_frobenius<F: Extendable<D>>(
-        self,
-        k: usize,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
-        let Self { base, current } = self;
-        Self {
-            base: base.repeated_frobenius(k, builder),
-            current: current.repeated_frobenius(k, builder),
-        }
-    }
-}
-
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn powers(&mut self, base: ExtensionTarget<D>) -> PowersTarget<D> {
-        PowersTarget {
-            base,
-            current: self.one_extension(),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::circuit_builder::CircuitBuilder;
-    use crate::circuit_data::CircuitConfig;
-    use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::field::Field;
-    use crate::fri::FriConfig;
-    use crate::witness::PartialWitness;
-
-    #[test]
-    fn test_div_extension() {
-        type F = CrandallField;
-        type FF = QuarticCrandallField;
-        const D: usize = 4;
-
-        let config = CircuitConfig::large_config();
-
-        let mut builder = CircuitBuilder::<F, D>::new(config);
-
-        let x = FF::rand();
-        let y = FF::rand();
-        let z = x / y;
-        let xt = builder.constant_extension(x);
-        let yt = builder.constant_extension(y);
-        let zt = builder.constant_extension(z);
-        let comp_zt = builder.div_unsafe_extension(xt, yt);
-        builder.assert_equal_extension(zt, comp_zt);
-
-        let data = builder.build();
-        let proof = data.prove(PartialWitness::new());
     }
 }
