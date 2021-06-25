@@ -91,6 +91,11 @@ impl<const D: usize> ReducingFactorTarget<D> {
         Self { base, count: 0 }
     }
 
+    /// Reduces a length `n` vector of `ExtensionTarget`s using `n/2` `ArithmeticExtensionGate`s.
+    /// It does this by running two accumulators in parallel. Here's an example with `n=4, alpha=2, D=1`:
+    /// 1st gate: 2 0 4 11 2 4  24 <- 2*0+4= 4, 2*11+2=24
+    /// 2nd gate: 2 4 3 24 1 11 49 <- 2*4+3=11, 2*24+1=49
+    /// which verifies that `2.reduce([1,2,3,4]) = 49`.
     pub fn reduce<F>(
         &mut self,
         iter: &[ExtensionTarget<D>], // Could probably work with a `DoubleEndedIterator` too.
@@ -99,18 +104,22 @@ impl<const D: usize> ReducingFactorTarget<D> {
     where
         F: Extendable<D>,
     {
+        let zero = builder.zero_extension();
         let l = iter.len();
         self.count += l as u64;
+        // If needed we pad the original vector so that it has even length.
         let padded_iter = if l % 2 == 0 {
             iter.to_vec()
         } else {
-            [iter, &[builder.zero_extension()]].concat()
+            [iter, &[zero]].concat()
         };
         let half_length = padded_iter.len() / 2;
+        // Add `n/2` `ArithmeticExtensionGate`s that will perform the accumulation.
         let gates = (0..half_length)
             .map(|_| builder.add_gate(ArithmeticExtensionGate::new(), vec![F::ONE, F::ONE]))
             .collect::<Vec<_>>();
 
+        // Add a generator that will fill the accumulation wires.
         builder.add_generator(ParallelReductionGenerator {
             base: self.base,
             padded_iter: padded_iter.clone(),
@@ -119,24 +128,33 @@ impl<const D: usize> ReducingFactorTarget<D> {
         });
 
         for i in 0..half_length {
+            // The fixed multiplicand is always `base`.
             builder.route_extension(
+                self.base,
+                ExtensionTarget::from_range(
+                    gates[i],
+                    ArithmeticExtensionGate::<D>::wires_fixed_multiplicand(),
+                ),
+            );
+            // Set the addends for the first half of the accumulation.
+            builder.route_extension(
+                padded_iter[2 * half_length - i - 1],
                 ExtensionTarget::from_range(
                     gates[i],
                     ArithmeticExtensionGate::<D>::wires_addend_0(),
                 ),
-                padded_iter[2 * half_length - i - 1],
             );
-        }
-        for i in 0..half_length {
+            // Set the addends for the second half of the accumulation.
             builder.route_extension(
+                padded_iter[half_length - i - 1],
                 ExtensionTarget::from_range(
                     gates[i],
                     ArithmeticExtensionGate::<D>::wires_addend_1(),
                 ),
-                padded_iter[half_length - i - 1],
             );
         }
         for gate_pair in gates[..half_length].windows(2) {
+            // Verifies that the accumulator is passed between gates for the first half of the accumulation.
             builder.assert_equal_extension(
                 ExtensionTarget::from_range(
                     gate_pair[0],
@@ -149,6 +167,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
             );
         }
         for gate_pair in gates[half_length..].windows(2) {
+            // Verifies that the accumulator is passed between gates for the second half of the accumulation.
             builder.assert_equal_extension(
                 ExtensionTarget::from_range(
                     gate_pair[0],
@@ -160,6 +179,16 @@ impl<const D: usize> ReducingFactorTarget<D> {
                 ),
             );
         }
+        // Verifies that the starting accumulator for the first half is zero.
+        builder.assert_equal_extension(
+            ExtensionTarget::from_range(
+                gates[0],
+                ArithmeticExtensionGate::<D>::wires_multiplicand_0(),
+            ),
+            zero,
+        );
+        // Verifies that the final accumulator for the first half is passed as a starting
+        // accumulator for the second half.
         builder.assert_equal_extension(
             ExtensionTarget::from_range(
                 gates[half_length - 1],
@@ -171,6 +200,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
             ),
         );
 
+        // Return the final accumulator for the second half.
         ExtensionTarget::from_range(
             gates[half_length - 1],
             ArithmeticExtensionGate::<D>::wires_output_1(),
@@ -206,6 +236,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
     }
 }
 
+/// Fills the intermediate accumulator in `ReducingFactorTarget::reduce`.
 struct ParallelReductionGenerator<const D: usize> {
     base: ExtensionTarget<D>,
     padded_iter: Vec<ExtensionTarget<D>>,
@@ -215,6 +246,7 @@ struct ParallelReductionGenerator<const D: usize> {
 
 impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ParallelReductionGenerator<D> {
     fn dependencies(&self) -> Vec<Target> {
+        // Need only the values and the base.
         self.padded_iter
             .iter()
             .flat_map(|ext| ext.to_target_array())
@@ -230,6 +262,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ParallelReductionG
             .iter()
             .map(|&ext| witness.get_extension_target(ext))
             .collect::<Vec<_>>();
+        // Computed the intermediate accumulators.
         let intermediate_accs = vs
             .iter()
             .rev()
@@ -240,13 +273,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ParallelReductionG
             })
             .collect::<Vec<_>>();
         for i in 0..self.half_length {
-            pw.set_extension_target(
-                ExtensionTarget::from_range(
-                    self.gates[i],
-                    ArithmeticExtensionGate::<D>::wires_fixed_multiplicand(),
-                ),
-                base,
-            );
+            // Fill the accumulators for the first half.
             pw.set_extension_target(
                 ExtensionTarget::from_range(
                     self.gates[i],
@@ -254,26 +281,13 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ParallelReductionG
                 ),
                 intermediate_accs[i],
             );
-            pw.set_extension_target(
-                ExtensionTarget::from_range(
-                    self.gates[i],
-                    ArithmeticExtensionGate::<D>::wires_addend_0(),
-                ),
-                vs[2 * self.half_length - i - 1],
-            );
+            // Fill the accumulators for the second half.
             pw.set_extension_target(
                 ExtensionTarget::from_range(
                     self.gates[i],
                     ArithmeticExtensionGate::<D>::wires_multiplicand_1(),
                 ),
                 intermediate_accs[self.half_length + i],
-            );
-            pw.set_extension_target(
-                ExtensionTarget::from_range(
-                    self.gates[i],
-                    ArithmeticExtensionGate::<D>::wires_addend_1(),
-                ),
-                vs[self.half_length - i - 1],
             );
         }
 

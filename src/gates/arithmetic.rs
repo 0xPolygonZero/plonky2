@@ -106,7 +106,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
         gate_index: usize,
         local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = MulExtensionGenerator {
+        let gen = ArithmeticExtensionGenerator {
             gate_index,
             const_0: local_constants[0],
             const_1: local_constants[1],
@@ -131,13 +131,13 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
     }
 }
 
-struct MulExtensionGenerator<F: Extendable<D>, const D: usize> {
+struct ArithmeticExtensionGenerator<F: Extendable<D>, const D: usize> {
     gate_index: usize,
     const_0: F,
     const_1: F,
 }
 
-impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for MulExtensionGenerator<F, D> {
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensionGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         ArithmeticExtensionGate::<D>::wires_fixed_multiplicand()
             .chain(ArithmeticExtensionGate::<D>::wires_multiplicand_0())

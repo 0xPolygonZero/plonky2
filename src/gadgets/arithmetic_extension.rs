@@ -97,7 +97,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a: ExtensionAlgebraTarget<D>,
         b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
+        // We run two additions in parallel. So `[a0,a1,a2,a3] + [b0,b1,b2,b3]` is computed with two
+        // `add_two_extension`, first `[a0,a1]+[b0,b1]` then `[a2,a3]+[b2,b3]`.
         let mut res = Vec::with_capacity(D);
+        // We need some extra logic if D is odd.
         let d_even = D & (D ^ 1); // = 2 * (D/2)
         for mut chunk in &(0..d_even).chunks(2) {
             let i = chunk.next().unwrap();
@@ -117,11 +120,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         if terms.len() % 2 == 1 {
             terms.push(zero);
         }
+        // We maintain two accumulators, one for the sum of even elements, and one for odd elements.
         let mut acc0 = zero;
         let mut acc1 = zero;
         for chunk in terms.chunks_exact(2) {
             (acc0, acc1) = self.add_two_extension(acc0, chunk[0], acc1, chunk[1]);
         }
+        // We sum both accumulators to get the final result.
         self.add_extension(acc0, acc1)
     }
 
@@ -150,6 +155,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a: ExtensionAlgebraTarget<D>,
         b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
+        // See `add_ext_algebra`.
         let mut res = Vec::with_capacity(D);
         let d_even = D & (D ^ 1); // = 2 * (D/2)
         for mut chunk in &(0..d_even).chunks(2) {
@@ -319,6 +325,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             denominator: y,
             quotient: multiplicand_0,
         });
+        // We need to zero out the other wires for the `ArithmeticExtensionGenerator` to hit.
         self.add_generator(ZeroOutGenerator {
             gate_index: gate,
             ranges: vec![
