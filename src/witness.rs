@@ -1,11 +1,14 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
+
+use anyhow::{ensure, Result};
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
+use crate::gates::gate::GateInstance;
 use crate::target::Target;
 use crate::wire::Wire;
-use std::convert::TryInto;
 
 #[derive(Clone, Debug)]
 pub struct PartialWitness<F: Field> {
@@ -120,6 +123,31 @@ impl<F: Field> PartialWitness<F> {
         for (target, value) in other.target_values {
             self.set_target(target, value);
         }
+    }
+
+    /// Checks that the copy constraints are satisfied in the witness.
+    pub fn check_copy_constraints<const D: usize>(
+        &self,
+        copy_constraints: &[(Target, Target)],
+        gate_instances: &[GateInstance<F, D>],
+    ) -> Result<()>
+    where
+        F: Extendable<D>,
+    {
+        for &(a, b) in copy_constraints {
+            // TODO: Take care of public inputs once they land.
+            if let (Target::Wire(wa), Target::Wire(wb)) = (a, b) {
+                let va = self.target_values.get(&a).copied().unwrap_or(F::ZERO);
+                let vb = self.target_values.get(&b).copied().unwrap_or(F::ZERO);
+                ensure!(
+                    va == vb,
+                    "Copy constraint between wire {} of gate #{} (`{}`) and wire {} of gate #{} (`{}`) is not satisfied. \
+                    Got values of {} and {} respectively.",
+                    wa.input, wa.gate, gate_instances[wa.gate].gate_type.0.id(), wb.input, wb.gate,
+                    gate_instances[wb.gate].gate_type.0.id(), va, vb);
+            }
+        }
+        Ok(())
     }
 }
 

@@ -3,11 +3,12 @@ use anyhow::Result;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::fri::FriConfig;
-use crate::gates::gate::GateRef;
+use crate::gates::gate::{GateInstance, PrefixedGate};
 use crate::generator::WitnessGenerator;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::proof::{Hash, HashTarget, Proof};
 use crate::prover::prove;
+use crate::target::Target;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
 
@@ -67,7 +68,7 @@ impl CircuitConfig {
 
 /// Circuit data required by the prover or the verifier.
 pub struct CircuitData<F: Extendable<D>, const D: usize> {
-    pub(crate) prover_only: ProverOnlyCircuitData<F>,
+    pub(crate) prover_only: ProverOnlyCircuitData<F, D>,
     pub(crate) verifier_only: VerifierOnlyCircuitData<F>,
     pub(crate) common: CommonCircuitData<F, D>,
 }
@@ -90,7 +91,7 @@ impl<F: Extendable<D>, const D: usize> CircuitData<F, D> {
 /// required, like LDEs of preprocessed polynomials. If more succinctness was desired, we could
 /// construct a more minimal prover structure and convert back and forth.
 pub struct ProverCircuitData<F: Extendable<D>, const D: usize> {
-    pub(crate) prover_only: ProverOnlyCircuitData<F>,
+    pub(crate) prover_only: ProverOnlyCircuitData<F, D>,
     pub(crate) common: CommonCircuitData<F, D>,
 }
 
@@ -113,12 +114,16 @@ impl<F: Extendable<D>, const D: usize> VerifierCircuitData<F, D> {
 }
 
 /// Circuit data required by the prover, but not the verifier.
-pub(crate) struct ProverOnlyCircuitData<F: Field> {
+pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
     /// Commitments to the constants polynomial.
     pub constants_commitment: ListPolynomialCommitment<F>,
     /// Commitments to the sigma polynomial.
     pub sigmas_commitment: ListPolynomialCommitment<F>,
+    /// The circuit's copy constraints.
+    pub copy_constraints: Vec<(Target, Target)>,
+    /// The concrete placement of each gate in the circuit.
+    pub gate_instances: Vec<GateInstance<F, D>>,
 }
 
 /// Circuit data required by the verifier, but not the prover.
@@ -136,8 +141,8 @@ pub(crate) struct CommonCircuitData<F: Extendable<D>, const D: usize> {
 
     pub(crate) degree_bits: usize,
 
-    /// The types of gates used in this circuit.
-    pub(crate) gates: Vec<GateRef<F, D>>,
+    /// The types of gates used in this circuit, along with their prefixes.
+    pub(crate) gates: Vec<PrefixedGate<F, D>>,
 
     /// The largest number of constraints imposed by any gate.
     pub(crate) num_gate_constraints: usize,
@@ -166,7 +171,7 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     pub fn constraint_degree(&self) -> usize {
         self.gates
             .iter()
-            .map(|g| g.0.degree())
+            .map(|g| g.gate.0.degree())
             .max()
             .expect("No gates?")
     }

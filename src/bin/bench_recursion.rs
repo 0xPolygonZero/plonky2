@@ -18,12 +18,6 @@ fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     bench_prove::<CrandallField, 4>();
-
-    // bench_field_mul::<CrandallField>();
-
-    // bench_fft();
-    println!();
-    // bench_gmimc::<CrandallField>();
 }
 
 fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
@@ -31,7 +25,7 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
 
     let config = CircuitConfig {
         num_wires: 134,
-        num_routed_wires: 12,
+        num_routed_wires: 27,
         security_bits: 128,
         rate_bits: 3,
         num_challenges: 3,
@@ -45,17 +39,17 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
 
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
+    let zero = builder.zero();
+    let zero_ext = builder.zero_extension();
+
+    let mut state = [zero; 12];
     for _ in 0..10000 {
-        builder.add_gate_no_constants(gmimc_gate.clone());
+        state = builder.permute(state);
     }
 
-    builder.add_gate(ConstantGate::get(), vec![F::NEG_ONE]);
-
-    // for _ in 0..(40 * 5) {
-    //     builder.add_gate(
-    //         FriConsistencyGate::new(2, 3, 13),
-    //         vec![F::primitive_root_of_unity(13)]);
-    // }
+    // Random other gates.
+    builder.add(zero, zero);
+    builder.add_extension(zero_ext, zero_ext);
 
     let prover = builder.build_prover();
     let inputs = PartialWitness::new();

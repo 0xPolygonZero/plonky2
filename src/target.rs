@@ -1,6 +1,7 @@
+use std::ops::Range;
+
 use crate::circuit_data::CircuitConfig;
 use crate::wire::Wire;
-use std::ops::Range;
 
 /// A location in the witness.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]

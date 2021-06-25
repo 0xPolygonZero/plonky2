@@ -1,5 +1,6 @@
-use crate::circuit_data::CircuitConfig;
 use std::ops::Range;
+
+use crate::circuit_data::CircuitConfig;
 
 /// Represents a wire in the circuit.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
