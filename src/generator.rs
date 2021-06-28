@@ -111,3 +111,20 @@ impl<F: Field> SimpleGenerator<F> for CopyGenerator {
         PartialWitness::singleton_target(self.dst, value)
     }
 }
+
+/// A generator for including a random value
+struct RandomValueGenerator {
+    pub(crate) target: Target,
+}
+
+impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
+    fn dependencies(&self) -> Vec<Target> {
+        Vec::new()
+    }
+
+    fn run_once(&self, _witness: &PartialWitness<F>) -> PartialWitness<F> {
+        let random_value = F::rand();
+        
+        PartialWitness::singleton_target(self.target, random_value)
+    }
+}

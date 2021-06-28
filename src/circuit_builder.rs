@@ -12,7 +12,7 @@ use crate::field::extension_field::Extendable;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
-use crate::generator::{CopyGenerator, WitnessGenerator};
+use crate::generator::{CopyGenerator, WitnessGenerator, RandomValueGenerator};
 use crate::hash::hash_n_to_hash;
 use crate::permutation_argument::TargetPartitions;
 use crate::polynomial::commitment::ListPolynomialCommitment;
@@ -203,7 +203,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.targets_to_constants.get(&target).cloned()
     }
 
-    fn num_blinding_gates(&self, degree_estimate: usize) -> usize {
+    fn num_blinding_gates(&self, degree_estimate: usize) -> (usize, usize) {
         let fri_queries = self.config.fri_config.num_query_rounds;
         let arities: Vec<usize> = self.config.fri_config.reduction_arity_bits.iter().map(|x| 1 << x).collect();
         let total_fri_folding_points : usize = arities.iter().map(|x| x - 1).sum::<usize>();
@@ -213,23 +213,25 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let regular_poly_openings = D + fri_openings;
         let z_openings = 2 * D + fri_openings;
 
-        // For most polynomials, we add one random element to offset each opened value.
-        // But blinding Z is separate. For that, we add two random elements with a copy
-        // constraint between them.
-        regular_poly_openings + 2 * z_openings
+        (regular_poly_openings, z_openings)
     }
     
 
     /// The number of polynomial values that will be revealed per opening.
-    fn blinding_count(&self) -> usize {
+    fn blinding_counts(&self) -> (usize, usize) {
         let num_gates = self.gates.len();
         let mut degree_estimate = 1 << log2_ceil(num_gates);
 
         loop {
-            let blinding_count = self.num_blinding_gates(degree_estimate);
+            let (regular_poly_openings, z_openings) = self.num_blinding_gates(degree_estimate);
 
-            if num_gates + blinding_count <= degree_estimate {
-                return blinding_count;
+            // For most polynomials, we add one random element to offset each opened value.
+            // But blinding Z is separate. For that, we add two random elements with a copy
+            // constraint between them.
+            let total_blinding_count = regular_poly_openings + 2 * z_openings;
+
+            if num_gates + total_blinding_count <= degree_estimate {
+                return (regular_poly_openings, z_openings);
             }
 
             // The blinding gates do not fit within our estimated degree; increase our estimate.
@@ -238,9 +240,34 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     fn blind_and_pad(&mut self) {
-        let blinding_count = self.blinding_count();
+        let (regular_poly_openings, z_openings) = self.blinding_counts();
 
-        // TODO: Blind.
+        let num_routed_wires = self.config.num_routed_wires;
+        let num_wires = self.config.num_wires;
+
+        for i in 0..regular_poly_openings {
+            let gate = self.add_gate_no_constants(NoopGate::get());
+            for w in 0..num_wires {
+                self.add_generator(RandomValueGenerator {
+                    target: Target::Wire(Wire { gate, input: w }),
+                });
+            }
+        }
+
+        for i in 0..z_openings {
+            let gate_1 = self.add_gate_no_constants(NoopGate::get());
+            let gate_2 = self.add_gate_no_constants(NoopGate::get());
+
+            for w in 0..num_wires {
+                self.add_generator(RandomValueGenerator {
+                    target: Target::Wire(Wire { gate: gate_1, input: w }),
+                });
+                self.add_generator(CopyGenerator {
+                    src: Target::Wire(Wire { gate: gate_1, input: w }),
+                    dst: Target::Wire(Wire { gate: gate_2, input: w }),
+                });
+            }
+        }
 
         while !self.gate_instances.len().is_power_of_two() {
             self.add_gate_no_constants(NoopGate::get());
