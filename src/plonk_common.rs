@@ -52,7 +52,7 @@ impl PlonkPolynomials {
             1 => Self::WIRES,
             2 => Self::ZS,
             3 => Self::QUOTIENT,
-            _ => panic!("There are only 5 sets of polynomials in Plonk."),
+            _ => panic!("There are only 4 sets of polynomials in Plonk."),
         }
     }
 }

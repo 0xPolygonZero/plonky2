@@ -197,8 +197,7 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
 
     /// Range of the sigma polynomials in the `constants_sigmas_commitment`.
     pub fn sigmas_range(&self) -> Range<usize> {
-        // `self.k_is.len() = num_routed_wires` is the number of sigma polynomials.
-        self.num_constants..self.num_constants + self.k_is.len()
+        self.num_constants..self.num_constants + self.config.num_routed_wires
     }
 }
 

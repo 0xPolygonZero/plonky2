@@ -328,10 +328,11 @@ mod tests {
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
         };
-        // We only care about `fri_config, num_constants`, and the length of `k_is` here.
+        // We only care about `fri_config, num_constants`, and `num_routed_wires` here.
         let common_data = CommonCircuitData {
             config: CircuitConfig {
                 fri_config,
+                num_routed_wires: 6,
                 ..CircuitConfig::large_config()
             },
             degree_bits: 0,
