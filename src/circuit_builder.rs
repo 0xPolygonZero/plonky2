@@ -230,12 +230,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn constant_polys(&self, gates: &[PrefixedGate<F, D>]) -> Vec<PolynomialValues<F>> {
-        let num_constants = gates
-            .iter()
-            .map(|gate| gate.gate.0.num_constants() + gate.prefix.len())
-            .max()
-            .unwrap();
+    fn constant_polys(
+        &self,
+        gates: &[PrefixedGate<F, D>],
+        num_constants: usize,
+    ) -> Vec<PolynomialValues<F>> {
         let constants_per_gate = self
             .gate_instances
             .iter()
@@ -294,10 +293,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         info!("degree after blinding & padding: {}", degree);
 
         let gates = self.gates.iter().cloned().collect();
-        let gate_tree = Tree::from_gates(gates);
+        let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
         let prefixed_gates = PrefixedGate::from_tree(gate_tree);
 
-        let constant_vecs = self.constant_polys(&prefixed_gates);
+        let constant_vecs = self.constant_polys(&prefixed_gates, num_constants);
         let constants_commitment = ListPolynomialCommitment::new(
             constant_vecs.into_iter().map(|v| v.ifft()).collect(),
             self.config.fri_config.rate_bits,
