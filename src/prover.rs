@@ -7,7 +7,7 @@ use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::field::extension_field::Extendable;
 use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{eval_vanishing_poly_base, ZeroPolyOnCoset};
+use crate::plonk_common::{eval_vanishing_poly_base, PlonkPolynomials, ZeroPolyOnCoset};
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
@@ -61,7 +61,11 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
     // merkle_root_bit_rev_order do it implicitly.
     let wires_commitment = timed!(
-        ListPolynomialCommitment::new(wires_values, fri_config.rate_bits, true),
+        ListPolynomialCommitment::new(
+            wires_values,
+            fri_config.rate_bits,
+            PlonkPolynomials::WIRES.blinding
+        ),
         "to compute wires commitment"
     );
 
@@ -80,7 +84,11 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     );
 
     let plonk_zs_commitment = timed!(
-        ListPolynomialCommitment::new(plonk_z_vecs, fri_config.rate_bits, true),
+        ListPolynomialCommitment::new(
+            plonk_z_vecs,
+            fri_config.rate_bits,
+            PlonkPolynomials::ZS.blinding
+        ),
         "to commit to Z's"
     );
 
@@ -122,7 +130,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         ListPolynomialCommitment::new_from_polys(
             all_quotient_poly_chunks,
             fri_config.rate_bits,
-            true
+            PlonkPolynomials::QUOTIENT.blinding
         ),
         "to commit to quotient polys"
     );
@@ -134,15 +142,14 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let (opening_proof, openings) = timed!(
         ListPolynomialCommitment::open_plonk(
             &[
-                &prover_data.constants_commitment,
-                &prover_data.sigmas_commitment,
+                &prover_data.constants_sigmas_commitment,
                 &wires_commitment,
                 &plonk_zs_commitment,
                 &quotient_polys_commitment,
             ],
             zeta,
             &mut challenger,
-            &common_data.config.fri_config
+            common_data,
         ),
         "to compute opening proofs"
     );
@@ -187,7 +194,9 @@ fn compute_z<F: Extendable<D>, const D: usize>(
         let x = subgroup[i - 1];
         let mut numerator = F::ONE;
         let mut denominator = F::ONE;
-        let s_sigmas = prover_data.sigmas_commitment.original_values(i - 1);
+        let s_sigmas = &prover_data
+            .constants_sigmas_commitment
+            .original_values(i - 1)[common_data.sigmas_range()];
         for j in 0..common_data.config.num_routed_wires {
             let wire_value = witness.get_wire(i - 1, j);
             let k_i = k_is[j];
@@ -247,8 +256,9 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
         .map(|(i, x)| {
             let shifted_x = F::coset_shift() * x;
             let i_next = (i + next_step) % lde_size;
-            let local_constants = get_at_index(&prover_data.constants_commitment, i);
-            let s_sigmas = get_at_index(&prover_data.sigmas_commitment, i);
+            let local_constants_sigmas = get_at_index(&prover_data.constants_sigmas_commitment, i);
+            let local_constants = &local_constants_sigmas[common_data.constants_range()];
+            let s_sigmas = &local_constants_sigmas[common_data.sigmas_range()];
             let local_wires = get_at_index(wires_commitment, i);
             let local_plonk_zs = get_at_index(plonk_zs_commitment, i);
             let next_plonk_zs = get_at_index(plonk_zs_commitment, i_next);

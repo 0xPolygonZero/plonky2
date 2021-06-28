@@ -17,6 +17,7 @@ use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::hash::hash_n_to_hash;
 use crate::permutation_argument::TargetPartitions;
+use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
@@ -301,25 +302,26 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let subgroup = F::two_adic_subgroup(degree_bits);
 
         let constant_vecs = self.constant_polys(&prefixed_gates);
-        let constants_commitment =
-            ListPolynomialCommitment::new(constant_vecs, self.config.fri_config.rate_bits, false);
+        let num_constants = constant_vecs.len();
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
-        let sigmas_commitment =
-            ListPolynomialCommitment::new(sigma_vecs, self.config.fri_config.rate_bits, false);
 
-        let constants_root = constants_commitment.merkle_tree.root;
-        let sigmas_root = sigmas_commitment.merkle_tree.root;
+        let constants_sigmas_vecs = [constant_vecs, sigma_vecs].concat();
+        let constants_sigmas_commitment = ListPolynomialCommitment::new(
+            constants_sigmas_vecs,
+            self.config.fri_config.rate_bits,
+            PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
+        );
+
+        let constants_sigmas_root = constants_sigmas_commitment.merkle_tree.root;
         let verifier_only = VerifierOnlyCircuitData {
-            constants_root,
-            sigmas_root,
+            constants_sigmas_root,
         };
 
         let prover_only = ProverOnlyCircuitData {
             generators: self.generators,
-            constants_commitment,
-            sigmas_commitment,
+            constants_sigmas_commitment,
             subgroup,
             copy_constraints: self.copy_constraints,
             gate_instances: self.gate_instances,
@@ -337,7 +339,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .expect("No gates?");
 
         // TODO: This should also include an encoding of gate constraints.
-        let circuit_digest_parts = [constants_root.elements, sigmas_root.elements];
+        let circuit_digest_parts = [
+            constants_sigmas_root.elements.to_vec(),
+            vec![/* Add other circuit data here */],
+        ];
         let circuit_digest = hash_n_to_hash(circuit_digest_parts.concat(), false);
 
         let common = CommonCircuitData {
@@ -346,6 +351,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             gates: prefixed_gates,
             max_filtered_constraint_degree_bits: 3, // TODO: compute this correctly once filters land.
             num_gate_constraints,
+            num_constants,
             k_is,
             circuit_digest,
         };
