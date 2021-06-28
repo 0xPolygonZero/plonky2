@@ -194,9 +194,7 @@ fn compute_z<F: Extendable<D>, const D: usize>(
         let x = subgroup[i - 1];
         let mut numerator = F::ONE;
         let mut denominator = F::ONE;
-        let s_sigmas = &prover_data
-            .constants_sigmas_commitment
-            .original_values(i - 1)[common_data.sigmas_range()];
+        let s_sigmas = &prover_data.sigmas[i - 1];
         for j in 0..common_data.config.num_routed_wires {
             let wire_value = witness.get_wire(i - 1, j);
             let k_i = k_is[j];

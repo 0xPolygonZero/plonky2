@@ -21,7 +21,7 @@ use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
-use crate::util::{log2_strict, transpose};
+use crate::util::{log2_strict, transpose, transpose_poly_values};
 use crate::wire::Wire;
 
 pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
@@ -307,7 +307,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
 
-        let constants_sigmas_vecs = [constant_vecs, sigma_vecs].concat();
+        let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
         let constants_sigmas_commitment = ListPolynomialCommitment::new(
             constants_sigmas_vecs,
             self.config.fri_config.rate_bits,
@@ -322,6 +322,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let prover_only = ProverOnlyCircuitData {
             generators: self.generators,
             constants_sigmas_commitment,
+            sigmas: transpose_poly_values(sigma_vecs),
             subgroup,
             copy_constraints: self.copy_constraints,
             gate_instances: self.gate_instances,
