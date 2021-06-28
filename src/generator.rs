@@ -113,7 +113,7 @@ impl<F: Field> SimpleGenerator<F> for CopyGenerator {
 }
 
 /// A generator for including a random value
-struct RandomValueGenerator {
+pub(crate) struct RandomValueGenerator {
     pub(crate) target: Target,
 }
 
