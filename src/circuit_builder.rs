@@ -203,6 +203,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.targets_to_constants.get(&target).cloned()
     }
 
+    /// The number of polynomial values that will be revealed per opening, both for the "regular"
+    /// polynomials and for the Z polynomials. Because calculating these values involves a recursive
+    /// dependence (the amount of blinding depends on the degree, which depends on the blinding),
+    /// this function takes in an estimate of the degree.
     fn num_blinding_gates(&self, degree_estimate: usize) -> (usize, usize) {
         let fri_queries = self.config.fri_config.num_query_rounds;
         let arities: Vec<usize> = self
@@ -213,8 +217,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .map(|x| 1 << x)
             .collect();
         let total_fri_folding_points: usize = arities.iter().map(|x| x - 1).sum::<usize>();
-        let final_poly_coeffs: usize = degree_estimate >> arities.iter().sum::<usize>();
-        let fri_openings = fri_queries * (1 + total_fri_folding_points + final_poly_coeffs);
+        let final_poly_coeffs: usize = degree_estimate / arities.iter().sum::<usize>();
+        let fri_openings = fri_queries * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
 
         let regular_poly_openings = D + fri_openings;
         let z_openings = 2 * D + fri_openings;
@@ -222,7 +226,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (regular_poly_openings, z_openings)
     }
 
-    /// The number of polynomial values that will be revealed per opening.
+    /// The number of polynomial values that will be revealed per opening, both for the "regular"
+    /// polynomials (which are opened at only one location) and for the Z polynomials (which are
+    /// opened at two).
     fn blinding_counts(&self) -> (usize, usize) {
         let num_gates = self.gates.len();
         let mut degree_estimate = 1 << log2_ceil(num_gates);
@@ -250,6 +256,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_routed_wires = self.config.num_routed_wires;
         let num_wires = self.config.num_wires;
 
+        // For each "regular" blinding factor, we simply add a no-op gate, and insert a random value
+        // for each wire.
         for _ in 0..regular_poly_openings {
             let gate = self.add_gate_no_constants(NoopGate::get());
             for w in 0..num_wires {
@@ -259,6 +267,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             }
         }
 
+        // For each z poly blinding factor, we add two new gates with the same random value, and
+        // enforce a copy constraint between them.
+        // See https://mirprotocol.org/blog/Adding-zero-knowledge-to-Plonk-Halo
         for _ in 0..z_openings {
             let gate_1 = self.add_gate_no_constants(NoopGate::get());
             let gate_2 = self.add_gate_no_constants(NoopGate::get());
