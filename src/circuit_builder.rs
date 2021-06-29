@@ -237,7 +237,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .map(|x| 1 << x)
             .collect();
         let total_fri_folding_points: usize = arities.iter().map(|x| x - 1).sum::<usize>();
-        let final_poly_coeffs: usize = degree_estimate / arities.iter().sum::<usize>();
+        let final_poly_coeffs: usize = degree_estimate / arities.iter().product::<usize>();
         let fri_openings = fri_queries * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
 
         let regular_poly_openings = D + fri_openings;
