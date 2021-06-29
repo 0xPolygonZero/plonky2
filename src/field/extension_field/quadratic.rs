@@ -194,7 +194,7 @@ impl DivAssign for QuadraticCrandallField {
 #[cfg(test)]
 mod tests {
     use crate::field::extension_field::quadratic::QuadraticCrandallField;
-    use crate::field::extension_field::{FieldExtension, Frobenius, OEF};
+    use crate::field::extension_field::{FieldExtension, Frobenius};
     use crate::field::field::Field;
 
     #[test]

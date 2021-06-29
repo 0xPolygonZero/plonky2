@@ -1,5 +1,6 @@
 use std::convert::TryInto;
 
+use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
@@ -160,11 +161,11 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningSet<F, D> {
     pub fn new(
         z: F::Extension,
         g: F::Extension,
-        constant_commitment: &ListPolynomialCommitment<F>,
-        plonk_sigmas_commitment: &ListPolynomialCommitment<F>,
+        constants_sigmas_commitment: &ListPolynomialCommitment<F>,
         wires_commitment: &ListPolynomialCommitment<F>,
         plonk_zs_commitment: &ListPolynomialCommitment<F>,
         quotient_polys_commitment: &ListPolynomialCommitment<F>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> Self {
         let eval_commitment = |z: F::Extension, c: &ListPolynomialCommitment<F>| {
             c.polynomials
@@ -172,9 +173,10 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningSet<F, D> {
                 .map(|p| p.to_extension().eval(z))
                 .collect::<Vec<_>>()
         };
+        let constants_sigmas_eval = eval_commitment(z, constants_sigmas_commitment);
         Self {
-            constants: eval_commitment(z, constant_commitment),
-            plonk_s_sigmas: eval_commitment(z, plonk_sigmas_commitment),
+            constants: constants_sigmas_eval[common_data.constants_range()].to_vec(),
+            plonk_s_sigmas: constants_sigmas_eval[common_data.sigmas_range()].to_vec(),
             wires: eval_commitment(z, wires_commitment),
             plonk_zs: eval_commitment(z, plonk_zs_commitment),
             plonk_zs_right: eval_commitment(g * z, plonk_zs_commitment),

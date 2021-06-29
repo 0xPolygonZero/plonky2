@@ -17,10 +17,11 @@ use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, WitnessGenerator};
 use crate::hash::hash_n_to_hash;
 use crate::permutation_argument::TargetPartitions;
+use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
-use crate::util::{log2_strict, transpose};
+use crate::util::{log2_strict, transpose, transpose_poly_values};
 use crate::wire::Wire;
 
 pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
@@ -258,7 +259,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn sigma_vecs(&self, k_is: &[F]) -> Vec<PolynomialValues<F>> {
+    fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> Vec<PolynomialValues<F>> {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
         let mut target_partitions = TargetPartitions::new();
@@ -278,7 +279,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let wire_partitions = target_partitions.to_wire_partitions();
-        wire_partitions.get_sigma_polys(degree_log, k_is)
+        wire_partitions.get_sigma_polys(degree_log, k_is, subgroup)
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
@@ -296,6 +297,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
         let prefixed_gates = PrefixedGate::from_tree(gate_tree);
 
+        let degree_bits = log2_strict(degree);
+        let subgroup = F::two_adic_subgroup(degree_bits);
+
+        let constant_vecs = self.constant_polys(&prefixed_gates);
+        let num_constants = constant_vecs.len();
         let constant_vecs = self.constant_polys(&prefixed_gates, num_constants);
         let constants_commitment = ListPolynomialCommitment::new(
             constant_vecs.into_iter().map(|v| v.ifft()).collect(),
@@ -304,24 +310,25 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
-        let sigma_vecs = self.sigma_vecs(&k_is);
-        let sigmas_commitment = ListPolynomialCommitment::new(
-            sigma_vecs.into_iter().map(|v| v.ifft()).collect(),
+        let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
+
+        let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
+        let constants_sigmas_commitment = ListPolynomialCommitment::new(
+            constants_sigmas_vecs,
             self.config.fri_config.rate_bits,
-            false,
+            PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
         );
 
-        let constants_root = constants_commitment.merkle_tree.root;
-        let sigmas_root = sigmas_commitment.merkle_tree.root;
+        let constants_sigmas_root = constants_sigmas_commitment.merkle_tree.root;
         let verifier_only = VerifierOnlyCircuitData {
-            constants_root,
-            sigmas_root,
+            constants_sigmas_root,
         };
 
         let prover_only = ProverOnlyCircuitData {
             generators: self.generators,
-            constants_commitment,
-            sigmas_commitment,
+            constants_sigmas_commitment,
+            sigmas: transpose_poly_values(sigma_vecs),
+            subgroup,
             copy_constraints: self.copy_constraints,
             gate_instances: self.gate_instances,
         };
@@ -337,17 +344,20 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .max()
             .expect("No gates?");
 
-        let degree_bits = log2_strict(degree);
-
         // TODO: This should also include an encoding of gate constraints.
-        let circuit_digest_parts = [constants_root.elements, sigmas_root.elements];
+        let circuit_digest_parts = [
+            constants_sigmas_root.elements.to_vec(),
+            vec![/* Add other circuit data here */],
+        ];
         let circuit_digest = hash_n_to_hash(circuit_digest_parts.concat(), false);
 
         let common = CommonCircuitData {
             config: self.config,
             degree_bits,
             gates: prefixed_gates,
+            max_filtered_constraint_degree_bits: 3, // TODO: compute this correctly once filters land.
             num_gate_constraints,
+            num_constants,
             k_is,
             circuit_digest,
         };

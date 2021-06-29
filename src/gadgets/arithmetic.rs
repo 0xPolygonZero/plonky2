@@ -371,7 +371,39 @@ mod tests {
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
     use crate::fri::FriConfig;
+    use crate::gates::arithmetic::ArithmeticGate;
+    use crate::target::Target;
     use crate::witness::PartialWitness;
+
+    #[test]
+    fn test_div() {
+        type F = CrandallField;
+        type FF = QuarticCrandallField;
+        const D: usize = 4;
+
+        let config = CircuitConfig::large_config();
+
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let x = F::rand();
+        let y = F::rand();
+        let mut pw = PartialWitness::new();
+        /// Computes x*x + 0*y = x^2.
+        let square_gate = builder.add_gate(ArithmeticGate::new(), vec![F::ONE, F::ZERO]);
+        pw.set_target(Target::wire(square_gate, 0), x);
+        pw.set_target(Target::wire(square_gate, 1), x);
+        let x2t = Target::wire(square_gate, ArithmeticGate::WIRE_OUTPUT);
+        let yt = Target::wire(square_gate, ArithmeticGate::WIRE_ADDEND);
+        pw.set_target(yt, y);
+        // Constant for x*x/y.
+        let zt = builder.constant(x * x / y);
+        // Computed division for x*x/y using the division gadget.
+        let comp_zt = builder.div_unsafe(x2t, yt);
+        builder.assert_equal(zt, comp_zt);
+
+        let data = builder.build();
+        let proof = data.prove(pw);
+    }
 
     #[test]
     fn test_div_extension() {
