@@ -19,7 +19,6 @@ pub const SALT_SIZE: usize = 2;
 
 pub struct ListPolynomialCommitment<F: Field> {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
-    pub values: Vec<PolynomialValues<F>>,
     pub merkle_tree: MerkleTree<F>,
     pub degree: usize,
     pub degree_log: usize,
@@ -40,7 +39,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             "to compute LDE"
         );
 
-        Self::new_from_data(polynomials, values, lde_values, degree, rate_bits, blinding)
+        Self::new_from_data(polynomials, lde_values, degree, rate_bits, blinding)
     }
 
     /// Creates a list polynomial commitment for the polynomials `polynomials`.
@@ -50,21 +49,16 @@ impl<F: Field> ListPolynomialCommitment<F> {
         blinding: bool,
     ) -> Self {
         let degree = polynomials[0].len();
-        let values = polynomials
-            .iter()
-            .map(|v| v.clone().fft())
-            .collect::<Vec<_>>();
         let lde_values = timed!(
             Self::lde_values(&polynomials, rate_bits, blinding),
             "to compute LDE"
         );
 
-        Self::new_from_data(polynomials, values, lde_values, degree, rate_bits, blinding)
+        Self::new_from_data(polynomials, lde_values, degree, rate_bits, blinding)
     }
 
     fn new_from_data(
         polynomials: Vec<PolynomialCoeffs<F>>,
-        values: Vec<PolynomialValues<F>>,
         lde_values: Vec<Vec<F>>,
         degree: usize,
         rate_bits: usize,
@@ -76,7 +70,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
         Self {
             polynomials,
-            values,
             merkle_tree,
             degree,
             degree_log: log2_strict(degree),
@@ -108,9 +101,6 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .collect()
     }
 
-    pub fn original_values(&self, index: usize) -> Vec<F> {
-        self.values.iter().map(|v| v.values[index]).collect()
-    }
     pub fn get_lde_values(&self, index: usize) -> &[F] {
         let index = reverse_bits(index, self.degree_log + self.rate_bits);
         let slice = &self.merkle_tree.leaves[index];
