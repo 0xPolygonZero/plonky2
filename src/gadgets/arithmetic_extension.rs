@@ -2,6 +2,7 @@ use std::convert::TryInto;
 use std::ops::Range;
 
 use itertools::Itertools;
+use num::Integer;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
@@ -108,7 +109,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let (o0, o1) = self.add_two_extension(a.0[i], b.0[i], a.0[j], b.0[j]);
             res.extend([o0, o1]);
         }
-        if D % 2 == 1 {
+        if D.is_odd() {
             res.push(self.add_extension(a.0[D - 1], b.0[D - 1]));
         }
         ExtensionAlgebraTarget(res.try_into().unwrap())
@@ -117,7 +118,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn add_many_extension(&mut self, terms: &[ExtensionTarget<D>]) -> ExtensionTarget<D> {
         let zero = self.zero_extension();
         let mut terms = terms.to_vec();
-        if terms.len() % 2 == 1 {
+        if terms.len().is_odd() {
             terms.push(zero);
         }
         // We maintain two accumulators, one for the sum of even elements, and one for odd elements.
@@ -164,7 +165,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let (o0, o1) = self.sub_two_extension(a.0[i], b.0[i], a.0[j], b.0[j]);
             res.extend([o0, o1]);
         }
-        if D % 2 == 1 {
+        if D.is_odd() {
             res.push(self.sub_extension(a.0[D - 1], b.0[D - 1]));
         }
         ExtensionAlgebraTarget(res.try_into().unwrap())

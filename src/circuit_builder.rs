@@ -62,6 +62,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    pub fn num_gates(&self) -> usize {
+        self.gate_instances.len()
+    }
+
     pub fn add_public_input(&mut self) -> Target {
         let index = self.public_input_index;
         self.public_input_index += 1;
