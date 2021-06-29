@@ -1,14 +1,13 @@
 use std::borrow::Borrow;
 
+use num::Integer;
+
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, Frobenius};
 use crate::field::field::Field;
 use crate::gates::arithmetic::ArithmeticExtensionGate;
-use crate::generator::SimpleGenerator;
 use crate::polynomial::polynomial::PolynomialCoeffs;
-use crate::target::Target;
-use crate::witness::PartialWitness;
 
 /// When verifying the composition polynomial in FRI we have to compute sums of the form
 /// `(sum_0^k a^i * x_i)/d_0 + (sum_k^r a^i * y_i)/d_1`
@@ -98,113 +97,45 @@ impl<const D: usize> ReducingFactorTarget<D> {
     /// which verifies that `2.reduce([1,2,3,4]) = 49`.
     pub fn reduce<F>(
         &mut self,
-        iter: &[ExtensionTarget<D>], // Could probably work with a `DoubleEndedIterator` too.
+        terms: &[ExtensionTarget<D>], // Could probably work with a `DoubleEndedIterator` too.
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
         F: Extendable<D>,
     {
         let zero = builder.zero_extension();
-        let l = iter.len();
+        let l = terms.len();
         self.count += l as u64;
-        // If needed we pad the original vector so that it has even length.
-        let padded_iter = if l % 2 == 0 {
-            iter.to_vec()
-        } else {
-            [iter, &[zero]].concat()
-        };
-        let half_length = padded_iter.len() / 2;
-        // Add `n/2` `ArithmeticExtensionGate`s that will perform the accumulation.
-        let gates = (0..half_length)
-            .map(|_| builder.add_gate(ArithmeticExtensionGate::new(), vec![F::ONE, F::ONE]))
-            .collect::<Vec<_>>();
 
-        // Add a generator that will fill the accumulation wires.
-        builder.add_generator(ParallelReductionGenerator {
-            base: self.base,
-            padded_iter: padded_iter.clone(),
-            gates: gates.clone(),
-            half_length,
-        });
+        let mut terms_vec = terms.to_vec();
+        // If needed, we pad the original vector so that it has even length.
+        if terms_vec.len().is_odd() {
+            terms_vec.push(zero);
+        }
+        terms_vec.reverse();
 
-        for i in 0..half_length {
-            // The fixed multiplicand is always `base`.
-            builder.route_extension(
-                self.base,
-                ExtensionTarget::from_range(
-                    gates[i],
-                    ArithmeticExtensionGate::<D>::wires_fixed_multiplicand(),
-                ),
-            );
-            // Set the addends for the first half of the accumulation.
-            builder.route_extension(
-                padded_iter[2 * half_length - i - 1],
-                ExtensionTarget::from_range(
-                    gates[i],
-                    ArithmeticExtensionGate::<D>::wires_addend_0(),
-                ),
-            );
-            // Set the addends for the second half of the accumulation.
-            builder.route_extension(
-                padded_iter[half_length - i - 1],
-                ExtensionTarget::from_range(
-                    gates[i],
-                    ArithmeticExtensionGate::<D>::wires_addend_1(),
-                ),
-            );
+        let mut acc = zero;
+        for pair in terms_vec.chunks(2) {
+            // We will route the output of the first arithmetic operation to the multiplicand of the
+            // second, i.e. we compute the following:
+            //     out_0 = alpha acc + pair[0]
+            //     acc' = out_1 = alpha out_0 + pair[1]
+            let gate = builder.num_gates();
+            let out_0 =
+                ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_output_0());
+            acc = builder
+                .double_arithmetic_extension(
+                    F::ONE,
+                    F::ONE,
+                    self.base,
+                    acc,
+                    pair[0],
+                    out_0,
+                    pair[1],
+                )
+                .1;
         }
-        for gate_pair in gates[..half_length].windows(2) {
-            // Verifies that the accumulator is passed between gates for the first half of the accumulation.
-            builder.assert_equal_extension(
-                ExtensionTarget::from_range(
-                    gate_pair[0],
-                    ArithmeticExtensionGate::<D>::wires_output_0(),
-                ),
-                ExtensionTarget::from_range(
-                    gate_pair[1],
-                    ArithmeticExtensionGate::<D>::wires_multiplicand_0(),
-                ),
-            );
-        }
-        for gate_pair in gates[half_length..].windows(2) {
-            // Verifies that the accumulator is passed between gates for the second half of the accumulation.
-            builder.assert_equal_extension(
-                ExtensionTarget::from_range(
-                    gate_pair[0],
-                    ArithmeticExtensionGate::<D>::wires_output_1(),
-                ),
-                ExtensionTarget::from_range(
-                    gate_pair[1],
-                    ArithmeticExtensionGate::<D>::wires_multiplicand_1(),
-                ),
-            );
-        }
-        // Verifies that the starting accumulator for the first half is zero.
-        builder.assert_equal_extension(
-            ExtensionTarget::from_range(
-                gates[0],
-                ArithmeticExtensionGate::<D>::wires_multiplicand_0(),
-            ),
-            zero,
-        );
-        // Verifies that the final accumulator for the first half is passed as a starting
-        // accumulator for the second half.
-        builder.assert_equal_extension(
-            ExtensionTarget::from_range(
-                gates[half_length - 1],
-                ArithmeticExtensionGate::<D>::wires_output_0(),
-            ),
-            ExtensionTarget::from_range(
-                gates[0],
-                ArithmeticExtensionGate::<D>::wires_multiplicand_1(),
-            ),
-        );
-
-        // Return the final accumulator for the second half.
-        ExtensionTarget::from_range(
-            gates[half_length - 1],
-            ArithmeticExtensionGate::<D>::wires_output_1(),
-        )
+        acc
     }
 
     pub fn shift<F>(
@@ -233,65 +164,6 @@ impl<const D: usize> ReducingFactorTarget<D> {
             base: self.base.repeated_frobenius(count, builder),
             count: self.count,
         }
-    }
-}
-
-/// Fills the intermediate accumulator in `ReducingFactorTarget::reduce`.
-struct ParallelReductionGenerator<const D: usize> {
-    base: ExtensionTarget<D>,
-    padded_iter: Vec<ExtensionTarget<D>>,
-    gates: Vec<usize>,
-    half_length: usize,
-}
-
-impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ParallelReductionGenerator<D> {
-    fn dependencies(&self) -> Vec<Target> {
-        // Need only the values and the base.
-        self.padded_iter
-            .iter()
-            .flat_map(|ext| ext.to_target_array())
-            .chain(self.base.to_target_array())
-            .collect()
-    }
-
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let mut pw = PartialWitness::new();
-        let base = witness.get_extension_target(self.base);
-        let vs = self
-            .padded_iter
-            .iter()
-            .map(|&ext| witness.get_extension_target(ext))
-            .collect::<Vec<_>>();
-        // Computed the intermediate accumulators.
-        let intermediate_accs = vs
-            .iter()
-            .rev()
-            .scan(F::Extension::ZERO, |acc, &x| {
-                let tmp = *acc;
-                *acc = *acc * base + x;
-                Some(tmp)
-            })
-            .collect::<Vec<_>>();
-        for i in 0..self.half_length {
-            // Fill the accumulators for the first half.
-            pw.set_extension_target(
-                ExtensionTarget::from_range(
-                    self.gates[i],
-                    ArithmeticExtensionGate::<D>::wires_multiplicand_0(),
-                ),
-                intermediate_accs[i],
-            );
-            // Fill the accumulators for the second half.
-            pw.set_extension_target(
-                ExtensionTarget::from_range(
-                    self.gates[i],
-                    ArithmeticExtensionGate::<D>::wires_multiplicand_1(),
-                ),
-                intermediate_accs[self.half_length + i],
-            );
-        }
-
-        pw
     }
 }
 

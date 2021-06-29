@@ -106,12 +106,17 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
         gate_index: usize,
         local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = ArithmeticExtensionGenerator {
+        let gen0 = ArithmeticExtensionGenerator0 {
             gate_index,
             const_0: local_constants[0],
             const_1: local_constants[1],
         };
-        vec![Box::new(gen)]
+        let gen1 = ArithmeticExtensionGenerator1 {
+            gate_index,
+            const_0: local_constants[0],
+            const_1: local_constants[1],
+        };
+        vec![Box::new(gen0), Box::new(gen1)]
     }
 
     fn num_wires(&self) -> usize {
@@ -131,19 +136,23 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
     }
 }
 
-struct ArithmeticExtensionGenerator<F: Extendable<D>, const D: usize> {
+struct ArithmeticExtensionGenerator0<F: Extendable<D>, const D: usize> {
     gate_index: usize,
     const_0: F,
     const_1: F,
 }
 
-impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensionGenerator<F, D> {
+struct ArithmeticExtensionGenerator1<F: Extendable<D>, const D: usize> {
+    gate_index: usize,
+    const_0: F,
+    const_1: F,
+}
+
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensionGenerator0<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         ArithmeticExtensionGate::<D>::wires_fixed_multiplicand()
             .chain(ArithmeticExtensionGate::<D>::wires_multiplicand_0())
             .chain(ArithmeticExtensionGate::<D>::wires_addend_0())
-            .chain(ArithmeticExtensionGate::<D>::wires_multiplicand_1())
-            .chain(ArithmeticExtensionGate::<D>::wires_addend_1())
             .map(|i| Target::wire(self.gate_index, i))
             .collect()
     }
@@ -159,28 +168,49 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensio
         let multiplicand_0 =
             extract_extension(ArithmeticExtensionGate::<D>::wires_multiplicand_0());
         let addend_0 = extract_extension(ArithmeticExtensionGate::<D>::wires_addend_0());
-        let multiplicand_1 =
-            extract_extension(ArithmeticExtensionGate::<D>::wires_multiplicand_1());
-        let addend_1 = extract_extension(ArithmeticExtensionGate::<D>::wires_addend_1());
 
         let output_target_0 = ExtensionTarget::from_range(
             self.gate_index,
             ArithmeticExtensionGate::<D>::wires_output_0(),
         );
+
+        let computed_output_0 = fixed_multiplicand * multiplicand_0 * self.const_0.into()
+            + addend_0 * self.const_1.into();
+
+        PartialWitness::singleton_extension_target(output_target_0, computed_output_0)
+    }
+}
+
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensionGenerator1<F, D> {
+    fn dependencies(&self) -> Vec<Target> {
+        ArithmeticExtensionGate::<D>::wires_fixed_multiplicand()
+            .chain(ArithmeticExtensionGate::<D>::wires_multiplicand_1())
+            .chain(ArithmeticExtensionGate::<D>::wires_addend_1())
+            .map(|i| Target::wire(self.gate_index, i))
+            .collect()
+    }
+
+    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+        let extract_extension = |range: Range<usize>| -> F::Extension {
+            let t = ExtensionTarget::from_range(self.gate_index, range);
+            witness.get_extension_target(t)
+        };
+
+        let fixed_multiplicand =
+            extract_extension(ArithmeticExtensionGate::<D>::wires_fixed_multiplicand());
+        let multiplicand_1 =
+            extract_extension(ArithmeticExtensionGate::<D>::wires_multiplicand_1());
+        let addend_1 = extract_extension(ArithmeticExtensionGate::<D>::wires_addend_1());
+
         let output_target_1 = ExtensionTarget::from_range(
             self.gate_index,
             ArithmeticExtensionGate::<D>::wires_output_1(),
         );
 
-        let computed_output_0 = fixed_multiplicand * multiplicand_0 * self.const_0.into()
-            + addend_0 * self.const_1.into();
         let computed_output_1 = fixed_multiplicand * multiplicand_1 * self.const_0.into()
             + addend_1 * self.const_1.into();
 
-        let mut pw = PartialWitness::new();
-        pw.set_extension_target(output_target_0, computed_output_0);
-        pw.set_extension_target(output_target_1, computed_output_1);
-        pw
+        PartialWitness::singleton_extension_target(output_target_1, computed_output_1)
     }
 }
 
