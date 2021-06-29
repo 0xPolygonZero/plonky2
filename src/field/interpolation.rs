@@ -10,10 +10,8 @@ use crate::util::log2_ceil;
 pub(crate) fn interpolant<F: Field>(points: &[(F, F)]) -> PolynomialCoeffs<F> {
     let n = points.len();
     let n_log = log2_ceil(n);
-    let n_padded = 1 << n_log;
 
-    let g = F::primitive_root_of_unity(n_log);
-    let subgroup = F::cyclic_subgroup_known_order(g, n_padded);
+    let subgroup = F::two_adic_subgroup(n_log);
     let barycentric_weights = barycentric_weights(points);
     let subgroup_evals = subgroup
         .into_iter()
@@ -65,11 +63,23 @@ pub fn barycentric_weights<F: Field>(points: &[(F, F)]) -> Vec<F> {
     )
 }
 
+/// Interpolate the linear polynomial passing through `points` on `x`.
+pub fn interpolate2<F: Field>(points: [(F, F); 2], x: F) -> F {
+    // a0 -> a1
+    // b0 -> b1
+    // x  -> a1 + (x-a0)*(b1-a1)/(b0-a0)
+    let (a0, a1) = points[0];
+    let (b0, b1) = points[1];
+    assert_ne!(a0, b0);
+    a1 + (x - a0) * (b1 - a1) / (b0 - a0)
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
-    use crate::field::lagrange::interpolant;
     use crate::polynomial::polynomial::PolynomialCoeffs;
 
     #[test]
@@ -92,8 +102,7 @@ mod tests {
 
         for deg_log in 0..4 {
             let deg = 1 << deg_log;
-            let g = F::primitive_root_of_unity(deg_log);
-            let domain = F::cyclic_subgroup_known_order(g, deg);
+            let domain = F::two_adic_subgroup(deg_log);
             let coeffs = F::rand_vec(deg);
             let coeffs = PolynomialCoeffs { coeffs };
 
@@ -119,5 +128,19 @@ mod tests {
 
     fn eval_naive<F: Field>(coeffs: &PolynomialCoeffs<F>, domain: &[F]) -> Vec<(F, F)> {
         domain.iter().map(|&x| (x, coeffs.eval(x))).collect()
+    }
+
+    #[test]
+    fn test_interpolate2() {
+        type F = QuarticCrandallField;
+        let points = [(F::rand(), F::rand()), (F::rand(), F::rand())];
+        let x = F::rand();
+
+        let ev0 = interpolant(&points).eval(x);
+        let ev1 = interpolate(&points, x, &barycentric_weights(&points));
+        let ev2 = interpolate2(points, x);
+
+        assert_eq!(ev0, ev1);
+        assert_eq!(ev0, ev2);
     }
 }

@@ -6,7 +6,7 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::algebra::PolynomialCoeffsAlgebra;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::lagrange::interpolant;
+use crate::field::interpolation::interpolant;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
@@ -22,8 +22,8 @@ use crate::witness::PartialWitness;
 /// given point.
 #[derive(Clone, Debug)]
 pub(crate) struct InterpolationGate<F: Extendable<D>, const D: usize> {
-    num_points: usize,
-    _phantom: PhantomData<F>,
+    pub num_points: usize,
+    pub _phantom: PhantomData<F>,
 }
 
 impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D> {
@@ -355,9 +355,7 @@ mod tests {
         };
 
         assert!(
-            gate.eval_unfiltered(vars.clone())
-                .iter()
-                .all(|x| x.is_zero()),
+            gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),
             "Gate constraints are not satisfied."
         );
     }

@@ -1,9 +1,12 @@
+use std::fmt::{Debug, Error, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::field::Field;
+use crate::gates::gate_tree::Tree;
 use crate::generator::WitnessGenerator;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
@@ -51,15 +54,23 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>>;
 
-    fn eval_filtered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
-        // TODO: Filter
+    fn eval_filtered(&self, mut vars: EvaluationVars<F, D>, prefix: &[bool]) -> Vec<F::Extension> {
+        let filter = compute_filter(prefix, vars.local_constants);
+        vars.remove_prefix(prefix);
         self.eval_unfiltered(vars)
+            .into_iter()
+            .map(|c| filter * c)
+            .collect()
     }
 
     /// Like `eval_filtered`, but specialized for points in the base field.
-    fn eval_filtered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        // TODO: Filter
+    fn eval_filtered_base(&self, mut vars: EvaluationVarsBase<F>, prefix: &[bool]) -> Vec<F> {
+        let filter = compute_filter(prefix, vars.local_constants);
+        vars.remove_prefix(prefix);
         self.eval_unfiltered_base(vars)
+            .into_iter()
+            .map(|c| c * filter)
+            .collect()
     }
 
     fn eval_filtered_recursively(
@@ -113,8 +124,46 @@ impl<F: Extendable<D>, const D: usize> Hash for GateRef<F, D> {
 
 impl<F: Extendable<D>, const D: usize> Eq for GateRef<F, D> {}
 
+impl<F: Extendable<D>, const D: usize> Debug for GateRef<F, D> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}", self.0.id())
+    }
+}
+
 /// A gate along with any constants used to configure it.
 pub struct GateInstance<F: Extendable<D>, const D: usize> {
     pub gate_type: GateRef<F, D>,
     pub constants: Vec<F>,
+}
+
+/// Map each gate to a boolean prefix used to construct the gate's selector polynomial.
+#[derive(Debug, Clone)]
+pub struct PrefixedGate<F: Extendable<D>, const D: usize> {
+    pub gate: GateRef<F, D>,
+    pub prefix: Vec<bool>,
+}
+
+impl<F: Extendable<D>, const D: usize> PrefixedGate<F, D> {
+    pub fn from_tree(tree: Tree<GateRef<F, D>>) -> Vec<Self> {
+        tree.traversal()
+            .into_iter()
+            .map(|(gate, prefix)| PrefixedGate { gate, prefix })
+            .collect()
+    }
+}
+
+/// A gate's filter is computed as `prod b_i*c_i + (1-b_i)*(1-c_i)`, with `(b_i)` the prefix and
+/// `(c_i)` the local constants, which is one if the prefix of `constants` matches `prefix`.
+fn compute_filter<K: Field>(prefix: &[bool], constants: &[K]) -> K {
+    prefix
+        .iter()
+        .enumerate()
+        .map(|(i, &b)| {
+            if b {
+                constants[i]
+            } else {
+                K::ONE - constants[i]
+            }
+        })
+        .product()
 }

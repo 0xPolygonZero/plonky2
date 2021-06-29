@@ -8,17 +8,20 @@ use crate::circuit_data::{
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
 use crate::field::cosets::get_unique_coset_shifts;
+use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::gates::constant::ConstantGate;
-use crate::gates::gate::{GateInstance, GateRef};
+use crate::gates::gate::{GateInstance, GateRef, PrefixedGate};
+use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
 use crate::hash::hash_n_to_hash;
 use crate::permutation_argument::TargetPartitions;
+use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
-use crate::util::{log2_ceil, log2_strict, transpose};
+use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 use crate::wire::Wire;
 
 pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
@@ -129,6 +132,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_equal(src, dst);
     }
 
+    pub fn route_extension(&mut self, src: ExtensionTarget<D>, dst: ExtensionTarget<D>) {
+        for i in 0..D {
+            self.route(src.0[i], dst.0[i]);
+        }
+    }
+
     /// Adds a generator which will copy `src` to `dst`.
     pub fn generate_copy(&mut self, src: Target, dst: Target) {
         self.add_generator(CopyGenerator { src, dst });
@@ -146,6 +155,17 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "Tried to route a wire that isn't routable"
         );
         self.copy_constraints.push((x, y));
+    }
+
+    pub fn assert_zero(&mut self, x: Target) {
+        let zero = self.zero();
+        self.assert_equal(x, zero);
+    }
+
+    pub fn assert_equal_extension(&mut self, x: ExtensionTarget<D>, y: ExtensionTarget<D>) {
+        for i in 0..D {
+            self.assert_equal(x.0[i], y.0[i]);
+        }
     }
 
     pub fn add_generators(&mut self, generators: Vec<Box<dyn WitnessGenerator<F>>>) {
@@ -299,22 +319,26 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn constant_polys(&self) -> Vec<PolynomialValues<F>> {
-        let num_constants = self
-            .gate_instances
+    fn constant_polys(&self, gates: &[PrefixedGate<F, D>]) -> Vec<PolynomialValues<F>> {
+        let num_constants = gates
             .iter()
-            .map(|gate_inst| gate_inst.constants.len())
+            .map(|gate| gate.gate.0.num_constants() + gate.prefix.len())
             .max()
             .unwrap();
         let constants_per_gate = self
             .gate_instances
             .iter()
-            .map(|gate_inst| {
-                let mut padded_constants = gate_inst.constants.clone();
-                for _ in padded_constants.len()..num_constants {
-                    padded_constants.push(F::ZERO);
-                }
-                padded_constants
+            .map(|gate| {
+                let prefix = &gates
+                    .iter()
+                    .find(|g| g.gate.0.id() == gate.gate_type.0.id())
+                    .unwrap()
+                    .prefix;
+                let mut prefixed_constants = Vec::with_capacity(num_constants);
+                prefixed_constants.extend(prefix.iter().map(|&b| if b { F::ONE } else { F::ZERO }));
+                prefixed_constants.extend_from_slice(&gate.constants);
+                prefixed_constants.resize(num_constants, F::ZERO);
+                prefixed_constants
             })
             .collect::<Vec<_>>();
 
@@ -324,7 +348,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn sigma_vecs(&self, k_is: &[F]) -> Vec<PolynomialValues<F>> {
+    fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> Vec<PolynomialValues<F>> {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
         let mut target_partitions = TargetPartitions::new();
@@ -344,7 +368,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let wire_partitions = target_partitions.to_wire_partitions();
-        wire_partitions.get_sigma_polys(degree_log, k_is)
+        wire_partitions.get_sigma_polys(degree_log, k_is, subgroup)
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
@@ -358,33 +382,38 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let degree = self.gate_instances.len();
         info!("degree after blinding & padding: {}", degree);
 
-        let constant_vecs = self.constant_polys();
-        let constants_commitment = ListPolynomialCommitment::new(
-            constant_vecs.into_iter().map(|v| v.ifft()).collect(),
-            self.config.fri_config.rate_bits,
-            false,
-        );
+        let gates = self.gates.iter().cloned().collect();
+        let gate_tree = Tree::from_gates(gates);
+        let prefixed_gates = PrefixedGate::from_tree(gate_tree);
+
+        let degree_bits = log2_strict(degree);
+        let subgroup = F::two_adic_subgroup(degree_bits);
+
+        let constant_vecs = self.constant_polys(&prefixed_gates);
+        let num_constants = constant_vecs.len();
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
-        let sigma_vecs = self.sigma_vecs(&k_is);
-        let sigmas_commitment = ListPolynomialCommitment::new(
-            sigma_vecs.into_iter().map(|v| v.ifft()).collect(),
+        let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
+
+        let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
+        let constants_sigmas_commitment = ListPolynomialCommitment::new(
+            constants_sigmas_vecs,
             self.config.fri_config.rate_bits,
-            false,
+            PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
         );
 
-        let constants_root = constants_commitment.merkle_tree.root;
-        let sigmas_root = sigmas_commitment.merkle_tree.root;
+        let constants_sigmas_root = constants_sigmas_commitment.merkle_tree.root;
         let verifier_only = VerifierOnlyCircuitData {
-            constants_root,
-            sigmas_root,
+            constants_sigmas_root,
         };
 
-        let generators = self.generators;
         let prover_only = ProverOnlyCircuitData {
-            generators,
-            constants_commitment,
-            sigmas_commitment,
+            generators: self.generators,
+            constants_sigmas_commitment,
+            sigmas: transpose_poly_values(sigma_vecs),
+            subgroup,
+            copy_constraints: self.copy_constraints,
+            gate_instances: self.gate_instances,
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
@@ -398,17 +427,20 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .max()
             .expect("No gates?");
 
-        let degree_bits = log2_strict(degree);
-
         // TODO: This should also include an encoding of gate constraints.
-        let circuit_digest_parts = [constants_root.elements, sigmas_root.elements];
+        let circuit_digest_parts = [
+            constants_sigmas_root.elements.to_vec(),
+            vec![/* Add other circuit data here */],
+        ];
         let circuit_digest = hash_n_to_hash(circuit_digest_parts.concat(), false);
 
         let common = CommonCircuitData {
             config: self.config,
             degree_bits,
-            gates,
+            gates: prefixed_gates,
+            max_filtered_constraint_degree_bits: 3, // TODO: compute this correctly once filters land.
             num_gate_constraints,
+            num_constants,
             k_is,
             circuit_digest,
         };

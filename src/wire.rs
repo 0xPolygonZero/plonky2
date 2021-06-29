@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::circuit_data::CircuitConfig;
 
 /// Represents a wire in the circuit.
@@ -12,5 +14,9 @@ pub struct Wire {
 impl Wire {
     pub fn is_routable(&self, config: &CircuitConfig) -> bool {
         self.input < config.num_routed_wires
+    }
+
+    pub fn from_range(gate: usize, range: Range<usize>) -> Vec<Self> {
+        range.map(|i| Wire { gate, input: i }).collect()
     }
 }

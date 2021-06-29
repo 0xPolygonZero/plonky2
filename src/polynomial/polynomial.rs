@@ -1,6 +1,8 @@
 use std::cmp::max;
 use std::iter::Sum;
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
+
+use anyhow::{ensure, Result};
 
 use crate::field::extension_field::Extendable;
 use crate::field::fft::{fft, ifft};
@@ -32,6 +34,19 @@ impl<F: Field> PolynomialValues<F> {
 
     pub fn ifft(self) -> PolynomialCoeffs<F> {
         ifft(self)
+    }
+
+    /// Returns the polynomial whose evaluation on the coset `shift*H` is `self`.
+    pub fn coset_ifft(self, shift: F) -> PolynomialCoeffs<F> {
+        let mut shifted_coeffs = self.ifft();
+        shifted_coeffs
+            .coeffs
+            .iter_mut()
+            .zip(shift.inverse().powers())
+            .for_each(|(c, r)| {
+                *c *= r;
+            });
+        shifted_coeffs
     }
 
     pub fn lde_multiple(polys: Vec<Self>, rate_bits: usize) -> Vec<Self> {
@@ -127,11 +142,21 @@ impl<F: Field> PolynomialCoeffs<F> {
         self.padded(self.len() << rate_bits)
     }
 
+    pub(crate) fn pad(&mut self, new_len: usize) -> Result<()> {
+        ensure!(
+            new_len >= self.len(),
+            "Trying to pad a polynomial of length {} to a length of {}.",
+            self.len(),
+            new_len
+        );
+        self.coeffs.resize(new_len, F::ZERO);
+        Ok(())
+    }
+
     pub(crate) fn padded(&self, new_len: usize) -> Self {
-        assert!(new_len >= self.len());
-        let mut coeffs = self.coeffs.clone();
-        coeffs.resize(new_len, F::ZERO);
-        Self { coeffs }
+        let mut poly = self.clone();
+        poly.pad(new_len).unwrap();
+        poly
     }
 
     /// Removes leading zero coefficients.
@@ -171,6 +196,7 @@ impl<F: Field> PolynomialCoeffs<F> {
         fft(self)
     }
 
+    /// Returns the evaluation of the polynomial on the coset `shift*H`.
     pub fn coset_fft(self, shift: F) -> PolynomialValues<F> {
         let modified_poly: Self = shift
             .powers()
@@ -243,12 +269,58 @@ impl<F: Field> Sub for &PolynomialCoeffs<F> {
     }
 }
 
+impl<F: Field> AddAssign for PolynomialCoeffs<F> {
+    fn add_assign(&mut self, rhs: Self) {
+        let len = max(self.len(), rhs.len());
+        self.coeffs.resize(len, F::ZERO);
+        for (l, r) in self.coeffs.iter_mut().zip(rhs.coeffs) {
+            *l += r;
+        }
+    }
+}
+
+impl<F: Field> AddAssign<&Self> for PolynomialCoeffs<F> {
+    fn add_assign(&mut self, rhs: &Self) {
+        let len = max(self.len(), rhs.len());
+        self.coeffs.resize(len, F::ZERO);
+        for (l, &r) in self.coeffs.iter_mut().zip(&rhs.coeffs) {
+            *l += r;
+        }
+    }
+}
+
+impl<F: Field> SubAssign for PolynomialCoeffs<F> {
+    fn sub_assign(&mut self, rhs: Self) {
+        let len = max(self.len(), rhs.len());
+        self.coeffs.resize(len, F::ZERO);
+        for (l, r) in self.coeffs.iter_mut().zip(rhs.coeffs) {
+            *l -= r;
+        }
+    }
+}
+
+impl<F: Field> SubAssign<&Self> for PolynomialCoeffs<F> {
+    fn sub_assign(&mut self, rhs: &Self) {
+        let len = max(self.len(), rhs.len());
+        self.coeffs.resize(len, F::ZERO);
+        for (l, &r) in self.coeffs.iter_mut().zip(&rhs.coeffs) {
+            *l -= r;
+        }
+    }
+}
+
 impl<F: Field> Mul<F> for &PolynomialCoeffs<F> {
     type Output = PolynomialCoeffs<F>;
 
     fn mul(self, rhs: F) -> Self::Output {
         let coeffs = self.coeffs.iter().map(|&x| rhs * x).collect();
         PolynomialCoeffs::new(coeffs)
+    }
+}
+
+impl<F: Field> MulAssign<F> for PolynomialCoeffs<F> {
+    fn mul_assign(&mut self, rhs: F) {
+        self.coeffs.iter_mut().for_each(|x| *x *= rhs);
     }
 }
 
@@ -323,8 +395,31 @@ mod tests {
             .into_iter()
             .map(|x| poly.eval(x))
             .collect::<Vec<_>>();
-
         assert_eq!(coset_evals, naive_coset_evals);
+
+        let ifft_coeffs = PolynomialValues::new(coset_evals).coset_ifft(shift);
+        assert_eq!(poly, ifft_coeffs.into());
+    }
+
+    #[test]
+    fn test_coset_ifft() {
+        type F = CrandallField;
+
+        let k = 8;
+        let n = 1 << k;
+        let evals = PolynomialValues::new(F::rand_vec(n));
+        let shift = F::rand();
+        let coeffs = evals.clone().coset_ifft(shift);
+
+        let generator = F::primitive_root_of_unity(k);
+        let naive_coset_evals = F::cyclic_subgroup_coset_known_order(generator, shift, n)
+            .into_iter()
+            .map(|x| coeffs.eval(x))
+            .collect::<Vec<_>>();
+        assert_eq!(evals, naive_coset_evals.into());
+
+        let fft_evals = coeffs.coset_fft(shift);
+        assert_eq!(evals, fft_evals);
     }
 
     #[test]

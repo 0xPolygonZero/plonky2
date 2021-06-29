@@ -44,12 +44,14 @@ pub(crate) fn fft_precompute<F: Field>(degree: usize) -> FftPrecomputation<F> {
     let degree_log = log2_ceil(degree);
 
     let mut subgroups_rev = Vec::new();
-    for i in 0..=degree_log {
-        let g_i = F::primitive_root_of_unity(i);
-        let subgroup = F::cyclic_subgroup_known_order(g_i, 1 << i);
+    let mut subgroup = F::two_adic_subgroup(degree_log);
+    for _i in 0..=degree_log {
+        let subsubgroup = subgroup.iter().step_by(2).copied().collect();
         let subgroup_rev = reverse_index_bits(subgroup);
         subgroups_rev.push(subgroup_rev);
+        subgroup = subsubgroup;
     }
+    subgroups_rev.reverse();
 
     FftPrecomputation { subgroups_rev }
 }
@@ -126,30 +128,9 @@ pub(crate) fn fft_with_precomputation_power_of_2<F: Field>(
     PolynomialValues { values }
 }
 
-pub(crate) fn coset_fft<F: Field>(poly: PolynomialCoeffs<F>, shift: F) -> PolynomialValues<F> {
-    let mut points = fft(poly);
-    let mut shift_exp_i = F::ONE;
-    for p in points.values.iter_mut() {
-        *p *= shift_exp_i;
-        shift_exp_i *= shift;
-    }
-    points
-}
-
 pub(crate) fn ifft<F: Field>(poly: PolynomialValues<F>) -> PolynomialCoeffs<F> {
     let precomputation = fft_precompute(poly.len());
     ifft_with_precomputation_power_of_2(poly, &precomputation)
-}
-
-pub(crate) fn coset_ifft<F: Field>(poly: PolynomialValues<F>, shift: F) -> PolynomialCoeffs<F> {
-    let shift_inv = shift.inverse();
-    let mut shift_inv_exp_i = F::ONE;
-    let mut coeffs = ifft(poly);
-    for c in coeffs.coeffs.iter_mut() {
-        *c *= shift_inv_exp_i;
-        shift_inv_exp_i *= shift_inv;
-    }
-    coeffs
 }
 
 #[cfg(test)]
@@ -200,10 +181,9 @@ mod tests {
         let degree = coefficients.len();
         let degree_log = log2_strict(degree);
 
-        let g = F::primitive_root_of_unity(degree_log);
-        let powers_of_g = F::cyclic_subgroup_known_order(g, degree);
+        let subgroup = F::two_adic_subgroup(degree_log);
 
-        let values = powers_of_g
+        let values = subgroup
             .into_iter()
             .map(|x| evaluate_at_naive(&coefficients, x))
             .collect();
