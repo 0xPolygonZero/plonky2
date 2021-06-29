@@ -256,7 +256,7 @@ impl<F: Field> ZeroPolyOnCoset<F> {
         self.evals[i % self.rate]
     }
 
-    /// Returns `Z_H(g * w^i)`.
+    /// Returns `1 / Z_H(g * w^i)`.
     pub fn eval_inverse(&self, i: usize) -> F {
         self.inverses[i % self.rate]
     }
