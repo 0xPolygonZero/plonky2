@@ -10,10 +10,8 @@ use crate::util::log2_ceil;
 pub(crate) fn interpolant<F: Field>(points: &[(F, F)]) -> PolynomialCoeffs<F> {
     let n = points.len();
     let n_log = log2_ceil(n);
-    let n_padded = 1 << n_log;
 
-    let g = F::primitive_root_of_unity(n_log);
-    let subgroup = F::cyclic_subgroup_known_order(g, n_padded);
+    let subgroup = F::two_adic_subgroup(n_log);
     let barycentric_weights = barycentric_weights(points);
     let subgroup_evals = subgroup
         .into_iter()
@@ -104,8 +102,7 @@ mod tests {
 
         for deg_log in 0..4 {
             let deg = 1 << deg_log;
-            let g = F::primitive_root_of_unity(deg_log);
-            let domain = F::cyclic_subgroup_known_order(g, deg);
+            let domain = F::two_adic_subgroup(deg_log);
             let coeffs = F::rand_vec(deg);
             let coeffs = PolynomialCoeffs { coeffs };
 
