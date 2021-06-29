@@ -173,6 +173,7 @@ mod tests {
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::witness::PartialWitness;
 
     fn test_reduce_gadget(n: usize) {
         type F = CrandallField;
