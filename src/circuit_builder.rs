@@ -12,13 +12,13 @@ use crate::field::extension_field::Extendable;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
-use crate::generator::{CopyGenerator, WitnessGenerator, RandomValueGenerator};
+use crate::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
 use crate::hash::hash_n_to_hash;
 use crate::permutation_argument::TargetPartitions;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
-use crate::util::{log2_strict, log2_ceil, transpose};
+use crate::util::{log2_ceil, log2_strict, transpose};
 use crate::wire::Wire;
 
 pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
@@ -205,9 +205,15 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn num_blinding_gates(&self, degree_estimate: usize) -> (usize, usize) {
         let fri_queries = self.config.fri_config.num_query_rounds;
-        let arities: Vec<usize> = self.config.fri_config.reduction_arity_bits.iter().map(|x| 1 << x).collect();
-        let total_fri_folding_points : usize = arities.iter().map(|x| x - 1).sum::<usize>();
-        let final_poly_coeffs : usize = degree_estimate >> arities.iter().sum::<usize>();
+        let arities: Vec<usize> = self
+            .config
+            .fri_config
+            .reduction_arity_bits
+            .iter()
+            .map(|x| 1 << x)
+            .collect();
+        let total_fri_folding_points: usize = arities.iter().map(|x| x - 1).sum::<usize>();
+        let final_poly_coeffs: usize = degree_estimate >> arities.iter().sum::<usize>();
         let fri_openings = fri_queries * (1 + total_fri_folding_points + final_poly_coeffs);
 
         let regular_poly_openings = D + fri_openings;
@@ -215,7 +221,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         (regular_poly_openings, z_openings)
     }
-    
 
     /// The number of polynomial values that will be revealed per opening.
     fn blinding_counts(&self) -> (usize, usize) {
@@ -260,11 +265,20 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
             for w in 0..num_routed_wires {
                 self.add_generator(RandomValueGenerator {
-                    target: Target::Wire(Wire { gate: gate_1, input: w }),
+                    target: Target::Wire(Wire {
+                        gate: gate_1,
+                        input: w,
+                    }),
                 });
                 self.add_generator(CopyGenerator {
-                    src: Target::Wire(Wire { gate: gate_1, input: w }),
-                    dst: Target::Wire(Wire { gate: gate_2, input: w }),
+                    src: Target::Wire(Wire {
+                        gate: gate_1,
+                        input: w,
+                    }),
+                    dst: Target::Wire(Wire {
+                        gate: gate_2,
+                        input: w,
+                    }),
                 });
             }
         }

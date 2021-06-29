@@ -124,7 +124,7 @@ impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
 
     fn run_once(&self, _witness: &PartialWitness<F>) -> PartialWitness<F> {
         let random_value = F::rand();
-        
+
         PartialWitness::singleton_target(self.target, random_value)
     }
 }
