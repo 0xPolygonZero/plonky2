@@ -12,7 +12,7 @@ use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::timed;
-use crate::util::transpose;
+use crate::util::{log2_ceil, transpose};
 use crate::vars::EvaluationVarsBase;
 use crate::witness::{PartialWitness, Witness};
 
@@ -219,23 +219,22 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
     alphas: &[F],
 ) -> Vec<PolynomialCoeffs<F>> {
     let num_challenges = common_data.config.num_challenges;
+    let max_filtered_constraint_degree_bits = log2_ceil(common_data.max_filtered_constraint_degree);
     assert!(
-        common_data.max_filtered_constraint_degree_bits <= common_data.config.rate_bits,
+        max_filtered_constraint_degree_bits <= common_data.config.rate_bits,
         "Having constraints of degree higher than the rate is not supported yet. \
         If we need this in the future, we can precompute the larger LDE before computing the `ListPolynomialCommitment`s."
     );
 
     // We reuse the LDE computed in `ListPolynomialCommitment` and extract every `step` points to get
     // an LDE matching `max_filtered_constraint_degree`.
-    let step =
-        1 << (common_data.config.rate_bits - common_data.max_filtered_constraint_degree_bits);
+    let step = 1 << (common_data.config.rate_bits - max_filtered_constraint_degree_bits);
     // When opening the `Z`s polys at the "next" point in Plonk, need to look at the point `next_step`
     // steps away since we work on an LDE of degree `max_filtered_constraint_degree`.
-    let next_step = 1 << common_data.max_filtered_constraint_degree_bits;
+    let next_step = 1 << max_filtered_constraint_degree_bits;
 
-    let points = F::two_adic_subgroup(
-        common_data.degree_bits + common_data.max_filtered_constraint_degree_bits,
-    );
+    let points =
+        F::two_adic_subgroup(common_data.degree_bits + max_filtered_constraint_degree_bits);
     let lde_size = points.len();
 
     // Retrieve the LDE values at index `i`.
@@ -243,10 +242,8 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
         comm.get_lde_values(i * step)
     };
 
-    let z_h_on_coset = ZeroPolyOnCoset::new(
-        common_data.degree_bits,
-        common_data.max_filtered_constraint_degree_bits,
-    );
+    let z_h_on_coset =
+        ZeroPolyOnCoset::new(common_data.degree_bits, max_filtered_constraint_degree_bits);
 
     let quotient_values: Vec<Vec<F>> = points
         .into_par_iter()

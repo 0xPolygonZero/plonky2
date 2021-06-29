@@ -300,14 +300,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let degree_bits = log2_strict(degree);
         let subgroup = F::two_adic_subgroup(degree_bits);
 
-        let constant_vecs = self.constant_polys(&prefixed_gates);
-        let num_constants = constant_vecs.len();
         let constant_vecs = self.constant_polys(&prefixed_gates, num_constants);
-        let constants_commitment = ListPolynomialCommitment::new(
-            constant_vecs.into_iter().map(|v| v.ifft()).collect(),
-            self.config.fri_config.rate_bits,
-            false,
-        );
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
@@ -355,7 +348,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             config: self.config,
             degree_bits,
             gates: prefixed_gates,
-            max_filtered_constraint_degree_bits: 3, // TODO: compute this correctly once filters land.
+            max_filtered_constraint_degree,
             num_gate_constraints,
             num_constants,
             k_is,

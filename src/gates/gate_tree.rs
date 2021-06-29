@@ -88,7 +88,7 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
                         }
                     }
                     info!(
-                        "Found tree with max degree {} and {} constants in {}s.",
+                        "Found tree with max degree {} and {} constants wires in {}s.",
                         best_degree,
                         best_num_constants,
                         timer.elapsed().as_secs_f32()
