@@ -1,3 +1,5 @@
+use std::option::Option;
+
 use crate::field::field::Field;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_strict, reverse_index_bits};
@@ -8,17 +10,43 @@ trait FftStrategy<F: Field> {
 }
 */
 
-enum FftStrategy { Classic, Barretenberg }
+enum FftStrategy { Classic, Unrolled }
 
 const FFT_STRATEGY: FftStrategy = FftStrategy::Classic;
 
 type FftRootTable<F: Field> = Vec<Vec<F>>;
 
-fn update_fft_root_table<F: Field>(root_table: &mut FftRootTable<F>, lg_n: usize) {
+fn fft_classic_root_table<F: Field>(n: usize) -> FftRootTable<F> {
+    let lg_n = log2_strict(n);
+    let mut bases = Vec::with_capacity(lg_n);
+    let mut base = F::primitive_root_of_unity(lg_n);
+    bases.push(base);
+    for _ in 2..=lg_n {
+        base = base.square();
+        bases.push(base);
+    }
+
+    let mut root_table = Vec::with_capacity(lg_n);
+    for lg_m in 1..=lg_n {
+        let half_m = 1 << (lg_m - 1);
+        let mut root_row = Vec::with_capacity(half_m);
+        let base = bases[lg_n - lg_m];
+        let mut omega = base;
+        root_row.push(F::ONE);
+        root_row.push(omega);
+        for j in 2..half_m {
+            omega *= base;
+            root_row.push(omega);
+        }
+        root_table.push(root_row);
+    }
+    root_table
+}
+
+
+fn fft_unrolled_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     // Precompute a table of the roots of unity used in the main
     // loops.
-
-    // TODO: inline function for the condition on whether to modify the table.
 
     // TODO: If root_table already has s elements, only add the next n-s.
 
@@ -26,8 +54,9 @@ fn update_fft_root_table<F: Field>(root_table: &mut FftRootTable<F>, lg_n: usize
     // root of unity. Then the [lg(m) - 1][j] element of the table is
     // g^{ n/2m * j } for j = 0..m-1
 
+    let lg_n = log2_strict(n);
+    let mut root_table = Vec::with_capacity(lg_n);
     let rt = F::primitive_root_of_unity(lg_n);
-    let n = 1 << lg_n;
     let mut m = 2;
     loop {
         if m >= n {
@@ -43,45 +72,59 @@ fn update_fft_root_table<F: Field>(root_table: &mut FftRootTable<F>, lg_n: usize
         root_table.push(round_roots);
         m *= 2;
     }
+    root_table
 }
-
-/*
-fn update_fft_classic_root_table<F: Field>() {
-    // Pre-calculate the primitive 2^m-th roots of unity
-    let mut roots_of_unity = Vec::with_capacity(lg_n);
-    let mut base = F::primitive_root_of_unity(lg_n);
-    roots_of_unity.push(base);
-    for _ in 2..=lg_n {
-        base = base.square();
-        roots_of_unity.push(base);
-    }
-}
-*/
 
 #[inline]
-fn fft_dispatch<F: Field>(input: Vec<F>) -> Vec<F> {
+fn fft_dispatch<F: Field>(
+    input: Vec<F>,
+    zero_factor: Option<usize>,
+    root_table: Option<FftRootTable<F>>
+) -> Vec<F> {
+    let n = input.len();
     match FFT_STRATEGY {
         FftStrategy::Classic
-            => fft_classic(input),
-        FftStrategy::Barretenberg
-            => fft_barretenberg(input) //, fft_barretenberg_precomp(input.len()))
+            => fft_classic(input,
+                           zero_factor.unwrap_or(0),
+                           root_table.unwrap_or(fft_classic_root_table(n))),
+        FftStrategy::Unrolled
+            => fft_unrolled(input,
+                            zero_factor.unwrap_or(0),
+                            root_table.unwrap_or(fft_unrolled_root_table(n)))
     }
 }
 
+#[inline]
 pub fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
-    let PolynomialCoeffs { coeffs } = poly;
-    PolynomialValues { values: fft_dispatch(coeffs) }
+    fft_with_options(poly, None, None)
 }
 
-pub fn ifft<F: Field>(
-    poly: PolynomialValues<F>
+#[inline]
+pub fn fft_with_options<F: Field>(
+    poly: PolynomialCoeffs<F>,
+    zero_factor: Option<usize>,
+    root_table: Option<FftRootTable<F>>
+) -> PolynomialValues<F> {
+    let PolynomialCoeffs { coeffs } = poly;
+    PolynomialValues { values: fft_dispatch(coeffs, zero_factor, root_table) }
+}
+
+#[inline]
+pub fn ifft<F: Field>(poly: PolynomialValues<F>) -> PolynomialCoeffs<F> {
+    ifft_with_options(poly, None, None)
+}
+
+pub fn ifft_with_options<F: Field>(
+    poly: PolynomialValues<F>,
+    zero_factor: Option<usize>,
+    root_table: Option<FftRootTable<F>>
 ) -> PolynomialCoeffs<F> {
     let n = poly.len();
     let lg_n = log2_strict(n);
     let n_inv = F::inverse_2exp(lg_n);
 
     let PolynomialValues { values } = poly;
-    let mut coeffs = fft_dispatch(values);
+    let mut coeffs = fft_dispatch(values, zero_factor, root_table);
 
     // We reverse all values except the first, and divide each by n.
     coeffs[0] *= n_inv;
@@ -98,100 +141,19 @@ pub fn ifft<F: Field>(
 
 /// FFT implementation based on Section 32.3 of "Introduction to
 /// Algorithms" by Cormen et al.
+///
+/// The parameter r signifies that the first 1/2^r of the entries of
+/// input may be non-zero, but the last 1 - 1/2^r entries are
+/// definitely zero.
 pub(crate) fn fft_classic<F: Field>(
-    input: Vec<F>
-) -> Vec<F> {
-    let mut values = reverse_index_bits(input);
-
-    // TODO: First round is mult by 1, so should be done separately
-    // TODO: Unroll later rounds.
-
-    let n = values.len();
-    let lg_n = log2_strict(n);
-
-    // Pre-calculate the primitive 2^m-th roots of unity
-    let mut bases = Vec::with_capacity(lg_n);
-    let mut base = F::primitive_root_of_unity(lg_n);
-    bases.push(base);
-    for _ in 2..=lg_n {
-        base = base.square();
-        bases.push(base);
-    }
-
-    let mut root_table = Vec::with_capacity(lg_n);
-    for lg_m in 1..=lg_n {
-        let half_m = 1 << (lg_m - 1);
-        let mut root_row = Vec::with_capacity(half_m);
-        let base = bases[lg_n - lg_m];
-        let mut omega = base;
-        root_row.push(F::ONE);
-        root_row.push(omega);
-        for j in 2..half_m {
-            omega *= base;
-            root_row.push(omega);
-        }
-        root_table.push(root_row);
-    }
-
-    let mut m = 2;
-    for lg_m in 1..=lg_n {
-        let half_m = m / 2;
-        for k in (0..n).step_by(m) {
-            for j in 0..half_m {
-                let omega = root_table[lg_m - 1][j];
-                let t = omega * values[k + half_m + j];
-                let u = values[k + j];
-                values[k + j] = u + t;
-                values[k + half_m + j] = u - t;
-            }
-        }
-        m *= 2;
-    }
-    values
-}
-
-pub fn fft_thing<F: Field>(poly: PolynomialCoeffs<F>, rate_bits: usize) -> PolynomialValues<F> {
-    let PolynomialCoeffs { coeffs } = poly;
-    PolynomialValues { values: fft_thingy(coeffs, rate_bits) }
-}
-
-
-/// FFT implementation based on Section 32.3 of "Introduction to
-/// Algorithms" by Cormen et al.
-pub fn fft_thingy<F: Field>(
     input: Vec<F>,
-    r: usize
+    r: usize,
+    root_table: FftRootTable<F>
 ) -> Vec<F> {
     let mut values = reverse_index_bits(input);
 
-    // TODO: Unroll later rounds.
-
     let n = values.len();
     let lg_n = log2_strict(n);
-
-    // Pre-calculate the primitive 2^m-th roots of unity
-    let mut bases = Vec::with_capacity(lg_n);
-    let mut base = F::primitive_root_of_unity(lg_n);
-    bases.push(base);
-    for _ in 2..=lg_n {
-        base = base.square();
-        bases.push(base);
-    }
-
-    let mut root_table = Vec::with_capacity(lg_n);
-    for lg_m in 1..=lg_n {
-        let half_m = 1 << (lg_m - 1);
-        let mut root_row = Vec::with_capacity(half_m);
-        let base = bases[lg_n - lg_m];
-        let mut omega = base;
-        root_row.push(F::ONE);
-        root_row.push(omega);
-        for j in 2..half_m {
-            omega *= base;
-            root_row.push(omega);
-        }
-        root_table.push(root_row);
-    }
 
     // After reverse_index_bits, the only non-zero elements of values
     // are at indices i*2^r for i = 0..n/2^r.  The loop below copies
@@ -200,9 +162,11 @@ pub fn fft_thingy<F: Field>(
     // element i*2^r with the value at i*2^r.  This corresponds to the
     // first r rounds of the FFT when there are 2^r zeros at the end
     // of the original input.
-    let mask = !((1 << r) - 1);
-    for i in 0..n {
-        values[i] = values[i & mask];
+    if r > 0 { // if r == 0 then this loop is a noop.
+        let mask = !((1 << r) - 1);
+        for i in 0..n {
+            values[i] = values[i & mask];
+        }
     }
 
     let mut m = 1 << (r + 1);
@@ -222,11 +186,13 @@ pub fn fft_thingy<F: Field>(
     values
 }
 
-/// FFT implementation inspired by Barretenberg's:
+/// FFT implementation inspired by Barretenberg's (but with extra unrolling):
 /// https://github.com/AztecProtocol/barretenberg/blob/master/barretenberg/src/aztec/polynomials/polynomial_arithmetic.cpp#L58
 /// https://github.com/AztecProtocol/barretenberg/blob/master/barretenberg/src/aztec/polynomials/evaluation_domain.cpp#L30
-pub(crate) fn fft_barretenberg<F: Field>(
-    input: Vec<F>
+fn fft_unrolled<F: Field>(
+    input: Vec<F>,
+    r: usize,
+    root_table: FftRootTable<F>
 ) -> Vec<F> {
     let n = input.len();
     let lg_n = log2_strict(input.len());
@@ -237,11 +203,6 @@ pub(crate) fn fft_barretenberg<F: Field>(
     if n < 2 {
         return values
     }
-
-    // Precompute a table of the roots of unity used in the main
-    // loops.
-    let mut root_table: FftRootTable<F> = Vec::with_capacity(lg_n);
-    update_fft_root_table(&mut root_table, lg_n);
 
     // The 'm' corresponds to the specialisation from the 'm' in the
     // main loop (m >= 4) below.

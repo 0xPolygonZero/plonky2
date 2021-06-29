@@ -5,7 +5,7 @@ use std::iter::Sum;
 use std::ops::{Add, Mul, Sub};
 
 use crate::field::extension_field::Extendable;
-use crate::field::fft::{fft, ifft, fft_thing};
+use crate::field::fft::{fft, ifft, fft_with_options};
 use crate::field::field::Field;
 use crate::util::log2_strict;
 
@@ -42,7 +42,7 @@ impl<F: Field> PolynomialValues<F> {
 
     pub fn lde(self, rate_bits: usize) -> Self {
         let coeffs = ifft(self).lde(rate_bits);
-        fft_thing(coeffs, rate_bits)
+        fft_with_options(coeffs, Some(rate_bits), None)
     }
 
     pub fn degree(&self) -> usize {
