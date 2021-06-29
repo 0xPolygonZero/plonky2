@@ -230,8 +230,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         product
     }
 
-    /// Like `mul_add`, but for `ExtensionTarget`s. Note that, unlike `mul_add`, this has no
-    /// performance benefit over separate muls and adds.
+    /// Like `mul_add`, but for `ExtensionTarget`s.
     pub fn mul_add_extension(
         &mut self,
         a: ExtensionTarget<D>,
@@ -385,12 +384,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for QuotientGeneratorE
         let dem = witness.get_extension_target(self.denominator);
         let quotient = num / dem;
         let mut pw = PartialWitness::new();
-        for i in 0..D {
-            pw.set_target(
-                self.quotient.to_target_array()[i],
-                quotient.to_basefield_array()[i],
-            );
-        }
+        pw.set_extension_target(self.quotient, quotient);
 
         pw
     }

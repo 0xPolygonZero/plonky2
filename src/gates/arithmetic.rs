@@ -61,7 +61,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
         let computed_output_0 =
             fixed_multiplicand * multiplicand_0 * const_0.into() + addend_0 * const_1.into();
         let computed_output_1 =
-            fixed_multiplicand * multiplicand_1 * const_1.into() + addend_1 * const_1.into();
+            fixed_multiplicand * multiplicand_1 * const_0.into() + addend_1 * const_1.into();
 
         let mut constraints = (output_0 - computed_output_0).to_basefield_array().to_vec();
         constraints.extend((output_1 - computed_output_1).to_basefield_array());
@@ -115,7 +115,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
     }
 
     fn num_wires(&self) -> usize {
-        28
+        7 * D
     }
 
     fn num_constants(&self) -> usize {
