@@ -245,7 +245,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_routed_wires = self.config.num_routed_wires;
         let num_wires = self.config.num_wires;
 
-        for i in 0..regular_poly_openings {
+        for _ in 0..regular_poly_openings {
             let gate = self.add_gate_no_constants(NoopGate::get());
             for w in 0..num_wires {
                 self.add_generator(RandomValueGenerator {
@@ -254,11 +254,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             }
         }
 
-        for i in 0..z_openings {
+        for _ in 0..z_openings {
             let gate_1 = self.add_gate_no_constants(NoopGate::get());
             let gate_2 = self.add_gate_no_constants(NoopGate::get());
 
-            for w in 0..num_wires {
+            for w in 0..num_routed_wires {
                 self.add_generator(RandomValueGenerator {
                     target: Target::Wire(Wire { gate: gate_1, input: w }),
                 });
