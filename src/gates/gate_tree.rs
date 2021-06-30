@@ -222,12 +222,11 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
 mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
-    use crate::gates::arithmetic::ArithmeticGate;
+    use crate::gates::arithmetic::ArithmeticExtensionGate;
     use crate::gates::base_sum::BaseSumGate;
     use crate::gates::constant::ConstantGate;
     use crate::gates::gmimc::GMiMCGate;
     use crate::gates::interpolation::InterpolationGate;
-    use crate::gates::mul_extension::MulExtensionGate;
     use crate::gates::noop::NoopGate;
     use crate::hash::GMIMC_ROUNDS;
 
@@ -240,11 +239,10 @@ mod tests {
         let gates = vec![
             NoopGate::get::<F, D>(),
             ConstantGate::get(),
-            ArithmeticGate::new(),
+            ArithmeticExtensionGate::new(),
             BaseSumGate::<4>::new(4),
             GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants(),
             InterpolationGate::new(4),
-            MulExtensionGate::new(),
         ];
         let len = gates.len();
 

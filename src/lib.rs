@@ -1,3 +1,5 @@
+#![feature(destructuring_assignment)]
+
 pub mod circuit_builder;
 pub mod circuit_data;
 pub mod field;

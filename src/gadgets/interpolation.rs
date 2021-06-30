@@ -72,13 +72,10 @@ mod tests {
     fn test_interpolate() {
         type F = CrandallField;
         type FF = QuarticCrandallField;
-        let config = CircuitConfig {
-            num_routed_wires: 18,
-            ..CircuitConfig::large_config()
-        };
+        let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
-        let len = 2;
+        let len = 4;
         let points = (0..len)
             .map(|_| (F::rand(), FF::rand()))
             .collect::<Vec<_>>();

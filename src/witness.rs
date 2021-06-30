@@ -78,6 +78,18 @@ impl<F: Field> PartialWitness<F> {
         witness
     }
 
+    pub fn singleton_extension_target<const D: usize>(
+        et: ExtensionTarget<D>,
+        value: F::Extension,
+    ) -> Self
+    where
+        F: Extendable<D>,
+    {
+        let mut witness = PartialWitness::new();
+        witness.set_extension_target(et, value);
+        witness
+    }
+
     pub fn is_empty(&self) -> bool {
         self.target_values.is_empty()
     }
