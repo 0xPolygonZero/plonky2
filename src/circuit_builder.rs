@@ -280,48 +280,48 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     fn blind_and_pad(&mut self) {
-        let (regular_poly_openings, z_openings) = self.blinding_counts();
-
-        let num_routed_wires = self.config.num_routed_wires;
-        let num_wires = self.config.num_wires;
-
-        // For each "regular" blinding factor, we simply add a no-op gate, and insert a random value
-        // for each wire.
-        for _ in 0..regular_poly_openings {
-            let gate = self.add_gate_no_constants(NoopGate::get());
-            for w in 0..num_wires {
-                self.add_generator(RandomValueGenerator {
-                    target: Target::Wire(Wire { gate, input: w }),
-                });
-            }
-        }
-
-        // For each z poly blinding factor, we add two new gates with the same random value, and
-        // enforce a copy constraint between them.
-        // See https://mirprotocol.org/blog/Adding-zero-knowledge-to-Plonk-Halo
-        for _ in 0..z_openings {
-            let gate_1 = self.add_gate_no_constants(NoopGate::get());
-            let gate_2 = self.add_gate_no_constants(NoopGate::get());
-
-            for w in 0..num_routed_wires {
-                self.add_generator(RandomValueGenerator {
-                    target: Target::Wire(Wire {
-                        gate: gate_1,
-                        input: w,
-                    }),
-                });
-                self.add_generator(CopyGenerator {
-                    src: Target::Wire(Wire {
-                        gate: gate_1,
-                        input: w,
-                    }),
-                    dst: Target::Wire(Wire {
-                        gate: gate_2,
-                        input: w,
-                    }),
-                });
-            }
-        }
+        // let (regular_poly_openings, z_openings) = self.blinding_counts();
+        //
+        // let num_routed_wires = self.config.num_routed_wires;
+        // let num_wires = self.config.num_wires;
+        //
+        // // For each "regular" blinding factor, we simply add a no-op gate, and insert a random value
+        // // for each wire.
+        // for _ in 0..regular_poly_openings {
+        //     let gate = self.add_gate_no_constants(NoopGate::get());
+        //     for w in 0..num_wires {
+        //         self.add_generator(RandomValueGenerator {
+        //             target: Target::Wire(Wire { gate, input: w }),
+        //         });
+        //     }
+        // }
+        //
+        // // For each z poly blinding factor, we add two new gates with the same random value, and
+        // // enforce a copy constraint between them.
+        // // See https://mirprotocol.org/blog/Adding-zero-knowledge-to-Plonk-Halo
+        // for _ in 0..z_openings {
+        //     let gate_1 = self.add_gate_no_constants(NoopGate::get());
+        //     let gate_2 = self.add_gate_no_constants(NoopGate::get());
+        //
+        //     for w in 0..num_routed_wires {
+        //         self.add_generator(RandomValueGenerator {
+        //             target: Target::Wire(Wire {
+        //                 gate: gate_1,
+        //                 input: w,
+        //             }),
+        //         });
+        //         self.add_generator(CopyGenerator {
+        //             src: Target::Wire(Wire {
+        //                 gate: gate_1,
+        //                 input: w,
+        //             }),
+        //             dst: Target::Wire(Wire {
+        //                 gate: gate_2,
+        //                 input: w,
+        //             }),
+        //         });
+        //     }
+        // }
 
         while !self.gate_instances.len().is_power_of_two() {
             self.add_gate_no_constants(NoopGate::get());

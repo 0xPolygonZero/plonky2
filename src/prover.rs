@@ -13,6 +13,7 @@ use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::timed;
+use crate::util::partial_products::partial_products;
 use crate::util::{ceil_div_usize, log2_ceil, transpose};
 use crate::vars::EvaluationVarsBase;
 use crate::witness::{PartialWitness, Witness};
@@ -89,10 +90,9 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         "to compute Z's"
     );
 
-    let zs_partial_products = [partial_products.concat(), plonk_z_vecs].concat();
     let plonk_zs_commitment = timed!(
         ListPolynomialCommitment::new(
-            zs_partial_products,
+            plonk_z_vecs,
             fri_config.rate_bits,
             PlonkPolynomials::ZS.blinding
         ),
@@ -206,37 +206,33 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
         .max_filtered_constraint_degree
         .next_power_of_two();
     let num_polys = ceil_div_usize(common_data.config.num_routed_wires, vanish_degree);
-    assert!(
-        num_polys <= vanish_degree,
-        "Not supported yet. would need to add partial products of partial products for this."
-    );
     let subgroup = &prover_data.subgroup;
     let mut values = vec![vec![F::ONE; 2 * num_polys]];
     let k_is = &common_data.k_is;
     for i in 1..common_data.degree() {
         let x = subgroup[i - 1];
         let s_sigmas = &prover_data.sigmas[i - 1];
-        let mut partials_numerator = Vec::with_capacity(2 * num_polys);
-        let mut partials_denominator = Vec::with_capacity(num_polys);
-        for chunk in (0..common_data.config.num_routed_wires)
-            .collect::<Vec<_>>()
-            .chunks(vanish_degree)
-        {
-            let (numerator, denominator) = chunk.iter().fold((F::ONE, F::ONE), |acc, &j| {
+        let numerator_values = (0..common_data.config.num_routed_wires)
+            .map(|j| {
                 let wire_value = witness.get_wire(i - 1, j);
                 let k_i = k_is[j];
                 let s_id = k_i * x;
+                wire_value + beta * s_id + gamma
+            })
+            .collect::<Vec<_>>();
+        let denominator_values = (0..common_data.config.num_routed_wires)
+            .map(|j| {
+                let wire_value = witness.get_wire(i - 1, j);
                 let s_sigma = s_sigmas[j];
-                (
-                    acc.0 * wire_value + beta * s_id + gamma,
-                    acc.1 * wire_value + beta * s_sigma + gamma,
-                )
-            });
-            partials_numerator.push(numerator);
-            partials_denominator.push(denominator);
-        }
-        partials_numerator.append(&mut partials_denominator);
-        values.push(partials_numerator);
+                wire_value + beta * s_sigma + gamma
+            })
+            .collect::<Vec<_>>();
+        let partials = [
+            partial_products(numerator_values, vanish_degree),
+            partial_products(denominator_values, vanish_degree),
+        ]
+        .concat();
+        values.push(partials);
     }
 
     transpose(&values)
