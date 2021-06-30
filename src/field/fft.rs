@@ -198,6 +198,10 @@ pub(crate) fn fft_classic<F: Field>(
 /// FFT implementation inspired by Barretenberg's (but with extra unrolling):
 /// https://github.com/AztecProtocol/barretenberg/blob/master/barretenberg/src/aztec/polynomials/polynomial_arithmetic.cpp#L58
 /// https://github.com/AztecProtocol/barretenberg/blob/master/barretenberg/src/aztec/polynomials/evaluation_domain.cpp#L30
+///
+/// The parameter r signifies that the first 1/2^r of the entries of
+/// input may be non-zero, but the last 1 - 1/2^r entries are
+/// definitely zero.
 fn fft_unrolled<F: Field>(
     input: Vec<F>,
     r_orig: usize,
@@ -216,6 +220,7 @@ fn fft_unrolled<F: Field>(
     // The 'm' corresponds to the specialisation from the 'm' in the
     // main loop (m >= 4) below.
 
+    // (See comment in fft_classic near same code.)
     let mut r = r_orig;
     let mut m = 1 << r;
     if r > 0 { // if r == 0 then this loop is a noop.
@@ -335,7 +340,7 @@ pub(crate) fn coset_ifft<F: Field>(poly: PolynomialValues<F>, shift: F) -> Polyn
 #[cfg(test)]
 mod tests {
     use crate::field::crandall_field::CrandallField;
-    use crate::field::fft::{fft, ifft};
+    use crate::field::fft::{fft, ifft, fft_with_options};
     use crate::field::field::Field;
     use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
     use crate::util::{log2_ceil, log2_strict};
@@ -360,6 +365,12 @@ mod tests {
         }
         for i in degree..degree_padded {
             assert_eq!(interpolated_coefficients.coeffs[i], F::ZERO);
+        }
+
+        for r in 0..4 {
+            // expand ceofficients by factor 2^r by filling with zeros
+            let zero_tail = coefficients.clone().lde(r);
+            assert_eq!(fft(zero_tail.clone()), fft_with_options(zero_tail, Some(r), None));
         }
     }
 
