@@ -148,12 +148,19 @@ pub fn ifft_with_options<F: Field>(
 pub(crate) fn fft_classic<F: Field>(
     input: Vec<F>,
     r: usize,
-    root_table: FftRootTable<F>
+    root_table_: FftRootTable<F>
 ) -> Vec<F> {
     let mut values = reverse_index_bits(input);
 
     let n = values.len();
     let lg_n = log2_strict(n);
+
+    // TODO: Check that this doesn't copy root_table_
+    let root_table: FftRootTable<F> = if root_table_.len() != lg_n {
+        fft_classic_root_table(n)
+    } else {
+        root_table_
+    };
 
     // After reverse_index_bits, the only non-zero elements of values
     // are at indices i*2^r for i = 0..n/2^r.  The loop below copies
@@ -191,8 +198,8 @@ pub(crate) fn fft_classic<F: Field>(
 /// https://github.com/AztecProtocol/barretenberg/blob/master/barretenberg/src/aztec/polynomials/evaluation_domain.cpp#L30
 fn fft_unrolled<F: Field>(
     input: Vec<F>,
-    r: usize,
-    root_table: FftRootTable<F>
+    r_orig: usize,
+    root_table_: FftRootTable<F>
 ) -> Vec<F> {
     let n = input.len();
     let lg_n = log2_strict(input.len());
@@ -207,35 +214,59 @@ fn fft_unrolled<F: Field>(
     // The 'm' corresponds to the specialisation from the 'm' in the
     // main loop (m >= 4) below.
 
+    let mut r = r_orig;
+    let mut m = 1 << r;
+    if r > 0 { // if r == 0 then this loop is a noop.
+        let mask = !((1 << r) - 1);
+        for i in 0..n {
+            values[i] = values[i & mask];
+        }
+    }
+
     // m = 1
-    for k in (0..n).step_by(2) {
-        let t = values[k + 1];
-        values[k + 1] = values[k] - t;
-        values[k] += t;
+    if m == 1 {
+        for k in (0..n).step_by(2) {
+            let t = values[k + 1];
+            values[k + 1] = values[k] - t;
+            values[k] += t;
+        }
+        r += 1;
+        m *= 2;
     }
 
     if n == 2 {
         return values
     }
 
-    // m = 2
-    for k in (0..n).step_by(4) {
-        // NB: Grouping statements as is done in the main loop below
-        // does not seem to help here (worse by a few millis).
-        let omega_0 = root_table[0][0];
-        let tmp_0 = omega_0 * values[k + 2 + 0];
-        values[k + 2 + 0] = values[k + 0] - tmp_0;
-        values[k + 0] += tmp_0;
 
-        let omega_1 = root_table[0][1];
-        let tmp_1 = omega_1 * values[k + 2 + 1];
-        values[k + 2 + 1] = values[k + 1] - tmp_1;
-        values[k + 1] += tmp_1;
+    // TODO: Check that this doesn't copy root_table_
+    let root_table: FftRootTable<F> = if root_table_.len() != lg_n {
+        fft_unrolled_root_table(n)
+    } else {
+        root_table_
+    };
+
+    // m = 2
+    if m <= 2 {
+        for k in (0..n).step_by(4) {
+            // NB: Grouping statements as is done in the main loop below
+            // does not seem to help here (worse by a few millis).
+            let omega_0 = root_table[0][0];
+            let tmp_0 = omega_0 * values[k + 2 + 0];
+            values[k + 2 + 0] = values[k + 0] - tmp_0;
+            values[k + 0] += tmp_0;
+
+            let omega_1 = root_table[0][1];
+            let tmp_1 = omega_1 * values[k + 2 + 1];
+            values[k + 2 + 1] = values[k + 1] - tmp_1;
+            values[k + 1] += tmp_1;
+        }
+        r += 1;
+        m *= 2;
     }
 
     // m >= 4
-    let mut m = 4;
-    for lg_m in 2..lg_n {
+    for lg_m in r..lg_n {
         for k in (0..n).step_by(2*m) {
             // Unrolled the commented loop by groups of 4 and
             // rearranged the lines. Improves runtime by about
