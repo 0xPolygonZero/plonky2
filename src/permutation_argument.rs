@@ -110,9 +110,9 @@ impl WirePartitions {
         &self,
         degree_log: usize,
         k_is: &[F],
+        subgroup: &[F],
     ) -> Vec<PolynomialValues<F>> {
         let degree = 1 << degree_log;
-        let subgroup_generator = F::primitive_root_of_unity(degree_log);
         let sigma = self.get_sigma_map(degree);
 
         sigma
@@ -120,7 +120,7 @@ impl WirePartitions {
             .map(|chunk| {
                 let values = chunk
                     .par_iter()
-                    .map(|&x| k_is[x / degree] * subgroup_generator.exp((x % degree) as u64))
+                    .map(|&x| k_is[x / degree] * subgroup[x % degree])
                     .collect::<Vec<_>>();
                 PolynomialValues::new(values)
             })

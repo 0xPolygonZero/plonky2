@@ -8,17 +8,20 @@ use crate::circuit_data::{
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
 use crate::field::cosets::get_unique_coset_shifts;
+use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::gates::constant::ConstantGate;
-use crate::gates::gate::{GateInstance, GateRef};
+use crate::gates::gate::{GateInstance, GateRef, PrefixedGate};
+use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
-use crate::generator::{CopyGenerator, WitnessGenerator};
+use crate::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
 use crate::hash::hash_n_to_hash;
 use crate::permutation_argument::TargetPartitions;
+use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
-use crate::util::{log2_strict, transpose};
+use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 use crate::wire::Wire;
 
 pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
@@ -60,6 +63,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    pub fn num_gates(&self) -> usize {
+        self.gate_instances.len()
+    }
+
     pub fn add_public_input(&mut self) -> Target {
         let index = self.public_input_index;
         self.public_input_index += 1;
@@ -94,6 +101,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Adds a gate to the circuit, and returns its index.
     pub fn add_gate(&mut self, gate_type: GateRef<F, D>, constants: Vec<F>) -> usize {
+        assert_eq!(
+            gate_type.0.num_constants(),
+            constants.len(),
+            "Number of constants doesn't match."
+        );
         // If we haven't seen a gate of this type before, check that it's compatible with our
         // circuit configuration, then register it.
         if !self.gates.contains(&gate_type) {
@@ -129,6 +141,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_equal(src, dst);
     }
 
+    pub fn route_extension(&mut self, src: ExtensionTarget<D>, dst: ExtensionTarget<D>) {
+        for i in 0..D {
+            self.route(src.0[i], dst.0[i]);
+        }
+    }
+
     /// Adds a generator which will copy `src` to `dst`.
     pub fn generate_copy(&mut self, src: Target, dst: Target) {
         self.add_generator(CopyGenerator { src, dst });
@@ -146,6 +164,17 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "Tried to route a wire that isn't routable"
         );
         self.copy_constraints.push((x, y));
+    }
+
+    pub fn assert_zero(&mut self, x: Target) {
+        let zero = self.zero();
+        self.assert_equal(x, zero);
+    }
+
+    pub fn assert_equal_extension(&mut self, x: ExtensionTarget<D>, y: ExtensionTarget<D>) {
+        for i in 0..D {
+            self.assert_equal(x.0[i], y.0[i]);
+        }
     }
 
     pub fn add_generators(&mut self, generators: Vec<Box<dyn WitnessGenerator<F>>>) {
@@ -203,30 +232,121 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.targets_to_constants.get(&target).cloned()
     }
 
+    /// The number of polynomial values that will be revealed per opening, both for the "regular"
+    /// polynomials and for the Z polynomials. Because calculating these values involves a recursive
+    /// dependence (the amount of blinding depends on the degree, which depends on the blinding),
+    /// this function takes in an estimate of the degree.
+    fn num_blinding_gates(&self, degree_estimate: usize) -> (usize, usize) {
+        let fri_queries = self.config.fri_config.num_query_rounds;
+        let arities: Vec<usize> = self
+            .config
+            .fri_config
+            .reduction_arity_bits
+            .iter()
+            .map(|x| 1 << x)
+            .collect();
+        let total_fri_folding_points: usize = arities.iter().map(|x| x - 1).sum::<usize>();
+        let final_poly_coeffs: usize = degree_estimate / arities.iter().product::<usize>();
+        let fri_openings = fri_queries * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
+
+        let regular_poly_openings = D + fri_openings;
+        let z_openings = 2 * D + fri_openings;
+
+        (regular_poly_openings, z_openings)
+    }
+
+    /// The number of polynomial values that will be revealed per opening, both for the "regular"
+    /// polynomials (which are opened at only one location) and for the Z polynomials (which are
+    /// opened at two).
+    fn blinding_counts(&self) -> (usize, usize) {
+        let num_gates = self.gates.len();
+        let mut degree_estimate = 1 << log2_ceil(num_gates);
+
+        loop {
+            let (regular_poly_openings, z_openings) = self.num_blinding_gates(degree_estimate);
+
+            // For most polynomials, we add one random element to offset each opened value.
+            // But blinding Z is separate. For that, we add two random elements with a copy
+            // constraint between them.
+            let total_blinding_count = regular_poly_openings + 2 * z_openings;
+
+            if num_gates + total_blinding_count <= degree_estimate {
+                return (regular_poly_openings, z_openings);
+            }
+
+            // The blinding gates do not fit within our estimated degree; increase our estimate.
+            degree_estimate *= 2;
+        }
+    }
+
     fn blind_and_pad(&mut self) {
-        // TODO: Blind.
+        let (regular_poly_openings, z_openings) = self.blinding_counts();
+
+        let num_routed_wires = self.config.num_routed_wires;
+        let num_wires = self.config.num_wires;
+
+        // For each "regular" blinding factor, we simply add a no-op gate, and insert a random value
+        // for each wire.
+        for _ in 0..regular_poly_openings {
+            let gate = self.add_gate_no_constants(NoopGate::get());
+            for w in 0..num_wires {
+                self.add_generator(RandomValueGenerator {
+                    target: Target::Wire(Wire { gate, input: w }),
+                });
+            }
+        }
+
+        // For each z poly blinding factor, we add two new gates with the same random value, and
+        // enforce a copy constraint between them.
+        // See https://mirprotocol.org/blog/Adding-zero-knowledge-to-Plonk-Halo
+        for _ in 0..z_openings {
+            let gate_1 = self.add_gate_no_constants(NoopGate::get());
+            let gate_2 = self.add_gate_no_constants(NoopGate::get());
+
+            for w in 0..num_routed_wires {
+                self.add_generator(RandomValueGenerator {
+                    target: Target::Wire(Wire {
+                        gate: gate_1,
+                        input: w,
+                    }),
+                });
+                self.add_generator(CopyGenerator {
+                    src: Target::Wire(Wire {
+                        gate: gate_1,
+                        input: w,
+                    }),
+                    dst: Target::Wire(Wire {
+                        gate: gate_2,
+                        input: w,
+                    }),
+                });
+            }
+        }
 
         while !self.gate_instances.len().is_power_of_two() {
             self.add_gate_no_constants(NoopGate::get());
         }
     }
 
-    fn constant_polys(&self) -> Vec<PolynomialValues<F>> {
-        let num_constants = self
-            .gate_instances
-            .iter()
-            .map(|gate_inst| gate_inst.constants.len())
-            .max()
-            .unwrap();
+    fn constant_polys(
+        &self,
+        gates: &[PrefixedGate<F, D>],
+        num_constants: usize,
+    ) -> Vec<PolynomialValues<F>> {
         let constants_per_gate = self
             .gate_instances
             .iter()
-            .map(|gate_inst| {
-                let mut padded_constants = gate_inst.constants.clone();
-                for _ in padded_constants.len()..num_constants {
-                    padded_constants.push(F::ZERO);
-                }
-                padded_constants
+            .map(|gate| {
+                let prefix = &gates
+                    .iter()
+                    .find(|g| g.gate.0.id() == gate.gate_type.0.id())
+                    .unwrap()
+                    .prefix;
+                let mut prefixed_constants = Vec::with_capacity(num_constants);
+                prefixed_constants.extend(prefix.iter().map(|&b| if b { F::ONE } else { F::ZERO }));
+                prefixed_constants.extend_from_slice(&gate.constants);
+                prefixed_constants.resize(num_constants, F::ZERO);
+                prefixed_constants
             })
             .collect::<Vec<_>>();
 
@@ -236,7 +356,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn sigma_vecs(&self, k_is: &[F]) -> Vec<PolynomialValues<F>> {
+    fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> Vec<PolynomialValues<F>> {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
         let mut target_partitions = TargetPartitions::new();
@@ -256,7 +376,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let wire_partitions = target_partitions.to_wire_partitions();
-        wire_partitions.get_sigma_polys(degree_log, k_is)
+        wire_partitions.get_sigma_polys(degree_log, k_is, subgroup)
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
@@ -270,33 +390,37 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let degree = self.gate_instances.len();
         info!("degree after blinding & padding: {}", degree);
 
-        let constant_vecs = self.constant_polys();
-        let constants_commitment = ListPolynomialCommitment::new(
-            constant_vecs.into_iter().map(|v| v.ifft()).collect(),
-            self.config.fri_config.rate_bits,
-            false,
-        );
+        let gates = self.gates.iter().cloned().collect();
+        let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
+        let prefixed_gates = PrefixedGate::from_tree(gate_tree);
+
+        let degree_bits = log2_strict(degree);
+        let subgroup = F::two_adic_subgroup(degree_bits);
+
+        let constant_vecs = self.constant_polys(&prefixed_gates, num_constants);
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
-        let sigma_vecs = self.sigma_vecs(&k_is);
-        let sigmas_commitment = ListPolynomialCommitment::new(
-            sigma_vecs.into_iter().map(|v| v.ifft()).collect(),
+        let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
+
+        let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
+        let constants_sigmas_commitment = ListPolynomialCommitment::new(
+            constants_sigmas_vecs,
             self.config.fri_config.rate_bits,
-            false,
+            PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
         );
 
-        let constants_root = constants_commitment.merkle_tree.root;
-        let sigmas_root = sigmas_commitment.merkle_tree.root;
+        let constants_sigmas_root = constants_sigmas_commitment.merkle_tree.root;
         let verifier_only = VerifierOnlyCircuitData {
-            constants_root,
-            sigmas_root,
+            constants_sigmas_root,
         };
 
-        let generators = self.generators;
         let prover_only = ProverOnlyCircuitData {
-            generators,
-            constants_commitment,
-            sigmas_commitment,
+            generators: self.generators,
+            constants_sigmas_commitment,
+            sigmas: transpose_poly_values(sigma_vecs),
+            subgroup,
+            copy_constraints: self.copy_constraints,
+            gate_instances: self.gate_instances,
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
@@ -310,17 +434,20 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .max()
             .expect("No gates?");
 
-        let degree_bits = log2_strict(degree);
-
         // TODO: This should also include an encoding of gate constraints.
-        let circuit_digest_parts = [constants_root.elements, sigmas_root.elements];
+        let circuit_digest_parts = [
+            constants_sigmas_root.elements.to_vec(),
+            vec![/* Add other circuit data here */],
+        ];
         let circuit_digest = hash_n_to_hash(circuit_digest_parts.concat(), false);
 
         let common = CommonCircuitData {
             config: self.config,
             degree_bits,
-            gates,
+            gates: prefixed_gates,
+            max_filtered_constraint_degree,
             num_gate_constraints,
+            num_constants,
             k_is,
             circuit_digest,
         };

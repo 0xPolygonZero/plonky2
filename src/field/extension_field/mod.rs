@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use crate::field::field::Field;
 
 pub mod algebra;
@@ -12,32 +14,42 @@ pub mod target;
 pub trait OEF<const D: usize>: FieldExtension<D> {
     // Element W of BaseField, such that `X^d - W` is irreducible over BaseField.
     const W: Self::BaseField;
-
-    /// Frobenius automorphisms: x -> x^p, where p is the order of BaseField.
-    fn frobenius(&self) -> Self {
-        let arr = self.to_basefield_array();
-        let k = (Self::BaseField::ORDER - 1) / (D as u64);
-        let z0 = Self::W.exp(k);
-        let mut z = Self::BaseField::ONE;
-        let mut res = [Self::BaseField::ZERO; D];
-        for i in 0..D {
-            res[i] = arr[i] * z;
-            z *= z0;
-        }
-
-        Self::from_basefield_array(res)
-    }
 }
 
 impl<F: Field> OEF<1> for F {
     const W: Self::BaseField = F::ZERO;
 }
 
-pub trait Extendable<const D: usize>: Field + Sized {
-    type Extension: Field + OEF<D, BaseField = Self> + From<Self>;
+pub trait Frobenius<const D: usize>: OEF<D> {
+    /// FrobeniusField automorphisms: x -> x^p, where p is the order of BaseField.
+    fn frobenius(&self) -> Self {
+        self.repeated_frobenius(1)
+    }
+
+    /// Repeated Frobenius automorphisms: x -> x^(p^k).
+    fn repeated_frobenius(&self, count: usize) -> Self {
+        if count == 0 {
+            return *self;
+        } else if count >= D {
+            return self.repeated_frobenius(count % D);
+        }
+        let arr = self.to_basefield_array();
+        let k = (Self::BaseField::ORDER - 1) / (D as u64);
+        let z0 = Self::W.exp(k * count as u64);
+        let mut res = [Self::BaseField::ZERO; D];
+        for (i, z) in z0.powers().take(D).enumerate() {
+            res[i] = arr[i] * z;
+        }
+
+        Self::from_basefield_array(res)
+    }
 }
 
-impl<F: Field> Extendable<1> for F {
+pub trait Extendable<const D: usize>: Field + Sized {
+    type Extension: Field + OEF<D, BaseField = Self> + Frobenius<D> + From<Self>;
+}
+
+impl<F: Frobenius<1> + FieldExtension<1, BaseField = F>> Extendable<1> for F {
     type Extension = F;
 }
 
@@ -88,10 +100,6 @@ where
 {
     debug_assert_eq!(l.len() % D, 0);
     l.chunks_exact(D)
-        .map(|c| {
-            let mut arr = [F::ZERO; D];
-            arr.copy_from_slice(c);
-            F::Extension::from_basefield_array(arr)
-        })
+        .map(|c| F::Extension::from_basefield_array(c.to_vec().try_into().unwrap()))
         .collect()
 }

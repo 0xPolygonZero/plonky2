@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::circuit_data::CircuitConfig;
 use crate::wire::Wire;
 
@@ -20,5 +22,9 @@ impl Target {
             Target::PublicInput { .. } => true,
             Target::VirtualAdviceTarget { .. } => false,
         }
+    }
+
+    pub fn wires_from_range(gate: usize, range: Range<usize>) -> Vec<Self> {
+        range.map(|i| Self::wire(gate, i)).collect()
     }
 }

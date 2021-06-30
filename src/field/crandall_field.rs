@@ -8,7 +8,7 @@ use num::Integer;
 
 use crate::field::extension_field::quadratic::QuadraticCrandallField;
 use crate::field::extension_field::quartic::QuarticCrandallField;
-use crate::field::extension_field::Extendable;
+use crate::field::extension_field::{Extendable, Frobenius};
 use crate::field::field::Field;
 
 /// EPSILON = 9 * 2**28 - 1
@@ -446,6 +446,8 @@ fn reduce128(x: u128) -> CrandallField {
 fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
 }
+
+impl Frobenius<1> for CrandallField {}
 
 #[cfg(test)]
 mod tests {

@@ -1,11 +1,7 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
-use crate::gates::arithmetic::ArithmeticGate;
-use crate::generator::SimpleGenerator;
 use crate::target::Target;
-use crate::wire::Wire;
-use crate::witness::PartialWitness;
+use crate::util::bits_u64;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes `-x`.
@@ -39,30 +35,18 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         {
             return result;
         }
+        let multiplicand_0_ext = self.convert_to_ext(multiplicand_0);
+        let multiplicand_1_ext = self.convert_to_ext(multiplicand_1);
+        let addend_ext = self.convert_to_ext(addend);
 
-        let gate = self.add_gate(ArithmeticGate::new(), vec![const_0, const_1]);
-
-        let wire_multiplicand_0 = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_MULTIPLICAND_0,
-        };
-        let wire_multiplicand_1 = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_MULTIPLICAND_1,
-        };
-        let wire_addend = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_ADDEND,
-        };
-        let wire_output = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_OUTPUT,
-        };
-
-        self.route(multiplicand_0, Target::Wire(wire_multiplicand_0));
-        self.route(multiplicand_1, Target::Wire(wire_multiplicand_1));
-        self.route(addend, Target::Wire(wire_addend));
-        Target::Wire(wire_output)
+        self.arithmetic_extension(
+            const_0,
+            const_1,
+            multiplicand_0_ext,
+            multiplicand_1_ext,
+            addend_ext,
+        )
+        .0[0]
     }
 
     /// Checks for special cases where the value of
@@ -140,6 +124,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.arithmetic(F::ONE, x, one, F::ONE, y)
     }
 
+    // TODO: Can be made `2*D` times more efficient by using all wires of an `ArithmeticExtensionGate`.
     pub fn add_many(&mut self, terms: &[Target]) -> Target {
         let mut sum = self.zero();
         for term in terms {
@@ -169,6 +154,32 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         product
     }
 
+    // TODO: Optimize this, maybe with a new gate.
+    // TODO: Test
+    /// Exponentiate `base` to the power of `exponent`, where `exponent < 2^num_bits`.
+    pub fn exp(&mut self, base: Target, exponent: Target, num_bits: usize) -> Target {
+        let mut current = base;
+        let one_ext = self.one_extension();
+        let mut product = self.one();
+        let exponent_bits = self.split_le(exponent, num_bits);
+
+        for bit in exponent_bits.into_iter() {
+            let current_ext = self.convert_to_ext(current);
+            let multiplicand = self.select(bit, current_ext, one_ext);
+            product = self.mul(product, multiplicand.0[0]);
+            current = self.mul(current, current);
+        }
+
+        product
+    }
+
+    /// Exponentiate `base` to the power of a known `exponent`.
+    // TODO: Test
+    pub fn exp_u64(&mut self, base: Target, exponent: u64) -> Target {
+        let base_ext = self.convert_to_ext(base);
+        self.exp_u64_extension(base_ext, exponent).0[0]
+    }
+
     /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
     /// some cases, as it allows `0 / 0 = <anything>`.
     pub fn div_unsafe(&mut self, x: Target, y: Target) -> Target {
@@ -187,59 +198,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return self.constant(x_const / y_const);
         }
 
-        // Add an `ArithmeticGate` to compute `q * y`.
-        let gate = self.add_gate(ArithmeticGate::new(), vec![F::ONE, F::ZERO]);
-
-        let wire_multiplicand_0 = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_MULTIPLICAND_0,
-        };
-        let wire_multiplicand_1 = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_MULTIPLICAND_1,
-        };
-        let wire_addend = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_ADDEND,
-        };
-        let wire_output = Wire {
-            gate,
-            input: ArithmeticGate::WIRE_OUTPUT,
-        };
-
-        let q = Target::Wire(wire_multiplicand_0);
-        self.add_generator(QuotientGenerator {
-            numerator: x,
-            denominator: y,
-            quotient: q,
-        });
-
-        self.route(y, Target::Wire(wire_multiplicand_1));
-
-        // This can be anything, since the whole second term has a weight of zero.
-        self.route(zero, Target::Wire(wire_addend));
-
-        let q_y = Target::Wire(wire_output);
-        self.assert_equal(q_y, x);
-
-        q
-    }
-}
-
-struct QuotientGenerator {
-    numerator: Target,
-    denominator: Target,
-    quotient: Target,
-}
-
-impl<F: Field> SimpleGenerator<F> for QuotientGenerator {
-    fn dependencies(&self) -> Vec<Target> {
-        vec![self.numerator, self.denominator]
-    }
-
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let num = witness.get_target(self.numerator);
-        let den = witness.get_target(self.denominator);
-        PartialWitness::singleton_target(self.quotient, num / den)
+        let x_ext = self.convert_to_ext(x);
+        let y_ext = self.convert_to_ext(y);
+        self.div_unsafe_extension(x_ext, y_ext).0[0]
     }
 }

@@ -24,10 +24,7 @@ pub(crate) fn generate_partial_witness<F: Field>(
 
     // Build a list of "pending" generators which are queued to be run. Initially, all generators
     // are queued.
-    let mut pending_generator_indices = HashSet::new();
-    for i in 0..generators.len() {
-        pending_generator_indices.insert(i);
-    }
+    let mut pending_generator_indices: HashSet<_> = (0..generators.len()).collect();
 
     // We also track a list of "expired" generators which have already returned false.
     let mut expired_generator_indices = HashSet::new();
@@ -58,6 +55,11 @@ pub(crate) fn generate_partial_witness<F: Field>(
 
         pending_generator_indices = next_pending_generator_indices;
     }
+    assert_eq!(
+        expired_generator_indices.len(),
+        generators.len(),
+        "Some generators weren't run."
+    );
 }
 
 /// A generator participates in the generation of the witness.
@@ -109,5 +111,22 @@ impl<F: Field> SimpleGenerator<F> for CopyGenerator {
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
         let value = witness.get_target(self.src);
         PartialWitness::singleton_target(self.dst, value)
+    }
+}
+
+/// A generator for including a random value
+pub(crate) struct RandomValueGenerator {
+    pub(crate) target: Target,
+}
+
+impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
+    fn dependencies(&self) -> Vec<Target> {
+        Vec::new()
+    }
+
+    fn run_once(&self, _witness: &PartialWitness<F>) -> PartialWitness<F> {
+        let random_value = F::rand();
+
+        PartialWitness::singleton_target(self.target, random_value)
     }
 }

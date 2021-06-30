@@ -5,7 +5,7 @@ use crate::gates::gate::GateRef;
 use crate::proof::ProofTarget;
 
 const MIN_WIRES: usize = 120; // TODO: Double check.
-const MIN_ROUTED_WIRES: usize = 8; // TODO: Double check.
+const MIN_ROUTED_WIRES: usize = 28; // TODO: Double check.
 
 /// Recursively verifies an inner proof.
 pub fn add_recursive_verifier<F: Extendable<D>, const D: usize>(
@@ -13,7 +13,7 @@ pub fn add_recursive_verifier<F: Extendable<D>, const D: usize>(
     inner_config: CircuitConfig,
     inner_circuit: VerifierCircuitTarget,
     inner_gates: Vec<GateRef<F, D>>,
-    inner_proof: ProofTarget,
+    inner_proof: ProofTarget<D>,
 ) {
     assert!(builder.config.num_wires >= MIN_WIRES);
     assert!(builder.config.num_wires >= MIN_ROUTED_WIRES);

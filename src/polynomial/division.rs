@@ -26,7 +26,7 @@ impl<F: Field> PolynomialCoeffs<F> {
                 .to_vec()
                 .into();
             let mut q = rev_q.rev();
-            let mut qb = &q * b;
+            let qb = &q * b;
             let mut r = self - &qb;
             q.trim();
             r.trim();
@@ -59,8 +59,7 @@ impl<F: Field> PolynomialCoeffs<F> {
                 quotient.coeffs[cur_q_degree] = cur_q_coeff;
 
                 for (i, &div_coeff) in b.coeffs.iter().enumerate() {
-                    remainder.coeffs[cur_q_degree + i] =
-                        remainder.coeffs[cur_q_degree + i] - (cur_q_coeff * div_coeff);
+                    remainder.coeffs[cur_q_degree + i] -= cur_q_coeff * div_coeff;
                 }
                 remainder.trim();
             }
@@ -97,7 +96,7 @@ impl<F: Field> PolynomialCoeffs<F> {
         let denominators = (0..a_eval.len())
             .map(|i| {
                 if i != 0 {
-                    root_pow = root_pow * root_n;
+                    root_pow *= root_n;
                 }
                 denominator_g * root_pow - F::ONE
             })
@@ -125,8 +124,25 @@ impl<F: Field> PolynomialCoeffs<F> {
         p
     }
 
+    /// Let `self=p(X)`, this returns `(p(X)-p(z))/(X-z)` and `p(z)`.
+    /// See https://en.wikipedia.org/wiki/Horner%27s_method
+    pub(crate) fn divide_by_linear(&self, z: F) -> (PolynomialCoeffs<F>, F) {
+        let mut bs = self
+            .coeffs
+            .iter()
+            .rev()
+            .scan(F::ZERO, |acc, &c| {
+                *acc = *acc * z + c;
+                Some(*acc)
+            })
+            .collect::<Vec<_>>();
+        let ev = bs.pop().unwrap_or(F::ZERO);
+        bs.reverse();
+        (Self { coeffs: bs }, ev)
+    }
+
     /// Computes the inverse of `self` modulo `x^n`.
-    pub(crate) fn inv_mod_xn(&self, n: usize) -> Self {
+    pub fn inv_mod_xn(&self, n: usize) -> Self {
         assert!(self.coeffs[0].is_nonzero(), "Inverse doesn't exist.");
 
         let h = if self.len() < n {
@@ -166,7 +182,10 @@ impl<F: Field> PolynomialCoeffs<F> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
     use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
     use crate::polynomial::polynomial::PolynomialCoeffs;
 
@@ -198,5 +217,50 @@ mod tests {
 
         let computed_q = a.divide_by_z_h(4);
         assert_eq!(computed_q, q);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_division_by_linear() {
+        type F = QuarticCrandallField;
+        let n = 1_000_000;
+        let poly = PolynomialCoeffs::new(F::rand_vec(n));
+        let z = F::rand();
+        let ev = poly.eval(z);
+
+        let timer = Instant::now();
+        let (quotient, ev2) = poly.div_rem(&PolynomialCoeffs::new(vec![-z, F::ONE]));
+        println!("{:.3}s for usual", timer.elapsed().as_secs_f32());
+        assert_eq!(ev2.trimmed().coeffs, vec![ev]);
+
+        let timer = Instant::now();
+        let (quotient, ev3) = poly.div_rem_long_division(&PolynomialCoeffs::new(vec![-z, F::ONE]));
+        println!("{:.3}s for long division", timer.elapsed().as_secs_f32());
+        assert_eq!(ev3.trimmed().coeffs, vec![ev]);
+
+        let timer = Instant::now();
+        let horn = poly.divide_by_linear(z);
+        println!("{:.3}s for Horner", timer.elapsed().as_secs_f32());
+        assert_eq!((quotient, ev), horn);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_division_by_quadratic() {
+        type F = QuarticCrandallField;
+        let n = 1_000_000;
+        let poly = PolynomialCoeffs::new(F::rand_vec(n));
+        let quad = PolynomialCoeffs::new(F::rand_vec(2));
+
+        let timer = Instant::now();
+        let (quotient0, rem0) = poly.div_rem(&quad);
+        println!("{:.3}s for usual", timer.elapsed().as_secs_f32());
+
+        let timer = Instant::now();
+        let (quotient1, rem1) = poly.div_rem_long_division(&quad);
+        println!("{:.3}s for long division", timer.elapsed().as_secs_f32());
+
+        assert_eq!(quotient0.trimmed(), quotient1.trimmed());
+        assert_eq!(rem0.trimmed(), rem1.trimmed());
     }
 }
