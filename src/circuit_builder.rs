@@ -259,7 +259,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// polynomials (which are opened at only one location) and for the Z polynomials (which are
     /// opened at two).
     fn blinding_counts(&self) -> (usize, usize) {
-        let num_gates = self.gates.len();
+        let num_gates = self.gate_instances.len();
         let mut degree_estimate = 1 << log2_ceil(num_gates);
 
         loop {
