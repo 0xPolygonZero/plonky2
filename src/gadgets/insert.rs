@@ -5,14 +5,9 @@ use crate::target::Target;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Evaluates to 1 if `x` and `y` are equal, 0 otherwise.
-    pub fn is_equal(
-        &mut self,
-        x: Target,
-        y: Target,
-    ) -> Target {
-
+    pub fn is_equal(&mut self, _x: Target, _y: Target) -> Target {
+        todo!()
     }
-
 
     /// Inserts a `Target` in a vector at a non-deterministic index. This is done by rotating to the
     /// left, inserting at 0 and then rotating to the right.
@@ -28,16 +23,21 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut cur_index = self.zero();
         for i in 0..v.len() {
-            cur_index = self.add(cur_index, self.one());
+            let one = self.one();
+            
+            cur_index = self.add(cur_index, one);
             let insert_here = self.is_equal(cur_index, index);
 
-            let mut new_item = self.zero();
-            new_item = self.add(new_item, self.mul(insert_here, element));
-            new_item = self.add(new_item, self.mul(already_inserted, v[i-1]));
+            let mut new_item = self.zero_extension();
+            new_item = self.scalar_mul_add_extension(insert_here, element, new_item);
+            if i > 0 {
+                new_item =
+                    self.scalar_mul_add_extension(already_inserted, v[i - 1], new_item);
+            }
             already_inserted = self.add(already_inserted, insert_here);
 
-            let not_already_inserted = self.sub(self.one(), already_inserted);
-            new_item = self.mul_add(not_already_inserted, v[i], new_item);
+            let not_already_inserted = self.sub(one, already_inserted);
+            new_item = self.scalar_mul_add_extension(not_already_inserted, v[i], new_item);
 
             new_list.push(new_item);
         }
