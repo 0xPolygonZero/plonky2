@@ -21,11 +21,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut already_inserted = self.zero();
         let mut new_list = Vec::new();
 
-        let mut cur_index = self.zero();
         for i in 0..v.len() {
             let one = self.one();
             
-            cur_index = self.add(cur_index, one);
+            let cur_index = self.constant(F::from_canonical_usize(i));
             let insert_here = self.is_equal(cur_index, index);
 
             let mut new_item = self.zero_extension();
