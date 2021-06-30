@@ -91,9 +91,10 @@ impl<const D: usize> ReducingFactorTarget<D> {
     }
 
     /// Reduces a length `n` vector of `ExtensionTarget`s using `n/2` `ArithmeticExtensionGate`s.
-    /// It does this by running two accumulators in parallel. Here's an example with `n=4, alpha=2, D=1`:
-    /// 1st gate: 2 0 4 11 2 4  24 <- 2*0+4= 4, 2*11+2=24
-    /// 2nd gate: 2 4 3 24 1 11 49 <- 2*4+3=11, 2*24+1=49
+    /// It does this by batching two steps of Horner's method in each gate.
+    /// Here's an example with `n=4, alpha=2, D=1`:
+    /// 1st gate: 2  0 4  4 3  4 11 <- 2*0+4=4, 2*4+3=11
+    /// 2nd gate: 2 11 2 24 1 24 49 <- 2*11+2=24, 2*24+1=49
     /// which verifies that `2.reduce([1,2,3,4]) = 49`.
     pub fn reduce<F>(
         &mut self,
