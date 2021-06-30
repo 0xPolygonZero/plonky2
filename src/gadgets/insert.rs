@@ -4,6 +4,16 @@ use crate::field::extension_field::Extendable;
 use crate::target::Target;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    /// Evaluates to 1 if `x` and `y` are equal, 0 otherwise.
+    pub fn is_equal(
+        &mut self,
+        x: Target,
+        y: Target,
+    ) -> Target {
+
+    }
+
+
     /// Inserts a `Target` in a vector at a non-deterministic index. This is done by rotating to the
     /// left, inserting at 0 and then rotating to the right.
     /// Note: `index` is not range-checked.
@@ -13,9 +23,24 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         element: ExtensionTarget<D>,
         v: Vec<ExtensionTarget<D>>,
     ) -> Vec<ExtensionTarget<D>> {
-        let mut v = self.rotate_left(index, &v);
-        v.insert(0, element);
-        self.rotate_right(index, &v)
+        let mut already_inserted = self.zero();
+        let mut new_list = Vec::new();
+
+        let mut cur_index = self.zero();
+        for i in 0..v.len() {
+            cur_index = self.add(cur_index, self.one());
+            let insert_here = self.is_equal(cur_index, index);
+
+            let mut new_item = self.zero();
+            new_item = self.add(new_item, self.mul(insert_here, element));
+            new_item = self.add(new_item, self.mul(already_inserted, v[i-1]));
+            already_inserted = self.add(already_inserted, insert_here);
+            new_item = self.add(new_item, self.mul(self.sub(self.one(), already_inserted), v[i]));
+
+            new_list.push(new_item);
+        }
+
+        new_list
     }
 }
 #[cfg(test)]
