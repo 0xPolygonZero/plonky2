@@ -146,7 +146,7 @@ pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     pub(crate) gates: Vec<PrefixedGate<F, D>>,
 
     /// The maximum degree of a filter times a constraint by any gate.
-    pub(crate) max_filtered_constraint_degree_bits: usize,
+    pub(crate) max_filtered_constraint_degree: usize,
 
     /// The largest number of constraints imposed by any gate.
     pub(crate) num_gate_constraints: usize,
@@ -184,7 +184,7 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     pub fn quotient_degree(&self) -> usize {
-        ((1 << self.max_filtered_constraint_degree_bits) - 1) * self.degree()
+        (self.max_filtered_constraint_degree - 1) * self.degree()
     }
 
     pub fn total_constraints(&self) -> usize {
