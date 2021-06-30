@@ -11,6 +11,52 @@ use crate::target::Target;
 use crate::wire::Wire;
 
 #[derive(Clone, Debug)]
+pub struct Witness<F: Field> {
+    pub(crate) wire_values: Vec<Vec<F>>,
+}
+
+impl<F: Field> Witness<F> {
+    pub fn get_wire(&self, gate: usize, input: usize) -> F {
+        self.wire_values[input][gate]
+    }
+
+    /// Checks that the copy constraints are satisfied in the witness.
+    pub fn check_copy_constraints<const D: usize>(
+        &self,
+        copy_constraints: &[(Target, Target)],
+        gate_instances: &[GateInstance<F, D>],
+    ) -> Result<()>
+    where
+        F: Extendable<D>,
+    {
+        for &(a, b) in copy_constraints {
+            // TODO: Take care of public inputs once they land.
+            if let (
+                Target::Wire(Wire {
+                    gate: a_gate,
+                    input: a_input,
+                }),
+                Target::Wire(Wire {
+                    gate: b_gate,
+                    input: b_input,
+                }),
+            ) = (a, b)
+            {
+                let va = self.get_wire(a_gate, a_input);
+                let vb = self.get_wire(b_gate, b_input);
+                ensure!(
+                    va == vb,
+                    "Copy constraint between wire {} of gate #{} (`{}`) and wire {} of gate #{} (`{}`) is not satisfied. \
+                    Got values of {} and {} respectively.",
+                    a_input, a_gate, gate_instances[a_gate].gate_type.0.id(), b_input, b_gate,
+                    gate_instances[b_gate].gate_type.0.id(), va, vb);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct PartialWitness<F: Field> {
     pub(crate) target_values: HashMap<Target, F>,
 }
@@ -137,29 +183,14 @@ impl<F: Field> PartialWitness<F> {
         }
     }
 
-    /// Checks that the copy constraints are satisfied in the witness.
-    pub fn check_copy_constraints<const D: usize>(
-        &self,
-        copy_constraints: &[(Target, Target)],
-        gate_instances: &[GateInstance<F, D>],
-    ) -> Result<()>
-    where
-        F: Extendable<D>,
-    {
-        for &(a, b) in copy_constraints {
-            // TODO: Take care of public inputs once they land.
-            if let (Target::Wire(wa), Target::Wire(wb)) = (a, b) {
-                let va = self.target_values.get(&a).copied().unwrap_or(F::ZERO);
-                let vb = self.target_values.get(&b).copied().unwrap_or(F::ZERO);
-                ensure!(
-                    va == vb,
-                    "Copy constraint between wire {} of gate #{} (`{}`) and wire {} of gate #{} (`{}`) is not satisfied. \
-                    Got values of {} and {} respectively.",
-                    wa.input, wa.gate, gate_instances[wa.gate].gate_type.0.id(), wb.input, wb.gate,
-                    gate_instances[wb.gate].gate_type.0.id(), va, vb);
+    pub fn full_witness(self, degree: usize, num_wires: usize) -> Witness<F> {
+        let mut wire_values = vec![vec![F::ZERO; degree]; num_wires];
+        self.target_values.into_iter().for_each(|(t, v)| {
+            if let Target::Wire(Wire { gate, input }) = t {
+                wire_values[input][gate] = v;
             }
-        }
-        Ok(())
+        });
+        Witness { wire_values }
     }
 }
 

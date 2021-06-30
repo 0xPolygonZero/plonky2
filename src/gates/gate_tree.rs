@@ -57,8 +57,9 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
     /// For this construction, we use the greedy algorithm in `Self::find_tree`.
     /// This latter function greedily adds gates at the depth where
     /// `filtered_deg(gate)=D, constant_wires(gate)=C` to ensure no space is wasted.
-    /// We return the first tree found in this manner.
-    pub fn from_gates(mut gates: Vec<GateRef<F, D>>) -> Self {
+    /// We return the first tree found in this manner, along with it's maximum filtered degree
+    /// and the number of constant wires needed when using this tree.
+    pub fn from_gates(mut gates: Vec<GateRef<F, D>>) -> (Self, usize, usize) {
         let timer = std::time::Instant::now();
         gates.sort_unstable_by_key(|g| (-(g.0.degree() as isize), -(g.0.num_constants() as isize)));
 
@@ -67,14 +68,30 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
             // So we can restrict our search space by setting `max_degree` to a power of 2.
             let max_degree = 1 << max_degree_bits;
             for max_constants in 1..100 {
-                if let Some(mut tree) = Self::find_tree(&gates, max_degree, max_constants) {
-                    tree.shorten();
+                if let Some(mut best_tree) = Self::find_tree(&gates, max_degree, max_constants) {
+                    let mut best_num_constants = best_tree.num_constants();
+                    let mut best_degree = max_degree;
+                    // Iterate backwards from `max_degree` to try to find a tree with a lower degree
+                    // but the same number of constants.
+                    'optdegree: for degree in (0..max_degree).rev() {
+                        if let Some(mut tree) = Self::find_tree(&gates, degree, max_constants) {
+                            let num_constants = tree.num_constants();
+                            if num_constants > best_num_constants {
+                                break 'optdegree;
+                            } else {
+                                best_degree = degree;
+                                best_num_constants = num_constants;
+                                best_tree = tree;
+                            }
+                        }
+                    }
                     info!(
-                        "Found tree with max degree {} in {}s.",
-                        max_degree,
+                        "Found tree with max degree {} and {} constants wires in {}s.",
+                        best_degree,
+                        best_num_constants,
                         timer.elapsed().as_secs_f32()
                     );
-                    return tree;
+                    return (best_tree, best_degree, best_num_constants);
                 }
             }
         }
@@ -89,6 +106,7 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
         for g in gates {
             tree.try_add_gate(g, max_degree, max_constants)?;
         }
+        tree.shorten();
         Some(tree)
     }
 
@@ -180,6 +198,24 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
             }
         }
     }
+
+    /// Returns the tree's maximum filtered constraint degree.
+    fn max_filtered_degree(&self) -> usize {
+        self.traversal()
+            .into_iter()
+            .map(|(g, p)| g.0.degree() + p.len())
+            .max()
+            .expect("Empty tree.")
+    }
+
+    /// Returns the number of constant wires needed to fit all prefixes and gate constants.
+    fn num_constants(&self) -> usize {
+        self.traversal()
+            .into_iter()
+            .map(|(g, p)| g.0.num_constants() + p.len())
+            .max()
+            .expect("Empty tree.")
+    }
 }
 
 #[cfg(test)]
@@ -210,7 +246,7 @@ mod tests {
         ];
         let len = gates.len();
 
-        let tree = Tree::from_gates(gates.clone());
+        let (tree, _, _) = Tree::from_gates(gates.clone());
         let mut gates_with_prefix = tree.traversal();
         for (g, p) in &gates_with_prefix {
             info!(

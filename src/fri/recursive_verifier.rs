@@ -159,8 +159,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Polynomials opened at `x`, i.e., the constants, sigmas and quotient polynomials.
         let single_evals = [
-            PlonkPolynomials::CONSTANTS,
-            PlonkPolynomials::SIGMAS,
+            PlonkPolynomials::CONSTANTS_SIGMAS,
             PlonkPolynomials::QUOTIENT,
         ]
         .iter()

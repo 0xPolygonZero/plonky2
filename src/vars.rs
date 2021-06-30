@@ -6,13 +6,13 @@ use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTar
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct EvaluationVars<'a, F: Extendable<D>, const D: usize> {
     pub(crate) local_constants: &'a [F::Extension],
     pub(crate) local_wires: &'a [F::Extension],
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct EvaluationVarsBase<'a, F: Field> {
     pub(crate) local_constants: &'a [F],
     pub(crate) local_wires: &'a [F],

@@ -1,6 +1,7 @@
 use anyhow::Result;
 use rayon::prelude::*;
 
+use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::{FieldExtension, Frobenius};
 use crate::field::field::Field;
@@ -8,11 +9,11 @@ use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::PlonkPolynomials;
-use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriProof, FriProofTarget, Hash, OpeningSet};
 use crate::timed;
 use crate::util::scaling::ReducingFactor;
-use crate::util::{log2_strict, reverse_index_bits_in_place, transpose};
+use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
 
 pub const SALT_SIZE: usize = 2;
 
@@ -20,18 +21,49 @@ pub struct ListPolynomialCommitment<F: Field> {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
     pub merkle_tree: MerkleTree<F>,
     pub degree: usize,
+    pub degree_log: usize,
     pub rate_bits: usize,
     pub blinding: bool,
 }
 
 impl<F: Field> ListPolynomialCommitment<F> {
-    pub fn new(polynomials: Vec<PolynomialCoeffs<F>>, rate_bits: usize, blinding: bool) -> Self {
+    /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
+    pub fn new(values: Vec<PolynomialValues<F>>, rate_bits: usize, blinding: bool) -> Self {
+        let degree = values[0].len();
+        let polynomials = values
+            .par_iter()
+            .map(|v| v.clone().ifft())
+            .collect::<Vec<_>>();
+        let lde_values = timed!(
+            Self::lde_values(&polynomials, rate_bits, blinding),
+            "to compute LDE"
+        );
+
+        Self::new_from_data(polynomials, lde_values, degree, rate_bits, blinding)
+    }
+
+    /// Creates a list polynomial commitment for the polynomials `polynomials`.
+    pub fn new_from_polys(
+        polynomials: Vec<PolynomialCoeffs<F>>,
+        rate_bits: usize,
+        blinding: bool,
+    ) -> Self {
         let degree = polynomials[0].len();
         let lde_values = timed!(
             Self::lde_values(&polynomials, rate_bits, blinding),
             "to compute LDE"
         );
 
+        Self::new_from_data(polynomials, lde_values, degree, rate_bits, blinding)
+    }
+
+    fn new_from_data(
+        polynomials: Vec<PolynomialCoeffs<F>>,
+        lde_values: Vec<Vec<F>>,
+        degree: usize,
+        rate_bits: usize,
+        blinding: bool,
+    ) -> Self {
         let mut leaves = timed!(transpose(&lde_values), "to transpose LDEs");
         reverse_index_bits_in_place(&mut leaves);
         let merkle_tree = timed!(MerkleTree::new(leaves, false), "to build Merkle tree");
@@ -40,6 +72,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             polynomials,
             merkle_tree,
             degree,
+            degree_log: log2_strict(degree),
             rate_bits,
             blinding,
         }
@@ -55,10 +88,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .par_iter()
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degree invalid.");
-                p.clone()
-                    .lde(rate_bits)
-                    .coset_fft(F::MULTIPLICATIVE_GROUP_GENERATOR)
-                    .values
+                p.clone().lde(rate_bits).coset_fft(F::coset_shift()).values
             })
             .chain(if blinding {
                 // If blinding, salt with two random elements to each leaf vector.
@@ -71,24 +101,26 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .collect()
     }
 
-    pub fn leaf(&self, index: usize) -> &[F] {
-        let leaf = &self.merkle_tree.leaves[index];
-        &leaf[0..leaf.len() - if self.blinding { SALT_SIZE } else { 0 }]
+    pub fn get_lde_values(&self, index: usize) -> &[F] {
+        let index = reverse_bits(index, self.degree_log + self.rate_bits);
+        let slice = &self.merkle_tree.leaves[index];
+        &slice[..slice.len() - if self.blinding { SALT_SIZE } else { 0 }]
     }
 
     /// Takes the commitments to the constants - sigmas - wires - zs - quotient — polynomials,
     /// and an opening point `zeta` and produces a batched opening proof + opening set.
     pub fn open_plonk<const D: usize>(
-        commitments: &[&Self; 5],
+        commitments: &[&Self; 4],
         zeta: F::Extension,
         challenger: &mut Challenger<F>,
-        config: &FriConfig,
+        common_data: &CommonCircuitData<F, D>,
     ) -> (OpeningProof<F, D>, OpeningSet<F, D>)
     where
         F: Extendable<D>,
     {
+        let config = &common_data.config.fri_config;
         assert!(D > 1, "Not implemented for D=1.");
-        let degree_log = log2_strict(commitments[0].degree);
+        let degree_log = commitments[0].degree_log;
         let g = F::Extension::primitive_root_of_unity(degree_log);
         for p in &[zeta, g * zeta] {
             assert_ne!(
@@ -105,7 +137,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             commitments[1],
             commitments[2],
             commitments[3],
-            commitments[4],
+            common_data,
         );
         challenger.observe_opening_set(&os);
 
@@ -117,8 +149,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
 
         // Polynomials opened at a single point.
         let single_polys = [
-            PlonkPolynomials::CONSTANTS,
-            PlonkPolynomials::SIGMAS,
+            PlonkPolynomials::CONSTANTS_SIGMAS,
             PlonkPolynomials::QUOTIENT,
         ]
         .iter()
@@ -251,16 +282,17 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
+    use crate::circuit_data::CircuitConfig;
     use crate::plonk_common::PlonkPolynomials;
 
     fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(
         k: usize,
         degree_log: usize,
-    ) -> Vec<PolynomialCoeffs<F>> {
+    ) -> Vec<PolynomialValues<F>> {
         let degree = 1 << degree_log;
 
         (0..k)
-            .map(|_| PolynomialCoeffs::new(F::rand_vec(degree)))
+            .map(|_| PolynomialValues::new(F::rand_vec(degree)))
             .collect()
     }
 
@@ -278,7 +310,7 @@ mod tests {
     }
 
     fn check_batch_polynomial_commitment<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
-        let ks = [1, 2, 3, 5, 8];
+        let ks = [10, 2, 3, 8];
         let degree_log = 11;
         let fri_config = FriConfig {
             proof_of_work_bits: 2,
@@ -286,12 +318,27 @@ mod tests {
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
         };
+        // We only care about `fri_config, num_constants`, and `num_routed_wires` here.
+        let common_data = CommonCircuitData {
+            config: CircuitConfig {
+                fri_config,
+                num_routed_wires: 6,
+                ..CircuitConfig::large_config()
+            },
+            degree_bits: 0,
+            gates: vec![],
+            max_filtered_constraint_degree: 0,
+            num_gate_constraints: 0,
+            num_constants: 4,
+            k_is: vec![F::ONE; 6],
+            circuit_digest: Hash::from_partial(vec![]),
+        };
 
-        let lpcs = (0..5)
+        let lpcs = (0..4)
             .map(|i| {
                 ListPolynomialCommitment::<F>::new(
                     gen_random_test_case(ks[i], degree_log),
-                    fri_config.rate_bits,
+                    common_data.config.fri_config.rate_bits,
                     PlonkPolynomials::polynomials(i).blinding,
                 )
             })
@@ -299,10 +346,10 @@ mod tests {
 
         let zeta = gen_random_point::<F, D>(degree_log);
         let (proof, os) = ListPolynomialCommitment::open_plonk::<D>(
-            &[&lpcs[0], &lpcs[1], &lpcs[2], &lpcs[3], &lpcs[4]],
+            &[&lpcs[0], &lpcs[1], &lpcs[2], &lpcs[3]],
             zeta,
             &mut Challenger::new(),
-            &fri_config,
+            &common_data,
         );
 
         proof.verify(
@@ -313,10 +360,9 @@ mod tests {
                 lpcs[1].merkle_tree.root,
                 lpcs[2].merkle_tree.root,
                 lpcs[3].merkle_tree.root,
-                lpcs[4].merkle_tree.root,
             ],
             &mut Challenger::new(),
-            &fri_config,
+            &common_data.config.fri_config,
         )
     }
 
