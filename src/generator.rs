@@ -130,3 +130,38 @@ impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
         PartialWitness::singleton_target(self.target, random_value)
     }
 }
+
+
+/// A generator for including a random value
+pub(crate) struct EqualityGenerator {
+    pub(crate) x: Target,
+    pub(crate) m: Target,
+    pub(crate) y: Target,
+}
+
+impl<F: Field> SimpleGenerator<F> for EqualityGenerator {
+    fn dependencies(&self) -> Vec<Target> {
+        vec![self.x]
+    }
+
+    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+        let x_value = witness.get_target(self.x);
+
+        let y_value = if x_value == F::ZERO {
+            F::ZERO
+        } else {
+            F::ONE
+        };
+
+        let m_value = if x_value == F::ZERO {
+            F::ONE
+        } else {
+            x_value.inverse()
+        };
+
+        let mut witness = PartialWitness::new();
+        witness.set_target(self.m, m_value);
+        witness.set_target(self.y, y_value);
+        witness
+    }
+}
