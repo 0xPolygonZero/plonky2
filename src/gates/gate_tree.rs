@@ -69,14 +69,12 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
             let max_degree = 1 << max_degree_bits;
             for max_constants in 1..100 {
                 if let Some(mut best_tree) = Self::find_tree(&gates, max_degree, max_constants) {
-                    best_tree.shorten();
                     let mut best_num_constants = best_tree.num_constants();
                     let mut best_degree = max_degree;
                     // Iterate backwards from `max_degree` to try to find a tree with a lower degree
                     // but the same number of constants.
                     'optdegree: for degree in (0..max_degree).rev() {
                         if let Some(mut tree) = Self::find_tree(&gates, degree, max_constants) {
-                            tree.shorten();
                             let num_constants = tree.num_constants();
                             if num_constants > best_num_constants {
                                 break 'optdegree;
@@ -108,6 +106,7 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
         for g in gates {
             tree.try_add_gate(g, max_degree, max_constants)?;
         }
+        tree.shorten();
         Some(tree)
     }
 
