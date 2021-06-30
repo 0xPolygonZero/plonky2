@@ -9,6 +9,7 @@ use crate::gates::gate::{GateRef, PrefixedGate};
 use crate::polynomial::commitment::SALT_SIZE;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
+use crate::util::partial_products::partial_products;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// Holds the Merkle tree index and blinding flag of a set of polynomials used in FRI.
@@ -114,8 +115,9 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     index: usize,
     x: F,
     vars: EvaluationVarsBase<F>,
-    local_plonk_zs: &[F],
-    next_plonk_zs: &[F],
+    local_zs: &[F],
+    next_zs: &[F],
+    local_partial_products: &[F],
     s_sigmas: &[F],
     betas: &[F],
     gammas: &[F],
@@ -127,29 +129,66 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::new();
+    // The terms checking the partial products.
+    let mut vanishing_partial_products_terms = Vec::new();
     // The Z(x) f'(x) - g'(x) Z(g x) terms.
     let mut vanishing_v_shift_terms = Vec::new();
 
     for i in 0..common_data.config.num_challenges {
-        let z_x = local_plonk_zs[i];
-        let z_gz = next_plonk_zs[i];
+        let z_x = local_zs[i];
+        let z_gz = next_zs[i];
         vanishing_z_1_terms.push(z_h_on_coset.eval_l1(index, x) * (z_x - F::ONE));
 
-        let mut f_prime = F::ONE;
-        let mut g_prime = F::ONE;
-        for j in 0..common_data.config.num_routed_wires {
-            let wire_value = vars.local_wires[j];
-            let k_i = common_data.k_is[j];
-            let s_id = k_i * x;
-            let s_sigma = s_sigmas[j];
-            f_prime *= wire_value + betas[i] * s_id + gammas[i];
-            g_prime *= wire_value + betas[i] * s_sigma + gammas[i];
-        }
-        vanishing_v_shift_terms.push(f_prime * z_x - g_prime * z_gz);
+        let numerator_values = (0..common_data.config.num_routed_wires)
+            .map(|j| {
+                let wire_value = vars.local_wires[j];
+                let k_i = common_data.k_is[j];
+                let s_id = k_i * x;
+                wire_value + betas[i] * s_id + gammas[i]
+            })
+            .collect::<Vec<_>>();
+        let denominator_values = (0..common_data.config.num_routed_wires)
+            .map(|j| {
+                let wire_value = vars.local_wires[j];
+                let s_sigma = s_sigmas[j];
+                wire_value + betas[i] * s_sigma + gammas[i]
+            })
+            .collect::<Vec<_>>();
+        let numerator_partial_products =
+            partial_products(numerator_values, common_data.max_filtered_constraint_degree);
+        let denominator_partial_products = partial_products(
+            denominator_values,
+            common_data.max_filtered_constraint_degree,
+        );
+
+        dbg!(numerator_partial_products
+            .clone()
+            .0
+            .into_iter()
+            .chain(denominator_partial_products.clone().0)
+            .zip(local_partial_products)
+            .map(|(a, &b)| a - b)
+            .collect::<Vec<_>>(),);
+        vanishing_partial_products_terms.append(
+            &mut numerator_partial_products
+                .0
+                .into_iter()
+                .chain(denominator_partial_products.0)
+                .zip(local_partial_products)
+                .map(|(a, &b)| a - b)
+                .collect::<Vec<_>>(),
+        );
+        dbg!(&numerator_partial_products.1);
+        dbg!(&denominator_partial_products.1);
+        dbg!(common_data.max_filtered_constraint_degree);
+        let f_prime: F = numerator_partial_products.1.into_iter().product();
+        let g_prime: F = denominator_partial_products.1.into_iter().product();
+        // vanishing_v_shift_terms.push(f_prime * z_x - g_prime * z_gz);
     }
 
     let vanishing_terms = [
         vanishing_z_1_terms,
+        vanishing_partial_products_terms,
         vanishing_v_shift_terms,
         constraint_terms,
     ]

@@ -90,9 +90,10 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         "to compute Z's"
     );
 
+    let zs_partial_products = [plonk_z_vecs, partial_products.concat()].concat();
     let plonk_zs_commitment = timed!(
         ListPolynomialCommitment::new(
-            plonk_z_vecs,
+            zs_partial_products,
             fri_config.rate_bits,
             PlonkPolynomials::ZS.blinding
         ),
@@ -123,7 +124,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             .flat_map(|mut quotient_poly| {
                 quotient_poly.trim();
                 quotient_poly.pad(quotient_degree).expect(
-                    "The quotient polynomial doesn't have the right degree.\
+                    "The quotient polynomial doesn't have the right degree. \
                      This may be because the `Z`s polynomials are still too high degree.",
                 );
                 // Split t into degree-n chunks.
@@ -202,12 +203,9 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Vec<PolynomialValues<F>> {
-    let vanish_degree = common_data
-        .max_filtered_constraint_degree
-        .next_power_of_two();
-    let num_polys = ceil_div_usize(common_data.config.num_routed_wires, vanish_degree);
+    let degree = common_data.max_filtered_constraint_degree;
     let subgroup = &prover_data.subgroup;
-    let mut values = vec![vec![F::ONE; 2 * num_polys]];
+    let mut values = Vec::new();
     let k_is = &common_data.k_is;
     for i in 1..common_data.degree() {
         let x = subgroup[i - 1];
@@ -228,13 +226,14 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
             })
             .collect::<Vec<_>>();
         let partials = [
-            partial_products(numerator_values, vanish_degree),
-            partial_products(denominator_values, vanish_degree),
+            partial_products(numerator_values, degree).0,
+            partial_products(denominator_values, degree).0,
         ]
         .concat();
         values.push(partials);
     }
 
+    values.insert(0, vec![F::ONE; values[0].len()]);
     transpose(&values)
         .into_par_iter()
         .map(PolynomialValues::new)
@@ -280,7 +279,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     prover_data: &'a ProverOnlyCircuitData<F, D>,
     wires_commitment: &'a ListPolynomialCommitment<F>,
-    plonk_zs_commitment: &'a ListPolynomialCommitment<F>,
+    zs_partial_products_commitment: &'a ListPolynomialCommitment<F>,
     betas: &[F],
     gammas: &[F],
     alphas: &[F],
@@ -322,11 +321,15 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
             let local_constants = &local_constants_sigmas[common_data.constants_range()];
             let s_sigmas = &local_constants_sigmas[common_data.sigmas_range()];
             let local_wires = get_at_index(wires_commitment, i);
-            let local_plonk_zs = get_at_index(plonk_zs_commitment, i);
-            let next_plonk_zs = get_at_index(plonk_zs_commitment, i_next);
+            let local_zs_partial_products = get_at_index(zs_partial_products_commitment, i);
+            let local_zs = &local_zs_partial_products[common_data.zs_range()];
+            let next_zs =
+                &get_at_index(zs_partial_products_commitment, i_next)[common_data.zs_range()];
+            let local_partial_products =
+                &local_zs_partial_products[common_data.partial_products_range()];
 
             debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
-            debug_assert_eq!(local_plonk_zs.len(), num_challenges);
+            debug_assert_eq!(local_zs.len(), num_challenges);
 
             let vars = EvaluationVarsBase {
                 local_constants,
@@ -337,8 +340,9 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
                 i,
                 shifted_x,
                 vars,
-                local_plonk_zs,
-                next_plonk_zs,
+                local_zs,
+                next_zs,
+                local_partial_products,
                 s_sigmas,
                 betas,
                 gammas,

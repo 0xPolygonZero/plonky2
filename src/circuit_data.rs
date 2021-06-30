@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::ops::{Range, RangeFrom};
 
 use anyhow::Result;
 
@@ -200,6 +200,16 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     /// Range of the sigma polynomials in the `constants_sigmas_commitment`.
     pub fn sigmas_range(&self) -> Range<usize> {
         self.num_constants..self.num_constants + self.config.num_routed_wires
+    }
+
+    /// Range of the constants polynomials in the `constants_sigmas_commitment`.
+    pub fn zs_range(&self) -> Range<usize> {
+        0..self.config.num_challenges
+    }
+
+    /// Range of the sigma polynomials in the `constants_sigmas_commitment`.
+    pub fn partial_products_range(&self) -> RangeFrom<usize> {
+        self.config.num_challenges..
     }
 }
 
