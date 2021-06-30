@@ -35,7 +35,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             new_item = self.add(new_item, self.mul(insert_here, element));
             new_item = self.add(new_item, self.mul(already_inserted, v[i-1]));
             already_inserted = self.add(already_inserted, insert_here);
-            new_item = self.add(new_item, self.mul(self.sub(self.one(), already_inserted), v[i]));
+
+            let not_already_inserted = self.sub(self.one(), already_inserted);
+            new_item = self.mul_add(not_already_inserted, v[i], new_item);
 
             new_list.push(new_item);
         }
