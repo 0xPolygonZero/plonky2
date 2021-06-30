@@ -4,12 +4,8 @@ use crate::field::field::Field;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_strict, reverse_index_bits};
 
-/*
-trait FftStrategy<F: Field> {
-    fn fft_impl(input: Vec<F>) -> Vec<F>;
-}
-*/
-
+// TODO: Should really do some "dynamic" dispatch to handle the
+// different FFT algos rather than C-style enum dispatch.
 enum FftStrategy { Classic, Unrolled }
 
 const FFT_STRATEGY: FftStrategy = FftStrategy::Classic;
@@ -18,11 +14,12 @@ type FftRootTable<F: Field> = Vec<Vec<F>>;
 
 fn fft_classic_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     let lg_n = log2_strict(n);
+    // bases[i] = g^2^i, for i = 0, ..., lg_n - 1
     let mut bases = Vec::with_capacity(lg_n);
     let mut base = F::primitive_root_of_unity(lg_n);
     bases.push(base);
-    for _ in 2..=lg_n {
-        base = base.square();
+    for _ in 1..lg_n {
+        base = base.square(); // base = g^2^_
         bases.push(base);
     }
 
@@ -48,29 +45,34 @@ fn fft_unrolled_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     // Precompute a table of the roots of unity used in the main
     // loops.
 
-    // TODO: If root_table already has s elements, only add the next n-s.
-
     // Suppose n is the size of the outer vector and g is a primitive nth
     // root of unity. Then the [lg(m) - 1][j] element of the table is
     // g^{ n/2m * j } for j = 0..m-1
 
     let lg_n = log2_strict(n);
+    // bases[i] = g^2^i, for i = 0, ..., lg_n - 2
+    let mut bases = Vec::with_capacity(lg_n);
+    let mut base = F::primitive_root_of_unity(lg_n);
+    bases.push(base);
+    // NB: If n = 1, then lg_n is zero, so we can't do 1..(lg_n-1) here
+    for _ in 2..lg_n {
+        base = base.square(); // base = g^2^(_-1)
+        bases.push(base);
+    }
+
     let mut root_table = Vec::with_capacity(lg_n);
-    let rt = F::primitive_root_of_unity(lg_n);
-    let mut m = 2;
-    loop {
-        if m >= n {
-            break;
+    for lg_m in 1..lg_n {
+        let m = 1 << lg_m;
+        let mut root_row = Vec::with_capacity(m);
+        let base = bases[lg_n - lg_m - 1];
+        let mut omega = base;
+        root_row.push(F::ONE);
+        root_row.push(omega);
+        for j in 2..m {
+            omega *= base;
+            root_row.push(omega);
         }
-        // TODO: calculate incrementally
-        let round_root = rt.exp((n / (2 * m)) as u64);
-        let mut round_roots = Vec::with_capacity(m);
-        round_roots.push(F::ONE);
-        for j in 1..m {
-            round_roots.push(round_roots[j - 1] * round_root);
-        }
-        root_table.push(round_roots);
-        m *= 2;
+        root_table.push(root_row);
     }
     root_table
 }
