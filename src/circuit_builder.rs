@@ -310,16 +310,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                         input: w,
                     }),
                 });
-                self.add_generator(CopyGenerator {
-                    src: Target::Wire(Wire {
+                self.generate_copy(
+                    Target::Wire(Wire {
                         gate: gate_1,
                         input: w,
                     }),
-                    dst: Target::Wire(Wire {
+                    Target::Wire(Wire {
                         gate: gate_2,
                         input: w,
                     }),
-                });
+                );
             }
         }
 
