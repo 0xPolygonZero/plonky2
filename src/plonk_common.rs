@@ -65,41 +65,74 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     x: F::Extension,
     vars: EvaluationVars<F, D>,
-    local_plonk_zs: &[F::Extension],
-    next_plonk_zs: &[F::Extension],
+    local_zs: &[F::Extension],
+    next_zs: &[F::Extension],
+    local_partial_products: &[F::Extension],
     s_sigmas: &[F::Extension],
     betas: &[F],
     gammas: &[F],
     alphas: &[F],
 ) -> Vec<F::Extension> {
+    let max_degree = common_data.max_filtered_constraint_degree;
     let constraint_terms =
         evaluate_gate_constraints(&common_data.gates, common_data.num_gate_constraints, vars);
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::new();
+    // The terms checking the partial products.
+    let mut vanishing_partial_products_terms = Vec::new();
     // The Z(x) f'(x) - g'(x) Z(g x) terms.
     let mut vanishing_v_shift_terms = Vec::new();
 
     for i in 0..common_data.config.num_challenges {
-        let z_x = local_plonk_zs[i];
-        let z_gz = next_plonk_zs[i];
+        let z_x = local_zs[i];
+        let z_gz = next_zs[i];
         vanishing_z_1_terms.push(eval_l_1(common_data.degree(), x) * (z_x - F::Extension::ONE));
 
-        let mut f_prime = F::Extension::ONE;
-        let mut g_prime = F::Extension::ONE;
-        for j in 0..common_data.config.num_routed_wires {
-            let wire_value = vars.local_wires[j];
-            let k_i = common_data.k_is[j];
-            let s_id = x * k_i.into();
-            let s_sigma = s_sigmas[j];
-            f_prime *= wire_value + s_id * betas[i].into() + gammas[i].into();
-            g_prime *= wire_value + s_sigma * betas[i].into() + gammas[i].into();
-        }
+        let numerator_values = (0..common_data.config.num_routed_wires)
+            .map(|j| {
+                let wire_value = vars.local_wires[j];
+                let k_i = common_data.k_is[j];
+                let s_id = x * k_i.into();
+                wire_value + s_id * betas[i].into() + gammas[i].into()
+            })
+            .collect::<Vec<_>>();
+        let denominator_values = (0..common_data.config.num_routed_wires)
+            .map(|j| {
+                let wire_value = vars.local_wires[j];
+                let s_sigma = s_sigmas[j];
+                wire_value + s_sigma * betas[i].into() + gammas[i].into()
+            })
+            .collect::<Vec<_>>();
+
+        let (num_prods, final_num_prod) = common_data.num_partial_products;
+        vanishing_partial_products_terms.extend(check_partial_products(
+            &numerator_values,
+            &local_partial_products[2 * i * num_prods..(2 * i + 1) * num_prods],
+            max_degree,
+        ));
+        vanishing_partial_products_terms.extend(check_partial_products(
+            &denominator_values,
+            &local_partial_products[(2 * i + 1) * num_prods..(2 * i + 2) * num_prods],
+            max_degree,
+        ));
+
+        let f_prime: F = local_partial_products
+            [(2 * i + 1) * num_prods - final_num_prod..(2 * i + 1) * num_prods]
+            .iter()
+            .copied()
+            .product();
+        let g_prime: F = local_partial_products
+            [(2 * i + 2) * num_prods - final_num_prod..(2 * i + 2) * num_prods]
+            .iter()
+            .copied()
+            .product();
         vanishing_v_shift_terms.push(f_prime * z_x - g_prime * z_gz);
     }
 
     let vanishing_terms = [
         vanishing_z_1_terms,
+        vanishing_partial_products_terms,
         vanishing_v_shift_terms,
         constraint_terms,
     ]
@@ -188,9 +221,6 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
         constraint_terms,
     ]
     .concat();
-    // if index % 4 == 0 {
-    //     println!("{}", vanishing_terms.iter().all(|x| x.is_zero()));
-    // }
 
     reduce_with_powers_multi(&vanishing_terms, alphas)
 }
