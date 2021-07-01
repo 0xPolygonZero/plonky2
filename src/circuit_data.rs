@@ -202,7 +202,7 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
         self.num_constants..self.num_constants + self.config.num_routed_wires
     }
 
-    /// Range of the constants polynomials in the `constants_sigmas_commitment`.
+    /// Range of the `z`s polynomials in the ``.
     pub fn zs_range(&self) -> Range<usize> {
         0..self.config.num_challenges
     }

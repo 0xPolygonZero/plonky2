@@ -1,8 +1,9 @@
 use std::iter::Product;
+use std::ops::Sub;
 
-pub fn partial_products<T: Product + Copy>(v: Vec<T>, max_degree: usize) -> (Vec<T>, Vec<T>) {
+pub fn partial_products<T: Product + Copy>(v: &[T], max_degree: usize) -> (Vec<T>, usize) {
     let mut res = Vec::new();
-    let mut remainder = v;
+    let mut remainder = v.to_vec();
     while remainder.len() >= max_degree {
         let new_partials = remainder
             .chunks(max_degree)
@@ -13,18 +14,49 @@ pub fn partial_products<T: Product + Copy>(v: Vec<T>, max_degree: usize) -> (Vec
         remainder = new_partials;
     }
 
-    (res, remainder)
+    (res, remainder.len())
+}
+
+pub fn check_partial_products<T: Product + Copy + Sub<Output = T>>(
+    v: &[T],
+    partials: &[T],
+    max_degree: usize,
+) -> Vec<T> {
+    let mut res = Vec::new();
+    let mut remainder = v.to_vec();
+    let mut partials = partials.to_vec();
+    while remainder.len() >= max_degree {
+        let products = remainder
+            .chunks(max_degree)
+            .map(|chunk| chunk.iter().copied().product())
+            .collect::<Vec<T>>();
+        res.extend(products.iter().zip(&partials).map(|(&a, &b)| a - b));
+        remainder = partials.drain(..products.len()).collect();
+    }
+
+    res
 }
 
 #[cfg(test)]
 mod tests {
+    use num::Zero;
+
     use super::*;
 
     #[test]
     fn test_partial_products() {
-        assert_eq!(
-            partial_products(vec![1, 2, 3, 4, 5, 6], 2),
-            (vec![2, 12, 30, 24, 30], vec![24, 30])
-        );
+        let v = vec![1, 2, 3, 4, 5, 6];
+        let p = partial_products(&v, 2);
+        assert_eq!(p, (vec![2, 12, 30, 24, 30, 720], 1));
+        assert!(check_partial_products(&v, &p.0, 2)
+            .iter()
+            .all(|x| x.is_zero()));
+
+        let v = vec![1, 2, 3, 4, 5, 6];
+        let p = partial_products(&v, 3);
+        assert_eq!(p, (vec![6, 120], 2));
+        assert!(check_partial_products(&v, &p.0, 3)
+            .iter()
+            .all(|x| x.is_zero()));
     }
 }

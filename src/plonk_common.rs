@@ -9,7 +9,7 @@ use crate::gates::gate::{GateRef, PrefixedGate};
 use crate::polynomial::commitment::SALT_SIZE;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
-use crate::util::partial_products::partial_products;
+use crate::util::partial_products::{check_partial_products, partial_products};
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// Holds the Merkle tree index and blinding flag of a set of polynomials used in FRI.
@@ -124,6 +124,7 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     alphas: &[F],
     z_h_on_coset: &ZeroPolyOnCoset<F>,
 ) -> Vec<F> {
+    let max_degree = common_data.max_filtered_constraint_degree;
     let constraint_terms =
         evaluate_gate_constraints_base(&common_data.gates, common_data.num_gate_constraints, vars);
 
@@ -154,36 +155,50 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
                 wire_value + betas[i] * s_sigma + gammas[i]
             })
             .collect::<Vec<_>>();
-        let numerator_partial_products =
-            partial_products(numerator_values, common_data.max_filtered_constraint_degree);
-        let denominator_partial_products = partial_products(
-            denominator_values,
-            common_data.max_filtered_constraint_degree,
-        );
+        let numerator_partial_products = partial_products(&numerator_values, max_degree);
+        let denominator_partial_products = partial_products(&denominator_values, max_degree);
 
-        dbg!(numerator_partial_products
-            .clone()
-            .0
-            .into_iter()
-            .chain(denominator_partial_products.clone().0)
-            .zip(local_partial_products)
-            .map(|(a, &b)| a - b)
-            .collect::<Vec<_>>(),);
-        vanishing_partial_products_terms.append(
-            &mut numerator_partial_products
-                .0
-                .into_iter()
-                .chain(denominator_partial_products.0)
-                .zip(local_partial_products)
-                .map(|(a, &b)| a - b)
-                .collect::<Vec<_>>(),
-        );
-        dbg!(&numerator_partial_products.1);
-        dbg!(&denominator_partial_products.1);
-        dbg!(common_data.max_filtered_constraint_degree);
-        let f_prime: F = numerator_partial_products.1.into_iter().product();
-        let g_prime: F = denominator_partial_products.1.into_iter().product();
-        // vanishing_v_shift_terms.push(f_prime * z_x - g_prime * z_gz);
+        let num_prods = numerator_partial_products.0.len();
+        // dbg!(numerator_partial_products
+        //     .0
+        //     .iter()
+        //     .chain(&denominator_partial_products.0)
+        //     .zip(&local_partial_products[i * num_prods..(i + 1) * num_prods])
+        //     .map(|(&a, &b)| a - b)
+        //     .collect::<Vec<_>>(),);
+        // vanishing_partial_products_terms.append(
+        //     &mut numerator_partial_products
+        //         .0
+        //         .into_iter()
+        //         .chain(denominator_partial_products.0)
+        //         .zip(&local_partial_products[i * num_prods..(i + 1) * num_prods])
+        //         .map(|(a, &b)| a - b)
+        //         .collect::<Vec<_>>(),
+        // );
+        vanishing_partial_products_terms.extend(check_partial_products(
+            &numerator_values,
+            &local_partial_products[2 * i * num_prods..(2 * i + 1) * num_prods],
+            max_degree,
+        ));
+        vanishing_partial_products_terms.extend(check_partial_products(
+            &denominator_values,
+            &local_partial_products[(2 * i + 1) * num_prods..(2 * i + 2) * num_prods],
+            max_degree,
+        ));
+        // dbg!(common_data.max_filtered_constraint_degree);
+        // dbg!(numerator_partial_products.1.len());
+        // dbg!(denominator_partial_products.1.len());
+        let f_prime: F = local_partial_products
+            [(2 * i + 1) * num_prods - numerator_partial_products.1..(2 * i + 1) * num_prods]
+            .iter()
+            .copied()
+            .product();
+        let g_prime: F = local_partial_products
+            [(2 * i + 2) * num_prods - numerator_partial_products.1..(2 * i + 2) * num_prods]
+            .iter()
+            .copied()
+            .product();
+        vanishing_v_shift_terms.push(f_prime * z_x - g_prime * z_gz);
     }
 
     let vanishing_terms = [
@@ -193,6 +208,9 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
         constraint_terms,
     ]
     .concat();
+    // if index % 4 == 0 {
+    //     println!("{}", vanishing_terms.iter().all(|x| x.is_zero()));
+    // }
 
     reduce_with_powers_multi(&vanishing_terms, alphas)
 }
