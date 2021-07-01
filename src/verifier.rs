@@ -75,7 +75,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
         &evaluations,
         merkle_roots,
         &mut challenger,
-        fri_config,
+        common_data,
     )?;
 
     Ok(())

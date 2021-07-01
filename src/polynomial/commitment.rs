@@ -147,6 +147,13 @@ impl<F: Field> ListPolynomialCommitment<F> {
         // Final low-degree polynomial that goes into FRI.
         let mut final_poly = PolynomialCoeffs::empty();
 
+        let mut zs_polys = commitments[PlonkPolynomials::ZS_PARTIAL_PRODUCTS.index]
+            .polynomials
+            .iter()
+            .map(|p| p.to_extension())
+            .collect::<Vec<_>>();
+        let partial_products_polys = zs_polys.split_off(common_data.zs_range().end);
+
         // Polynomials opened at a single point.
         let single_polys = [
             PlonkPolynomials::CONSTANTS_SIGMAS,
@@ -154,7 +161,8 @@ impl<F: Field> ListPolynomialCommitment<F> {
         ]
         .iter()
         .flat_map(|&p| &commitments[p.index].polynomials)
-        .map(|p| p.to_extension());
+        .map(|p| p.to_extension())
+        .chain(partial_products_polys);
         let single_composition_poly = alpha.reduce_polys(single_polys);
 
         let single_quotient = Self::compute_quotient([zeta], single_composition_poly);
@@ -162,11 +170,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         alpha.reset();
 
         // Zs polynomials are opened at `zeta` and `g*zeta`.
-        let zs_polys = commitments[PlonkPolynomials::ZS_PARTIAL_PRODUCTS.index]
-            .polynomials
-            .iter()
-            .map(|p| p.to_extension());
-        let zs_composition_poly = alpha.reduce_polys(zs_polys);
+        let zs_composition_poly = alpha.reduce_polys(zs_polys.into_iter());
 
         let zs_quotient = Self::compute_quotient([zeta, g * zeta], zs_composition_poly);
         alpha.shift_poly(&mut final_poly);
@@ -254,7 +258,7 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningProof<F, D> {
         os: &OpeningSet<F, D>,
         merkle_roots: &[Hash<F>],
         challenger: &mut Challenger<F>,
-        fri_config: &FriConfig,
+        common_data: &CommonCircuitData<F, D>,
     ) -> Result<()> {
         challenger.observe_opening_set(os);
 
@@ -268,7 +272,7 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningProof<F, D> {
             merkle_roots,
             &self.fri_proof,
             challenger,
-            fri_config,
+            common_data,
         )
     }
 }
@@ -310,7 +314,7 @@ mod tests {
     }
 
     fn check_batch_polynomial_commitment<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
-        let ks = [10, 2, 3, 8];
+        let ks = [10, 2, 10, 8];
         let degree_log = 11;
         let fri_config = FriConfig {
             proof_of_work_bits: 2,
@@ -363,7 +367,7 @@ mod tests {
                 lpcs[3].merkle_tree.root,
             ],
             &mut Challenger::new(),
-            &common_data.config.fri_config,
+            &common_data,
         )
     }
 

@@ -1,5 +1,6 @@
 use anyhow::{ensure, Result};
 
+use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::{flatten, Extendable, FieldExtension, Frobenius};
 use crate::field::field::Field;
 use crate::field::interpolation::{barycentric_weights, interpolate, interpolate2};
@@ -75,8 +76,9 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     initial_merkle_roots: &[Hash<F>],
     proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
-    config: &FriConfig,
+    common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
+    let config = &common_data.config.fri_config;
     let total_arities = config.reduction_arity_bits.iter().sum::<usize>();
     ensure!(
         purported_degree_log
@@ -122,7 +124,7 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
             n,
             &betas,
             round_proof,
-            config,
+            common_data,
         )?;
     }
 
@@ -147,8 +149,9 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     os: &OpeningSet<F, D>,
     zeta: F::Extension,
     subgroup_x: F,
-    config: &FriConfig,
+    common_data: &CommonCircuitData<F, D>,
 ) -> F::Extension {
+    let config = &common_data.config.fri_config;
     assert!(D > 1, "Not implemented for D=1.");
     let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
     let subgroup_x = F::Extension::from_basefield(subgroup_x);
@@ -167,12 +170,17 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     ]
     .iter()
     .flat_map(|&p| proof.unsalted_evals(p))
+    .chain(
+        &proof.unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS)
+            [common_data.partial_products_range()],
+    )
     .map(|&e| F::Extension::from_basefield(e));
     let single_openings = os
         .constants
         .iter()
         .chain(&os.plonk_s_sigmas)
-        .chain(&os.quotient_polys);
+        .chain(&os.quotient_polys)
+        .chain(&os.partial_products);
     let single_diffs = single_evals
         .into_iter()
         .zip(single_openings)
@@ -187,7 +195,8 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     let zs_evals = proof
         .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS)
         .iter()
-        .map(|&e| F::Extension::from_basefield(e));
+        .map(|&e| F::Extension::from_basefield(e))
+        .take(common_data.zs_range().end);
     let zs_composition_eval = alpha.clone().reduce(zs_evals);
     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
     let zs_interpol = interpolate2(
@@ -236,8 +245,9 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
     n: usize,
     betas: &[F::Extension],
     round_proof: &FriQueryRound<F, D>,
-    config: &FriConfig,
+    common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
+    let config = &common_data.config.fri_config;
     let mut evaluations: Vec<Vec<F::Extension>> = Vec::new();
     let x = challenger.get_challenge();
     let mut domain_size = n;
@@ -262,7 +272,7 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
                 os,
                 zeta,
                 subgroup_x,
-                config,
+                common_data,
             )
         } else {
             let last_evals = &evaluations[i - 1];
