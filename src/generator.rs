@@ -132,25 +132,18 @@ impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
 }
 
 /// A generator for testing if a value equals zero
-pub(crate) struct EqualsZeroGenerator {
+pub(crate) struct NonzeroTestGenerator {
     pub(crate) to_test: Target,
     pub(crate) dummy: Target,
-    pub(crate) is_zero: Target,
 }
 
-impl<F: Field> SimpleGenerator<F> for EqualsZeroGenerator {
+impl<F: Field> SimpleGenerator<F> for NonzeroTestGenerator {
     fn dependencies(&self) -> Vec<Target> {
         vec![self.to_test]
     }
 
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
         let to_test_value = witness.get_target(self.to_test);
-
-        let is_zero_value = if to_test_value == F::ZERO {
-            F::ZERO
-        } else {
-            F::ONE
-        };
 
         let dummy_value = if to_test_value == F::ZERO {
             F::ONE
@@ -160,7 +153,6 @@ impl<F: Field> SimpleGenerator<F> for EqualsZeroGenerator {
 
         let mut witness = PartialWitness::new();
         witness.set_target(self.dummy, dummy_value);
-        witness.set_target(self.is_zero, is_zero_value);
         witness
     }
 }

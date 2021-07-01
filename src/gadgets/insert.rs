@@ -1,25 +1,29 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::generator::EqualsZeroGenerator;
+use crate::generator::NonzeroTestGenerator;
 use crate::target::Target;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Evaluates to 1 if `x` equals zero, 0 otherwise.
-    pub fn is_zero(&mut self, x: Target) -> Target {
+    /// Evaluates to 0 if `x` equals zero, 1 otherwise.
+    pub fn is_nonzero(&mut self, x: Target) -> Target {
+        // Dummy variable.
         let m = self.add_virtual_target();
+
+        // The prover sets the dummy variable to 0 if x == 0 and to 1/x otherwise.
+        self.add_generator(NonzeroTestGenerator {
+            to_test: x,
+            dummy: m,
+        });
+
+        // Evaluates to (0) * (0) = 0 if x == 0 and (x) * (1/x) = 1 otherwise.
         let y = self.mul(x, m);
 
+        // Enforce that (1 - y) * x == 0.
         let one = self.one();
         let diff = self.sub(one, y);
         let prod = self.mul(diff, x);
         self.assert_zero(prod);
-
-        self.add_generator(EqualsZeroGenerator {
-            to_test: x,
-            dummy: m,
-            is_zero: y,
-        });
 
         y
     }
@@ -27,7 +31,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Evaluates to 1 if `x` and `y` are equal, 0 otherwise.
     pub fn is_equal(&mut self, x: Target, y: Target) -> Target {
         let difference = self.sub(x, y);
-        self.is_zero(difference)
+        let not_equal = self.is_nonzero(difference);
+        let one = self.one();
+        self.sub(one, not_equal)
     }
 
     /// Inserts a `Target` in a vector at a non-deterministic index. This is done by rotating to the
