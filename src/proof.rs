@@ -154,6 +154,7 @@ pub struct OpeningSet<F: Field + Extendable<D>, const D: usize> {
     pub wires: Vec<F::Extension>,
     pub plonk_zs: Vec<F::Extension>,
     pub plonk_zs_right: Vec<F::Extension>,
+    pub partial_products: Vec<F::Extension>,
     pub quotient_polys: Vec<F::Extension>,
 }
 
@@ -163,7 +164,7 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningSet<F, D> {
         g: F::Extension,
         constants_sigmas_commitment: &ListPolynomialCommitment<F>,
         wires_commitment: &ListPolynomialCommitment<F>,
-        plonk_zs_commitment: &ListPolynomialCommitment<F>,
+        zs_partial_products_commitment: &ListPolynomialCommitment<F>,
         quotient_polys_commitment: &ListPolynomialCommitment<F>,
         common_data: &CommonCircuitData<F, D>,
     ) -> Self {
@@ -174,12 +175,17 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningSet<F, D> {
                 .collect::<Vec<_>>()
         };
         let constants_sigmas_eval = eval_commitment(z, constants_sigmas_commitment);
+        let zs_partial_products_eval = eval_commitment(z, zs_partial_products_commitment);
         Self {
             constants: constants_sigmas_eval[common_data.constants_range()].to_vec(),
             plonk_s_sigmas: constants_sigmas_eval[common_data.sigmas_range()].to_vec(),
             wires: eval_commitment(z, wires_commitment),
-            plonk_zs: eval_commitment(z, plonk_zs_commitment),
-            plonk_zs_right: eval_commitment(g * z, plonk_zs_commitment),
+            plonk_zs: zs_partial_products_eval[common_data.zs_range()].to_vec(),
+            plonk_zs_right: eval_commitment(g * z, zs_partial_products_commitment)
+                [common_data.zs_range()]
+            .to_vec(),
+            partial_products: zs_partial_products_eval[common_data.partial_products_range()]
+                .to_vec(),
             quotient_polys: eval_commitment(z, quotient_polys_commitment),
         }
     }

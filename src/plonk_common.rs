@@ -38,7 +38,7 @@ impl PlonkPolynomials {
         index: 1,
         blinding: true,
     };
-    pub const ZS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
+    pub const ZS_PARTIAL_PRODUCTS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
         index: 2,
         blinding: true,
     };
@@ -51,7 +51,7 @@ impl PlonkPolynomials {
         match i {
             0 => Self::CONSTANTS_SIGMAS,
             1 => Self::WIRES,
-            2 => Self::ZS,
+            2 => Self::ZS_PARTIAL_PRODUCTS,
             3 => Self::QUOTIENT,
             _ => panic!("There are only 4 sets of polynomials in Plonk."),
         }

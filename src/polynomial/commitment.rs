@@ -162,7 +162,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         alpha.reset();
 
         // Zs polynomials are opened at `zeta` and `g*zeta`.
-        let zs_polys = commitments[PlonkPolynomials::ZS.index]
+        let zs_polys = commitments[PlonkPolynomials::ZS_PARTIAL_PRODUCTS.index]
             .polynomials
             .iter()
             .map(|p| p.to_extension());

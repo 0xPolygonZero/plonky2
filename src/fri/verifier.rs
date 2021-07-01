@@ -185,7 +185,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
 
     // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
     let zs_evals = proof
-        .unsalted_evals(PlonkPolynomials::ZS)
+        .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS)
         .iter()
         .map(|&e| F::Extension::from_basefield(e));
     let zs_composition_eval = alpha.clone().reduce(zs_evals);

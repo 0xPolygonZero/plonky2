@@ -98,7 +98,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         ListPolynomialCommitment::new(
             zs_partial_products,
             fri_config.rate_bits,
-            PlonkPolynomials::ZS.blinding
+            PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding
         ),
         "to commit to Z's"
     );
