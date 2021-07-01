@@ -36,7 +36,7 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     /// The next available index for a public input.
     public_input_index: usize,
 
-    /// The next available index for a VirtualAdviceTarget.
+    /// The next available index for a `VirtualTarget`.
     virtual_target_index: usize,
 
     copy_constraints: Vec<(Target, Target)>,
@@ -63,6 +63,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    pub fn num_gates(&self) -> usize {
+        self.gate_instances.len()
+    }
+
     pub fn add_public_input(&mut self) -> Target {
         let index = self.public_input_index;
         self.public_input_index += 1;
@@ -73,22 +77,18 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (0..n).map(|_i| self.add_public_input()).collect()
     }
 
-    /// Adds a new "virtual" advice target. This is not an actual wire in the witness, but just a
-    /// target that help facilitate witness generation. In particular, a generator can assign a
-    /// values to a virtual target, which can then be copied to other (virtual or concrete) targets
-    /// via `generate_copy`. When we generate the final witness (a grid of wire values), these
-    /// virtual targets will go away.
-    ///
-    /// Since virtual targets are not part of the actual permutation argument, they cannot be used
-    /// with `assert_equal`.
-    pub fn add_virtual_advice_target(&mut self) -> Target {
+    /// Adds a new "virtual" target. This is not an actual wire in the witness, but just a target
+    /// that help facilitate witness generation. In particular, a generator can assign a values to a
+    /// virtual target, which can then be copied to other (virtual or concrete) targets. When we
+    /// generate the final witness (a grid of wire values), these virtual targets will go away.
+    pub fn add_virtual_target(&mut self) -> Target {
         let index = self.virtual_target_index;
         self.virtual_target_index += 1;
-        Target::VirtualAdviceTarget { index }
+        Target::VirtualTarget { index }
     }
 
-    pub fn add_virtual_advice_targets(&mut self, n: usize) -> Vec<Target> {
-        (0..n).map(|_i| self.add_virtual_advice_target()).collect()
+    pub fn add_virtual_targets(&mut self, n: usize) -> Vec<Target> {
+        (0..n).map(|_i| self.add_virtual_target()).collect()
     }
 
     pub fn add_gate_no_constants(&mut self, gate_type: GateRef<F, D>) -> usize {
@@ -97,6 +97,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Adds a gate to the circuit, and returns its index.
     pub fn add_gate(&mut self, gate_type: GateRef<F, D>, constants: Vec<F>) -> usize {
+        assert_eq!(
+            gate_type.0.num_constants(),
+            constants.len(),
+            "Number of constants doesn't match."
+        );
         // If we haven't seen a gate of this type before, check that it's compatible with our
         // circuit configuration, then register it.
         if !self.gates.contains(&gate_type) {
@@ -250,7 +255,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// polynomials (which are opened at only one location) and for the Z polynomials (which are
     /// opened at two).
     fn blinding_counts(&self) -> (usize, usize) {
-        let num_gates = self.gates.len();
+        let num_gates = self.gate_instances.len();
         let mut degree_estimate = 1 << log2_ceil(num_gates);
 
         loop {
@@ -272,6 +277,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn blind_and_pad(&mut self) {
         let (regular_poly_openings, z_openings) = self.blinding_counts();
+        info!(
+            "Adding {} blinding terms for witness polynomials, and {}*2 for Z polynomials",
+            regular_poly_openings, z_openings
+        );
 
         let num_routed_wires = self.config.num_routed_wires;
         let num_wires = self.config.num_wires;
@@ -319,12 +328,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn constant_polys(&self, gates: &[PrefixedGate<F, D>]) -> Vec<PolynomialValues<F>> {
-        let num_constants = gates
-            .iter()
-            .map(|gate| gate.gate.0.num_constants() + gate.prefix.len())
-            .max()
-            .unwrap();
+    fn constant_polys(
+        &self,
+        gates: &[PrefixedGate<F, D>],
+        num_constants: usize,
+    ) -> Vec<PolynomialValues<F>> {
         let constants_per_gate = self
             .gate_instances
             .iter()
@@ -360,7 +368,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         for index in 0..self.public_input_index {
-            target_partitions.add_partition(Target::PublicInput { index })
+            target_partitions.add_partition(Target::PublicInput { index });
+        }
+
+        for index in 0..self.virtual_target_index {
+            target_partitions.add_partition(Target::VirtualTarget { index });
         }
 
         for &(a, b) in &self.copy_constraints {
@@ -375,22 +387,21 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn build(mut self) -> CircuitData<F, D> {
         let start = Instant::now();
         info!(
-            "degree before blinding & padding: {}",
+            "Degree before blinding & padding: {}",
             self.gate_instances.len()
         );
         self.blind_and_pad();
         let degree = self.gate_instances.len();
-        info!("degree after blinding & padding: {}", degree);
+        info!("Degree after blinding & padding: {}", degree);
 
         let gates = self.gates.iter().cloned().collect();
-        let gate_tree = Tree::from_gates(gates);
+        let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
         let prefixed_gates = PrefixedGate::from_tree(gate_tree);
 
         let degree_bits = log2_strict(degree);
         let subgroup = F::two_adic_subgroup(degree_bits);
 
-        let constant_vecs = self.constant_polys(&prefixed_gates);
-        let num_constants = constant_vecs.len();
+        let constant_vecs = self.constant_polys(&prefixed_gates, num_constants);
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
@@ -438,7 +449,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             config: self.config,
             degree_bits,
             gates: prefixed_gates,
-            max_filtered_constraint_degree_bits: 3, // TODO: compute this correctly once filters land.
+            max_filtered_constraint_degree,
             num_gate_constraints,
             num_constants,
             k_is,

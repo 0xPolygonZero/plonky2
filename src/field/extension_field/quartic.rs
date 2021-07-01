@@ -50,6 +50,8 @@ impl From<<Self as FieldExtension<4>>::BaseField> for QuarticCrandallField {
 }
 
 impl Field for QuarticCrandallField {
+    type PrimeField = CrandallField;
+
     const ZERO: Self = Self([CrandallField::ZERO; 4]);
     const ONE: Self = Self([
         CrandallField::ONE,
@@ -70,6 +72,7 @@ impl Field for QuarticCrandallField {
         CrandallField::ZERO,
     ]);
 
+    const CHARACTERISTIC: u64 = CrandallField::ORDER;
     // Does not fit in 64-bits.
     const ORDER: u64 = 0;
     const TWO_ADICITY: usize = 30;

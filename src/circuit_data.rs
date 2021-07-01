@@ -39,7 +39,7 @@ impl Default for CircuitConfig {
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
                 rate_bits: 1,
-                reduction_arity_bits: vec![1],
+                reduction_arity_bits: vec![1, 1, 1, 1],
                 num_query_rounds: 1,
             },
         }
@@ -54,14 +54,14 @@ impl CircuitConfig {
     pub(crate) fn large_config() -> Self {
         Self {
             num_wires: 134,
-            num_routed_wires: 12,
+            num_routed_wires: 28,
             security_bits: 128,
             rate_bits: 3,
             num_challenges: 3,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
                 rate_bits: 3,
-                reduction_arity_bits: vec![1],
+                reduction_arity_bits: vec![1, 1, 1, 1],
                 num_query_rounds: 1,
             },
         }
@@ -146,7 +146,7 @@ pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     pub(crate) gates: Vec<PrefixedGate<F, D>>,
 
     /// The maximum degree of a filter times a constraint by any gate.
-    pub(crate) max_filtered_constraint_degree_bits: usize,
+    pub(crate) max_filtered_constraint_degree: usize,
 
     /// The largest number of constraints imposed by any gate.
     pub(crate) num_gate_constraints: usize,
@@ -184,7 +184,7 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     pub fn quotient_degree(&self) -> usize {
-        ((1 << self.max_filtered_constraint_degree_bits) - 1) * self.degree()
+        (self.max_filtered_constraint_degree - 1) * self.degree()
     }
 
     pub fn total_constraints(&self) -> usize {

@@ -315,6 +315,20 @@ macro_rules! test_arithmetic {
                 assert_eq!(x, F::ONE);
                 assert_eq!(F::ZERO - x, F::NEG_ONE);
             }
+
+            #[test]
+            fn inverse_2exp() {
+                // Just check consistency with try_inverse()
+                type F = $field;
+
+                let v = <F as Field>::PrimeField::TWO_ADICITY;
+
+                for e in [0, 1, 2, 3, 4, v - 2, v - 1, v, v + 1, v + 2, 123*v] {
+                    let x = F::TWO.exp(e as u64).inverse();
+                    let y = F::inverse_2exp(e);
+                    assert_eq!(x, y);
+                }
+            }
         }
     };
 }

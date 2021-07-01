@@ -30,7 +30,7 @@ impl<F: Field> Witness<F> {
         F: Extendable<D>,
     {
         for &(a, b) in copy_constraints {
-            // TODO: Take care of public inputs once they land.
+            // TODO: Take care of public inputs once they land, and virtual targets.
             if let (
                 Target::Wire(Wire {
                     gate: a_gate,
@@ -75,6 +75,18 @@ impl<F: Field> PartialWitness<F> {
     pub fn singleton_target(target: Target, value: F) -> Self {
         let mut witness = PartialWitness::new();
         witness.set_target(target, value);
+        witness
+    }
+
+    pub fn singleton_extension_target<const D: usize>(
+        et: ExtensionTarget<D>,
+        value: F::Extension,
+    ) -> Self
+    where
+        F: Extendable<D>,
+    {
+        let mut witness = PartialWitness::new();
+        witness.set_extension_target(et, value);
         witness
     }
 
