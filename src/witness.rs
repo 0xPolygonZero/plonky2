@@ -30,7 +30,7 @@ impl<F: Field> Witness<F> {
         F: Extendable<D>,
     {
         for &(a, b) in copy_constraints {
-            // TODO: Take care of public inputs once they land.
+            // TODO: Take care of public inputs once they land, and virtual targets.
             if let (
                 Target::Wire(Wire {
                     gate: a_gate,
