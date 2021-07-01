@@ -1,7 +1,7 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::generator::EqualityGenerator;
+use crate::generator::EqualsZeroGenerator;
 use crate::target::Target;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -10,7 +10,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let m = todo!();
         let y = todo!();
 
-        self.add_generator(EqualityGenerator { x, m, y });
+        self.add_generator(EqualsZeroGenerator { x, m, y });
 
         y
     }

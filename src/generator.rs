@@ -131,32 +131,32 @@ impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
     }
 }
 
-/// A generator for including a random value
-pub(crate) struct EqualityGenerator {
-    pub(crate) x: Target,
-    pub(crate) m: Target,
-    pub(crate) y: Target,
+/// A generator for testing if a value equals zero
+pub(crate) struct EqualsZeroGenerator {
+    pub(crate) to_test: Target,
+    pub(crate) dummy: Target,
+    pub(crate) is_zero: Target,
 }
 
-impl<F: Field> SimpleGenerator<F> for EqualityGenerator {
+impl<F: Field> SimpleGenerator<F> for EqualsZeroGenerator {
     fn dependencies(&self) -> Vec<Target> {
-        vec![self.x]
+        vec![self.to_test]
     }
 
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let x_value = witness.get_target(self.x);
+        let to_test_value = witness.get_target(self.to_test);
 
-        let y_value = if x_value == F::ZERO { F::ZERO } else { F::ONE };
+        let is_zero_value = if to_test_value == F::ZERO { F::ZERO } else { F::ONE };
 
-        let m_value = if x_value == F::ZERO {
+        let dummy_value = if to_test_value == F::ZERO {
             F::ONE
         } else {
-            x_value.inverse()
+            to_test_value.inverse()
         };
 
         let mut witness = PartialWitness::new();
-        witness.set_target(self.m, m_value);
-        witness.set_target(self.y, y_value);
+        witness.set_target(self.dummy, dummy_value);
+        witness.set_target(self.is_zero, is_zero_value);
         witness
     }
 }
