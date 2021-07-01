@@ -9,14 +9,14 @@ use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Split the given integer into a list of virtual advice targets, where each one represents a
-    /// bit of the integer, with little-endian ordering.
+    /// Split the given integer into a list of virtual targets, where each one represents a bit of
+    /// the integer, with little-endian ordering.
     ///
     /// Note that this only handles witness generation; it does not enforce that the decomposition
     /// is correct. The output should be treated as a "purported" decomposition which must be
     /// enforced elsewhere.
     pub(crate) fn split_le_virtual(&mut self, integer: Target, num_bits: usize) -> Vec<Target> {
-        let bit_targets = self.add_virtual_advice_targets(num_bits);
+        let bit_targets = self.add_virtual_targets(num_bits);
         self.add_generator(SplitGenerator {
             integer,
             bits: bit_targets.clone(),

@@ -57,7 +57,7 @@ impl TargetPartitions {
     }
 
     pub fn to_wire_partitions(&self) -> WirePartitions {
-        // Here we just drop all CircuitInputs, leaving all GateInputs.
+        // Here we keep just the Wire targets, filtering out everything else.
         let mut partitions = Vec::new();
         let mut indices = HashMap::new();
 
