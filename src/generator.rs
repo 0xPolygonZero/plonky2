@@ -146,7 +146,11 @@ impl<F: Field> SimpleGenerator<F> for EqualsZeroGenerator {
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
         let to_test_value = witness.get_target(self.to_test);
 
-        let is_zero_value = if to_test_value == F::ZERO { F::ZERO } else { F::ONE };
+        let is_zero_value = if to_test_value == F::ZERO {
+            F::ZERO
+        } else {
+            F::ONE
+        };
 
         let dummy_value = if to_test_value == F::ZERO {
             F::ONE

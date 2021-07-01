@@ -7,11 +7,15 @@ use crate::wire::Wire;
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum Target {
     Wire(Wire),
-    PublicInput { index: usize },
+    PublicInput {
+        index: usize,
+    },
     /// A target that doesn't have any inherent location in the witness (but it can be copied to
     /// another target that does). This is useful for representing intermediate values in witness
     /// generation.
-    VirtualTarget { index: usize },
+    VirtualTarget {
+        index: usize,
+    },
 }
 
 impl Target {
