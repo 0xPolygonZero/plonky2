@@ -277,6 +277,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn blind_and_pad(&mut self) {
         let (regular_poly_openings, z_openings) = self.blinding_counts();
+        info!(
+            "Adding {} blinding terms for witness polynomials, and {}*2 for Z polynomials",
+            regular_poly_openings, z_openings
+        );
 
         let num_routed_wires = self.config.num_routed_wires;
         let num_wires = self.config.num_wires;
@@ -383,12 +387,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn build(mut self) -> CircuitData<F, D> {
         let start = Instant::now();
         info!(
-            "degree before blinding & padding: {}",
+            "Degree before blinding & padding: {}",
             self.gate_instances.len()
         );
         self.blind_and_pad();
         let degree = self.gate_instances.len();
-        info!("degree after blinding & padding: {}", degree);
+        info!("Degree after blinding & padding: {}", degree);
 
         let gates = self.gates.iter().cloned().collect();
         let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
