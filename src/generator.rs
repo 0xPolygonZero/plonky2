@@ -131,7 +131,6 @@ impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
     }
 }
 
-
 /// A generator for including a random value
 pub(crate) struct EqualityGenerator {
     pub(crate) x: Target,
@@ -147,11 +146,7 @@ impl<F: Field> SimpleGenerator<F> for EqualityGenerator {
     fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
         let x_value = witness.get_target(self.x);
 
-        let y_value = if x_value == F::ZERO {
-            F::ZERO
-        } else {
-            F::ONE
-        };
+        let y_value = if x_value == F::ZERO { F::ZERO } else { F::ONE };
 
         let m_value = if x_value == F::ZERO {
             F::ONE

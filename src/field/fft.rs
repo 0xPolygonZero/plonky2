@@ -6,7 +6,10 @@ use crate::util::{log2_strict, reverse_index_bits};
 
 // TODO: Should really do some "dynamic" dispatch to handle the
 // different FFT algos rather than C-style enum dispatch.
-enum FftStrategy { Classic, Unrolled }
+enum FftStrategy {
+    Classic,
+    Unrolled,
+}
 
 const FFT_STRATEGY: FftStrategy = FftStrategy::Classic;
 
@@ -32,7 +35,6 @@ fn fft_classic_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     }
     root_table
 }
-
 
 fn fft_unrolled_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     // Precompute a table of the roots of unity used in the main
@@ -67,18 +69,20 @@ fn fft_unrolled_root_table<F: Field>(n: usize) -> FftRootTable<F> {
 fn fft_dispatch<F: Field>(
     input: Vec<F>,
     zero_factor: Option<usize>,
-    root_table: Option<FftRootTable<F>>
+    root_table: Option<FftRootTable<F>>,
 ) -> Vec<F> {
     let n = input.len();
     match FFT_STRATEGY {
-        FftStrategy::Classic
-            => fft_classic(input,
-                           zero_factor.unwrap_or(0),
-                           root_table.unwrap_or_else(|| fft_classic_root_table(n))),
-        FftStrategy::Unrolled
-            => fft_unrolled(input,
-                            zero_factor.unwrap_or(0),
-                            root_table.unwrap_or_else(|| fft_unrolled_root_table(n)))
+        FftStrategy::Classic => fft_classic(
+            input,
+            zero_factor.unwrap_or(0),
+            root_table.unwrap_or_else(|| fft_classic_root_table(n)),
+        ),
+        FftStrategy::Unrolled => fft_unrolled(
+            input,
+            zero_factor.unwrap_or(0),
+            root_table.unwrap_or_else(|| fft_unrolled_root_table(n)),
+        ),
     }
 }
 
@@ -91,10 +95,12 @@ pub fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
 pub fn fft_with_options<F: Field>(
     poly: PolynomialCoeffs<F>,
     zero_factor: Option<usize>,
-    root_table: Option<FftRootTable<F>>
+    root_table: Option<FftRootTable<F>>,
 ) -> PolynomialValues<F> {
     let PolynomialCoeffs { coeffs } = poly;
-    PolynomialValues { values: fft_dispatch(coeffs, zero_factor, root_table) }
+    PolynomialValues {
+        values: fft_dispatch(coeffs, zero_factor, root_table),
+    }
 }
 
 #[inline]
@@ -105,7 +111,7 @@ pub fn ifft<F: Field>(poly: PolynomialValues<F>) -> PolynomialCoeffs<F> {
 pub fn ifft_with_options<F: Field>(
     poly: PolynomialValues<F>,
     zero_factor: Option<usize>,
-    root_table: Option<FftRootTable<F>>
+    root_table: Option<FftRootTable<F>>,
 ) -> PolynomialCoeffs<F> {
     let n = poly.len();
     let lg_n = log2_strict(n);
@@ -136,7 +142,7 @@ pub fn ifft_with_options<F: Field>(
 pub(crate) fn fft_classic<F: Field>(
     input: Vec<F>,
     r: usize,
-    root_table: FftRootTable<F>
+    root_table: FftRootTable<F>,
 ) -> Vec<F> {
     let mut values = reverse_index_bits(input);
 
@@ -144,7 +150,11 @@ pub(crate) fn fft_classic<F: Field>(
     let lg_n = log2_strict(n);
 
     if root_table.len() != lg_n {
-        panic!("Expected root table of length {}, but it was {}.", lg_n, root_table.len());
+        panic!(
+            "Expected root table of length {}, but it was {}.",
+            lg_n,
+            root_table.len()
+        );
     }
 
     // After reverse_index_bits, the only non-zero elements of values
@@ -154,7 +164,8 @@ pub(crate) fn fft_classic<F: Field>(
     // element i*2^r with the value at i*2^r.  This corresponds to the
     // first r rounds of the FFT when there are 2^r zeros at the end
     // of the original input.
-    if r > 0 { // if r == 0 then this loop is a noop.
+    if r > 0 {
+        // if r == 0 then this loop is a noop.
         let mask = !((1 << r) - 1);
         for i in 0..n {
             values[i] = values[i & mask];
@@ -162,7 +173,7 @@ pub(crate) fn fft_classic<F: Field>(
     }
 
     let mut m = 1 << (r + 1);
-    for lg_m in (r+1)..=lg_n {
+    for lg_m in (r + 1)..=lg_n {
         let half_m = m / 2;
         for k in (0..n).step_by(m) {
             for j in 0..half_m {
@@ -185,11 +196,7 @@ pub(crate) fn fft_classic<F: Field>(
 /// The parameter r signifies that the first 1/2^r of the entries of
 /// input may be non-zero, but the last 1 - 1/2^r entries are
 /// definitely zero.
-fn fft_unrolled<F: Field>(
-    input: Vec<F>,
-    r_orig: usize,
-    root_table: FftRootTable<F>
-) -> Vec<F> {
+fn fft_unrolled<F: Field>(input: Vec<F>, r_orig: usize, root_table: FftRootTable<F>) -> Vec<F> {
     let n = input.len();
     let lg_n = log2_strict(input.len());
 
@@ -197,7 +204,7 @@ fn fft_unrolled<F: Field>(
 
     // FFT of a constant polynomial (including zero) is itself.
     if n < 2 {
-        return values
+        return values;
     }
 
     // The 'm' corresponds to the specialisation from the 'm' in the
@@ -206,7 +213,8 @@ fn fft_unrolled<F: Field>(
     // (See comment in fft_classic near same code.)
     let mut r = r_orig;
     let mut m = 1 << r;
-    if r > 0 { // if r == 0 then this loop is a noop.
+    if r > 0 {
+        // if r == 0 then this loop is a noop.
         let mask = !((1 << r) - 1);
         for i in 0..n {
             values[i] = values[i & mask];
@@ -225,11 +233,15 @@ fn fft_unrolled<F: Field>(
     }
 
     if n == 2 {
-        return values
+        return values;
     }
 
     if root_table.len() != (lg_n - 1) {
-        panic!("Expected root table of length {}, but it was {}.", lg_n, root_table.len());
+        panic!(
+            "Expected root table of length {}, but it was {}.",
+            lg_n,
+            root_table.len()
+        );
     }
 
     // m = 2
@@ -253,7 +265,7 @@ fn fft_unrolled<F: Field>(
 
     // m >= 4
     for lg_m in r..lg_n {
-        for k in (0..n).step_by(2*m) {
+        for k in (0..n).step_by(2 * m) {
             // Unrolled the commented loop by groups of 4 and
             // rearranged the lines. Improves runtime by about
             // 10%.
@@ -294,11 +306,10 @@ fn fft_unrolled<F: Field>(
     values
 }
 
-
 #[cfg(test)]
 mod tests {
     use crate::field::crandall_field::CrandallField;
-    use crate::field::fft::{fft, ifft, fft_with_options};
+    use crate::field::fft::{fft, fft_with_options, ifft};
     use crate::field::field::Field;
     use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
     use crate::util::{log2_ceil, log2_strict};
@@ -328,7 +339,10 @@ mod tests {
         for r in 0..4 {
             // expand ceofficients by factor 2^r by filling with zeros
             let zero_tail = coefficients.clone().lde(r);
-            assert_eq!(fft(zero_tail.clone()), fft_with_options(zero_tail, Some(r), None));
+            assert_eq!(
+                fft(zero_tail.clone()),
+                fft_with_options(zero_tail, Some(r), None)
+            );
         }
     }
 

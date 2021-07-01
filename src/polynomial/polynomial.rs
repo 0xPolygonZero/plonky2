@@ -1,13 +1,12 @@
-use std::time::Instant;
-
 use std::cmp::max;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
+use std::time::Instant;
 
 use anyhow::{ensure, Result};
 
 use crate::field::extension_field::Extendable;
-use crate::field::fft::{fft, ifft, fft_with_options};
+use crate::field::fft::{fft, fft_with_options, ifft};
 use crate::field::field::Field;
 use crate::util::log2_strict;
 

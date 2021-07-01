@@ -77,7 +77,9 @@ pub(crate) fn reverse_bits(n: usize, num_bits: usize) -> usize {
     // to plain '>>' is to accommodate the case n == num_bits == 0,
     // which would become `0 >> 64`. Rust thinks that any shift of 64
     // bits causes overflow, even when the argument is zero.
-    n.reverse_bits().overflowing_shr(usize::BITS - num_bits as u32).0
+    n.reverse_bits()
+        .overflowing_shr(usize::BITS - num_bits as u32)
+        .0
 }
 
 #[cfg(test)]

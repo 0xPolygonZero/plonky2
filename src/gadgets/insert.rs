@@ -1,8 +1,8 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::target::Target;
 use crate::generator::EqualityGenerator;
+use crate::target::Target;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Evaluates to 1 if `x` equals zero, 0 otherwise.
@@ -10,11 +10,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let m = todo!();
         let y = todo!();
 
-        self.add_generator(EqualityGenerator {
-            x,
-            m,
-            y,
-        });
+        self.add_generator(EqualityGenerator { x, m, y });
 
         y
     }
@@ -39,15 +35,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         for i in 0..v.len() {
             let one = self.one();
-            
+
             let cur_index = self.constant(F::from_canonical_usize(i));
             let insert_here = self.is_equal(cur_index, index);
 
             let mut new_item = self.zero_extension();
             new_item = self.scalar_mul_add_extension(insert_here, element, new_item);
             if i > 0 {
-                new_item =
-                    self.scalar_mul_add_extension(already_inserted, v[i - 1], new_item);
+                new_item = self.scalar_mul_add_extension(already_inserted, v[i - 1], new_item);
             }
             already_inserted = self.add(already_inserted, insert_here);
 
