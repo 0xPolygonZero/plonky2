@@ -158,7 +158,7 @@ pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     pub(crate) k_is: Vec<F>,
 
     /// The number of partial products needed to compute the `Z` polynomials, as well as the number
-    /// of partial products needed to compute the last product.
+    /// of partial products needed to compute the final product.
     pub(crate) num_partial_products: (usize, usize),
 
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to

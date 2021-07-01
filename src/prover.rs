@@ -85,17 +85,16 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         "to compute partial products"
     );
 
-    let plonk_z_vecs = timed!(
-        compute_zs(&partial_products, prover_data, common_data),
-        "to compute Z's"
-    );
+    let plonk_z_vecs = timed!(compute_zs(&partial_products, common_data), "to compute Z's");
 
+    // The first two polynomials in `partial_products` represent the final products used in the
+    // computation of `Z`. They aren't needed anymore so we discard them.
     partial_products.iter_mut().for_each(|part| {
         part.drain(0..2);
     });
 
     let zs_partial_products = [plonk_z_vecs, partial_products.concat()].concat();
-    let plonk_zs_commitment = timed!(
+    let zs_partial_products_commitment = timed!(
         ListPolynomialCommitment::new(
             zs_partial_products,
             fri_config.rate_bits,
@@ -104,7 +103,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         "to commit to Z's"
     );
 
-    challenger.observe_hash(&plonk_zs_commitment.merkle_tree.root);
+    challenger.observe_hash(&zs_partial_products_commitment.merkle_tree.root);
 
     let alphas = challenger.get_n_challenges(num_challenges);
 
@@ -113,7 +112,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             common_data,
             prover_data,
             &wires_commitment,
-            &plonk_zs_commitment,
+            &zs_partial_products_commitment,
             &betas,
             &gammas,
             &alphas,
@@ -156,7 +155,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             &[
                 &prover_data.constants_sigmas_commitment,
                 &wires_commitment,
-                &plonk_zs_commitment,
+                &zs_partial_products_commitment,
                 &quotient_polys_commitment,
             ],
             zeta,
@@ -173,13 +172,14 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     Proof {
         wires_root: wires_commitment.merkle_tree.root,
-        plonk_zs_root: plonk_zs_commitment.merkle_tree.root,
+        plonk_zs_root: zs_partial_products_commitment.merkle_tree.root,
         quotient_polys_root: quotient_polys_commitment.merkle_tree.root,
         openings,
         opening_proof,
     }
 }
 
+/// Compute the partial products used in the `Z` polynomials.
 fn all_wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
     witness: &Witness<F>,
     betas: &[F],
@@ -200,6 +200,9 @@ fn all_wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
         .collect()
 }
 
+/// Compute the partial products used in the `Z` polynomial.
+/// Returns the polynomials interpolating `partial_products(f) + partial_products(g)`
+/// where `f, g` are the products in the definition of `Z`: `Z(g^i) = n / d`.
 fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
     witness: &Witness<F>,
     beta: F,
@@ -230,19 +233,25 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
                     wire_value + beta * s_sigma + gamma
                 })
                 .collect::<Vec<_>>();
+
             let numerator_partials = partial_products(&numerator_values, degree);
             let denominator_partials = partial_products(&denominator_values, degree);
+
+            // This is the final product for the numerator.
             let numerator = numerator_partials
                 [common_data.num_partial_products.0 - common_data.num_partial_products.1..]
                 .iter()
                 .copied()
                 .product();
+            // This is the final product for the denominator.
             let denominator = denominator_partials
                 [common_data.num_partial_products.0 - common_data.num_partial_products.1..]
                 .iter()
                 .copied()
                 .product();
 
+            // We add the numerator and denominator at the beginning of the vector to reuse them
+            // later in the computation of `Z`.
             [
                 vec![numerator],
                 vec![denominator],
@@ -261,23 +270,20 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
 
 fn compute_zs<F: Extendable<D>, const D: usize>(
     partial_products: &[Vec<PolynomialValues<F>>],
-    prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Vec<PolynomialValues<F>> {
     (0..common_data.config.num_challenges)
-        .map(|i| compute_z(&partial_products[i], prover_data, common_data))
+        .map(|i| compute_z(&partial_products[i], common_data))
         .collect()
 }
 
+/// Compute the `Z` polynomial by reusing the computations done in `wires_permutation_partial_products`.
 fn compute_z<F: Extendable<D>, const D: usize>(
     partial_products: &[PolynomialValues<F>],
-    prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> PolynomialValues<F> {
-    let subgroup = &prover_data.subgroup;
     let mut plonk_z_points = vec![F::ONE];
     for i in 1..common_data.degree() {
-        let x = subgroup[i - 1];
         let numerator = partial_products[0].values[i - 1];
         let denominator = partial_products[1].values[i - 1];
         let last = *plonk_z_points.last().unwrap();

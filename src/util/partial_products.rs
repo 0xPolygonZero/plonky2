@@ -3,12 +3,17 @@ use std::ops::Sub;
 
 use crate::util::ceil_div_usize;
 
+/// Compute partial products of the original vector `v` such that no products are of `max_degree` or
+/// less elements. This is done until we've computed the product `P` of all elements in the vector.
+/// The final product resulting in `P` has `max_degree-1` elements at most since `P` is multiplied
+/// by the `Z` polynomial in the Plonk check.
 pub fn partial_products<T: Product + Copy>(v: &[T], max_degree: usize) -> Vec<T> {
     let mut res = Vec::new();
     let mut remainder = v.to_vec();
     while remainder.len() >= max_degree {
         let new_partials = remainder
             .chunks(max_degree)
+            // No need to compute the product if the chunk has size 1.
             .filter(|chunk| chunk.len() != 1)
             .map(|chunk| chunk.iter().copied().product())
             .collect::<Vec<_>>();
@@ -19,12 +24,15 @@ pub fn partial_products<T: Product + Copy>(v: &[T], max_degree: usize) -> Vec<T>
             vec![]
         };
         remainder = new_partials;
+        // If there were a chunk of size 1, add it back to the remainder.
         remainder.extend(addendum);
     }
 
     res
 }
 
+/// Returns a tuple `(a,b)`, where `a` is the length of the output of `partial_products()` on a
+/// vector of length `n`, and `b` is the number of elements needed to compute the final product.
 pub fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
     let mut res = 0;
     let mut remainder = n;
@@ -38,6 +46,8 @@ pub fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
     (res, remainder)
 }
 
+/// Checks that the partial products of `v` are coherent with those in `partials` by only computing
+/// products of size `max_degree` or less.
 pub fn check_partial_products<T: Product + Copy + Sub<Output = T>>(
     v: &[T],
     partials: &[T],
