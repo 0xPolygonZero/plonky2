@@ -7,13 +7,18 @@ use crate::target::Target;
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Evaluates to 1 if `x` equals zero, 0 otherwise.
     pub fn is_zero(&mut self, x: Target) -> Target {
-        let m = todo!();
-        let y = todo!();
+        let m = self.add_virtual_target();
+        let y = self.mul(x, m);
+
+        let one = self.one();
+        let diff = self.sub(one, y);
+        let prod = self.mul(diff, x);
+        self.assert_zero(prod);
 
         self.add_generator(EqualsZeroGenerator {
             to_test: x,
             dummy: m,
-            is_zero: y
+            is_zero: y,
         });
 
         y
