@@ -26,15 +26,8 @@ fn fft_classic_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     let mut root_table = Vec::with_capacity(lg_n);
     for lg_m in 1..=lg_n {
         let half_m = 1 << (lg_m - 1);
-        let mut root_row = Vec::with_capacity(half_m);
         let base = bases[lg_n - lg_m];
-        let mut omega = base;
-        root_row.push(F::ONE);
-        root_row.push(omega);
-        for j in 2..half_m {
-            omega *= base;
-            root_row.push(omega);
-        }
+        let root_row = base.powers().take(half_m.max(2)).collect();
         root_table.push(root_row);
     }
     root_table
@@ -63,15 +56,8 @@ fn fft_unrolled_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     let mut root_table = Vec::with_capacity(lg_n);
     for lg_m in 1..lg_n {
         let m = 1 << lg_m;
-        let mut root_row = Vec::with_capacity(m);
         let base = bases[lg_n - lg_m - 1];
-        let mut omega = base;
-        root_row.push(F::ONE);
-        root_row.push(omega);
-        for j in 2..m {
-            omega *= base;
-            root_row.push(omega);
-        }
+        let root_row = base.powers().take(m.max(2)).collect();
         root_table.push(root_row);
     }
     root_table
@@ -88,11 +74,11 @@ fn fft_dispatch<F: Field>(
         FftStrategy::Classic
             => fft_classic(input,
                            zero_factor.unwrap_or(0),
-                           root_table.unwrap_or(fft_classic_root_table(n))),
+                           root_table.unwrap_or_else(|| fft_classic_root_table(n))),
         FftStrategy::Unrolled
             => fft_unrolled(input,
                             zero_factor.unwrap_or(0),
-                            root_table.unwrap_or(fft_unrolled_root_table(n)))
+                            root_table.unwrap_or_else(|| fft_unrolled_root_table(n)))
     }
 }
 
@@ -150,19 +136,16 @@ pub fn ifft_with_options<F: Field>(
 pub(crate) fn fft_classic<F: Field>(
     input: Vec<F>,
     r: usize,
-    root_table_: FftRootTable<F>
+    root_table: FftRootTable<F>
 ) -> Vec<F> {
     let mut values = reverse_index_bits(input);
 
     let n = values.len();
     let lg_n = log2_strict(n);
 
-    // TODO: Check that this doesn't copy root_table_
-    let root_table: FftRootTable<F> = if root_table_.len() != lg_n {
-        fft_classic_root_table(n)
-    } else {
-        root_table_
-    };
+    if root_table.len() != lg_n {
+        panic!("Expected root table of length {}, but it was {}.", lg_n, root_table.len());
+    }
 
     // After reverse_index_bits, the only non-zero elements of values
     // are at indices i*2^r for i = 0..n/2^r.  The loop below copies
@@ -205,7 +188,7 @@ pub(crate) fn fft_classic<F: Field>(
 fn fft_unrolled<F: Field>(
     input: Vec<F>,
     r_orig: usize,
-    root_table_: FftRootTable<F>
+    root_table: FftRootTable<F>
 ) -> Vec<F> {
     let n = input.len();
     let lg_n = log2_strict(input.len());
@@ -245,13 +228,9 @@ fn fft_unrolled<F: Field>(
         return values
     }
 
-
-    // TODO: Check that this doesn't copy root_table_
-    let root_table: FftRootTable<F> = if root_table_.len() != lg_n {
-        fft_unrolled_root_table(n)
-    } else {
-        root_table_
-    };
+    if root_table.len() != (lg_n - 1) {
+        panic!("Expected root table of length {}, but it was {}.", lg_n, root_table.len());
+    }
 
     // m = 2
     if m <= 2 {
