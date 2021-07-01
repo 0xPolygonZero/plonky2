@@ -157,6 +157,10 @@ pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
     pub(crate) k_is: Vec<F>,
 
+    /// The number of partial products needed to compute the `Z` polynomials, as well as the number
+    /// of partial products needed to compute the last product.
+    pub(crate) num_partial_products: (usize, usize),
+
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
     pub(crate) circuit_digest: Hash<F>,

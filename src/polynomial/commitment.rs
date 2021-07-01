@@ -331,6 +331,7 @@ mod tests {
             num_gate_constraints: 0,
             num_constants: 4,
             k_is: vec![F::ONE; 6],
+            num_partial_products: (0, 0),
             circuit_digest: Hash::from_partial(vec![]),
         };
 

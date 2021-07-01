@@ -232,13 +232,13 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
                 .collect::<Vec<_>>();
             let numerator_partials = partial_products(&numerator_values, degree);
             let denominator_partials = partial_products(&denominator_values, degree);
-            let numerator = numerator_partials.0
-                [numerator_partials.0.len() - numerator_partials.1..]
+            let numerator = numerator_partials
+                [common_data.num_partial_products.0 - common_data.num_partial_products.1..]
                 .iter()
                 .copied()
                 .product();
-            let denominator = denominator_partials.0
-                [denominator_partials.0.len() - denominator_partials.1..]
+            let denominator = denominator_partials
+                [common_data.num_partial_products.0 - common_data.num_partial_products.1..]
                 .iter()
                 .copied()
                 .product();
@@ -246,8 +246,8 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
             [
                 vec![numerator],
                 vec![denominator],
-                numerator_partials.0,
-                denominator_partials.0,
+                numerator_partials,
+                denominator_partials,
             ]
             .concat()
         })

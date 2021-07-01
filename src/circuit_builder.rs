@@ -21,6 +21,7 @@ use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
+use crate::util::partial_products::num_partial_products;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 use crate::wire::Wire;
 
@@ -434,6 +435,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .max()
             .expect("No gates?");
 
+        let num_partial_products =
+            num_partial_products(self.config.num_routed_wires, max_filtered_constraint_degree);
+
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
             constants_sigmas_root.elements.to_vec(),
@@ -449,6 +453,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             num_gate_constraints,
             num_constants,
             k_is,
+            num_partial_products,
             circuit_digest,
         };
 

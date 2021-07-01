@@ -1,7 +1,9 @@
 use std::iter::Product;
 use std::ops::Sub;
 
-pub fn partial_products<T: Product + Copy>(v: &[T], max_degree: usize) -> (Vec<T>, usize) {
+use crate::util::ceil_div_usize;
+
+pub fn partial_products<T: Product + Copy>(v: &[T], max_degree: usize) -> Vec<T> {
     let mut res = Vec::new();
     let mut remainder = v.to_vec();
     while remainder.len() >= max_degree {
@@ -14,7 +16,19 @@ pub fn partial_products<T: Product + Copy>(v: &[T], max_degree: usize) -> (Vec<T
         remainder = new_partials;
     }
 
-    (res, remainder.len())
+    res
+}
+
+pub fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
+    let mut res = 0;
+    let mut remainder = n;
+    while remainder >= max_degree {
+        let new_partials_len = ceil_div_usize(remainder, max_degree);
+        res += new_partials_len;
+        remainder = new_partials_len;
+    }
+
+    (res, remainder)
 }
 
 pub fn check_partial_products<T: Product + Copy + Sub<Output = T>>(
@@ -47,15 +61,17 @@ mod tests {
     fn test_partial_products() {
         let v = vec![1, 2, 3, 4, 5, 6];
         let p = partial_products(&v, 2);
-        assert_eq!(p, (vec![2, 12, 30, 24, 30, 720], 1));
-        assert!(check_partial_products(&v, &p.0, 2)
+        assert_eq!(p, vec![2, 12, 30, 24, 30, 720]);
+        assert_eq!(p.len(), num_partial_products(v.len(), 2).0);
+        assert!(check_partial_products(&v, &p, 2)
             .iter()
             .all(|x| x.is_zero()));
 
         let v = vec![1, 2, 3, 4, 5, 6];
         let p = partial_products(&v, 3);
-        assert_eq!(p, (vec![6, 120], 2));
-        assert!(check_partial_products(&v, &p.0, 3)
+        assert_eq!(p, vec![6, 120]);
+        assert_eq!(p.len(), num_partial_products(v.len(), 3).0);
+        assert!(check_partial_products(&v, &p, 3)
             .iter()
             .all(|x| x.is_zero()));
     }

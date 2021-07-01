@@ -155,26 +155,8 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
                 wire_value + betas[i] * s_sigma + gammas[i]
             })
             .collect::<Vec<_>>();
-        let numerator_partial_products = partial_products(&numerator_values, max_degree);
-        let denominator_partial_products = partial_products(&denominator_values, max_degree);
 
-        let num_prods = numerator_partial_products.0.len();
-        // dbg!(numerator_partial_products
-        //     .0
-        //     .iter()
-        //     .chain(&denominator_partial_products.0)
-        //     .zip(&local_partial_products[i * num_prods..(i + 1) * num_prods])
-        //     .map(|(&a, &b)| a - b)
-        //     .collect::<Vec<_>>(),);
-        // vanishing_partial_products_terms.append(
-        //     &mut numerator_partial_products
-        //         .0
-        //         .into_iter()
-        //         .chain(denominator_partial_products.0)
-        //         .zip(&local_partial_products[i * num_prods..(i + 1) * num_prods])
-        //         .map(|(a, &b)| a - b)
-        //         .collect::<Vec<_>>(),
-        // );
+        let (num_prods, final_num_prod) = common_data.num_partial_products;
         vanishing_partial_products_terms.extend(check_partial_products(
             &numerator_values,
             &local_partial_products[2 * i * num_prods..(2 * i + 1) * num_prods],
@@ -185,16 +167,14 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
             &local_partial_products[(2 * i + 1) * num_prods..(2 * i + 2) * num_prods],
             max_degree,
         ));
-        // dbg!(common_data.max_filtered_constraint_degree);
-        // dbg!(numerator_partial_products.1.len());
-        // dbg!(denominator_partial_products.1.len());
+
         let f_prime: F = local_partial_products
-            [(2 * i + 1) * num_prods - numerator_partial_products.1..(2 * i + 1) * num_prods]
+            [(2 * i + 1) * num_prods - final_num_prod..(2 * i + 1) * num_prods]
             .iter()
             .copied()
             .product();
         let g_prime: F = local_partial_products
-            [(2 * i + 2) * num_prods - numerator_partial_products.1..(2 * i + 2) * num_prods]
+            [(2 * i + 2) * num_prods - final_num_prod..(2 * i + 2) * num_prods]
             .iter()
             .copied()
             .product();
