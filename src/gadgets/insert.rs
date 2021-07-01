@@ -21,7 +21,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Evaluates to 1 if `x` and `y` are equal, 0 otherwise.
     pub fn is_equal(&mut self, x: Target, y: Target) -> Target {
-        self.is_zero(self.sub(x, y))
+        let difference = self.sub(x, y);
+        self.is_zero(difference)
     }
 
     /// Inserts a `Target` in a vector at a non-deterministic index. This is done by rotating to the
