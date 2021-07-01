@@ -6,11 +6,14 @@ use crate::target::Target;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Evaluates to 0 if `x` equals zero, 1 otherwise.
+    /// From section 2 of https://github.com/mir-protocol/r1cs-workshop/blob/master/workshop.pdf,
+    /// based on an idea from https://eprint.iacr.org/2012/598.pdf.
     pub fn is_nonzero(&mut self, x: Target) -> Target {
         // Dummy variable.
         let m = self.add_virtual_target();
 
-        // The prover sets the dummy variable to 0 if x == 0 and to 1/x otherwise.
+        // The prover sets this the dummy variable to 1/x if x != 0, or to an arbitrary value if
+        // x == 0.
         self.add_generator(NonzeroTestGenerator {
             to_test: x,
             dummy: m,

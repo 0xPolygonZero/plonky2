@@ -151,8 +151,6 @@ impl<F: Field> SimpleGenerator<F> for NonzeroTestGenerator {
             to_test_value.inverse()
         };
 
-        let mut witness = PartialWitness::new();
-        witness.set_target(self.dummy, dummy_value);
-        witness
+        PartialWitness::singleton_target(self.dummy, dummy_value)
     }
 }
