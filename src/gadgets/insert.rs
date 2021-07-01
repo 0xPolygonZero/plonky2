@@ -10,7 +10,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let m = todo!();
         let y = todo!();
 
-        self.add_generator(EqualsZeroGenerator { x, m, y });
+        self.add_generator(EqualsZeroGenerator {
+            to_test: x,
+            dummy: m,
+            is_zero: y
+        });
 
         y
     }
