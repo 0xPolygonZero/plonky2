@@ -2,11 +2,26 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::target::Target;
+use crate::generator::EqualityGenerator;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    /// Evaluates to 1 if `x` equals zero, 0 otherwise.
+    pub fn is_zero(&mut self, x: Target) -> Target {
+        let m = todo!();
+        let y = todo!();
+
+        self.add_generator(EqualityGenerator {
+            x,
+            m,
+            y,
+        });
+
+        y
+    }
+
     /// Evaluates to 1 if `x` and `y` are equal, 0 otherwise.
-    pub fn is_equal(&mut self, _x: Target, _y: Target) -> Target {
-        todo!()
+    pub fn is_equal(&mut self, x: Target, y: Target) -> Target {
+        self.is_zero(self.sub(x, y))
     }
 
     /// Inserts a `Target` in a vector at a non-deterministic index. This is done by rotating to the
