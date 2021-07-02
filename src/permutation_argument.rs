@@ -49,7 +49,7 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition
     pub fn find(&mut self, mut x: ForestNode<T>) -> ForestNode<T> {
         while x.parent != x.index {
             let grandparent = self.forest[x.parent].parent;
-            x.parent = grandparent;
+            self.forest[x.index].parent = grandparent;
             x = self.forest[grandparent];
         }
         x
@@ -57,27 +57,26 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition
 
     /// Merge two sets.
     pub fn merge(&mut self, tx: T, ty: T) {
-        let index_x = (self.indices)(tx);
-        let index_y = (self.indices)(ty);
-        let mut x = self.forest[index_x];
-        let mut y = self.forest[index_y];
+        let mut x = self.forest[(self.indices)(tx)];
+        let mut y = self.forest[(self.indices)(ty)];
 
-        x = self.forest[x.parent];
-        y = self.forest[y.parent];
+        x = self.find(x);
+        y = self.find(y);
 
         if x == y {
             return;
         }
 
-        if x.size < y.size {
-            std::mem::swap(&mut x, &mut y);
+        if x.size >= y.size {
+            y.parent = x.index;
+            x.size += y.size;
+        } else {
+            x.parent = y.index;
+            y.size += x.size;
         }
 
-        y.parent = x.index;
-        x.size += y.size;
-
-        self.forest[index_x] = x;
-        self.forest[index_y] = y;
+        self.forest[x.index] = x;
+        self.forest[y.index] = y;
     }
 }
 impl<F: Fn(Target) -> usize> TargetPartition<Target, F> {
