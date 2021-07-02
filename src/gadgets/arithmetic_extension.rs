@@ -446,9 +446,7 @@ mod tests {
         type FF = QuarticCrandallField;
         const D: usize = 4;
 
-        let mut config = CircuitConfig::large_config();
-        config.rate_bits = 2;
-        config.fri_config.rate_bits = 2;
+        let config = CircuitConfig::large_config();
 
         let mut builder = CircuitBuilder::<F, D>::new(config);
 

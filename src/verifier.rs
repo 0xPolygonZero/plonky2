@@ -37,19 +37,19 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
         local_constants,
         local_wires,
     };
-    let local_plonk_zs = &proof.openings.plonk_zs;
-    let next_plonk_zs = &proof.openings.plonk_zs_right;
+    let local_zs = &proof.openings.plonk_zs;
+    let next_zs = &proof.openings.plonk_zs_right;
     let s_sigmas = &proof.openings.plonk_s_sigmas;
-    let local_partial_products = &proof.openings.partial_products;
+    let partial_products = &proof.openings.partial_products;
 
     // Evaluate the vanishing polynomial at our challenge point, zeta.
     let vanishing_polys_zeta = eval_vanishing_poly(
         common_data,
         zeta,
         vars,
-        local_plonk_zs,
-        next_plonk_zs,
-        local_partial_products,
+        local_zs,
+        next_zs,
+        partial_products,
         s_sigmas,
         &betas,
         &gammas,

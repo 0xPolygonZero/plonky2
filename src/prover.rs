@@ -1,6 +1,5 @@
 use std::time::Instant;
 
-use itertools::Itertools;
 use log::info;
 use rayon::prelude::*;
 
@@ -80,6 +79,10 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let betas = challenger.get_n_challenges(num_challenges);
     let gammas = challenger.get_n_challenges(num_challenges);
 
+    assert!(
+        common_data.max_filtered_constraint_degree<=common_data.config.num_routed_wires,
+        "When the number of routed wires is smaller that the degree, we should change the logic to avoid computing partial products."
+    );
     let mut partial_products = timed!(
         all_wires_permutation_partial_products(&witness, &betas, &gammas, prover_data, common_data),
         "to compute partial products"
@@ -214,7 +217,7 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
     let subgroup = &prover_data.subgroup;
     let k_is = &common_data.k_is;
     let values = subgroup
-        .iter()
+        .par_iter()
         .enumerate()
         .map(|(i, &x)| {
             let s_sigmas = &prover_data.sigmas[i];
@@ -329,8 +332,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
         ZeroPolyOnCoset::new(common_data.degree_bits, max_filtered_constraint_degree_bits);
 
     let quotient_values: Vec<Vec<F>> = points
-        // .into_par_iter()
-        .into_iter()
+        .into_par_iter()
         .enumerate()
         .map(|(i, x)| {
             let shifted_x = F::coset_shift() * x;
@@ -352,7 +354,6 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
                 local_constants,
                 local_wires,
             };
-            dbg!(i);
             let mut quotient_values = eval_vanishing_poly_base(
                 common_data,
                 i,
