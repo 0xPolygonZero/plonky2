@@ -9,6 +9,7 @@ use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
 use crate::wire::Wire;
 
+/// Node in the Disjoint Set Forest.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct ForestNode<T: Debug + Copy + Eq + PartialEq> {
     t: T,
@@ -17,9 +18,11 @@ pub struct ForestNode<T: Debug + Copy + Eq + PartialEq> {
     index: usize,
 }
 
+/// Disjoint Set Forest data-structure following https://en.wikipedia.org/wiki/Disjoint-set_data_structure.
 #[derive(Debug, Clone)]
 pub struct TargetPartition<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> {
     forest: Vec<ForestNode<T>>,
+    /// Function to compute a node's index in the forest.
     indices: F,
 }
 
@@ -33,6 +36,7 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition
     /// Add a new partition with a single member.
     pub fn add(&mut self, t: T) {
         let index = self.forest.len();
+        debug_assert_eq!((self.indices)(t), index);
         self.forest.push(ForestNode {
             t,
             parent: index,
@@ -41,7 +45,7 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition
         });
     }
 
-    /// Path halving
+    /// Path halving method, see https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives.
     pub fn find(&mut self, mut x: ForestNode<T>) -> ForestNode<T> {
         while x.parent != x.index {
             let grandparent = self.forest[x.parent].parent;
@@ -51,8 +55,7 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition
         x
     }
 
-    /// Merge the two partitions containing the two given targets. Does nothing if the targets are
-    /// already members of the same partition.
+    /// Merge two sets.
     pub fn merge(&mut self, tx: T, ty: T) {
         let index_x = (self.indices)(tx);
         let index_y = (self.indices)(ty);
