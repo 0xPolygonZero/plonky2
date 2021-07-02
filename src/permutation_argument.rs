@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
+use std::hash::Hash;
 
 use rayon::prelude::*;
 
@@ -7,85 +9,153 @@ use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
 use crate::wire::Wire;
 
-#[derive(Debug, Clone)]
-pub struct TargetPartitions {
-    partitions: Vec<Vec<Target>>,
-    indices: HashMap<Target, usize>,
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ForestNode<T: Debug + Copy + Eq + PartialEq> {
+    t: T,
+    parent: usize,
+    size: usize,
+    index: usize,
 }
 
-impl Default for TargetPartitions {
-    fn default() -> Self {
-        TargetPartitions::new()
-    }
-}
-
-impl TargetPartitions {
-    pub fn new() -> Self {
+impl<T: Debug + Copy + Eq + PartialEq> ForestNode<T> {
+    pub fn new(t: T, parent: usize, size: usize, index: usize) -> Self {
         Self {
-            partitions: Vec::new(),
-            indices: HashMap::new(),
+            t,
+            parent,
+            size,
+            index,
         }
     }
+}
 
-    pub fn get_partition(&self, target: Target) -> &[Target] {
-        &self.partitions[self.indices[&target]]
+#[derive(Debug, Clone)]
+pub struct TargetPartition<T: Debug + Copy + Eq + PartialEq + Hash> {
+    forest: Vec<ForestNode<T>>,
+    indices: HashMap<T, usize>,
+}
+
+impl<T: Debug + Copy + Eq + PartialEq + Hash> Default for TargetPartition<T> {
+    fn default() -> Self {
+        Self {
+            forest: Vec::new(),
+            indices: Default::default(),
+        }
+    }
+}
+
+impl<T: Debug + Copy + Eq + PartialEq + Hash> TargetPartition<T> {
+    pub fn get(&self, t: T) -> ForestNode<T> {
+        self.forest[self.indices[&t]]
     }
 
+    pub fn get_mut(&mut self, t: T) -> &mut ForestNode<T> {
+        &mut self.forest[self.indices[&t]]
+    }
+    // pub fn get_partition(&self, target: Target) -> &[Target] {
+    //     &self.partitions[self.indices[&target]]
+    // }
+
     /// Add a new partition with a single member.
-    pub fn add_partition(&mut self, target: Target) {
-        let index = self.partitions.len();
-        self.partitions.push(vec![target]);
-        self.indices.insert(target, index);
+    pub fn add(&mut self, t: T) {
+        let index = self.forest.len();
+        self.forest.push(ForestNode::new(t, index, 1, index));
+        self.indices.insert(t, index);
+    }
+
+    /// Path halving
+    pub fn find(&mut self, mut x: ForestNode<T>) -> ForestNode<T> {
+        while x.parent != x.index {
+            let grandparent = self.forest[x.parent].parent;
+            x.parent = grandparent;
+            x = self.forest[grandparent];
+        }
+        x
     }
 
     /// Merge the two partitions containing the two given targets. Does nothing if the targets are
     /// already members of the same partition.
-    pub fn merge(&mut self, a: Target, b: Target) {
-        let a_index = self.indices[&a];
-        let b_index = self.indices[&b];
-        if a_index != b_index {
-            // Merge a's partition into b's partition, leaving a's partition empty.
-            // We have to clone because Rust's borrow checker doesn't know that
-            // self.partitions[b_index] and self.partitions[b_index] are disjoint.
-            let mut a_partition = self.partitions[a_index].clone();
-            let b_partition = &mut self.partitions[b_index];
-            for a_sibling in &a_partition {
-                *self.indices.get_mut(a_sibling).unwrap() = b_index;
-            }
-            b_partition.append(&mut a_partition);
+    pub fn merge(&mut self, tx: T, ty: T) {
+        let mut x = self.get(tx);
+        let mut y = self.get(ty);
+        let index_x = x.index;
+        let index_y = y.index;
+
+        x = self.forest[x.parent];
+        y = self.forest[y.parent];
+
+        if x == y {
+            return;
         }
+
+        if x.size < y.size {
+            std::mem::swap(&mut x, &mut y);
+        }
+
+        y.parent = x.index;
+        x.size += y.size;
+
+        self.forest[index_x] = x;
+        self.forest[index_y] = y;
     }
+}
+impl TargetPartition<Target> {
+    pub fn wire_partitions(&mut self) -> WirePartitions {
+        let mut partition = HashMap::<_, Vec<_>>::new();
+        let nodes = self.forest.clone();
+        for x in nodes {
+            let v = partition.entry(self.find(x).t).or_default();
+            v.push(x.t);
+        }
 
-    pub fn to_wire_partitions(&self) -> WirePartitions {
-        // Here we keep just the Wire targets, filtering out everything else.
-        let mut partitions = Vec::new();
         let mut indices = HashMap::new();
+        let partition = partition
+            .into_values()
+            .map(|v| {
+                v.into_iter()
+                    .filter_map(|t| match t {
+                        Target::Wire(w) => Some(w),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        partition.iter().enumerate().for_each(|(i, v)| {
+            v.iter().for_each(|t| {
+                indices.insert(*t, i);
+            });
+        });
 
-        for old_partition in &self.partitions {
-            let mut new_partition = Vec::new();
-            for target in old_partition {
-                if let Target::Wire(w) = *target {
-                    new_partition.push(w);
-                }
-            }
-            partitions.push(new_partition);
-        }
+        WirePartitions { partition, indices }
 
-        for (&target, &index) in &self.indices {
-            if let Target::Wire(gi) = target {
-                indices.insert(gi, index);
-            }
-        }
-
-        WirePartitions {
-            partitions,
-            indices,
-        }
+        // // Here we keep just the Wire targets, filtering out everything else.
+        // let mut partitions = Vec::new();
+        // let mut indices = HashMap::new();
+        //
+        // for old_partition in &self.partitions {
+        //     let mut new_partition = Vec::new();
+        //     for target in old_partition {
+        //         if let Target::Wire(w) = *target {
+        //             new_partition.push(w);
+        //         }
+        //     }
+        //     partitions.push(new_partition);
+        // }
+        //
+        // for (&target, &index) in &self.indices {
+        //     if let Target::Wire(gi) = target {
+        //         indices.insert(gi, index);
+        //     }
+        // }
+        //
+        // WirePartitions {
+        //     partitions,
+        //     indices,
+        // }
     }
 }
 
 pub struct WirePartitions {
-    partitions: Vec<Vec<Wire>>,
+    partition: Vec<Vec<Wire>>,
     indices: HashMap<Wire, usize>,
 }
 
@@ -95,7 +165,7 @@ impl WirePartitions {
     /// its partition, this will loop around. If the given wire has a partition all to itself, it
     /// is considered its own neighbor.
     fn get_neighbor(&self, wire: Wire) -> Wire {
-        let partition = &self.partitions[self.indices[&wire]];
+        let partition = &self.partition[self.indices[&wire]];
         let n = partition.len();
         for i in 0..n {
             if partition[i] == wire {
@@ -143,4 +213,16 @@ impl WirePartitions {
         }
         sigma
     }
+}
+
+#[test]
+fn test_part() {
+    let mut part = TargetPartition::default();
+    part.add(1);
+    part.add(2);
+    part.add(3);
+
+    part.merge(1, 3);
+
+    dbg!(part);
 }
