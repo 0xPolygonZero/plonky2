@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -81,7 +81,7 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition
     }
 }
 impl<F: Fn(Target) -> usize> TargetPartition<Target, F> {
-    pub fn wire_partitions(&mut self) -> WirePartitions {
+    pub fn wire_partition(&mut self) -> WirePartitions {
         let mut partition = HashMap::<_, Vec<_>>::new();
         let nodes = self.forest.clone();
         for x in nodes {

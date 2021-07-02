@@ -385,8 +385,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             target_partition.merge(a, b);
         }
 
-        let wire_partitions = target_partition.wire_partitions();
-        wire_partitions.get_sigma_polys(degree_log, k_is, subgroup)
+        let wire_partition = target_partition.wire_partition();
+        wire_partition.get_sigma_polys(degree_log, k_is, subgroup)
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
