@@ -86,17 +86,27 @@ mod tests {
         let v = vec![1, 2, 3, 4, 5, 6];
         let p = partial_products(&v, 2);
         assert_eq!(p, vec![2, 12, 30, 24, 720]);
-        assert_eq!(p.len(), num_partial_products(v.len(), 2).0);
+        let nums = num_partial_products(v.len(), 2);
+        assert_eq!(p.len(), nums.0);
         assert!(check_partial_products(&v, &p, 2)
             .iter()
             .all(|x| x.is_zero()));
+        assert_eq!(
+            v.into_iter().product::<i32>(),
+            p[p.len() - nums.1..].iter().copied().product(),
+        );
 
         let v = vec![1, 2, 3, 4, 5, 6];
         let p = partial_products(&v, 3);
         assert_eq!(p, vec![6, 120]);
-        assert_eq!(p.len(), num_partial_products(v.len(), 3).0);
+        let nums = num_partial_products(v.len(), 3);
+        assert_eq!(p.len(), nums.0);
         assert!(check_partial_products(&v, &p, 3)
             .iter()
             .all(|x| x.is_zero()));
+        assert_eq!(
+            v.into_iter().product::<i32>(),
+            p[p.len() - nums.1..].iter().copied().product(),
+        );
     }
 }

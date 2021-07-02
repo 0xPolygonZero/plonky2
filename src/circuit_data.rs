@@ -157,7 +157,7 @@ pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
     pub(crate) k_is: Vec<F>,
 
-    /// The number of partial products needed to compute the `Z` polynomials, as well as the number
+    /// The number of partial products needed to compute the `Z` polynomials and the number
     /// of partial products needed to compute the final product.
     pub(crate) num_partial_products: (usize, usize),
 
