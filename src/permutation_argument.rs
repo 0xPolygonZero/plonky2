@@ -18,21 +18,18 @@ pub struct ForestNode<T: Debug + Copy + Eq + PartialEq> {
 }
 
 #[derive(Debug, Clone)]
-pub struct TargetPartition<T: Debug + Copy + Eq + PartialEq + Hash> {
+pub struct TargetPartition<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> {
     forest: Vec<ForestNode<T>>,
-    indices: HashMap<T, usize>,
+    indices: F,
 }
 
-impl<T: Debug + Copy + Eq + PartialEq + Hash> Default for TargetPartition<T> {
-    fn default() -> Self {
+impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition<T, F> {
+    pub fn new(f: F) -> Self {
         Self {
             forest: Vec::new(),
-            indices: Default::default(),
+            indices: f,
         }
     }
-}
-
-impl<T: Debug + Copy + Eq + PartialEq + Hash> TargetPartition<T> {
     /// Add a new partition with a single member.
     pub fn add(&mut self, t: T) {
         let index = self.forest.len();
@@ -42,7 +39,6 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash> TargetPartition<T> {
             size: 1,
             index,
         });
-        self.indices.insert(t, index);
     }
 
     /// Path halving
@@ -58,8 +54,8 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash> TargetPartition<T> {
     /// Merge the two partitions containing the two given targets. Does nothing if the targets are
     /// already members of the same partition.
     pub fn merge(&mut self, tx: T, ty: T) {
-        let index_x = self.indices[&tx];
-        let index_y = self.indices[&ty];
+        let index_x = (self.indices)(tx);
+        let index_y = (self.indices)(ty);
         let mut x = self.forest[index_x];
         let mut y = self.forest[index_y];
 
@@ -81,7 +77,7 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash> TargetPartition<T> {
         self.forest[index_y] = y;
     }
 }
-impl TargetPartition<Target> {
+impl<F: Fn(Target) -> usize> TargetPartition<Target, F> {
     pub fn wire_partitions(&mut self) -> WirePartitions {
         let mut partition = HashMap::<_, Vec<_>>::new();
         let nodes = self.forest.clone();

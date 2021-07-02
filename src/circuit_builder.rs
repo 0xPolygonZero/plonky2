@@ -359,7 +359,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> Vec<PolynomialValues<F>> {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
-        let mut target_partition = TargetPartition::default();
+        let mut target_partition = TargetPartition::new(|t| match t {
+            Target::Wire(Wire { gate, input }) => gate * self.config.num_routed_wires + input,
+            Target::PublicInput { index } => degree * self.config.num_routed_wires + index,
+            Target::VirtualTarget { index } => {
+                degree * self.config.num_routed_wires + self.public_input_index + index
+            }
+        });
 
         for gate in 0..degree {
             for input in 0..self.config.num_routed_wires {
