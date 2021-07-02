@@ -343,8 +343,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
             let local_zs = &local_zs_partial_products[common_data.zs_range()];
             let next_zs =
                 &get_at_index(zs_partial_products_commitment, i_next)[common_data.zs_range()];
-            let local_partial_products =
-                &local_zs_partial_products[common_data.partial_products_range()];
+            let partial_products = &local_zs_partial_products[common_data.partial_products_range()];
 
             debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
             debug_assert_eq!(local_zs.len(), num_challenges);
@@ -361,7 +360,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
                 vars,
                 local_zs,
                 next_zs,
-                local_partial_products,
+                partial_products,
                 s_sigmas,
                 betas,
                 gammas,

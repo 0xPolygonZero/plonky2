@@ -67,7 +67,7 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
     vars: EvaluationVars<F, D>,
     local_zs: &[F::Extension],
     next_zs: &[F::Extension],
-    local_partial_products: &[F::Extension],
+    partial_products: &[F::Extension],
     s_sigmas: &[F::Extension],
     betas: &[F],
     gammas: &[F],
@@ -108,21 +108,21 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
         let (num_prods, final_num_prod) = common_data.num_partial_products;
         vanishing_partial_products_terms.extend(check_partial_products(
             &numerator_values,
-            &local_partial_products[2 * i * num_prods..(2 * i + 1) * num_prods],
+            &partial_products[2 * i * num_prods..(2 * i + 1) * num_prods],
             max_degree,
         ));
         vanishing_partial_products_terms.extend(check_partial_products(
             &denominator_values,
-            &local_partial_products[(2 * i + 1) * num_prods..(2 * i + 2) * num_prods],
+            &partial_products[(2 * i + 1) * num_prods..(2 * i + 2) * num_prods],
             max_degree,
         ));
 
-        let f_prime: F = local_partial_products
+        let f_prime: F::Extension = partial_products
             [(2 * i + 1) * num_prods - final_num_prod..(2 * i + 1) * num_prods]
             .iter()
             .copied()
             .product();
-        let g_prime: F = local_partial_products
+        let g_prime: F::Extension = partial_products
             [(2 * i + 2) * num_prods - final_num_prod..(2 * i + 2) * num_prods]
             .iter()
             .copied()
@@ -150,7 +150,7 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     vars: EvaluationVarsBase<F>,
     local_zs: &[F],
     next_zs: &[F],
-    local_partial_products: &[F],
+    partial_products: &[F],
     s_sigmas: &[F],
     betas: &[F],
     gammas: &[F],
@@ -192,21 +192,21 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
         let (num_prods, final_num_prod) = common_data.num_partial_products;
         vanishing_partial_products_terms.extend(check_partial_products(
             &numerator_values,
-            &local_partial_products[2 * i * num_prods..(2 * i + 1) * num_prods],
+            &partial_products[2 * i * num_prods..(2 * i + 1) * num_prods],
             max_degree,
         ));
         vanishing_partial_products_terms.extend(check_partial_products(
             &denominator_values,
-            &local_partial_products[(2 * i + 1) * num_prods..(2 * i + 2) * num_prods],
+            &partial_products[(2 * i + 1) * num_prods..(2 * i + 2) * num_prods],
             max_degree,
         ));
 
-        let f_prime: F = local_partial_products
+        let f_prime: F = partial_products
             [(2 * i + 1) * num_prods - final_num_prod..(2 * i + 1) * num_prods]
             .iter()
             .copied()
             .product();
-        let g_prime: F = local_partial_products
+        let g_prime: F = partial_products
             [(2 * i + 2) * num_prods - final_num_prod..(2 * i + 2) * num_prods]
             .iter()
             .copied()
