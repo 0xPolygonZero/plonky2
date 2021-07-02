@@ -13,7 +13,6 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
     let config = &common_data.config;
-    let fri_config = &config.fri_config;
     let num_challenges = config.num_challenges;
 
     let mut challenger = Challenger::new();

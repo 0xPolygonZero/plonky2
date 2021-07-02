@@ -13,7 +13,7 @@ use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::timed;
 use crate::util::partial_products::partial_products;
-use crate::util::{ceil_div_usize, log2_ceil, transpose};
+use crate::util::{log2_ceil, transpose};
 use crate::vars::EvaluationVarsBase;
 use crate::witness::{PartialWitness, Witness};
 

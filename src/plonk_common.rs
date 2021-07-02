@@ -9,7 +9,7 @@ use crate::gates::gate::{GateRef, PrefixedGate};
 use crate::polynomial::commitment::SALT_SIZE;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
-use crate::util::partial_products::{check_partial_products, partial_products};
+use crate::util::partial_products::check_partial_products;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// Holds the Merkle tree index and blinding flag of a set of polynomials used in FRI.
