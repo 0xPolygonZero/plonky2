@@ -37,7 +37,7 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     /// The next available index for a public input.
     public_input_index: usize,
 
-    /// The next available index for a VirtualAdviceTarget.
+    /// The next available index for a `VirtualTarget`.
     virtual_target_index: usize,
 
     copy_constraints: Vec<(Target, Target)>,
@@ -78,22 +78,18 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (0..n).map(|_i| self.add_public_input()).collect()
     }
 
-    /// Adds a new "virtual" advice target. This is not an actual wire in the witness, but just a
-    /// target that help facilitate witness generation. In particular, a generator can assign a
-    /// values to a virtual target, which can then be copied to other (virtual or concrete) targets
-    /// via `generate_copy`. When we generate the final witness (a grid of wire values), these
-    /// virtual targets will go away.
-    ///
-    /// Since virtual targets are not part of the actual permutation argument, they cannot be used
-    /// with `assert_equal`.
-    pub fn add_virtual_advice_target(&mut self) -> Target {
+    /// Adds a new "virtual" target. This is not an actual wire in the witness, but just a target
+    /// that help facilitate witness generation. In particular, a generator can assign a values to a
+    /// virtual target, which can then be copied to other (virtual or concrete) targets. When we
+    /// generate the final witness (a grid of wire values), these virtual targets will go away.
+    pub fn add_virtual_target(&mut self) -> Target {
         let index = self.virtual_target_index;
         self.virtual_target_index += 1;
-        Target::VirtualAdviceTarget { index }
+        Target::VirtualTarget { index }
     }
 
-    pub fn add_virtual_advice_targets(&mut self, n: usize) -> Vec<Target> {
-        (0..n).map(|_i| self.add_virtual_advice_target()).collect()
+    pub fn add_virtual_targets(&mut self, n: usize) -> Vec<Target> {
+        (0..n).map(|_i| self.add_virtual_target()).collect()
     }
 
     pub fn add_gate_no_constants(&mut self, gate_type: GateRef<F, D>) -> usize {
@@ -260,7 +256,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// polynomials (which are opened at only one location) and for the Z polynomials (which are
     /// opened at two).
     fn blinding_counts(&self) -> (usize, usize) {
-        let num_gates = self.gates.len();
+        let num_gates = self.gate_instances.len();
         let mut degree_estimate = 1 << log2_ceil(num_gates);
 
         loop {
@@ -281,48 +277,52 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     fn blind_and_pad(&mut self) {
-        // let (regular_poly_openings, z_openings) = self.blinding_counts();
-        //
-        // let num_routed_wires = self.config.num_routed_wires;
-        // let num_wires = self.config.num_wires;
-        //
-        // // For each "regular" blinding factor, we simply add a no-op gate, and insert a random value
-        // // for each wire.
-        // for _ in 0..regular_poly_openings {
-        //     let gate = self.add_gate_no_constants(NoopGate::get());
-        //     for w in 0..num_wires {
-        //         self.add_generator(RandomValueGenerator {
-        //             target: Target::Wire(Wire { gate, input: w }),
-        //         });
-        //     }
-        // }
-        //
-        // // For each z poly blinding factor, we add two new gates with the same random value, and
-        // // enforce a copy constraint between them.
-        // // See https://mirprotocol.org/blog/Adding-zero-knowledge-to-Plonk-Halo
-        // for _ in 0..z_openings {
-        //     let gate_1 = self.add_gate_no_constants(NoopGate::get());
-        //     let gate_2 = self.add_gate_no_constants(NoopGate::get());
-        //
-        //     for w in 0..num_routed_wires {
-        //         self.add_generator(RandomValueGenerator {
-        //             target: Target::Wire(Wire {
-        //                 gate: gate_1,
-        //                 input: w,
-        //             }),
-        //         });
-        //         self.add_generator(CopyGenerator {
-        //             src: Target::Wire(Wire {
-        //                 gate: gate_1,
-        //                 input: w,
-        //             }),
-        //             dst: Target::Wire(Wire {
-        //                 gate: gate_2,
-        //                 input: w,
-        //             }),
-        //         });
-        //     }
-        // }
+        let (regular_poly_openings, z_openings) = self.blinding_counts();
+        info!(
+            "Adding {} blinding terms for witness polynomials, and {}*2 for Z polynomials",
+            regular_poly_openings, z_openings
+        );
+
+        let num_routed_wires = self.config.num_routed_wires;
+        let num_wires = self.config.num_wires;
+
+        // For each "regular" blinding factor, we simply add a no-op gate, and insert a random value
+        // for each wire.
+        for _ in 0..regular_poly_openings {
+            let gate = self.add_gate_no_constants(NoopGate::get());
+            for w in 0..num_wires {
+                self.add_generator(RandomValueGenerator {
+                    target: Target::Wire(Wire { gate, input: w }),
+                });
+            }
+        }
+
+        // For each z poly blinding factor, we add two new gates with the same random value, and
+        // enforce a copy constraint between them.
+        // See https://mirprotocol.org/blog/Adding-zero-knowledge-to-Plonk-Halo
+        for _ in 0..z_openings {
+            let gate_1 = self.add_gate_no_constants(NoopGate::get());
+            let gate_2 = self.add_gate_no_constants(NoopGate::get());
+
+            for w in 0..num_routed_wires {
+                self.add_generator(RandomValueGenerator {
+                    target: Target::Wire(Wire {
+                        gate: gate_1,
+                        input: w,
+                    }),
+                });
+                self.generate_copy(
+                    Target::Wire(Wire {
+                        gate: gate_1,
+                        input: w,
+                    }),
+                    Target::Wire(Wire {
+                        gate: gate_2,
+                        input: w,
+                    }),
+                );
+            }
+        }
 
         while !self.gate_instances.len().is_power_of_two() {
             self.add_gate_no_constants(NoopGate::get());
@@ -369,7 +369,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         for index in 0..self.public_input_index {
-            target_partitions.add_partition(Target::PublicInput { index })
+            target_partitions.add_partition(Target::PublicInput { index });
+        }
+
+        for index in 0..self.virtual_target_index {
+            target_partitions.add_partition(Target::VirtualTarget { index });
         }
 
         for &(a, b) in &self.copy_constraints {
@@ -384,12 +388,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn build(mut self) -> CircuitData<F, D> {
         let start = Instant::now();
         info!(
-            "degree before blinding & padding: {}",
+            "Degree before blinding & padding: {}",
             self.gate_instances.len()
         );
         self.blind_and_pad();
         let degree = self.gate_instances.len();
-        info!("degree after blinding & padding: {}", degree);
+        info!("Degree after blinding & padding: {}", degree);
 
         let gates = self.gates.iter().cloned().collect();
         let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);

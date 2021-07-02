@@ -50,13 +50,13 @@ pub(crate) fn transpose<T: Clone>(matrix: &[Vec<T>]) -> Vec<Vec<T>> {
 }
 
 /// Permutes `arr` such that each index is mapped to its reverse in binary.
-pub(crate) fn reverse_index_bits<T: Clone>(arr: Vec<T>) -> Vec<T> {
+pub(crate) fn reverse_index_bits<T: Copy>(arr: Vec<T>) -> Vec<T> {
     let n = arr.len();
     let n_power = log2_strict(n);
 
     let mut result = Vec::with_capacity(n);
     for i in 0..n {
-        result.push(arr[reverse_bits(i, n_power)].clone());
+        result.push(arr[reverse_bits(i, n_power)]);
     }
     result
 }
@@ -74,12 +74,13 @@ pub(crate) fn reverse_index_bits_in_place<T>(arr: &mut Vec<T>) {
 }
 
 pub(crate) fn reverse_bits(n: usize, num_bits: usize) -> usize {
-    let mut result = 0;
-    for i in 0..num_bits {
-        let i_rev = num_bits - i - 1;
-        result |= (n >> i & 1) << i_rev;
-    }
-    result
+    // NB: The only reason we need overflowing_shr() here as opposed
+    // to plain '>>' is to accommodate the case n == num_bits == 0,
+    // which would become `0 >> 64`. Rust thinks that any shift of 64
+    // bits causes overflow, even when the argument is zero.
+    n.reverse_bits()
+        .overflowing_shr(usize::BITS - num_bits as u32)
+        .0
 }
 
 #[cfg(test)]

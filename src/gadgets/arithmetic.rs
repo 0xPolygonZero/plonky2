@@ -1,7 +1,6 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
 use crate::target::Target;
-use crate::util::bits_u64;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes `-x`.

@@ -21,8 +21,6 @@ fn main() {
 }
 
 fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
-    let gmimc_gate = GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants();
-
     let config = CircuitConfig {
         num_wires: 134,
         num_routed_wires: 27,
@@ -32,7 +30,7 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
         fri_config: FriConfig {
             proof_of_work_bits: 1,
             rate_bits: 3,
-            reduction_arity_bits: vec![1],
+            reduction_arity_bits: vec![2, 2, 2, 2, 2],
             num_query_rounds: 1,
         },
     };

@@ -32,11 +32,14 @@ pub trait Field:
     + Send
     + Sync
 {
+    type PrimeField: Field;
+
     const ZERO: Self;
     const ONE: Self;
     const TWO: Self;
     const NEG_ONE: Self;
 
+    const CHARACTERISTIC: u64;
     const ORDER: u64;
     const TWO_ADICITY: usize;
 
@@ -99,6 +102,31 @@ pub trait Field:
             x_inv.push(a[i - 1] * a_inv[i]);
         }
         x_inv
+    }
+
+    /// Compute the inverse of 2^exp in this field.
+    #[inline]
+    fn inverse_2exp(exp: usize) -> Self {
+        let p = Self::CHARACTERISTIC;
+
+        if exp <= Self::PrimeField::TWO_ADICITY {
+            // The inverse of 2^exp is p-(p-1)/2^exp when char(F) = p and exp is
+            // at most the TWO_ADICITY of the prime field.
+            //
+            // NB: PrimeFields fit in 64 bits => TWO_ADICITY < 64 =>
+            // exp < 64 => this shift amount is legal.
+            Self::from_canonical_u64(p - ((p - 1) >> exp))
+        } else {
+            // In the general case we compute 1/2 = (p+1)/2 and then exponentiate
+            // by exp to get 1/2^exp. Costs about log_2(exp) operations.
+            let half = Self::from_canonical_u64((p + 1) >> 1);
+            half.exp(exp as u64)
+
+            // TODO: Faster to combine several high powers of 1/2 using multiple
+            // applications of the trick above. E.g. if the 2-adicity is v, then
+            // compute 1/2^(v^2 + v + 13) with 1/2^((v + 1) * v + 13), etc.
+            // (using the v-adic expansion of m). Costs about log_v(exp) operations.
+        }
     }
 
     fn primitive_root_of_unity(n_log: usize) -> Self {
