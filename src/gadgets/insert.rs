@@ -23,9 +23,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let y = self.mul(x, m);
 
         // Enforce that (1 - y) * x == 0.
-        let one = self.one();
-        let diff = self.sub(one, y);
-        let prod = self.mul(diff, x);
+        let prod = self.arithmetic(F::NEG_ONE, x, y, F::ONE, x);
         self.assert_zero(prod);
 
         y
