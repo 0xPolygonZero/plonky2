@@ -74,6 +74,8 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
     alphas: &[F],
 ) -> Vec<F::Extension> {
     let max_degree = common_data.max_filtered_constraint_degree;
+    let (num_prods, final_num_prod) = common_data.num_partial_products;
+
     let constraint_terms =
         evaluate_gate_constraints(&common_data.gates, common_data.num_gate_constraints, vars);
 
@@ -105,25 +107,33 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
             })
             .collect::<Vec<_>>();
 
-        let (num_prods, final_num_prod) = common_data.num_partial_products;
+        // The partial products considered for this iteration of `i`.
+        let current_partial_products =
+            &partial_products[2 * i * num_prods..(2 * i + 2) * num_prods];
+        // The partial products for the numerator are in the first `num_prods` elements.
+        let numerator_partial_products = &current_partial_products[..num_prods];
+        // The partial products for the denominator are in the last `num_prods` elements.
+        let denominator_partial_products = &current_partial_products[num_prods..];
+        // Check the numerator partial products.
         vanishing_partial_products_terms.extend(check_partial_products(
             &numerator_values,
-            &partial_products[2 * i * num_prods..(2 * i + 1) * num_prods],
+            numerator_partial_products,
             max_degree,
         ));
+        // Check the denominator partial products.
         vanishing_partial_products_terms.extend(check_partial_products(
             &denominator_values,
-            &partial_products[(2 * i + 1) * num_prods..(2 * i + 2) * num_prods],
+            denominator_partial_products,
             max_degree,
         ));
 
-        let f_prime: F::Extension = partial_products
-            [(2 * i + 1) * num_prods - final_num_prod..(2 * i + 1) * num_prods]
+        // The numerator final product is the product of the last `final_num_prod` elements.
+        let f_prime: F::Extension = numerator_partial_products[num_prods - final_num_prod..]
             .iter()
             .copied()
             .product();
-        let g_prime: F::Extension = partial_products
-            [(2 * i + 2) * num_prods - final_num_prod..(2 * i + 2) * num_prods]
+        // The denominator final product is the product of the last `final_num_prod` elements.
+        let g_prime: F::Extension = denominator_partial_products[num_prods - final_num_prod..]
             .iter()
             .copied()
             .product();
@@ -158,6 +168,8 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     z_h_on_coset: &ZeroPolyOnCoset<F>,
 ) -> Vec<F> {
     let max_degree = common_data.max_filtered_constraint_degree;
+    let (num_prods, final_num_prod) = common_data.num_partial_products;
+
     let constraint_terms =
         evaluate_gate_constraints_base(&common_data.gates, common_data.num_gate_constraints, vars);
 
@@ -189,25 +201,33 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
             })
             .collect::<Vec<_>>();
 
-        let (num_prods, final_num_prod) = common_data.num_partial_products;
+        // The partial products considered for this iteration of `i`.
+        let current_partial_products =
+            &partial_products[2 * i * num_prods..(2 * i + 2) * num_prods];
+        // The partial products for the numerator are in the first `num_prods` elements.
+        let numerator_partial_products = &current_partial_products[..num_prods];
+        // The partial products for the denominator are in the last `num_prods` elements.
+        let denominator_partial_products = &current_partial_products[num_prods..];
+        // Check the numerator partial products.
         vanishing_partial_products_terms.extend(check_partial_products(
             &numerator_values,
-            &partial_products[2 * i * num_prods..(2 * i + 1) * num_prods],
+            numerator_partial_products,
             max_degree,
         ));
+        // Check the denominator partial products.
         vanishing_partial_products_terms.extend(check_partial_products(
             &denominator_values,
-            &partial_products[(2 * i + 1) * num_prods..(2 * i + 2) * num_prods],
+            denominator_partial_products,
             max_degree,
         ));
 
-        let f_prime: F = partial_products
-            [(2 * i + 1) * num_prods - final_num_prod..(2 * i + 1) * num_prods]
+        // The numerator final product is the product of the last `final_num_prod` elements.
+        let f_prime: F = numerator_partial_products[num_prods - final_num_prod..]
             .iter()
             .copied()
             .product();
-        let g_prime: F = partial_products
-            [(2 * i + 2) * num_prods - final_num_prod..(2 * i + 2) * num_prods]
+        // The denominator final product is the product of the last `final_num_prod` elements.
+        let g_prime: F = denominator_partial_products[num_prods - final_num_prod..]
             .iter()
             .copied()
             .product();
