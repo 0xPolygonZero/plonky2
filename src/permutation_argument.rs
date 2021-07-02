@@ -45,14 +45,15 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition
         });
     }
 
-    /// Path halving method, see https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives.
+    /// Path compression method, see https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives.
     pub fn find(&mut self, mut x: ForestNode<T>) -> ForestNode<T> {
-        while x.parent != x.index {
-            let grandparent = self.forest[x.parent].parent;
-            self.forest[x.index].parent = grandparent;
-            x = self.forest[grandparent];
+        if x.parent != x.index {
+            let root = self.find(self.forest[x.parent]);
+            self.forest[x.index].parent = root.index;
+            root
+        } else {
+            x
         }
-        x
     }
 
     /// Merge two sets.
