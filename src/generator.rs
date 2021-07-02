@@ -130,3 +130,27 @@ impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
         PartialWitness::singleton_target(self.target, random_value)
     }
 }
+
+/// A generator for testing if a value equals zero
+pub(crate) struct NonzeroTestGenerator {
+    pub(crate) to_test: Target,
+    pub(crate) dummy: Target,
+}
+
+impl<F: Field> SimpleGenerator<F> for NonzeroTestGenerator {
+    fn dependencies(&self) -> Vec<Target> {
+        vec![self.to_test]
+    }
+
+    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+        let to_test_value = witness.get_target(self.to_test);
+
+        let dummy_value = if to_test_value == F::ZERO {
+            F::ONE
+        } else {
+            to_test_value.inverse()
+        };
+
+        PartialWitness::singleton_target(self.dummy, dummy_value)
+    }
+}
