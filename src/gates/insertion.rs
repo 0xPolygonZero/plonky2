@@ -10,9 +10,21 @@ use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
 /// A gate for inserting a value into a list at a non-deterministic location.
-pub struct InsertionGate;
+#[derive(Clone, Debug)]
+pub(crate) struct InsertionGate<F: Extendable<D>, const D: usize> {
+    pub vec_size: usize,
+    pub _phantom: PhantomData<F>,
+}
 
 impl InsertionGate {
+    pub fn new(vec_size: usize) -> GateRef<F, D> {
+        let gate = Self {
+            vec_size,
+            _phantom: PhantomData,
+        };
+        GateRef::new(gate)
+    }
+
     pub fn get<F: Extendable<D>, const D: usize>() -> GateRef<F, D> {
 
         GateRef::new(InsertionGate)
@@ -49,9 +61,10 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate {
         gate_index: usize,
         local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = ConstantGenerator {
+        let gen = InsertionGenerator::<F, D> {
             gate_index,
-            constant: local_constants[0],
+            gate: self.clone(),
+            _phantom: PhantomData,
         };
         vec![Box::new(gen)]
     }
@@ -76,7 +89,8 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate {
 #[derive(Debug)]
 struct InsertionGenerator<F: Field> {
     gate_index: usize,
-    
+    gate: InterpolationGate<F, D>,
+    _phantom: PhantomData<F>,
 }
 
 impl<F: Field> SimpleGenerator<F> for InsertionGenerator<F> {
