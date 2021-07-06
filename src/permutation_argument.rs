@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::fmt::Debug;
+use std::hash::Hash;
 
 use rayon::prelude::*;
 
@@ -7,85 +9,111 @@ use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
 use crate::wire::Wire;
 
+/// Node in the Disjoint Set Forest.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct ForestNode<T: Debug + Copy + Eq + PartialEq> {
+    t: T,
+    parent: usize,
+    size: usize,
+    index: usize,
+}
+
+/// Disjoint Set Forest data-structure following https://en.wikipedia.org/wiki/Disjoint-set_data_structure.
 #[derive(Debug, Clone)]
-pub struct TargetPartitions {
-    partitions: Vec<Vec<Target>>,
-    indices: HashMap<Target, usize>,
+pub struct TargetPartition<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> {
+    forest: Vec<ForestNode<T>>,
+    /// Function to compute a node's index in the forest.
+    indices: F,
 }
 
-impl Default for TargetPartitions {
-    fn default() -> Self {
-        TargetPartitions::new()
-    }
-}
-
-impl TargetPartitions {
-    pub fn new() -> Self {
+impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition<T, F> {
+    pub fn new(f: F) -> Self {
         Self {
-            partitions: Vec::new(),
-            indices: HashMap::new(),
+            forest: Vec::new(),
+            indices: f,
         }
     }
-
-    pub fn get_partition(&self, target: Target) -> &[Target] {
-        &self.partitions[self.indices[&target]]
-    }
-
     /// Add a new partition with a single member.
-    pub fn add_partition(&mut self, target: Target) {
-        let index = self.partitions.len();
-        self.partitions.push(vec![target]);
-        self.indices.insert(target, index);
+    pub fn add(&mut self, t: T) {
+        let index = self.forest.len();
+        debug_assert_eq!((self.indices)(t), index);
+        self.forest.push(ForestNode {
+            t,
+            parent: index,
+            size: 1,
+            index,
+        });
     }
 
-    /// Merge the two partitions containing the two given targets. Does nothing if the targets are
-    /// already members of the same partition.
-    pub fn merge(&mut self, a: Target, b: Target) {
-        let a_index = self.indices[&a];
-        let b_index = self.indices[&b];
-        if a_index != b_index {
-            // Merge a's partition into b's partition, leaving a's partition empty.
-            // We have to clone because Rust's borrow checker doesn't know that
-            // self.partitions[b_index] and self.partitions[b_index] are disjoint.
-            let mut a_partition = self.partitions[a_index].clone();
-            let b_partition = &mut self.partitions[b_index];
-            for a_sibling in &a_partition {
-                *self.indices.get_mut(a_sibling).unwrap() = b_index;
-            }
-            b_partition.append(&mut a_partition);
+    /// Path compression method, see https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives.
+    pub fn find(&mut self, mut x: ForestNode<T>) -> ForestNode<T> {
+        if x.parent != x.index {
+            let root = self.find(self.forest[x.parent]);
+            self.forest[x.index].parent = root.index;
+            root
+        } else {
+            x
         }
     }
 
-    pub fn to_wire_partitions(&self) -> WirePartitions {
-        // Here we keep just the Wire targets, filtering out everything else.
-        let mut partitions = Vec::new();
+    /// Merge two sets.
+    pub fn merge(&mut self, tx: T, ty: T) {
+        let mut x = self.forest[(self.indices)(tx)];
+        let mut y = self.forest[(self.indices)(ty)];
+
+        x = self.find(x);
+        y = self.find(y);
+
+        if x == y {
+            return;
+        }
+
+        if x.size >= y.size {
+            y.parent = x.index;
+            x.size += y.size;
+        } else {
+            x.parent = y.index;
+            y.size += x.size;
+        }
+
+        self.forest[x.index] = x;
+        self.forest[y.index] = y;
+    }
+}
+impl<F: Fn(Target) -> usize> TargetPartition<Target, F> {
+    pub fn wire_partition(&mut self) -> WirePartitions {
+        let mut partition = HashMap::<_, Vec<_>>::new();
+        let nodes = self.forest.clone();
+        for x in nodes {
+            let v = partition.entry(self.find(x).t).or_default();
+            v.push(x.t);
+        }
+
         let mut indices = HashMap::new();
+        // // Here we keep just the Wire targets, filtering out everything else.
+        let partition = partition
+            .into_values()
+            .map(|v| {
+                v.into_iter()
+                    .filter_map(|t| match t {
+                        Target::Wire(w) => Some(w),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        partition.iter().enumerate().for_each(|(i, v)| {
+            v.iter().for_each(|t| {
+                indices.insert(*t, i);
+            });
+        });
 
-        for old_partition in &self.partitions {
-            let mut new_partition = Vec::new();
-            for target in old_partition {
-                if let Target::Wire(w) = *target {
-                    new_partition.push(w);
-                }
-            }
-            partitions.push(new_partition);
-        }
-
-        for (&target, &index) in &self.indices {
-            if let Target::Wire(gi) = target {
-                indices.insert(gi, index);
-            }
-        }
-
-        WirePartitions {
-            partitions,
-            indices,
-        }
+        WirePartitions { partition, indices }
     }
 }
 
 pub struct WirePartitions {
-    partitions: Vec<Vec<Wire>>,
+    partition: Vec<Vec<Wire>>,
     indices: HashMap<Wire, usize>,
 }
 
@@ -95,7 +123,7 @@ impl WirePartitions {
     /// its partition, this will loop around. If the given wire has a partition all to itself, it
     /// is considered its own neighbor.
     fn get_neighbor(&self, wire: Wire) -> Wire {
-        let partition = &self.partitions[self.indices[&wire]];
+        let partition = &self.partition[self.indices[&wire]];
         let n = partition.len();
         for i in 0..n {
             if partition[i] == wire {

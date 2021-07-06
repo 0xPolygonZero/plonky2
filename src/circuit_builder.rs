@@ -16,7 +16,7 @@ use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
 use crate::hash::hash_n_to_hash;
-use crate::permutation_argument::TargetPartitions;
+use crate::permutation_argument::TargetPartition;
 use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialValues;
@@ -360,28 +360,34 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> Vec<PolynomialValues<F>> {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
-        let mut target_partitions = TargetPartitions::new();
+        let mut target_partition = TargetPartition::new(|t| match t {
+            Target::Wire(Wire { gate, input }) => gate * self.config.num_routed_wires + input,
+            Target::PublicInput { index } => degree * self.config.num_routed_wires + index,
+            Target::VirtualTarget { index } => {
+                degree * self.config.num_routed_wires + self.public_input_index + index
+            }
+        });
 
         for gate in 0..degree {
             for input in 0..self.config.num_routed_wires {
-                target_partitions.add_partition(Target::Wire(Wire { gate, input }));
+                target_partition.add(Target::Wire(Wire { gate, input }));
             }
         }
 
         for index in 0..self.public_input_index {
-            target_partitions.add_partition(Target::PublicInput { index });
+            target_partition.add(Target::PublicInput { index });
         }
 
         for index in 0..self.virtual_target_index {
-            target_partitions.add_partition(Target::VirtualTarget { index });
+            target_partition.add(Target::VirtualTarget { index });
         }
 
         for &(a, b) in &self.copy_constraints {
-            target_partitions.merge(a, b);
+            target_partition.merge(a, b);
         }
 
-        let wire_partitions = target_partitions.to_wire_partitions();
-        wire_partitions.get_sigma_polys(degree_log, k_is, subgroup)
+        let wire_partition = target_partition.wire_partition();
+        wire_partition.get_sigma_polys(degree_log, k_is, subgroup)
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
