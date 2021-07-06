@@ -403,6 +403,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let gates = self.gates.iter().cloned().collect();
         let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
+        let max_filtered_constraint_degree = max_filtered_constraint_degree.max(3);
         let prefixed_gates = PrefixedGate::from_tree(gate_tree);
 
         let degree_bits = log2_strict(degree);

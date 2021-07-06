@@ -25,6 +25,7 @@ pub fn partial_products<T: Product + Copy>(v: &[T], max_degree: usize) -> Vec<T>
 /// Returns a tuple `(a,b)`, where `a` is the length of the output of `partial_products()` on a
 /// vector of length `n`, and `b` is the number of elements needed to compute the final product.
 pub fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
+    debug_assert!(max_degree > 1);
     let mut res = 0;
     let mut remainder = n;
     while remainder > max_degree {
