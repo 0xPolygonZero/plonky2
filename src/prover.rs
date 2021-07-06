@@ -93,7 +93,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     // The first two polynomials in `partial_products` represent the final products used in the
     // computation of `Z`. They aren't needed anymore so we discard them.
     partial_products.iter_mut().for_each(|part| {
-        part.drain(0..2);
+        part.remove(0);
     });
 
     let zs_partial_products = [plonk_z_vecs, partial_products.concat()].concat();
@@ -204,8 +204,8 @@ fn all_wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
 }
 
 /// Compute the partial products used in the `Z` polynomial.
-/// Returns the polynomials interpolating `partial_products(f) + partial_products(g)`
-/// where `f, g` are the products in the definition of `Z`: `Z(g^i) = n / d`.
+/// Returns the polynomials interpolating `partial_products(f / g)`
+/// where `f, g` are the products in the definition of `Z`: `Z(g^i) = f / g`.
 fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
     witness: &Witness<F>,
     beta: F,
@@ -213,7 +213,7 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Vec<PolynomialValues<F>> {
-    let degree = common_data.max_filtered_constraint_degree;
+    let degree = common_data.max_filtered_constraint_degree - 1;
     let subgroup = &prover_data.subgroup;
     let k_is = &common_data.k_is;
     let values = subgroup
@@ -221,47 +221,29 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
         .enumerate()
         .map(|(i, &x)| {
             let s_sigmas = &prover_data.sigmas[i];
-            let numerator_values = (0..common_data.config.num_routed_wires)
+            let quotient_values = (0..common_data.config.num_routed_wires)
                 .map(|j| {
                     let wire_value = witness.get_wire(i, j);
                     let k_i = k_is[j];
                     let s_id = k_i * x;
-                    wire_value + beta * s_id + gamma
-                })
-                .collect::<Vec<_>>();
-            let denominator_values = (0..common_data.config.num_routed_wires)
-                .map(|j| {
-                    let wire_value = witness.get_wire(i, j);
                     let s_sigma = s_sigmas[j];
-                    wire_value + beta * s_sigma + gamma
+                    let numerator = wire_value + beta * s_id + gamma;
+                    let denominator = wire_value + beta * s_sigma + gamma;
+                    numerator / denominator
                 })
                 .collect::<Vec<_>>();
 
-            let numerator_partials = partial_products(&numerator_values, degree);
-            let denominator_partials = partial_products(&denominator_values, degree);
+            let quotient_partials = partial_products(&quotient_values, degree);
 
-            // This is the final product for the numerator.
-            let numerator = numerator_partials
-                [common_data.num_partial_products.0 - common_data.num_partial_products.1..]
-                .iter()
-                .copied()
-                .product();
-            // This is the final product for the denominator.
-            let denominator = denominator_partials
+            // This is the final product for the quotient.
+            let quotient = quotient_partials
                 [common_data.num_partial_products.0 - common_data.num_partial_products.1..]
                 .iter()
                 .copied()
                 .product();
 
-            // We add the numerator and denominator at the beginning of the vector to reuse them
-            // later in the computation of `Z`.
-            [
-                vec![numerator],
-                vec![denominator],
-                numerator_partials,
-                denominator_partials,
-            ]
-            .concat()
+            // We add the quotient at the beginning of the vector to reuse them later in the computation of `Z`.
+            [vec![quotient], quotient_partials].concat()
         })
         .collect::<Vec<_>>();
 
@@ -287,10 +269,9 @@ fn compute_z<F: Extendable<D>, const D: usize>(
 ) -> PolynomialValues<F> {
     let mut plonk_z_points = vec![F::ONE];
     for i in 1..common_data.degree() {
-        let numerator = partial_products[0].values[i - 1];
-        let denominator = partial_products[1].values[i - 1];
+        let quotient = partial_products[0].values[i - 1];
         let last = *plonk_z_points.last().unwrap();
-        plonk_z_points.push(last * numerator / denominator);
+        plonk_z_points.push(last * quotient);
     }
     plonk_z_points.into()
 }
@@ -332,7 +313,8 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
         ZeroPolyOnCoset::new(common_data.degree_bits, max_filtered_constraint_degree_bits);
 
     let quotient_values: Vec<Vec<F>> = points
-        .into_par_iter()
+        // .into_par_iter()
+        .into_iter()
         .enumerate()
         .map(|(i, x)| {
             let shifted_x = F::coset_shift() * x;

@@ -10,7 +10,7 @@ use crate::util::ceil_div_usize;
 pub fn partial_products<T: Product + Copy>(v: &[T], max_degree: usize) -> Vec<T> {
     let mut res = Vec::new();
     let mut remainder = v.to_vec();
-    while remainder.len() >= max_degree {
+    while remainder.len() > max_degree {
         let new_partials = remainder
             .chunks(max_degree)
             // No need to compute the product if the chunk has size 1.
@@ -25,7 +25,10 @@ pub fn partial_products<T: Product + Copy>(v: &[T], max_degree: usize) -> Vec<T>
         };
         remainder = new_partials;
         // If there were a chunk of size 1, add it back to the remainder.
-        remainder.extend(addendum);
+        remainder.extend_from_slice(&addendum);
+        if remainder.len() <= max_degree {
+            res.extend(addendum);
+        }
     }
 
     res
@@ -36,11 +39,14 @@ pub fn partial_products<T: Product + Copy>(v: &[T], max_degree: usize) -> Vec<T>
 pub fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
     let mut res = 0;
     let mut remainder = n;
-    while remainder >= max_degree {
+    while remainder > max_degree {
         let new_partials_len = ceil_div_usize(remainder, max_degree);
         let addendum = if remainder % max_degree == 1 { 1 } else { 0 };
         res += new_partials_len - addendum;
         remainder = new_partials_len;
+        if remainder <= max_degree {
+            res += addendum;
+        }
     }
 
     (res, remainder)
@@ -56,7 +62,7 @@ pub fn check_partial_products<T: Product + Copy + Sub<Output = T>>(
     let mut res = Vec::new();
     let mut remainder = v.to_vec();
     let mut partials = partials.to_vec();
-    while remainder.len() >= max_degree {
+    while remainder.len() > max_degree {
         let products = remainder
             .chunks(max_degree)
             .filter(|chunk| chunk.len() != 1)
@@ -69,7 +75,10 @@ pub fn check_partial_products<T: Product + Copy + Sub<Output = T>>(
             vec![]
         };
         remainder = partials.drain(..products.len()).collect();
-        remainder.extend(addendum)
+        remainder.extend_from_slice(&addendum);
+        if remainder.len() <= max_degree {
+            res.extend(addendum.into_iter().map(|a| a - *partials.last().unwrap()));
+        }
     }
 
     res
@@ -85,7 +94,7 @@ mod tests {
     fn test_partial_products() {
         let v = vec![1, 2, 3, 4, 5, 6];
         let p = partial_products(&v, 2);
-        assert_eq!(p, vec![2, 12, 30, 24, 720]);
+        assert_eq!(p, vec![2, 12, 30, 24, 30]);
         let nums = num_partial_products(v.len(), 2);
         assert_eq!(p.len(), nums.0);
         assert!(check_partial_products(&v, &p, 2)

@@ -73,7 +73,7 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
     gammas: &[F],
     alphas: &[F],
 ) -> Vec<F::Extension> {
-    let max_degree = common_data.max_filtered_constraint_degree;
+    let max_degree = common_data.max_filtered_constraint_degree - 1;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
 
     let constraint_terms =
@@ -106,38 +106,29 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
                 wire_value + s_sigma * betas[i].into() + gammas[i].into()
             })
             .collect::<Vec<_>>();
+        let quotient_values = (0..common_data.config.num_routed_wires)
+            .map(|j| numerator_values[j] / denominator_values[j])
+            .collect::<Vec<_>>();
 
         // The partial products considered for this iteration of `i`.
-        let current_partial_products =
-            &partial_products[2 * i * num_prods..(2 * i + 2) * num_prods];
-        // The partial products for the numerator are in the first `num_prods` elements.
-        let numerator_partial_products = &current_partial_products[..num_prods];
-        // The partial products for the denominator are in the last `num_prods` elements.
-        let denominator_partial_products = &current_partial_products[num_prods..];
+        let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
         // Check the numerator partial products.
-        vanishing_partial_products_terms.extend(check_partial_products(
-            &numerator_values,
-            numerator_partial_products,
-            max_degree,
-        ));
-        // Check the denominator partial products.
-        vanishing_partial_products_terms.extend(check_partial_products(
-            &denominator_values,
-            denominator_partial_products,
-            max_degree,
-        ));
+        let mut partial_product_check =
+            check_partial_products(&quotient_values, current_partial_products, max_degree);
+        denominator_values
+            .chunks(max_degree - 1)
+            .zip(partial_product_check.iter_mut())
+            .for_each(|(d, q)| {
+                *q *= d.iter().copied().product();
+            });
+        vanishing_partial_products_terms.extend(partial_product_check);
 
         // The numerator final product is the product of the last `final_num_prod` elements.
-        let f_prime: F::Extension = numerator_partial_products[num_prods - final_num_prod..]
+        let quotient: F::Extension = current_partial_products[num_prods - final_num_prod..]
             .iter()
             .copied()
             .product();
-        // The denominator final product is the product of the last `final_num_prod` elements.
-        let g_prime: F::Extension = denominator_partial_products[num_prods - final_num_prod..]
-            .iter()
-            .copied()
-            .product();
-        vanishing_v_shift_terms.push(f_prime * z_x - g_prime * z_gz);
+        vanishing_v_shift_terms.push(quotient * z_x - z_gz);
     }
 
     let vanishing_terms = [
@@ -167,7 +158,7 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     alphas: &[F],
     z_h_on_coset: &ZeroPolyOnCoset<F>,
 ) -> Vec<F> {
-    let max_degree = common_data.max_filtered_constraint_degree;
+    let max_degree = common_data.max_filtered_constraint_degree - 1;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
 
     let constraint_terms =
@@ -200,44 +191,39 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
                 wire_value + betas[i] * s_sigma + gammas[i]
             })
             .collect::<Vec<_>>();
+        let quotient_values = (0..common_data.config.num_routed_wires)
+            .map(|j| numerator_values[j] / denominator_values[j])
+            .collect::<Vec<_>>();
 
         // The partial products considered for this iteration of `i`.
-        let current_partial_products =
-            &partial_products[2 * i * num_prods..(2 * i + 2) * num_prods];
-        // The partial products for the numerator are in the first `num_prods` elements.
-        let numerator_partial_products = &current_partial_products[..num_prods];
-        // The partial products for the denominator are in the last `num_prods` elements.
-        let denominator_partial_products = &current_partial_products[num_prods..];
+        let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
         // Check the numerator partial products.
-        vanishing_partial_products_terms.extend(check_partial_products(
-            &numerator_values,
-            numerator_partial_products,
-            max_degree,
-        ));
-        // Check the denominator partial products.
-        vanishing_partial_products_terms.extend(check_partial_products(
-            &denominator_values,
-            denominator_partial_products,
-            max_degree,
-        ));
+        let mut partial_product_check =
+            check_partial_products(&quotient_values, current_partial_products, max_degree);
+        denominator_values
+            .chunks(max_degree)
+            .zip(partial_product_check.iter_mut())
+            .for_each(|(d, q)| {
+                *q *= d.iter().copied().product();
+            });
+        dbg!(
+            quotient_values[27],
+            current_partial_products.last().unwrap()
+        );
+        partial_product_check.pop();
+        vanishing_partial_products_terms.extend(partial_product_check);
 
         // The numerator final product is the product of the last `final_num_prod` elements.
-        let f_prime: F = numerator_partial_products[num_prods - final_num_prod..]
+        let quotient: F = current_partial_products[num_prods - final_num_prod..]
             .iter()
             .copied()
             .product();
-        // The denominator final product is the product of the last `final_num_prod` elements.
-        let g_prime: F = denominator_partial_products[num_prods - final_num_prod..]
-            .iter()
-            .copied()
-            .product();
-        vanishing_v_shift_terms.push(f_prime * z_x - g_prime * z_gz);
+        vanishing_v_shift_terms.push(quotient * z_x - z_gz);
     }
-
     let vanishing_terms = [
         vanishing_z_1_terms,
         vanishing_partial_products_terms,
-        vanishing_v_shift_terms,
+        // vanishing_v_shift_terms,
         constraint_terms,
     ]
     .concat();

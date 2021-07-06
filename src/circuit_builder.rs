@@ -439,8 +439,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .max()
             .expect("No gates?");
 
-        let num_partial_products =
-            num_partial_products(self.config.num_routed_wires, max_filtered_constraint_degree);
+        let num_partial_products = num_partial_products(
+            self.config.num_routed_wires,
+            max_filtered_constraint_degree - 1,
+        );
 
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
