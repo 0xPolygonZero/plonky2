@@ -206,11 +206,6 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
             .for_each(|(d, q)| {
                 *q *= d.iter().copied().product();
             });
-        dbg!(
-            quotient_values[27],
-            current_partial_products.last().unwrap()
-        );
-        partial_product_check.pop();
         vanishing_partial_products_terms.extend(partial_product_check);
 
         // The numerator final product is the product of the last `final_num_prod` elements.

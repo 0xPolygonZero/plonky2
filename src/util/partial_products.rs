@@ -13,22 +13,10 @@ pub fn partial_products<T: Product + Copy>(v: &[T], max_degree: usize) -> Vec<T>
     while remainder.len() > max_degree {
         let new_partials = remainder
             .chunks(max_degree)
-            // No need to compute the product if the chunk has size 1.
-            .filter(|chunk| chunk.len() != 1)
             .map(|chunk| chunk.iter().copied().product())
             .collect::<Vec<_>>();
         res.extend_from_slice(&new_partials);
-        let addendum = if remainder.len() % max_degree == 1 {
-            vec![*remainder.last().unwrap()]
-        } else {
-            vec![]
-        };
         remainder = new_partials;
-        // If there were a chunk of size 1, add it back to the remainder.
-        remainder.extend_from_slice(&addendum);
-        if remainder.len() <= max_degree {
-            res.extend(addendum);
-        }
     }
 
     res
@@ -41,12 +29,8 @@ pub fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
     let mut remainder = n;
     while remainder > max_degree {
         let new_partials_len = ceil_div_usize(remainder, max_degree);
-        let addendum = if remainder % max_degree == 1 { 1 } else { 0 };
-        res += new_partials_len - addendum;
+        res += new_partials_len;
         remainder = new_partials_len;
-        if remainder <= max_degree {
-            res += addendum;
-        }
     }
 
     (res, remainder)
@@ -65,20 +49,10 @@ pub fn check_partial_products<T: Product + Copy + Sub<Output = T>>(
     while remainder.len() > max_degree {
         let products = remainder
             .chunks(max_degree)
-            .filter(|chunk| chunk.len() != 1)
             .map(|chunk| chunk.iter().copied().product())
             .collect::<Vec<T>>();
         res.extend(products.iter().zip(&partials).map(|(&a, &b)| a - b));
-        let addendum = if remainder.len() % max_degree == 1 {
-            vec![*remainder.last().unwrap()]
-        } else {
-            vec![]
-        };
         remainder = partials.drain(..products.len()).collect();
-        remainder.extend_from_slice(&addendum);
-        if remainder.len() <= max_degree {
-            res.extend(addendum.into_iter().map(|a| a - *partials.last().unwrap()));
-        }
     }
 
     res
