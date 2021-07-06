@@ -112,18 +112,20 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
 
         // The partial products considered for this iteration of `i`.
         let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
-        // Check the numerator partial products.
+        // Check the quotient partial products.
         let mut partial_product_check =
             check_partial_products(&quotient_values, current_partial_products, max_degree);
+        // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
+        // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
         denominator_values
-            .chunks(max_degree - 1)
+            .chunks(max_degree)
             .zip(partial_product_check.iter_mut())
             .for_each(|(d, q)| {
                 *q *= d.iter().copied().product();
             });
         vanishing_partial_products_terms.extend(partial_product_check);
 
-        // The numerator final product is the product of the last `final_num_prod` elements.
+        // The quotient final product is the product of the last `final_num_prod` elements.
         let quotient: F::Extension = current_partial_products[num_prods - final_num_prod..]
             .iter()
             .copied()
@@ -200,6 +202,8 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
         // Check the numerator partial products.
         let mut partial_product_check =
             check_partial_products(&quotient_values, current_partial_products, max_degree);
+        // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
+        // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
         denominator_values
             .chunks(max_degree)
             .zip(partial_product_check.iter_mut())
@@ -208,7 +212,7 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
             });
         vanishing_partial_products_terms.extend(partial_product_check);
 
-        // The numerator final product is the product of the last `final_num_prod` elements.
+        // The quotient final product is the product of the last `final_num_prod` elements.
         let quotient: F = current_partial_products[num_prods - final_num_prod..]
             .iter()
             .copied()
@@ -218,7 +222,7 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     let vanishing_terms = [
         vanishing_z_1_terms,
         vanishing_partial_products_terms,
-        // vanishing_v_shift_terms,
+        vanishing_v_shift_terms,
         constraint_terms,
     ]
     .concat();

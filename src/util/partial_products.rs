@@ -5,14 +5,13 @@ use crate::util::ceil_div_usize;
 
 /// Compute partial products of the original vector `v` such that all products consist of `max_degree`
 /// or less elements. This is done until we've computed the product `P` of all elements in the vector.
-/// The final product resulting in `P` consists of at most `max_degree-1` elements since `P` is multiplied
-/// by the `Z` polynomial in the Plonk check.
 pub fn partial_products<T: Product + Copy>(v: &[T], max_degree: usize) -> Vec<T> {
     let mut res = Vec::new();
     let mut remainder = v.to_vec();
     while remainder.len() > max_degree {
         let new_partials = remainder
             .chunks(max_degree)
+            // TODO: can filter out chunks of length 1.
             .map(|chunk| chunk.iter().copied().product())
             .collect::<Vec<_>>();
         res.extend_from_slice(&new_partials);

@@ -90,8 +90,8 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     let plonk_z_vecs = timed!(compute_zs(&partial_products, common_data), "to compute Z's");
 
-    // The first two polynomials in `partial_products` represent the final products used in the
-    // computation of `Z`. They aren't needed anymore so we discard them.
+    // The first polynomial in `partial_products` represent the final product used in the
+    // computation of `Z`. It isn't needed anymore so we discard it.
     partial_products.iter_mut().for_each(|part| {
         part.remove(0);
     });
@@ -313,8 +313,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
         ZeroPolyOnCoset::new(common_data.degree_bits, max_filtered_constraint_degree_bits);
 
     let quotient_values: Vec<Vec<F>> = points
-        // .into_par_iter()
-        .into_iter()
+        .into_par_iter()
         .enumerate()
         .map(|(i, x)| {
             let shifted_x = F::coset_shift() * x;
