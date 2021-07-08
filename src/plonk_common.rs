@@ -73,7 +73,7 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
     gammas: &[F],
     alphas: &[F],
 ) -> Vec<F::Extension> {
-    let max_degree = common_data.max_filtered_constraint_degree - 1;
+    let max_degree = common_data.quotient_degree_factor;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
 
     let constraint_terms =
@@ -160,7 +160,7 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     alphas: &[F],
     z_h_on_coset: &ZeroPolyOnCoset<F>,
 ) -> Vec<F> {
-    let max_degree = common_data.max_filtered_constraint_degree - 1;
+    let max_degree = common_data.quotient_degree_factor;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
 
     let constraint_terms =
