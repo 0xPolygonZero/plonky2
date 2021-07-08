@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::convert::TryInto;
 use std::time::Instant;
 
 use log::info;
@@ -20,6 +21,7 @@ use crate::permutation_argument::TargetPartition;
 use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialValues;
+use crate::proof::HashTarget;
 use crate::target::Target;
 use crate::util::partial_products::num_partial_products;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
@@ -38,7 +40,7 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     public_input_index: usize,
 
     /// The next available index for a `VirtualTarget`.
-    virtual_target_index: usize,
+    pub virtual_target_index: usize,
 
     copy_constraints: Vec<(Target, Target)>,
 
@@ -90,6 +92,24 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn add_virtual_targets(&mut self, n: usize) -> Vec<Target> {
         (0..n).map(|_i| self.add_virtual_target()).collect()
+    }
+
+    pub fn add_virtual_hash(&mut self) -> HashTarget {
+        HashTarget::from_vec(self.add_virtual_targets(4))
+    }
+
+    pub fn add_virtual_hashes(&mut self, n: usize) -> Vec<HashTarget> {
+        (0..n).map(|_i| self.add_virtual_hash()).collect()
+    }
+
+    pub fn add_virtual_extension_target(&mut self) -> ExtensionTarget<D> {
+        ExtensionTarget(self.add_virtual_targets(D).try_into().unwrap())
+    }
+
+    pub fn add_virtual_extension_targets(&mut self, n: usize) -> Vec<ExtensionTarget<D>> {
+        (0..n)
+            .map(|_i| self.add_virtual_extension_target())
+            .collect()
     }
 
     pub fn add_gate_no_constants(&mut self, gate_type: GateRef<F, D>) -> usize {

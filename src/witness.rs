@@ -7,6 +7,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::gates::gate::GateInstance;
+use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
 use crate::wire::Wire;
 
@@ -140,6 +141,13 @@ impl<F: Field> PartialWitness<F> {
                 target
             );
         }
+    }
+
+    pub fn set_hash_target(&mut self, ht: HashTarget, value: Hash<F>) {
+        ht.elements
+            .into_iter()
+            .zip(value.elements)
+            .for_each(|(&t, x)| self.set_target(t, x));
     }
 
     pub fn set_extension_target<const D: usize>(

@@ -246,7 +246,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
 }
 
 pub struct OpeningProof<F: Field + Extendable<D>, const D: usize> {
-    fri_proof: FriProof<F, D>,
+    pub fri_proof: FriProof<F, D>,
     // TODO: Get the degree from `CommonCircuitData` instead.
     quotient_degree: usize,
 }
@@ -278,7 +278,7 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningProof<F, D> {
 }
 
 pub struct OpeningProofTarget<const D: usize> {
-    fri_proof: FriProofTarget<D>,
+    pub fri_proof: FriProofTarget<D>,
 }
 
 #[cfg(test)]

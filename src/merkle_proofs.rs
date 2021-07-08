@@ -16,6 +16,7 @@ pub struct MerkleProof<F: Field> {
     pub siblings: Vec<Hash<F>>,
 }
 
+#[derive(Clone)]
 pub struct MerkleProofTarget {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.
     pub siblings: Vec<HashTarget>,

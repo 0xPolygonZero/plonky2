@@ -61,7 +61,7 @@ impl HashTarget {
     }
 }
 
-pub struct Proof<F: Field + Extendable<D>, const D: usize> {
+pub struct Proof<F: Extendable<D>, const D: usize> {
     /// Merkle root of LDEs of wire values.
     pub wires_root: Hash<F>,
     /// Merkle root of LDEs of Z, in the context of Plonk's permutation argument.
@@ -78,8 +78,8 @@ pub struct ProofTarget<const D: usize> {
     pub wires_root: HashTarget,
     pub plonk_zs_root: HashTarget,
     pub quotient_polys_root: HashTarget,
-    pub openings: Vec<OpeningSetTarget<D>>,
-    pub opening_proof: Vec<OpeningProofTarget<D>>,
+    pub openings: OpeningSetTarget<D>,
+    pub opening_proof: OpeningProofTarget<D>,
 }
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
@@ -88,6 +88,7 @@ pub struct FriQueryStep<F: Field + Extendable<D>, const D: usize> {
     pub merkle_proof: MerkleProof<F>,
 }
 
+#[derive(Clone)]
 pub struct FriQueryStepTarget<const D: usize> {
     pub evals: Vec<ExtensionTarget<D>>,
     pub merkle_proof: MerkleProofTarget,
@@ -106,6 +107,7 @@ impl<F: Field> FriInitialTreeProof<F> {
     }
 }
 
+#[derive(Clone)]
 pub struct FriInitialTreeProofTarget {
     pub evals_proofs: Vec<(Vec<Target>, MerkleProofTarget)>,
 }
@@ -123,6 +125,7 @@ pub struct FriQueryRound<F: Field + Extendable<D>, const D: usize> {
     pub steps: Vec<FriQueryStep<F, D>>,
 }
 
+#[derive(Clone)]
 pub struct FriQueryRoundTarget<const D: usize> {
     pub initial_trees_proof: FriInitialTreeProofTarget,
     pub steps: Vec<FriQueryStepTarget<D>>,
@@ -198,5 +201,6 @@ pub struct OpeningSetTarget<const D: usize> {
     pub wires: Vec<ExtensionTarget<D>>,
     pub plonk_zs: Vec<ExtensionTarget<D>>,
     pub plonk_zs_right: Vec<ExtensionTarget<D>>,
+    pub partial_products: Vec<ExtensionTarget<D>>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
