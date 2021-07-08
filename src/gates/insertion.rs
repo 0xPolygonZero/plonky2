@@ -1,4 +1,5 @@
 use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
@@ -25,42 +26,40 @@ impl InsertionGate {
         GateRef::new(gate)
     }
 
-    pub fn wires_insertion_index() -> Range<usize> {
-        0..D
+    pub fn wires_insertion_index() -> usize {
+        0
+    }
+
+    pub fn wires_element_to_insert() -> Range<usize> {
+        1..D+1
     }
 
     pub fn wires_list_item(i: usize) -> Range<usize> {
-        let start = (i + 1) * D;
+        let start = (i + 1) * D + 1;
         start..start + D
     }
 
-    fn start_of_intermediate_wires() -> usize {
-        (i + 2) * D
+    fn start_of_output_wires(&self) -> usize {
+        (self::vec_size + 1) * D + 1
     }
 
-    fn wires_per_round() -> {
-        // D wires needed for each of cur_index, insert_here, equality_dummy, new_item, new_item_plus_old_item,
+    pub fn wires_output_list_item(&self, i: usize) -> Range<usize> {
+        let start = self::start_of_output_wires() + i * D;
+        start..start + D
+    }
+
+    fn start_of_intermediate_wires(&self) -> usize {
+        self::start_of_output_wires() + self::vec_size * D
+    }
+
+    fn intermediate_wires_per_round() -> {
+        // D wires needed for each of insert_here, equality_dummy, new_item, new_item_plus_old_item,
         // already_inserted, and not_already_inserted
-        7 * D
-    }
-
-    /// The wires corresponding to the "cur_index" variable in the gadget (non-gate) insert function.
-    pub fn cur_index_for_round_r(r: usize) -> Range<usize> {
-        let intermediate_index = 0;
-        let start = start_of_intermediate_wires() + r * wires_per_round() + D * intermediate_index;
-        start..start + D
-    }
-
-    /// The wires corresponding to the "insert_here" variable in the gadget (non-gate) insert function.
-    pub fn insert_here_for_round_r(r: usize) -> Range<usize> {
-        let intermediate_index = 1;
-        let start = start_of_intermediate_wires() + r * wires_per_round() + D * intermediate_index;
-        start..start + D
+        6 * D
     }
 
     /// The wires corresponding to the "equality_dummy" variable in the gadget (non-gate) insert function.
     pub fn equality_dummy_for_round_r(r: usize) -> Range<usize> {
-        let intermediate_index = 1;
         let start = start_of_intermediate_wires() + r * wires_per_round() + D * intermediate_index;
         start..start + D
     }
@@ -106,19 +105,34 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate {
             list_items.push(vars.get_local_ext_algebra(Self::wires_list_item(i)));
         }
 
+        let element_to_insert = vars.get_local_ext_algebra(Self::wires_element_to_insert());
+
         let mut constraints = Vec::new();
 
+        let mut already_inserted = F::zero();
         for r in 0..self::vec_size {
-            let this_round_cur_index = vars.get_local_ext_algebra(Self::cur_index_for_round_r(r));
-            // TODO: set value of cur_index
+            let cur_index = F::Extension::from_canonical_usize(r);
+            
+            let equality_dummy = vars.get_local_ext_algebra(Self::equality_dummy_for_round_r(r));
 
-            let this_round_insert_here = vars.get_local_ext_algebra(Self::insert_here_for_round_r(r));
-            // enforce "insert_here = is_equal(cur_index, insertion_index)"
-            let this_round_equality_dummy = vars.get_local_ext_algebra(Self::equality_dummy_for_round_r(r));
-            let computed_insert_here = (this_round_cur_index - insertion_index) * this_round_equality_dummy;
-            constraints.extend(computed_insert_here - this_round_insert_here).to_basefield_array());
+            let difference = cur_index - insertion_index;
+            let insert_here = if difference == F::ZERO {
+                F::ZERO
+            } else {
+                F::ONE
+            };
+            
+            // The two equality constraints:
+            constraints.extend(difference * equality_dummy - insert_here);
+            constraints.extend((1 - insert_here) * difference);
 
+            let mut new_item = insert_here * element_to_insert + already_inserted;
+            if r > 0 {
+                new_item += already_inserted * list_items[i - 1];
+            }
+            already_inserted += insert_here;
 
+            new_item += (F::ONE - already_inserted) * list_items[i];
         }
 
         constraints
