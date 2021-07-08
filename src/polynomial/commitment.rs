@@ -331,7 +331,7 @@ mod tests {
             },
             degree_bits: 0,
             gates: vec![],
-            max_filtered_constraint_degree: 0,
+            quotient_degree_factor: 0,
             num_gate_constraints: 0,
             num_constants: 4,
             k_is: vec![F::ONE; 6],

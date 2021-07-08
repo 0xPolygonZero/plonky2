@@ -145,8 +145,8 @@ pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     /// The types of gates used in this circuit, along with their prefixes.
     pub(crate) gates: Vec<PrefixedGate<F, D>>,
 
-    /// The maximum degree of a filter times a constraint by any gate.
-    pub(crate) max_filtered_constraint_degree: usize,
+    /// The degree of the PLONK quotient polynomial.
+    pub(crate) quotient_degree_factor: usize,
 
     /// The largest number of constraints imposed by any gate.
     pub(crate) num_gate_constraints: usize,
@@ -188,7 +188,7 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     pub fn quotient_degree(&self) -> usize {
-        (self.max_filtered_constraint_degree - 1) * self.degree()
+        self.quotient_degree_factor * self.degree()
     }
 
     pub fn total_constraints(&self) -> usize {

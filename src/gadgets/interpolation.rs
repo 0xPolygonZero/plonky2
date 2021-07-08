@@ -66,6 +66,7 @@ mod tests {
     use crate::field::extension_field::FieldExtension;
     use crate::field::field::Field;
     use crate::field::interpolation::{interpolant, interpolate};
+    use crate::verifier::verify;
     use crate::witness::PartialWitness;
 
     #[test]
@@ -103,6 +104,8 @@ mod tests {
 
         let data = builder.build();
         let proof = data.prove(PartialWitness::new());
+
+        verify(proof, &data.verifier_only, &data.common).unwrap();
     }
 
     #[test]
@@ -135,5 +138,7 @@ mod tests {
 
         let data = builder.build();
         let proof = data.prove(PartialWitness::new());
+
+        verify(proof, &data.verifier_only, &data.common).unwrap();
     }
 }

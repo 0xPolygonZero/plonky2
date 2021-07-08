@@ -118,6 +118,7 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
+    use crate::verifier::verify;
     use crate::witness::PartialWitness;
 
     fn real_rotate<const D: usize>(
@@ -150,6 +151,8 @@ mod tests {
 
         let data = builder.build();
         let proof = data.prove(PartialWitness::new());
+
+        verify(proof, &data.verifier_only, &data.common).unwrap();
     }
 
     #[test]

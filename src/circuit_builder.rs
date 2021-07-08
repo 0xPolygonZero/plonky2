@@ -392,6 +392,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Builds a "full circuit", with both prover and verifier data.
     pub fn build(mut self) -> CircuitData<F, D> {
+        let quotient_degree_factor = 7; // TODO: add this as a parameter.
         let start = Instant::now();
         info!(
             "Degree before blinding & padding: {}",
@@ -403,7 +404,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let gates = self.gates.iter().cloned().collect();
         let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
-        let max_filtered_constraint_degree = max_filtered_constraint_degree.max(3);
+        assert!(
+            max_filtered_constraint_degree <= quotient_degree_factor + 1,
+            "Constraints are too high degree."
+        );
         let prefixed_gates = PrefixedGate::from_tree(gate_tree);
 
         let degree_bits = log2_strict(degree);
@@ -446,10 +450,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .max()
             .expect("No gates?");
 
-        let num_partial_products = num_partial_products(
-            self.config.num_routed_wires,
-            max_filtered_constraint_degree - 1,
-        );
+        let num_partial_products =
+            num_partial_products(self.config.num_routed_wires, quotient_degree_factor);
 
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
@@ -462,7 +464,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             config: self.config,
             degree_bits,
             gates: prefixed_gates,
-            max_filtered_constraint_degree,
+            quotient_degree_factor,
             num_gate_constraints,
             num_constants,
             k_is,

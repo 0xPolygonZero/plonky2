@@ -2,8 +2,9 @@ use anyhow::{ensure, Result};
 
 use crate::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::field::extension_field::Extendable;
+use crate::field::field::Field;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{eval_vanishing_poly, eval_zero_poly};
+use crate::plonk_common::{eval_vanishing_poly, eval_zero_poly, reduce_with_powers};
 use crate::proof::Proof;
 use crate::vars::EvaluationVars;
 
@@ -57,9 +58,13 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
     let quotient_polys_zeta = &proof.openings.quotient_polys;
-    let z_h_zeta = eval_zero_poly(common_data.degree(), zeta);
-    for i in 0..num_challenges {
-        ensure!(vanishing_polys_zeta[i] == z_h_zeta * quotient_polys_zeta[i]);
+    let zeta_pow_deg = zeta.exp_power_of_2(common_data.degree_bits);
+    let z_h_zeta = zeta_pow_deg - F::Extension::ONE;
+    for (i, chunk) in quotient_polys_zeta
+        .chunks(common_data.quotient_degree_factor)
+        .enumerate()
+    {
+        ensure!(vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
     }
 
     let evaluations = proof.openings.clone();

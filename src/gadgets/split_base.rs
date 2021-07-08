@@ -41,6 +41,7 @@ mod tests {
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::field::Field;
+    use crate::verifier::verify;
     use crate::witness::PartialWitness;
 
     #[test]
@@ -67,5 +68,7 @@ mod tests {
         let data = builder.build();
 
         let proof = data.prove(PartialWitness::new());
+
+        verify(proof, &data.verifier_only, &data.common).unwrap();
     }
 }

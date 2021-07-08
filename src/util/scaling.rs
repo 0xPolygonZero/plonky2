@@ -174,6 +174,7 @@ mod tests {
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::verifier::verify;
     use crate::witness::PartialWitness;
 
     fn test_reduce_gadget(n: usize) {
@@ -205,6 +206,8 @@ mod tests {
 
         let data = builder.build();
         let proof = data.prove(PartialWitness::new());
+
+        verify(proof, &data.verifier_only, &data.common).unwrap();
     }
 
     #[test]
