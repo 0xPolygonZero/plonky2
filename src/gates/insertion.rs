@@ -44,51 +44,17 @@ impl InsertionGate {
     }
 
     pub fn wires_output_list_item(&self, i: usize) -> Range<usize> {
-        let start = self::start_of_output_wires() + i * D;
+        let start = self.start_of_output_wires() + i * D;
         start..start + D
     }
 
     fn start_of_intermediate_wires(&self) -> usize {
-        self::start_of_output_wires() + self::vec_size * D
-    }
-
-    fn intermediate_wires_per_round() -> {
-        // D wires needed for each of insert_here, equality_dummy, new_item, new_item_plus_old_item,
-        // already_inserted, and not_already_inserted
-        6 * D
+        self.start_of_output_wires() + self.vec_size * D
     }
 
     /// The wires corresponding to the "equality_dummy" variable in the gadget (non-gate) insert function.
     pub fn equality_dummy_for_round_r(r: usize) -> Range<usize> {
-        let start = start_of_intermediate_wires() + r * wires_per_round() + D * intermediate_index;
-        start..start + D
-    }
-
-    /// The wires corresponding to the "new_item" variable in the gadget (non-gate) insert function.
-    pub fn new_item_for_round_r(r: usize) -> Range<usize> {
-        let intermediate_index = 2;
-        let start = start_of_intermediate_wires() + r * wires_per_round() + D * intermediate_index;
-        start..start + D
-    }
-
-    /// The wires corresponding to the "new_item_plus_old_item" variable in the gadget (non-gate) insert function.
-    pub fn new_item_plus_old_item_for_round_r(r: usize) -> Range<usize> {
-        let intermediate_index = 3;
-        let start = start_of_intermediate_wires() + r * wires_per_round() + D * intermediate_index;
-        start..start + D
-    }
-
-    /// The wires corresponding to the "already_inserted" variable in the gadget (non-gate) insert function.
-    pub fn already_inserted_for_round_r(r: usize) -> Range<usize> {
-        let intermediate_index = 4;
-        let start = start_of_intermediate_wires() + r * wires_per_round() + D * intermediate_index;
-        start..start + D
-    }
-
-    /// The wires corresponding to the "not_already_inserted" variable in the gadget (non-gate) insert function.
-    pub fn not_already_inserted_for_round_r(r: usize) -> Range<usize> {
-        let intermediate_index = 5;
-        let start = start_of_intermediate_wires() + r * wires_per_round() + D * intermediate_index;
+        let start = start_of_intermediate_wires() + D * r;
         start..start + D
     }
 }
@@ -101,7 +67,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate {
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let insertion_index = vars.get_local_ext_algebra(Self::wires_insertion_index());
         let mut list_items = Vec::new();
-        for i in 0..self::vec_size {
+        for i in 0..self.vec_size {
             list_items.push(vars.get_local_ext_algebra(Self::wires_list_item(i)));
         }
 
@@ -110,7 +76,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate {
         let mut constraints = Vec::new();
 
         let mut already_inserted = F::zero();
-        for r in 0..self::vec_size {
+        for r in 0..self.vec_size {
             let cur_index = F::Extension::from_canonical_usize(r);
             
             let equality_dummy = vars.get_local_ext_algebra(Self::equality_dummy_for_round_r(r));
@@ -182,21 +148,49 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate {
 #[derive(Debug)]
 struct InsertionGenerator<F: Field> {
     gate_index: usize,
-    gate: InterpolationGate<F, D>,
+    gate: InsertionGate<F, D>,
     _phantom: PhantomData<F>,
 }
 
 impl<F: Field> SimpleGenerator<F> for InsertionGenerator<F> {
     fn dependencies(&self) -> Vec<Target> {
-        Vec::new()
+        let local_target = |input| {
+            Target::Wire(Wire {
+                gate: self.gate_index,
+                input,
+            })
+        };
+
+        let local_targets = |inputs: Range<usize>| inputs.map(local_target);
+
+        let mut deps = Vec::new();
+        deps.extend(local_targets(self.gate.wires_insertion_index()));
+        deps.extend(local_targets(self.gate.wires_element_to_insert()));
+        for i in 0..self.gate.vec_size {
+            deps.push(local_target(self.gate.wires_list_item(i)));
+        }
+        deps
     }
 
     fn run_once(&self, _witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let wire = Wire {
+        let n = self.gate.num_points;
+
+        let local_wire = |input| Wire {
             gate: self.gate_index,
-            input: ConstantGate::WIRE_OUTPUT,
+            input,
         };
-        PartialWitness::singleton_target(Target::Wire(wire), self.constant)
+
+        let get_local_wire = |input| witness.get_wire(local_wire(input));
+
+        let get_local_ext = |wire_range: Range<usize>| {
+            debug_assert_eq!(wire_range.len(), D);
+            let values = wire_range.map(get_local_wire).collect::<Vec<_>>();
+            let arr = values.try_into().unwrap();
+            F::Extension::from_basefield_array(arr)
+        };
+
+        // Compute the new vector, and the equality dummy values.
+        todo!()
     }
 }
 
