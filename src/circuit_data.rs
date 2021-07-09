@@ -222,9 +222,6 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
 /// limited form of dynamic inner circuits. We can't practically make things like the wire count
 /// dynamic, at least not without setting a maximum wire count and paying for the worst case.
 pub struct VerifierCircuitTarget {
-    /// A commitment to each constant polynomial.
-    pub(crate) constants_root: HashTarget,
-
-    /// A commitment to each permutation polynomial.
-    pub(crate) sigmas_root: HashTarget,
+    /// A commitment to each constant polynomial and each permutation polynomial.
+    pub(crate) constants_sigmas_root: HashTarget,
 }

@@ -1,7 +1,7 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::{CircuitConfig, VerifierCircuitTarget};
 use crate::field::extension_field::Extendable;
-use crate::gates::gate::GateRef;
+use crate::gates::gate::{GateRef, PrefixedGate};
 use crate::proof::ProofTarget;
 
 const MIN_WIRES: usize = 120; // TODO: Double check.
@@ -11,10 +11,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
     pub fn add_recursive_verifier(
         &mut self,
-        inner_config: CircuitConfig,
-        inner_circuit: VerifierCircuitTarget,
-        inner_gates: Vec<GateRef<F, D>>,
         inner_proof: ProofTarget<D>,
+        inner_config: &CircuitConfig,
+        inner_circuit_data: &VerifierCircuitTarget,
+        inner_gates: &[PrefixedGate<F, D>],
     ) {
         assert!(self.config.num_wires >= MIN_WIRES);
         assert!(self.config.num_wires >= MIN_ROUTED_WIRES);
@@ -35,30 +35,13 @@ mod tests {
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
         HashTarget, OpeningSetTarget, Proof,
     };
+    use crate::verifier::verify;
     use crate::witness::PartialWitness;
 
-    fn proof_to_proof_target<F: Extendable<D>, const D: usize>(
+    fn get_fri_query_round<F: Extendable<D>, const D: usize>(
         proof: &Proof<F, D>,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> ProofTarget<D> {
-        let wires_root = builder.add_virtual_hash();
-        let plonk_zs_root = builder.add_virtual_hash();
-        let quotient_polys_root = builder.add_virtual_hash();
-
-        let openings = OpeningSetTarget {
-            constants: builder.add_virtual_extension_targets(proof.openings.constants.len()),
-            plonk_sigmas: builder
-                .add_virtual_extension_targets(proof.openings.plonk_s_sigmas.len()),
-            wires: builder.add_virtual_extension_targets(proof.openings.wires.len()),
-            plonk_zs: builder.add_virtual_extension_targets(proof.openings.plonk_zs.len()),
-            plonk_zs_right: builder
-                .add_virtual_extension_targets(proof.openings.plonk_zs_right.len()),
-            partial_products: builder
-                .add_virtual_extension_targets(proof.openings.partial_products.len()),
-            quotient_polys: builder
-                .add_virtual_extension_targets(proof.openings.quotient_polys.len()),
-        };
-
+    ) -> FriQueryRoundTarget<D> {
         let mut query_round = FriQueryRoundTarget {
             initial_trees_proof: FriInitialTreeProofTarget {
                 evals_proofs: vec![],
@@ -84,22 +67,45 @@ mod tests {
                 },
             });
         }
+        query_round
+    }
 
+    fn proof_to_proof_target<F: Extendable<D>, const D: usize>(
+        proof: &Proof<F, D>,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> ProofTarget<D> {
+        let wires_root = builder.add_virtual_hash();
+        let plonk_zs_root = builder.add_virtual_hash();
+        let quotient_polys_root = builder.add_virtual_hash();
+
+        let openings = OpeningSetTarget {
+            constants: builder.add_virtual_extension_targets(proof.openings.constants.len()),
+            plonk_sigmas: builder
+                .add_virtual_extension_targets(proof.openings.plonk_s_sigmas.len()),
+            wires: builder.add_virtual_extension_targets(proof.openings.wires.len()),
+            plonk_zs: builder.add_virtual_extension_targets(proof.openings.plonk_zs.len()),
+            plonk_zs_right: builder
+                .add_virtual_extension_targets(proof.openings.plonk_zs_right.len()),
+            partial_products: builder
+                .add_virtual_extension_targets(proof.openings.partial_products.len()),
+            quotient_polys: builder
+                .add_virtual_extension_targets(proof.openings.quotient_polys.len()),
+        };
+        let query_round_proofs = (0..proof.opening_proof.fri_proof.query_round_proofs.len())
+            .map(|_| get_fri_query_round(proof, builder))
+            .collect();
+        let commit_phase_merkle_roots = (0..proof
+            .opening_proof
+            .fri_proof
+            .commit_phase_merkle_roots
+            .len())
+            .map(|_| builder.add_virtual_hash())
+            .collect();
         let opening_proof =
             OpeningProofTarget {
                 fri_proof: FriProofTarget {
-                    commit_phase_merkle_roots: vec![
-                        builder.add_virtual_hash();
-                        proof
-                            .opening_proof
-                            .fri_proof
-                            .commit_phase_merkle_roots
-                            .len()
-                    ],
-                    query_round_proofs: vec![
-                        query_round.clone();
-                        proof.opening_proof.fri_proof.query_round_proofs.len()
-                    ],
+                    commit_phase_merkle_roots,
+                    query_round_proofs,
                     final_poly: PolynomialCoeffsExtTarget(builder.add_virtual_extension_targets(
                         proof.opening_proof.fri_proof.final_poly.len(),
                     )),
@@ -223,18 +229,36 @@ mod tests {
     fn test_recursive_verifier() {
         type F = CrandallField;
         type FF = QuarticCrandallField;
-        let proof = {
+        let (proof, vd, cd) = {
             let config = CircuitConfig::large_config();
             let mut builder = CircuitBuilder::<F, 4>::new(config);
             let zero = builder.zero();
             let data = builder.build();
-            data.prove(PartialWitness::new())
+            (
+                data.prove(PartialWitness::new()),
+                data.verifier_only,
+                data.common,
+            )
         };
 
         let config = CircuitConfig::large_config();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, 4>::new(config.clone());
         let mut pw = PartialWitness::new();
         let pt = proof_to_proof_target(&proof, &mut builder);
         set_proof_target(&proof, &pt, &mut pw);
+
+        let inner_data = VerifierCircuitTarget {
+            constants_sigmas_root: builder.add_virtual_hash(),
+        };
+        pw.set_hash_target(inner_data.constants_sigmas_root, vd.constants_sigmas_root);
+
+        let gates = cd.gates;
+
+        builder.add_recursive_verifier(pt, &config, &inner_data, &gates);
+
+        let data = builder.build();
+        let recursive_proof = data.prove(PartialWitness::new());
+
+        verify(recursive_proof, &data.verifier_only, &data.common).unwrap();
     }
 }
