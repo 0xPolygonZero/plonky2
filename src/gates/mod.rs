@@ -4,6 +4,7 @@ pub mod constant;
 pub(crate) mod gate;
 pub mod gate_tree;
 pub mod gmimc;
+pub mod insertion;
 pub mod interpolation;
 pub(crate) mod noop;
 
