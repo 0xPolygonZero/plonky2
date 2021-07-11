@@ -7,9 +7,20 @@ use plonky2::gmimc::gmimc_permute_array;
 use plonky2::hash::{GMIMC_CONSTANTS, GMIMC_ROUNDS};
 use plonky2::rescue::rescue;
 
-// TODO: I was getting 560us for this in the old version
+/// Number of elements in the hash input/state/result.
+const W: usize = 12;
 
-fn bench_hash<const W: usize>(name: &str, input: &[F; W]) {
+#[inline]
+fn gmimc_hash(x: [F; W]) -> [F; W] {
+    gmimc_permute_array::<_, W, GMIMC_ROUNDS>(x, GMIMC_CONSTANTS)
+}
+
+#[inline]
+fn rescue_hash(x: [F; W]) -> [F; W] {
+    rescue(x)
+}
+
+fn bench_hash(name: &str, hash: fn([F; W])-> [F; W], input: &[F; W]) {
     // 113 wire polys, 3 Z polys, 4 parts of quotient poly.
     const PROVER_POLYS: usize = 113 + 3 + 4;
     const LDE_BITS: i32 = 3;
@@ -21,22 +32,21 @@ fn bench_hash<const W: usize>(name: &str, input: &[F; W]) {
     let mut x = *input;
     let start = Instant::now();
     for _ in 0..N_HASHES {
-        x = gmimc_permute_array::<_, W, GMIMC_ROUNDS>(x, GMIMC_CONSTANTS);
+        x = hash(x);
     }
     let duration = start.elapsed();
 
-    println!("--- result {:?}", x);
-    println!("--- took {:?}", duration);
+    println!("--- result sum {:?}", x.iter().copied().sum::<F>());
+    println!("--- took {:?}μs", duration.as_micros());
     println!("--- avg {:?}μs", (duration.as_micros() as f64 / N_HASHES as f64));
 }
 
 fn main() {
-    const W: usize = 12;
-
     let mut x = [F::ZERO; W];
     for i in 0..W {
         x[i] = F::from_canonical_u64((i as u64) * 123456 + 789);
     }
 
-    bench_hash("GMiMC", &x);
+    bench_hash("GMiMC", gmimc_hash, &x);
+    bench_hash("Rescue", rescue_hash, &x);
 }
