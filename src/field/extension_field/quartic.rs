@@ -92,6 +92,19 @@ impl Field for QuarticCrandallField {
         CrandallField(15170983443234254033),
     ]);
 
+    #[inline]
+    fn square(&self) -> Self {
+        let Self([a0, a1, a2, a3]) = *self;
+        let W = <Self as OEF<4>>::W;
+
+        let c0 = a0.square() + W * (a1 * a3.double() + a2.square());
+        let c1 = (a0 * a1 + W * a2 * a3).double();
+        let c2 = a0 * a2.double() + a1.square() + W * a3.square();
+        let c3 = (a0 * a3 + a1 * a2).double();
+
+        Self([c0, c1, c2, c3])
+    }
+
     // Algorithm 11.3.4 in Handbook of Elliptic and Hyperelliptic Curve Cryptography.
     fn try_inverse(&self) -> Option<Self> {
         if self.is_zero() {
