@@ -207,10 +207,12 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
 
         // Compute the new vector and the values for equality_dummy and insert_here
         let n = self.gate.vec_size;
-        let orig_vec = (0..n).map(|i| get_local_ext(InsertionGate::<F, D>::wires_list_item(i))).collect::<Vec<_>>();
+        let orig_vec = (0..n)
+            .map(|i| get_local_ext(InsertionGate::<F, D>::wires_list_item(i)))
+            .collect::<Vec<_>>();
         let to_insert = get_local_ext(InsertionGate::<F, D>::wires_element_to_insert());
         let insertion_index_f = get_local_wire(InsertionGate::<F, D>::wires_insertion_index());
-        
+
         let insertion_index = insertion_index_f.to_canonical_u64() as usize;
         let mut new_vec = Vec::new();
         new_vec.extend(&orig_vec[..insertion_index]);
