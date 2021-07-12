@@ -1,11 +1,11 @@
 use std::convert::TryInto;
-use std::ops::Range;
 use std::marker::PhantomData;
+use std::ops::Range;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::{FieldExtension, Extendable};
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{SimpleGenerator, WitnessGenerator};
@@ -35,7 +35,7 @@ impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
     }
 
     pub fn wires_element_to_insert() -> Range<usize> {
-        1..D+1
+        1..D + 1
     }
 
     pub fn wires_list_item(i: usize) -> Range<usize> {
@@ -72,16 +72,16 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let insertion_index = vars.local_wires[Self::wires_insertion_index()];
-        
+
         let mut list_items = Vec::new();
         for i in 0..self.vec_size {
             list_items.push(vars.get_local_ext_algebra(Self::wires_list_item(i)));
         }
-        let dummy_value : ExtensionAlgebra<F::Extension, D> = F::Extension::ZERO.into(); // will never be reached
+        let dummy_value: ExtensionAlgebra<F::Extension, D> = F::Extension::ZERO.into(); // will never be reached
         list_items.push(dummy_value);
 
         let mut output_list_items = Vec::new();
-        for i in 0..self.vec_size+1 {
+        for i in 0..self.vec_size + 1 {
             output_list_items.push(vars.get_local_ext_algebra(self.wires_output_list_item(i)));
         }
 
@@ -92,17 +92,19 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
         let mut already_inserted = F::Extension::ZERO;
         for r in 0..self.vec_size + 1 {
             let cur_index = F::Extension::from_canonical_usize(r);
-            
+
             let equality_dummy = vars.local_wires[self.equality_dummy_for_round_r(r)];
 
             let difference = cur_index - insertion_index;
             let insert_here = vars.local_wires[self.insert_here_for_round_r(r)];
-            
+
             // The two equality constraints.
-            let difference_algebra : ExtensionAlgebra<F::Extension, D> = difference.into();
-            let equality_dummy_constraint : ExtensionAlgebra<F::Extension, D> = difference_algebra * equality_dummy.into() - insert_here.into();
+            let difference_algebra: ExtensionAlgebra<F::Extension, D> = difference.into();
+            let equality_dummy_constraint: ExtensionAlgebra<F::Extension, D> =
+                difference_algebra * equality_dummy.into() - insert_here.into();
             constraints.extend(equality_dummy_constraint.to_basefield_array());
-            let mul_to_zero_constraint : ExtensionAlgebra<F::Extension, D> = ((F::Extension::ONE - insert_here) * difference).into();
+            let mul_to_zero_constraint: ExtensionAlgebra<F::Extension, D> =
+                ((F::Extension::ONE - insert_here) * difference).into();
             constraints.extend(mul_to_zero_constraint.to_basefield_array());
 
             let mut new_item = element_to_insert * insert_here.into() + already_inserted.into();
@@ -180,7 +182,9 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
 
         let mut deps = Vec::new();
         deps.push(local_target(InsertionGate::<F, D>::wires_insertion_index()));
-        deps.extend(local_targets(InsertionGate::<F, D>::wires_element_to_insert()));
+        deps.extend(local_targets(
+            InsertionGate::<F, D>::wires_element_to_insert(),
+        ));
         for i in 0..self.gate.vec_size {
             deps.extend(local_targets(InsertionGate::<F, D>::wires_list_item(i)));
         }
@@ -208,6 +212,4 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
 }
 
 #[cfg(test)]
-mod tests {
-    
-}
+mod tests {}
