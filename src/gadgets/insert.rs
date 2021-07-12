@@ -48,30 +48,26 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut already_inserted = self.zero();
         let mut new_list = Vec::new();
 
-        // Add a dummy value at the end (which will never be used).
-        let mut new_v = v.clone();
-        new_v.push(ExtensionTarget([Target::PublicInput{index: 0}; D]));
-
-        for i in 0..new_v.len() {
-            let one = self.one();
-
+        let one = self.one();
+        for i in 0..=v.len() {
             let cur_index = self.constant(F::from_canonical_usize(i));
             let insert_here = self.is_equal(cur_index, index);
 
             let mut new_item = self.zero_extension();
             new_item = self.scalar_mul_add_extension(insert_here, element, new_item);
             if i > 0 {
-                new_item = self.scalar_mul_add_extension(already_inserted, new_v[i - 1], new_item);
+                new_item = self.scalar_mul_add_extension(already_inserted, v[i - 1], new_item);
             }
             already_inserted = self.add(already_inserted, insert_here);
 
             let not_already_inserted = self.sub(one, already_inserted);
-            // On the last round, v[i] is the dummy value, but by that round not_already_inserted
-            // will always be 0.
-            new_item = self.scalar_mul_add_extension(not_already_inserted, new_v[i], new_item);
+            if i < v.len() {
+                new_item = self.scalar_mul_add_extension(not_already_inserted, v[i], new_item);
+            }
 
             new_list.push(new_item);
         }
+
 
         new_list
     }
@@ -110,6 +106,8 @@ mod tests {
             let elem = builder.constant_extension(FF::rand());
             let inserted = real_insert(i, elem, &v);
             let purported_inserted = builder.insert(it, elem, v.clone());
+
+            assert_eq!(inserted.len(), purported_inserted.len());
 
             for (x, y) in inserted.into_iter().zip(purported_inserted) {
                 builder.route_extension(x, y);
