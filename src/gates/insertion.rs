@@ -142,10 +142,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
     }
 
     fn num_wires(&self) -> usize {
-        let num_input_wires = self.vec_size + 1; // the original vector, and the insertion index
-        let num_output_wires = self.vec_size + 1; // the final vector, with the inserted element
-        let num_intermediate_wires = 6 * self.vec_size; // six intermediate variables needed for each element of the vector
-        self.vec_size + 1
+        self.insert_here_for_round_r(self.vec_size - 1) + 1
     }
 
     fn num_constants(&self) -> usize {
