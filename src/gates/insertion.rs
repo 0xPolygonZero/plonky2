@@ -154,11 +154,11 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
     }
 
     fn degree(&self) -> usize {
-        1
+        2
     }
 
     fn num_constraints(&self) -> usize {
-        1
+        (self.vec_size + 1) * 3
     }
 }
 
