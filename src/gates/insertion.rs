@@ -56,10 +56,12 @@ impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
         self.start_of_output_wires() + self.vec_size * D
     }
 
-    /// The wires corresponding to the "equality_dummy" variable in the gadget (non-gate) insert function.
-    pub fn equality_dummy_for_round_r(&self, r: usize) -> Range<usize> {
-        let start = self.start_of_intermediate_wires() + D * r;
-        start..start + D
+    pub fn equality_dummy_for_round_r(&self, r: usize) -> usize {
+        self.start_of_intermediate_wires() + r
+    }
+
+    pub fn insert_here_for_round_r(&self, r: usize) -> usize {
+        self.start_of_intermediate_wires() + (self.vec_size + 1) + r
     }
 }
 
@@ -87,33 +89,29 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
 
         let mut constraints = Vec::new();
 
-        let mut already_inserted : ExtensionAlgebra<F::Extension, D> = F::Extension::ZERO.into();
+        let mut already_inserted = F::Extension::ZERO;
         for r in 0..self.vec_size + 1 {
             let cur_index = F::Extension::from_canonical_usize(r);
             
-            let equality_dummy = vars.get_local_ext_algebra(self.equality_dummy_for_round_r(r));
+            let equality_dummy = vars.local_wires[self.equality_dummy_for_round_r(r)];
 
             let difference = cur_index - insertion_index;
-            let insert_here : ExtensionAlgebra<F::Extension, D> = if difference == F::Extension::ZERO {
-                F::Extension::ZERO.into()
-            } else {
-                F::Extension::ONE.into()
-            };
+            let insert_here = vars.local_wires[self.insert_here_for_round_r(r)];
             
-            // The two equality constraints:
+            // The two equality constraints.
             let difference_algebra : ExtensionAlgebra<F::Extension, D> = difference.into();
-            let equality_dummy_constraint : ExtensionAlgebra<F::Extension, D> = difference_algebra * equality_dummy - insert_here;
+            let equality_dummy_constraint : ExtensionAlgebra<F::Extension, D> = difference_algebra * equality_dummy.into() - insert_here.into();
             constraints.extend(equality_dummy_constraint.to_basefield_array());
-            let mul_to_zero_constraint : ExtensionAlgebra<F::Extension, D> = (F::Extension::ONE.into() - insert_here) * difference;
+            let mul_to_zero_constraint : ExtensionAlgebra<F::Extension, D> = ((F::Extension::ONE - insert_here) * difference).into();
             constraints.extend(mul_to_zero_constraint.to_basefield_array());
 
-            let mut new_item = insert_here * element_to_insert + already_inserted;
+            let mut new_item = element_to_insert * insert_here.into() + already_inserted.into();
             if r > 0 {
-                new_item += already_inserted * list_items[r - 1];
+                new_item += list_items[r - 1] * already_inserted.into();
             }
             already_inserted += insert_here;
 
-            new_item += (F::Extension::ONE.into() - already_inserted) * list_items[r];
+            new_item += list_items[r] * (F::Extension::ONE - already_inserted).into();
 
             constraints.extend((new_item - output_list_items[r]).to_basefield_array());
         }
@@ -204,7 +202,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
             F::Extension::from_basefield_array(arr)
         };
 
-        // Compute the new vector, and the equality dummy values.
+        // Compute the new vector and the values for equality_dummy and insert_here
         todo!()
     }
 }
