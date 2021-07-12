@@ -30,15 +30,15 @@ impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
         GateRef::new(gate)
     }
 
-    pub fn wires_insertion_index() -> usize {
+    pub fn wires_insertion_index(&self) -> usize {
         0
     }
 
-    pub fn wires_element_to_insert() -> Range<usize> {
+    pub fn wires_element_to_insert(&self) -> Range<usize> {
         1..D + 1
     }
 
-    pub fn wires_list_item(i: usize) -> Range<usize> {
+    pub fn wires_list_item(&self, i: usize) -> Range<usize> {
         let start = (i + 1) * D + 1;
         start..start + D
     }
@@ -53,7 +53,7 @@ impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
     }
 
     fn start_of_intermediate_wires(&self) -> usize {
-        self.start_of_output_wires() + self.vec_size * D
+        self.start_of_output_wires() + (self.vec_size + 1) * D
     }
 
     pub fn equality_dummy_for_round_r(&self, r: usize) -> usize {
@@ -71,11 +71,11 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
-        let insertion_index = vars.local_wires[Self::wires_insertion_index()];
+        let insertion_index = vars.local_wires[self.wires_insertion_index()];
 
         let mut list_items = Vec::new();
         for i in 0..self.vec_size {
-            list_items.push(vars.get_local_ext_algebra(Self::wires_list_item(i)));
+            list_items.push(vars.get_local_ext_algebra(self.wires_list_item(i)));
         }
         let dummy_value: ExtensionAlgebra<F::Extension, D> = F::Extension::ZERO.into(); // will never be reached
         list_items.push(dummy_value);
@@ -85,7 +85,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             output_list_items.push(vars.get_local_ext_algebra(self.wires_output_list_item(i)));
         }
 
-        let element_to_insert = vars.get_local_ext_algebra(Self::wires_element_to_insert());
+        let element_to_insert = vars.get_local_ext_algebra(self.wires_element_to_insert());
 
         let mut constraints = Vec::new();
 
@@ -177,12 +177,10 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
         let local_targets = |inputs: Range<usize>| inputs.map(local_target);
 
         let mut deps = Vec::new();
-        deps.push(local_target(InsertionGate::<F, D>::wires_insertion_index()));
-        deps.extend(local_targets(
-            InsertionGate::<F, D>::wires_element_to_insert(),
-        ));
+        deps.push(local_target(self.gate.wires_insertion_index()));
+        deps.extend(local_targets(self.gate.wires_element_to_insert()));
         for i in 0..self.gate.vec_size {
-            deps.extend(local_targets(InsertionGate::<F, D>::wires_list_item(i)));
+            deps.extend(local_targets(self.gate.wires_list_item(i)));
         }
         deps
     }
@@ -205,10 +203,10 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
         // Compute the new vector and the values for equality_dummy and insert_here
         let n = self.gate.vec_size;
         let orig_vec = (0..n)
-            .map(|i| get_local_ext(InsertionGate::<F, D>::wires_list_item(i)))
+            .map(|i| get_local_ext(self.gate.wires_list_item(i)))
             .collect::<Vec<_>>();
-        let to_insert = get_local_ext(InsertionGate::<F, D>::wires_element_to_insert());
-        let insertion_index_f = get_local_wire(InsertionGate::<F, D>::wires_insertion_index());
+        let to_insert = get_local_ext(self.gate.wires_element_to_insert());
+        let insertion_index_f = get_local_wire(self.gate.wires_insertion_index());
 
         let insertion_index = insertion_index_f.to_canonical_u64() as usize;
         let mut new_vec = Vec::new();
@@ -227,4 +225,38 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use std::marker::PhantomData;
+
+    use crate::field::crandall_field::CrandallField;
+    use crate::gates::gate_testing::test_low_degree;
+    use crate::gates::insertion::InsertionGate;
+
+    #[test]
+    fn wire_indices() {
+        let gate = InsertionGate::<CrandallField, 4> {
+            vec_size: 3,
+            _phantom: PhantomData,
+        };
+
+        assert_eq!(gate.wires_insertion_index(), 0);
+        assert_eq!(gate.wires_element_to_insert(), 1..5);
+        assert_eq!(gate.wires_list_item(0), 5..9);
+        assert_eq!(gate.wires_list_item(2), 13..17);
+        assert_eq!(gate.wires_output_list_item(0), 17..21);
+        assert_eq!(gate.wires_output_list_item(3), 29..33);
+        assert_eq!(gate.equality_dummy_for_round_r(0), 33);
+        assert_eq!(gate.equality_dummy_for_round_r(3), 36);
+        assert_eq!(gate.insert_here_for_round_r(0), 37);
+        assert_eq!(gate.insert_here_for_round_r(3), 40);
+    }
+
+    #[test]
+    fn low_degree() {
+        type F = CrandallField;
+        test_low_degree(InsertionGate::<F, 4>::new(4));
+    }
+
+    #[test]
+    fn test_gate_constraint() {}
+}
