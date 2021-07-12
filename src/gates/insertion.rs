@@ -99,9 +99,8 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             let insert_here = vars.local_wires[self.insert_here_for_round_r(r)];
 
             // The two equality constraints.
-            let difference_algebra: ExtensionAlgebra<F::Extension, D> = difference.into();
             let equality_dummy_constraint: ExtensionAlgebra<F::Extension, D> =
-                difference_algebra * equality_dummy.into() - insert_here.into();
+                (difference * equality_dummy - insert_here).into();
             constraints.extend(equality_dummy_constraint.to_basefield_array());
             let mul_to_zero_constraint: ExtensionAlgebra<F::Extension, D> =
                 ((F::Extension::ONE - insert_here) * difference).into();
@@ -207,7 +206,24 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
         };
 
         // Compute the new vector and the values for equality_dummy and insert_here
-        todo!()
+        let n = self.gate.vec_size;
+        let orig_vec = (0..n).map(|i| get_local_ext(InsertionGate::<F, D>::wires_list_item(i))).collect::<Vec<_>>();
+        let to_insert = get_local_ext(InsertionGate::<F, D>::wires_element_to_insert());
+        let insertion_index_f = get_local_wire(InsertionGate::<F, D>::wires_insertion_index());
+        
+        let insertion_index = insertion_index_f.to_canonical_u64() as usize;
+        let mut new_vec = Vec::new();
+        new_vec.extend(&orig_vec[..insertion_index]);
+        new_vec.push(to_insert);
+        new_vec.extend(&orig_vec[insertion_index..]);
+
+        let mut result = PartialWitness::<F>::new();
+        for i in 0..=n {
+            let output_wires = self.gate.wires_output_list_item(i).map(local_wire);
+            result.set_ext_wires(output_wires, new_vec[i]);
+        }
+
+        result
     }
 }
 
