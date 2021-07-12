@@ -1,8 +1,15 @@
+use env_logger::builder;
+
 use crate::circuit_builder::CircuitBuilder;
-use crate::circuit_data::{CircuitConfig, VerifierCircuitTarget};
+use crate::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
 use crate::field::extension_field::Extendable;
+use crate::field::field::Field;
 use crate::gates::gate::{GateRef, PrefixedGate};
-use crate::proof::ProofTarget;
+use crate::plonk_challenger::RecursiveChallenger;
+use crate::proof::{HashTarget, ProofTarget};
+use crate::util::scaling::ReducingFactorTarget;
+use crate::vanishing_poly::eval_vanishing_poly_recursively;
+use crate::vars::EvaluationTargets;
 
 const MIN_WIRES: usize = 120; // TODO: Double check.
 const MIN_ROUTED_WIRES: usize = 28; // TODO: Double check.
@@ -11,15 +18,94 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
     pub fn add_recursive_verifier(
         &mut self,
-        inner_proof: ProofTarget<D>,
+        proof: ProofTarget<D>,
         inner_config: &CircuitConfig,
-        inner_circuit_data: &VerifierCircuitTarget,
-        inner_gates: &[PrefixedGate<F, D>],
+        inner_verifier_data: &VerifierCircuitTarget,
+        inner_common_data: &CommonCircuitData<F, D>,
     ) {
         assert!(self.config.num_wires >= MIN_WIRES);
         assert!(self.config.num_wires >= MIN_ROUTED_WIRES);
+        let one = self.one_extension();
 
-        todo!()
+        let num_challenges = inner_config.num_challenges;
+
+        let mut challenger = RecursiveChallenger::new(self);
+
+        let digest =
+            HashTarget::from_vec(self.constants(&inner_common_data.circuit_digest.elements));
+        challenger.observe_hash(&digest);
+
+        challenger.observe_hash(&proof.wires_root);
+        let betas = challenger.get_n_challenges(self, num_challenges);
+        let gammas = challenger.get_n_challenges(self, num_challenges);
+
+        challenger.observe_hash(&proof.plonk_zs_root);
+        let alphas = challenger.get_n_challenges(self, num_challenges);
+
+        challenger.observe_hash(&proof.quotient_polys_root);
+        let zeta = challenger.get_extension_challenge(self);
+
+        let local_constants = &proof.openings.constants;
+        let local_wires = &proof.openings.wires;
+        let vars = EvaluationTargets {
+            local_constants,
+            local_wires,
+        };
+        let local_zs = &proof.openings.plonk_zs;
+        let next_zs = &proof.openings.plonk_zs_right;
+        let s_sigmas = &proof.openings.plonk_sigmas;
+        let partial_products = &proof.openings.partial_products;
+
+        let zeta_pow_deg = self.exp_u64_extension(zeta, inner_common_data.degree() as u64);
+        // Evaluate the vanishing polynomial at our challenge point, zeta.
+        let vanishing_polys_zeta = eval_vanishing_poly_recursively(
+            self,
+            inner_common_data,
+            zeta,
+            zeta_pow_deg,
+            vars,
+            local_zs,
+            next_zs,
+            partial_products,
+            s_sigmas,
+            &betas,
+            &gammas,
+            &alphas,
+        );
+
+        // let quotient_polys_zeta = &proof.openings.quotient_polys;
+        // let zeta_pow_deg = self.exp_u64_extension(zeta, 1 << inner_common_data.degree_bits as u64);
+        // let z_h_zeta = self.sub_extension(zeta_pow_deg, one);
+        // for (i, chunk) in quotient_polys_zeta
+        //     .chunks(inner_common_data.quotient_degree_factor)
+        //     .enumerate()
+        // {
+        //     let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
+        //     let mut rhs = scale.reduce(chunk, self);
+        //     rhs = self.mul_extension(z_h_zeta, rhs);
+        //     dbg!(self.num_gates());
+        //     self.route_extension(vanishing_polys_zeta[i], rhs);
+        // }
+        //
+        // let evaluations = proof.openings.clone();
+        //
+        // let merkle_roots = &[
+        //     inner_verifier_data.constants_sigmas_root,
+        //     proof.wires_root,
+        //     proof.plonk_zs_root,
+        //     proof.quotient_polys_root,
+        // ];
+        //
+        // proof.opening_proof.verify(
+        //     zeta,
+        //     &evaluations,
+        //     merkle_roots,
+        //     &mut challenger,
+        //     inner_common_data,
+        //     self,
+        // );
+        // dbg!(self.num_gates());
+        // dbg!(self.generators.len());
     }
 }
 
@@ -80,8 +166,7 @@ mod tests {
 
         let openings = OpeningSetTarget {
             constants: builder.add_virtual_extension_targets(proof.openings.constants.len()),
-            plonk_sigmas: builder
-                .add_virtual_extension_targets(proof.openings.plonk_s_sigmas.len()),
+            plonk_sigmas: builder.add_virtual_extension_targets(proof.openings.plonk_sigmas.len()),
             wires: builder.add_virtual_extension_targets(proof.openings.wires.len()),
             plonk_zs: builder.add_virtual_extension_targets(proof.openings.plonk_zs.len()),
             plonk_zs_right: builder
@@ -141,7 +226,7 @@ mod tests {
             .openings
             .plonk_sigmas
             .iter()
-            .zip(&proof.openings.plonk_s_sigmas)
+            .zip(&proof.openings.plonk_sigmas)
         {
             pw.set_extension_target(t, x);
         }
@@ -240,6 +325,7 @@ mod tests {
                 data.common,
             )
         };
+        verify(proof.clone(), &vd, &cd).unwrap();
 
         let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, 4>::new(config.clone());
@@ -252,12 +338,11 @@ mod tests {
         };
         pw.set_hash_target(inner_data.constants_sigmas_root, vd.constants_sigmas_root);
 
-        let gates = cd.gates;
+        builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
 
-        builder.add_recursive_verifier(pt, &config, &inner_data, &gates);
-
+        dbg!(builder.num_gates());
         let data = builder.build();
-        let recursive_proof = data.prove(PartialWitness::new());
+        let recursive_proof = data.prove(pw);
 
         verify(recursive_proof, &data.verifier_only, &data.common).unwrap();
     }

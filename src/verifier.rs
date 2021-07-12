@@ -4,8 +4,9 @@ use crate::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{eval_vanishing_poly, eval_zero_poly, reduce_with_powers};
+use crate::plonk_common::{eval_zero_poly, reduce_with_powers};
 use crate::proof::Proof;
+use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::EvaluationVars;
 
 pub(crate) fn verify<F: Extendable<D>, const D: usize>(
@@ -39,7 +40,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     };
     let local_zs = &proof.openings.plonk_zs;
     let next_zs = &proof.openings.plonk_zs_right;
-    let s_sigmas = &proof.openings.plonk_s_sigmas;
+    let s_sigmas = &proof.openings.plonk_sigmas;
     let partial_products = &proof.openings.partial_products;
 
     // Evaluate the vanishing polynomial at our challenge point, zeta.

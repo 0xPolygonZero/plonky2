@@ -178,7 +178,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     let single_openings = os
         .constants
         .iter()
-        .chain(&os.plonk_s_sigmas)
+        .chain(&os.plonk_sigmas)
         .chain(&os.quotient_polys)
         .chain(&os.partial_products);
     let single_diffs = single_evals

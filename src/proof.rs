@@ -61,6 +61,7 @@ impl HashTarget {
     }
 }
 
+#[derive(Clone)]
 pub struct Proof<F: Extendable<D>, const D: usize> {
     /// Merkle root of LDEs of wire values.
     pub wires_root: Hash<F>,
@@ -83,6 +84,7 @@ pub struct ProofTarget<const D: usize> {
 }
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
+#[derive(Clone)]
 pub struct FriQueryStep<F: Field + Extendable<D>, const D: usize> {
     pub evals: Vec<F::Extension>,
     pub merkle_proof: MerkleProof<F>,
@@ -96,6 +98,7 @@ pub struct FriQueryStepTarget<const D: usize> {
 
 /// Evaluations and Merkle proofs of the original set of polynomials,
 /// before they are combined into a composition polynomial.
+#[derive(Clone)]
 pub struct FriInitialTreeProof<F: Field> {
     pub evals_proofs: Vec<(Vec<F>, MerkleProof<F>)>,
 }
@@ -120,6 +123,7 @@ impl FriInitialTreeProofTarget {
 }
 
 /// Proof for a FRI query round.
+#[derive(Clone)]
 pub struct FriQueryRound<F: Field + Extendable<D>, const D: usize> {
     pub initial_trees_proof: FriInitialTreeProof<F>,
     pub steps: Vec<FriQueryStep<F, D>>,
@@ -131,6 +135,7 @@ pub struct FriQueryRoundTarget<const D: usize> {
     pub steps: Vec<FriQueryStepTarget<D>>,
 }
 
+#[derive(Clone)]
 pub struct FriProof<F: Field + Extendable<D>, const D: usize> {
     /// A Merkle root for each reduced polynomial in the commit phase.
     pub commit_phase_merkle_roots: Vec<Hash<F>>,
@@ -153,7 +158,7 @@ pub struct FriProofTarget<const D: usize> {
 /// The purported values of each polynomial at a single point.
 pub struct OpeningSet<F: Field + Extendable<D>, const D: usize> {
     pub constants: Vec<F::Extension>,
-    pub plonk_s_sigmas: Vec<F::Extension>,
+    pub plonk_sigmas: Vec<F::Extension>,
     pub wires: Vec<F::Extension>,
     pub plonk_zs: Vec<F::Extension>,
     pub plonk_zs_right: Vec<F::Extension>,
@@ -181,7 +186,7 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningSet<F, D> {
         let zs_partial_products_eval = eval_commitment(z, zs_partial_products_commitment);
         Self {
             constants: constants_sigmas_eval[common_data.constants_range()].to_vec(),
-            plonk_s_sigmas: constants_sigmas_eval[common_data.sigmas_range()].to_vec(),
+            plonk_sigmas: constants_sigmas_eval[common_data.sigmas_range()].to_vec(),
             wires: eval_commitment(z, wires_commitment),
             plonk_zs: zs_partial_products_eval[common_data.zs_range()].to_vec(),
             plonk_zs_right: eval_commitment(g * z, zs_partial_products_commitment)
@@ -195,6 +200,7 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningSet<F, D> {
 }
 
 /// The purported values of each polynomial at a single point.
+#[derive(Clone, Debug)]
 pub struct OpeningSetTarget<const D: usize> {
     pub constants: Vec<ExtensionTarget<D>>,
     pub plonk_sigmas: Vec<ExtensionTarget<D>>,

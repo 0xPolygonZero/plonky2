@@ -253,6 +253,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Like `mul_sub`, but for `ExtensionTarget`s.
+    pub fn mul_sub_extension(
+        &mut self,
+        a: ExtensionTarget<D>,
+        b: ExtensionTarget<D>,
+        c: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        self.arithmetic_extension(F::ONE, F::NEG_ONE, a, b, c)
+    }
+
+    /// Like `mul_sub`, but for `ExtensionTarget`s.
     pub fn scalar_mul_sub_extension(
         &mut self,
         a: Target,

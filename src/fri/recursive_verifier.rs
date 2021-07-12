@@ -1,6 +1,7 @@
 use itertools::izip;
 
 use crate::circuit_builder::CircuitBuilder;
+use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::target::{flatten_target, ExtensionTarget};
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
@@ -73,8 +74,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         initial_merkle_roots: &[HashTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger,
-        config: &FriConfig,
+        common_data: &CommonCircuitData<F, D>,
     ) {
+        let config = &common_data.config.fri_config;
         let total_arities = config.reduction_arity_bits.iter().sum::<usize>();
         debug_assert_eq!(
             purported_degree_log,

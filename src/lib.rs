@@ -21,6 +21,7 @@ pub mod recursive_verifier;
 pub mod rescue;
 pub mod target;
 pub mod util;
+pub mod vanishing_poly;
 pub mod vars;
 pub mod verifier;
 pub mod wire;

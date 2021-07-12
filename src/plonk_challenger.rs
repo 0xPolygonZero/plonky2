@@ -5,7 +5,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::hash::{permute, SPONGE_RATE, SPONGE_WIDTH};
-use crate::proof::{Hash, HashTarget, OpeningSet};
+use crate::proof::{Hash, HashTarget, OpeningSet, OpeningSetTarget};
 use crate::target::Target;
 
 /// Observes prover messages, and generates challenges by hashing the transcript.
@@ -68,7 +68,7 @@ impl<F: Field> Challenger<F> {
     {
         let OpeningSet {
             constants,
-            plonk_s_sigmas,
+            plonk_sigmas,
             wires,
             plonk_zs,
             plonk_zs_right,
@@ -77,7 +77,7 @@ impl<F: Field> Challenger<F> {
         } = os;
         for v in &[
             constants,
-            plonk_s_sigmas,
+            plonk_sigmas,
             wires,
             plonk_zs,
             plonk_zs_right,
@@ -208,6 +208,29 @@ impl RecursiveChallenger {
     pub(crate) fn observe_elements(&mut self, targets: &[Target]) {
         for &target in targets {
             self.observe_element(target);
+        }
+    }
+
+    pub fn observe_opening_set<const D: usize>(&mut self, os: &OpeningSetTarget<D>) {
+        let OpeningSetTarget {
+            constants,
+            plonk_sigmas,
+            wires,
+            plonk_zs,
+            plonk_zs_right,
+            partial_products,
+            quotient_polys,
+        } = os;
+        for v in &[
+            constants,
+            plonk_sigmas,
+            wires,
+            plonk_zs,
+            plonk_zs_right,
+            partial_products,
+            quotient_polys,
+        ] {
+            self.observe_extension_elements(v);
         }
     }
 

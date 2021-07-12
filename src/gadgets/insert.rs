@@ -49,7 +49,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut already_inserted = self.zero();
         let mut new_list = Vec::new();
 
-        for i in 0..v.len() {
+        for i in 0..=v.len() {
             let one = self.one();
 
             let cur_index = self.constant(F::from_canonical_usize(i));
@@ -63,7 +63,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             already_inserted = self.add(already_inserted, insert_here);
 
             let not_already_inserted = self.sub(one, already_inserted);
-            new_item = self.scalar_mul_add_extension(not_already_inserted, v[i], new_item);
+            if i < v.len() {
+                new_item = self.scalar_mul_add_extension(not_already_inserted, v[i], new_item);
+            }
 
             new_list.push(new_item);
         }
@@ -106,6 +108,7 @@ mod tests {
             let elem = builder.constant_extension(FF::rand());
             let inserted = real_insert(i, elem, &v);
             let purported_inserted = builder.insert(it, elem, v.clone());
+            assert_eq!(inserted.len(), purported_inserted.len());
 
             for (x, y) in inserted.into_iter().zip(purported_inserted) {
                 builder.route_extension(x, y);

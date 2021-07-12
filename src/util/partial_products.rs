@@ -1,6 +1,9 @@
 use std::iter::Product;
 use std::ops::Sub;
 
+use crate::circuit_builder::CircuitBuilder;
+use crate::field::extension_field::target::ExtensionTarget;
+use crate::field::extension_field::Extendable;
 use crate::util::ceil_div_usize;
 
 /// Compute partial products of the original vector `v` such that all products consist of `max_degree`
@@ -52,6 +55,32 @@ pub fn check_partial_products<T: Product + Copy + Sub<Output = T>>(
             .map(|chunk| chunk.iter().copied().product())
             .collect::<Vec<T>>();
         res.extend(products.iter().zip(&partials).map(|(&a, &b)| a - b));
+        remainder = partials.drain(..products.len()).collect();
+    }
+
+    res
+}
+
+pub fn check_partial_products_recursively<F: Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    v: &[ExtensionTarget<D>],
+    partials: &[ExtensionTarget<D>],
+    max_degree: usize,
+) -> Vec<ExtensionTarget<D>> {
+    let mut res = Vec::new();
+    let mut remainder = v.to_vec();
+    let mut partials = partials.to_vec();
+    while remainder.len() > max_degree {
+        let products = remainder
+            .chunks(max_degree)
+            .map(|chunk| builder.mul_many_extension(chunk))
+            .collect::<Vec<_>>();
+        res.extend(
+            products
+                .iter()
+                .zip(&partials)
+                .map(|(&a, &b)| builder.sub_extension(a, b)),
+        );
         remainder = partials.drain(..products.len()).collect();
     }
 

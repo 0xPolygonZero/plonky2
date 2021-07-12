@@ -7,13 +7,14 @@ use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::field::extension_field::Extendable;
 use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{eval_vanishing_poly_base, PlonkPolynomials, ZeroPolyOnCoset};
+use crate::plonk_common::{PlonkPolynomials, ZeroPolyOnCoset};
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::timed;
 use crate::util::partial_products::partial_products;
 use crate::util::{log2_ceil, transpose};
+use crate::vanishing_poly::eval_vanishing_poly_base;
 use crate::vars::EvaluationVarsBase;
 use crate::witness::{PartialWitness, Witness};
 
@@ -50,6 +51,12 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         "to check copy constraints"
     );
 
+    if degree > 7 {
+        dbg!(witness.get_wire(8, 16));
+        dbg!(witness.get_wire(8, 17));
+        dbg!(witness.get_wire(8, 18));
+        dbg!(witness.get_wire(8, 19));
+    }
     let wires_values: Vec<PolynomialValues<F>> = timed!(
         witness
             .wire_values
