@@ -56,11 +56,11 @@ impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
         self.start_of_output_wires() + (self.vec_size + 1) * D
     }
 
-    pub fn equality_dummy_for_round_r(&self, r: usize) -> usize {
+    pub fn wires_equality_dummy_for_round_r(&self, r: usize) -> usize {
         self.start_of_intermediate_wires() + r
     }
 
-    pub fn insert_here_for_round_r(&self, r: usize) -> usize {
+    pub fn wires_insert_here_for_round_r(&self, r: usize) -> usize {
         self.start_of_intermediate_wires() + (self.vec_size + 1) + r
     }
 }
@@ -93,10 +93,10 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
         for r in 0..self.vec_size + 1 {
             let cur_index = F::Extension::from_canonical_usize(r);
 
-            let equality_dummy = vars.local_wires[self.equality_dummy_for_round_r(r)];
+            let equality_dummy = vars.local_wires[self.wires_equality_dummy_for_round_r(r)];
 
             let difference = cur_index - insertion_index;
-            let insert_here = vars.local_wires[self.insert_here_for_round_r(r)];
+            let insert_here = vars.local_wires[self.wires_insert_here_for_round_r(r)];
 
             // The two equality constraints.
             let equality_dummy_constraint: ExtensionAlgebra<F::Extension, D> =
@@ -142,7 +142,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
     }
 
     fn num_wires(&self) -> usize {
-        self.insert_here_for_round_r(self.vec_size - 1) + 1
+        self.wires_insert_here_for_round_r(self.vec_size - 1) + 1
     }
 
     fn num_constants(&self) -> usize {
@@ -214,10 +214,31 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
         new_vec.push(to_insert);
         new_vec.extend(&orig_vec[insertion_index..]);
 
+        let mut equality_dummy_vals = Vec::new();
+        for i in 0..n+1 {
+            if i != insertion_index {
+                let diff = if i > insertion_index {
+                    F::from_canonical_usize(i - insertion_index)
+                } else {
+                    F::ZERO - F::from_canonical_usize(insertion_index - i)
+                };
+                equality_dummy_vals.push(diff.inverse());
+            } else {
+                equality_dummy_vals.push(F::ONE);
+            }
+        }
+
+        let mut insert_here_vals = vec![F::ZERO; n];
+        insert_here_vals.insert(insertion_index, F::ONE);
+
         let mut result = PartialWitness::<F>::new();
-        for i in 0..=n {
+        for i in 0..n+1 {
             let output_wires = self.gate.wires_output_list_item(i).map(local_wire);
             result.set_ext_wires(output_wires, new_vec[i]);
+            let equality_dummy_wire = local_wire(self.gate.wires_equality_dummy_for_round_r(i));
+            result.set_wire(equality_dummy_wire, equality_dummy_vals[i]);
+            let insert_here_wire = local_wire(self.gate.wires_insert_here_for_round_r(i));
+            result.set_wire(insert_here_wire, insert_here_vals[i]);
         }
 
         result
@@ -229,8 +250,13 @@ mod tests {
     use std::marker::PhantomData;
 
     use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::FieldExtension;
+    use crate::field::field::Field;
+    use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::insertion::InsertionGate;
+    use crate::vars::EvaluationVars;
 
     #[test]
     fn wire_indices() {
@@ -245,10 +271,10 @@ mod tests {
         assert_eq!(gate.wires_list_item(2), 13..17);
         assert_eq!(gate.wires_output_list_item(0), 17..21);
         assert_eq!(gate.wires_output_list_item(3), 29..33);
-        assert_eq!(gate.equality_dummy_for_round_r(0), 33);
-        assert_eq!(gate.equality_dummy_for_round_r(3), 36);
-        assert_eq!(gate.insert_here_for_round_r(0), 37);
-        assert_eq!(gate.insert_here_for_round_r(3), 40);
+        assert_eq!(gate.wires_equality_dummy_for_round_r(0), 33);
+        assert_eq!(gate.wires_equality_dummy_for_round_r(3), 36);
+        assert_eq!(gate.wires_insert_here_for_round_r(0), 37);
+        assert_eq!(gate.wires_insert_here_for_round_r(3), 40);
     }
 
     #[test]
@@ -258,5 +284,72 @@ mod tests {
     }
 
     #[test]
-    fn test_gate_constraint() {}
+    fn test_gate_constraint() {
+        type F = CrandallField;
+        type FF = QuarticCrandallField;
+        const D: usize = 4;
+
+        /// Returns the local wires for an interpolation gate for given coeffs, points and eval point.
+        fn get_wires(
+            vec_size: usize,
+            orig_vec: Vec<FF>,
+            insertion_index: usize,
+            element_to_insert: FF,
+        ) -> Vec<FF> {
+            let mut v = vec![F::ZERO; 2 * (vec_size + 1) * (D + 1) + 1];
+            v[0] = F::from_canonical_usize(insertion_index as usize);
+            for i in 0..D {
+                v[1 + i] = <FF as FieldExtension<D>>::to_basefield_array(&element_to_insert)[i];
+            }
+            for j in 0..vec_size {
+                for i in 0..D {
+                    v[(j + 1) * D + 1 + i] = <FF as FieldExtension<D>>::to_basefield_array(&orig_vec[j])[i];
+                }
+            }
+
+            let mut new_vec = orig_vec.clone();
+            new_vec.insert(insertion_index, element_to_insert);
+            let mut equality_dummy_vals = Vec::new();
+            for i in 0..vec_size+1 {
+                if i != insertion_index {
+                    let diff = if i > insertion_index {
+                        F::from_canonical_usize(i - insertion_index)
+                    } else {
+                        F::ZERO - F::from_canonical_usize(insertion_index - i)
+                    };
+                    equality_dummy_vals.push(diff.inverse());
+                } else {
+                    equality_dummy_vals.push(F::ONE);
+                }
+            }
+            let mut insert_here_vals = vec![F::ZERO; vec_size];
+            insert_here_vals.insert(insertion_index, F::ONE);
+
+            for j in 0..vec_size+1 {
+                for i in 0..D {
+                    v[(vec_size + j + 1) * D + 1 + i] = <FF as FieldExtension<D>>::to_basefield_array(&new_vec[j])[i];
+                }
+                v[(2 * vec_size + 2) * D + 1 + j] = equality_dummy_vals[j];
+                v[(2 * vec_size + 2) * D + 1 + (vec_size + 1) + j] = insert_here_vals[j];
+            }
+
+            v.iter().map(|&x| x.into()).collect::<Vec<_>>()
+        }
+
+        let orig_vec = vec![FF::rand(); 3];
+        let insertion_index = 1;
+        let element_to_insert = FF::rand();
+        let gate = InsertionGate::<F, D> {
+            vec_size: 3,
+            _phantom: PhantomData,
+        };
+        let vars = EvaluationVars {
+            local_constants: &[],
+            local_wires: &get_wires(3, orig_vec, insertion_index, element_to_insert),
+        };
+        assert!(
+            gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),
+            "Gate constraints are not satisfied."
+        );
+    }
 }
