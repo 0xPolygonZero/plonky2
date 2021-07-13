@@ -100,7 +100,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
 
             // The two equality constraints.
             constraints.push(difference * equality_dummy - (F::Extension::ONE - insert_here));
-            constraints.push((F::Extension::ONE - insert_here) * difference);
+            constraints.push(insert_here * difference);
 
             let mut new_item = element_to_insert * insert_here.into() + already_inserted.into();
             if r > 0 {
