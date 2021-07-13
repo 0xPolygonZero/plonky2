@@ -11,6 +11,7 @@ use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::proof::{Hash, HashTarget, Proof};
 use crate::prover::prove;
 use crate::target::Target;
+use crate::util::marking::MarkedTargets;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
 
@@ -77,7 +78,14 @@ pub struct CircuitData<F: Extendable<D>, const D: usize> {
 
 impl<F: Extendable<D>, const D: usize> CircuitData<F, D> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F, D> {
-        prove(&self.prover_only, &self.common, inputs)
+        prove(&self.prover_only, &self.common, inputs, vec![])
+    }
+    pub fn prove_marked(
+        &self,
+        inputs: PartialWitness<F>,
+        marked: Vec<MarkedTargets>,
+    ) -> Proof<F, D> {
+        prove(&self.prover_only, &self.common, inputs, marked)
     }
 
     pub fn verify(&self, proof: Proof<F, D>) -> Result<()> {
@@ -99,7 +107,7 @@ pub struct ProverCircuitData<F: Extendable<D>, const D: usize> {
 
 impl<F: Extendable<D>, const D: usize> ProverCircuitData<F, D> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F, D> {
-        prove(&self.prover_only, &self.common, inputs)
+        prove(&self.prover_only, &self.common, inputs, vec![])
     }
 }
 

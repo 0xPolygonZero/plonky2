@@ -83,6 +83,9 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
         let filter = compute_filter_recursively(builder, prefix, vars.local_constants);
         vars.remove_prefix(prefix);
         self.eval_unfiltered_recursively(builder, vars)
+            .into_iter()
+            .map(|c| builder.mul_extension(filter, c))
+            .collect()
     }
 
     fn generators(

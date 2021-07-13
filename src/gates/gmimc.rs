@@ -129,16 +129,14 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         let swap = vars.local_wires[Self::WIRE_SWAP];
-        let one_ext = builder.one_extension();
-        let not_swap = builder.sub_extension(swap, one_ext);
-        constraints.push(builder.mul_extension(swap, not_swap));
+        constraints.push(builder.mul_sub_extension(swap, swap, swap));
 
         let old_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_OLD];
         let new_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_NEW];
         // computed_new_index_acc = 2 * old_index_acc + swap
         let two = builder.two();
-        let double_old_index_acc = builder.scalar_mul_ext(two, old_index_acc);
-        let computed_new_index_acc = builder.add_extension(double_old_index_acc, swap);
+        let two = builder.convert_to_ext(two);
+        let computed_new_index_acc = builder.mul_add_extension(two, old_index_acc, swap);
         constraints.push(builder.sub_extension(computed_new_index_acc, new_index_acc));
 
         let mut state = Vec::with_capacity(12);
@@ -168,8 +166,10 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
             let constant = builder.constant_extension(self.constants[r].into());
             let cubing_input =
                 builder.add_many_extension(&[state[active], addition_buffer, constant]);
-            let square = builder.mul_extension(cubing_input, cubing_input);
-            let f = builder.mul_extension(square, cubing_input);
+            let cubing_input_wire = vars.local_wires[Self::wire_cubing_input(r)];
+            constraints.push(builder.sub_extension(cubing_input, cubing_input_wire));
+            let square = builder.mul_extension(cubing_input_wire, cubing_input_wire);
+            let f = builder.mul_extension(square, cubing_input_wire);
             addition_buffer = builder.add_extension(addition_buffer, f);
             state[active] = builder.sub_extension(state[active], f);
         }
@@ -316,8 +316,10 @@ mod tests {
     use std::convert::TryInto;
     use std::sync::Arc;
 
+    use crate::circuit_builder::CircuitBuilder;
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::gmimc::{GMiMCGate, W};
@@ -325,6 +327,8 @@ mod tests {
     use crate::gmimc::gmimc_permute_naive;
     use crate::permutation_argument::TargetPartition;
     use crate::target::Target;
+    use crate::vars::{EvaluationTargets, EvaluationVars};
+    use crate::verifier::verify;
     use crate::wire::Wire;
     use crate::witness::PartialWitness;
 
@@ -398,5 +402,48 @@ mod tests {
         type Gate = GMiMCGate<F, 4, R>;
         let gate = Gate::with_constants(constants);
         test_low_degree(gate)
+    }
+
+    #[test]
+    fn test_evals() {
+        type F = CrandallField;
+        type FF = QuarticCrandallField;
+        const R: usize = 101;
+        let config = CircuitConfig::large_config();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut pw = PartialWitness::<F>::new();
+        let constants = Arc::new([F::TWO; R]);
+        type Gate = GMiMCGate<F, 4, R>;
+        let gate = Gate::with_constants(constants);
+
+        let wires = FF::rand_vec(Gate::end());
+        let vars = EvaluationVars {
+            local_constants: &[],
+            local_wires: &wires,
+        };
+
+        let ev = gate.0.eval_unfiltered((vars));
+
+        let wires_t = builder.add_virtual_extension_targets(Gate::end());
+        for i in 0..Gate::end() {
+            pw.set_extension_target(wires_t[i], wires[i]);
+        }
+        let vars_t = EvaluationTargets {
+            local_constants: &[],
+            local_wires: &wires_t,
+        };
+
+        let ev_t = gate.0.eval_unfiltered_recursively(&mut builder, vars_t);
+
+        assert_eq!(ev.len(), ev_t.len());
+        for (e, e_t) in ev.into_iter().zip(ev_t) {
+            let e_c = builder.constant_extension(e);
+            builder.route_extension(e_c, e_t);
+        }
+
+        let data = builder.build();
+        let proof = data.prove(pw);
+
+        verify(proof, &data.verifier_only, &data.common).unwrap();
     }
 }

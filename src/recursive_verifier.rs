@@ -7,6 +7,7 @@ use crate::field::field::Field;
 use crate::gates::gate::{GateRef, PrefixedGate};
 use crate::plonk_challenger::RecursiveChallenger;
 use crate::proof::{HashTarget, ProofTarget};
+use crate::util::marking::MarkedTargets;
 use crate::util::scaling::ReducingFactorTarget;
 use crate::vanishing_poly::eval_vanishing_poly_recursively;
 use crate::vars::EvaluationTargets;
@@ -22,6 +23,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_config: &CircuitConfig,
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
+        marked: &mut Vec<MarkedTargets>,
     ) {
         assert!(self.config.num_wires >= MIN_WIRES);
         assert!(self.config.num_wires >= MIN_ROUTED_WIRES);
@@ -71,7 +73,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             &betas,
             &gammas,
             &alphas,
+            marked,
         );
+
+        marked.push(MarkedTargets {
+            name: "vanishing polys".into(),
+            targets: Box::new(vanishing_polys_zeta[0].clone()),
+        });
 
         // let quotient_polys_zeta = &proof.openings.quotient_polys;
         // let zeta_pow_deg = self.exp_u64_extension(zeta, 1 << inner_common_data.degree_bits as u64);
@@ -318,6 +326,8 @@ mod tests {
             let config = CircuitConfig::large_config();
             let mut builder = CircuitBuilder::<F, 4>::new(config);
             let zero = builder.zero();
+            let hash = builder.hash_n_to_m(vec![zero], 2, true);
+            let z = builder.mul(hash[0], hash[1]);
             let data = builder.build();
             (
                 data.prove(PartialWitness::new()),
@@ -330,6 +340,7 @@ mod tests {
         let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, 4>::new(config.clone());
         let mut pw = PartialWitness::new();
+        let mut marked = Vec::new();
         let pt = proof_to_proof_target(&proof, &mut builder);
         set_proof_target(&proof, &pt, &mut pw);
 
@@ -338,11 +349,11 @@ mod tests {
         };
         pw.set_hash_target(inner_data.constants_sigmas_root, vd.constants_sigmas_root);
 
-        builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
+        builder.add_recursive_verifier(pt, &config, &inner_data, &cd, &mut marked);
 
         dbg!(builder.num_gates());
         let data = builder.build();
-        let recursive_proof = data.prove(pw);
+        let recursive_proof = data.prove_marked(pw, marked);
 
         verify(recursive_proof, &data.verifier_only, &data.common).unwrap();
     }

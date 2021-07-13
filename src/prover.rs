@@ -12,6 +12,7 @@ use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::timed;
+use crate::util::marking::MarkedTargets;
 use crate::util::partial_products::partial_products;
 use crate::util::{log2_ceil, transpose};
 use crate::vanishing_poly::eval_vanishing_poly_base;
@@ -22,6 +23,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
+    marked: Vec<MarkedTargets>,
 ) -> Proof<F, D> {
     let fri_config = &common_data.config.fri_config;
     let config = &common_data.config;
@@ -50,13 +52,10 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             .unwrap(), // TODO: Change return value to `Result` and use `?` here.
         "to check copy constraints"
     );
-
-    if degree > 7 {
-        dbg!(witness.get_wire(8, 16));
-        dbg!(witness.get_wire(8, 17));
-        dbg!(witness.get_wire(8, 18));
-        dbg!(witness.get_wire(8, 19));
+    for m in marked {
+        m.display(&witness);
     }
+
     let wires_values: Vec<PolynomialValues<F>> = timed!(
         witness
             .wire_values

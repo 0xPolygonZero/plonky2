@@ -56,6 +56,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
         &gammas,
         &alphas,
     );
+    dbg!(vanishing_polys_zeta[0]);
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
     let quotient_polys_zeta = &proof.openings.quotient_polys;

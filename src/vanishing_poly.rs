@@ -7,6 +7,7 @@ use crate::gates::gate::{Gate, GateRef, PrefixedGate};
 use crate::plonk_common;
 use crate::plonk_common::{eval_l_1_recursively, ZeroPolyOnCoset};
 use crate::target::Target;
+use crate::util::marking::MarkedTargets;
 use crate::util::partial_products::{check_partial_products, check_partial_products_recursively};
 use crate::util::scaling::ReducingFactorTarget;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
@@ -94,7 +95,6 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
         constraint_terms,
     ]
     .concat();
-    dbg!(&vanishing_terms);
 
     let alphas = &alphas.iter().map(|&a| a.into()).collect::<Vec<_>>();
     plonk_common::reduce_with_powers_multi(&vanishing_terms, alphas)
@@ -233,6 +233,7 @@ pub fn evaluate_gate_constraints_recursively<F: Extendable<D>, const D: usize>(
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
     vars: EvaluationTargets<D>,
+    marked: &mut Vec<MarkedTargets>,
 ) -> Vec<ExtensionTarget<D>> {
     let mut constraints = vec![builder.zero_extension(); num_gate_constraints];
     for gate in gates {
@@ -240,6 +241,10 @@ pub fn evaluate_gate_constraints_recursively<F: Extendable<D>, const D: usize>(
             .gate
             .0
             .eval_filtered_recursively(builder, vars, &gate.prefix);
+        // marked.push(MarkedTargets {
+        //     name: gate.gate.0.id(),
+        //     targets: Box::new(gate_constraints.clone()),
+        // });
         for (i, c) in gate_constraints.into_iter().enumerate() {
             constraints[i] = builder.add_extension(constraints[i], c);
         }
@@ -263,6 +268,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
     betas: &[Target],
     gammas: &[Target],
     alphas: &[Target],
+    marked: &mut Vec<MarkedTargets>,
 ) -> Vec<ExtensionTarget<D>> {
     let max_degree = common_data.quotient_degree_factor;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
@@ -272,6 +278,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
         &common_data.gates,
         common_data.num_gate_constraints,
         vars,
+        marked,
     );
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
@@ -343,7 +350,6 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
         constraint_terms,
     ]
     .concat();
-    dbg!(&vanishing_terms);
 
     alphas
         .iter()
