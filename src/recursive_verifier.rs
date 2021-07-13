@@ -81,39 +81,39 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             targets: Box::new(vanishing_polys_zeta[0].clone()),
         });
 
-        // let quotient_polys_zeta = &proof.openings.quotient_polys;
-        // let zeta_pow_deg = self.exp_u64_extension(zeta, 1 << inner_common_data.degree_bits as u64);
-        // let z_h_zeta = self.sub_extension(zeta_pow_deg, one);
-        // for (i, chunk) in quotient_polys_zeta
-        //     .chunks(inner_common_data.quotient_degree_factor)
-        //     .enumerate()
-        // {
-        //     let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
-        //     let mut rhs = scale.reduce(chunk, self);
-        //     rhs = self.mul_extension(z_h_zeta, rhs);
-        //     dbg!(self.num_gates());
-        //     self.route_extension(vanishing_polys_zeta[i], rhs);
-        // }
-        //
-        // let evaluations = proof.openings.clone();
-        //
-        // let merkle_roots = &[
-        //     inner_verifier_data.constants_sigmas_root,
-        //     proof.wires_root,
-        //     proof.plonk_zs_root,
-        //     proof.quotient_polys_root,
-        // ];
-        //
-        // proof.opening_proof.verify(
-        //     zeta,
-        //     &evaluations,
-        //     merkle_roots,
-        //     &mut challenger,
-        //     inner_common_data,
-        //     self,
-        // );
-        // dbg!(self.num_gates());
-        // dbg!(self.generators.len());
+        let quotient_polys_zeta = &proof.openings.quotient_polys;
+        let zeta_pow_deg = self.exp_u64_extension(zeta, 1 << inner_common_data.degree_bits as u64);
+        let z_h_zeta = self.sub_extension(zeta_pow_deg, one);
+        for (i, chunk) in quotient_polys_zeta
+            .chunks(inner_common_data.quotient_degree_factor)
+            .enumerate()
+        {
+            let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
+            let mut rhs = scale.reduce(chunk, self);
+            rhs = self.mul_extension(z_h_zeta, rhs);
+            dbg!(self.num_gates());
+            self.route_extension(vanishing_polys_zeta[i], rhs);
+        }
+
+        let evaluations = proof.openings.clone();
+
+        let merkle_roots = &[
+            inner_verifier_data.constants_sigmas_root,
+            proof.wires_root,
+            proof.plonk_zs_root,
+            proof.quotient_polys_root,
+        ];
+
+        proof.opening_proof.verify(
+            zeta,
+            &evaluations,
+            merkle_roots,
+            &mut challenger,
+            inner_common_data,
+            self,
+        );
+        dbg!(self.num_gates());
+        dbg!(self.generators.len());
     }
 }
 

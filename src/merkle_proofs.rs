@@ -135,3 +135,62 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+    use rand::{thread_rng, Rng};
+
+    use super::*;
+    use crate::circuit_data::CircuitConfig;
+    use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::merkle_proofs::verify_merkle_proof;
+    use crate::merkle_tree::MerkleTree;
+    use crate::verifier::verify;
+    use crate::witness::PartialWitness;
+
+    fn random_data<F: Field>(n: usize, k: usize) -> Vec<Vec<F>> {
+        (0..n).map(|_| F::rand_vec(k)).collect()
+    }
+
+    #[test]
+    fn test_merkle_trees() -> Result<()> {
+        type F = CrandallField;
+        type FF = QuarticCrandallField;
+        let config = CircuitConfig::large_config();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut pw = PartialWitness::new();
+
+        let log_n = 8;
+        let n = 1 << log_n;
+        let leaves = random_data::<F>(n, 7);
+        let tree = MerkleTree::new(leaves.clone(), false);
+        let i: usize = thread_rng().gen_range(0, n);
+        let proof = tree.prove(i);
+
+        let proof_t = MerkleProofTarget {
+            siblings: builder.add_virtual_hashes(proof.siblings.len()),
+        };
+        for i in 0..proof.siblings.len() {
+            pw.set_hash_target(proof_t.siblings[i], proof.siblings[i]);
+        }
+
+        let root_t = builder.add_virtual_hash();
+        pw.set_hash_target(root_t, tree.root);
+
+        let i_c = builder.constant(F::from_canonical_usize(i));
+
+        let data = builder.add_virtual_targets(tree.leaves[i].len());
+        for j in 0..data.len() {
+            pw.set_target(data[j], tree.leaves[i][j]);
+        }
+
+        builder.verify_merkle_proof(data, i_c, root_t, &proof_t);
+
+        let data = builder.build();
+        let proof = data.prove(pw);
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+}
