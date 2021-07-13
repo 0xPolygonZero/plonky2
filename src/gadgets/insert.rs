@@ -68,7 +68,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             new_list.push(new_item);
         }
 
-
         new_list
     }
 }

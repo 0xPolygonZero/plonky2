@@ -211,7 +211,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
         new_vec.extend(&orig_vec[insertion_index..]);
 
         let mut equality_dummy_vals = Vec::new();
-        for i in 0..n+1 {
+        for i in 0..n + 1 {
             if i != insertion_index {
                 let diff = if i > insertion_index {
                     F::from_canonical_usize(i - insertion_index)
@@ -228,7 +228,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
         insert_here_vals.insert(insertion_index, F::ONE);
 
         let mut result = PartialWitness::<F>::new();
-        for i in 0..n+1 {
+        for i in 0..n + 1 {
             let output_wires = self.gate.wires_output_list_item(i).map(local_wire);
             result.set_ext_wires(output_wires, new_vec[i]);
             let equality_dummy_wire = local_wire(self.gate.wires_equality_dummy_for_round_r(i));
@@ -299,14 +299,15 @@ mod tests {
             }
             for j in 0..vec_size {
                 for i in 0..D {
-                    v[(j + 1) * D + 1 + i] = <FF as FieldExtension<D>>::to_basefield_array(&orig_vec[j])[i];
+                    v[(j + 1) * D + 1 + i] =
+                        <FF as FieldExtension<D>>::to_basefield_array(&orig_vec[j])[i];
                 }
             }
 
             let mut new_vec = orig_vec.clone();
             new_vec.insert(insertion_index, element_to_insert);
             let mut equality_dummy_vals = Vec::new();
-            for i in 0..vec_size+1 {
+            for i in 0..vec_size + 1 {
                 if i != insertion_index {
                     let diff = if i > insertion_index {
                         F::from_canonical_usize(i - insertion_index)
@@ -321,9 +322,10 @@ mod tests {
             let mut insert_here_vals = vec![F::ZERO; vec_size];
             insert_here_vals.insert(insertion_index, F::ONE);
 
-            for j in 0..vec_size+1 {
+            for j in 0..vec_size + 1 {
                 for i in 0..D {
-                    v[(vec_size + j + 1) * D + 1 + i] = <FF as FieldExtension<D>>::to_basefield_array(&new_vec[j])[i];
+                    v[(vec_size + j + 1) * D + 1 + i] =
+                        <FF as FieldExtension<D>>::to_basefield_array(&new_vec[j])[i];
                 }
                 v[(2 * vec_size + 2) * D + 1 + j] = equality_dummy_vals[j];
                 v[(2 * vec_size + 2) * D + 1 + (vec_size + 1) + j] = insert_here_vals[j];
