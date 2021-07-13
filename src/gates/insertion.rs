@@ -99,12 +99,10 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             let insert_here = vars.local_wires[self.wires_insert_here_for_round_r(r)];
 
             // The two equality constraints.
-            let equality_dummy_constraint: ExtensionAlgebra<F::Extension, D> =
-                (difference * equality_dummy - insert_here).into();
-            constraints.extend(equality_dummy_constraint.to_basefield_array());
-            let mul_to_zero_constraint: ExtensionAlgebra<F::Extension, D> =
-                ((F::Extension::ONE - insert_here) * difference).into();
-            constraints.extend(mul_to_zero_constraint.to_basefield_array());
+            let equality_dummy_constraint = difference * equality_dummy - insert_here;
+            constraints.push(equality_dummy_constraint);
+            let mul_to_zero_constraint = (F::Extension::ONE - insert_here) * difference;
+            constraints.push(mul_to_zero_constraint);
 
             let mut new_item = element_to_insert * insert_here.into() + already_inserted.into();
             if r > 0 {
