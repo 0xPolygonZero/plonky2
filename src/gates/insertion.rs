@@ -344,12 +344,9 @@ mod tests {
             local_wires: &get_wires(3, orig_vec, insertion_index, element_to_insert),
         };
 
-        let constraints = gate.eval_unfiltered(vars);
-        let _ = constraints.iter().zip(0..constraints.len()).all(|(x, i)| {
-            if !x.is_zero() {
-                println!("gate constraint {} is not satisfied", i);
-            }
-            true
-        });
+        assert!(
+            gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),
+            "Gate constraints are not satisfied."
+        );
     }
 }
