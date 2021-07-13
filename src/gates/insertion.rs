@@ -102,7 +102,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             constraints.push(difference * equality_dummy - (F::Extension::ONE - insert_here));
             constraints.push(insert_here * difference);
 
-            let mut new_item = element_to_insert * insert_here.into() + already_inserted.into();
+            let mut new_item = element_to_insert * insert_here.into();
             if r > 0 {
                 new_item += list_items[r - 1] * already_inserted.into();
             }
