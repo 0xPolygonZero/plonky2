@@ -99,10 +99,8 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             let insert_here = vars.local_wires[self.wires_insert_here_for_round_r(r)];
 
             // The two equality constraints.
-            let equality_dummy_constraint = difference * equality_dummy - insert_here;
-            constraints.push(equality_dummy_constraint);
-            let mul_to_zero_constraint = (F::Extension::ONE - insert_here) * difference;
-            constraints.push(mul_to_zero_constraint);
+            constraints.push(difference * equality_dummy - (F::Extension::ONE - insert_here));
+            constraints.push((F::Extension::ONE - insert_here) * difference);
 
             let mut new_item = element_to_insert * insert_here.into() + already_inserted.into();
             if r > 0 {
@@ -345,9 +343,13 @@ mod tests {
             local_constants: &[],
             local_wires: &get_wires(3, orig_vec, insertion_index, element_to_insert),
         };
-        assert!(
-            gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),
-            "Gate constraints are not satisfied."
-        );
+
+        let constraints = gate.eval_unfiltered(vars);
+        let _ = constraints.iter().zip(0..constraints.len()).all(|(x, i)| {
+            if !x.is_zero() {
+                println!("gate constraint {} is not satisfied", i);
+            }
+            true
+        });
     }
 }
