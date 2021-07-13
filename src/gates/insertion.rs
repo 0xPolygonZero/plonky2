@@ -142,7 +142,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
     }
 
     fn num_wires(&self) -> usize {
-        self.wires_insert_here_for_round_r(self.vec_size - 1) + 1
+        self.wires_insert_here_for_round_r(self.vec_size) + 1
     }
 
     fn num_constants(&self) -> usize {
