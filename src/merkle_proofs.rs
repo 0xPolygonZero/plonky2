@@ -8,6 +8,7 @@ use crate::hash::GMIMC_ROUNDS;
 use crate::hash::{compress, hash_or_noop};
 use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
+use crate::util::marking::MarkedTargets;
 use crate::wire::Wire;
 
 #[derive(Clone, Debug)]
@@ -56,6 +57,81 @@ pub(crate) fn verify_merkle_proof<F: Field>(
 }
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    pub(crate) fn verify_merkle_proof_marked(
+        &mut self,
+        leaf_data: Vec<Target>,
+        leaf_index: Target,
+        merkle_root: HashTarget,
+        proof: &MerkleProofTarget,
+        marked: &mut Vec<MarkedTargets>,
+    ) {
+        let zero = self.zero();
+        let height = proof.siblings.len();
+        let purported_index_bits = self.split_le_virtual(leaf_index, height);
+
+        let mut state: HashTarget = self.hash_or_noop(leaf_data);
+        let mut acc_leaf_index = zero;
+
+        for (bit, &sibling) in purported_index_bits.into_iter().zip(&proof.siblings) {
+            let gate = self
+                .add_gate_no_constants(GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants());
+
+            let swap_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_SWAP;
+            let swap_wire = Target::Wire(Wire {
+                gate,
+                input: swap_wire,
+            });
+            self.generate_copy(bit, swap_wire);
+
+            let old_acc_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_OLD;
+            let old_acc_wire = Target::Wire(Wire {
+                gate,
+                input: old_acc_wire,
+            });
+            self.route(acc_leaf_index, old_acc_wire);
+
+            let new_acc_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_NEW;
+            let new_acc_wire = Target::Wire(Wire {
+                gate,
+                input: new_acc_wire,
+            });
+            acc_leaf_index = new_acc_wire;
+
+            let input_wires = (0..12)
+                .map(|i| {
+                    Target::Wire(Wire {
+                        gate,
+                        input: GMiMCGate::<F, D, GMIMC_ROUNDS>::wire_input(i),
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            for i in 0..4 {
+                self.route(state.elements[i], input_wires[i]);
+                self.route(sibling.elements[i], input_wires[4 + i]);
+                self.route(zero, input_wires[8 + i]);
+            }
+
+            state = HashTarget::from_vec(
+                (0..4)
+                    .map(|i| {
+                        Target::Wire(Wire {
+                            gate,
+                            input: GMiMCGate::<F, D, GMIMC_ROUNDS>::wire_output(i),
+                        })
+                    })
+                    .collect(),
+            )
+        }
+
+        // self.assert_equal(acc_leaf_index, leaf_index);
+        marked.push(MarkedTargets {
+            targets: Box::new(acc_leaf_index),
+            name: "acc leaf".to_string(),
+        });
+
+        self.assert_hashes_equal(state, merkle_root)
+    }
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
     /// given root.
     pub(crate) fn verify_merkle_proof(
@@ -124,7 +200,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         }
 
-        self.assert_equal(acc_leaf_index, leaf_index);
+        let leaf_index_rev = self.reverse_limbs::<2>(leaf_index, height);
+        self.assert_equal(acc_leaf_index, leaf_index_rev);
 
         self.assert_hashes_equal(state, merkle_root)
     }
@@ -147,6 +224,7 @@ mod tests {
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::merkle_proofs::verify_merkle_proof;
     use crate::merkle_tree::MerkleTree;
+    use crate::util::marking::MarkedTargets;
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
 
@@ -155,12 +233,13 @@ mod tests {
     }
 
     #[test]
-    fn test_merkle_trees() -> Result<()> {
+    fn test_recursive_merkle_proof() -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let mut pw = PartialWitness::new();
+        let mut marked = Vec::new();
 
         let log_n = 8;
         let n = 1 << log_n;
@@ -186,10 +265,19 @@ mod tests {
             pw.set_target(data[j], tree.leaves[i][j]);
         }
 
+        marked.push(MarkedTargets {
+            targets: Box::new(i_c),
+            name: "i_c".to_string(),
+        });
+        marked.push(MarkedTargets {
+            targets: Box::new(builder.reverse_limbs::<2>(i_c, log_n)),
+            name: "rev i_c".to_string(),
+        });
+        builder.verify_merkle_proof_marked(data.clone(), i_c, root_t, &proof_t, &mut marked);
         builder.verify_merkle_proof(data, i_c, root_t, &proof_t);
 
         let data = builder.build();
-        let proof = data.prove(pw);
+        let proof = data.prove_marked(pw, marked);
 
         verify(proof, &data.verifier_only, &data.common)
     }

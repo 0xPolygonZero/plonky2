@@ -91,7 +91,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
             let mut rhs = scale.reduce(chunk, self);
             rhs = self.mul_extension(z_h_zeta, rhs);
-            dbg!(self.num_gates());
             self.route_extension(vanishing_polys_zeta[i], rhs);
         }
 
@@ -122,6 +121,7 @@ mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::target::ExtensionTarget;
     use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
     use crate::merkle_proofs::MerkleProofTarget;
     use crate::polynomial::commitment::OpeningProofTarget;
@@ -129,6 +129,7 @@ mod tests {
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
         HashTarget, OpeningSetTarget, Proof,
     };
+    use crate::target::Target;
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
 
@@ -322,9 +323,10 @@ mod tests {
     fn test_recursive_verifier() {
         type F = CrandallField;
         type FF = QuarticCrandallField;
+        const D: usize = 4;
         let (proof, vd, cd) = {
             let config = CircuitConfig::large_config();
-            let mut builder = CircuitBuilder::<F, 4>::new(config);
+            let mut builder = CircuitBuilder::<F, D>::new(config);
             let zero = builder.zero();
             let hash = builder.hash_n_to_m(vec![zero], 2, true);
             let z = builder.mul(hash[0], hash[1]);
@@ -338,7 +340,7 @@ mod tests {
         verify(proof.clone(), &vd, &cd).unwrap();
 
         let config = CircuitConfig::large_config();
-        let mut builder = CircuitBuilder::<F, 4>::new(config.clone());
+        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
         let mut marked = Vec::new();
         let pt = proof_to_proof_target(&proof, &mut builder);

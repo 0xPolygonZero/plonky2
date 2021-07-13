@@ -46,15 +46,15 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         "to compute full witness"
     );
 
+    for m in marked {
+        m.display(&witness);
+    }
     timed!(
         witness
             .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)
             .unwrap(), // TODO: Change return value to `Result` and use `?` here.
         "to check copy constraints"
     );
-    for m in marked {
-        m.display(&witness);
-    }
 
     let wires_values: Vec<PolynomialValues<F>> = timed!(
         witness

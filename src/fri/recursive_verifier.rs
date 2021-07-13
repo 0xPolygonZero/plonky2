@@ -1,3 +1,4 @@
+use env_logger::builder;
 use itertools::izip;
 
 use crate::circuit_builder::CircuitBuilder;
@@ -12,6 +13,7 @@ use crate::proof::{
     FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, HashTarget, OpeningSetTarget,
 };
 use crate::target::Target;
+use crate::util::scaling::ReducingFactorTarget;
 use crate::util::{log2_strict, reverse_index_bits_in_place};
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -123,7 +125,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 n,
                 &betas,
                 round_proof,
-                config,
+                common_data,
             );
         }
     }
@@ -146,12 +148,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         os: &OpeningSetTarget<D>,
         zeta: ExtensionTarget<D>,
         subgroup_x: Target,
+        common_data: &CommonCircuitData<F, D>,
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
         let config = &self.config.fri_config.clone();
         let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
         let subgroup_x = self.convert_to_ext(subgroup_x);
-        let mut alpha_powers = self.powers(alpha);
+        let mut alpha = ReducingFactorTarget::new(alpha);
         let mut sum = self.zero_extension();
 
         // We will add three terms to `sum`:
@@ -166,50 +169,42 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         ]
         .iter()
         .flat_map(|&p| proof.unsalted_evals(p))
+        .chain(
+            &proof.unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS)
+                [common_data.partial_products_range()],
+        )
         .map(|&e| self.convert_to_ext(e))
         .collect::<Vec<_>>();
         let single_openings = os
             .constants
             .iter()
             .chain(&os.plonk_sigmas)
-            .chain(&os.quotient_polys);
-        let mut single_numerator = self.zero_extension();
-        for (e, &o) in izip!(single_evals, single_openings) {
-            let a = alpha_powers.next(self);
-            let diff = self.sub_extension(e, o);
-            single_numerator = self.mul_add_extension(a, diff, single_numerator);
-        }
+            .chain(&os.quotient_polys)
+            .chain(&os.partial_products)
+            .copied()
+            .collect::<Vec<_>>();
+        let mut single_numerator = alpha.reduce(&single_evals, self);
+        // TODO: Precompute the rhs as it is the same in all FRI round.
+        let rhs = alpha.reduce(&single_openings, self);
+        single_numerator = self.sub_extension(single_numerator, rhs);
         let single_denominator = self.sub_extension(subgroup_x, zeta);
         let quotient = self.div_unsafe_extension(single_numerator, single_denominator);
         sum = self.add_extension(sum, quotient);
+        alpha.reset();
 
         // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
         let zs_evals = proof
             .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS)
             .iter()
+            .take(common_data.zs_range().end)
             .map(|&e| self.convert_to_ext(e))
             .collect::<Vec<_>>();
-        // TODO: Would probably be more efficient using `CircuitBuilder::reduce_with_powers_recursive`
-        let mut zs_composition_eval = self.zero_extension();
-        let mut alpha_powers_cloned = alpha_powers.clone();
-        for &e in &zs_evals {
-            let a = alpha_powers_cloned.next(self);
-            zs_composition_eval = self.mul_add_extension(a, e, zs_composition_eval);
-        }
+        let mut zs_composition_eval = alpha.clone().reduce(&zs_evals, self);
 
         let g = self.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
         let zeta_right = self.mul_extension(g, zeta);
-        let mut zs_ev_zeta = self.zero_extension();
-        let mut alpha_powers_cloned = alpha_powers.clone();
-        for &t in &os.plonk_zs {
-            let a = alpha_powers_cloned.next(self);
-            zs_ev_zeta = self.mul_add_extension(a, t, zs_ev_zeta);
-        }
-        let mut zs_ev_zeta_right = self.zero_extension();
-        for &t in &os.plonk_zs_right {
-            let a = alpha_powers.next(self);
-            zs_ev_zeta_right = self.mul_add_extension(a, t, zs_ev_zeta);
-        }
+        let zs_ev_zeta = alpha.clone().reduce(&os.plonk_zs, self);
+        let zs_ev_zeta_right = alpha.reduce(&os.plonk_zs_right, self);
         let interpol_val = self.interpolate2(
             [(zeta, zs_ev_zeta), (zeta_right, zs_ev_zeta_right)],
             subgroup_x,
@@ -219,6 +214,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let vanish_zeta_right = self.sub_extension(subgroup_x, zeta_right);
         let zs_denominator = self.mul_extension(vanish_zeta, vanish_zeta_right);
         let zs_quotient = self.div_unsafe_extension(zs_numerator, zs_denominator);
+        sum = alpha.shift(sum, self);
         sum = self.add_extension(sum, zs_quotient);
 
         // Polynomials opened at `x` and `x.frobenius()`, i.e., the wires polynomials.
@@ -227,26 +223,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .iter()
             .map(|&e| self.convert_to_ext(e))
             .collect::<Vec<_>>();
-        let mut wire_composition_eval = self.zero_extension();
-        let mut alpha_powers_cloned = alpha_powers.clone();
-        for &e in &wire_evals {
-            let a = alpha_powers_cloned.next(self);
-            wire_composition_eval = self.mul_add_extension(a, e, wire_composition_eval);
-        }
-        let mut alpha_powers_cloned = alpha_powers.clone();
-        let wire_eval = os.wires.iter().fold(self.zero_extension(), |acc, &w| {
-            let a = alpha_powers_cloned.next(self);
-            self.mul_add_extension(a, w, acc)
-        });
-        let mut alpha_powers_frob = alpha_powers.repeated_frobenius(D - 1, self);
-        let wire_eval_frob = os
-            .wires
-            .iter()
-            .fold(self.zero_extension(), |acc, &w| {
-                let a = alpha_powers_frob.next(self);
-                self.mul_add_extension(a, w, acc)
-            })
-            .frobenius(self);
+        let mut wire_composition_eval = alpha.clone().reduce(&wire_evals, self);
+        let mut alpha_frob = alpha.repeated_frobenius(D - 1, self);
+        let wire_eval = alpha.reduce(&os.wires, self);
+        let wire_eval_frob = alpha_frob.reduce(&os.wires, self);
+        let wire_eval_frob = wire_eval_frob.frobenius(self);
         let zeta_frob = zeta.frobenius(self);
         let wire_interpol_val =
             self.interpolate2([(zeta, wire_eval), (zeta_frob, wire_eval_frob)], subgroup_x);
@@ -254,6 +235,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let vanish_zeta_frob = self.sub_extension(subgroup_x, zeta_frob);
         let wire_denominator = self.mul_extension(vanish_zeta, vanish_zeta_frob);
         let wire_quotient = self.div_unsafe_extension(wire_numerator, wire_denominator);
+        sum = alpha.shift(sum, self);
         sum = self.add_extension(sum, wire_quotient);
 
         sum
@@ -270,8 +252,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         n: usize,
         betas: &[ExtensionTarget<D>],
         round_proof: &FriQueryRoundTarget<D>,
-        config: &FriConfig,
+        common_data: &CommonCircuitData<F, D>,
     ) {
+        let config = &common_data.config.fri_config;
         let n_log = log2_strict(n);
         let mut evaluations: Vec<Vec<ExtensionTarget<D>>> = Vec::new();
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
@@ -302,6 +285,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     os,
                     zeta,
                     subgroup_x,
+                    common_data,
                 )
             } else {
                 let last_evals = &evaluations[i - 1];
