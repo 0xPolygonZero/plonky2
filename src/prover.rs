@@ -45,6 +45,13 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         "to generate witness"
     );
 
+    timed!(
+        partial_witness
+            .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)
+            .unwrap(), // TODO: Change return value to `Result` and use `?` here.
+        "to check copy constraints"
+    );
+
     let witness = timed!(
         partial_witness.full_witness(degree, num_wires),
         "to compute full witness"
@@ -53,12 +60,6 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     for m in marked {
         m.display(&witness);
     }
-    timed!(
-        witness
-            .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)
-            .unwrap(), // TODO: Change return value to `Result` and use `?` here.
-        "to check copy constraints"
-    );
 
     let wires_values: Vec<PolynomialValues<F>> = timed!(
         witness
@@ -119,169 +120,6 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     challenger.observe_hash(&zs_partial_products_commitment.merkle_tree.root);
 
     let alphas = challenger.get_n_challenges(num_challenges);
-
-    {
-        let get_at_index = |comm: &ListPolynomialCommitment<F>, i: usize| -> Vec<F> {
-            comm.original_values
-                .iter()
-                .map(|v| v.values[i])
-                .collect::<Vec<_>>()
-        };
-        let mut nums = HashMap::<F, usize>::new();
-        let mut dens = HashMap::<F, usize>::new();
-        let points = F::two_adic_subgroup(common_data.degree_bits);
-        for i in 0..degree {
-            let x = points[i];
-            let local_constants_sigmas = get_at_index(&prover_data.constants_sigmas_commitment, i);
-            let local_constants = &local_constants_sigmas[common_data.constants_range()];
-            let s_sigmas = &local_constants_sigmas[common_data.sigmas_range()];
-            let local_wires = get_at_index(&wires_commitment, i);
-            let vars = EvaluationVarsBase {
-                local_constants,
-                local_wires: &local_wires,
-            };
-            let numerator_values = (0..common_data.config.num_routed_wires).for_each(|j| {
-                let wire_value = vars.local_wires[j];
-                let k_i = common_data.k_is[j];
-                let s_id = k_i * x;
-                *nums
-                    .entry(wire_value + betas[0] * s_id + gammas[0])
-                    .or_default() += 1;
-            });
-            let denominator_values = (0..common_data.config.num_routed_wires).for_each(|j| {
-                let wire_value = vars.local_wires[j];
-                let s_sigma = s_sigmas[j];
-                *dens
-                    .entry(wire_value + betas[0] * s_sigma + gammas[0])
-                    .or_default() += 1;
-            });
-        }
-        println!("yo");
-        for (k, v) in nums.iter() {
-            if let Some(w) = dens.get(&k) {
-                if *v != *w {
-                    println!("Bad: {} {} {}", *k, *v, *w);
-                }
-            } else {
-                println!("Bad: {} {}", *k, *v);
-            }
-        }
-        println!("ya");
-        for (k, v) in dens.iter() {
-            if let Some(w) = nums.get(&k) {
-                if *v != *w {
-                    println!("Bad: {} {} {}", *k, *v, *w);
-                }
-            } else {
-                println!("Bad: {} {}", *k, *v);
-            }
-        }
-        println!("yu");
-
-        let mut bam = F::ONE;
-        for (k, v) in nums.iter() {
-            bam *= k.exp(*v as u64);
-        }
-        dbg!(bam);
-        let mut boom = F::ONE;
-        for (k, v) in dens.iter() {
-            boom *= k.exp(*v as u64);
-        }
-        dbg!(boom);
-    }
-    {
-        let get_at_index = |comm: &ListPolynomialCommitment<F>, i: usize| -> Vec<F> {
-            comm.original_values
-                .iter()
-                .map(|v| v.values[i])
-                .collect::<Vec<_>>()
-        };
-        let mut nums = vec![F::ONE; common_data.config.num_challenges];
-        let mut dens = vec![F::ONE; common_data.config.num_challenges];
-        let points = F::two_adic_subgroup(common_data.degree_bits);
-        for i in 0..degree {
-            let x = points[i];
-            let local_constants_sigmas = get_at_index(&prover_data.constants_sigmas_commitment, i);
-            let local_constants = &local_constants_sigmas[common_data.constants_range()];
-            let s_sigmas = &local_constants_sigmas[common_data.sigmas_range()];
-            let local_wires = get_at_index(&wires_commitment, i);
-            let vars = EvaluationVarsBase {
-                local_constants,
-                local_wires: &local_wires,
-            };
-            for ii in 0..common_data.config.num_challenges {
-                let numerator_values = (0..common_data.config.num_routed_wires)
-                    .map(|j| {
-                        let wire_value = vars.local_wires[j];
-                        let k_i = common_data.k_is[j];
-                        let s_id = k_i * x;
-                        wire_value + betas[ii] * s_id + gammas[ii]
-                    })
-                    .collect::<Vec<_>>();
-                let denominator_values = (0..common_data.config.num_routed_wires)
-                    .map(|j| {
-                        let wire_value = vars.local_wires[j];
-                        let s_sigma = s_sigmas[j];
-                        wire_value + betas[ii] * s_sigma + gammas[ii]
-                    })
-                    .collect::<Vec<_>>();
-
-                nums[ii] *= numerator_values.into_iter().product();
-                dens[ii] *= denominator_values.into_iter().product();
-            }
-        }
-        dbg!(nums, dens);
-    }
-    {
-        let get_at_index = |comm: &ListPolynomialCommitment<F>, i: usize| -> Vec<F> {
-            comm.original_values
-                .iter()
-                .map(|v| v.values[i])
-                .collect::<Vec<_>>()
-        };
-        let points = F::two_adic_subgroup(common_data.degree_bits);
-        for i in 0..degree {
-            let x = points[i];
-            let i_next = (i + 1) % degree;
-            let local_constants_sigmas = get_at_index(&prover_data.constants_sigmas_commitment, i);
-            let local_constants = &local_constants_sigmas[common_data.constants_range()];
-            let s_sigmas = &local_constants_sigmas[common_data.sigmas_range()];
-            let local_wires = get_at_index(&wires_commitment, i);
-            let local_zs_partial_products = get_at_index(&zs_partial_products_commitment, i);
-            let local_zs = &local_zs_partial_products[common_data.zs_range()];
-            let next_zs =
-                &get_at_index(&zs_partial_products_commitment, i_next)[common_data.zs_range()];
-            let partial_products = &local_zs_partial_products[common_data.partial_products_range()];
-
-            debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
-            debug_assert_eq!(local_zs.len(), num_challenges);
-
-            let vars = EvaluationVarsBase {
-                local_constants,
-                local_wires: &local_wires,
-            };
-            let mut quotient_values = yoba(
-                common_data,
-                i,
-                x,
-                vars,
-                local_zs,
-                next_zs,
-                partial_products,
-                s_sigmas,
-                &betas,
-                &gammas,
-                &alphas,
-            );
-            assert!(
-                quotient_values.iter().all(|yy| yy.is_zero()),
-                "{}-th gate ({}) constraints not satisfied.\n {:?}",
-                i,
-                prover_data.gate_instances[i].gate_type.0.id(),
-                quotient_values
-            );
-        }
-    }
 
     let quotient_polys = timed!(
         compute_quotient_polys(
