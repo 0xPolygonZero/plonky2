@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use env_logger::builder;
 use itertools::izip;
 
@@ -89,7 +91,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Size of the LDE domain.
         let n = proof.final_poly.len() << total_arities;
 
-        // Recover the random betas used in the FRI reductions.
+        self.set_context("Recover the random betas used in the FRI reductions.");
         let betas = proof
             .commit_phase_merkle_roots
             .iter()
@@ -100,7 +102,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect::<Vec<_>>();
         challenger.observe_extension_elements(&proof.final_poly.0);
 
-        // Check PoW.
+        self.set_context("Check PoW");
         self.fri_verify_proof_of_work(proof, challenger, config);
 
         // Check that parameters are coherent.
@@ -136,7 +138,19 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &FriInitialTreeProofTarget,
         initial_merkle_roots: &[HashTarget],
     ) {
-        for ((evals, merkle_proof), &root) in proof.evals_proofs.iter().zip(initial_merkle_roots) {
+        for (i, ((evals, merkle_proof), &root)) in proof
+            .evals_proofs
+            .iter()
+            .zip(initial_merkle_roots)
+            .enumerate()
+        {
+            self.set_context(&format!("Verify {}-th initial Merkle proof.", i));
+            if i == 0 {
+                self.add_marked(Arc::new(evals.clone()), "Evals");
+                self.add_marked(Arc::new(merkle_proof.siblings.clone()), "merkle proof");
+                self.add_marked(Arc::new(root.clone()), "root");
+                self.add_marked(Arc::new(x_index.clone()), "x_index");
+            }
             self.verify_merkle_proof(evals.clone(), x_index, root, merkle_proof);
         }
     }
@@ -262,6 +276,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x_index = self.split_low_high(x_index, n_log, 64).0;
         let mut x_index_num_bits = n_log;
         let mut domain_size = n;
+        self.set_context("Check FRI initial proof.");
         self.fri_verify_initial_proof(
             x_index,
             &round_proof.initial_trees_proof,
@@ -304,6 +319,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.split_low_high(x_index, arity_bits, x_index_num_bits);
             evals = self.insert(low_x_index, e_x, evals);
             evaluations.push(evals);
+            self.set_context("Verify FRI round Merkle proof.");
             self.verify_merkle_proof(
                 flatten_target(&evaluations[i]),
                 high_x_index,

@@ -2,6 +2,7 @@ use std::ops::{Range, RangeFrom};
 
 use anyhow::Result;
 
+use crate::copy_constraint::CopyConstraint;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::fri::FriConfig;
@@ -79,14 +80,7 @@ pub struct CircuitData<F: Extendable<D>, const D: usize> {
 
 impl<F: Extendable<D>, const D: usize> CircuitData<F, D> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F, D> {
-        prove(&self.prover_only, &self.common, inputs, vec![])
-    }
-    pub fn prove_marked(
-        &self,
-        inputs: PartialWitness<F>,
-        marked: Vec<MarkedTargets>,
-    ) -> Proof<F, D> {
-        prove(&self.prover_only, &self.common, inputs, marked)
+        prove(&self.prover_only, &self.common, inputs)
     }
 
     pub fn verify(&self, proof: Proof<F, D>) -> Result<()> {
@@ -108,7 +102,7 @@ pub struct ProverCircuitData<F: Extendable<D>, const D: usize> {
 
 impl<F: Extendable<D>, const D: usize> ProverCircuitData<F, D> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F, D> {
-        prove(&self.prover_only, &self.common, inputs, vec![])
+        prove(&self.prover_only, &self.common, inputs)
     }
 }
 
@@ -134,9 +128,10 @@ pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
     /// Subgroup of order `degree`.
     pub subgroup: Vec<F>,
     /// The circuit's copy constraints.
-    pub copy_constraints: Vec<(Target, Target)>,
+    pub copy_constraints: Vec<CopyConstraint>,
     /// The concrete placement of each gate in the circuit.
     pub gate_instances: Vec<GateInstance<F, D>>,
+    pub marked_targets: Vec<MarkedTargets>,
 }
 
 /// Circuit data required by the verifier, but not the prover.

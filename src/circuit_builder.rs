@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
+use std::sync::Arc;
 use std::time::Instant;
 
 use log::info;
@@ -8,6 +9,7 @@ use crate::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
+use crate::copy_constraint::CopyConstraint;
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
@@ -23,6 +25,7 @@ use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::proof::HashTarget;
 use crate::target::Target;
+use crate::util::marking::{Markable, MarkedTargets};
 use crate::util::partial_products::num_partial_products;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 use crate::wire::Wire;
@@ -42,7 +45,11 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     /// The next available index for a `VirtualTarget`.
     pub virtual_target_index: usize,
 
-    copy_constraints: Vec<(Target, Target)>,
+    copy_constraints: Vec<CopyConstraint>,
+
+    context: String,
+
+    pub marked_targets: Vec<MarkedTargets>,
 
     /// Generators used to generate the witness.
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
@@ -60,6 +67,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             public_input_index: 0,
             virtual_target_index: 0,
             copy_constraints: Vec::new(),
+            context: String::new(),
+            marked_targets: Vec::new(),
             generators: Vec::new(),
             constants_to_targets: HashMap::new(),
             targets_to_constants: HashMap::new(),
@@ -158,9 +167,26 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_equal(src, dst);
     }
 
+    /// Same as `route` with a named copy constraint.
+    pub fn named_route(&mut self, src: Target, dst: Target, name: String) {
+        self.generate_copy(src, dst);
+        self.named_assert_equal(src, dst, name);
+    }
+
     pub fn route_extension(&mut self, src: ExtensionTarget<D>, dst: ExtensionTarget<D>) {
         for i in 0..D {
             self.route(src.0[i], dst.0[i]);
+        }
+    }
+
+    pub fn named_route_extension(
+        &mut self,
+        src: ExtensionTarget<D>,
+        dst: ExtensionTarget<D>,
+        name: String,
+    ) {
+        for i in 0..D {
+            self.named_route(src.0[i], dst.0[i], format!("{}: limb {}", name, i));
         }
     }
 
@@ -180,7 +206,24 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             y.is_routable(&self.config),
             "Tried to route a wire that isn't routable"
         );
-        self.copy_constraints.push((x, y));
+        self.copy_constraints
+            .push(CopyConstraint::new((x, y), self.context.clone()));
+    }
+
+    /// Same as `assert_equal` for a named copy constraint.
+    pub fn named_assert_equal(&mut self, x: Target, y: Target, name: String) {
+        assert!(
+            x.is_routable(&self.config),
+            "Tried to route a wire that isn't routable"
+        );
+        assert!(
+            y.is_routable(&self.config),
+            "Tried to route a wire that isn't routable"
+        );
+        self.copy_constraints.push(CopyConstraint::new(
+            (x, y),
+            format!("{}: {}", self.context.clone(), name),
+        ));
     }
 
     pub fn assert_zero(&mut self, x: Target) {
@@ -191,6 +234,18 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn assert_equal_extension(&mut self, x: ExtensionTarget<D>, y: ExtensionTarget<D>) {
         for i in 0..D {
             self.assert_equal(x.0[i], y.0[i]);
+        }
+    }
+
+    pub fn named_assert_equal_extension(
+        &mut self,
+        x: ExtensionTarget<D>,
+        y: ExtensionTarget<D>,
+        name: String,
+    ) {
+        for i in 0..D {
+            self.assert_equal(x.0[i], y.0[i]);
+            self.named_assert_equal(x.0[i], y.0[i], format!("{}: limb {}", name, i));
         }
     }
 
@@ -247,6 +302,17 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// its constant value. Otherwise, returns `None`.
     pub fn target_as_constant(&self, target: Target) -> Option<F> {
         self.targets_to_constants.get(&target).cloned()
+    }
+
+    pub fn set_context(&mut self, new_context: &str) {
+        self.context = new_context.to_string();
+    }
+
+    pub fn add_marked(&mut self, targets: Arc<dyn Markable>, name: &str) {
+        self.marked_targets.push(MarkedTargets {
+            targets,
+            name: name.to_string(),
+        })
     }
 
     /// The number of polynomial values that will be revealed per opening, both for the "regular"
@@ -402,7 +468,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             target_partition.add(Target::VirtualTarget { index });
         }
 
-        for &(a, b) in &self.copy_constraints {
+        for &CopyConstraint { pair: (a, b), .. } in &self.copy_constraints {
             target_partition.merge(a, b);
         }
 
@@ -457,6 +523,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             subgroup,
             copy_constraints: self.copy_constraints,
             gate_instances: self.gate_instances,
+            marked_targets: self.marked_targets,
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we

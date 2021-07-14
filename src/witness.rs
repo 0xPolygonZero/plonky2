@@ -3,6 +3,7 @@ use std::convert::TryInto;
 
 use anyhow::{ensure, Result};
 
+use crate::copy_constraint::CopyConstraint;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
@@ -169,23 +170,23 @@ impl<F: Field> PartialWitness<F> {
     /// Checks that the copy constraints are satisfied in the witness.
     pub fn check_copy_constraints<const D: usize>(
         &self,
-        copy_constraints: &[(Target, Target)],
+        copy_constraints: &[CopyConstraint],
         gate_instances: &[GateInstance<F, D>],
     ) -> Result<()>
     where
         F: Extendable<D>,
     {
-        for &(a, b) in copy_constraints {
+        for CopyConstraint { pair: (a, b), name } in copy_constraints {
             // TODO: Take care of public inputs once they land.
-            let va = self.try_get_target(a).unwrap_or(F::ZERO);
-            let vb = self.try_get_target(b).unwrap_or(F::ZERO);
-            let desc = |t: Target| -> String {
+            let va = self.try_get_target(*a).unwrap_or(F::ZERO);
+            let vb = self.try_get_target(*b).unwrap_or(F::ZERO);
+            let desc = |t: &Target| -> String {
                 match t {
                     Target::Wire(Wire { gate, input }) => format!(
                         "wire {} of gate #{} (`{}`)",
                         input,
                         gate,
-                        gate_instances[gate].gate_type.0.id()
+                        gate_instances[*gate].gate_type.0.id()
                     ),
                     Target::PublicInput { index } => format!("{}-th public input", index),
                     Target::VirtualTarget { index } => format!("{}-th virtual target", index),
@@ -193,8 +194,9 @@ impl<F: Field> PartialWitness<F> {
             };
             ensure!(
                 va == vb,
-                "Copy constraint between {} and {} is not satisfied. \
+                "Copy constraint '{}' between {} and {} is not satisfied. \
                 Got values of {} and {} respectively.",
+                name,
                 desc(a),
                 desc(b),
                 va,

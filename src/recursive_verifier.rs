@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use env_logger::builder;
 
 use crate::circuit_builder::CircuitBuilder;
@@ -33,6 +35,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut challenger = RecursiveChallenger::new(self);
 
+        self.set_context("Challenger observes proof and generates challenges.");
         let digest =
             HashTarget::from_vec(self.constants(&inner_common_data.circuit_digest.elements));
         challenger.observe_hash(&digest);
@@ -59,7 +62,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let partial_products = &proof.openings.partial_products;
 
         let zeta_pow_deg = self.exp_u64_extension(zeta, inner_common_data.degree() as u64);
-        // Evaluate the vanishing polynomial at our challenge point, zeta.
+        self.set_context("Evaluate the vanishing polynomial at our challenge point, zeta.");
         let vanishing_polys_zeta = eval_vanishing_poly_recursively(
             self,
             inner_common_data,
@@ -78,9 +81,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         marked.push(MarkedTargets {
             name: "vanishing polys".into(),
-            targets: Box::new(vanishing_polys_zeta[0].clone()),
+            targets: Arc::new(vanishing_polys_zeta[0].clone()),
         });
 
+        self.set_context("Check vanishing and quotient polynomials.");
         let quotient_polys_zeta = &proof.openings.quotient_polys;
         let zeta_pow_deg = self.exp_u64_extension(zeta, 1 << inner_common_data.degree_bits as u64);
         let z_h_zeta = self.sub_extension(zeta_pow_deg, one);
@@ -91,7 +95,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
             let mut rhs = scale.reduce(chunk, self);
             rhs = self.mul_extension(z_h_zeta, rhs);
-            self.route_extension(vanishing_polys_zeta[i], rhs);
+            self.named_route_extension(
+                vanishing_polys_zeta[i],
+                rhs,
+                format!("Vanishing polynomial == Z_H * quotient, challenge {}", i),
+            );
         }
 
         let evaluations = proof.openings.clone();
@@ -355,8 +363,9 @@ mod tests {
         builder.add_recursive_verifier(pt, &config, &inner_data, &cd, &mut marked);
 
         dbg!(builder.num_gates());
+        dbg!(builder.marked_targets.len());
         let data = builder.build();
-        let recursive_proof = data.prove_marked(pw, marked);
+        let recursive_proof = data.prove(pw);
 
         verify(recursive_proof, &data.verifier_only, &data.common).unwrap();
     }

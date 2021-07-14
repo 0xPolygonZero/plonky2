@@ -27,7 +27,6 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
-    marked: Vec<MarkedTargets>,
 ) -> Proof<F, D> {
     let fri_config = &common_data.config.fri_config;
     let config = &common_data.config;
@@ -45,6 +44,10 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         "to generate witness"
     );
 
+    for m in &prover_data.marked_targets {
+        m.display(&partial_witness);
+    }
+
     timed!(
         partial_witness
             .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)
@@ -56,10 +59,6 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         partial_witness.full_witness(degree, num_wires),
         "to compute full witness"
     );
-
-    for m in marked {
-        m.display(&witness);
-    }
 
     let wires_values: Vec<PolynomialValues<F>> = timed!(
         witness

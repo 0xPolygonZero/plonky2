@@ -1,4 +1,5 @@
 use std::convert::TryInto;
+use std::sync::Arc;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::field::Field;
@@ -6,7 +7,7 @@ use crate::proof::HashTarget;
 use crate::target::Target;
 use crate::witness::{PartialWitness, Witness};
 
-pub trait Markable {
+pub trait Markable: 'static + Send + Sync {
     fn targets(&self) -> Vec<Target>;
 }
 
@@ -34,20 +35,18 @@ impl<M: Markable> Markable for Vec<M> {
     }
 }
 
+#[derive(Clone)]
 pub struct MarkedTargets {
-    pub targets: Box<dyn Markable>,
+    pub targets: Arc<dyn Markable>,
     pub name: String,
 }
 
 impl MarkedTargets {
-    pub fn display<F: Field>(&self, wit: &Witness<F>) {
+    pub fn display<F: Field>(&self, pw: &PartialWitness<F>) {
         let targets = self.targets.targets();
         println!("Values for {}:", self.name);
         for &t in &targets {
-            match t {
-                Target::Wire(w) => println!("{}", wit.get_wire(w.gate, w.input)),
-                _ => println!("Not a wire."),
-            }
+            println!("{}", pw.get_target(t));
         }
         println!("End of values for {}", self.name);
     }
