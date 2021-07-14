@@ -20,6 +20,7 @@ use crate::util::{log2_ceil, log2_strict, reverse_bits, reverse_index_bits_in_pl
 pub const SALT_SIZE: usize = 2;
 
 pub struct ListPolynomialCommitment<F: Field> {
+    pub original_values: Vec<PolynomialValues<F>>, // TODO: Remove when debugging is done.
     pub polynomials: Vec<PolynomialCoeffs<F>>,
     pub merkle_tree: MerkleTree<F>,
     pub degree: usize,
@@ -41,7 +42,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             "to compute LDE"
         );
 
-        Self::new_from_data(polynomials, lde_values, degree, rate_bits, blinding)
+        Self::new_from_data(values, polynomials, lde_values, degree, rate_bits, blinding)
     }
 
     /// Creates a list polynomial commitment for the polynomials `polynomials`.
@@ -51,15 +52,17 @@ impl<F: Field> ListPolynomialCommitment<F> {
         blinding: bool,
     ) -> Self {
         let degree = polynomials[0].len();
+        let values = polynomials.iter().map(|p| p.clone().fft()).collect();
         let lde_values = timed!(
             Self::lde_values(&polynomials, rate_bits, blinding),
             "to compute LDE"
         );
 
-        Self::new_from_data(polynomials, lde_values, degree, rate_bits, blinding)
+        Self::new_from_data(values, polynomials, lde_values, degree, rate_bits, blinding)
     }
 
     fn new_from_data(
+        values: Vec<PolynomialValues<F>>,
         polynomials: Vec<PolynomialCoeffs<F>>,
         lde_values: Vec<Vec<F>>,
         degree: usize,
@@ -71,6 +74,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         let merkle_tree = timed!(MerkleTree::new(leaves, false), "to build Merkle tree");
 
         Self {
+            original_values: values,
             polynomials,
             merkle_tree,
             degree,

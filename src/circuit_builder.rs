@@ -296,7 +296,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn blind_and_pad(&mut self) {
+    pub fn blind_and_pad(&mut self) {
         let (regular_poly_openings, z_openings) = self.blinding_counts();
         info!(
             "Adding {} blinding terms for witness polynomials, and {}*2 for Z polynomials",
@@ -349,7 +349,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn constant_polys(
+    pub fn constant_polys(
         &self,
         gates: &[PrefixedGate<F, D>],
         num_constants: usize,

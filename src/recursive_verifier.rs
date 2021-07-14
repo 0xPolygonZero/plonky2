@@ -321,6 +321,7 @@ mod tests {
 
     #[test]
     fn test_recursive_verifier() {
+        env_logger::init();
         type F = CrandallField;
         type FF = QuarticCrandallField;
         const D: usize = 4;

@@ -459,7 +459,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
-        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
 
         let x = FF::rand();
         let y = FF::rand();

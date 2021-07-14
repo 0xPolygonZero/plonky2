@@ -8,6 +8,7 @@ use crate::fri::FriConfig;
 use crate::gates::gate::{GateInstance, PrefixedGate};
 use crate::generator::WitnessGenerator;
 use crate::polynomial::commitment::ListPolynomialCommitment;
+use crate::polynomial::polynomial::PolynomialValues;
 use crate::proof::{Hash, HashTarget, Proof};
 use crate::prover::prove;
 use crate::target::Target;
