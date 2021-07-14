@@ -79,26 +79,20 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let insertion_index = vars.local_wires[self.wires_insertion_index()];
-
         let list_items = (0..self.vec_size)
             .map(|i| vars.get_local_ext_algebra(self.wires_original_list_item(i)))
             .collect::<Vec<_>>();
-
         let output_list_items = (0..=self.vec_size)
             .map(|i| vars.get_local_ext_algebra(self.wires_output_list_item(i)))
             .collect::<Vec<_>>();
-
         let element_to_insert = vars.get_local_ext_algebra(self.wires_element_to_insert());
 
         let mut constraints = Vec::new();
-
         let mut already_inserted = F::Extension::ZERO;
         for r in 0..=self.vec_size {
             let cur_index = F::Extension::from_canonical_usize(r);
-
-            let equality_dummy = vars.local_wires[self.wires_equality_dummy_for_round_r(r)];
-
             let difference = cur_index - insertion_index;
+            let equality_dummy = vars.local_wires[self.wires_equality_dummy_for_round_r(r)];
             let insert_here = vars.local_wires[self.wires_insert_here_for_round_r(r)];
 
             // The two equality constraints.
@@ -109,12 +103,12 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             if r > 0 {
                 new_item += list_items[r - 1] * already_inserted.into();
             }
-            already_inserted += insert_here;
-
             if r < self.vec_size {
                 new_item += list_items[r] * (F::Extension::ONE - already_inserted).into();
             }
+            already_inserted += insert_here;
 
+            // Output constraint.
             constraints.extend((new_item - output_list_items[r]).to_basefield_array());
         }
 
