@@ -130,6 +130,7 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::extension_field::target::ExtensionTarget;
+    use crate::fri::FriConfig;
     use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
     use crate::merkle_proofs::MerkleProofTarget;
     use crate::polynomial::commitment::OpeningProofTarget;
@@ -333,12 +334,26 @@ mod tests {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         const D: usize = 4;
+        let config = CircuitConfig {
+            num_wires: 134,
+            num_routed_wires: 28,
+            security_bits: 128,
+            rate_bits: 3,
+            num_challenges: 3,
+            fri_config: FriConfig {
+                proof_of_work_bits: 1,
+                rate_bits: 3,
+                reduction_arity_bits: vec![2, 2, 2, 2, 2, 2, 2],
+                num_query_rounds: 40,
+            },
+        };
         let (proof, vd, cd) = {
-            let config = CircuitConfig::large_config();
-            let mut builder = CircuitBuilder::<F, D>::new(config);
-            let zero = builder.zero();
-            let hash = builder.hash_n_to_m(vec![zero], 2, true);
-            let z = builder.mul(hash[0], hash[1]);
+            let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+            let two = builder.two();
+            let two = builder.hash_n_to_hash(vec![two], true).elements[0];
+            for i in 0..5000 {
+                let two = builder.mul(two, two);
+            }
             let data = builder.build();
             (
                 data.prove(PartialWitness::new()),
@@ -348,7 +363,6 @@ mod tests {
         };
         verify(proof.clone(), &vd, &cd).unwrap();
 
-        let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
         let mut marked = Vec::new();
