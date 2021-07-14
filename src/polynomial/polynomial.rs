@@ -4,6 +4,7 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 use std::time::Instant;
 
 use anyhow::{ensure, Result};
+use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::Extendable;
 use crate::field::fft::{fft, fft_with_options, ifft};
@@ -77,7 +78,8 @@ impl<F: Field> From<Vec<F>> for PolynomialValues<F> {
 }
 
 /// A polynomial in coefficient form.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(bound = "")]
 pub struct PolynomialCoeffs<F: Field> {
     pub(crate) coeffs: Vec<F>,
 }

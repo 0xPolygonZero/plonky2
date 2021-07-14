@@ -6,6 +6,8 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use num::Integer;
 use rand::Rng;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 use crate::field::extension_field::Frobenius;
 use crate::util::bits_u64;
@@ -31,6 +33,8 @@ pub trait Field:
     + Display
     + Send
     + Sync
+    + Serialize
+    + DeserializeOwned
 {
     type PrimeField: Field;
 
