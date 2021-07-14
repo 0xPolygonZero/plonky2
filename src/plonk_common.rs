@@ -73,7 +73,7 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
     gammas: &[F],
     alphas: &[F],
 ) -> Vec<F::Extension> {
-    let max_degree = common_data.quotient_degree_factor;
+    let partial_products_degree = common_data.quotient_degree_factor;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
 
     let constraint_terms =
@@ -113,12 +113,15 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
         // The partial products considered for this iteration of `i`.
         let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
         // Check the quotient partial products.
-        let mut partial_product_check =
-            check_partial_products(&quotient_values, current_partial_products, max_degree);
+        let mut partial_product_check = check_partial_products(
+            &quotient_values,
+            current_partial_products,
+            partial_products_degree,
+        );
         // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
         // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
         denominator_values
-            .chunks(max_degree)
+            .chunks(partial_products_degree)
             .zip(partial_product_check.iter_mut())
             .for_each(|(d, q)| {
                 *q *= d.iter().copied().product();
@@ -160,7 +163,7 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     alphas: &[F],
     z_h_on_coset: &ZeroPolyOnCoset<F>,
 ) -> Vec<F> {
-    let max_degree = common_data.quotient_degree_factor;
+    let partial_products_degree = common_data.quotient_degree_factor;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
 
     let constraint_terms =
@@ -199,13 +202,16 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
 
         // The partial products considered for this iteration of `i`.
         let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
-        // Check the numerator partial products.
-        let mut partial_product_check =
-            check_partial_products(&quotient_values, current_partial_products, max_degree);
+        // Check the quotient partial products.
+        let mut partial_product_check = check_partial_products(
+            &quotient_values,
+            current_partial_products,
+            partial_products_degree,
+        );
         // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
         // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
         denominator_values
-            .chunks(max_degree)
+            .chunks(partial_products_degree)
             .zip(partial_product_check.iter_mut())
             .for_each(|(d, q)| {
                 *q *= d.iter().copied().product();
