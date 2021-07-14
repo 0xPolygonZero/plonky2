@@ -76,7 +76,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut acc_leaf_index = zero;
 
         for (bit, &sibling) in purported_index_bits.into_iter().zip(&proof.siblings) {
-            self.add_marked(Arc::new(state), "current digest");
             let gate = self
                 .add_gate_no_constants(GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants());
 

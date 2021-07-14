@@ -145,12 +145,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .enumerate()
         {
             self.set_context(&format!("Verify {}-th initial Merkle proof.", i));
-            if i == 0 {
-                self.add_marked(Arc::new(evals.clone()), "Evals");
-                self.add_marked(Arc::new(merkle_proof.siblings.clone()), "merkle proof");
-                self.add_marked(Arc::new(root.clone()), "root");
-                self.add_marked(Arc::new(x_index.clone()), "x_index");
-            }
             self.verify_merkle_proof(evals.clone(), x_index, root, merkle_proof);
         }
     }
