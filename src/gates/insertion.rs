@@ -132,7 +132,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
     fn generators(
         &self,
         gate_index: usize,
-        local_constants: &[F],
+        _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = InsertionGenerator::<F, D> {
             gate_index,
@@ -245,7 +245,6 @@ mod tests {
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::extension_field::FieldExtension;
     use crate::field::field::Field;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
