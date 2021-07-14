@@ -74,7 +74,7 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
                     // Iterate backwards from `max_degree` to try to find a tree with a lower degree
                     // but the same number of constants.
                     'optdegree: for degree in (0..max_degree).rev() {
-                        if let Some(mut tree) = Self::find_tree(&gates, degree, max_constants) {
+                        if let Some(tree) = Self::find_tree(&gates, degree, max_constants) {
                             let num_constants = tree.num_constants();
                             if num_constants > best_num_constants {
                                 break 'optdegree;

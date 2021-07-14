@@ -72,6 +72,7 @@ impl<F: Field> Challenger<F> {
             wires,
             plonk_zs,
             plonk_zs_right,
+            partial_products,
             quotient_polys,
         } = os;
         for v in &[
@@ -80,6 +81,7 @@ impl<F: Field> Challenger<F> {
             wires,
             plonk_zs,
             plonk_zs_right,
+            partial_products,
             quotient_polys,
         ] {
             self.observe_extension_elements(v);

@@ -2,8 +2,9 @@ use anyhow::{ensure, Result};
 
 use crate::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::field::extension_field::Extendable;
+use crate::field::field::Field;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{eval_vanishing_poly, eval_zero_poly};
+use crate::plonk_common::{eval_vanishing_poly, eval_zero_poly, reduce_with_powers};
 use crate::proof::Proof;
 use crate::vars::EvaluationVars;
 
@@ -13,7 +14,6 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
     let config = &common_data.config;
-    let fri_config = &config.fri_config;
     let num_challenges = config.num_challenges;
 
     let mut challenger = Challenger::new();
@@ -37,17 +37,19 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
         local_constants,
         local_wires,
     };
-    let local_plonk_zs = &proof.openings.plonk_zs;
-    let next_plonk_zs = &proof.openings.plonk_zs_right;
+    let local_zs = &proof.openings.plonk_zs;
+    let next_zs = &proof.openings.plonk_zs_right;
     let s_sigmas = &proof.openings.plonk_s_sigmas;
+    let partial_products = &proof.openings.partial_products;
 
     // Evaluate the vanishing polynomial at our challenge point, zeta.
     let vanishing_polys_zeta = eval_vanishing_poly(
         common_data,
         zeta,
         vars,
-        local_plonk_zs,
-        next_plonk_zs,
+        local_zs,
+        next_zs,
+        partial_products,
         s_sigmas,
         &betas,
         &gammas,
@@ -56,9 +58,18 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
     let quotient_polys_zeta = &proof.openings.quotient_polys;
-    let z_h_zeta = eval_zero_poly(common_data.degree(), zeta);
-    for i in 0..num_challenges {
-        ensure!(vanishing_polys_zeta[i] == z_h_zeta * quotient_polys_zeta[i]);
+    let zeta_pow_deg = zeta.exp_power_of_2(common_data.degree_bits);
+    let z_h_zeta = zeta_pow_deg - F::Extension::ONE;
+    // `quotient_polys_zeta` holds `num_challenges * quotient_degree_factor` evaluations.
+    // Each chunk of `quotient_degree_factor` holds the evaluations of `t_0(zeta),...,t_{quotient_degree_factor-1}(zeta)`
+    // where the "real" quotient polynomial is `t(X) = t_0(X) + t_1(X)*X^n + t_2(X)*X^{2n} + ...`.
+    // So to reconstruct `t(zeta)` we can compute `reduce_with_powers(chunk, zeta^n)` for each
+    // `quotient_degree_factor`-sized chunk of the original evaluations.
+    for (i, chunk) in quotient_polys_zeta
+        .chunks(common_data.quotient_degree_factor)
+        .enumerate()
+    {
+        ensure!(vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
     }
 
     let evaluations = proof.openings.clone();
@@ -75,7 +86,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
         &evaluations,
         merkle_roots,
         &mut challenger,
-        fri_config,
+        common_data,
     )?;
 
     Ok(())

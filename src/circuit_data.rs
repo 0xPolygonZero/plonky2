@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::ops::{Range, RangeFrom};
 
 use anyhow::Result;
 
@@ -145,8 +145,8 @@ pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     /// The types of gates used in this circuit, along with their prefixes.
     pub(crate) gates: Vec<PrefixedGate<F, D>>,
 
-    /// The maximum degree of a filter times a constraint by any gate.
-    pub(crate) max_filtered_constraint_degree: usize,
+    /// The degree of the PLONK quotient polynomial.
+    pub(crate) quotient_degree_factor: usize,
 
     /// The largest number of constraints imposed by any gate.
     pub(crate) num_gate_constraints: usize,
@@ -156,6 +156,10 @@ pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
 
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
     pub(crate) k_is: Vec<F>,
+
+    /// The number of partial products needed to compute the `Z` polynomials and the number
+    /// of partial products needed to compute the final product.
+    pub(crate) num_partial_products: (usize, usize),
 
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
@@ -184,7 +188,7 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     pub fn quotient_degree(&self) -> usize {
-        (self.max_filtered_constraint_degree - 1) * self.degree()
+        self.quotient_degree_factor * self.degree()
     }
 
     pub fn total_constraints(&self) -> usize {
@@ -200,6 +204,16 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     /// Range of the sigma polynomials in the `constants_sigmas_commitment`.
     pub fn sigmas_range(&self) -> Range<usize> {
         self.num_constants..self.num_constants + self.config.num_routed_wires
+    }
+
+    /// Range of the `z`s polynomials in the `zs_partial_products_commitment`.
+    pub fn zs_range(&self) -> Range<usize> {
+        0..self.config.num_challenges
+    }
+
+    /// Range of the partial products polynomials in the `zs_partial_products_commitment`.
+    pub fn partial_products_range(&self) -> RangeFrom<usize> {
+        self.config.num_challenges..
     }
 }
 

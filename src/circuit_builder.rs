@@ -21,6 +21,7 @@ use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::target::Target;
+use crate::util::partial_products::num_partial_products;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 use crate::wire::Wire;
 
@@ -391,6 +392,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Builds a "full circuit", with both prover and verifier data.
     pub fn build(mut self) -> CircuitData<F, D> {
+        let quotient_degree_factor = 7; // TODO: add this as a parameter.
         let start = Instant::now();
         info!(
             "Degree before blinding & padding: {}",
@@ -402,6 +404,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let gates = self.gates.iter().cloned().collect();
         let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
+        assert!(
+            max_filtered_constraint_degree <= quotient_degree_factor + 1,
+            "Constraints are too high degree."
+        );
         let prefixed_gates = PrefixedGate::from_tree(gate_tree);
 
         let degree_bits = log2_strict(degree);
@@ -444,6 +450,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .max()
             .expect("No gates?");
 
+        let num_partial_products =
+            num_partial_products(self.config.num_routed_wires, quotient_degree_factor);
+
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
             constants_sigmas_root.elements.to_vec(),
@@ -455,10 +464,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             config: self.config,
             degree_bits,
             gates: prefixed_gates,
-            max_filtered_constraint_degree,
+            quotient_degree_factor,
             num_gate_constraints,
             num_constants,
             k_is,
+            num_partial_products,
             circuit_digest,
         };
 
