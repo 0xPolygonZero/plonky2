@@ -73,12 +73,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.set_context("Check vanishing and quotient polynomials.");
         let quotient_polys_zeta = &proof.openings.quotient_polys;
         let zeta_pow_deg = self.exp_u64_extension(zeta, 1 << inner_common_data.degree_bits as u64);
+        let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
         let z_h_zeta = self.sub_extension(zeta_pow_deg, one);
         for (i, chunk) in quotient_polys_zeta
             .chunks(inner_common_data.quotient_degree_factor)
             .enumerate()
         {
-            let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
             let mut rhs = scale.reduce(chunk, self);
             rhs = self.mul_extension(z_h_zeta, rhs);
             self.named_route_extension(
@@ -123,6 +123,7 @@ mod tests {
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
 
+    // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
     fn get_fri_query_round<F: Extendable<D>, const D: usize>(
         proof: &Proof<F, D>,
         builder: &mut CircuitBuilder<F, D>,
@@ -155,6 +156,7 @@ mod tests {
         query_round
     }
 
+    // Construct a `ProofTarget` with the same dimensions as `proof`.
     fn proof_to_proof_target<F: Extendable<D>, const D: usize>(
         proof: &Proof<F, D>,
         builder: &mut CircuitBuilder<F, D>,
@@ -206,6 +208,7 @@ mod tests {
         }
     }
 
+    // Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
     fn set_proof_target<F: Extendable<D>, const D: usize>(
         proof: &Proof<F, D>,
         pt: &ProofTarget<D>,
@@ -332,7 +335,7 @@ mod tests {
             let mut builder = CircuitBuilder::<F, D>::new(config.clone());
             let _two = builder.two();
             let _two = builder.hash_n_to_hash(vec![_two], true).elements[0];
-            for _ in 0..1000 {
+            for _ in 0..5000 {
                 let _two = builder.mul(_two, _two);
             }
             let data = builder.build();

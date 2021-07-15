@@ -42,11 +42,11 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     public_input_index: usize,
 
     /// The next available index for a `VirtualTarget`.
-    pub virtual_target_index: usize,
+    virtual_target_index: usize,
 
     copy_constraints: Vec<CopyConstraint>,
 
-    /// A context string used to give context to copy constraints.
+    /// A string used to give context to copy constraints.
     context: String,
 
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
