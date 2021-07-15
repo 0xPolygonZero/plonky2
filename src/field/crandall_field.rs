@@ -5,6 +5,7 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::Integer;
+use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::quadratic::QuadraticCrandallField;
 use crate::field::extension_field::quartic::QuarticCrandallField;
@@ -106,7 +107,7 @@ const CAUCHY_MDS_8: [[CrandallField; 8]; 8] = [
 ///   = 2**64 - 9 * 2**28 + 1
 ///   = 2**28 * (2**36 - 9) + 1
 /// ```
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct CrandallField(pub u64);
 
 impl PartialEq for CrandallField {

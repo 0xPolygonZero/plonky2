@@ -6,6 +6,8 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use num::Integer;
 use rand::Rng;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 use crate::field::extension_field::Frobenius;
 use crate::util::bits_u64;
@@ -31,6 +33,8 @@ pub trait Field:
     + Display
     + Send
     + Sync
+    + Serialize
+    + DeserializeOwned
 {
     type PrimeField: Field;
 
@@ -131,7 +135,7 @@ pub trait Field:
 
     fn primitive_root_of_unity(n_log: usize) -> Self {
         assert!(n_log <= Self::TWO_ADICITY);
-        let mut base = Self::POWER_OF_TWO_GENERATOR;
+        let base = Self::POWER_OF_TWO_GENERATOR;
         base.exp_power_of_2(Self::TWO_ADICITY - n_log)
     }
 

@@ -46,7 +46,7 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition
     }
 
     /// Path compression method, see https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives.
-    pub fn find(&mut self, mut x: ForestNode<T>) -> ForestNode<T> {
+    pub fn find(&mut self, x: ForestNode<T>) -> ForestNode<T> {
         if x.parent != x.index {
             let root = self.find(self.forest[x.parent]);
             self.forest[x.index].parent = root.index;

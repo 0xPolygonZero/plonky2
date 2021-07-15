@@ -1,11 +1,12 @@
 use anyhow::Result;
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::{FieldExtension, Frobenius};
 use crate::field::field::Field;
-use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
+use crate::fri::{prover::fri_proof, verifier::verify_fri_proof};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::PlonkPolynomials;
@@ -245,6 +246,8 @@ impl<F: Field> ListPolynomialCommitment<F> {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(bound = "")]
 pub struct OpeningProof<F: Field + Extendable<D>, const D: usize> {
     fri_proof: FriProof<F, D>,
     // TODO: Get the degree from `CommonCircuitData` instead.
@@ -287,6 +290,7 @@ mod tests {
 
     use super::*;
     use crate::circuit_data::CircuitConfig;
+    use crate::fri::FriConfig;
     use crate::plonk_common::PlonkPolynomials;
 
     fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(

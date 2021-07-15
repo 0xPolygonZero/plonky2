@@ -4,7 +4,7 @@ use crate::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{eval_vanishing_poly, eval_zero_poly, reduce_with_powers};
+use crate::plonk_common::{eval_vanishing_poly, reduce_with_powers};
 use crate::proof::Proof;
 use crate::vars::EvaluationVars;
 
