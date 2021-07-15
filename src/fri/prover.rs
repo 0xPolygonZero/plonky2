@@ -1,3 +1,5 @@
+use rayon::prelude::*;
+
 use crate::field::extension_field::{flatten, unflatten, Extendable};
 use crate::field::field::Field;
 use crate::fri::FriConfig;
@@ -7,6 +9,7 @@ use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep, Hash};
+use crate::timed;
 use crate::util::reverse_index_bits_in_place;
 
 /// Builds a FRI proof.
@@ -32,7 +35,10 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
 
     // PoW phase
     let current_hash = challenger.get_hash();
-    let pow_witness = fri_proof_of_work(current_hash, config);
+    let pow_witness = timed!(
+        fri_proof_of_work(current_hash, config),
+        "to find for proof-of-work witness"
+    );
 
     // Query phase
     let query_round_proofs =
@@ -94,8 +100,9 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
 }
 
 fn fri_proof_of_work<F: Field>(current_hash: Hash<F>, config: &FriConfig) -> F {
-    (0u64..)
-        .find(|&i| {
+    (0..u64::MAX)
+        .into_par_iter()
+        .find_any(|&i| {
             hash_n_to_1(
                 current_hash
                     .elements
@@ -110,7 +117,7 @@ fn fri_proof_of_work<F: Field>(current_hash: Hash<F>, config: &FriConfig) -> F {
                 >= config.proof_of_work_bits + F::ORDER.leading_zeros()
         })
         .map(F::from_canonical_u64)
-        .expect("Proof of work failed.")
+        .expect("Proof of work failed. This is highly unlikely!")
 }
 
 fn fri_prover_query_rounds<F: Field + Extendable<D>, const D: usize>(
