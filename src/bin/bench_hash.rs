@@ -6,6 +6,7 @@ use plonky2::field::field::Field;
 use plonky2::gmimc::gmimc_permute_array;
 use plonky2::hash::{GMIMC_CONSTANTS, GMIMC_ROUNDS};
 use plonky2::rescue::rescue;
+use plonky2::poseidon::poseidon;
 
 /// Number of elements in the hash input/state/result.
 const W: usize = 12;
@@ -19,6 +20,12 @@ fn gmimc_hash(x: [F; W]) -> [F; W] {
 fn rescue_hash(x: [F; W]) -> [F; W] {
     rescue(x)
 }
+
+#[inline]
+fn poseidon_hash(x: [F; W]) -> [F; W] {
+    poseidon(x)
+}
+
 
 fn bench_hash(name: &str, hash: fn([F; W])-> [F; W], input: &[F; W]) {
     // 113 wire polys, 3 Z polys, 4 parts of quotient poly.
@@ -49,4 +56,5 @@ fn main() {
 
     bench_hash("GMiMC", gmimc_hash, &x);
     bench_hash("Rescue", rescue_hash, &x);
+    bench_hash("Poseidon", poseidon_hash, &x);
 }
