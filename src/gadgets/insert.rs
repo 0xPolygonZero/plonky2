@@ -19,24 +19,26 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             vec_size: v.len(),
             _phantom: PhantomData,
         };
-        let gate_index =
-            self.add_gate_no_constants(InsertionGate::new(v.len()));
-        
-        v.iter().enumerate().map(|(i, &val)| {
+        let gate_index = self.add_gate_no_constants(InsertionGate::new(v.len()));
+
+        v.iter().enumerate().for_each(|(i, &val)| {
             self.route_extension(
                 val,
                 ExtensionTarget::from_range(gate_index, gate.wires_original_list_item(i)),
             );
         });
-        self.route(index, Target::wire(gate_index, gate.wires_insertion_index()));
+        self.route(
+            index,
+            Target::wire(gate_index, gate.wires_insertion_index()),
+        );
         self.route_extension(
             element,
             ExtensionTarget::from_range(gate_index, gate.wires_element_to_insert()),
         );
 
-        (0..=v.len()).map(|i| {
-            ExtensionTarget::from_range(gate_index, gate.wires_output_list_item(i))
-        }).collect::<Vec<_>>()
+        (0..=v.len())
+            .map(|i| ExtensionTarget::from_range(gate_index, gate.wires_output_list_item(i)))
+            .collect::<Vec<_>>()
     }
 }
 
