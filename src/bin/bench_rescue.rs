@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use std::thread;
 use std::time::Instant;
 
@@ -19,10 +20,7 @@ fn main() {
     let threads = (0..THREADS)
         .map(|_i| {
             thread::spawn(move || {
-                let mut x = [F::ZERO; W];
-                for i in 0..W {
-                    x[i] = F::from_canonical_u64((i as u64) * 123456 + 789);
-                }
+                let mut x: [F; W] = F::rand_vec(W).try_into().unwrap();
 
                 let hashes_per_thread = HASHES_PER_POLY * PROVER_POLYS / THREADS;
                 let start = Instant::now();

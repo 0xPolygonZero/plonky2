@@ -42,8 +42,8 @@ pub(crate) fn transpose<T: Clone>(matrix: &[Vec<T>]) -> Vec<Vec<T>> {
     let old_cols = matrix[0].len();
     let mut transposed = vec![Vec::with_capacity(old_rows); old_cols];
     for new_r in 0..old_cols {
-        for new_c in 0..old_rows {
-            transposed[new_r].push(matrix[new_c][new_r].clone());
+        for old_row in matrix.iter() {
+            transposed[new_r].push(old_row[new_r].clone());
         }
     }
     transposed

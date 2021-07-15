@@ -179,7 +179,7 @@ const MDS: [[u64; W]; W] = [
     ],
 ];
 
-const RESCUE_CONSTANTS: [[u64; W]; 16] = [
+const RESCUE_CONSTANTS: [[u64; W]; ROUNDS * 2] = [
     [
         12050887499329086906,
         1748247961703512657,
@@ -442,7 +442,7 @@ fn mds_layer<F: Field>(x: [F; W]) -> [F; W] {
     let mut result = [F::ZERO; W];
     for r in 0..W {
         for c in 0..W {
-            result[r] = result[r] + F::from_canonical_u64(MDS[r][c]) * x[c];
+            result[r] += F::from_canonical_u64(MDS[r][c]) * x[c];
         }
     }
     result

@@ -56,8 +56,8 @@ pub fn gmimc_permute_array<F: Field, const W: usize, const R: usize>(
         xs[active] -= f;
     }
 
-    for i in 0..W {
-        xs[i] += addition_buffer;
+    for x_i in xs.iter_mut() {
+        *x_i += addition_buffer;
     }
 
     xs
