@@ -154,12 +154,12 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
                 let to_add = builder.scalar_mul_ext_algebra(already_inserted, list_items[r - 1]);
                 new_item = builder.add_ext_algebra(new_item, to_add);
             }
+            already_inserted = builder.add_extension(already_inserted, insert_here);
             if r < self.vec_size {
                 let not_already_inserted = builder.sub_extension(one, already_inserted);
                 let to_add = builder.scalar_mul_ext_algebra(not_already_inserted, list_items[r]);
                 new_item = builder.add_ext_algebra(new_item, to_add);
             }
-            already_inserted = builder.add_extension(already_inserted, insert_here);
 
             // Output constraint.
             let diff = builder.sub_ext_algebra(new_item, output_list_items[r]);
