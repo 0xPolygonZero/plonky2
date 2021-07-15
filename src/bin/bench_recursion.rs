@@ -26,9 +26,9 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
         rate_bits: 3,
         num_challenges: 3,
         fri_config: FriConfig {
-            proof_of_work_bits: 10,
+            proof_of_work_bits: 20,
             rate_bits: 3,
-            reduction_arity_bits: vec![2, 2, 2, 2, 2],
+            reduction_arity_bits: vec![2, 2, 2, 2, 2, 2],
             num_query_rounds: 35,
         },
     };
