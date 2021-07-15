@@ -131,7 +131,7 @@ pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
     pub copy_constraints: Vec<CopyConstraint>,
     /// The concrete placement of each gate in the circuit.
     pub gate_instances: Vec<GateInstance<F, D>>,
-    pub marked_targets: Vec<MarkedTargets>,
+    pub marked_targets: Vec<MarkedTargets<D>>,
 }
 
 /// Circuit data required by the verifier, but not the prover.

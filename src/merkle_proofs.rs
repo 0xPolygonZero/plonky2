@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use anyhow::{ensure, Result};
 
 use crate::circuit_builder::CircuitBuilder;
@@ -10,7 +8,6 @@ use crate::hash::GMIMC_ROUNDS;
 use crate::hash::{compress, hash_or_noop};
 use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
-use crate::util::marking::MarkedTargets;
 use crate::wire::Wire;
 
 #[derive(Clone, Debug)]
@@ -161,7 +158,6 @@ mod tests {
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::merkle_proofs::verify_merkle_proof;
     use crate::merkle_tree::MerkleTree;
-    use crate::util::marking::MarkedTargets;
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
 
@@ -202,66 +198,6 @@ mod tests {
         }
 
         builder.verify_merkle_proof(data, i_c, root_t, &proof_t);
-
-        let data = builder.build();
-        let proof = data.prove(pw);
-
-        verify(proof, &data.verifier_only, &data.common)
-    }
-
-    #[test]
-    fn test_recursive_merkle_proof_yo() -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticCrandallField;
-        let config = CircuitConfig::large_config();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
-        let mut pw = PartialWitness::new();
-
-        let eval = vec![
-            8165005271518921330,
-            6083226207459673392,
-            9958534500108693972,
-            3430614617054831715,
-            14276647488823198467,
-            11751680815846448477,
-            2771303161388554632,
-            2371046485289351947,
-            16743918419162514074,
-            9932615810638040318,
-            16314448410395528119,
-            1511019414432045441,
-            5645123553081661379,
-            9778873694114674382,
-            10629301051878288289,
-            16655634835422730769,
-            7474748727207643713,
-            8501202586470516512,
-            5612524789765317534,
-            3026252715636633329,
-            15131263578183166645,
-            1869341605741303173,
-            14645831398335944979,
-            8356334351657818532,
-            4888183615701827634,
-            5994174007215505657,
-            11524125964783895772,
-            2202081323880269694,
-            9827048951184368953,
-            12675978139336549297,
-            5868550852792001156,
-        ];
-        let eval = eval
-            .into_iter()
-            .map(F::from_canonical_usize)
-            .collect::<Vec<_>>();
-        let data = builder.add_virtual_targets(eval.len());
-        for j in 0..data.len() {
-            pw.set_target(data[j], eval[j]);
-        }
-
-        dbg!(hash_or_noop(eval.clone()));
-        let hash = builder.hash_or_noop(data.clone());
-        builder.add_marked(Arc::new(hash), "hash test");
 
         let data = builder.build();
         let proof = data.prove(pw);

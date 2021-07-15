@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use env_logger::builder;
 use itertools::izip;
 

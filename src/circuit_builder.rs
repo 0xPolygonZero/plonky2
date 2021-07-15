@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
-use std::sync::Arc;
 use std::time::Instant;
 
 use log::info;
@@ -49,7 +48,7 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
 
     context: String,
 
-    pub marked_targets: Vec<MarkedTargets>,
+    pub marked_targets: Vec<MarkedTargets<D>>,
 
     /// Generators used to generate the witness.
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
@@ -308,7 +307,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.context = new_context.to_string();
     }
 
-    pub fn add_marked(&mut self, targets: Arc<dyn Markable>, name: &str) {
+    pub fn add_marked(&mut self, targets: Markable<D>, name: &str) {
         self.marked_targets.push(MarkedTargets {
             targets,
             name: name.to_string(),

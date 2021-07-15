@@ -78,6 +78,12 @@ impl<F: Field> PartialWitness<F> {
         )
     }
 
+    pub fn get_hash_target(&self, ht: HashTarget) -> Hash<F> {
+        Hash {
+            elements: self.get_targets(&ht.elements).try_into().unwrap(),
+        }
+    }
+
     pub fn try_get_target(&self, target: Target) -> Option<F> {
         self.target_values.get(&target).cloned()
     }

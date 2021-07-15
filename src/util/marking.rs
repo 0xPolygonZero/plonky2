@@ -1,53 +1,62 @@
 use std::convert::TryInto;
-use std::sync::Arc;
 
 use crate::field::extension_field::target::ExtensionTarget;
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::proof::HashTarget;
 use crate::target::Target;
 use crate::witness::{PartialWitness, Witness};
 
-pub trait Markable: 'static + Send + Sync {
-    fn targets(&self) -> Vec<Target>;
+#[derive(Clone)]
+pub enum Markable<const D: usize> {
+    Target(Target),
+    ExtensionTarget(ExtensionTarget<D>),
+    HashTarget(HashTarget),
+    Vec(Vec<Markable<D>>),
 }
 
-impl Markable for Target {
-    fn targets(&self) -> Vec<Target> {
-        vec![*self]
+impl<const D: usize> From<Target> for Markable<D> {
+    fn from(t: Target) -> Self {
+        Self::Target(t)
+    }
+}
+impl<const D: usize> From<ExtensionTarget<D>> for Markable<D> {
+    fn from(et: ExtensionTarget<D>) -> Self {
+        Self::ExtensionTarget(et)
+    }
+}
+impl<const D: usize> From<HashTarget> for Markable<D> {
+    fn from(ht: HashTarget) -> Self {
+        Self::HashTarget(ht)
+    }
+}
+impl<M: Into<Markable<D>>, const D: usize> From<Vec<M>> for Markable<D> {
+    fn from(v: Vec<M>) -> Self {
+        Self::Vec(v.into_iter().map(|m| m.into()).collect())
     }
 }
 
-impl<const D: usize> Markable for ExtensionTarget<D> {
-    fn targets(&self) -> Vec<Target> {
-        self.0.try_into().unwrap()
-    }
-}
-
-impl Markable for HashTarget {
-    fn targets(&self) -> Vec<Target> {
-        self.elements.try_into().unwrap()
-    }
-}
-
-impl<M: Markable> Markable for Vec<M> {
-    fn targets(&self) -> Vec<Target> {
-        self.iter().flat_map(|m| m.targets()).collect()
+impl<const D: usize> Markable<D> {
+    fn print_markable<F: Extendable<D>>(&self, pw: &PartialWitness<F>) {
+        match self {
+            Markable::Target(t) => println!("{}", pw.get_target(*t)),
+            Markable::ExtensionTarget(et) => println!("{}", pw.get_extension_target(*et)),
+            Markable::HashTarget(ht) => println!("{:?}", pw.get_hash_target(*ht)),
+            Markable::Vec(v) => v.iter().for_each(|m| m.print_markable(pw)),
+        }
     }
 }
 
 #[derive(Clone)]
-pub struct MarkedTargets {
-    pub targets: Arc<dyn Markable>,
+pub struct MarkedTargets<const D: usize> {
+    pub targets: Markable<D>,
     pub name: String,
 }
 
-impl MarkedTargets {
-    pub fn display<F: Field>(&self, pw: &PartialWitness<F>) {
-        let targets = self.targets.targets();
+impl<const D: usize> MarkedTargets<D> {
+    pub fn display<F: Extendable<D>>(&self, pw: &PartialWitness<F>) {
         println!("Values for {}:", self.name);
-        for &t in &targets {
-            println!("{}", pw.get_target(t));
-        }
+        self.targets.print_markable(pw);
         println!("End of values for {}", self.name);
     }
 }

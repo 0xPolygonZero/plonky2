@@ -1,7 +1,5 @@
 //! Concrete instantiation of a hash function.
 
-use std::sync::Arc;
-
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;

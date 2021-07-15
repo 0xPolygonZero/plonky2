@@ -1,7 +1,3 @@
-use std::sync::Arc;
-
-use env_logger::builder;
-
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
 use crate::field::extension_field::Extendable;
@@ -9,7 +5,6 @@ use crate::field::field::Field;
 use crate::gates::gate::{GateRef, PrefixedGate};
 use crate::plonk_challenger::RecursiveChallenger;
 use crate::proof::{HashTarget, ProofTarget};
-use crate::util::marking::MarkedTargets;
 use crate::util::scaling::ReducingFactorTarget;
 use crate::vanishing_poly::eval_vanishing_poly_recursively;
 use crate::vars::EvaluationTargets;
@@ -25,7 +20,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_config: &CircuitConfig,
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
-        marked: &mut Vec<MarkedTargets>,
     ) {
         assert!(self.config.num_wires >= MIN_WIRES);
         assert!(self.config.num_wires >= MIN_ROUTED_WIRES);
@@ -76,13 +70,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             &betas,
             &gammas,
             &alphas,
-            marked,
         );
-
-        marked.push(MarkedTargets {
-            name: "vanishing polys".into(),
-            targets: Arc::new(vanishing_polys_zeta[0].clone()),
-        });
 
         self.set_context("Check vanishing and quotient polynomials.");
         let quotient_polys_zeta = &proof.openings.quotient_polys;
@@ -364,7 +352,6 @@ mod tests {
 
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
-        let mut marked = Vec::new();
         let pt = proof_to_proof_target(&proof, &mut builder);
         set_proof_target(&proof, &pt, &mut pw);
 
@@ -373,7 +360,7 @@ mod tests {
         };
         pw.set_hash_target(inner_data.constants_sigmas_root, vd.constants_sigmas_root);
 
-        builder.add_recursive_verifier(pt, &config, &inner_data, &cd, &mut marked);
+        builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
 
         let data = builder.build();
         let recursive_proof = data.prove(pw);
