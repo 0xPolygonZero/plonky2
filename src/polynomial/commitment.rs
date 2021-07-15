@@ -1,5 +1,6 @@
 use anyhow::Result;
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::Extendable;
@@ -245,6 +246,8 @@ impl<F: Field> ListPolynomialCommitment<F> {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(bound = "")]
 pub struct OpeningProof<F: Field + Extendable<D>, const D: usize> {
     fri_proof: FriProof<F, D>,
     // TODO: Get the degree from `CommonCircuitData` instead.

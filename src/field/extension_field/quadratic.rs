@@ -4,12 +4,13 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 use crate::field::crandall_field::CrandallField;
 use crate::field::extension_field::{FieldExtension, Frobenius, OEF};
 use crate::field::field::Field;
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct QuadraticCrandallField([CrandallField; 2]);
 
 impl OEF<2> for QuadraticCrandallField {
