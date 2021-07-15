@@ -2,7 +2,6 @@ use crate::field::extension_field::{flatten, unflatten, Extendable};
 use crate::field::field::Field;
 use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
-use crate::merkle_proofs::verify_merkle_proof;
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
@@ -140,9 +139,6 @@ fn fri_prover_query_round<F: Field + Extendable<D>, const D: usize>(
         .iter()
         .map(|t| (t.get(x_index).to_vec(), t.prove(x_index)))
         .collect::<Vec<_>>();
-    for ((v, p), t) in initial_proof.iter().zip(initial_merkle_trees.iter()) {
-        verify_merkle_proof(v.clone(), x_index, t.root, p, false).unwrap();
-    }
     for (i, tree) in trees.iter().enumerate() {
         let arity_bits = config.reduction_arity_bits[i];
         let arity = 1 << arity_bits;

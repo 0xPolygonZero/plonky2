@@ -321,6 +321,7 @@ mod tests {
 
     use super::*;
     use crate::circuit_data::CircuitConfig;
+    use crate::fri::FriConfig;
     use crate::plonk_common::PlonkPolynomials;
 
     fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(

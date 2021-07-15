@@ -119,8 +119,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             inner_common_data,
             self,
         );
-        dbg!(self.num_gates());
-        dbg!(self.generators.len());
     }
 }
 
@@ -329,6 +327,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_recursive_verifier() {
         env_logger::init();
         type F = CrandallField;
@@ -351,7 +350,7 @@ mod tests {
             let mut builder = CircuitBuilder::<F, D>::new(config.clone());
             let two = builder.two();
             let two = builder.hash_n_to_hash(vec![two], true).elements[0];
-            for i in 0..5000 {
+            for i in 0..1000 {
                 let two = builder.mul(two, two);
             }
             let data = builder.build();
@@ -376,8 +375,6 @@ mod tests {
 
         builder.add_recursive_verifier(pt, &config, &inner_data, &cd, &mut marked);
 
-        dbg!(builder.num_gates());
-        dbg!(builder.marked_targets.len());
         let data = builder.build();
         let recursive_proof = data.prove(pw);
 
