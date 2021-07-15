@@ -1,5 +1,6 @@
 use crate::target::Target;
 
+/// A named copy constraint.
 pub struct CopyConstraint {
     pub pair: (Target, Target),
     pub name: String,

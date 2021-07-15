@@ -46,9 +46,11 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
 
     copy_constraints: Vec<CopyConstraint>,
 
+    /// A context string used to give context to copy constraints.
     context: String,
 
-    pub marked_targets: Vec<MarkedTargets<D>>,
+    /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
+    marked_targets: Vec<MarkedTargets<D>>,
 
     /// Generators used to generate the witness.
     generators: Vec<Box<dyn WitnessGenerator<F>>>,

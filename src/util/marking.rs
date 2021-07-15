@@ -7,6 +7,7 @@ use crate::proof::HashTarget;
 use crate::target::Target;
 use crate::witness::{PartialWitness, Witness};
 
+/// Enum representing all types of targets, so that they can be marked.
 #[derive(Clone)]
 pub enum Markable<const D: usize> {
     Target(Target),
@@ -37,6 +38,7 @@ impl<M: Into<Markable<D>>, const D: usize> From<Vec<M>> for Markable<D> {
 }
 
 impl<const D: usize> Markable<D> {
+    /// Display a `Markable` by querying a partial witness.
     fn print_markable<F: Extendable<D>>(&self, pw: &PartialWitness<F>) {
         match self {
             Markable::Target(t) => println!("{}", pw.get_target(*t)),
@@ -47,6 +49,7 @@ impl<const D: usize> Markable<D> {
     }
 }
 
+/// A named collection of targets.
 #[derive(Clone)]
 pub struct MarkedTargets<const D: usize> {
     pub targets: Markable<D>,
@@ -54,6 +57,7 @@ pub struct MarkedTargets<const D: usize> {
 }
 
 impl<const D: usize> MarkedTargets<D> {
+    /// Display the collection of targets along with its name by querying a partial witness.
     pub fn display<F: Extendable<D>>(&self, pw: &PartialWitness<F>) {
         println!("Values for {}:", self.name);
         self.targets.print_markable(pw);

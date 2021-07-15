@@ -41,6 +41,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         "to generate witness"
     );
 
+    // Display the marked targets for debugging purposes.
     for m in &prover_data.marked_targets {
         m.display(&partial_witness);
     }
