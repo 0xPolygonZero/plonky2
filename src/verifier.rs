@@ -26,7 +26,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     let betas = challenger.get_n_challenges(num_challenges);
     let gammas = challenger.get_n_challenges(num_challenges);
 
-    challenger.observe_hash(&proof.plonk_zs_root);
+    challenger.observe_hash(&proof.plonk_zs_partial_products_root);
     let alphas = challenger.get_n_challenges(num_challenges);
 
     challenger.observe_hash(&proof.quotient_polys_root);
@@ -78,7 +78,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     let merkle_roots = &[
         verifier_data.constants_sigmas_root,
         proof.wires_root,
-        proof.plonk_zs_root,
+        proof.plonk_zs_partial_products_root,
         proof.quotient_polys_root,
     ];
 

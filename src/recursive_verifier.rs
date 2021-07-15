@@ -36,7 +36,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let betas = challenger.get_n_challenges(self, num_challenges);
         let gammas = challenger.get_n_challenges(self, num_challenges);
 
-        challenger.observe_hash(&proof.plonk_zs_root);
+        challenger.observe_hash(&proof.plonk_zs_partial_products_root);
         let alphas = challenger.get_n_challenges(self, num_challenges);
 
         challenger.observe_hash(&proof.quotient_polys_root);
@@ -93,7 +93,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let merkle_roots = &[
             inner_verifier_data.constants_sigmas_root,
             proof.wires_root,
-            proof.plonk_zs_root,
+            proof.plonk_zs_partial_products_root,
             proof.quotient_polys_root,
         ];
 
@@ -201,7 +201,7 @@ mod tests {
 
         ProofTarget {
             wires_root,
-            plonk_zs_root,
+            plonk_zs_partial_products_root: plonk_zs_root,
             quotient_polys_root,
             openings,
             opening_proof,
@@ -215,7 +215,10 @@ mod tests {
         pw: &mut PartialWitness<F>,
     ) {
         pw.set_hash_target(pt.wires_root, proof.wires_root);
-        pw.set_hash_target(pt.plonk_zs_root, proof.plonk_zs_root);
+        pw.set_hash_target(
+            pt.plonk_zs_partial_products_root,
+            proof.plonk_zs_partial_products_root,
+        );
         pw.set_hash_target(pt.quotient_polys_root, proof.quotient_polys_root);
 
         for (&t, &x) in pt.openings.wires.iter().zip(&proof.openings.wires) {

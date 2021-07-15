@@ -180,7 +180,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     Proof {
         wires_root: wires_commitment.merkle_tree.root,
-        plonk_zs_root: zs_partial_products_commitment.merkle_tree.root,
+        plonk_zs_partial_products_root: zs_partial_products_commitment.merkle_tree.root,
         quotient_polys_root: quotient_polys_commitment.merkle_tree.root,
         openings,
         opening_proof,

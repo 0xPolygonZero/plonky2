@@ -165,7 +165,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // - one for polynomials opened at `x` and `g x`
         // - one for polynomials opened at `x` and `x.frobenius()`
 
-        // Polynomials opened at `x`, i.e., the constants, sigmas and quotient polynomials.
+        // Polynomials opened at `x`, i.e., the constants, sigmas, quotient and partial products polynomials.
         let single_evals = [
             PlonkPolynomials::CONSTANTS_SIGMAS,
             PlonkPolynomials::QUOTIENT,

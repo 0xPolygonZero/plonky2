@@ -66,7 +66,7 @@ pub struct Proof<F: Extendable<D>, const D: usize> {
     /// Merkle root of LDEs of wire values.
     pub wires_root: Hash<F>,
     /// Merkle root of LDEs of Z, in the context of Plonk's permutation argument.
-    pub plonk_zs_root: Hash<F>,
+    pub plonk_zs_partial_products_root: Hash<F>,
     /// Merkle root of LDEs of the quotient polynomial components.
     pub quotient_polys_root: Hash<F>,
     /// Purported values of each polynomial at the challenge point.
@@ -77,7 +77,7 @@ pub struct Proof<F: Extendable<D>, const D: usize> {
 
 pub struct ProofTarget<const D: usize> {
     pub wires_root: HashTarget,
-    pub plonk_zs_root: HashTarget,
+    pub plonk_zs_partial_products_root: HashTarget,
     pub quotient_polys_root: HashTarget,
     pub openings: OpeningSetTarget<D>,
     pub opening_proof: OpeningProofTarget<D>,

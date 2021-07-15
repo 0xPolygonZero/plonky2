@@ -163,7 +163,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     // - one for Zs, which are opened at `x` and `g x`
     // - one for wire polynomials, which are opened at `x` and `x.frobenius()`
 
-    // Polynomials opened at `x`, i.e., the constants, sigmas and quotient polynomials.
+    // Polynomials opened at `x`, i.e., the constants, sigmas, quotient and partial products polynomials.
     let single_evals = [
         PlonkPolynomials::CONSTANTS_SIGMAS,
         PlonkPolynomials::QUOTIENT,
