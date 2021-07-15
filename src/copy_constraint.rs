@@ -9,7 +9,7 @@ impl From<(Target, Target)> for CopyConstraint {
     fn from(pair: (Target, Target)) -> Self {
         Self {
             pair,
-            name: String::default(),
+            name: String::new(),
         }
     }
 }

@@ -183,7 +183,6 @@ impl<F: Field> PartialWitness<F> {
         F: Extendable<D>,
     {
         for CopyConstraint { pair: (a, b), name } in copy_constraints {
-            // TODO: Take care of public inputs once they land.
             let va = self.try_get_target(*a).unwrap_or(F::ZERO);
             let vb = self.try_get_target(*b).unwrap_or(F::ZERO);
             let desc = |t: &Target| -> String {

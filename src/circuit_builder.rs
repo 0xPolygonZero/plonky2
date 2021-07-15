@@ -51,7 +51,7 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     pub marked_targets: Vec<MarkedTargets<D>>,
 
     /// Generators used to generate the witness.
-    pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
+    generators: Vec<Box<dyn WitnessGenerator<F>>>,
 
     constants_to_targets: HashMap<F, Target>,
     targets_to_constants: HashMap<Target, F>,
@@ -361,7 +361,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn blind_and_pad(&mut self) {
+    fn blind_and_pad(&mut self) {
         let (regular_poly_openings, z_openings) = self.blinding_counts();
         info!(
             "Adding {} blinding terms for witness polynomials, and {}*2 for Z polynomials",
@@ -414,7 +414,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn constant_polys(
+    fn constant_polys(
         &self,
         gates: &[PrefixedGate<F, D>],
         num_constants: usize,

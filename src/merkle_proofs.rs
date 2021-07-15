@@ -124,6 +124,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         }
 
+        // TODO: this is far from optimal.
         let leaf_index_rev = self.reverse_limbs::<2>(leaf_index, height);
         self.assert_equal(acc_leaf_index, leaf_index_rev);
 

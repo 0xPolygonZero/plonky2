@@ -55,12 +55,6 @@ pub(crate) fn generate_partial_witness<F: Field>(
 
         pending_generator_indices = next_pending_generator_indices;
     }
-    for i in 0..generators.len() {
-        if !expired_generator_indices.contains(&i) {
-            dbg!(i);
-            break;
-        }
-    }
     assert_eq!(
         expired_generator_indices.len(),
         generators.len(),

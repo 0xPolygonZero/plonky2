@@ -8,7 +8,6 @@ use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::gates::gate_tree::Tree;
 use crate::generator::WitnessGenerator;
-use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A custom gate.

@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::time::Instant;
 
 use log::info;
@@ -6,7 +5,6 @@ use rayon::prelude::*;
 
 use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
 use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::{PlonkPolynomials, ZeroPolyOnCoset};
@@ -14,7 +12,6 @@ use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::timed;
-use crate::util::marking::MarkedTargets;
 use crate::util::partial_products::partial_products;
 use crate::util::{log2_ceil, transpose};
 use crate::vanishing_poly::{

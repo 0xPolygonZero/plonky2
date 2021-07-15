@@ -190,7 +190,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .copied()
             .collect::<Vec<_>>();
         let mut single_numerator = alpha.reduce(&single_evals, self);
-        // TODO: Precompute the rhs as it is the same in all FRI round.
+        // TODO: Precompute the rhs as it is the same in all FRI rounds.
         let rhs = alpha.reduce(&single_openings, self);
         single_numerator = self.sub_extension(single_numerator, rhs);
         let single_denominator = self.sub_extension(subgroup_x, zeta);
