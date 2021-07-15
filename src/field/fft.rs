@@ -250,9 +250,9 @@ fn fft_unrolled<F: Field>(input: Vec<F>, r_orig: usize, root_table: FftRootTable
             // NB: Grouping statements as is done in the main loop below
             // does not seem to help here (worse by a few millis).
             let omega_0 = root_table[0][0];
-            let tmp_0 = omega_0 * values[k + 2 + 0];
-            values[k + 2 + 0] = values[k + 0] - tmp_0;
-            values[k + 0] += tmp_0;
+            let tmp_0 = omega_0 * values[k + 2];
+            values[k + 2] = values[k] - tmp_0;
+            values[k] += tmp_0;
 
             let omega_1 = root_table[0][1];
             let tmp_1 = omega_1 * values[k + 2 + 1];
@@ -281,21 +281,21 @@ fn fft_unrolled<F: Field>(input: Vec<F>, r_orig: usize, root_table: FftRootTable
                 let off1 = k + j;
                 let off2 = k + m + j;
 
-                let omega_0 = root_table[lg_m - 1][j + 0];
+                let omega_0 = root_table[lg_m - 1][j];
                 let omega_1 = root_table[lg_m - 1][j + 1];
                 let omega_2 = root_table[lg_m - 1][j + 2];
                 let omega_3 = root_table[lg_m - 1][j + 3];
 
-                let tmp_0 = omega_0 * values[off2 + 0];
+                let tmp_0 = omega_0 * values[off2];
                 let tmp_1 = omega_1 * values[off2 + 1];
                 let tmp_2 = omega_2 * values[off2 + 2];
                 let tmp_3 = omega_3 * values[off2 + 3];
 
-                values[off2 + 0] = values[off1 + 0] - tmp_0;
+                values[off2] = values[off1] - tmp_0;
                 values[off2 + 1] = values[off1 + 1] - tmp_1;
                 values[off2 + 2] = values[off1 + 2] - tmp_2;
                 values[off2 + 3] = values[off1 + 3] - tmp_3;
-                values[off1 + 0] += tmp_0;
+                values[off1] += tmp_0;
                 values[off1 + 1] += tmp_1;
                 values[off1 + 2] += tmp_2;
                 values[off1 + 3] += tmp_3;
