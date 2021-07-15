@@ -234,6 +234,11 @@ impl Field for CrandallField {
     }
 
     #[inline]
+    fn from_canonical_u128(n: u128) -> Self {
+        reduce128(n)
+    }
+
+    #[inline]
     fn from_canonical_u64(n: u64) -> Self {
         Self(n)
     }

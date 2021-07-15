@@ -81,6 +81,10 @@ impl Field for QuadraticCrandallField {
         self.0[0].to_canonical_u64()
     }
 
+    fn from_canonical_u128(n: u128) -> Self {
+        <Self as FieldExtension<2>>::BaseField::from_canonical_u128(n).into()
+    }
+
     fn from_canonical_u64(n: u64) -> Self {
         <Self as FieldExtension<2>>::BaseField::from_canonical_u64(n).into()
     }

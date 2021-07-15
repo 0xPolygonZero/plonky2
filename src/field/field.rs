@@ -169,6 +169,8 @@ pub trait Field:
 
     fn to_canonical_u64(&self) -> u64;
 
+    fn from_canonical_u128(n: u128) -> Self;
+
     fn from_canonical_u64(n: u64) -> Self;
 
     fn from_canonical_u32(n: u32) -> Self {
