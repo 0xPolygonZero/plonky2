@@ -120,7 +120,53 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        todo!()
+        let insertion_index = vars.local_wires[self.wires_insertion_index()];
+        let list_items = (0..self.vec_size)
+            .map(|i| vars.get_local_ext_algebra(self.wires_original_list_item(i)))
+            .collect::<Vec<_>>();
+        let output_list_items = (0..=self.vec_size)
+            .map(|i| vars.get_local_ext_algebra(self.wires_output_list_item(i)))
+            .collect::<Vec<_>>();
+        let element_to_insert = vars.get_local_ext_algebra(self.wires_element_to_insert());
+
+        let mut constraints = Vec::new();
+        let mut already_inserted = builder.constant_extension(F::Extension::ZERO);
+        for r in 0..=self.vec_size {
+            let cur_index_ext = F::Extension::from_canonical_usize(r);
+            let cur_index = builder.constant_extension(cur_index_ext);
+
+            let difference = builder.sub_extension(cur_index, insertion_index);
+            let equality_dummy = vars.local_wires[self.wires_equality_dummy_for_round_r(r)];
+            let insert_here = vars.local_wires[self.wires_insert_here_for_round_r(r)];
+
+            // The two equality constraints.
+            let prod = builder.mul_extension(difference, equality_dummy);
+            let one = builder.constant_extension(F::Extension::ONE);
+            let not_insert_here = builder.sub_extension(one, insert_here);
+            let first_equality_constraint = builder.sub_extension(prod, not_insert_here);
+            constraints.push(first_equality_constraint);
+
+            let second_equality_constraint = builder.mul_extension(insert_here, difference);
+            constraints.push(second_equality_constraint);
+
+            let mut new_item = builder.scalar_mul_ext_algebra(insert_here, element_to_insert);
+            if r > 0 {
+                let to_add = builder.scalar_mul_ext_algebra(already_inserted, list_items[r - 1]);
+                new_item = builder.add_ext_algebra(new_item, to_add);
+            }
+            if r < self.vec_size {
+                let not_already_inserted = builder.sub_extension(one, already_inserted);
+                let to_add = builder.scalar_mul_ext_algebra(not_already_inserted, list_items[r]);
+                new_item = builder.add_ext_algebra(new_item, to_add);
+            }
+            already_inserted = builder.add_extension(already_inserted, insert_here);
+
+            // Output constraint.
+            let diff = builder.sub_ext_algebra(new_item, output_list_items[r]);
+            constraints.extend(diff.to_ext_target_array());
+        }
+
+        constraints
     }
 
     fn generators(
