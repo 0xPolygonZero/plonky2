@@ -1,11 +1,8 @@
-use std::convert::TryInto;
-
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
 use crate::proof::HashTarget;
 use crate::target::Target;
-use crate::witness::{PartialWitness, Witness};
+use crate::witness::PartialWitness;
 
 /// Enum representing all types of targets, so that they can be marked.
 #[derive(Clone)]

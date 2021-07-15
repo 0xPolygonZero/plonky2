@@ -157,7 +157,6 @@ mod tests {
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::merkle_proofs::verify_merkle_proof;
     use crate::merkle_tree::MerkleTree;
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
@@ -169,7 +168,6 @@ mod tests {
     #[test]
     fn test_recursive_merkle_proof() -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let mut pw = PartialWitness::new();
@@ -177,7 +175,7 @@ mod tests {
         let log_n = 8;
         let n = 1 << log_n;
         let leaves = random_data::<F>(n, 7);
-        let tree = MerkleTree::new(leaves.clone(), false);
+        let tree = MerkleTree::new(leaves, false);
         let i: usize = thread_rng().gen_range(0, n);
         let proof = tree.prove(i);
 

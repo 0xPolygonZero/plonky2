@@ -145,10 +145,10 @@ impl WirePartitions {
         debug_assert_eq!(self.indices.len() % degree, 0);
         let num_routed_wires = self.indices.len() / degree;
 
-        /// Find a wire's "neighbor" in the context of Plonk's "extended copy constraints" check. In
-        /// other words, find the next wire in the given wire's partition. If the given wire is last in
-        /// its partition, this will loop around. If the given wire has a partition all to itself, it
-        /// is considered its own neighbor.
+        // Find a wire's "neighbor" in the context of Plonk's "extended copy constraints" check. In
+        // other words, find the next wire in the given wire's partition. If the given wire is last in
+        // its partition, this will loop around. If the given wire has a partition all to itself, it
+        // is considered its own neighbor.
         let mut neighbors = HashMap::new();
         for subset in &self.partition {
             for n in 0..subset.len() {

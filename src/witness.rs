@@ -117,7 +117,7 @@ impl<F: Field> PartialWitness<F> {
 
     pub fn set_hash_target(&mut self, ht: HashTarget, value: Hash<F>) {
         ht.elements
-            .into_iter()
+            .iter()
             .zip(value.elements)
             .for_each(|(&t, x)| self.set_target(t, x));
     }

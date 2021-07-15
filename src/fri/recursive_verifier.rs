@@ -1,6 +1,3 @@
-use env_logger::builder;
-use itertools::izip;
-
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::target::{flatten_target, ExtensionTarget};
@@ -120,7 +117,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 zeta,
                 alpha,
                 initial_merkle_roots,
-                &proof,
+                proof,
                 challenger,
                 n,
                 &betas,
@@ -205,7 +202,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .take(common_data.zs_range().end)
             .map(|&e| self.convert_to_ext(e))
             .collect::<Vec<_>>();
-        let mut zs_composition_eval = alpha.clone().reduce(&zs_evals, self);
+        let zs_composition_eval = alpha.clone().reduce(&zs_evals, self);
 
         let g = self.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
         let zeta_right = self.mul_extension(g, zeta);
@@ -229,7 +226,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .iter()
             .map(|&e| self.convert_to_ext(e))
             .collect::<Vec<_>>();
-        let mut wire_composition_eval = alpha.clone().reduce(&wire_evals, self);
+        let wire_composition_eval = alpha.clone().reduce(&wire_evals, self);
         let mut alpha_frob = alpha.repeated_frobenius(D - 1, self);
         let wire_eval = alpha.reduce(&os.wires, self);
         let wire_eval_frob = alpha_frob.reduce(&os.wires, self);

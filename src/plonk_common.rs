@@ -1,16 +1,12 @@
 use std::borrow::Borrow;
 
 use crate::circuit_builder::CircuitBuilder;
-use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
-use crate::gates::gate::{GateRef, PrefixedGate};
 use crate::polynomial::commitment::SALT_SIZE;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
-use crate::util::partial_products::check_partial_products;
-use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// Holds the Merkle tree index and blinding flag of a set of polynomials used in FRI.
 #[derive(Debug, Copy, Clone)]

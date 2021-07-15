@@ -14,10 +14,8 @@ use crate::proof::Proof;
 use crate::timed;
 use crate::util::partial_products::partial_products;
 use crate::util::{log2_ceil, transpose};
-use crate::vanishing_poly::{
-    eval_vanishing_poly_base, evaluate_gate_constraints, evaluate_gate_constraints_base, yoba,
-};
-use crate::vars::{EvaluationVars, EvaluationVarsBase};
+use crate::vanishing_poly::eval_vanishing_poly_base;
+use crate::vars::EvaluationVarsBase;
 use crate::witness::{PartialWitness, Witness};
 
 pub(crate) fn prove<F: Extendable<D>, const D: usize>(

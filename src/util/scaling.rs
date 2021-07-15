@@ -187,10 +187,7 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let alpha = FF::rand();
-        let alpha = FF::ONE;
-        let vs = (0..n)
-            .map(|i| FF::from_canonical_usize(i))
-            .collect::<Vec<_>>();
+        let vs = (0..n).map(FF::from_canonical_usize).collect::<Vec<_>>();
 
         let manual_reduce = ReducingFactor::new(alpha).reduce(vs.iter());
         let manual_reduce = builder.constant_extension(manual_reduce);

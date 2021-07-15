@@ -11,7 +11,6 @@ use crate::generator::WitnessGenerator;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::proof::{Hash, HashTarget, Proof};
 use crate::prover::prove;
-use crate::target::Target;
 use crate::util::marking::MarkedTargets;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;

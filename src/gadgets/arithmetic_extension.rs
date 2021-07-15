@@ -447,7 +447,6 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
-    use crate::fri::FriConfig;
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
 

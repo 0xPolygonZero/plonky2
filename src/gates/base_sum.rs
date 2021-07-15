@@ -170,7 +170,6 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
 
 #[cfg(test)]
 mod tests {
-    use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::gates::base_sum::BaseSumGate;
     use crate::gates::gate_testing::test_low_degree;

@@ -1,8 +1,6 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
-use crate::gates::gate::{GateRef, PrefixedGate};
 use crate::plonk_challenger::RecursiveChallenger;
 use crate::proof::{HashTarget, ProofTarget};
 use crate::util::scaling::ReducingFactorTarget;
@@ -114,17 +112,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::extension_field::target::ExtensionTarget;
     use crate::fri::FriConfig;
     use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
     use crate::merkle_proofs::MerkleProofTarget;
     use crate::polynomial::commitment::OpeningProofTarget;
     use crate::proof::{
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
-        HashTarget, OpeningSetTarget, Proof,
+        OpeningSetTarget, Proof,
     };
-    use crate::target::Target;
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
 
@@ -319,7 +314,6 @@ mod tests {
     fn test_recursive_verifier() {
         env_logger::init();
         type F = CrandallField;
-        type FF = QuarticCrandallField;
         const D: usize = 4;
         let config = CircuitConfig {
             num_wires: 134,
@@ -336,10 +330,10 @@ mod tests {
         };
         let (proof, vd, cd) = {
             let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-            let two = builder.two();
-            let two = builder.hash_n_to_hash(vec![two], true).elements[0];
-            for i in 0..1000 {
-                let two = builder.mul(two, two);
+            let _two = builder.two();
+            let _two = builder.hash_n_to_hash(vec![_two], true).elements[0];
+            for _ in 0..1000 {
+                let _two = builder.mul(_two, _two);
             }
             let data = builder.build();
             (
