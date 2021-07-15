@@ -103,10 +103,10 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             if r > 0 {
                 new_item += list_items[r - 1] * already_inserted.into();
             }
+            already_inserted += insert_here;
             if r < self.vec_size {
                 new_item += list_items[r] * (F::Extension::ONE - already_inserted).into();
             }
-            already_inserted += insert_here;
 
             // Output constraint.
             constraints.extend((new_item - output_list_items[r]).to_basefield_array());
