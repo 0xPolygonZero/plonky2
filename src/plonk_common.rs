@@ -9,6 +9,7 @@ use crate::gates::gate::{GateRef, PrefixedGate};
 use crate::polynomial::commitment::SALT_SIZE;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
+use crate::util::partial_products::check_partial_products;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// Holds the Merkle tree index and blinding flag of a set of polynomials used in FRI.
@@ -37,7 +38,7 @@ impl PlonkPolynomials {
         index: 1,
         blinding: true,
     };
-    pub const ZS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
+    pub const ZS_PARTIAL_PRODUCTS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
         index: 2,
         blinding: true,
     };
@@ -50,7 +51,7 @@ impl PlonkPolynomials {
         match i {
             0 => Self::CONSTANTS_SIGMAS,
             1 => Self::WIRES,
-            2 => Self::ZS,
+            2 => Self::ZS_PARTIAL_PRODUCTS,
             3 => Self::QUOTIENT,
             _ => panic!("There are only 4 sets of polynomials in Plonk."),
         }
@@ -64,41 +65,80 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     x: F::Extension,
     vars: EvaluationVars<F, D>,
-    local_plonk_zs: &[F::Extension],
-    next_plonk_zs: &[F::Extension],
+    local_zs: &[F::Extension],
+    next_zs: &[F::Extension],
+    partial_products: &[F::Extension],
     s_sigmas: &[F::Extension],
     betas: &[F],
     gammas: &[F],
     alphas: &[F],
 ) -> Vec<F::Extension> {
+    let partial_products_degree = common_data.quotient_degree_factor;
+    let (num_prods, final_num_prod) = common_data.num_partial_products;
+
     let constraint_terms =
         evaluate_gate_constraints(&common_data.gates, common_data.num_gate_constraints, vars);
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::new();
+    // The terms checking the partial products.
+    let mut vanishing_partial_products_terms = Vec::new();
     // The Z(x) f'(x) - g'(x) Z(g x) terms.
     let mut vanishing_v_shift_terms = Vec::new();
 
     for i in 0..common_data.config.num_challenges {
-        let z_x = local_plonk_zs[i];
-        let z_gz = next_plonk_zs[i];
+        let z_x = local_zs[i];
+        let z_gz = next_zs[i];
         vanishing_z_1_terms.push(eval_l_1(common_data.degree(), x) * (z_x - F::Extension::ONE));
 
-        let mut f_prime = F::Extension::ONE;
-        let mut g_prime = F::Extension::ONE;
-        for j in 0..common_data.config.num_routed_wires {
-            let wire_value = vars.local_wires[j];
-            let k_i = common_data.k_is[j];
-            let s_id = x * k_i.into();
-            let s_sigma = s_sigmas[j];
-            f_prime *= wire_value + s_id * betas[i].into() + gammas[i].into();
-            g_prime *= wire_value + s_sigma * betas[i].into() + gammas[i].into();
-        }
-        vanishing_v_shift_terms.push(f_prime * z_x - g_prime * z_gz);
+        let numerator_values = (0..common_data.config.num_routed_wires)
+            .map(|j| {
+                let wire_value = vars.local_wires[j];
+                let k_i = common_data.k_is[j];
+                let s_id = x * k_i.into();
+                wire_value + s_id * betas[i].into() + gammas[i].into()
+            })
+            .collect::<Vec<_>>();
+        let denominator_values = (0..common_data.config.num_routed_wires)
+            .map(|j| {
+                let wire_value = vars.local_wires[j];
+                let s_sigma = s_sigmas[j];
+                wire_value + s_sigma * betas[i].into() + gammas[i].into()
+            })
+            .collect::<Vec<_>>();
+        let quotient_values = (0..common_data.config.num_routed_wires)
+            .map(|j| numerator_values[j] / denominator_values[j])
+            .collect::<Vec<_>>();
+
+        // The partial products considered for this iteration of `i`.
+        let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
+        // Check the quotient partial products.
+        let mut partial_product_check = check_partial_products(
+            &quotient_values,
+            current_partial_products,
+            partial_products_degree,
+        );
+        // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
+        // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
+        denominator_values
+            .chunks(partial_products_degree)
+            .zip(partial_product_check.iter_mut())
+            .for_each(|(d, q)| {
+                *q *= d.iter().copied().product();
+            });
+        vanishing_partial_products_terms.extend(partial_product_check);
+
+        // The quotient final product is the product of the last `final_num_prod` elements.
+        let quotient: F::Extension = current_partial_products[num_prods - final_num_prod..]
+            .iter()
+            .copied()
+            .product();
+        vanishing_v_shift_terms.push(quotient * z_x - z_gz);
     }
 
     let vanishing_terms = [
         vanishing_z_1_terms,
+        vanishing_partial_products_terms,
         vanishing_v_shift_terms,
         constraint_terms,
     ]
@@ -114,42 +154,80 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     index: usize,
     x: F,
     vars: EvaluationVarsBase<F>,
-    local_plonk_zs: &[F],
-    next_plonk_zs: &[F],
+    local_zs: &[F],
+    next_zs: &[F],
+    partial_products: &[F],
     s_sigmas: &[F],
     betas: &[F],
     gammas: &[F],
     alphas: &[F],
     z_h_on_coset: &ZeroPolyOnCoset<F>,
 ) -> Vec<F> {
+    let partial_products_degree = common_data.quotient_degree_factor;
+    let (num_prods, final_num_prod) = common_data.num_partial_products;
+
     let constraint_terms =
         evaluate_gate_constraints_base(&common_data.gates, common_data.num_gate_constraints, vars);
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::new();
+    // The terms checking the partial products.
+    let mut vanishing_partial_products_terms = Vec::new();
     // The Z(x) f'(x) - g'(x) Z(g x) terms.
     let mut vanishing_v_shift_terms = Vec::new();
 
     for i in 0..common_data.config.num_challenges {
-        let z_x = local_plonk_zs[i];
-        let z_gz = next_plonk_zs[i];
+        let z_x = local_zs[i];
+        let z_gz = next_zs[i];
         vanishing_z_1_terms.push(z_h_on_coset.eval_l1(index, x) * (z_x - F::ONE));
 
-        let mut f_prime = F::ONE;
-        let mut g_prime = F::ONE;
-        for j in 0..common_data.config.num_routed_wires {
-            let wire_value = vars.local_wires[j];
-            let k_i = common_data.k_is[j];
-            let s_id = k_i * x;
-            let s_sigma = s_sigmas[j];
-            f_prime *= wire_value + betas[i] * s_id + gammas[i];
-            g_prime *= wire_value + betas[i] * s_sigma + gammas[i];
-        }
-        vanishing_v_shift_terms.push(f_prime * z_x - g_prime * z_gz);
-    }
+        let numerator_values = (0..common_data.config.num_routed_wires)
+            .map(|j| {
+                let wire_value = vars.local_wires[j];
+                let k_i = common_data.k_is[j];
+                let s_id = k_i * x;
+                wire_value + betas[i] * s_id + gammas[i]
+            })
+            .collect::<Vec<_>>();
+        let denominator_values = (0..common_data.config.num_routed_wires)
+            .map(|j| {
+                let wire_value = vars.local_wires[j];
+                let s_sigma = s_sigmas[j];
+                wire_value + betas[i] * s_sigma + gammas[i]
+            })
+            .collect::<Vec<_>>();
+        let quotient_values = (0..common_data.config.num_routed_wires)
+            .map(|j| numerator_values[j] / denominator_values[j])
+            .collect::<Vec<_>>();
 
+        // The partial products considered for this iteration of `i`.
+        let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
+        // Check the quotient partial products.
+        let mut partial_product_check = check_partial_products(
+            &quotient_values,
+            current_partial_products,
+            partial_products_degree,
+        );
+        // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
+        // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
+        denominator_values
+            .chunks(partial_products_degree)
+            .zip(partial_product_check.iter_mut())
+            .for_each(|(d, q)| {
+                *q *= d.iter().copied().product();
+            });
+        vanishing_partial_products_terms.extend(partial_product_check);
+
+        // The quotient final product is the product of the last `final_num_prod` elements.
+        let quotient: F = current_partial_products[num_prods - final_num_prod..]
+            .iter()
+            .copied()
+            .product();
+        vanishing_v_shift_terms.push(quotient * z_x - z_gz);
+    }
     let vanishing_terms = [
         vanishing_z_1_terms,
+        vanishing_partial_products_terms,
         vanishing_v_shift_terms,
         constraint_terms,
     ]

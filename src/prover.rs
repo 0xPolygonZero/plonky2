@@ -12,6 +12,7 @@ use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::timed;
+use crate::util::partial_products::partial_products;
 use crate::util::{log2_ceil, transpose};
 use crate::vars::EvaluationVarsBase;
 use crate::witness::{PartialWitness, Witness};
@@ -78,21 +79,34 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let betas = challenger.get_n_challenges(num_challenges);
     let gammas = challenger.get_n_challenges(num_challenges);
 
-    let plonk_z_vecs = timed!(
-        compute_zs(&witness, &betas, &gammas, prover_data, common_data),
-        "to compute Z's"
+    assert!(
+        common_data.quotient_degree_factor + 1 <=common_data.config.num_routed_wires,
+        "When the number of routed wires is smaller that the degree, we should change the logic to avoid computing partial products."
+    );
+    let mut partial_products = timed!(
+        all_wires_permutation_partial_products(&witness, &betas, &gammas, prover_data, common_data),
+        "to compute partial products"
     );
 
-    let plonk_zs_commitment = timed!(
+    let plonk_z_vecs = timed!(compute_zs(&partial_products, common_data), "to compute Z's");
+
+    // The first polynomial in `partial_products` represent the final product used in the
+    // computation of `Z`. It isn't needed anymore so we discard it.
+    partial_products.iter_mut().for_each(|part| {
+        part.remove(0);
+    });
+
+    let zs_partial_products = [plonk_z_vecs, partial_products.concat()].concat();
+    let zs_partial_products_commitment = timed!(
         ListPolynomialCommitment::new(
-            plonk_z_vecs,
+            zs_partial_products,
             fri_config.rate_bits,
-            PlonkPolynomials::ZS.blinding
+            PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding
         ),
         "to commit to Z's"
     );
 
-    challenger.observe_hash(&plonk_zs_commitment.merkle_tree.root);
+    challenger.observe_hash(&zs_partial_products_commitment.merkle_tree.root);
 
     let alphas = challenger.get_n_challenges(num_challenges);
 
@@ -101,7 +115,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             common_data,
             prover_data,
             &wires_commitment,
-            &plonk_zs_commitment,
+            &zs_partial_products_commitment,
             &betas,
             &gammas,
             &alphas,
@@ -116,7 +130,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             .flat_map(|mut quotient_poly| {
                 quotient_poly.trim();
                 quotient_poly.pad(quotient_degree).expect(
-                    "The quotient polynomial doesn't have the right degree.\
+                    "The quotient polynomial doesn't have the right degree. \
                      This may be because the `Z`s polynomials are still too high degree.",
                 );
                 // Split t into degree-n chunks.
@@ -144,7 +158,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             &[
                 &prover_data.constants_sigmas_commitment,
                 &wires_commitment,
-                &plonk_zs_commitment,
+                &zs_partial_products_commitment,
                 &quotient_polys_commitment,
             ],
             zeta,
@@ -161,50 +175,103 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     Proof {
         wires_root: wires_commitment.merkle_tree.root,
-        plonk_zs_root: plonk_zs_commitment.merkle_tree.root,
+        plonk_zs_root: zs_partial_products_commitment.merkle_tree.root,
         quotient_polys_root: quotient_polys_commitment.merkle_tree.root,
         openings,
         opening_proof,
     }
 }
 
-fn compute_zs<F: Extendable<D>, const D: usize>(
+/// Compute the partial products used in the `Z` polynomials.
+fn all_wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
     witness: &Witness<F>,
     betas: &[F],
     gammas: &[F],
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
-) -> Vec<PolynomialValues<F>> {
+) -> Vec<Vec<PolynomialValues<F>>> {
     (0..common_data.config.num_challenges)
-        .map(|i| compute_z(witness, betas[i], gammas[i], prover_data, common_data))
+        .map(|i| {
+            wires_permutation_partial_products(
+                witness,
+                betas[i],
+                gammas[i],
+                prover_data,
+                common_data,
+            )
+        })
         .collect()
 }
 
-fn compute_z<F: Extendable<D>, const D: usize>(
+/// Compute the partial products used in the `Z` polynomial.
+/// Returns the polynomials interpolating `partial_products(f / g)`
+/// where `f, g` are the products in the definition of `Z`: `Z(g^i) = f / g`.
+fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
     witness: &Witness<F>,
     beta: F,
     gamma: F,
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
-) -> PolynomialValues<F> {
+) -> Vec<PolynomialValues<F>> {
+    let degree = common_data.quotient_degree_factor;
     let subgroup = &prover_data.subgroup;
-    let mut plonk_z_points = vec![F::ONE];
     let k_is = &common_data.k_is;
+    let values = subgroup
+        .par_iter()
+        .enumerate()
+        .map(|(i, &x)| {
+            let s_sigmas = &prover_data.sigmas[i];
+            let quotient_values = (0..common_data.config.num_routed_wires)
+                .map(|j| {
+                    let wire_value = witness.get_wire(i, j);
+                    let k_i = k_is[j];
+                    let s_id = k_i * x;
+                    let s_sigma = s_sigmas[j];
+                    let numerator = wire_value + beta * s_id + gamma;
+                    let denominator = wire_value + beta * s_sigma + gamma;
+                    numerator / denominator
+                })
+                .collect::<Vec<_>>();
+
+            let quotient_partials = partial_products(&quotient_values, degree);
+
+            // This is the final product for the quotient.
+            let quotient = quotient_partials
+                [common_data.num_partial_products.0 - common_data.num_partial_products.1..]
+                .iter()
+                .copied()
+                .product();
+
+            // We add the quotient at the beginning of the vector to reuse them later in the computation of `Z`.
+            [vec![quotient], quotient_partials].concat()
+        })
+        .collect::<Vec<_>>();
+
+    transpose(&values)
+        .into_par_iter()
+        .map(PolynomialValues::new)
+        .collect()
+}
+
+fn compute_zs<F: Extendable<D>, const D: usize>(
+    partial_products: &[Vec<PolynomialValues<F>>],
+    common_data: &CommonCircuitData<F, D>,
+) -> Vec<PolynomialValues<F>> {
+    (0..common_data.config.num_challenges)
+        .map(|i| compute_z(&partial_products[i], common_data))
+        .collect()
+}
+
+/// Compute the `Z` polynomial by reusing the computations done in `wires_permutation_partial_products`.
+fn compute_z<F: Extendable<D>, const D: usize>(
+    partial_products: &[PolynomialValues<F>],
+    common_data: &CommonCircuitData<F, D>,
+) -> PolynomialValues<F> {
+    let mut plonk_z_points = vec![F::ONE];
     for i in 1..common_data.degree() {
-        let x = subgroup[i - 1];
-        let mut numerator = F::ONE;
-        let mut denominator = F::ONE;
-        let s_sigmas = &prover_data.sigmas[i - 1];
-        for j in 0..common_data.config.num_routed_wires {
-            let wire_value = witness.get_wire(i - 1, j);
-            let k_i = k_is[j];
-            let s_id = k_i * x;
-            let s_sigma = s_sigmas[j];
-            numerator *= wire_value + beta * s_id + gamma;
-            denominator *= wire_value + beta * s_sigma + gamma;
-        }
+        let quotient = partial_products[0].values[i - 1];
         let last = *plonk_z_points.last().unwrap();
-        plonk_z_points.push(last * numerator / denominator);
+        plonk_z_points.push(last * quotient);
     }
     plonk_z_points.into()
 }
@@ -213,28 +280,27 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     prover_data: &'a ProverOnlyCircuitData<F, D>,
     wires_commitment: &'a ListPolynomialCommitment<F>,
-    plonk_zs_commitment: &'a ListPolynomialCommitment<F>,
+    zs_partial_products_commitment: &'a ListPolynomialCommitment<F>,
     betas: &[F],
     gammas: &[F],
     alphas: &[F],
 ) -> Vec<PolynomialCoeffs<F>> {
     let num_challenges = common_data.config.num_challenges;
-    let max_filtered_constraint_degree_bits = log2_ceil(common_data.max_filtered_constraint_degree);
+    let max_degree_bits = log2_ceil(common_data.quotient_degree_factor + 1);
     assert!(
-        max_filtered_constraint_degree_bits <= common_data.config.rate_bits,
+        max_degree_bits <= common_data.config.rate_bits,
         "Having constraints of degree higher than the rate is not supported yet. \
         If we need this in the future, we can precompute the larger LDE before computing the `ListPolynomialCommitment`s."
     );
 
     // We reuse the LDE computed in `ListPolynomialCommitment` and extract every `step` points to get
     // an LDE matching `max_filtered_constraint_degree`.
-    let step = 1 << (common_data.config.rate_bits - max_filtered_constraint_degree_bits);
+    let step = 1 << (common_data.config.rate_bits - max_degree_bits);
     // When opening the `Z`s polys at the "next" point in Plonk, need to look at the point `next_step`
     // steps away since we work on an LDE of degree `max_filtered_constraint_degree`.
-    let next_step = 1 << max_filtered_constraint_degree_bits;
+    let next_step = 1 << max_degree_bits;
 
-    let points =
-        F::two_adic_subgroup(common_data.degree_bits + max_filtered_constraint_degree_bits);
+    let points = F::two_adic_subgroup(common_data.degree_bits + max_degree_bits);
     let lde_size = points.len();
 
     // Retrieve the LDE values at index `i`.
@@ -242,8 +308,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
         comm.get_lde_values(i * step)
     };
 
-    let z_h_on_coset =
-        ZeroPolyOnCoset::new(common_data.degree_bits, max_filtered_constraint_degree_bits);
+    let z_h_on_coset = ZeroPolyOnCoset::new(common_data.degree_bits, max_degree_bits);
 
     let quotient_values: Vec<Vec<F>> = points
         .into_par_iter()
@@ -255,11 +320,14 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
             let local_constants = &local_constants_sigmas[common_data.constants_range()];
             let s_sigmas = &local_constants_sigmas[common_data.sigmas_range()];
             let local_wires = get_at_index(wires_commitment, i);
-            let local_plonk_zs = get_at_index(plonk_zs_commitment, i);
-            let next_plonk_zs = get_at_index(plonk_zs_commitment, i_next);
+            let local_zs_partial_products = get_at_index(zs_partial_products_commitment, i);
+            let local_zs = &local_zs_partial_products[common_data.zs_range()];
+            let next_zs =
+                &get_at_index(zs_partial_products_commitment, i_next)[common_data.zs_range()];
+            let partial_products = &local_zs_partial_products[common_data.partial_products_range()];
 
             debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
-            debug_assert_eq!(local_plonk_zs.len(), num_challenges);
+            debug_assert_eq!(local_zs.len(), num_challenges);
 
             let vars = EvaluationVarsBase {
                 local_constants,
@@ -270,8 +338,9 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
                 i,
                 shifted_x,
                 vars,
-                local_plonk_zs,
-                next_plonk_zs,
+                local_zs,
+                next_zs,
+                partial_products,
                 s_sigmas,
                 betas,
                 gammas,
