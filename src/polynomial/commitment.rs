@@ -7,7 +7,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::{FieldExtension, Frobenius};
 use crate::field::field::Field;
-use crate::fri::{prover::fri_proof, verifier::verify_fri_proof, FriConfig};
+use crate::fri::{prover::fri_proof, verifier::verify_fri_proof};
 use crate::merkle_tree::MerkleTree;
 use crate::plonk_challenger::{Challenger, RecursiveChallenger};
 use crate::plonk_common::PlonkPolynomials;

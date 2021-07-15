@@ -61,6 +61,11 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     let quotient_polys_zeta = &proof.openings.quotient_polys;
     let zeta_pow_deg = zeta.exp_power_of_2(common_data.degree_bits);
     let z_h_zeta = zeta_pow_deg - F::Extension::ONE;
+    // `quotient_polys_zeta` holds `num_challenges * quotient_degree_factor` evaluations.
+    // Each chunk of `quotient_degree_factor` holds the evaluations of `t_0(zeta),...,t_{quotient_degree_factor-1}(zeta)`
+    // where the "real" quotient polynomial is `t(X) = t_0(X) + t_1(X)*X^n + t_2(X)*X^{2n} + ...`.
+    // So to reconstruct `t(zeta)` we can compute `reduce_with_powers(chunk, zeta^n)` for each
+    // `quotient_degree_factor`-sized chunk of the original evaluations.
     for (i, chunk) in quotient_polys_zeta
         .chunks(common_data.quotient_degree_factor)
         .enumerate()

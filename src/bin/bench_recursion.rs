@@ -5,9 +5,6 @@ use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field::Field;
 use plonky2::fri::FriConfig;
-use plonky2::gates::constant::ConstantGate;
-use plonky2::gates::gmimc::GMiMCGate;
-use plonky2::hash::GMIMC_ROUNDS;
 use plonky2::witness::PartialWitness;
 
 fn main() {

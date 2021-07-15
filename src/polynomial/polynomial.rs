@@ -1,7 +1,6 @@
 use std::cmp::max;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
-use std::time::Instant;
 
 use anyhow::{ensure, Result};
 
