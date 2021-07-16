@@ -90,7 +90,6 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
         values = points
             .chunks_exact(arity)
             .map(|chunk| {
-                println!("{:?}", chunk);
                 let weights = barycentric_weights(chunk);
                 interpolate(&chunk, beta, &weights)
             })
