@@ -1,5 +1,6 @@
 use crate::field::extension_field::{flatten, unflatten, Extendable};
 use crate::field::field::Field;
+use crate::field::interpolation::{barycentric_weights, interpolate};
 use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_tree::MerkleTree;
@@ -7,7 +8,7 @@ use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep, Hash};
-use crate::util::reverse_index_bits_in_place;
+use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
 /// Builds a FRI proof.
 pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
@@ -53,11 +54,11 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
     config: &FriConfig,
 ) -> (Vec<MerkleTree<F>>, PolynomialCoeffs<F::Extension>) {
     let mut values = polynomial_values.clone();
-    let mut coeffs = polynomial_coeffs.clone();
 
     let mut trees = Vec::new();
 
-    let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
+    let mut domain =
+        F::coset_two_adic_subgroup(log2_strict(polynomial_values.len()), F::coset_shift());
     let num_reductions = config.reduction_arity_bits.len();
     for i in 0..num_reductions {
         let arity = 1 << config.reduction_arity_bits[i];
@@ -71,23 +72,48 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
                 .collect(),
             false,
         );
+        reverse_index_bits_in_place(&mut values.values);
 
         challenger.observe_hash(&tree.root);
         trees.push(tree);
 
         let beta = challenger.get_extension_challenge();
-        // P(x) = sum_{i<r} x^i * P_i(x^r) becomes sum_{i<r} beta^i * P_i(x).
-        coeffs = PolynomialCoeffs::new(
-            coeffs
-                .coeffs
-                .chunks_exact(arity)
-                .map(|chunk| reduce_with_powers(chunk, beta))
-                .collect::<Vec<_>>(),
-        );
-        shift = shift.exp_u32(arity as u32);
-        // TODO: Is it faster to interpolate?
-        values = coeffs.clone().coset_fft(shift.into())
+        let n = values.len();
+        debug_assert_eq!(n % arity, 0);
+        let roots_of_unity = F::Extension::two_adic_subgroup(config.reduction_arity_bits[i]);
+        values = values
+            .values
+            .iter()
+            .take(n / arity)
+            .zip(&domain)
+            .enumerate()
+            .map(|(i, (&v, &x))| {
+                let points = (0..arity)
+                    .map(|j| {
+                        (
+                            roots_of_unity[j] * x.into(),
+                            values.values[i + j * n / arity],
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                let weights = barycentric_weights(&points);
+                interpolate(&points, beta, &weights)
+            })
+            .collect::<Vec<_>>()
+            .into();
+
+        domain = domain
+            .into_iter()
+            .take(n / arity)
+            .map(|x| x.exp(arity as u64))
+            .collect();
     }
+
+    let coeffs = values.coset_ifft(
+        F::coset_shift()
+            .exp_power_of_2(config.reduction_arity_bits.iter().copied().sum())
+            .into(),
+    );
 
     challenger.observe_extension_elements(&coeffs.coeffs);
     (trees, coeffs)

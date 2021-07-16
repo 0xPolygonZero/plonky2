@@ -167,6 +167,14 @@ pub trait Field:
         subgroup.into_iter().map(|x| x * shift).collect()
     }
 
+    /// Computes a coset of a two-adic subgroup.
+    fn coset_two_adic_subgroup(n_log: usize, shift: Self) -> Vec<Self> {
+        Self::two_adic_subgroup(n_log)
+            .into_iter()
+            .map(|x| x * shift)
+            .collect()
+    }
+
     fn to_canonical_u64(&self) -> u64;
 
     fn from_canonical_u64(n: u64) -> Self;
