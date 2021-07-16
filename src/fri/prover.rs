@@ -1,4 +1,4 @@
-use crate::field::extension_field::{flatten, unflatten, Extendable};
+use crate::field::extension_field::{flatten, unflatten, Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::field::interpolation::{barycentric_weights, interpolate};
 use crate::fri::FriConfig;
@@ -42,68 +42,69 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
     }
 }
 
-fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
+pub fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
     polynomial_values: &PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
 ) -> (Vec<MerkleTree<F>>, PolynomialCoeffs<F::Extension>) {
-    let mut values = polynomial_values.clone();
+    let mut values = polynomial_values.values.clone();
+    reverse_index_bits_in_place(&mut values);
 
     let mut trees = Vec::new();
 
+    // Domain on which the polynomial is evaluated.
     let mut domain =
         F::coset_two_adic_subgroup(log2_strict(polynomial_values.len()), F::coset_shift());
+    reverse_index_bits_in_place(&mut domain);
+
     let num_reductions = config.reduction_arity_bits.len();
     for i in 0..num_reductions {
         let arity = 1 << config.reduction_arity_bits[i];
 
-        reverse_index_bits_in_place(&mut values.values);
+        // Commit to the polynomial values.
         let tree = MerkleTree::new(
             values
-                .values
                 .chunks(arity)
                 .map(|chunk: &[F::Extension]| flatten(chunk))
                 .collect(),
             false,
         );
-        reverse_index_bits_in_place(&mut values.values);
 
+        // Observe the Merkle tree root.
         challenger.observe_hash(&tree.root);
         trees.push(tree);
 
+        // Generate random challenge `beta` for the FRI reduction.
         let beta = challenger.get_extension_challenge();
-        let n = values.len();
-        debug_assert_eq!(n % arity, 0);
-        let roots_of_unity = F::Extension::two_adic_subgroup(config.reduction_arity_bits[i]);
-        values = values
-            .values
-            .iter()
-            .take(n / arity)
-            .zip(&domain)
-            .enumerate()
-            .map(|(i, (&v, &x))| {
-                let points = (0..arity)
-                    .map(|j| {
-                        (
-                            roots_of_unity[j] * x.into(),
-                            values.values[i + j * n / arity],
-                        )
-                    })
-                    .collect::<Vec<_>>();
-                let weights = barycentric_weights(&points);
-                interpolate(&points, beta, &weights)
-            })
-            .collect::<Vec<_>>()
-            .into();
 
+        debug_assert_eq!(values.len() % arity, 0);
+        // Zip domain points and their evaluations.
+        let points = values
+            .into_iter()
+            .zip(domain.iter())
+            .map(|(v, &x)| (F::Extension::from_basefield(x), v))
+            .collect::<Vec<_>>();
+        // Reduce the values by interpolating each chunk of size `arity` at `beta`.
+        values = points
+            .chunks_exact(arity)
+            .map(|chunk| {
+                println!("{:?}", chunk);
+                let weights = barycentric_weights(chunk);
+                interpolate(&chunk, beta, &weights)
+            })
+            .collect::<Vec<_>>();
+
+        // The new domain is the old domain to the power `arity`.
         domain = domain
             .into_iter()
-            .take(n / arity)
-            .map(|x| x.exp(arity as u64))
+            .step_by(arity)
+            .map(|x| x.exp_power_of_2(config.reduction_arity_bits[i]))
             .collect();
     }
 
-    let mut coeffs = values.coset_ifft(
+    // Reorder the values and perform an IFFT to recover the final polynomial.
+    reverse_index_bits_in_place(&mut values);
+    let mut coeffs = PolynomialValues::new(values).coset_ifft(
         F::coset_shift()
             .exp_power_of_2(config.reduction_arity_bits.iter().copied().sum())
             .into(),
