@@ -42,7 +42,9 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
     }
 }
 
-pub fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
+// Perform the FRI reductions steps.
+// Returns the Merkle trees of the values at each step and the remaining final polynomial.
+fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
     polynomial_values: &PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
