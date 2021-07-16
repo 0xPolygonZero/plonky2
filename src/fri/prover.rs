@@ -24,12 +24,7 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
     assert_eq!(lde_polynomial_coeffs.coeffs.len(), n);
 
     // Commit phase
-    let (trees, final_coeffs) = fri_committed_trees(
-        lde_polynomial_coeffs,
-        lde_polynomial_values,
-        challenger,
-        config,
-    );
+    let (trees, final_coeffs) = fri_committed_trees(lde_polynomial_values, challenger, config);
 
     // PoW phase
     let current_hash = challenger.get_hash();
@@ -48,7 +43,6 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
 }
 
 fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
-    polynomial_coeffs: &PolynomialCoeffs<F::Extension>,
     polynomial_values: &PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
@@ -109,11 +103,12 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
             .collect();
     }
 
-    let coeffs = values.coset_ifft(
+    let mut coeffs = values.coset_ifft(
         F::coset_shift()
             .exp_power_of_2(config.reduction_arity_bits.iter().copied().sum())
             .into(),
     );
+    coeffs.trim();
 
     challenger.observe_extension_elements(&coeffs.coeffs);
     (trees, coeffs)

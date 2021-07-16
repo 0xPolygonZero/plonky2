@@ -78,12 +78,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let total_arities = config.reduction_arity_bits.iter().sum::<usize>();
         debug_assert_eq!(
             purported_degree_log,
-            log2_strict(proof.final_poly.len()) + total_arities - config.rate_bits,
+            log2_strict(proof.final_poly.len()) + total_arities,
             "Final polynomial has wrong degree."
         );
 
         // Size of the LDE domain.
-        let n = proof.final_poly.len() << total_arities;
+        let n = proof.final_poly.len() << (total_arities + config.rate_bits);
 
         // Recover the random betas used in the FRI reductions.
         let betas = proof
