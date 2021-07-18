@@ -134,8 +134,7 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
         let old_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_OLD];
         let new_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_NEW];
         // computed_new_index_acc = 2 * old_index_acc + swap
-        let two = builder.two();
-        let two = builder.convert_to_ext(two);
+        let two = builder.two_extension();
         let computed_new_index_acc = builder.mul_add_extension(two, old_index_acc, swap);
         constraints.push(builder.sub_extension(computed_new_index_acc, new_index_acc));
 
@@ -436,7 +435,7 @@ mod tests {
         assert_eq!(ev.len(), ev_t.len());
         for (e, e_t) in ev.into_iter().zip(ev_t) {
             let e_c = builder.constant_extension(e);
-            builder.route_extension(e_c, e_t);
+            builder.assert_equal_extension(e_c, e_t);
         }
 
         let data = builder.build();

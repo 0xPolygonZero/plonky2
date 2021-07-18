@@ -53,7 +53,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let s_sigmas = &proof.openings.plonk_sigmas;
         let partial_products = &proof.openings.partial_products;
 
-        let zeta_pow_deg = self.exp_u64_extension(zeta, inner_common_data.degree() as u64);
+        let zeta_pow_deg = self.exp_power_of_2(zeta, inner_common_data.degree_bits);
         self.set_context("Evaluate the vanishing polynomial at our challenge point, zeta.");
         let vanishing_polys_zeta = eval_vanishing_poly_recursively(
             self,
@@ -72,23 +72,20 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         self.set_context("Check vanishing and quotient polynomials.");
         let quotient_polys_zeta = &proof.openings.quotient_polys;
-        let zeta_pow_deg = self.exp_u64_extension(zeta, 1 << inner_common_data.degree_bits as u64);
         let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
         let z_h_zeta = self.sub_extension(zeta_pow_deg, one);
         for (i, chunk) in quotient_polys_zeta
             .chunks(inner_common_data.quotient_degree_factor)
             .enumerate()
         {
-            let mut rhs = scale.reduce(chunk, self);
-            rhs = self.mul_extension(z_h_zeta, rhs);
+            let recombined_quotient = scale.reduce(chunk, self);
+            let computed_vanishing_poly = self.mul_extension(z_h_zeta, recombined_quotient);
             self.named_route_extension(
                 vanishing_polys_zeta[i],
-                rhs,
+                computed_vanishing_poly,
                 format!("Vanishing polynomial == Z_H * quotient, challenge {}", i),
             );
         }
-
-        let evaluations = proof.openings.clone();
 
         let merkle_roots = &[
             inner_verifier_data.constants_sigmas_root,
@@ -99,7 +96,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         proof.opening_proof.verify(
             zeta,
-            &evaluations,
+            &proof.openings,
             merkle_roots,
             &mut challenger,
             inner_common_data,

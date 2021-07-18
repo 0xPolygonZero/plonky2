@@ -114,6 +114,7 @@ impl<F: Fn(Target) -> usize> TargetPartition<Target, F> {
 
 pub struct WirePartitions {
     partition: Vec<Vec<Wire>>,
+    // TODO: We don't need `indices` anymore, so we can delete it.
     indices: HashMap<Wire, usize>,
 }
 
