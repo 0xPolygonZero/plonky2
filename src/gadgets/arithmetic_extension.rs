@@ -461,8 +461,10 @@ mod tests {
         let xt = builder.constant_extension(x);
         let yt = builder.constant_extension(y);
         let zt = builder.constant_extension(z);
-        let comp_zt = builder.div_unsafe_extension(xt, yt);
+        let comp_zt = builder.div_extension(xt, yt);
+        let comp_zt_unsafe = builder.div_unsafe_extension(xt, yt);
         builder.assert_equal_extension(zt, comp_zt);
+        builder.assert_equal_extension(zt, comp_zt_unsafe);
 
         let data = builder.build();
         let proof = data.prove(PartialWitness::new());
