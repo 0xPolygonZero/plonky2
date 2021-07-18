@@ -9,8 +9,9 @@ use crate::fri::FriConfig;
 use crate::gates::gate::{GateInstance, PrefixedGate};
 use crate::generator::WitnessGenerator;
 use crate::polynomial::commitment::ListPolynomialCommitment;
-use crate::proof::{Hash, HashTarget, Proof};
+use crate::proof::{Hash, HashTarget, ProofWithPublicInputs};
 use crate::prover::prove;
+use crate::target::Target;
 use crate::util::marking::MarkedTargets;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
@@ -78,12 +79,12 @@ pub struct CircuitData<F: Extendable<D>, const D: usize> {
 }
 
 impl<F: Extendable<D>, const D: usize> CircuitData<F, D> {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<Proof<F, D>> {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, D>> {
         prove(&self.prover_only, &self.common, inputs)
     }
 
-    pub fn verify(&self, proof: Proof<F, D>) -> Result<()> {
-        verify(proof, &self.verifier_only, &self.common)
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, D>) -> Result<()> {
+        verify(proof_with_pis, &self.verifier_only, &self.common)
     }
 }
 
@@ -100,7 +101,7 @@ pub struct ProverCircuitData<F: Extendable<D>, const D: usize> {
 }
 
 impl<F: Extendable<D>, const D: usize> ProverCircuitData<F, D> {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<Proof<F, D>> {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, D>> {
         prove(&self.prover_only, &self.common, inputs)
     }
 }
@@ -112,8 +113,8 @@ pub struct VerifierCircuitData<F: Extendable<D>, const D: usize> {
 }
 
 impl<F: Extendable<D>, const D: usize> VerifierCircuitData<F, D> {
-    pub fn verify(&self, proof: Proof<F, D>) -> Result<()> {
-        verify(proof, &self.verifier_only, &self.common)
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, D>) -> Result<()> {
+        verify(proof_with_pis, &self.verifier_only, &self.common)
     }
 }
 
@@ -130,6 +131,8 @@ pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
     pub copy_constraints: Vec<CopyConstraint>,
     /// The concrete placement of each gate in the circuit.
     pub gate_instances: Vec<GateInstance<F, D>>,
+    /// Targets to be made public.
+    pub public_inputs: Vec<Target>,
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
     pub marked_targets: Vec<MarkedTargets<D>>,
 }

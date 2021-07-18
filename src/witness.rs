@@ -193,7 +193,6 @@ impl<F: Field> PartialWitness<F> {
                         gate,
                         gate_instances[*gate].gate_type.0.id()
                     ),
-                    Target::PublicInput { index } => format!("{}-th public input", index),
                     Target::VirtualTarget { index } => format!("{}-th virtual target", index),
                 }
             };

@@ -31,9 +31,11 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
             .iter()
             .map(|w| F::Extension::from_basefield(*w))
             .collect::<Vec<_>>();
+        let public_inputs_hash = &vars_base.public_inputs_hash;
         let vars = EvaluationVars {
             local_constants,
             local_wires,
+            public_inputs_hash,
         };
         let values = self.eval_unfiltered(vars);
 
