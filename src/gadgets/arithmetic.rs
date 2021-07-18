@@ -179,6 +179,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.exp_u64_extension(base_ext, exponent).0[0]
     }
 
+    /// Computes `x / y`. Results in an unsatisfiable instance if `y = 0`.
+    pub fn div(&mut self, x: Target, y: Target) -> Target {
+        let y_inv = self.inverse(y);
+        self.mul(x, y_inv)
+    }
+
     /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
     /// some cases, as it allows `0 / 0 = <anything>`.
     pub fn div_unsafe(&mut self, x: Target, y: Target) -> Target {
@@ -200,5 +206,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let x_ext = self.convert_to_ext(x);
         let y_ext = self.convert_to_ext(y);
         self.div_unsafe_extension(x_ext, y_ext).0[0]
+    }
+
+    /// Computes `1 / x`. Results in an unsatisfiable instance if `x = 0`.
+    pub fn inverse(&mut self, x: Target) -> Target {
+        let x_ext = self.convert_to_ext(x);
+        self.inverse_extension(x_ext).0[0]
     }
 }
