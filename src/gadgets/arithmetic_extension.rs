@@ -341,8 +341,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x: ExtensionTarget<D>,
         y: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        // TODO: Use add_virtual_extension_target when that's merged.
-        let quotient = ExtensionTarget::try_from(self.add_virtual_targets(D)).unwrap();
+        let quotient = self.add_virtual_extension_target();
         self.add_generator(QuotientGeneratorExtension {
             numerator: x,
             denominator: y,
@@ -358,8 +357,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Computes `1 / x`. Results in an unsatisfiable instance if `x = 0`.
     pub fn inverse_extension(&mut self, x: ExtensionTarget<D>) -> ExtensionTarget<D> {
-        // TODO: Use add_virtual_extension_target when that's merged.
-        let inv = ExtensionTarget::try_from(self.add_virtual_targets(D)).unwrap();
+        let inv = self.add_virtual_extension_target();
         let one = self.one_extension();
         self.add_generator(QuotientGeneratorExtension {
             numerator: one,
