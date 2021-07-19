@@ -212,7 +212,7 @@ pub fn hash_n_to_m<F: Field>(mut inputs: Vec<F>, num_outputs: usize, pad: bool) 
     // Absorb all input chunks.
     for input_chunk in inputs.chunks(SPONGE_RATE) {
         for i in 0..input_chunk.len() {
-            state[i] += input_chunk[i];
+            state[i] = input_chunk[i];
         }
         state = permute(state);
     }

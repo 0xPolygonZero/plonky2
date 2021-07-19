@@ -7,13 +7,14 @@ use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::field::extension_field::Extendable;
 use crate::generator::generate_partial_witness;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{eval_vanishing_poly_base, PlonkPolynomials, ZeroPolyOnCoset};
+use crate::plonk_common::{PlonkPolynomials, ZeroPolyOnCoset};
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::Proof;
 use crate::timed;
 use crate::util::partial_products::partial_products;
 use crate::util::{log2_ceil, transpose};
+use crate::vanishing_poly::eval_vanishing_poly_base;
 use crate::vars::EvaluationVarsBase;
 use crate::witness::{PartialWitness, Witness};
 
@@ -38,16 +39,21 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         "to generate witness"
     );
 
-    let witness = timed!(
-        partial_witness.full_witness(degree, num_wires),
-        "to compute full witness"
-    );
+    // Display the marked targets for debugging purposes.
+    for m in &prover_data.marked_targets {
+        m.display(&partial_witness);
+    }
 
     timed!(
-        witness
+        partial_witness
             .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)
             .unwrap(), // TODO: Change return value to `Result` and use `?` here.
         "to check copy constraints"
+    );
+
+    let witness = timed!(
+        partial_witness.full_witness(degree, num_wires),
+        "to compute full witness"
     );
 
     let wires_values: Vec<PolynomialValues<F>> = timed!(
@@ -130,8 +136,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             .flat_map(|mut quotient_poly| {
                 quotient_poly.trim();
                 quotient_poly.pad(quotient_degree).expect(
-                    "The quotient polynomial doesn't have the right degree. \
-                     This may be because the `Z`s polynomials are still too high degree.",
+                    "Quotient has failed, the vanishing polynomial is not divisible by `Z_H",
                 );
                 // Split t into degree-n chunks.
                 quotient_poly.chunks(degree)
@@ -175,7 +180,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     Proof {
         wires_root: wires_commitment.merkle_tree.root,
-        plonk_zs_root: zs_partial_products_commitment.merkle_tree.root,
+        plonk_zs_partial_products_root: zs_partial_products_commitment.merkle_tree.root,
         quotient_polys_root: quotient_polys_commitment.merkle_tree.root,
         openings,
         opening_proof,

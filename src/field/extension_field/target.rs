@@ -32,7 +32,7 @@ impl<const D: usize> ExtensionTarget<D> {
         }
         let arr = self.to_target_array();
         let k = (F::ORDER - 1) / (D as u64);
-        let z0 = F::W.exp(k * count as u64);
+        let z0 = F::Extension::W.exp(k * count as u64);
         let zs = z0
             .powers()
             .take(D)

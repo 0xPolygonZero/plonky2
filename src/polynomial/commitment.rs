@@ -2,19 +2,21 @@ use anyhow::Result;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::CommonCircuitData;
+use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::{FieldExtension, Frobenius};
 use crate::field::field::Field;
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof};
 use crate::merkle_tree::MerkleTree;
-use crate::plonk_challenger::Challenger;
+use crate::plonk_challenger::{Challenger, RecursiveChallenger};
 use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::proof::{FriProof, FriProofTarget, Hash, OpeningSet};
+use crate::proof::{FriProof, FriProofTarget, Hash, HashTarget, OpeningSet, OpeningSetTarget};
 use crate::timed;
 use crate::util::scaling::ReducingFactor;
-use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
+use crate::util::{log2_ceil, log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
 
 pub const SALT_SIZE: usize = 2;
 
@@ -246,15 +248,15 @@ impl<F: Field> ListPolynomialCommitment<F> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(bound = "")]
-pub struct OpeningProof<F: Field + Extendable<D>, const D: usize> {
-    fri_proof: FriProof<F, D>,
+pub struct OpeningProof<F: Extendable<D>, const D: usize> {
+    pub(crate) fri_proof: FriProof<F, D>,
     // TODO: Get the degree from `CommonCircuitData` instead.
     quotient_degree: usize,
 }
 
-impl<F: Field + Extendable<D>, const D: usize> OpeningProof<F, D> {
+impl<F: Extendable<D>, const D: usize> OpeningProof<F, D> {
     pub fn verify(
         &self,
         zeta: F::Extension,
@@ -281,7 +283,34 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningProof<F, D> {
 }
 
 pub struct OpeningProofTarget<const D: usize> {
-    fri_proof: FriProofTarget<D>,
+    pub(crate) fri_proof: FriProofTarget<D>,
+}
+
+impl<const D: usize> OpeningProofTarget<D> {
+    pub fn verify<F: Extendable<D>>(
+        &self,
+        zeta: ExtensionTarget<D>,
+        os: &OpeningSetTarget<D>,
+        merkle_roots: &[HashTarget],
+        challenger: &mut RecursiveChallenger,
+        common_data: &CommonCircuitData<F, D>,
+        builder: &mut CircuitBuilder<F, D>,
+    ) {
+        challenger.observe_opening_set(os);
+
+        let alpha = challenger.get_extension_challenge(builder);
+
+        builder.verify_fri_proof(
+            log2_ceil(common_data.degree()),
+            &os,
+            zeta,
+            alpha,
+            merkle_roots,
+            &self.fri_proof,
+            challenger,
+            common_data,
+        );
+    }
 }
 
 #[cfg(test)]

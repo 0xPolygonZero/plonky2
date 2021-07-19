@@ -2,6 +2,7 @@
 
 pub mod circuit_builder;
 pub mod circuit_data;
+pub mod copy_constraint;
 pub mod field;
 pub mod fri;
 pub mod gadgets;
@@ -21,6 +22,7 @@ pub mod recursive_verifier;
 pub mod rescue;
 pub mod target;
 pub mod util;
+pub mod vanishing_poly;
 pub mod vars;
 pub mod verifier;
 pub mod wire;

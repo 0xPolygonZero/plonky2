@@ -18,6 +18,7 @@ pub struct MerkleProof<F: Field> {
     pub siblings: Vec<Hash<F>>,
 }
 
+#[derive(Clone)]
 pub struct MerkleProofTarget {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.
     pub siblings: Vec<HashTarget>,
@@ -125,14 +126,82 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         }
 
-        self.assert_equal(acc_leaf_index, leaf_index);
+        // TODO: this is far from optimal.
+        let leaf_index_rev = self.reverse_limbs::<2>(leaf_index, height);
+        self.assert_equal(acc_leaf_index, leaf_index_rev);
 
-        self.assert_hashes_equal(state, merkle_root)
+        self.named_assert_hashes_equal(state, merkle_root, "Check Merkle root".into())
     }
 
     pub(crate) fn assert_hashes_equal(&mut self, x: HashTarget, y: HashTarget) {
         for i in 0..4 {
             self.assert_equal(x.elements[i], y.elements[i]);
         }
+    }
+
+    pub(crate) fn named_assert_hashes_equal(&mut self, x: HashTarget, y: HashTarget, name: String) {
+        for i in 0..4 {
+            self.named_assert_equal(
+                x.elements[i],
+                y.elements[i],
+                format!("{}: {}-th hash element", name, i),
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+    use rand::{thread_rng, Rng};
+
+    use super::*;
+    use crate::circuit_data::CircuitConfig;
+    use crate::field::crandall_field::CrandallField;
+    use crate::merkle_tree::MerkleTree;
+    use crate::verifier::verify;
+    use crate::witness::PartialWitness;
+
+    fn random_data<F: Field>(n: usize, k: usize) -> Vec<Vec<F>> {
+        (0..n).map(|_| F::rand_vec(k)).collect()
+    }
+
+    #[test]
+    fn test_recursive_merkle_proof() -> Result<()> {
+        type F = CrandallField;
+        let config = CircuitConfig::large_config();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut pw = PartialWitness::new();
+
+        let log_n = 8;
+        let n = 1 << log_n;
+        let leaves = random_data::<F>(n, 7);
+        let tree = MerkleTree::new(leaves, false);
+        let i: usize = thread_rng().gen_range(0, n);
+        let proof = tree.prove(i);
+
+        let proof_t = MerkleProofTarget {
+            siblings: builder.add_virtual_hashes(proof.siblings.len()),
+        };
+        for i in 0..proof.siblings.len() {
+            pw.set_hash_target(proof_t.siblings[i], proof.siblings[i]);
+        }
+
+        let root_t = builder.add_virtual_hash();
+        pw.set_hash_target(root_t, tree.root);
+
+        let i_c = builder.constant(F::from_canonical_usize(i));
+
+        let data = builder.add_virtual_targets(tree.leaves[i].len());
+        for j in 0..data.len() {
+            pw.set_target(data[j], tree.leaves[i][j]);
+        }
+
+        builder.verify_merkle_proof(data, i_c, root_t, &proof_t);
+
+        let data = builder.build();
+        let proof = data.prove(pw);
+
+        verify(proof, &data.verifier_only, &data.common)
     }
 }

@@ -64,13 +64,13 @@ impl HashTarget {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(bound = "")]
-pub struct Proof<F: Field + Extendable<D>, const D: usize> {
+pub struct Proof<F: Extendable<D>, const D: usize> {
     /// Merkle root of LDEs of wire values.
     pub wires_root: Hash<F>,
     /// Merkle root of LDEs of Z, in the context of Plonk's permutation argument.
-    pub plonk_zs_root: Hash<F>,
+    pub plonk_zs_partial_products_root: Hash<F>,
     /// Merkle root of LDEs of the quotient polynomial components.
     pub quotient_polys_root: Hash<F>,
     /// Purported values of each polynomial at the challenge point.
@@ -81,20 +81,21 @@ pub struct Proof<F: Field + Extendable<D>, const D: usize> {
 
 pub struct ProofTarget<const D: usize> {
     pub wires_root: HashTarget,
-    pub plonk_zs_root: HashTarget,
+    pub plonk_zs_partial_products_root: HashTarget,
     pub quotient_polys_root: HashTarget,
-    pub openings: Vec<OpeningSetTarget<D>>,
-    pub opening_proof: Vec<OpeningProofTarget<D>>,
+    pub openings: OpeningSetTarget<D>,
+    pub opening_proof: OpeningProofTarget<D>,
 }
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(bound = "")]
-pub struct FriQueryStep<F: Field + Extendable<D>, const D: usize> {
+pub struct FriQueryStep<F: Extendable<D>, const D: usize> {
     pub evals: Vec<F::Extension>,
     pub merkle_proof: MerkleProof<F>,
 }
 
+#[derive(Clone)]
 pub struct FriQueryStepTarget<const D: usize> {
     pub evals: Vec<ExtensionTarget<D>>,
     pub merkle_proof: MerkleProofTarget,
@@ -102,7 +103,7 @@ pub struct FriQueryStepTarget<const D: usize> {
 
 /// Evaluations and Merkle proofs of the original set of polynomials,
 /// before they are combined into a composition polynomial.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(bound = "")]
 pub struct FriInitialTreeProof<F: Field> {
     pub evals_proofs: Vec<(Vec<F>, MerkleProof<F>)>,
@@ -115,6 +116,7 @@ impl<F: Field> FriInitialTreeProof<F> {
     }
 }
 
+#[derive(Clone)]
 pub struct FriInitialTreeProofTarget {
     pub evals_proofs: Vec<(Vec<Target>, MerkleProofTarget)>,
 }
@@ -127,21 +129,22 @@ impl FriInitialTreeProofTarget {
 }
 
 /// Proof for a FRI query round.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(bound = "")]
-pub struct FriQueryRound<F: Field + Extendable<D>, const D: usize> {
+pub struct FriQueryRound<F: Extendable<D>, const D: usize> {
     pub initial_trees_proof: FriInitialTreeProof<F>,
     pub steps: Vec<FriQueryStep<F, D>>,
 }
 
+#[derive(Clone)]
 pub struct FriQueryRoundTarget<const D: usize> {
     pub initial_trees_proof: FriInitialTreeProofTarget,
     pub steps: Vec<FriQueryStepTarget<D>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(bound = "")]
-pub struct FriProof<F: Field + Extendable<D>, const D: usize> {
+pub struct FriProof<F: Extendable<D>, const D: usize> {
     /// A Merkle root for each reduced polynomial in the commit phase.
     pub commit_phase_merkle_roots: Vec<Hash<F>>,
     /// Query rounds proofs
@@ -161,9 +164,9 @@ pub struct FriProofTarget<const D: usize> {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 /// The purported values of each polynomial at a single point.
-pub struct OpeningSet<F: Field + Extendable<D>, const D: usize> {
+pub struct OpeningSet<F: Extendable<D>, const D: usize> {
     pub constants: Vec<F::Extension>,
-    pub plonk_s_sigmas: Vec<F::Extension>,
+    pub plonk_sigmas: Vec<F::Extension>,
     pub wires: Vec<F::Extension>,
     pub plonk_zs: Vec<F::Extension>,
     pub plonk_zs_right: Vec<F::Extension>,
@@ -171,7 +174,7 @@ pub struct OpeningSet<F: Field + Extendable<D>, const D: usize> {
     pub quotient_polys: Vec<F::Extension>,
 }
 
-impl<F: Field + Extendable<D>, const D: usize> OpeningSet<F, D> {
+impl<F: Extendable<D>, const D: usize> OpeningSet<F, D> {
     pub fn new(
         z: F::Extension,
         g: F::Extension,
@@ -191,7 +194,7 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningSet<F, D> {
         let zs_partial_products_eval = eval_commitment(z, zs_partial_products_commitment);
         Self {
             constants: constants_sigmas_eval[common_data.constants_range()].to_vec(),
-            plonk_s_sigmas: constants_sigmas_eval[common_data.sigmas_range()].to_vec(),
+            plonk_sigmas: constants_sigmas_eval[common_data.sigmas_range()].to_vec(),
             wires: eval_commitment(z, wires_commitment),
             plonk_zs: zs_partial_products_eval[common_data.zs_range()].to_vec(),
             plonk_zs_right: eval_commitment(g * z, zs_partial_products_commitment)
@@ -205,11 +208,13 @@ impl<F: Field + Extendable<D>, const D: usize> OpeningSet<F, D> {
 }
 
 /// The purported values of each polynomial at a single point.
+#[derive(Clone, Debug)]
 pub struct OpeningSetTarget<const D: usize> {
     pub constants: Vec<ExtensionTarget<D>>,
     pub plonk_sigmas: Vec<ExtensionTarget<D>>,
     pub wires: Vec<ExtensionTarget<D>>,
     pub plonk_zs: Vec<ExtensionTarget<D>>,
     pub plonk_zs_right: Vec<ExtensionTarget<D>>,
+    pub partial_products: Vec<ExtensionTarget<D>>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }

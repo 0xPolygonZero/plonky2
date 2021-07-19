@@ -114,26 +114,11 @@ impl<F: Fn(Target) -> usize> TargetPartition<Target, F> {
 
 pub struct WirePartitions {
     partition: Vec<Vec<Wire>>,
+    // TODO: We don't need `indices` anymore, so we can delete it.
     indices: HashMap<Wire, usize>,
 }
 
 impl WirePartitions {
-    /// Find a wire's "neighbor" in the context of Plonk's "extended copy constraints" check. In
-    /// other words, find the next wire in the given wire's partition. If the given wire is last in
-    /// its partition, this will loop around. If the given wire has a partition all to itself, it
-    /// is considered its own neighbor.
-    fn get_neighbor(&self, wire: Wire) -> Wire {
-        let partition = &self.partition[self.indices[&wire]];
-        let n = partition.len();
-        for i in 0..n {
-            if partition[i] == wire {
-                let neighbor_index = (i + 1) % n;
-                return partition[neighbor_index];
-            }
-        }
-        panic!("Wire not found in the expected partition")
-    }
-
     pub(crate) fn get_sigma_polys<F: Field>(
         &self,
         degree_log: usize,
@@ -161,11 +146,22 @@ impl WirePartitions {
         debug_assert_eq!(self.indices.len() % degree, 0);
         let num_routed_wires = self.indices.len() / degree;
 
+        // Find a wire's "neighbor" in the context of Plonk's "extended copy constraints" check. In
+        // other words, find the next wire in the given wire's partition. If the given wire is last in
+        // its partition, this will loop around. If the given wire has a partition all to itself, it
+        // is considered its own neighbor.
+        let mut neighbors = HashMap::new();
+        for subset in &self.partition {
+            for n in 0..subset.len() {
+                neighbors.insert(subset[n], subset[(n + 1) % subset.len()]);
+            }
+        }
+
         let mut sigma = Vec::new();
         for input in 0..num_routed_wires {
             for gate in 0..degree {
                 let wire = Wire { gate, input };
-                let neighbor = self.get_neighbor(wire);
+                let neighbor = neighbors[&wire];
                 sigma.push(neighbor.input * degree + neighbor.gate);
             }
         }

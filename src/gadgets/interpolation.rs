@@ -65,7 +65,7 @@ mod tests {
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::extension_field::FieldExtension;
     use crate::field::field::Field;
-    use crate::field::interpolation::{interpolant, interpolate};
+    use crate::field::interpolation::interpolant;
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
 

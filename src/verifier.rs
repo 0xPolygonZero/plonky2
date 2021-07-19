@@ -4,8 +4,9 @@ use crate::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{eval_vanishing_poly, reduce_with_powers};
+use crate::plonk_common::reduce_with_powers;
 use crate::proof::Proof;
+use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::EvaluationVars;
 
 pub(crate) fn verify<F: Extendable<D>, const D: usize>(
@@ -25,7 +26,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     let betas = challenger.get_n_challenges(num_challenges);
     let gammas = challenger.get_n_challenges(num_challenges);
 
-    challenger.observe_hash(&proof.plonk_zs_root);
+    challenger.observe_hash(&proof.plonk_zs_partial_products_root);
     let alphas = challenger.get_n_challenges(num_challenges);
 
     challenger.observe_hash(&proof.quotient_polys_root);
@@ -39,7 +40,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     };
     let local_zs = &proof.openings.plonk_zs;
     let next_zs = &proof.openings.plonk_zs_right;
-    let s_sigmas = &proof.openings.plonk_s_sigmas;
+    let s_sigmas = &proof.openings.plonk_sigmas;
     let partial_products = &proof.openings.partial_products;
 
     // Evaluate the vanishing polynomial at our challenge point, zeta.
@@ -77,7 +78,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     let merkle_roots = &[
         verifier_data.constants_sigmas_root,
         proof.wires_root,
-        proof.plonk_zs_root,
+        proof.plonk_zs_partial_products_root,
         proof.quotient_polys_root,
     ];
 

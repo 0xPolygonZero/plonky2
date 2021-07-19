@@ -76,10 +76,15 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
     fn eval_filtered_recursively(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        vars: EvaluationTargets<D>,
+        mut vars: EvaluationTargets<D>,
+        prefix: &[bool],
     ) -> Vec<ExtensionTarget<D>> {
-        // TODO: Filter
+        let filter = compute_filter_recursively(builder, prefix, vars.local_constants);
+        vars.remove_prefix(prefix);
         self.eval_unfiltered_recursively(builder, vars)
+            .into_iter()
+            .map(|c| builder.mul_extension(filter, c))
+            .collect()
     }
 
     fn generators(
@@ -166,4 +171,25 @@ fn compute_filter<K: Field>(prefix: &[bool], constants: &[K]) -> K {
             }
         })
         .product()
+}
+
+fn compute_filter_recursively<F: Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    prefix: &[bool],
+    constants: &[ExtensionTarget<D>],
+) -> ExtensionTarget<D> {
+    let one = builder.one_extension();
+    let v = prefix
+        .iter()
+        .enumerate()
+        .map(|(i, &b)| {
+            if b {
+                constants[i]
+            } else {
+                builder.sub_extension(one, constants[i])
+            }
+        })
+        .collect::<Vec<_>>();
+
+    builder.mul_many_extension(&v)
 }

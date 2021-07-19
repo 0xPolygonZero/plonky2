@@ -39,6 +39,12 @@ impl<'a, F: Field> EvaluationVarsBase<'a, F> {
     }
 }
 
+impl<'a, const D: usize> EvaluationTargets<'a, D> {
+    pub fn remove_prefix(&mut self, prefix: &[bool]) {
+        self.local_constants = &self.local_constants[prefix.len()..];
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct EvaluationTargets<'a, const D: usize> {
     pub(crate) local_constants: &'a [ExtensionTarget<D>],

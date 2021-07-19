@@ -2,6 +2,7 @@ use std::ops::{Range, RangeFrom};
 
 use anyhow::Result;
 
+use crate::copy_constraint::CopyConstraint;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::fri::FriConfig;
@@ -10,7 +11,7 @@ use crate::generator::WitnessGenerator;
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::proof::{Hash, HashTarget, Proof};
 use crate::prover::prove;
-use crate::target::Target;
+use crate::util::marking::MarkedTargets;
 use crate::verifier::verify;
 use crate::witness::PartialWitness;
 
@@ -125,9 +126,11 @@ pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
     /// Subgroup of order `degree`.
     pub subgroup: Vec<F>,
     /// The circuit's copy constraints.
-    pub copy_constraints: Vec<(Target, Target)>,
+    pub copy_constraints: Vec<CopyConstraint>,
     /// The concrete placement of each gate in the circuit.
     pub gate_instances: Vec<GateInstance<F, D>>,
+    /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
+    pub marked_targets: Vec<MarkedTargets<D>>,
 }
 
 /// Circuit data required by the verifier, but not the prover.
@@ -222,9 +225,6 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
 /// limited form of dynamic inner circuits. We can't practically make things like the wire count
 /// dynamic, at least not without setting a maximum wire count and paying for the worst case.
 pub struct VerifierCircuitTarget {
-    /// A commitment to each constant polynomial.
-    pub(crate) constants_root: HashTarget,
-
-    /// A commitment to each permutation polynomial.
-    pub(crate) sigmas_root: HashTarget,
+    /// A commitment to each constant polynomial and each permutation polynomial.
+    pub(crate) constants_sigmas_root: HashTarget,
 }

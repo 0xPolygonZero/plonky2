@@ -1,3 +1,4 @@
+pub mod marking;
 pub mod partial_products;
 pub mod scaling;
 pub(crate) mod timing;

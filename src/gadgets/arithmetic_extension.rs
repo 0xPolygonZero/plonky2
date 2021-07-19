@@ -253,6 +253,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Like `mul_sub`, but for `ExtensionTarget`s.
+    pub fn mul_sub_extension(
+        &mut self,
+        a: ExtensionTarget<D>,
+        b: ExtensionTarget<D>,
+        c: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        self.arithmetic_extension(F::ONE, F::NEG_ONE, a, b, c)
+    }
+
+    /// Like `mul_sub`, but for `ExtensionTarget`s.
     pub fn scalar_mul_sub_extension(
         &mut self,
         a: Target,
@@ -280,6 +290,19 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             b.0[i] = self.mul_extension(a, b.0[i]);
         }
         b
+    }
+
+    /// Exponentiate `base` to the power of `2^power_log`.
+    // TODO: Test
+    pub fn exp_power_of_2(
+        &mut self,
+        mut base: ExtensionTarget<D>,
+        power_log: usize,
+    ) -> ExtensionTarget<D> {
+        for _ in 0..power_log {
+            base = self.square_extension(base);
+        }
+        base
     }
 
     /// Exponentiate `base` to the power of a known `exponent`.
@@ -437,7 +460,6 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
-    use crate::fri::FriConfig;
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
 

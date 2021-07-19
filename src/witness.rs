@@ -3,10 +3,12 @@ use std::convert::TryInto;
 
 use anyhow::{ensure, Result};
 
+use crate::copy_constraint::CopyConstraint;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::gates::gate::GateInstance;
+use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
 use crate::wire::Wire;
 
@@ -18,41 +20,6 @@ pub struct Witness<F: Field> {
 impl<F: Field> Witness<F> {
     pub fn get_wire(&self, gate: usize, input: usize) -> F {
         self.wire_values[input][gate]
-    }
-
-    /// Checks that the copy constraints are satisfied in the witness.
-    pub fn check_copy_constraints<const D: usize>(
-        &self,
-        copy_constraints: &[(Target, Target)],
-        gate_instances: &[GateInstance<F, D>],
-    ) -> Result<()>
-    where
-        F: Extendable<D>,
-    {
-        for &(a, b) in copy_constraints {
-            // TODO: Take care of public inputs once they land, and virtual targets.
-            if let (
-                Target::Wire(Wire {
-                    gate: a_gate,
-                    input: a_input,
-                }),
-                Target::Wire(Wire {
-                    gate: b_gate,
-                    input: b_input,
-                }),
-            ) = (a, b)
-            {
-                let va = self.get_wire(a_gate, a_input);
-                let vb = self.get_wire(b_gate, b_input);
-                ensure!(
-                    va == vb,
-                    "Copy constraint between wire {} of gate #{} (`{}`) and wire {} of gate #{} (`{}`) is not satisfied. \
-                    Got values of {} and {} respectively.",
-                    a_input, a_gate, gate_instances[a_gate].gate_type.0.id(), b_input, b_gate,
-                    gate_instances[b_gate].gate_type.0.id(), va, vb);
-            }
-        }
-        Ok(())
     }
 }
 
@@ -111,6 +78,12 @@ impl<F: Field> PartialWitness<F> {
         )
     }
 
+    pub fn get_hash_target(&self, ht: HashTarget) -> Hash<F> {
+        Hash {
+            elements: self.get_targets(&ht.elements).try_into().unwrap(),
+        }
+    }
+
     pub fn try_get_target(&self, target: Target) -> Option<F> {
         self.target_values.get(&target).cloned()
     }
@@ -140,6 +113,13 @@ impl<F: Field> PartialWitness<F> {
                 target
             );
         }
+    }
+
+    pub fn set_hash_target(&mut self, ht: HashTarget, value: Hash<F>) {
+        ht.elements
+            .iter()
+            .zip(value.elements)
+            .for_each(|(&t, x)| self.set_target(t, x));
     }
 
     pub fn set_extension_target<const D: usize>(
@@ -191,6 +171,44 @@ impl<F: Field> PartialWitness<F> {
             }
         });
         Witness { wire_values }
+    }
+
+    /// Checks that the copy constraints are satisfied in the witness.
+    pub fn check_copy_constraints<const D: usize>(
+        &self,
+        copy_constraints: &[CopyConstraint],
+        gate_instances: &[GateInstance<F, D>],
+    ) -> Result<()>
+    where
+        F: Extendable<D>,
+    {
+        for CopyConstraint { pair: (a, b), name } in copy_constraints {
+            let va = self.try_get_target(*a).unwrap_or(F::ZERO);
+            let vb = self.try_get_target(*b).unwrap_or(F::ZERO);
+            let desc = |t: &Target| -> String {
+                match t {
+                    Target::Wire(Wire { gate, input }) => format!(
+                        "wire {} of gate #{} (`{}`)",
+                        input,
+                        gate,
+                        gate_instances[*gate].gate_type.0.id()
+                    ),
+                    Target::PublicInput { index } => format!("{}-th public input", index),
+                    Target::VirtualTarget { index } => format!("{}-th virtual target", index),
+                }
+            };
+            ensure!(
+                va == vb,
+                "Copy constraint '{}' between {} and {} is not satisfied. \
+                Got values of {} and {} respectively.",
+                name,
+                desc(a),
+                desc(b),
+                va,
+                vb
+            );
+        }
+        Ok(())
     }
 }
 
