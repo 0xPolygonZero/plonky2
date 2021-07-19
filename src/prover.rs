@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use anyhow::Result;
 use log::info;
 use rayon::prelude::*;
 
@@ -22,7 +23,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
-) -> Proof<F, D> {
+) -> Result<Proof<F, D>> {
     let fri_config = &common_data.config.fri_config;
     let config = &common_data.config;
     let num_wires = config.num_wires;
@@ -46,8 +47,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     timed!(
         partial_witness
-            .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)
-            .unwrap(), // TODO: Change return value to `Result` and use `?` here.
+            .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)?,
         "to check copy constraints"
     );
 
@@ -135,6 +135,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             .into_par_iter()
             .flat_map(|mut quotient_poly| {
                 quotient_poly.trim();
+                // TODO: Return Result instead of panicking.
                 quotient_poly.pad(quotient_degree).expect(
                     "Quotient has failed, the vanishing polynomial is not divisible by `Z_H",
                 );
@@ -178,13 +179,13 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         start_proof_gen.elapsed().as_secs_f32()
     );
 
-    Proof {
+    Ok(Proof {
         wires_root: wires_commitment.merkle_tree.root,
         plonk_zs_partial_products_root: zs_partial_products_commitment.merkle_tree.root,
         quotient_polys_root: quotient_polys_commitment.merkle_tree.root,
         openings,
         opening_proof,
-    }
+    })
 }
 
 /// Compute the partial products used in the `Z` polynomials.

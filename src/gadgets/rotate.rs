@@ -113,6 +113,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+
     use super::*;
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
@@ -130,7 +132,7 @@ mod tests {
         res
     }
 
-    fn test_rotate_given_len(len: usize) {
+    fn test_rotate_given_len(len: usize) -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
@@ -150,9 +152,9 @@ mod tests {
         }
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new());
+        let proof = data.prove(PartialWitness::new())?;
 
-        verify(proof, &data.verifier_only, &data.common).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
     }
 
     #[test]

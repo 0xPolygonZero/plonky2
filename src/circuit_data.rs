@@ -77,7 +77,7 @@ pub struct CircuitData<F: Extendable<D>, const D: usize> {
 }
 
 impl<F: Extendable<D>, const D: usize> CircuitData<F, D> {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F, D> {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<Proof<F, D>> {
         prove(&self.prover_only, &self.common, inputs)
     }
 
@@ -99,7 +99,7 @@ pub struct ProverCircuitData<F: Extendable<D>, const D: usize> {
 }
 
 impl<F: Extendable<D>, const D: usize> ProverCircuitData<F, D> {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Proof<F, D> {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<Proof<F, D>> {
         prove(&self.prover_only, &self.common, inputs)
     }
 }

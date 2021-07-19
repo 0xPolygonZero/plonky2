@@ -107,6 +107,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+
     use super::*;
     use crate::field::crandall_field::CrandallField;
     use crate::fri::FriConfig;
@@ -314,7 +316,7 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn test_recursive_verifier() {
+    fn test_recursive_verifier() -> Result<()> {
         env_logger::init();
         type F = CrandallField;
         const D: usize = 4;
@@ -340,12 +342,12 @@ mod tests {
             }
             let data = builder.build();
             (
-                data.prove(PartialWitness::new()),
+                data.prove(PartialWitness::new())?,
                 data.verifier_only,
                 data.common,
             )
         };
-        verify(proof.clone(), &vd, &cd).unwrap();
+        verify(proof.clone(), &vd, &cd)?;
 
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
@@ -360,8 +362,8 @@ mod tests {
         builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
 
         let data = builder.build();
-        let recursive_proof = data.prove(pw);
+        let recursive_proof = data.prove(pw)?;
 
-        verify(recursive_proof, &data.verifier_only, &data.common).unwrap();
+        verify(recursive_proof, &data.verifier_only, &data.common)
     }
 }

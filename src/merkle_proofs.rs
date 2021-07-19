@@ -200,7 +200,7 @@ mod tests {
         builder.verify_merkle_proof(data, i_c, root_t, &proof_t);
 
         let data = builder.build();
-        let proof = data.prove(pw);
+        let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }

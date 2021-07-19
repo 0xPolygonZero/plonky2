@@ -170,6 +170,8 @@ impl<const D: usize> ReducingFactorTarget<D> {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+
     use super::*;
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
@@ -177,7 +179,7 @@ mod tests {
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
 
-    fn test_reduce_gadget(n: usize) {
+    fn test_reduce_gadget(n: usize) -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         const D: usize = 4;
@@ -202,18 +204,18 @@ mod tests {
         builder.assert_equal_extension(manual_reduce, circuit_reduce);
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new());
+        let proof = data.prove(PartialWitness::new())?;
 
-        verify(proof, &data.verifier_only, &data.common).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
     }
 
     #[test]
-    fn test_reduce_gadget_even() {
-        test_reduce_gadget(10);
+    fn test_reduce_gadget_even() -> Result<()> {
+        test_reduce_gadget(10)
     }
 
     #[test]
-    fn test_reduce_gadget_odd() {
-        test_reduce_gadget(11);
+    fn test_reduce_gadget_odd() -> Result<()> {
+        test_reduce_gadget(11)
     }
 }

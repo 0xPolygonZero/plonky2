@@ -1,3 +1,4 @@
+use anyhow::Result;
 use env_logger::Env;
 use log::info;
 use plonky2::circuit_builder::CircuitBuilder;
@@ -8,17 +9,17 @@ use plonky2::field::field::Field;
 use plonky2::fri::FriConfig;
 use plonky2::witness::PartialWitness;
 
-fn main() {
+fn main() -> Result<()> {
     // Set the default log filter. This can be overridden using the `RUST_LOG` environment variable,
     // e.g. `RUST_LOG=debug`.
     // We default to debug for now, since there aren't many logs anyway, but we should probably
     // change this to info or warn later.
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    bench_prove::<CrandallField, 4>();
+    bench_prove::<CrandallField, 4>()
 }
 
-fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
+fn bench_prove<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
     let config = CircuitConfig {
         num_wires: 134,
         num_routed_wires: 27,
@@ -49,8 +50,8 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
 
     let circuit = builder.build();
     let inputs = PartialWitness::new();
-    let proof = circuit.prove(inputs);
+    let proof = circuit.prove(inputs)?;
     let proof_bytes = serde_cbor::to_vec(&proof).unwrap();
     info!("Proof length: {} bytes", proof_bytes.len());
-    circuit.verify(proof).unwrap();
+    circuit.verify(proof)
 }

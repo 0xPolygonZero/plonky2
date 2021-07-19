@@ -73,6 +73,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+
     use super::*;
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
@@ -91,7 +93,7 @@ mod tests {
         res
     }
 
-    fn test_insert_given_len(len_log: usize) {
+    fn test_insert_given_len(len_log: usize) -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let len = 1 << len_log;
@@ -115,15 +117,16 @@ mod tests {
         }
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new());
+        let proof = data.prove(PartialWitness::new())?;
 
-        verify(proof, &data.verifier_only, &data.common).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
     }
 
     #[test]
-    fn test_insert() {
+    fn test_insert() -> Result<()> {
         for len_log in 1..3 {
-            test_insert_given_len(len_log);
+            test_insert_given_len(len_log)?;
         }
+        Ok(())
     }
 }
