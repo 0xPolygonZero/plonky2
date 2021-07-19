@@ -1,5 +1,4 @@
 use crate::circuit_builder::CircuitBuilder;
-use crate::circuit_data::CircuitConfig;
 use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::target::{flatten_target, ExtensionTarget};
 use crate::field::extension_field::Extendable;
@@ -164,11 +163,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // We will add three terms to `sum`:
         // - one for polynomials opened at `x` only
         // - one for polynomials opened at `x` and `g x`
-        // - one for polynomials opened at `x` and `x.frobenius()`
 
-        // Polynomials opened at `x`, i.e., the constants, sigmas, quotient and partial products polynomials.
+        // Polynomials opened at `x`, i.e., the constants-sigmas, wires, quotient and partial products polynomials.
         let single_evals = [
             PlonkPolynomials::CONSTANTS_SIGMAS,
+            PlonkPolynomials::WIRES,
             PlonkPolynomials::QUOTIENT,
         ]
         .iter()
@@ -183,6 +182,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .constants
             .iter()
             .chain(&os.plonk_sigmas)
+            .chain(&os.wires)
             .chain(&os.quotient_polys)
             .chain(&os.partial_products)
             .copied()
@@ -220,27 +220,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let zs_quotient = self.div_unsafe_extension(zs_numerator, zs_denominator);
         sum = alpha.shift(sum, self);
         sum = self.add_extension(sum, zs_quotient);
-
-        // Polynomials opened at `x` and `x.frobenius()`, i.e., the wires polynomials.
-        let wire_evals = proof
-            .unsalted_evals(PlonkPolynomials::WIRES, config.zero_knowledge)
-            .iter()
-            .map(|&e| self.convert_to_ext(e))
-            .collect::<Vec<_>>();
-        let wire_composition_eval = alpha.clone().reduce(&wire_evals, self);
-        let mut alpha_frob = alpha.repeated_frobenius(D - 1, self);
-        let wire_eval = alpha.reduce(&os.wires, self);
-        let wire_eval_frob = alpha_frob.reduce(&os.wires, self);
-        let wire_eval_frob = wire_eval_frob.frobenius(self);
-        let zeta_frob = zeta.frobenius(self);
-        let wire_interpol_val =
-            self.interpolate2([(zeta, wire_eval), (zeta_frob, wire_eval_frob)], subgroup_x);
-        let wire_numerator = self.sub_extension(wire_composition_eval, wire_interpol_val);
-        let vanish_zeta_frob = self.sub_extension(subgroup_x, zeta_frob);
-        let wire_denominator = self.mul_extension(vanish_zeta, vanish_zeta_frob);
-        let wire_quotient = self.div_unsafe_extension(wire_numerator, wire_denominator);
-        sum = alpha.shift(sum, self);
-        sum = self.add_extension(sum, wire_quotient);
 
         sum
     }
