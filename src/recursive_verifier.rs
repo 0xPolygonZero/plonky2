@@ -326,9 +326,9 @@ mod tests {
             security_bits: 128,
             rate_bits: 3,
             num_challenges: 3,
+            zero_knowledge: false,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
-                rate_bits: 3,
                 reduction_arity_bits: vec![2, 2, 2, 2, 2, 2, 2],
                 num_query_rounds: 40,
             },

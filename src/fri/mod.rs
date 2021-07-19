@@ -10,8 +10,6 @@ const EPSILON: f64 = 0.01;
 pub struct FriConfig {
     pub proof_of_work_bits: u32,
 
-    pub rate_bits: usize,
-
     /// The arity of each FRI reduction step, expressed (i.e. the log2 of the actual arity).
     /// For example, `[3, 2, 1]` would describe a FRI reduction tree with 8-to-1 reduction, then
     /// a 4-to-1 reduction, then a 2-to-1 reduction. After these reductions, the reduced polynomial

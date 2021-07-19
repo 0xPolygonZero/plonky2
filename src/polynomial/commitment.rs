@@ -18,6 +18,7 @@ use crate::timed;
 use crate::util::scaling::ReducingFactor;
 use crate::util::{log2_ceil, log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
 
+/// Two (~64 bit) field elements gives ~128 bit security.
 pub const SALT_SIZE: usize = 2;
 
 pub struct ListPolynomialCommitment<F: Field> {
@@ -121,7 +122,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
     where
         F: Extendable<D>,
     {
-        let config = &common_data.config.fri_config;
+        let config = &common_data.config;
         assert!(D > 1, "Not implemented for D=1.");
         let degree_log = commitments[0].degree_log;
         let g = F::Extension::primitive_root_of_unity(degree_log);
@@ -208,7 +209,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             &lde_final_poly,
             &lde_final_values,
             challenger,
-            &config,
+            &config.fri_config,
         );
 
         (
@@ -351,7 +352,6 @@ mod tests {
         let degree_log = 11;
         let fri_config = FriConfig {
             proof_of_work_bits: 2,
-            rate_bits: 2,
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
         };
@@ -376,7 +376,7 @@ mod tests {
             .map(|i| {
                 ListPolynomialCommitment::<F>::new(
                     gen_random_test_case(ks[i], degree_log),
-                    common_data.config.fri_config.rate_bits,
+                    common_data.config.rate_bits,
                     PlonkPolynomials::polynomials(i).blinding,
                 )
             })
