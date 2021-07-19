@@ -108,14 +108,17 @@ impl<F: Fn(Target) -> usize> TargetPartition<Target, F> {
             });
         });
 
-        WirePartitions { partition, indices }
+        let num_wires = partition.iter().map(|v| v.len()).sum();
+        WirePartitions {
+            partition,
+            num_wires,
+        }
     }
 }
 
 pub struct WirePartitions {
     partition: Vec<Vec<Wire>>,
-    // TODO: We don't need `indices` anymore, so we can delete it.
-    indices: HashMap<Wire, usize>,
+    num_wires: usize,
 }
 
 impl WirePartitions {
@@ -143,8 +146,8 @@ impl WirePartitions {
     /// Generates sigma in the context of Plonk, which is a map from `[kn]` to `[kn]`, where `k` is
     /// the number of routed wires and `n` is the number of gates.
     fn get_sigma_map(&self, degree: usize) -> Vec<usize> {
-        debug_assert_eq!(self.indices.len() % degree, 0);
-        let num_routed_wires = self.indices.len() / degree;
+        debug_assert_eq!(self.num_wires % degree, 0);
+        let num_routed_wires = self.num_wires / degree;
 
         // Find a wire's "neighbor" in the context of Plonk's "extended copy constraints" check. In
         // other words, find the next wire in the given wire's partition. If the given wire is last in
