@@ -86,7 +86,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let gammas = challenger.get_n_challenges(num_challenges);
 
     assert!(
-        common_data.quotient_degree_factor + 1 <=common_data.config.num_routed_wires,
+        common_data.quotient_degree_factor < common_data.config.num_routed_wires,
         "When the number of routed wires is smaller that the degree, we should change the logic to avoid computing partial products."
     );
     let mut partial_products = timed!(

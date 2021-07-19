@@ -117,12 +117,6 @@ pub const GMIMC_CONSTANTS: [u64; GMIMC_ROUNDS] = [
     8651171085167737860,
 ];
 
-/// Controls the granularity of parallelization when building Merkle trees. I.e., we will try to
-/// split up the task into units of work, such that each unit involves hashing roughly this many
-/// elements. If this is too small, there may be too much synchronization overhead; if it's too
-/// large, some threads may spend significant time idle.
-const ELEMS_PER_CHUNK: usize = 1 << 8;
-
 /// Hash the vector if necessary to reduce its length to ~256 bits. If it already fits, this is a
 /// no-op.
 pub fn hash_or_noop<F: Field>(inputs: Vec<F>) -> Hash<F> {
@@ -226,8 +220,8 @@ pub fn hash_n_to_m<F: Field>(mut inputs: Vec<F>, num_outputs: usize, pad: bool) 
     // Squeeze until we have the desired number of outputs.
     let mut outputs = Vec::new();
     loop {
-        for i in 0..SPONGE_RATE {
-            outputs.push(state[i]);
+        for &item in state.iter().take(SPONGE_RATE) {
+            outputs.push(item);
             if outputs.len() == num_outputs {
                 return outputs;
             }

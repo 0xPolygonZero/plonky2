@@ -1,4 +1,5 @@
 use anyhow::{ensure, Result};
+use serde::{Deserialize, Serialize};
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
@@ -10,7 +11,8 @@ use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
 use crate::wire::Wire;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(bound = "")]
 pub struct MerkleProof<F: Field> {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.
     pub siblings: Vec<Hash<F>>,

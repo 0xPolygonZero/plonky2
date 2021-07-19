@@ -1,5 +1,7 @@
 use std::convert::TryInto;
 
+use serde::{Deserialize, Serialize};
+
 use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
@@ -12,7 +14,8 @@ use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
 
 /// Represents a ~256 bit hash output.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(bound = "")]
 pub struct Hash<F: Field> {
     pub(crate) elements: [F; 4],
 }
@@ -61,7 +64,8 @@ impl HashTarget {
     }
 }
 
-#[derive(Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(bound = "")]
 pub struct Proof<F: Extendable<D>, const D: usize> {
     /// Merkle root of LDEs of wire values.
     pub wires_root: Hash<F>,
@@ -84,8 +88,9 @@ pub struct ProofTarget<const D: usize> {
 }
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
-#[derive(Clone)]
-pub struct FriQueryStep<F: Field + Extendable<D>, const D: usize> {
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(bound = "")]
+pub struct FriQueryStep<F: Extendable<D>, const D: usize> {
     pub evals: Vec<F::Extension>,
     pub merkle_proof: MerkleProof<F>,
 }
@@ -98,7 +103,8 @@ pub struct FriQueryStepTarget<const D: usize> {
 
 /// Evaluations and Merkle proofs of the original set of polynomials,
 /// before they are combined into a composition polynomial.
-#[derive(Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(bound = "")]
 pub struct FriInitialTreeProof<F: Field> {
     pub evals_proofs: Vec<(Vec<F>, MerkleProof<F>)>,
 }
@@ -123,8 +129,9 @@ impl FriInitialTreeProofTarget {
 }
 
 /// Proof for a FRI query round.
-#[derive(Clone)]
-pub struct FriQueryRound<F: Field + Extendable<D>, const D: usize> {
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(bound = "")]
+pub struct FriQueryRound<F: Extendable<D>, const D: usize> {
     pub initial_trees_proof: FriInitialTreeProof<F>,
     pub steps: Vec<FriQueryStep<F, D>>,
 }
@@ -135,8 +142,9 @@ pub struct FriQueryRoundTarget<const D: usize> {
     pub steps: Vec<FriQueryStepTarget<D>>,
 }
 
-#[derive(Clone)]
-pub struct FriProof<F: Field + Extendable<D>, const D: usize> {
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(bound = "")]
+pub struct FriProof<F: Extendable<D>, const D: usize> {
     /// A Merkle root for each reduced polynomial in the commit phase.
     pub commit_phase_merkle_roots: Vec<Hash<F>>,
     /// Query rounds proofs
@@ -154,9 +162,9 @@ pub struct FriProofTarget<const D: usize> {
     pub pow_witness: Target,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 /// The purported values of each polynomial at a single point.
-pub struct OpeningSet<F: Field + Extendable<D>, const D: usize> {
+pub struct OpeningSet<F: Extendable<D>, const D: usize> {
     pub constants: Vec<F::Extension>,
     pub plonk_sigmas: Vec<F::Extension>,
     pub wires: Vec<F::Extension>,
@@ -166,7 +174,7 @@ pub struct OpeningSet<F: Field + Extendable<D>, const D: usize> {
     pub quotient_polys: Vec<F::Extension>,
 }
 
-impl<F: Field + Extendable<D>, const D: usize> OpeningSet<F, D> {
+impl<F: Extendable<D>, const D: usize> OpeningSet<F, D> {
     pub fn new(
         z: F::Extension,
         g: F::Extension,

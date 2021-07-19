@@ -18,9 +18,11 @@ itertools = "0.10.0"
 num = "0.3"
 rand = "0.7.3"
 rand_chacha = "0.2.2"
-rayon = "1.5.0"
+rayon = "1.5.1"
 unroll = "0.1.5"
 anyhow = "1.0.40"
+serde = { version = "1.0", features = ["derive"] }
+serde_cbor = "0.11.1"
 
 [profile.release]
 opt-level = 3

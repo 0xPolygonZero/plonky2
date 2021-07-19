@@ -1,4 +1,5 @@
 use env_logger::Env;
+use log::info;
 use plonky2::circuit_builder::CircuitBuilder;
 use plonky2::circuit_data::CircuitConfig;
 use plonky2::field::crandall_field::CrandallField;
@@ -25,10 +26,10 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
         rate_bits: 3,
         num_challenges: 3,
         fri_config: FriConfig {
-            proof_of_work_bits: 1,
+            proof_of_work_bits: 20,
             rate_bits: 3,
-            reduction_arity_bits: vec![2, 2, 2, 2, 2],
-            num_query_rounds: 1,
+            reduction_arity_bits: vec![2, 2, 2, 2, 2, 2],
+            num_query_rounds: 35,
         },
     };
 
@@ -46,7 +47,10 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() {
     builder.add(zero, zero);
     builder.add_extension(zero_ext, zero_ext);
 
-    let prover = builder.build_prover();
+    let circuit = builder.build();
     let inputs = PartialWitness::new();
-    prover.prove(inputs);
+    let proof = circuit.prove(inputs);
+    let proof_bytes = serde_cbor::to_vec(&proof).unwrap();
+    info!("Proof length: {} bytes", proof_bytes.len());
+    circuit.verify(proof).unwrap();
 }

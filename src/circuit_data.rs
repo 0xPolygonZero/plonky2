@@ -39,7 +39,7 @@ impl Default for CircuitConfig {
             num_challenges: 3,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
-                rate_bits: 1,
+                rate_bits: 3,
                 reduction_arity_bits: vec![1, 1, 1, 1],
                 num_query_rounds: 1,
             },
