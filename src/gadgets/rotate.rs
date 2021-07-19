@@ -158,9 +158,10 @@ mod tests {
     }
 
     #[test]
-    fn test_rotate() {
+    fn test_rotate() -> Result<()> {
         for len in 1..5 {
-            test_rotate_given_len(len);
+            test_rotate_given_len(len)?;
         }
+        Ok(())
     }
 }

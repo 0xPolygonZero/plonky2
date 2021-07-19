@@ -247,7 +247,7 @@ impl DivAssign for QuarticCrandallField {
 #[cfg(test)]
 mod tests {
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::extension_field::{FieldExtension, Frobenius, OEF};
+    use crate::field::extension_field::{FieldExtension, Frobenius};
     use crate::field::field::Field;
 
     fn exp_naive<F: Field>(x: F, power: u128) -> F {

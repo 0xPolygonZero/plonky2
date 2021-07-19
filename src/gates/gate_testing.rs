@@ -1,6 +1,6 @@
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
-use crate::gates::gate::{Gate, GateRef};
+use crate::gates::gate::GateRef;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_ceil, transpose};
 use crate::vars::EvaluationVars;

@@ -1,5 +1,4 @@
-use std::convert::{TryFrom, TryInto};
-use std::ops::Range;
+use std::convert::TryInto;
 
 use itertools::Itertools;
 use num::Integer;
@@ -7,7 +6,6 @@ use num::Integer;
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::{Extendable, OEF};
-use crate::field::field::Field;
 use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::generator::SimpleGenerator;
 use crate::target::Target;

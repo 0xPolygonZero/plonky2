@@ -421,7 +421,7 @@ mod tests {
             local_wires: &wires,
         };
 
-        let ev = gate.0.eval_unfiltered((vars));
+        let ev = gate.0.eval_unfiltered(vars);
 
         let wires_t = builder.add_virtual_extension_targets(Gate::end());
         for i in 0..Gate::end() {
