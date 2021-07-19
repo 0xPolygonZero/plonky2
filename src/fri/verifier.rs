@@ -81,13 +81,12 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     let config = &common_data.config;
     let total_arities = config.fri_config.reduction_arity_bits.iter().sum::<usize>();
     ensure!(
-        purported_degree_log
-            == log2_strict(proof.final_poly.len()) + total_arities - config.rate_bits,
+        purported_degree_log == log2_strict(proof.final_poly.len()) + total_arities,
         "Final polynomial has wrong degree."
     );
 
     // Size of the LDE domain.
-    let n = proof.final_poly.len() << total_arities;
+    let n = proof.final_poly.len() << (total_arities + config.rate_bits);
 
     // Recover the random betas used in the FRI reductions.
     let betas = proof
