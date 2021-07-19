@@ -78,8 +78,8 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     challenger: &mut Challenger<F>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
-    let config = &common_data.config.fri_config;
-    let total_arities = config.reduction_arity_bits.iter().sum::<usize>();
+    let config = &common_data.config;
+    let total_arities = config.fri_config.reduction_arity_bits.iter().sum::<usize>();
     ensure!(
         purported_degree_log
             == log2_strict(proof.final_poly.len()) + total_arities - config.rate_bits,
@@ -101,15 +101,15 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     challenger.observe_extension_elements(&proof.final_poly.coeffs);
 
     // Check PoW.
-    fri_verify_proof_of_work(proof, challenger, config)?;
+    fri_verify_proof_of_work(proof, challenger, &config.fri_config)?;
 
     // Check that parameters are coherent.
     ensure!(
-        config.num_query_rounds == proof.query_round_proofs.len(),
+        config.fri_config.num_query_rounds == proof.query_round_proofs.len(),
         "Number of query rounds does not match config."
     );
     ensure!(
-        !config.reduction_arity_bits.is_empty(),
+        !config.fri_config.reduction_arity_bits.is_empty(),
         "Number of reductions should be non-zero."
     );
 

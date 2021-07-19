@@ -516,7 +516,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
         let constants_sigmas_commitment = ListPolynomialCommitment::new(
             constants_sigmas_vecs,
-            self.config.fri_config.rate_bits,
+            self.config.rate_bits,
             self.config.zero_knowledge & PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
         );
 

@@ -12,6 +12,7 @@ use crate::proof::{
 use crate::target::Target;
 use crate::util::scaling::ReducingFactorTarget;
 use crate::util::{log2_strict, reverse_index_bits_in_place};
+use crate::circuit_data::CircuitConfig;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
@@ -73,10 +74,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         initial_merkle_roots: &[HashTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger,
+<<<<<<< HEAD
         common_data: &CommonCircuitData<F, D>,
     ) {
         let config = &common_data.config.fri_config;
         let total_arities = config.reduction_arity_bits.iter().sum::<usize>();
+=======
+        config: &CircuitConfig,
+    ) {
+        let total_arities = config.fri_config.reduction_arity_bits.iter().sum::<usize>();
+>>>>>>> 9aa7dce (Remove rate from FriConfig)
         debug_assert_eq!(
             purported_degree_log,
             log2_strict(proof.final_poly.len()) + total_arities - config.rate_bits,
@@ -97,17 +104,22 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect::<Vec<_>>();
         challenger.observe_extension_elements(&proof.final_poly.0);
 
+<<<<<<< HEAD
         self.set_context("Check PoW");
         self.fri_verify_proof_of_work(proof, challenger, config);
+=======
+        // Check PoW.
+        self.fri_verify_proof_of_work(proof, challenger, &config.fri_config);
+>>>>>>> 9aa7dce (Remove rate from FriConfig)
 
         // Check that parameters are coherent.
         debug_assert_eq!(
-            config.num_query_rounds,
+            config.fri_config.num_query_rounds,
             proof.query_round_proofs.len(),
             "Number of query rounds does not match config."
         );
         debug_assert!(
-            !config.reduction_arity_bits.is_empty(),
+            !config.fri_config.reduction_arity_bits.is_empty(),
             "Number of reductions should be non-zero."
         );
 
@@ -122,7 +134,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 n,
                 &betas,
                 round_proof,
+<<<<<<< HEAD
                 common_data,
+=======
+                &config.fri_config,
+>>>>>>> 9aa7dce (Remove rate from FriConfig)
             );
         }
     }

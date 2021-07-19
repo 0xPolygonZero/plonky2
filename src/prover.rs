@@ -24,7 +24,6 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
 ) -> Result<Proof<F, D>> {
-    let fri_config = &common_data.config.fri_config;
     let config = &common_data.config;
     let num_wires = config.num_wires;
     let num_challenges = config.num_challenges;
@@ -70,7 +69,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let wires_commitment = timed!(
         ListPolynomialCommitment::new(
             wires_values,
-            fri_config.rate_bits,
+            config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::WIRES.blinding
         ),
         "to compute wires commitment"
@@ -106,7 +105,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let zs_partial_products_commitment = timed!(
         ListPolynomialCommitment::new(
             zs_partial_products,
-            fri_config.rate_bits,
+            config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding
         ),
         "to commit to Z's"
@@ -149,7 +148,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let quotient_polys_commitment = timed!(
         ListPolynomialCommitment::new_from_polys(
             all_quotient_poly_chunks,
-            fri_config.rate_bits,
+            config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding
         ),
         "to commit to quotient polys"
