@@ -371,7 +371,7 @@ mod tests {
 
         builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
 
-        builder.print_gate_counts(50);
+        builder.print_gate_counts(0);
         let data = builder.build();
         let recursive_proof = data.prove(pw)?;
 
