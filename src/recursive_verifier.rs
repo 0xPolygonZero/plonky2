@@ -329,7 +329,6 @@ mod tests {
             zero_knowledge: false,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
-                rate_bits: 3,
                 reduction_arity_bits: vec![2, 2, 2, 2, 2, 2, 2],
                 num_query_rounds: 40,
             },
