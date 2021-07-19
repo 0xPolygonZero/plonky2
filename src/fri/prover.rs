@@ -95,6 +95,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
         values = coeffs.clone().coset_fft(shift.into())
     }
 
+    coeffs.trim();
     challenger.observe_extension_elements(&coeffs.coeffs);
     (trees, coeffs)
 }

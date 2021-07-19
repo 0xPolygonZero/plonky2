@@ -496,6 +496,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.blind_and_pad();
         let degree = self.gate_instances.len();
         info!("Degree after blinding & padding: {}", degree);
+        let degree_bits = log2_strict(degree);
+        assert!(
+            self.config
+                .fri_config
+                .reduction_arity_bits
+                .iter()
+                .sum::<usize>()
+                <= degree_bits,
+            "FRI total reduction arity is too large."
+        );
 
         let gates = self.gates.iter().cloned().collect();
         let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
@@ -505,7 +515,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         let prefixed_gates = PrefixedGate::from_tree(gate_tree);
 
-        let degree_bits = log2_strict(degree);
         let subgroup = F::two_adic_subgroup(degree_bits);
 
         let constant_vecs = self.constant_polys(&prefixed_gates, num_constants);
