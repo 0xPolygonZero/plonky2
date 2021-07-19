@@ -248,10 +248,10 @@ impl<F: Field> ListPolynomialCommitment<F> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(bound = "")]
 pub struct OpeningProof<F: Extendable<D>, const D: usize> {
-    fri_proof: FriProof<F, D>,
+    pub(crate) fri_proof: FriProof<F, D>,
     // TODO: Get the degree from `CommonCircuitData` instead.
     quotient_degree: usize,
 }
@@ -283,7 +283,7 @@ impl<F: Extendable<D>, const D: usize> OpeningProof<F, D> {
 }
 
 pub struct OpeningProofTarget<const D: usize> {
-    fri_proof: FriProofTarget<D>,
+    pub(crate) fri_proof: FriProofTarget<D>,
 }
 
 impl<const D: usize> OpeningProofTarget<D> {

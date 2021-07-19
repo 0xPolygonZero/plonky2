@@ -158,7 +158,6 @@ mod tests {
     use super::*;
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::merkle_tree::MerkleTree;
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
