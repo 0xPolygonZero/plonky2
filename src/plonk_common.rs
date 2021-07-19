@@ -15,8 +15,8 @@ pub struct PolynomialsIndexBlinding {
     pub(crate) blinding: bool,
 }
 impl PolynomialsIndexBlinding {
-    pub fn salt_size(&self) -> usize {
-        if self.blinding {
+    pub fn salt_size(&self, zero_knowledge: bool) -> usize {
+        if zero_knowledge & self.blinding {
             SALT_SIZE
         } else {
             0

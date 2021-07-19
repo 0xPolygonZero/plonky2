@@ -71,7 +71,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         ListPolynomialCommitment::new(
             wires_values,
             fri_config.rate_bits,
-            PlonkPolynomials::WIRES.blinding
+            config.zero_knowledge & PlonkPolynomials::WIRES.blinding
         ),
         "to compute wires commitment"
     );
@@ -107,7 +107,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         ListPolynomialCommitment::new(
             zs_partial_products,
             fri_config.rate_bits,
-            PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding
+            config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding
         ),
         "to commit to Z's"
     );
@@ -150,7 +150,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         ListPolynomialCommitment::new_from_polys(
             all_quotient_poly_chunks,
             fri_config.rate_bits,
-            PlonkPolynomials::QUOTIENT.blinding
+            config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding
         ),
         "to commit to quotient polys"
     );

@@ -333,7 +333,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let final_poly_coeffs: usize = degree_estimate / arities.iter().product::<usize>();
         let fri_openings = fri_queries * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
 
+        // We add D for openings at zeta.
         let regular_poly_openings = D + fri_openings;
+        // We add 2 * D for openings at zeta and g * zeta.
         let z_openings = 2 * D + fri_openings;
 
         (regular_poly_openings, z_openings)
@@ -364,6 +366,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     fn blind_and_pad(&mut self) {
+        if self.config.zero_knowledge {
+            self.blind();
+        }
+
+        while !self.gate_instances.len().is_power_of_two() {
+            self.add_gate_no_constants(NoopGate::get());
+        }
+    }
+
+    fn blind(&mut self) {
         let (regular_poly_openings, z_openings) = self.blinding_counts();
         info!(
             "Adding {} blinding terms for witness polynomials, and {}*2 for Z polynomials",
@@ -409,10 +421,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     }),
                 );
             }
-        }
-
-        while !self.gate_instances.len().is_power_of_two() {
-            self.add_gate_no_constants(NoopGate::get());
         }
     }
 
@@ -509,7 +517,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let constants_sigmas_commitment = ListPolynomialCommitment::new(
             constants_sigmas_vecs,
             self.config.fri_config.rate_bits,
-            PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
+            self.config.zero_knowledge & PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
         );
 
         let constants_sigmas_root = constants_sigmas_commitment.merkle_tree.root;

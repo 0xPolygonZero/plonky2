@@ -24,6 +24,7 @@ pub struct CircuitConfig {
     /// The number of challenge points to generate, for IOPs that have soundness errors of (roughly)
     /// `degree / |F|`.
     pub num_challenges: usize,
+    pub zero_knowledge: bool,
 
     // TODO: Find a better place for this.
     pub fri_config: FriConfig,
@@ -37,6 +38,7 @@ impl Default for CircuitConfig {
             security_bits: 128,
             rate_bits: 3,
             num_challenges: 3,
+            zero_knowledge: true,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
                 rate_bits: 3,
@@ -59,6 +61,7 @@ impl CircuitConfig {
             security_bits: 128,
             rate_bits: 3,
             num_challenges: 3,
+            zero_knowledge: true,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
                 rate_bits: 3,

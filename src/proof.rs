@@ -110,9 +110,13 @@ pub struct FriInitialTreeProof<F: Field> {
 }
 
 impl<F: Field> FriInitialTreeProof<F> {
-    pub(crate) fn unsalted_evals(&self, polynomials: PolynomialsIndexBlinding) -> &[F] {
+    pub(crate) fn unsalted_evals(
+        &self,
+        polynomials: PolynomialsIndexBlinding,
+        zero_knowledge: bool,
+    ) -> &[F] {
         let evals = &self.evals_proofs[polynomials.index].0;
-        &evals[..evals.len() - polynomials.salt_size()]
+        &evals[..evals.len() - polynomials.salt_size(zero_knowledge)]
     }
 }
 
@@ -122,9 +126,13 @@ pub struct FriInitialTreeProofTarget {
 }
 
 impl FriInitialTreeProofTarget {
-    pub(crate) fn unsalted_evals(&self, polynomials: PolynomialsIndexBlinding) -> &[Target] {
+    pub(crate) fn unsalted_evals(
+        &self,
+        polynomials: PolynomialsIndexBlinding,
+        zero_knowledge: bool,
+    ) -> &[Target] {
         let evals = &self.evals_proofs[polynomials.index].0;
-        &evals[..evals.len() - polynomials.salt_size()]
+        &evals[..evals.len() - polynomials.salt_size(zero_knowledge)]
     }
 }
 

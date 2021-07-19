@@ -151,7 +151,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     subgroup_x: F,
     common_data: &CommonCircuitData<F, D>,
 ) -> F::Extension {
-    let config = &common_data.config.fri_config;
+    let config = &common_data.config;
     assert!(D > 1, "Not implemented for D=1.");
     let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
     let subgroup_x = F::Extension::from_basefield(subgroup_x);
@@ -169,9 +169,9 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         PlonkPolynomials::QUOTIENT,
     ]
     .iter()
-    .flat_map(|&p| proof.unsalted_evals(p))
+    .flat_map(|&p| proof.unsalted_evals(p, config.zero_knowledge))
     .chain(
-        &proof.unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS)
+        &proof.unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
             [common_data.partial_products_range()],
     )
     .map(|&e| F::Extension::from_basefield(e));
@@ -193,7 +193,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
 
     // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
     let zs_evals = proof
-        .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS)
+        .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
         .iter()
         .map(|&e| F::Extension::from_basefield(e))
         .take(common_data.zs_range().end);
@@ -213,7 +213,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
 
     // Polynomials opened at `x` and `x.frobenius()`, i.e., the wires polynomials.
     let wire_evals = proof
-        .unsalted_evals(PlonkPolynomials::WIRES)
+        .unsalted_evals(PlonkPolynomials::WIRES, config.zero_knowledge)
         .iter()
         .map(|&e| F::Extension::from_basefield(e));
     let wire_composition_eval = alpha.clone().reduce(wire_evals);

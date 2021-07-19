@@ -154,7 +154,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data: &CommonCircuitData<F, D>,
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
-        let config = &self.config.fri_config.clone();
+        let config = self.config.clone();
         let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
         let subgroup_x = self.convert_to_ext(subgroup_x);
         let mut alpha = ReducingFactorTarget::new(alpha);
@@ -171,9 +171,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             PlonkPolynomials::QUOTIENT,
         ]
         .iter()
-        .flat_map(|&p| proof.unsalted_evals(p))
+        .flat_map(|&p| proof.unsalted_evals(p, config.zero_knowledge))
         .chain(
-            &proof.unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS)
+            &proof.unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
                 [common_data.partial_products_range()],
         )
         .map(|&e| self.convert_to_ext(e))
@@ -197,7 +197,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
         let zs_evals = proof
-            .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS)
+            .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
             .iter()
             .take(common_data.zs_range().end)
             .map(|&e| self.convert_to_ext(e))
@@ -222,7 +222,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Polynomials opened at `x` and `x.frobenius()`, i.e., the wires polynomials.
         let wire_evals = proof
-            .unsalted_evals(PlonkPolynomials::WIRES)
+            .unsalted_evals(PlonkPolynomials::WIRES, config.zero_knowledge)
             .iter()
             .map(|&e| self.convert_to_ext(e))
             .collect::<Vec<_>>();
