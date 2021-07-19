@@ -3,7 +3,6 @@ use std::marker::PhantomData;
 use std::ops::Range;
 
 use crate::circuit_builder::CircuitBuilder;
-use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
