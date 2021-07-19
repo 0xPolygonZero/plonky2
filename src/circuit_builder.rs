@@ -46,8 +46,8 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
 
     copy_constraints: Vec<CopyConstraint>,
 
-    /// A string used to give context to copy constraints.
-    context: String,
+    /// A tree of named scopes, used for debugging.
+    context_log: ContextTree,
 
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
     marked_targets: Vec<MarkedTargets<D>>,
@@ -68,7 +68,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             public_input_index: 0,
             virtual_target_index: 0,
             copy_constraints: Vec::new(),
-            context: String::new(),
+            context_log: ContextTree::new(),
             marked_targets: Vec::new(),
             generators: Vec::new(),
             constants_to_targets: HashMap::new(),
@@ -208,7 +208,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "Tried to route a wire that isn't routable"
         );
         self.copy_constraints
-            .push(CopyConstraint::new((x, y), self.context.clone()));
+            .push(CopyConstraint::new((x, y), self.context_log.open_stack()));
     }
 
     /// Same as `assert_equal` for a named copy constraint.
@@ -223,7 +223,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         self.copy_constraints.push(CopyConstraint::new(
             (x, y),
-            format!("{}: {}", self.context.clone(), name),
+            format!("{} > {}", self.context_log.open_stack(), name),
         ));
     }
 
@@ -305,8 +305,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.targets_to_constants.get(&target).cloned()
     }
 
-    pub fn set_context(&mut self, new_context: &str) {
-        self.context = new_context.to_string();
+    pub fn push_context(&mut self, ctx: &str) {
+        self.context_log.push(ctx, self.num_gates());
+    }
+
+    pub fn pop_context(&mut self) {
+        self.context_log.pop(self.num_gates());
     }
 
     pub fn add_marked(&mut self, targets: Markable<D>, name: &str) {
@@ -485,6 +489,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         wire_partition.get_sigma_polys(degree_log, k_is, subgroup)
     }
 
+    pub fn print_gate_counts(&self, min_delta: usize) {
+        self.context_log
+            .filter(self.num_gates(), min_delta)
+            .print(self.num_gates());
+    }
+
     /// Builds a "full circuit", with both prover and verifier data.
     pub fn build(mut self) -> CircuitData<F, D> {
         let quotient_degree_factor = 7; // TODO: add this as a parameter.
@@ -612,4 +622,127 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             common,
         }
     }
+}
+
+/// The hierarchy of contexts, and the gate count contributed by each one. Useful for debugging.
+struct ContextTree {
+    /// The name of this scope.
+    name: String,
+    /// The gate count when this scope was created.
+    enter_gate_count: usize,
+    /// The gate count when this scope was destroyed, or None if it has not yet been destroyed.
+    exit_gate_count: Option<usize>,
+    /// Any child contexts.
+    children: Vec<ContextTree>,
+}
+
+impl ContextTree {
+    fn new() -> Self {
+        Self {
+            name: "root".to_string(),
+            enter_gate_count: 0,
+            exit_gate_count: None,
+            children: vec![],
+        }
+    }
+
+    /// Whether this context is still in scope.
+    fn is_open(&self) -> bool {
+        self.exit_gate_count.is_none()
+    }
+
+    /// A description of the stack of currently-open scopes.
+    fn open_stack(&self) -> String {
+        let mut stack = Vec::new();
+        self.open_stack_helper(&mut stack);
+        stack.join(" > ")
+    }
+
+    fn open_stack_helper(&self, stack: &mut Vec<String>) {
+        if self.is_open() {
+            stack.push(self.name.clone());
+            if let Some(last_child) = self.children.last() {
+                last_child.open_stack_helper(stack);
+            }
+        }
+    }
+
+    fn push(&mut self, ctx: &str, current_gate_count: usize) {
+        assert!(self.is_open());
+
+        if let Some(last_child) = self.children.last_mut() {
+            if last_child.is_open() {
+                last_child.push(ctx, current_gate_count);
+                return;
+            }
+        }
+
+        self.children.push(ContextTree {
+            name: ctx.to_string(),
+            enter_gate_count: current_gate_count,
+            exit_gate_count: None,
+            children: vec![],
+        })
+    }
+
+    /// Close the deepest open context from this tree.
+    fn pop(&mut self, current_gate_count: usize) {
+        assert!(self.is_open());
+
+        if let Some(last_child) = self.children.last_mut() {
+            if last_child.is_open() {
+                last_child.pop(current_gate_count);
+                return;
+            }
+        }
+
+        self.exit_gate_count = Some(current_gate_count);
+    }
+
+    fn gate_count_delta(&self, current_gate_count: usize) -> usize {
+        self.exit_gate_count.unwrap_or(current_gate_count) - self.enter_gate_count
+    }
+
+    /// Filter out children with a low gate count.
+    fn filter(&self, current_gate_count: usize, min_delta: usize) -> Self {
+        Self {
+            name: self.name.clone(),
+            enter_gate_count: self.enter_gate_count,
+            exit_gate_count: self.exit_gate_count,
+            children: self
+                .children
+                .iter()
+                .filter(|c| c.gate_count_delta(current_gate_count) >= min_delta)
+                .map(|c| c.filter(current_gate_count, min_delta))
+                .collect(),
+        }
+    }
+
+    fn print(&self, current_gate_count: usize) {
+        self.print_helper(current_gate_count, 0);
+    }
+
+    fn print_helper(&self, current_gate_count: usize, depth: usize) {
+        let prefix = "| ".repeat(depth);
+        info!(
+            "{}{} gates to {}",
+            prefix,
+            self.gate_count_delta(current_gate_count),
+            self.name
+        );
+        for child in &self.children {
+            child.print_helper(current_gate_count, depth + 1);
+        }
+    }
+}
+
+/// Creates a named scope; useful for debugging.
+#[macro_export]
+macro_rules! context {
+    ($builder:expr, $ctx:expr, $exp:expr) => {{
+        $builder.push_context($ctx);
+        let res = $exp;
+        $builder.pop_context();
+        res
+    }};
 }

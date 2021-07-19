@@ -1,5 +1,6 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
+use crate::context;
 use crate::field::extension_field::Extendable;
 use crate::plonk_challenger::RecursiveChallenger;
 use crate::proof::{HashTarget, ProofTarget};
@@ -27,20 +28,25 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut challenger = RecursiveChallenger::new(self);
 
-        self.set_context("Challenger observes proof and generates challenges.");
-        let digest =
-            HashTarget::from_vec(self.constants(&inner_common_data.circuit_digest.elements));
-        challenger.observe_hash(&digest);
+        let (betas, gammas, alphas, zeta) =
+            context!(self, "observe proof and generates challenges", {
+                let digest = HashTarget::from_vec(
+                    self.constants(&inner_common_data.circuit_digest.elements),
+                );
+                challenger.observe_hash(&digest);
 
-        challenger.observe_hash(&proof.wires_root);
-        let betas = challenger.get_n_challenges(self, num_challenges);
-        let gammas = challenger.get_n_challenges(self, num_challenges);
+                challenger.observe_hash(&proof.wires_root);
+                let betas = challenger.get_n_challenges(self, num_challenges);
+                let gammas = challenger.get_n_challenges(self, num_challenges);
 
-        challenger.observe_hash(&proof.plonk_zs_partial_products_root);
-        let alphas = challenger.get_n_challenges(self, num_challenges);
+                challenger.observe_hash(&proof.plonk_zs_partial_products_root);
+                let alphas = challenger.get_n_challenges(self, num_challenges);
 
-        challenger.observe_hash(&proof.quotient_polys_root);
-        let zeta = challenger.get_extension_challenge(self);
+                challenger.observe_hash(&proof.quotient_polys_root);
+                let zeta = challenger.get_extension_challenge(self);
+
+                (betas, gammas, alphas, zeta)
+            });
 
         let local_constants = &proof.openings.constants;
         let local_wires = &proof.openings.wires;
@@ -54,38 +60,42 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let partial_products = &proof.openings.partial_products;
 
         let zeta_pow_deg = self.exp_power_of_2(zeta, inner_common_data.degree_bits);
-        self.set_context("Evaluate the vanishing polynomial at our challenge point, zeta.");
-        let vanishing_polys_zeta = eval_vanishing_poly_recursively(
+        let vanishing_polys_zeta = context!(
             self,
-            inner_common_data,
-            zeta,
-            zeta_pow_deg,
-            vars,
-            local_zs,
-            next_zs,
-            partial_products,
-            s_sigmas,
-            &betas,
-            &gammas,
-            &alphas,
+            "evaluate the vanishing polynomial at our challenge point, zeta.",
+            eval_vanishing_poly_recursively(
+                self,
+                inner_common_data,
+                zeta,
+                zeta_pow_deg,
+                vars,
+                local_zs,
+                next_zs,
+                partial_products,
+                s_sigmas,
+                &betas,
+                &gammas,
+                &alphas,
+            )
         );
 
-        self.set_context("Check vanishing and quotient polynomials.");
-        let quotient_polys_zeta = &proof.openings.quotient_polys;
-        let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
-        let z_h_zeta = self.sub_extension(zeta_pow_deg, one);
-        for (i, chunk) in quotient_polys_zeta
-            .chunks(inner_common_data.quotient_degree_factor)
-            .enumerate()
-        {
-            let recombined_quotient = scale.reduce(chunk, self);
-            let computed_vanishing_poly = self.mul_extension(z_h_zeta, recombined_quotient);
-            self.named_route_extension(
-                vanishing_polys_zeta[i],
-                computed_vanishing_poly,
-                format!("Vanishing polynomial == Z_H * quotient, challenge {}", i),
-            );
-        }
+        context!(self, "check vanishing and quotient polynomials.", {
+            let quotient_polys_zeta = &proof.openings.quotient_polys;
+            let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
+            let z_h_zeta = self.sub_extension(zeta_pow_deg, one);
+            for (i, chunk) in quotient_polys_zeta
+                .chunks(inner_common_data.quotient_degree_factor)
+                .enumerate()
+            {
+                let recombined_quotient = scale.reduce(chunk, self);
+                let computed_vanishing_poly = self.mul_extension(z_h_zeta, recombined_quotient);
+                self.named_route_extension(
+                    vanishing_polys_zeta[i],
+                    computed_vanishing_poly,
+                    format!("Vanishing polynomial == Z_H * quotient, challenge {}", i),
+                );
+            }
+        });
 
         let merkle_roots = &[
             inner_verifier_data.constants_sigmas_root,
@@ -361,6 +371,7 @@ mod tests {
 
         builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
 
+        builder.print_gate_counts(50);
         let data = builder.build();
         let recursive_proof = data.prove(pw)?;
 

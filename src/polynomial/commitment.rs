@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::CommonCircuitData;
+use crate::context;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
@@ -283,15 +284,19 @@ impl<const D: usize> OpeningProofTarget<D> {
 
         let alpha = challenger.get_extension_challenge(builder);
 
-        builder.verify_fri_proof(
-            log2_ceil(common_data.degree()),
-            &os,
-            zeta,
-            alpha,
-            merkle_roots,
-            &self.fri_proof,
-            challenger,
-            common_data,
+        context!(
+            builder,
+            "verify FRI proof",
+            builder.verify_fri_proof(
+                log2_ceil(common_data.degree()),
+                &os,
+                zeta,
+                alpha,
+                merkle_roots,
+                &self.fri_proof,
+                challenger,
+                common_data,
+            )
         );
     }
 }
