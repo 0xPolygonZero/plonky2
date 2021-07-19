@@ -6,7 +6,6 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::extension_field::{FieldExtension, Frobenius};
 use crate::field::field::Field;
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof};
 use crate::merkle_tree::MerkleTree;
@@ -161,6 +160,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
         // Polynomials opened at a single point.
         let single_polys = [
             PlonkPolynomials::CONSTANTS_SIGMAS,
+            PlonkPolynomials::WIRES,
             PlonkPolynomials::QUOTIENT,
         ]
         .iter()
@@ -180,26 +180,8 @@ impl<F: Field> ListPolynomialCommitment<F> {
         alpha.shift_poly(&mut final_poly);
         final_poly += zs_quotient;
 
-        // When working in an extension field, need to check that wires are in the base field.
-        // Check this by opening the wires polynomials at `zeta` and `zeta.frobenius()` and using the fact that
-        // a polynomial `f` is over the base field iff `f(z).frobenius()=f(z.frobenius())` with high probability.
-        let wire_polys = commitments[PlonkPolynomials::WIRES.index]
-            .polynomials
-            .iter()
-            .map(|p| p.to_extension());
-        let wire_composition_poly = alpha.reduce_polys(wire_polys);
-
-        let wires_quotient =
-            Self::compute_quotient([zeta, zeta.frobenius()], wire_composition_poly);
-        alpha.shift_poly(&mut final_poly);
-        final_poly += wires_quotient;
-
         let lde_final_poly = final_poly.lde(config.rate_bits);
-        let lde_final_values = lde_final_poly
-            .clone()
-            .coset_fft(F::Extension::from_basefield(
-                F::MULTIPLICATIVE_GROUP_GENERATOR,
-            ));
+        let lde_final_values = lde_final_poly.clone().coset_fft(F::coset_shift().into());
 
         let fri_proof = fri_proof(
             &commitments
