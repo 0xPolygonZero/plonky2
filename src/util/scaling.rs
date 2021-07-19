@@ -210,12 +210,12 @@ mod tests {
     }
 
     #[test]
-    fn test_reduce_gadget_even() {
-        test_reduce_gadget(10);
+    fn test_reduce_gadget_even() -> Result<()> {
+        test_reduce_gadget(10)
     }
 
     #[test]
-    fn test_reduce_gadget_odd() {
-        test_reduce_gadget(11);
+    fn test_reduce_gadget_odd() -> Result<()> {
+        test_reduce_gadget(11)
     }
 }
