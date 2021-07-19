@@ -724,7 +724,7 @@ impl ContextTree {
 
     fn print_helper(&self, current_gate_count: usize, depth: usize) {
         let prefix = "| ".repeat(depth);
-        info!(
+        debug!(
             "{}{} gates to {}",
             prefix,
             self.gate_count_delta(current_gate_count),
