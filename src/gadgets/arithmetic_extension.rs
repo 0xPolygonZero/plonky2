@@ -1,4 +1,4 @@
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
 
 use itertools::Itertools;
@@ -324,6 +324,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         product
     }
 
+    /// Computes `x / y`. Results in an unsatisfiable instance if `y = 0`.
+    pub fn div_extension(
+        &mut self,
+        x: ExtensionTarget<D>,
+        y: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        let y_inv = self.inverse_extension(y);
+        self.mul_extension(x, y_inv)
+    }
+
     /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
     /// some cases, as it allows `0 / 0 = <anything>`.
     pub fn div_unsafe_extension(
@@ -331,62 +341,35 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x: ExtensionTarget<D>,
         y: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        // Add an `ArithmeticExtensionGate` to compute `q * y`.
-        let gate = self.add_gate(ArithmeticExtensionGate::new(), vec![F::ONE, F::ZERO]);
-
-        let multiplicand_0 = ExtensionTarget::from_range(
-            gate,
-            ArithmeticExtensionGate::<D>::wires_fixed_multiplicand(),
-        );
-        let multiplicand_1 =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_multiplicand_0());
-        let output =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_output_0());
-
+        let quotient = self.add_virtual_extension_target();
         self.add_generator(QuotientGeneratorExtension {
             numerator: x,
             denominator: y,
-            quotient: multiplicand_0,
-        });
-        // We need to zero out the other wires for the `ArithmeticExtensionGenerator` to hit.
-        self.add_generator(ZeroOutGenerator {
-            gate_index: gate,
-            ranges: vec![
-                ArithmeticExtensionGate::<D>::wires_addend_0(),
-                ArithmeticExtensionGate::<D>::wires_multiplicand_1(),
-                ArithmeticExtensionGate::<D>::wires_addend_1(),
-            ],
+            quotient,
         });
 
-        self.route_extension(y, multiplicand_1);
-        self.assert_equal_extension(output, x);
+        // Enforce that q y = x.
+        let q_y = self.mul_extension(quotient, y);
+        self.assert_equal_extension(q_y, x);
 
-        multiplicand_0
-    }
-}
-
-/// Generator used to zero out wires at a given gate index and ranges.
-pub struct ZeroOutGenerator {
-    gate_index: usize,
-    ranges: Vec<Range<usize>>,
-}
-
-impl<F: Field> SimpleGenerator<F> for ZeroOutGenerator {
-    fn dependencies(&self) -> Vec<Target> {
-        Vec::new()
+        quotient
     }
 
-    fn run_once(&self, _witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let mut pw = PartialWitness::new();
-        for t in self
-            .ranges
-            .iter()
-            .flat_map(|r| Target::wires_from_range(self.gate_index, r.clone()))
-        {
-            pw.set_target(t, F::ZERO);
-        }
+    /// Computes `1 / x`. Results in an unsatisfiable instance if `x = 0`.
+    pub fn inverse_extension(&mut self, x: ExtensionTarget<D>) -> ExtensionTarget<D> {
+        let inv = self.add_virtual_extension_target();
+        let one = self.one_extension();
+        self.add_generator(QuotientGeneratorExtension {
+            numerator: one,
+            denominator: x,
+            quotient: inv,
+        });
 
-        pw
+        // Enforce that x times its purported inverse equals 1.
+        let x_inv = self.mul_extension(x, inv);
+        self.assert_equal_extension(x_inv, one);
+
+        inv
     }
 }
 
@@ -407,10 +390,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for QuotientGeneratorE
         let num = witness.get_extension_target(self.numerator);
         let dem = witness.get_extension_target(self.denominator);
         let quotient = num / dem;
-        let mut pw = PartialWitness::new();
-        pw.set_extension_target(self.quotient, quotient);
-
-        pw
+        PartialWitness::singleton_extension_target(self.quotient, quotient)
     }
 }
 
@@ -479,8 +459,10 @@ mod tests {
         let xt = builder.constant_extension(x);
         let yt = builder.constant_extension(y);
         let zt = builder.constant_extension(z);
-        let comp_zt = builder.div_unsafe_extension(xt, yt);
+        let comp_zt = builder.div_extension(xt, yt);
+        let comp_zt_unsafe = builder.div_unsafe_extension(xt, yt);
         builder.assert_equal_extension(zt, comp_zt);
+        builder.assert_equal_extension(zt, comp_zt_unsafe);
 
         let data = builder.build();
         let proof = data.prove(PartialWitness::new());
