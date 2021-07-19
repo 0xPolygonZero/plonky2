@@ -315,6 +315,8 @@ mod tests {
     use std::convert::TryInto;
     use std::sync::Arc;
 
+    use anyhow::Result;
+
     use crate::circuit_builder::CircuitBuilder;
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
@@ -402,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    fn test_evals() {
+    fn test_evals() -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         const R: usize = 101;
@@ -439,8 +441,8 @@ mod tests {
         }
 
         let data = builder.build();
-        let proof = data.prove(pw);
+        let proof = data.prove(pw)?;
 
-        verify(proof, &data.verifier_only, &data.common).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
     }
 }

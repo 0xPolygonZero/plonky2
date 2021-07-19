@@ -37,6 +37,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+
     use super::*;
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
@@ -45,7 +47,7 @@ mod tests {
     use crate::witness::PartialWitness;
 
     #[test]
-    fn test_split_base() {
+    fn test_split_base() -> Result<()> {
         type F = CrandallField;
         let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
@@ -67,8 +69,8 @@ mod tests {
         builder.assert_leading_zeros(xt, 64 - 9);
         let data = builder.build();
 
-        let proof = data.prove(PartialWitness::new());
+        let proof = data.prove(PartialWitness::new())?;
 
-        verify(proof, &data.verifier_only, &data.common).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
     }
 }

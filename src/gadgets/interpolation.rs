@@ -59,6 +59,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 mod tests {
     use std::convert::TryInto;
 
+    use anyhow::Result;
+
     use super::*;
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
@@ -70,7 +72,7 @@ mod tests {
     use crate::witness::PartialWitness;
 
     #[test]
-    fn test_interpolate() {
+    fn test_interpolate() -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
@@ -103,13 +105,13 @@ mod tests {
         builder.assert_equal_extension(eval, true_eval_target);
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new());
+        let proof = data.prove(PartialWitness::new())?;
 
-        verify(proof, &data.verifier_only, &data.common).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
     }
 
     #[test]
-    fn test_interpolate2() {
+    fn test_interpolate2() -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
@@ -137,8 +139,8 @@ mod tests {
         builder.assert_equal_extension(eval, true_eval_target);
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new());
+        let proof = data.prove(PartialWitness::new())?;
 
-        verify(proof, &data.verifier_only, &data.common).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
     }
 }
