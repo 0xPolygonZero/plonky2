@@ -130,7 +130,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let leaf_index_rev = self.reverse_limbs::<2>(leaf_index, height);
         self.assert_equal(acc_leaf_index, leaf_index_rev);
 
-        self.named_assert_hashes_equal(state, merkle_root, "Check Merkle root".into())
+        self.named_assert_hashes_equal(state, merkle_root, "check Merkle root".into())
     }
 
     pub(crate) fn assert_hashes_equal(&mut self, x: HashTarget, y: HashTarget) {

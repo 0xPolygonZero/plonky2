@@ -8,6 +8,7 @@ use crate::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
+use crate::context_tree::ContextTree;
 use crate::copy_constraint::CopyConstraint;
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
@@ -46,8 +47,8 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
 
     copy_constraints: Vec<CopyConstraint>,
 
-    /// A string used to give context to copy constraints.
-    context: String,
+    /// A tree of named scopes, used for debugging.
+    context_log: ContextTree,
 
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
     marked_targets: Vec<MarkedTargets<D>>,
@@ -68,7 +69,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             public_input_index: 0,
             virtual_target_index: 0,
             copy_constraints: Vec::new(),
-            context: String::new(),
+            context_log: ContextTree::new(),
             marked_targets: Vec::new(),
             generators: Vec::new(),
             constants_to_targets: HashMap::new(),
@@ -208,7 +209,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "Tried to route a wire that isn't routable"
         );
         self.copy_constraints
-            .push(CopyConstraint::new((x, y), self.context.clone()));
+            .push(CopyConstraint::new((x, y), self.context_log.open_stack()));
     }
 
     /// Same as `assert_equal` for a named copy constraint.
@@ -223,7 +224,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         self.copy_constraints.push(CopyConstraint::new(
             (x, y),
-            format!("{}: {}", self.context.clone(), name),
+            format!("{} > {}", self.context_log.open_stack(), name),
         ));
     }
 
@@ -305,8 +306,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.targets_to_constants.get(&target).cloned()
     }
 
-    pub fn set_context(&mut self, new_context: &str) {
-        self.context = new_context.to_string();
+    pub fn push_context(&mut self, ctx: &str) {
+        self.context_log.push(ctx, self.num_gates());
+    }
+
+    pub fn pop_context(&mut self) {
+        self.context_log.pop(self.num_gates());
     }
 
     pub fn add_marked(&mut self, targets: Markable<D>, name: &str) {
@@ -483,6 +488,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let wire_partition = target_partition.wire_partition();
         wire_partition.get_sigma_polys(degree_log, k_is, subgroup)
+    }
+
+    pub fn print_gate_counts(&self, min_delta: usize) {
+        self.context_log
+            .filter(self.num_gates(), min_delta)
+            .print(self.num_gates());
     }
 
     /// Builds a "full circuit", with both prover and verifier data.

@@ -2,6 +2,7 @@
 
 pub mod circuit_builder;
 pub mod circuit_data;
+pub mod context_tree;
 pub mod copy_constraint;
 pub mod field;
 pub mod fri;
