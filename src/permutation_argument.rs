@@ -108,17 +108,12 @@ impl<F: Fn(Target) -> usize> TargetPartition<Target, F> {
             });
         });
 
-        let num_wires = partition.iter().map(|v| v.len()).sum();
-        WirePartitions {
-            partition,
-            num_wires,
-        }
+        WirePartitions { partition }
     }
 }
 
 pub struct WirePartitions {
     partition: Vec<Vec<Wire>>,
-    num_wires: usize,
 }
 
 impl WirePartitions {
@@ -129,7 +124,7 @@ impl WirePartitions {
         subgroup: &[F],
     ) -> Vec<PolynomialValues<F>> {
         let degree = 1 << degree_log;
-        let sigma = self.get_sigma_map(degree);
+        let sigma = self.get_sigma_map(degree, k_is.len());
 
         sigma
             .chunks(degree)
@@ -145,10 +140,7 @@ impl WirePartitions {
 
     /// Generates sigma in the context of Plonk, which is a map from `[kn]` to `[kn]`, where `k` is
     /// the number of routed wires and `n` is the number of gates.
-    fn get_sigma_map(&self, degree: usize) -> Vec<usize> {
-        debug_assert_eq!(self.num_wires % degree, 0);
-        let num_routed_wires = self.num_wires / degree;
-
+    fn get_sigma_map(&self, degree: usize, num_routed_wires: usize) -> Vec<usize> {
         // Find a wire's "neighbor" in the context of Plonk's "extended copy constraints" check. In
         // other words, find the next wire in the given wire's partition. If the given wire is last in
         // its partition, this will loop around. If the given wire has a partition all to itself, it
