@@ -115,7 +115,6 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     let precomputed_reduced_evals = PrecomputedReducedEvals::from_os_and_alpha(&os, alpha);
     for round_proof in &proof.query_round_proofs {
         fri_verifier_query_round(
-            os,
             zeta,
             alpha,
             precomputed_reduced_evals,
@@ -237,7 +236,6 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
 }
 
 fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
-    os: &OpeningSet<F, D>,
     zeta: F::Extension,
     alpha: F::Extension,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,

@@ -111,11 +111,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "Number of reductions should be non-zero."
         );
 
+        let precomputed_reduced_evals =
+            PrecomputedReducedEvalsTarget::from_os_and_alpha(&os, alpha, self);
         for round_proof in &proof.query_round_proofs {
             self.fri_verifier_query_round(
-                os,
                 zeta,
                 alpha,
+                precomputed_reduced_evals,
                 initial_merkle_roots,
                 proof,
                 challenger,
@@ -148,9 +150,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         proof: &FriInitialTreeProofTarget,
         alpha: ExtensionTarget<D>,
-        os: &OpeningSetTarget<D>,
         zeta: ExtensionTarget<D>,
         subgroup_x: Target,
+        precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
         common_data: &CommonCircuitData<F, D>,
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
@@ -178,19 +180,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         )
         .map(|&e| self.convert_to_ext(e))
         .collect::<Vec<_>>();
-        let single_openings = os
-            .constants
-            .iter()
-            .chain(&os.plonk_sigmas)
-            .chain(&os.wires)
-            .chain(&os.quotient_polys)
-            .chain(&os.partial_products)
-            .copied()
-            .collect::<Vec<_>>();
-        let mut single_numerator = alpha.reduce(&single_evals, self);
-        // TODO: Precompute the rhs as it is the same in all FRI rounds.
-        let rhs = alpha.reduce(&single_openings, self);
-        single_numerator = self.sub_extension(single_numerator, rhs);
+        let single_composition_eval = alpha.reduce(&single_evals, self);
+        let single_numerator =
+            self.sub_extension(single_composition_eval, precomputed_reduced_evals.single);
         let single_denominator = self.sub_extension(subgroup_x, zeta);
         let quotient = self.div_unsafe_extension(single_numerator, single_denominator);
         sum = self.add_extension(sum, quotient);
@@ -203,14 +195,15 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .take(common_data.zs_range().end)
             .map(|&e| self.convert_to_ext(e))
             .collect::<Vec<_>>();
-        let zs_composition_eval = alpha.clone().reduce(&zs_evals, self);
+        let zs_composition_eval = alpha.reduce(&zs_evals, self);
 
         let g = self.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
         let zeta_right = self.mul_extension(g, zeta);
-        let zs_ev_zeta = alpha.clone().reduce(&os.plonk_zs, self);
-        let zs_ev_zeta_right = alpha.reduce(&os.plonk_zs_right, self);
         let interpol_val = self.interpolate2(
-            [(zeta, zs_ev_zeta), (zeta_right, zs_ev_zeta_right)],
+            [
+                (zeta, precomputed_reduced_evals.zs),
+                (zeta_right, precomputed_reduced_evals.zs_right),
+            ],
             subgroup_x,
         );
         let zs_numerator = self.sub_extension(zs_composition_eval, interpol_val);
@@ -226,9 +219,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn fri_verifier_query_round(
         &mut self,
-        os: &OpeningSetTarget<D>,
         zeta: ExtensionTarget<D>,
         alpha: ExtensionTarget<D>,
+        precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
         initial_merkle_roots: &[HashTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger,
@@ -266,9 +259,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.fri_combine_initial(
                     &round_proof.initial_trees_proof,
                     alpha,
-                    os,
                     zeta,
                     subgroup_x,
+                    precomputed_reduced_evals,
                     common_data,
                 )
             } else {
@@ -325,5 +318,41 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // to the one sent by the prover.
         let eval = proof.final_poly.eval_scalar(self, subgroup_x);
         self.assert_equal_extension(eval, purported_eval);
+    }
+}
+
+#[derive(Copy, Clone)]
+struct PrecomputedReducedEvalsTarget<const D: usize> {
+    pub single: ExtensionTarget<D>,
+    pub zs: ExtensionTarget<D>,
+    pub zs_right: ExtensionTarget<D>,
+}
+
+impl<const D: usize> PrecomputedReducedEvalsTarget<D> {
+    fn from_os_and_alpha<F: Extendable<D>>(
+        os: &OpeningSetTarget<D>,
+        alpha: ExtensionTarget<D>,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        let mut alpha = ReducingFactorTarget::new(alpha);
+        let single = alpha.reduce(
+            &os.constants
+                .iter()
+                .chain(&os.plonk_sigmas)
+                .chain(&os.wires)
+                .chain(&os.quotient_polys)
+                .chain(&os.partial_products)
+                .copied()
+                .collect::<Vec<_>>(),
+            builder,
+        );
+        let zs = alpha.reduce(&os.plonk_zs, builder);
+        let zs_right = alpha.reduce(&os.plonk_zs_right, builder);
+
+        Self {
+            single,
+            zs,
+            zs_right,
+        }
     }
 }
