@@ -1,5 +1,6 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::CommonCircuitData;
+use crate::context;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
@@ -266,11 +267,15 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
     let max_degree = common_data.quotient_degree_factor;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
 
-    let constraint_terms = evaluate_gate_constraints_recursively(
+    let constraint_terms = context!(
         builder,
-        &common_data.gates,
-        common_data.num_gate_constraints,
-        vars,
+        "evaluate gate constraints",
+        evaluate_gate_constraints_recursively(
+            builder,
+            &common_data.gates,
+            common_data.num_gate_constraints,
+            vars,
+        )
     );
 
     // The L_1(x) (Z(x) - 1) vanishing terms.

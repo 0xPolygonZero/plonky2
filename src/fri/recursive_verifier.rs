@@ -1,5 +1,6 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::CommonCircuitData;
+use crate::context;
 use crate::field::extension_field::target::{flatten_target, ExtensionTarget};
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
@@ -86,19 +87,25 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Size of the LDE domain.
         let n = proof.final_poly.len() << (total_arities + config.rate_bits);
 
-        self.set_context("Recover the random betas used in the FRI reductions.");
-        let betas = proof
-            .commit_phase_merkle_roots
-            .iter()
-            .map(|root| {
-                challenger.observe_hash(root);
-                challenger.get_extension_challenge(self)
-            })
-            .collect::<Vec<_>>();
+        let betas = context!(
+            self,
+            "recover the random betas used in the FRI reductions.",
+            proof
+                .commit_phase_merkle_roots
+                .iter()
+                .map(|root| {
+                    challenger.observe_hash(root);
+                    challenger.get_extension_challenge(self)
+                })
+                .collect::<Vec<_>>()
+        );
         challenger.observe_extension_elements(&proof.final_poly.0);
 
-        self.set_context("Check PoW");
-        self.fri_verify_proof_of_work(proof, challenger, &config.fri_config);
+        context!(
+            self,
+            "check PoW",
+            self.fri_verify_proof_of_work(proof, challenger, &config.fri_config)
+        );
 
         // Check that parameters are coherent.
         debug_assert_eq!(
@@ -113,18 +120,22 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let precomputed_reduced_evals =
             PrecomputedReducedEvalsTarget::from_os_and_alpha(os, alpha, self);
-        for round_proof in &proof.query_round_proofs {
-            self.fri_verifier_query_round(
-                zeta,
-                alpha,
-                precomputed_reduced_evals,
-                initial_merkle_roots,
-                proof,
-                challenger,
-                n,
-                &betas,
-                round_proof,
-                common_data,
+        for (i, round_proof) in proof.query_round_proofs.iter().enumerate() {
+            context!(
+                self,
+                &format!("verify {}'th FRI query", i),
+                self.fri_verifier_query_round(
+                    zeta,
+                    alpha,
+                    precomputed_reduced_evals,
+                    initial_merkle_roots,
+                    proof,
+                    challenger,
+                    n,
+                    &betas,
+                    round_proof,
+                    common_data,
+                )
             );
         }
     }
@@ -141,8 +152,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .zip(initial_merkle_roots)
             .enumerate()
         {
-            self.set_context(&format!("Verify {}-th initial Merkle proof.", i));
-            self.verify_merkle_proof(evals.clone(), x_index, root, merkle_proof);
+            context!(
+                self,
+                &format!("verify {}'th initial Merkle proof", i),
+                self.verify_merkle_proof(evals.clone(), x_index, root, merkle_proof)
+            );
         }
     }
 
@@ -238,41 +252,55 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x_index = self.split_low_high(x_index, n_log, 64).0;
         let mut x_index_num_bits = n_log;
         let mut domain_size = n;
-        self.set_context("Check FRI initial proof.");
-        self.fri_verify_initial_proof(
-            x_index,
-            &round_proof.initial_trees_proof,
-            initial_merkle_roots,
+        context!(
+            self,
+            "check FRI initial proof",
+            self.fri_verify_initial_proof(
+                x_index,
+                &round_proof.initial_trees_proof,
+                initial_merkle_roots,
+            )
         );
         let mut old_x_index = self.zero();
-        // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
-        let g = self.constant(F::MULTIPLICATIVE_GROUP_GENERATOR);
-        let phi = self.constant(F::primitive_root_of_unity(n_log));
 
-        let reversed_x = self.reverse_limbs::<2>(x_index, n_log);
-        let phi = self.exp(phi, reversed_x, n_log);
-        let mut subgroup_x = self.mul(g, phi);
+        // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
+        let mut subgroup_x = context!(self, "compute x from its index", {
+            let g = self.constant(F::MULTIPLICATIVE_GROUP_GENERATOR);
+            let phi = self.constant(F::primitive_root_of_unity(n_log));
+
+            let reversed_x = self.reverse_limbs::<2>(x_index, n_log);
+            let phi = self.exp(phi, reversed_x, n_log);
+            self.mul(g, phi)
+        });
 
         for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
             let next_domain_size = domain_size >> arity_bits;
             let e_x = if i == 0 {
-                self.fri_combine_initial(
-                    &round_proof.initial_trees_proof,
-                    alpha,
-                    zeta,
-                    subgroup_x,
-                    precomputed_reduced_evals,
-                    common_data,
+                context!(
+                    self,
+                    "combine initial oracles",
+                    self.fri_combine_initial(
+                        &round_proof.initial_trees_proof,
+                        alpha,
+                        zeta,
+                        subgroup_x,
+                        precomputed_reduced_evals,
+                        common_data,
+                    )
                 )
             } else {
                 let last_evals = &evaluations[i - 1];
                 // Infer P(y) from {P(x)}_{x^arity=y}.
-                self.compute_evaluation(
-                    subgroup_x,
-                    old_x_index,
-                    config.reduction_arity_bits[i - 1],
-                    last_evals,
-                    betas[i - 1],
+                context!(
+                    self,
+                    "infer evaluation using interpolation",
+                    self.compute_evaluation(
+                        subgroup_x,
+                        old_x_index,
+                        config.reduction_arity_bits[i - 1],
+                        last_evals,
+                        betas[i - 1],
+                    )
                 )
             };
             let mut evals = round_proof.steps[i].evals.clone();
@@ -281,12 +309,15 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.split_low_high(x_index, arity_bits, x_index_num_bits);
             evals = self.insert(low_x_index, e_x, evals);
             evaluations.push(evals);
-            self.set_context("Verify FRI round Merkle proof.");
-            self.verify_merkle_proof(
-                flatten_target(&evaluations[i]),
-                high_x_index,
-                proof.commit_phase_merkle_roots[i],
-                &round_proof.steps[i].merkle_proof,
+            context!(
+                self,
+                "verify FRI round Merkle proof.",
+                self.verify_merkle_proof(
+                    flatten_target(&evaluations[i]),
+                    high_x_index,
+                    proof.commit_phase_merkle_roots[i],
+                    &round_proof.steps[i].merkle_proof,
+                )
             );
 
             if i > 0 {
@@ -303,12 +334,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let last_evals = evaluations.last().unwrap();
         let final_arity_bits = *config.reduction_arity_bits.last().unwrap();
-        let purported_eval = self.compute_evaluation(
-            subgroup_x,
-            old_x_index,
-            final_arity_bits,
-            last_evals,
-            *betas.last().unwrap(),
+        let purported_eval = context!(
+            self,
+            "infer final evaluation using interpolation",
+            self.compute_evaluation(
+                subgroup_x,
+                old_x_index,
+                final_arity_bits,
+                last_evals,
+                *betas.last().unwrap(),
+            )
         );
         for _ in 0..final_arity_bits {
             subgroup_x = self.square(subgroup_x);
@@ -316,7 +351,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Final check of FRI. After all the reductions, we check that the final polynomial is equal
         // to the one sent by the prover.
-        let eval = proof.final_poly.eval_scalar(self, subgroup_x);
+        let eval = context!(
+            self,
+            "evaluate final polynomial",
+            proof.final_poly.eval_scalar(self, subgroup_x)
+        );
         self.assert_equal_extension(eval, purported_eval);
     }
 }
