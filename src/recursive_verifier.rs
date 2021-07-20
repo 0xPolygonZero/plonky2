@@ -89,7 +89,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             {
                 let recombined_quotient = scale.reduce(chunk, self);
                 let computed_vanishing_poly = self.mul_extension(z_h_zeta, recombined_quotient);
-                self.named_route_extension(
+                self.named_assert_equal_extension(
                     vanishing_polys_zeta[i],
                     computed_vanishing_poly,
                     format!("Vanishing polynomial == Z_H * quotient, challenge {}", i),
