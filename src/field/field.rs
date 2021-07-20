@@ -4,6 +4,7 @@ use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use num_bigint::BigUInt;
 use num::Integer;
 use rand::Rng;
 use serde::de::DeserializeOwned;
@@ -11,6 +12,11 @@ use serde::Serialize;
 
 use crate::field::extension_field::Frobenius;
 use crate::util::bits_u64;
+
+pub enum FieldOrder {
+    U64(u64),
+    Big(BigUInt)
+ } 
 
 /// A finite field with prime order less than 2^64.
 pub trait Field:
@@ -44,7 +50,7 @@ pub trait Field:
     const NEG_ONE: Self;
 
     const CHARACTERISTIC: u64;
-    const ORDER: u64;
+    const ORDER: FieldOrder;
     const TWO_ADICITY: usize;
 
     /// Generator of the entire multiplicative group, i.e. all non-zero elements.

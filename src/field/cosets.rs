@@ -1,14 +1,27 @@
-use crate::field::field::Field;
+use num_bigint::BigUInt;
+use crate::field::field::{Field, FieldOrder};
 
 /// Finds a set of shifts that result in unique cosets for the multiplicative subgroup of size
 /// `2^subgroup_bits`.
 pub(crate) fn get_unique_coset_shifts<F: Field>(subgroup_size: usize, num_shifts: usize) -> Vec<F> {
-    // From Lagrange's theorem.
-    let num_cosets = (F::ORDER - 1) / (subgroup_size as u64);
-    assert!(
-        num_shifts as u64 <= num_cosets,
-        "The subgroup does not have enough distinct cosets"
-    );
+    match F::ORDER {
+        FieldOrder::U64(order) => {
+            // From Lagrange's theorem.
+            let num_cosets = (order - 1) / (subgroup_size as u64);
+            assert!(
+                num_shifts as u64 <= num_cosets,
+                "The subgroup does not have enough distinct cosets"
+            );
+        },
+        FieldOrder::Big(order) => {
+            // From Lagrange's theorem.
+            let num_cosets = (order - 1) / (subgroup_size as BigUInt);
+            assert!(
+                num_shifts as BigUInt <= num_cosets,
+                "The subgroup does not have enough distinct cosets"
+            );
+        }
+    }
 
     // Let g be a generator of the entire multiplicative group. Let n be the order of the subgroup.
     // The subgroup can be written as <g^(|F*| / n)>. We can use g^0, ..., g^(num_shifts - 1) as our
