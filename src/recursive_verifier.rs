@@ -59,7 +59,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let s_sigmas = &proof.openings.plonk_sigmas;
         let partial_products = &proof.openings.partial_products;
 
-        let zeta_pow_deg = self.exp_power_of_2(zeta, inner_common_data.degree_bits);
+        let zeta_pow_deg = self.exp_power_of_2_extension(zeta, inner_common_data.degree_bits);
         let vanishing_polys_zeta = context!(
             self,
             "evaluate the vanishing polynomial at our challenge point, zeta.",
@@ -89,7 +89,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             {
                 let recombined_quotient = scale.reduce(chunk, self);
                 let computed_vanishing_poly = self.mul_extension(z_h_zeta, recombined_quotient);
-                self.named_route_extension(
+                self.named_assert_equal_extension(
                     vanishing_polys_zeta[i],
                     computed_vanishing_poly,
                     format!("Vanishing polynomial == Z_H * quotient, challenge {}", i),

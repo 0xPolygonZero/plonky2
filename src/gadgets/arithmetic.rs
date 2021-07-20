@@ -153,6 +153,15 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         product
     }
 
+    /// Exponentiate `base` to the power of `2^power_log`.
+    // TODO: Test
+    pub fn exp_power_of_2(&mut self, mut base: Target, power_log: usize) -> Target {
+        for _ in 0..power_log {
+            base = self.square(base);
+        }
+        base
+    }
+
     // TODO: Optimize this, maybe with a new gate.
     // TODO: Test
     /// Exponentiate `base` to the power of `exponent`, where `exponent < 2^num_bits`.
