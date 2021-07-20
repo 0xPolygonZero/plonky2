@@ -4,19 +4,14 @@ use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use num_bigint::BigUInt;
-use num::Integer;
+use num_bigint::BigUint;
+use num::{Integer, Zero};
 use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::field::extension_field::Frobenius;
 use crate::util::bits_u64;
-
-pub enum FieldOrder {
-    U64(u64),
-    Big(BigUInt)
- } 
 
 /// A finite field with prime order less than 2^64.
 pub trait Field:
@@ -50,7 +45,7 @@ pub trait Field:
     const NEG_ONE: Self;
 
     const CHARACTERISTIC: u64;
-    const ORDER: FieldOrder;
+    const ORDER: BigUint;
     const TWO_ADICITY: usize;
 
     /// Generator of the entire multiplicative group, i.e. all non-zero elements.
@@ -218,18 +213,33 @@ pub trait Field:
         self.exp(power as u64)
     }
 
+    fn exp_bigint(&self, power: BigUint) -> Self {
+        let digits = power.to_u32_digits();
+        let radix = 1u64 << 32;
+
+        let mut result = Self::ONE;
+        for (radix_power, &digit) in digits.iter().enumerate() {
+            let mut current = self.exp_u32(digit);
+            for _ in 0..radix_power {
+                current = current.exp(radix);
+            }
+            result *= current;
+        }
+        result
+    }
+
     /// Returns whether `x^power` is a permutation of this field.
     fn is_monomial_permutation(power: u64) -> bool {
         match power {
             0 => false,
             1 => true,
-            _ => (Self::ORDER - 1).gcd(&power) == 1,
+            _ => (Self::ORDER - 1u32).gcd(&BigUint::from(power)) == BigUint::from(1u32),
         }
     }
 
     fn kth_root(&self, k: u64) -> Self {
         let p = Self::ORDER;
-        let p_minus_1 = p - 1;
+        let p_minus_1 = p - 1u32;
         debug_assert!(
             Self::is_monomial_permutation(k),
             "Not a permutation of this field"
@@ -242,10 +252,10 @@ pub trait Field:
         //    x^((p + n(p - 1))/k)^k = x,
         // implying that x^((p + n(p - 1))/k) is a k'th root of x.
         for n in 0..k {
-            let numerator = p as u128 + n as u128 * p_minus_1 as u128;
-            if numerator % k as u128 == 0 {
-                let power = (numerator / k as u128) as u64 % p_minus_1;
-                return self.exp(power);
+            let numerator = p + p_minus_1 * n;
+            if numerator % k == BigUint::zero() {
+                let power = (numerator / k) % p_minus_1;
+                return self.exp_bigint(power);
             }
         }
         panic!(

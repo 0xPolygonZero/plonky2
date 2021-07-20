@@ -1,3 +1,5 @@
+use num_bigint::BigUint;
+
 use crate::field::field::Field;
 use crate::util::{bits_u64, ceil_div_usize};
 
@@ -5,9 +7,9 @@ use crate::util::{bits_u64, ceil_div_usize};
 /// `modulus` which cover a range of values and which will
 /// generate lots of carries, especially at `word_bits` word
 /// boundaries.
-pub fn test_inputs(modulus: u64, word_bits: usize) -> Vec<u64> {
+pub fn test_inputs(modulus: BigUint, word_bits: usize) -> Vec<u64> {
     assert!(word_bits == 32 || word_bits == 64);
-    let modwords = ceil_div_usize(bits_u64(modulus), word_bits);
+    let modwords = ceil_div_usize(modulus.bits(), word_bits);
     // Start with basic set close to zero: 0 .. 10
     const BIGGEST_SMALL: u32 = 10;
     let smalls: Vec<_> = (0..BIGGEST_SMALL).map(u64::from).collect();
@@ -32,17 +34,17 @@ pub fn test_inputs(modulus: u64, word_bits: usize) -> Vec<u64> {
     let diff_max = basic_inputs
         .iter()
         .map(|&x| u64::MAX - x)
-        .filter(|&x| x < modulus)
+        .filter(|&x| BigUint::from(x) < modulus)
         .collect();
     // Inputs 'difference from' modulus value
     let diff_mod = basic_inputs
         .iter()
-        .filter(|&&x| x < modulus && x != 0)
+        .filter(|&&x| BigUint::from(x) < modulus && x != 0)
         .map(|&x| modulus - x)
         .collect();
     let basics = basic_inputs
         .into_iter()
-        .filter(|&x| x < modulus)
+        .filter(|&x| BigUint::from(x) < modulus)
         .collect::<Vec<u64>>();
     [basics, diff_max, diff_mod].concat()
 
@@ -59,7 +61,7 @@ pub fn test_inputs(modulus: u64, word_bits: usize) -> Vec<u64> {
 /// coordinate-wise to the inputs from `test_inputs(modulus,
 /// word_bits)` and panic if the two resulting vectors differ.
 pub fn run_unaryop_test_cases<F, UnaryOp, ExpectedOp>(
-    modulus: u64,
+    modulus: BigUint,
     word_bits: usize,
     op: UnaryOp,
     expected_op: ExpectedOp,
@@ -90,7 +92,7 @@ pub fn run_unaryop_test_cases<F, UnaryOp, ExpectedOp>(
 /// `inputs.len()`.  Panic if the two functions ever give
 /// different answers.
 pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
-    modulus: u64,
+    modulus: BigUint,
     word_bits: usize,
     op: BinaryOp,
     expected_op: ExpectedOp,

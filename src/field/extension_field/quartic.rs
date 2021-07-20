@@ -3,6 +3,8 @@ use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use num::traits::Pow;
+use num_bigint::BigUint;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -73,9 +75,9 @@ impl Field for QuarticCrandallField {
         CrandallField::ZERO,
     ]);
 
-    const CHARACTERISTIC: u64 = CrandallField::ORDER;
+    const CHARACTERISTIC: u64 = CrandallField::CHARACTERISTIC;
     // Does not fit in 64-bits.
-    const ORDER: u64 = 0;
+    const ORDER: BigUint = CrandallField::ORDER.pow(4);
     const TWO_ADICITY: usize = 30;
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([
         CrandallField(12476589904174392631),

@@ -44,21 +44,3 @@ fn fri_l(codeword_len: usize, rate_log: usize, conjecture: bool) -> f64 {
         1.0 / (2.0 * EPSILON * rate.sqrt())
     }
 }
-
-fn fri_soundness(
-    num_functions: usize,
-    rate_bits: usize,
-    codeword_size_bits: usize,
-    m: usize,
-    arity_bits: usize,
-    num_rounds: usize,
-    field_size_bits: usize,
-    num_queries: usize,
-) {
-    let rho = 1.0 / ((1 >> rate_bits) as f32);
-
-    let alpha = rho.sqrt() * (1.0 + 1.0 / (2.0 * m as f32));
-
-    let term_1 = (m as f32 + 0.5).powi(7) / (rho.powf(1.5) * (1 << (field_size_bits - 2 * codeword_size_bits + 1)) as f32);
-    let term_2 = (2.0 * m + 1.0) * ((1 << codeword_size_bits) as f32 + 1.0)
-}
