@@ -8,7 +8,7 @@ use crate::fri::FriConfig;
 use crate::hash::hash_n_to_1;
 use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{reduce_with_powers, PlonkPolynomials};
+use crate::plonk_common::PlonkPolynomials;
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash, OpeningSet};
 use crate::util::scaling::ReducingFactor;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
@@ -112,7 +112,7 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
         "Number of reductions should be non-zero."
     );
 
-    let precomputed_reduced_evals = PrecomputedReducedEvals::from_os_and_alpha(&os, alpha);
+    let precomputed_reduced_evals = PrecomputedReducedEvals::from_os_and_alpha(os, alpha);
     for round_proof in &proof.query_round_proofs {
         fri_verifier_query_round(
             zeta,

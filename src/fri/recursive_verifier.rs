@@ -112,7 +112,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         let precomputed_reduced_evals =
-            PrecomputedReducedEvalsTarget::from_os_and_alpha(&os, alpha, self);
+            PrecomputedReducedEvalsTarget::from_os_and_alpha(os, alpha, self);
         for round_proof in &proof.query_round_proofs {
             self.fri_verifier_query_round(
                 zeta,
