@@ -38,7 +38,7 @@ mod tests {
         let generator = F::primitive_root_of_unity(SUBGROUP_BITS);
         let subgroup_size = 1 << SUBGROUP_BITS;
 
-        let shifts = get_unique_coset_shifts::<F>(SUBGROUP_BITS, NUM_SHIFTS);
+        let shifts = get_unique_coset_shifts::<F>(subgroup_size, NUM_SHIFTS);
 
         let mut union = HashSet::new();
         for shift in shifts {
