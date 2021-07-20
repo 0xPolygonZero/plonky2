@@ -59,7 +59,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let s_sigmas = &proof.openings.plonk_sigmas;
         let partial_products = &proof.openings.partial_products;
 
-        let zeta_pow_deg = self.exp_power_of_2(zeta, inner_common_data.degree_bits);
+        let zeta_pow_deg = self.exp_power_of_2_extension(zeta, inner_common_data.degree_bits);
         let vanishing_polys_zeta = context!(
             self,
             "evaluate the vanishing polynomial at our challenge point, zeta.",

@@ -248,7 +248,6 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
     let config = &common_data.config.fri_config;
-    let mut evaluations: Vec<Vec<F::Extension>> = Vec::new();
     let x = challenger.get_challenge();
     let mut domain_size = n;
     let mut x_index = x.to_canonical_u64() as usize % n;
@@ -262,6 +261,8 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
     let log_n = log2_strict(n);
     let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
         * F::primitive_root_of_unity(log_n).exp(reverse_bits(x_index, log_n) as u64);
+
+    let mut evaluations: Vec<Vec<F::Extension>> = Vec::new();
     for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
         let arity = 1 << arity_bits;
         let next_domain_size = domain_size >> arity_bits;
@@ -288,20 +289,18 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
         let mut evals = round_proof.steps[i].evals.clone();
         // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
         evals.insert(x_index & (arity - 1), e_x);
-        evaluations.push(evals);
         verify_merkle_proof(
-            flatten(&evaluations[i]),
+            flatten(&evals),
             x_index >> arity_bits,
             proof.commit_phase_merkle_roots[i],
             &round_proof.steps[i].merkle_proof,
             false,
         )?;
+        evaluations.push(evals);
 
         if i > 0 {
             // Update the point x to x^arity.
-            for _ in 0..config.reduction_arity_bits[i - 1] {
-                subgroup_x = subgroup_x.square();
-            }
+            subgroup_x = subgroup_x.exp_power_of_2(config.reduction_arity_bits[i - 1]);
         }
         domain_size = next_domain_size;
         old_x_index = x_index & (arity - 1);
@@ -317,9 +316,7 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
         last_evals,
         *betas.last().unwrap(),
     );
-    for _ in 0..final_arity_bits {
-        subgroup_x = subgroup_x.square();
-    }
+    subgroup_x = subgroup_x.exp_power_of_2(final_arity_bits);
 
     // Final check of FRI. After all the reductions, we check that the final polynomial is equal
     // to the one sent by the prover.

@@ -292,7 +292,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Exponentiate `base` to the power of `2^power_log`.
     // TODO: Test
-    pub fn exp_power_of_2(
+    pub fn exp_power_of_2_extension(
         &mut self,
         mut base: ExtensionTarget<D>,
         power_log: usize,
