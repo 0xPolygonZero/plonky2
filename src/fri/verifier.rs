@@ -112,11 +112,12 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
         "Number of reductions should be non-zero."
     );
 
+    let precomputed_reduced_evals = PrecomputedReducedEvals::from_os_and_alpha(os, alpha);
     for round_proof in &proof.query_round_proofs {
         fri_verifier_query_round(
-            os,
             zeta,
             alpha,
+            precomputed_reduced_evals,
             initial_merkle_roots,
             &proof,
             challenger,
@@ -142,12 +143,43 @@ fn fri_verify_initial_proof<F: Field>(
     Ok(())
 }
 
+/// Holds the reduced (by `alpha`) evaluations at `zeta` for the polynomial opened just at
+/// zeta, for `Z` at zeta and for `Z` at `g*zeta`.
+#[derive(Copy, Clone)]
+struct PrecomputedReducedEvals<F: Extendable<D>, const D: usize> {
+    pub single: F::Extension,
+    pub zs: F::Extension,
+    pub zs_right: F::Extension,
+}
+
+impl<F: Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D> {
+    fn from_os_and_alpha(os: &OpeningSet<F, D>, alpha: F::Extension) -> Self {
+        let mut alpha = ReducingFactor::new(alpha);
+        let single = alpha.reduce(
+            os.constants
+                .iter()
+                .chain(&os.plonk_sigmas)
+                .chain(&os.wires)
+                .chain(&os.quotient_polys)
+                .chain(&os.partial_products),
+        );
+        let zs = alpha.reduce(os.plonk_zs.iter());
+        let zs_right = alpha.reduce(os.plonk_zs_right.iter());
+
+        Self {
+            single,
+            zs,
+            zs_right,
+        }
+    }
+}
+
 fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     proof: &FriInitialTreeProof<F>,
     alpha: F::Extension,
-    os: &OpeningSet<F, D>,
     zeta: F::Extension,
     subgroup_x: F,
+    precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> F::Extension {
     let config = &common_data.config;
@@ -174,19 +206,8 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
             [common_data.partial_products_range()],
     )
     .map(|&e| F::Extension::from_basefield(e));
-    let single_openings = os
-        .constants
-        .iter()
-        .chain(&os.plonk_sigmas)
-        .chain(&os.wires)
-        .chain(&os.quotient_polys)
-        .chain(&os.partial_products);
-    let single_diffs = single_evals
-        .into_iter()
-        .zip(single_openings)
-        .map(|(e, &o)| e - o)
-        .collect::<Vec<_>>();
-    let single_numerator = alpha.reduce(single_diffs.iter());
+    let single_composition_eval = alpha.reduce(single_evals);
+    let single_numerator = single_composition_eval - precomputed_reduced_evals.single;
     let single_denominator = subgroup_x - zeta;
     sum += single_numerator / single_denominator;
     alpha.reset();
@@ -197,12 +218,12 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .iter()
         .map(|&e| F::Extension::from_basefield(e))
         .take(common_data.zs_range().end);
-    let zs_composition_eval = alpha.clone().reduce(zs_evals);
+    let zs_composition_eval = alpha.reduce(zs_evals);
     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
     let zs_interpol = interpolate2(
         [
-            (zeta, alpha.clone().reduce(os.plonk_zs.iter())),
-            (zeta_right, alpha.reduce(os.plonk_zs_right.iter())),
+            (zeta, precomputed_reduced_evals.zs),
+            (zeta_right, precomputed_reduced_evals.zs_right),
         ],
         subgroup_x,
     );
@@ -215,9 +236,9 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
 }
 
 fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
-    os: &OpeningSet<F, D>,
     zeta: F::Extension,
     alpha: F::Extension,
+    precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
     initial_merkle_roots: &[Hash<F>],
     proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
@@ -248,9 +269,9 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
             fri_combine_initial(
                 &round_proof.initial_trees_proof,
                 alpha,
-                os,
                 zeta,
                 subgroup_x,
+                precomputed_reduced_evals,
                 common_data,
             )
         } else {
