@@ -178,7 +178,6 @@ impl<F: Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D> {
 fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     proof: &FriInitialTreeProof<F>,
     alpha: F::Extension,
-    os: &OpeningSet<F, D>,
     zeta: F::Extension,
     subgroup_x: F,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
@@ -220,7 +219,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
         .iter()
         .map(|&e| F::Extension::from_basefield(e))
         .take(common_data.zs_range().end);
-    let zs_composition_eval = alpha.clone().reduce(zs_evals);
+    let zs_composition_eval = alpha.reduce(zs_evals);
     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
     let zs_interpol = interpolate2(
         [
@@ -272,7 +271,6 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
             fri_combine_initial(
                 &round_proof.initial_trees_proof,
                 alpha,
-                os,
                 zeta,
                 subgroup_x,
                 precomputed_reduced_evals,
