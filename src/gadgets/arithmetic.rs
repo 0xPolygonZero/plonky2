@@ -155,14 +155,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     // TODO: Optimize this, maybe with a new gate.
     // TODO: Test
-    /// Exponentiate `base` to the power of `exponent`, where `exponent < 2^num_bits`.
-    pub fn exp(&mut self, base: Target, exponent: Target, num_bits: usize) -> Target {
+    /// Exponentiate `base` to the power of `exponent`, given by its little-endian bits.
+    pub fn exp_from_bits(&mut self, base: Target, exponent_bits: &[Target]) -> Target {
         let mut current = base;
         let one_ext = self.one_extension();
         let mut product = self.one();
-        let exponent_bits = self.split_le(exponent, num_bits);
 
-        for bit in exponent_bits.into_iter() {
+        for &bit in exponent_bits {
             let current_ext = self.convert_to_ext(current);
             let multiplicand = self.select(bit, current_ext, one_ext);
             product = self.mul(product, multiplicand.0[0]);
@@ -170,6 +169,32 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         product
+    }
+
+    // TODO: Optimize this, maybe with a new gate.
+    // TODO: Test
+    /// Exponentiate `base` to the power of `exponent`, given by its little-endian bits.
+    pub fn exp_from_complement_bits(&mut self, base: Target, exponent_bits: &[Target]) -> Target {
+        let mut current = base;
+        let one_ext = self.one_extension();
+        let mut product = self.one();
+
+        for &bit in exponent_bits {
+            let current_ext = self.convert_to_ext(current);
+            let multiplicand = self.select(bit, one_ext, current_ext);
+            product = self.mul(product, multiplicand.0[0]);
+            current = self.mul(current, current);
+        }
+
+        product
+    }
+
+    // TODO: Optimize this, maybe with a new gate.
+    // TODO: Test
+    /// Exponentiate `base` to the power of `exponent`, where `exponent < 2^num_bits`.
+    pub fn exp(&mut self, base: Target, exponent: Target, num_bits: usize) -> Target {
+        let exponent_bits = self.split_le(exponent, num_bits);
+        self.exp_from_bits(base, &exponent_bits)
     }
 
     /// Exponentiate `base` to the power of a known `exponent`.

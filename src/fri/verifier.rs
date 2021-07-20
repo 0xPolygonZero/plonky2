@@ -22,20 +22,21 @@ fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     last_evals: &[F::Extension],
     beta: F::Extension,
 ) -> F::Extension {
-    debug_assert_eq!(last_evals.len(), 1 << arity_bits);
+    let arity = 1 << arity_bits;
+    debug_assert_eq!(last_evals.len(), arity);
 
     let g = F::primitive_root_of_unity(arity_bits);
 
     // The evaluation vector needs to be reordered first.
     let mut evals = last_evals.to_vec();
     reverse_index_bits_in_place(&mut evals);
-    evals.rotate_left(reverse_bits(old_x_index, arity_bits));
-
+    let rev_x_index = reverse_bits(old_x_index, arity_bits);
+    let start = x * g.exp((arity - rev_x_index) as u64);
     // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
     let points = g
         .powers()
         .zip(evals)
-        .map(|(y, e)| ((x * y).into(), e))
+        .map(|(y, e)| ((start * y).into(), e))
         .collect::<Vec<_>>();
     let barycentric_weights = barycentric_weights(&points);
     interpolate(&points, beta, &barycentric_weights)
