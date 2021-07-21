@@ -41,9 +41,9 @@ pub fn test_inputs(modulus: BigUint, word_bits: usize) -> Vec<BigUint> {
     let diff_mod = basic_inputs
         .iter()
         .map(|x| x.clone())
-        .filter(|&x| x < modulus && x != BigUint::from(0u32))
+        .filter(|x| x.clone() < modulus.clone() && x.clone() != BigUint::from(0u32))
         .map(|x| x.clone())
-        .map(|x| modulus - x)
+        .map(|x| modulus.clone() - x)
         .collect();
     let basics = basic_inputs
         .into_iter()
@@ -75,7 +75,7 @@ pub fn run_unaryop_test_cases<F, UnaryOp, ExpectedOp>(
     ExpectedOp: Fn(BigUint) -> BigUint,
 {
     let inputs = test_inputs(modulus, word_bits);
-    let expected: Vec<_> = inputs.iter().map(|&x| expected_op(x)).collect();
+    let expected: Vec<_> = inputs.iter().map(|x| expected_op(x.clone())).collect();
     let output: Vec<_> = inputs
         .iter()
         .map(|x| x.clone())
