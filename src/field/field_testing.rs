@@ -15,6 +15,7 @@ pub fn test_inputs(modulus: BigUint, word_bits: usize) -> Vec<BigUint> {
     let smalls: Vec<_> = (0..BIGGEST_SMALL).map(BigUint::from).collect();
     // ... and close to MAX: MAX - x
     let word_max = (BigUint::from(1u32) << word_bits) - 1u32;
+    let multiple_words_max = (BigUint::from(1u32) << modwords * word_bits) - 1u32;
     let bigs = smalls.iter().map(|x| &word_max - x).collect();
     let one_words = [smalls, bigs].concat();
     // For each of the one word inputs above, create a new one at word i.
@@ -34,7 +35,7 @@ pub fn test_inputs(modulus: BigUint, word_bits: usize) -> Vec<BigUint> {
     let diff_max = basic_inputs
         .iter()
         .map(|x| x.clone())
-        .map(|x| word_max.clone() - x)
+        .map(|x| multiple_words_max.clone() - x)
         .filter(|x| x < &modulus)
         .collect();
     // Inputs 'difference from' modulus value
@@ -175,10 +176,16 @@ macro_rules! test_arithmetic {
             fn arithmetic_subtraction() {
                 let modulus = <$field>::order();
                 crate::field::field_testing::run_binaryop_test_cases(
-                    modulus,
+                    modulus.clone(),
                     WORD_BITS,
                     <$field>::sub,
-                    BigUint::sub,
+                    |x, y| {
+                        if x >= y {
+                            x.clone() - y.clone()
+                        } else {
+                            modulus.clone() - y.clone() + x
+                        }
+                    },
                 )
             }
 
@@ -186,10 +193,16 @@ macro_rules! test_arithmetic {
             fn arithmetic_negation() {
                 let modulus = <$field>::order();
                 crate::field::field_testing::run_unaryop_test_cases(
-                    modulus,
+                    modulus.clone(),
                     WORD_BITS,
                     <$field>::neg,
-                    BigUint::neg,
+                    |x| {
+                        if x == BigUint::from(0u32) {
+                            BigUint::from(0u32)
+                        } else {
+                            modulus.clone() - x.clone()
+                        }
+                    },
                 )
             }
 
