@@ -91,8 +91,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
                 .collect::<Vec<_>>(),
         );
         shift = shift.exp_u32(arity as u32);
-        // TODO: Is it faster to interpolate?
-        values = coeffs.clone().coset_fft(shift.into())
+        values = coeffs.coset_fft(shift.into())
     }
 
     coeffs.trim();
