@@ -288,6 +288,7 @@ mod tests {
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::insertion::InsertionGate;
+    use crate::proof::Hash;
     use crate::vars::EvaluationVars;
 
     #[test]
@@ -366,6 +367,7 @@ mod tests {
         let vars = EvaluationVars {
             local_constants: &[],
             local_wires: &get_wires(orig_vec, insertion_index, element_to_insert),
+            public_inputs_hash: &Hash::rand(),
         };
 
         assert!(

@@ -271,6 +271,7 @@ mod tests {
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::interpolation::InterpolationGate;
     use crate::polynomial::polynomial::PolynomialCoeffs;
+    use crate::proof::Hash;
     use crate::vars::EvaluationVars;
 
     #[test]
@@ -352,6 +353,7 @@ mod tests {
         let vars = EvaluationVars {
             local_constants: &[],
             local_wires: &get_wires(2, coeffs, points, eval_point),
+            public_inputs_hash: &Hash::rand(),
         };
 
         assert!(

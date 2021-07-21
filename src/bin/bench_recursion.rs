@@ -50,8 +50,8 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
 
     let circuit = builder.build();
     let inputs = PartialWitness::new();
-    let proof = circuit.prove(inputs)?;
-    let proof_bytes = serde_cbor::to_vec(&proof).unwrap();
+    let proof_with_pis = circuit.prove(inputs)?;
+    let proof_bytes = serde_cbor::to_vec(&proof_with_pis).unwrap();
     info!("Proof length: {} bytes", proof_bytes.len());
-    circuit.verify(proof)
+    circuit.verify(proof_with_pis)
 }
