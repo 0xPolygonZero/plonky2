@@ -7,7 +7,7 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::{Extendable, OEF};
 use crate::gates::arithmetic::ArithmeticExtensionGate;
-use crate::generator::SimpleGenerator;
+use crate::generator::{GeneratedValues, SimpleGenerator};
 use crate::target::Target;
 use crate::util::bits_u64;
 use crate::witness::PartialWitness;
@@ -384,11 +384,11 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for QuotientGeneratorE
         deps
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
         let num = witness.get_extension_target(self.numerator);
         let dem = witness.get_extension_target(self.denominator);
         let quotient = num / dem;
-        PartialWitness::singleton_extension_target(self.quotient, quotient)
+        GeneratedValues::singleton_extension_target(self.quotient, quotient)
     }
 }
 

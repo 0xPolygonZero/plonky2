@@ -5,7 +5,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
-use crate::generator::{SimpleGenerator, WitnessGenerator};
+use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::gmimc::gmimc_automatic_constants;
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
@@ -239,8 +239,8 @@ impl<F: Extendable<D>, const D: usize, const R: usize> SimpleGenerator<F>
             .collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let mut result = PartialWitness::new();
+    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
+        let mut result = GeneratedValues::with_capacity(R + W + 1);
 
         let mut state = (0..W)
             .map(|i| {

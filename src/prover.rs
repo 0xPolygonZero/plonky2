@@ -62,7 +62,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let wires_values: Vec<PolynomialValues<F>> = timed!(
         witness
             .wire_values
-            .iter()
+            .par_iter()
             .map(|column| PolynomialValues::new(column.clone()))
             .collect(),
         "to compute wire polynomials"
