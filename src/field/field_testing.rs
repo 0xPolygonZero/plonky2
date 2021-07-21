@@ -132,7 +132,8 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
             .zip(shifted_inputs.clone())
             .map(|(x, y)| (x.clone(), y.clone()))
             .map(|(x, y)| {
-                op(F::from_canonical_biguint(x), F::from_canonical_biguint(y)).to_canonical_biguint()
+                op(F::from_canonical_biguint(x), F::from_canonical_biguint(y))
+                    .to_canonical_biguint()
             })
             .collect();
 
@@ -165,10 +166,10 @@ macro_rules! test_arithmetic {
             fn arithmetic_addition() {
                 let modulus = <$field>::order();
                 crate::field::field_testing::run_binaryop_test_cases(
-                    modulus,
+                    modulus.clone(),
                     WORD_BITS,
                     <$field>::add,
-                    BigUint::add,
+                    |x, y| (x.clone() + y.clone()) % modulus.clone(),
                 )
             }
 
@@ -210,10 +211,10 @@ macro_rules! test_arithmetic {
             fn arithmetic_multiplication() {
                 let modulus = <$field>::order();
                 crate::field::field_testing::run_binaryop_test_cases(
-                    modulus,
+                    modulus.clone(),
                     WORD_BITS,
                     <$field>::mul,
-                    BigUint::mul,
+                    |x, y| x.clone() * y.clone() % modulus.clone(),
                 )
             }
 
@@ -221,10 +222,10 @@ macro_rules! test_arithmetic {
             fn arithmetic_square() {
                 let modulus = <$field>::order();
                 crate::field::field_testing::run_unaryop_test_cases(
-                    modulus,
+                    modulus.clone(),
                     WORD_BITS,
                     |x: $field| x.square(),
-                    |x| x.clone() * x,
+                    |x| (x.clone() * x.clone()) % modulus.clone(),
                 )
             }
 

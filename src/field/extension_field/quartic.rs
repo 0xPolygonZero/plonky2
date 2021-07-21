@@ -132,8 +132,9 @@ impl Field for QuarticCrandallField {
         let combined_first = second as u128 * (1u128 << 64) + first as u128;
         let combined_second = fourth as u128 * (1u128 << 64) + third as u128;
 
-        let combined = BigUint::from(combined_second) * (BigUint::from(1u32) << 128) + combined_first;
-        
+        let combined =
+            BigUint::from(combined_second) * (BigUint::from(1u32) << 128) + combined_first;
+
         combined
     }
 
