@@ -252,15 +252,14 @@ impl Field for CrandallField {
     }
 
     fn from_canonical_biguint(n: BigUint) -> Self {
-        let last_two: Vec<_> = n
+        let smallest_two: Vec<_> = n
             .to_u32_digits()
             .iter()
-            .rev()
             .take(2)
             .pad_using(2, |_| &0u32)
             .map(|x| *x as u64)
             .collect();
-        let n_u64 = last_two[0] + (1u64 << 32) * last_two[1];
+        let n_u64 = smallest_two[0] + (1u64 << 32) * smallest_two[1];
         Self(n_u64)
     }
 
