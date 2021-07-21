@@ -1,4 +1,5 @@
 use num_bigint::BigUint;
+
 use crate::field::field::Field;
 
 /// Finds a set of shifts that result in unique cosets for the multiplicative subgroup of size

@@ -145,6 +145,7 @@ macro_rules! test_arithmetic {
     ($field:ty) => {
         mod arithmetic {
             use std::ops::{Add, Mul, Neg, Sub};
+
             use num_bigint::BigUint;
 
             use crate::field::field::Field;
@@ -216,7 +217,14 @@ macro_rules! test_arithmetic {
 
                 assert_eq!(zero.try_inverse(), None);
 
-                for &x in &[BigUint::from(1u32), BigUint::from(2u32), BigUint::from(3u32), order - 3u32, order - 2u32, order - 1u32] {
+                for &x in &[
+                    BigUint::from(1u32),
+                    BigUint::from(2u32),
+                    BigUint::from(3u32),
+                    order - 3u32,
+                    order - 2u32,
+                    order - 1u32,
+                ] {
                     let x = <$field>::from_canonical_biguint(x);
                     let inv = x.inverse();
                     assert_eq!(x * inv, one);
@@ -248,7 +256,13 @@ macro_rules! test_arithmetic {
                 let zero = <$field>::ZERO;
                 let order = <$field>::order();
 
-                for &i in &[BigUint::from(0u32), BigUint::from(1u32), BigUint::from(2u32), order - 2u32, order - 1u32] {
+                for &i in &[
+                    BigUint::from(0u32),
+                    BigUint::from(1u32),
+                    BigUint::from(2u32),
+                    order - 2u32,
+                    order - 1u32,
+                ] {
                     let i_f = <$field>::from_canonical_biguint(i);
                     assert_eq!(i_f + -i_f, zero);
                 }
@@ -292,7 +306,10 @@ macro_rules! test_arithmetic {
             fn subtraction() {
                 type F = $field;
 
-                let (a, b) = (F::from_canonical_biguint((F::order() + 1u32) / 2u32), F::TWO);
+                let (a, b) = (
+                    F::from_canonical_biguint((F::order() + 1u32) / 2u32),
+                    F::TWO,
+                );
                 let x = a * b;
                 assert_eq!(x, F::ONE);
                 assert_eq!(F::ZERO - x, F::NEG_ONE);

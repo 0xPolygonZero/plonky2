@@ -124,7 +124,14 @@ impl Field for QuarticCrandallField {
     }
 
     fn from_canonical_biguint(n: BigUint) -> Self {
-        let last_eight : Vec<_> = n.to_u32_digits().iter().rev().take(8).pad_using(8, |_| &0u32).map(|x| *x as u64).collect();
+        let last_eight: Vec<_> = n
+            .to_u32_digits()
+            .iter()
+            .rev()
+            .take(8)
+            .pad_using(8, |_| &0u32)
+            .map(|x| *x as u64)
+            .collect();
         let last_u64 = last_eight[0] + (1u64 << 32) * last_eight[1];
         let next_last_u64 = last_eight[2] + (1u64 << 32) * last_eight[3];
         let third_last_u64 = last_eight[4] + (1u64 << 32) * last_eight[5];
