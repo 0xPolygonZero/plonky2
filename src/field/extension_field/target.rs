@@ -31,8 +31,8 @@ impl<const D: usize> ExtensionTarget<D> {
             return self.repeated_frobenius(count % D, builder);
         }
         let arr = self.to_target_array();
-        let k = (F::ORDER - 1) / (D as u64);
-        let z0 = F::Extension::W.exp(k * count as u64);
+        let k = (F::ORDER - 1u32) / (D as u64);
+        let z0 = F::Extension::W.exp_bigint(k * count as u64);
         let zs = z0
             .powers()
             .take(D)

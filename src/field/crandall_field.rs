@@ -6,6 +6,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use num_bigint::BigUint;
 use num::Integer;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::quadratic::QuadraticCrandallField;
@@ -147,7 +148,7 @@ impl Field for CrandallField {
     const TWO: Self = Self(2);
     const NEG_ONE: Self = Self(FIELD_ORDER - 1);
 
-    const ORDER : BigUint = BigUint::from(FIELD_ORDER);
+    const ORDER: BigUint = BigUint::from(FIELD_ORDER);
     const TWO_ADICITY: usize = 28;
     const CHARACTERISTIC: u64 = FIELD_ORDER;
 
@@ -328,6 +329,10 @@ impl Field for CrandallField {
             }
         }
         result
+    }
+
+    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+        Self::from_canonical_u64(rng.gen_range(0, FIELD_ORDER))
     }
 }
 

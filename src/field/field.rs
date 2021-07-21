@@ -184,6 +184,8 @@ pub trait Field:
         Self::from_canonical_u64(n as u64)
     }
 
+    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self;
+
     fn bits(&self) -> usize {
         bits_u64(self.to_canonical_u64())
     }
@@ -306,10 +308,6 @@ pub trait Field:
     /// impl which applies a fast, precomputed 8x8 MDS matrix.
     fn mds_8(vec: [Self; 8]) -> [Self; 8] {
         Self::mds(vec.to_vec()).try_into().unwrap()
-    }
-
-    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
-        Self::from_canonical_u64(rng.gen_range(0, Self::ORDER))
     }
 
     fn rand() -> Self {
