@@ -77,7 +77,7 @@ impl Field for QuarticCrandallField {
 
     const CHARACTERISTIC: u64 = CrandallField::CHARACTERISTIC;
     // Does not fit in 64-bits.
-    const ORDER: BigUint = CrandallField::ORDER.pow(4);
+    const ORDER: BigUint = CrandallField::ORDER.pow(4u32);
     const TWO_ADICITY: usize = 30;
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([
         CrandallField(12476589904174392631),
