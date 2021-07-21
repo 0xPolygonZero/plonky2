@@ -186,8 +186,8 @@ impl<F: Field> ListPolynomialCommitment<F> {
                 .par_iter()
                 .map(|c| &c.merkle_tree)
                 .collect::<Vec<_>>(),
-            &lde_final_poly,
-            &lde_final_values,
+            lde_final_poly,
+            lde_final_values,
             challenger,
             &config.fri_config,
         );
