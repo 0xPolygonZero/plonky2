@@ -124,38 +124,36 @@ impl Field for QuarticCrandallField {
     }
 
     fn to_canonical_biguint(&self) -> BigUint {
-        let first = self.0[0].to_canonical_u64();
-        let second = self.0[1].to_canonical_u64();
-        let third = self.0[2].to_canonical_u64();
-        let fourth = self.0[2].to_canonical_u64();
-
-        let combined_first = second as u128 * (1u128 << 64) + first as u128;
-        let combined_second = fourth as u128 * (1u128 << 64) + third as u128;
-
-        let combined =
-            BigUint::from(combined_second) * (BigUint::from(1u32) << 128) + combined_first;
-
+        let first = self.0[0].to_canonical_biguint();
+        let second = self.0[1].to_canonical_biguint();
+        let third = self.0[2].to_canonical_biguint();
+        let fourth = self.0[3].to_canonical_biguint();
+        
+        let mut combined = fourth;
+        combined *= Self::CHARACTERISTIC;
+        combined += third;
+        combined *= Self::CHARACTERISTIC;
+        combined += second;
+        combined *= Self::CHARACTERISTIC;
+        combined += first;
+        
         combined
     }
 
     fn from_canonical_biguint(n: BigUint) -> Self {
-        let smallest_eight: Vec<_> = n
-            .to_u32_digits()
-            .iter()
-            .take(8)
-            .pad_using(8, |_| &0u32)
-            .map(|x| *x as u64)
-            .collect();
-        let last_u64 = smallest_eight[0] + (1u64 << 32) * smallest_eight[1];
-        let next_last_u64 = smallest_eight[2] + (1u64 << 32) * smallest_eight[3];
-        let third_last_u64 = smallest_eight[4] + (1u64 << 32) * smallest_eight[5];
-        let fourth_last_u64 = smallest_eight[6] + (1u64 << 32) * smallest_eight[7];
+        let first = n.clone() % Self::CHARACTERISTIC;
+        let mut remaining = n.clone() / Self::CHARACTERISTIC;
+        let second = remaining.clone() % Self::CHARACTERISTIC;
+        remaining = remaining / Self::CHARACTERISTIC;
+        let third = remaining.clone() % Self::CHARACTERISTIC;
+        remaining = remaining / Self::CHARACTERISTIC;
+        let fourth = remaining.clone() % Self::CHARACTERISTIC;
 
         Self([
-            <Self as FieldExtension<4>>::BaseField::from_canonical_u64(last_u64),
-            <Self as FieldExtension<4>>::BaseField::from_canonical_u64(next_last_u64),
-            <Self as FieldExtension<4>>::BaseField::from_canonical_u64(third_last_u64),
-            <Self as FieldExtension<4>>::BaseField::from_canonical_u64(fourth_last_u64),
+            <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(first),
+            <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(second),
+            <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(third),
+            <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(fourth),
         ])
     }
 
