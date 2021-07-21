@@ -8,6 +8,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::gates::gate::GateInstance;
+use crate::generator::GeneratedValues;
 use crate::proof::{Hash, HashTarget};
 use crate::target::Target;
 use crate::wire::Wire;
@@ -33,28 +34,6 @@ impl<F: Field> PartialWitness<F> {
         PartialWitness {
             target_values: HashMap::new(),
         }
-    }
-
-    pub fn singleton_wire(wire: Wire, value: F) -> Self {
-        Self::singleton_target(Target::Wire(wire), value)
-    }
-
-    pub fn singleton_target(target: Target, value: F) -> Self {
-        let mut witness = PartialWitness::new();
-        witness.set_target(target, value);
-        witness
-    }
-
-    pub fn singleton_extension_target<const D: usize>(
-        et: ExtensionTarget<D>,
-        value: F::Extension,
-    ) -> Self
-    where
-        F: Extendable<D>,
-    {
-        let mut witness = PartialWitness::new();
-        witness.set_extension_target(et, value);
-        witness
     }
 
     pub fn is_empty(&self) -> bool {
@@ -157,7 +136,7 @@ impl<F: Field> PartialWitness<F> {
         self.set_wires(wires, &value.to_basefield_array());
     }
 
-    pub fn extend(&mut self, other: PartialWitness<F>) {
+    pub fn extend(&mut self, other: GeneratedValues<F>) {
         for (target, value) in other.target_values {
             self.set_target(target, value);
         }

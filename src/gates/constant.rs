@@ -3,7 +3,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
-use crate::generator::{SimpleGenerator, WitnessGenerator};
+use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::wire::Wire;
@@ -83,12 +83,12 @@ impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
         Vec::new()
     }
 
-    fn run_once(&self, _witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, _witness: &PartialWitness<F>) -> GeneratedValues<F> {
         let wire = Wire {
             gate: self.gate_index,
             input: ConstantGate::WIRE_OUTPUT,
         };
-        PartialWitness::singleton_target(Target::Wire(wire), self.constant)
+        GeneratedValues::singleton_target(Target::Wire(wire), self.constant)
     }
 }
 

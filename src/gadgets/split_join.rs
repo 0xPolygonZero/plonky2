@@ -2,7 +2,7 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::base_sum::BaseSumGate;
-use crate::generator::{SimpleGenerator, WitnessGenerator};
+use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::util::ceil_div_usize;
 use crate::wire::Wire;
@@ -110,10 +110,10 @@ impl<F: Field> SimpleGenerator<F> for SplitGenerator {
         vec![self.integer]
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
         let mut integer_value = witness.get_target(self.integer).to_canonical_u64();
 
-        let mut result = PartialWitness::new();
+        let mut result = GeneratedValues::with_capacity(self.bits.len());
         for &b in &self.bits {
             let b_value = integer_value & 1;
             result.set_target(b, F::from_canonical_u64(b_value));
@@ -141,10 +141,10 @@ impl<F: Field> SimpleGenerator<F> for WireSplitGenerator {
         vec![self.integer]
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
         let mut integer_value = witness.get_target(self.integer).to_canonical_u64();
 
-        let mut result = PartialWitness::new();
+        let mut result = GeneratedValues::with_capacity(self.gates.len());
         for &gate in &self.gates {
             let sum = Target::wire(gate, BaseSumGate::<2>::WIRE_SUM);
             result.set_target(
