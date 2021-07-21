@@ -247,6 +247,10 @@ impl Field for CrandallField {
         Self(n)
     }
 
+    fn to_canonical_biguint(&self) -> BigUint {
+        BigUint::from(self.to_canonical_u64())
+    }
+
     fn from_canonical_biguint(n: BigUint) -> Self {
         let last_two: Vec<_> = n
             .to_u32_digits()

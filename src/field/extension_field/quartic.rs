@@ -123,6 +123,20 @@ impl Field for QuarticCrandallField {
         <Self as FieldExtension<4>>::BaseField::from_canonical_u64(n).into()
     }
 
+    fn to_canonical_biguint(&self) -> BigUint {
+        let first = self.0[0].to_canonical_u64();
+        let second = self.0[1].to_canonical_u64();
+        let third = self.0[2].to_canonical_u64();
+        let fourth = self.0[2].to_canonical_u64();
+
+        let combined_first = second as u128 * (1u128 << 64) + first as u128;
+        let combined_second = fourth as u128 * (1u128 << 64) + third as u128;
+
+        let combined = BigUint::from(combined_second) * (BigUint::from(1u32) << 128) + combined_first;
+        
+        combined
+    }
+
     fn from_canonical_biguint(n: BigUint) -> Self {
         let last_eight: Vec<_> = n
             .to_u32_digits()

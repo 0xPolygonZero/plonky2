@@ -33,18 +33,22 @@ pub fn test_inputs(modulus: BigUint, word_bits: usize) -> Vec<BigUint> {
     // Inputs 'difference from' maximum value
     let diff_max = basic_inputs
         .iter()
-        .map(|&x| word_max - x)
-        .filter(|&x| BigUint::from(x) < modulus)
+        .map(|x| x.clone())
+        .map(|x| word_max.clone() - x)
+        .filter(|x| x < &modulus)
         .collect();
     // Inputs 'difference from' modulus value
     let diff_mod = basic_inputs
         .iter()
-        .filter(|&&x| BigUint::from(x) < modulus && x != BigUint::from(0u32))
-        .map(|&x| modulus - x)
+        .map(|x| x.clone())
+        .filter(|&x| x < modulus && x != BigUint::from(0u32))
+        .map(|x| x.clone())
+        .map(|x| modulus - x)
         .collect();
     let basics = basic_inputs
         .into_iter()
-        .filter(|&x| BigUint::from(x) < modulus)
+        .map(|x| x.clone())
+        .filter(|x| x < &modulus)
         .collect::<Vec<BigUint>>();
     [basics, diff_max, diff_mod].concat()
 
@@ -74,7 +78,8 @@ pub fn run_unaryop_test_cases<F, UnaryOp, ExpectedOp>(
     let expected: Vec<_> = inputs.iter().map(|&x| expected_op(x)).collect();
     let output: Vec<_> = inputs
         .iter()
-        .map(|&x| op(F::from_canonical_biguint(x)).to_canonical_biguint())
+        .map(|x| x.clone())
+        .map(|x| op(F::from_canonical_biguint(x)).to_canonical_biguint())
         .collect();
     // Compare expected outputs with actual outputs
     for i in 0..inputs.len() {
@@ -124,8 +129,9 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
         let output: Vec<_> = inputs
             .iter()
             .zip(shifted_inputs.clone())
-            .map(|(&x, &y)| {
-                op(F::from_canonical_biguint(x), F::from_canonical_biguint(y)).to_canonical_u64()
+            .map(|(x, y)| (x.clone(), y.clone()))
+            .map(|(x, y)| {
+                op(F::from_canonical_biguint(x), F::from_canonical_biguint(y)).to_canonical_biguint()
             })
             .collect();
 
@@ -205,7 +211,7 @@ macro_rules! test_arithmetic {
                     modulus,
                     WORD_BITS,
                     |x: $field| x.square(),
-                    |x| x * x,
+                    |x| x.clone() * x,
                 )
             }
 
@@ -217,13 +223,13 @@ macro_rules! test_arithmetic {
 
                 assert_eq!(zero.try_inverse(), None);
 
-                for &x in &[
+                for x in [
                     BigUint::from(1u32),
                     BigUint::from(2u32),
                     BigUint::from(3u32),
-                    order - 3u32,
-                    order - 2u32,
-                    order - 1u32,
+                    order.clone() - 3u32,
+                    order.clone() - 2u32,
+                    order.clone() - 1u32,
                 ] {
                     let x = <$field>::from_canonical_biguint(x);
                     let inv = x.inverse();
@@ -256,12 +262,12 @@ macro_rules! test_arithmetic {
                 let zero = <$field>::ZERO;
                 let order = <$field>::order();
 
-                for &i in &[
+                for i in [
                     BigUint::from(0u32),
                     BigUint::from(1u32),
                     BigUint::from(2u32),
-                    order - 2u32,
-                    order - 1u32,
+                    order.clone() - 2u32,
+                    order.clone() - 1u32,
                 ] {
                     let i_f = <$field>::from_canonical_biguint(i);
                     assert_eq!(i_f + -i_f, zero);

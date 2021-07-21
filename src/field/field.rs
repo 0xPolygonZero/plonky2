@@ -185,6 +185,8 @@ pub trait Field:
         Self::from_canonical_u64(n as u64)
     }
 
+    fn to_canonical_biguint(&self) -> BigUint;
+
     fn from_canonical_biguint(n: BigUint) -> Self;
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self;
