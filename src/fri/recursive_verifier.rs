@@ -35,6 +35,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         reverse_index_bits_in_place(&mut evals);
         let mut old_x_index_bits = self.split_le(old_x_index, arity_bits);
         old_x_index_bits.reverse();
+        // Want `g^(arity - rev_old_x_index)` as in the out-of-circuit version.
+        // Compute it as `g^(arity-1-rev_old_x_index) * g`, where the first term is gotten using two's complement.
+        // TODO: Once the exponentiation gate lands, we won't need the bits and will be able to compute
+        // `g^(arity-rev_old_x_index)` directly.
         let start = self.exp_from_complement_bits(gt, &old_x_index_bits);
         let start = self.mul(start, x);
         let start = self.mul(start, gt);

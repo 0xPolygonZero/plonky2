@@ -30,8 +30,8 @@ fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     // The evaluation vector needs to be reordered first.
     let mut evals = last_evals.to_vec();
     reverse_index_bits_in_place(&mut evals);
-    let rev_x_index = reverse_bits(old_x_index, arity_bits);
-    let start = x * g.exp((arity - rev_x_index) as u64);
+    let rev_old_x_index = reverse_bits(old_x_index, arity_bits);
+    let start = x * g.exp((arity - rev_old_x_index) as u64);
     // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
     let points = g
         .powers()
