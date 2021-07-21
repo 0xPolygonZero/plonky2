@@ -40,8 +40,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // TODO: Once the exponentiation gate lands, we won't need the bits and will be able to compute
         // `g^(arity-rev_old_x_index)` directly.
         let start = self.exp_from_complement_bits(gt, &old_x_index_bits);
-        let start = self.mul(start, x);
-        let start = self.mul(start, gt);
+        let start = self.mul_many(&[start, gt, x]);
 
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
         let points = g
