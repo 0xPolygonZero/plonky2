@@ -10,6 +10,7 @@ pub mod gmimc;
 pub mod insertion;
 pub mod interpolation;
 pub(crate) mod noop;
+pub(crate) mod public_input;
 
 #[cfg(test)]
 mod gate_testing;

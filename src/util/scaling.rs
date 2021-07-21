@@ -16,7 +16,7 @@ use crate::polynomial::polynomial::PolynomialCoeffs;
 /// This struct abstract away these operations by implementing Horner's method and keeping track
 /// of the number of multiplications by `a` to compute the scaling factor.
 /// See https://github.com/mir-protocol/plonky2/pull/69 for more details and discussions.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct ReducingFactor<F: Field> {
     base: F,
     count: u64,
@@ -79,7 +79,7 @@ impl<F: Field> ReducingFactor<F> {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct ReducingFactorTarget<const D: usize> {
     base: ExtensionTarget<D>,
     count: u64,
@@ -122,8 +122,10 @@ impl<const D: usize> ReducingFactorTarget<D> {
             //     out_0 = alpha acc + pair[0]
             //     acc' = out_1 = alpha out_0 + pair[1]
             let gate = builder.num_gates();
-            let out_0 =
-                ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_output_0());
+            let out_0 = ExtensionTarget::from_range(
+                gate,
+                ArithmeticExtensionGate::<D>::wires_first_output(),
+            );
             acc = builder
                 .double_arithmetic_extension(
                     F::ONE,
@@ -131,6 +133,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
                     self.base,
                     acc,
                     pair[0],
+                    self.base,
                     out_0,
                     pair[1],
                 )

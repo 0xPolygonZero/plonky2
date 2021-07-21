@@ -90,7 +90,7 @@ impl<F: Fn(Target) -> usize> TargetPartition<Target, F> {
         }
 
         let mut indices = HashMap::new();
-        // // Here we keep just the Wire targets, filtering out everything else.
+        // Here we keep just the Wire targets, filtering out everything else.
         let partition = partition
             .into_values()
             .map(|v| {

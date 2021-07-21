@@ -3,7 +3,7 @@ use crate::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarge
 use crate::context;
 use crate::field::extension_field::Extendable;
 use crate::plonk_challenger::RecursiveChallenger;
-use crate::proof::{HashTarget, ProofTarget};
+use crate::proof::{HashTarget, ProofWithPublicInputsTarget};
 use crate::util::scaling::ReducingFactorTarget;
 use crate::vanishing_poly::eval_vanishing_poly_recursively;
 use crate::vars::EvaluationTargets;
@@ -15,14 +15,20 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
     pub fn add_recursive_verifier(
         &mut self,
-        proof: ProofTarget<D>,
+        proof_with_pis: ProofWithPublicInputsTarget<D>,
         inner_config: &CircuitConfig,
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
     ) {
         assert!(self.config.num_wires >= MIN_WIRES);
         assert!(self.config.num_wires >= MIN_ROUTED_WIRES);
+        let ProofWithPublicInputsTarget {
+            proof,
+            public_inputs,
+        } = proof_with_pis;
         let one = self.one_extension();
+
+        let public_inputs_hash = &self.hash_n_to_hash(public_inputs, true);
 
         let num_challenges = inner_config.num_challenges;
 
@@ -53,13 +59,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let vars = EvaluationTargets {
             local_constants,
             local_wires,
+            public_inputs_hash,
         };
         let local_zs = &proof.openings.plonk_zs;
         let next_zs = &proof.openings.plonk_zs_right;
         let s_sigmas = &proof.openings.plonk_sigmas;
         let partial_products = &proof.openings.partial_products;
 
-        let zeta_pow_deg = self.exp_power_of_2(zeta, inner_common_data.degree_bits);
+        let zeta_pow_deg = self.exp_power_of_2_extension(zeta, inner_common_data.degree_bits);
         let vanishing_polys_zeta = context!(
             self,
             "evaluate the vanishing polynomial at our challenge point, zeta.",
@@ -89,7 +96,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             {
                 let recombined_quotient = scale.reduce(chunk, self);
                 let computed_vanishing_poly = self.mul_extension(z_h_zeta, recombined_quotient);
-                self.named_route_extension(
+                self.named_assert_equal_extension(
                     vanishing_polys_zeta[i],
                     computed_vanishing_poly,
                     format!("Vanishing polynomial == Z_H * quotient, challenge {}", i),
@@ -127,7 +134,7 @@ mod tests {
     use crate::polynomial::commitment::OpeningProofTarget;
     use crate::proof::{
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
-        OpeningSetTarget, Proof,
+        OpeningSetTarget, Proof, ProofTarget, ProofWithPublicInputs,
     };
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
@@ -167,9 +174,14 @@ mod tests {
 
     // Construct a `ProofTarget` with the same dimensions as `proof`.
     fn proof_to_proof_target<F: Extendable<D>, const D: usize>(
-        proof: &Proof<F, D>,
+        proof_with_pis: &ProofWithPublicInputs<F, D>,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> ProofTarget<D> {
+    ) -> ProofWithPublicInputsTarget<D> {
+        let ProofWithPublicInputs {
+            proof,
+            public_inputs,
+        } = proof_with_pis;
+
         let wires_root = builder.add_virtual_hash();
         let plonk_zs_root = builder.add_virtual_hash();
         let quotient_polys_root = builder.add_virtual_hash();
@@ -208,21 +220,41 @@ mod tests {
                 },
             };
 
-        ProofTarget {
+        let proof = ProofTarget {
             wires_root,
             plonk_zs_partial_products_root: plonk_zs_root,
             quotient_polys_root,
             openings,
             opening_proof,
+        };
+
+        let public_inputs = builder.add_virtual_targets(public_inputs.len());
+        ProofWithPublicInputsTarget {
+            proof,
+            public_inputs,
         }
     }
 
     // Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
     fn set_proof_target<F: Extendable<D>, const D: usize>(
-        proof: &Proof<F, D>,
-        pt: &ProofTarget<D>,
+        proof: &ProofWithPublicInputs<F, D>,
+        pt: &ProofWithPublicInputsTarget<D>,
         pw: &mut PartialWitness<F>,
     ) {
+        let ProofWithPublicInputs {
+            proof,
+            public_inputs,
+        } = proof;
+        let ProofWithPublicInputsTarget {
+            proof: pt,
+            public_inputs: pi_targets,
+        } = pt;
+
+        // Set public inputs.
+        for (&pi_t, &pi) in pi_targets.iter().zip(public_inputs) {
+            pw.set_target(pi_t, pi);
+        }
+
         pw.set_hash_target(pt.wires_root, proof.wires_root);
         pw.set_hash_target(
             pt.plonk_zs_partial_products_root,
@@ -343,7 +375,7 @@ mod tests {
                 num_query_rounds: 40,
             },
         };
-        let (proof, vd, cd) = {
+        let (proof_with_pis, vd, cd) = {
             let mut builder = CircuitBuilder::<F, D>::new(config.clone());
             let _two = builder.two();
             let _two = builder.hash_n_to_hash(vec![_two], true).elements[0];
@@ -357,12 +389,12 @@ mod tests {
                 data.common,
             )
         };
-        verify(proof.clone(), &vd, &cd)?;
+        verify(proof_with_pis.clone(), &vd, &cd)?;
 
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
-        let pt = proof_to_proof_target(&proof, &mut builder);
-        set_proof_target(&proof, &pt, &mut pw);
+        let pt = proof_to_proof_target(&proof_with_pis, &mut builder);
+        set_proof_target(&proof_with_pis, &pt, &mut pw);
 
         let inner_data = VerifierCircuitTarget {
             constants_sigmas_root: builder.add_virtual_hash(),

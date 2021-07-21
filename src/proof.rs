@@ -37,6 +37,12 @@ impl<F: Field> Hash<F> {
             elements: [elements[0], elements[1], elements[2], elements[3]],
         }
     }
+
+    pub(crate) fn rand() -> Self {
+        Self {
+            elements: [F::rand(), F::rand(), F::rand(), F::rand()],
+        }
+    }
 }
 
 /// Represents a ~256 bit hash output.
@@ -79,12 +85,24 @@ pub struct Proof<F: Extendable<D>, const D: usize> {
     pub opening_proof: OpeningProof<F, D>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(bound = "")]
+pub struct ProofWithPublicInputs<F: Extendable<D>, const D: usize> {
+    pub proof: Proof<F, D>,
+    pub public_inputs: Vec<F>,
+}
+
 pub struct ProofTarget<const D: usize> {
     pub wires_root: HashTarget,
     pub plonk_zs_partial_products_root: HashTarget,
     pub quotient_polys_root: HashTarget,
     pub openings: OpeningSetTarget<D>,
     pub opening_proof: OpeningProofTarget<D>,
+}
+
+pub struct ProofWithPublicInputsTarget<const D: usize> {
+    pub proof: ProofTarget<D>,
+    pub public_inputs: Vec<Target>,
 }
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.

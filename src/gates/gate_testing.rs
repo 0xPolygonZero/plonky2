@@ -2,6 +2,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::GateRef;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::proof::Hash;
 use crate::util::{log2_ceil, transpose};
 use crate::vars::EvaluationVars;
 
@@ -17,6 +18,7 @@ pub(crate) fn test_low_degree<F: Extendable<D>, const D: usize>(gate: GateRef<F,
     let wire_ldes = random_low_degree_matrix::<F::Extension>(gate.num_wires(), rate_bits);
     let constant_ldes = random_low_degree_matrix::<F::Extension>(gate.num_constants(), rate_bits);
     assert_eq!(wire_ldes.len(), constant_ldes.len());
+    let public_inputs_hash = &Hash::rand();
 
     let constraint_evals = wire_ldes
         .iter()
@@ -24,6 +26,7 @@ pub(crate) fn test_low_degree<F: Extendable<D>, const D: usize>(gate: GateRef<F,
         .map(|(local_wires, local_constants)| EvaluationVars {
             local_constants,
             local_wires,
+            public_inputs_hash,
         })
         .map(|vars| gate.eval_unfiltered(vars))
         .collect::<Vec<_>>();

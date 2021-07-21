@@ -88,7 +88,7 @@ impl<F: Field> PolynomialCoeffs<F> {
 
         let root = F::primitive_root_of_unity(log2_strict(a.len()));
         // Equals to the evaluation of `a` on `{g.w^i}`.
-        let mut a_eval = fft(a);
+        let mut a_eval = fft(&a);
         // Compute the denominators `1/(g^n.w^(n*i) - 1)` using batch inversion.
         let denominator_g = g.exp(n as u64);
         let root_n = root.exp(n as u64);
@@ -112,7 +112,7 @@ impl<F: Field> PolynomialCoeffs<F> {
                 *x *= d;
             });
         // `p` is the interpolating polynomial of `a_eval` on `{w^i}`.
-        let mut p = ifft(a_eval);
+        let mut p = ifft(&a_eval);
         // We need to scale it by `g^(-i)` to get the interpolating polynomial of `a_eval` on `{g.w^i}`,
         // a.k.a `a/Z_H`.
         let g_inv = g.inverse();

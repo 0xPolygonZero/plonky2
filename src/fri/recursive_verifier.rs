@@ -125,14 +125,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "Number of reductions should be non-zero."
         );
 
+        let precomputed_reduced_evals =
+            PrecomputedReducedEvalsTarget::from_os_and_alpha(os, alpha, self);
         for (i, round_proof) in proof.query_round_proofs.iter().enumerate() {
             context!(
                 self,
                 &format!("verify {}'th FRI query", i),
                 self.fri_verifier_query_round(
-                    os,
                     zeta,
                     alpha,
+                    precomputed_reduced_evals,
                     initial_merkle_roots,
                     proof,
                     challenger,
@@ -169,9 +171,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         proof: &FriInitialTreeProofTarget,
         alpha: ExtensionTarget<D>,
-        os: &OpeningSetTarget<D>,
         zeta: ExtensionTarget<D>,
         subgroup_x: Target,
+        precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
         common_data: &CommonCircuitData<F, D>,
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
@@ -199,19 +201,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         )
         .map(|&e| self.convert_to_ext(e))
         .collect::<Vec<_>>();
-        let single_openings = os
-            .constants
-            .iter()
-            .chain(&os.plonk_sigmas)
-            .chain(&os.wires)
-            .chain(&os.quotient_polys)
-            .chain(&os.partial_products)
-            .copied()
-            .collect::<Vec<_>>();
-        let mut single_numerator = alpha.reduce(&single_evals, self);
-        // TODO: Precompute the rhs as it is the same in all FRI rounds.
-        let rhs = alpha.reduce(&single_openings, self);
-        single_numerator = self.sub_extension(single_numerator, rhs);
+        let single_composition_eval = alpha.reduce(&single_evals, self);
+        let single_numerator =
+            self.sub_extension(single_composition_eval, precomputed_reduced_evals.single);
         let single_denominator = self.sub_extension(subgroup_x, zeta);
         let quotient = self.div_unsafe_extension(single_numerator, single_denominator);
         sum = self.add_extension(sum, quotient);
@@ -224,14 +216,15 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .take(common_data.zs_range().end)
             .map(|&e| self.convert_to_ext(e))
             .collect::<Vec<_>>();
-        let zs_composition_eval = alpha.clone().reduce(&zs_evals, self);
+        let zs_composition_eval = alpha.reduce(&zs_evals, self);
 
         let g = self.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
         let zeta_right = self.mul_extension(g, zeta);
-        let zs_ev_zeta = alpha.clone().reduce(&os.plonk_zs, self);
-        let zs_ev_zeta_right = alpha.reduce(&os.plonk_zs_right, self);
         let interpol_val = self.interpolate2(
-            [(zeta, zs_ev_zeta), (zeta_right, zs_ev_zeta_right)],
+            [
+                (zeta, precomputed_reduced_evals.zs),
+                (zeta_right, precomputed_reduced_evals.zs_right),
+            ],
             subgroup_x,
         );
         let zs_numerator = self.sub_extension(zs_composition_eval, interpol_val);
@@ -247,9 +240,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn fri_verifier_query_round(
         &mut self,
-        os: &OpeningSetTarget<D>,
         zeta: ExtensionTarget<D>,
         alpha: ExtensionTarget<D>,
+        precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
         initial_merkle_roots: &[HashTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger,
@@ -260,7 +253,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) {
         let config = &common_data.config.fri_config;
         let n_log = log2_strict(n);
-        let mut evaluations: Vec<Vec<ExtensionTarget<D>>> = Vec::new();
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
         let mut x_index = challenger.get_challenge(self);
         x_index = self.split_low_high(x_index, n_log, 64).0;
@@ -287,6 +279,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.mul(g, phi)
         });
 
+        let mut evaluations: Vec<Vec<ExtensionTarget<D>>> = Vec::new();
         for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
             let next_domain_size = domain_size >> arity_bits;
             let e_x = if i == 0 {
@@ -296,9 +289,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     self.fri_combine_initial(
                         &round_proof.initial_trees_proof,
                         alpha,
-                        os,
                         zeta,
                         subgroup_x,
+                        precomputed_reduced_evals,
                         common_data,
                     )
                 )
@@ -322,23 +315,21 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let (low_x_index, high_x_index) =
                 self.split_low_high(x_index, arity_bits, x_index_num_bits);
             evals = self.insert(low_x_index, e_x, evals);
-            evaluations.push(evals);
             context!(
                 self,
                 "verify FRI round Merkle proof.",
                 self.verify_merkle_proof(
-                    flatten_target(&evaluations[i]),
+                    flatten_target(&evals),
                     high_x_index,
                     proof.commit_phase_merkle_roots[i],
                     &round_proof.steps[i].merkle_proof,
                 )
             );
+            evaluations.push(evals);
 
             if i > 0 {
                 // Update the point x to x^arity.
-                for _ in 0..config.reduction_arity_bits[i - 1] {
-                    subgroup_x = self.square(subgroup_x);
-                }
+                subgroup_x = self.exp_power_of_2(subgroup_x, config.reduction_arity_bits[i - 1]);
             }
             domain_size = next_domain_size;
             old_x_index = low_x_index;
@@ -359,9 +350,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 *betas.last().unwrap(),
             )
         );
-        for _ in 0..final_arity_bits {
-            subgroup_x = self.square(subgroup_x);
-        }
+        subgroup_x = self.exp_power_of_2(subgroup_x, final_arity_bits);
 
         // Final check of FRI. After all the reductions, we check that the final polynomial is equal
         // to the one sent by the prover.
@@ -371,5 +360,41 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             proof.final_poly.eval_scalar(self, subgroup_x)
         );
         self.assert_equal_extension(eval, purported_eval);
+    }
+}
+
+#[derive(Copy, Clone)]
+struct PrecomputedReducedEvalsTarget<const D: usize> {
+    pub single: ExtensionTarget<D>,
+    pub zs: ExtensionTarget<D>,
+    pub zs_right: ExtensionTarget<D>,
+}
+
+impl<const D: usize> PrecomputedReducedEvalsTarget<D> {
+    fn from_os_and_alpha<F: Extendable<D>>(
+        os: &OpeningSetTarget<D>,
+        alpha: ExtensionTarget<D>,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        let mut alpha = ReducingFactorTarget::new(alpha);
+        let single = alpha.reduce(
+            &os.constants
+                .iter()
+                .chain(&os.plonk_sigmas)
+                .chain(&os.wires)
+                .chain(&os.quotient_polys)
+                .chain(&os.partial_products)
+                .copied()
+                .collect::<Vec<_>>(),
+            builder,
+        );
+        let zs = alpha.reduce(&os.plonk_zs, builder);
+        let zs_right = alpha.reduce(&os.plonk_zs_right, builder);
+
+        Self {
+            single,
+            zs,
+            zs_right,
+        }
     }
 }
