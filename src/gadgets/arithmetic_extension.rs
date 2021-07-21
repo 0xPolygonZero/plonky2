@@ -80,6 +80,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.arithmetic_extension(F::ONE, F::ONE, one, a, b)
     }
 
+    /// Returns `(a0+b0, a1+b1)`.
     pub fn add_two_extension(
         &mut self,
         a0: ExtensionTarget<D>,
@@ -196,6 +197,17 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_extension_with_const(F::ONE, multiplicand_0, multiplicand_1)
     }
 
+    /// Returns `(a0*b0, a1*b1)`.
+    pub fn mul_two_extension(
+        &mut self,
+        a0: ExtensionTarget<D>,
+        b0: ExtensionTarget<D>,
+        a1: ExtensionTarget<D>,
+        b1: ExtensionTarget<D>,
+    ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
+        todo!()
+    }
+
     /// Computes `x^2`.
     pub fn square_extension(&mut self, x: ExtensionTarget<D>) -> ExtensionTarget<D> {
         self.mul_extension(x, x)
@@ -222,6 +234,19 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn mul_many_extension(&mut self, terms: &[ExtensionTarget<D>]) -> ExtensionTarget<D> {
+        let one = self.one_extension();
+        let mut terms = terms.to_vec();
+        if terms.len().is_odd() {
+            terms.push(one);
+        }
+        // We maintain two accumulators, one for the sum of even elements, and one for odd elements.
+        let mut acc0 = one;
+        let mut acc1 = one;
+        for chunk in terms.chunks_exact(2) {
+            (acc0, acc1) = self.mul_two_extension(acc0, chunk[0], acc1, chunk[1]);
+        }
+        // We sum both accumulators to get the final result.
+        self.add_extension(acc0, acc1)
         let mut product = self.one_extension();
         for term in terms {
             product = self.mul_extension(product, *term);
