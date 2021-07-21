@@ -45,13 +45,14 @@ pub trait Field:
     const NEG_ONE: Self;
 
     const CHARACTERISTIC: u64;
-    const ORDER: BigUint;
     const TWO_ADICITY: usize;
 
     /// Generator of the entire multiplicative group, i.e. all non-zero elements.
     const MULTIPLICATIVE_GROUP_GENERATOR: Self;
     /// Generator of a multiplicative subgroup of order `2^TWO_ADICITY`.
     const POWER_OF_TWO_GENERATOR: Self;
+
+    fn order() -> BigUint;
 
     fn is_zero(&self) -> bool {
         *self == Self::ZERO
@@ -184,6 +185,8 @@ pub trait Field:
         Self::from_canonical_u64(n as u64)
     }
 
+    fn from_canonical_biguint(n: BigUint) -> Self;
+
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self;
 
     fn bits(&self) -> usize {
@@ -215,7 +218,7 @@ pub trait Field:
         self.exp(power as u64)
     }
 
-    fn exp_bigint(&self, power: BigUint) -> Self {
+    fn exp_biguint(&self, power: BigUint) -> Self {
         let digits = power.to_u32_digits();
         let radix = 1u64 << 32;
 
@@ -235,13 +238,13 @@ pub trait Field:
         match power {
             0 => false,
             1 => true,
-            _ => (Self::ORDER - 1u32).gcd(&BigUint::from(power)) == BigUint::from(1u32),
+            _ => (Self::order() - 1u32).gcd(&BigUint::from(power)) == BigUint::from(1u32),
         }
     }
 
     fn kth_root(&self, k: u64) -> Self {
-        let p = Self::ORDER;
-        let p_minus_1 = p - 1u32;
+        let p = Self::order().clone();
+        let p_minus_1 = p.clone() - 1u32;
         debug_assert!(
             Self::is_monomial_permutation(k),
             "Not a permutation of this field"
@@ -254,10 +257,10 @@ pub trait Field:
         //    x^((p + n(p - 1))/k)^k = x,
         // implying that x^((p + n(p - 1))/k) is a k'th root of x.
         for n in 0..k {
-            let numerator = p + p_minus_1 * n;
-            if numerator % k == BigUint::zero() {
+            let numerator = p.clone() + &p_minus_1 * n;
+            if numerator.clone() % k == BigUint::zero() {
                 let power = (numerator / k) % p_minus_1;
-                return self.exp_bigint(power);
+                return self.exp_biguint(power);
             }
         }
         panic!(

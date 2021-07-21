@@ -3,6 +3,7 @@ use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use itertools::Itertools;
 use num::traits::Pow;
 use num_bigint::BigUint;
 use rand::Rng;
@@ -77,7 +78,6 @@ impl Field for QuarticCrandallField {
 
     const CHARACTERISTIC: u64 = CrandallField::CHARACTERISTIC;
     // Does not fit in 64-bits.
-    const ORDER: BigUint = CrandallField::ORDER.pow(4u32);
     const TWO_ADICITY: usize = 30;
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([
         CrandallField(12476589904174392631),
@@ -94,6 +94,10 @@ impl Field for QuarticCrandallField {
         CrandallField::ZERO,
         CrandallField(15170983443234254033),
     ]);
+
+    fn order() -> BigUint {
+        CrandallField::order().pow(4u32)
+    }
 
     // Algorithm 11.3.4 in Handbook of Elliptic and Hyperelliptic Curve Cryptography.
     fn try_inverse(&self) -> Option<Self> {
@@ -117,6 +121,21 @@ impl Field for QuarticCrandallField {
 
     fn from_canonical_u64(n: u64) -> Self {
         <Self as FieldExtension<4>>::BaseField::from_canonical_u64(n).into()
+    }
+
+    fn from_canonical_biguint(n: BigUint) -> Self {
+        let last_eight : Vec<_> = n.to_u32_digits().iter().rev().take(8).pad_using(8, |_| &0u32).map(|x| *x as u64).collect();
+        let last_u64 = last_eight[0] + (1u64 << 32) * last_eight[1];
+        let next_last_u64 = last_eight[2] + (1u64 << 32) * last_eight[3];
+        let third_last_u64 = last_eight[4] + (1u64 << 32) * last_eight[5];
+        let fourth_last_u64 = last_eight[6] + (1u64 << 32) * last_eight[7];
+
+        Self([
+            <Self as FieldExtension<4>>::BaseField::from_canonical_u64(last_u64),
+            <Self as FieldExtension<4>>::BaseField::from_canonical_u64(next_last_u64),
+            <Self as FieldExtension<4>>::BaseField::from_canonical_u64(third_last_u64),
+            <Self as FieldExtension<4>>::BaseField::from_canonical_u64(fourth_last_u64),
+        ])
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
@@ -303,7 +322,7 @@ mod tests {
         const D: usize = 4;
         let x = F::rand();
         assert_eq!(
-            exp_naive(x, <F as FieldExtension<D>>::BaseField::ORDER as u128),
+            x.exp_biguint(<F as FieldExtension<D>>::BaseField::order()),
             x.frobenius()
         );
         for count in 2..D {
@@ -316,7 +335,7 @@ mod tests {
 
     #[test]
     fn test_field_order() {
-        // F::ORDER = 340282366831806780677557380898690695168 * 340282366831806780677557380898690695170 + 1
+        // F::order() = 340282366831806780677557380898690695168 * 340282366831806780677557380898690695170 + 1
         type F = QuarticCrandallField;
         let x = F::rand();
         assert_eq!(
@@ -331,7 +350,7 @@ mod tests {
     #[test]
     fn test_power_of_two_gen() {
         type F = QuarticCrandallField;
-        // F::ORDER = 2^30 * 1090552343587053358839971118999869 * 98885475095492590491252558464653635 + 1
+        // F::order() = 2^30 * 1090552343587053358839971118999869 * 98885475095492590491252558464653635 + 1
         assert_eq!(
             exp_naive(
                 exp_naive(

@@ -3,6 +3,7 @@ use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use itertools::Itertools;
 use num_bigint::BigUint;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -53,7 +54,6 @@ impl Field for QuadraticCrandallField {
     const NEG_ONE: Self = Self([CrandallField::NEG_ONE, CrandallField::ZERO]);
 
     const CHARACTERISTIC: u64 = CrandallField::CHARACTERISTIC;
-    const ORDER: BigUint = CrandallField::ORDER * CrandallField::ORDER;
     const TWO_ADICITY: usize = 29;
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([
         CrandallField(6483724566312148654),
@@ -64,6 +64,10 @@ impl Field for QuadraticCrandallField {
     // with the base field which implies that the FFT commutes with field inclusion.
     const POWER_OF_TWO_GENERATOR: Self =
         Self([CrandallField::ZERO, CrandallField(14420468973723774561)]);
+
+    fn order() -> BigUint {
+        CrandallField::order() * CrandallField::order()
+    }
 
     // Algorithm 11.3.4 in Handbook of Elliptic and Hyperelliptic Curve Cryptography.
     fn try_inverse(&self) -> Option<Self> {
@@ -84,6 +88,17 @@ impl Field for QuadraticCrandallField {
 
     fn from_canonical_u64(n: u64) -> Self {
         <Self as FieldExtension<2>>::BaseField::from_canonical_u64(n).into()
+    }
+
+    fn from_canonical_biguint(n: BigUint) -> Self {
+        let last_four : Vec<_> = n.to_u32_digits().iter().rev().take(4).pad_using(4, |_| &0u32).map(|x| *x as u64).collect();
+        let last_u64 = last_four[0] + (1u64 << 32) * last_four[1];
+        let next_last_u64 = last_four[2] + (1u64 << 32) * last_four[3];
+
+        Self([
+            <Self as FieldExtension<2>>::BaseField::from_canonical_u64(last_u64),
+            <Self as FieldExtension<2>>::BaseField::from_canonical_u64(next_last_u64),
+        ])
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
@@ -238,14 +253,14 @@ mod tests {
         type F = QuadraticCrandallField;
         let x = F::rand();
         assert_eq!(
-            x.exp(<F as FieldExtension<2>>::BaseField::ORDER),
+            x.exp_biguint(<F as FieldExtension<2>>::BaseField::order()),
             x.frobenius()
         );
     }
 
     #[test]
     fn test_field_order() {
-        // F::ORDER = 340282366831806780677557380898690695169 = 18446744071293632512 *18446744071293632514 + 1
+        // F::order() = 340282366831806780677557380898690695169 = 18446744071293632512 *18446744071293632514 + 1
         type F = QuadraticCrandallField;
         let x = F::rand();
         assert_eq!(
@@ -257,7 +272,7 @@ mod tests {
     #[test]
     fn test_power_of_two_gen() {
         type F = QuadraticCrandallField;
-        // F::ORDER = 2^29 * 2762315674048163 * 229454332791453 + 1
+        // F::order() = 2^29 * 2762315674048163 * 229454332791453 + 1
         assert_eq!(
             F::MULTIPLICATIVE_GROUP_GENERATOR
                 .exp(2762315674048163)

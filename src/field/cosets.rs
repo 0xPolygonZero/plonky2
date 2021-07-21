@@ -5,7 +5,7 @@ use crate::field::field::Field;
 /// `2^subgroup_bits`.
 pub(crate) fn get_unique_coset_shifts<F: Field>(subgroup_size: usize, num_shifts: usize) -> Vec<F> {
     // From Lagrange's theorem.
-    let num_cosets = (F::ORDER - 1u32) / (subgroup_size as u32);
+    let num_cosets = (F::order() - 1u32) / (subgroup_size as u32);
     assert!(
         BigUint::from(num_shifts) <= num_cosets,
         "The subgroup does not have enough distinct cosets"

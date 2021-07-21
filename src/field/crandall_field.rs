@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use itertools::Itertools;
 use num_bigint::BigUint;
 use num::Integer;
 use rand::Rng;
@@ -148,12 +149,15 @@ impl Field for CrandallField {
     const TWO: Self = Self(2);
     const NEG_ONE: Self = Self(FIELD_ORDER - 1);
 
-    const ORDER: BigUint = BigUint::from(FIELD_ORDER);
     const TWO_ADICITY: usize = 28;
     const CHARACTERISTIC: u64 = FIELD_ORDER;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(5);
     const POWER_OF_TWO_GENERATOR: Self = Self(10281950781551402419);
+
+    fn order() -> BigUint {
+        BigUint::from(FIELD_ORDER)
+    }
 
     #[inline]
     fn square(&self) -> Self {
@@ -241,6 +245,12 @@ impl Field for CrandallField {
     #[inline]
     fn from_canonical_u64(n: u64) -> Self {
         Self(n)
+    }
+
+    fn from_canonical_biguint(n: BigUint) -> Self {
+        let last_two : Vec<_> = n.to_u32_digits().iter().rev().take(2).pad_using(2, |_| &0u32).map(|x| *x as u64).collect();
+        let n_u64 = last_two[0] + (1u64 << 32) * last_two[1];
+        Self(n_u64)
     }
 
     fn cube_root(&self) -> Self {

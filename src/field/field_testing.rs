@@ -7,14 +7,14 @@ use crate::util::{bits_u64, ceil_div_usize};
 /// `modulus` which cover a range of values and which will
 /// generate lots of carries, especially at `word_bits` word
 /// boundaries.
-pub fn test_inputs(modulus: BigUint, word_bits: usize) -> Vec<u64> {
-    assert!(word_bits == 32 || word_bits == 64);
+pub fn test_inputs(modulus: BigUint, word_bits: usize) -> Vec<BigUint> {
+    //assert!(word_bits == 32 || word_bits == 64);
     let modwords = ceil_div_usize(modulus.bits(), word_bits);
     // Start with basic set close to zero: 0 .. 10
     const BIGGEST_SMALL: u32 = 10;
-    let smalls: Vec<_> = (0..BIGGEST_SMALL).map(u64::from).collect();
+    let smalls: Vec<_> = (0..BIGGEST_SMALL).map(BigUint::from).collect();
     // ... and close to MAX: MAX - x
-    let word_max = (1u64 << word_bits) - 1;
+    let word_max = (BigUint::from(1u32) << word_bits) - 1u32;
     let bigs = smalls.iter().map(|x| &word_max - x).collect();
     let one_words = [smalls, bigs].concat();
     // For each of the one word inputs above, create a new one at word i.
@@ -24,28 +24,28 @@ pub fn test_inputs(modulus: BigUint, word_bits: usize) -> Vec<u64> {
             one_words
                 .iter()
                 .map(|x| x << (word_bits * i))
-                .collect::<Vec<u64>>()
+                .collect::<Vec<BigUint>>()
         })
         .collect();
-    let basic_inputs: Vec<u64> = [one_words, multiple_words].concat();
+    let basic_inputs: Vec<BigUint> = [one_words, multiple_words].concat();
 
     // Biggest value that will fit in `modwords` words
     // Inputs 'difference from' maximum value
     let diff_max = basic_inputs
         .iter()
-        .map(|&x| u64::MAX - x)
+        .map(|&x| word_max - x)
         .filter(|&x| BigUint::from(x) < modulus)
         .collect();
     // Inputs 'difference from' modulus value
     let diff_mod = basic_inputs
         .iter()
-        .filter(|&&x| BigUint::from(x) < modulus && x != 0)
+        .filter(|&&x| BigUint::from(x) < modulus && x != BigUint::from(0u32))
         .map(|&x| modulus - x)
         .collect();
     let basics = basic_inputs
         .into_iter()
         .filter(|&x| BigUint::from(x) < modulus)
-        .collect::<Vec<u64>>();
+        .collect::<Vec<BigUint>>();
     [basics, diff_max, diff_mod].concat()
 
     // // There should be a nicer way to express the code above; something
@@ -68,13 +68,13 @@ pub fn run_unaryop_test_cases<F, UnaryOp, ExpectedOp>(
 ) where
     F: Field,
     UnaryOp: Fn(F) -> F,
-    ExpectedOp: Fn(u64) -> u64,
+    ExpectedOp: Fn(BigUint) -> BigUint,
 {
     let inputs = test_inputs(modulus, word_bits);
     let expected: Vec<_> = inputs.iter().map(|&x| expected_op(x)).collect();
     let output: Vec<_> = inputs
         .iter()
-        .map(|&x| op(F::from_canonical_u64(x)).to_canonical_u64())
+        .map(|&x| op(F::from_canonical_biguint(x)).to_canonical_biguint())
         .collect();
     // Compare expected outputs with actual outputs
     for i in 0..inputs.len() {
@@ -99,7 +99,7 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
 ) where
     F: Field,
     BinaryOp: Fn(F, F) -> F,
-    ExpectedOp: Fn(u64, u64) -> u64,
+    ExpectedOp: Fn(BigUint, BigUint) -> BigUint,
 {
     let inputs = test_inputs(modulus, word_bits);
 
@@ -125,7 +125,7 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
             .iter()
             .zip(shifted_inputs.clone())
             .map(|(&x, &y)| {
-                op(F::from_canonical_u64(x), F::from_canonical_u64(y)).to_canonical_u64()
+                op(F::from_canonical_biguint(x), F::from_canonical_biguint(y)).to_canonical_u64()
             })
             .collect();
 
@@ -145,6 +145,7 @@ macro_rules! test_arithmetic {
     ($field:ty) => {
         mod arithmetic {
             use std::ops::{Add, Mul, Neg, Sub};
+            use num_bigint::BigUint;
 
             use crate::field::field::Field;
 
@@ -154,77 +155,56 @@ macro_rules! test_arithmetic {
 
             #[test]
             fn arithmetic_addition() {
-                let modulus = <$field>::ORDER;
+                let modulus = <$field>::order();
                 crate::field::field_testing::run_binaryop_test_cases(
                     modulus,
                     WORD_BITS,
                     <$field>::add,
-                    |x, y| {
-                        let (z, over) = x.overflowing_add(y);
-                        if over {
-                            z.overflowing_sub(modulus).0
-                        } else if z >= modulus {
-                            z - modulus
-                        } else {
-                            z
-                        }
-                    },
+                    BigUint::add,
                 )
             }
 
             #[test]
             fn arithmetic_subtraction() {
-                let modulus = <$field>::ORDER;
+                let modulus = <$field>::order();
                 crate::field::field_testing::run_binaryop_test_cases(
                     modulus,
                     WORD_BITS,
                     <$field>::sub,
-                    |x, y| {
-                        if x >= y {
-                            x - y
-                        } else {
-                            &modulus - y + x
-                        }
-                    },
+                    BigUint::sub,
                 )
             }
 
             #[test]
             fn arithmetic_negation() {
-                let modulus = <$field>::ORDER;
+                let modulus = <$field>::order();
                 crate::field::field_testing::run_unaryop_test_cases(
                     modulus,
                     WORD_BITS,
                     <$field>::neg,
-                    |x| {
-                        if x == 0 {
-                            0
-                        } else {
-                            modulus - x
-                        }
-                    },
+                    BigUint::neg,
                 )
             }
 
             #[test]
             fn arithmetic_multiplication() {
-                let modulus = <$field>::ORDER;
+                let modulus = <$field>::order();
                 crate::field::field_testing::run_binaryop_test_cases(
                     modulus,
                     WORD_BITS,
                     <$field>::mul,
-                    |x, y| ((x as u128) * (y as u128) % (modulus as u128)) as u64,
+                    BigUint::mul,
                 )
             }
 
             #[test]
             fn arithmetic_square() {
-                let modulus = <$field>::ORDER;
+                let modulus = <$field>::order();
                 crate::field::field_testing::run_unaryop_test_cases(
                     modulus,
                     WORD_BITS,
                     |x: $field| x.square(),
-                    |x| ((x as u128) * (x as u128) % (modulus as u128)) as u64,
+                    |x| x * x,
                 )
             }
 
@@ -232,12 +212,12 @@ macro_rules! test_arithmetic {
             fn inversion() {
                 let zero = <$field>::ZERO;
                 let one = <$field>::ONE;
-                let order = <$field>::ORDER;
+                let order = <$field>::order();
 
                 assert_eq!(zero.try_inverse(), None);
 
-                for &x in &[1, 2, 3, order - 3, order - 2, order - 1] {
-                    let x = <$field>::from_canonical_u64(x);
+                for &x in &[BigUint::from(1u32), BigUint::from(2u32), BigUint::from(3u32), order - 3u32, order - 2u32, order - 1u32] {
+                    let x = <$field>::from_canonical_biguint(x);
                     let inv = x.inverse();
                     assert_eq!(x * inv, one);
                 }
@@ -266,10 +246,10 @@ macro_rules! test_arithmetic {
             #[test]
             fn negation() {
                 let zero = <$field>::ZERO;
-                let order = <$field>::ORDER;
+                let order = <$field>::order();
 
-                for &i in &[0, 1, 2, order - 2, order - 1] {
-                    let i_f = <$field>::from_canonical_u64(i);
+                for &i in &[BigUint::from(0u32), BigUint::from(1u32), BigUint::from(2u32), order - 2u32, order - 1u32] {
+                    let i_f = <$field>::from_canonical_biguint(i);
                     assert_eq!(i_f + -i_f, zero);
                 }
             }
@@ -312,7 +292,7 @@ macro_rules! test_arithmetic {
             fn subtraction() {
                 type F = $field;
 
-                let (a, b) = (F::from_canonical_u64((F::ORDER + 1) / 2), F::TWO);
+                let (a, b) = (F::from_canonical_biguint((F::order() + 1u32) / 2u32), F::TWO);
                 let x = a * b;
                 assert_eq!(x, F::ONE);
                 assert_eq!(F::ZERO - x, F::NEG_ONE);
