@@ -7,11 +7,12 @@ use rayon::prelude::*;
 use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::field::extension_field::Extendable;
 use crate::generator::generate_partial_witness;
+use crate::hash::hash_n_to_hash;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::{PlonkPolynomials, ZeroPolyOnCoset};
 use crate::polynomial::commitment::ListPolynomialCommitment;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::proof::Proof;
+use crate::proof::{Hash, Proof, ProofWithPublicInputs};
 use crate::timed;
 use crate::util::partial_products::partial_products;
 use crate::util::{log2_ceil, transpose};
@@ -23,7 +24,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
-) -> Result<Proof<F, D>> {
+) -> Result<ProofWithPublicInputs<F, D>> {
     let config = &common_data.config;
     let num_wires = config.num_wires;
     let num_challenges = config.num_challenges;
@@ -38,6 +39,9 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         generate_partial_witness(&mut partial_witness, &prover_data.generators),
         "to generate witness"
     );
+
+    let public_inputs = partial_witness.get_targets(&prover_data.public_inputs);
+    let public_inputs_hash = hash_n_to_hash(public_inputs.clone(), true);
 
     // Display the marked targets for debugging purposes.
     for m in &prover_data.marked_targets {
@@ -58,7 +62,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let wires_values: Vec<PolynomialValues<F>> = timed!(
         witness
             .wire_values
-            .iter()
+            .par_iter()
             .map(|column| PolynomialValues::new(column.clone()))
             .collect(),
         "to compute wire polynomials"
@@ -119,6 +123,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         compute_quotient_polys(
             common_data,
             prover_data,
+            &public_inputs_hash,
             &wires_commitment,
             &zs_partial_products_commitment,
             &betas,
@@ -178,12 +183,16 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         start_proof_gen.elapsed().as_secs_f32()
     );
 
-    Ok(Proof {
+    let proof = Proof {
         wires_root: wires_commitment.merkle_tree.root,
         plonk_zs_partial_products_root: zs_partial_products_commitment.merkle_tree.root,
         quotient_polys_root: quotient_polys_commitment.merkle_tree.root,
         openings,
         opening_proof,
+    };
+    Ok(ProofWithPublicInputs {
+        proof,
+        public_inputs,
     })
 }
 
@@ -284,6 +293,7 @@ fn compute_z<F: Extendable<D>, const D: usize>(
 fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     prover_data: &'a ProverOnlyCircuitData<F, D>,
+    public_inputs_hash: &Hash<F>,
     wires_commitment: &'a ListPolynomialCommitment<F>,
     zs_partial_products_commitment: &'a ListPolynomialCommitment<F>,
     betas: &[F],
@@ -337,6 +347,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
             let vars = EvaluationVarsBase {
                 local_constants,
                 local_wires,
+                public_inputs_hash,
             };
             let mut quotient_values = eval_vanishing_poly_base(
                 common_data,

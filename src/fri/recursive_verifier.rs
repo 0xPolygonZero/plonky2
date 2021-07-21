@@ -246,7 +246,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) {
         let config = &common_data.config.fri_config;
         let n_log = log2_strict(n);
-        let mut evaluations: Vec<Vec<ExtensionTarget<D>>> = Vec::new();
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
         let mut x_index = challenger.get_challenge(self);
         x_index = self.split_low_high(x_index, n_log, 64).0;
@@ -273,6 +272,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.mul(g, phi)
         });
 
+        let mut evaluations: Vec<Vec<ExtensionTarget<D>>> = Vec::new();
         for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
             let next_domain_size = domain_size >> arity_bits;
             let e_x = if i == 0 {
@@ -308,23 +308,21 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let (low_x_index, high_x_index) =
                 self.split_low_high(x_index, arity_bits, x_index_num_bits);
             evals = self.insert(low_x_index, e_x, evals);
-            evaluations.push(evals);
             context!(
                 self,
                 "verify FRI round Merkle proof.",
                 self.verify_merkle_proof(
-                    flatten_target(&evaluations[i]),
+                    flatten_target(&evals),
                     high_x_index,
                     proof.commit_phase_merkle_roots[i],
                     &round_proof.steps[i].merkle_proof,
                 )
             );
+            evaluations.push(evals);
 
             if i > 0 {
                 // Update the point x to x^arity.
-                for _ in 0..config.reduction_arity_bits[i - 1] {
-                    subgroup_x = self.square(subgroup_x);
-                }
+                subgroup_x = self.exp_power_of_2(subgroup_x, config.reduction_arity_bits[i - 1]);
             }
             domain_size = next_domain_size;
             old_x_index = low_x_index;
@@ -345,9 +343,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 *betas.last().unwrap(),
             )
         );
-        for _ in 0..final_arity_bits {
-            subgroup_x = self.square(subgroup_x);
-        }
+        subgroup_x = self.exp_power_of_2(subgroup_x, final_arity_bits);
 
         // Final check of FRI. After all the reductions, we check that the final polynomial is equal
         // to the one sent by the prover.

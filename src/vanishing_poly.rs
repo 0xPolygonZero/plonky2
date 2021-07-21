@@ -236,10 +236,13 @@ pub fn evaluate_gate_constraints_recursively<F: Extendable<D>, const D: usize>(
 ) -> Vec<ExtensionTarget<D>> {
     let mut constraints = vec![builder.zero_extension(); num_gate_constraints];
     for gate in gates {
-        let gate_constraints = gate
-            .gate
-            .0
-            .eval_filtered_recursively(builder, vars, &gate.prefix);
+        let gate_constraints = context!(
+            builder,
+            &format!("evaluate {} constraints", gate.gate.0.id()),
+            gate.gate
+                .0
+                .eval_filtered_recursively(builder, vars, &gate.prefix)
+        );
         for (i, c) in gate_constraints.into_iter().enumerate() {
             constraints[i] = builder.add_extension(constraints[i], c);
         }

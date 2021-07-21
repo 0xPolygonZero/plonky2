@@ -16,9 +16,9 @@ use crate::util::reverse_index_bits_in_place;
 pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
     initial_merkle_trees: &[&MerkleTree<F>],
     // Coefficients of the polynomial on which the LDT is performed. Only the first `1/rate` coefficients are non-zero.
-    lde_polynomial_coeffs: &PolynomialCoeffs<F::Extension>,
+    lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
     // Evaluation of the polynomial on the large domain.
-    lde_polynomial_values: &PolynomialValues<F::Extension>,
+    lde_polynomial_values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
 ) -> FriProof<F, D> {
@@ -53,14 +53,11 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
 }
 
 fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
-    polynomial_coeffs: &PolynomialCoeffs<F::Extension>,
-    polynomial_values: &PolynomialValues<F::Extension>,
+    mut coeffs: PolynomialCoeffs<F::Extension>,
+    mut values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
 ) -> (Vec<MerkleTree<F>>, PolynomialCoeffs<F::Extension>) {
-    let mut values = polynomial_values.clone();
-    let mut coeffs = polynomial_coeffs.clone();
-
     let mut trees = Vec::new();
 
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
@@ -91,8 +88,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
                 .collect::<Vec<_>>(),
         );
         shift = shift.exp_u32(arity as u32);
-        // TODO: Is it faster to interpolate?
-        values = coeffs.clone().coset_fft(shift.into())
+        values = coeffs.coset_fft(shift.into())
     }
 
     coeffs.trim();

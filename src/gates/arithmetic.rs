@@ -4,7 +4,7 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::gates::gate::{Gate, GateRef};
-use crate::generator::{SimpleGenerator, WitnessGenerator};
+use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::witness::PartialWitness;
@@ -169,7 +169,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensio
             .collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
         let extract_extension = |range: Range<usize>| -> F::Extension {
             let t = ExtensionTarget::from_range(self.gate_index, range);
             witness.get_extension_target(t)
@@ -189,7 +189,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensio
         let computed_output =
             multiplicand_0 * multiplicand_1 * self.const_0.into() + addend * self.const_1.into();
 
-        PartialWitness::singleton_extension_target(output_target, computed_output)
+        GeneratedValues::singleton_extension_target(output_target, computed_output)
     }
 }
 
@@ -202,7 +202,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensio
             .collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
         let extract_extension = |range: Range<usize>| -> F::Extension {
             let t = ExtensionTarget::from_range(self.gate_index, range);
             witness.get_extension_target(t)
@@ -222,7 +222,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensio
         let computed_output =
             multiplicand_0 * multiplicand_1 * self.const_0.into() + addend * self.const_1.into();
 
-        PartialWitness::singleton_extension_target(output_target, computed_output)
+        GeneratedValues::singleton_extension_target(output_target, computed_output)
     }
 }
 
