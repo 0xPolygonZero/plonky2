@@ -185,7 +185,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     // TODO: Optimize this, maybe with a new gate.
     // TODO: Test
-    /// Exponentiate `base` to the power of `exponent`, given by its little-endian bits.
+    /// Exponentiate `base` to the power of `2^bit_length-1-exponent`, given by its little-endian bits.
     pub fn exp_from_complement_bits(&mut self, base: Target, exponent_bits: &[Target]) -> Target {
         let mut current = base;
         let one_ext = self.one_extension();
