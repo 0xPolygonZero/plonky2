@@ -140,7 +140,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .1
     }
 
-    /// Add `n` `ExtensionTarget`s with `n/2 + 1` `ArithmeticExtensionGate`s.
+    /// Add `n` `ExtensionTarget`s with `ceil(n/2) + 1` `ArithmeticExtensionGate`s.
     pub fn add_many_extension(&mut self, terms: &[ExtensionTarget<D>]) -> ExtensionTarget<D> {
         let zero = self.zero_extension();
         let mut terms = terms.to_vec();
@@ -277,7 +277,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .1
     }
 
-    /// Multiply `n` `ExtensionTarget`s with `n/2 + 1` `ArithmeticExtensionGate`s.
+    /// Multiply `n` `ExtensionTarget`s with `ceil(n/2) + 1` `ArithmeticExtensionGate`s.
     pub fn mul_many_extension(&mut self, terms: &[ExtensionTarget<D>]) -> ExtensionTarget<D> {
         let one = self.one_extension();
         let mut terms = terms.to_vec();

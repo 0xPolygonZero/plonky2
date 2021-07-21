@@ -16,7 +16,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Computes `x^3`.
     pub fn cube(&mut self, x: Target) -> Target {
-        self.mul_many(&[x, x, x])
+        let xe = self.convert_to_ext(x);
+        self.mul_three_extension(xe, xe, xe).to_target_array()[0]
     }
 
     /// Computes `const_0 * multiplicand_0 * multiplicand_1 + const_1 * addend`.
@@ -123,13 +124,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.arithmetic(F::ONE, x, one, F::ONE, y)
     }
 
+    /// Add `n` `Target`s with `ceil(n/2) + 1` `ArithmeticExtensionGate`s.
     // TODO: Can be made `2*D` times more efficient by using all wires of an `ArithmeticExtensionGate`.
     pub fn add_many(&mut self, terms: &[Target]) -> Target {
-        let mut sum = self.zero();
-        for term in terms {
-            sum = self.add(sum, *term);
-        }
-        sum
+        let terms_ext = terms
+            .iter()
+            .map(|&t| self.convert_to_ext(t))
+            .collect::<Vec<_>>();
+        self.add_many_extension(&terms_ext).to_target_array()[0]
     }
 
     /// Computes `x - y`.
@@ -145,12 +147,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.arithmetic(F::ONE, x, y, F::ZERO, x)
     }
 
+    /// Multiply `n` `Target`s with `ceil(n/2) + 1` `ArithmeticExtensionGate`s.
     pub fn mul_many(&mut self, terms: &[Target]) -> Target {
-        let mut product = self.one();
-        for term in terms {
-            product = self.mul(product, *term);
-        }
-        product
+        let terms_ext = terms
+            .iter()
+            .map(|&t| self.convert_to_ext(t))
+            .collect::<Vec<_>>();
+        self.mul_many_extension(&terms_ext).to_target_array()[0]
     }
 
     // TODO: Optimize this, maybe with a new gate.
