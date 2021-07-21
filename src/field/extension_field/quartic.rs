@@ -291,6 +291,7 @@ mod tests {
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::extension_field::{FieldExtension, Frobenius};
     use crate::field::field::Field;
+    use crate::test_arithmetic;
 
     fn exp_naive<F: Field>(x: F, power: u128) -> F {
         let mut current = x;
@@ -388,4 +389,6 @@ mod tests {
             <F as FieldExtension<4>>::BaseField::POWER_OF_TWO_GENERATOR.into()
         );
     }
+
+    test_arithmetic!(crate::field::extension_field::quartic::QuarticCrandallField);
 }

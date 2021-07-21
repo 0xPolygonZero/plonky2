@@ -228,6 +228,7 @@ mod tests {
     use crate::field::extension_field::quadratic::QuadraticCrandallField;
     use crate::field::extension_field::{FieldExtension, Frobenius};
     use crate::field::field::Field;
+    use crate::test_arithmetic;
 
     #[test]
     fn test_add_neg_sub_mul() {
@@ -298,4 +299,6 @@ mod tests {
             <F as FieldExtension<2>>::BaseField::POWER_OF_TWO_GENERATOR.into()
         );
     }
+
+    test_arithmetic!(crate::field::extension_field::quadratic::QuadraticCrandallField);
 }
