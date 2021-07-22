@@ -5,7 +5,7 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::bigint::BigUint;
-use num::{Integer, Zero};
+use num::{Integer, One, Zero};
 use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -240,7 +240,7 @@ pub trait Field:
         match power {
             0 => false,
             1 => true,
-            _ => (Self::order() - 1u32).gcd(&BigUint::from(power)) == BigUint::from(1u32),
+            _ => (Self::order() - 1u32).gcd(&BigUint::from(power)).is_one(),
         }
     }
 
