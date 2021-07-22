@@ -28,18 +28,20 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         } = proof_with_pis;
         let one = self.one_extension();
 
-        let public_inputs_hash = &self.hash_n_to_hash(public_inputs, true);
-
         let num_challenges = inner_config.num_challenges;
+
+        let public_inputs_hash = &self.hash_n_to_hash(public_inputs, true);
 
         let mut challenger = RecursiveChallenger::new(self);
 
         let (betas, gammas, alphas, zeta) =
             context!(self, "observe proof and generates challenges", {
+                // Observe the instance.
                 let digest = HashTarget::from_vec(
                     self.constants(&inner_common_data.circuit_digest.elements),
                 );
                 challenger.observe_hash(&digest);
+                challenger.observe_hash(&public_inputs_hash);
 
                 challenger.observe_hash(&proof.wires_root);
                 let betas = challenger.get_n_challenges(self, num_challenges);

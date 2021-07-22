@@ -25,9 +25,10 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     let public_inputs_hash = &hash_n_to_hash(public_inputs, true);
 
     let mut challenger = Challenger::new();
+
     // Observe the instance.
-    // TODO: Need to include public inputs as well.
     challenger.observe_hash(&common_data.circuit_digest);
+    challenger.observe_hash(&public_inputs_hash);
 
     challenger.observe_hash(&proof.wires_root);
     let betas = challenger.get_n_challenges(num_challenges);
