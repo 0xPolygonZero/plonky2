@@ -59,23 +59,20 @@ pub(crate) fn verify_merkle_proof<F: Field>(
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
-    /// given root.
+    /// given root. The index is given by it's little-endian bits.
     pub(crate) fn verify_merkle_proof(
         &mut self,
         leaf_data: Vec<Target>,
-        leaf_index: Target,
+        leaf_index_bits: &[Target],
         merkle_root: HashTarget,
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
-        let two = self.two();
         let height = proof.siblings.len();
-        let purported_index_bits = self.split_le_virtual(leaf_index, height);
 
         let mut state: HashTarget = self.hash_or_noop(leaf_data);
-        let mut acc_leaf_index = zero;
 
-        for (bit, &sibling) in purported_index_bits.into_iter().zip(&proof.siblings) {
+        for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
             let gate = self
                 .add_gate_no_constants(GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants());
 
@@ -85,8 +82,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 input: swap_wire,
             });
             self.generate_copy(bit, swap_wire);
-
-            acc_leaf_index = self.mul_add(two, acc_leaf_index, bit);
 
             let input_wires = (0..12)
                 .map(|i| {
@@ -114,10 +109,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     .collect(),
             )
         }
-
-        // TODO: this is far from optimal.
-        let leaf_index_rev = self.reverse_limbs::<2>(leaf_index, height);
-        self.assert_equal(acc_leaf_index, leaf_index_rev);
 
         self.named_assert_hashes_equal(state, merkle_root, "check Merkle root".into())
     }
@@ -180,13 +171,14 @@ mod tests {
         pw.set_hash_target(root_t, tree.root);
 
         let i_c = builder.constant(F::from_canonical_usize(i));
+        let i_bits = builder.split_le(i_c, log_n);
 
         let data = builder.add_virtual_targets(tree.leaves[i].len());
         for j in 0..data.len() {
             pw.set_target(data[j], tree.leaves[i][j]);
         }
 
-        builder.verify_merkle_proof(data, i_c, root_t, &proof_t);
+        builder.verify_merkle_proof(data, &i_bits, root_t, &proof_t);
 
         let data = builder.build();
         let proof = data.prove(pw)?;
