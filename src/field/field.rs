@@ -220,7 +220,7 @@ pub trait Field:
         self.exp(power as u64)
     }
 
-    fn exp_biguint(&self, power: BigUint) -> Self {
+    fn exp_biguint(&self, power: &BigUint) -> Self {
         let digits = power.to_u32_digits();
         let radix = 1u64 << 32;
 
@@ -262,7 +262,7 @@ pub trait Field:
             let numerator = p.clone() + &p_minus_1 * n;
             if numerator.clone() % k == BigUint::zero() {
                 let power = (numerator / k) % p_minus_1;
-                return self.exp_biguint(power);
+                return self.exp_biguint(&power);
             }
         }
         panic!(

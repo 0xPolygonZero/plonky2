@@ -261,7 +261,7 @@ mod tests {
         type F = QuadraticCrandallField;
         let x = F::rand();
         assert_eq!(
-            x.exp_biguint(<F as FieldExtension<2>>::BaseField::order()),
+            x.exp_biguint(&<F as FieldExtension<2>>::BaseField::order()),
             x.frobenius()
         );
     }

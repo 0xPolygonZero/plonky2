@@ -242,8 +242,8 @@ macro_rules! test_field_arithmetic {
                 let big_pow = &pow + &mul_group_order * cycles;
                 let big_pow_wrong = &pow + &mul_group_order * cycles + 1u32;
 
-                assert_eq!(base.exp_biguint(pow.clone()), base.exp_biguint(big_pow));
-                assert_ne!(base.exp_biguint(pow), base.exp_biguint(big_pow_wrong));
+                assert_eq!(base.exp_biguint(&pow), base.exp_biguint(&big_pow));
+                assert_ne!(base.exp_biguint(&pow), base.exp_biguint(&big_pow_wrong));
             }
 
             #[test]

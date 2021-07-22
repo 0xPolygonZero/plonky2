@@ -342,7 +342,7 @@ mod tests {
         const D: usize = 4;
         let x = F::rand();
         assert_eq!(
-            x.exp_biguint(<F as FieldExtension<D>>::BaseField::order()),
+            x.exp_biguint(&<F as FieldExtension<D>>::BaseField::order()),
             x.frobenius()
         );
         for count in 2..D {

@@ -35,7 +35,7 @@ pub trait Frobenius<const D: usize>: OEF<D> {
         }
         let arr = self.to_basefield_array();
         let k = (Self::BaseField::order() - 1u32) / (D as u64);
-        let z0 = Self::W.exp_biguint(k * count as u64);
+        let z0 = Self::W.exp_biguint(&(k * count as u64));
         let mut res = [Self::BaseField::ZERO; D];
         for (i, z) in z0.powers().take(D).enumerate() {
             res[i] = arr[i] * z;
