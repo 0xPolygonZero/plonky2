@@ -192,7 +192,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn exp_from_complement_bits(
         &mut self,
         base: Target,
-        exponent_bits: impl ExactSizeIterator<Item = impl Borrow<Target>> + Clone,
+        exponent_bits: impl ExactSizeIterator<Item = impl Borrow<Target>>,
     ) -> Target {
         let mut current = base;
         let one_ext = self.one_extension();
