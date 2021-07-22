@@ -1,3 +1,5 @@
+use std::borrow::Borrow;
+
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
 use crate::target::Target;
@@ -187,15 +189,19 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     // TODO: Optimize this, maybe with a new gate.
     // TODO: Test
     /// Exponentiate `base` to the power of `2^bit_length-1-exponent`, given by its little-endian bits.
-    pub fn exp_from_complement_bits(&mut self, base: Target, exponent_bits: &[Target]) -> Target {
+    pub fn exp_from_complement_bits(
+        &mut self,
+        base: Target,
+        exponent_bits: impl ExactSizeIterator<Item = impl Borrow<Target>> + Clone,
+    ) -> Target {
         let mut current = base;
         let one_ext = self.one_extension();
         let mut product = self.one();
 
-        for &bit in exponent_bits {
+        for bit in exponent_bits {
             let current_ext = self.convert_to_ext(current);
             // TODO: Add base field select.
-            let multiplicand = self.select(bit, one_ext, current_ext);
+            let multiplicand = self.select(*bit.borrow(), one_ext, current_ext);
             product = self.mul(product, multiplicand.0[0]);
             current = self.mul(current, current);
         }
