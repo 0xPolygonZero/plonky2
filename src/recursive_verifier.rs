@@ -30,6 +30,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let num_challenges = inner_config.num_challenges;
 
+        let public_inputs_hash = &self.hash_n_to_hash(public_inputs, true);
+
         let mut challenger = RecursiveChallenger::new(self);
 
         let (betas, gammas, alphas, zeta) =
@@ -39,7 +41,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     self.constants(&inner_common_data.circuit_digest.elements),
                 );
                 challenger.observe_hash(&digest);
-                challenger.observe_elements(&public_inputs);
+                challenger.observe_hash(&public_inputs_hash);
 
                 challenger.observe_hash(&proof.wires_root);
                 let betas = challenger.get_n_challenges(self, num_challenges);
@@ -56,7 +58,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let local_constants = &proof.openings.constants;
         let local_wires = &proof.openings.wires;
-        let public_inputs_hash = &self.hash_n_to_hash(public_inputs, true);
         let vars = EvaluationTargets {
             local_constants,
             local_wires,

@@ -22,11 +22,13 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
 
+    let public_inputs_hash = &hash_n_to_hash(public_inputs, true);
+
     let mut challenger = Challenger::new();
 
     // Observe the instance.
     challenger.observe_hash(&common_data.circuit_digest);
-    challenger.observe_elements(&public_inputs);
+    challenger.observe_hash(&public_inputs_hash);
 
     challenger.observe_hash(&proof.wires_root);
     let betas = challenger.get_n_challenges(num_challenges);
@@ -40,7 +42,6 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
 
     let local_constants = &proof.openings.constants;
     let local_wires = &proof.openings.wires;
-    let public_inputs_hash = &hash_n_to_hash(public_inputs, true);
     let vars = EvaluationVars {
         local_constants,
         local_wires,

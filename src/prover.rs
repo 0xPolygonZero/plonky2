@@ -83,7 +83,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     // Observe the instance.
     challenger.observe_hash(&common_data.circuit_digest);
-    challenger.observe_elements(&public_inputs);
+    challenger.observe_hash(&public_inputs_hash);
 
     challenger.observe_hash(&wires_commitment.merkle_tree.root);
     let betas = challenger.get_n_challenges(num_challenges);
