@@ -28,20 +28,26 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         debug_assert_eq!(last_evals.len(), 1 << arity_bits);
 
         let g = F::primitive_root_of_unity(arity_bits);
+        let gt = self.constant(g);
 
         // The evaluation vector needs to be reordered first.
         let mut evals = last_evals.to_vec();
         reverse_index_bits_in_place(&mut evals);
         let mut old_x_index_bits = self.split_le(old_x_index, arity_bits);
         old_x_index_bits.reverse();
-        let evals = self.rotate_left_from_bits(&old_x_index_bits, &evals);
+        // Want `g^(arity - rev_old_x_index)` as in the out-of-circuit version.
+        // Compute it as `g^(arity-1-rev_old_x_index) * g`, where the first term is gotten using two's complement.
+        // TODO: Once the exponentiation gate lands, we won't need the bits and will be able to compute
+        // `g^(arity-rev_old_x_index)` directly.
+        let start = self.exp_from_complement_bits(gt, &old_x_index_bits);
+        let coset_start = self.mul_many(&[start, gt, x]);
 
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
         let points = g
             .powers()
             .map(|y| {
                 let yt = self.constant(y);
-                self.mul(x, yt)
+                self.mul(coset_start, yt)
             })
             .zip(evals)
             .collect::<Vec<_>>();

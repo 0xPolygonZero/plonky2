@@ -5,7 +5,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
-use crate::generator::{SimpleGenerator, WitnessGenerator};
+use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::gmimc::gmimc_automatic_constants;
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
@@ -239,8 +239,8 @@ impl<F: Extendable<D>, const D: usize, const R: usize> SimpleGenerator<F>
             .collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let mut result = PartialWitness::new();
+    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
+        let mut result = GeneratedValues::with_capacity(R + W + 1);
 
         let mut state = (0..W)
             .map(|i| {
@@ -326,6 +326,7 @@ mod tests {
     use crate::gates::gmimc::{GMiMCGate, W};
     use crate::generator::generate_partial_witness;
     use crate::gmimc::gmimc_permute_naive;
+    use crate::proof::Hash;
     use crate::vars::{EvaluationTargets, EvaluationVars};
     use crate::verifier::verify;
     use crate::wire::Wire;
@@ -416,9 +417,11 @@ mod tests {
         let gate = Gate::with_constants(constants);
 
         let wires = FF::rand_vec(Gate::end());
+        let public_inputs_hash = &Hash::rand();
         let vars = EvaluationVars {
             local_constants: &[],
             local_wires: &wires,
+            public_inputs_hash,
         };
 
         let ev = gate.0.eval_unfiltered(vars);
@@ -427,9 +430,14 @@ mod tests {
         for i in 0..Gate::end() {
             pw.set_extension_target(wires_t[i], wires[i]);
         }
+
+        let public_inputs_hash_t = builder.add_virtual_hash();
+        pw.set_hash_target(public_inputs_hash_t, *public_inputs_hash);
+
         let vars_t = EvaluationTargets {
             local_constants: &[],
             local_wires: &wires_t,
+            public_inputs_hash: &public_inputs_hash_t,
         };
 
         let ev_t = gate.0.eval_unfiltered_recursively(&mut builder, vars_t);

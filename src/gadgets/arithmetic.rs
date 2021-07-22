@@ -16,7 +16,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Computes `x^3`.
     pub fn cube(&mut self, x: Target) -> Target {
-        self.mul_many(&[x, x, x])
+        let xe = self.convert_to_ext(x);
+        self.mul_three_extension(xe, xe, xe).to_target_array()[0]
     }
 
     /// Computes `const_0 * multiplicand_0 * multiplicand_1 + const_1 * addend`.
@@ -123,13 +124,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.arithmetic(F::ONE, x, one, F::ONE, y)
     }
 
+    /// Add `n` `Target`s with `ceil(n/2) + 1` `ArithmeticExtensionGate`s.
     // TODO: Can be made `2*D` times more efficient by using all wires of an `ArithmeticExtensionGate`.
     pub fn add_many(&mut self, terms: &[Target]) -> Target {
-        let mut sum = self.zero();
-        for term in terms {
-            sum = self.add(sum, *term);
-        }
-        sum
+        let terms_ext = terms
+            .iter()
+            .map(|&t| self.convert_to_ext(t))
+            .collect::<Vec<_>>();
+        self.add_many_extension(&terms_ext).to_target_array()[0]
     }
 
     /// Computes `x - y`.
@@ -145,12 +147,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.arithmetic(F::ONE, x, y, F::ZERO, x)
     }
 
+    /// Multiply `n` `Target`s with `ceil(n/2) + 1` `ArithmeticExtensionGate`s.
     pub fn mul_many(&mut self, terms: &[Target]) -> Target {
-        let mut product = self.one();
-        for term in terms {
-            product = self.mul(product, *term);
-        }
-        product
+        let terms_ext = terms
+            .iter()
+            .map(|&t| self.convert_to_ext(t))
+            .collect::<Vec<_>>();
+        self.mul_many_extension(&terms_ext).to_target_array()[0]
     }
 
     /// Exponentiate `base` to the power of `2^power_log`.
@@ -164,14 +167,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     // TODO: Optimize this, maybe with a new gate.
     // TODO: Test
-    /// Exponentiate `base` to the power of `exponent`, where `exponent < 2^num_bits`.
-    pub fn exp(&mut self, base: Target, exponent: Target, num_bits: usize) -> Target {
+    /// Exponentiate `base` to the power of `exponent`, given by its little-endian bits.
+    pub fn exp_from_bits(&mut self, base: Target, exponent_bits: &[Target]) -> Target {
         let mut current = base;
         let one_ext = self.one_extension();
         let mut product = self.one();
-        let exponent_bits = self.split_le(exponent, num_bits);
 
-        for bit in exponent_bits.into_iter() {
+        for &bit in exponent_bits {
+            // TODO: Add base field select.
             let current_ext = self.convert_to_ext(current);
             let multiplicand = self.select(bit, current_ext, one_ext);
             product = self.mul(product, multiplicand.0[0]);
@@ -179,6 +182,33 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         product
+    }
+
+    // TODO: Optimize this, maybe with a new gate.
+    // TODO: Test
+    /// Exponentiate `base` to the power of `2^bit_length-1-exponent`, given by its little-endian bits.
+    pub fn exp_from_complement_bits(&mut self, base: Target, exponent_bits: &[Target]) -> Target {
+        let mut current = base;
+        let one_ext = self.one_extension();
+        let mut product = self.one();
+
+        for &bit in exponent_bits {
+            let current_ext = self.convert_to_ext(current);
+            // TODO: Add base field select.
+            let multiplicand = self.select(bit, one_ext, current_ext);
+            product = self.mul(product, multiplicand.0[0]);
+            current = self.mul(current, current);
+        }
+
+        product
+    }
+
+    // TODO: Optimize this, maybe with a new gate.
+    // TODO: Test
+    /// Exponentiate `base` to the power of `exponent`, where `exponent < 2^num_bits`.
+    pub fn exp(&mut self, base: Target, exponent: Target, num_bits: usize) -> Target {
+        let exponent_bits = self.split_le(exponent, num_bits);
+        self.exp_from_bits(base, &exponent_bits)
     }
 
     /// Exponentiate `base` to the power of a known `exponent`.

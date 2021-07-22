@@ -17,6 +17,7 @@ use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
+use crate::gates::public_input::PublicInputGate;
 use crate::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
 use crate::hash::hash_n_to_hash;
 use crate::permutation_argument::TargetPartition;
@@ -39,8 +40,8 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     /// The concrete placement of each gate.
     gate_instances: Vec<GateInstance<F, D>>,
 
-    /// The next available index for a public input.
-    public_input_index: usize,
+    /// Targets to be made public.
+    public_inputs: Vec<Target>,
 
     /// The next available index for a `VirtualTarget`.
     virtual_target_index: usize,
@@ -66,7 +67,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             config,
             gates: HashSet::new(),
             gate_instances: Vec::new(),
-            public_input_index: 0,
+            public_inputs: Vec::new(),
             virtual_target_index: 0,
             copy_constraints: Vec::new(),
             context_log: ContextTree::new(),
@@ -81,14 +82,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.gate_instances.len()
     }
 
-    pub fn add_public_input(&mut self) -> Target {
-        let index = self.public_input_index;
-        self.public_input_index += 1;
-        Target::PublicInput { index }
+    /// Registers the given target as a public input.
+    pub fn register_public_input(&mut self, target: Target) {
+        self.public_inputs.push(target);
     }
 
-    pub fn add_public_inputs(&mut self, n: usize) -> Vec<Target> {
-        (0..n).map(|_i| self.add_public_input()).collect()
+    /// Registers the given targets as public inputs.
+    pub fn register_public_inputs(&mut self, targets: &[Target]) {
+        targets.iter().for_each(|&t| self.register_public_input(t));
     }
 
     /// Adds a new "virtual" target. This is not an actual wire in the witness, but just a target
@@ -462,20 +463,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let degree_log = log2_strict(degree);
         let mut target_partition = TargetPartition::new(|t| match t {
             Target::Wire(Wire { gate, input }) => gate * self.config.num_routed_wires + input,
-            Target::PublicInput { index } => degree * self.config.num_routed_wires + index,
-            Target::VirtualTarget { index } => {
-                degree * self.config.num_routed_wires + self.public_input_index + index
-            }
+            Target::VirtualTarget { index } => degree * self.config.num_routed_wires + index,
         });
 
         for gate in 0..degree {
             for input in 0..self.config.num_routed_wires {
                 target_partition.add(Target::Wire(Wire { gate, input }));
             }
-        }
-
-        for index in 0..self.public_input_index {
-            target_partition.add(Target::PublicInput { index });
         }
 
         for index in 0..self.virtual_target_index {
@@ -500,6 +494,19 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn build(mut self) -> CircuitData<F, D> {
         let quotient_degree_factor = 7; // TODO: add this as a parameter.
         let start = Instant::now();
+
+        // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
+        // those hash wires match the claimed public inputs.
+        let public_inputs_hash = self.hash_n_to_hash(self.public_inputs.clone(), true);
+        let pi_gate = self.add_gate_no_constants(PublicInputGate::get());
+        for (&hash_part, wire) in public_inputs_hash
+            .elements
+            .iter()
+            .zip(PublicInputGate::wires_public_inputs_hash())
+        {
+            self.route(hash_part, Target::wire(pi_gate, wire))
+        }
+
         info!(
             "Degree before blinding & padding: {}",
             self.gate_instances.len()
@@ -552,6 +559,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             subgroup,
             copy_constraints: self.copy_constraints,
             gate_instances: self.gate_instances,
+            public_inputs: self.public_inputs,
             marked_targets: self.marked_targets,
         };
 

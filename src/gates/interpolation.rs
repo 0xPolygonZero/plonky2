@@ -9,7 +9,7 @@ use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::interpolation::interpolant;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::{Gate, GateRef};
-use crate::generator::{SimpleGenerator, WitnessGenerator};
+use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::wire::Wire;
@@ -216,7 +216,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGener
         deps
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
         let n = self.gate.num_points;
 
         let local_wire = |input| Wire {
@@ -244,7 +244,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGener
             .collect::<Vec<_>>();
         let interpolant = interpolant(&points);
 
-        let mut result = PartialWitness::<F>::new();
+        let mut result = GeneratedValues::<F>::with_capacity(D * (self.gate.num_points + 1));
         for (i, &coeff) in interpolant.coeffs.iter().enumerate() {
             let wires = self.gate.wires_coeff(i).map(local_wire);
             result.set_ext_wires(wires, coeff);
@@ -271,6 +271,7 @@ mod tests {
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::interpolation::InterpolationGate;
     use crate::polynomial::polynomial::PolynomialCoeffs;
+    use crate::proof::Hash;
     use crate::vars::EvaluationVars;
 
     #[test]
@@ -352,6 +353,7 @@ mod tests {
         let vars = EvaluationVars {
             local_constants: &[],
             local_wires: &get_wires(2, coeffs, points, eval_point),
+            public_inputs_hash: &Hash::rand(),
         };
 
         assert!(

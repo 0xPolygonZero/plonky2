@@ -3,24 +3,32 @@ use anyhow::{ensure, Result};
 use crate::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
+use crate::hash::hash_n_to_hash;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::reduce_with_powers;
-use crate::proof::Proof;
+use crate::proof::ProofWithPublicInputs;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::EvaluationVars;
 
 pub(crate) fn verify<F: Extendable<D>, const D: usize>(
-    proof: Proof<F, D>,
+    proof_with_pis: ProofWithPublicInputs<F, D>,
     verifier_data: &VerifierOnlyCircuitData<F>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
+    let ProofWithPublicInputs {
+        proof,
+        public_inputs,
+    } = proof_with_pis;
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
 
+    let public_inputs_hash = &hash_n_to_hash(public_inputs, true);
+
     let mut challenger = Challenger::new();
+
     // Observe the instance.
-    // TODO: Need to include public inputs as well.
     challenger.observe_hash(&common_data.circuit_digest);
+    challenger.observe_hash(&public_inputs_hash);
 
     challenger.observe_hash(&proof.wires_root);
     let betas = challenger.get_n_challenges(num_challenges);
@@ -37,6 +45,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     let vars = EvaluationVars {
         local_constants,
         local_wires,
+        public_inputs_hash,
     };
     let local_zs = &proof.openings.plonk_zs;
     let next_zs = &proof.openings.plonk_zs_right;

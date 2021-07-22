@@ -34,10 +34,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
     pub fn new(values: Vec<PolynomialValues<F>>, rate_bits: usize, blinding: bool) -> Self {
         let degree = values[0].len();
-        let polynomials = values
-            .par_iter()
-            .map(|v| v.clone().ifft())
-            .collect::<Vec<_>>();
+        let polynomials = values.par_iter().map(|v| v.ifft()).collect::<Vec<_>>();
         let lde_values = timed!(
             Self::lde_values(&polynomials, rate_bits, blinding),
             "to compute LDE"
@@ -68,6 +65,8 @@ impl<F: Field> ListPolynomialCommitment<F> {
         rate_bits: usize,
         blinding: bool,
     ) -> Self {
+        // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
+        // MerkleTree do it implicitly.
         let mut leaves = timed!(transpose(&lde_values), "to transpose LDEs");
         reverse_index_bits_in_place(&mut leaves);
         let merkle_tree = timed!(MerkleTree::new(leaves, false), "to build Merkle tree");
@@ -92,7 +91,7 @@ impl<F: Field> ListPolynomialCommitment<F> {
             .par_iter()
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degree invalid.");
-                p.clone().lde(rate_bits).coset_fft(F::coset_shift()).values
+                p.lde(rate_bits).coset_fft(F::coset_shift()).values
             })
             .chain(if blinding {
                 // If blinding, salt with two random elements to each leaf vector.
@@ -182,15 +181,15 @@ impl<F: Field> ListPolynomialCommitment<F> {
         final_poly += zs_quotient;
 
         let lde_final_poly = final_poly.lde(config.rate_bits);
-        let lde_final_values = lde_final_poly.clone().coset_fft(F::coset_shift().into());
+        let lde_final_values = lde_final_poly.coset_fft(F::coset_shift().into());
 
         let fri_proof = fri_proof(
             &commitments
                 .par_iter()
                 .map(|c| &c.merkle_tree)
                 .collect::<Vec<_>>(),
-            &lde_final_poly,
-            &lde_final_values,
+            lde_final_poly,
+            lde_final_values,
             challenger,
             &config.fri_config,
         );

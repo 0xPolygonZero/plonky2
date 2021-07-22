@@ -7,7 +7,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
-use crate::generator::{SimpleGenerator, WitnessGenerator};
+use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars};
 use crate::wire::Wire;
@@ -218,7 +218,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
         deps
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
         let local_wire = |input| Wire {
             gate: self.gate_index,
             input,
@@ -264,7 +264,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
         let mut insert_here_vals = vec![F::ZERO; vec_size];
         insert_here_vals.insert(insertion_index, F::ONE);
 
-        let mut result = PartialWitness::<F>::new();
+        let mut result = GeneratedValues::<F>::with_capacity((vec_size + 1) * (D + 2));
         for i in 0..=vec_size {
             let output_wires = self.gate.wires_output_list_item(i).map(local_wire);
             result.set_ext_wires(output_wires, new_vec[i]);
@@ -288,6 +288,7 @@ mod tests {
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::insertion::InsertionGate;
+    use crate::proof::Hash;
     use crate::vars::EvaluationVars;
 
     #[test]
@@ -366,6 +367,7 @@ mod tests {
         let vars = EvaluationVars {
             local_constants: &[],
             local_wires: &get_wires(orig_vec, insertion_index, element_to_insert),
+            public_inputs_hash: &Hash::rand(),
         };
 
         assert!(
