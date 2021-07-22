@@ -128,7 +128,7 @@ impl Field for QuarticCrandallField {
         let second = self.0[1].to_canonical_biguint();
         let third = self.0[2].to_canonical_biguint();
         let fourth = self.0[3].to_canonical_biguint();
-        
+
         let mut combined = fourth;
         combined *= Self::CHARACTERISTIC;
         combined += third;
@@ -136,7 +136,7 @@ impl Field for QuarticCrandallField {
         combined += second;
         combined *= Self::CHARACTERISTIC;
         combined += first;
-        
+
         combined
     }
 

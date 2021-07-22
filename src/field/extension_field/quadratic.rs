@@ -94,7 +94,7 @@ impl Field for QuadraticCrandallField {
         let first = self.0[0].to_canonical_biguint();
         let second = self.0[1].to_canonical_biguint();
         let combined = second * Self::CHARACTERISTIC + first;
-        
+
         combined
     }
 

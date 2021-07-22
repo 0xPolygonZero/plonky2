@@ -161,7 +161,7 @@ macro_rules! test_prime_field_arithmetic {
             // Can be 32 or 64; doesn't have to be computer's actual word
             // bits. Choosing 32 gives more tests...
             const WORD_BITS: usize = 32;
-            
+
             #[test]
             fn arithmetic_addition() {
                 let modulus = <$field>::order();
@@ -362,4 +362,3 @@ macro_rules! test_field_arithmetic {
         }
     };
 }
-
