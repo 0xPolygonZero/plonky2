@@ -313,31 +313,15 @@ mod tests {
             points: Vec<F>,
             eval_point: FF,
         ) -> Vec<FF> {
-            let mut v = vec![F::ZERO; num_points * 5 + (coeffs.len() + 3) * D];
+            let mut v = Vec::new();
+            v.extend_from_slice(&points);
             for j in 0..num_points {
-                v[j] = points[j];
+                v.extend(coeffs.eval(points[j].into()).0);
             }
-            for j in 0..num_points {
-                for i in 0..D {
-                    v[num_points + D * j + i] = <FF as FieldExtension<D>>::to_basefield_array(
-                        &coeffs.eval(points[j].into()),
-                    )[i];
-                }
-            }
-            for i in 0..D {
-                v[num_points * 5 + i] =
-                    <FF as FieldExtension<D>>::to_basefield_array(&eval_point)[i];
-            }
-            for i in 0..D {
-                v[num_points * 5 + D + i] =
-                    <FF as FieldExtension<D>>::to_basefield_array(&coeffs.eval(eval_point))[i];
-            }
+            v.extend(eval_point.0);
+            v.extend(coeffs.eval(eval_point).0);
             for i in 0..coeffs.len() {
-                for (j, input) in
-                    (0..D).zip(num_points * 5 + (2 + i) * D..num_points * 5 + (3 + i) * D)
-                {
-                    v[input] = <FF as FieldExtension<D>>::to_basefield_array(&coeffs.coeffs[i])[j];
-                }
+                v.extend(coeffs.coeffs[i].0);
             }
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         }
