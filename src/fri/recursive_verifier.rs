@@ -253,10 +253,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let config = &common_data.config.fri_config;
         let n_log = log2_strict(n);
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
-        let mut x_index = challenger.get_challenge(self);
-        x_index = self.split_low_high(x_index, n_log, 64).0;
+        let x_index = challenger.get_challenge(self);
         let mut x_index_bits = self.low_bits(x_index, n_log, 64);
-        let mut x_index_num_bits = n_log;
         let mut domain_size = n;
         context!(
             self,
@@ -274,7 +272,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let g = self.constant(F::MULTIPLICATIVE_GROUP_GENERATOR);
             let phi = self.constant(F::primitive_root_of_unity(n_log));
 
-            let reversed_x = self.reverse_limbs::<2>(x_index, n_log);
+            let reversed_x = self.base_sum(x_index_bits.iter().rev());
             let phi = self.exp(phi, reversed_x, n_log);
             self.mul(g, phi)
         });
@@ -312,10 +310,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             };
             let mut evals = round_proof.steps[i].evals.clone();
             // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
-            let (low_x_index, high_x_index) =
-                self.split_low_high(x_index, arity_bits, x_index_num_bits);
             let high_x_index_bits = x_index_bits.split_off(arity_bits);
             old_x_index_bits = x_index_bits;
+            let low_x_index = self.base_sum(old_x_index_bits.iter());
             evals = self.insert(low_x_index, e_x, evals);
             context!(
                 self,
@@ -334,8 +331,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 subgroup_x = self.exp_power_of_2(subgroup_x, config.reduction_arity_bits[i - 1]);
             }
             domain_size = next_domain_size;
-            x_index = high_x_index;
-            x_index_num_bits -= arity_bits;
             x_index_bits = high_x_index_bits;
         }
 
