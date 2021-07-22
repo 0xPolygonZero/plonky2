@@ -275,7 +275,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.constant(F::TWO)
     }
 
-    /// Returns a routable target with a value of `ORDER - 1`.
+    /// Returns a routable target with a value of `order() - 1`.
     pub fn neg_one(&mut self) -> Target {
         self.constant(F::NEG_ONE)
     }

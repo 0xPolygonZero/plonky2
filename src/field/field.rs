@@ -4,7 +4,8 @@ use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use num::Integer;
+use num::bigint::BigUint;
+use num::{Integer, One, Zero};
 use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -44,13 +45,14 @@ pub trait Field:
     const NEG_ONE: Self;
 
     const CHARACTERISTIC: u64;
-    const ORDER: u64;
     const TWO_ADICITY: usize;
 
     /// Generator of the entire multiplicative group, i.e. all non-zero elements.
     const MULTIPLICATIVE_GROUP_GENERATOR: Self;
     /// Generator of a multiplicative subgroup of order `2^TWO_ADICITY`.
     const POWER_OF_TWO_GENERATOR: Self;
+
+    fn order() -> BigUint;
 
     fn is_zero(&self) -> bool {
         *self == Self::ZERO
@@ -183,6 +185,12 @@ pub trait Field:
         Self::from_canonical_u64(n as u64)
     }
 
+    fn to_canonical_biguint(&self) -> BigUint;
+
+    fn from_canonical_biguint(n: BigUint) -> Self;
+
+    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self;
+
     fn bits(&self) -> usize {
         bits_u64(self.to_canonical_u64())
     }
@@ -212,18 +220,33 @@ pub trait Field:
         self.exp(power as u64)
     }
 
+    fn exp_biguint(&self, power: &BigUint) -> Self {
+        let digits = power.to_u32_digits();
+        let radix = 1u64 << 32;
+
+        let mut result = Self::ONE;
+        for (radix_power, &digit) in digits.iter().enumerate() {
+            let mut current = self.exp_u32(digit);
+            for _ in 0..radix_power {
+                current = current.exp(radix);
+            }
+            result *= current;
+        }
+        result
+    }
+
     /// Returns whether `x^power` is a permutation of this field.
     fn is_monomial_permutation(power: u64) -> bool {
         match power {
             0 => false,
             1 => true,
-            _ => (Self::ORDER - 1).gcd(&power) == 1,
+            _ => (Self::order() - 1u32).gcd(&BigUint::from(power)).is_one(),
         }
     }
 
     fn kth_root(&self, k: u64) -> Self {
-        let p = Self::ORDER;
-        let p_minus_1 = p - 1;
+        let p = Self::order().clone();
+        let p_minus_1 = &p - 1u32;
         debug_assert!(
             Self::is_monomial_permutation(k),
             "Not a permutation of this field"
@@ -236,10 +259,10 @@ pub trait Field:
         //    x^((p + n(p - 1))/k)^k = x,
         // implying that x^((p + n(p - 1))/k) is a k'th root of x.
         for n in 0..k {
-            let numerator = p as u128 + n as u128 * p_minus_1 as u128;
-            if numerator % k as u128 == 0 {
-                let power = (numerator / k as u128) as u64 % p_minus_1;
-                return self.exp(power);
+            let numerator = &p + &p_minus_1 * n;
+            if (&numerator % k).is_zero() {
+                let power = (numerator / k) % p_minus_1;
+                return self.exp_biguint(&power);
             }
         }
         panic!(
@@ -290,10 +313,6 @@ pub trait Field:
     /// impl which applies a fast, precomputed 8x8 MDS matrix.
     fn mds_8(vec: [Self; 8]) -> [Self; 8] {
         Self::mds(vec.to_vec()).try_into().unwrap()
-    }
-
-    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
-        Self::from_canonical_u64(rng.gen_range(0, Self::ORDER))
     }
 
     fn rand() -> Self {
