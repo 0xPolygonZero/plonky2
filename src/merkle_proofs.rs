@@ -68,7 +68,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
-        let height = proof.siblings.len();
 
         let mut state: HashTarget = self.hash_or_noop(leaf_data);
 

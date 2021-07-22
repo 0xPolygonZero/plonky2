@@ -309,12 +309,6 @@ mod tests {
         type Gate = GMiMCGate<F, 4, R>;
         let gate = Gate::with_constants(constants.clone());
 
-        let config = CircuitConfig {
-            num_wires: 126,
-            num_routed_wires: 200,
-            ..Default::default()
-        };
-
         let permutation_inputs = (0..W).map(F::from_canonical_usize).collect::<Vec<_>>();
 
         let mut witness = PartialWitness::new();
