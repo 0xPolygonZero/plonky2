@@ -65,6 +65,8 @@ impl<F: Field> ListPolynomialCommitment<F> {
         rate_bits: usize,
         blinding: bool,
     ) -> Self {
+        // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
+        // MerkleTree do it implicitly.
         let mut leaves = timed!(transpose(&lde_values), "to transpose LDEs");
         reverse_index_bits_in_place(&mut leaves);
         let merkle_tree = timed!(MerkleTree::new(leaves, false), "to build Merkle tree");

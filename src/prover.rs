@@ -68,8 +68,6 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         "to compute wire polynomials"
     );
 
-    // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
-    // merkle_root_bit_rev_order do it implicitly.
     let wires_commitment = timed!(
         ListPolynomialCommitment::new(
             wires_values,
