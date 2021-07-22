@@ -174,6 +174,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut product = self.one();
 
         for &bit in exponent_bits {
+            // TODO: Add base field select.
             let current_ext = self.convert_to_ext(current);
             let multiplicand = self.select(bit, current_ext, one_ext);
             product = self.mul(product, multiplicand.0[0]);
@@ -193,6 +194,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         for &bit in exponent_bits {
             let current_ext = self.convert_to_ext(current);
+            // TODO: Add base field select.
             let multiplicand = self.select(bit, one_ext, current_ext);
             product = self.mul(product, multiplicand.0[0]);
             current = self.mul(current, current);
