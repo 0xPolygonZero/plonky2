@@ -1,4 +1,4 @@
-use num::bigint::BigUint;
+use num::{bigint::BigUint, Zero};
 
 use crate::field::field::Field;
 use crate::util::ceil_div_usize;
@@ -34,21 +34,17 @@ pub fn test_inputs(modulus: BigUint, word_bits: usize) -> Vec<BigUint> {
     // Inputs 'difference from' maximum value
     let diff_max = basic_inputs
         .iter()
-        .map(|x| x.clone())
-        .map(|x| multiple_words_max.clone() - x)
+        .map(|x| &multiple_words_max - x)
         .filter(|x| x < &modulus)
         .collect();
     // Inputs 'difference from' modulus value
     let diff_mod = basic_inputs
         .iter()
-        .map(|x| x.clone())
-        .filter(|x| x.clone() < modulus.clone() && x.clone() != BigUint::from(0u32))
-        .map(|x| x.clone())
-        .map(|x| modulus.clone() - x)
+        .filter(|&x| x < &modulus && !x.is_zero())
+        .map(|x| &modulus - x)
         .collect();
     let basics = basic_inputs
         .into_iter()
-        .map(|x| x.clone())
         .filter(|x| x < &modulus)
         .collect::<Vec<BigUint>>();
     [basics, diff_max, diff_mod].concat()
@@ -79,7 +75,7 @@ pub fn run_unaryop_test_cases<F, UnaryOp, ExpectedOp>(
     let expected: Vec<_> = inputs.iter().map(|x| expected_op(x.clone())).collect();
     let output: Vec<_> = inputs
         .iter()
-        .map(|x| x.clone())
+        .cloned()
         .map(|x| op(F::from_canonical_biguint(x)).to_canonical_biguint())
         .collect();
     // Compare expected outputs with actual outputs
@@ -130,9 +126,8 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
         let output: Vec<_> = inputs
             .iter()
             .zip(shifted_inputs.clone())
-            .map(|(x, y)| (x.clone(), y.clone()))
             .map(|(x, y)| {
-                op(F::from_canonical_biguint(x), F::from_canonical_biguint(y))
+                op(F::from_canonical_biguint(x.clone()), F::from_canonical_biguint(y.clone()))
                     .to_canonical_biguint()
             })
             .collect();
@@ -153,7 +148,7 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
 macro_rules! test_field_arithmetic {
     ($field:ty) => {
         mod field_arithmetic {
-            use num::bigint::BigUint;
+            use num::{bigint::BigUint, Zero, One}   ;
             use rand::{thread_rng, Rng};
 
             use crate::field::field::Field;
@@ -184,11 +179,11 @@ macro_rules! test_field_arithmetic {
                 let order = <$field>::order();
 
                 for i in [
-                    BigUint::from(0u32),
-                    BigUint::from(1u32),
+                    BigUint::zero(),
+                    BigUint::one(),
                     BigUint::from(2u32),
-                    order.clone() - 2u32,
-                    order.clone() - 1u32,
+                    &order - 1u32,
+                    &order - 2u32,
                 ] {
                     let i_f = <$field>::from_canonical_biguint(i);
                     assert_eq!(i_f + -i_f, zero);
@@ -269,7 +264,7 @@ macro_rules! test_prime_field_arithmetic {
         mod prime_field_arithmetic {
             use std::ops::{Add, Mul, Neg, Sub};
 
-            use num::bigint::BigUint;
+            use num::{bigint::BigUint, Zero, One};
 
             use crate::field::field::Field;
 
@@ -284,7 +279,7 @@ macro_rules! test_prime_field_arithmetic {
                     modulus.clone(),
                     WORD_BITS,
                     <$field>::add,
-                    |x, y| (x.clone() + y.clone()) % modulus.clone(),
+                    |x, y| (&x + &y) % &modulus,
                 )
             }
 
@@ -297,9 +292,9 @@ macro_rules! test_prime_field_arithmetic {
                     <$field>::sub,
                     |x, y| {
                         if x >= y {
-                            x.clone() - y.clone()
+                            &x - &y
                         } else {
-                            modulus.clone() - y.clone() + x
+                            &modulus - &y + &x
                         }
                     },
                 )
@@ -313,10 +308,10 @@ macro_rules! test_prime_field_arithmetic {
                     WORD_BITS,
                     <$field>::neg,
                     |x| {
-                        if x == BigUint::from(0u32) {
-                            BigUint::from(0u32)
+                        if x.is_zero() {
+                            BigUint::zero()
                         } else {
-                            modulus.clone() - x.clone()
+                            &modulus - &x
                         }
                     },
                 )
@@ -329,7 +324,7 @@ macro_rules! test_prime_field_arithmetic {
                     modulus.clone(),
                     WORD_BITS,
                     <$field>::mul,
-                    |x, y| x.clone() * y.clone() % modulus.clone(),
+                    |x, y| &x * &y % &modulus,
                 )
             }
 
@@ -340,7 +335,7 @@ macro_rules! test_prime_field_arithmetic {
                     modulus.clone(),
                     WORD_BITS,
                     |x: $field| x.square(),
-                    |x| (x.clone() * x.clone()) % modulus.clone(),
+                    |x| (&x * &x) % &modulus,
                 )
             }
 
@@ -353,12 +348,12 @@ macro_rules! test_prime_field_arithmetic {
                 assert_eq!(zero.try_inverse(), None);
 
                 for x in [
-                    BigUint::from(1u32),
+                    BigUint::one(),
                     BigUint::from(2u32),
                     BigUint::from(3u32),
-                    order.clone() - 3u32,
-                    order.clone() - 2u32,
-                    order.clone() - 1u32,
+                    &order - 3u32,
+                    &order - 2u32,
+                    &order - 1u32,
                 ] {
                     let x = <$field>::from_canonical_biguint(x);
                     let inv = x.inverse();
