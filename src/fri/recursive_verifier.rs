@@ -268,7 +268,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let g = self.constant(F::MULTIPLICATIVE_GROUP_GENERATOR);
             let phi = self.constant(F::primitive_root_of_unity(n_log));
 
-            let reversed_x = self.base_sum(x_index_bits.iter().rev());
+            let reversed_x = self.le_sum(x_index_bits.iter().rev());
             let phi = self.exp(phi, reversed_x, n_log);
             self.mul(g, phi)
         });
@@ -308,7 +308,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
             let high_x_index_bits = x_index_bits.split_off(arity_bits);
             old_x_index_bits = x_index_bits;
-            let low_x_index = self.base_sum(old_x_index_bits.iter());
+            let low_x_index = self.le_sum(old_x_index_bits.iter());
             evals = self.insert(low_x_index, e_x, evals);
             context!(
                 self,

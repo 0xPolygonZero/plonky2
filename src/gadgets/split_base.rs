@@ -39,26 +39,28 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         Target::wire(gate, BaseSumGate::<B>::WIRE_REVERSED_SUM)
     }
 
-    pub(crate) fn base_sum(
+    /// Takes an iterator of bits `(b_i)` and returns `sum b_i * 2^i`, i.e.,
+    /// the number with little-endian bit representation given by `bits`.
+    pub(crate) fn le_sum(
         &mut self,
-        limbs: impl ExactSizeIterator<Item = impl Borrow<Target>> + Clone,
+        bits: impl ExactSizeIterator<Item = impl Borrow<Target>> + Clone,
     ) -> Target {
-        let num_limbs = limbs.len();
+        let num_bits = bits.len();
         debug_assert!(
-            BaseSumGate::<2>::START_LIMBS + num_limbs <= self.config.num_routed_wires,
+            BaseSumGate::<2>::START_LIMBS + num_bits <= self.config.num_routed_wires,
             "Not enough routed wires."
         );
-        let gate_index = self.add_gate(BaseSumGate::<2>::new(num_limbs), vec![]);
-        for (limb, wire) in limbs
+        let gate_index = self.add_gate(BaseSumGate::<2>::new(num_bits), vec![]);
+        for (limb, wire) in bits
             .clone()
-            .zip(BaseSumGate::<2>::START_LIMBS..BaseSumGate::<2>::START_LIMBS + num_limbs)
+            .zip(BaseSumGate::<2>::START_LIMBS..BaseSumGate::<2>::START_LIMBS + num_bits)
         {
             self.route(*limb.borrow(), Target::wire(gate_index, wire));
         }
 
         self.add_generator(BaseSumGenerator::<2> {
             gate_index,
-            limbs: limbs.map(|l| *l.borrow()).collect(),
+            limbs: bits.map(|l| *l.borrow()).collect(),
         });
 
         Target::wire(gate_index, BaseSumGate::<2>::WIRE_SUM)
@@ -143,7 +145,7 @@ mod tests {
         let zero = builder.zero();
         let one = builder.one();
 
-        let y = builder.base_sum(
+        let y = builder.le_sum(
             (0..10)
                 .scan(n, |acc, _| {
                     let tmp = *acc % 2;
