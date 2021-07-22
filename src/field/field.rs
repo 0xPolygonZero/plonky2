@@ -246,7 +246,7 @@ pub trait Field:
 
     fn kth_root(&self, k: u64) -> Self {
         let p = Self::order().clone();
-        let p_minus_1 = p.clone() - 1u32;
+        let p_minus_1 = &p - 1u32;
         debug_assert!(
             Self::is_monomial_permutation(k),
             "Not a permutation of this field"
@@ -259,8 +259,8 @@ pub trait Field:
         //    x^((p + n(p - 1))/k)^k = x,
         // implying that x^((p + n(p - 1))/k) is a k'th root of x.
         for n in 0..k {
-            let numerator = p.clone() + &p_minus_1 * n;
-            if numerator.clone() % k == BigUint::zero() {
+            let numerator = &p + &p_minus_1 * n;
+            if (&numerator % k).is_zero() {
                 let power = (numerator / k) % p_minus_1;
                 return self.exp_biguint(&power);
             }
