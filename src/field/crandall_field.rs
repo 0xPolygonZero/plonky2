@@ -6,7 +6,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use itertools::Itertools;
 use num::Integer;
-use num_bigint::BigUint;
+use num::bigint::BigUint;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -252,15 +252,7 @@ impl Field for CrandallField {
     }
 
     fn from_canonical_biguint(n: BigUint) -> Self {
-        let smallest_two: Vec<_> = n
-            .to_u32_digits()
-            .iter()
-            .take(2)
-            .pad_using(2, |_| &0u32)
-            .map(|x| *x as u64)
-            .collect();
-        let n_u64 = smallest_two[0] + (1u64 << 32) * smallest_two[1];
-        Self(n_u64)
+        Self(n.iter_u64_digits().next().unwrap_or(0))
     }
 
     fn cube_root(&self) -> Self {
@@ -480,7 +472,8 @@ impl Frobenius<1> for CrandallField {}
 
 #[cfg(test)]
 mod tests {
-    use crate::test_prime_field_arithmetic;
+    use crate::{test_field_arithmetic, test_prime_field_arithmetic};
 
     test_prime_field_arithmetic!(crate::field::crandall_field::CrandallField);
+    test_field_arithmetic!(crate::field::crandall_field::CrandallField);
 }

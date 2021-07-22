@@ -1,4 +1,4 @@
-use num_bigint::BigUint;
+use num::bigint::BigUint;
 
 use crate::field::field::Field;
 

@@ -5,7 +5,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use itertools::Itertools;
 use num::traits::Pow;
-use num_bigint::BigUint;
+use num::bigint::BigUint;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -141,13 +141,13 @@ impl Field for QuarticCrandallField {
     }
 
     fn from_canonical_biguint(n: BigUint) -> Self {
-        let first = n.clone() % Self::CHARACTERISTIC;
-        let mut remaining = n.clone() / Self::CHARACTERISTIC;
-        let second = remaining.clone() % Self::CHARACTERISTIC;
+        let first = &n % Self::CHARACTERISTIC;
+        let mut remaining = &n / Self::CHARACTERISTIC;
+        let second = &remaining % Self::CHARACTERISTIC;
         remaining = remaining / Self::CHARACTERISTIC;
-        let third = remaining.clone() % Self::CHARACTERISTIC;
+        let third = &remaining % Self::CHARACTERISTIC;
         remaining = remaining / Self::CHARACTERISTIC;
-        let fourth = remaining.clone() % Self::CHARACTERISTIC;
+        let fourth = &remaining % Self::CHARACTERISTIC;
 
         Self([
             <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(first),
