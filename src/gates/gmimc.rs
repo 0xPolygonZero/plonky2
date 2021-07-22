@@ -8,7 +8,7 @@ use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::gmimc::gmimc_automatic_constants;
 use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -102,6 +102,55 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
         // Value that is implicitly added to each element.
         // See https://affine.group/2020/02/starkware-challenge
         let mut addition_buffer = F::Extension::ZERO;
+
+        for r in 0..R {
+            let active = r % W;
+            let cubing_input = state[active] + addition_buffer + self.constants[r].into();
+            let cubing_input_wire = vars.local_wires[Self::wire_cubing_input(r)];
+            constraints.push(cubing_input - cubing_input_wire);
+            let f = cubing_input_wire.cube();
+            addition_buffer += f;
+            state[active] -= f;
+        }
+
+        for i in 0..W {
+            state[i] += addition_buffer;
+            constraints.push(state[i] - vars.local_wires[Self::wire_output(i)]);
+        }
+
+        constraints
+    }
+
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+        let mut constraints = Vec::with_capacity(self.num_constraints());
+
+        // Assert that `swap` is binary.
+        let swap = vars.local_wires[Self::WIRE_SWAP];
+        constraints.push(swap * (swap - F::ONE));
+
+        let old_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_OLD];
+        let new_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_NEW];
+        let computed_new_index_acc = F::TWO * old_index_acc + swap;
+        constraints.push(computed_new_index_acc - new_index_acc);
+
+        let mut state = Vec::with_capacity(12);
+        for i in 0..4 {
+            let a = vars.local_wires[i];
+            let b = vars.local_wires[i + 4];
+            state.push(a + swap * (b - a));
+        }
+        for i in 0..4 {
+            let a = vars.local_wires[i + 4];
+            let b = vars.local_wires[i];
+            state.push(a + swap * (b - a));
+        }
+        for i in 8..12 {
+            state.push(vars.local_wires[i]);
+        }
+
+        // Value that is implicitly added to each element.
+        // See https://affine.group/2020/02/starkware-challenge
+        let mut addition_buffer = F::ZERO;
 
         for r in 0..R {
             let active = r % W;

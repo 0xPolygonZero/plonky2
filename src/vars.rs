@@ -3,7 +3,7 @@ use std::ops::Range;
 
 use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
-use crate::field::extension_field::Extendable;
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field::Field;
 use crate::proof::{Hash, HashTarget};
 
@@ -37,6 +37,15 @@ impl<'a, F: Extendable<D>, const D: usize> EvaluationVars<'a, F, D> {
 }
 
 impl<'a, F: Field> EvaluationVarsBase<'a, F> {
+    pub fn get_local_ext<const D: usize>(&self, wire_range: Range<usize>) -> F::Extension
+    where
+        F: Extendable<D>,
+    {
+        debug_assert_eq!(wire_range.len(), D);
+        let arr = self.local_wires[wire_range].try_into().unwrap();
+        F::Extension::from_basefield_array(arr)
+    }
+
     pub fn remove_prefix(&mut self, prefix: &[bool]) {
         self.local_constants = &self.local_constants[prefix.len()..];
     }

@@ -10,8 +10,9 @@ use crate::field::interpolation::interpolant;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -115,6 +116,29 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
 
         let evaluation_point = vars.get_local_ext_algebra(self.wires_evaluation_point());
         let evaluation_value = vars.get_local_ext_algebra(self.wires_evaluation_value());
+        let computed_evaluation_value = interpolant.eval(evaluation_point);
+        constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
+
+        constraints
+    }
+
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+        let mut constraints = Vec::with_capacity(self.num_constraints());
+
+        let coeffs = (0..self.num_points)
+            .map(|i| vars.get_local_ext(self.wires_coeff(i)))
+            .collect();
+        let interpolant = PolynomialCoeffs::new(coeffs);
+
+        for i in 0..self.num_points {
+            let point = vars.local_wires[self.wire_point(i)];
+            let value = vars.get_local_ext(self.wires_value(i));
+            let computed_value = interpolant.eval(point.into());
+            constraints.extend(&(value - computed_value).to_basefield_array());
+        }
+
+        let evaluation_point = vars.get_local_ext(self.wires_evaluation_point());
+        let evaluation_value = vars.get_local_ext(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval(evaluation_point);
         constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
 
