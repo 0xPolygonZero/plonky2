@@ -4,8 +4,8 @@ use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use num::{Integer, Zero};
 use num::bigint::BigUint;
+use num::{Integer, Zero};
 use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::Serialize;

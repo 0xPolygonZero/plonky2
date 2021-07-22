@@ -4,8 +4,8 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use itertools::Itertools;
-use num::traits::Pow;
 use num::bigint::BigUint;
+use num::traits::Pow;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 

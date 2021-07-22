@@ -5,8 +5,8 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use itertools::Itertools;
-use num::Integer;
 use num::bigint::BigUint;
+use num::Integer;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 

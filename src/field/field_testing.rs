@@ -127,8 +127,11 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
             .iter()
             .zip(shifted_inputs.clone())
             .map(|(x, y)| {
-                op(F::from_canonical_biguint(x.clone()), F::from_canonical_biguint(y.clone()))
-                    .to_canonical_biguint()
+                op(
+                    F::from_canonical_biguint(x.clone()),
+                    F::from_canonical_biguint(y.clone()),
+                )
+                .to_canonical_biguint()
             })
             .collect();
 
@@ -143,12 +146,11 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
     }
 }
 
-
 #[macro_export]
 macro_rules! test_field_arithmetic {
     ($field:ty) => {
         mod field_arithmetic {
-            use num::{bigint::BigUint, Zero, One}   ;
+            use num::{bigint::BigUint, One, Zero};
             use rand::{thread_rng, Rng};
 
             use crate::field::field::Field;
@@ -264,7 +266,7 @@ macro_rules! test_prime_field_arithmetic {
         mod prime_field_arithmetic {
             use std::ops::{Add, Mul, Neg, Sub};
 
-            use num::{bigint::BigUint, Zero, One};
+            use num::{bigint::BigUint, One, Zero};
 
             use crate::field::field::Field;
 
