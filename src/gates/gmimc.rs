@@ -48,22 +48,18 @@ impl<F: Extendable<D>, const D: usize, const R: usize> GMiMCGate<F, D, R> {
         W + i
     }
 
-    /// Used to incrementally compute the index of the leaf based on a series of swap bits.
-    pub const WIRE_INDEX_ACCUMULATOR_OLD: usize = 2 * W;
-    pub const WIRE_INDEX_ACCUMULATOR_NEW: usize = 2 * W + 1;
-
     /// If this is set to 1, the first four inputs will be swapped with the next four inputs. This
     /// is useful for ordering hashes in Merkle proofs. Otherwise, this should be set to 0.
-    pub const WIRE_SWAP: usize = 2 * W + 2;
+    pub const WIRE_SWAP: usize = 2 * W;
 
     /// A wire which stores the input to the `i`th cubing.
     fn wire_cubing_input(i: usize) -> usize {
-        2 * W + 3 + i
+        2 * W + 1 + i
     }
 
     /// End of wire indices, exclusive.
     fn end() -> usize {
-        2 * W + 3 + R
+        2 * W + 1 + R
     }
 }
 
@@ -78,11 +74,6 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
         // Assert that `swap` is binary.
         let swap = vars.local_wires[Self::WIRE_SWAP];
         constraints.push(swap * (swap - F::Extension::ONE));
-
-        let old_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_OLD];
-        let new_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_NEW];
-        let computed_new_index_acc = F::Extension::TWO * old_index_acc + swap;
-        constraints.push(computed_new_index_acc - new_index_acc);
 
         let mut state = Vec::with_capacity(12);
         for i in 0..4 {
@@ -130,13 +121,6 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
 
         let swap = vars.local_wires[Self::WIRE_SWAP];
         constraints.push(builder.mul_sub_extension(swap, swap, swap));
-
-        let old_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_OLD];
-        let new_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_NEW];
-        // computed_new_index_acc = 2 * old_index_acc + swap
-        let two = builder.two_extension();
-        let computed_new_index_acc = builder.mul_add_extension(two, old_index_acc, swap);
-        constraints.push(builder.sub_extension(computed_new_index_acc, new_index_acc));
 
         let mut state = Vec::with_capacity(12);
         for i in 0..4 {
@@ -221,12 +205,11 @@ impl<F: Extendable<D>, const D: usize, const R: usize> SimpleGenerator<F>
     for GMiMCGenerator<F, D, R>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let mut dep_input_indices = Vec::with_capacity(W + 2);
+        let mut dep_input_indices = Vec::with_capacity(W + 1);
         for i in 0..W {
             dep_input_indices.push(GMiMCGate::<F, D, R>::wire_input(i));
         }
         dep_input_indices.push(GMiMCGate::<F, D, R>::WIRE_SWAP);
-        dep_input_indices.push(GMiMCGate::<F, D, R>::WIRE_INDEX_ACCUMULATOR_OLD);
 
         dep_input_indices
             .into_iter()
@@ -240,7 +223,7 @@ impl<F: Extendable<D>, const D: usize, const R: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
-        let mut result = GeneratedValues::with_capacity(R + W + 1);
+        let mut result = GeneratedValues::with_capacity(R + W);
 
         let mut state = (0..W)
             .map(|i| {
@@ -261,20 +244,6 @@ impl<F: Extendable<D>, const D: usize, const R: usize> SimpleGenerator<F>
                 state.swap(i, 4 + i);
             }
         }
-
-        // Update the index accumulator.
-        let old_index_acc_value = witness.get_wire(Wire {
-            gate: self.gate_index,
-            input: GMiMCGate::<F, D, R>::WIRE_INDEX_ACCUMULATOR_OLD,
-        });
-        let new_index_acc_value = F::TWO * old_index_acc_value + swap_value;
-        result.set_wire(
-            Wire {
-                gate: self.gate_index,
-                input: GMiMCGate::<F, D, R>::WIRE_INDEX_ACCUMULATOR_NEW,
-            },
-            new_index_acc_value,
-        );
 
         // Value that is implicitly added to each element.
         // See https://affine.group/2020/02/starkware-challenge
@@ -352,13 +321,6 @@ mod tests {
         witness.set_wire(
             Wire {
                 gate: 0,
-                input: Gate::WIRE_INDEX_ACCUMULATOR_OLD,
-            },
-            F::from_canonical_usize(7),
-        );
-        witness.set_wire(
-            Wire {
-                gate: 0,
                 input: Gate::WIRE_SWAP,
             },
             F::ZERO,
@@ -386,12 +348,6 @@ mod tests {
             });
             assert_eq!(out, expected_outputs[i]);
         }
-
-        let acc_new = witness.get_wire(Wire {
-            gate: 0,
-            input: Gate::WIRE_INDEX_ACCUMULATOR_NEW,
-        });
-        assert_eq!(acc_new, F::from_canonical_usize(7 * 2));
     }
 
     #[test]

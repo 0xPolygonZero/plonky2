@@ -68,6 +68,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
+        let two = self.two();
         let height = proof.siblings.len();
         let purported_index_bits = self.split_le_virtual(leaf_index, height);
 
@@ -85,19 +86,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             });
             self.generate_copy(bit, swap_wire);
 
-            let old_acc_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_OLD;
-            let old_acc_wire = Target::Wire(Wire {
-                gate,
-                input: old_acc_wire,
-            });
-            self.route(acc_leaf_index, old_acc_wire);
-
-            let new_acc_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_NEW;
-            let new_acc_wire = Target::Wire(Wire {
-                gate,
-                input: new_acc_wire,
-            });
-            acc_leaf_index = new_acc_wire;
+            acc_leaf_index = self.mul_add(two, acc_leaf_index, bit);
 
             let input_wires = (0..12)
                 .map(|i| {
