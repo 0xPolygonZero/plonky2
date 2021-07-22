@@ -480,7 +480,7 @@ impl Frobenius<1> for CrandallField {}
 
 #[cfg(test)]
 mod tests {
-    use crate::test_arithmetic;
+    use crate::test_prime_field_arithmetic;
 
-    test_arithmetic!(crate::field::crandall_field::CrandallField);
+    test_prime_field_arithmetic!(crate::field::crandall_field::CrandallField);
 }

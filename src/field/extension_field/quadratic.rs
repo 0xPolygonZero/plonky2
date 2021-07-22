@@ -222,7 +222,7 @@ mod tests {
     use crate::field::extension_field::quadratic::QuadraticCrandallField;
     use crate::field::extension_field::{FieldExtension, Frobenius};
     use crate::field::field::Field;
-    use crate::test_arithmetic;
+    use crate::test_field_arithmetic;
 
     #[test]
     fn test_add_neg_sub_mul() {
@@ -294,5 +294,5 @@ mod tests {
         );
     }
 
-    test_arithmetic!(crate::field::extension_field::quadratic::QuadraticCrandallField);
+    test_field_arithmetic!(crate::field::extension_field::quadratic::QuadraticCrandallField);
 }

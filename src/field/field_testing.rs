@@ -149,9 +149,9 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
 }
 
 #[macro_export]
-macro_rules! test_arithmetic {
+macro_rules! test_prime_field_arithmetic {
     ($field:ty) => {
-        mod arithmetic {
+        mod prime_field_arithmetic {
             use std::ops::{Add, Mul, Neg, Sub};
 
             use num_bigint::BigUint;
@@ -161,7 +161,7 @@ macro_rules! test_arithmetic {
             // Can be 32 or 64; doesn't have to be computer's actual word
             // bits. Choosing 32 gives more tests...
             const WORD_BITS: usize = 32;
-
+            
             #[test]
             fn arithmetic_addition() {
                 let modulus = <$field>::order();
@@ -252,6 +252,30 @@ macro_rules! test_arithmetic {
             }
 
             #[test]
+            fn subtraction() {
+                type F = $field;
+
+                let (a, b) = (
+                    F::from_canonical_biguint((F::order() + 1u32) / 2u32),
+                    F::TWO,
+                );
+                let x = a * b;
+                assert_eq!(x, F::ONE);
+                assert_eq!(F::ZERO - x, F::NEG_ONE);
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! test_field_arithmetic {
+    ($field:ty) => {
+        mod field_arithmetic {
+            use num_bigint::BigUint;
+
+            use crate::field::field::Field;
+
+            #[test]
             fn batch_inversion() {
                 let xs = (1..=3)
                     .map(|i| <$field>::from_canonical_u64(i))
@@ -323,19 +347,6 @@ macro_rules! test_arithmetic {
             }
 
             #[test]
-            fn subtraction() {
-                type F = $field;
-
-                let (a, b) = (
-                    F::from_canonical_biguint((F::order() + 1u32) / 2u32),
-                    F::TWO,
-                );
-                let x = a * b;
-                assert_eq!(x, F::ONE);
-                assert_eq!(F::ZERO - x, F::NEG_ONE);
-            }
-
-            #[test]
             fn inverse_2exp() {
                 // Just check consistency with try_inverse()
                 type F = $field;
@@ -351,3 +362,4 @@ macro_rules! test_arithmetic {
         }
     };
 }
+
