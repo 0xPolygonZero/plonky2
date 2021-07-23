@@ -59,7 +59,7 @@ fn fri_verify_proof_of_work<F: Field + Extendable<D>, const D: usize>(
     );
     ensure!(
         hash.to_canonical_u64().leading_zeros()
-            >= config.proof_of_work_bits + F::ORDER.leading_zeros(),
+            >= config.proof_of_work_bits + (64 - F::order().bits()) as u32,
         "Invalid proof of work witness."
     );
 

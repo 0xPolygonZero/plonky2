@@ -172,14 +172,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Exponentiate `base` to the power of `exponent`, given by its little-endian bits.
     pub fn exp_from_bits(&mut self, base: Target, exponent_bits: &[Target]) -> Target {
         let mut current = base;
-        let one_ext = self.one_extension();
-        let mut product = self.one();
+        let one = self.one();
+        let mut product = one;
 
         for &bit in exponent_bits {
-            // TODO: Add base field select.
-            let current_ext = self.convert_to_ext(current);
-            let multiplicand = self.select(bit, current_ext, one_ext);
-            product = self.mul(product, multiplicand.0[0]);
+            let multiplicand = self.select(bit, current, one);
+            product = self.mul(product, multiplicand);
             current = self.mul(current, current);
         }
 
@@ -195,14 +193,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         exponent_bits: impl Iterator<Item = impl Borrow<Target>>,
     ) -> Target {
         let mut current = base;
-        let one_ext = self.one_extension();
-        let mut product = self.one();
+        let one = self.one();
+        let mut product = one;
 
-        for bit in exponent_bits {
-            let current_ext = self.convert_to_ext(current);
-            // TODO: Add base field select.
-            let multiplicand = self.select(*bit.borrow(), one_ext, current_ext);
-            product = self.mul(product, multiplicand.0[0]);
+        for &bit in exponent_bits {
+            let multiplicand = self.select(*bit.borrow(), one, current);
+            product = self.mul(product, multiplicand);
             current = self.mul(current, current);
         }
 

@@ -2,11 +2,11 @@ use std::ops::Range;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::Extendable;
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::witness::PartialWitness;
 
 /// A gate which can a linear combination `c0*x*y+c1*z` twice with the same `x`.
@@ -61,6 +61,31 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
         let second_addend = vars.get_local_ext_algebra(Self::wires_second_addend());
         let first_output = vars.get_local_ext_algebra(Self::wires_first_output());
         let second_output = vars.get_local_ext_algebra(Self::wires_second_output());
+
+        let first_computed_output = first_multiplicand_0 * first_multiplicand_1 * const_0.into()
+            + first_addend * const_1.into();
+        let second_computed_output = second_multiplicand_0 * second_multiplicand_1 * const_0.into()
+            + second_addend * const_1.into();
+
+        let mut constraints = (first_output - first_computed_output)
+            .to_basefield_array()
+            .to_vec();
+        constraints.extend((second_output - second_computed_output).to_basefield_array());
+        constraints
+    }
+
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+        let const_0 = vars.local_constants[0];
+        let const_1 = vars.local_constants[1];
+
+        let first_multiplicand_0 = vars.get_local_ext(Self::wires_first_multiplicand_0());
+        let first_multiplicand_1 = vars.get_local_ext(Self::wires_first_multiplicand_1());
+        let first_addend = vars.get_local_ext(Self::wires_first_addend());
+        let second_multiplicand_0 = vars.get_local_ext(Self::wires_second_multiplicand_0());
+        let second_multiplicand_1 = vars.get_local_ext(Self::wires_second_multiplicand_1());
+        let second_addend = vars.get_local_ext(Self::wires_second_addend());
+        let first_output = vars.get_local_ext(Self::wires_first_output());
+        let second_output = vars.get_local_ext(Self::wires_second_output());
 
         let first_computed_output = first_multiplicand_0 * first_multiplicand_1 * const_0.into()
             + first_addend * const_1.into();
