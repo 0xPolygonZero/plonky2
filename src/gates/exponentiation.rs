@@ -176,33 +176,29 @@ mod tests {
     use crate::field::field::Field;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
-    use crate::gates::insertion::ExponentiationGate;
+    use crate::gates::exponentiation::ExponentiationGate;
     use crate::proof::Hash;
     use crate::vars::EvaluationVars;
 
     #[test]
     fn wire_indices() {
         let gate = ExponentiationGate::<CrandallField, 4> {
-            vec_size: 3,
+            num_power_bits: 5,
             _phantom: PhantomData,
         };
 
-        assert_eq!(gate.wires_insertion_index(), 0);
-        assert_eq!(gate.wires_element_to_insert(), 1..5);
-        assert_eq!(gate.wires_original_list_item(0), 5..9);
-        assert_eq!(gate.wires_original_list_item(2), 13..17);
-        assert_eq!(gate.wires_output_list_item(0), 17..21);
-        assert_eq!(gate.wires_output_list_item(3), 29..33);
-        assert_eq!(gate.wires_equality_dummy_for_round_r(0), 33);
-        assert_eq!(gate.wires_equality_dummy_for_round_r(3), 36);
-        assert_eq!(gate.wires_insert_here_for_round_r(0), 37);
-        assert_eq!(gate.wires_insert_here_for_round_r(3), 40);
+        assert_eq!(gate.wires_base(), 0);
+        assert_eq!(gate.wires_power(), 1);
+        assert_eq!(gate.wires_power_bit(0), 2);
+        assert_eq!(gate.wires_power_bit(4), 6);
+        assert_eq!(gate.wires_intermediate_value(0), 7);
+        assert_eq!(gate.wires_intermediate_value(0), 11);
     }
 
     #[test]
     fn low_degree() {
         type F = CrandallField;
-        test_low_degree(ExponentiationGate::<F, 4>::new(4));
+        test_low_degree(ExponentiationGate::<F, 4>::new(5));
     }
 
     #[test]
@@ -211,8 +207,8 @@ mod tests {
         type FF = QuarticCrandallField;
         const D: usize = 4;
 
-        /// Returns the local wires for an insertion gate for given the original vector, element to
-        /// insert, and index.
+        /// Returns the local wires for an exponentiation gate given the base, power, and power bit
+        /// values.
         fn get_wires(orig_vec: Vec<FF>, insertion_index: usize, element_to_insert: FF) -> Vec<FF> {
             let vec_size = orig_vec.len();
 

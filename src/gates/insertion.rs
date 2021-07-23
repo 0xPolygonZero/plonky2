@@ -322,7 +322,7 @@ mod tests {
         type FF = QuarticCrandallField;
         const D: usize = 4;
 
-        /// Returns the local wires for an insertion gate for given the original vector, element to
+        /// Returns the local wires for an insertion gate given the original vector, element to
         /// insert, and index.
         fn get_wires(orig_vec: Vec<FF>, insertion_index: usize, element_to_insert: FF) -> Vec<FF> {
             let vec_size = orig_vec.len();
