@@ -119,11 +119,6 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
         let swap = vars.local_wires[Self::WIRE_SWAP];
         constraints.push(swap * (swap - F::ONE));
 
-        let old_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_OLD];
-        let new_index_acc = vars.local_wires[Self::WIRE_INDEX_ACCUMULATOR_NEW];
-        let computed_new_index_acc = F::TWO * old_index_acc + swap;
-        constraints.push(computed_new_index_acc - new_index_acc);
-
         let mut state = Vec::with_capacity(12);
         for i in 0..4 {
             let a = vars.local_wires[i];
@@ -240,7 +235,7 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
     }
 
     fn num_constraints(&self) -> usize {
-        R + W + 2
+        R + W + 1
     }
 }
 

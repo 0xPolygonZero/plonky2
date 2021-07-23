@@ -196,7 +196,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let one = self.one();
         let mut product = one;
 
-        for &bit in exponent_bits {
+        for bit in exponent_bits {
             let multiplicand = self.select(*bit.borrow(), one, current);
             product = self.mul(product, multiplicand);
             current = self.mul(current, current);
