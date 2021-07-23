@@ -136,8 +136,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let index = self.gate_instances.len();
         self.add_generators(gate_type.generators(index, &constants));
 
-        // If we haven't seen a gate of this type before, check that it's compatible with our
-        // circuit configuration, then register it.
+        // If we haven't seen a gate of this type before, register it.
         let gate_ref = GateRef::new(gate_type);
         if !self.gates.contains(&gate_ref) {
             self.gates.insert(gate_ref.clone());
