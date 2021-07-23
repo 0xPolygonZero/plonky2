@@ -25,18 +25,20 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         last_evals: &[ExtensionTarget<D>],
         beta: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        debug_assert_eq!(last_evals.len(), 1 << arity_bits);
+        let arity = 1 << arity_bits;
+        debug_assert_eq!(last_evals.len(), arity);
 
         let g = F::primitive_root_of_unity(arity_bits);
-        let gt = self.constant(g);
+        let g_inv = g.exp((arity as u64) - 1);
+        let g_inv_t = self.constant(g_inv);
 
         // The evaluation vector needs to be reordered first.
         let mut evals = last_evals.to_vec();
         reverse_index_bits_in_place(&mut evals);
         // Want `g^(arity - rev_old_x_index)` as in the out-of-circuit version.
         // Compute it as `g^(arity-1-rev_old_x_index) * g`, where the first term is gotten using two's complement.
-        let start = self.exp_from_complement_bits(gt, old_x_index_bits.iter().rev());
-        let coset_start = self.mul_many(&[start, gt, x]);
+        let start = self.exp_from_bits(g_inv_t, old_x_index_bits.iter().rev());
+        let coset_start = self.mul(start, x);
 
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
         let points = g
