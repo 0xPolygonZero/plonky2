@@ -22,15 +22,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         });
         self.route(zero, swap_wire);
 
-        // The old accumulator wire doesn't matter, since we won't read the new accumulator wire.
-        // We do have to set it to something though, so we'll arbitrary pick 0.
-        let old_acc_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_OLD;
-        let old_acc_wire = Target::Wire(Wire {
-            gate,
-            input: old_acc_wire,
-        });
-        self.route(zero, old_acc_wire);
-
         // Route input wires.
         for i in 0..12 {
             let in_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::wire_input(i);
