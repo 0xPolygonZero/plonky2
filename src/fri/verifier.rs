@@ -10,7 +10,7 @@ use crate::merkle_proofs::verify_merkle_proof;
 use crate::plonk_challenger::Challenger;
 use crate::plonk_common::PlonkPolynomials;
 use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, Hash, OpeningSet};
-use crate::util::scaling::ReducingFactor;
+use crate::util::reducing::ReducingFactor;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
 /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity

@@ -4,7 +4,7 @@ use crate::context;
 use crate::field::extension_field::Extendable;
 use crate::plonk_challenger::RecursiveChallenger;
 use crate::proof::{HashTarget, ProofWithPublicInputsTarget};
-use crate::util::scaling::ReducingFactorTarget;
+use crate::util::reducing::ReducingFactorTarget;
 use crate::vanishing_poly::eval_vanishing_poly_recursively;
 use crate::vars::EvaluationTargets;
 

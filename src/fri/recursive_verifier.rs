@@ -11,7 +11,7 @@ use crate::proof::{
     FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, HashTarget, OpeningSetTarget,
 };
 use crate::target::Target;
-use crate::util::scaling::ReducingFactorTarget;
+use crate::util::reducing::ReducingFactorTarget;
 use crate::util::{log2_strict, reverse_index_bits_in_place};
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {

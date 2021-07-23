@@ -15,7 +15,7 @@ use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriProof, FriProofTarget, Hash, HashTarget, OpeningSet, OpeningSetTarget};
 use crate::timed;
-use crate::util::scaling::ReducingFactor;
+use crate::util::reducing::ReducingFactor;
 use crate::util::{log2_ceil, log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
 
 /// Two (~64 bit) field elements gives ~128 bit security.

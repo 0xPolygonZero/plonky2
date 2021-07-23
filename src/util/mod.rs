@@ -1,6 +1,6 @@
 pub mod marking;
 pub mod partial_products;
-pub mod scaling;
+pub mod reducing;
 pub(crate) mod timing;
 
 use crate::field::field::Field;
