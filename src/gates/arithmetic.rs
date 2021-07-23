@@ -2,8 +2,9 @@ use std::ops::Range;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::gates::gate::{Gate, GateRef};
+use crate::field::extension_field::Extendable;
+use crate::field::extension_field::FieldExtension;
+use crate::gates::gate::Gate;
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
@@ -14,10 +15,6 @@ use crate::witness::PartialWitness;
 pub struct ArithmeticExtensionGate<const D: usize>;
 
 impl<const D: usize> ArithmeticExtensionGate<D> {
-    pub fn new<F: Extendable<D>>() -> GateRef<F, D> {
-        GateRef::new(ArithmeticExtensionGate)
-    }
-
     pub fn wires_first_multiplicand_0() -> Range<usize> {
         0..D
     }
@@ -259,6 +256,6 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree(ArithmeticExtensionGate::<4>::new::<CrandallField>())
+        test_low_degree::<CrandallField, _, 4>(ArithmeticExtensionGate)
     }
 }

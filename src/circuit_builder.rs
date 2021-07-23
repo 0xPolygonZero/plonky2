@@ -14,7 +14,7 @@ use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::gates::constant::ConstantGate;
-use crate::gates::gate::{GateInstance, GateRef, PrefixedGate};
+use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
@@ -124,41 +124,38 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    pub fn add_gate_no_constants(&mut self, gate_type: GateRef<F, D>) -> usize {
-        self.add_gate(gate_type, Vec::new())
-    }
-
     /// Adds a gate to the circuit, and returns its index.
-    pub fn add_gate(&mut self, gate_type: GateRef<F, D>, constants: Vec<F>) -> usize {
+    pub fn add_gate<G: Gate<F, D>>(&mut self, gate_type: G, constants: Vec<F>) -> usize {
+        self.check_gate_compatibility(&gate_type);
         assert_eq!(
-            gate_type.0.num_constants(),
+            gate_type.num_constants(),
             constants.len(),
             "Number of constants doesn't match."
         );
-        // If we haven't seen a gate of this type before, check that it's compatible with our
-        // circuit configuration, then register it.
-        if !self.gates.contains(&gate_type) {
-            self.check_gate_compatibility(&gate_type);
-            self.gates.insert(gate_type.clone());
-        }
 
         let index = self.gate_instances.len();
+        self.add_generators(gate_type.generators(index, &constants));
 
-        self.add_generators(gate_type.0.generators(index, &constants));
+        // If we haven't seen a gate of this type before, check that it's compatible with our
+        // circuit configuration, then register it.
+        let gate_ref = GateRef::new(gate_type);
+        if !self.gates.contains(&gate_ref) {
+            self.gates.insert(gate_ref.clone());
+        }
 
         self.gate_instances.push(GateInstance {
-            gate_type,
+            gate_ref,
             constants,
         });
         index
     }
 
-    fn check_gate_compatibility(&self, gate: &GateRef<F, D>) {
+    fn check_gate_compatibility<G: Gate<F, D>>(&self, gate: &G) {
         assert!(
-            gate.0.num_wires() <= self.config.num_wires,
+            gate.num_wires() <= self.config.num_wires,
             "{:?} requires {} wires, but our GateConfig has only {}",
-            gate.0.id(),
-            gate.0.num_wires(),
+            gate.id(),
+            gate.num_wires(),
             self.config.num_wires
         );
     }
@@ -287,7 +284,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return target;
         }
 
-        let gate = self.add_gate(ConstantGate::get(), vec![c]);
+        let gate = self.add_gate(ConstantGate, vec![c]);
         let target = Target::Wire(Wire {
             gate,
             input: ConstantGate::WIRE_OUTPUT,
@@ -377,7 +374,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         while !self.gate_instances.len().is_power_of_two() {
-            self.add_gate_no_constants(NoopGate::get());
+            self.add_gate(NoopGate, vec![]);
         }
     }
 
@@ -394,7 +391,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // For each "regular" blinding factor, we simply add a no-op gate, and insert a random value
         // for each wire.
         for _ in 0..regular_poly_openings {
-            let gate = self.add_gate_no_constants(NoopGate::get());
+            let gate = self.add_gate(NoopGate, vec![]);
             for w in 0..num_wires {
                 self.add_generator(RandomValueGenerator {
                     target: Target::Wire(Wire { gate, input: w }),
@@ -406,8 +403,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // enforce a copy constraint between them.
         // See https://mirprotocol.org/blog/Adding-zero-knowledge-to-Plonk-Halo
         for _ in 0..z_openings {
-            let gate_1 = self.add_gate_no_constants(NoopGate::get());
-            let gate_2 = self.add_gate_no_constants(NoopGate::get());
+            let gate_1 = self.add_gate(NoopGate, vec![]);
+            let gate_2 = self.add_gate(NoopGate, vec![]);
 
             for w in 0..num_routed_wires {
                 self.add_generator(RandomValueGenerator {
@@ -441,7 +438,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .map(|gate| {
                 let prefix = &gates
                     .iter()
-                    .find(|g| g.gate.0.id() == gate.gate_type.0.id())
+                    .find(|g| g.gate.0.id() == gate.gate_ref.0.id())
                     .unwrap()
                     .prefix;
                 let mut prefixed_constants = Vec::with_capacity(num_constants);
@@ -498,7 +495,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
         // those hash wires match the claimed public inputs.
         let public_inputs_hash = self.hash_n_to_hash(self.public_inputs.clone(), true);
-        let pi_gate = self.add_gate_no_constants(PublicInputGate::get());
+        let pi_gate = self.add_gate(PublicInputGate, vec![]);
         for (&hash_part, wire) in public_inputs_hash
             .elements
             .iter()

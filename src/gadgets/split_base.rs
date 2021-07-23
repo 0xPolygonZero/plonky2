@@ -16,14 +16,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x: Target,
         num_limbs: usize,
     ) -> Vec<Target> {
-        let gate = self.add_gate(BaseSumGate::<B>::new(num_limbs), vec![]);
+        let gate_type = BaseSumGate::<B>::new(num_limbs);
+        let gate = self.add_gate(gate_type.clone(), vec![]);
         let sum = Target::wire(gate, BaseSumGate::<B>::WIRE_SUM);
         self.route(x, sum);
 
-        Target::wires_from_range(
-            gate,
-            BaseSumGate::<B>::START_LIMBS..BaseSumGate::<B>::START_LIMBS + num_limbs,
-        )
+        Target::wires_from_range(gate, gate_type.limbs())
     }
 
     /// Asserts that `x`'s big-endian bit representation has at least `leading_zeros` leading zeros.

@@ -24,7 +24,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         second_multiplicand_1: ExtensionTarget<D>,
         second_addend: ExtensionTarget<D>,
     ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
-        let gate = self.add_gate(ArithmeticExtensionGate::new(), vec![const_0, const_1]);
+        let gate = self.add_gate(ArithmeticExtensionGate, vec![const_0, const_1]);
 
         let wire_first_multiplicand_0 = ExtensionTarget::from_range(
             gate,

@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
@@ -33,12 +31,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         interpolation_points: &[(Target, ExtensionTarget<D>)],
         evaluation_point: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let gate = InterpolationGate::<F, D> {
-            num_points: interpolation_points.len(),
-            _phantom: PhantomData,
-        };
-        let gate_index =
-            self.add_gate_no_constants(InterpolationGate::new(interpolation_points.len()));
+        let gate = InterpolationGate::new(interpolation_points.len());
+        let gate_index = self.add_gate(gate.clone(), vec![]);
         for (i, &(p, v)) in interpolation_points.iter().enumerate() {
             self.route(p, Target::wire(gate_index, gate.wire_point(i)));
             self.route_extension(

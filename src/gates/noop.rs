@@ -8,12 +8,6 @@ use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 /// A gate which does nothing.
 pub struct NoopGate;
 
-impl NoopGate {
-    pub fn get<F: Extendable<D>, const D: usize>() -> GateRef<F, D> {
-        GateRef::new(NoopGate)
-    }
-}
-
 impl<F: Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
     fn id(&self) -> String {
         "NoopGate".into()
@@ -68,6 +62,6 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree(NoopGate::get::<CrandallField, 4>())
+        test_low_degree::<CrandallField, _, 4>(NoopGate)
     }
 }
