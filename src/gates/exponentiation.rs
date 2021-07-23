@@ -76,7 +76,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
         for i in 0..self.num_power_bits {
             let computed_intermediate_value = current_intermediate_value + power_bits[i];
             constraints.push(computed_intermediate_value - intermediate_values[i]);
-            current_intermediate_value *= base;
+            current_intermediate_value = computed_intermediate_value * base;
         }
 
         constraints
@@ -158,7 +158,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
         let mut current_intermediate_value = F::ZERO;
         for i in 0..num_power_bits {
             intermediate_values.push(current_intermediate_value + power_bits[i]);
-            current_intermediate_value *= base;
+            current_intermediate_value = (current_intermediate_value + power_bits[i]) * base;
         }
 
         let mut result = GeneratedValues::<F>::with_capacity(num_power_bits);
@@ -173,15 +173,17 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
 
 #[cfg(test)]
 mod tests {
+    use rand::{thread_rng, Rng};
     use std::marker::PhantomData;
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
-    use crate::gates::exponentiation::ExponentiationGate;
+    use crate::gates::exponentiation::{ExponentiationGate, MAX_POWER_BITS};
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
     use crate::proof::Hash;
+    use crate::util::log2_ceil;
     use crate::vars::EvaluationVars;
 
     #[test]
@@ -213,49 +215,48 @@ mod tests {
 
         /// Returns the local wires for an exponentiation gate given the base, power, and power bit
         /// values.
-        fn get_wires(orig_vec: Vec<FF>, insertion_index: usize, element_to_insert: FF) -> Vec<FF> {
-            let vec_size = orig_vec.len();
+        fn get_wires(base: F, power: u64) -> Vec<FF> {
+            let mut power_bits = Vec::new();
+            let mut cur_power = power;
+            while cur_power > 0 {
+                power_bits.push(cur_power % 2);
+                cur_power /= 2;
+            }
+
+            let num_power_bits = power_bits.len();
+            
+            let power_F = F::from_canonical_u64(power);
+            let power_bits_F: Vec<_> = power_bits.iter().map(|b| F::from_canonical_u64(*b)).collect();
 
             let mut v = Vec::new();
-            v.push(F::from_canonical_usize(insertion_index));
-            v.extend(element_to_insert.0);
-            for j in 0..vec_size {
-                v.extend(orig_vec[j].0);
+            v.push(base);
+            v.push(power_F);
+            v.extend(power_bits_F.clone());
+            
+            let mut intermediate_values = Vec::new();
+            let mut current_intermediate_value = F::ZERO;
+            for i in 0..num_power_bits {
+                current_intermediate_value += power_bits_F[i];
+                intermediate_values.push(current_intermediate_value);
+                current_intermediate_value *= base;
             }
-
-            let mut new_vec = orig_vec.clone();
-            new_vec.insert(insertion_index, element_to_insert);
-            let mut equality_dummy_vals = Vec::new();
-            for i in 0..=vec_size {
-                equality_dummy_vals.push(if i == insertion_index {
-                    F::ONE
-                } else {
-                    (F::from_canonical_usize(i) - F::from_canonical_usize(insertion_index))
-                        .inverse()
-                });
-            }
-            let mut insert_here_vals = vec![F::ZERO; vec_size];
-            insert_here_vals.insert(insertion_index, F::ONE);
-
-            for j in 0..=vec_size {
-                v.extend(new_vec[j].0);
-            }
-            v.extend(equality_dummy_vals);
-            v.extend(insert_here_vals);
+            v.extend(intermediate_values);
 
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         }
 
-        let orig_vec = vec![FF::rand(); 3];
-        let insertion_index = 1;
-        let element_to_insert = FF::rand();
+        let mut rng = rand::thread_rng();
+
+        let base = F::rand();
+        let power = rng.gen::<usize>() % (1 << MAX_POWER_BITS);
+        let num_power_bits = log2_ceil(power);
         let gate = ExponentiationGate::<F, D> {
-            vec_size: 3,
+            num_power_bits,
             _phantom: PhantomData,
         };
         let vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires(orig_vec, insertion_index, element_to_insert),
+            local_wires: &get_wires(base, power as u64),
             public_inputs_hash: &Hash::rand(),
         };
 
