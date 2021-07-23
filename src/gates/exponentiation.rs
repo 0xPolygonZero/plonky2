@@ -199,7 +199,7 @@ mod tests {
         assert_eq!(gate.wires_power_bit(0), 2);
         assert_eq!(gate.wires_power_bit(4), 6);
         assert_eq!(gate.wires_intermediate_value(0), 7);
-        assert_eq!(gate.wires_intermediate_value(0), 11);
+        assert_eq!(gate.wires_intermediate_value(4), 11);
     }
 
     #[test]
