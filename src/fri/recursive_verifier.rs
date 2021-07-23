@@ -271,8 +271,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let g = self.constant(F::MULTIPLICATIVE_GROUP_GENERATOR);
             let phi = self.constant(F::primitive_root_of_unity(n_log));
 
-            let reversed_x = self.le_sum(x_index_bits.iter().rev());
-            let phi = self.exp(phi, reversed_x, n_log);
+            let phi = self.exp_from_bits(phi, x_index_bits.iter().rev());
             self.mul(g, phi)
         });
 

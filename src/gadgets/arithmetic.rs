@@ -170,13 +170,17 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     // TODO: Optimize this, maybe with a new gate.
     // TODO: Test
     /// Exponentiate `base` to the power of `exponent`, given by its little-endian bits.
-    pub fn exp_from_bits(&mut self, base: Target, exponent_bits: &[Target]) -> Target {
+    pub fn exp_from_bits(
+        &mut self,
+        base: Target,
+        exponent_bits: impl Iterator<Item = impl Borrow<Target>>,
+    ) -> Target {
         let mut current = base;
         let one = self.one();
         let mut product = one;
 
-        for &bit in exponent_bits {
-            let multiplicand = self.select(bit, current, one);
+        for bit in exponent_bits {
+            let multiplicand = self.select(*bit.borrow(), current, one);
             product = self.mul(product, multiplicand);
             current = self.mul(current, current);
         }
@@ -210,7 +214,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Exponentiate `base` to the power of `exponent`, where `exponent < 2^num_bits`.
     pub fn exp(&mut self, base: Target, exponent: Target, num_bits: usize) -> Target {
         let exponent_bits = self.split_le(exponent, num_bits);
-        self.exp_from_bits(base, &exponent_bits)
+        self.exp_from_bits(base, exponent_bits.iter())
     }
 
     /// Exponentiate `base` to the power of a known `exponent`.
