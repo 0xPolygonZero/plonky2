@@ -92,6 +92,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         Self { base, count: 0 }
     }
 
+    /// Reduces a length `n` vector of `Target`s using `n/21` `ReducingGate`s (with 33 routed wires and 126 wires).
     pub fn reduce_base<F>(
         &mut self,
         terms: &[Target],

@@ -10,6 +10,7 @@ use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::witness::PartialWitness;
 
+/// Computes `sum alpha^i c_i` for a vector `c_i` of `num_coeffs` elements of the base field.
 #[derive(Debug, Clone)]
 pub struct ReducingGate<const D: usize> {
     pub num_coeffs: usize,
