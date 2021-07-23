@@ -173,8 +173,9 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
 
 #[cfg(test)]
 mod tests {
-    use rand::{thread_rng, Rng};
     use std::marker::PhantomData;
+
+    use rand::{thread_rng, Rng};
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
@@ -224,15 +225,18 @@ mod tests {
             }
 
             let num_power_bits = power_bits.len();
-            
+
             let power_F = F::from_canonical_u64(power);
-            let power_bits_F: Vec<_> = power_bits.iter().map(|b| F::from_canonical_u64(*b)).collect();
+            let power_bits_F: Vec<_> = power_bits
+                .iter()
+                .map(|b| F::from_canonical_u64(*b))
+                .collect();
 
             let mut v = Vec::new();
             v.push(base);
             v.push(power_F);
             v.extend(power_bits_F.clone());
-            
+
             let mut intermediate_values = Vec::new();
             let mut current_intermediate_value = F::ZERO;
             for i in 0..num_power_bits {
