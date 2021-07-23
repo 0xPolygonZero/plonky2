@@ -101,6 +101,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         F: Extendable<D>,
     {
         let max_coeffs = 21;
+        self.count += terms.len() as u64;
         let zero = builder.zero();
         let zero_ext = builder.zero_extension();
         let mut gate;

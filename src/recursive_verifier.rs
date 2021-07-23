@@ -381,7 +381,7 @@ mod tests {
             let mut builder = CircuitBuilder::<F, D>::new(config.clone());
             let _two = builder.two();
             let _two = builder.hash_n_to_hash(vec![_two], true).elements[0];
-            for _ in 0..5000 {
+            for _ in 0..10000 {
                 let _two = builder.mul(_two, _two);
             }
             let data = builder.build();

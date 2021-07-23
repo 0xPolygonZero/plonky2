@@ -197,9 +197,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             &proof.unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
                 [common_data.partial_products_range()],
         )
-        .map(|&e| self.convert_to_ext(e))
+        .copied()
         .collect::<Vec<_>>();
-        let single_composition_eval = alpha.reduce(&single_evals, self);
+        let single_composition_eval = alpha.reduce_base(&single_evals, self);
         let single_numerator =
             self.sub_extension(single_composition_eval, precomputed_reduced_evals.single);
         let single_denominator = self.sub_extension(subgroup_x, zeta);
@@ -212,9 +212,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
             .iter()
             .take(common_data.zs_range().end)
-            .map(|&e| self.convert_to_ext(e))
+            .copied()
             .collect::<Vec<_>>();
-        let zs_composition_eval = alpha.reduce(&zs_evals, self);
+        let zs_composition_eval = alpha.reduce_base(&zs_evals, self);
 
         let g = self.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
         let zeta_right = self.mul_extension(g, zeta);
