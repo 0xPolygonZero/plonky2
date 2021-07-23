@@ -111,7 +111,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
     }
 
     fn degree(&self) -> usize {
-        2
+        4
     }
 
     fn num_constraints(&self) -> usize {
@@ -128,8 +128,6 @@ struct ExponentiationGenerator<F: Extendable<D>, const D: usize> {
 impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
-
-        let local_targets = |inputs: Range<usize>| inputs.map(local_target);
 
         let mut deps = Vec::new();
         deps.push(local_target(self.gate.wires_base()));
@@ -258,15 +256,26 @@ mod tests {
             num_power_bits,
             _phantom: PhantomData,
         };
-        let vars = EvaluationVars {
+        
+        let good_vars = EvaluationVars {
             local_constants: &[],
             local_wires: &get_wires(base, power as u64),
             public_inputs_hash: &Hash::rand(),
         };
-
         assert!(
-            gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),
+            gate.eval_unfiltered(good_vars).iter().all(|x| x.is_zero()),
             "Gate constraints are not satisfied."
+        );
+
+        let not_base = F::rand();
+        let bad_base_vars = EvaluationVars {
+            local_constants: &[],
+            local_wires: &get_wires(not_base, power as u64),
+            public_inputs_hash: &Hash::rand(),
+        };
+        assert!(
+            !gate.eval_unfiltered(bad_base_vars).iter().all(|x| x.is_zero()),
+            "Gate constraints are satisfied but should not be."
         );
     }
 }
