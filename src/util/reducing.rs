@@ -100,7 +100,10 @@ impl<const D: usize> ReducingFactorTarget<D> {
     where
         F: Extendable<D>,
     {
-        let max_coeffs = 21;
+        let max_coeffs_len = ReducingGate::<D>::max_coeffs_len(
+            builder.config.num_wires,
+            builder.config.num_routed_wires,
+        );
         self.count += terms.len() as u64;
         let zero = builder.zero();
         let zero_ext = builder.zero_extension();
@@ -108,12 +111,12 @@ impl<const D: usize> ReducingFactorTarget<D> {
         let mut gate_index;
         let mut acc = zero_ext;
         let mut reversed_terms = terms.to_vec();
-        while reversed_terms.len() % max_coeffs != 0 {
+        while reversed_terms.len() % max_coeffs_len != 0 {
             reversed_terms.push(zero);
         }
         reversed_terms.reverse();
-        for chunk in reversed_terms.chunks_exact(max_coeffs) {
-            gate = ReducingGate::new(max_coeffs);
+        for chunk in reversed_terms.chunks_exact(max_coeffs_len) {
+            gate = ReducingGate::new(max_coeffs_len);
             gate_index = builder.add_gate(gate.clone(), Vec::new());
 
             builder.route_extension(

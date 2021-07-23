@@ -20,6 +20,10 @@ impl<const D: usize> ReducingGate<D> {
         Self { num_coeffs }
     }
 
+    pub fn max_coeffs_len(num_wires: usize, num_routed_wires: usize) -> usize {
+        (num_routed_wires - 3 * D).min((num_wires - 3 * D) / (D + 1))
+    }
+
     pub fn wires_output() -> Range<usize> {
         0..D
     }
