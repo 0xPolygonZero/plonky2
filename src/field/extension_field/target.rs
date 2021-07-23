@@ -115,6 +115,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         arr[0] = t;
         ExtensionTarget(arr)
     }
+
+    pub fn convert_to_ext_algebra(&mut self, et: ExtensionTarget<D>) -> ExtensionAlgebraTarget<D> {
+        let zero = self.zero_extension();
+        let mut arr = [zero; D];
+        arr[0] = et;
+        ExtensionAlgebraTarget(arr)
+    }
 }
 
 /// Flatten the slice by sending every extension target to its D-sized canonical representation.

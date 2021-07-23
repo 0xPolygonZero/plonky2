@@ -82,7 +82,33 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        todo!()
+        let output = vars.get_local_ext_algebra(Self::wires_output());
+        let alpha = vars.get_local_ext_algebra(Self::wires_alpha());
+        let old_acc = vars.get_local_ext_algebra(Self::wires_old_acc());
+        let coeffs = self
+            .wires_coeffs()
+            .map(|i| vars.local_wires[i])
+            .collect::<Vec<_>>();
+        let accs = (0..self.num_coeffs)
+            .map(|i| vars.get_local_ext_algebra(self.wires_accs(i)))
+            .collect::<Vec<_>>();
+
+        let mut constraints = Vec::new();
+        let mut acc = old_acc;
+        for i in 0..self.num_coeffs {
+            let mut tmp = builder.mul_ext_algebra(acc, alpha);
+            let coeff = builder.convert_to_ext_algebra(coeffs[i]);
+            tmp = builder.add_ext_algebra(tmp, coeff);
+            tmp = builder.sub_ext_algebra(tmp, accs[i]);
+            constraints.push(tmp);
+            acc = accs[i];
+        }
+
+        constraints.push(builder.sub_ext_algebra(output, acc));
+        constraints
+            .into_iter()
+            .flat_map(|alg| alg.to_ext_target_array())
+            .collect()
     }
 
     fn generators(
