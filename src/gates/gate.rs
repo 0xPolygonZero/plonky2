@@ -139,7 +139,7 @@ impl<F: Extendable<D>, const D: usize> Debug for GateRef<F, D> {
 
 /// A gate along with any constants used to configure it.
 pub struct GateInstance<F: Extendable<D>, const D: usize> {
-    pub gate_type: GateRef<F, D>,
+    pub gate_ref: GateRef<F, D>,
     pub constants: Vec<F>,
 }
 

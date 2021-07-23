@@ -72,8 +72,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut state: HashTarget = self.hash_or_noop(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
-            let gate = self
-                .add_gate_no_constants(GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants());
+            let gate_type = GMiMCGate::<F, D, GMIMC_ROUNDS>::new_automatic_constants();
+            let gate = self.add_gate(gate_type, vec![]);
 
             let swap_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_SWAP;
             let swap_wire = Target::Wire(Wire {

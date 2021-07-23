@@ -4,7 +4,7 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
-use crate::gates::gate::{Gate, GateRef};
+use crate::gates::gate::Gate;
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::gmimc::gmimc_automatic_constants;
 use crate::target::Target;
@@ -28,14 +28,13 @@ pub struct GMiMCGate<F: Extendable<D>, const D: usize, const R: usize> {
 }
 
 impl<F: Extendable<D>, const D: usize, const R: usize> GMiMCGate<F, D, R> {
-    pub fn with_constants(constants: Arc<[F; R]>) -> GateRef<F, D> {
-        let gate = GMiMCGate::<F, D, R> { constants };
-        GateRef::new(gate)
+    pub fn new(constants: Arc<[F; R]>) -> Self {
+        Self { constants }
     }
 
-    pub fn with_automatic_constants() -> GateRef<F, D> {
+    pub fn new_automatic_constants() -> Self {
         let constants = Arc::new(gmimc_automatic_constants::<F, R>());
-        Self::with_constants(constants)
+        Self::new(constants)
     }
 
     /// The wire index for the `i`th input to the permutation.
@@ -335,6 +334,7 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
+    use crate::gates::gate::{Gate, GateRef};
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::gmimc::{GMiMCGate, W};
     use crate::generator::generate_partial_witness;
@@ -351,7 +351,7 @@ mod tests {
         const R: usize = 101;
         let constants = Arc::new([F::TWO; R]);
         type Gate = GMiMCGate<F, 4, R>;
-        let gate = Gate::with_constants(constants.clone());
+        let gate = Gate::new(constants.clone());
 
         let permutation_inputs = (0..W).map(F::from_canonical_usize).collect::<Vec<_>>();
 
@@ -373,7 +373,7 @@ mod tests {
             );
         }
 
-        let generators = gate.0.generators(0, &[]);
+        let generators = gate.generators(0, &[]);
         generate_partial_witness(&mut witness, &generators);
 
         let expected_outputs: [F; W] =
@@ -393,8 +393,7 @@ mod tests {
         type F = CrandallField;
         const R: usize = 101;
         let constants = Arc::new([F::TWO; R]);
-        type Gate = GMiMCGate<F, 4, R>;
-        let gate = Gate::with_constants(constants);
+        let gate = GMiMCGate::<F, 4, R>::new(constants);
         test_low_degree(gate)
     }
 
@@ -408,7 +407,7 @@ mod tests {
         let mut pw = PartialWitness::<F>::new();
         let constants = Arc::new([F::TWO; R]);
         type Gate = GMiMCGate<F, 4, R>;
-        let gate = Gate::with_constants(constants);
+        let gate = Gate::new(constants);
 
         let wires = FF::rand_vec(Gate::end());
         let public_inputs_hash = &Hash::rand();
@@ -418,7 +417,7 @@ mod tests {
             public_inputs_hash,
         };
 
-        let ev = gate.0.eval_unfiltered(vars);
+        let ev = gate.eval_unfiltered(vars);
 
         let wires_t = builder.add_virtual_extension_targets(Gate::end());
         for i in 0..Gate::end() {
@@ -434,7 +433,7 @@ mod tests {
             public_inputs_hash: &public_inputs_hash_t,
         };
 
-        let ev_t = gate.0.eval_unfiltered_recursively(&mut builder, vars_t);
+        let ev_t = gate.eval_unfiltered_recursively(&mut builder, vars_t);
 
         assert_eq!(ev.len(), ev_t.len());
         for (e, e_t) in ev.into_iter().zip(ev_t) {

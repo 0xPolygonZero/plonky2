@@ -15,11 +15,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         element: ExtensionTarget<D>,
         v: Vec<ExtensionTarget<D>>,
     ) -> Vec<ExtensionTarget<D>> {
-        let gate = InsertionGate::<F, D> {
-            vec_size: v.len(),
-            _phantom: PhantomData,
-        };
-        let gate_index = self.add_gate_no_constants(InsertionGate::new(v.len()));
+        let gate = InsertionGate::new(v.len());
+        let gate_index = self.add_gate(gate.clone(), vec![]);
 
         v.iter().enumerate().for_each(|(i, &val)| {
             self.route_extension(

@@ -17,16 +17,15 @@ use crate::witness::PartialWitness;
 #[derive(Clone, Debug)]
 pub(crate) struct InsertionGate<F: Extendable<D>, const D: usize> {
     pub vec_size: usize,
-    pub _phantom: PhantomData<F>,
+    _phantom: PhantomData<F>,
 }
 
 impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
-    pub fn new(vec_size: usize) -> GateRef<F, D> {
-        let gate = Self {
+    pub fn new(vec_size: usize) -> Self {
+        Self {
             vec_size,
             _phantom: PhantomData,
-        };
-        GateRef::new(gate)
+        }
     }
 
     pub fn wires_insertion_index(&self) -> usize {
@@ -350,8 +349,7 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        type F = CrandallField;
-        test_low_degree(InsertionGate::<F, 4>::new(4));
+        test_low_degree::<CrandallField, _, 4>(InsertionGate::new(4));
     }
 
     #[test]

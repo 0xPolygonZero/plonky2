@@ -24,16 +24,15 @@ use crate::witness::PartialWitness;
 #[derive(Clone, Debug)]
 pub(crate) struct InterpolationGate<F: Extendable<D>, const D: usize> {
     pub num_points: usize,
-    pub _phantom: PhantomData<F>,
+    _phantom: PhantomData<F>,
 }
 
 impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D> {
-    pub fn new(num_points: usize) -> GateRef<F, D> {
-        let gate = Self {
+    pub fn new(num_points: usize) -> Self {
+        Self {
             num_points,
             _phantom: PhantomData,
-        };
-        GateRef::new(gate)
+        }
     }
 
     fn start_points(&self) -> usize {
@@ -321,7 +320,7 @@ mod tests {
     #[test]
     fn low_degree() {
         type F = CrandallField;
-        test_low_degree(InterpolationGate::<F, 4>::new(4));
+        test_low_degree::<CrandallField, _, 4>(InterpolationGate::new(4));
     }
 
     #[test]

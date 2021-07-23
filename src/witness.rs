@@ -170,7 +170,7 @@ impl<F: Field> PartialWitness<F> {
                         "wire {} of gate #{} (`{}`)",
                         input,
                         gate,
-                        gate_instances[*gate].gate_type.0.id()
+                        gate_instances[*gate].gate_ref.0.id()
                     ),
                     Target::VirtualTarget { index } => format!("{}-th virtual target", index),
                 }

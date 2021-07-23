@@ -13,10 +13,6 @@ use crate::witness::PartialWitness;
 pub struct ConstantGate;
 
 impl ConstantGate {
-    pub fn get<F: Extendable<D>, const D: usize>() -> GateRef<F, D> {
-        GateRef::new(ConstantGate)
-    }
-
     pub const CONST_INPUT: usize = 0;
 
     pub const WIRE_OUTPUT: usize = 0;
@@ -106,6 +102,6 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree(ConstantGate::get::<CrandallField, 4>())
+        test_low_degree::<CrandallField, _, 4>(ConstantGate)
     }
 }

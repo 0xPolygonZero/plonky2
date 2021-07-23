@@ -13,14 +13,14 @@ use crate::witness::PartialWitness;
 
 /// A gate which can decompose a number into base B little-endian limbs,
 /// and compute the limb-reversed (i.e. big-endian) sum.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BaseSumGate<const B: usize> {
     num_limbs: usize,
 }
 
 impl<const B: usize> BaseSumGate<B> {
-    pub fn new<F: Extendable<D>, const D: usize>(num_limbs: usize) -> GateRef<F, D> {
-        GateRef::new(BaseSumGate::<B> { num_limbs })
+    pub fn new(num_limbs: usize) -> Self {
+        Self { num_limbs }
     }
 
     pub const WIRE_SUM: usize = 0;
@@ -186,10 +186,11 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
 mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::gates::base_sum::BaseSumGate;
+    use crate::gates::gate::GateRef;
     use crate::gates::gate_testing::test_low_degree;
 
     #[test]
     fn low_degree() {
-        test_low_degree(BaseSumGate::<6>::new::<CrandallField, 4>(11))
+        test_low_degree::<CrandallField, _, 4>(BaseSumGate::<6>::new(11))
     }
 }

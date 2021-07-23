@@ -11,10 +11,6 @@ use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 pub struct PublicInputGate;
 
 impl PublicInputGate {
-    pub fn get<F: Extendable<D>, const D: usize>() -> GateRef<F, D> {
-        GateRef::new(PublicInputGate)
-    }
-
     pub fn wires_public_inputs_hash() -> Range<usize> {
         0..4
     }
@@ -86,6 +82,6 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree(PublicInputGate::get::<CrandallField, 4>())
+        test_low_degree::<CrandallField, _, 4>(PublicInputGate)
     }
 }

@@ -11,8 +11,8 @@ use crate::wire::Wire;
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn permute(&mut self, inputs: [Target; 12]) -> [Target; 12] {
         let zero = self.zero();
-        let gate =
-            self.add_gate_no_constants(GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants());
+        let gate_type = GMiMCGate::<F, D, GMIMC_ROUNDS>::new_automatic_constants();
+        let gate = self.add_gate(gate_type, vec![]);
 
         // We don't want to swap any inputs, so set that wire to 0.
         let swap_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_SWAP;
