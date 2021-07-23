@@ -5,7 +5,7 @@ use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -28,6 +28,12 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
+        let input = vars.local_constants[Self::CONST_INPUT];
+        let output = vars.local_wires[Self::WIRE_OUTPUT];
+        vec![output - input]
+    }
+
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
         let input = vars.local_constants[Self::CONST_INPUT];
         let output = vars.local_wires[Self::WIRE_OUTPUT];
         vec![output - input]
