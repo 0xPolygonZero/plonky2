@@ -77,6 +77,32 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
             .collect()
     }
 
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+        let output = vars.get_local_ext(Self::wires_output());
+        let alpha = vars.get_local_ext(Self::wires_alpha());
+        let old_acc = vars.get_local_ext(Self::wires_old_acc());
+        let coeffs = self
+            .wires_coeffs()
+            .map(|i| vars.local_wires[i])
+            .collect::<Vec<_>>();
+        let accs = (0..self.num_coeffs)
+            .map(|i| vars.get_local_ext(self.wires_accs(i)))
+            .collect::<Vec<_>>();
+
+        let mut constraints = Vec::new();
+        let mut acc = old_acc;
+        for i in 0..self.num_coeffs {
+            constraints.push(acc * alpha + coeffs[i].into() - accs[i]);
+            acc = accs[i];
+        }
+
+        constraints.push(output - acc);
+        constraints
+            .into_iter()
+            .flat_map(|alg| alg.to_basefield_array())
+            .collect()
+    }
+
     fn eval_unfiltered_recursively(
         &self,
         builder: &mut CircuitBuilder<F, D>,
