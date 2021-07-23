@@ -60,14 +60,18 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
         let base = vars.local_wires[self.wires_base()];
         let power = vars.local_wires[self.wires_power()];
 
-        let power_bits : Vec<_> = (0..self.num_power_bits).map(|i| vars.local_wires[self.wires_power_bit(i)]).collect();
-        let intermediate_values : Vec<_> = (0..self.num_power_bits).map(|i| vars.local_wires[self.wires_intermediate_value(i)]).collect();
+        let power_bits: Vec<_> = (0..self.num_power_bits)
+            .map(|i| vars.local_wires[self.wires_power_bit(i)])
+            .collect();
+        let intermediate_values: Vec<_> = (0..self.num_power_bits)
+            .map(|i| vars.local_wires[self.wires_intermediate_value(i)])
+            .collect();
 
         let mut constraints = Vec::new();
-        
+
         let computed_power = reduce_with_powers(&power_bits, F::Extension::TWO);
         constraints.push(power - computed_power);
-        
+
         let mut current_intermediate_value = F::Extension::ZERO;
         for i in 0..self.num_power_bits {
             let computed_intermediate_value = current_intermediate_value + power_bits[i];
@@ -174,9 +178,9 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
+    use crate::gates::exponentiation::ExponentiationGate;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
-    use crate::gates::exponentiation::ExponentiationGate;
     use crate::proof::Hash;
     use crate::vars::EvaluationVars;
 
