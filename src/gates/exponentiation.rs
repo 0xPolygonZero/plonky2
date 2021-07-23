@@ -256,7 +256,7 @@ mod tests {
             num_power_bits,
             _phantom: PhantomData,
         };
-        
+
         let good_vars = EvaluationVars {
             local_constants: &[],
             local_wires: &get_wires(base, power as u64),
@@ -274,7 +274,10 @@ mod tests {
             public_inputs_hash: &Hash::rand(),
         };
         assert!(
-            !gate.eval_unfiltered(bad_base_vars).iter().all(|x| x.is_zero()),
+            !gate
+                .eval_unfiltered(bad_base_vars)
+                .iter()
+                .all(|x| x.is_zero()),
             "Gate constraints are satisfied but should not be."
         );
     }
