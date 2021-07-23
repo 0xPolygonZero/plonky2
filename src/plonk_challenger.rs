@@ -393,7 +393,7 @@ mod tests {
         }
 
         let config = CircuitConfig {
-            num_wires: 12 + 12 + 3 + 101,
+            num_wires: 12 + 12 + 1 + 101,
             num_routed_wires: 27,
             ..CircuitConfig::default()
         };
