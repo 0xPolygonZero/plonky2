@@ -1,12 +1,10 @@
-use std::convert::TryInto;
 use std::marker::PhantomData;
-use std::ops::Range;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
-use crate::gates::gate::{Gate, GateRef};
+use crate::gates::gate::Gate;
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::plonk_common::reduce_with_powers;
 use crate::target::Target;
@@ -24,12 +22,11 @@ pub(crate) struct ExponentiationGate<F: Extendable<D>, const D: usize> {
 }
 
 impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
-    pub fn new(power_bits: usize) -> GateRef<F, D> {
-        let gate = Self {
+    pub fn new(power_bits: usize) -> Self {
+        Self {
             num_power_bits: power_bits,
             _phantom: PhantomData,
-        };
-        GateRef::new(gate)
+        }
     }
 
     pub fn wires_base(&self) -> usize {
@@ -202,8 +199,7 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        type F = CrandallField;
-        test_low_degree(ExponentiationGate::<F, 4>::new(5));
+        test_low_degree::<CrandallField, _, 4>(ExponentiationGate::new(5));
     }
 
     #[test]
