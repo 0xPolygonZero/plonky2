@@ -10,8 +10,9 @@ use crate::field::interpolation::interpolant;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -23,16 +24,15 @@ use crate::witness::PartialWitness;
 #[derive(Clone, Debug)]
 pub(crate) struct InterpolationGate<F: Extendable<D>, const D: usize> {
     pub num_points: usize,
-    pub _phantom: PhantomData<F>,
+    _phantom: PhantomData<F>,
 }
 
 impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D> {
-    pub fn new(num_points: usize) -> GateRef<F, D> {
-        let gate = Self {
+    pub fn new(num_points: usize) -> Self {
+        Self {
             num_points,
             _phantom: PhantomData,
-        };
-        GateRef::new(gate)
+        }
     }
 
     fn start_points(&self) -> usize {
@@ -115,6 +115,29 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
 
         let evaluation_point = vars.get_local_ext_algebra(self.wires_evaluation_point());
         let evaluation_value = vars.get_local_ext_algebra(self.wires_evaluation_value());
+        let computed_evaluation_value = interpolant.eval(evaluation_point);
+        constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
+
+        constraints
+    }
+
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+        let mut constraints = Vec::with_capacity(self.num_constraints());
+
+        let coeffs = (0..self.num_points)
+            .map(|i| vars.get_local_ext(self.wires_coeff(i)))
+            .collect();
+        let interpolant = PolynomialCoeffs::new(coeffs);
+
+        for i in 0..self.num_points {
+            let point = vars.local_wires[self.wire_point(i)];
+            let value = vars.get_local_ext(self.wires_value(i));
+            let computed_value = interpolant.eval(point.into());
+            constraints.extend(&(value - computed_value).to_basefield_array());
+        }
+
+        let evaluation_point = vars.get_local_ext(self.wires_evaluation_point());
+        let evaluation_value = vars.get_local_ext(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval(evaluation_point);
         constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
 
@@ -297,7 +320,7 @@ mod tests {
     #[test]
     fn low_degree() {
         type F = CrandallField;
-        test_low_degree(InterpolationGate::<F, 4>::new(4));
+        test_low_degree::<CrandallField, _, 4>(InterpolationGate::new(4));
     }
 
     #[test]
@@ -313,31 +336,15 @@ mod tests {
             points: Vec<F>,
             eval_point: FF,
         ) -> Vec<FF> {
-            let mut v = vec![F::ZERO; num_points * 5 + (coeffs.len() + 3) * D];
+            let mut v = Vec::new();
+            v.extend_from_slice(&points);
             for j in 0..num_points {
-                v[j] = points[j];
+                v.extend(coeffs.eval(points[j].into()).0);
             }
-            for j in 0..num_points {
-                for i in 0..D {
-                    v[num_points + D * j + i] = <FF as FieldExtension<D>>::to_basefield_array(
-                        &coeffs.eval(points[j].into()),
-                    )[i];
-                }
-            }
-            for i in 0..D {
-                v[num_points * 5 + i] =
-                    <FF as FieldExtension<D>>::to_basefield_array(&eval_point)[i];
-            }
-            for i in 0..D {
-                v[num_points * 5 + D + i] =
-                    <FF as FieldExtension<D>>::to_basefield_array(&coeffs.eval(eval_point))[i];
-            }
+            v.extend(eval_point.0);
+            v.extend(coeffs.eval(eval_point).0);
             for i in 0..coeffs.len() {
-                for (j, input) in
-                    (0..D).zip(num_points * 5 + (2 + i) * D..num_points * 5 + (3 + i) * D)
-                {
-                    v[input] = <FF as FieldExtension<D>>::to_basefield_array(&coeffs.coeffs[i])[j];
-                }
+                v.extend(coeffs.coeffs[i].0);
             }
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         }

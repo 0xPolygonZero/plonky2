@@ -8,19 +8,19 @@ use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::plonk_common::{reduce_with_powers, reduce_with_powers_recursive};
 use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::witness::PartialWitness;
 
 /// A gate which can decompose a number into base B little-endian limbs,
 /// and compute the limb-reversed (i.e. big-endian) sum.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BaseSumGate<const B: usize> {
     num_limbs: usize,
 }
 
 impl<const B: usize> BaseSumGate<B> {
-    pub fn new<F: Extendable<D>, const D: usize>(num_limbs: usize) -> GateRef<F, D> {
-        GateRef::new(BaseSumGate::<B> { num_limbs })
+    pub fn new(num_limbs: usize) -> Self {
+        Self { num_limbs }
     }
 
     pub const WIRE_SUM: usize = 0;
@@ -53,6 +53,20 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
                     .map(|i| limb - F::Extension::from_canonical_usize(i))
                     .product(),
             );
+        }
+        constraints
+    }
+
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+        let sum = vars.local_wires[Self::WIRE_SUM];
+        let reversed_sum = vars.local_wires[Self::WIRE_REVERSED_SUM];
+        let mut limbs = vars.local_wires[self.limbs()].to_vec();
+        let computed_sum = reduce_with_powers(&limbs, F::from_canonical_usize(B));
+        limbs.reverse();
+        let computed_reversed_sum = reduce_with_powers(&limbs, F::from_canonical_usize(B));
+        let mut constraints = vec![computed_sum - sum, computed_reversed_sum - reversed_sum];
+        for limb in limbs {
+            constraints.push((0..B).map(|i| limb - F::from_canonical_usize(i)).product());
         }
         constraints
     }
@@ -172,10 +186,11 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
 mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::gates::base_sum::BaseSumGate;
+    use crate::gates::gate::GateRef;
     use crate::gates::gate_testing::test_low_degree;
 
     #[test]
     fn low_degree() {
-        test_low_degree(BaseSumGate::<6>::new::<CrandallField, 4>(11))
+        test_low_degree::<CrandallField, _, 4>(BaseSumGate::<6>::new(11))
     }
 }

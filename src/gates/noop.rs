@@ -3,16 +3,10 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::WitnessGenerator;
-use crate::vars::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate which does nothing.
 pub struct NoopGate;
-
-impl NoopGate {
-    pub fn get<F: Extendable<D>, const D: usize>() -> GateRef<F, D> {
-        GateRef::new(NoopGate)
-    }
-}
 
 impl<F: Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
     fn id(&self) -> String {
@@ -20,6 +14,10 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
     }
 
     fn eval_unfiltered(&self, _vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
+        Vec::new()
+    }
+
+    fn eval_unfiltered_base(&self, _vars: EvaluationVarsBase<F>) -> Vec<F> {
         Vec::new()
     }
 
@@ -64,6 +62,6 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree(NoopGate::get::<CrandallField, 4>())
+        test_low_degree::<CrandallField, _, 4>(NoopGate)
     }
 }

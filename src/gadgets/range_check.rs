@@ -14,6 +14,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.route(x, sum);
     }
 
+    /// Returns the first `num_low_bits` little-endian bits of `x`.
+    pub fn low_bits(&mut self, x: Target, num_low_bits: usize, num_bits: usize) -> Vec<Target> {
+        let mut res = self.split_le(x, num_bits);
+        res.truncate(num_low_bits);
+        res
+    }
+
     /// Returns `(a,b)` such that `x = a + 2^n_log * b` with `a < 2^n_log`.
     /// `x` is assumed to be range-checked for having `num_bits` bits.
     pub fn split_low_high(&mut self, x: Target, n_log: usize, num_bits: usize) -> (Target, Target) {

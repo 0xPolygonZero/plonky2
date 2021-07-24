@@ -237,12 +237,12 @@ mod tests {
         const D: usize = 4;
 
         let gates = vec![
-            NoopGate::get::<F, D>(),
-            ConstantGate::get(),
-            ArithmeticExtensionGate::new(),
-            BaseSumGate::<4>::new(4),
-            GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants(),
-            InterpolationGate::new(4),
+            GateRef::new(NoopGate),
+            GateRef::new(ConstantGate),
+            GateRef::new(ArithmeticExtensionGate),
+            GateRef::new(BaseSumGate::<4>::new(4)),
+            GateRef::new(GMiMCGate::<F, D, GMIMC_ROUNDS>::new_automatic_constants()),
+            GateRef::new(InterpolationGate::new(4)),
         ];
         let len = gates.len();
 

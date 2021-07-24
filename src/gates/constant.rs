@@ -5,7 +5,7 @@ use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -13,10 +13,6 @@ use crate::witness::PartialWitness;
 pub struct ConstantGate;
 
 impl ConstantGate {
-    pub fn get<F: Extendable<D>, const D: usize>() -> GateRef<F, D> {
-        GateRef::new(ConstantGate)
-    }
-
     pub const CONST_INPUT: usize = 0;
 
     pub const WIRE_OUTPUT: usize = 0;
@@ -28,6 +24,12 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
+        let input = vars.local_constants[Self::CONST_INPUT];
+        let output = vars.local_wires[Self::WIRE_OUTPUT];
+        vec![output - input]
+    }
+
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
         let input = vars.local_constants[Self::CONST_INPUT];
         let output = vars.local_wires[Self::WIRE_OUTPUT];
         vec![output - input]
@@ -100,6 +102,6 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree(ConstantGate::get::<CrandallField, 4>())
+        test_low_degree::<CrandallField, _, 4>(ConstantGate)
     }
 }

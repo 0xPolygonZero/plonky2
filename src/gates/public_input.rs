@@ -5,16 +5,12 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::WitnessGenerator;
-use crate::vars::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate whose first four wires will be equal to a hash of public inputs.
 pub struct PublicInputGate;
 
 impl PublicInputGate {
-    pub fn get<F: Extendable<D>, const D: usize>() -> GateRef<F, D> {
-        GateRef::new(PublicInputGate)
-    }
-
     pub fn wires_public_inputs_hash() -> Range<usize> {
         0..4
     }
@@ -29,6 +25,13 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for PublicInputGate {
         Self::wires_public_inputs_hash()
             .zip(vars.public_inputs_hash.elements)
             .map(|(wire, hash_part)| vars.local_wires[wire] - hash_part.into())
+            .collect()
+    }
+
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+        Self::wires_public_inputs_hash()
+            .zip(vars.public_inputs_hash.elements)
+            .map(|(wire, hash_part)| vars.local_wires[wire] - hash_part)
             .collect()
     }
 
@@ -79,6 +82,6 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree(PublicInputGate::get::<CrandallField, 4>())
+        test_low_degree::<CrandallField, _, 4>(PublicInputGate)
     }
 }

@@ -20,7 +20,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn compute_evaluation(
         &mut self,
         x: Target,
-        old_x_index: Target,
+        old_x_index_bits: &[Target],
         arity_bits: usize,
         last_evals: &[ExtensionTarget<D>],
         beta: ExtensionTarget<D>,
@@ -33,13 +33,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // The evaluation vector needs to be reordered first.
         let mut evals = last_evals.to_vec();
         reverse_index_bits_in_place(&mut evals);
-        let mut old_x_index_bits = self.split_le(old_x_index, arity_bits);
-        old_x_index_bits.reverse();
         // Want `g^(arity - rev_old_x_index)` as in the out-of-circuit version.
         // Compute it as `g^(arity-1-rev_old_x_index) * g`, where the first term is gotten using two's complement.
-        // TODO: Once the exponentiation gate lands, we won't need the bits and will be able to compute
-        // `g^(arity-rev_old_x_index)` directly.
-        let start = self.exp_from_complement_bits(gt, &old_x_index_bits);
+        let start = self.exp_from_complement_bits(gt, old_x_index_bits.iter().rev());
         let coset_start = self.mul_many(&[start, gt, x]);
 
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
@@ -151,7 +147,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn fri_verify_initial_proof(
         &mut self,
-        x_index: Target,
+        x_index_bits: &[Target],
         proof: &FriInitialTreeProofTarget,
         initial_merkle_roots: &[HashTarget],
     ) {
@@ -164,7 +160,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             context!(
                 self,
                 &format!("verify {}'th initial Merkle proof", i),
-                self.verify_merkle_proof(evals.clone(), x_index, root, merkle_proof)
+                self.verify_merkle_proof(evals.clone(), x_index_bits, root, merkle_proof)
             );
         }
     }
@@ -256,28 +252,26 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let config = &common_data.config.fri_config;
         let n_log = log2_strict(n);
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
-        let mut x_index = challenger.get_challenge(self);
-        x_index = self.split_low_high(x_index, n_log, 64).0;
-        let mut x_index_num_bits = n_log;
+        let x_index = challenger.get_challenge(self);
+        let mut x_index_bits = self.low_bits(x_index, n_log, 64);
         let mut domain_size = n;
         context!(
             self,
             "check FRI initial proof",
             self.fri_verify_initial_proof(
-                x_index,
+                &x_index_bits,
                 &round_proof.initial_trees_proof,
                 initial_merkle_roots,
             )
         );
-        let mut old_x_index = self.zero();
+        let mut old_x_index_bits = Vec::new();
 
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
         let mut subgroup_x = context!(self, "compute x from its index", {
             let g = self.constant(F::MULTIPLICATIVE_GROUP_GENERATOR);
             let phi = self.constant(F::primitive_root_of_unity(n_log));
 
-            let reversed_x = self.reverse_limbs::<2>(x_index, n_log);
-            let phi = self.exp(phi, reversed_x, n_log);
+            let phi = self.exp_from_bits(phi, x_index_bits.iter().rev());
             self.mul(g, phi)
         });
 
@@ -305,7 +299,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     "infer evaluation using interpolation",
                     self.compute_evaluation(
                         subgroup_x,
-                        old_x_index,
+                        &old_x_index_bits,
                         config.reduction_arity_bits[i - 1],
                         last_evals,
                         betas[i - 1],
@@ -314,15 +308,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             };
             let mut evals = round_proof.steps[i].evals.clone();
             // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
-            let (low_x_index, high_x_index) =
-                self.split_low_high(x_index, arity_bits, x_index_num_bits);
+            let high_x_index_bits = x_index_bits.split_off(arity_bits);
+            old_x_index_bits = x_index_bits;
+            let low_x_index = self.le_sum(old_x_index_bits.iter());
             evals = self.insert(low_x_index, e_x, evals);
             context!(
                 self,
                 "verify FRI round Merkle proof.",
                 self.verify_merkle_proof(
                     flatten_target(&evals),
-                    high_x_index,
+                    &high_x_index_bits,
                     proof.commit_phase_merkle_roots[i],
                     &round_proof.steps[i].merkle_proof,
                 )
@@ -334,9 +329,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 subgroup_x = self.exp_power_of_2(subgroup_x, config.reduction_arity_bits[i - 1]);
             }
             domain_size = next_domain_size;
-            old_x_index = low_x_index;
-            x_index = high_x_index;
-            x_index_num_bits -= arity_bits;
+            x_index_bits = high_x_index_bits;
         }
 
         let last_evals = evaluations.last().unwrap();
@@ -346,7 +339,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "infer final evaluation using interpolation",
             self.compute_evaluation(
                 subgroup_x,
-                old_x_index,
+                &old_x_index_bits,
                 final_arity_bits,
                 last_evals,
                 *betas.last().unwrap(),

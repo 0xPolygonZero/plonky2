@@ -9,7 +9,7 @@ use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -17,16 +17,15 @@ use crate::witness::PartialWitness;
 #[derive(Clone, Debug)]
 pub(crate) struct InsertionGate<F: Extendable<D>, const D: usize> {
     pub vec_size: usize,
-    pub _phantom: PhantomData<F>,
+    _phantom: PhantomData<F>,
 }
 
 impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
-    pub fn new(vec_size: usize) -> GateRef<F, D> {
-        let gate = Self {
+    pub fn new(vec_size: usize) -> Self {
+        Self {
             vec_size,
             _phantom: PhantomData,
-        };
-        GateRef::new(gate)
+        }
     }
 
     pub fn wires_insertion_index(&self) -> usize {
@@ -105,6 +104,44 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             already_inserted += insert_here;
             if r < self.vec_size {
                 new_item += list_items[r] * (F::Extension::ONE - already_inserted).into();
+            }
+
+            // Output constraint.
+            constraints.extend((new_item - output_list_items[r]).to_basefield_array());
+        }
+
+        constraints
+    }
+
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+        let insertion_index = vars.local_wires[self.wires_insertion_index()];
+        let list_items = (0..self.vec_size)
+            .map(|i| vars.get_local_ext(self.wires_original_list_item(i)))
+            .collect::<Vec<_>>();
+        let output_list_items = (0..=self.vec_size)
+            .map(|i| vars.get_local_ext(self.wires_output_list_item(i)))
+            .collect::<Vec<_>>();
+        let element_to_insert = vars.get_local_ext(self.wires_element_to_insert());
+
+        let mut constraints = Vec::new();
+        let mut already_inserted = F::ZERO;
+        for r in 0..=self.vec_size {
+            let cur_index = F::from_canonical_usize(r);
+            let difference = cur_index - insertion_index;
+            let equality_dummy = vars.local_wires[self.wires_equality_dummy_for_round_r(r)];
+            let insert_here = vars.local_wires[self.wires_insert_here_for_round_r(r)];
+
+            // The two equality constraints.
+            constraints.push(difference * equality_dummy - (F::ONE - insert_here));
+            constraints.push(insert_here * difference);
+
+            let mut new_item = element_to_insert * insert_here.into();
+            if r > 0 {
+                new_item += list_items[r - 1] * already_inserted.into();
+            }
+            already_inserted += insert_here;
+            if r < self.vec_size {
+                new_item += list_items[r] * (F::ONE - already_inserted).into();
             }
 
             // Output constraint.
@@ -312,8 +349,7 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        type F = CrandallField;
-        test_low_degree(InsertionGate::<F, 4>::new(4));
+        test_low_degree::<CrandallField, _, 4>(InsertionGate::new(4));
     }
 
     #[test]
