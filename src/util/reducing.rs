@@ -108,8 +108,6 @@ impl<const D: usize> ReducingFactorTarget<D> {
         self.count += terms.len() as u64;
         let zero = builder.zero();
         let zero_ext = builder.zero_extension();
-        let mut gate;
-        let mut gate_index;
         let mut acc = zero_ext;
         let mut reversed_terms = terms.to_vec();
         while reversed_terms.len() % max_coeffs_len != 0 {
@@ -117,8 +115,8 @@ impl<const D: usize> ReducingFactorTarget<D> {
         }
         reversed_terms.reverse();
         for chunk in reversed_terms.chunks_exact(max_coeffs_len) {
-            gate = ReducingGate::new(max_coeffs_len);
-            gate_index = builder.add_gate(gate.clone(), Vec::new());
+            let gate = ReducingGate::new(max_coeffs_len);
+            let gate_index = builder.add_gate(gate.clone(), Vec::new());
 
             builder.route_extension(
                 self.base,
@@ -227,7 +225,6 @@ mod tests {
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::extension_field::FieldExtension;
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
 

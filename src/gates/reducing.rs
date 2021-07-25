@@ -34,15 +34,19 @@ impl<const D: usize> ReducingGate<D> {
     pub fn wires_old_acc() -> Range<usize> {
         2 * D..3 * D
     }
-    pub const START_COEFFS: usize = 3 * D;
+    const START_COEFFS: usize = 3 * D;
     pub fn wires_coeffs(&self) -> Range<usize> {
         Self::START_COEFFS..Self::START_COEFFS + self.num_coeffs
     }
-    pub fn start_accs(&self) -> usize {
+    fn start_accs(&self) -> usize {
         Self::START_COEFFS + self.num_coeffs
     }
-    pub fn wires_accs(&self, i: usize) -> Range<usize> {
-        self.start_accs() + 4 * i..self.start_accs() + 4 * (i + 1)
+    fn wires_accs(&self, i: usize) -> Range<usize> {
+        if i == self.num_coeffs - 1 {
+            // The last accumulator is the output.
+            return Self::wires_output();
+        }
+        self.start_accs() + D * i..self.start_accs() + D * (i + 1)
     }
 }
 
@@ -70,7 +74,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
             acc = accs[i];
         }
 
-        constraints.push(output - acc);
         constraints
             .into_iter()
             .flat_map(|alg| alg.to_basefield_array())
@@ -96,7 +99,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
             acc = accs[i];
         }
 
-        constraints.push(output - acc);
         constraints
             .into_iter()
             .flat_map(|alg| alg.to_basefield_array())
@@ -130,7 +132,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
             acc = accs[i];
         }
 
-        constraints.push(builder.sub_ext_algebra(output, acc));
         constraints
             .into_iter()
             .flat_map(|alg| alg.to_ext_target_array())
@@ -216,14 +217,8 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<
 #[cfg(test)]
 mod tests {
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::extension_field::FieldExtension;
-    use crate::field::field::Field;
-    use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::reducing::ReducingGate;
-    use crate::proof::Hash;
-    use crate::vars::EvaluationVars;
 
     #[test]
     fn low_degree() {
