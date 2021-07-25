@@ -22,7 +22,7 @@ impl<const D: usize> ReducingGate<D> {
     }
 
     pub fn max_coeffs_len(num_wires: usize, num_routed_wires: usize) -> usize {
-        (num_routed_wires - 3 * D).min((num_wires - 3 * D) / (D + 1))
+        (num_routed_wires - 3 * D).min((num_wires - 2 * D) / (D + 1))
     }
 
     pub fn wires_output() -> Range<usize> {
@@ -56,7 +56,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
-        let output = vars.get_local_ext_algebra(Self::wires_output());
         let alpha = vars.get_local_ext_algebra(Self::wires_alpha());
         let old_acc = vars.get_local_ext_algebra(Self::wires_old_acc());
         let coeffs = self
@@ -81,7 +80,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
     }
 
     fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let output = vars.get_local_ext(Self::wires_output());
         let alpha = vars.get_local_ext(Self::wires_alpha());
         let old_acc = vars.get_local_ext(Self::wires_old_acc());
         let coeffs = self
@@ -110,7 +108,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        let output = vars.get_local_ext_algebra(Self::wires_output());
         let alpha = vars.get_local_ext_algebra(Self::wires_alpha());
         let old_acc = vars.get_local_ext_algebra(Self::wires_old_acc());
         let coeffs = self
@@ -150,7 +147,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
     }
 
     fn num_wires(&self) -> usize {
-        3 * D + self.num_coeffs * (D + 1)
+        2 * D + self.num_coeffs * (D + 1)
     }
 
     fn num_constants(&self) -> usize {
@@ -162,7 +159,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
     }
 
     fn num_constraints(&self) -> usize {
-        D * (self.num_coeffs + 1)
+        D * self.num_coeffs
     }
 }
 
