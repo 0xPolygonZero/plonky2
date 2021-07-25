@@ -7,7 +7,9 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, Frobenius};
 use crate::field::field::Field;
 use crate::gates::arithmetic::ArithmeticExtensionGate;
+use crate::gates::reducing::ReducingGate;
 use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::target::Target;
 
 /// When verifying the composition polynomial in FRI we have to compute sums of the form
 /// `(sum_0^k a^i * x_i)/d_0 + (sum_k^r a^i * y_i)/d_1`
@@ -88,6 +90,50 @@ pub struct ReducingFactorTarget<const D: usize> {
 impl<const D: usize> ReducingFactorTarget<D> {
     pub fn new(base: ExtensionTarget<D>) -> Self {
         Self { base, count: 0 }
+    }
+
+    /// Reduces a length `n` vector of `Target`s using `n/21` `ReducingGate`s (with 33 routed wires and 126 wires).
+    pub fn reduce_base<F>(
+        &mut self,
+        terms: &[Target],
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> ExtensionTarget<D>
+    where
+        F: Extendable<D>,
+    {
+        let max_coeffs_len = ReducingGate::<D>::max_coeffs_len(
+            builder.config.num_wires,
+            builder.config.num_routed_wires,
+        );
+        self.count += terms.len() as u64;
+        let zero = builder.zero();
+        let zero_ext = builder.zero_extension();
+        let mut acc = zero_ext;
+        let mut reversed_terms = terms.to_vec();
+        while reversed_terms.len() % max_coeffs_len != 0 {
+            reversed_terms.push(zero);
+        }
+        reversed_terms.reverse();
+        for chunk in reversed_terms.chunks_exact(max_coeffs_len) {
+            let gate = ReducingGate::new(max_coeffs_len);
+            let gate_index = builder.add_gate(gate.clone(), Vec::new());
+
+            builder.route_extension(
+                self.base,
+                ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_alpha()),
+            );
+            builder.route_extension(
+                acc,
+                ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_old_acc()),
+            );
+            for (&t, c) in chunk.iter().zip(gate.wires_coeffs()) {
+                builder.route(t, Target::wire(gate_index, c));
+            }
+
+            acc = ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_output());
+        }
+
+        acc
     }
 
     /// Reduces a length `n` vector of `ExtensionTarget`s using `n/2` `ArithmeticExtensionGate`s.
@@ -182,6 +228,33 @@ mod tests {
     use crate::verifier::verify;
     use crate::witness::PartialWitness;
 
+    fn test_reduce_gadget_base(n: usize) -> Result<()> {
+        type F = CrandallField;
+        type FF = QuarticCrandallField;
+        const D: usize = 4;
+
+        let config = CircuitConfig::large_config();
+
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let alpha = FF::rand();
+        let vs = F::rand_vec(n);
+
+        let manual_reduce = ReducingFactor::new(alpha).reduce(vs.iter().map(|&v| FF::from(v)));
+        let manual_reduce = builder.constant_extension(manual_reduce);
+
+        let mut alpha_t = ReducingFactorTarget::new(builder.constant_extension(alpha));
+        let vs_t = vs.iter().map(|&v| builder.constant(v)).collect::<Vec<_>>();
+        let circuit_reduce = alpha_t.reduce_base(&vs_t, &mut builder);
+
+        builder.assert_equal_extension(manual_reduce, circuit_reduce);
+
+        let data = builder.build();
+        let proof = data.prove(PartialWitness::new())?;
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
     fn test_reduce_gadget(n: usize) -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
@@ -220,5 +293,10 @@ mod tests {
     #[test]
     fn test_reduce_gadget_odd() -> Result<()> {
         test_reduce_gadget(11)
+    }
+
+    #[test]
+    fn test_reduce_gadget_base_100() -> Result<()> {
+        test_reduce_gadget_base(100)
     }
 }

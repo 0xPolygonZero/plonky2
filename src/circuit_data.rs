@@ -57,7 +57,7 @@ impl CircuitConfig {
     pub(crate) fn large_config() -> Self {
         Self {
             num_wires: 126,
-            num_routed_wires: 34,
+            num_routed_wires: 33,
             security_bits: 128,
             rate_bits: 3,
             num_challenges: 3,

@@ -4,7 +4,7 @@ use crate::context;
 use crate::field::extension_field::Extendable;
 use crate::plonk_challenger::RecursiveChallenger;
 use crate::proof::{HashTarget, ProofWithPublicInputsTarget};
-use crate::util::scaling::ReducingFactorTarget;
+use crate::util::reducing::ReducingFactorTarget;
 use crate::vanishing_poly::eval_vanishing_poly_recursively;
 use crate::vars::EvaluationTargets;
 
@@ -381,7 +381,7 @@ mod tests {
             let mut builder = CircuitBuilder::<F, D>::new(config.clone());
             let _two = builder.two();
             let _two = builder.hash_n_to_hash(vec![_two], true).elements[0];
-            for _ in 0..5000 {
+            for _ in 0..10000 {
                 let _two = builder.mul(_two, _two);
             }
             let data = builder.build();
@@ -409,6 +409,78 @@ mod tests {
         let data = builder.build();
         let recursive_proof = data.prove(pw)?;
 
+        verify(recursive_proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    #[ignore]
+    fn test_recursive_recursive_verifier() -> Result<()> {
+        env_logger::init();
+        type F = CrandallField;
+        const D: usize = 4;
+        let config = CircuitConfig {
+            num_wires: 126,
+            num_routed_wires: 33,
+            security_bits: 128,
+            rate_bits: 3,
+            num_challenges: 3,
+            zero_knowledge: false,
+            fri_config: FriConfig {
+                proof_of_work_bits: 1,
+                reduction_arity_bits: vec![2, 2, 2, 2, 2, 2],
+                num_query_rounds: 40,
+            },
+        };
+        let (proof_with_pis, vd, cd) = {
+            let (proof_with_pis, vd, cd) = {
+                let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+                let _two = builder.two();
+                let _two = builder.hash_n_to_hash(vec![_two], true).elements[0];
+                for _ in 0..10000 {
+                    let _two = builder.mul(_two, _two);
+                }
+                let data = builder.build();
+                (
+                    data.prove(PartialWitness::new())?,
+                    data.verifier_only,
+                    data.common,
+                )
+            };
+            verify(proof_with_pis.clone(), &vd, &cd)?;
+
+            let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+            let mut pw = PartialWitness::new();
+            let pt = proof_to_proof_target(&proof_with_pis, &mut builder);
+            set_proof_target(&proof_with_pis, &pt, &mut pw);
+
+            let inner_data = VerifierCircuitTarget {
+                constants_sigmas_root: builder.add_virtual_hash(),
+            };
+            pw.set_hash_target(inner_data.constants_sigmas_root, vd.constants_sigmas_root);
+
+            builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
+
+            let data = builder.build();
+            let recursive_proof = data.prove(pw)?;
+            (recursive_proof, data.verifier_only, data.common)
+        };
+
+        verify(proof_with_pis.clone(), &vd, &cd)?;
+        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+        let mut pw = PartialWitness::new();
+        let pt = proof_to_proof_target(&proof_with_pis, &mut builder);
+        set_proof_target(&proof_with_pis, &pt, &mut pw);
+
+        let inner_data = VerifierCircuitTarget {
+            constants_sigmas_root: builder.add_virtual_hash(),
+        };
+        pw.set_hash_target(inner_data.constants_sigmas_root, vd.constants_sigmas_root);
+
+        builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
+
+        builder.print_gate_counts(0);
+        let data = builder.build();
+        let recursive_proof = data.prove(pw)?;
         verify(recursive_proof, &data.verifier_only, &data.common)
     }
 }

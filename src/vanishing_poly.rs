@@ -9,7 +9,7 @@ use crate::plonk_common;
 use crate::plonk_common::{eval_l_1_recursively, ZeroPolyOnCoset};
 use crate::target::Target;
 use crate::util::partial_products::{check_partial_products, check_partial_products_recursively};
-use crate::util::scaling::ReducingFactorTarget;
+use crate::util::reducing::ReducingFactorTarget;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random

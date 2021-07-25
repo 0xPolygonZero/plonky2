@@ -21,7 +21,7 @@ fn main() -> Result<()> {
 
 fn bench_prove<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
     let config = CircuitConfig {
-        num_wires: 134,
+        num_wires: 126,
         num_routed_wires: 33,
         security_bits: 128,
         rate_bits: 3,
