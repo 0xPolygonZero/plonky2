@@ -124,25 +124,42 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "Number of reductions should be non-zero."
         );
 
-        let precomputed_reduced_evals =
-            PrecomputedReducedEvalsTarget::from_os_and_alpha(os, alpha, self);
+        let precomputed_reduced_evals = context!(
+            self,
+            "precompute reduced evaluations",
+            PrecomputedReducedEvalsTarget::from_os_and_alpha(os, alpha, self)
+        );
+
         for (i, round_proof) in proof.query_round_proofs.iter().enumerate() {
-            context!(
-                self,
-                &format!("verify {}'th FRI query", i),
-                self.fri_verifier_query_round(
-                    zeta,
-                    alpha,
-                    precomputed_reduced_evals,
-                    initial_merkle_roots,
-                    proof,
-                    challenger,
-                    n,
-                    &betas,
-                    round_proof,
-                    common_data,
-                )
+            // To minimize noise in our logs, we will only record a context for a single FRI query.
+            // The very first query will have some extra gates due to constants being registered, so
+            // the second query is a better representative.
+            let log_level = if i == 1 {
+                log::Level::Debug
+            } else {
+                log::Level::Trace
+            };
+
+            let num_queries = proof.query_round_proofs.len();
+            self.push_context(
+                log_level,
+                &format!("verify one (of {}) query rounds", num_queries),
             );
+
+            self.fri_verifier_query_round(
+                zeta,
+                alpha,
+                precomputed_reduced_evals,
+                initial_merkle_roots,
+                proof,
+                challenger,
+                n,
+                &betas,
+                round_proof,
+                common_data,
+            );
+
+            self.pop_context();
         }
     }
 
