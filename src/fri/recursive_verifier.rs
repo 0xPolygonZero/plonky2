@@ -141,25 +141,23 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             };
 
             let num_queries = proof.query_round_proofs.len();
-            self.push_context(
+            context!(
+                self,
                 log_level,
                 &format!("verify one (of {}) query rounds", num_queries),
+                self.fri_verifier_query_round(
+                    zeta,
+                    alpha,
+                    precomputed_reduced_evals,
+                    initial_merkle_roots,
+                    proof,
+                    challenger,
+                    n,
+                    &betas,
+                    round_proof,
+                    common_data,
+                )
             );
-
-            self.fri_verifier_query_round(
-                zeta,
-                alpha,
-                precomputed_reduced_evals,
-                initial_merkle_roots,
-                proof,
-                challenger,
-                n,
-                &betas,
-                round_proof,
-                common_data,
-            );
-
-            self.pop_context();
         }
     }
 

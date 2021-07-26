@@ -125,7 +125,7 @@ impl ContextTree {
 #[macro_export]
 macro_rules! context {
     ($builder:expr, $log_level:expr, $ctx:expr, $exp:expr) => {{
-        $builder.push_context($ctx, $log_level);
+        $builder.push_context($log_level, $ctx);
         let res = $exp;
         $builder.pop_context();
         res
