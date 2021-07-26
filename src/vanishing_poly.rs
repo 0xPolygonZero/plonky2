@@ -1,6 +1,5 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::CommonCircuitData;
-use crate::context;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
@@ -11,6 +10,7 @@ use crate::target::Target;
 use crate::util::partial_products::{check_partial_products, check_partial_products_recursively};
 use crate::util::reducing::ReducingFactorTarget;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::with_context;
 
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
 /// linear combination of gate constraints, plus some other terms relating to the permutation
@@ -236,7 +236,7 @@ pub fn evaluate_gate_constraints_recursively<F: Extendable<D>, const D: usize>(
 ) -> Vec<ExtensionTarget<D>> {
     let mut constraints = vec![builder.zero_extension(); num_gate_constraints];
     for gate in gates {
-        let gate_constraints = context!(
+        let gate_constraints = with_context!(
             builder,
             &format!("evaluate {} constraints", gate.gate.0.id()),
             gate.gate
@@ -270,7 +270,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
     let max_degree = common_data.quotient_degree_factor;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
 
-    let constraint_terms = context!(
+    let constraint_terms = with_context!(
         builder,
         "evaluate gate constraints",
         evaluate_gate_constraints_recursively(

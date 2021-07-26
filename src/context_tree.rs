@@ -1,9 +1,11 @@
-use log::debug;
+use log::{log, Level};
 
 /// The hierarchy of contexts, and the gate count contributed by each one. Useful for debugging.
 pub(crate) struct ContextTree {
     /// The name of this scope.
     name: String,
+    /// The level at which to log this scope and its children.
+    level: log::Level,
     /// The gate count when this scope was created.
     enter_gate_count: usize,
     /// The gate count when this scope was destroyed, or None if it has not yet been destroyed.
@@ -16,6 +18,7 @@ impl ContextTree {
     pub fn new() -> Self {
         Self {
             name: "root".to_string(),
+            level: Level::Debug,
             enter_gate_count: 0,
             exit_gate_count: None,
             children: vec![],
@@ -43,18 +46,22 @@ impl ContextTree {
         }
     }
 
-    pub fn push(&mut self, ctx: &str, current_gate_count: usize) {
+    pub fn push(&mut self, ctx: &str, mut level: log::Level, current_gate_count: usize) {
         assert!(self.is_open());
+
+        // We don't want a scope's log level to be stronger than that of its parent.
+        level = level.max(self.level);
 
         if let Some(last_child) = self.children.last_mut() {
             if last_child.is_open() {
-                last_child.push(ctx, current_gate_count);
+                last_child.push(ctx, level, current_gate_count);
                 return;
             }
         }
 
         self.children.push(ContextTree {
             name: ctx.to_string(),
+            level,
             enter_gate_count: current_gate_count,
             exit_gate_count: None,
             children: vec![],
@@ -83,6 +90,7 @@ impl ContextTree {
     pub fn filter(&self, current_gate_count: usize, min_delta: usize) -> Self {
         Self {
             name: self.name.clone(),
+            level: self.level,
             enter_gate_count: self.enter_gate_count,
             exit_gate_count: self.exit_gate_count,
             children: self
@@ -100,7 +108,8 @@ impl ContextTree {
 
     fn print_helper(&self, current_gate_count: usize, depth: usize) {
         let prefix = "| ".repeat(depth);
-        debug!(
+        log!(
+            self.level,
             "{}{} gates to {}",
             prefix,
             self.gate_count_delta(current_gate_count),
@@ -114,9 +123,16 @@ impl ContextTree {
 
 /// Creates a named scope; useful for debugging.
 #[macro_export]
-macro_rules! context {
+macro_rules! with_context {
+    ($builder:expr, $level:expr, $ctx:expr, $exp:expr) => {{
+        $builder.push_context($level, $ctx);
+        let res = $exp;
+        $builder.pop_context();
+        res
+    }};
+    // If no context is specified, default to Debug.
     ($builder:expr, $ctx:expr, $exp:expr) => {{
-        $builder.push_context($ctx);
+        $builder.push_context(log::Level::Debug, $ctx);
         let res = $exp;
         $builder.pop_context();
         res

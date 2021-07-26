@@ -1,6 +1,5 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::CommonCircuitData;
-use crate::context;
 use crate::field::extension_field::target::{flatten_target, ExtensionTarget};
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
@@ -13,6 +12,7 @@ use crate::proof::{
 use crate::target::Target;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::util::{log2_strict, reverse_index_bits_in_place};
+use crate::with_context;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
@@ -93,7 +93,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Size of the LDE domain.
         let n = proof.final_poly.len() << (total_arities + config.rate_bits);
 
-        let betas = context!(
+        let betas = with_context!(
             self,
             "recover the random betas used in the FRI reductions.",
             proof
@@ -107,7 +107,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         challenger.observe_extension_elements(&proof.final_poly.0);
 
-        context!(
+        with_context!(
             self,
             "check PoW",
             self.fri_verify_proof_of_work(proof, challenger, &config.fri_config)
@@ -124,12 +124,27 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "Number of reductions should be non-zero."
         );
 
-        let precomputed_reduced_evals =
-            PrecomputedReducedEvalsTarget::from_os_and_alpha(os, alpha, self);
+        let precomputed_reduced_evals = with_context!(
+            self,
+            "precompute reduced evaluations",
+            PrecomputedReducedEvalsTarget::from_os_and_alpha(os, alpha, self)
+        );
+
         for (i, round_proof) in proof.query_round_proofs.iter().enumerate() {
-            context!(
+            // To minimize noise in our logs, we will only record a context for a single FRI query.
+            // The very first query will have some extra gates due to constants being registered, so
+            // the second query is a better representative.
+            let level = if i == 1 {
+                log::Level::Debug
+            } else {
+                log::Level::Trace
+            };
+
+            let num_queries = proof.query_round_proofs.len();
+            with_context!(
                 self,
-                &format!("verify {}'th FRI query", i),
+                level,
+                &format!("verify one (of {}) query rounds", num_queries),
                 self.fri_verifier_query_round(
                     zeta,
                     alpha,
@@ -158,7 +173,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .zip(initial_merkle_roots)
             .enumerate()
         {
-            context!(
+            with_context!(
                 self,
                 &format!("verify {}'th initial Merkle proof", i),
                 self.verify_merkle_proof(evals.clone(), x_index_bits, root, merkle_proof)
@@ -256,7 +271,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let x_index = challenger.get_challenge(self);
         let mut x_index_bits = self.low_bits(x_index, n_log, 64);
         let mut domain_size = n;
-        context!(
+        with_context!(
             self,
             "check FRI initial proof",
             self.fri_verify_initial_proof(
@@ -268,7 +283,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut old_x_index_bits = Vec::new();
 
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
-        let mut subgroup_x = context!(self, "compute x from its index", {
+        let mut subgroup_x = with_context!(self, "compute x from its index", {
             let g = self.constant(F::MULTIPLICATIVE_GROUP_GENERATOR);
             let phi = self.constant(F::primitive_root_of_unity(n_log));
 
@@ -280,7 +295,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
             let next_domain_size = domain_size >> arity_bits;
             let e_x = if i == 0 {
-                context!(
+                with_context!(
                     self,
                     "combine initial oracles",
                     self.fri_combine_initial(
@@ -295,7 +310,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             } else {
                 let last_evals = &evaluations[i - 1];
                 // Infer P(y) from {P(x)}_{x^arity=y}.
-                context!(
+                with_context!(
                     self,
                     "infer evaluation using interpolation",
                     self.compute_evaluation(
@@ -313,7 +328,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             old_x_index_bits = x_index_bits;
             let low_x_index = self.le_sum(old_x_index_bits.iter());
             evals = self.insert(low_x_index, e_x, evals);
-            context!(
+            with_context!(
                 self,
                 "verify FRI round Merkle proof.",
                 self.verify_merkle_proof(
@@ -335,7 +350,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let last_evals = evaluations.last().unwrap();
         let final_arity_bits = *config.reduction_arity_bits.last().unwrap();
-        let purported_eval = context!(
+        let purported_eval = with_context!(
             self,
             "infer final evaluation using interpolation",
             self.compute_evaluation(
@@ -350,7 +365,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Final check of FRI. After all the reductions, we check that the final polynomial is equal
         // to the one sent by the prover.
-        let eval = context!(
+        let eval = with_context!(
             self,
             "evaluate final polynomial",
             proof.final_poly.eval_scalar(self, subgroup_x)

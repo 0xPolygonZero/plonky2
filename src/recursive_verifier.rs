@@ -1,12 +1,12 @@
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
-use crate::context;
 use crate::field::extension_field::Extendable;
 use crate::plonk_challenger::RecursiveChallenger;
 use crate::proof::{HashTarget, ProofWithPublicInputsTarget};
 use crate::util::reducing::ReducingFactorTarget;
 use crate::vanishing_poly::eval_vanishing_poly_recursively;
 use crate::vars::EvaluationTargets;
+use crate::with_context;
 
 const MIN_WIRES: usize = 120; // TODO: Double check.
 const MIN_ROUTED_WIRES: usize = 28; // TODO: Double check.
@@ -35,7 +35,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut challenger = RecursiveChallenger::new(self);
 
         let (betas, gammas, alphas, zeta) =
-            context!(self, "observe proof and generates challenges", {
+            with_context!(self, "observe proof and generates challenges", {
                 // Observe the instance.
                 let digest = HashTarget::from_vec(
                     self.constants(&inner_common_data.circuit_digest.elements),
@@ -69,7 +69,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let partial_products = &proof.openings.partial_products;
 
         let zeta_pow_deg = self.exp_power_of_2_extension(zeta, inner_common_data.degree_bits);
-        let vanishing_polys_zeta = context!(
+        let vanishing_polys_zeta = with_context!(
             self,
             "evaluate the vanishing polynomial at our challenge point, zeta.",
             eval_vanishing_poly_recursively(
@@ -88,7 +88,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         );
 
-        context!(self, "check vanishing and quotient polynomials.", {
+        with_context!(self, "check vanishing and quotient polynomials.", {
             let quotient_polys_zeta = &proof.openings.quotient_polys;
             let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
             let z_h_zeta = self.sub_extension(zeta_pow_deg, one);

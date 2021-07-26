@@ -301,8 +301,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.targets_to_constants.get(&target).cloned()
     }
 
-    pub fn push_context(&mut self, ctx: &str) {
-        self.context_log.push(ctx, self.num_gates());
+    pub fn push_context(&mut self, level: log::Level, ctx: &str) {
+        self.context_log.push(ctx, level, self.num_gates());
     }
 
     pub fn pop_context(&mut self) {
