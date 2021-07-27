@@ -244,6 +244,7 @@ mod tests {
                 power_bits.push(cur_power % 2);
                 cur_power /= 2;
             }
+            power_bits = power_bits.iter().cloned().rev().collect::<Vec<_>>();
 
             let num_power_bits = power_bits.len();
 
