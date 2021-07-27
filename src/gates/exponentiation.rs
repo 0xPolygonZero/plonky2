@@ -56,6 +56,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let base = vars.local_wires[self.wires_base()];
         let power = vars.local_wires[self.wires_power()];
+        let computed_output = base.exp(power.to_canonical_u64());
 
         let power_bits: Vec<_> = (0..self.num_power_bits)
             .map(|i| vars.local_wires[self.wires_power_bit(i)])
@@ -66,15 +67,22 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 
         let mut constraints = Vec::new();
 
-        let computed_power = reduce_with_powers(&power_bits, F::Extension::TWO);
+        let power_bits_reversed = &power_bits.iter().cloned().rev().collect::<Vec<_>>()[..];
+        let computed_power = reduce_with_powers(power_bits_reversed, F::Extension::TWO);
         constraints.push(power - computed_power);
 
-        let mut current_intermediate_value = F::Extension::ZERO;
+        let mut current_intermediate_value = F::Extension::ONE;
         for i in 0..self.num_power_bits {
-            let computed_intermediate_value = current_intermediate_value + power_bits[i];
+            let computed_intermediate_value = if power_bits[i] == F::Extension::ONE {
+                current_intermediate_value * base
+            } else {
+                current_intermediate_value
+            };
             constraints.push(computed_intermediate_value - intermediate_values[i]);
-            current_intermediate_value = computed_intermediate_value * base;
+            current_intermediate_value = computed_intermediate_value * computed_intermediate_value;
         }
+
+        constraints.push(computed_output - intermediate_values[self.num_power_bits - 1]);
 
         constraints
     }
@@ -148,12 +156,15 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
         let power_bits = (0..num_power_bits)
             .map(|i| get_local_wire(self.gate.wires_power_bit(i)))
             .collect::<Vec<_>>();
-        let mut intermediate_values = Vec::new();
 
-        let mut current_intermediate_value = F::ZERO;
+        let mut intermediate_values = Vec::new();
+        let mut current_intermediate_value = F::ONE;
         for i in 0..num_power_bits {
-            intermediate_values.push(current_intermediate_value + power_bits[i]);
-            current_intermediate_value = (current_intermediate_value + power_bits[i]) * base;
+            if power_bits[i] == F::ONE {
+                current_intermediate_value *= base;
+            }
+            intermediate_values.push(current_intermediate_value);
+            current_intermediate_value *= current_intermediate_value;
         }
 
         let mut result = GeneratedValues::<F>::with_capacity(num_power_bits);
@@ -217,6 +228,7 @@ mod tests {
                 power_bits.push(cur_power % 2);
                 cur_power /= 2;
             }
+            power_bits = power_bits.iter().cloned().rev().collect::<Vec<_>>();
 
             let num_power_bits = power_bits.len();
 
@@ -232,11 +244,13 @@ mod tests {
             v.extend(power_bits_F.clone());
 
             let mut intermediate_values = Vec::new();
-            let mut current_intermediate_value = F::ZERO;
+            let mut current_intermediate_value = F::ONE;
             for i in 0..num_power_bits {
-                current_intermediate_value += power_bits_F[i];
+                if power_bits[i] == 1 {
+                    current_intermediate_value *= base;
+                }
                 intermediate_values.push(current_intermediate_value);
-                current_intermediate_value *= base;
+                current_intermediate_value *= current_intermediate_value;
             }
             v.extend(intermediate_values);
 
@@ -245,36 +259,22 @@ mod tests {
 
         let mut rng = rand::thread_rng();
 
-        let base = F::rand();
+        let base = F::TWO;
         let power = rng.gen::<usize>() % (1 << MAX_POWER_BITS);
-        let num_power_bits = log2_ceil(power);
+        let num_power_bits = log2_ceil(power + 1);
         let gate = ExponentiationGate::<F, D> {
             num_power_bits,
             _phantom: PhantomData,
         };
 
-        let good_vars = EvaluationVars {
+        let vars = EvaluationVars {
             local_constants: &[],
             local_wires: &get_wires(base, power as u64),
             public_inputs_hash: &Hash::rand(),
         };
         assert!(
-            gate.eval_unfiltered(good_vars).iter().all(|x| x.is_zero()),
+            gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),
             "Gate constraints are not satisfied."
-        );
-
-        let not_base = F::rand();
-        let bad_base_vars = EvaluationVars {
-            local_constants: &[],
-            local_wires: &get_wires(not_base, power as u64),
-            public_inputs_hash: &Hash::rand(),
-        };
-        assert!(
-            !gate
-                .eval_unfiltered(bad_base_vars)
-                .iter()
-                .all(|x| x.is_zero()),
-            "Gate constraints are satisfied but should not be."
         );
     }
 }
