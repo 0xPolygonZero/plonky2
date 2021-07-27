@@ -44,9 +44,13 @@ impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
         2 + i
     }
 
+    pub fn wires_output(&self) -> usize {
+        2 + self.num_power_bits
+    }
+
     pub fn wires_intermediate_value(&self, i: usize) -> usize {
         debug_assert!(i < self.num_power_bits);
-        2 + self.num_power_bits + i
+        3 + self.num_power_bits + i
     }
 }
 
@@ -58,7 +62,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let base = vars.local_wires[self.wires_base()];
         let power = vars.local_wires[self.wires_power()];
-        let computed_output = base.exp(power.to_canonical_u64());
 
         let power_bits: Vec<_> = (0..self.num_power_bits)
             .map(|i| vars.local_wires[self.wires_power_bit(i)])
@@ -66,6 +69,8 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
         let intermediate_values: Vec<_> = (0..self.num_power_bits)
             .map(|i| vars.local_wires[self.wires_intermediate_value(i)])
             .collect();
+
+        let output = vars.local_wires[self.wires_output()];
 
         let mut constraints = Vec::new();
 
@@ -87,6 +92,8 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
                 prev_intermediate_value * (cur_bit * base + not_cur_bit);
             constraints.push(computed_intermediate_value - intermediate_values[i]);
         }
+
+        constraints.push(output - intermediate_values[self.num_power_bits - 1]);
 
         constraints
     }
@@ -124,7 +131,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
     }
 
     fn num_constraints(&self) -> usize {
-        self.num_power_bits + 1
+        self.num_power_bits + 2
     }
 }
 
@@ -157,11 +164,12 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
 
         let num_power_bits = self.gate.num_power_bits;
         let base = get_local_wire(self.gate.wires_base());
+
         let power_bits = (0..num_power_bits)
             .map(|i| get_local_wire(self.gate.wires_power_bit(i)))
             .collect::<Vec<_>>();
-
         let mut intermediate_values = Vec::new();
+
         let mut current_intermediate_value = F::ONE;
         for i in 0..num_power_bits {
             if power_bits[i] == F::ONE {
@@ -176,6 +184,9 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
             let intermediate_value_wire = local_wire(self.gate.wires_intermediate_value(i));
             result.set_wire(intermediate_value_wire, intermediate_values[i]);
         }
+
+        let output_wire = local_wire(self.gate.wires_output());
+        result.set_wire(output_wire, intermediate_values[num_power_bits - 1]);
 
         result
     }
@@ -208,8 +219,9 @@ mod tests {
         assert_eq!(gate.wires_power(), 1);
         assert_eq!(gate.wires_power_bit(0), 2);
         assert_eq!(gate.wires_power_bit(4), 6);
-        assert_eq!(gate.wires_intermediate_value(0), 7);
-        assert_eq!(gate.wires_intermediate_value(4), 11);
+        assert_eq!(gate.wires_output(), 7);
+        assert_eq!(gate.wires_intermediate_value(0), 8);
+        assert_eq!(gate.wires_intermediate_value(4), 12);
     }
 
     #[test]
@@ -255,6 +267,8 @@ mod tests {
                 intermediate_values.push(current_intermediate_value);
                 current_intermediate_value *= current_intermediate_value;
             }
+            let output_value = intermediate_values[num_power_bits - 1];
+            v.push(output_value);
             v.extend(intermediate_values);
 
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
