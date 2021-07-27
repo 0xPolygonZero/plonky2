@@ -8,7 +8,7 @@ use crate::gates::gate::Gate;
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::plonk_common::reduce_with_powers;
 use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars};
+use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
@@ -88,6 +88,45 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
             let cur_bit = power_bits[self.num_power_bits - i - 1];
 
             let not_cur_bit = F::Extension::ONE - cur_bit;
+            let computed_intermediate_value =
+                prev_intermediate_value * (cur_bit * base + not_cur_bit);
+            constraints.push(computed_intermediate_value - intermediate_values[i]);
+        }
+
+        constraints.push(output - intermediate_values[self.num_power_bits - 1]);
+
+        constraints
+    }
+
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+        let base = vars.local_wires[self.wires_base()];
+        let power = vars.local_wires[self.wires_power()];
+
+        let power_bits: Vec<_> = (0..self.num_power_bits)
+            .map(|i| vars.local_wires[self.wires_power_bit(i)])
+            .collect();
+        let intermediate_values: Vec<_> = (0..self.num_power_bits)
+            .map(|i| vars.local_wires[self.wires_intermediate_value(i)])
+            .collect();
+
+        let output = vars.local_wires[self.wires_output()];
+
+        let mut constraints = Vec::new();
+
+        let computed_power = reduce_with_powers(&power_bits, F::TWO);
+        constraints.push(power - computed_power);
+
+        for i in 0..self.num_power_bits {
+            let prev_intermediate_value = if i == 0 {
+                F::ONE
+            } else {
+                intermediate_values[i - 1].square()
+            };
+
+            // power_bits is in LE order, but we accumulate in BE order.
+            let cur_bit = power_bits[self.num_power_bits - i - 1];
+
+            let not_cur_bit = F::ONE - cur_bit;
             let computed_intermediate_value =
                 prev_intermediate_value * (cur_bit * base + not_cur_bit);
             constraints.push(computed_intermediate_value - intermediate_values[i]);
