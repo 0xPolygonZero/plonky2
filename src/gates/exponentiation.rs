@@ -22,9 +22,10 @@ pub(crate) struct ExponentiationGate<F: Extendable<D>, const D: usize> {
 }
 
 impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
-    pub fn new(power_bits: usize) -> Self {
+    pub fn new(num_power_bits: usize) -> Self {
+        debug_assert!(num_power_bits < MAX_POWER_BITS);
         Self {
-            num_power_bits: power_bits,
+            num_power_bits,
             _phantom: PhantomData,
         }
     }
