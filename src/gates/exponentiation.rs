@@ -174,12 +174,15 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 
             let not_cur_bit = builder.sub_extension(one, cur_bit);
             let mul_by = builder.mul_add_extension(cur_bit, base, not_cur_bit);
-            let computed_intermediate_value = builder.mul_extension(prev_intermediate_value, mul_by);
-            let intermediate_value_diff = builder.sub_extension(computed_intermediate_value, intermediate_values[i]);
+            let computed_intermediate_value =
+                builder.mul_extension(prev_intermediate_value, mul_by);
+            let intermediate_value_diff =
+                builder.sub_extension(computed_intermediate_value, intermediate_values[i]);
             constraints.push(intermediate_value_diff);
         }
 
-        let output_diff = builder.sub_extension(output, intermediate_values[self.num_power_bits - 1]);
+        let output_diff =
+            builder.sub_extension(output, intermediate_values[self.num_power_bits - 1]);
         constraints.push(output_diff);
 
         constraints
@@ -251,7 +254,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
 
         let mut current_intermediate_value = F::ONE;
         for i in 0..num_power_bits {
-            if power_bits[i] == F::ONE {
+            if power_bits[num_power_bits - i - 1] == F::ONE {
                 current_intermediate_value *= base;
             }
             intermediate_values.push(current_intermediate_value);
@@ -259,7 +262,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
         }
 
         let mut result = GeneratedValues::<F>::with_capacity(num_power_bits);
-        for i in 0..=num_power_bits {
+        for i in 0..num_power_bits {
             let intermediate_value_wire = local_wire(self.gate.wires_intermediate_value(i));
             result.set_wire(intermediate_value_wire, intermediate_values[i]);
         }
@@ -323,7 +326,6 @@ mod tests {
                 power_bits.push(cur_power % 2);
                 cur_power /= 2;
             }
-            power_bits = power_bits.iter().cloned().rev().collect::<Vec<_>>();
 
             let num_power_bits = power_bits.len();
 
@@ -341,7 +343,7 @@ mod tests {
             let mut intermediate_values = Vec::new();
             let mut current_intermediate_value = F::ONE;
             for i in 0..num_power_bits {
-                if power_bits[i] == 1 {
+                if power_bits[num_power_bits - i - 1] == 1 {
                     current_intermediate_value *= base;
                 }
                 intermediate_values.push(current_intermediate_value);
