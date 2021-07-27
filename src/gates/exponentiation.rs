@@ -121,7 +121,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
     }
 
     fn num_constraints(&self) -> usize {
-        self.num_power_bits + 2
+        self.num_power_bits + 1
     }
 }
 
