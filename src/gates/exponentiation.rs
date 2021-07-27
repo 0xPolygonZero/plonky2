@@ -6,7 +6,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::Gate;
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::plonk_common::reduce_with_powers;
+use crate::plonk_common::{reduce_with_powers, reduce_with_powers_recursive};
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::wire::Wire;
@@ -142,7 +142,47 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        todo!()
+        let base = vars.local_wires[self.wires_base()];
+        let power = vars.local_wires[self.wires_power()];
+
+        let power_bits: Vec<_> = (0..self.num_power_bits)
+            .map(|i| vars.local_wires[self.wires_power_bit(i)])
+            .collect();
+        let intermediate_values: Vec<_> = (0..self.num_power_bits)
+            .map(|i| vars.local_wires[self.wires_intermediate_value(i)])
+            .collect();
+
+        let output = vars.local_wires[self.wires_output()];
+
+        let mut constraints = Vec::new();
+
+        let two = builder.constant(F::TWO);
+        let computed_power = reduce_with_powers_recursive(builder, &power_bits, two);
+        let power_diff = builder.sub_extension(power, computed_power);
+        constraints.push(power_diff);
+
+        let one = builder.constant_extension(F::Extension::ONE);
+        for i in 0..self.num_power_bits {
+            let prev_intermediate_value = if i == 0 {
+                one
+            } else {
+                builder.square_extension(intermediate_values[i - 1])
+            };
+
+            // power_bits is in LE order, but we accumulate in BE order.
+            let cur_bit = power_bits[self.num_power_bits - i - 1];
+
+            let not_cur_bit = builder.sub_extension(one, cur_bit);
+            let mul_by = builder.mul_add_extension(cur_bit, base, not_cur_bit);
+            let computed_intermediate_value = builder.mul_extension(prev_intermediate_value, mul_by);
+            let intermediate_value_diff = builder.sub_extension(computed_intermediate_value, intermediate_values[i]);
+            constraints.push(intermediate_value_diff);
+        }
+
+        let output_diff = builder.sub_extension(output, intermediate_values[self.num_power_bits - 1]);
+        constraints.push(output_diff);
+
+        constraints
     }
 
     fn generators(
