@@ -36,6 +36,12 @@ pub(crate) fn test_low_degree<F: Extendable<D>, G: Gate<F, D>, const D: usize>(g
         .map(|p| p.degree())
         .collect::<Vec<_>>();
 
+    assert_eq!(
+        constraint_eval_degrees.len(),
+        gate.num_constraints(),
+        "eval should return num_constraints() constraints"
+    );
+
     let expected_eval_degree = WITNESS_DEGREE * gate.degree();
 
     assert!(

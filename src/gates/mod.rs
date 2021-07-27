@@ -12,6 +12,7 @@ pub mod insertion;
 pub mod interpolation;
 pub(crate) mod noop;
 pub(crate) mod public_input;
+pub mod reducing;
 
 #[cfg(test)]
 mod gate_testing;

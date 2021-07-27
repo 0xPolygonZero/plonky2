@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::circuit_data::CommonCircuitData;
-use crate::context;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
@@ -15,8 +14,9 @@ use crate::plonk_common::PlonkPolynomials;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::proof::{FriProof, FriProofTarget, Hash, HashTarget, OpeningSet, OpeningSetTarget};
 use crate::timed;
-use crate::util::scaling::ReducingFactor;
+use crate::util::reducing::ReducingFactor;
 use crate::util::{log2_ceil, log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
+use crate::with_context;
 
 /// Two (~64 bit) field elements gives ~128 bit security.
 pub const SALT_SIZE: usize = 2;
@@ -283,7 +283,7 @@ impl<const D: usize> OpeningProofTarget<D> {
 
         let alpha = challenger.get_extension_challenge(builder);
 
-        context!(
+        with_context!(
             builder,
             "verify FRI proof",
             builder.verify_fri_proof(
