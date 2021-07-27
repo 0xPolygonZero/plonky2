@@ -85,8 +85,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
             constraints.push(computed_intermediate_value - intermediate_values[i]);
         }
 
-        constraints.push(computed_output - intermediate_values[self.num_power_bits - 1]);
-
         constraints
     }
 
