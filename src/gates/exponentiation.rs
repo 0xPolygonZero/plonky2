@@ -38,6 +38,7 @@ impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
         1
     }
 
+    /// The `i`th bit of the exponent, in little-endian order.
     pub fn wires_power_bit(&self, i: usize) -> usize {
         debug_assert!(i < self.num_power_bits);
         2 + i
