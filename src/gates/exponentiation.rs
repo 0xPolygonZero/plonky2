@@ -73,11 +73,10 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 
         let mut current_intermediate_value = F::Extension::ONE;
         for i in 0..self.num_power_bits {
-            let computed_intermediate_value = if power_bits[i] == F::Extension::ONE {
-                current_intermediate_value * base
-            } else {
-                current_intermediate_value
-            };
+            let cur_bit = power_bits[i];
+            let not_cur_bit = F::Extension::ONE - cur_bit;
+            let computed_intermediate_value =
+                current_intermediate_value * (cur_bit * base + not_cur_bit);
             constraints.push(computed_intermediate_value - intermediate_values[i]);
             current_intermediate_value = computed_intermediate_value * computed_intermediate_value;
         }
