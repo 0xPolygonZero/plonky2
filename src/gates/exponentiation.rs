@@ -38,6 +38,7 @@ impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
         1
     }
 
+    /// The `i`th bit of the exponent, in little-endian order.
     pub fn wires_power_bit(&self, i: usize) -> usize {
         debug_assert!(i < self.num_power_bits);
         2 + i
@@ -68,21 +69,22 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 
         let mut constraints = Vec::new();
 
-        let power_bits_reversed = &power_bits.iter().cloned().rev().collect::<Vec<_>>()[..];
-        let computed_power = reduce_with_powers(power_bits_reversed, F::Extension::TWO);
+        let computed_power = reduce_with_powers(&power_bits, F::Extension::TWO);
         constraints.push(power - computed_power);
 
         for i in 0..self.num_power_bits {
-            let current_intermediate_value = if i == 0 {
+            let prev_intermediate_value = if i == 0 {
                 F::Extension::ONE
             } else {
-                intermediate_values[i - 1] * intermediate_values[i - 1]
+                intermediate_values[i - 1].square()
             };
 
-            let cur_bit = power_bits[i];
+            // power_bits is in LE order, but we accumulate in BE order.
+            let cur_bit = power_bits[self.num_power_bits - i - 1];
+
             let not_cur_bit = F::Extension::ONE - cur_bit;
             let computed_intermediate_value =
-                current_intermediate_value * (cur_bit * base + not_cur_bit);
+                prev_intermediate_value * (cur_bit * base + not_cur_bit);
             constraints.push(computed_intermediate_value - intermediate_values[i]);
         }
 
@@ -136,7 +138,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
-        let mut deps = Vec::new();
+        let mut deps = Vec::with_capacity(self.gate.num_power_bits + 2);
         deps.push(local_target(self.gate.wires_base()));
         deps.push(local_target(self.gate.wires_power()));
         for i in 0..self.gate.num_power_bits {
@@ -230,7 +232,6 @@ mod tests {
                 power_bits.push(cur_power % 2);
                 cur_power /= 2;
             }
-            power_bits = power_bits.iter().cloned().rev().collect::<Vec<_>>();
 
             let num_power_bits = power_bits.len();
 
