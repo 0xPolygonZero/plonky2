@@ -171,9 +171,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 
             // power_bits is in LE order, but we accumulate in BE order.
             let cur_bit = power_bits[self.num_power_bits - i - 1];
-
-            let not_cur_bit = builder.sub_extension(one, cur_bit);
-            let mul_by = builder.mul_add_extension(cur_bit, base, not_cur_bit);
+            let mul_by = builder.select_ext(cur_bit, base, one);
             let computed_intermediate_value =
                 builder.mul_extension(prev_intermediate_value, mul_by);
             let intermediate_value_diff =
@@ -261,7 +259,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
             current_intermediate_value *= current_intermediate_value;
         }
 
-        let mut result = GeneratedValues::<F>::with_capacity(num_power_bits);
+        let mut result = GeneratedValues::<F>::with_capacity(num_power_bits + 1);
         for i in 0..num_power_bits {
             let intermediate_value_wire = local_wire(self.gate.wires_intermediate_value(i));
             result.set_wire(intermediate_value_wire, intermediate_values[i]);
