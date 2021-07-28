@@ -6,7 +6,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::Gate;
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::plonk_common::{reduce_with_powers, reduce_with_powers_recursive};
+use crate::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::wire::Wire;
@@ -160,7 +160,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
         let mut constraints = Vec::new();
 
         let two = builder.constant(F::TWO);
-        let computed_power = reduce_with_powers_recursive(builder, &power_bits, two);
+        let computed_power = reduce_with_powers_ext_recursive(builder, &power_bits, two);
         let power_diff = builder.sub_extension(power, computed_power);
         constraints.push(power_diff);
 
