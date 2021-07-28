@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
+use crate::gates::exponentiation::ExponentiationGate;
 use crate::target::Target;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -193,14 +194,43 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Exponentiate `base` to the power of `exponent`, where `exponent < 2^num_bits`.
     pub fn exp(&mut self, base: Target, exponent: Target, num_bits: usize) -> Target {
         let exponent_bits = self.split_le(exponent, num_bits);
-        self.exp_from_bits(base, exponent_bits.iter())
+
+        let gate = ExponentiationGate::new(exponent_bits.len());
+        let gate_index = self.add_gate(gate.clone(), vec![]);
+
+        self.route(exponent, Target::wire(gate_index, gate.wire_power()));
+        exponent_bits.iter().enumerate().for_each(|(i, &bit)| {
+            self.route(bit, Target::wire(gate_index, gate.wire_power_bit(i)));
+        });
+
+        Target::wire(gate_index, gate.wire_output())
     }
 
     /// Exponentiate `base` to the power of a known `exponent`.
     // TODO: Test
     pub fn exp_u64(&mut self, base: Target, exponent: u64) -> Target {
-        let base_ext = self.convert_to_ext(base);
-        self.exp_u64_extension(base_ext, exponent).0[0]
+        let mut exp_bits = Vec::new();
+        let mut cur_exp = exponent;
+        while cur_exp > 0 {
+            exp_bits.push(cur_exp % 2);
+            cur_exp /= 2;
+        }
+
+        let exp_target = self.constant(F::from_canonical_u64(exponent));
+        let exp_bits_targets: Vec<_> = exp_bits
+            .iter()
+            .map(|b| self.constant(F::from_canonical_u64(*b)))
+            .collect();
+
+        let gate = ExponentiationGate::new(exp_bits.len());
+        let gate_index = self.add_gate(gate.clone(), vec![]);
+
+        self.route(exp_target, Target::wire(gate_index, gate.wire_power()));
+        exp_bits_targets.iter().enumerate().for_each(|(i, &bit)| {
+            self.route(bit, Target::wire(gate_index, gate.wire_power_bit(i)));
+        });
+
+        Target::wire(gate_index, gate.wire_output())
     }
 
     /// Computes `x / y`. Results in an unsatisfiable instance if `y = 0`.
