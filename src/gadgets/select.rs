@@ -10,24 +10,24 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Note: This does not range-check `b`.
     pub fn select_ext(
         &mut self,
-        b: Target,
+        b: ExtensionTarget<D>,
         x: ExtensionTarget<D>,
         y: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let b_ext = self.convert_to_ext(b);
         let gate = self.num_gates();
         // Holds `by - y`.
         let first_out =
             ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_first_output());
-        self.double_arithmetic_extension(F::ONE, F::NEG_ONE, b_ext, y, y, b_ext, x, first_out)
+        self.double_arithmetic_extension(F::ONE, F::NEG_ONE, b, y, y, b, x, first_out)
             .1
     }
 
     /// See `select_ext`.
     pub fn select(&mut self, b: Target, x: Target, y: Target) -> Target {
+        let b_ext = self.convert_to_ext(b);
         let x_ext = self.convert_to_ext(x);
         let y_ext = self.convert_to_ext(y);
-        self.select_ext(b, x_ext, y_ext).to_target_array()[0]
+        self.select_ext(b_ext, x_ext, y_ext).to_target_array()[0]
     }
 }
 
@@ -54,13 +54,13 @@ mod tests {
         let (x, y) = (FF::rand(), FF::rand());
         let xt = builder.add_virtual_extension_target();
         let yt = builder.add_virtual_extension_target();
-        let truet = builder.add_virtual_target();
-        let falset = builder.add_virtual_target();
+        let truet = builder.add_virtual_extension_target();
+        let falset = builder.add_virtual_extension_target();
 
         pw.set_extension_target(xt, x);
         pw.set_extension_target(yt, y);
-        pw.set_target(truet, F::ONE);
-        pw.set_target(falset, F::ZERO);
+        pw.set_extension_target(truet, FF::ONE);
+        pw.set_extension_target(falset, FF::ZERO);
 
         let should_be_x = builder.select_ext(truet, xt, yt);
         let should_be_y = builder.select_ext(falset, xt, yt);
