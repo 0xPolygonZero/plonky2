@@ -253,6 +253,9 @@ pub fn evaluate_gate_constraints_recursively<F: Extendable<D>, const D: usize>(
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
 /// linear combination of gate constraints, plus some other terms relating to the permutation
 /// argument. All such terms should vanish on `H`.
+///
+/// Assumes `x != 1`; if `x` could be 1 then this is unsound. This is fine if `x` is a random
+/// variable drawn from a sufficiently large domain.
 pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     common_data: &CommonCircuitData<F, D>,
@@ -314,7 +317,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
             })
             .collect::<Vec<_>>();
         let quotient_values = (0..common_data.config.num_routed_wires)
-            .map(|j| builder.div_unsafe_extension(numerator_values[j], denominator_values[j]))
+            .map(|j| builder.div_extension(numerator_values[j], denominator_values[j]))
             .collect::<Vec<_>>();
 
         // The partial products considered for this iteration of `i`.

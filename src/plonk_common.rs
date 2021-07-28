@@ -119,6 +119,10 @@ pub(crate) fn eval_l_1<F: Field>(n: usize, x: F) -> F {
     eval_zero_poly(n, x) / (F::from_canonical_usize(n) * (x - F::ONE))
 }
 
+/// Evaluates the Lagrange basis L_1(x), which has L_1(1) = 1 and vanishes at all other points in
+/// the order-`n` subgroup.
+///
+/// Assumes `x != 1`; if `x` could be 1 then this is unsound.
 pub(crate) fn eval_l_1_recursively<F: Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     n: usize,
