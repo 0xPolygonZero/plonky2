@@ -12,9 +12,7 @@ use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::wire::Wire;
 use crate::witness::PartialWitness;
 
-const MAX_POWER_BITS: usize = 8;
-
-/// A gate for inserting a value into a list at a non-deterministic location.
+/// A gate for raising a value to a power.
 #[derive(Clone, Debug)]
 pub(crate) struct ExponentiationGate<F: Extendable<D>, const D: usize> {
     pub num_power_bits: usize,
@@ -23,32 +21,35 @@ pub(crate) struct ExponentiationGate<F: Extendable<D>, const D: usize> {
 
 impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
     pub fn new(num_power_bits: usize) -> Self {
-        debug_assert!(num_power_bits < MAX_POWER_BITS);
         Self {
             num_power_bits,
             _phantom: PhantomData,
         }
     }
 
-    pub fn wires_base(&self) -> usize {
+    pub fn max_power_bits(num_wires: usize, num_routed_wires: usize) -> usize {
+        num_wires / num_routed_wires
+    }
+
+    pub fn wire_base(&self) -> usize {
         0
     }
 
-    pub fn wires_power(&self) -> usize {
+    pub fn wire_power(&self) -> usize {
         1
     }
 
     /// The `i`th bit of the exponent, in little-endian order.
-    pub fn wires_power_bit(&self, i: usize) -> usize {
+    pub fn wire_power_bit(&self, i: usize) -> usize {
         debug_assert!(i < self.num_power_bits);
         2 + i
     }
 
-    pub fn wires_output(&self) -> usize {
+    pub fn wire_output(&self) -> usize {
         2 + self.num_power_bits
     }
 
-    pub fn wires_intermediate_value(&self, i: usize) -> usize {
+    pub fn wire_intermediate_value(&self, i: usize) -> usize {
         debug_assert!(i < self.num_power_bits);
         3 + self.num_power_bits + i
     }
@@ -60,17 +61,17 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
-        let base = vars.local_wires[self.wires_base()];
-        let power = vars.local_wires[self.wires_power()];
+        let base = vars.local_wires[self.wire_base()];
+        let power = vars.local_wires[self.wire_power()];
 
         let power_bits: Vec<_> = (0..self.num_power_bits)
-            .map(|i| vars.local_wires[self.wires_power_bit(i)])
+            .map(|i| vars.local_wires[self.wire_power_bit(i)])
             .collect();
         let intermediate_values: Vec<_> = (0..self.num_power_bits)
-            .map(|i| vars.local_wires[self.wires_intermediate_value(i)])
+            .map(|i| vars.local_wires[self.wire_intermediate_value(i)])
             .collect();
 
-        let output = vars.local_wires[self.wires_output()];
+        let output = vars.local_wires[self.wire_output()];
 
         let mut constraints = Vec::new();
 
@@ -99,17 +100,17 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
     }
 
     fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let base = vars.local_wires[self.wires_base()];
-        let power = vars.local_wires[self.wires_power()];
+        let base = vars.local_wires[self.wire_base()];
+        let power = vars.local_wires[self.wire_power()];
 
         let power_bits: Vec<_> = (0..self.num_power_bits)
-            .map(|i| vars.local_wires[self.wires_power_bit(i)])
+            .map(|i| vars.local_wires[self.wire_power_bit(i)])
             .collect();
         let intermediate_values: Vec<_> = (0..self.num_power_bits)
-            .map(|i| vars.local_wires[self.wires_intermediate_value(i)])
+            .map(|i| vars.local_wires[self.wire_intermediate_value(i)])
             .collect();
 
-        let output = vars.local_wires[self.wires_output()];
+        let output = vars.local_wires[self.wire_output()];
 
         let mut constraints = Vec::new();
 
@@ -142,17 +143,17 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        let base = vars.local_wires[self.wires_base()];
-        let power = vars.local_wires[self.wires_power()];
+        let base = vars.local_wires[self.wire_base()];
+        let power = vars.local_wires[self.wire_power()];
 
         let power_bits: Vec<_> = (0..self.num_power_bits)
-            .map(|i| vars.local_wires[self.wires_power_bit(i)])
+            .map(|i| vars.local_wires[self.wire_power_bit(i)])
             .collect();
         let intermediate_values: Vec<_> = (0..self.num_power_bits)
-            .map(|i| vars.local_wires[self.wires_intermediate_value(i)])
+            .map(|i| vars.local_wires[self.wire_intermediate_value(i)])
             .collect();
 
-        let output = vars.local_wires[self.wires_output()];
+        let output = vars.local_wires[self.wire_output()];
 
         let mut constraints = Vec::new();
 
@@ -199,7 +200,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
     }
 
     fn num_wires(&self) -> usize {
-        self.wires_intermediate_value(self.num_power_bits - 1) + 1
+        self.wire_intermediate_value(self.num_power_bits - 1) + 1
     }
 
     fn num_constants(&self) -> usize {
@@ -226,10 +227,10 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
         let local_target = |input| Target::wire(self.gate_index, input);
 
         let mut deps = Vec::with_capacity(self.gate.num_power_bits + 2);
-        deps.push(local_target(self.gate.wires_base()));
-        deps.push(local_target(self.gate.wires_power()));
+        deps.push(local_target(self.gate.wire_base()));
+        deps.push(local_target(self.gate.wire_power()));
         for i in 0..self.gate.num_power_bits {
-            deps.push(local_target(self.gate.wires_power_bit(i)));
+            deps.push(local_target(self.gate.wire_power_bit(i)));
         }
         deps
     }
@@ -243,10 +244,10 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
         let get_local_wire = |input| witness.get_wire(local_wire(input));
 
         let num_power_bits = self.gate.num_power_bits;
-        let base = get_local_wire(self.gate.wires_base());
+        let base = get_local_wire(self.gate.wire_base());
 
         let power_bits = (0..num_power_bits)
-            .map(|i| get_local_wire(self.gate.wires_power_bit(i)))
+            .map(|i| get_local_wire(self.gate.wire_power_bit(i)))
             .collect::<Vec<_>>();
         let mut intermediate_values = Vec::new();
 
@@ -259,13 +260,13 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
             current_intermediate_value *= current_intermediate_value;
         }
 
-        let mut result = GeneratedValues::<F>::with_capacity(num_power_bits + 1);
+        let mut result = GeneratedValues::with_capacity(num_power_bits + 1);
         for i in 0..num_power_bits {
-            let intermediate_value_wire = local_wire(self.gate.wires_intermediate_value(i));
+            let intermediate_value_wire = local_wire(self.gate.wire_intermediate_value(i));
             result.set_wire(intermediate_value_wire, intermediate_values[i]);
         }
 
-        let output_wire = local_wire(self.gate.wires_output());
+        let output_wire = local_wire(self.gate.wire_output());
         result.set_wire(output_wire, intermediate_values[num_power_bits - 1]);
 
         result
@@ -281,12 +282,14 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
-    use crate::gates::exponentiation::{ExponentiationGate, MAX_POWER_BITS};
+    use crate::gates::exponentiation::ExponentiationGate;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
     use crate::proof::Hash;
     use crate::util::log2_ceil;
     use crate::vars::EvaluationVars;
+
+    const MAX_POWER_BITS: usize = 17;
 
     #[test]
     fn wire_indices() {
@@ -295,13 +298,13 @@ mod tests {
             _phantom: PhantomData,
         };
 
-        assert_eq!(gate.wires_base(), 0);
-        assert_eq!(gate.wires_power(), 1);
-        assert_eq!(gate.wires_power_bit(0), 2);
-        assert_eq!(gate.wires_power_bit(4), 6);
-        assert_eq!(gate.wires_output(), 7);
-        assert_eq!(gate.wires_intermediate_value(0), 8);
-        assert_eq!(gate.wires_intermediate_value(4), 12);
+        assert_eq!(gate.wire_base(), 0);
+        assert_eq!(gate.wire_power(), 1);
+        assert_eq!(gate.wire_power_bit(0), 2);
+        assert_eq!(gate.wire_power_bit(4), 6);
+        assert_eq!(gate.wire_output(), 7);
+        assert_eq!(gate.wire_intermediate_value(0), 8);
+        assert_eq!(gate.wire_intermediate_value(4), 12);
     }
 
     #[test]
