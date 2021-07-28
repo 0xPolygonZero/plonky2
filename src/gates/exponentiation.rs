@@ -28,7 +28,9 @@ impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
     }
 
     pub fn max_power_bits(num_wires: usize, num_routed_wires: usize) -> usize {
-        num_wires / num_routed_wires
+        let max_for_routed_wires = num_routed_wires - 3;
+        let max_for_wires = (num_wires - 2) / 2;
+        max_for_routed_wires.min(max_for_wires)
     }
 
     pub fn wire_base(&self) -> usize {
