@@ -28,7 +28,7 @@ impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
         }
     }
 
-    pub fn max_power_bits(num_wires: usize, num_routed_wires: usize) -> usize {
+    fn max_power_bits(num_wires: usize, num_routed_wires: usize) -> usize {
         let max_for_routed_wires = num_routed_wires - 3;
         let max_for_wires = (num_wires - 3) / 2;
         max_for_routed_wires.min(max_for_wires)
@@ -297,15 +297,7 @@ mod tests {
         let config = CircuitConfig {
             num_wires: 120,
             num_routed_wires: 30,
-            security_bits: 0,
-            rate_bits: 0,
-            num_challenges: 0,
-            zero_knowledge: false,
-            fri_config: FriConfig {
-                proof_of_work_bits: 0,
-                reduction_arity_bits: Vec::new(),
-                num_query_rounds: 0,
-            },
+            ..CircuitConfig::large_config()
         };
 
         test_low_degree::<CrandallField, _, 4>(ExponentiationGate::new(config));
