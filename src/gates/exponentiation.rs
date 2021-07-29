@@ -6,7 +6,6 @@ use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::Gate;
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::wire::Wire;
@@ -210,7 +209,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
-        let mut deps = Vec::with_capacity(self.gate.num_power_bits + 2);
+        let mut deps = Vec::with_capacity(self.gate.num_power_bits + 1);
         deps.push(local_target(self.gate.wire_base()));
         for i in 0..self.gate.num_power_bits {
             deps.push(local_target(self.gate.wire_power_bit(i)));

@@ -3,7 +3,6 @@ use std::borrow::Borrow;
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
 use crate::gates::exponentiation::ExponentiationGate;
-use crate::plonk_common::reduce_with_powers_recursive;
 use crate::target::Target;
 use crate::util::log2_ceil;
 
