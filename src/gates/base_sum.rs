@@ -4,7 +4,7 @@ use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
-use crate::gates::gate::{Gate, GateRef};
+use crate::gates::gate::Gate;
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
 use crate::target::Target;
@@ -186,7 +186,6 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
 mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::gates::base_sum::BaseSumGate;
-    use crate::gates::gate::GateRef;
     use crate::gates::gate_testing::test_low_degree;
 
     #[test]

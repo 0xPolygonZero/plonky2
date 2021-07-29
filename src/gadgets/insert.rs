@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;

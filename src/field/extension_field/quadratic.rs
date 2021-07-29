@@ -3,7 +3,6 @@ use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use itertools::Itertools;
 use num::bigint::BigUint;
 use rand::Rng;
 use serde::{Deserialize, Serialize};

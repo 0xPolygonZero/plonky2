@@ -334,7 +334,7 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
-    use crate::gates::gate::{Gate, GateRef};
+    use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::gmimc::{GMiMCGate, W};
     use crate::generator::generate_partial_witness;

@@ -151,7 +151,7 @@ macro_rules! test_field_arithmetic {
     ($field:ty) => {
         mod field_arithmetic {
             use num::{bigint::BigUint, One, Zero};
-            use rand::{thread_rng, Rng};
+            use rand::Rng;
 
             use crate::field::field::Field;
 

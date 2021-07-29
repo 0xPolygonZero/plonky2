@@ -279,7 +279,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
 mod tests {
     use std::marker::PhantomData;
 
-    use rand::{thread_rng, Rng};
+    use rand::Rng;
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
