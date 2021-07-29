@@ -177,7 +177,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         base: Target,
         exponent_bits: impl Iterator<Item = impl Borrow<Target>>,
     ) -> Target {
-        let exp_bits_vec: Vec<Target> = exponent_bits.map(|b| *b.borrow()).collect::<Vec<_>>();
+        let exp_bits_vec: Vec<Target> = exponent_bits.map(|b| *b.borrow()).collect();
         let gate = ExponentiationGate::new(exp_bits_vec.len());
         let gate_index = self.add_gate(gate.clone(), vec![]);
 
