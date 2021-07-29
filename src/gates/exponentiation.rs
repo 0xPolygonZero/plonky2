@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::circuit_builder::CircuitBuilder;
+use crate::circuit_data::CircuitConfig;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
@@ -19,14 +20,15 @@ pub(crate) struct ExponentiationGate<F: Extendable<D>, const D: usize> {
 }
 
 impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
-    pub fn new(num_power_bits: usize) -> Self {
+    pub fn new(config: CircuitConfig) -> Self {
+        let num_power_bits = Self::max_power_bits(config.num_wires, config.num_routed_wires);
         Self {
             num_power_bits,
             _phantom: PhantomData,
         }
     }
 
-    pub fn max_power_bits(num_wires: usize, num_routed_wires: usize) -> usize {
+    fn max_power_bits(num_wires: usize, num_routed_wires: usize) -> usize {
         let max_for_routed_wires = num_routed_wires - 3;
         let max_for_wires = (num_wires - 3) / 2;
         max_for_routed_wires.min(max_for_wires)
@@ -261,9 +263,11 @@ mod tests {
 
     use rand::Rng;
 
+    use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field::Field;
+    use crate::fri::FriConfig;
     use crate::gates::exponentiation::ExponentiationGate;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
@@ -290,7 +294,13 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(ExponentiationGate::new(5));
+        let config = CircuitConfig {
+            num_wires: 120,
+            num_routed_wires: 30,
+            ..CircuitConfig::large_config()
+        };
+
+        test_low_degree::<CrandallField, _, 4>(ExponentiationGate::new(config));
     }
 
     #[test]
