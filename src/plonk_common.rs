@@ -159,6 +159,18 @@ pub(crate) fn reduce_with_powers<F: Field>(terms: &[F], alpha: F) -> F {
 
 pub(crate) fn reduce_with_powers_recursive<F: Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
+    terms: &[Target],
+    alpha: Target,
+) -> Target {
+    let mut sum = builder.zero();
+    for &term in terms.iter().rev() {
+        sum = builder.mul_add(sum, alpha, term);
+    }
+    sum
+}
+
+pub(crate) fn reduce_with_powers_ext_recursive<F: Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
     terms: &[ExtensionTarget<D>],
     alpha: Target,
 ) -> ExtensionTarget<D> {

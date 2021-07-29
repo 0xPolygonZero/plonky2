@@ -2,7 +2,10 @@ use std::borrow::Borrow;
 
 use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
+use crate::gates::exponentiation::ExponentiationGate;
+use crate::plonk_common::reduce_with_powers_recursive;
 use crate::target::Target;
+use crate::util::log2_ceil;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes `-x`.
@@ -167,7 +170,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         base
     }
 
-    // TODO: Optimize this, maybe with a new gate.
     // TODO: Test
     /// Exponentiate `base` to the power of `exponent`, given by its little-endian bits.
     pub fn exp_from_bits(
@@ -175,32 +177,36 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         base: Target,
         exponent_bits: impl Iterator<Item = impl Borrow<Target>>,
     ) -> Target {
-        let mut current = base;
-        let one = self.one();
-        let mut product = one;
+        let exp_bits_vec: Vec<Target> = exponent_bits.map(|b| *b.borrow()).collect();
+        let gate = ExponentiationGate::new(exp_bits_vec.len());
+        let gate_index = self.add_gate(gate.clone(), vec![]);
 
-        for bit in exponent_bits {
-            let multiplicand = self.select(*bit.borrow(), current, one);
-            product = self.mul(product, multiplicand);
-            current = self.mul(current, current);
-        }
+        let two = self.constant(F::TWO);
+        let exponent = reduce_with_powers_recursive(self, &exp_bits_vec[..], two);
 
-        product
+        self.route(base, Target::wire(gate_index, gate.wire_base()));
+        self.route(exponent, Target::wire(gate_index, gate.wire_power()));
+        exp_bits_vec.iter().enumerate().for_each(|(i, bit)| {
+            self.route(*bit, Target::wire(gate_index, gate.wire_power_bit(i)));
+        });
+
+        Target::wire(gate_index, gate.wire_output())
     }
 
-    // TODO: Optimize this, maybe with a new gate.
     // TODO: Test
     /// Exponentiate `base` to the power of `exponent`, where `exponent < 2^num_bits`.
     pub fn exp(&mut self, base: Target, exponent: Target, num_bits: usize) -> Target {
         let exponent_bits = self.split_le(exponent, num_bits);
+
         self.exp_from_bits(base, exponent_bits.iter())
     }
 
     /// Exponentiate `base` to the power of a known `exponent`.
     // TODO: Test
     pub fn exp_u64(&mut self, base: Target, exponent: u64) -> Target {
-        let base_ext = self.convert_to_ext(base);
-        self.exp_u64_extension(base_ext, exponent).0[0]
+        let exp_target = self.constant(F::from_canonical_u64(exponent));
+        let num_bits = log2_ceil(exponent as usize + 1);
+        self.exp(base, exp_target, num_bits)
     }
 
     /// Computes `x / y`. Results in an unsatisfiable instance if `y = 0`.

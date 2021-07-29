@@ -6,7 +6,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::field::Field;
 use crate::gates::gate::{Gate, GateRef};
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::plonk_common::{reduce_with_powers, reduce_with_powers_recursive};
+use crate::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
 use crate::target::Target;
 use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::witness::PartialWitness;
@@ -80,9 +80,9 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
         let sum = vars.local_wires[Self::WIRE_SUM];
         let reversed_sum = vars.local_wires[Self::WIRE_REVERSED_SUM];
         let mut limbs = vars.local_wires[self.limbs()].to_vec();
-        let computed_sum = reduce_with_powers_recursive(builder, &limbs, base);
+        let computed_sum = reduce_with_powers_ext_recursive(builder, &limbs, base);
         limbs.reverse();
-        let computed_reversed_sum = reduce_with_powers_recursive(builder, &limbs, base);
+        let computed_reversed_sum = reduce_with_powers_ext_recursive(builder, &limbs, base);
         let mut constraints = vec![
             builder.sub_extension(computed_sum, sum),
             builder.sub_extension(computed_reversed_sum, reversed_sum),
