@@ -129,7 +129,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             &gammas,
             &alphas,
         ),
-        "to compute vanishing polys"
+        "to compute quotient polys"
     );
 
     // Compute the quotient polynomials, aka `t` in the Plonk paper.
@@ -146,7 +146,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
                 quotient_poly.chunks(degree)
             })
             .collect(),
-        "to compute quotient polys"
+        "to split up quotient polys"
     );
 
     let quotient_polys_commitment = timed!(

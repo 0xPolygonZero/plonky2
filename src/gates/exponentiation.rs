@@ -39,23 +39,19 @@ impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
         0
     }
 
-    pub fn wire_power(&self) -> usize {
-        1
-    }
-
     /// The `i`th bit of the exponent, in little-endian order.
     pub fn wire_power_bit(&self, i: usize) -> usize {
         debug_assert!(i < self.num_power_bits);
-        2 + i
+        1 + i
     }
 
     pub fn wire_output(&self) -> usize {
-        2 + self.num_power_bits
+        1 + self.num_power_bits
     }
 
     pub fn wire_intermediate_value(&self, i: usize) -> usize {
         debug_assert!(i < self.num_power_bits);
-        3 + self.num_power_bits + i
+        2 + self.num_power_bits + i
     }
 }
 
@@ -66,7 +62,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let base = vars.local_wires[self.wire_base()];
-        let power = vars.local_wires[self.wire_power()];
 
         let power_bits: Vec<_> = (0..self.num_power_bits)
             .map(|i| vars.local_wires[self.wire_power_bit(i)])
@@ -78,9 +73,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
         let output = vars.local_wires[self.wire_output()];
 
         let mut constraints = Vec::new();
-
-        let computed_power = reduce_with_powers(&power_bits, F::Extension::TWO);
-        constraints.push(power - computed_power);
 
         for i in 0..self.num_power_bits {
             let prev_intermediate_value = if i == 0 {
@@ -105,7 +97,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 
     fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
         let base = vars.local_wires[self.wire_base()];
-        let power = vars.local_wires[self.wire_power()];
 
         let power_bits: Vec<_> = (0..self.num_power_bits)
             .map(|i| vars.local_wires[self.wire_power_bit(i)])
@@ -117,9 +108,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
         let output = vars.local_wires[self.wire_output()];
 
         let mut constraints = Vec::new();
-
-        let computed_power = reduce_with_powers(&power_bits, F::TWO);
-        constraints.push(power - computed_power);
 
         for i in 0..self.num_power_bits {
             let prev_intermediate_value = if i == 0 {
@@ -148,7 +136,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
         let base = vars.local_wires[self.wire_base()];
-        let power = vars.local_wires[self.wire_power()];
 
         let power_bits: Vec<_> = (0..self.num_power_bits)
             .map(|i| vars.local_wires[self.wire_power_bit(i)])
@@ -160,11 +147,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
         let output = vars.local_wires[self.wire_output()];
 
         let mut constraints = Vec::new();
-
-        let two = builder.constant(F::TWO);
-        let computed_power = reduce_with_powers_ext_recursive(builder, &power_bits, two);
-        let power_diff = builder.sub_extension(power, computed_power);
-        constraints.push(power_diff);
 
         let one = builder.constant_extension(F::Extension::ONE);
         for i in 0..self.num_power_bits {
@@ -216,7 +198,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
     }
 
     fn num_constraints(&self) -> usize {
-        self.num_power_bits + 2
+        self.num_power_bits + 1
     }
 }
 
@@ -232,7 +214,6 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
 
         let mut deps = Vec::with_capacity(self.gate.num_power_bits + 2);
         deps.push(local_target(self.gate.wire_base()));
-        deps.push(local_target(self.gate.wire_power()));
         for i in 0..self.gate.num_power_bits {
             deps.push(local_target(self.gate.wire_power_bit(i)));
         }
@@ -281,7 +262,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
 mod tests {
     use std::marker::PhantomData;
 
-    use rand::{thread_rng, Rng};
+    use rand::Rng;
 
     use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
@@ -305,12 +286,11 @@ mod tests {
         };
 
         assert_eq!(gate.wire_base(), 0);
-        assert_eq!(gate.wire_power(), 1);
-        assert_eq!(gate.wire_power_bit(0), 2);
-        assert_eq!(gate.wire_power_bit(4), 6);
-        assert_eq!(gate.wire_output(), 7);
-        assert_eq!(gate.wire_intermediate_value(0), 8);
-        assert_eq!(gate.wire_intermediate_value(4), 12);
+        assert_eq!(gate.wire_power_bit(0), 1);
+        assert_eq!(gate.wire_power_bit(4), 5);
+        assert_eq!(gate.wire_output(), 6);
+        assert_eq!(gate.wire_intermediate_value(0), 7);
+        assert_eq!(gate.wire_intermediate_value(4), 11);
     }
 
     #[test]
@@ -350,7 +330,6 @@ mod tests {
 
             let num_power_bits = power_bits.len();
 
-            let power_F = F::from_canonical_u64(power);
             let power_bits_F: Vec<_> = power_bits
                 .iter()
                 .map(|b| F::from_canonical_u64(*b))
@@ -358,7 +337,6 @@ mod tests {
 
             let mut v = Vec::new();
             v.push(base);
-            v.push(power_F);
             v.extend(power_bits_F.clone());
 
             let mut intermediate_values = Vec::new();

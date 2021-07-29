@@ -181,11 +181,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let gate = ExponentiationGate::new(self.config.clone());
         let gate_index = self.add_gate(gate.clone(), vec![]);
 
-        let two = self.constant(F::TWO);
-        let exponent = reduce_with_powers_recursive(self, &exp_bits_vec[..], two);
-
         self.route(base, Target::wire(gate_index, gate.wire_base()));
-        self.route(exponent, Target::wire(gate_index, gate.wire_power()));
         exp_bits_vec.iter().enumerate().for_each(|(i, bit)| {
             self.route(*bit, Target::wire(gate_index, gate.wire_power_bit(i)));
         });

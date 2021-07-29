@@ -8,7 +8,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::interpolation::interpolant;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
-use crate::gates::gate::{Gate, GateRef};
+use crate::gates::gate::Gate;
 use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::target::Target;
@@ -288,7 +288,6 @@ mod tests {
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::extension_field::FieldExtension;
     use crate::field::field::Field;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
@@ -319,7 +318,6 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        type F = CrandallField;
         test_low_degree::<CrandallField, _, 4>(InterpolationGate::new(4));
     }
 

@@ -219,7 +219,6 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        type F = CrandallField;
         test_low_degree::<CrandallField, _, 4>(ReducingGate::new(22));
     }
 }
