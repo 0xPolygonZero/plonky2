@@ -194,6 +194,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let config = self.config.clone();
         let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
         let subgroup_x = self.convert_to_ext(subgroup_x);
+        let vanish_zeta = self.sub_extension(subgroup_x, zeta);
+        let vanish_zeta_right = self.sub_extension(subgroup_x, zeta_right);
         let mut alpha = ReducingFactorTarget::new(alpha);
         let mut sum = self.zero_extension();
 
@@ -218,8 +220,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let single_composition_eval = alpha.reduce_base(&single_evals, self);
         let single_numerator =
             self.sub_extension(single_composition_eval, precomputed_reduced_evals.single);
-        let single_denominator = self.sub_extension(subgroup_x, zeta);
-        let quotient = self.div_unsafe_extension(single_numerator, single_denominator);
+        // This division is safe because the denominator will be nonzero unless zeta is in the
+        // codeword domain, which occurs with negligible probability given a large extension field.
+        let quotient = self.div_unsafe_extension(single_numerator, vanish_zeta);
         sum = self.add_extension(sum, quotient);
         alpha.reset();
 
@@ -242,9 +245,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             subgroup_x,
         );
         let zs_numerator = self.sub_extension(zs_composition_eval, interpol_val);
-        let vanish_zeta = self.sub_extension(subgroup_x, zeta);
-        let vanish_zeta_right = self.sub_extension(subgroup_x, zeta_right);
         let zs_denominator = self.mul_extension(vanish_zeta, vanish_zeta_right);
+        // This division is safe because the denominator will be nonzero unless zeta is in the
+        // codeword domain, which occurs with negligible probability given a large extension field.
         let zs_quotient = self.div_unsafe_extension(zs_numerator, zs_denominator);
         sum = alpha.shift(sum, self);
         sum = self.add_extension(sum, zs_quotient);
