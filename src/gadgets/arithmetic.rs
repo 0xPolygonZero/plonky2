@@ -33,12 +33,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         const_1: F,
         addend: Target,
     ) -> Target {
-        // See if we can determine the result without adding an `ArithmeticGate`.
-        if let Some(result) =
-            self.arithmetic_special_cases(const_0, multiplicand_0, multiplicand_1, const_1, addend)
-        {
-            return result;
-        }
         let multiplicand_0_ext = self.convert_to_ext(multiplicand_0);
         let multiplicand_1_ext = self.convert_to_ext(multiplicand_1);
         let addend_ext = self.convert_to_ext(addend);
@@ -51,64 +45,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             addend_ext,
         )
         .0[0]
-    }
-
-    /// Checks for special cases where the value of
-    /// `const_0 * multiplicand_0 * multiplicand_1 + const_1 * addend`
-    /// can be determined without adding an `ArithmeticGate`.
-    fn arithmetic_special_cases(
-        &mut self,
-        const_0: F,
-        multiplicand_0: Target,
-        multiplicand_1: Target,
-        const_1: F,
-        addend: Target,
-    ) -> Option<Target> {
-        let zero = self.zero();
-
-        let mul_0_const = self.target_as_constant(multiplicand_0);
-        let mul_1_const = self.target_as_constant(multiplicand_1);
-        let addend_const = self.target_as_constant(addend);
-
-        let first_term_zero =
-            const_0 == F::ZERO || multiplicand_0 == zero || multiplicand_1 == zero;
-        let second_term_zero = const_1 == F::ZERO || addend == zero;
-
-        // If both terms are constant, return their (constant) sum.
-        let first_term_const = if first_term_zero {
-            Some(F::ZERO)
-        } else if let (Some(x), Some(y)) = (mul_0_const, mul_1_const) {
-            Some(const_0 * x * y)
-        } else {
-            None
-        };
-        let second_term_const = if second_term_zero {
-            Some(F::ZERO)
-        } else {
-            addend_const.map(|x| const_1 * x)
-        };
-        if let (Some(x), Some(y)) = (first_term_const, second_term_const) {
-            return Some(self.constant(x + y));
-        }
-
-        if first_term_zero && const_1.is_one() {
-            return Some(addend);
-        }
-
-        if second_term_zero {
-            if let Some(x) = mul_0_const {
-                if (const_0 * x).is_one() {
-                    return Some(multiplicand_1);
-                }
-            }
-            if let Some(x) = mul_1_const {
-                if (const_1 * x).is_one() {
-                    return Some(multiplicand_0);
-                }
-            }
-        }
-
-        None
     }
 
     /// Computes `x * y + z`.

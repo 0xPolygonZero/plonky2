@@ -5,6 +5,7 @@ use num::Integer;
 
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::{Extendable, OEF};
+use crate::field::field_types::Field;
 use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
@@ -68,6 +69,17 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         multiplicand_1: ExtensionTarget<D>,
         addend: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
+        // See if we can determine the result without adding an `ArithmeticGate`.
+        if let Some(result) = self.arithmetic_extension_special_cases(
+            const_0,
+            const_1,
+            multiplicand_0,
+            multiplicand_1,
+            addend,
+        ) {
+            return result;
+        }
+
         let zero = self.zero_extension();
         self.double_arithmetic_extension(
             const_0,
@@ -80,6 +92,64 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             zero,
         )
         .0
+    }
+
+    /// Checks for special cases where the value of
+    /// `const_0 * multiplicand_0 * multiplicand_1 + const_1 * addend`
+    /// can be determined without adding an `ArithmeticGate`.
+    fn arithmetic_extension_special_cases(
+        &mut self,
+        const_0: F,
+        const_1: F,
+        multiplicand_0: ExtensionTarget<D>,
+        multiplicand_1: ExtensionTarget<D>,
+        addend: ExtensionTarget<D>,
+    ) -> Option<ExtensionTarget<D>> {
+        let zero = self.zero_extension();
+
+        let mul_0_const = self.target_as_constant_ext(multiplicand_0);
+        let mul_1_const = self.target_as_constant_ext(multiplicand_1);
+        let addend_const = self.target_as_constant_ext(addend);
+
+        let first_term_zero =
+            const_0 == F::ZERO || multiplicand_0 == zero || multiplicand_1 == zero;
+        let second_term_zero = const_1 == F::ZERO || addend == zero;
+
+        // If both terms are constant, return their (constant) sum.
+        let first_term_const = if first_term_zero {
+            Some(F::Extension::ZERO)
+        } else if let (Some(x), Some(y)) = (mul_0_const, mul_1_const) {
+            Some(x * y * const_0.into())
+        } else {
+            None
+        };
+        let second_term_const = if second_term_zero {
+            Some(F::Extension::ZERO)
+        } else {
+            addend_const.map(|x| x * const_1.into())
+        };
+        if let (Some(x), Some(y)) = (first_term_const, second_term_const) {
+            return Some(self.constant_extension(x + y));
+        }
+
+        if first_term_zero && const_1.is_one() {
+            return Some(addend);
+        }
+
+        if second_term_zero {
+            if let Some(x) = mul_0_const {
+                if (x * const_0.into()).is_one() {
+                    return Some(multiplicand_1);
+                }
+            }
+            if let Some(x) = mul_1_const {
+                if (x * const_1.into()).is_one() {
+                    return Some(multiplicand_0);
+                }
+            }
+        }
+
+        None
     }
 
     pub fn add_extension(
