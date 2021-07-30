@@ -148,8 +148,9 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
                 wire_value + betas[i] * s_sigma + gammas[i]
             })
             .collect::<Vec<_>>();
+        let denominator_inverses = F::batch_multiplicative_inverse(&denominator_values);
         let quotient_values = (0..common_data.config.num_routed_wires)
-            .map(|j| numerator_values[j] / denominator_values[j])
+            .map(|j| numerator_values[j] * denominator_inverses[j])
             .collect::<Vec<_>>();
 
         // The partial products considered for this iteration of `i`.
