@@ -6,7 +6,7 @@ use log::info;
 
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::Extendable;
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
@@ -299,6 +299,24 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// its constant value. Otherwise, returns `None`.
     pub fn target_as_constant(&self, target: Target) -> Option<F> {
         self.targets_to_constants.get(&target).cloned()
+    }
+
+    /// If the given `ExtensionTarget` is a constant (i.e. it was created by the
+    /// `constant_extension(F)` method), returns its constant value. Otherwise, returns `None`.
+    pub fn target_as_constant_ext(&self, target: ExtensionTarget<D>) -> Option<F::Extension> {
+        // Get a Vec of any coefficients that are constant. If we end up with exactly D of them,
+        // then the `ExtensionTarget` as a whole is constant.
+        let const_coeffs: Vec<F> = target
+            .0
+            .into_iter()
+            .filter_map(|&t| self.target_as_constant(t))
+            .collect();
+
+        if let Ok(d_const_coeffs) = const_coeffs.try_into() {
+            Some(F::Extension::from_basefield_array(d_const_coeffs))
+        } else {
+            None
+        }
     }
 
     pub fn push_context(&mut self, level: log::Level, ctx: &str) {
