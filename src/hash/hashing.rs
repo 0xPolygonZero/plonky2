@@ -1,11 +1,11 @@
 //! Concrete instantiation of a hash function.
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
-use crate::gmimc::gmimc_permute_array;
-use crate::proof::{Hash, HashTarget};
-use crate::target::Target;
+use crate::field::field_types::Field;
+use crate::hash::gmimc::gmimc_permute_array;
+use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::iop::target::Target;
+use crate::plonk::circuit_builder::CircuitBuilder;
 
 pub(crate) const SPONGE_RATE: usize = 8;
 pub(crate) const SPONGE_CAPACITY: usize = 4;
@@ -119,26 +119,26 @@ pub const GMIMC_CONSTANTS: [u64; GMIMC_ROUNDS] = [
 
 /// Hash the vector if necessary to reduce its length to ~256 bits. If it already fits, this is a
 /// no-op.
-pub fn hash_or_noop<F: Field>(inputs: Vec<F>) -> Hash<F> {
+pub fn hash_or_noop<F: Field>(inputs: Vec<F>) -> HashOut<F> {
     if inputs.len() <= 4 {
-        Hash::from_partial(inputs)
+        HashOut::from_partial(inputs)
     } else {
         hash_n_to_hash(inputs, false)
     }
 }
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn hash_or_noop(&mut self, inputs: Vec<Target>) -> HashTarget {
+    pub fn hash_or_noop(&mut self, inputs: Vec<Target>) -> HashOutTarget {
         let zero = self.zero();
         if inputs.len() <= 4 {
-            HashTarget::from_partial(inputs, zero)
+            HashOutTarget::from_partial(inputs, zero)
         } else {
             self.hash_n_to_hash(inputs, false)
         }
     }
 
-    pub fn hash_n_to_hash(&mut self, inputs: Vec<Target>, pad: bool) -> HashTarget {
-        HashTarget::from_vec(self.hash_n_to_m(inputs, 4, pad))
+    pub fn hash_n_to_hash(&mut self, inputs: Vec<Target>, pad: bool) -> HashOutTarget {
+        HashOutTarget::from_vec(self.hash_n_to_m(inputs, 4, pad))
     }
 
     pub fn hash_n_to_m(
@@ -184,7 +184,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 /// A one-way compression function which takes two ~256 bit inputs and returns a ~256 bit output.
-pub fn compress<F: Field>(x: Hash<F>, y: Hash<F>) -> Hash<F> {
+pub fn compress<F: Field>(x: HashOut<F>, y: HashOut<F>) -> HashOut<F> {
     let mut inputs = Vec::with_capacity(8);
     inputs.extend(&x.elements);
     inputs.extend(&y.elements);
@@ -230,8 +230,8 @@ pub fn hash_n_to_m<F: Field>(mut inputs: Vec<F>, num_outputs: usize, pad: bool) 
     }
 }
 
-pub fn hash_n_to_hash<F: Field>(inputs: Vec<F>, pad: bool) -> Hash<F> {
-    Hash::from_vec(hash_n_to_m(inputs, 4, pad))
+pub fn hash_n_to_hash<F: Field>(inputs: Vec<F>, pad: bool) -> HashOut<F> {
+    HashOut::from_vec(hash_n_to_m(inputs, 4, pad))
 }
 
 pub fn hash_n_to_1<F: Field>(inputs: Vec<F>, pad: bool) -> F {

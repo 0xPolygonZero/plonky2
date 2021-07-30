@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::field::extension_field::quadratic::QuadraticCrandallField;
 use crate::field::extension_field::quartic::QuarticCrandallField;
 use crate::field::extension_field::{Extendable, Frobenius};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 
 const FIELD_ORDER: u64 = 18446744071293632513;
 

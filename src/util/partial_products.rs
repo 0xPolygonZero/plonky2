@@ -1,9 +1,9 @@
 use std::iter::Product;
 use std::ops::Sub;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
+use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::ceil_div_usize;
 
 /// Compute partial products of the original vector `v` such that all products consist of `max_degree`

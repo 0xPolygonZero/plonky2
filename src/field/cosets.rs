@@ -1,6 +1,6 @@
 use num::bigint::BigUint;
 
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 
 /// Finds a set of shifts that result in unique cosets for the multiplicative subgroup of size
 /// `2^subgroup_bits`.
@@ -27,7 +27,7 @@ mod tests {
 
     use crate::field::cosets::get_unique_coset_shifts;
     use crate::field::crandall_field::CrandallField;
-    use crate::field::field::Field;
+    use crate::field::field_types::Field;
 
     #[test]
     fn distinct_cosets() {

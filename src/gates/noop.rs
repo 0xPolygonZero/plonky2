@@ -1,9 +1,9 @@
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::gates::gate::Gate;
-use crate::generator::WitnessGenerator;
-use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::iop::generator::WitnessGenerator;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate which does nothing.
 pub struct NoopGate;

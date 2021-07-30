@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::Extendable;
 use crate::field::fft::{fft, fft_with_options, ifft};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::util::log2_strict;
 
 /// A polynomial in point-value form.

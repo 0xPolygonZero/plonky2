@@ -1,12 +1,12 @@
 use std::borrow::Borrow;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
-use crate::polynomial::commitment::SALT_SIZE;
+use crate::field::field_types::Field;
+use crate::fri::commitment::SALT_SIZE;
+use crate::iop::target::Target;
+use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::polynomial::polynomial::PolynomialCoeffs;
-use crate::target::Target;
 
 /// Holds the Merkle tree index and blinding flag of a set of polynomials used in FRI.
 #[derive(Debug, Copy, Clone)]
@@ -23,8 +23,10 @@ impl PolynomialsIndexBlinding {
         }
     }
 }
+
 /// Holds the indices and blinding flags of the Plonk polynomials.
 pub struct PlonkPolynomials;
+
 impl PlonkPolynomials {
     pub const CONSTANTS_SIGMAS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
         index: 0,
@@ -72,6 +74,7 @@ pub(crate) struct ZeroPolyOnCoset<F: Field> {
     /// Holds the multiplicative inverses of `evals`.
     inverses: Vec<F>,
 }
+
 impl<F: Field> ZeroPolyOnCoset<F> {
     pub fn new(n_log: usize, rate_bits: usize) -> Self {
         let g_pow_n = F::coset_shift().exp_power_of_2(n_log);

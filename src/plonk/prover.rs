@@ -4,21 +4,23 @@ use anyhow::Result;
 use log::info;
 use rayon::prelude::*;
 
-use crate::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::field::extension_field::Extendable;
-use crate::generator::generate_partial_witness;
-use crate::hash::hash_n_to_hash;
-use crate::plonk_challenger::Challenger;
-use crate::plonk_common::{PlonkPolynomials, ZeroPolyOnCoset};
-use crate::polynomial::commitment::ListPolynomialCommitment;
+use crate::fri::commitment::PolynomialBatchCommitment;
+use crate::hash::hash_types::HashOut;
+use crate::hash::hashing::hash_n_to_hash;
+use crate::iop::challenger::Challenger;
+use crate::iop::generator::generate_partial_witness;
+use crate::iop::witness::{PartialWitness, Witness};
+use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
+use crate::plonk::plonk_common::PlonkPolynomials;
+use crate::plonk::plonk_common::ZeroPolyOnCoset;
+use crate::plonk::proof::{Proof, ProofWithPublicInputs};
+use crate::plonk::vanishing_poly::eval_vanishing_poly_base;
+use crate::plonk::vars::EvaluationVarsBase;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::proof::{Hash, Proof, ProofWithPublicInputs};
 use crate::timed;
 use crate::util::partial_products::partial_products;
 use crate::util::{log2_ceil, transpose};
-use crate::vanishing_poly::eval_vanishing_poly_base;
-use crate::vars::EvaluationVarsBase;
-use crate::witness::{PartialWitness, Witness};
 
 pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
@@ -69,7 +71,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     );
 
     let wires_commitment = timed!(
-        ListPolynomialCommitment::new(
+        PolynomialBatchCommitment::new(
             wires_values,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::WIRES.blinding
@@ -106,7 +108,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     let zs_partial_products = [plonk_z_vecs, partial_products.concat()].concat();
     let zs_partial_products_commitment = timed!(
-        ListPolynomialCommitment::new(
+        PolynomialBatchCommitment::new(
             zs_partial_products,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding
@@ -150,7 +152,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     );
 
     let quotient_polys_commitment = timed!(
-        ListPolynomialCommitment::new_from_polys(
+        PolynomialBatchCommitment::new_from_polys(
             all_quotient_poly_chunks,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding
@@ -163,7 +165,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let zeta = challenger.get_extension_challenge();
 
     let (opening_proof, openings) = timed!(
-        ListPolynomialCommitment::open_plonk(
+        PolynomialBatchCommitment::open_plonk(
             &[
                 &prover_data.constants_sigmas_commitment,
                 &wires_commitment,
@@ -292,9 +294,9 @@ fn compute_z<F: Extendable<D>, const D: usize>(
 fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     prover_data: &'a ProverOnlyCircuitData<F, D>,
-    public_inputs_hash: &Hash<F>,
-    wires_commitment: &'a ListPolynomialCommitment<F>,
-    zs_partial_products_commitment: &'a ListPolynomialCommitment<F>,
+    public_inputs_hash: &HashOut<F>,
+    wires_commitment: &'a PolynomialBatchCommitment<F>,
+    zs_partial_products_commitment: &'a PolynomialBatchCommitment<F>,
     betas: &[F],
     gammas: &[F],
     alphas: &[F],
@@ -318,7 +320,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
     let lde_size = points.len();
 
     // Retrieve the LDE values at index `i`.
-    let get_at_index = |comm: &'a ListPolynomialCommitment<F>, i: usize| -> &'a [F] {
+    let get_at_index = |comm: &'a PolynomialBatchCommitment<F>, i: usize| -> &'a [F] {
         comm.get_lde_values(i * step)
     };
 

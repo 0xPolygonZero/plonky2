@@ -1,14 +1,14 @@
 use anyhow::{ensure, Result};
 
-use crate::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
-use crate::hash::hash_n_to_hash;
-use crate::plonk_challenger::Challenger;
-use crate::plonk_common::reduce_with_powers;
-use crate::proof::ProofWithPublicInputs;
-use crate::vanishing_poly::eval_vanishing_poly;
-use crate::vars::EvaluationVars;
+use crate::field::field_types::Field;
+use crate::hash::hashing::hash_n_to_hash;
+use crate::iop::challenger::Challenger;
+use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
+use crate::plonk::plonk_common::reduce_with_powers;
+use crate::plonk::proof::ProofWithPublicInputs;
+use crate::plonk::vanishing_poly::eval_vanishing_poly;
+use crate::plonk::vars::EvaluationVars;
 
 pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     proof_with_pis: ProofWithPublicInputs<F, D>,

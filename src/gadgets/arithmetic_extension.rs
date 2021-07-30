@@ -3,14 +3,14 @@ use std::convert::TryInto;
 use itertools::Itertools;
 use num::Integer;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::{Extendable, OEF};
 use crate::gates::arithmetic::ArithmeticExtensionGate;
-use crate::generator::{GeneratedValues, SimpleGenerator};
-use crate::target::Target;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator};
+use crate::iop::target::Target;
+use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bits_u64;
-use crate::witness::PartialWitness;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn double_arithmetic_extension(
@@ -505,13 +505,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 mod tests {
     use anyhow::Result;
 
-    use crate::circuit_builder::CircuitBuilder;
-    use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::field::Field;
-    use crate::verifier::verify;
-    use crate::witness::PartialWitness;
+    use crate::field::field_types::Field;
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::verifier::verify;
 
     #[test]
     fn test_mul_many() -> Result<()> {

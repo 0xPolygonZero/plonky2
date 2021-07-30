@@ -1,5 +1,4 @@
 use std::fmt::{Debug, Display, Formatter};
-use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
@@ -9,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::field::crandall_field::CrandallField;
 use crate::field::extension_field::{FieldExtension, Frobenius, OEF};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct QuadraticCrandallField([CrandallField; 2]);
@@ -220,7 +219,7 @@ impl DivAssign for QuadraticCrandallField {
 mod tests {
     use crate::field::extension_field::quadratic::QuadraticCrandallField;
     use crate::field::extension_field::{FieldExtension, Frobenius};
-    use crate::field::field::Field;
+    use crate::field::field_types::Field;
     use crate::test_field_arithmetic;
 
     #[test]

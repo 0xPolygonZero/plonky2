@@ -1,27 +1,26 @@
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::gmimc::GMiMCGate;
-use crate::hash::GMIMC_ROUNDS;
-use crate::hash::{compress, hash_or_noop};
-use crate::proof::{Hash, HashTarget};
-use crate::target::Target;
-use crate::wire::Wire;
+use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::hash::hashing::{compress, hash_or_noop, GMIMC_ROUNDS};
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
+use crate::plonk::circuit_builder::CircuitBuilder;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(bound = "")]
 pub struct MerkleProof<F: Field> {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.
-    pub siblings: Vec<Hash<F>>,
+    pub siblings: Vec<HashOut<F>>,
 }
 
 #[derive(Clone)]
 pub struct MerkleProofTarget {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.
-    pub siblings: Vec<HashTarget>,
+    pub siblings: Vec<HashOutTarget>,
 }
 
 /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
@@ -29,7 +28,7 @@ pub struct MerkleProofTarget {
 pub(crate) fn verify_merkle_proof<F: Field>(
     leaf_data: Vec<F>,
     leaf_index: usize,
-    merkle_root: Hash<F>,
+    merkle_root: HashOut<F>,
     proof: &MerkleProof<F>,
     reverse_bits: bool,
 ) -> Result<()> {
@@ -64,12 +63,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         leaf_data: Vec<Target>,
         leaf_index_bits: &[Target],
-        merkle_root: HashTarget,
+        merkle_root: HashOutTarget,
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
 
-        let mut state: HashTarget = self.hash_or_noop(leaf_data);
+        let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
             let gate_type = GMiMCGate::<F, D, GMIMC_ROUNDS>::new_automatic_constants();
@@ -97,7 +96,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.route(zero, input_wires[8 + i]);
             }
 
-            state = HashTarget::from_vec(
+            state = HashOutTarget::from_vec(
                 (0..4)
                     .map(|i| {
                         Target::Wire(Wire {
@@ -112,13 +111,18 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.named_assert_hashes_equal(state, merkle_root, "check Merkle root".into())
     }
 
-    pub(crate) fn assert_hashes_equal(&mut self, x: HashTarget, y: HashTarget) {
+    pub(crate) fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
         for i in 0..4 {
             self.assert_equal(x.elements[i], y.elements[i]);
         }
     }
 
-    pub(crate) fn named_assert_hashes_equal(&mut self, x: HashTarget, y: HashTarget, name: String) {
+    pub(crate) fn named_assert_hashes_equal(
+        &mut self,
+        x: HashOutTarget,
+        y: HashOutTarget,
+        name: String,
+    ) {
         for i in 0..4 {
             self.named_assert_equal(
                 x.elements[i],
@@ -135,11 +139,12 @@ mod tests {
     use rand::{thread_rng, Rng};
 
     use super::*;
-    use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
-    use crate::merkle_tree::MerkleTree;
-    use crate::verifier::verify;
-    use crate::witness::PartialWitness;
+    use crate::hash::merkle_tree::MerkleTree;
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::verifier::verify;
 
     fn random_data<F: Field>(n: usize, k: usize) -> Vec<Vec<F>> {
         (0..n).map(|_| F::rand_vec(k)).collect()

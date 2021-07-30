@@ -2,13 +2,13 @@ use std::fmt::{Debug, Error, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::gate_tree::Tree;
-use crate::generator::WitnessGenerator;
-use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::iop::generator::WitnessGenerator;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A custom gate.
 pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {

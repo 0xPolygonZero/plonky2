@@ -4,32 +4,32 @@ use std::time::Instant;
 
 use log::info;
 
-use crate::circuit_data::{
-    CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
-    VerifierCircuitData, VerifierOnlyCircuitData,
-};
-use crate::context_tree::ContextTree;
-use crate::copy_constraint::CopyConstraint;
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
+use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
-use crate::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
-use crate::hash::hash_n_to_hash;
-use crate::permutation_argument::TargetPartition;
-use crate::plonk_common::PlonkPolynomials;
-use crate::polynomial::commitment::ListPolynomialCommitment;
+use crate::hash::hash_types::HashOutTarget;
+use crate::hash::hashing::hash_n_to_hash;
+use crate::iop::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
+use crate::plonk::circuit_data::{
+    CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
+    VerifierCircuitData, VerifierOnlyCircuitData,
+};
+use crate::plonk::copy_constraint::CopyConstraint;
+use crate::plonk::permutation_argument::TargetPartition;
+use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::polynomial::polynomial::PolynomialValues;
-use crate::proof::HashTarget;
-use crate::target::Target;
+use crate::util::context_tree::ContextTree;
 use crate::util::marking::{Markable, MarkedTargets};
 use crate::util::partial_products::num_partial_products;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
-use crate::wire::Wire;
 
 pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
@@ -106,11 +106,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (0..n).map(|_i| self.add_virtual_target()).collect()
     }
 
-    pub fn add_virtual_hash(&mut self) -> HashTarget {
-        HashTarget::from_vec(self.add_virtual_targets(4))
+    pub fn add_virtual_hash(&mut self) -> HashOutTarget {
+        HashOutTarget::from_vec(self.add_virtual_targets(4))
     }
 
-    pub fn add_virtual_hashes(&mut self, n: usize) -> Vec<HashTarget> {
+    pub fn add_virtual_hashes(&mut self, n: usize) -> Vec<HashOutTarget> {
         (0..n).map(|_i| self.add_virtual_hash()).collect()
     }
 
@@ -535,7 +535,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
 
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
-        let constants_sigmas_commitment = ListPolynomialCommitment::new(
+        let constants_sigmas_commitment = PolynomialBatchCommitment::new(
             constants_sigmas_vecs,
             self.config.rate_bits,
             self.config.zero_knowledge & PlonkPolynomials::CONSTANTS_SIGMAS.blinding,

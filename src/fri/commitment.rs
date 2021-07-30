@@ -2,17 +2,19 @@ use anyhow::Result;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::circuit_builder::CircuitBuilder;
-use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
+use crate::fri::proof::{FriProof, FriProofTarget};
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof};
-use crate::merkle_tree::MerkleTree;
-use crate::plonk_challenger::{Challenger, RecursiveChallenger};
-use crate::plonk_common::PlonkPolynomials;
+use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::hash::merkle_tree::MerkleTree;
+use crate::iop::challenger::{Challenger, RecursiveChallenger};
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::plonk_common::PlonkPolynomials;
+use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::proof::{FriProof, FriProofTarget, Hash, HashTarget, OpeningSet, OpeningSetTarget};
 use crate::timed;
 use crate::util::reducing::ReducingFactor;
 use crate::util::{log2_ceil, log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
@@ -21,7 +23,8 @@ use crate::with_context;
 /// Two (~64 bit) field elements gives ~128 bit security.
 pub const SALT_SIZE: usize = 2;
 
-pub struct ListPolynomialCommitment<F: Field> {
+/// Represents a batch FRI based commitment to a list of polynomials.
+pub struct PolynomialBatchCommitment<F: Field> {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
     pub merkle_tree: MerkleTree<F>,
     pub degree: usize,
@@ -30,7 +33,7 @@ pub struct ListPolynomialCommitment<F: Field> {
     pub blinding: bool,
 }
 
-impl<F: Field> ListPolynomialCommitment<F> {
+impl<F: Field> PolynomialBatchCommitment<F> {
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
     pub fn new(values: Vec<PolynomialValues<F>>, rate_bits: usize, blinding: bool) -> Self {
         let degree = values[0].len();
@@ -244,7 +247,7 @@ impl<F: Extendable<D>, const D: usize> OpeningProof<F, D> {
         &self,
         zeta: F::Extension,
         os: &OpeningSet<F, D>,
-        merkle_roots: &[Hash<F>],
+        merkle_roots: &[HashOut<F>],
         challenger: &mut Challenger<F>,
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<()> {
@@ -274,7 +277,7 @@ impl<const D: usize> OpeningProofTarget<D> {
         &self,
         zeta: ExtensionTarget<D>,
         os: &OpeningSetTarget<D>,
-        merkle_roots: &[HashTarget],
+        merkle_roots: &[HashOutTarget],
         challenger: &mut RecursiveChallenger,
         common_data: &CommonCircuitData<F, D>,
         builder: &mut CircuitBuilder<F, D>,
@@ -305,9 +308,8 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
-    use crate::circuit_data::CircuitConfig;
     use crate::fri::FriConfig;
-    use crate::plonk_common::PlonkPolynomials;
+    use crate::plonk::circuit_data::CircuitConfig;
 
     fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(
         k: usize,
@@ -355,12 +357,12 @@ mod tests {
             num_constants: 4,
             k_is: vec![F::ONE; 6],
             num_partial_products: (0, 0),
-            circuit_digest: Hash::from_partial(vec![]),
+            circuit_digest: HashOut::from_partial(vec![]),
         };
 
         let lpcs = (0..4)
             .map(|i| {
-                ListPolynomialCommitment::<F>::new(
+                PolynomialBatchCommitment::<F>::new(
                     gen_random_test_case(ks[i], degree_log),
                     common_data.config.rate_bits,
                     PlonkPolynomials::polynomials(i).blinding,
@@ -369,7 +371,7 @@ mod tests {
             .collect::<Vec<_>>();
 
         let zeta = gen_random_point::<F, D>(degree_log);
-        let (proof, os) = ListPolynomialCommitment::open_plonk::<D>(
+        let (proof, os) = PolynomialBatchCommitment::open_plonk::<D>(
             &[&lpcs[0], &lpcs[1], &lpcs[2], &lpcs[3]],
             zeta,
             &mut Challenger::new(),

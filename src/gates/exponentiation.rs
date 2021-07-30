@@ -1,16 +1,16 @@
 use std::marker::PhantomData;
 
-use crate::circuit_builder::CircuitBuilder;
-use crate::circuit_data::CircuitConfig;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
-use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use crate::wire::Wire;
-use crate::witness::PartialWitness;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
+use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CircuitConfig;
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for raising a value to a power.
 #[derive(Clone, Debug)]
@@ -263,17 +263,16 @@ mod tests {
 
     use rand::Rng;
 
-    use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::field::Field;
-    use crate::fri::FriConfig;
+    use crate::field::field_types::Field;
     use crate::gates::exponentiation::ExponentiationGate;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
-    use crate::proof::Hash;
+    use crate::hash::hash_types::HashOut;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::vars::EvaluationVars;
     use crate::util::log2_ceil;
-    use crate::vars::EvaluationVars;
 
     const MAX_POWER_BITS: usize = 17;
 
@@ -359,7 +358,7 @@ mod tests {
         let vars = EvaluationVars {
             local_constants: &[],
             local_wires: &get_wires(base, power as u64),
-            public_inputs_hash: &Hash::rand(),
+            public_inputs_hash: &HashOut::rand(),
         };
         assert!(
             gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),

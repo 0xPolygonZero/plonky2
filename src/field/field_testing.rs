@@ -1,6 +1,6 @@
 use num::{bigint::BigUint, Zero};
 
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::util::ceil_div_usize;
 
 /// Generates a series of non-negative integers less than
@@ -153,7 +153,7 @@ macro_rules! test_field_arithmetic {
             use num::{bigint::BigUint, One, Zero};
             use rand::Rng;
 
-            use crate::field::field::Field;
+            use crate::field::field_types::Field;
 
             #[test]
             fn batch_inversion() {
@@ -268,7 +268,7 @@ macro_rules! test_prime_field_arithmetic {
 
             use num::{bigint::BigUint, One, Zero};
 
-            use crate::field::field::Field;
+            use crate::field::field_types::Field;
 
             // Can be 32 or 64; doesn't have to be computer's actual word
             // bits. Choosing 32 gives more tests...

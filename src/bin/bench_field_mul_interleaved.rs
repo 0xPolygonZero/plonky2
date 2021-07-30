@@ -3,7 +3,7 @@
 use std::time::Instant;
 
 use plonky2::field::crandall_field::CrandallField;
-use plonky2::field::field::Field;
+use plonky2::field::field_types::Field;
 
 type F = CrandallField;
 

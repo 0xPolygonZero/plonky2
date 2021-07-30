@@ -4,10 +4,10 @@ use std::hash::Hash;
 
 use rayon::prelude::*;
 
-use crate::field::field::Field;
+use crate::field::field_types::Field;
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
 use crate::polynomial::polynomial::PolynomialValues;
-use crate::target::Target;
-use crate::wire::Wire;
 
 /// Node in the Disjoint Set Forest.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

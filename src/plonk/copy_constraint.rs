@@ -1,4 +1,4 @@
-use crate::target::Target;
+use crate::iop::target::Target;
 
 /// A named copy constraint.
 pub struct CopyConstraint {

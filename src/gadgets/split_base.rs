@@ -1,12 +1,12 @@
 use std::borrow::Borrow;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::base_sum::BaseSumGate;
-use crate::generator::{GeneratedValues, SimpleGenerator};
-use crate::target::Target;
-use crate::witness::PartialWitness;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator};
+use crate::iop::target::Target;
+use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given element into a list of targets, where each one represents a
@@ -96,12 +96,12 @@ mod tests {
     use anyhow::Result;
     use rand::{thread_rng, Rng};
 
-    use super::*;
-    use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
-    use crate::field::field::Field;
-    use crate::verifier::verify;
-    use crate::witness::PartialWitness;
+    use crate::field::field_types::Field;
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::verifier::verify;
 
     #[test]
     fn test_split_base() -> Result<()> {

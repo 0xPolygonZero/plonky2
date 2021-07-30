@@ -228,7 +228,7 @@ mod tests {
     use crate::gates::gmimc::GMiMCGate;
     use crate::gates::interpolation::InterpolationGate;
     use crate::gates::noop::NoopGate;
-    use crate::hash::GMIMC_ROUNDS;
+    use crate::hash::hashing::GMIMC_ROUNDS;
 
     #[test]
     fn test_prefix_generation() {

@@ -1,10 +1,11 @@
-pub mod marking;
-pub mod partial_products;
-pub mod reducing;
-pub(crate) mod timing;
-
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::polynomial::polynomial::PolynomialValues;
+
+pub(crate) mod context_tree;
+pub(crate) mod marking;
+pub(crate) mod partial_products;
+pub(crate) mod reducing;
+pub(crate) mod timing;
 
 pub(crate) fn bits_u64(n: u64) -> usize {
     (64 - n.leading_zeros()) as usize

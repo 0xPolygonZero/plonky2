@@ -1,14 +1,15 @@
 use rayon::prelude::*;
 
 use crate::field::extension_field::{flatten, unflatten, Extendable};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
+use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::FriConfig;
-use crate::hash::hash_n_to_1;
-use crate::merkle_tree::MerkleTree;
-use crate::plonk_challenger::Challenger;
-use crate::plonk_common::reduce_with_powers;
+use crate::hash::hash_types::HashOut;
+use crate::hash::hashing::hash_n_to_1;
+use crate::hash::merkle_tree::MerkleTree;
+use crate::iop::challenger::Challenger;
+use crate::plonk::plonk_common::reduce_with_powers;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep, Hash};
 use crate::timed;
 use crate::util::reverse_index_bits_in_place;
 
@@ -96,7 +97,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
     (trees, coeffs)
 }
 
-fn fri_proof_of_work<F: Field>(current_hash: Hash<F>, config: &FriConfig) -> F {
+fn fri_proof_of_work<F: Field>(current_hash: HashOut<F>, config: &FriConfig) -> F {
     (0..u64::MAX)
         .into_par_iter()
         .find_any(|&i| {
