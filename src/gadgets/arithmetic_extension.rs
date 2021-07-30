@@ -143,7 +143,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 }
             }
             if let Some(x) = mul_1_const {
-                if (x * const_1.into()).is_one() {
+                if (x * const_0.into()).is_one() {
                     return Some(multiplicand_0);
                 }
             }
