@@ -1,11 +1,11 @@
 use std::convert::TryInto;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
 use crate::gates::gmimc::GMiMCGate;
-use crate::hash::GMIMC_ROUNDS;
-use crate::target::Target;
-use crate::wire::Wire;
+use crate::hash::hashing::GMIMC_ROUNDS;
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
+use crate::plonk::circuit_builder::CircuitBuilder;
 
 // TODO: Move to be next to native `permute`?
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {

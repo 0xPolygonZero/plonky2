@@ -1,15 +1,15 @@
 use std::ops::Range;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
-use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
-use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use crate::witness::PartialWitness;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::target::Target;
+use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate which can decompose a number into base B little-endian limbs,
 /// and compute the limb-reversed (i.e. big-endian) sum.

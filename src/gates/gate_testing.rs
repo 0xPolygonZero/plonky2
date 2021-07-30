@@ -1,10 +1,10 @@
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
+use crate::hash::hash_types::HashOut;
+use crate::plonk::vars::EvaluationVars;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::proof::Hash;
 use crate::util::{log2_ceil, transpose};
-use crate::vars::EvaluationVars;
 
 const WITNESS_SIZE: usize = 1 << 5;
 const WITNESS_DEGREE: usize = WITNESS_SIZE - 1;
@@ -17,7 +17,7 @@ pub(crate) fn test_low_degree<F: Extendable<D>, G: Gate<F, D>, const D: usize>(g
     let wire_ldes = random_low_degree_matrix::<F::Extension>(gate.num_wires(), rate_bits);
     let constant_ldes = random_low_degree_matrix::<F::Extension>(gate.num_constants(), rate_bits);
     assert_eq!(wire_ldes.len(), constant_ldes.len());
-    let public_inputs_hash = &Hash::rand();
+    let public_inputs_hash = &HashOut::rand();
 
     let constraint_evals = wire_ldes
         .iter()

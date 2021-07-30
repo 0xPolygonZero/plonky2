@@ -2,14 +2,14 @@ use std::borrow::Borrow;
 
 use num::Integer;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, Frobenius};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gates::reducing::ReducingGate;
+use crate::iop::target::Target;
+use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::polynomial::polynomial::PolynomialCoeffs;
-use crate::target::Target;
 
 /// When verifying the composition polynomial in FRI we have to compute sums of the form
 /// `(sum_0^k a^i * x_i)/d_0 + (sum_k^r a^i * y_i)/d_1`
@@ -222,11 +222,11 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
-    use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::verifier::verify;
-    use crate::witness::PartialWitness;
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::verifier::verify;
 
     fn test_reduce_gadget_base(n: usize) -> Result<()> {
         type F = CrandallField;

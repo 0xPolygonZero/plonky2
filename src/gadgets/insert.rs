@@ -1,8 +1,8 @@
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::gates::insertion::InsertionGate;
-use crate::target::Target;
+use crate::iop::target::Target;
+use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Inserts a `Target` in a vector at a non-deterministic index.
@@ -42,12 +42,12 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
-    use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::field::Field;
-    use crate::verifier::verify;
-    use crate::witness::PartialWitness;
+    use crate::field::field_types::Field;
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::verifier::verify;
 
     fn real_insert<const D: usize>(
         index: usize,

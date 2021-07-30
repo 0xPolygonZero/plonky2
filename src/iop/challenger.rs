@@ -1,14 +1,15 @@
 use std::convert::TryInto;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field::Field;
-use crate::hash::{permute, SPONGE_RATE, SPONGE_WIDTH};
-use crate::proof::{Hash, HashTarget, OpeningSet, OpeningSetTarget};
-use crate::target::Target;
+use crate::field::field_types::Field;
+use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::hash::hashing::{permute, SPONGE_RATE, SPONGE_WIDTH};
+use crate::iop::target::Target;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
 
-/// Observes prover messages, and generates challenges by hashing the transcript.
+/// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
 #[derive(Clone)]
 pub struct Challenger<F: Field> {
     sponge_state: [F; SPONGE_WIDTH],
@@ -88,7 +89,7 @@ impl<F: Field> Challenger<F> {
         }
     }
 
-    pub fn observe_hash(&mut self, hash: &Hash<F>) {
+    pub fn observe_hash(&mut self, hash: &HashOut<F>) {
         self.observe_elements(&hash.elements)
     }
 
@@ -122,8 +123,8 @@ impl<F: Field> Challenger<F> {
         (0..n).map(|_| self.get_challenge()).collect()
     }
 
-    pub fn get_hash(&mut self) -> Hash<F> {
-        Hash {
+    pub fn get_hash(&mut self) -> HashOut<F> {
+        HashOut {
             elements: [
                 self.get_challenge(),
                 self.get_challenge(),
@@ -234,7 +235,7 @@ impl RecursiveChallenger {
         }
     }
 
-    pub fn observe_hash(&mut self, hash: &HashTarget) {
+    pub fn observe_hash(&mut self, hash: &HashOutTarget) {
         self.observe_elements(&hash.elements)
     }
 
@@ -294,8 +295,8 @@ impl RecursiveChallenger {
     pub fn get_hash<F: Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> HashTarget {
-        HashTarget {
+    ) -> HashOutTarget {
+        HashOutTarget {
             elements: [
                 self.get_challenge(builder),
                 self.get_challenge(builder),
@@ -341,14 +342,14 @@ impl RecursiveChallenger {
 
 #[cfg(test)]
 mod tests {
-    use crate::circuit_builder::CircuitBuilder;
-    use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
-    use crate::field::field::Field;
-    use crate::generator::generate_partial_witness;
-    use crate::plonk_challenger::{Challenger, RecursiveChallenger};
-    use crate::target::Target;
-    use crate::witness::PartialWitness;
+    use crate::field::field_types::Field;
+    use crate::iop::challenger::{Challenger, RecursiveChallenger};
+    use crate::iop::generator::generate_partial_witness;
+    use crate::iop::target::Target;
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
 
     #[test]
     fn no_duplicate_challenges() {

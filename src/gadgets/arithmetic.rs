@@ -1,9 +1,9 @@
 use std::borrow::Borrow;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
 use crate::gates::exponentiation::ExponentiationGate;
-use crate::target::Target;
+use crate::iop::target::Target;
+use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::log2_ceil;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {

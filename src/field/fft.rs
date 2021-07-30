@@ -1,6 +1,6 @@
 use std::option::Option;
 
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_strict, reverse_index_bits};
 
@@ -306,7 +306,7 @@ fn fft_unrolled<F: Field>(input: &[F], r_orig: usize, root_table: FftRootTable<F
 mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::fft::{fft, fft_with_options, ifft};
-    use crate::field::field::Field;
+    use crate::field::field_types::Field;
     use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
     use crate::util::{log2_ceil, log2_strict};
 

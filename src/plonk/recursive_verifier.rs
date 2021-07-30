@@ -1,11 +1,12 @@
-use crate::circuit_builder::CircuitBuilder;
-use crate::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
 use crate::field::extension_field::Extendable;
-use crate::plonk_challenger::RecursiveChallenger;
-use crate::proof::{HashTarget, ProofWithPublicInputsTarget};
+use crate::hash::hash_types::HashOutTarget;
+use crate::iop::challenger::RecursiveChallenger;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
+use crate::plonk::proof::ProofWithPublicInputsTarget;
+use crate::plonk::vanishing_poly::eval_vanishing_poly_recursively;
+use crate::plonk::vars::EvaluationTargets;
 use crate::util::reducing::ReducingFactorTarget;
-use crate::vanishing_poly::eval_vanishing_poly_recursively;
-use crate::vars::EvaluationTargets;
 use crate::with_context;
 
 const MIN_WIRES: usize = 120; // TODO: Double check.
@@ -37,7 +38,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let (betas, gammas, alphas, zeta) =
             with_context!(self, "observe proof and generates challenges", {
                 // Observe the instance.
-                let digest = HashTarget::from_vec(
+                let digest = HashOutTarget::from_vec(
                     self.constants(&inner_common_data.circuit_digest.elements),
                 );
                 challenger.observe_hash(&digest);
@@ -130,16 +131,16 @@ mod tests {
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
+    use crate::fri::commitment::OpeningProofTarget;
+    use crate::fri::proof::{
+        FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
+    };
     use crate::fri::FriConfig;
     use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
-    use crate::merkle_proofs::MerkleProofTarget;
-    use crate::polynomial::commitment::OpeningProofTarget;
-    use crate::proof::{
-        FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
-        OpeningSetTarget, Proof, ProofTarget, ProofWithPublicInputs,
-    };
-    use crate::verifier::verify;
-    use crate::witness::PartialWitness;
+    use crate::hash::merkle_proofs::MerkleProofTarget;
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::proof::{OpeningSetTarget, Proof, ProofTarget, ProofWithPublicInputs};
+    use crate::plonk::verifier::verify;
 
     // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
     fn get_fri_query_round<F: Extendable<D>, const D: usize>(

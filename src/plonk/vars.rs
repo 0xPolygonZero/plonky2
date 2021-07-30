@@ -4,21 +4,21 @@ use std::ops::Range;
 use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field::Field;
-use crate::proof::{Hash, HashTarget};
+use crate::field::field_types::Field;
+use crate::hash::hash_types::{HashOut, HashOutTarget};
 
 #[derive(Debug, Copy, Clone)]
 pub struct EvaluationVars<'a, F: Extendable<D>, const D: usize> {
     pub(crate) local_constants: &'a [F::Extension],
     pub(crate) local_wires: &'a [F::Extension],
-    pub(crate) public_inputs_hash: &'a Hash<F>,
+    pub(crate) public_inputs_hash: &'a HashOut<F>,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct EvaluationVarsBase<'a, F: Field> {
     pub(crate) local_constants: &'a [F],
     pub(crate) local_wires: &'a [F],
-    pub(crate) public_inputs_hash: &'a Hash<F>,
+    pub(crate) public_inputs_hash: &'a HashOut<F>,
 }
 
 impl<'a, F: Extendable<D>, const D: usize> EvaluationVars<'a, F, D> {
@@ -61,7 +61,7 @@ impl<'a, const D: usize> EvaluationTargets<'a, D> {
 pub struct EvaluationTargets<'a, const D: usize> {
     pub(crate) local_constants: &'a [ExtensionTarget<D>],
     pub(crate) local_wires: &'a [ExtensionTarget<D>],
-    pub(crate) public_inputs_hash: &'a HashTarget,
+    pub(crate) public_inputs_hash: &'a HashOutTarget,
 }
 
 impl<'a, const D: usize> EvaluationTargets<'a, D> {

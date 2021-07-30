@@ -1,5 +1,5 @@
 use crate::field::fft::{fft, ifft};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::util::{log2_ceil, log2_strict};
 
@@ -186,7 +186,7 @@ mod tests {
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::field::Field;
+    use crate::field::field_types::Field;
     use crate::polynomial::polynomial::PolynomialCoeffs;
 
     #[test]

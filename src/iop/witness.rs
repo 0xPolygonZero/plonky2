@@ -3,15 +3,16 @@ use std::convert::TryInto;
 
 use anyhow::{ensure, Result};
 
-use crate::copy_constraint::CopyConstraint;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::gate::GateInstance;
-use crate::generator::GeneratedValues;
-use crate::proof::{Hash, HashTarget};
-use crate::target::Target;
-use crate::wire::Wire;
+use crate::hash::hash_types::HashOut;
+use crate::hash::hash_types::HashOutTarget;
+use crate::iop::generator::GeneratedValues;
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
+use crate::plonk::copy_constraint::CopyConstraint;
 
 #[derive(Clone, Debug)]
 pub struct Witness<F: Field> {
@@ -57,8 +58,8 @@ impl<F: Field> PartialWitness<F> {
         )
     }
 
-    pub fn get_hash_target(&self, ht: HashTarget) -> Hash<F> {
-        Hash {
+    pub fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {
+        HashOut {
             elements: self.get_targets(&ht.elements).try_into().unwrap(),
         }
     }
@@ -94,7 +95,7 @@ impl<F: Field> PartialWitness<F> {
         }
     }
 
-    pub fn set_hash_target(&mut self, ht: HashTarget, value: Hash<F>) {
+    pub fn set_hash_target(&mut self, ht: HashOutTarget, value: HashOut<F>) {
         ht.elements
             .iter()
             .zip(value.elements)

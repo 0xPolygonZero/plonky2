@@ -2,7 +2,7 @@
 
 use unroll::unroll_for_loops;
 
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 
 const ROUNDS: usize = 8;
 

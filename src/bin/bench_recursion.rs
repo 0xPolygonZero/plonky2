@@ -1,13 +1,13 @@
 use anyhow::Result;
 use env_logger::Env;
 use log::info;
-use plonky2::circuit_builder::CircuitBuilder;
-use plonky2::circuit_data::CircuitConfig;
 use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::extension_field::Extendable;
-use plonky2::field::field::Field;
+use plonky2::field::field_types::Field;
 use plonky2::fri::FriConfig;
-use plonky2::witness::PartialWitness;
+use plonky2::iop::witness::PartialWitness;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::circuit_data::CircuitConfig;
 
 fn main() -> Result<()> {
     // Set the default log filter. This can be overridden using the `RUST_LOG` environment variable,

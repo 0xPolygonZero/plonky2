@@ -160,7 +160,7 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::algebra::ExtensionAlgebra;
     use crate::field::extension_field::{Extendable, FieldExtension};
-    use crate::field::field::Field;
+    use crate::field::field_types::Field;
 
     /// Tests that the multiplication on the extension algebra lifts that of the field extension.
     fn test_extension_algebra<F: Extendable<D>, const D: usize>() {

@@ -1,15 +1,15 @@
-use crate::circuit_builder::CircuitBuilder;
-use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::target::{flatten_target, ExtensionTarget};
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
+use crate::fri::proof::{FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget};
 use crate::fri::FriConfig;
-use crate::plonk_challenger::RecursiveChallenger;
-use crate::plonk_common::PlonkPolynomials;
-use crate::proof::{
-    FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, HashTarget, OpeningSetTarget,
-};
-use crate::target::Target;
+use crate::hash::hash_types::HashOutTarget;
+use crate::iop::challenger::RecursiveChallenger;
+use crate::iop::target::Target;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::plonk_common::PlonkPolynomials;
+use crate::plonk::proof::OpeningSetTarget;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::util::{log2_strict, reverse_index_bits_in_place};
 use crate::with_context;
@@ -77,7 +77,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         zeta: ExtensionTarget<D>,
         // Scaling factor to combine polynomials.
         alpha: ExtensionTarget<D>,
-        initial_merkle_roots: &[HashTarget],
+        initial_merkle_roots: &[HashOutTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger,
         common_data: &CommonCircuitData<F, D>,
@@ -165,7 +165,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         x_index_bits: &[Target],
         proof: &FriInitialTreeProofTarget,
-        initial_merkle_roots: &[HashTarget],
+        initial_merkle_roots: &[HashOutTarget],
     ) {
         for (i, ((evals, merkle_proof), &root)) in proof
             .evals_proofs
@@ -260,7 +260,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         zeta: ExtensionTarget<D>,
         alpha: ExtensionTarget<D>,
         precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
-        initial_merkle_roots: &[HashTarget],
+        initial_merkle_roots: &[HashOutTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger,
         n: usize,

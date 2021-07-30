@@ -1,15 +1,15 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::proof::HashTarget;
-use crate::target::Target;
-use crate::witness::PartialWitness;
+use crate::hash::hash_types::HashOutTarget;
+use crate::iop::target::Target;
+use crate::iop::witness::PartialWitness;
 
 /// Enum representing all types of targets, so that they can be marked.
 #[derive(Clone)]
 pub enum Markable<const D: usize> {
     Target(Target),
     ExtensionTarget(ExtensionTarget<D>),
-    HashTarget(HashTarget),
+    HashTarget(HashOutTarget),
     Vec(Vec<Markable<D>>),
 }
 
@@ -23,8 +23,8 @@ impl<const D: usize> From<ExtensionTarget<D>> for Markable<D> {
         Self::ExtensionTarget(et)
     }
 }
-impl<const D: usize> From<HashTarget> for Markable<D> {
-    fn from(ht: HashTarget) -> Self {
+impl<const D: usize> From<HashOutTarget> for Markable<D> {
+    fn from(ht: HashOutTarget) -> Self {
         Self::HashTarget(ht)
     }
 }

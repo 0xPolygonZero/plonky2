@@ -4,7 +4,7 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use unroll::unroll_for_loops;
 
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 
 pub(crate) fn gmimc_automatic_constants<F: Field, const R: usize>() -> [F; R] {
     let mut rng = ChaCha8Rng::seed_from_u64(0);
@@ -109,8 +109,8 @@ mod tests {
     use std::sync::Arc;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::field::Field;
-    use crate::gmimc::{gmimc_permute, gmimc_permute_naive};
+    use crate::field::field_types::Field;
+    use crate::hash::gmimc::{gmimc_permute, gmimc_permute_naive};
 
     #[test]
     fn consistency() {

@@ -2,19 +2,20 @@ use std::ops::{Range, RangeFrom};
 
 use anyhow::Result;
 
-use crate::copy_constraint::CopyConstraint;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
+use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::FriConfig;
 use crate::gates::gate::{GateInstance, PrefixedGate};
-use crate::generator::WitnessGenerator;
-use crate::polynomial::commitment::ListPolynomialCommitment;
-use crate::proof::{Hash, HashTarget, ProofWithPublicInputs};
-use crate::prover::prove;
-use crate::target::Target;
+use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::iop::generator::WitnessGenerator;
+use crate::iop::target::Target;
+use crate::iop::witness::PartialWitness;
+use crate::plonk::copy_constraint::CopyConstraint;
+use crate::plonk::proof::ProofWithPublicInputs;
+use crate::plonk::prover::prove;
+use crate::plonk::verifier::verify;
 use crate::util::marking::MarkedTargets;
-use crate::verifier::verify;
-use crate::witness::PartialWitness;
 
 #[derive(Clone)]
 pub struct CircuitConfig {
@@ -122,7 +123,7 @@ impl<F: Extendable<D>, const D: usize> VerifierCircuitData<F, D> {
 pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
     /// Commitments to the constants polynomials and sigma polynomials.
-    pub constants_sigmas_commitment: ListPolynomialCommitment<F>,
+    pub constants_sigmas_commitment: PolynomialBatchCommitment<F>,
     /// The transpose of the list of sigma polynomials.
     pub sigmas: Vec<Vec<F>>,
     /// Subgroup of order `degree`.
@@ -140,7 +141,7 @@ pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
 /// Circuit data required by the verifier, but not the prover.
 pub(crate) struct VerifierOnlyCircuitData<F: Field> {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_root: Hash<F>,
+    pub(crate) constants_sigmas_root: HashOut<F>,
 }
 
 /// Circuit data required by both the prover and the verifier.
@@ -170,7 +171,7 @@ pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
 
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
-    pub(crate) circuit_digest: Hash<F>,
+    pub(crate) circuit_digest: HashOut<F>,
 }
 
 impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
@@ -230,5 +231,5 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
 /// dynamic, at least not without setting a maximum wire count and paying for the worst case.
 pub struct VerifierCircuitTarget {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_root: HashTarget,
+    pub(crate) constants_sigmas_root: HashOutTarget,
 }

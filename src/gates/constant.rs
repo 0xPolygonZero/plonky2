@@ -1,13 +1,13 @@
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
-use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use crate::wire::Wire;
-use crate::witness::PartialWitness;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
+use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate which takes a single constant parameter and outputs that value.
 pub struct ConstantGate;

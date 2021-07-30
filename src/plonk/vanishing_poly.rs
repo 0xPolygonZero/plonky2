@@ -1,15 +1,15 @@
-use crate::circuit_builder::CircuitBuilder;
-use crate::circuit_data::CommonCircuitData;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::gate::PrefixedGate;
-use crate::plonk_common;
-use crate::plonk_common::{eval_l_1_recursively, ZeroPolyOnCoset};
-use crate::target::Target;
+use crate::iop::target::Target;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::plonk_common;
+use crate::plonk::plonk_common::{eval_l_1_recursively, ZeroPolyOnCoset};
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::util::partial_products::{check_partial_products, check_partial_products_recursively};
 use crate::util::reducing::ReducingFactorTarget;
-use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::with_context;
 
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random

@@ -1,14 +1,14 @@
 use std::ops::Range;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::FieldExtension;
 use crate::gates::gate::Gate;
-use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use crate::witness::PartialWitness;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::target::Target;
+use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// Computes `sum alpha^i c_i` for a vector `c_i` of `num_coeffs` elements of the base field.
 #[derive(Debug, Clone)]

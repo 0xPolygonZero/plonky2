@@ -1,9 +1,9 @@
 use rayon::prelude::*;
 
-use crate::field::field::Field;
-use crate::hash::{compress, hash_or_noop};
-use crate::merkle_proofs::MerkleProof;
-use crate::proof::Hash;
+use crate::field::field_types::Field;
+use crate::hash::hash_types::HashOut;
+use crate::hash::hashing::{compress, hash_or_noop};
+use crate::hash::merkle_proofs::MerkleProof;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
 #[derive(Clone, Debug)]
@@ -12,10 +12,10 @@ pub struct MerkleTree<F: Field> {
     pub leaves: Vec<Vec<F>>,
 
     /// The layers of hashes in the tree. The first layer is the one at the bottom.
-    pub layers: Vec<Vec<Hash<F>>>,
+    pub layers: Vec<Vec<HashOut<F>>>,
 
     /// The Merkle root.
-    pub root: Hash<F>,
+    pub root: HashOut<F>,
 
     /// If true, the indices are in bit-reversed form, so that the leaf at index `i`
     /// contains the leaf originally at index `reverse_bits(i)`.
@@ -86,7 +86,7 @@ mod tests {
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
-    use crate::merkle_proofs::verify_merkle_proof;
+    use crate::hash::merkle_proofs::verify_merkle_proof;
 
     fn random_data<F: Field>(n: usize, k: usize) -> Vec<Vec<F>> {
         (0..n).map(|_| F::rand_vec(k)).collect()

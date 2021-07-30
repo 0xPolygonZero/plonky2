@@ -1,12 +1,12 @@
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::base_sum::BaseSumGate;
-use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::target::Target;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
+use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::ceil_div_usize;
-use crate::wire::Wire;
-use crate::witness::PartialWitness;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given integer into a list of virtual targets, where each one represents a bit of

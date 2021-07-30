@@ -2,16 +2,16 @@ use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::ops::Range;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
-use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use crate::wire::Wire;
-use crate::witness::PartialWitness;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
+use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for inserting a value into a list at a non-deterministic location.
 #[derive(Clone, Debug)]
@@ -321,12 +321,12 @@ mod tests {
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::field::Field;
+    use crate::field::field_types::Field;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::insertion::InsertionGate;
-    use crate::proof::Hash;
-    use crate::vars::EvaluationVars;
+    use crate::hash::hash_types::HashOut;
+    use crate::plonk::vars::EvaluationVars;
 
     #[test]
     fn wire_indices() {
@@ -403,7 +403,7 @@ mod tests {
         let vars = EvaluationVars {
             local_constants: &[],
             local_wires: &get_wires(orig_vec, insertion_index, element_to_insert),
-            public_inputs_hash: &Hash::rand(),
+            public_inputs_hash: &HashOut::rand(),
         };
 
         assert!(

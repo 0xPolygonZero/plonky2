@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
-use crate::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::gmimc::gmimc_automatic_constants;
-use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use crate::wire::Wire;
-use crate::witness::PartialWitness;
+use crate::hash::gmimc::gmimc_automatic_constants;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
+use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// The width of the permutation, in field elements.
 const W: usize = 12;
@@ -329,21 +329,21 @@ mod tests {
 
     use anyhow::Result;
 
-    use crate::circuit_builder::CircuitBuilder;
-    use crate::circuit_data::CircuitConfig;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::field::Field;
+    use crate::field::field_types::Field;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::test_low_degree;
     use crate::gates::gmimc::{GMiMCGate, W};
-    use crate::generator::generate_partial_witness;
-    use crate::gmimc::gmimc_permute_naive;
-    use crate::proof::Hash;
-    use crate::vars::{EvaluationTargets, EvaluationVars};
-    use crate::verifier::verify;
-    use crate::wire::Wire;
-    use crate::witness::PartialWitness;
+    use crate::hash::gmimc::gmimc_permute_naive;
+    use crate::hash::hash_types::HashOut;
+    use crate::iop::generator::generate_partial_witness;
+    use crate::iop::wire::Wire;
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::vars::{EvaluationTargets, EvaluationVars};
+    use crate::plonk::verifier::verify;
 
     #[test]
     fn generated_output() {
@@ -410,7 +410,7 @@ mod tests {
         let gate = Gate::new(constants);
 
         let wires = FF::rand_vec(Gate::end());
-        let public_inputs_hash = &Hash::rand();
+        let public_inputs_hash = &HashOut::rand();
         let vars = EvaluationVars {
             local_constants: &[],
             local_wires: &wires,

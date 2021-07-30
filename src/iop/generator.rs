@@ -4,11 +4,11 @@ use std::fmt::Debug;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field::Field;
-use crate::proof::{Hash, HashTarget};
-use crate::target::Target;
-use crate::wire::Wire;
-use crate::witness::PartialWitness;
+use crate::field::field_types::Field;
+use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
+use crate::iop::witness::PartialWitness;
 
 /// Given a `PartialWitness` that has only inputs set, populates the rest of the witness using the
 /// given set of generators.
@@ -124,7 +124,7 @@ impl<F: Field> GeneratedValues<F> {
         self.target_values.push((target, value))
     }
 
-    pub fn set_hash_target(&mut self, ht: HashTarget, value: Hash<F>) {
+    pub fn set_hash_target(&mut self, ht: HashOutTarget, value: HashOut<F>) {
         ht.elements
             .iter()
             .zip(value.elements)

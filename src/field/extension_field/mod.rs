@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 
 pub mod algebra;
 pub mod quadratic;
