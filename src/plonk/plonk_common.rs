@@ -183,8 +183,7 @@ pub(crate) fn reduce_with_powers_ext_recursive<F: Extendable<D>, const D: usize>
 ) -> ExtensionTarget<D> {
     let mut sum = builder.zero_extension();
     for &term in terms.iter().rev() {
-        sum = builder.scalar_mul_ext(alpha, sum);
-        sum = builder.add_extension(sum, term);
+        sum = builder.scalar_mul_add_extension(alpha, sum, term);
     }
     sum
 }
