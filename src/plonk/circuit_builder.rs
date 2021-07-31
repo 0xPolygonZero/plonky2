@@ -29,6 +29,7 @@ use crate::polynomial::polynomial::PolynomialValues;
 use crate::util::context_tree::ContextTree;
 use crate::util::marking::{Markable, MarkedTargets};
 use crate::util::partial_products::num_partial_products;
+use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 
 pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
@@ -504,6 +505,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Builds a "full circuit", with both prover and verifier data.
     pub fn build(mut self) -> CircuitData<F, D> {
+        let mut timing = TimingTree::new("preprocess");
         let quotient_degree_factor = 7; // TODO: add this as a parameter.
         let start = Instant::now();
 
@@ -557,6 +559,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_vecs,
             self.config.rate_bits,
             self.config.zero_knowledge & PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
+            &mut timing,
         );
 
         let constants_sigmas_root = constants_sigmas_commitment.merkle_tree.root;
