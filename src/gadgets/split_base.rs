@@ -76,7 +76,7 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
         self.limbs.clone()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
+    fn run_once(&self, witness: &PartialWitness<F>, out: &mut GeneratedValues<F>) {
         let sum = self
             .limbs
             .iter()
@@ -84,10 +84,10 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
             .rev()
             .fold(F::ZERO, |acc, limb| acc * F::from_canonical_usize(B) + limb);
 
-        GeneratedValues::singleton_target(
+        out.set_target(
             Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM),
             sum,
-        )
+        );
     }
 }
 

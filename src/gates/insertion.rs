@@ -255,7 +255,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
         deps
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
+    fn run_once(&self, witness: &PartialWitness<F>, out: &mut GeneratedValues<F>) {
         let local_wire = |input| Wire {
             gate: self.gate_index,
             input,
@@ -304,14 +304,12 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
         let mut result = GeneratedValues::<F>::with_capacity((vec_size + 1) * (D + 2));
         for i in 0..=vec_size {
             let output_wires = self.gate.wires_output_list_item(i).map(local_wire);
-            result.set_ext_wires(output_wires, new_vec[i]);
+            out.set_ext_wires(output_wires, new_vec[i]);
             let equality_dummy_wire = local_wire(self.gate.wires_equality_dummy_for_round_r(i));
-            result.set_wire(equality_dummy_wire, equality_dummy_vals[i]);
+            out.set_wire(equality_dummy_wire, equality_dummy_vals[i]);
             let insert_here_wire = local_wire(self.gate.wires_insert_here_for_round_r(i));
-            result.set_wire(insert_here_wire, insert_here_vals[i]);
+            out.set_wire(insert_here_wire, insert_here_vals[i]);
         }
-
-        result
     }
 }
 

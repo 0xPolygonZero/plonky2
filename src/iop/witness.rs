@@ -9,7 +9,6 @@ use crate::field::field_types::Field;
 use crate::gates::gate::GateInstance;
 use crate::hash::hash_types::HashOut;
 use crate::hash::hash_types::HashOutTarget;
-use crate::iop::generator::GeneratedValues;
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::plonk::copy_constraint::CopyConstraint;
@@ -137,8 +136,8 @@ impl<F: Field> PartialWitness<F> {
         self.set_wires(wires, &value.to_basefield_array());
     }
 
-    pub fn extend(&mut self, other: GeneratedValues<F>) {
-        for (target, value) in other.target_values {
+    pub fn extend<I: Iterator<Item = (Target, F)>>(&mut self, pairs: I) {
+        for (target, value) in pairs {
             self.set_target(target, value);
         }
     }
