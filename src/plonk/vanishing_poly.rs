@@ -40,11 +40,12 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
     // The Z(x) f'(x) - g'(x) Z(g x) terms.
     let mut vanishing_v_shift_terms = Vec::new();
 
+    let l1_x = plonk_common::eval_l_1(common_data.degree(), x);
+
     for i in 0..common_data.config.num_challenges {
         let z_x = local_zs[i];
         let z_gz = next_zs[i];
-        vanishing_z_1_terms
-            .push(plonk_common::eval_l_1(common_data.degree(), x) * (z_x - F::Extension::ONE));
+        vanishing_z_1_terms.push(l1_x * (z_x - F::Extension::ONE));
 
         let numerator_values = (0..common_data.config.num_routed_wires)
             .map(|j| {
@@ -128,10 +129,12 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     // The Z(x) f'(x) - g'(x) Z(g x) terms.
     let mut vanishing_v_shift_terms = Vec::new();
 
+    let l1_x = z_h_on_coset.eval_l1(index, x);
+
     for i in 0..common_data.config.num_challenges {
         let z_x = local_zs[i];
         let z_gz = next_zs[i];
-        vanishing_z_1_terms.push(z_h_on_coset.eval_l1(index, x) * (z_x - F::ONE));
+        vanishing_z_1_terms.push(l1_x * (z_x - F::ONE));
 
         let numerator_values = (0..common_data.config.num_routed_wires)
             .map(|j| {
@@ -292,11 +295,12 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
     // The Z(x) f'(x) - g'(x) Z(g x) terms.
     let mut vanishing_v_shift_terms = Vec::new();
 
+    let l1_x = eval_l_1_recursively(builder, common_data.degree(), x, x_pow_deg);
+
     for i in 0..common_data.config.num_challenges {
         let z_x = local_zs[i];
         let z_gz = next_zs[i];
-        let l1 = eval_l_1_recursively(builder, common_data.degree(), x, x_pow_deg);
-        vanishing_z_1_terms.push(builder.arithmetic_extension(F::ONE, F::NEG_ONE, l1, z_x, l1));
+        vanishing_z_1_terms.push(builder.arithmetic_extension(F::ONE, F::NEG_ONE, l1_x, z_x, l1_x));
 
         let numerator_values = (0..common_data.config.num_routed_wires)
             .map(|j| {
