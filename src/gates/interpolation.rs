@@ -239,7 +239,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGener
         deps
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let n = self.gate.num_points;
 
         let local_wire = |input| Wire {
@@ -270,15 +270,13 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGener
         let mut result = GeneratedValues::<F>::with_capacity(D * (self.gate.num_points + 1));
         for (i, &coeff) in interpolant.coeffs.iter().enumerate() {
             let wires = self.gate.wires_coeff(i).map(local_wire);
-            result.set_ext_wires(wires, coeff);
+            out_buffer.set_ext_wires(wires, coeff);
         }
 
         let evaluation_point = get_local_ext(self.gate.wires_evaluation_point());
         let evaluation_value = interpolant.eval(evaluation_point);
         let evaluation_value_wires = self.gate.wires_evaluation_value().map(local_wire);
-        result.set_ext_wires(evaluation_value_wires, evaluation_value);
-
-        result
+        out_buffer.set_ext_wires(evaluation_value_wires, evaluation_value);
     }
 }
 

@@ -177,7 +177,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<
             .collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let extract_extension = |range: Range<usize>| -> F::Extension {
             let t = ExtensionTarget::from_range(self.gate_index, range);
             witness.get_extension_target(t)
@@ -202,12 +202,10 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<
         let mut acc = old_acc;
         for i in 0..self.gate.num_coeffs {
             let computed_acc = acc * alpha + coeffs[i].into();
-            result.set_extension_target(accs[i], computed_acc);
+            out_buffer.set_extension_target(accs[i], computed_acc);
             acc = computed_acc;
         }
-        result.set_extension_target(output, acc);
-
-        result
+        out_buffer.set_extension_target(output, acc);
     }
 }
 

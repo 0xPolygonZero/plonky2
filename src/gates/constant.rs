@@ -85,12 +85,12 @@ impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
         Vec::new()
     }
 
-    fn run_once(&self, _witness: &PartialWitness<F>) -> GeneratedValues<F> {
+    fn run_once(&self, _witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let wire = Wire {
             gate: self.gate_index,
             input: ConstantGate::WIRE_OUTPUT,
         };
-        GeneratedValues::singleton_target(Target::Wire(wire), self.constant)
+        out_buffer.set_target(Target::Wire(wire), self.constant);
     }
 }
 
