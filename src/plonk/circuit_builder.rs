@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::time::Instant;
 
-use log::info;
+use log::{info, Level};
 
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
@@ -505,7 +505,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Builds a "full circuit", with both prover and verifier data.
     pub fn build(mut self) -> CircuitData<F, D> {
-        let mut timing = TimingTree::new("preprocess");
+        let mut timing = TimingTree::new("preprocess", Level::Trace);
         let quotient_degree_factor = 7; // TODO: add this as a parameter.
         let start = Instant::now();
 

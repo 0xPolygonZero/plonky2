@@ -19,13 +19,14 @@ use crate::timed;
 use crate::util::partial_products::partial_products;
 use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, transpose};
+use log::Level;
 
 pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
 ) -> Result<ProofWithPublicInputs<F, D>> {
-    let mut timing = TimingTree::new("prove");
+    let mut timing = TimingTree::new("prove", Level::Debug);
     let config = &common_data.config;
     let num_wires = config.num_wires;
     let num_challenges = config.num_challenges;

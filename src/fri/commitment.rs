@@ -378,7 +378,7 @@ mod tests {
                     gen_random_test_case(ks[i], degree_log),
                     common_data.config.rate_bits,
                     PlonkPolynomials::polynomials(i).blinding,
-                    &mut TimingTree::new(""),
+                    &mut TimingTree::default(),
                 )
             })
             .collect::<Vec<_>>();
@@ -389,7 +389,7 @@ mod tests {
             zeta,
             &mut Challenger::new(),
             &common_data,
-            &mut TimingTree::new(""),
+            &mut TimingTree::default(),
         );
 
         proof.verify(

@@ -16,11 +16,17 @@ pub struct TimingTree {
     children: Vec<TimingTree>,
 }
 
+impl Default for TimingTree {
+    fn default() -> Self {
+        TimingTree::new("root", Level::Debug)
+    }
+}
+
 impl TimingTree {
-    pub fn new(root_name: &str) -> Self {
+    pub fn new(root_name: &str, level: Level) -> Self {
         Self {
             name: root_name.to_string(),
-            level: Level::Debug,
+            level,
             enter_time: Instant::now(),
             exit_time: None,
             children: vec![],
