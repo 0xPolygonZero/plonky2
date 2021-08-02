@@ -198,7 +198,6 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<
         let output =
             ExtensionTarget::from_range(self.gate_index, ReducingGate::<D>::wires_output());
 
-        let mut result = GeneratedValues::<F>::with_capacity(self.gate.num_coeffs + 1);
         let mut acc = old_acc;
         for i in 0..self.gate.num_coeffs {
             let computed_acc = acc * alpha + coeffs[i].into();

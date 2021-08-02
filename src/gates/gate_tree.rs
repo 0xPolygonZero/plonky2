@@ -244,7 +244,6 @@ mod tests {
             GateRef::new(GMiMCGate::<F, D, GMIMC_ROUNDS>::new_automatic_constants()),
             GateRef::new(InterpolationGate::new(4)),
         ];
-        let len = gates.len();
 
         let (tree, _, _) = Tree::from_gates(gates.clone());
         let mut gates_with_prefix = tree.traversal();
@@ -277,7 +276,7 @@ mod tests {
             "Total degree is larger than 8."
         );
 
-        gates_with_prefix.sort_unstable_by_key(|(g, p)| p.len());
+        gates_with_prefix.sort_unstable_by_key(|(_g, p)| p.len());
         for i in 0..gates_with_prefix.len() {
             for j in i + 1..gates_with_prefix.len() {
                 assert_ne!(

@@ -13,7 +13,7 @@ enum FftStrategy {
 
 const FFT_STRATEGY: FftStrategy = FftStrategy::Classic;
 
-type FftRootTable<F: Field> = Vec<Vec<F>>;
+type FftRootTable<F> = Vec<Vec<F>>;
 
 fn fft_classic_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     let lg_n = log2_strict(n);

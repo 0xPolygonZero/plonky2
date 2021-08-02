@@ -301,7 +301,6 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
         let mut insert_here_vals = vec![F::ZERO; vec_size];
         insert_here_vals.insert(insertion_index, F::ONE);
 
-        let mut result = GeneratedValues::<F>::with_capacity((vec_size + 1) * (D + 2));
         for i in 0..=vec_size {
             let output_wires = self.gate.wires_output_list_item(i).map(local_wire);
             out_buffer.set_ext_wires(output_wires, new_vec[i]);

@@ -267,7 +267,6 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGener
             .collect::<Vec<_>>();
         let interpolant = interpolant(&points);
 
-        let mut result = GeneratedValues::<F>::with_capacity(D * (self.gate.num_points + 1));
         for (i, &coeff) in interpolant.coeffs.iter().enumerate() {
             let wires = self.gate.wires_coeff(i).map(local_wire);
             out_buffer.set_ext_wires(wires, coeff);

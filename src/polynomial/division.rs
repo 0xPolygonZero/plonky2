@@ -201,8 +201,6 @@ mod tests {
     fn division_by_z_h() {
         type F = CrandallField;
         let zero = F::ZERO;
-        let one = F::ONE;
-        let two = F::TWO;
         let three = F::from_canonical_u64(3);
         let four = F::from_canonical_u64(4);
         let five = F::from_canonical_u64(5);
@@ -229,7 +227,7 @@ mod tests {
         let ev = poly.eval(z);
 
         let timer = Instant::now();
-        let (quotient, ev2) = poly.div_rem(&PolynomialCoeffs::new(vec![-z, F::ONE]));
+        let (_quotient, ev2) = poly.div_rem(&PolynomialCoeffs::new(vec![-z, F::ONE]));
         println!("{:.3}s for usual", timer.elapsed().as_secs_f32());
         assert_eq!(ev2.trimmed().coeffs, vec![ev]);
 

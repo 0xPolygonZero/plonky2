@@ -309,7 +309,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // then the `ExtensionTarget` as a whole is constant.
         let const_coeffs: Vec<F> = target
             .0
-            .into_iter()
+            .iter()
             .filter_map(|&t| self.target_as_constant(t))
             .collect();
 
