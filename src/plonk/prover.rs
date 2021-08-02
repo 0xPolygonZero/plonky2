@@ -1,7 +1,4 @@
-use std::time::Instant;
-
 use anyhow::Result;
-use log::info;
 use rayon::prelude::*;
 
 use crate::field::extension_field::Extendable;
@@ -20,26 +17,27 @@ use crate::plonk::vars::EvaluationVarsBase;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::timed;
 use crate::util::partial_products::partial_products;
+use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, transpose};
+use log::Level;
 
 pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
 ) -> Result<ProofWithPublicInputs<F, D>> {
+    let mut timing = TimingTree::new("prove", Level::Debug);
     let config = &common_data.config;
     let num_wires = config.num_wires;
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
     let degree = common_data.degree();
 
-    let start_proof_gen = Instant::now();
-
     let mut partial_witness = inputs;
-    info!("Running {} generators", prover_data.generators.len());
     timed!(
-        generate_partial_witness(&mut partial_witness, &prover_data.generators),
-        "to generate witness"
+        timing,
+        &format!("run {} generators", prover_data.generators.len()),
+        generate_partial_witness(&mut partial_witness, &prover_data.generators)
     );
 
     let public_inputs = partial_witness.get_targets(&prover_data.public_inputs);
@@ -51,32 +49,37 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     }
 
     timed!(
+        timing,
+        "check copy constraints",
         partial_witness
-            .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)?,
-        "to check copy constraints"
+            .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)?
     );
 
     let witness = timed!(
-        partial_witness.full_witness(degree, num_wires),
-        "to compute full witness"
+        timing,
+        "compute full witness",
+        partial_witness.full_witness(degree, num_wires)
     );
 
     let wires_values: Vec<PolynomialValues<F>> = timed!(
+        timing,
+        "compute wire polynomials",
         witness
             .wire_values
             .par_iter()
             .map(|column| PolynomialValues::new(column.clone()))
-            .collect(),
-        "to compute wire polynomials"
+            .collect()
     );
 
     let wires_commitment = timed!(
+        timing,
+        "compute wires commitment",
         PolynomialBatchCommitment::new(
             wires_values,
             config.rate_bits,
-            config.zero_knowledge & PlonkPolynomials::WIRES.blinding
-        ),
-        "to compute wires commitment"
+            config.zero_knowledge & PlonkPolynomials::WIRES.blinding,
+            &mut timing,
+        )
     );
 
     let mut challenger = Challenger::new();
@@ -94,11 +97,16 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         "When the number of routed wires is smaller that the degree, we should change the logic to avoid computing partial products."
     );
     let mut partial_products = timed!(
-        all_wires_permutation_partial_products(&witness, &betas, &gammas, prover_data, common_data),
-        "to compute partial products"
+        timing,
+        "compute partial products",
+        all_wires_permutation_partial_products(&witness, &betas, &gammas, prover_data, common_data)
     );
 
-    let plonk_z_vecs = timed!(compute_zs(&partial_products, common_data), "to compute Z's");
+    let plonk_z_vecs = timed!(
+        timing,
+        "compute Z's",
+        compute_zs(&partial_products, common_data)
+    );
 
     // The first polynomial in `partial_products` represent the final product used in the
     // computation of `Z`. It isn't needed anymore so we discard it.
@@ -108,12 +116,14 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
     let zs_partial_products = [plonk_z_vecs, partial_products.concat()].concat();
     let zs_partial_products_commitment = timed!(
+        timing,
+        "commit to Z's",
         PolynomialBatchCommitment::new(
             zs_partial_products,
             config.rate_bits,
-            config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding
-        ),
-        "to commit to Z's"
+            config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding,
+            &mut timing,
+        )
     );
 
     challenger.observe_hash(&zs_partial_products_commitment.merkle_tree.root);
@@ -121,6 +131,8 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let alphas = challenger.get_n_challenges(num_challenges);
 
     let quotient_polys = timed!(
+        timing,
+        "compute quotient polys",
         compute_quotient_polys(
             common_data,
             prover_data,
@@ -130,12 +142,13 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             &betas,
             &gammas,
             &alphas,
-        ),
-        "to compute quotient polys"
+        )
     );
 
     // Compute the quotient polynomials, aka `t` in the Plonk paper.
     let all_quotient_poly_chunks = timed!(
+        timing,
+        "split up quotient polys",
         quotient_polys
             .into_par_iter()
             .flat_map(|mut quotient_poly| {
@@ -147,17 +160,18 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
                 // Split t into degree-n chunks.
                 quotient_poly.chunks(degree)
             })
-            .collect(),
-        "to split up quotient polys"
+            .collect()
     );
 
     let quotient_polys_commitment = timed!(
+        timing,
+        "commit to quotient polys",
         PolynomialBatchCommitment::new_from_polys(
             all_quotient_poly_chunks,
             config.rate_bits,
-            config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding
-        ),
-        "to commit to quotient polys"
+            config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding,
+            &mut timing
+        )
     );
 
     challenger.observe_hash(&quotient_polys_commitment.merkle_tree.root);
@@ -165,6 +179,8 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let zeta = challenger.get_extension_challenge();
 
     let (opening_proof, openings) = timed!(
+        timing,
+        "compute opening proofs",
         PolynomialBatchCommitment::open_plonk(
             &[
                 &prover_data.constants_sigmas_commitment,
@@ -175,14 +191,11 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             zeta,
             &mut challenger,
             common_data,
-        ),
-        "to compute opening proofs"
+            &mut timing,
+        )
     );
 
-    info!(
-        "{:.3}s for overall witness & proof generation",
-        start_proof_gen.elapsed().as_secs_f32()
-    );
+    timing.print();
 
     let proof = Proof {
         wires_root: wires_commitment.merkle_tree.root,

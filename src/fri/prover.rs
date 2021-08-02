@@ -12,6 +12,7 @@ use crate::plonk::plonk_common::reduce_with_powers;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::timed;
 use crate::util::reverse_index_bits_in_place;
+use crate::util::timing::TimingTree;
 
 /// Builds a FRI proof.
 pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
@@ -22,6 +23,7 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
     lde_polynomial_values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
+    timing: &mut TimingTree,
 ) -> FriProof<F, D> {
     let n = lde_polynomial_values.values.len();
     assert_eq!(lde_polynomial_coeffs.coeffs.len(), n);
@@ -37,8 +39,9 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
     // PoW phase
     let current_hash = challenger.get_hash();
     let pow_witness = timed!(
-        fri_proof_of_work(current_hash, config),
-        "to find for proof-of-work witness"
+        timing,
+        "find for proof-of-work witness",
+        fri_proof_of_work(current_hash, config)
     );
 
     // Query phase

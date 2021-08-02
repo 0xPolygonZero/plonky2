@@ -17,6 +17,7 @@ use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::timed;
 use crate::util::reducing::ReducingFactor;
+use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
 use crate::with_context;
 
@@ -35,30 +36,38 @@ pub struct PolynomialBatchCommitment<F: Field> {
 
 impl<F: Field> PolynomialBatchCommitment<F> {
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
-    pub fn new(values: Vec<PolynomialValues<F>>, rate_bits: usize, blinding: bool) -> Self {
+    pub(crate) fn new(
+        values: Vec<PolynomialValues<F>>,
+        rate_bits: usize,
+        blinding: bool,
+        timing: &mut TimingTree,
+    ) -> Self {
         let degree = values[0].len();
         let polynomials = values.par_iter().map(|v| v.ifft()).collect::<Vec<_>>();
         let lde_values = timed!(
-            Self::lde_values(&polynomials, rate_bits, blinding),
-            "to compute LDE"
+            timing,
+            "compute LDE",
+            Self::lde_values(&polynomials, rate_bits, blinding)
         );
 
-        Self::new_from_data(polynomials, lde_values, degree, rate_bits, blinding)
+        Self::new_from_data(polynomials, lde_values, degree, rate_bits, blinding, timing)
     }
 
     /// Creates a list polynomial commitment for the polynomials `polynomials`.
-    pub fn new_from_polys(
+    pub(crate) fn new_from_polys(
         polynomials: Vec<PolynomialCoeffs<F>>,
         rate_bits: usize,
         blinding: bool,
+        timing: &mut TimingTree,
     ) -> Self {
         let degree = polynomials[0].len();
         let lde_values = timed!(
-            Self::lde_values(&polynomials, rate_bits, blinding),
-            "to compute LDE"
+            timing,
+            "compute LDE",
+            Self::lde_values(&polynomials, rate_bits, blinding)
         );
 
-        Self::new_from_data(polynomials, lde_values, degree, rate_bits, blinding)
+        Self::new_from_data(polynomials, lde_values, degree, rate_bits, blinding, timing)
     }
 
     fn new_from_data(
@@ -67,12 +76,13 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         degree: usize,
         rate_bits: usize,
         blinding: bool,
+        timing: &mut TimingTree,
     ) -> Self {
         // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
         // MerkleTree do it implicitly.
-        let mut leaves = timed!(transpose(&lde_values), "to transpose LDEs");
+        let mut leaves = timed!(timing, "transpose LDEs", transpose(&lde_values));
         reverse_index_bits_in_place(&mut leaves);
-        let merkle_tree = timed!(MerkleTree::new(leaves, false), "to build Merkle tree");
+        let merkle_tree = timed!(timing, "build Merkle tree", MerkleTree::new(leaves, false));
 
         Self {
             polynomials,
@@ -115,11 +125,12 @@ impl<F: Field> PolynomialBatchCommitment<F> {
 
     /// Takes the commitments to the constants - sigmas - wires - zs - quotient — polynomials,
     /// and an opening point `zeta` and produces a batched opening proof + opening set.
-    pub fn open_plonk<const D: usize>(
+    pub(crate) fn open_plonk<const D: usize>(
         commitments: &[&Self; 4],
         zeta: F::Extension,
         challenger: &mut Challenger<F>,
         common_data: &CommonCircuitData<F, D>,
+        timing: &mut TimingTree,
     ) -> (OpeningProof<F, D>, OpeningSet<F, D>)
     where
         F: Extendable<D>,
@@ -195,6 +206,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
             lde_final_values,
             challenger,
             &config.fri_config,
+            timing,
         );
 
         (
@@ -366,6 +378,7 @@ mod tests {
                     gen_random_test_case(ks[i], degree_log),
                     common_data.config.rate_bits,
                     PlonkPolynomials::polynomials(i).blinding,
+                    &mut TimingTree::default(),
                 )
             })
             .collect::<Vec<_>>();
@@ -376,6 +389,7 @@ mod tests {
             zeta,
             &mut Challenger::new(),
             &common_data,
+            &mut TimingTree::default(),
         );
 
         proof.verify(
