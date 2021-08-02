@@ -213,12 +213,19 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+
     use crate::field::crandall_field::CrandallField;
-    use crate::gates::gate_testing::test_low_degree;
+    use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::reducing::ReducingGate;
 
     #[test]
     fn low_degree() {
         test_low_degree::<CrandallField, _, 4>(ReducingGate::new(22));
+    }
+
+    #[test]
+    fn eval_fns() -> Result<()> {
+        test_eval_fns::<CrandallField, _, 4>(ReducingGate::new(22))
     }
 }

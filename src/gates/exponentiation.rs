@@ -262,6 +262,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
 mod tests {
     use std::marker::PhantomData;
 
+    use anyhow::Result;
     use rand::Rng;
 
     use crate::field::crandall_field::CrandallField;
@@ -269,7 +270,7 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::gates::exponentiation::ExponentiationGate;
     use crate::gates::gate::Gate;
-    use crate::gates::gate_testing::test_low_degree;
+    use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::vars::EvaluationVars;
@@ -301,6 +302,11 @@ mod tests {
         };
 
         test_low_degree::<CrandallField, _, 4>(ExponentiationGate::new(config));
+    }
+
+    #[test]
+    fn eval_fns() -> Result<()> {
+        test_eval_fns::<CrandallField, _, 4>(ExponentiationGate::new(CircuitConfig::large_config()))
     }
 
     #[test]

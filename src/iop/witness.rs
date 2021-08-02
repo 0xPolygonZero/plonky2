@@ -115,6 +115,19 @@ impl<F: Field> PartialWitness<F> {
         });
     }
 
+    pub fn set_extension_targets<const D: usize>(
+        &mut self,
+        ets: &[ExtensionTarget<D>],
+        values: &[F::Extension],
+    ) where
+        F: Extendable<D>,
+    {
+        debug_assert_eq!(ets.len(), values.len());
+        ets.iter()
+            .zip(values)
+            .for_each(|(&et, &v)| self.set_extension_target(et, v));
+    }
+
     pub fn set_wire(&mut self, wire: Wire, value: F) {
         self.set_target(Target::Wire(wire), value)
     }

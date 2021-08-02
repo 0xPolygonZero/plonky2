@@ -184,12 +184,19 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+
     use crate::field::crandall_field::CrandallField;
     use crate::gates::base_sum::BaseSumGate;
-    use crate::gates::gate_testing::test_low_degree;
+    use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
 
     #[test]
     fn low_degree() {
         test_low_degree::<CrandallField, _, 4>(BaseSumGate::<6>::new(11))
+    }
+
+    #[test]
+    fn eval_fns() -> Result<()> {
+        test_eval_fns::<CrandallField, _, 4>(BaseSumGate::<6>::new(11))
     }
 }

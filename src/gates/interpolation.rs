@@ -286,11 +286,13 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGener
 mod tests {
     use std::marker::PhantomData;
 
+    use anyhow::Result;
+
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field_types::Field;
     use crate::gates::gate::Gate;
-    use crate::gates::gate_testing::test_low_degree;
+    use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::interpolation::InterpolationGate;
     use crate::hash::hash_types::HashOut;
     use crate::plonk::vars::EvaluationVars;
@@ -319,6 +321,11 @@ mod tests {
     #[test]
     fn low_degree() {
         test_low_degree::<CrandallField, _, 4>(InterpolationGate::new(4));
+    }
+
+    #[test]
+    fn eval_fns() -> Result<()> {
+        test_eval_fns::<CrandallField, _, 4>(InterpolationGate::new(4))
     }
 
     #[test]
