@@ -29,11 +29,15 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
     assert_eq!(lde_polynomial_coeffs.coeffs.len(), n);
 
     // Commit phase
-    let (trees, final_coeffs) = fri_committed_trees(
-        lde_polynomial_coeffs,
-        lde_polynomial_values,
-        challenger,
-        config,
+    let (trees, final_coeffs) = timed!(
+        timing,
+        "fold codewords in the commitment phase",
+        fri_committed_trees(
+            lde_polynomial_coeffs,
+            lde_polynomial_values,
+            challenger,
+            config,
+        )
     );
 
     // PoW phase
