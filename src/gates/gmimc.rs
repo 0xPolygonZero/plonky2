@@ -333,17 +333,12 @@ mod tests {
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field_types::Field;
     use crate::gates::gate::Gate;
-    use crate::gates::gate_testing::test_low_degree;
+    use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::gmimc::{GMiMCGate, W};
     use crate::hash::gmimc::gmimc_permute_naive;
-    use crate::hash::hash_types::HashOut;
     use crate::iop::generator::generate_partial_witness;
     use crate::iop::wire::Wire;
     use crate::iop::witness::PartialWitness;
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::vars::{EvaluationTargets, EvaluationVars};
-    use crate::plonk::verifier::verify;
 
     #[test]
     fn generated_output() {
@@ -398,52 +393,11 @@ mod tests {
     }
 
     #[test]
-    fn test_evals() -> Result<()> {
+    fn eval_fns() -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
         const R: usize = 101;
-        let config = CircuitConfig::large_config();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
-        let mut pw = PartialWitness::<F>::new();
         let constants = Arc::new([F::TWO; R]);
-        type Gate = GMiMCGate<F, 4, R>;
-        let gate = Gate::new(constants);
-
-        let wires = FF::rand_vec(Gate::end());
-        let public_inputs_hash = &HashOut::rand();
-        let vars = EvaluationVars {
-            local_constants: &[],
-            local_wires: &wires,
-            public_inputs_hash,
-        };
-
-        let ev = gate.eval_unfiltered(vars);
-
-        let wires_t = builder.add_virtual_extension_targets(Gate::end());
-        for i in 0..Gate::end() {
-            pw.set_extension_target(wires_t[i], wires[i]);
-        }
-
-        let public_inputs_hash_t = builder.add_virtual_hash();
-        pw.set_hash_target(public_inputs_hash_t, *public_inputs_hash);
-
-        let vars_t = EvaluationTargets {
-            local_constants: &[],
-            local_wires: &wires_t,
-            public_inputs_hash: &public_inputs_hash_t,
-        };
-
-        let ev_t = gate.eval_unfiltered_recursively(&mut builder, vars_t);
-
-        assert_eq!(ev.len(), ev_t.len());
-        for (e, e_t) in ev.into_iter().zip(ev_t) {
-            let e_c = builder.constant_extension(e);
-            builder.assert_equal_extension(e_c, e_t);
-        }
-
-        let data = builder.build();
-        let proof = data.prove(pw)?;
-
-        verify(proof, &data.verifier_only, &data.common)
+        let gate = GMiMCGate::<F, 4, R>::new(constants);
+        test_eval_fns(gate)
     }
 }
