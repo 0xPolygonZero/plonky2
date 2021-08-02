@@ -191,7 +191,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensio
             .collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let extract_extension = |range: Range<usize>| -> F::Extension {
             let t = ExtensionTarget::from_range(self.gate_index, range);
             witness.get_extension_target(t)
@@ -211,7 +211,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensio
         let computed_output =
             multiplicand_0 * multiplicand_1 * self.const_0.into() + addend * self.const_1.into();
 
-        out.set_extension_target(output_target, computed_output)
+        out_buffer.set_extension_target(output_target, computed_output)
     }
 }
 
@@ -224,7 +224,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensio
             .collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let extract_extension = |range: Range<usize>| -> F::Extension {
             let t = ExtensionTarget::from_range(self.gate_index, range);
             witness.get_extension_target(t)
@@ -244,7 +244,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensio
         let computed_output =
             multiplicand_0 * multiplicand_1 * self.const_0.into() + addend * self.const_1.into();
 
-        out.set_extension_target(output_target, computed_output)
+        out_buffer.set_extension_target(output_target, computed_output)
     }
 }
 

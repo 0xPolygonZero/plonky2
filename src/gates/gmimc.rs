@@ -265,7 +265,7 @@ impl<F: Extendable<D>, const D: usize, const R: usize> SimpleGenerator<F>
             .collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let mut state = (0..W)
             .map(|i| {
                 witness.get_wire(Wire {
@@ -293,7 +293,7 @@ impl<F: Extendable<D>, const D: usize, const R: usize> SimpleGenerator<F>
         for r in 0..R {
             let active = r % W;
             let cubing_input = state[active] + addition_buffer + self.constants[r];
-            out.set_wire(
+            out_buffer.set_wire(
                 Wire {
                     gate: self.gate_index,
                     input: GMiMCGate::<F, D, R>::wire_cubing_input(r),
@@ -307,7 +307,7 @@ impl<F: Extendable<D>, const D: usize, const R: usize> SimpleGenerator<F>
 
         for i in 0..W {
             state[i] += addition_buffer;
-            out.set_wire(
+            out_buffer.set_wire(
                 Wire {
                     gate: self.gate_index,
                     input: GMiMCGate::<F, D, R>::wire_output(i),

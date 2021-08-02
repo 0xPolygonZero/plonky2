@@ -536,11 +536,11 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for QuotientGeneratorE
         deps
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let num = witness.get_extension_target(self.numerator);
         let dem = witness.get_extension_target(self.denominator);
         let quotient = num / dem;
-        out.set_extension_target(self.quotient, quotient)
+        out_buffer.set_extension_target(self.quotient, quotient)
     }
 }
 

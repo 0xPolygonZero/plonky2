@@ -56,12 +56,12 @@ impl<F: Field> SimpleGenerator<F> for LowHighGenerator {
         vec![self.integer]
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let integer_value = witness.get_target(self.integer).to_canonical_u64();
         let low = integer_value & ((1 << self.n_log) - 1);
         let high = integer_value >> self.n_log;
 
-        out.set_target(self.low, F::from_canonical_u64(low));
-        out.set_target(self.high, F::from_canonical_u64(high));
+        out_buffer.set_target(self.low, F::from_canonical_u64(low));
+        out_buffer.set_target(self.high, F::from_canonical_u64(high));
     }
 }

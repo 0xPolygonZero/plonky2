@@ -220,7 +220,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
         deps
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |input| Wire {
             gate: self.gate_index,
             input,
@@ -247,11 +247,11 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGene
 
         for i in 0..num_power_bits {
             let intermediate_value_wire = local_wire(self.gate.wire_intermediate_value(i));
-            out.set_wire(intermediate_value_wire, intermediate_values[i]);
+            out_buffer.set_wire(intermediate_value_wire, intermediate_values[i]);
         }
 
         let output_wire = local_wire(self.gate.wire_output());
-        out.set_wire(output_wire, intermediate_values[num_power_bits - 1]);
+        out_buffer.set_wire(output_wire, intermediate_values[num_power_bits - 1]);
     }
 }
 

@@ -110,12 +110,12 @@ impl<F: Field> SimpleGenerator<F> for SplitGenerator {
         vec![self.integer]
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let mut integer_value = witness.get_target(self.integer).to_canonical_u64();
 
         for &b in &self.bits {
             let b_value = integer_value & 1;
-            out.set_target(b, F::from_canonical_u64(b_value));
+            out_buffer.set_target(b, F::from_canonical_u64(b_value));
             integer_value >>= 1;
         }
 
@@ -138,12 +138,12 @@ impl<F: Field> SimpleGenerator<F> for WireSplitGenerator {
         vec![self.integer]
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let mut integer_value = witness.get_target(self.integer).to_canonical_u64();
 
         for &gate in &self.gates {
             let sum = Target::wire(gate, BaseSumGate::<2>::WIRE_SUM);
-            out.set_target(
+            out_buffer.set_target(
                 sum,
                 F::from_canonical_u64(integer_value & ((1 << self.num_limbs) - 1)),
             );

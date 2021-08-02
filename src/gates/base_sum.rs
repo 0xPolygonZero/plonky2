@@ -144,7 +144,7 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
         vec![Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM)]
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let sum_value = witness
             .get_target(Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM))
             .to_canonical_u64() as usize;
@@ -169,12 +169,12 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
             .iter()
             .fold(F::ZERO, |acc, &x| acc * b_field + x);
 
-        out.set_target(
+        out_buffer.set_target(
             Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_REVERSED_SUM),
             reversed_sum,
         );
         for (b, b_value) in limbs.zip(limbs_value) {
-            out.set_target(b, b_value);
+            out_buffer.set_target(b, b_value);
         }
     }
 }
