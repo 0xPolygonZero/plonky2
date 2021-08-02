@@ -147,14 +147,18 @@ impl<F: Field> PolynomialBatchCommitment<F> {
             );
         }
 
-        let os = OpeningSet::new(
-            zeta,
-            g,
-            commitments[0],
-            commitments[1],
-            commitments[2],
-            commitments[3],
-            common_data,
+        let os = timed!(
+            timing,
+            "construct the opening set",
+            OpeningSet::new(
+                zeta,
+                g,
+                commitments[0],
+                commitments[1],
+                commitments[2],
+                commitments[3],
+                common_data,
+            )
         );
         challenger.observe_opening_set(&os);
 
@@ -181,21 +185,33 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         .flat_map(|&p| &commitments[p.index].polynomials)
         .map(|p| p.to_extension())
         .chain(partial_products_polys);
-        let single_composition_poly = alpha.reduce_polys(single_polys);
+        let single_composition_poly = timed!(
+            timing,
+            "reduce single polys",
+            alpha.reduce_polys(single_polys)
+        );
 
         let single_quotient = Self::compute_quotient([zeta], single_composition_poly);
         final_poly += single_quotient;
         alpha.reset();
 
         // Zs polynomials are opened at `zeta` and `g*zeta`.
-        let zs_composition_poly = alpha.reduce_polys(zs_polys.into_iter());
+        let zs_composition_poly = timed!(
+            timing,
+            "reduce Z polys",
+            alpha.reduce_polys(zs_polys.into_iter())
+        );
 
         let zs_quotient = Self::compute_quotient([zeta, g * zeta], zs_composition_poly);
         alpha.shift_poly(&mut final_poly);
         final_poly += zs_quotient;
 
         let lde_final_poly = final_poly.lde(config.rate_bits);
-        let lde_final_values = lde_final_poly.coset_fft(F::coset_shift().into());
+        let lde_final_values = timed!(
+            timing,
+            &format!("perform final FFT {}", lde_final_poly.len()),
+            lde_final_poly.coset_fft(F::coset_shift().into())
+        );
 
         let fri_proof = fri_proof(
             &commitments
