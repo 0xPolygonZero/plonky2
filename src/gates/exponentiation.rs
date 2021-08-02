@@ -29,8 +29,9 @@ impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
     }
 
     fn max_power_bits(num_wires: usize, num_routed_wires: usize) -> usize {
-        let max_for_routed_wires = num_routed_wires - 3;
-        let max_for_wires = (num_wires - 3) / 2;
+        // 2 wires are reserved for the base and output.
+        let max_for_routed_wires = num_routed_wires - 2;
+        let max_for_wires = (num_wires - 2) / 2;
         max_for_routed_wires.min(max_for_wires)
     }
 
@@ -147,7 +148,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 
         let mut constraints = Vec::new();
 
-        let one = builder.constant_extension(F::Extension::ONE);
+        let one = builder.one_extension();
         for i in 0..self.num_power_bits {
             let prev_intermediate_value = if i == 0 {
                 one
