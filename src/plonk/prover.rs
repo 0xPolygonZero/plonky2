@@ -1,4 +1,5 @@
 use anyhow::Result;
+use log::Level;
 use rayon::prelude::*;
 
 use crate::field::extension_field::Extendable;
@@ -19,7 +20,6 @@ use crate::timed;
 use crate::util::partial_products::partial_products;
 use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, transpose};
-use log::Level;
 
 pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
