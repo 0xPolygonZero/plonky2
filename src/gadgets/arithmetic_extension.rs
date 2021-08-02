@@ -315,6 +315,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_extension(x, x)
     }
 
+    /// Computes `x^3`.
+    pub fn cube_extension(&mut self, x: ExtensionTarget<D>) -> ExtensionTarget<D> {
+        self.mul_three_extension(x, x, x)
+    }
+
     pub fn mul_ext_algebra(
         &mut self,
         a: ExtensionAlgebraTarget<D>,
@@ -450,6 +455,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         base: ExtensionTarget<D>,
         exponent: u64,
     ) -> ExtensionTarget<D> {
+        match exponent {
+            0 => return self.one_extension(),
+            1 => return base,
+            2 => return self.square_extension(base),
+            3 => return self.cube_extension(base),
+            _ => (),
+        }
         let mut current = base;
         let mut product = self.one_extension();
 
