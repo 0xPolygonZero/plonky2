@@ -77,7 +77,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
         let tree = MerkleTree::new(
             values
                 .values
-                .chunks(arity)
+                .par_chunks(arity)
                 .map(|chunk: &[F::Extension]| flatten(chunk))
                 .collect(),
             false,
@@ -91,7 +91,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
         coeffs = PolynomialCoeffs::new(
             coeffs
                 .coeffs
-                .chunks_exact(arity)
+                .par_chunks_exact(arity)
                 .map(|chunk| reduce_with_powers(chunk, beta))
                 .collect::<Vec<_>>(),
         );

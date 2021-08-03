@@ -1,3 +1,4 @@
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::target::ExtensionTarget;
@@ -66,7 +67,7 @@ impl<F: Extendable<D>, const D: usize> OpeningSet<F, D> {
     ) -> Self {
         let eval_commitment = |z: F::Extension, c: &PolynomialBatchCommitment<F>| {
             c.polynomials
-                .iter()
+                .par_iter()
                 .map(|p| p.to_extension().eval(z))
                 .collect::<Vec<_>>()
         };
