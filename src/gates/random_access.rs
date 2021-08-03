@@ -236,25 +236,20 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
             vec_size
         );
 
-        let mut equality_dummy_vals = Vec::new();
-        let mut index_matches_vals = Vec::new();
-        for i in 0..vec_size {
-            if i == access_index {
-                equality_dummy_vals.push(F::ONE);
-                index_matches_vals.push(F::ONE);
-            } else {
-                equality_dummy_vals.push(
-                    (F::from_canonical_usize(i) - F::from_canonical_usize(access_index)).inverse(),
-                );
-                index_matches_vals.push(F::ZERO);
-            }
-        }
-
         for i in 0..vec_size {
             let equality_dummy_wire = local_wire(self.gate.wire_equality_dummy_for_index(i));
-            out_buffer.set_wire(equality_dummy_wire, equality_dummy_vals[i]);
             let index_matches_wire = local_wire(self.gate.wire_index_matches_for_index(i));
-            out_buffer.set_wire(index_matches_wire, index_matches_vals[i]);
+
+            if i == access_index {
+                out_buffer.set_wire(equality_dummy_wire, F::ONE);
+                out_buffer.set_wire(index_matches_wire, F::ONE);
+            } else {
+                out_buffer.set_wire(
+                    equality_dummy_wire,
+                    (F::from_canonical_usize(i) - F::from_canonical_usize(access_index)).inverse(),
+                );
+                out_buffer.set_wire(index_matches_wire, F::ZERO);
+            }
         }
     }
 }
