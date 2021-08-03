@@ -5,7 +5,7 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::field::extension_field::Extendable;
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::fft::{fft, fft_with_options, ifft};
 use crate::field::field_types::Field;
 use crate::util::log2_strict;
@@ -214,6 +214,13 @@ impl<F: Field> PolynomialCoeffs<F> {
         F: Extendable<D>,
     {
         PolynomialCoeffs::new(self.coeffs.iter().map(|&c| c.into()).collect())
+    }
+
+    pub fn mul_extension<const D: usize>(&self, rhs: F::Extension) -> PolynomialCoeffs<F::Extension>
+    where
+        F: Extendable<D>,
+    {
+        PolynomialCoeffs::new(self.coeffs.iter().map(|&c| rhs.scalar_mul(c)).collect())
     }
 }
 
