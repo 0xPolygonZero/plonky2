@@ -67,7 +67,11 @@ pub trait FieldExtension<const D: usize>: Field {
     }
 
     fn scalar_mul(&self, scalar: Self::BaseField) -> Self {
-        *self * Self::from_basefield(scalar)
+        let mut res = self.to_basefield_array();
+        res.iter_mut().for_each(|x| {
+            *x *= scalar;
+        });
+        Self::from_basefield_array(res)
     }
 }
 
