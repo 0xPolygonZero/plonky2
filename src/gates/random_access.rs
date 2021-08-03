@@ -32,7 +32,7 @@ impl<F: Extendable<D>, const D: usize> RandomAccessGate<F, D> {
         0
     }
 
-    pub fn wires_element_to_compare(&self) -> Range<usize> {
+    pub fn wires_claimed_element(&self) -> Range<usize> {
         1..D + 1
     }
 
@@ -72,7 +72,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
         let list_items = (0..self.vec_size)
             .map(|i| vars.get_local_ext_algebra(self.wires_list_item(i)))
             .collect::<Vec<_>>();
-        let element_to_compare = vars.get_local_ext_algebra(self.wires_element_to_compare());
+        let claimed_element = vars.get_local_ext_algebra(self.wires_claimed_element());
 
         let mut constraints = Vec::new();
         for i in 0..self.vec_size {
@@ -86,7 +86,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
             constraints.push(index_matches * difference);
             // Value equality constraint.
             constraints.extend(
-                ((list_items[i] - element_to_compare) * index_matches.into()).to_basefield_array(),
+                ((list_items[i] - claimed_element) * index_matches.into()).to_basefield_array(),
             );
         }
 
@@ -98,7 +98,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
         let list_items = (0..self.vec_size)
             .map(|i| vars.get_local_ext(self.wires_list_item(i)))
             .collect::<Vec<_>>();
-        let element_to_compare = vars.get_local_ext(self.wires_element_to_compare());
+        let claimed_element = vars.get_local_ext(self.wires_claimed_element());
 
         let mut constraints = Vec::new();
         for i in 0..self.vec_size {
@@ -113,7 +113,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
 
             // Value equality constraint.
             constraints.extend(
-                ((list_items[i] - element_to_compare) * index_matches.into()).to_basefield_array(),
+                ((list_items[i] - claimed_element) * index_matches.into()).to_basefield_array(),
             );
         }
 
@@ -129,7 +129,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
         let list_items = (0..self.vec_size)
             .map(|i| vars.get_local_ext_algebra(self.wires_list_item(i)))
             .collect::<Vec<_>>();
-        let element_to_compare = vars.get_local_ext_algebra(self.wires_element_to_compare());
+        let claimed_element = vars.get_local_ext_algebra(self.wires_claimed_element());
 
         let mut constraints = Vec::new();
         for i in 0..self.vec_size {
@@ -151,7 +151,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
             constraints.push(second_equality_constraint);
 
             // Output constraint.
-            let diff = builder.sub_ext_algebra(list_items[i], element_to_compare);
+            let diff = builder.sub_ext_algebra(list_items[i], claimed_element);
             let conditional_diff = builder.scalar_mul_ext_algebra(index_matches, diff);
             constraints.extend(conditional_diff.to_ext_target_array());
         }
@@ -202,7 +202,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
 
         let mut deps = Vec::new();
         deps.push(local_target(self.gate.wires_access_index()));
-        deps.extend(local_targets(self.gate.wires_element_to_compare()));
+        deps.extend(local_targets(self.gate.wires_claimed_element()));
         for i in 0..self.gate.vec_size {
             deps.extend(local_targets(self.gate.wires_list_item(i)));
         }
@@ -282,7 +282,7 @@ mod tests {
         };
 
         assert_eq!(gate.wires_access_index(), 0);
-        assert_eq!(gate.wires_element_to_compare(), 1..5);
+        assert_eq!(gate.wires_claimed_element(), 1..5);
         assert_eq!(gate.wires_list_item(0), 5..9);
         assert_eq!(gate.wires_list_item(2), 13..17);
         assert_eq!(gate.wire_equality_dummy_for_index(0), 17);
@@ -309,12 +309,12 @@ mod tests {
 
         /// Returns the local wires for a random access gate given the vector, element to compare,
         /// and index.
-        fn get_wires(list: Vec<FF>, access_index: usize, element_to_compare: FF) -> Vec<FF> {
+        fn get_wires(list: Vec<FF>, access_index: usize, claimed_element: FF) -> Vec<FF> {
             let vec_size = list.len();
 
             let mut v = Vec::new();
             v.push(F::from_canonical_usize(access_index));
-            v.extend(element_to_compare.0);
+            v.extend(claimed_element.0);
             for j in 0..vec_size {
                 v.extend(list[j].0);
             }
@@ -347,16 +347,16 @@ mod tests {
             _phantom: PhantomData,
         };
 
-        let good_element_to_compare = list[access_index];
+        let good_claimed_element = list[access_index];
         let good_vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires(list.clone(), access_index, good_element_to_compare),
+            local_wires: &get_wires(list.clone(), access_index, good_claimed_element),
             public_inputs_hash: &HashOut::rand(),
         };
-        let bad_element_to_compare = FF::rand();
+        let bad_claimed_element = FF::rand();
         let bad_vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires(list, access_index, bad_element_to_compare),
+            local_wires: &get_wires(list, access_index, bad_claimed_element),
             public_inputs_hash: &HashOut::rand(),
         };
 
