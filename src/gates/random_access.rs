@@ -226,10 +226,6 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
 
         // Compute the new vector and the values for equality_dummy and index_matches
         let vec_size = self.gate.vec_size;
-        let orig_vec = (0..vec_size)
-            .map(|i| get_local_ext(self.gate.wires_list_item(i)))
-            .collect::<Vec<_>>();
-        let to_insert = get_local_ext(self.gate.wires_element_to_compare());
         let access_index_f = get_local_wire(self.gate.wires_access_index());
 
         let access_index = access_index_f.to_canonical_u64() as usize;
@@ -253,9 +249,6 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
                 index_matches_vals.push(F::ZERO);
             }
         }
-
-        let mut index_matches_vals = vec![F::ZERO; vec_size - 1];
-        index_matches_vals.insert(access_index, F::ONE);
 
         for i in 0..vec_size {
             let equality_dummy_wire = local_wire(self.gate.wire_equality_dummy_for_index(i));
@@ -316,14 +309,14 @@ mod tests {
 
         /// Returns the local wires for a random access gate given the vector, element to compare,
         /// and index.
-        fn get_wires(orig_vec: Vec<FF>, access_index: usize, element_to_compare: FF) -> Vec<FF> {
-            let vec_size = orig_vec.len();
+        fn get_wires(list: Vec<FF>, access_index: usize, element_to_compare: FF) -> Vec<FF> {
+            let vec_size = list.len();
 
             let mut v = Vec::new();
             v.push(F::from_canonical_usize(access_index));
             v.extend(element_to_compare.0);
             for j in 0..vec_size {
-                v.extend(orig_vec[j].0);
+                v.extend(list[j].0);
             }
 
             let mut equality_dummy_vals = Vec::new();
@@ -347,23 +340,23 @@ mod tests {
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         }
 
-        let orig_vec = vec![FF::rand(); 3];
+        let list = vec![FF::rand(); 3];
         let access_index = 1;
         let gate = RandomAccessGate::<F, D> {
             vec_size: 3,
             _phantom: PhantomData,
         };
 
-        let good_element_to_compare = orig_vec[access_index];
+        let good_element_to_compare = list[access_index];
         let good_vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires(orig_vec.clone(), access_index, good_element_to_compare),
+            local_wires: &get_wires(list.clone(), access_index, good_element_to_compare),
             public_inputs_hash: &HashOut::rand(),
         };
         let bad_element_to_compare = FF::rand();
         let bad_vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires(orig_vec, access_index, bad_element_to_compare),
+            local_wires: &get_wires(list, access_index, bad_element_to_compare),
             public_inputs_hash: &HashOut::rand(),
         };
 
