@@ -49,14 +49,14 @@ impl<F: Extendable<D>, const D: usize> RandomAccessGate<F, D> {
     /// An intermediate wire for a dummy variable used to show equality.
     /// The prover sets this to 1/(x-y) if x != y, or to an arbitrary value if
     /// x == y.
-    pub fn wires_equality_dummy_for_index(&self, i: usize) -> usize {
+    pub fn wire_equality_dummy_for_index(&self, i: usize) -> usize {
         debug_assert!(i < self.vec_size);
         self.start_of_intermediate_wires() + i
     }
 
-    // An intermediate wire for the "insert_here" variable (1 if the current index is the index at
-    /// which to insert the new value, 0 otherwise).
-    pub fn wires_insert_here_for_index(&self, i: usize) -> usize {
+    /// An intermediate wire for the "index_matches" variable (1 if the current index is the index at
+    /// which to compare, 0 otherwise).
+    pub fn wire_index_matches_for_index(&self, i: usize) -> usize {
         debug_assert!(i < self.vec_size);
         self.start_of_intermediate_wires() + self.vec_size + i
     }
@@ -78,15 +78,15 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
         for i in 0..self.vec_size {
             let cur_index = F::Extension::from_canonical_usize(i);
             let difference = cur_index - access_index;
-            let equality_dummy = vars.local_wires[self.wires_equality_dummy_for_index(i)];
-            let insert_here = vars.local_wires[self.wires_insert_here_for_index(i)];
+            let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_index(i)];
+            let index_matches = vars.local_wires[self.wire_index_matches_for_index(i)];
 
             // The two index equality constraints.
-            constraints.push(difference * equality_dummy - (F::Extension::ONE - insert_here));
-            constraints.push(insert_here * difference);
+            constraints.push(difference * equality_dummy - (F::Extension::ONE - index_matches));
+            constraints.push(index_matches * difference);
             // Value equality constraint.
             constraints.extend(
-                ((list_items[i] - element_to_compare) * insert_here.into()).to_basefield_array(),
+                ((list_items[i] - element_to_compare) * index_matches.into()).to_basefield_array(),
             );
         }
 
@@ -104,16 +104,16 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
         for i in 0..self.vec_size {
             let cur_index = F::from_canonical_usize(i);
             let difference = cur_index - access_index;
-            let equality_dummy = vars.local_wires[self.wires_equality_dummy_for_index(i)];
-            let insert_here = vars.local_wires[self.wires_insert_here_for_index(i)];
+            let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_index(i)];
+            let index_matches = vars.local_wires[self.wire_index_matches_for_index(i)];
 
             // The two equality constraints.
-            constraints.push(difference * equality_dummy - (F::ONE - insert_here));
-            constraints.push(insert_here * difference);
+            constraints.push(difference * equality_dummy - (F::ONE - index_matches));
+            constraints.push(index_matches * difference);
 
             // Value equality constraint.
             constraints.extend(
-                ((list_items[i] - element_to_compare) * insert_here.into()).to_basefield_array(),
+                ((list_items[i] - element_to_compare) * index_matches.into()).to_basefield_array(),
             );
         }
 
@@ -137,22 +137,22 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
             let cur_index = builder.constant_extension(cur_index_ext);
 
             let difference = builder.sub_extension(cur_index, access_index);
-            let equality_dummy = vars.local_wires[self.wires_equality_dummy_for_index(i)];
-            let insert_here = vars.local_wires[self.wires_insert_here_for_index(i)];
+            let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_index(i)];
+            let index_matches = vars.local_wires[self.wire_index_matches_for_index(i)];
 
             // The two equality constraints.
             let prod = builder.mul_extension(difference, equality_dummy);
             let one = builder.constant_extension(F::Extension::ONE);
-            let not_insert_here = builder.sub_extension(one, insert_here);
-            let first_equality_constraint = builder.sub_extension(prod, not_insert_here);
+            let not_index_matches = builder.sub_extension(one, index_matches);
+            let first_equality_constraint = builder.sub_extension(prod, not_index_matches);
             constraints.push(first_equality_constraint);
 
-            let second_equality_constraint = builder.mul_extension(insert_here, difference);
+            let second_equality_constraint = builder.mul_extension(index_matches, difference);
             constraints.push(second_equality_constraint);
 
             // Output constraint.
             let diff = builder.sub_ext_algebra(list_items[i], element_to_compare);
-            let conditional_diff = builder.scalar_mul_ext_algebra(insert_here, diff);
+            let conditional_diff = builder.scalar_mul_ext_algebra(index_matches, diff);
             constraints.extend(conditional_diff.to_ext_target_array());
         }
 
@@ -172,7 +172,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
     }
 
     fn num_wires(&self) -> usize {
-        self.wires_insert_here_for_index(self.vec_size - 1) + 1
+        self.wire_index_matches_for_index(self.vec_size - 1) + 1
     }
 
     fn num_constants(&self) -> usize {
@@ -224,7 +224,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
             F::Extension::from_basefield_array(arr)
         };
 
-        // Compute the new vector and the values for equality_dummy and insert_here
+        // Compute the new vector and the values for equality_dummy and index_matches
         let vec_size = self.gate.vec_size;
         let orig_vec = (0..vec_size)
             .map(|i| get_local_ext(self.gate.wires_list_item(i)))
@@ -240,32 +240,29 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
             vec_size
         );
 
-        let mut new_vec = orig_vec.clone();
-        new_vec.insert(access_index, to_insert);
-
         let mut equality_dummy_vals = Vec::new();
-        let mut insert_here_vals = Vec::new();
+        let mut index_matches_vals = Vec::new();
         for i in 0..vec_size {
             if i == access_index {
                 equality_dummy_vals.push(F::ONE);
-                insert_here_vals.push(F::ONE);
+                index_matches_vals.push(F::ONE);
             } else {
                 equality_dummy_vals.push(
                     (F::from_canonical_usize(i) - F::from_canonical_usize(access_index)).inverse(),
                 );
-                insert_here_vals.push(F::ZERO);
+                index_matches_vals.push(F::ZERO);
             }
         }
 
-        let mut insert_here_vals = vec![F::ZERO; vec_size - 1];
-        insert_here_vals.insert(access_index, F::ONE);
+        let mut index_matches_vals = vec![F::ZERO; vec_size - 1];
+        index_matches_vals.insert(access_index, F::ONE);
 
         let mut result = GeneratedValues::<F>::with_capacity((vec_size + 1) * (D + 2));
         for i in 0..vec_size {
-            let equality_dummy_wire = local_wire(self.gate.wires_equality_dummy_for_index(i));
+            let equality_dummy_wire = local_wire(self.gate.wire_equality_dummy_for_index(i));
             result.set_wire(equality_dummy_wire, equality_dummy_vals[i]);
-            let insert_here_wire = local_wire(self.gate.wires_insert_here_for_index(i));
-            result.set_wire(insert_here_wire, insert_here_vals[i]);
+            let index_matches_wire = local_wire(self.gate.wire_index_matches_for_index(i));
+            result.set_wire(index_matches_wire, index_matches_vals[i]);
         }
 
         result
@@ -280,7 +277,7 @@ mod tests {
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field_types::Field;
     use crate::gates::gate::Gate;
-    use crate::gates::gate_testing::test_low_degree;
+    use crate::gates::gate_testing::{test_low_degree, test_eval_fns};
     use crate::gates::random_access::RandomAccessGate;
     use crate::hash::hash_types::HashOut;
     use crate::plonk::vars::EvaluationVars;
@@ -296,16 +293,22 @@ mod tests {
         assert_eq!(gate.wires_element_to_compare(), 1..5);
         assert_eq!(gate.wires_list_item(0), 5..9);
         assert_eq!(gate.wires_list_item(2), 13..17);
-        assert_eq!(gate.wires_equality_dummy_for_index(0), 17);
-        assert_eq!(gate.wires_equality_dummy_for_index(2), 19);
-        assert_eq!(gate.wires_insert_here_for_index(0), 20);
-        assert_eq!(gate.wires_insert_here_for_index(2), 22);
+        assert_eq!(gate.wire_equality_dummy_for_index(0), 17);
+        assert_eq!(gate.wire_equality_dummy_for_index(2), 19);
+        assert_eq!(gate.wire_index_matches_for_index(0), 20);
+        assert_eq!(gate.wire_index_matches_for_index(2), 22);
     }
 
     #[test]
     fn low_degree() {
         test_low_degree::<CrandallField, _, 4>(RandomAccessGate::new(4));
     }
+
+    #[test]
+    fn eval_fns() -> Result<()> {
+        test_eval_fns::<CrandallField, _, 4>(RandomAccessGate::new(4))
+    }
+
 
     #[test]
     fn test_gate_constraint() {
@@ -326,22 +329,22 @@ mod tests {
             }
 
             let mut equality_dummy_vals = Vec::new();
-            let mut insert_here_vals = Vec::new();
+            let mut index_matches_vals = Vec::new();
             for i in 0..vec_size {
                 if i == access_index {
                     equality_dummy_vals.push(F::ONE);
-                    insert_here_vals.push(F::ONE);
+                    index_matches_vals.push(F::ONE);
                 } else {
                     equality_dummy_vals.push(
                         (F::from_canonical_usize(i) - F::from_canonical_usize(access_index))
                             .inverse(),
                     );
-                    insert_here_vals.push(F::ZERO);
+                    index_matches_vals.push(F::ZERO);
                 }
             }
 
             v.extend(equality_dummy_vals);
-            v.extend(insert_here_vals);
+            v.extend(index_matches_vals);
 
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         }

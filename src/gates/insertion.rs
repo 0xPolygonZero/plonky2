@@ -59,13 +59,13 @@ impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
     /// An intermediate wire for a dummy variable used to show equality.
     /// The prover sets this to 1/(x-y) if x != y, or to an arbitrary value if
     /// x == y.
-    pub fn wires_equality_dummy_for_round_r(&self, r: usize) -> usize {
+    pub fn wire_equality_dummy_for_round_r(&self, r: usize) -> usize {
         self.start_of_intermediate_wires() + r
     }
 
     // An intermediate wire for the "insert_here" variable (1 if the current index is the index at
     /// which to insert the new value, 0 otherwise).
-    pub fn wires_insert_here_for_round_r(&self, r: usize) -> usize {
+    pub fn wire_insert_here_for_round_r(&self, r: usize) -> usize {
         self.start_of_intermediate_wires() + (self.vec_size + 1) + r
     }
 }
@@ -90,8 +90,8 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
         for r in 0..=self.vec_size {
             let cur_index = F::Extension::from_canonical_usize(r);
             let difference = cur_index - insertion_index;
-            let equality_dummy = vars.local_wires[self.wires_equality_dummy_for_round_r(r)];
-            let insert_here = vars.local_wires[self.wires_insert_here_for_round_r(r)];
+            let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_round_r(r)];
+            let insert_here = vars.local_wires[self.wire_insert_here_for_round_r(r)];
 
             // The two equality constraints.
             constraints.push(difference * equality_dummy - (F::Extension::ONE - insert_here));
@@ -128,8 +128,8 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
         for r in 0..=self.vec_size {
             let cur_index = F::from_canonical_usize(r);
             let difference = cur_index - insertion_index;
-            let equality_dummy = vars.local_wires[self.wires_equality_dummy_for_round_r(r)];
-            let insert_here = vars.local_wires[self.wires_insert_here_for_round_r(r)];
+            let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_round_r(r)];
+            let insert_here = vars.local_wires[self.wire_insert_here_for_round_r(r)];
 
             // The two equality constraints.
             constraints.push(difference * equality_dummy - (F::ONE - insert_here));
@@ -172,8 +172,8 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             let cur_index = builder.constant_extension(cur_index_ext);
 
             let difference = builder.sub_extension(cur_index, insertion_index);
-            let equality_dummy = vars.local_wires[self.wires_equality_dummy_for_round_r(r)];
-            let insert_here = vars.local_wires[self.wires_insert_here_for_round_r(r)];
+            let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_round_r(r)];
+            let insert_here = vars.local_wires[self.wire_insert_here_for_round_r(r)];
 
             // The two equality constraints.
             let prod = builder.mul_extension(difference, equality_dummy);
@@ -218,7 +218,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
     }
 
     fn num_wires(&self) -> usize {
-        self.wires_insert_here_for_round_r(self.vec_size) + 1
+        self.wire_insert_here_for_round_r(self.vec_size) + 1
     }
 
     fn num_constants(&self) -> usize {
@@ -304,9 +304,9 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
         for i in 0..=vec_size {
             let output_wires = self.gate.wires_output_list_item(i).map(local_wire);
             out_buffer.set_ext_wires(output_wires, new_vec[i]);
-            let equality_dummy_wire = local_wire(self.gate.wires_equality_dummy_for_round_r(i));
+            let equality_dummy_wire = local_wire(self.gate.wire_equality_dummy_for_round_r(i));
             out_buffer.set_wire(equality_dummy_wire, equality_dummy_vals[i]);
-            let insert_here_wire = local_wire(self.gate.wires_insert_here_for_round_r(i));
+            let insert_here_wire = local_wire(self.gate.wire_insert_here_for_round_r(i));
             out_buffer.set_wire(insert_here_wire, insert_here_vals[i]);
         }
     }
@@ -340,10 +340,10 @@ mod tests {
         assert_eq!(gate.wires_original_list_item(2), 13..17);
         assert_eq!(gate.wires_output_list_item(0), 17..21);
         assert_eq!(gate.wires_output_list_item(3), 29..33);
-        assert_eq!(gate.wires_equality_dummy_for_round_r(0), 33);
-        assert_eq!(gate.wires_equality_dummy_for_round_r(3), 36);
-        assert_eq!(gate.wires_insert_here_for_round_r(0), 37);
-        assert_eq!(gate.wires_insert_here_for_round_r(3), 40);
+        assert_eq!(gate.wire_equality_dummy_for_round_r(0), 33);
+        assert_eq!(gate.wire_equality_dummy_for_round_r(3), 36);
+        assert_eq!(gate.wire_insert_here_for_round_r(0), 37);
+        assert_eq!(gate.wire_insert_here_for_round_r(3), 40);
     }
 
     #[test]
