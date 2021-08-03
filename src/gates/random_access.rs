@@ -209,7 +209,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
         deps
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> GeneratedValues<F> {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |input| Wire {
             gate: self.gate_index,
             input,
@@ -257,15 +257,12 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
         let mut index_matches_vals = vec![F::ZERO; vec_size - 1];
         index_matches_vals.insert(access_index, F::ONE);
 
-        let mut result = GeneratedValues::<F>::with_capacity((vec_size + 1) * (D + 2));
         for i in 0..vec_size {
             let equality_dummy_wire = local_wire(self.gate.wire_equality_dummy_for_index(i));
-            result.set_wire(equality_dummy_wire, equality_dummy_vals[i]);
+            out_buffer.set_wire(equality_dummy_wire, equality_dummy_vals[i]);
             let index_matches_wire = local_wire(self.gate.wire_index_matches_for_index(i));
-            result.set_wire(index_matches_wire, index_matches_vals[i]);
+            out_buffer.set_wire(index_matches_wire, index_matches_vals[i]);
         }
-
-        result
     }
 }
 
@@ -273,11 +270,13 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
 mod tests {
     use std::marker::PhantomData;
 
+    use anyhow::Result;
+
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field_types::Field;
     use crate::gates::gate::Gate;
-    use crate::gates::gate_testing::{test_low_degree, test_eval_fns};
+    use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::random_access::RandomAccessGate;
     use crate::hash::hash_types::HashOut;
     use crate::plonk::vars::EvaluationVars;
@@ -308,7 +307,6 @@ mod tests {
     fn eval_fns() -> Result<()> {
         test_eval_fns::<CrandallField, _, 4>(RandomAccessGate::new(4))
     }
-
 
     #[test]
     fn test_gate_constraint() {
