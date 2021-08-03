@@ -65,6 +65,10 @@ pub trait FieldExtension<const D: usize>: Field {
     fn is_in_basefield(&self) -> bool {
         self.to_basefield_array()[1..].iter().all(|x| x.is_zero())
     }
+
+    fn scalar_mul(&self, scalar: Self::BaseField) -> Self {
+        *self * Self::from_basefield(scalar)
+    }
 }
 
 impl<F: Field> FieldExtension<1> for F {

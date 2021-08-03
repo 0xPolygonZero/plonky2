@@ -38,6 +38,11 @@ impl FieldExtension<4> for QuarticCrandallField {
     fn from_basefield(x: Self::BaseField) -> Self {
         x.into()
     }
+
+    fn scalar_mul(&self, scalar: Self::BaseField) -> Self {
+        let [a, b, c, d] = self.0;
+        Self([a * scalar, b * scalar, c * scalar, d * scalar])
+    }
 }
 
 impl From<<Self as FieldExtension<4>>::BaseField> for QuarticCrandallField {

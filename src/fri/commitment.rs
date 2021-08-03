@@ -171,7 +171,6 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         let mut zs_polys = commitments[PlonkPolynomials::ZS_PARTIAL_PRODUCTS.index]
             .polynomials
             .iter()
-            .map(|p| p.to_extension())
             .collect::<Vec<_>>();
         let partial_products_polys = zs_polys.split_off(common_data.zs_range().end);
 
@@ -183,12 +182,11 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         ]
         .iter()
         .flat_map(|&p| &commitments[p.index].polynomials)
-        .map(|p| p.to_extension())
         .chain(partial_products_polys);
         let single_composition_poly = timed!(
             timing,
             "reduce single polys",
-            alpha.reduce_polys(single_polys)
+            alpha.reduce_polys_base(single_polys)
         );
 
         let single_quotient = Self::compute_quotient([zeta], single_composition_poly);
@@ -199,7 +197,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         let zs_composition_poly = timed!(
             timing,
             "reduce Z polys",
-            alpha.reduce_polys(zs_polys.into_iter())
+            alpha.reduce_polys_base(zs_polys.into_iter())
         );
 
         let zs_quotient = Self::compute_quotient([zeta, g * zeta], zs_composition_poly);

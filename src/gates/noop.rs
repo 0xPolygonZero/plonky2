@@ -56,7 +56,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
 
 #[cfg(test)]
 mod tests {
-    
 
     use crate::field::crandall_field::CrandallField;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};

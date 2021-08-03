@@ -55,6 +55,20 @@ impl<F: Field> ReducingFactor<F> {
         })
     }
 
+    pub fn reduce_polys_base<BF: Extendable<D, Extension = F>, const D: usize>(
+        &mut self,
+        polys: impl IntoIterator<Item = impl Borrow<PolynomialCoeffs<BF>>>,
+    ) -> PolynomialCoeffs<F> {
+        self.base
+            .powers()
+            .zip(polys)
+            .map(|(base_power, poly)| {
+                self.count += 1;
+                poly.borrow().mul_extension(base_power)
+            })
+            .sum()
+    }
+
     pub fn shift(&mut self, x: F) -> F {
         let tmp = self.base.exp(self.count) * x;
         self.count = 0;
