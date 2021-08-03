@@ -3,7 +3,7 @@ use anyhow::{ensure, Result};
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
-use crate::hash::hash_types::{HashOut};
+use crate::hash::hash_types::HashOut;
 use crate::iop::witness::PartialWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
