@@ -16,6 +16,7 @@ pub mod plonk_challenger;
 pub mod plonk_common;
 pub mod polynomial;
 pub mod poseidon;
+mod poseidon_constants;
 pub mod proof;
 pub mod prover;
 pub mod recursive_verifier;
