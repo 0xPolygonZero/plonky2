@@ -57,6 +57,18 @@ impl<F: Field> PartialWitness<F> {
         )
     }
 
+    pub fn get_extension_targets<const D: usize>(
+        &self,
+        ets: &[ExtensionTarget<D>],
+    ) -> Vec<F::Extension>
+    where
+        F: Extendable<D>,
+    {
+        ets.iter()
+            .map(|&et| self.get_extension_target(et))
+            .collect()
+    }
+
     pub fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {
         HashOut {
             elements: self.get_targets(&ht.elements).try_into().unwrap(),
