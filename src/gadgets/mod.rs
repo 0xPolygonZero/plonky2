@@ -4,6 +4,7 @@ pub mod hash;
 pub mod insert;
 pub mod interpolation;
 pub mod polynomial;
+pub mod random_access;
 pub mod range_check;
 pub mod select;
 pub mod split_base;
