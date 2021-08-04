@@ -91,9 +91,12 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
             constraints.push({
                 let mut acc = builder.one_extension();
                 (0..B).for_each(|i| {
-                    let it = builder.constant_extension(F::from_canonical_usize(i).into());
-                    let diff = builder.sub_extension(limb, it);
-                    acc = builder.mul_extension(acc, diff);
+                    // We update our accumulator as:
+                    // acc' = acc (x - i)
+                    //      = acc x + (-i) acc
+                    // Since -i is constant, we can do this in one arithmetic_extension call.
+                    let neg_i = -F::from_canonical_usize(i);
+                    acc = builder.arithmetic_extension(F::ONE, neg_i, acc, limb, acc)
                 });
                 acc
             });
