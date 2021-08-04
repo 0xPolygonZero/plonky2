@@ -51,8 +51,8 @@ mod tests {
         let len = 1 << len_log;
         let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
-        let vec : Vec<_> = (0..len).map(|_| FF::rand()).collect();
-        let v : Vec<_> = vec.iter().map(|x| builder.constant_extension(*x)).collect();
+        let vec = FF::rand_vec(len);
+        let v: Vec<_> = vec.iter().map(|x| builder.constant_extension(*x)).collect();
 
         for i in 0..len {
             let it = builder.constant(F::from_canonical_usize(i));
