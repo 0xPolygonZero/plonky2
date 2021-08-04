@@ -37,7 +37,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     timed!(
         timing,
         &format!("run {} generators", prover_data.generators.len()),
-        generate_partial_witness(&mut partial_witness, &prover_data.generators)
+        generate_partial_witness(&mut partial_witness, &prover_data.generators, &mut timing)
     );
 
     let public_inputs = partial_witness.get_targets(&prover_data.public_inputs);

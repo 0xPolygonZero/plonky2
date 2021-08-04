@@ -334,6 +334,7 @@ mod tests {
     use crate::iop::generator::generate_partial_witness;
     use crate::iop::wire::Wire;
     use crate::iop::witness::PartialWitness;
+    use crate::util::timing::TimingTree;
 
     #[test]
     fn generated_output() {
@@ -364,7 +365,7 @@ mod tests {
         }
 
         let generators = gate.generators(0, &[]);
-        generate_partial_witness(&mut witness, &generators);
+        generate_partial_witness(&mut witness, &generators, &mut TimingTree::default());
 
         let expected_outputs: [F; W] =
             gmimc_permute_naive(permutation_inputs.try_into().unwrap(), constants);
