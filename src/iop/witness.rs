@@ -162,9 +162,7 @@ impl<F: Field> PartialWitness<F> {
     }
 
     pub fn extend<I: Iterator<Item = (Target, F)>>(&mut self, pairs: I) {
-        for (target, value) in pairs {
-            self.set_target(target, value);
-        }
+        self.target_values.extend(pairs);
     }
 
     pub fn full_witness(self, degree: usize, num_wires: usize) -> Witness<F> {

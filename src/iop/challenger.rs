@@ -350,6 +350,7 @@ mod tests {
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::util::timing::TimingTree;
 
     #[test]
     fn no_duplicate_challenges() {
@@ -409,7 +410,11 @@ mod tests {
         }
         let circuit = builder.build();
         let mut witness = PartialWitness::new();
-        generate_partial_witness(&mut witness, &circuit.prover_only.generators);
+        generate_partial_witness(
+            &mut witness,
+            &circuit.prover_only.generators,
+            &mut TimingTree::default(),
+        );
         let recursive_output_values_per_round: Vec<Vec<F>> = recursive_outputs_per_round
             .iter()
             .map(|outputs| witness.get_targets(outputs))
