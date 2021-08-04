@@ -4,7 +4,6 @@ use crate::field::extension_field::Extendable;
 use crate::gates::exponentiation::ExponentiationGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::util::log2_ceil;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes `-x`.
@@ -97,12 +96,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Exponentiate `base` to the power of `2^power_log`.
-    // TODO: Test
-    pub fn exp_power_of_2(&mut self, mut base: Target, power_log: usize) -> Target {
-        for _ in 0..power_log {
-            base = self.square(base);
-        }
-        base
+    pub fn exp_power_of_2(&mut self, base: Target, power_log: usize) -> Target {
+        self.exp_u64(base, 1 << power_log)
     }
 
     // TODO: Test
@@ -110,12 +105,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn exp_from_bits(
         &mut self,
         base: Target,
-        exponent_bits: impl Iterator<Item = impl Borrow<Target>>,
+        exponent_bits: impl IntoIterator<Item = impl Borrow<Target>>,
     ) -> Target {
         let zero = self.zero();
         let gate = ExponentiationGate::new(self.config.clone());
         let num_power_bits = gate.num_power_bits;
-        let mut exp_bits_vec: Vec<Target> = exponent_bits.map(|b| *b.borrow()).collect();
+        let mut exp_bits_vec: Vec<Target> = exponent_bits.into_iter().map(|b| *b.borrow()).collect();
         while exp_bits_vec.len() < num_power_bits {
             exp_bits_vec.push(zero);
         }
@@ -139,10 +134,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Exponentiate `base` to the power of a known `exponent`.
     // TODO: Test
-    pub fn exp_u64(&mut self, base: Target, exponent: u64) -> Target {
-        let exp_target = self.constant(F::from_canonical_u64(exponent));
-        let num_bits = log2_ceil(exponent as usize + 1);
-        self.exp(base, exp_target, num_bits)
+    pub fn exp_u64(&mut self, base: Target, mut exponent: u64) -> Target {
+        let mut exp_bits = Vec::new();
+        while exponent != 0 {
+            let bit = exponent & 1;
+            let bit_target = self.constant(F::from_canonical_u64(bit));
+            exp_bits.push(bit_target);
+            exponent >>= 1;
+        }
+
+        self.exp_from_bits(base, exp_bits)
     }
 
     /// Computes `x / y`. Results in an unsatisfiable instance if `y = 0`.
