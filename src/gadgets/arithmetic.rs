@@ -110,7 +110,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let zero = self.zero();
         let gate = ExponentiationGate::new(self.config.clone());
         let num_power_bits = gate.num_power_bits;
-        let mut exp_bits_vec: Vec<Target> = exponent_bits.into_iter().map(|b| *b.borrow()).collect();
+        let mut exp_bits_vec: Vec<Target> =
+            exponent_bits.into_iter().map(|b| *b.borrow()).collect();
         while exp_bits_vec.len() < num_power_bits {
             exp_bits_vec.push(zero);
         }

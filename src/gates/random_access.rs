@@ -140,10 +140,10 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
             let index_matches = vars.local_wires[self.wire_index_matches_for_index(i)];
 
             // The two equality constraints.
-            let prod = builder.mul_extension(difference, equality_dummy);
-            let one = builder.constant_extension(F::Extension::ONE);
+            let one = builder.one_extension();
             let not_index_matches = builder.sub_extension(one, index_matches);
-            let first_equality_constraint = builder.sub_extension(prod, not_index_matches);
+            let first_equality_constraint =
+                builder.mul_sub_extension(difference, equality_dummy, not_index_matches);
             constraints.push(first_equality_constraint);
 
             let second_equality_constraint = builder.mul_extension(index_matches, difference);
