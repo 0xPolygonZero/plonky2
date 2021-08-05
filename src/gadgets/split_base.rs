@@ -29,14 +29,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.range_check(x, (64 - leading_zeros) as usize);
     }
 
-    pub(crate) fn reverse_limbs<const B: usize>(&mut self, x: Target, num_limbs: usize) -> Target {
-        let gate = self.add_gate(BaseSumGate::<B>::new(num_limbs), vec![]);
-        let sum = Target::wire(gate, BaseSumGate::<B>::WIRE_SUM);
-        self.route(x, sum);
-
-        Target::wire(gate, BaseSumGate::<B>::WIRE_REVERSED_SUM)
-    }
-
     /// Takes an iterator of bits `(b_i)` and returns `sum b_i * 2^i`, i.e.,
     /// the number with little-endian bit representation given by `bits`.
     pub(crate) fn le_sum(
@@ -119,9 +111,6 @@ mod tests {
         builder.route(limbs[1], three);
         builder.route(limbs[2], five);
         builder.route(limbs[3], one);
-        let rev = builder.constant(F::from_canonical_u64(11));
-        let revt = builder.reverse_limbs::<2>(xt, 9);
-        builder.route(revt, rev);
 
         builder.assert_leading_zeros(xt, 64 - 9);
         let data = builder.build();
