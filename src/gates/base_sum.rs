@@ -38,7 +38,7 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let sum = vars.local_wires[Self::WIRE_SUM];
-        let mut limbs = vars.local_wires[self.limbs()].to_vec();
+        let limbs = vars.local_wires[self.limbs()].to_vec();
         let computed_sum = reduce_with_powers(&limbs, F::Extension::from_canonical_usize(B));
         let mut constraints = vec![computed_sum - sum];
         for limb in limbs {
@@ -53,7 +53,7 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
 
     fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
         let sum = vars.local_wires[Self::WIRE_SUM];
-        let mut limbs = vars.local_wires[self.limbs()].to_vec();
+        let limbs = vars.local_wires[self.limbs()].to_vec();
         let computed_sum = reduce_with_powers(&limbs, F::from_canonical_usize(B));
         let mut constraints = vec![computed_sum - sum];
         for limb in limbs {
@@ -69,7 +69,7 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
     ) -> Vec<ExtensionTarget<D>> {
         let base = builder.constant(F::from_canonical_usize(B));
         let sum = vars.local_wires[Self::WIRE_SUM];
-        let mut limbs = vars.local_wires[self.limbs()].to_vec();
+        let limbs = vars.local_wires[self.limbs()].to_vec();
         let computed_sum = reduce_with_powers_ext_recursive(builder, &limbs, base);
         let mut constraints = vec![builder.sub_extension(computed_sum, sum)];
         for limb in limbs {
