@@ -37,7 +37,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     timed!(
         timing,
         &format!("run {} generators", prover_data.generators.len()),
-        generate_partial_witness(&mut partial_witness, &prover_data.generators)
+        generate_partial_witness(&mut partial_witness, &prover_data.generators, &mut timing)
     );
 
     let public_inputs = partial_witness.get_targets(&prover_data.public_inputs);
@@ -249,16 +249,26 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
         .enumerate()
         .map(|(i, &x)| {
             let s_sigmas = &prover_data.sigmas[i];
-            let quotient_values = (0..common_data.config.num_routed_wires)
+            let numerators = (0..common_data.config.num_routed_wires)
                 .map(|j| {
                     let wire_value = witness.get_wire(i, j);
                     let k_i = k_is[j];
                     let s_id = k_i * x;
-                    let s_sigma = s_sigmas[j];
-                    let numerator = wire_value + beta * s_id + gamma;
-                    let denominator = wire_value + beta * s_sigma + gamma;
-                    numerator / denominator
+                    wire_value + beta * s_id + gamma
                 })
+                .collect::<Vec<_>>();
+            let denominators = (0..common_data.config.num_routed_wires)
+                .map(|j| {
+                    let wire_value = witness.get_wire(i, j);
+                    let s_sigma = s_sigmas[j];
+                    wire_value + beta * s_sigma + gamma
+                })
+                .collect::<Vec<_>>();
+            let denominator_invs = F::batch_multiplicative_inverse(&denominators);
+            let quotient_values = numerators
+                .into_iter()
+                .zip(denominator_invs)
+                .map(|(num, den_inv)| num * den_inv)
                 .collect::<Vec<_>>();
 
             let quotient_partials = partial_products(&quotient_values, degree);

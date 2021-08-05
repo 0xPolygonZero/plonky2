@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::convert::identity;
 use std::fmt::Debug;
 
@@ -9,27 +9,32 @@ use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::PartialWitness;
+use crate::timed;
+use crate::util::timing::TimingTree;
 
 /// Given a `PartialWitness` that has only inputs set, populates the rest of the witness using the
 /// given set of generators.
 pub(crate) fn generate_partial_witness<F: Field>(
     witness: &mut PartialWitness<F>,
     generators: &[Box<dyn WitnessGenerator<F>>],
+    timing: &mut TimingTree,
 ) {
     // Index generator indices by their watched targets.
     let mut generator_indices_by_watches = HashMap::new();
-    for (i, generator) in generators.iter().enumerate() {
-        for watch in generator.watch_list() {
-            generator_indices_by_watches
-                .entry(watch)
-                .or_insert_with(Vec::new)
-                .push(i);
+    timed!(timing, "index generators by their watched targets", {
+        for (i, generator) in generators.iter().enumerate() {
+            for watch in generator.watch_list() {
+                generator_indices_by_watches
+                    .entry(watch)
+                    .or_insert_with(Vec::new)
+                    .push(i);
+            }
         }
-    }
+    });
 
     // Build a list of "pending" generators which are queued to be run. Initially, all generators
     // are queued.
-    let mut pending_generator_indices: HashSet<_> = (0..generators.len()).collect();
+    let mut pending_generator_indices: Vec<_> = (0..generators.len()).collect();
 
     // We also track a list of "expired" generators which have already returned false.
     let mut generator_is_expired = vec![false; generators.len()];
@@ -38,9 +43,13 @@ pub(crate) fn generate_partial_witness<F: Field>(
 
     // Keep running generators until no generators are queued.
     while !pending_generator_indices.is_empty() {
-        let mut next_pending_generator_indices = HashSet::new();
+        let mut next_pending_generator_indices = Vec::new();
 
         for &generator_idx in &pending_generator_indices {
+            if generator_is_expired[generator_idx] {
+                continue;
+            }
+
             let finished = generators[generator_idx].run(&witness, &mut buffer);
             if finished {
                 generator_is_expired[generator_idx] = true;
@@ -50,9 +59,7 @@ pub(crate) fn generate_partial_witness<F: Field>(
             for (watch, _) in &buffer.target_values {
                 if let Some(watching_generator_indices) = generator_indices_by_watches.get(watch) {
                     for &watching_generator_idx in watching_generator_indices {
-                        if !generator_is_expired[watching_generator_idx] {
-                            next_pending_generator_indices.insert(watching_generator_idx);
-                        }
+                        next_pending_generator_indices.push(watching_generator_idx);
                     }
                 }
             }
