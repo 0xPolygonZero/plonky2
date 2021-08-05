@@ -11,8 +11,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-/// A gate which can decompose a number into base B little-endian limbs,
-/// and compute the limb-reversed (i.e. big-endian) sum.
+/// A gate which can decompose a number into base B little-endian limbs.
 #[derive(Clone, Debug)]
 pub struct BaseSumGate<const B: usize> {
     num_limbs: usize,
