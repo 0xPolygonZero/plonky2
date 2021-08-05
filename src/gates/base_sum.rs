@@ -24,8 +24,7 @@ impl<const B: usize> BaseSumGate<B> {
     }
 
     pub const WIRE_SUM: usize = 0;
-    pub const WIRE_REVERSED_SUM: usize = 1;
-    pub const START_LIMBS: usize = 2;
+    pub const START_LIMBS: usize = 1;
 
     /// Returns the index of the `i`th limb wire.
     pub fn limbs(&self) -> Range<usize> {
@@ -40,13 +39,9 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let sum = vars.local_wires[Self::WIRE_SUM];
-        let reversed_sum = vars.local_wires[Self::WIRE_REVERSED_SUM];
         let mut limbs = vars.local_wires[self.limbs()].to_vec();
         let computed_sum = reduce_with_powers(&limbs, F::Extension::from_canonical_usize(B));
-        limbs.reverse();
-        let computed_reversed_sum =
-            reduce_with_powers(&limbs, F::Extension::from_canonical_usize(B));
-        let mut constraints = vec![computed_sum - sum, computed_reversed_sum - reversed_sum];
+        let mut constraints = vec![computed_sum - sum];
         for limb in limbs {
             constraints.push(
                 (0..B)
@@ -59,12 +54,9 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
 
     fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
         let sum = vars.local_wires[Self::WIRE_SUM];
-        let reversed_sum = vars.local_wires[Self::WIRE_REVERSED_SUM];
         let mut limbs = vars.local_wires[self.limbs()].to_vec();
         let computed_sum = reduce_with_powers(&limbs, F::from_canonical_usize(B));
-        limbs.reverse();
-        let computed_reversed_sum = reduce_with_powers(&limbs, F::from_canonical_usize(B));
-        let mut constraints = vec![computed_sum - sum, computed_reversed_sum - reversed_sum];
+        let mut constraints = vec![computed_sum - sum];
         for limb in limbs {
             constraints.push((0..B).map(|i| limb - F::from_canonical_usize(i)).product());
         }
@@ -78,15 +70,9 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
     ) -> Vec<ExtensionTarget<D>> {
         let base = builder.constant(F::from_canonical_usize(B));
         let sum = vars.local_wires[Self::WIRE_SUM];
-        let reversed_sum = vars.local_wires[Self::WIRE_REVERSED_SUM];
         let mut limbs = vars.local_wires[self.limbs()].to_vec();
         let computed_sum = reduce_with_powers_ext_recursive(builder, &limbs, base);
-        limbs.reverse();
-        let computed_reversed_sum = reduce_with_powers_ext_recursive(builder, &limbs, base);
-        let mut constraints = vec![
-            builder.sub_extension(computed_sum, sum),
-            builder.sub_extension(computed_reversed_sum, reversed_sum),
-        ];
+        let mut constraints = vec![builder.sub_extension(computed_sum, sum)];
         for limb in limbs {
             constraints.push({
                 let mut acc = builder.one_extension();
@@ -113,9 +99,9 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
         vec![Box::new(gen)]
     }
 
-    // 2 for the sum and reversed sum, then `num_limbs` for the limbs.
+    // 1 for the sum then `num_limbs` for the limbs.
     fn num_wires(&self) -> usize {
-        self.num_limbs + 2
+        self.num_limbs + 1
     }
 
     fn num_constants(&self) -> usize {
@@ -127,9 +113,9 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
         B
     }
 
-    // 2 for checking the sum and reversed sum, then `num_limbs` for range-checking the limbs.
+    // 1 for checking the sum then `num_limbs` for range-checking the limbs.
     fn num_constraints(&self) -> usize {
-        2 + self.num_limbs
+        1 + self.num_limbs
     }
 }
 
@@ -164,15 +150,6 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
             })
             .collect::<Vec<_>>();
 
-        let b_field = F::from_canonical_usize(B);
-        let reversed_sum = limbs_value
-            .iter()
-            .fold(F::ZERO, |acc, &x| acc * b_field + x);
-
-        out_buffer.set_target(
-            Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_REVERSED_SUM),
-            reversed_sum,
-        );
         for (b, b_value) in limbs.zip(limbs_value) {
             out_buffer.set_target(b, b_value);
         }
