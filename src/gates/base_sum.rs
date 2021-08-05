@@ -100,7 +100,7 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
 
     // 1 for the sum then `num_limbs` for the limbs.
     fn num_wires(&self) -> usize {
-        self.num_limbs + 1
+        1 + self.num_limbs
     }
 
     fn num_constants(&self) -> usize {
