@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::ops::Range;
 
@@ -216,13 +215,6 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
         };
 
         let get_local_wire = |input| witness.get_wire(local_wire(input));
-
-        let get_local_ext = |wire_range: Range<usize>| {
-            debug_assert_eq!(wire_range.len(), D);
-            let values = wire_range.map(get_local_wire).collect::<Vec<_>>();
-            let arr = values.try_into().unwrap();
-            F::Extension::from_basefield_array(arr)
-        };
 
         // Compute the new vector and the values for equality_dummy and index_matches
         let vec_size = self.gate.vec_size;
