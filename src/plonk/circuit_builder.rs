@@ -576,7 +576,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             gate_instances: self.gate_instances,
             public_inputs: self.public_inputs,
             marked_targets: self.marked_targets,
-            max_virtual_target_index: self.virtual_target_index,
+            num_virtual_targets: self.virtual_target_index,
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we

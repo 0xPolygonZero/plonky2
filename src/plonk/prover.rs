@@ -42,7 +42,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             &prover_data.generators,
             config.num_wires,
             degree,
-            prover_data.max_virtual_target_index,
+            prover_data.num_virtual_targets,
             &mut timing
         )
     );
