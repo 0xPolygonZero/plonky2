@@ -1,3 +1,5 @@
+use rayon::prelude::*;
+
 use crate::field::field_types::Field;
 use crate::polynomial::polynomial::PolynomialValues;
 
@@ -35,17 +37,13 @@ pub(crate) fn transpose_poly_values<F: Field>(polys: Vec<PolynomialValues<F>>) -
     transpose(&poly_values)
 }
 
-pub(crate) fn transpose<T: Clone>(matrix: &[Vec<T>]) -> Vec<Vec<T>> {
-    if matrix.is_empty() {
-        return Vec::new();
-    }
-
-    let old_rows = matrix.len();
-    let old_cols = matrix[0].len();
-    let mut transposed = vec![Vec::with_capacity(old_rows); old_cols];
-    for new_r in 0..old_cols {
-        for old_row in matrix.iter() {
-            transposed[new_r].push(old_row[new_r].clone());
+pub(crate) fn transpose<F: Field>(matrix: &[Vec<F>]) -> Vec<Vec<F>> {
+    let l = matrix.len();
+    let w = matrix[0].len();
+    let mut transposed = vec![vec![F::ZERO; l]; w];
+    for i in 0..w {
+        for j in 0..l {
+            transposed[i][j] = matrix[j][i];
         }
     }
     transposed
