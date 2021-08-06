@@ -364,7 +364,14 @@ mod tests {
         }
 
         let generators = gate.generators(0, &[]);
-        generate_partial_witness(&mut witness, &generators, &mut TimingTree::default());
+        generate_partial_witness(
+            &mut witness,
+            &generators,
+            gate.num_wires(),
+            1,
+            1,
+            &mut TimingTree::default(),
+        );
 
         let expected_outputs: [F; W] =
             gmimc_permute_naive(permutation_inputs.try_into().unwrap(), constants);
