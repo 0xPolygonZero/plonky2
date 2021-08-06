@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::convert::identity;
 use std::fmt::Debug;
 
@@ -17,17 +16,26 @@ use crate::util::timing::TimingTree;
 pub(crate) fn generate_partial_witness<F: Field>(
     witness: &mut PartialWitness<F>,
     generators: &[Box<dyn WitnessGenerator<F>>],
+    num_routed_wires: usize,
+    degree: usize,
+    max_virtual_target: usize,
     timing: &mut TimingTree,
 ) {
+    let ind = |t: Target| -> usize {
+        match t {
+            Target::Wire(Wire { gate, input }) => gate * num_routed_wires + input,
+            Target::VirtualTarget { index } => degree * num_routed_wires + index,
+        }
+    };
+    let max_ind = ind(Target::VirtualTarget {
+        index: max_virtual_target,
+    });
     // Index generator indices by their watched targets.
-    let mut generator_indices_by_watches = HashMap::new();
+    let mut generator_indices_by_watches = vec![Vec::new(); max_ind];
     timed!(timing, "index generators by their watched targets", {
         for (i, generator) in generators.iter().enumerate() {
             for watch in generator.watch_list() {
-                generator_indices_by_watches
-                    .entry(watch)
-                    .or_insert_with(Vec::new)
-                    .push(i);
+                generator_indices_by_watches[ind(watch)].push(i);
             }
         }
     });
@@ -56,11 +64,9 @@ pub(crate) fn generate_partial_witness<F: Field>(
             }
 
             // Enqueue unfinished generators that were watching one of the newly populated targets.
-            for (watch, _) in &buffer.target_values {
-                if let Some(watching_generator_indices) = generator_indices_by_watches.get(watch) {
-                    for &watching_generator_idx in watching_generator_indices {
-                        next_pending_generator_indices.push(watching_generator_idx);
-                    }
+            for &(watch, _) in &buffer.target_values {
+                for &watching_generator_idx in &generator_indices_by_watches[ind(watch)] {
+                    next_pending_generator_indices.push(watching_generator_idx);
                 }
             }
 
