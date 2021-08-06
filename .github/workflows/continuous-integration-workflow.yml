@@ -1,0 +1,17 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request: ~
+
+jobs:
+  test:
+    name: Standard test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - name: Test
+        uses: icepuma/rust-action@master
+        with:
+          args: cargo test --release
