@@ -136,7 +136,8 @@ pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
     pub public_inputs: Vec<Target>,
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
     pub marked_targets: Vec<MarkedTargets<D>>,
-    pub max_virtual_target_index: usize,
+    /// Number of virtual targets used in the circuit.
+    pub num_virtual_targets: usize,
 }
 
 /// Circuit data required by the verifier, but not the prover.

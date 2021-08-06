@@ -400,7 +400,7 @@ mod tests {
             ..CircuitConfig::default()
         };
         let mut witness = PartialWitness::new(1 << 14, config.num_wires, 1000);
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, 4>::new(config.clone());
         let mut recursive_challenger = RecursiveChallenger::new(&mut builder);
         let mut recursive_outputs_per_round: Vec<Vec<Target>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
@@ -413,9 +413,9 @@ mod tests {
         generate_partial_witness(
             &mut witness,
             &circuit.prover_only.generators,
-            130,
-            1000,
-            1000,
+            config.num_wires,
+            circuit.common.degree(),
+            circuit.prover_only.num_virtual_targets,
             &mut TimingTree::default(),
         );
         let recursive_output_values_per_round: Vec<Vec<F>> = recursive_outputs_per_round

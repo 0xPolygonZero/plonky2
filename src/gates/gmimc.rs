@@ -367,9 +367,9 @@ mod tests {
         generate_partial_witness(
             &mut witness,
             &generators,
-            130,
-            100,
-            100,
+            gate.num_wires(),
+            1,
+            1,
             &mut TimingTree::default(),
         );
 
