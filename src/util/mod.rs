@@ -1,5 +1,3 @@
-use rayon::prelude::*;
-
 use crate::field::field_types::Field;
 use crate::polynomial::polynomial::PolynomialValues;
 
