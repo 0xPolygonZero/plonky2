@@ -264,7 +264,7 @@ mod tests {
         builder.assert_equal_extension(manual_reduce, circuit_reduce);
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new())?;
+        let proof = data.prove(PartialWitness::new(0, 0, 0))?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
@@ -294,7 +294,7 @@ mod tests {
         builder.assert_equal_extension(manual_reduce, circuit_reduce);
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new())?;
+        let proof = data.prove(PartialWitness::new(0, 0, 0))?;
 
         verify(proof, &data.verifier_only, &data.common)
     }

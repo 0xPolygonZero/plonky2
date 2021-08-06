@@ -115,7 +115,7 @@ mod tests {
         builder.assert_leading_zeros(xt, 64 - 9);
         let data = builder.build();
 
-        let proof = data.prove(PartialWitness::new())?;
+        let proof = data.prove(PartialWitness::new(0, 0, 0))?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
@@ -147,7 +147,7 @@ mod tests {
 
         let data = builder.build();
 
-        let proof = data.prove(PartialWitness::new())?;
+        let proof = data.prove(PartialWitness::new(0, 0, 0))?;
 
         verify(proof, &data.verifier_only, &data.common)
     }

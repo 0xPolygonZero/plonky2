@@ -409,7 +409,7 @@ mod tests {
             );
         }
         let circuit = builder.build();
-        let mut witness = PartialWitness::new();
+        let mut witness = PartialWitness::new(0, 0, 0);
         generate_partial_witness(
             &mut witness,
             &circuit.prover_only.generators,

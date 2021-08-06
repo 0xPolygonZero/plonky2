@@ -26,22 +26,23 @@ impl<F: Field> Witness<F> {
 
 #[derive(Clone, Debug)]
 pub struct PartialWitness<F: Field> {
-    pub(crate) target_values: HashMap<Target, F>,
+    pub(crate) wire_values: Vec<Vec<Option<F>>>,
+    pub(crate) virtual_target_values: Vec<Option<F>>,
 }
 
 impl<F: Field> PartialWitness<F> {
-    pub fn new() -> Self {
+    pub fn new(degree: usize, num_wires: usize, max_virtual_target: usize) -> Self {
         PartialWitness {
-            target_values: HashMap::new(),
+            wire_values: vec![vec![None; num_wires]; degree],
+            virtual_target_values: vec![None; max_virtual_target],
         }
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.target_values.is_empty()
-    }
-
     pub fn get_target(&self, target: Target) -> F {
-        self.target_values[&target]
+        match target {
+            Target::Wire(Wire { gate, input }) => self.wire_values[gate][input].unwrap(),
+            Target::VirtualTarget { index } => self.virtual_target_values[index].unwrap(),
+        }
     }
 
     pub fn get_targets(&self, targets: &[Target]) -> Vec<F> {
@@ -76,7 +77,10 @@ impl<F: Field> PartialWitness<F> {
     }
 
     pub fn try_get_target(&self, target: Target) -> Option<F> {
-        self.target_values.get(&target).cloned()
+        match target {
+            Target::Wire(Wire { gate, input }) => self.wire_values[gate][input],
+            Target::VirtualTarget { index } => self.virtual_target_values[index],
+        }
     }
 
     pub fn get_wire(&self, wire: Wire) -> F {
@@ -88,7 +92,10 @@ impl<F: Field> PartialWitness<F> {
     }
 
     pub fn contains(&self, target: Target) -> bool {
-        self.target_values.contains_key(&target)
+        match target {
+            Target::Wire(Wire { gate, input }) => self.wire_values[gate][input].is_some(),
+            Target::VirtualTarget { index } => self.virtual_target_values[index].is_some(),
+        }
     }
 
     pub fn contains_all(&self, targets: &[Target]) -> bool {
@@ -96,13 +103,29 @@ impl<F: Field> PartialWitness<F> {
     }
 
     pub fn set_target(&mut self, target: Target, value: F) {
-        let opt_old_value = self.target_values.insert(target, value);
-        if let Some(old_value) = opt_old_value {
-            assert_eq!(
-                old_value, value,
-                "Target was set twice with different values: {:?}",
-                target
-            );
+        match target {
+            Target::Wire(Wire { gate, input }) => {
+                if let Some(old_value) = self.wire_values[gate][input] {
+                    assert_eq!(
+                        old_value, value,
+                        "Target was set twice with different values: {:?}",
+                        target
+                    );
+                } else {
+                    self.wire_values[gate][input] = Some(value);
+                }
+            }
+            Target::VirtualTarget { index } => {
+                if let Some(old_value) = self.virtual_target_values[index] {
+                    assert_eq!(
+                        old_value, value,
+                        "Target was set twice with different values: {:?}",
+                        target
+                    );
+                } else {
+                    self.virtual_target_values[index] = Some(value);
+                }
+            }
         }
     }
 
@@ -162,16 +185,18 @@ impl<F: Field> PartialWitness<F> {
     }
 
     pub fn extend<I: Iterator<Item = (Target, F)>>(&mut self, pairs: I) {
-        self.target_values.extend(pairs);
+        for (t, v) in pairs {
+            self.set_target(t, v);
+        }
     }
 
     pub fn full_witness(self, degree: usize, num_wires: usize) -> Witness<F> {
         let mut wire_values = vec![vec![F::ZERO; degree]; num_wires];
-        self.target_values.into_iter().for_each(|(t, v)| {
-            if let Target::Wire(Wire { gate, input }) = t {
-                wire_values[input][gate] = v;
+        for i in 0..degree {
+            for j in 0..num_wires {
+                wire_values[j][i] = self.wire_values[i][j].unwrap_or(F::ZERO);
             }
-        });
+        }
         Witness { wire_values }
     }
 
@@ -215,6 +240,6 @@ impl<F: Field> PartialWitness<F> {
 
 impl<F: Field> Default for PartialWitness<F> {
     fn default() -> Self {
-        Self::new()
+        Self::new(0, 0, 0)
     }
 }

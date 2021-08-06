@@ -155,7 +155,7 @@ mod tests {
         type F = CrandallField;
         let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
-        let mut pw = PartialWitness::new();
+        let mut pw = PartialWitness::new(0, 0, 0);
 
         let log_n = 8;
         let n = 1 << log_n;

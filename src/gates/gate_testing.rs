@@ -125,7 +125,7 @@ pub(crate) fn test_eval_fns<F: Extendable<D>, G: Gate<F, D>, const D: usize>(
 
     let config = CircuitConfig::large_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
-    let mut pw = PartialWitness::new();
+    let mut pw = PartialWitness::new(0, 0, 0);
 
     let wires_t = builder.add_virtual_extension_targets(wires.len());
     let constants_t = builder.add_virtual_extension_targets(constants.len());
