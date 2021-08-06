@@ -21,21 +21,21 @@ pub(crate) fn generate_partial_witness<F: Field>(
     max_virtual_target: usize,
     timing: &mut TimingTree,
 ) {
-    let ind = |t: Target| -> usize {
+    let target_index = |t: Target| -> usize {
         match t {
             Target::Wire(Wire { gate, input }) => gate * num_routed_wires + input,
             Target::VirtualTarget { index } => degree * num_routed_wires + index,
         }
     };
-    let max_ind = ind(Target::VirtualTarget {
+    let max_target_index = target_index(Target::VirtualTarget {
         index: max_virtual_target,
     });
     // Index generator indices by their watched targets.
-    let mut generator_indices_by_watches = vec![Vec::new(); max_ind];
+    let mut generator_indices_by_watches = vec![Vec::new(); max_target_index];
     timed!(timing, "index generators by their watched targets", {
         for (i, generator) in generators.iter().enumerate() {
             for watch in generator.watch_list() {
-                generator_indices_by_watches[ind(watch)].push(i);
+                generator_indices_by_watches[target_index(watch)].push(i);
             }
         }
     });
@@ -65,7 +65,7 @@ pub(crate) fn generate_partial_witness<F: Field>(
 
             // Enqueue unfinished generators that were watching one of the newly populated targets.
             for &(watch, _) in &buffer.target_values {
-                for &watching_generator_idx in &generator_indices_by_watches[ind(watch)] {
+                for &watching_generator_idx in &generator_indices_by_watches[target_index(watch)] {
                     next_pending_generator_indices.push(watching_generator_idx);
                 }
             }
