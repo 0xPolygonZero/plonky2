@@ -413,9 +413,9 @@ mod tests {
         generate_partial_witness(
             &mut witness,
             &circuit.prover_only.generators,
-            33,
-            100,
-            100,
+            130,
+            1000,
+            1000,
             &mut TimingTree::default(),
         );
         let recursive_output_values_per_round: Vec<Vec<F>> = recursive_outputs_per_round

@@ -16,15 +16,15 @@ use crate::util::timing::TimingTree;
 pub(crate) fn generate_partial_witness<F: Field>(
     witness: &mut PartialWitness<F>,
     generators: &[Box<dyn WitnessGenerator<F>>],
-    num_routed_wires: usize,
+    num_wires: usize,
     degree: usize,
     max_virtual_target: usize,
     timing: &mut TimingTree,
 ) {
     let target_index = |t: Target| -> usize {
         match t {
-            Target::Wire(Wire { gate, input }) => gate * num_routed_wires + input,
-            Target::VirtualTarget { index } => degree * num_routed_wires + index,
+            Target::Wire(Wire { gate, input }) => gate * num_wires + input,
+            Target::VirtualTarget { index } => degree * num_wires + index,
         }
     };
     let max_target_index = target_index(Target::VirtualTarget {

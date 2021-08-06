@@ -367,7 +367,7 @@ mod tests {
         generate_partial_witness(
             &mut witness,
             &generators,
-            33,
+            130,
             100,
             100,
             &mut TimingTree::default(),

@@ -40,7 +40,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         generate_partial_witness(
             &mut partial_witness,
             &prover_data.generators,
-            config.num_routed_wires,
+            config.num_wires,
             degree,
             prover_data.max_virtual_target_index,
             &mut timing
