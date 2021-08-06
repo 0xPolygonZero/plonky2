@@ -387,7 +387,7 @@ mod tests {
             }
             let data = builder.build();
             (
-                data.prove(PartialWitness::new(0, 0, 0))?,
+                data.prove(PartialWitness::new(1 << 14, config.num_wires, 1000))?,
                 data.verifier_only,
                 data.common,
             )
@@ -395,7 +395,7 @@ mod tests {
         verify(proof_with_pis.clone(), &vd, &cd)?;
 
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        let mut pw = PartialWitness::new(0, 0, 0);
+        let mut pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
         let pt = proof_to_proof_target(&proof_with_pis, &mut builder);
         set_proof_target(&proof_with_pis, &pt, &mut pw);
 

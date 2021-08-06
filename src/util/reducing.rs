@@ -249,6 +249,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
+        let pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let alpha = FF::rand();
@@ -264,7 +265,7 @@ mod tests {
         builder.assert_equal_extension(manual_reduce, circuit_reduce);
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new(0, 0, 0))?;
+        let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
@@ -276,6 +277,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
+        let pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let alpha = FF::rand();
@@ -294,7 +296,7 @@ mod tests {
         builder.assert_equal_extension(manual_reduce, circuit_reduce);
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new(0, 0, 0))?;
+        let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }

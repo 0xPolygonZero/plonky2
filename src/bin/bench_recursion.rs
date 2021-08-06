@@ -34,6 +34,7 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
         },
     };
 
+    let inputs = PartialWitness::new(1 << 14, config.num_wires, 1000);
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
     let zero = builder.zero();
@@ -49,7 +50,6 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
     builder.add_extension(zero_ext, zero_ext);
 
     let circuit = builder.build();
-    let inputs = PartialWitness::new(0, 0, 0);
     let proof_with_pis = circuit.prove(inputs)?;
     let proof_bytes = serde_cbor::to_vec(&proof_with_pis).unwrap();
     info!("Proof length: {} bytes", proof_bytes.len());
