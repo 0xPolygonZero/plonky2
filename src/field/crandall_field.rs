@@ -343,7 +343,7 @@ impl Field for CrandallField {
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
-        Self::from_canonical_u64(rng.gen_range(0, FIELD_ORDER))
+        Self::from_canonical_u64(rng.gen_range(0..FIELD_ORDER))
     }
 }
 

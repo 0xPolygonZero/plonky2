@@ -161,7 +161,7 @@ mod tests {
         let n = 1 << log_n;
         let leaves = random_data::<F>(n, 7);
         let tree = MerkleTree::new(leaves, false);
-        let i: usize = thread_rng().gen_range(0, n);
+        let i: usize = thread_rng().gen_range(0..n);
         let proof = tree.prove(i);
 
         let proof_t = MerkleProofTarget {
