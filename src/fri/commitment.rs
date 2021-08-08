@@ -283,7 +283,7 @@ mod tests {
 
     fn check_batch_polynomial_commitment<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
         let ks = [10, 2, 10, 8];
-        let degree_log = 11;
+        let degree_bits = 11;
         let fri_config = FriConfig {
             proof_of_work_bits: 2,
             reduction_arity_bits: vec![2, 3, 1, 2],
@@ -296,7 +296,7 @@ mod tests {
                 num_routed_wires: 6,
                 ..CircuitConfig::large_config()
             },
-            degree_bits: 0,
+            degree_bits,
             gates: vec![],
             quotient_degree_factor: 0,
             num_gate_constraints: 0,
@@ -309,7 +309,7 @@ mod tests {
         let lpcs = (0..4)
             .map(|i| {
                 PolynomialBatchCommitment::<F>::new(
-                    gen_random_test_case(ks[i], degree_log),
+                    gen_random_test_case(ks[i], degree_bits),
                     common_data.config.rate_bits,
                     PlonkPolynomials::polynomials(i).blinding,
                     &mut TimingTree::default(),
@@ -317,7 +317,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        let zeta = gen_random_point::<F, D>(degree_log);
+        let zeta = gen_random_point::<F, D>(degree_bits);
         let (proof, os) = PolynomialBatchCommitment::open_plonk::<D>(
             &[&lpcs[0], &lpcs[1], &lpcs[2], &lpcs[3]],
             zeta,
