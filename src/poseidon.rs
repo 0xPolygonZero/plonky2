@@ -39,7 +39,7 @@ fn mds_row_shf(r: usize, v: &[u64; WIDTH]) -> u128 {
 
     let mut res = 0u128;
     for i in 0..WIDTH {
-        res += (v[(i + WIDTH - r) % WIDTH] as u128) << MDS_MATRIX_EXPS[i];
+        res += (v[(i + r) % WIDTH] as u128) << MDS_MATRIX_EXPS[i];
     }
     res
 }
