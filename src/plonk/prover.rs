@@ -81,7 +81,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let wires_commitment = timed!(
         timing,
         "compute wires commitment",
-        PolynomialBatchCommitment::new(
+        PolynomialBatchCommitment::from_values(
             wires_values,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::WIRES.blinding,
@@ -125,7 +125,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let zs_partial_products_commitment = timed!(
         timing,
         "commit to Z's",
-        PolynomialBatchCommitment::new(
+        PolynomialBatchCommitment::from_values(
             zs_partial_products,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding,
@@ -173,7 +173,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let quotient_polys_commitment = timed!(
         timing,
         "commit to quotient polys",
-        PolynomialBatchCommitment::new_from_polys(
+        PolynomialBatchCommitment::from_coeffs(
             all_quotient_poly_chunks,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding,

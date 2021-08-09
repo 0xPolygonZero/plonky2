@@ -6,6 +6,7 @@ use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::fft::FftRootTable;
 use crate::field::fft::{fft, fft_with_options, ifft};
 use crate::field::field_types::Field;
 use crate::util::log2_strict;
@@ -198,15 +199,33 @@ impl<F: Field> PolynomialCoeffs<F> {
         fft(self)
     }
 
+    pub fn fft_with_options(
+        &self,
+        zero_factor: Option<usize>,
+        root_table: Option<FftRootTable<F>>,
+    ) -> PolynomialValues<F> {
+        fft_with_options(self, zero_factor, root_table)
+    }
+
     /// Returns the evaluation of the polynomial on the coset `shift*H`.
     pub fn coset_fft(&self, shift: F) -> PolynomialValues<F> {
+        self.coset_fft_with_options(shift, None, None)
+    }
+
+    /// Returns the evaluation of the polynomial on the coset `shift*H`.
+    pub fn coset_fft_with_options(
+        &self,
+        shift: F,
+        zero_factor: Option<usize>,
+        root_table: Option<FftRootTable<F>>,
+    ) -> PolynomialValues<F> {
         let modified_poly: Self = shift
             .powers()
             .zip(&self.coeffs)
             .map(|(r, &c)| r * c)
             .collect::<Vec<_>>()
             .into();
-        modified_poly.fft()
+        modified_poly.fft_with_options(zero_factor, root_table)
     }
 
     pub fn to_extension<const D: usize>(&self) -> PolynomialCoeffs<F::Extension>
