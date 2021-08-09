@@ -99,7 +99,7 @@ mod tests {
     fn test_split_base() -> Result<()> {
         type F = CrandallField;
         let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
+        let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let x = F::from_canonical_usize(0b110100000); // 416 = 1532 in base 6.
         let xt = builder.constant(x);
@@ -125,7 +125,7 @@ mod tests {
     fn test_base_sum() -> Result<()> {
         type F = CrandallField;
         let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
+        let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let n = thread_rng().gen_range(0, 1 << 10);

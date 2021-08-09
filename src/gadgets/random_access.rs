@@ -50,7 +50,7 @@ mod tests {
         type FF = QuarticCrandallField;
         let len = 1 << len_log;
         let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
+        let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let vec = FF::rand_vec(len);
         let v: Vec<_> = vec.iter().map(|x| builder.constant_extension(*x)).collect();

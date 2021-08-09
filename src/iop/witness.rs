@@ -31,10 +31,10 @@ pub struct PartialWitness<F: Field> {
 }
 
 impl<F: Field> PartialWitness<F> {
-    pub fn new(degree: usize, num_wires: usize, max_virtual_target: usize) -> Self {
+    pub fn new(num_wires: usize) -> Self {
         PartialWitness {
-            wire_values: vec![vec![None; num_wires]; degree],
-            virtual_target_values: vec![None; max_virtual_target],
+            wire_values: vec![vec![None; num_wires]],
+            virtual_target_values: vec![],
         }
     }
 
@@ -93,8 +93,13 @@ impl<F: Field> PartialWitness<F> {
 
     pub fn contains(&self, target: Target) -> bool {
         match target {
-            Target::Wire(Wire { gate, input }) => self.wire_values[gate][input].is_some(),
-            Target::VirtualTarget { index } => self.virtual_target_values[index].is_some(),
+            Target::Wire(Wire { gate, input }) => {
+                self.wire_values.len() > gate && self.wire_values[gate][input].is_some()
+            }
+            Target::VirtualTarget { index } => {
+                self.virtual_target_values.len() > index
+                    && self.virtual_target_values[index].is_some()
+            }
         }
     }
 
@@ -105,6 +110,10 @@ impl<F: Field> PartialWitness<F> {
     pub fn set_target(&mut self, target: Target, value: F) {
         match target {
             Target::Wire(Wire { gate, input }) => {
+                if gate >= self.wire_values.len() {
+                    self.wire_values
+                        .resize(gate + 1, vec![None; self.wire_values[0].len()]);
+                }
                 if let Some(old_value) = self.wire_values[gate][input] {
                     assert_eq!(
                         old_value, value,
@@ -116,6 +125,9 @@ impl<F: Field> PartialWitness<F> {
                 }
             }
             Target::VirtualTarget { index } => {
+                if index >= self.virtual_target_values.len() {
+                    self.virtual_target_values.resize(index + 1, None);
+                }
                 if let Some(old_value) = self.virtual_target_values[index] {
                     assert_eq!(
                         old_value, value,
@@ -192,7 +204,7 @@ impl<F: Field> PartialWitness<F> {
 
     pub fn full_witness(self, degree: usize, num_wires: usize) -> Witness<F> {
         let mut wire_values = vec![vec![F::ZERO; degree]; num_wires];
-        for i in 0..degree {
+        for i in 0..self.wire_values.len().min(degree) {
             for j in 0..num_wires {
                 wire_values[j][i] = self.wire_values[i][j].unwrap_or(F::ZERO);
             }
@@ -235,11 +247,5 @@ impl<F: Field> PartialWitness<F> {
             );
         }
         Ok(())
-    }
-}
-
-impl<F: Field> Default for PartialWitness<F> {
-    fn default() -> Self {
-        Self::new(0, 0, 0)
     }
 }

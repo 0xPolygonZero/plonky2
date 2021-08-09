@@ -154,7 +154,7 @@ mod tests {
     fn test_recursive_merkle_proof() -> Result<()> {
         type F = CrandallField;
         let config = CircuitConfig::large_config();
-        let mut pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
+        let mut pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let log_n = 8;

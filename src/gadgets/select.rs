@@ -48,7 +48,7 @@ mod tests {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
-        let mut pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
+        let mut pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let (x, y) = (FF::rand(), FF::rand());

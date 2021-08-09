@@ -399,7 +399,7 @@ mod tests {
             num_routed_wires: 27,
             ..CircuitConfig::default()
         };
-        let mut witness = PartialWitness::new(1 << 14, config.num_wires, 1000);
+        let mut witness = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config.clone());
         let mut recursive_challenger = RecursiveChallenger::new(&mut builder);
         let mut recursive_outputs_per_round: Vec<Vec<Target>> = Vec::new();

@@ -70,7 +70,7 @@ mod tests {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
+        let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let len = 4;
@@ -110,7 +110,7 @@ mod tests {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
+        let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let len = 2;

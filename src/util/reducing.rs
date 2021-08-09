@@ -249,7 +249,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
-        let pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
+        let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let alpha = FF::rand();
@@ -277,7 +277,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
-        let pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
+        let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let alpha = FF::rand();

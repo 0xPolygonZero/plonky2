@@ -34,7 +34,7 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
         },
     };
 
-    let inputs = PartialWitness::new(1 << 14, config.num_wires, 1000);
+    let inputs = PartialWitness::new(config.num_wires);
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
     let zero = builder.zero();

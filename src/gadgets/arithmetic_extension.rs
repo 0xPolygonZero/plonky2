@@ -603,7 +603,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
-        let mut pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
+        let mut pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let vs = FF::rand_vec(3);
@@ -640,7 +640,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
-        let pw = PartialWitness::new(1 << 14, config.num_wires, 1000);
+        let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = FF::rand();
