@@ -16,8 +16,17 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // b0 -> b1
         // x  -> a1 + (x-a0)*(b1-a1)/(b0-a0)
 
-        let x_m_a0 = self.sub_extension(evaluation_point, interpolation_points[0].0);
-        let b1_m_a1 = self.sub_extension(interpolation_points[1].1, interpolation_points[0].1);
+        let one = self.one_extension();
+        let (x_m_a0, b1_m_a1) = self.double_arithmetic_extension(
+            F::ONE,
+            F::NEG_ONE,
+            one,
+            evaluation_point,
+            interpolation_points[0].0,
+            one,
+            interpolation_points[1].1,
+            interpolation_points[0].1,
+        );
         let b0_m_a0 = self.sub_extension(interpolation_points[1].0, interpolation_points[0].0);
         let quotient = self.div_extension(b1_m_a1, b0_m_a0);
 

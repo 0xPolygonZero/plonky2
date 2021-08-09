@@ -550,8 +550,19 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x: ExtensionTarget<D>,
         y: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let y_inv = self.inverse_extension(y);
-        self.mul_extension(x, y_inv)
+        let inv = self.add_virtual_extension_target();
+        let one = self.one_extension();
+        self.add_generator(QuotientGeneratorExtension {
+            numerator: one,
+            denominator: y,
+            quotient: inv,
+        });
+
+        // Enforce that x times its purported inverse equals 1.
+        let (y_inv, res) = self.mul_two_extension(y, inv, x, inv);
+        self.assert_equal_extension(y_inv, one);
+
+        res
     }
 
     /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
