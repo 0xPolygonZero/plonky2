@@ -332,7 +332,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
     alphas: &[F],
 ) -> Vec<PolynomialCoeffs<F>> {
     let num_challenges = common_data.config.num_challenges;
-    let max_degree_bits = log2_ceil(common_data.quotient_degree_factor + 1);
+    let max_degree_bits = log2_ceil(common_data.quotient_degree_factor);
     assert!(
         max_degree_bits <= common_data.config.rate_bits,
         "Having constraints of degree higher than the rate is not supported yet. \
