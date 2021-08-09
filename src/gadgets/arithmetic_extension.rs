@@ -575,6 +575,30 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         quotient
     }
 
+    /// Computes ` x / y + z`.
+    pub fn div_unsafe_add_extension(
+        &mut self,
+        x: ExtensionTarget<D>,
+        y: ExtensionTarget<D>,
+        z: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        let zero = self.zero_extension();
+        let one = self.one_extension();
+        let quotient = self.add_virtual_extension_target();
+        self.add_generator(QuotientGeneratorExtension {
+            numerator: x,
+            denominator: y,
+            quotient,
+        });
+
+        // Enforce that q y = x.
+        let (q_y, res) =
+            self.double_arithmetic_extension(F::ONE, F::ONE, quotient, y, zero, one, quotient, z);
+        self.assert_equal_extension(q_y, x);
+
+        res
+    }
+
     /// Computes `1 / x`. Results in an unsatisfiable instance if `x = 0`.
     pub fn inverse_extension(&mut self, x: ExtensionTarget<D>) -> ExtensionTarget<D> {
         let inv = self.add_virtual_extension_target();
