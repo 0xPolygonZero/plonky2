@@ -64,7 +64,7 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
         gates.sort_unstable_by_key(|g| (-(g.0.degree() as isize), -(g.0.num_constants() as isize)));
 
         for max_degree_bits in 1..10 {
-            // The quotient polynomials are padded to the next power of 2 in `compute_vanishig_polys`.
+            // The quotient polynomials are padded to the next power of 2 in `compute_quotient_polys`.
             // So we can restrict our search space by setting `max_degree` to 1 + a power of 2.
             let max_degree = 1 << max_degree_bits + 1;
             for max_constants in 1..100 {
