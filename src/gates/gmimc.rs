@@ -345,7 +345,7 @@ mod tests {
 
         let permutation_inputs = (0..W).map(F::from_canonical_usize).collect::<Vec<_>>();
 
-        let mut witness = PartialWitness::new();
+        let mut witness = PartialWitness::new(gate.num_wires());
         witness.set_wire(
             Wire {
                 gate: 0,

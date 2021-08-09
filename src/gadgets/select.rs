@@ -48,8 +48,8 @@ mod tests {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
+        let mut pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
-        let mut pw = PartialWitness::new();
 
         let (x, y) = (FF::rand(), FF::rand());
         let xt = builder.add_virtual_extension_target();
