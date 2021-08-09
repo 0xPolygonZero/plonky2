@@ -86,6 +86,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.arithmetic(F::ONE, x, y, F::ZERO, x)
     }
 
+    /// Computes `x * y`.
+    pub fn mul_two(&mut self, a0: Target, b0: Target, a1: Target, b1: Target) -> (Target, Target) {
+        let a0_ext = self.convert_to_ext(a0);
+        let b0_ext = self.convert_to_ext(b0);
+        let a1_ext = self.convert_to_ext(a1);
+        let b1_ext = self.convert_to_ext(b1);
+        let res = self.mul_two_extension(a0_ext, b0_ext, a1_ext, b1_ext);
+        (res.0 .0[0], res.1 .0[0])
+    }
+
     /// Multiply `n` `Target`s with `ceil(n/2) + 1` `ArithmeticExtensionGate`s.
     pub fn mul_many(&mut self, terms: &[Target]) -> Target {
         let terms_ext = terms

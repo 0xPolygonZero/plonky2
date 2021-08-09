@@ -40,14 +40,23 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let coset_start = self.mul(start, x);
 
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
-        let points = g
+        let g_powers = g
             .powers()
-            .map(|y| {
-                let yt = self.constant(y);
-                self.mul(coset_start, yt)
-            })
-            .zip(evals)
+            .take(arity)
+            .map(|y| self.constant(y))
             .collect::<Vec<_>>();
+        let mut coset = Vec::new();
+        for i in 0..arity / 2 {
+            let res = self.mul_two(
+                coset_start,
+                g_powers[2 * i],
+                coset_start,
+                g_powers[2 * i + 1],
+            );
+            coset.push(res.0);
+            coset.push(res.1);
+        }
+        let points = coset.into_iter().zip(evals).collect::<Vec<_>>();
 
         self.interpolate(&points, beta)
     }
