@@ -160,8 +160,7 @@ fn partial_rounds_fast<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) 
     *round_ctr += N_PARTIAL_ROUNDS;
 }
 
-#[unroll_for_loops]
-pub fn poseidon_fast<F: Field>(input: [F; WIDTH]) -> [F; WIDTH] {
+pub fn poseidon<F: Field>(input: [F; WIDTH]) -> [F; WIDTH] {
     let mut state = input;
     let mut round_ctr = 0;
 
@@ -172,8 +171,7 @@ pub fn poseidon_fast<F: Field>(input: [F; WIDTH]) -> [F; WIDTH] {
     state
 }
 
-#[unroll_for_loops]
-pub fn poseidon<F: Field>(input: [F; WIDTH]) -> [F; WIDTH] {
+pub fn poseidon_naive<F: Field>(input: [F; WIDTH]) -> [F; WIDTH] {
     let mut state = input;
     let mut round_ctr = 0;
 
@@ -188,7 +186,7 @@ pub fn poseidon<F: Field>(input: [F; WIDTH]) -> [F; WIDTH] {
 mod tests {
     use crate::field::crandall_field::CrandallField as F;
     use crate::field::field::Field;
-    use crate::poseidon::{poseidon, poseidon_fast, WIDTH};
+    use crate::poseidon::{poseidon, poseidon_naive, WIDTH};
 
     #[test]
     fn test_vectors() {
@@ -217,7 +215,7 @@ mod tests {
             input[i] = F::from_canonical_u64(i as u64);
         }
         let output = poseidon(input);
-        let output_fast = poseidon_fast(input);
+        let output_fast = poseidon_naive(input);
         for i in 0..WIDTH {
             assert_eq!(output[i], output_fast[i]);
         }
