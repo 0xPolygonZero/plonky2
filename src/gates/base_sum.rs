@@ -1,31 +1,29 @@
 use std::ops::Range;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
-use crate::gates::gate::{Gate, GateRef};
-use crate::generator::{SimpleGenerator, WitnessGenerator};
-use crate::plonk_common::{reduce_with_powers, reduce_with_powers_recursive};
-use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars};
-use crate::witness::PartialWitness;
+use crate::field::field_types::Field;
+use crate::gates::gate::Gate;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::target::Target;
+use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-/// A gate which can decompose a number into base B little-endian limbs,
-/// and compute the limb-reversed (i.e. big-endian) sum.
-#[derive(Debug)]
+/// A gate which can decompose a number into base B little-endian limbs.
+#[derive(Clone, Debug)]
 pub struct BaseSumGate<const B: usize> {
     num_limbs: usize,
 }
 
 impl<const B: usize> BaseSumGate<B> {
-    pub fn new<F: Extendable<D>, const D: usize>(num_limbs: usize) -> GateRef<F, D> {
-        GateRef::new(BaseSumGate::<B> { num_limbs })
+    pub fn new(num_limbs: usize) -> Self {
+        Self { num_limbs }
     }
 
     pub const WIRE_SUM: usize = 0;
-    pub const WIRE_REVERSED_SUM: usize = 1;
-    pub const START_LIMBS: usize = 2;
+    pub const START_LIMBS: usize = 1;
 
     /// Returns the index of the `i`th limb wire.
     pub fn limbs(&self) -> Range<usize> {
@@ -40,19 +38,26 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let sum = vars.local_wires[Self::WIRE_SUM];
-        let reversed_sum = vars.local_wires[Self::WIRE_REVERSED_SUM];
-        let mut limbs = vars.local_wires[self.limbs()].to_vec();
+        let limbs = vars.local_wires[self.limbs()].to_vec();
         let computed_sum = reduce_with_powers(&limbs, F::Extension::from_canonical_usize(B));
-        limbs.reverse();
-        let computed_reversed_sum =
-            reduce_with_powers(&limbs, F::Extension::from_canonical_usize(B));
-        let mut constraints = vec![computed_sum - sum, computed_reversed_sum - reversed_sum];
+        let mut constraints = vec![computed_sum - sum];
         for limb in limbs {
             constraints.push(
                 (0..B)
                     .map(|i| limb - F::Extension::from_canonical_usize(i))
                     .product(),
             );
+        }
+        constraints
+    }
+
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+        let sum = vars.local_wires[Self::WIRE_SUM];
+        let limbs = vars.local_wires[self.limbs()].to_vec();
+        let computed_sum = reduce_with_powers(&limbs, F::from_canonical_usize(B));
+        let mut constraints = vec![computed_sum - sum];
+        for limb in limbs {
+            constraints.push((0..B).map(|i| limb - F::from_canonical_usize(i)).product());
         }
         constraints
     }
@@ -64,22 +69,19 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
     ) -> Vec<ExtensionTarget<D>> {
         let base = builder.constant(F::from_canonical_usize(B));
         let sum = vars.local_wires[Self::WIRE_SUM];
-        let reversed_sum = vars.local_wires[Self::WIRE_REVERSED_SUM];
-        let mut limbs = vars.local_wires[self.limbs()].to_vec();
-        let computed_sum = reduce_with_powers_recursive(builder, &limbs, base);
-        limbs.reverse();
-        let computed_reversed_sum = reduce_with_powers_recursive(builder, &limbs, base);
-        let mut constraints = vec![
-            builder.sub_extension(computed_sum, sum),
-            builder.sub_extension(computed_reversed_sum, reversed_sum),
-        ];
+        let limbs = vars.local_wires[self.limbs()].to_vec();
+        let computed_sum = reduce_with_powers_ext_recursive(builder, &limbs, base);
+        let mut constraints = vec![builder.sub_extension(computed_sum, sum)];
         for limb in limbs {
             constraints.push({
                 let mut acc = builder.one_extension();
                 (0..B).for_each(|i| {
-                    let it = builder.constant_extension(F::from_canonical_usize(i).into());
-                    let diff = builder.sub_extension(limb, it);
-                    acc = builder.mul_extension(acc, diff);
+                    // We update our accumulator as:
+                    // acc' = acc (x - i)
+                    //      = acc x + (-i) acc
+                    // Since -i is constant, we can do this in one arithmetic_extension call.
+                    let neg_i = -F::from_canonical_usize(i);
+                    acc = builder.arithmetic_extension(F::ONE, neg_i, acc, limb, acc)
                 });
                 acc
             });
@@ -99,9 +101,9 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
         vec![Box::new(gen)]
     }
 
-    // 2 for the sum and reversed sum, then `num_limbs` for the limbs.
+    // 1 for the sum then `num_limbs` for the limbs.
     fn num_wires(&self) -> usize {
-        self.num_limbs + 2
+        1 + self.num_limbs
     }
 
     fn num_constants(&self) -> usize {
@@ -113,9 +115,9 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
         B
     }
 
-    // 2 for checking the sum and reversed sum, then `num_limbs` for range-checking the limbs.
+    // 1 for checking the sum then `num_limbs` for range-checking the limbs.
     fn num_constraints(&self) -> usize {
-        2 + self.num_limbs
+        1 + self.num_limbs
     }
 }
 
@@ -130,7 +132,7 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
         vec![Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM)]
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let sum_value = witness
             .get_target(Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM))
             .to_canonical_u64() as usize;
@@ -150,33 +152,27 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
             })
             .collect::<Vec<_>>();
 
-        let b_field = F::from_canonical_usize(B);
-        let reversed_sum = limbs_value
-            .iter()
-            .fold(F::ZERO, |acc, &x| acc * b_field + x);
-
-        let mut result = PartialWitness::new();
-        result.set_target(
-            Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_REVERSED_SUM),
-            reversed_sum,
-        );
         for (b, b_value) in limbs.zip(limbs_value) {
-            result.set_target(b, b_value);
+            out_buffer.set_target(b, b_value);
         }
-
-        result
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::circuit_data::CircuitConfig;
+    use anyhow::Result;
+
     use crate::field::crandall_field::CrandallField;
     use crate::gates::base_sum::BaseSumGate;
-    use crate::gates::gate_testing::test_low_degree;
+    use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
 
     #[test]
     fn low_degree() {
-        test_low_degree(BaseSumGate::<6>::new::<CrandallField, 4>(11))
+        test_low_degree::<CrandallField, _, 4>(BaseSumGate::<6>::new(11))
+    }
+
+    #[test]
+    fn eval_fns() -> Result<()> {
+        test_eval_fns::<CrandallField, _, 4>(BaseSumGate::<6>::new(11))
     }
 }

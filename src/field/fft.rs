@@ -1,6 +1,6 @@
 use std::option::Option;
 
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_strict, reverse_index_bits};
 
@@ -13,7 +13,7 @@ enum FftStrategy {
 
 const FFT_STRATEGY: FftStrategy = FftStrategy::Classic;
 
-type FftRootTable<F: Field> = Vec<Vec<F>>;
+type FftRootTable<F> = Vec<Vec<F>>;
 
 fn fft_classic_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     let lg_n = log2_strict(n);
@@ -67,7 +67,7 @@ fn fft_unrolled_root_table<F: Field>(n: usize) -> FftRootTable<F> {
 
 #[inline]
 fn fft_dispatch<F: Field>(
-    input: Vec<F>,
+    input: &[F],
     zero_factor: Option<usize>,
     root_table: Option<FftRootTable<F>>,
 ) -> Vec<F> {
@@ -87,13 +87,13 @@ fn fft_dispatch<F: Field>(
 }
 
 #[inline]
-pub fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
+pub fn fft<F: Field>(poly: &PolynomialCoeffs<F>) -> PolynomialValues<F> {
     fft_with_options(poly, None, None)
 }
 
 #[inline]
 pub fn fft_with_options<F: Field>(
-    poly: PolynomialCoeffs<F>,
+    poly: &PolynomialCoeffs<F>,
     zero_factor: Option<usize>,
     root_table: Option<FftRootTable<F>>,
 ) -> PolynomialValues<F> {
@@ -104,12 +104,12 @@ pub fn fft_with_options<F: Field>(
 }
 
 #[inline]
-pub fn ifft<F: Field>(poly: PolynomialValues<F>) -> PolynomialCoeffs<F> {
+pub fn ifft<F: Field>(poly: &PolynomialValues<F>) -> PolynomialCoeffs<F> {
     ifft_with_options(poly, None, None)
 }
 
 pub fn ifft_with_options<F: Field>(
-    poly: PolynomialValues<F>,
+    poly: &PolynomialValues<F>,
     zero_factor: Option<usize>,
     root_table: Option<FftRootTable<F>>,
 ) -> PolynomialCoeffs<F> {
@@ -139,11 +139,7 @@ pub fn ifft_with_options<F: Field>(
 /// The parameter r signifies that the first 1/2^r of the entries of
 /// input may be non-zero, but the last 1 - 1/2^r entries are
 /// definitely zero.
-pub(crate) fn fft_classic<F: Field>(
-    input: Vec<F>,
-    r: usize,
-    root_table: FftRootTable<F>,
-) -> Vec<F> {
+pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: FftRootTable<F>) -> Vec<F> {
     let mut values = reverse_index_bits(input);
 
     let n = values.len();
@@ -196,7 +192,7 @@ pub(crate) fn fft_classic<F: Field>(
 /// The parameter r signifies that the first 1/2^r of the entries of
 /// input may be non-zero, but the last 1 - 1/2^r entries are
 /// definitely zero.
-fn fft_unrolled<F: Field>(input: Vec<F>, r_orig: usize, root_table: FftRootTable<F>) -> Vec<F> {
+fn fft_unrolled<F: Field>(input: &[F], r_orig: usize, root_table: FftRootTable<F>) -> Vec<F> {
     let n = input.len();
     let lg_n = log2_strict(input.len());
 
@@ -250,9 +246,9 @@ fn fft_unrolled<F: Field>(input: Vec<F>, r_orig: usize, root_table: FftRootTable
             // NB: Grouping statements as is done in the main loop below
             // does not seem to help here (worse by a few millis).
             let omega_0 = root_table[0][0];
-            let tmp_0 = omega_0 * values[k + 2 + 0];
-            values[k + 2 + 0] = values[k + 0] - tmp_0;
-            values[k + 0] += tmp_0;
+            let tmp_0 = omega_0 * values[k + 2];
+            values[k + 2] = values[k] - tmp_0;
+            values[k] += tmp_0;
 
             let omega_1 = root_table[0][1];
             let tmp_1 = omega_1 * values[k + 2 + 1];
@@ -281,21 +277,21 @@ fn fft_unrolled<F: Field>(input: Vec<F>, r_orig: usize, root_table: FftRootTable
                 let off1 = k + j;
                 let off2 = k + m + j;
 
-                let omega_0 = root_table[lg_m - 1][j + 0];
+                let omega_0 = root_table[lg_m - 1][j];
                 let omega_1 = root_table[lg_m - 1][j + 1];
                 let omega_2 = root_table[lg_m - 1][j + 2];
                 let omega_3 = root_table[lg_m - 1][j + 3];
 
-                let tmp_0 = omega_0 * values[off2 + 0];
+                let tmp_0 = omega_0 * values[off2];
                 let tmp_1 = omega_1 * values[off2 + 1];
                 let tmp_2 = omega_2 * values[off2 + 2];
                 let tmp_3 = omega_3 * values[off2 + 3];
 
-                values[off2 + 0] = values[off1 + 0] - tmp_0;
+                values[off2] = values[off1] - tmp_0;
                 values[off2 + 1] = values[off1 + 1] - tmp_1;
                 values[off2 + 2] = values[off1 + 2] - tmp_2;
                 values[off2 + 3] = values[off1 + 3] - tmp_3;
-                values[off1 + 0] += tmp_0;
+                values[off1] += tmp_0;
                 values[off1 + 1] += tmp_1;
                 values[off1 + 2] += tmp_2;
                 values[off1 + 3] += tmp_3;
@@ -310,7 +306,7 @@ fn fft_unrolled<F: Field>(input: Vec<F>, r_orig: usize, root_table: FftRootTable
 mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::fft::{fft, fft_with_options, ifft};
-    use crate::field::field::Field;
+    use crate::field::field_types::Field;
     use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
     use crate::util::{log2_ceil, log2_strict};
 
@@ -325,10 +321,10 @@ mod tests {
         }
         let coefficients = PolynomialCoeffs::new_padded(coefficients);
 
-        let points = fft(coefficients.clone());
+        let points = fft(&coefficients);
         assert_eq!(points, evaluate_naive(&coefficients));
 
-        let interpolated_coefficients = ifft(points);
+        let interpolated_coefficients = ifft(&points);
         for i in 0..degree {
             assert_eq!(interpolated_coefficients.coeffs[i], coefficients.coeffs[i]);
         }
@@ -337,12 +333,9 @@ mod tests {
         }
 
         for r in 0..4 {
-            // expand ceofficients by factor 2^r by filling with zeros
-            let zero_tail = coefficients.clone().lde(r);
-            assert_eq!(
-                fft(zero_tail.clone()),
-                fft_with_options(zero_tail, Some(r), None)
-            );
+            // expand coefficients by factor 2^r by filling with zeros
+            let zero_tail = coefficients.lde(r);
+            assert_eq!(fft(&zero_tail), fft_with_options(&zero_tail, Some(r), None));
         }
     }
 
@@ -350,10 +343,7 @@ mod tests {
         let degree = coefficients.len();
         let degree_padded = 1 << log2_ceil(degree);
 
-        let mut coefficients_padded = coefficients.clone();
-        for _i in degree..degree_padded {
-            coefficients_padded.coeffs.push(F::ZERO);
-        }
+        let coefficients_padded = coefficients.padded(degree_padded);
         evaluate_naive_power_of_2(&coefficients_padded)
     }
 

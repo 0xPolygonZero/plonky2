@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 
 pub mod algebra;
 pub mod quadratic;
@@ -34,8 +34,8 @@ pub trait Frobenius<const D: usize>: OEF<D> {
             return self.repeated_frobenius(count % D);
         }
         let arr = self.to_basefield_array();
-        let k = (Self::BaseField::ORDER - 1) / (D as u64);
-        let z0 = Self::W.exp(k * count as u64);
+        let k = (Self::BaseField::order() - 1u32) / (D as u64);
+        let z0 = Self::W.exp_biguint(&(k * count as u64));
         let mut res = [Self::BaseField::ZERO; D];
         for (i, z) in z0.powers().take(D).enumerate() {
             res[i] = arr[i] * z;
@@ -64,6 +64,14 @@ pub trait FieldExtension<const D: usize>: Field {
 
     fn is_in_basefield(&self) -> bool {
         self.to_basefield_array()[1..].iter().all(|x| x.is_zero())
+    }
+
+    fn scalar_mul(&self, scalar: Self::BaseField) -> Self {
+        let mut res = self.to_basefield_array();
+        res.iter_mut().for_each(|x| {
+            *x *= scalar;
+        });
+        Self::from_basefield_array(res)
     }
 }
 

@@ -1,12 +1,12 @@
 use std::time::Instant;
 
 use plonky2::field::crandall_field::CrandallField as F;
-use plonky2::field::field::Field;
+use plonky2::field::field_types::Field;
 
-use plonky2::gmimc::gmimc_permute_array;
-use plonky2::hash::{GMIMC_CONSTANTS, GMIMC_ROUNDS};
-use plonky2::rescue::rescue;
-use plonky2::poseidon::{poseidon, poseidon_naive};
+use plonky2::hash::gmimc::gmimc_permute_array;
+use plonky2::hash::hashing::{GMIMC_CONSTANTS, GMIMC_ROUNDS};
+use plonky2::hash::rescue::rescue;
+use plonky2::hash::poseidon::{poseidon, poseidon_naive};
 
 /// Number of elements in the hash input/state/result.
 const W: usize = 12;

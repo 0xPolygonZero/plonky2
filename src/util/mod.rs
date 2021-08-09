@@ -1,8 +1,11 @@
-pub mod scaling;
-pub(crate) mod timing;
-
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::polynomial::polynomial::PolynomialValues;
+
+pub(crate) mod context_tree;
+pub(crate) mod marking;
+pub(crate) mod partial_products;
+pub(crate) mod reducing;
+pub(crate) mod timing;
 
 pub(crate) fn bits_u64(n: u64) -> usize {
     (64 - n.leading_zeros()) as usize
@@ -32,24 +35,20 @@ pub(crate) fn transpose_poly_values<F: Field>(polys: Vec<PolynomialValues<F>>) -
     transpose(&poly_values)
 }
 
-pub(crate) fn transpose<T: Clone>(matrix: &[Vec<T>]) -> Vec<Vec<T>> {
-    if matrix.is_empty() {
-        return Vec::new();
-    }
-
-    let old_rows = matrix.len();
-    let old_cols = matrix[0].len();
-    let mut transposed = vec![Vec::with_capacity(old_rows); old_cols];
-    for new_r in 0..old_cols {
-        for new_c in 0..old_rows {
-            transposed[new_r].push(matrix[new_c][new_r].clone());
+pub(crate) fn transpose<F: Field>(matrix: &[Vec<F>]) -> Vec<Vec<F>> {
+    let l = matrix.len();
+    let w = matrix[0].len();
+    let mut transposed = vec![vec![F::ZERO; l]; w];
+    for i in 0..w {
+        for j in 0..l {
+            transposed[i][j] = matrix[j][i];
         }
     }
     transposed
 }
 
 /// Permutes `arr` such that each index is mapped to its reverse in binary.
-pub(crate) fn reverse_index_bits<T: Copy>(arr: Vec<T>) -> Vec<T> {
+pub(crate) fn reverse_index_bits<T: Copy>(arr: &[T]) -> Vec<T> {
     let n = arr.len();
     let n_power = log2_strict(n);
 
@@ -97,12 +96,9 @@ mod tests {
 
     #[test]
     fn test_reverse_index_bits() {
+        assert_eq!(reverse_index_bits(&[10, 20, 30, 40]), vec![10, 30, 20, 40]);
         assert_eq!(
-            reverse_index_bits(vec![10, 20, 30, 40]),
-            vec![10, 30, 20, 40]
-        );
-        assert_eq!(
-            reverse_index_bits(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+            reverse_index_bits(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
             vec![0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15]
         );
     }

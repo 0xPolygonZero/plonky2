@@ -1,5 +1,7 @@
+pub mod commitment;
+pub mod proof;
 pub mod prover;
-mod recursive_verifier;
+pub mod recursive_verifier;
 pub mod verifier;
 
 /// Somewhat arbitrary. Smaller values will increase delta, but with diminishing returns,
@@ -9,8 +11,6 @@ const EPSILON: f64 = 0.01;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FriConfig {
     pub proof_of_work_bits: u32,
-
-    pub rate_bits: usize,
 
     /// The arity of each FRI reduction step, expressed (i.e. the log2 of the actual arity).
     /// For example, `[3, 2, 1]` would describe a FRI reduction tree with 8-to-1 reduction, then

@@ -1,18 +1,18 @@
 use std::convert::TryInto;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
 use crate::gates::gmimc::GMiMCGate;
-use crate::hash::GMIMC_ROUNDS;
-use crate::target::Target;
-use crate::wire::Wire;
+use crate::hash::hashing::GMIMC_ROUNDS;
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
+use crate::plonk::circuit_builder::CircuitBuilder;
 
 // TODO: Move to be next to native `permute`?
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn permute(&mut self, inputs: [Target; 12]) -> [Target; 12] {
         let zero = self.zero();
-        let gate =
-            self.add_gate_no_constants(GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants());
+        let gate_type = GMiMCGate::<F, D, GMIMC_ROUNDS>::new_automatic_constants();
+        let gate = self.add_gate(gate_type, vec![]);
 
         // We don't want to swap any inputs, so set that wire to 0.
         let swap_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_SWAP;
@@ -21,15 +21,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             input: swap_wire,
         });
         self.route(zero, swap_wire);
-
-        // The old accumulator wire doesn't matter, since we won't read the new accumulator wire.
-        // We do have to set it to something though, so we'll arbitrary pick 0.
-        let old_acc_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_INDEX_ACCUMULATOR_OLD;
-        let old_acc_wire = Target::Wire(Wire {
-            gate,
-            input: old_acc_wire,
-        });
-        self.route(zero, old_acc_wire);
 
         // Route input wires.
         for i in 0..12 {

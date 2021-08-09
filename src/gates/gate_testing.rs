@@ -1,22 +1,29 @@
-use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
-use crate::gates::gate::{Gate, GateRef};
+use anyhow::{ensure, Result};
+
+use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::field_types::Field;
+use crate::gates::gate::Gate;
+use crate::hash::hash_types::HashOut;
+use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CircuitConfig;
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::verifier::verify;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_ceil, transpose};
-use crate::vars::EvaluationVars;
 
 const WITNESS_SIZE: usize = 1 << 5;
 const WITNESS_DEGREE: usize = WITNESS_SIZE - 1;
 
 /// Tests that the constraints imposed by the given gate are low-degree by applying them to random
 /// low-degree witness polynomials.
-pub(crate) fn test_low_degree<F: Extendable<D>, const D: usize>(gate: GateRef<F, D>) {
-    let gate = gate.0;
+pub(crate) fn test_low_degree<F: Extendable<D>, G: Gate<F, D>, const D: usize>(gate: G) {
     let rate_bits = log2_ceil(gate.degree() + 1);
 
     let wire_ldes = random_low_degree_matrix::<F::Extension>(gate.num_wires(), rate_bits);
     let constant_ldes = random_low_degree_matrix::<F::Extension>(gate.num_constants(), rate_bits);
     assert_eq!(wire_ldes.len(), constant_ldes.len());
+    let public_inputs_hash = &HashOut::rand();
 
     let constraint_evals = wire_ldes
         .iter()
@@ -24,6 +31,7 @@ pub(crate) fn test_low_degree<F: Extendable<D>, const D: usize>(gate: GateRef<F,
         .map(|(local_wires, local_constants)| EvaluationVars {
             local_constants,
             local_wires,
+            public_inputs_hash,
         })
         .map(|vars| gate.eval_unfiltered(vars))
         .collect::<Vec<_>>();
@@ -33,6 +41,12 @@ pub(crate) fn test_low_degree<F: Extendable<D>, const D: usize>(gate: GateRef<F,
         .map(PolynomialValues::new)
         .map(|p| p.degree())
         .collect::<Vec<_>>();
+
+    assert_eq!(
+        constraint_eval_degrees.len(),
+        gate.num_constraints(),
+        "eval should return num_constraints() constraints"
+    );
 
     let expected_eval_degree = WITNESS_DEGREE * gate.degree();
 
@@ -66,4 +80,78 @@ fn random_low_degree_values<F: Field>(rate_bits: usize) -> Vec<F> {
         .lde(rate_bits)
         .fft()
         .values
+}
+
+pub(crate) fn test_eval_fns<F: Extendable<D>, G: Gate<F, D>, const D: usize>(
+    gate: G,
+) -> Result<()> {
+    // Test that `eval_unfiltered` and `eval_unfiltered_base` are coherent.
+    let wires_base = F::rand_vec(gate.num_wires());
+    let constants_base = F::rand_vec(gate.num_constants());
+    let wires = wires_base
+        .iter()
+        .map(|&x| F::Extension::from_basefield(x))
+        .collect::<Vec<_>>();
+    let constants = constants_base
+        .iter()
+        .map(|&x| F::Extension::from_basefield(x))
+        .collect::<Vec<_>>();
+    let public_inputs_hash = HashOut::rand();
+
+    let vars_base = EvaluationVarsBase {
+        local_constants: &constants_base,
+        local_wires: &wires_base,
+        public_inputs_hash: &public_inputs_hash,
+    };
+    let vars = EvaluationVars {
+        local_constants: &constants,
+        local_wires: &wires,
+        public_inputs_hash: &public_inputs_hash,
+    };
+
+    let evals_base = gate.eval_unfiltered_base(vars_base);
+    let evals = gate.eval_unfiltered(vars);
+    ensure!(
+        evals
+            == evals_base
+                .into_iter()
+                .map(F::Extension::from_basefield)
+                .collect::<Vec<_>>()
+    );
+
+    // Test that `eval_unfiltered` and `eval_unfiltered_recursively` are coherent.
+    let wires = F::Extension::rand_vec(gate.num_wires());
+    let constants = F::Extension::rand_vec(gate.num_constants());
+
+    let config = CircuitConfig::large_config();
+    let mut builder = CircuitBuilder::<F, D>::new(config);
+    let mut pw = PartialWitness::new();
+
+    let wires_t = builder.add_virtual_extension_targets(wires.len());
+    let constants_t = builder.add_virtual_extension_targets(constants.len());
+    pw.set_extension_targets(&wires_t, &wires);
+    pw.set_extension_targets(&constants_t, &constants);
+    let public_inputs_hash_t = builder.add_virtual_hash();
+    pw.set_hash_target(public_inputs_hash_t, public_inputs_hash);
+
+    let vars = EvaluationVars {
+        local_constants: &constants,
+        local_wires: &wires,
+        public_inputs_hash: &HashOut {
+            elements: [F::ZERO; 4],
+        },
+    };
+    let evals = gate.eval_unfiltered(vars);
+
+    let vars_t = EvaluationTargets {
+        local_constants: &constants_t,
+        local_wires: &wires_t,
+        public_inputs_hash: &public_inputs_hash_t,
+    };
+    let evals_t = gate.eval_unfiltered_recursively(&mut builder, vars_t);
+    pw.set_extension_targets(&evals_t, &evals);
+
+    let data = builder.build();
+    let proof = data.prove(pw)?;
+    verify(proof, &data.verifier_only, &data.common)
 }

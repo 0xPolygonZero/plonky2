@@ -1,10 +1,10 @@
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::Extendable;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::base_sum::BaseSumGate;
-use crate::generator::SimpleGenerator;
-use crate::target::Target;
-use crate::witness::PartialWitness;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator};
+use crate::iop::target::Target;
+use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Checks that `x < 2^n_log` using a `BaseSumGate`.
@@ -12,6 +12,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let gate = self.add_gate(BaseSumGate::<2>::new(n_log), vec![]);
         let sum = Target::wire(gate, BaseSumGate::<2>::WIRE_SUM);
         self.route(x, sum);
+    }
+
+    /// Returns the first `num_low_bits` little-endian bits of `x`.
+    pub fn low_bits(&mut self, x: Target, num_low_bits: usize, num_bits: usize) -> Vec<Target> {
+        let mut res = self.split_le(x, num_bits);
+        res.truncate(num_low_bits);
+        res
     }
 
     /// Returns `(a,b)` such that `x = a + 2^n_log * b` with `a < 2^n_log`.
@@ -49,15 +56,12 @@ impl<F: Field> SimpleGenerator<F> for LowHighGenerator {
         vec![self.integer]
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let integer_value = witness.get_target(self.integer).to_canonical_u64();
         let low = integer_value & ((1 << self.n_log) - 1);
         let high = integer_value >> self.n_log;
 
-        let mut result = PartialWitness::new();
-        result.set_target(self.low, F::from_canonical_u64(low));
-        result.set_target(self.high, F::from_canonical_u64(high));
-
-        result
+        out_buffer.set_target(self.low, F::from_canonical_u64(low));
+        out_buffer.set_target(self.high, F::from_canonical_u64(high));
     }
 }

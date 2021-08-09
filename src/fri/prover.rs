@@ -1,38 +1,52 @@
+use rayon::prelude::*;
+
 use crate::field::extension_field::{flatten, unflatten, Extendable};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
+use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::FriConfig;
-use crate::hash::hash_n_to_1;
-use crate::merkle_tree::MerkleTree;
-use crate::plonk_challenger::Challenger;
-use crate::plonk_common::reduce_with_powers;
+use crate::hash::hash_types::HashOut;
+use crate::hash::hashing::hash_n_to_1;
+use crate::hash::merkle_tree::MerkleTree;
+use crate::iop::challenger::Challenger;
+use crate::plonk::plonk_common::reduce_with_powers;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
-use crate::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep, Hash};
+use crate::timed;
 use crate::util::reverse_index_bits_in_place;
+use crate::util::timing::TimingTree;
 
 /// Builds a FRI proof.
 pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
     initial_merkle_trees: &[&MerkleTree<F>],
     // Coefficients of the polynomial on which the LDT is performed. Only the first `1/rate` coefficients are non-zero.
-    lde_polynomial_coeffs: &PolynomialCoeffs<F::Extension>,
+    lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
     // Evaluation of the polynomial on the large domain.
-    lde_polynomial_values: &PolynomialValues<F::Extension>,
+    lde_polynomial_values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
+    timing: &mut TimingTree,
 ) -> FriProof<F, D> {
     let n = lde_polynomial_values.values.len();
     assert_eq!(lde_polynomial_coeffs.coeffs.len(), n);
 
     // Commit phase
-    let (trees, final_coeffs) = fri_committed_trees(
-        lde_polynomial_coeffs,
-        lde_polynomial_values,
-        challenger,
-        config,
+    let (trees, final_coeffs) = timed!(
+        timing,
+        "fold codewords in the commitment phase",
+        fri_committed_trees(
+            lde_polynomial_coeffs,
+            lde_polynomial_values,
+            challenger,
+            config,
+        )
     );
 
     // PoW phase
     let current_hash = challenger.get_hash();
-    let pow_witness = fri_proof_of_work(current_hash, config);
+    let pow_witness = timed!(
+        timing,
+        "find for proof-of-work witness",
+        fri_proof_of_work(current_hash, config)
+    );
 
     // Query phase
     let query_round_proofs =
@@ -47,14 +61,11 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
 }
 
 fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
-    polynomial_coeffs: &PolynomialCoeffs<F::Extension>,
-    polynomial_values: &PolynomialValues<F::Extension>,
+    mut coeffs: PolynomialCoeffs<F::Extension>,
+    mut values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
 ) -> (Vec<MerkleTree<F>>, PolynomialCoeffs<F::Extension>) {
-    let mut values = polynomial_values.clone();
-    let mut coeffs = polynomial_coeffs.clone();
-
     let mut trees = Vec::new();
 
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
@@ -66,7 +77,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
         let tree = MerkleTree::new(
             values
                 .values
-                .chunks(arity)
+                .par_chunks(arity)
                 .map(|chunk: &[F::Extension]| flatten(chunk))
                 .collect(),
             false,
@@ -80,22 +91,23 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
         coeffs = PolynomialCoeffs::new(
             coeffs
                 .coeffs
-                .chunks_exact(arity)
+                .par_chunks_exact(arity)
                 .map(|chunk| reduce_with_powers(chunk, beta))
                 .collect::<Vec<_>>(),
         );
         shift = shift.exp_u32(arity as u32);
-        // TODO: Is it faster to interpolate?
-        values = coeffs.clone().coset_fft(shift.into())
+        values = coeffs.coset_fft(shift.into())
     }
 
+    coeffs.trim();
     challenger.observe_extension_elements(&coeffs.coeffs);
     (trees, coeffs)
 }
 
-fn fri_proof_of_work<F: Field>(current_hash: Hash<F>, config: &FriConfig) -> F {
-    (0u64..)
-        .find(|&i| {
+fn fri_proof_of_work<F: Field>(current_hash: HashOut<F>, config: &FriConfig) -> F {
+    (0..u64::MAX)
+        .into_par_iter()
+        .find_any(|&i| {
             hash_n_to_1(
                 current_hash
                     .elements
@@ -107,10 +119,10 @@ fn fri_proof_of_work<F: Field>(current_hash: Hash<F>, config: &FriConfig) -> F {
             )
             .to_canonical_u64()
             .leading_zeros()
-                >= config.proof_of_work_bits + F::ORDER.leading_zeros()
+                >= config.proof_of_work_bits + (64 - F::order().bits()) as u32
         })
         .map(F::from_canonical_u64)
-        .expect("Proof of work failed.")
+        .expect("Proof of work failed. This is highly unlikely!")
 }
 
 fn fri_prover_query_rounds<F: Field + Extendable<D>, const D: usize>(

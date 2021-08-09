@@ -4,12 +4,17 @@ use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use num::bigint::BigUint;
 use num::Integer;
+use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::quadratic::QuadraticCrandallField;
 use crate::field::extension_field::quartic::QuarticCrandallField;
 use crate::field::extension_field::{Extendable, Frobenius};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
+
+const FIELD_ORDER: u64 = 18446744071293632513;
 
 /// EPSILON = 9 * 2**28 - 1
 const EPSILON: u64 = 2415919103;
@@ -106,7 +111,7 @@ const CAUCHY_MDS_8: [[CrandallField; 8]; 8] = [
 ///   = 2**64 - 9 * 2**28 + 1
 ///   = 2**28 * (2**36 - 9) + 1
 /// ```
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct CrandallField(pub u64);
 
 impl PartialEq for CrandallField {
@@ -141,14 +146,17 @@ impl Field for CrandallField {
     const ZERO: Self = Self(0);
     const ONE: Self = Self(1);
     const TWO: Self = Self(2);
-    const NEG_ONE: Self = Self(Self::ORDER - 1);
+    const NEG_ONE: Self = Self(FIELD_ORDER - 1);
 
-    const ORDER: u64 = 18446744071293632513;
     const TWO_ADICITY: usize = 28;
-    const CHARACTERISTIC: u64 = Self::ORDER;
+    const CHARACTERISTIC: u64 = FIELD_ORDER;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(5);
     const POWER_OF_TWO_GENERATOR: Self = Self(10281950781551402419);
+
+    fn order() -> BigUint {
+        BigUint::from(FIELD_ORDER)
+    }
 
     #[inline]
     fn square(&self) -> Self {
@@ -169,7 +177,7 @@ impl Field for CrandallField {
         // Based on Algorithm 16 of "Efficient Software-Implementation of Finite Fields with
         // Applications to Cryptography".
 
-        let p = Self::ORDER;
+        let p = FIELD_ORDER;
         let mut u = self.to_canonical_u64();
         let mut v = p;
         let mut b = 1u64;
@@ -227,8 +235,8 @@ impl Field for CrandallField {
     fn to_canonical_u64(&self) -> u64 {
         let mut c = self.0;
         // We only need one condition subtraction, since 2 * ORDER would not fit in a u64.
-        if c >= Self::ORDER {
-            c -= Self::ORDER;
+        if c >= FIELD_ORDER {
+            c -= FIELD_ORDER;
         }
         c
     }
@@ -241,6 +249,14 @@ impl Field for CrandallField {
     #[inline]
     fn from_canonical_u64(n: u64) -> Self {
         Self(n)
+    }
+
+    fn to_canonical_biguint(&self) -> BigUint {
+        BigUint::from(self.to_canonical_u64())
+    }
+
+    fn from_canonical_biguint(n: BigUint) -> Self {
+        Self(n.iter_u64_digits().next().unwrap_or(0))
     }
 
     fn cube_root(&self) -> Self {
@@ -330,6 +346,10 @@ impl Field for CrandallField {
         }
         result
     }
+
+    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+        Self::from_canonical_u64(rng.gen_range(0, FIELD_ORDER))
+    }
 }
 
 impl Neg for CrandallField {
@@ -340,7 +360,7 @@ impl Neg for CrandallField {
         if self.is_zero() {
             Self::ZERO
         } else {
-            Self(Self::ORDER - self.to_canonical_u64())
+            Self(FIELD_ORDER - self.to_canonical_u64())
         }
     }
 }
@@ -352,7 +372,7 @@ impl Add for CrandallField {
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, rhs: Self) -> Self {
         let (sum, over) = self.0.overflowing_add(rhs.0);
-        Self(sum.overflowing_sub((over as u64) * Self::ORDER).0)
+        Self(sum.overflowing_sub((over as u64) * FIELD_ORDER).0)
     }
 }
 
@@ -375,7 +395,7 @@ impl Sub for CrandallField {
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: Self) -> Self {
         let (diff, under) = self.0.overflowing_sub(rhs.to_canonical_u64());
-        Self(diff.overflowing_add((under as u64) * Self::ORDER).0)
+        Self(diff.overflowing_add((under as u64) * FIELD_ORDER).0)
     }
 }
 
@@ -456,7 +476,8 @@ impl Frobenius<1> for CrandallField {}
 
 #[cfg(test)]
 mod tests {
-    use crate::test_arithmetic;
+    use crate::{test_field_arithmetic, test_prime_field_arithmetic};
 
-    test_arithmetic!(crate::field::crandall_field::CrandallField);
+    test_prime_field_arithmetic!(crate::field::crandall_field::CrandallField);
+    test_field_arithmetic!(crate::field::crandall_field::CrandallField);
 }

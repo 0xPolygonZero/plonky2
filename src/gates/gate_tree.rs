@@ -74,7 +74,7 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
                     // Iterate backwards from `max_degree` to try to find a tree with a lower degree
                     // but the same number of constants.
                     'optdegree: for degree in (0..max_degree).rev() {
-                        if let Some(mut tree) = Self::find_tree(&gates, degree, max_constants) {
+                        if let Some(tree) = Self::find_tree(&gates, degree, max_constants) {
                             let num_constants = tree.num_constants();
                             if num_constants > best_num_constants {
                                 break 'optdegree;
@@ -228,7 +228,7 @@ mod tests {
     use crate::gates::gmimc::GMiMCGate;
     use crate::gates::interpolation::InterpolationGate;
     use crate::gates::noop::NoopGate;
-    use crate::hash::GMIMC_ROUNDS;
+    use crate::hash::hashing::GMIMC_ROUNDS;
 
     #[test]
     fn test_prefix_generation() {
@@ -237,14 +237,13 @@ mod tests {
         const D: usize = 4;
 
         let gates = vec![
-            NoopGate::get::<F, D>(),
-            ConstantGate::get(),
-            ArithmeticExtensionGate::new(),
-            BaseSumGate::<4>::new(4),
-            GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants(),
-            InterpolationGate::new(4),
+            GateRef::new(NoopGate),
+            GateRef::new(ConstantGate),
+            GateRef::new(ArithmeticExtensionGate),
+            GateRef::new(BaseSumGate::<4>::new(4)),
+            GateRef::new(GMiMCGate::<F, D, GMIMC_ROUNDS>::new_automatic_constants()),
+            GateRef::new(InterpolationGate::new(4)),
         ];
-        let len = gates.len();
 
         let (tree, _, _) = Tree::from_gates(gates.clone());
         let mut gates_with_prefix = tree.traversal();
@@ -277,7 +276,7 @@ mod tests {
             "Total degree is larger than 8."
         );
 
-        gates_with_prefix.sort_unstable_by_key(|(g, p)| p.len());
+        gates_with_prefix.sort_unstable_by_key(|(_g, p)| p.len());
         for i in 0..gates_with_prefix.len() {
             for j in i + 1..gates_with_prefix.len() {
                 assert_ne!(

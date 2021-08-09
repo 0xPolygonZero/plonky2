@@ -1,7 +1,7 @@
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::Extendable;
-use crate::target::Target;
+use crate::iop::target::Target;
+use crate::plonk::circuit_builder::CircuitBuilder;
 
 pub struct PolynomialCoeffsExtTarget<const D: usize>(pub Vec<ExtensionTarget<D>>);
 

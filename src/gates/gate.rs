@@ -2,13 +2,13 @@ use std::fmt::{Debug, Error, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::gates::gate_tree::Tree;
-use crate::generator::WitnessGenerator;
-use crate::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::iop::generator::WitnessGenerator;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A custom gate.
 pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
@@ -31,9 +31,11 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
             .iter()
             .map(|w| F::Extension::from_basefield(*w))
             .collect::<Vec<_>>();
+        let public_inputs_hash = &vars_base.public_inputs_hash;
         let vars = EvaluationVars {
             local_constants,
             local_wires,
+            public_inputs_hash,
         };
         let values = self.eval_unfiltered(vars);
 
@@ -76,10 +78,15 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
     fn eval_filtered_recursively(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        vars: EvaluationTargets<D>,
+        mut vars: EvaluationTargets<D>,
+        prefix: &[bool],
     ) -> Vec<ExtensionTarget<D>> {
-        // TODO: Filter
+        let filter = compute_filter_recursively(builder, prefix, vars.local_constants);
+        vars.remove_prefix(prefix);
         self.eval_unfiltered_recursively(builder, vars)
+            .into_iter()
+            .map(|c| builder.mul_extension(filter, c))
+            .collect()
     }
 
     fn generators(
@@ -132,7 +139,7 @@ impl<F: Extendable<D>, const D: usize> Debug for GateRef<F, D> {
 
 /// A gate along with any constants used to configure it.
 pub struct GateInstance<F: Extendable<D>, const D: usize> {
-    pub gate_type: GateRef<F, D>,
+    pub gate_ref: GateRef<F, D>,
     pub constants: Vec<F>,
 }
 
@@ -166,4 +173,25 @@ fn compute_filter<K: Field>(prefix: &[bool], constants: &[K]) -> K {
             }
         })
         .product()
+}
+
+fn compute_filter_recursively<F: Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    prefix: &[bool],
+    constants: &[ExtensionTarget<D>],
+) -> ExtensionTarget<D> {
+    let one = builder.one_extension();
+    let v = prefix
+        .iter()
+        .enumerate()
+        .map(|(i, &b)| {
+            if b {
+                constants[i]
+            } else {
+                builder.sub_extension(one, constants[i])
+            }
+        })
+        .collect::<Vec<_>>();
+
+    builder.mul_many_extension(&v)
 }

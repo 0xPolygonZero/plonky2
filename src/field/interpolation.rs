@@ -1,5 +1,5 @@
 use crate::field::fft::ifft;
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::log2_ceil;
 
@@ -18,7 +18,7 @@ pub(crate) fn interpolant<F: Field>(points: &[(F, F)]) -> PolynomialCoeffs<F> {
         .map(|x| interpolate(points, x, &barycentric_weights))
         .collect();
 
-    let mut coeffs = ifft(PolynomialValues {
+    let mut coeffs = ifft(&PolynomialValues {
         values: subgroup_evals,
     });
     coeffs.trim();
@@ -79,7 +79,7 @@ mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::field::Field;
+    use crate::field::field_types::Field;
     use crate::polynomial::polynomial::PolynomialCoeffs;
 
     #[test]

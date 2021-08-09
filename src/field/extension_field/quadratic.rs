@@ -1,15 +1,16 @@
 use std::fmt::{Debug, Display, Formatter};
-use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use num::bigint::BigUint;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 use crate::field::crandall_field::CrandallField;
 use crate::field::extension_field::{FieldExtension, Frobenius, OEF};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct QuadraticCrandallField([CrandallField; 2]);
 
 impl OEF<2> for QuadraticCrandallField {
@@ -50,9 +51,7 @@ impl Field for QuadraticCrandallField {
     const TWO: Self = Self([CrandallField::TWO, CrandallField::ZERO]);
     const NEG_ONE: Self = Self([CrandallField::NEG_ONE, CrandallField::ZERO]);
 
-    const CHARACTERISTIC: u64 = CrandallField::ORDER;
-    // Does not fit in 64-bits.
-    const ORDER: u64 = 0;
+    const CHARACTERISTIC: u64 = CrandallField::CHARACTERISTIC;
     const TWO_ADICITY: usize = 29;
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([
         CrandallField(6483724566312148654),
@@ -63,6 +62,10 @@ impl Field for QuadraticCrandallField {
     // with the base field which implies that the FFT commutes with field inclusion.
     const POWER_OF_TWO_GENERATOR: Self =
         Self([CrandallField::ZERO, CrandallField(14420468973723774561)]);
+
+    fn order() -> BigUint {
+        CrandallField::order() * CrandallField::order()
+    }
 
     // Algorithm 11.3.4 in Handbook of Elliptic and Hyperelliptic Curve Cryptography.
     fn try_inverse(&self) -> Option<Self> {
@@ -87,6 +90,24 @@ impl Field for QuadraticCrandallField {
 
     fn from_canonical_u64(n: u64) -> Self {
         <Self as FieldExtension<2>>::BaseField::from_canonical_u64(n).into()
+    }
+
+    fn to_canonical_biguint(&self) -> BigUint {
+        let first = self.0[0].to_canonical_biguint();
+        let second = self.0[1].to_canonical_biguint();
+        let combined = second * Self::CHARACTERISTIC + first;
+
+        combined
+    }
+
+    fn from_canonical_biguint(n: BigUint) -> Self {
+        let smaller = n.clone() % Self::CHARACTERISTIC;
+        let larger = n.clone() / Self::CHARACTERISTIC;
+
+        Self([
+            <Self as FieldExtension<2>>::BaseField::from_canonical_biguint(smaller),
+            <Self as FieldExtension<2>>::BaseField::from_canonical_biguint(larger),
+        ])
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
@@ -202,7 +223,8 @@ impl DivAssign for QuadraticCrandallField {
 mod tests {
     use crate::field::extension_field::quadratic::QuadraticCrandallField;
     use crate::field::extension_field::{FieldExtension, Frobenius};
-    use crate::field::field::Field;
+    use crate::field::field_types::Field;
+    use crate::test_field_arithmetic;
 
     #[test]
     fn test_add_neg_sub_mul() {
@@ -241,14 +263,14 @@ mod tests {
         type F = QuadraticCrandallField;
         let x = F::rand();
         assert_eq!(
-            x.exp(<F as FieldExtension<2>>::BaseField::ORDER),
+            x.exp_biguint(&<F as FieldExtension<2>>::BaseField::order()),
             x.frobenius()
         );
     }
 
     #[test]
     fn test_field_order() {
-        // F::ORDER = 340282366831806780677557380898690695169 = 18446744071293632512 *18446744071293632514 + 1
+        // F::order() = 340282366831806780677557380898690695169 = 18446744071293632512 *18446744071293632514 + 1
         type F = QuadraticCrandallField;
         let x = F::rand();
         assert_eq!(
@@ -260,7 +282,7 @@ mod tests {
     #[test]
     fn test_power_of_two_gen() {
         type F = QuadraticCrandallField;
-        // F::ORDER = 2^29 * 2762315674048163 * 229454332791453 + 1
+        // F::order() = 2^29 * 2762315674048163 * 229454332791453 + 1
         assert_eq!(
             F::MULTIPLICATIVE_GROUP_GENERATOR
                 .exp(2762315674048163)
@@ -273,4 +295,6 @@ mod tests {
             <F as FieldExtension<2>>::BaseField::POWER_OF_TWO_GENERATOR.into()
         );
     }
+
+    test_field_arithmetic!(crate::field::extension_field::quadratic::QuadraticCrandallField);
 }

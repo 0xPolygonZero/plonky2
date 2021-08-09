@@ -1,16 +1,18 @@
 use std::fmt::{Debug, Display, Formatter};
-use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use num::bigint::BigUint;
+use num::traits::Pow;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 use crate::field::crandall_field::CrandallField;
 use crate::field::extension_field::{FieldExtension, Frobenius, OEF};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 
 /// A quartic extension of `CrandallField`.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct QuarticCrandallField(pub(crate) [CrandallField; 4]);
 
 impl OEF<4> for QuarticCrandallField {
@@ -72,9 +74,8 @@ impl Field for QuarticCrandallField {
         CrandallField::ZERO,
     ]);
 
-    const CHARACTERISTIC: u64 = CrandallField::ORDER;
+    const CHARACTERISTIC: u64 = CrandallField::CHARACTERISTIC;
     // Does not fit in 64-bits.
-    const ORDER: u64 = 0;
     const TWO_ADICITY: usize = 30;
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([
         CrandallField(12476589904174392631),
@@ -91,6 +92,10 @@ impl Field for QuarticCrandallField {
         CrandallField::ZERO,
         CrandallField(15170983443234254033),
     ]);
+
+    fn order() -> BigUint {
+        CrandallField::order().pow(4u32)
+    }
 
     // Algorithm 11.3.4 in Handbook of Elliptic and Hyperelliptic Curve Cryptography.
     fn try_inverse(&self) -> Option<Self> {
@@ -118,6 +123,40 @@ impl Field for QuarticCrandallField {
 
     fn from_canonical_u64(n: u64) -> Self {
         <Self as FieldExtension<4>>::BaseField::from_canonical_u64(n).into()
+    }
+
+    fn to_canonical_biguint(&self) -> BigUint {
+        let first = self.0[0].to_canonical_biguint();
+        let second = self.0[1].to_canonical_biguint();
+        let third = self.0[2].to_canonical_biguint();
+        let fourth = self.0[3].to_canonical_biguint();
+
+        let mut combined = fourth;
+        combined *= Self::CHARACTERISTIC;
+        combined += third;
+        combined *= Self::CHARACTERISTIC;
+        combined += second;
+        combined *= Self::CHARACTERISTIC;
+        combined += first;
+
+        combined
+    }
+
+    fn from_canonical_biguint(n: BigUint) -> Self {
+        let first = &n % Self::CHARACTERISTIC;
+        let mut remaining = &n / Self::CHARACTERISTIC;
+        let second = &remaining % Self::CHARACTERISTIC;
+        remaining = remaining / Self::CHARACTERISTIC;
+        let third = &remaining % Self::CHARACTERISTIC;
+        remaining = remaining / Self::CHARACTERISTIC;
+        let fourth = &remaining % Self::CHARACTERISTIC;
+
+        Self([
+            <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(first),
+            <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(second),
+            <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(third),
+            <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(fourth),
+        ])
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
@@ -250,8 +289,9 @@ impl DivAssign for QuarticCrandallField {
 #[cfg(test)]
 mod tests {
     use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::extension_field::{FieldExtension, Frobenius, OEF};
-    use crate::field::field::Field;
+    use crate::field::extension_field::{FieldExtension, Frobenius};
+    use crate::field::field_types::Field;
+    use crate::test_field_arithmetic;
 
     fn exp_naive<F: Field>(x: F, power: u128) -> F {
         let mut current = x;
@@ -304,7 +344,7 @@ mod tests {
         const D: usize = 4;
         let x = F::rand();
         assert_eq!(
-            exp_naive(x, <F as FieldExtension<D>>::BaseField::ORDER as u128),
+            x.exp_biguint(&<F as FieldExtension<D>>::BaseField::order()),
             x.frobenius()
         );
         for count in 2..D {
@@ -317,7 +357,7 @@ mod tests {
 
     #[test]
     fn test_field_order() {
-        // F::ORDER = 340282366831806780677557380898690695168 * 340282366831806780677557380898690695170 + 1
+        // F::order() = 340282366831806780677557380898690695168 * 340282366831806780677557380898690695170 + 1
         type F = QuarticCrandallField;
         let x = F::rand();
         assert_eq!(
@@ -332,7 +372,7 @@ mod tests {
     #[test]
     fn test_power_of_two_gen() {
         type F = QuarticCrandallField;
-        // F::ORDER = 2^30 * 1090552343587053358839971118999869 * 98885475095492590491252558464653635 + 1
+        // F::order() = 2^30 * 1090552343587053358839971118999869 * 98885475095492590491252558464653635 + 1
         assert_eq!(
             exp_naive(
                 exp_naive(
@@ -349,4 +389,6 @@ mod tests {
             <F as FieldExtension<4>>::BaseField::POWER_OF_TWO_GENERATOR.into()
         );
     }
+
+    test_field_arithmetic!(crate::field::extension_field::quartic::QuarticCrandallField);
 }
