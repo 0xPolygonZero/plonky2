@@ -73,8 +73,6 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         blinding: bool,
         timing: &mut TimingTree,
     ) -> Self {
-        // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
-        // MerkleTree do it implicitly.
         let mut leaves = timed!(timing, "transpose LDEs", transpose(&lde_values));
         reverse_index_bits_in_place(&mut leaves);
         let merkle_tree = timed!(timing, "build Merkle tree", MerkleTree::new(leaves, false));
