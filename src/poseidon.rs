@@ -6,7 +6,7 @@ use crate::poseidon_constants::{
     WIDTH,
     HALF_N_FULL_ROUNDS, N_PARTIAL_ROUNDS,
     MDS_MATRIX_EXPS, ALL_ROUND_CONSTANTS,
-    FAST_PARTIAL_ROUND_CONSTANTS,
+    FAST_PARTIAL_FIRST_ROUND_CONSTANT, FAST_PARTIAL_ROUND_CONSTANTS,
     FAST_PARTIAL_ROUND_VS, FAST_PARTIAL_ROUND_W_HATS,
     FAST_PARTIAL_ROUND_INITAL_MATRIX};
 
@@ -63,18 +63,29 @@ fn mds_layer<F: Field>(state_: &[F; WIDTH]) -> [F; WIDTH] {
 
 #[inline]
 #[unroll_for_loops]
+fn partial_first_constant_layer<F: Field>(state: &mut [F; WIDTH]) {
+    for i in 0..WIDTH {
+        state[i] += F::from_canonical_u64(FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]);
+    }
+}
+
+#[inline]
+#[unroll_for_loops]
 fn mds_partial_layer_init<F: Field>(state: &[F; WIDTH]) -> [F; WIDTH] {
     let mut result = [F::ZERO; WIDTH];
 
     // Initial matrix has first row/column = [1, 0, ..., 0];
 
-    // r = 0
+    // c = 0
     result[0] = state[0];
 
-    for r in 1..WIDTH {
-        for c in 1..WIDTH {
-            let t = F::from_canonical_u64(FAST_PARTIAL_ROUND_INITAL_MATRIX[r - 1][c - 1]);
-            result[r] += t * state[c];
+    for c in 1..WIDTH {
+        for r in 1..WIDTH {
+            // NB: FAST_PARTIAL_ROUND_INITAL_MATRIX is stored in
+            // column-major order so that this dot product is cache
+            // friendly.
+            let t = F::from_canonical_u64(FAST_PARTIAL_ROUND_INITAL_MATRIX[c - 1][r - 1]);
+            result[c] += state[r] * t;
         }
     }
     result
@@ -96,7 +107,7 @@ fn mds_partial_layer_fast<F: Field>(state: &[F; WIDTH], r: usize) -> [F; WIDTH] 
     let mut d = F::from_canonical_u64(MDS_TOP_LEFT) * state[0];
     for i in 1..WIDTH {
         let t = F::from_canonical_u64(FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
-        d += t * state[i]
+        d += state[i] * t;
     }
 
     // result = [d] concat [state[0] * v + state[shift up by 1]]
@@ -120,7 +131,6 @@ fn full_rounds<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
     }
 }
 
-
 #[inline]
 #[unroll_for_loops]
 fn partial_rounds<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
@@ -135,9 +145,9 @@ fn partial_rounds<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
 #[inline]
 #[unroll_for_loops]
 fn partial_rounds_fast<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
-    constant_layer(state, *round_ctr);
-
+    partial_first_constant_layer(state);
     *state = mds_partial_layer_init(state);
+
     // One less than N_PARTIAL_ROUNDS because we do the last one
     // separately at the end.
     for i in 0..(N_PARTIAL_ROUNDS - 1) {
@@ -186,19 +196,17 @@ mod tests {
         for i in 0..WIDTH {
             input[i] = F::from_canonical_u64(i as u64);
         }
+        let output = poseidon(input);
+
         // expected_output calculated with (modified) hadeshash reference implementation.
         let expected_output: [u64; WIDTH] = [
-            0x7894e5268c7e6cb6, 0x60ff01903fc36a7a, 0xb8eb253bfe739811, 0xef1ba403d8a981e4,
-            0x7d982a41f8bdf512, 0xe7e786a59836c0a1, 0x2288e0229299a8ed, 0xade1d63e6d06e74a,
-            0xd533ff0a853d9676, 0x7a090e111a7a619c, 0x4c65b43176e852ae, 0x7a152577a95334b4,
+            0xb03c984fae455fae, 0x79e7d53c5d25d456, 0x1ae40aa47d2bf9a5, 0x2ccda76dfcb2fc87,
+            0x1b1c79f82ece56d6, 0xe8c12ce2fe88c79e, 0x878dbb782b5015bc, 0x79b0a229fffd51c7,
+            0x606a66880f03946c, 0xe81378acf56dc99e, 0x29fd49a23025a4cb, 0x24a459927ee2dc66
         ];
-
-        let output = poseidon(input);
         for i in 0..WIDTH {
             let ex_output = F::from_canonical_u64(expected_output[i]);
-            assert_eq!(output[i], ex_output,
-                       "at idx {}, got 0x{:x} but expected 0x{:x}",
-                       i, output[i].0, ex_output.0);
+            assert_eq!(output[i], ex_output);
         }
     }
 
