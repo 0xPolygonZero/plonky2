@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::fri::commitment::{OpeningProof, OpeningProofTarget, PolynomialBatchCommitment};
+use crate::fri::commitment::PolynomialBatchCommitment;
+use crate::fri::proof::{FriProof, FriProofTarget};
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::plonk::circuit_data::CommonCircuitData;
@@ -19,8 +20,8 @@ pub struct Proof<F: Extendable<D>, const D: usize> {
     pub quotient_polys_root: HashOut<F>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
-    /// A FRI argument for each FRI query.
-    pub opening_proof: OpeningProof<F, D>,
+    /// A batch FRI argument for all openings.
+    pub opening_proof: FriProof<F, D>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -35,7 +36,7 @@ pub struct ProofTarget<const D: usize> {
     pub plonk_zs_partial_products_root: HashOutTarget,
     pub quotient_polys_root: HashOutTarget,
     pub openings: OpeningSetTarget<D>,
-    pub opening_proof: OpeningProofTarget<D>,
+    pub opening_proof: FriProofTarget<D>,
 }
 
 pub struct ProofWithPublicInputsTarget<const D: usize> {

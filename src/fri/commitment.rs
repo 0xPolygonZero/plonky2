@@ -1,25 +1,20 @@
-use anyhow::Result;
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
 
-use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
-use crate::fri::proof::{FriProof, FriProofTarget};
+use crate::fri::proof::FriProof;
 use crate::fri::{prover::fri_proof, verifier::verify_fri_proof};
-use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::hash::hash_types::HashOut;
 use crate::hash::merkle_tree::MerkleTree;
-use crate::iop::challenger::{Challenger, RecursiveChallenger};
-use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::PlonkPolynomials;
-use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
+use crate::plonk::proof::OpeningSet;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::timed;
 use crate::util::reducing::ReducingFactor;
 use crate::util::timing::TimingTree;
-use crate::util::{log2_ceil, log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
-use crate::with_context;
+use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
 
 /// Two (~64 bit) field elements gives ~128 bit security.
 pub const SALT_SIZE: usize = 2;
@@ -78,8 +73,6 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         blinding: bool,
         timing: &mut TimingTree,
     ) -> Self {
-        // TODO: Could try parallelizing the transpose, or not doing it explicitly, instead having
-        // MerkleTree do it implicitly.
         let mut leaves = timed!(timing, "transpose LDEs", transpose(&lde_values));
         reverse_index_bits_in_place(&mut leaves);
         let merkle_tree = timed!(timing, "build Merkle tree", MerkleTree::new(leaves, false));
@@ -131,7 +124,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         challenger: &mut Challenger<F>,
         common_data: &CommonCircuitData<F, D>,
         timing: &mut TimingTree,
-    ) -> (OpeningProof<F, D>, OpeningSet<F, D>)
+    ) -> (FriProof<F, D>, OpeningSet<F, D>)
     where
         F: Extendable<D>,
     {
@@ -223,13 +216,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
             timing,
         );
 
-        (
-            OpeningProof {
-                fri_proof,
-                quotient_degree: final_poly.len(),
-            },
-            os,
-        )
+        (fri_proof, os)
     }
 
     /// Given `points=(x_i)`, `evals=(y_i)` and `poly=P` with `P(x_i)=y_i`, computes the polynomial
@@ -257,75 +244,6 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         };
 
         quotient.padded(quotient.degree_plus_one().next_power_of_two())
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(bound = "")]
-pub struct OpeningProof<F: Extendable<D>, const D: usize> {
-    pub(crate) fri_proof: FriProof<F, D>,
-    // TODO: Get the degree from `CommonCircuitData` instead.
-    quotient_degree: usize,
-}
-
-impl<F: Extendable<D>, const D: usize> OpeningProof<F, D> {
-    pub fn verify(
-        &self,
-        zeta: F::Extension,
-        os: &OpeningSet<F, D>,
-        merkle_roots: &[HashOut<F>],
-        challenger: &mut Challenger<F>,
-        common_data: &CommonCircuitData<F, D>,
-    ) -> Result<()> {
-        challenger.observe_opening_set(os);
-
-        let alpha = challenger.get_extension_challenge();
-
-        verify_fri_proof(
-            log2_strict(self.quotient_degree),
-            &os,
-            zeta,
-            alpha,
-            merkle_roots,
-            &self.fri_proof,
-            challenger,
-            common_data,
-        )
-    }
-}
-
-pub struct OpeningProofTarget<const D: usize> {
-    pub(crate) fri_proof: FriProofTarget<D>,
-}
-
-impl<const D: usize> OpeningProofTarget<D> {
-    pub fn verify<F: Extendable<D>>(
-        &self,
-        zeta: ExtensionTarget<D>,
-        os: &OpeningSetTarget<D>,
-        merkle_roots: &[HashOutTarget],
-        challenger: &mut RecursiveChallenger,
-        common_data: &CommonCircuitData<F, D>,
-        builder: &mut CircuitBuilder<F, D>,
-    ) {
-        challenger.observe_opening_set(os);
-
-        let alpha = challenger.get_extension_challenge(builder);
-
-        with_context!(
-            builder,
-            "verify FRI proof",
-            builder.verify_fri_proof(
-                log2_ceil(common_data.degree()),
-                &os,
-                zeta,
-                alpha,
-                merkle_roots,
-                &self.fri_proof,
-                challenger,
-                common_data,
-            )
-        );
     }
 }
 
@@ -363,7 +281,7 @@ mod tests {
 
     fn check_batch_polynomial_commitment<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
         let ks = [10, 2, 10, 8];
-        let degree_log = 11;
+        let degree_bits = 11;
         let fri_config = FriConfig {
             proof_of_work_bits: 2,
             reduction_arity_bits: vec![2, 3, 1, 2],
@@ -376,7 +294,7 @@ mod tests {
                 num_routed_wires: 6,
                 ..CircuitConfig::large_config()
             },
-            degree_bits: 0,
+            degree_bits,
             gates: vec![],
             quotient_degree_factor: 0,
             num_gate_constraints: 0,
@@ -389,7 +307,7 @@ mod tests {
         let lpcs = (0..4)
             .map(|i| {
                 PolynomialBatchCommitment::<F>::new(
-                    gen_random_test_case(ks[i], degree_log),
+                    gen_random_test_case(ks[i], degree_bits),
                     common_data.config.rate_bits,
                     PlonkPolynomials::polynomials(i).blinding,
                     &mut TimingTree::default(),
@@ -397,7 +315,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        let zeta = gen_random_point::<F, D>(degree_log);
+        let zeta = gen_random_point::<F, D>(degree_bits);
         let (proof, os) = PolynomialBatchCommitment::open_plonk::<D>(
             &[&lpcs[0], &lpcs[1], &lpcs[2], &lpcs[3]],
             zeta,
@@ -406,15 +324,18 @@ mod tests {
             &mut TimingTree::default(),
         );
 
-        proof.verify(
-            zeta,
+        let merkle_roots = &[
+            lpcs[0].merkle_tree.root,
+            lpcs[1].merkle_tree.root,
+            lpcs[2].merkle_tree.root,
+            lpcs[3].merkle_tree.root,
+        ];
+
+        verify_fri_proof(
             &os,
-            &[
-                lpcs[0].merkle_tree.root,
-                lpcs[1].merkle_tree.root,
-                lpcs[2].merkle_tree.root,
-                lpcs[3].merkle_tree.root,
-            ],
+            zeta,
+            merkle_roots,
+            &proof,
             &mut Challenger::new(),
             &common_data,
         )

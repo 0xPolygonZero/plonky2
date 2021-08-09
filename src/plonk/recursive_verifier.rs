@@ -114,13 +114,17 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             proof.quotient_polys_root,
         ];
 
-        proof.opening_proof.verify(
-            zeta,
-            &proof.openings,
-            merkle_roots,
-            &mut challenger,
-            inner_common_data,
+        with_context!(
             self,
+            "verify FRI proof",
+            self.verify_fri_proof(
+                &proof.openings,
+                zeta,
+                merkle_roots,
+                &proof.opening_proof,
+                &mut challenger,
+                inner_common_data,
+            )
         );
     }
 }
@@ -131,7 +135,6 @@ mod tests {
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
-    use crate::fri::commitment::OpeningProofTarget;
     use crate::fri::proof::{
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
     };
@@ -153,7 +156,7 @@ mod tests {
             },
             steps: vec![],
         };
-        for (v, merkle_proof) in &proof.opening_proof.fri_proof.query_round_proofs[0]
+        for (v, merkle_proof) in &proof.opening_proof.query_round_proofs[0]
             .initial_trees_proof
             .evals_proofs
         {
@@ -164,7 +167,7 @@ mod tests {
                 },
             ));
         }
-        for step in &proof.opening_proof.fri_proof.query_round_proofs[0].steps {
+        for step in &proof.opening_proof.query_round_proofs[0].steps {
             query_round.steps.push(FriQueryStepTarget {
                 evals: builder.add_virtual_extension_targets(step.evals.len()),
                 merkle_proof: MerkleProofTarget {
@@ -201,27 +204,20 @@ mod tests {
             quotient_polys: builder
                 .add_virtual_extension_targets(proof.openings.quotient_polys.len()),
         };
-        let query_round_proofs = (0..proof.opening_proof.fri_proof.query_round_proofs.len())
+        let query_round_proofs = (0..proof.opening_proof.query_round_proofs.len())
             .map(|_| get_fri_query_round(proof, builder))
             .collect();
-        let commit_phase_merkle_roots = (0..proof
-            .opening_proof
-            .fri_proof
-            .commit_phase_merkle_roots
-            .len())
+        let commit_phase_merkle_roots = (0..proof.opening_proof.commit_phase_merkle_roots.len())
             .map(|_| builder.add_virtual_hash())
             .collect();
-        let opening_proof =
-            OpeningProofTarget {
-                fri_proof: FriProofTarget {
-                    commit_phase_merkle_roots,
-                    query_round_proofs,
-                    final_poly: PolynomialCoeffsExtTarget(builder.add_virtual_extension_targets(
-                        proof.opening_proof.fri_proof.final_poly.len(),
-                    )),
-                    pow_witness: builder.add_virtual_target(),
-                },
-            };
+        let opening_proof = FriProofTarget {
+            commit_phase_merkle_roots,
+            query_round_proofs,
+            final_poly: PolynomialCoeffsExtTarget(
+                builder.add_virtual_extension_targets(proof.opening_proof.final_poly.len()),
+            ),
+            pow_witness: builder.add_virtual_target(),
+        };
 
         let proof = ProofTarget {
             wires_root,
@@ -307,8 +303,8 @@ mod tests {
             pw.set_extension_target(t, x);
         }
 
-        let fri_proof = &proof.opening_proof.fri_proof;
-        let fpt = &pt.opening_proof.fri_proof;
+        let fri_proof = &proof.opening_proof;
+        let fpt = &pt.opening_proof;
 
         pw.set_target(fpt.pow_witness, fri_proof.pow_witness);
 

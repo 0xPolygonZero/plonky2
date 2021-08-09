@@ -70,13 +70,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn verify_fri_proof(
         &mut self,
-        purported_degree_log: usize,
         // Openings of the PLONK polynomials.
         os: &OpeningSetTarget<D>,
         // Point at which the PLONK polynomials are opened.
         zeta: ExtensionTarget<D>,
-        // Scaling factor to combine polynomials.
-        alpha: ExtensionTarget<D>,
         initial_merkle_roots: &[HashOutTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger,
@@ -85,13 +82,18 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let config = &common_data.config;
         let total_arities = config.fri_config.reduction_arity_bits.iter().sum::<usize>();
         debug_assert_eq!(
-            purported_degree_log,
+            common_data.degree_bits,
             log2_strict(proof.final_poly.len()) + total_arities,
             "Final polynomial has wrong degree."
         );
 
         // Size of the LDE domain.
         let n = proof.final_poly.len() << (total_arities + config.rate_bits);
+
+        challenger.observe_opening_set(&os);
+
+        // Scaling factor to combine polynomials.
+        let alpha = challenger.get_extension_challenge(self);
 
         let betas = with_context!(
             self,

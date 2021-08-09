@@ -2,6 +2,7 @@ use anyhow::{ensure, Result};
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
+use crate::fri::verifier::verify_fri_proof;
 use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
@@ -82,8 +83,6 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
         ensure!(vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
     }
 
-    let evaluations = proof.openings.clone();
-
     let merkle_roots = &[
         verifier_data.constants_sigmas_root,
         proof.wires_root,
@@ -91,10 +90,11 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
         proof.quotient_polys_root,
     ];
 
-    proof.opening_proof.verify(
+    verify_fri_proof(
+        &proof.openings,
         zeta,
-        &evaluations,
         merkle_roots,
+        &proof.opening_proof,
         &mut challenger,
         common_data,
     )?;
