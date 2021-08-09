@@ -173,3 +173,45 @@ pub fn poseidon<F: Field>(input: [F; WIDTH]) -> [F; WIDTH] {
 
     state
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::field::crandall_field::CrandallField as F;
+    use crate::field::field::Field;
+    use crate::poseidon::{poseidon, poseidon_fast, WIDTH};
+
+    #[test]
+    fn test_vectors() {
+        let mut input = [F::ZERO; WIDTH];
+        for i in 0..WIDTH {
+            input[i] = F::from_canonical_u64(i as u64);
+        }
+        // expected_output calculated with (modified) hadeshash reference implementation.
+        let expected_output: [u64; WIDTH] = [
+            0x7894e5268c7e6cb6, 0x60ff01903fc36a7a, 0xb8eb253bfe739811, 0xef1ba403d8a981e4,
+            0x7d982a41f8bdf512, 0xe7e786a59836c0a1, 0x2288e0229299a8ed, 0xade1d63e6d06e74a,
+            0xd533ff0a853d9676, 0x7a090e111a7a619c, 0x4c65b43176e852ae, 0x7a152577a95334b4,
+        ];
+
+        let output = poseidon(input);
+        for i in 0..WIDTH {
+            let ex_output = F::from_canonical_u64(expected_output[i]);
+            assert_eq!(output[i], ex_output,
+                       "at idx {}, got 0x{:x} but expected 0x{:x}",
+                       i, output[i].0, ex_output.0);
+        }
+    }
+
+    #[test]
+    fn consistency() {
+        let mut input = [F::ZERO; WIDTH];
+        for i in 0..WIDTH {
+            input[i] = F::from_canonical_u64(i as u64);
+        }
+        let output = poseidon(input);
+        let output_fast = poseidon_fast(input);
+        for i in 0..WIDTH {
+            assert_eq!(output[i], output_fast[i]);
+        }
+    }
+}
