@@ -1,5 +1,7 @@
 use std::borrow::Borrow;
 
+use num::Integer;
+
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
@@ -7,6 +9,7 @@ use crate::fri::commitment::SALT_SIZE;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::util::reducing::ReducingFactorTarget;
 
 /// Holds the Merkle tree index and blinding flag of a set of polynomials used in FRI.
 #[derive(Debug, Copy, Clone)]
@@ -181,11 +184,9 @@ pub(crate) fn reduce_with_powers_ext_recursive<F: Extendable<D>, const D: usize>
     terms: &[ExtensionTarget<D>],
     alpha: Target,
 ) -> ExtensionTarget<D> {
-    let mut sum = builder.zero_extension();
-    for &term in terms.iter().rev() {
-        sum = builder.scalar_mul_add_extension(alpha, sum, term);
-    }
-    sum
+    let alpha = builder.convert_to_ext(alpha);
+    let mut alpha = ReducingFactorTarget::new(alpha);
+    alpha.reduce(terms, builder)
 }
 
 /// Reduce a sequence of field elements by the given coefficients.

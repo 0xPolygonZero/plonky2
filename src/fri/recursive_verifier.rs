@@ -195,6 +195,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         assert!(D > 1, "Not implemented for D=1.");
         let config = self.config.clone();
         let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
+        let one = self.one_extension();
         let subgroup_x = self.convert_to_ext(subgroup_x);
         let vanish_zeta = self.sub_extension(subgroup_x, zeta);
         let mut alpha = ReducingFactorTarget::new(alpha);
@@ -245,8 +246,18 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             ],
             subgroup_x,
         );
-        let zs_numerator = self.sub_extension(zs_composition_eval, interpol_val);
-        let vanish_zeta_right = self.sub_extension(subgroup_x, zeta_right);
+        let tmp = self.double_arithmetic_extension(
+            F::ONE,
+            F::NEG_ONE,
+            one,
+            zs_composition_eval,
+            interpol_val,
+            one,
+            subgroup_x,
+            zeta_right,
+        );
+        let zs_numerator = tmp.0;
+        let vanish_zeta_right = tmp.1;
         let zs_denominator = self.mul_extension(vanish_zeta, vanish_zeta_right);
         // This division is safe because the denominator will be nonzero unless zeta is in the
         // codeword domain, which occurs with negligible probability given a large extension field.
