@@ -16,7 +16,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // b0 -> b1
         // x  -> a1 + (x-a0)*(b1-a1)/(b0-a0)
 
-        let one = self.one_extension();
         let (x_m_a0, b1_m_a1) = self.sub_two_extension(
             evaluation_point,
             interpolation_points[0].0,
