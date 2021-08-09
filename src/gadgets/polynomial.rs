@@ -50,8 +50,10 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
     {
         let mut acc = builder.zero_ext_algebra();
         for &c in self.0.iter().rev() {
-            let tmp = builder.scalar_mul_ext_algebra(point, acc);
-            acc = builder.add_ext_algebra(tmp, c);
+            // let tmp = builder.scalar_mul_ext_algebra(point, acc);
+            // acc = builder.add_ext_algebra(tmp, c);
+            acc = builder.scalar_mul_add_ext_algebra(point, acc, c);
+            // acc = builder.add_ext_algebra(tmp, c);
         }
         acc
     }

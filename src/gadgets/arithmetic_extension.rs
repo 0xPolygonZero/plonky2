@@ -347,12 +347,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_three_extension(x, x, x)
     }
 
-    pub fn mul_ext_algebra(
+    /// Returns `a*b + c`.
+    pub fn mul_add_ext_algebra(
         &mut self,
         a: ExtensionAlgebraTarget<D>,
         b: ExtensionAlgebraTarget<D>,
+        c: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
-        let zero = self.zero_extension();
         let mut inner = vec![vec![]; D];
         let mut inner_w = vec![vec![]; D];
         for i in 0..D {
@@ -366,13 +367,22 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let res = inner_w
             .into_iter()
             .zip(inner)
-            .map(|(vecs_w, vecs)| {
-                let acc = self.inner_product_extension(F::Extension::W, zero, vecs_w);
-                self.inner_product_extension(F::ONE, acc, vecs)
+            .zip(c.0)
+            .map(|((pairs_w, pairs), ci)| {
+                let acc = self.inner_product_extension(F::Extension::W, ci, pairs_w);
+                self.inner_product_extension(F::ONE, acc, pairs)
             })
             .collect::<Vec<_>>();
 
         ExtensionAlgebraTarget(res.try_into().unwrap())
+    }
+    pub fn mul_ext_algebra(
+        &mut self,
+        a: ExtensionAlgebraTarget<D>,
+        b: ExtensionAlgebraTarget<D>,
+    ) -> ExtensionAlgebraTarget<D> {
+        let zero = self.zero_ext_algebra();
+        self.mul_add_ext_algebra(a, b, zero)
     }
 
     /// Multiply 3 `ExtensionTarget`s with 1 `ArithmeticExtensionGate`s.
@@ -457,17 +467,42 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_extension(a_ext, b)
     }
 
-    /// Returns `a * b`, where `b` is in the extension of the extension field, and `a` is in the
+    /// Returns `a * b + c`, where `b,c` are in the extension algebra and `a` in the extension field.
     /// extension field.
+    pub fn scalar_mul_add_ext_algebra(
+        &mut self,
+        a: ExtensionTarget<D>,
+        b: ExtensionAlgebraTarget<D>,
+        mut c: ExtensionAlgebraTarget<D>,
+    ) -> ExtensionAlgebraTarget<D> {
+        for i in 0..D / 2 {
+            let res = self.double_arithmetic_extension(
+                F::ONE,
+                F::ONE,
+                a,
+                b.0[2 * i],
+                c.0[2 * i],
+                a,
+                b.0[2 * i + 1],
+                c.0[2 * i + 1],
+            );
+            c.0[2 * i] = res.0;
+            c.0[2 * i + 1] = res.1;
+        }
+        if D.is_odd() {
+            c.0[D - 1] = self.arithmetic_extension(F::ONE, F::ONE, a, b.0[D - 1], c.0[D - 1]);
+        }
+        c
+    }
+
+    /// Returns `a * b`, where `b,c` are in the extension algebra and `a` in the extension field.
     pub fn scalar_mul_ext_algebra(
         &mut self,
         a: ExtensionTarget<D>,
-        mut b: ExtensionAlgebraTarget<D>,
+        b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
-        for i in 0..D {
-            b.0[i] = self.mul_extension(a, b.0[i]);
-        }
-        b
+        let zero = self.zero_ext_algebra();
+        self.scalar_mul_add_ext_algebra(a, b, zero)
     }
 
     /// Exponentiate `base` to the power of `2^power_log`.
