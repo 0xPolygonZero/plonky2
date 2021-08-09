@@ -152,38 +152,17 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         None
     }
 
-    pub fn arithmetic_many_extension(
-        &mut self,
-        const_0: F,
-        const_1: F,
-        operands: Vec<[ExtensionTarget<D>; 3]>,
-    ) -> Vec<ExtensionTarget<D>> {
-        let mut res = Vec::new();
-        for chunk in operands.chunks_exact(2) {
-            let [fm0, fm1, fa] = chunk[0];
-            let [sm0, sm1, sa] = chunk[1];
-            let arithm =
-                self.double_arithmetic_extension(const_0, const_1, fm0, fm1, fa, sm0, sm1, sa);
-            res.push(arithm.0);
-            res.push(arithm.1);
-        }
-        if operands.len().is_odd() {
-            let [m0, m1, a] = operands[operands.len() - 1];
-            res.push(self.arithmetic_extension(const_0, const_1, m0, m1, a));
-        }
-
-        res
-    }
+    /// Returns `sum_{(a,b) in vecs} constant * a * b`.
     pub fn inner_product_extension(
         &mut self,
         constant: F,
         starting_acc: ExtensionTarget<D>,
-        vecs: Vec<[ExtensionTarget<D>; 2]>,
+        pairs: Vec<(ExtensionTarget<D>, ExtensionTarget<D>)>,
     ) -> ExtensionTarget<D> {
         let mut acc = starting_acc;
-        for chunk in vecs.chunks_exact(2) {
-            let [a0, b0] = chunk[0];
-            let [a1, b1] = chunk[1];
+        for chunk in pairs.chunks_exact(2) {
+            let (a0, b0) = chunk[0];
+            let (a1, b1) = chunk[1];
             let gate = self.num_gates();
             let first_out = ExtensionTarget::from_range(
                 gate,
@@ -193,9 +172,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .double_arithmetic_extension(constant, F::ONE, a0, b0, acc, a1, b1, first_out)
                 .1;
         }
-        if vecs.len().is_odd() {
-            let n = vecs.len() - 1;
-            acc = self.arithmetic_extension(constant, F::ONE, vecs[n][0], vecs[n][1], acc);
+        if pairs.len().is_odd() {
+            let n = pairs.len() - 1;
+            acc = self.arithmetic_extension(constant, F::ONE, pairs[n].0, pairs[n].1, acc);
         }
         acc
     }
@@ -378,10 +357,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut inner_w = vec![vec![]; D];
         for i in 0..D {
             for j in 0..D - i {
-                inner[(i + j) % D].push([a.0[i], b.0[j]]);
+                inner[(i + j) % D].push((a.0[i], b.0[j]));
             }
             for j in D - i..D {
-                inner_w[(i + j) % D].push([a.0[i], b.0[j]]);
+                inner_w[(i + j) % D].push((a.0[i], b.0[j]));
             }
         }
         let res = inner_w
