@@ -204,7 +204,8 @@ impl<F: Field> PartialWitness<F> {
 
     pub fn full_witness(self, degree: usize, num_wires: usize) -> Witness<F> {
         let mut wire_values = vec![vec![F::ZERO; degree]; num_wires];
-        for i in 0..self.wire_values.len().min(degree) {
+        assert!(self.wire_values.len() <= degree);
+        for i in 0..self.wire_values.len() {
             for j in 0..num_wires {
                 wire_values[j][i] = self.wire_values[i][j].unwrap_or(F::ZERO);
             }
