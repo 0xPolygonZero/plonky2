@@ -254,18 +254,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             ],
             subgroup_x,
         );
-        let tmp = self.double_arithmetic_extension(
-            F::ONE,
-            F::NEG_ONE,
-            one,
-            zs_composition_eval,
-            interpol_val,
-            one,
-            subgroup_x,
-            zeta_right,
-        );
-        let zs_numerator = tmp.0;
-        let vanish_zeta_right = tmp.1;
+        let (zs_numerator, vanish_zeta_right) =
+            self.sub_two_extension(zs_composition_eval, interpol_val, subgroup_x, zeta_right);
         let zs_denominator = self.mul_extension(vanish_zeta, vanish_zeta_right);
         sum = alpha.shift(sum, self);
         // This division is safe because the denominator will be nonzero unless zeta is in the
