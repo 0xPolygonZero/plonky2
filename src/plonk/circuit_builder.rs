@@ -555,7 +555,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
 
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
-        let constants_sigmas_commitment = PolynomialBatchCommitment::new(
+        let constants_sigmas_commitment = PolynomialBatchCommitment::from_values(
             constants_sigmas_vecs,
             self.config.rate_bits,
             self.config.zero_knowledge & PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
