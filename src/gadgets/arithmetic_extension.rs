@@ -347,7 +347,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_three_extension(x, x, x)
     }
 
-    /// Returns `a*b + c`.
+    /// Returns `a * b + c`.
     pub fn mul_add_ext_algebra(
         &mut self,
         a: ExtensionAlgebraTarget<D>,
@@ -376,6 +376,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         ExtensionAlgebraTarget(res.try_into().unwrap())
     }
+
+    /// Returns `a * b`.
     pub fn mul_ext_algebra(
         &mut self,
         a: ExtensionAlgebraTarget<D>,
@@ -467,8 +469,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_extension(a_ext, b)
     }
 
-    /// Returns `a * b + c`, where `b,c` are in the extension algebra and `a` in the extension field.
-    /// extension field.
+    /// Returns `a * b + c`, where `b, c` are in the extension algebra and `a` in the extension field.
     pub fn scalar_mul_add_ext_algebra(
         &mut self,
         a: ExtensionTarget<D>,
@@ -495,7 +496,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         c
     }
 
-    /// Returns `a * b`, where `b,c` are in the extension algebra and `a` in the extension field.
+    /// Returns `a * b`, where `b` is in the extension algebra and `a` in the extension field.
     pub fn scalar_mul_ext_algebra(
         &mut self,
         a: ExtensionTarget<D>,
