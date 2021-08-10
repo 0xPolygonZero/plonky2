@@ -51,6 +51,7 @@ pub(crate) fn verify_merkle_proof<F: Field>(
             compress(current_digest, sibling_digest)
         }
     }
+    dbg!(index);
     ensure!(
         current_digest == merkle_cap.0[index],
         "Invalid Merkle proof."
@@ -129,6 +130,76 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             })
             .collect();
         self.random_access(index, state_ext, cap_ext);
+        // self.named_assert_hashes_equal(state, merkle_root, "check Merkle root".into())
+    }
+
+    pub(crate) fn verify_merkle_proof_with_cap_index(
+        &mut self,
+        leaf_data: Vec<Target>,
+        leaf_index_bits: &[Target],
+        cap_index: Target,
+        merkle_root: &MerkleCapTarget,
+        proof: &MerkleProofTarget,
+    ) {
+        let zero = self.zero();
+
+        let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
+
+        for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
+            let gate_type = GMiMCGate::<F, D, GMIMC_ROUNDS>::new_automatic_constants();
+            let gate = self.add_gate(gate_type, vec![]);
+
+            let swap_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_SWAP;
+            let swap_wire = Target::Wire(Wire {
+                gate,
+                input: swap_wire,
+            });
+            self.generate_copy(bit, swap_wire);
+
+            let input_wires = (0..12)
+                .map(|i| {
+                    Target::Wire(Wire {
+                        gate,
+                        input: GMiMCGate::<F, D, GMIMC_ROUNDS>::wire_input(i),
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            for i in 0..4 {
+                self.route(state.elements[i], input_wires[i]);
+                self.route(sibling.elements[i], input_wires[4 + i]);
+                self.route(zero, input_wires[8 + i]);
+            }
+
+            state = HashOutTarget::from_vec(
+                (0..4)
+                    .map(|i| {
+                        Target::Wire(Wire {
+                            gate,
+                            input: GMiMCGate::<F, D, GMIMC_ROUNDS>::wire_output(i),
+                        })
+                    })
+                    .collect(),
+            )
+        }
+
+        let mut state_ext = [zero; D];
+        for i in 0..D {
+            state_ext[i] = state.elements[i];
+        }
+        let state_ext = ExtensionTarget(state_ext);
+        let cap_ext = merkle_root
+            .0
+            .iter()
+            .map(|h| {
+                let mut tmp = [zero; D];
+                for i in 0..D {
+                    tmp[i] = h.elements[i];
+                }
+                ExtensionTarget(tmp)
+            })
+            .collect();
+        self.random_access(cap_index, state_ext, cap_ext);
         // self.named_assert_hashes_equal(state, merkle_root, "check Merkle root".into())
     }
 

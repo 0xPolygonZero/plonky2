@@ -284,6 +284,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
         let x_index = challenger.get_challenge(self);
         let mut x_index_bits = self.low_bits(x_index, n_log, 64);
+        let cap_index = self.le_sum(
+            x_index_bits[x_index_bits.len() - common_data.config.fri_config.cap_height..]
+                .to_vec()
+                .into_iter(),
+        );
         let mut domain_size = n;
         with_context!(
             self,
@@ -346,9 +351,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             with_context!(
                 self,
                 "verify FRI round Merkle proof.",
-                self.verify_merkle_proof(
+                self.verify_merkle_proof_with_cap_index(
                     flatten_target(&evals),
                     &high_x_index_bits,
+                    cap_index,
                     &proof.commit_phase_merkle_roots[i],
                     &round_proof.steps[i].merkle_proof,
                 )
