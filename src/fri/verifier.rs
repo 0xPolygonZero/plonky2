@@ -5,7 +5,6 @@ use crate::field::field_types::Field;
 use crate::field::interpolation::{barycentric_weights, interpolate, interpolate2};
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::FriConfig;
-use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_1;
 use crate::hash::merkle_proofs::verify_merkle_proof;
 use crate::hash::merkle_tree::MerkleCap;

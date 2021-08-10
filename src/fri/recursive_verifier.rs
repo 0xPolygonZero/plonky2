@@ -3,7 +3,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::fri::proof::{FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget};
 use crate::fri::FriConfig;
-use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
+use crate::hash::hash_types::MerkleCapTarget;
 use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -212,7 +212,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let config = self.config.clone();
         let degree_log = common_data.config.cap_height + proof.evals_proofs[0].1.siblings.len()
             - config.rate_bits;
-        let one = self.one_extension();
         let subgroup_x = self.convert_to_ext(subgroup_x);
         let vanish_zeta = self.sub_extension(subgroup_x, zeta);
         let mut alpha = ReducingFactorTarget::new(alpha);

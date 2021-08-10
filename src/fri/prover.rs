@@ -154,7 +154,6 @@ fn fri_prover_query_round<F: Field + Extendable<D>, const D: usize>(
         .collect::<Vec<_>>();
     for (i, tree) in trees.iter().enumerate() {
         let arity_bits = config.reduction_arity_bits[i];
-        let arity = 1 << arity_bits;
         let evals = unflatten(tree.get(x_index >> arity_bits));
         let merkle_proof = tree.prove(x_index >> arity_bits);
 

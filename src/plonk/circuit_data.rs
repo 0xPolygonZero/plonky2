@@ -7,7 +7,7 @@ use crate::field::field_types::Field;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::FriConfig;
 use crate::gates::gate::{GateInstance, PrefixedGate};
-use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
+use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;

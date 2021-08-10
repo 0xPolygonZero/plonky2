@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
@@ -62,6 +60,7 @@ pub(crate) fn verify_merkle_proof<F: Field>(
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
     /// given cap. The index is given by it's little-endian bits.
+    /// Note: Works only for D=4.
     pub(crate) fn verify_merkle_proof(
         &mut self,
         leaf_data: Vec<Target>,
@@ -113,24 +112,22 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let index = self.le_sum(leaf_index_bits[proof.siblings.len()..].to_vec().into_iter());
         let mut state_ext = [zero; D];
-        for i in 0..D {
-            state_ext[i] = state.elements[i];
-        }
+        state_ext[..D].copy_from_slice(&state.elements[..D]);
         let state_ext = ExtensionTarget(state_ext);
         let cap_ext = merkle_cap
             .0
             .iter()
             .map(|h| {
                 let mut tmp = [zero; D];
-                for i in 0..D {
-                    tmp[i] = h.elements[i];
-                }
+                tmp[..D].copy_from_slice(&h.elements[..D]);
                 ExtensionTarget(tmp)
             })
             .collect();
         self.random_access(index, state_ext, cap_ext);
     }
 
+    /// Same a `verify_merkle_proof` but with the final "cap index" as extra parameter.
+    /// Note: Works only for D=4.
     pub(crate) fn verify_merkle_proof_with_cap_index(
         &mut self,
         leaf_data: Vec<Target>,
@@ -182,18 +179,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let mut state_ext = [zero; D];
-        for i in 0..D {
-            state_ext[i] = state.elements[i];
-        }
+        state_ext[..D].copy_from_slice(&state.elements[..D]);
         let state_ext = ExtensionTarget(state_ext);
         let cap_ext = merkle_cap
             .0
             .iter()
             .map(|h| {
                 let mut tmp = [zero; D];
-                for i in 0..D {
-                    tmp[i] = h.elements[i];
-                }
+                tmp[..D].copy_from_slice(&h.elements[..D]);
                 ExtensionTarget(tmp)
             })
             .collect();

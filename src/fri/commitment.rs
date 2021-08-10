@@ -3,8 +3,7 @@ use rayon::prelude::*;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::fri::proof::FriProof;
-use crate::fri::{prover::fri_proof, verifier::verify_fri_proof};
-use crate::hash::hash_types::HashOut;
+use crate::fri::prover::fri_proof;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
@@ -246,7 +245,9 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
+    use crate::fri::verifier::verify_fri_proof;
     use crate::fri::FriConfig;
+    use crate::hash::hash_types::HashOut;
     use crate::plonk::circuit_data::CircuitConfig;
 
     fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(

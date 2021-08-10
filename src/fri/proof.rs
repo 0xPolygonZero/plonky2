@@ -4,7 +4,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
-use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
+use crate::hash::hash_types::MerkleCapTarget;
 use crate::hash::merkle_proofs::{MerkleProof, MerkleProofTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;

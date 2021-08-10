@@ -15,7 +15,6 @@ use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
-use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;

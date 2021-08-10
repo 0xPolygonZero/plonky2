@@ -5,7 +5,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::proof::{FriProof, FriProofTarget};
-use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
+use crate::hash::hash_types::MerkleCapTarget;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::plonk::circuit_data::CommonCircuitData;
