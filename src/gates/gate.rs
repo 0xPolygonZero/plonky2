@@ -43,8 +43,7 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
         values
             .into_iter()
             .map(|value| {
-                // TODO: Change to debug-only once our gate code is mostly finished/stable.
-                assert!(F::Extension::is_in_basefield(&value));
+                debug_assert!(F::Extension::is_in_basefield(&value));
                 value.to_basefield_array()[0]
             })
             .collect()
