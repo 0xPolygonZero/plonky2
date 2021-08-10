@@ -4,8 +4,9 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
-use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
 use crate::hash::merkle_proofs::{MerkleProof, MerkleProofTarget};
+use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::plonk::plonk_common::PolynomialsIndexBlinding;
 use crate::polynomial::polynomial::PolynomialCoeffs;
@@ -77,7 +78,7 @@ pub struct FriQueryRoundTarget<const D: usize> {
 #[serde(bound = "")]
 pub struct FriProof<F: Extendable<D>, const D: usize> {
     /// A Merkle root for each reduced polynomial in the commit phase.
-    pub commit_phase_merkle_roots: Vec<HashOut<F>>,
+    pub commit_phase_merkle_roots: Vec<MerkleCap<F>>,
     /// Query rounds proofs
     pub query_round_proofs: Vec<FriQueryRound<F, D>>,
     /// The final polynomial in coefficient form.
@@ -87,7 +88,7 @@ pub struct FriProof<F: Extendable<D>, const D: usize> {
 }
 
 pub struct FriProofTarget<const D: usize> {
-    pub commit_phase_merkle_roots: Vec<HashOutTarget>,
+    pub commit_phase_merkle_roots: Vec<MerkleCapTarget>,
     pub query_round_proofs: Vec<FriQueryRoundTarget<D>>,
     pub final_poly: PolynomialCoeffsExtTarget<D>,
     pub pow_witness: Target,

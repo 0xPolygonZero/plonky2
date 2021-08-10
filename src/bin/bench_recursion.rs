@@ -27,10 +27,12 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
         rate_bits: 3,
         num_challenges: 3,
         zero_knowledge: false,
+        cap_height: 1,
         fri_config: FriConfig {
             proof_of_work_bits: 20,
             reduction_arity_bits: vec![2, 2, 2, 2, 2, 2],
             num_query_rounds: 35,
+            cap_height: 1,
         },
     };
 

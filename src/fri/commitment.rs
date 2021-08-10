@@ -34,6 +34,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         values: Vec<PolynomialValues<F>>,
         rate_bits: usize,
         blinding: bool,
+        cap_height: usize,
         timing: &mut TimingTree,
     ) -> Self {
         let coeffs = timed!(
@@ -42,7 +43,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
             values.par_iter().map(|v| v.ifft()).collect::<Vec<_>>()
         );
 
-        Self::from_coeffs(coeffs, rate_bits, blinding, timing)
+        Self::from_coeffs(coeffs, rate_bits, blinding, cap_height, timing)
     }
 
     /// Creates a list polynomial commitment for the polynomials `polynomials`.
@@ -50,6 +51,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         polynomials: Vec<PolynomialCoeffs<F>>,
         rate_bits: usize,
         blinding: bool,
+        cap_height: usize,
         timing: &mut TimingTree,
     ) -> Self {
         let degree = polynomials[0].len();
@@ -61,7 +63,11 @@ impl<F: Field> PolynomialBatchCommitment<F> {
 
         let mut leaves = timed!(timing, "transpose LDEs", transpose(&lde_values));
         reverse_index_bits_in_place(&mut leaves);
-        let merkle_tree = timed!(timing, "build Merkle tree", MerkleTree::new(leaves, false));
+        let merkle_tree = timed!(
+            timing,
+            "build Merkle tree",
+            MerkleTree::new(leaves, cap_height, false)
+        );
 
         Self {
             polynomials,
@@ -250,7 +256,8 @@ mod tests {
         let degree = 1 << degree_log;
 
         (0..k)
-            .map(|_| PolynomialValues::new(F::rand_vec(degree)))
+            // .map(|_| PolynomialValues::new(F::rand_vec(degree)))
+            .map(|_| PolynomialValues::new((1..=degree).map(F::from_canonical_usize).collect()))
             .collect()
     }
 
@@ -274,6 +281,7 @@ mod tests {
             proof_of_work_bits: 2,
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
+            cap_height: 0,
         };
         // We only care about `fri_config, num_constants`, and `num_routed_wires` here.
         let common_data = CommonCircuitData {
@@ -297,13 +305,15 @@ mod tests {
                 PolynomialBatchCommitment::<F>::from_values(
                     gen_random_test_case(ks[i], degree_bits),
                     common_data.config.rate_bits,
-                    PlonkPolynomials::polynomials(i).blinding,
+                    false,
+                    common_data.config.cap_height,
                     &mut TimingTree::default(),
                 )
             })
             .collect::<Vec<_>>();
 
         let zeta = gen_random_point::<F, D>(degree_bits);
+        let zeta = F::Extension::MULTIPLICATIVE_GROUP_GENERATOR;
         let (proof, os) = PolynomialBatchCommitment::open_plonk::<D>(
             &[&lpcs[0], &lpcs[1], &lpcs[2], &lpcs[3]],
             zeta,
@@ -313,10 +323,10 @@ mod tests {
         );
 
         let merkle_roots = &[
-            lpcs[0].merkle_tree.root,
-            lpcs[1].merkle_tree.root,
-            lpcs[2].merkle_tree.root,
-            lpcs[3].merkle_tree.root,
+            lpcs[0].merkle_tree.root.clone(),
+            lpcs[1].merkle_tree.root.clone(),
+            lpcs[2].merkle_tree.root.clone(),
+            lpcs[3].merkle_tree.root.clone(),
         ];
 
         verify_fri_proof(

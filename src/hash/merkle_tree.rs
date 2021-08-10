@@ -1,10 +1,15 @@
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::field::field_types::Field;
 use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::{compress, hash_or_noop};
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(bound = "")]
+pub struct MerkleCap<F: Field>(pub Vec<HashOut<F>>);
 
 #[derive(Clone, Debug)]
 pub struct MerkleTree<F: Field> {
@@ -14,8 +19,8 @@ pub struct MerkleTree<F: Field> {
     /// The layers of hashes in the tree. The first layer is the one at the bottom.
     pub layers: Vec<Vec<HashOut<F>>>,
 
-    /// The Merkle root.
-    pub root: HashOut<F>,
+    /// The Merkle cap.
+    pub root: MerkleCap<F>,
 
     /// If true, the indices are in bit-reversed form, so that the leaf at index `i`
     /// contains the leaf originally at index `reverse_bits(i)`.
@@ -23,7 +28,7 @@ pub struct MerkleTree<F: Field> {
 }
 
 impl<F: Field> MerkleTree<F> {
-    pub fn new(mut leaves: Vec<Vec<F>>, reverse_bits: bool) -> Self {
+    pub fn new(mut leaves: Vec<Vec<F>>, cap_height: usize, reverse_bits: bool) -> Self {
         if reverse_bits {
             reverse_index_bits_in_place(&mut leaves);
         }
@@ -32,7 +37,7 @@ impl<F: Field> MerkleTree<F> {
             .map(|l| hash_or_noop(l.clone()))
             .collect::<Vec<_>>()];
         while let Some(l) = layers.last() {
-            if l.len() == 1 {
+            if l.len() == 1 << cap_height {
                 break;
             }
             let next_layer = l
@@ -41,11 +46,11 @@ impl<F: Field> MerkleTree<F> {
                 .collect::<Vec<_>>();
             layers.push(next_layer);
         }
-        let root = layers.pop().unwrap()[0];
+        let cap = layers.pop().unwrap();
         Self {
             leaves,
             layers,
-            root,
+            root: MerkleCap(cap),
             reverse_bits,
         }
     }
@@ -97,10 +102,10 @@ mod tests {
         n: usize,
         reverse_bits: bool,
     ) -> Result<()> {
-        let tree = MerkleTree::new(leaves.clone(), reverse_bits);
+        let tree = MerkleTree::new(leaves.clone(), 1, reverse_bits);
         for i in 0..n {
             let proof = tree.prove(i);
-            verify_merkle_proof(leaves[i].clone(), i, tree.root, &proof, reverse_bits)?;
+            verify_merkle_proof(leaves[i].clone(), i, &tree.root, &proof, reverse_bits)?;
         }
         Ok(())
     }

@@ -1,11 +1,15 @@
+use std::convert::TryInto;
+
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::gmimc::GMiMCGate;
-use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::{compress, hash_or_noop, GMIMC_ROUNDS};
+use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -28,30 +32,29 @@ pub struct MerkleProofTarget {
 pub(crate) fn verify_merkle_proof<F: Field>(
     leaf_data: Vec<F>,
     leaf_index: usize,
-    merkle_root: HashOut<F>,
+    merkle_cap: &MerkleCap<F>,
     proof: &MerkleProof<F>,
     reverse_bits: bool,
 ) -> Result<()> {
-    ensure!(
-        leaf_index >> proof.siblings.len() == 0,
-        "Merkle leaf index is too large."
-    );
-
-    let index = if reverse_bits {
+    let mut index = if reverse_bits {
         crate::util::reverse_bits(leaf_index, proof.siblings.len())
     } else {
         leaf_index
     };
     let mut current_digest = hash_or_noop(leaf_data);
-    for (i, &sibling_digest) in proof.siblings.iter().enumerate() {
-        let bit = (index >> i & 1) == 1;
-        current_digest = if bit {
+    for &sibling_digest in proof.siblings.iter() {
+        let bit = index & 1;
+        index >>= 1;
+        current_digest = if bit == 1 {
             compress(sibling_digest, current_digest)
         } else {
             compress(current_digest, sibling_digest)
         }
     }
-    ensure!(current_digest == merkle_root, "Invalid Merkle proof.");
+    ensure!(
+        current_digest == merkle_cap.0[index],
+        "Invalid Merkle proof."
+    );
 
     Ok(())
 }
@@ -63,7 +66,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         leaf_data: Vec<Target>,
         leaf_index_bits: &[Target],
-        merkle_root: HashOutTarget,
+        merkle_root: &MerkleCapTarget,
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
@@ -108,7 +111,25 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         }
 
-        self.named_assert_hashes_equal(state, merkle_root, "check Merkle root".into())
+        let index = self.le_sum(leaf_index_bits[proof.siblings.len()..].to_vec().into_iter());
+        let mut state_ext = [zero; D];
+        for i in 0..D {
+            state_ext[i] = state.elements[i];
+        }
+        let state_ext = ExtensionTarget(state_ext);
+        let cap_ext = merkle_root
+            .0
+            .iter()
+            .map(|h| {
+                let mut tmp = [zero; D];
+                for i in 0..D {
+                    tmp[i] = h.elements[i];
+                }
+                ExtensionTarget(tmp)
+            })
+            .collect();
+        self.random_access(index, state_ext, cap_ext);
+        // self.named_assert_hashes_equal(state, merkle_root, "check Merkle root".into())
     }
 
     pub(crate) fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
@@ -159,8 +180,9 @@ mod tests {
 
         let log_n = 8;
         let n = 1 << log_n;
+        let cap_height = 1;
         let leaves = random_data::<F>(n, 7);
-        let tree = MerkleTree::new(leaves, false);
+        let tree = MerkleTree::new(leaves, cap_height, false);
         let i: usize = thread_rng().gen_range(0..n);
         let proof = tree.prove(i);
 
@@ -171,8 +193,8 @@ mod tests {
             pw.set_hash_target(proof_t.siblings[i], proof.siblings[i]);
         }
 
-        let root_t = builder.add_virtual_hash();
-        pw.set_hash_target(root_t, tree.root);
+        let root_t = builder.add_virtual_cap(cap_height);
+        pw.set_cap_target(&root_t, &tree.root);
 
         let i_c = builder.constant(F::from_canonical_usize(i));
         let i_bits = builder.split_le(i_c, log_n);
@@ -182,7 +204,7 @@ mod tests {
             pw.set_target(data[j], tree.leaves[i][j]);
         }
 
-        builder.verify_merkle_proof(data, &i_bits, root_t, &proof_t);
+        builder.verify_merkle_proof(data, &i_bits, &root_t, &proof_t);
 
         let data = builder.build();
         let proof = data.prove(pw)?;

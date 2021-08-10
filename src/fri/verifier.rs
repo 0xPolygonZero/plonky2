@@ -8,6 +8,7 @@ use crate::fri::FriConfig;
 use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_1;
 use crate::hash::merkle_proofs::verify_merkle_proof;
+use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::PlonkPolynomials;
@@ -73,7 +74,7 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     os: &OpeningSet<F, D>,
     // Point at which the PLONK polynomials are opened.
     zeta: F::Extension,
-    initial_merkle_roots: &[HashOut<F>],
+    initial_merkle_roots: &[MerkleCap<F>],
     proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     common_data: &CommonCircuitData<F, D>,
@@ -98,7 +99,7 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
         .commit_phase_merkle_roots
         .iter()
         .map(|root| {
-            challenger.observe_hash(root);
+            challenger.observe_cap(root);
             challenger.get_extension_challenge()
         })
         .collect::<Vec<_>>();
@@ -139,9 +140,9 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
 fn fri_verify_initial_proof<F: Field>(
     x_index: usize,
     proof: &FriInitialTreeProof<F>,
-    initial_merkle_roots: &[HashOut<F>],
+    initial_merkle_roots: &[MerkleCap<F>],
 ) -> Result<()> {
-    for ((evals, merkle_proof), &root) in proof.evals_proofs.iter().zip(initial_merkle_roots) {
+    for ((evals, merkle_proof), root) in proof.evals_proofs.iter().zip(initial_merkle_roots) {
         verify_merkle_proof(evals.clone(), x_index, root, merkle_proof, false)?;
     }
 
@@ -244,7 +245,7 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
     zeta: F::Extension,
     alpha: F::Extension,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
-    initial_merkle_roots: &[HashOut<F>],
+    initial_merkle_roots: &[MerkleCap<F>],
     proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     n: usize,
@@ -297,7 +298,7 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
         verify_merkle_proof(
             flatten(&evals),
             x_index >> arity_bits,
-            proof.commit_phase_merkle_roots[i],
+            &proof.commit_phase_merkle_roots[i],
             &round_proof.steps[i].merkle_proof,
             false,
         )?;

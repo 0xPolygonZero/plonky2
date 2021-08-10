@@ -3,7 +3,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::fri::proof::{FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget};
 use crate::fri::FriConfig;
-use crate::hash::hash_types::HashOutTarget;
+use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
 use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -83,7 +83,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         os: &OpeningSetTarget<D>,
         // Point at which the PLONK polynomials are opened.
         zeta: ExtensionTarget<D>,
-        initial_merkle_roots: &[HashOutTarget],
+        initial_merkle_roots: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger,
         common_data: &CommonCircuitData<F, D>,
@@ -111,7 +111,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .commit_phase_merkle_roots
                 .iter()
                 .map(|root| {
-                    challenger.observe_hash(root);
+                    challenger.observe_cap(root);
                     challenger.get_extension_challenge(self)
                 })
                 .collect::<Vec<_>>()
@@ -176,9 +176,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         x_index_bits: &[Target],
         proof: &FriInitialTreeProofTarget,
-        initial_merkle_roots: &[HashOutTarget],
+        initial_merkle_roots: &[MerkleCapTarget],
     ) {
-        for (i, ((evals, merkle_proof), &root)) in proof
+        for (i, ((evals, merkle_proof), root)) in proof
             .evals_proofs
             .iter()
             .zip(initial_merkle_roots)
@@ -270,7 +270,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         zeta: ExtensionTarget<D>,
         alpha: ExtensionTarget<D>,
         precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
-        initial_merkle_roots: &[HashOutTarget],
+        initial_merkle_roots: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger,
         n: usize,
@@ -347,7 +347,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.verify_merkle_proof(
                     flatten_target(&evals),
                     &high_x_index_bits,
-                    proof.commit_phase_merkle_roots[i],
+                    &proof.commit_phase_merkle_roots[i],
                     &round_proof.steps[i].merkle_proof,
                 )
             );

@@ -85,6 +85,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             wires_values,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::WIRES.blinding,
+            config.cap_height,
             &mut timing,
         )
     );
@@ -95,7 +96,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     challenger.observe_hash(&common_data.circuit_digest);
     challenger.observe_hash(&public_inputs_hash);
 
-    challenger.observe_hash(&wires_commitment.merkle_tree.root);
+    challenger.observe_cap(&wires_commitment.merkle_tree.root);
     let betas = challenger.get_n_challenges(num_challenges);
     let gammas = challenger.get_n_challenges(num_challenges);
 
@@ -129,11 +130,12 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             zs_partial_products,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding,
+            config.cap_height,
             &mut timing,
         )
     );
 
-    challenger.observe_hash(&zs_partial_products_commitment.merkle_tree.root);
+    challenger.observe_cap(&zs_partial_products_commitment.merkle_tree.root);
 
     let alphas = challenger.get_n_challenges(num_challenges);
 
@@ -177,11 +179,12 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             all_quotient_poly_chunks,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding,
+            config.cap_height,
             &mut timing
         )
     );
 
-    challenger.observe_hash(&quotient_polys_commitment.merkle_tree.root);
+    challenger.observe_cap(&quotient_polys_commitment.merkle_tree.root);
 
     let zeta = challenger.get_extension_challenge();
 

@@ -13,8 +13,9 @@ use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
-use crate::hash::hash_types::HashOutTarget;
+use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
+use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -109,6 +110,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn add_virtual_hash(&mut self) -> HashOutTarget {
         HashOutTarget::from_vec(self.add_virtual_targets(4))
+    }
+
+    pub fn add_virtual_cap(&mut self, cap_height: usize) -> MerkleCapTarget {
+        MerkleCapTarget(self.add_virtual_hashes(1 << cap_height))
     }
 
     pub fn add_virtual_hashes(&mut self, n: usize) -> Vec<HashOutTarget> {
@@ -561,12 +566,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_vecs,
             self.config.rate_bits,
             self.config.zero_knowledge & PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
+            self.config.cap_height,
             &mut timing,
         );
 
-        let constants_sigmas_root = constants_sigmas_commitment.merkle_tree.root;
+        let constants_sigmas_root = constants_sigmas_commitment.merkle_tree.root.clone();
         let verifier_only = VerifierOnlyCircuitData {
-            constants_sigmas_root,
+            constants_sigmas_root: constants_sigmas_root.clone(),
         };
 
         let prover_only = ProverOnlyCircuitData {
@@ -597,7 +603,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
-            constants_sigmas_root.elements.to_vec(),
+            constants_sigmas_root
+                .0
+                .into_iter()
+                .flat_map(|h| h.elements)
+                .collect::<Vec<_>>(),
             vec![/* Add other circuit data here */],
         ];
         let circuit_digest = hash_n_to_hash(circuit_digest_parts.concat(), false);

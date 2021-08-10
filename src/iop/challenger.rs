@@ -3,8 +3,9 @@ use std::convert::TryInto;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::Field;
-use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::{permute, SPONGE_RATE, SPONGE_WIDTH};
+use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
@@ -91,6 +92,12 @@ impl<F: Field> Challenger<F> {
 
     pub fn observe_hash(&mut self, hash: &HashOut<F>) {
         self.observe_elements(&hash.elements)
+    }
+
+    pub fn observe_cap(&mut self, cap: &MerkleCap<F>) {
+        for hash in &cap.0 {
+            self.observe_elements(&hash.elements)
+        }
     }
 
     pub fn get_challenge(&mut self) -> F {
@@ -237,6 +244,12 @@ impl RecursiveChallenger {
 
     pub fn observe_hash(&mut self, hash: &HashOutTarget) {
         self.observe_elements(&hash.elements)
+    }
+
+    pub fn observe_cap(&mut self, cap: &MerkleCapTarget) {
+        for hash in &cap.0 {
+            self.observe_hash(hash)
+        }
     }
 
     pub fn observe_extension_element<const D: usize>(&mut self, element: ExtensionTarget<D>) {
