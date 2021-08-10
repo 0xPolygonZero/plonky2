@@ -151,7 +151,7 @@ fn fri_verify_initial_proof<F: Field>(
 
 /// Holds the reduced (by `alpha`) evaluations at `zeta` for the polynomial opened just at
 /// zeta, for `Z` at zeta and for `Z` at `g*zeta`.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 struct PrecomputedReducedEvals<F: Extendable<D>, const D: usize> {
     pub single: F::Extension,
     pub zs: F::Extension,
@@ -273,6 +273,13 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
         let arity = 1 << arity_bits;
         let next_domain_size = domain_size >> arity_bits;
         let e_x = if i == 0 {
+            dbg!(
+                &round_proof.initial_trees_proof,
+                alpha,
+                zeta,
+                subgroup_x,
+                precomputed_reduced_evals
+            );
             fri_combine_initial(
                 &round_proof.initial_trees_proof,
                 alpha,
@@ -292,6 +299,7 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
                 betas[i - 1],
             )
         };
+        dbg!(e_x);
         let mut evals = round_proof.steps[i].evals.clone();
         // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
         evals.insert(x_index & (arity - 1), e_x);
