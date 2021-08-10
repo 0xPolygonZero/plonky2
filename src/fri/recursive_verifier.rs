@@ -341,7 +341,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let high_x_index_bits = x_index_bits.split_off(arity_bits);
             old_x_index_bits = x_index_bits;
             let low_x_index = self.le_sum(old_x_index_bits.iter());
-            evals = self.insert(low_x_index, e_x, evals);
+            // evals = self.insert(low_x_index, e_x, evals);
+            self.random_access(low_x_index, e_x, evals.clone());
             with_context!(
                 self,
                 "verify FRI round Merkle proof.",

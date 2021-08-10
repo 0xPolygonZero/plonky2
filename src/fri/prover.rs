@@ -156,8 +156,7 @@ fn fri_prover_query_round<F: Field + Extendable<D>, const D: usize>(
         let arity_bits = config.reduction_arity_bits[i];
         let arity = 1 << arity_bits;
         let mut evals = unflatten(tree.get(x_index >> arity_bits));
-        dbg!(&evals);
-        evals.remove(x_index & (arity - 1));
+        // evals.remove(x_index & (arity - 1));
         let merkle_proof = tree.prove(x_index >> arity_bits);
 
         query_steps.push(FriQueryStep {

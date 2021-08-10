@@ -274,13 +274,6 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
         let arity = 1 << arity_bits;
         let next_domain_size = domain_size >> arity_bits;
         let e_x = if i == 0 {
-            dbg!(
-                &round_proof.initial_trees_proof,
-                alpha,
-                zeta,
-                subgroup_x,
-                precomputed_reduced_evals
-            );
             fri_combine_initial(
                 &round_proof.initial_trees_proof,
                 alpha,
@@ -300,10 +293,10 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
                 betas[i - 1],
             )
         };
-        dbg!(e_x);
         let mut evals = round_proof.steps[i].evals.clone();
-        // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
-        evals.insert(x_index & (arity - 1), e_x);
+        // // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
+        ensure!(evals[x_index & (arity - 1)] == e_x);
+        // evals.insert(x_index & (arity - 1), e_x);
         verify_merkle_proof(
             flatten(&evals),
             x_index >> arity_bits,
