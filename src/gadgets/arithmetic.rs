@@ -159,31 +159,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Computes `x / y`. Results in an unsatisfiable instance if `y = 0`.
     pub fn div(&mut self, x: Target, y: Target) -> Target {
-        let y_inv = self.inverse(y);
-        self.mul(x, y_inv)
-    }
-
-    /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
-    /// some cases, as it allows `0 / 0 = <anything>`.
-    pub fn div_unsafe(&mut self, x: Target, y: Target) -> Target {
-        // Check for special cases where we can determine the result without an `ArithmeticGate`.
-        let zero = self.zero();
-        let one = self.one();
-        if x == zero {
-            return zero;
-        }
-        if y == one {
-            return x;
-        }
-        if let (Some(x_const), Some(y_const)) =
-            (self.target_as_constant(x), self.target_as_constant(y))
-        {
-            return self.constant(x_const / y_const);
-        }
-
-        let x_ext = self.convert_to_ext(x);
-        let y_ext = self.convert_to_ext(y);
-        self.div_unsafe_extension(x_ext, y_ext).0[0]
+        let x = self.convert_to_ext(x);
+        let y = self.convert_to_ext(y);
+        self.div_extension(x, y).0[0]
     }
 
     /// Computes `1 / x`. Results in an unsatisfiable instance if `x = 0`.
