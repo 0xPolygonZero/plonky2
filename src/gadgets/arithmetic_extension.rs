@@ -777,6 +777,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
+        let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = FF::rand_vec(4);
@@ -794,7 +795,7 @@ mod tests {
         }
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new())?;
+        let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
