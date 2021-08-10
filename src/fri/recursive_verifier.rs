@@ -233,7 +233,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.sub_extension(single_composition_eval, precomputed_reduced_evals.single);
         // This division is safe because the denominator will be nonzero unless zeta is in the
         // codeword domain, which occurs with negligible probability given a large extension field.
-        sum = self.div_unsafe_add_extension(single_numerator, vanish_zeta, sum);
+        sum = self.div_add_extension(single_numerator, vanish_zeta, sum);
         alpha.reset();
 
         // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
@@ -260,7 +260,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         sum = alpha.shift(sum, self);
         // This division is safe because the denominator will be nonzero unless zeta is in the
         // codeword domain, which occurs with negligible probability given a large extension field.
-        sum = self.div_unsafe_add_extension(zs_numerator, zs_denominator, sum);
+        sum = self.div_add_extension(zs_numerator, zs_denominator, sum);
 
         sum
     }
