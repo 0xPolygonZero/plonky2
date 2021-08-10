@@ -51,7 +51,6 @@ pub(crate) fn verify_merkle_proof<F: Field>(
             compress(current_digest, sibling_digest)
         }
     }
-    dbg!(index);
     ensure!(
         current_digest == merkle_cap.0[index],
         "Invalid Merkle proof."
