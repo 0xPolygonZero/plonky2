@@ -21,10 +21,18 @@ fn constant_layer<F: Field>(state: &mut [F; WIDTH], round_ctr: usize) {
 }
 
 #[inline]
+fn sbox_monomial<F: Field>(x: F) -> F {
+    let x2 = x * x;
+    let x4 = x2 * x2;
+    let x3 = x * x2;
+    x3 * x4
+}
+
+#[inline]
 #[unroll_for_loops]
 fn sbox_layer<F: Field>(state: &mut [F; WIDTH]) {
     for i in 0..WIDTH {
-        state[i] = state[i].cube();
+        state[i] = sbox_monomial(state[i]);
     }
 }
 
@@ -136,7 +144,7 @@ fn full_rounds<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
 fn partial_rounds<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
     for _ in 0..N_PARTIAL_ROUNDS {
         constant_layer(state, *round_ctr);
-        state[0] = state[0].cube();
+        state[0] = sbox_monomial(state[0]);
         *state = mds_layer(state);
         *round_ctr += 1;
     }
