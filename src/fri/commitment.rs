@@ -256,8 +256,7 @@ mod tests {
         let degree = 1 << degree_log;
 
         (0..k)
-            // .map(|_| PolynomialValues::new(F::rand_vec(degree)))
-            .map(|_| PolynomialValues::new((1..=degree).map(F::from_canonical_usize).collect()))
+            .map(|_| PolynomialValues::new(F::rand_vec(degree)))
             .collect()
     }
 
@@ -281,14 +280,13 @@ mod tests {
             proof_of_work_bits: 2,
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
-            cap_height: 0,
+            cap_height: 1,
         };
         // We only care about `fri_config, num_constants`, and `num_routed_wires` here.
         let common_data = CommonCircuitData {
             config: CircuitConfig {
                 fri_config,
                 num_routed_wires: 6,
-                zero_knowledge: false,
                 ..CircuitConfig::large_config()
             },
             degree_bits,
@@ -306,7 +304,7 @@ mod tests {
                 PolynomialBatchCommitment::<F>::from_values(
                     gen_random_test_case(ks[i], degree_bits),
                     common_data.config.rate_bits,
-                    false,
+                    PlonkPolynomials::polynomials(i).blinding,
                     common_data.config.cap_height,
                     &mut TimingTree::default(),
                 )
@@ -314,7 +312,6 @@ mod tests {
             .collect::<Vec<_>>();
 
         let zeta = gen_random_point::<F, D>(degree_bits);
-        let zeta = F::Extension::MULTIPLICATIVE_GROUP_GENERATOR;
         let (proof, os) = PolynomialBatchCommitment::open_plonk::<D>(
             &[&lpcs[0], &lpcs[1], &lpcs[2], &lpcs[3]],
             zeta,
@@ -323,17 +320,17 @@ mod tests {
             &mut TimingTree::default(),
         );
 
-        let merkle_roots = &[
-            lpcs[0].merkle_tree.root.clone(),
-            lpcs[1].merkle_tree.root.clone(),
-            lpcs[2].merkle_tree.root.clone(),
-            lpcs[3].merkle_tree.root.clone(),
+        let merkle_caps = &[
+            lpcs[0].merkle_tree.cap.clone(),
+            lpcs[1].merkle_tree.cap.clone(),
+            lpcs[2].merkle_tree.cap.clone(),
+            lpcs[3].merkle_tree.cap.clone(),
         ];
 
         verify_fri_proof(
             &os,
             zeta,
-            merkle_roots,
+            merkle_caps,
             &proof,
             &mut Challenger::new(),
             &common_data,

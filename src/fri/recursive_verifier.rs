@@ -83,7 +83,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         os: &OpeningSetTarget<D>,
         // Point at which the PLONK polynomials are opened.
         zeta: ExtensionTarget<D>,
-        initial_merkle_roots: &[MerkleCapTarget],
+        initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger,
         common_data: &CommonCircuitData<F, D>,
@@ -108,10 +108,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self,
             "recover the random betas used in the FRI reductions.",
             proof
-                .commit_phase_merkle_roots
+                .commit_phase_merkle_caps
                 .iter()
-                .map(|root| {
-                    challenger.observe_cap(root);
+                .map(|cap| {
+                    challenger.observe_cap(cap);
                     challenger.get_extension_challenge(self)
                 })
                 .collect::<Vec<_>>()
@@ -160,7 +160,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     zeta,
                     alpha,
                     precomputed_reduced_evals,
-                    initial_merkle_roots,
+                    initial_merkle_caps,
                     proof,
                     challenger,
                     n,
@@ -176,13 +176,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         x_index_bits: &[Target],
         proof: &FriInitialTreeProofTarget,
-        initial_merkle_roots: &[MerkleCapTarget],
+        initial_merkle_caps: &[MerkleCapTarget],
         cap_index: Target,
     ) {
-        for (i, ((evals, merkle_proof), root)) in proof
+        for (i, ((evals, merkle_proof), cap)) in proof
             .evals_proofs
             .iter()
-            .zip(initial_merkle_roots)
+            .zip(initial_merkle_caps)
             .enumerate()
         {
             with_context!(
@@ -192,7 +192,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     evals.clone(),
                     x_index_bits,
                     cap_index,
-                    root,
+                    cap,
                     merkle_proof
                 )
             );
@@ -278,7 +278,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         zeta: ExtensionTarget<D>,
         alpha: ExtensionTarget<D>,
         precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
-        initial_merkle_roots: &[MerkleCapTarget],
+        initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger,
         n: usize,
@@ -303,7 +303,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.fri_verify_initial_proof(
                 &x_index_bits,
                 &round_proof.initial_trees_proof,
-                initial_merkle_roots,
+                initial_merkle_caps,
                 cap_index
             )
         );
@@ -349,12 +349,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     )
                 )
             };
-            let mut evals = round_proof.steps[i].evals.clone();
+            let evals = round_proof.steps[i].evals.clone();
             // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
             let high_x_index_bits = x_index_bits.split_off(arity_bits);
             old_x_index_bits = x_index_bits;
             let low_x_index = self.le_sum(old_x_index_bits.iter());
-            // evals = self.insert(low_x_index, e_x, evals);
             self.random_access(low_x_index, e_x, evals.clone());
             with_context!(
                 self,
@@ -363,7 +362,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     flatten_target(&evals),
                     &high_x_index_bits,
                     cap_index,
-                    &proof.commit_phase_merkle_roots[i],
+                    &proof.commit_phase_merkle_caps[i],
                     &round_proof.steps[i].merkle_proof,
                 )
             );

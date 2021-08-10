@@ -53,7 +53,7 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
         fri_prover_query_rounds(initial_merkle_trees, &trees, challenger, n, config);
 
     FriProof {
-        commit_phase_merkle_roots: trees.iter().map(|t| t.root.clone()).collect(),
+        commit_phase_merkle_caps: trees.iter().map(|t| t.cap.clone()).collect(),
         query_round_proofs,
         final_poly: final_coeffs,
         pow_witness,
@@ -84,7 +84,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
             false,
         );
 
-        challenger.observe_cap(&tree.root);
+        challenger.observe_cap(&tree.cap);
         trees.push(tree);
 
         let beta = challenger.get_extension_challenge();
@@ -155,8 +155,7 @@ fn fri_prover_query_round<F: Field + Extendable<D>, const D: usize>(
     for (i, tree) in trees.iter().enumerate() {
         let arity_bits = config.reduction_arity_bits[i];
         let arity = 1 << arity_bits;
-        let mut evals = unflatten(tree.get(x_index >> arity_bits));
-        // evals.remove(x_index & (arity - 1));
+        let evals = unflatten(tree.get(x_index >> arity_bits));
         let merkle_proof = tree.prove(x_index >> arity_bits);
 
         query_steps.push(FriQueryStep {

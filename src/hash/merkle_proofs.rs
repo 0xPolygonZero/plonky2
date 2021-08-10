@@ -28,7 +28,7 @@ pub struct MerkleProofTarget {
 }
 
 /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
-/// given root.
+/// given cap.
 pub(crate) fn verify_merkle_proof<F: Field>(
     leaf_data: Vec<F>,
     leaf_index: usize,
@@ -61,12 +61,12 @@ pub(crate) fn verify_merkle_proof<F: Field>(
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
-    /// given root. The index is given by it's little-endian bits.
+    /// given cap. The index is given by it's little-endian bits.
     pub(crate) fn verify_merkle_proof(
         &mut self,
         leaf_data: Vec<Target>,
         leaf_index_bits: &[Target],
-        merkle_root: &MerkleCapTarget,
+        merkle_cap: &MerkleCapTarget,
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
@@ -117,7 +117,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             state_ext[i] = state.elements[i];
         }
         let state_ext = ExtensionTarget(state_ext);
-        let cap_ext = merkle_root
+        let cap_ext = merkle_cap
             .0
             .iter()
             .map(|h| {
@@ -129,7 +129,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             })
             .collect();
         self.random_access(index, state_ext, cap_ext);
-        // self.named_assert_hashes_equal(state, merkle_root, "check Merkle root".into())
     }
 
     pub(crate) fn verify_merkle_proof_with_cap_index(
@@ -137,7 +136,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         leaf_data: Vec<Target>,
         leaf_index_bits: &[Target],
         cap_index: Target,
-        merkle_root: &MerkleCapTarget,
+        merkle_cap: &MerkleCapTarget,
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
@@ -187,7 +186,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             state_ext[i] = state.elements[i];
         }
         let state_ext = ExtensionTarget(state_ext);
-        let cap_ext = merkle_root
+        let cap_ext = merkle_cap
             .0
             .iter()
             .map(|h| {
@@ -199,7 +198,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             })
             .collect();
         self.random_access(cap_index, state_ext, cap_ext);
-        // self.named_assert_hashes_equal(state, merkle_root, "check Merkle root".into())
     }
 
     pub(crate) fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
@@ -263,8 +261,8 @@ mod tests {
             pw.set_hash_target(proof_t.siblings[i], proof.siblings[i]);
         }
 
-        let root_t = builder.add_virtual_cap(cap_height);
-        pw.set_cap_target(&root_t, &tree.root);
+        let cap_t = builder.add_virtual_cap(cap_height);
+        pw.set_cap_target(&cap_t, &tree.cap);
 
         let i_c = builder.constant(F::from_canonical_usize(i));
         let i_bits = builder.split_le(i_c, log_n);
@@ -274,7 +272,7 @@ mod tests {
             pw.set_target(data[j], tree.leaves[i][j]);
         }
 
-        builder.verify_merkle_proof(data, &i_bits, &root_t, &proof_t);
+        builder.verify_merkle_proof(data, &i_bits, &cap_t, &proof_t);
 
         let data = builder.build();
         let proof = data.prove(pw)?;

@@ -31,14 +31,14 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
     challenger.observe_hash(&common_data.circuit_digest);
     challenger.observe_hash(&public_inputs_hash);
 
-    challenger.observe_cap(&proof.wires_root);
+    challenger.observe_cap(&proof.wires_cap);
     let betas = challenger.get_n_challenges(num_challenges);
     let gammas = challenger.get_n_challenges(num_challenges);
 
-    challenger.observe_cap(&proof.plonk_zs_partial_products_root);
+    challenger.observe_cap(&proof.plonk_zs_partial_products_cap);
     let alphas = challenger.get_n_challenges(num_challenges);
 
-    challenger.observe_cap(&proof.quotient_polys_root);
+    challenger.observe_cap(&proof.quotient_polys_cap);
     let zeta = challenger.get_extension_challenge();
 
     let local_constants = &proof.openings.constants;
@@ -83,17 +83,17 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
         ensure!(vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
     }
 
-    let merkle_roots = &[
-        verifier_data.constants_sigmas_root.clone(),
-        proof.wires_root,
-        proof.plonk_zs_partial_products_root,
-        proof.quotient_polys_root,
+    let merkle_caps = &[
+        verifier_data.constants_sigmas_cap.clone(),
+        proof.wires_cap,
+        proof.plonk_zs_partial_products_cap,
+        proof.quotient_polys_cap,
     ];
 
     verify_fri_proof(
         &proof.openings,
         zeta,
-        merkle_roots,
+        merkle_caps,
         &proof.opening_proof,
         &mut challenger,
         common_data,

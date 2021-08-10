@@ -570,9 +570,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             &mut timing,
         );
 
-        let constants_sigmas_root = constants_sigmas_commitment.merkle_tree.root.clone();
+        let constants_sigmas_cap = constants_sigmas_commitment.merkle_tree.cap.clone();
         let verifier_only = VerifierOnlyCircuitData {
-            constants_sigmas_root: constants_sigmas_root.clone(),
+            constants_sigmas_cap: constants_sigmas_cap.clone(),
         };
 
         let prover_only = ProverOnlyCircuitData {
@@ -603,7 +603,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
-            constants_sigmas_root
+            constants_sigmas_cap
                 .0
                 .into_iter()
                 .flat_map(|h| h.elements)

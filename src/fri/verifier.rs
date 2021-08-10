@@ -74,7 +74,7 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     os: &OpeningSet<F, D>,
     // Point at which the PLONK polynomials are opened.
     zeta: F::Extension,
-    initial_merkle_roots: &[MerkleCap<F>],
+    initial_merkle_caps: &[MerkleCap<F>],
     proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     common_data: &CommonCircuitData<F, D>,
@@ -96,10 +96,10 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
 
     // Recover the random betas used in the FRI reductions.
     let betas = proof
-        .commit_phase_merkle_roots
+        .commit_phase_merkle_caps
         .iter()
-        .map(|root| {
-            challenger.observe_cap(root);
+        .map(|cap| {
+            challenger.observe_cap(cap);
             challenger.get_extension_challenge()
         })
         .collect::<Vec<_>>();
@@ -124,7 +124,7 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
             zeta,
             alpha,
             precomputed_reduced_evals,
-            initial_merkle_roots,
+            initial_merkle_caps,
             &proof,
             challenger,
             n,
@@ -140,10 +140,10 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
 fn fri_verify_initial_proof<F: Field>(
     x_index: usize,
     proof: &FriInitialTreeProof<F>,
-    initial_merkle_roots: &[MerkleCap<F>],
+    initial_merkle_caps: &[MerkleCap<F>],
 ) -> Result<()> {
-    for ((evals, merkle_proof), root) in proof.evals_proofs.iter().zip(initial_merkle_roots) {
-        verify_merkle_proof(evals.clone(), x_index, root, merkle_proof, false)?;
+    for ((evals, merkle_proof), cap) in proof.evals_proofs.iter().zip(initial_merkle_caps) {
+        verify_merkle_proof(evals.clone(), x_index, cap, merkle_proof, false)?;
     }
 
     Ok(())
@@ -246,7 +246,7 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
     zeta: F::Extension,
     alpha: F::Extension,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
-    initial_merkle_roots: &[MerkleCap<F>],
+    initial_merkle_caps: &[MerkleCap<F>],
     proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     n: usize,
@@ -261,7 +261,7 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
     fri_verify_initial_proof(
         x_index,
         &round_proof.initial_trees_proof,
-        initial_merkle_roots,
+        initial_merkle_caps,
     )?;
     let mut old_x_index = 0;
     // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
@@ -293,18 +293,17 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
                 betas[i - 1],
             )
         };
-        let mut evals = round_proof.steps[i].evals.clone();
-        // // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
+        let evals = &round_proof.steps[i].evals;
+        // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
         ensure!(evals[x_index & (arity - 1)] == e_x);
-        // evals.insert(x_index & (arity - 1), e_x);
         verify_merkle_proof(
-            flatten(&evals),
+            flatten(evals),
             x_index >> arity_bits,
-            &proof.commit_phase_merkle_roots[i],
+            &proof.commit_phase_merkle_caps[i],
             &round_proof.steps[i].merkle_proof,
             false,
         )?;
-        evaluations.push(evals);
+        evaluations.push(evals.to_vec());
 
         if i > 0 {
             // Update the point x to x^arity.

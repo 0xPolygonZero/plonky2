@@ -77,8 +77,8 @@ pub struct FriQueryRoundTarget<const D: usize> {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(bound = "")]
 pub struct FriProof<F: Extendable<D>, const D: usize> {
-    /// A Merkle root for each reduced polynomial in the commit phase.
-    pub commit_phase_merkle_roots: Vec<MerkleCap<F>>,
+    /// A Merkle cap for each reduced polynomial in the commit phase.
+    pub commit_phase_merkle_caps: Vec<MerkleCap<F>>,
     /// Query rounds proofs
     pub query_round_proofs: Vec<FriQueryRound<F, D>>,
     /// The final polynomial in coefficient form.
@@ -88,7 +88,7 @@ pub struct FriProof<F: Extendable<D>, const D: usize> {
 }
 
 pub struct FriProofTarget<const D: usize> {
-    pub commit_phase_merkle_roots: Vec<MerkleCapTarget>,
+    pub commit_phase_merkle_caps: Vec<MerkleCapTarget>,
     pub query_round_proofs: Vec<FriQueryRoundTarget<D>>,
     pub final_poly: PolynomialCoeffsExtTarget<D>,
     pub pow_witness: Target,

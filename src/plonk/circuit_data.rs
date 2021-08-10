@@ -149,7 +149,7 @@ pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
 /// Circuit data required by the verifier, but not the prover.
 pub(crate) struct VerifierOnlyCircuitData<F: Field> {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_root: MerkleCap<F>,
+    pub(crate) constants_sigmas_cap: MerkleCap<F>,
 }
 
 /// Circuit data required by both the prover and the verifier.
@@ -239,5 +239,5 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
 /// dynamic, at least not without setting a maximum wire count and paying for the worst case.
 pub struct VerifierCircuitTarget {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_root: MerkleCapTarget,
+    pub(crate) constants_sigmas_cap: MerkleCapTarget,
 }

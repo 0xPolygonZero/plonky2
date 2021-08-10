@@ -20,7 +20,7 @@ pub struct MerkleTree<F: Field> {
     pub layers: Vec<Vec<HashOut<F>>>,
 
     /// The Merkle cap.
-    pub root: MerkleCap<F>,
+    pub cap: MerkleCap<F>,
 
     /// If true, the indices are in bit-reversed form, so that the leaf at index `i`
     /// contains the leaf originally at index `reverse_bits(i)`.
@@ -50,7 +50,7 @@ impl<F: Field> MerkleTree<F> {
         Self {
             leaves,
             layers,
-            root: MerkleCap(cap),
+            cap: MerkleCap(cap),
             reverse_bits,
         }
     }
@@ -105,7 +105,7 @@ mod tests {
         let tree = MerkleTree::new(leaves.clone(), 1, reverse_bits);
         for i in 0..n {
             let proof = tree.prove(i);
-            verify_merkle_proof(leaves[i].clone(), i, &tree.root, &proof, reverse_bits)?;
+            verify_merkle_proof(leaves[i].clone(), i, &tree.cap, &proof, reverse_bits)?;
         }
         Ok(())
     }
@@ -118,8 +118,7 @@ mod tests {
         let n = 1 << log_n;
         let leaves = random_data::<F>(n, 7);
 
-        verify_all_leaves(leaves.clone(), n, false)?;
-        // verify_all_leaves(leaves, n, true)?;
+        verify_all_leaves(leaves, n, false)?;
 
         Ok(())
     }
