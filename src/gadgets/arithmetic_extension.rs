@@ -152,6 +152,33 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         None
     }
 
+    /// Returns `sum_{(a,b) in vecs} constant * a * b`.
+    pub fn inner_product_extension(
+        &mut self,
+        constant: F,
+        starting_acc: ExtensionTarget<D>,
+        pairs: Vec<(ExtensionTarget<D>, ExtensionTarget<D>)>,
+    ) -> ExtensionTarget<D> {
+        let mut acc = starting_acc;
+        for chunk in pairs.chunks_exact(2) {
+            let (a0, b0) = chunk[0];
+            let (a1, b1) = chunk[1];
+            let gate = self.num_gates();
+            let first_out = ExtensionTarget::from_range(
+                gate,
+                ArithmeticExtensionGate::<D>::wires_first_output(),
+            );
+            acc = self
+                .double_arithmetic_extension(constant, F::ONE, a0, b0, acc, a1, b1, first_out)
+                .1;
+        }
+        if pairs.len().is_odd() {
+            let n = pairs.len() - 1;
+            acc = self.arithmetic_extension(constant, F::ONE, pairs[n].0, pairs[n].1, acc);
+        }
+        acc
+    }
+
     pub fn add_extension(
         &mut self,
         a: ExtensionTarget<D>,
@@ -320,24 +347,44 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_three_extension(x, x, x)
     }
 
+    /// Returns `a * b + c`.
+    pub fn mul_add_ext_algebra(
+        &mut self,
+        a: ExtensionAlgebraTarget<D>,
+        b: ExtensionAlgebraTarget<D>,
+        c: ExtensionAlgebraTarget<D>,
+    ) -> ExtensionAlgebraTarget<D> {
+        let mut inner = vec![vec![]; D];
+        let mut inner_w = vec![vec![]; D];
+        for i in 0..D {
+            for j in 0..D - i {
+                inner[(i + j) % D].push((a.0[i], b.0[j]));
+            }
+            for j in D - i..D {
+                inner_w[(i + j) % D].push((a.0[i], b.0[j]));
+            }
+        }
+        let res = inner_w
+            .into_iter()
+            .zip(inner)
+            .zip(c.0)
+            .map(|((pairs_w, pairs), ci)| {
+                let acc = self.inner_product_extension(F::Extension::W, ci, pairs_w);
+                self.inner_product_extension(F::ONE, acc, pairs)
+            })
+            .collect::<Vec<_>>();
+
+        ExtensionAlgebraTarget(res.try_into().unwrap())
+    }
+
+    /// Returns `a * b`.
     pub fn mul_ext_algebra(
         &mut self,
         a: ExtensionAlgebraTarget<D>,
         b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
-        let mut res = [self.zero_extension(); D];
-        let w = self.constant(F::Extension::W);
-        for i in 0..D {
-            for j in 0..D {
-                res[(i + j) % D] = if i + j < D {
-                    self.mul_add_extension(a.0[i], b.0[j], res[(i + j) % D])
-                } else {
-                    let ai_bi = self.mul_extension(a.0[i], b.0[j]);
-                    self.scalar_mul_add_extension(w, ai_bi, res[(i + j) % D])
-                }
-            }
-        }
-        ExtensionAlgebraTarget(res)
+        let zero = self.zero_ext_algebra();
+        self.mul_add_ext_algebra(a, b, zero)
     }
 
     /// Multiply 3 `ExtensionTarget`s with 1 `ArithmeticExtensionGate`s.
@@ -422,17 +469,41 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_extension(a_ext, b)
     }
 
-    /// Returns `a * b`, where `b` is in the extension of the extension field, and `a` is in the
-    /// extension field.
+    /// Returns `a * b + c`, where `b, c` are in the extension algebra and `a` in the extension field.
+    pub fn scalar_mul_add_ext_algebra(
+        &mut self,
+        a: ExtensionTarget<D>,
+        b: ExtensionAlgebraTarget<D>,
+        mut c: ExtensionAlgebraTarget<D>,
+    ) -> ExtensionAlgebraTarget<D> {
+        for i in 0..D / 2 {
+            let res = self.double_arithmetic_extension(
+                F::ONE,
+                F::ONE,
+                a,
+                b.0[2 * i],
+                c.0[2 * i],
+                a,
+                b.0[2 * i + 1],
+                c.0[2 * i + 1],
+            );
+            c.0[2 * i] = res.0;
+            c.0[2 * i + 1] = res.1;
+        }
+        if D.is_odd() {
+            c.0[D - 1] = self.arithmetic_extension(F::ONE, F::ONE, a, b.0[D - 1], c.0[D - 1]);
+        }
+        c
+    }
+
+    /// Returns `a * b`, where `b` is in the extension algebra and `a` in the extension field.
     pub fn scalar_mul_ext_algebra(
         &mut self,
         a: ExtensionTarget<D>,
-        mut b: ExtensionAlgebraTarget<D>,
+        b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
-        for i in 0..D {
-            b.0[i] = self.mul_extension(a, b.0[i]);
-        }
-        b
+        let zero = self.zero_ext_algebra();
+        self.scalar_mul_add_ext_algebra(a, b, zero)
     }
 
     /// Exponentiate `base` to the power of `2^power_log`.
@@ -480,8 +551,43 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x: ExtensionTarget<D>,
         y: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let y_inv = self.inverse_extension(y);
-        self.mul_extension(x, y_inv)
+        let inv = self.add_virtual_extension_target();
+        let one = self.one_extension();
+        self.add_generator(QuotientGeneratorExtension {
+            numerator: one,
+            denominator: y,
+            quotient: inv,
+        });
+
+        // Enforce that x times its purported inverse equals 1.
+        let (y_inv, res) = self.mul_two_extension(y, inv, x, inv);
+        self.assert_equal_extension(y_inv, one);
+
+        res
+    }
+
+    /// Computes ` x / y + z`.
+    pub fn div_add_extension(
+        &mut self,
+        x: ExtensionTarget<D>,
+        y: ExtensionTarget<D>,
+        z: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        let inv = self.add_virtual_extension_target();
+        let zero = self.zero_extension();
+        let one = self.one_extension();
+        self.add_generator(QuotientGeneratorExtension {
+            numerator: one,
+            denominator: y,
+            quotient: inv,
+        });
+
+        // Enforce that x times its purported inverse equals 1.
+        let (y_inv, res) =
+            self.double_arithmetic_extension(F::ONE, F::ONE, y, inv, zero, x, inv, z);
+        self.assert_equal_extension(y_inv, one);
+
+        res
     }
 
     /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
@@ -585,9 +691,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryInto;
+
     use anyhow::Result;
 
     use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::algebra::ExtensionAlgebra;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field_types::Field;
     use crate::iop::witness::PartialWitness;
@@ -653,6 +762,37 @@ mod tests {
         let comp_zt_unsafe = builder.div_unsafe_extension(xt, yt);
         builder.assert_equal_extension(zt, comp_zt);
         builder.assert_equal_extension(zt, comp_zt_unsafe);
+
+        let data = builder.build();
+        let proof = data.prove(pw)?;
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_mul_algebra() -> Result<()> {
+        type F = CrandallField;
+        type FF = QuarticCrandallField;
+        const D: usize = 4;
+
+        let config = CircuitConfig::large_config();
+
+        let pw = PartialWitness::new(config.num_wires);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let x = FF::rand_vec(4);
+        let y = FF::rand_vec(4);
+        let xa = ExtensionAlgebra(x.try_into().unwrap());
+        let ya = ExtensionAlgebra(y.try_into().unwrap());
+        let za = xa * ya;
+
+        let xt = builder.constant_ext_algebra(xa);
+        let yt = builder.constant_ext_algebra(ya);
+        let zt = builder.constant_ext_algebra(za);
+        let comp_zt = builder.mul_ext_algebra(xt, yt);
+        for i in 0..D {
+            builder.assert_equal_extension(zt.0[i], comp_zt.0[i]);
+        }
 
         let data = builder.build();
         let proof = data.prove(pw)?;

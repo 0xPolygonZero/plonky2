@@ -121,9 +121,8 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
         let mut constraints = Vec::new();
         let mut acc = old_acc;
         for i in 0..self.num_coeffs {
-            let mut tmp = builder.mul_ext_algebra(acc, alpha);
             let coeff = builder.convert_to_ext_algebra(coeffs[i]);
-            tmp = builder.add_ext_algebra(tmp, coeff);
+            let mut tmp = builder.mul_add_ext_algebra(acc, alpha, coeff);
             tmp = builder.sub_ext_algebra(tmp, accs[i]);
             constraints.push(tmp);
             acc = accs[i];
