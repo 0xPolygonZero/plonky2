@@ -81,7 +81,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let wires_commitment = timed!(
         timing,
         "compute wires commitment",
-        PolynomialBatchCommitment::new(
+        PolynomialBatchCommitment::from_values(
             wires_values,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::WIRES.blinding,
@@ -125,7 +125,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let zs_partial_products_commitment = timed!(
         timing,
         "commit to Z's",
-        PolynomialBatchCommitment::new(
+        PolynomialBatchCommitment::from_values(
             zs_partial_products,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding,
@@ -173,7 +173,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let quotient_polys_commitment = timed!(
         timing,
         "commit to quotient polys",
-        PolynomialBatchCommitment::new_from_polys(
+        PolynomialBatchCommitment::from_coeffs(
             all_quotient_poly_chunks,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding,
@@ -332,7 +332,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
     alphas: &[F],
 ) -> Vec<PolynomialCoeffs<F>> {
     let num_challenges = common_data.config.num_challenges;
-    let max_degree_bits = log2_ceil(common_data.quotient_degree_factor + 1);
+    let max_degree_bits = log2_ceil(common_data.quotient_degree_factor);
     assert!(
         max_degree_bits <= common_data.config.rate_bits,
         "Having constraints of degree higher than the rate is not supported yet. \

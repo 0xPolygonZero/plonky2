@@ -712,8 +712,8 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
+        let mut pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let mut pw = PartialWitness::new();
 
         let vs = FF::rand_vec(3);
         let ts = builder.add_virtual_extension_targets(3);
@@ -749,6 +749,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
+        let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = FF::rand();
@@ -763,7 +764,7 @@ mod tests {
         builder.assert_equal_extension(zt, comp_zt_unsafe);
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new())?;
+        let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }

@@ -506,7 +506,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Builds a "full circuit", with both prover and verifier data.
     pub fn build(mut self) -> CircuitData<F, D> {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
-        let quotient_degree_factor = 7; // TODO: add this as a parameter.
         let start = Instant::now();
 
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
@@ -541,10 +540,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let gates = self.gates.iter().cloned().collect();
         let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
-        assert!(
-            max_filtered_constraint_degree <= quotient_degree_factor + 1,
-            "Constraints are too high degree."
-        );
+        // `quotient_degree_factor` has to be between `max_filtered_constraint_degree-1` and `1<<rate_bits`.
+        // We find the value that minimizes `num_partial_product + quotient_degree_factor`.
+        let quotient_degree_factor = (max_filtered_constraint_degree - 1
+            ..=1 << self.config.rate_bits)
+            .min_by_key(|&q| num_partial_products(self.config.num_routed_wires, q).0 + q)
+            .unwrap();
+        info!("Quotient degree factor set to: {}.", quotient_degree_factor);
         let prefixed_gates = PrefixedGate::from_tree(gate_tree);
 
         let subgroup = F::two_adic_subgroup(degree_bits);
@@ -555,7 +557,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
 
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
-        let constants_sigmas_commitment = PolynomialBatchCommitment::new(
+        let constants_sigmas_commitment = PolynomialBatchCommitment::from_values(
             constants_sigmas_vecs,
             self.config.rate_bits,
             self.config.zero_knowledge & PlonkPolynomials::CONSTANTS_SIGMAS.blinding,

@@ -74,6 +74,7 @@ mod tests {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
+        let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let len = 4;
@@ -103,7 +104,7 @@ mod tests {
         builder.assert_equal_extension(eval, true_eval_target);
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new())?;
+        let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
@@ -113,6 +114,7 @@ mod tests {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
+        let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let len = 2;
@@ -137,7 +139,7 @@ mod tests {
         builder.assert_equal_extension(eval, true_eval_target);
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new())?;
+        let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
