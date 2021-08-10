@@ -1,7 +1,5 @@
 use std::borrow::Borrow;
 
-use num::Integer;
-
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
@@ -148,7 +146,7 @@ pub(crate) fn eval_l_1_recursively<F: Extendable<D>, const D: usize>(
         one,
         neg_one,
     );
-    builder.div_unsafe_extension(eval_zero_poly, denominator)
+    builder.div_extension(eval_zero_poly, denominator)
 }
 
 /// For each alpha in alphas, compute a reduction of the given terms using powers of alpha.

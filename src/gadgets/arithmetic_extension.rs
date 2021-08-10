@@ -551,19 +551,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x: ExtensionTarget<D>,
         y: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let inv = self.add_virtual_extension_target();
-        let one = self.one_extension();
-        self.add_generator(QuotientGeneratorExtension {
-            numerator: one,
-            denominator: y,
-            quotient: inv,
-        });
-
-        // Enforce that x times its purported inverse equals 1.
-        let (y_inv, res) = self.mul_two_extension(y, inv, x, inv);
-        self.assert_equal_extension(y_inv, one);
-
-        res
+        let zero = self.zero_extension();
+        self.div_add_extension(x, y, zero)
     }
 
     /// Computes ` x / y + z`.
@@ -590,42 +579,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         res
     }
 
-    /// Computes `q = x / y` by witnessing `q` and requiring that `q * y = x`. This can be unsafe in
-    /// some cases, as it allows `0 / 0 = <anything>`.
-    pub fn div_unsafe_extension(
-        &mut self,
-        x: ExtensionTarget<D>,
-        y: ExtensionTarget<D>,
-    ) -> ExtensionTarget<D> {
-        let quotient = self.add_virtual_extension_target();
-        self.add_generator(QuotientGeneratorExtension {
-            numerator: x,
-            denominator: y,
-            quotient,
-        });
-
-        // Enforce that q y = x.
-        let q_y = self.mul_extension(quotient, y);
-        self.assert_equal_extension(q_y, x);
-
-        quotient
-    }
-
     /// Computes `1 / x`. Results in an unsatisfiable instance if `x = 0`.
     pub fn inverse_extension(&mut self, x: ExtensionTarget<D>) -> ExtensionTarget<D> {
-        let inv = self.add_virtual_extension_target();
         let one = self.one_extension();
-        self.add_generator(QuotientGeneratorExtension {
-            numerator: one,
-            denominator: x,
-            quotient: inv,
-        });
-
-        // Enforce that x times its purported inverse equals 1.
-        let x_inv = self.mul_extension(x, inv);
-        self.assert_equal_extension(x_inv, one);
-
-        inv
+        self.div_extension(one, x)
     }
 }
 
@@ -759,7 +716,7 @@ mod tests {
         let yt = builder.constant_extension(y);
         let zt = builder.constant_extension(z);
         let comp_zt = builder.div_extension(xt, yt);
-        let comp_zt_unsafe = builder.div_unsafe_extension(xt, yt);
+        let comp_zt_unsafe = builder.div_extension(xt, yt);
         builder.assert_equal_extension(zt, comp_zt);
         builder.assert_equal_extension(zt, comp_zt_unsafe);
 
