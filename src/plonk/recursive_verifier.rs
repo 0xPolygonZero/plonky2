@@ -132,6 +132,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use log::info;
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
@@ -425,17 +426,17 @@ mod tests {
         const D: usize = 4;
         let config = CircuitConfig {
             num_wires: 126,
-            num_routed_wires: 33,
+            num_routed_wires: 37,
             security_bits: 128,
             rate_bits: 3,
             num_challenges: 3,
             zero_knowledge: false,
-            cap_height: 2,
+            cap_height: 3,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
                 reduction_arity_bits: vec![2, 2, 2, 2, 2, 2],
                 num_query_rounds: 40,
-                cap_height: 2,
+                cap_height: 3,
             },
         };
         let (proof_with_pis, vd, cd) = {
@@ -488,6 +489,8 @@ mod tests {
         builder.print_gate_counts(0);
         let data = builder.build();
         let recursive_proof = data.prove(pw)?;
+        let proof_bytes = serde_cbor::to_vec(&recursive_proof).unwrap();
+        info!("Proof length: {} bytes", proof_bytes.len());
         verify(recursive_proof, &data.verifier_only, &data.common)
     }
 }

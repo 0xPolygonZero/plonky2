@@ -177,6 +177,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x_index_bits: &[Target],
         proof: &FriInitialTreeProofTarget,
         initial_merkle_roots: &[MerkleCapTarget],
+        cap_index: Target,
     ) {
         for (i, ((evals, merkle_proof), root)) in proof
             .evals_proofs
@@ -187,7 +188,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             with_context!(
                 self,
                 &format!("verify {}'th initial Merkle proof", i),
-                self.verify_merkle_proof(evals.clone(), x_index_bits, root, merkle_proof)
+                self.verify_merkle_proof_with_cap_index(
+                    evals.clone(),
+                    x_index_bits,
+                    cap_index,
+                    root,
+                    merkle_proof
+                )
             );
         }
     }
@@ -297,6 +304,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 &x_index_bits,
                 &round_proof.initial_trees_proof,
                 initial_merkle_roots,
+                cap_index
             )
         );
         let mut old_x_index_bits = Vec::new();
