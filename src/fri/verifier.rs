@@ -190,7 +190,8 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
 ) -> F::Extension {
     let config = &common_data.config;
     assert!(D > 1, "Not implemented for D=1.");
-    let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
+    let degree_log =
+        common_data.config.cap_height + proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
     let subgroup_x = F::Extension::from_basefield(subgroup_x);
     let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;

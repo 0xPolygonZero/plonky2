@@ -203,7 +203,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
         let config = self.config.clone();
-        let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
+        let degree_log = common_data.config.cap_height + proof.evals_proofs[0].1.siblings.len()
+            - config.rate_bits;
         let one = self.one_extension();
         let subgroup_x = self.convert_to_ext(subgroup_x);
         let vanish_zeta = self.sub_extension(subgroup_x, zeta);

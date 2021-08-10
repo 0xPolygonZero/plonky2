@@ -72,7 +72,7 @@ impl CircuitConfig {
                 proof_of_work_bits: 1,
                 reduction_arity_bits: vec![1, 1, 1, 1],
                 num_query_rounds: 1,
-                cap_height: 0,
+                cap_height: 1,
             },
         }
     }

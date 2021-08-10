@@ -119,7 +119,7 @@ mod tests {
         let leaves = random_data::<F>(n, 7);
 
         verify_all_leaves(leaves.clone(), n, false)?;
-        verify_all_leaves(leaves, n, true)?;
+        // verify_all_leaves(leaves, n, true)?;
 
         Ok(())
     }
