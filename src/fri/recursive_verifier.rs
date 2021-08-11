@@ -210,8 +210,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
         let config = self.config.clone();
-        let degree_log = common_data.config.cap_height + proof.evals_proofs[0].1.siblings.len()
-            - config.rate_bits;
+        let degree_log = common_data.degree_bits;
+        debug_assert_eq!(
+            degree_log,
+            common_data.config.cap_height + proof.evals_proofs[0].1.siblings.len()
+                - config.rate_bits
+        );
         let subgroup_x = self.convert_to_ext(subgroup_x);
         let vanish_zeta = self.sub_extension(subgroup_x, zeta);
         let mut alpha = ReducingFactorTarget::new(alpha);
@@ -292,7 +296,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut x_index_bits = self.low_bits(x_index, n_log, 64);
         let cap_index = self.le_sum(
             x_index_bits[x_index_bits.len() - common_data.config.fri_config.cap_height..]
-                .to_vec()
                 .into_iter(),
         );
         let mut domain_size = n;

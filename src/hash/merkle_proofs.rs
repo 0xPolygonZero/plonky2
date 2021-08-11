@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
@@ -111,15 +113,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let index = self.le_sum(leaf_index_bits[proof.siblings.len()..].to_vec().into_iter());
-        let mut state_ext = [zero; D];
-        state_ext[..D].copy_from_slice(&state.elements[..D]);
+        let state_ext = state.elements[..].try_into().expect("requires D = 4");
         let state_ext = ExtensionTarget(state_ext);
         let cap_ext = merkle_cap
             .0
             .iter()
             .map(|h| {
-                let mut tmp = [zero; D];
-                tmp[..D].copy_from_slice(&h.elements[..D]);
+                let tmp = h.elements[..].try_into().expect("requires D = 4");
                 ExtensionTarget(tmp)
             })
             .collect();
@@ -178,15 +178,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         }
 
-        let mut state_ext = [zero; D];
-        state_ext[..D].copy_from_slice(&state.elements[..D]);
+        let state_ext = state.elements[..].try_into().expect("requires D = 4");
         let state_ext = ExtensionTarget(state_ext);
         let cap_ext = merkle_cap
             .0
             .iter()
             .map(|h| {
-                let mut tmp = [zero; D];
-                tmp[..D].copy_from_slice(&h.elements[..D]);
+                let tmp = h.elements[..].try_into().expect("requires D = 4");
                 ExtensionTarget(tmp)
             })
             .collect();

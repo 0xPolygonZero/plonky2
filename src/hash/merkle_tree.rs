@@ -7,6 +7,8 @@ use crate::hash::hashing::{compress, hash_or_noop};
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
+/// The Merkle cap of height `h` of a Merkle tree is the `h`-th layer (from the root) of the tree.
+/// It can be used in place of the root to verify Merkle paths, which are `h` elements shorter.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(bound = "")]
 pub struct MerkleCap<F: Field>(pub Vec<HashOut<F>>);
