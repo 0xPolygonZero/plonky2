@@ -44,14 +44,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 challenger.observe_hash(&digest);
                 challenger.observe_hash(&public_inputs_hash);
 
-                challenger.observe_hash(&proof.wires_root);
+                challenger.observe_cap(&proof.wires_cap);
                 let betas = challenger.get_n_challenges(self, num_challenges);
                 let gammas = challenger.get_n_challenges(self, num_challenges);
 
-                challenger.observe_hash(&proof.plonk_zs_partial_products_root);
+                challenger.observe_cap(&proof.plonk_zs_partial_products_cap);
                 let alphas = challenger.get_n_challenges(self, num_challenges);
 
-                challenger.observe_hash(&proof.quotient_polys_root);
+                challenger.observe_cap(&proof.quotient_polys_cap);
                 let zeta = challenger.get_extension_challenge(self);
 
                 (betas, gammas, alphas, zeta)
@@ -107,11 +107,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             }
         });
 
-        let merkle_roots = &[
-            inner_verifier_data.constants_sigmas_root,
-            proof.wires_root,
-            proof.plonk_zs_partial_products_root,
-            proof.quotient_polys_root,
+        let merkle_caps = &[
+            inner_verifier_data.constants_sigmas_cap.clone(),
+            proof.wires_cap,
+            proof.plonk_zs_partial_products_cap,
+            proof.quotient_polys_cap,
         ];
 
         with_context!(
@@ -120,7 +120,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.verify_fri_proof(
                 &proof.openings,
                 zeta,
-                merkle_roots,
+                merkle_caps,
                 &proof.opening_proof,
                 &mut challenger,
                 inner_common_data,
@@ -132,6 +132,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use log::info;
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
@@ -144,6 +145,7 @@ mod tests {
     use crate::iop::witness::PartialWitness;
     use crate::plonk::proof::{OpeningSetTarget, Proof, ProofTarget, ProofWithPublicInputs};
     use crate::plonk::verifier::verify;
+    use crate::util::log2_strict;
 
     // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
     fn get_fri_query_round<F: Extendable<D>, const D: usize>(
@@ -188,9 +190,11 @@ mod tests {
             public_inputs,
         } = proof_with_pis;
 
-        let wires_root = builder.add_virtual_hash();
-        let plonk_zs_root = builder.add_virtual_hash();
-        let quotient_polys_root = builder.add_virtual_hash();
+        let wires_cap = builder.add_virtual_cap(log2_strict(proof.wires_cap.0.len()));
+        let plonk_zs_cap =
+            builder.add_virtual_cap(log2_strict(proof.plonk_zs_partial_products_cap.0.len()));
+        let quotient_polys_cap =
+            builder.add_virtual_cap(log2_strict(proof.quotient_polys_cap.0.len()));
 
         let openings = OpeningSetTarget {
             constants: builder.add_virtual_extension_targets(proof.openings.constants.len()),
@@ -207,11 +211,14 @@ mod tests {
         let query_round_proofs = (0..proof.opening_proof.query_round_proofs.len())
             .map(|_| get_fri_query_round(proof, builder))
             .collect();
-        let commit_phase_merkle_roots = (0..proof.opening_proof.commit_phase_merkle_roots.len())
-            .map(|_| builder.add_virtual_hash())
+        let commit_phase_merkle_caps = proof
+            .opening_proof
+            .commit_phase_merkle_caps
+            .iter()
+            .map(|r| builder.add_virtual_cap(log2_strict(r.0.len())))
             .collect();
         let opening_proof = FriProofTarget {
-            commit_phase_merkle_roots,
+            commit_phase_merkle_caps,
             query_round_proofs,
             final_poly: PolynomialCoeffsExtTarget(
                 builder.add_virtual_extension_targets(proof.opening_proof.final_poly.len()),
@@ -220,9 +227,9 @@ mod tests {
         };
 
         let proof = ProofTarget {
-            wires_root,
-            plonk_zs_partial_products_root: plonk_zs_root,
-            quotient_polys_root,
+            wires_cap,
+            plonk_zs_partial_products_cap: plonk_zs_cap,
+            quotient_polys_cap,
             openings,
             opening_proof,
         };
@@ -254,12 +261,12 @@ mod tests {
             pw.set_target(pi_t, pi);
         }
 
-        pw.set_hash_target(pt.wires_root, proof.wires_root);
-        pw.set_hash_target(
-            pt.plonk_zs_partial_products_root,
-            proof.plonk_zs_partial_products_root,
+        pw.set_cap_target(&pt.wires_cap, &proof.wires_cap);
+        pw.set_cap_target(
+            &pt.plonk_zs_partial_products_cap,
+            &proof.plonk_zs_partial_products_cap,
         );
-        pw.set_hash_target(pt.quotient_polys_root, proof.quotient_polys_root);
+        pw.set_cap_target(&pt.quotient_polys_cap, &proof.quotient_polys_cap);
 
         for (&t, &x) in pt.openings.wires.iter().zip(&proof.openings.wires) {
             pw.set_extension_target(t, x);
@@ -312,12 +319,12 @@ mod tests {
             pw.set_extension_target(t, x);
         }
 
-        for (&t, &x) in fpt
-            .commit_phase_merkle_roots
+        for (t, x) in fpt
+            .commit_phase_merkle_caps
             .iter()
-            .zip(&fri_proof.commit_phase_merkle_roots)
+            .zip(&fri_proof.commit_phase_merkle_caps)
         {
-            pw.set_hash_target(t, x);
+            pw.set_cap_target(t, x);
         }
 
         for (qt, q) in fpt
@@ -368,10 +375,12 @@ mod tests {
             rate_bits: 3,
             num_challenges: 3,
             zero_knowledge: false,
+            cap_height: 2,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
                 reduction_arity_bits: vec![2, 2, 2, 2, 2, 2],
                 num_query_rounds: 40,
+                cap_height: 1,
             },
         };
         let (proof_with_pis, vd, cd) = {
@@ -396,9 +405,9 @@ mod tests {
         set_proof_target(&proof_with_pis, &pt, &mut pw);
 
         let inner_data = VerifierCircuitTarget {
-            constants_sigmas_root: builder.add_virtual_hash(),
+            constants_sigmas_cap: builder.add_virtual_cap(config.cap_height),
         };
-        pw.set_hash_target(inner_data.constants_sigmas_root, vd.constants_sigmas_root);
+        pw.set_cap_target(&inner_data.constants_sigmas_cap, &vd.constants_sigmas_cap);
 
         builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
 
@@ -417,15 +426,17 @@ mod tests {
         const D: usize = 4;
         let config = CircuitConfig {
             num_wires: 126,
-            num_routed_wires: 33,
+            num_routed_wires: 37,
             security_bits: 128,
             rate_bits: 3,
             num_challenges: 3,
             zero_knowledge: false,
+            cap_height: 3,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
                 reduction_arity_bits: vec![2, 2, 2, 2, 2, 2],
                 num_query_rounds: 40,
+                cap_height: 3,
             },
         };
         let (proof_with_pis, vd, cd) = {
@@ -451,9 +462,9 @@ mod tests {
             set_proof_target(&proof_with_pis, &pt, &mut pw);
 
             let inner_data = VerifierCircuitTarget {
-                constants_sigmas_root: builder.add_virtual_hash(),
+                constants_sigmas_cap: builder.add_virtual_cap(config.cap_height),
             };
-            pw.set_hash_target(inner_data.constants_sigmas_root, vd.constants_sigmas_root);
+            pw.set_cap_target(&inner_data.constants_sigmas_cap, &vd.constants_sigmas_cap);
 
             builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
 
@@ -469,15 +480,17 @@ mod tests {
         set_proof_target(&proof_with_pis, &pt, &mut pw);
 
         let inner_data = VerifierCircuitTarget {
-            constants_sigmas_root: builder.add_virtual_hash(),
+            constants_sigmas_cap: builder.add_virtual_cap(config.cap_height),
         };
-        pw.set_hash_target(inner_data.constants_sigmas_root, vd.constants_sigmas_root);
+        pw.set_cap_target(&inner_data.constants_sigmas_cap, &vd.constants_sigmas_cap);
 
         builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
 
         builder.print_gate_counts(0);
         let data = builder.build();
         let recursive_proof = data.prove(pw)?;
+        let proof_bytes = serde_cbor::to_vec(&recursive_proof).unwrap();
+        info!("Proof length: {} bytes", proof_bytes.len());
         verify(recursive_proof, &data.verifier_only, &data.common)
     }
 }

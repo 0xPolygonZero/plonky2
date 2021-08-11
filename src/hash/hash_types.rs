@@ -61,3 +61,6 @@ impl HashOutTarget {
         }
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct MerkleCapTarget(pub Vec<HashOutTarget>);

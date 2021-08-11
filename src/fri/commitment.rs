@@ -3,8 +3,7 @@ use rayon::prelude::*;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::fri::proof::FriProof;
-use crate::fri::{prover::fri_proof, verifier::verify_fri_proof};
-use crate::hash::hash_types::HashOut;
+use crate::fri::prover::fri_proof;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
@@ -34,6 +33,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         values: Vec<PolynomialValues<F>>,
         rate_bits: usize,
         blinding: bool,
+        cap_height: usize,
         timing: &mut TimingTree,
     ) -> Self {
         let coeffs = timed!(
@@ -42,7 +42,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
             values.par_iter().map(|v| v.ifft()).collect::<Vec<_>>()
         );
 
-        Self::from_coeffs(coeffs, rate_bits, blinding, timing)
+        Self::from_coeffs(coeffs, rate_bits, blinding, cap_height, timing)
     }
 
     /// Creates a list polynomial commitment for the polynomials `polynomials`.
@@ -50,6 +50,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         polynomials: Vec<PolynomialCoeffs<F>>,
         rate_bits: usize,
         blinding: bool,
+        cap_height: usize,
         timing: &mut TimingTree,
     ) -> Self {
         let degree = polynomials[0].len();
@@ -61,7 +62,11 @@ impl<F: Field> PolynomialBatchCommitment<F> {
 
         let mut leaves = timed!(timing, "transpose LDEs", transpose(&lde_values));
         reverse_index_bits_in_place(&mut leaves);
-        let merkle_tree = timed!(timing, "build Merkle tree", MerkleTree::new(leaves, false));
+        let merkle_tree = timed!(
+            timing,
+            "build Merkle tree",
+            MerkleTree::new(leaves, cap_height, false)
+        );
 
         Self {
             polynomials,
@@ -240,7 +245,9 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
+    use crate::fri::verifier::verify_fri_proof;
     use crate::fri::FriConfig;
+    use crate::hash::hash_types::HashOut;
     use crate::plonk::circuit_data::CircuitConfig;
 
     fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(
@@ -274,6 +281,7 @@ mod tests {
             proof_of_work_bits: 2,
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
+            cap_height: 1,
         };
         // We only care about `fri_config, num_constants`, and `num_routed_wires` here.
         let common_data = CommonCircuitData {
@@ -298,6 +306,7 @@ mod tests {
                     gen_random_test_case(ks[i], degree_bits),
                     common_data.config.rate_bits,
                     PlonkPolynomials::polynomials(i).blinding,
+                    common_data.config.cap_height,
                     &mut TimingTree::default(),
                 )
             })
@@ -312,17 +321,17 @@ mod tests {
             &mut TimingTree::default(),
         );
 
-        let merkle_roots = &[
-            lpcs[0].merkle_tree.root,
-            lpcs[1].merkle_tree.root,
-            lpcs[2].merkle_tree.root,
-            lpcs[3].merkle_tree.root,
+        let merkle_caps = &[
+            lpcs[0].merkle_tree.cap.clone(),
+            lpcs[1].merkle_tree.cap.clone(),
+            lpcs[2].merkle_tree.cap.clone(),
+            lpcs[3].merkle_tree.cap.clone(),
         ];
 
         verify_fri_proof(
             &os,
             zeta,
-            merkle_roots,
+            merkle_caps,
             &proof,
             &mut Challenger::new(),
             &common_data,

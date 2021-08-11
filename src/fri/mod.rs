@@ -20,6 +20,8 @@ pub struct FriConfig {
 
     /// Number of query rounds to perform.
     pub num_query_rounds: usize,
+
+    pub cap_height: usize,
 }
 
 fn fri_delta(rate_log: usize, conjecture: bool) -> f64 {

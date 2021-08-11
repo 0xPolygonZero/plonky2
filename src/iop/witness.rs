@@ -6,8 +6,9 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::Field;
 use crate::gates::gate::GateInstance;
-use crate::hash::hash_types::HashOut;
 use crate::hash::hash_types::HashOutTarget;
+use crate::hash::hash_types::{HashOut, MerkleCapTarget};
+use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::plonk::copy_constraint::CopyConstraint;
@@ -145,6 +146,12 @@ impl<F: Field> PartialWitness<F> {
             .iter()
             .zip(value.elements)
             .for_each(|(&t, x)| self.set_target(t, x));
+    }
+
+    pub fn set_cap_target(&mut self, ct: &MerkleCapTarget, value: &MerkleCap<F>) {
+        for (ht, h) in ct.0.iter().zip(&value.0) {
+            self.set_hash_target(*ht, *h);
+        }
     }
 
     pub fn set_extension_target<const D: usize>(
