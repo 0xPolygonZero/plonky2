@@ -1,6 +1,9 @@
+use num::Integer;
+
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
+use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gates::gate::PrefixedGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -274,6 +277,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
     gammas: &[Target],
     alphas: &[Target],
 ) -> Vec<ExtensionTarget<D>> {
+    let one = builder.one_extension();
     let max_degree = common_data.quotient_degree_factor;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
 
@@ -297,6 +301,22 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
 
     let l1_x = eval_l_1_recursively(builder, common_data.degree(), x, x_pow_deg);
 
+    let mut s_ids = Vec::new();
+    for j in 0..common_data.config.num_routed_wires / 2 {
+        let k_0 = builder.constant(common_data.k_is[2 * j]);
+        let k_0_ext = builder.convert_to_ext(k_0);
+        let k_1 = builder.constant(common_data.k_is[2 * j + 1]);
+        let k_1_ext = builder.convert_to_ext(k_1);
+        let tmp = builder.mul_two_extension(k_0_ext, x, k_1_ext, x);
+        s_ids.push(tmp.0);
+        s_ids.push(tmp.1);
+    }
+    if common_data.config.num_routed_wires.is_odd() {
+        let k = builder.constant(common_data.k_is[common_data.k_is.len() - 1]);
+        let k_ext = builder.convert_to_ext(k);
+        s_ids.push(builder.mul_extension(k_ext, x));
+    }
+
     for i in 0..common_data.config.num_challenges {
         let z_x = local_zs[i];
         let z_gz = next_zs[i];
@@ -305,20 +325,50 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
         let numerator_values = (0..common_data.config.num_routed_wires)
             .map(|j| {
                 let wire_value = vars.local_wires[j];
-                let k_i = builder.constant(common_data.k_is[j]);
-                let s_id = builder.scalar_mul_ext(k_i, x);
+                let beta_ext = builder.convert_to_ext(betas[i]);
                 let gamma_ext = builder.convert_to_ext(gammas[i]);
-                let tmp = builder.scalar_mul_add_extension(betas[i], s_id, wire_value);
-                builder.add_extension(tmp, gamma_ext)
+                let gate = builder.num_gates();
+                let first_out = ExtensionTarget::from_range(
+                    gate,
+                    ArithmeticExtensionGate::<D>::wires_first_output(),
+                );
+                builder
+                    .double_arithmetic_extension(
+                        F::ONE,
+                        F::ONE,
+                        beta_ext,
+                        s_ids[j],
+                        wire_value,
+                        one,
+                        first_out,
+                        gamma_ext,
+                    )
+                    .1
             })
             .collect::<Vec<_>>();
         let denominator_values = (0..common_data.config.num_routed_wires)
             .map(|j| {
                 let wire_value = vars.local_wires[j];
                 let s_sigma = s_sigmas[j];
+                let beta_ext = builder.convert_to_ext(betas[i]);
                 let gamma_ext = builder.convert_to_ext(gammas[i]);
-                let tmp = builder.scalar_mul_add_extension(betas[i], s_sigma, wire_value);
-                builder.add_extension(tmp, gamma_ext)
+                let gate = builder.num_gates();
+                let first_out = ExtensionTarget::from_range(
+                    gate,
+                    ArithmeticExtensionGate::<D>::wires_first_output(),
+                );
+                builder
+                    .double_arithmetic_extension(
+                        F::ONE,
+                        F::ONE,
+                        beta_ext,
+                        s_sigma,
+                        wire_value,
+                        one,
+                        first_out,
+                        gamma_ext,
+                    )
+                    .1
             })
             .collect::<Vec<_>>();
         let quotient_values = (0..common_data.config.num_routed_wires)
