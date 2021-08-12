@@ -20,7 +20,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn compute_evaluation(
         &mut self,
         x: Target,
-        old_x_index_bits: &[Target],
+        x_index_within_coset_bits: &[Target],
         arity_bits: usize,
         last_evals: &[ExtensionTarget<D>],
         beta: ExtensionTarget<D>,
@@ -35,8 +35,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // The evaluation vector needs to be reordered first.
         let mut evals = last_evals.to_vec();
         reverse_index_bits_in_place(&mut evals);
-        // Want `g^(arity - rev_old_x_index)` as in the out-of-circuit version. Compute it as `(g^-1)^rev_old_x_index`.
-        let start = self.exp_from_bits(g_inv_t, old_x_index_bits.iter().rev());
+        // Want `g^(arity - rev_x_index_within_coset)` as in the out-of-circuit version. Compute it
+        // as `(g^-1)^rev_x_index_within_coset`.
+        let start = self.exp_from_bits(g_inv_t, x_index_within_coset_bits.iter().rev());
         let coset_start = self.mul(start, x);
 
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
@@ -294,7 +295,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             x_index_bits[x_index_bits.len() - common_data.config.fri_config.cap_height..]
                 .into_iter(),
         );
-        let mut domain_size = n;
         with_context!(
             self,
             "check FRI initial proof",
@@ -305,7 +305,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 cap_index
             )
         );
-        let mut old_x_index_bits = Vec::new();
 
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
         let mut subgroup_x = with_context!(self, "compute x from its index", {
@@ -316,78 +315,62 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.mul(g, phi)
         });
 
-        let mut evaluations: Vec<Vec<ExtensionTarget<D>>> = Vec::new();
+        // old_eval is the last derived evaluation; it will be checked for consistency with its
+        // committed "parent" value in the next iteration.
+        let mut old_eval = with_context!(
+            self,
+            "combine initial oracles",
+            self.fri_combine_initial(
+                &round_proof.initial_trees_proof,
+                alpha,
+                zeta,
+                subgroup_x,
+                precomputed_reduced_evals,
+                common_data,
+            )
+        );
+
         for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
-            let next_domain_size = domain_size >> arity_bits;
-            let e_x = if i == 0 {
-                with_context!(
-                    self,
-                    "combine initial oracles",
-                    self.fri_combine_initial(
-                        &round_proof.initial_trees_proof,
-                        alpha,
-                        zeta,
-                        subgroup_x,
-                        precomputed_reduced_evals,
-                        common_data,
-                    )
+            let evals = &round_proof.steps[i].evals;
+
+            // Split x_index into the index of the coset x is in, and the index of x within that coset.
+            let coset_index_bits = x_index_bits[arity_bits..].to_vec();
+            let x_index_within_coset_bits = &x_index_bits[..arity_bits];
+            let x_index_within_coset = self.le_sum(x_index_within_coset_bits.iter());
+
+            // Check consistency with our old evaluation from the previous round.
+            self.random_access(x_index_within_coset, old_eval, evals.clone());
+
+            // Infer P(y) from {P(x)}_{x^arity=y}.
+            old_eval = with_context!(
+                self,
+                "infer evaluation using interpolation",
+                self.compute_evaluation(
+                    subgroup_x,
+                    &x_index_within_coset_bits,
+                    arity_bits,
+                    evals,
+                    betas[i],
                 )
-            } else {
-                let last_evals = &evaluations[i - 1];
-                // Infer P(y) from {P(x)}_{x^arity=y}.
-                with_context!(
-                    self,
-                    "infer evaluation using interpolation",
-                    self.compute_evaluation(
-                        subgroup_x,
-                        &old_x_index_bits,
-                        config.reduction_arity_bits[i - 1],
-                        last_evals,
-                        betas[i - 1],
-                    )
-                )
-            };
-            let evals = round_proof.steps[i].evals.clone();
-            // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
-            let high_x_index_bits = x_index_bits.split_off(arity_bits);
-            old_x_index_bits = x_index_bits;
-            let low_x_index = self.le_sum(old_x_index_bits.iter());
-            self.random_access(low_x_index, e_x, evals.clone());
+            );
+
             with_context!(
                 self,
                 "verify FRI round Merkle proof.",
                 self.verify_merkle_proof_with_cap_index(
-                    flatten_target(&evals),
-                    &high_x_index_bits,
+                    flatten_target(evals),
+                    &coset_index_bits,
                     cap_index,
                     &proof.commit_phase_merkle_caps[i],
                     &round_proof.steps[i].merkle_proof,
                 )
             );
-            evaluations.push(evals);
 
-            if i > 0 {
-                // Update the point x to x^arity.
-                subgroup_x = self.exp_power_of_2(subgroup_x, config.reduction_arity_bits[i - 1]);
-            }
-            domain_size = next_domain_size;
-            x_index_bits = high_x_index_bits;
+            // Update the point x to x^arity.
+            subgroup_x = self.exp_power_of_2(subgroup_x, arity_bits);
+
+            x_index_bits = coset_index_bits;
         }
-
-        let last_evals = evaluations.last().unwrap();
-        let final_arity_bits = *config.reduction_arity_bits.last().unwrap();
-        let purported_eval = with_context!(
-            self,
-            "infer final evaluation using interpolation",
-            self.compute_evaluation(
-                subgroup_x,
-                &old_x_index_bits,
-                final_arity_bits,
-                last_evals,
-                *betas.last().unwrap(),
-            )
-        );
-        subgroup_x = self.exp_power_of_2(subgroup_x, final_arity_bits);
 
         // Final check of FRI. After all the reductions, we check that the final polynomial is equal
         // to the one sent by the prover.
@@ -396,7 +379,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "evaluate final polynomial",
             proof.final_poly.eval_scalar(self, subgroup_x)
         );
-        self.assert_equal_extension(eval, purported_eval);
+        self.assert_equal_extension(eval, old_eval);
     }
 }
 

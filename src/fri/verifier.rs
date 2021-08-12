@@ -19,7 +19,7 @@ use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 /// and P' is the FRI reduced polynomial.
 fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     x: F,
-    old_x_index: usize,
+    x_index_within_coset: usize,
     arity_bits: usize,
     last_evals: &[F::Extension],
     beta: F::Extension,
@@ -32,8 +32,8 @@ fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     // The evaluation vector needs to be reordered first.
     let mut evals = last_evals.to_vec();
     reverse_index_bits_in_place(&mut evals);
-    let rev_old_x_index = reverse_bits(old_x_index, arity_bits);
-    let coset_start = x * g.exp((arity - rev_old_x_index) as u64);
+    let rev_x_index_within_coset = reverse_bits(x_index_within_coset, arity_bits);
+    let coset_start = x * g.exp((arity - rev_x_index_within_coset) as u64);
     // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
     let points = g
         .powers()
@@ -258,79 +258,66 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
 ) -> Result<()> {
     let config = &common_data.config.fri_config;
     let x = challenger.get_challenge();
-    let mut domain_size = n;
     let mut x_index = x.to_canonical_u64() as usize % n;
     fri_verify_initial_proof(
         x_index,
         &round_proof.initial_trees_proof,
         initial_merkle_caps,
     )?;
-    let mut old_x_index = 0;
     // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
     let log_n = log2_strict(n);
     let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
         * F::primitive_root_of_unity(log_n).exp(reverse_bits(x_index, log_n) as u64);
 
-    let mut evaluations: Vec<Vec<F::Extension>> = Vec::new();
+    // old_eval is the last derived evaluation; it will be checked for consistency with its
+    // committed "parent" value in the next iteration.
+    let mut old_eval = fri_combine_initial(
+        &round_proof.initial_trees_proof,
+        alpha,
+        zeta,
+        subgroup_x,
+        precomputed_reduced_evals,
+        common_data,
+    );
+
     for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
         let arity = 1 << arity_bits;
-        let next_domain_size = domain_size >> arity_bits;
-        let e_x = if i == 0 {
-            fri_combine_initial(
-                &round_proof.initial_trees_proof,
-                alpha,
-                zeta,
-                subgroup_x,
-                precomputed_reduced_evals,
-                common_data,
-            )
-        } else {
-            let last_evals = &evaluations[i - 1];
-            // Infer P(y) from {P(x)}_{x^arity=y}.
-            compute_evaluation(
-                subgroup_x,
-                old_x_index,
-                config.reduction_arity_bits[i - 1],
-                last_evals,
-                betas[i - 1],
-            )
-        };
         let evals = &round_proof.steps[i].evals;
-        // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
-        ensure!(evals[x_index & (arity - 1)] == e_x);
+
+        // Split x_index into the index of the coset x is in, and the index of x within that coset.
+        let coset_index = x_index >> arity_bits;
+        let x_index_within_coset = x_index & (arity - 1);
+
+        // Check consistency with our old evaluation from the previous round.
+        ensure!(evals[x_index_within_coset] == old_eval);
+
+        // Infer P(y) from {P(x)}_{x^arity=y}.
+        old_eval = compute_evaluation(
+            subgroup_x,
+            x_index_within_coset,
+            arity_bits,
+            evals,
+            betas[i],
+        );
+
         verify_merkle_proof(
             flatten(evals),
-            x_index >> arity_bits,
+            coset_index,
             &proof.commit_phase_merkle_caps[i],
             &round_proof.steps[i].merkle_proof,
             false,
         )?;
-        evaluations.push(evals.to_vec());
 
-        if i > 0 {
-            // Update the point x to x^arity.
-            subgroup_x = subgroup_x.exp_power_of_2(config.reduction_arity_bits[i - 1]);
-        }
-        domain_size = next_domain_size;
-        old_x_index = x_index & (arity - 1);
-        x_index >>= arity_bits;
+        // Update the point x to x^arity.
+        subgroup_x = subgroup_x.exp_power_of_2(arity_bits);
+
+        x_index = coset_index;
     }
-
-    let last_evals = evaluations.last().unwrap();
-    let final_arity_bits = *config.reduction_arity_bits.last().unwrap();
-    let purported_eval = compute_evaluation(
-        subgroup_x,
-        old_x_index,
-        final_arity_bits,
-        last_evals,
-        *betas.last().unwrap(),
-    );
-    subgroup_x = subgroup_x.exp_power_of_2(final_arity_bits);
 
     // Final check of FRI. After all the reductions, we check that the final polynomial is equal
     // to the one sent by the prover.
     ensure!(
-        proof.final_poly.eval(subgroup_x.into()) == purported_eval,
+        proof.final_poly.eval(subgroup_x.into()) == old_eval,
         "Final polynomial evaluation is invalid."
     );
 
