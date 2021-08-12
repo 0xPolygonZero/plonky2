@@ -72,7 +72,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 
         let output = vars.local_wires[self.wire_output()];
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
 
         for i in 0..self.num_power_bits {
             let prev_intermediate_value = if i == 0 {
@@ -107,7 +107,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 
         let output = vars.local_wires[self.wire_output()];
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
 
         for i in 0..self.num_power_bits {
             let prev_intermediate_value = if i == 0 {
@@ -146,7 +146,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 
         let output = vars.local_wires[self.wire_output()];
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
 
         let one = builder.one_extension();
         for i in 0..self.num_power_bits {

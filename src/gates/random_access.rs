@@ -73,7 +73,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
             .collect::<Vec<_>>();
         let claimed_element = vars.get_local_ext_algebra(self.wires_claimed_element());
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
         for i in 0..self.vec_size {
             let cur_index = F::Extension::from_canonical_usize(i);
             let difference = cur_index - access_index;
@@ -99,7 +99,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
             .collect::<Vec<_>>();
         let claimed_element = vars.get_local_ext(self.wires_claimed_element());
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
         for i in 0..self.vec_size {
             let cur_index = F::from_canonical_usize(i);
             let difference = cur_index - access_index;
@@ -130,7 +130,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
             .collect::<Vec<_>>();
         let claimed_element = vars.get_local_ext_algebra(self.wires_claimed_element());
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
         for i in 0..self.vec_size {
             let cur_index_ext = F::Extension::from_canonical_usize(i);
             let cur_index = builder.constant_extension(cur_index_ext);

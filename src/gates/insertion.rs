@@ -85,7 +85,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             .collect::<Vec<_>>();
         let element_to_insert = vars.get_local_ext_algebra(self.wires_element_to_insert());
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
         let mut already_inserted = F::Extension::ZERO;
         for r in 0..=self.vec_size {
             let cur_index = F::Extension::from_canonical_usize(r);
@@ -123,7 +123,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             .collect::<Vec<_>>();
         let element_to_insert = vars.get_local_ext(self.wires_element_to_insert());
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
         let mut already_inserted = F::ZERO;
         for r in 0..=self.vec_size {
             let cur_index = F::from_canonical_usize(r);
@@ -165,7 +165,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             .collect::<Vec<_>>();
         let element_to_insert = vars.get_local_ext_algebra(self.wires_element_to_insert());
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
         let mut already_inserted = builder.constant_extension(F::Extension::ZERO);
         for r in 0..=self.vec_size {
             let cur_index_ext = F::Extension::from_canonical_usize(r);
