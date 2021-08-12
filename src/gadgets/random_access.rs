@@ -11,7 +11,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         access_index: Target,
         claimed_element: ExtensionTarget<D>,
-        v: Vec<ExtensionTarget<D>>,
+        mut v: Vec<ExtensionTarget<D>>,
     ) {
         let gate = RandomAccessGate::new(v.len());
         let gate_index = self.add_gate(gate.clone(), vec![]);
@@ -30,6 +30,22 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             claimed_element,
             ExtensionTarget::from_range(gate_index, gate.wires_claimed_element()),
         );
+    }
+
+    /// Like `random_access`, but first pads `v` to a given minimum length. This can help to avoid
+    /// having multiple `RandomAccessGate`s with different sizes.
+    pub fn random_access_padded(
+        &mut self,
+        access_index: Target,
+        claimed_element: ExtensionTarget<D>,
+        mut v: Vec<ExtensionTarget<D>>,
+        min_length: usize,
+    ) {
+        let zero = self.zero_extension();
+        if v.len() < min_length {
+            v.resize(8, zero);
+        }
+        self.random_access(access_index, claimed_element, v);
     }
 }
 

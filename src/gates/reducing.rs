@@ -66,7 +66,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
             .map(|i| vars.get_local_ext_algebra(self.wires_accs(i)))
             .collect::<Vec<_>>();
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(<Self as Gate<F, D>>::num_constraints(self));
         let mut acc = old_acc;
         for i in 0..self.num_coeffs {
             constraints.push(acc * alpha + coeffs[i].into() - accs[i]);
@@ -90,17 +90,14 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
             .map(|i| vars.get_local_ext(self.wires_accs(i)))
             .collect::<Vec<_>>();
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(<Self as Gate<F, D>>::num_constraints(self));
         let mut acc = old_acc;
         for i in 0..self.num_coeffs {
-            constraints.push(acc * alpha + coeffs[i].into() - accs[i]);
+            constraints.extend((acc * alpha + coeffs[i].into() - accs[i]).to_basefield_array());
             acc = accs[i];
         }
 
         constraints
-            .into_iter()
-            .flat_map(|alg| alg.to_basefield_array())
-            .collect()
     }
 
     fn eval_unfiltered_recursively(
@@ -118,7 +115,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
             .map(|i| vars.get_local_ext_algebra(self.wires_accs(i)))
             .collect::<Vec<_>>();
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(<Self as Gate<F, D>>::num_constraints(self));
         let mut acc = old_acc;
         for i in 0..self.num_coeffs {
             let coeff = builder.convert_to_ext_algebra(coeffs[i]);
