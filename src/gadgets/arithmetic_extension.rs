@@ -152,6 +152,18 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         None
     }
 
+    /// Returns `a*b + c*d + e`.
+    pub fn wide_arithmetic_extension(
+        &mut self,
+        a: ExtensionTarget<D>,
+        b: ExtensionTarget<D>,
+        c: ExtensionTarget<D>,
+        d: ExtensionTarget<D>,
+        e: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        self.inner_product_extension(F::ONE, e, vec![(a, b), (c, d)])
+    }
+
     /// Returns `sum_{(a,b) in vecs} constant * a * b`.
     pub fn inner_product_extension(
         &mut self,
@@ -230,11 +242,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         c: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
         let one = self.one_extension();
-        let gate = self.num_gates();
-        let first_out =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_first_output());
-        self.double_arithmetic_extension(F::ONE, F::ONE, one, a, b, one, c, first_out)
-            .1
+        self.wide_arithmetic_extension(one, a, one, b, c)
     }
 
     /// Add `n` `ExtensionTarget`s with `n/2` `ArithmeticExtensionGate`s.

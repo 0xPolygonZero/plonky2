@@ -328,50 +328,17 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
                 let wire_value = vars.local_wires[j];
                 let beta_ext = builder.convert_to_ext(betas[i]);
                 let gamma_ext = builder.convert_to_ext(gammas[i]);
-                let gate = builder.num_gates();
-                let first_out = ExtensionTarget::from_range(
-                    gate,
-                    ArithmeticExtensionGate::<D>::wires_first_output(),
-                );
-                // `beta * s_ids[j] + wire_value + gamma`
-                builder
-                    .double_arithmetic_extension(
-                        F::ONE,
-                        F::ONE,
-                        beta_ext,
-                        s_ids[j],
-                        wire_value,
-                        one,
-                        first_out,
-                        gamma_ext,
-                    )
-                    .1
+                // `beta * s_id + wire_value + gamma`
+                builder.wide_arithmetic_extension(beta_ext, s_ids[j], one, wire_value, gamma_ext)
             })
             .collect::<Vec<_>>();
         let denominator_values = (0..common_data.config.num_routed_wires)
             .map(|j| {
                 let wire_value = vars.local_wires[j];
-                let s_sigma = s_sigmas[j];
                 let beta_ext = builder.convert_to_ext(betas[i]);
                 let gamma_ext = builder.convert_to_ext(gammas[i]);
-                let gate = builder.num_gates();
-                let first_out = ExtensionTarget::from_range(
-                    gate,
-                    ArithmeticExtensionGate::<D>::wires_first_output(),
-                );
                 // `beta * s_sigma + wire_value + gamma`
-                builder
-                    .double_arithmetic_extension(
-                        F::ONE,
-                        F::ONE,
-                        beta_ext,
-                        s_sigma,
-                        wire_value,
-                        one,
-                        first_out,
-                        gamma_ext,
-                    )
-                    .1
+                builder.wide_arithmetic_extension(beta_ext, s_sigmas[j], one, wire_value, gamma_ext)
             })
             .collect::<Vec<_>>();
         let quotient_values = (0..common_data.config.num_routed_wires)
