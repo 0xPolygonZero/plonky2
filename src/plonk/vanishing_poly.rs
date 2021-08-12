@@ -301,6 +301,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
 
     let l1_x = eval_l_1_recursively(builder, common_data.degree(), x, x_pow_deg);
 
+    // Holds `k[i] * x`.
     let mut s_ids = Vec::new();
     for j in 0..common_data.config.num_routed_wires / 2 {
         let k_0 = builder.constant(common_data.k_is[2 * j]);
@@ -332,6 +333,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
                     gate,
                     ArithmeticExtensionGate::<D>::wires_first_output(),
                 );
+                // `beta * s_ids[j] + wire_value + gamma`
                 builder
                     .double_arithmetic_extension(
                         F::ONE,
@@ -357,6 +359,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
                     gate,
                     ArithmeticExtensionGate::<D>::wires_first_output(),
                 );
+                // `beta * s_sigma + wire_value + gamma`
                 builder
                     .double_arithmetic_extension(
                         F::ONE,
