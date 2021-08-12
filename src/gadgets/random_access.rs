@@ -11,7 +11,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         access_index: Target,
         claimed_element: ExtensionTarget<D>,
-        mut v: Vec<ExtensionTarget<D>>,
+        v: Vec<ExtensionTarget<D>>,
     ) {
         let gate = RandomAccessGate::new(v.len());
         let gate_index = self.add_gate(gate.clone(), vec![]);
