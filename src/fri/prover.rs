@@ -74,15 +74,12 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
         let arity = 1 << config.reduction_arity_bits[i];
 
         reverse_index_bits_in_place(&mut values.values);
-        let tree = MerkleTree::new(
-            values
-                .values
-                .par_chunks(arity)
-                .map(|chunk: &[F::Extension]| flatten(chunk))
-                .collect(),
-            config.cap_height,
-            false,
-        );
+        let chunked_values = values
+            .values
+            .par_chunks(arity)
+            .map(|chunk: &[F::Extension]| flatten(chunk))
+            .collect();
+        let tree = MerkleTree::new(chunked_values, config.cap_height, false);
 
         challenger.observe_cap(&tree.cap);
         trees.push(tree);
