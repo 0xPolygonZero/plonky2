@@ -428,14 +428,14 @@ mod tests {
             num_wires: 126,
             num_routed_wires: 64,
             security_bits: 128,
-            rate_bits: 4,
+            rate_bits: 3,
             num_challenges: 3,
             zero_knowledge: false,
             cap_height: 3,
             fri_config: FriConfig {
-                proof_of_work_bits: 1,
+                proof_of_work_bits: 20,
                 reduction_arity_bits: vec![3, 3, 3],
-                num_query_rounds: 32,
+                num_query_rounds: 27,
                 cap_height: 3,
             },
         };
