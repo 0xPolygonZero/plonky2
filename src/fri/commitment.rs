@@ -288,6 +288,7 @@ mod tests {
             config: CircuitConfig {
                 fri_config,
                 num_routed_wires: 6,
+                zero_knowledge: true,
                 ..CircuitConfig::large_config()
             },
             degree_bits,
