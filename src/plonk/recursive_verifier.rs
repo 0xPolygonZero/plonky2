@@ -97,13 +97,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .chunks(inner_common_data.quotient_degree_factor)
                 .enumerate()
             {
-                dbg!(chunk.len());
                 let recombined_quotient = scale.reduce(chunk, self);
-                self.add_marked(z_h_zeta.into(), &format!("zhz {}", i));
-                self.add_marked(recombined_quotient.into(), &format!("recomb {}", i));
                 let computed_vanishing_poly = self.mul_extension(z_h_zeta, recombined_quotient);
-                self.add_marked(vanishing_polys_zeta[i].into(), &format!("yo {}", i));
-                self.add_marked(computed_vanishing_poly.into(), &format!("ya {}", i));
                 self.named_assert_equal_extension(
                     vanishing_polys_zeta[i],
                     computed_vanishing_poly,

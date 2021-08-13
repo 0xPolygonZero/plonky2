@@ -176,8 +176,6 @@ impl<const D: usize> ReducingFactorTarget<D> {
         terms_vec.reverse();
 
         let mut acc = zero;
-        let mut countt = 0;
-        dbg!(terms_vec.len());
         for pair in terms_vec.chunks(2) {
             // We will route the output of the first arithmetic operation to the multiplicand of the
             // second, i.e. we compute the following:
@@ -212,9 +210,6 @@ impl<const D: usize> ReducingFactorTarget<D> {
                     pair[1],
                 )
                 .1;
-            // dbg!(countt, acc);
-            // builder.add_marked(acc.into(), &format!("acc {}", countt));
-            countt += 1;
         }
         acc
     }

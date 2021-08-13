@@ -363,8 +363,9 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
             .chunks(max_degree)
             .zip(partial_product_check.iter_mut())
             .for_each(|(d, q)| {
-                let tmp = builder.mul_many_extension(d);
-                *q = builder.mul_extension(*q, tmp);
+                let mut v = d.to_vec();
+                v.push(*q);
+                *q = builder.mul_many_extension(&v);
             });
         vanishing_partial_products_terms.extend(partial_product_check);
 
@@ -382,9 +383,6 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
     ]
     .concat();
 
-    for (i, &v) in vanishing_terms.iter().enumerate() {
-        builder.add_marked(v.into(), &format!("v {}", i));
-    }
     alphas
         .iter()
         .map(|&alpha| {

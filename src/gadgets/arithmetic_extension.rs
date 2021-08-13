@@ -25,24 +25,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         second_multiplicand_1: ExtensionTarget<D>,
         second_addend: ExtensionTarget<D>,
     ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
-        // for et in &mut [
-        //     first_multiplicand_0,
-        //     first_multiplicand_1,
-        //     first_addend,
-        //     second_multiplicand_0,
-        //     second_multiplicand_1,
-        //     second_addend,
-        // ] {
-        //     for t in &mut et.0 {
-        //         if let Target::Wire(Wire { gate: g, input }) = t {
-        //             if *g > gate {
-        //                 *g = gate;
-        //                 *input += 8 * D;
-        //                 dbg!(*g, *t);
-        //             }
-        //         }
-        //     }
-        // }
         let wire_third_multiplicand_0 = ExtensionTarget::from_range(
             gate,
             ArithmeticExtensionGate::<D>::wires_third_multiplicand_0(),
@@ -497,10 +479,26 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         c: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
         let zero = self.zero_extension();
-        let gate = self.num_gates();
-        let first_out =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_first_output());
-        self.double_arithmetic_extension(F::ONE, F::ZERO, a, b, zero, c, first_out, zero)
+        let (gate, range) = if let Some((g, c_0, c_1)) = self.free_arithmetic {
+            if g == self.num_gates() - 1 && c_0 == F::ONE && c_1 == F::ONE {
+                (g, ArithmeticExtensionGate::<D>::wires_third_output())
+            } else {
+                (
+                    self.num_gates(),
+                    ArithmeticExtensionGate::<D>::wires_first_output(),
+                )
+            }
+        } else {
+            (
+                self.num_gates(),
+                ArithmeticExtensionGate::<D>::wires_first_output(),
+            )
+        };
+        let first_out = ExtensionTarget::from_range(gate, range);
+        // let gate = self.num_gates();
+        // let first_out =
+        //     ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_first_output());
+        self.double_arithmetic_extension(F::ONE, F::ONE, a, b, zero, c, first_out, zero)
             .1
     }
 
@@ -764,6 +762,31 @@ mod tests {
     use crate::plonk::verifier::verify;
 
     #[test]
+    fn test_gaga() -> Result<()> {
+        type F = CrandallField;
+        type FF = QuarticCrandallField;
+        const D: usize = 4;
+
+        let config = CircuitConfig {
+            num_routed_wires: 64,
+            ..CircuitConfig::large_config()
+        };
+
+        let mut pw = PartialWitness::new(config.num_wires);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let n = 6;
+        let vs = FF::rand_vec(n);
+        let ts = builder.add_virtual_extension_targets(n);
+        pw.set_extension_targets(&ts, &vs);
+        let mul0 = builder.mul_many_extension(&ts);
+        let data = builder.build();
+        let proof = data.prove(pw)?;
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
     fn test_mul_many() -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
@@ -818,7 +841,6 @@ mod tests {
         let yt = builder.constant_extension(y);
         let zt = builder.constant_extension(z);
         let comp_zt = builder.mul_extension(xt, yt);
-        dbg!(comp_zt);
         builder.add_marked(zt.into(), "yo");
         builder.add_marked(comp_zt.into(), "ya");
         builder.assert_equal_extension(zt, comp_zt);
