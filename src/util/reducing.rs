@@ -7,6 +7,7 @@ use crate::field::extension_field::{Extendable, Frobenius};
 use crate::field::field_types::Field;
 use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gates::reducing::ReducingGate;
+use crate::gates::reducing_ext::ReducingExtGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::polynomial::polynomial::PolynomialCoeffs;
@@ -164,54 +165,89 @@ impl<const D: usize> ReducingFactorTarget<D> {
     where
         F: Extendable<D>,
     {
-        let zero = builder.zero_extension();
-        let l = terms.len();
-        self.count += l as u64;
-
-        let mut terms_vec = terms.to_vec();
-        // If needed, we pad the original vector so that it has even length.
-        if terms_vec.len().is_odd() {
-            terms_vec.push(zero);
+        let max_coeffs_len = ReducingExtGate::<D>::max_coeffs_len(
+            builder.config.num_wires,
+            builder.config.num_routed_wires,
+        );
+        self.count += terms.len() as u64;
+        let zero_ext = builder.zero_extension();
+        let mut acc = zero_ext;
+        let mut reversed_terms = terms.to_vec();
+        while reversed_terms.len() % max_coeffs_len != 0 {
+            reversed_terms.push(zero_ext);
         }
-        terms_vec.reverse();
+        reversed_terms.reverse();
+        for chunk in reversed_terms.chunks_exact(max_coeffs_len) {
+            let gate = ReducingExtGate::new(max_coeffs_len);
+            let gate_index = builder.add_gate(gate.clone(), Vec::new());
 
-        let mut acc = zero;
-        for pair in terms_vec.chunks(2) {
-            // We will route the output of the first arithmetic operation to the multiplicand of the
-            // second, i.e. we compute the following:
-            //     out_0 = alpha acc + pair[0]
-            //     acc' = out_1 = alpha out_0 + pair[1]
+            builder.route_extension(
+                self.base,
+                ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_alpha()),
+            );
+            builder.route_extension(
+                acc,
+                ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_old_acc()),
+            );
+            for (i, &t) in chunk.iter().enumerate() {
+                builder.route_extension(
+                    t,
+                    ExtensionTarget::from_range(gate_index, ReducingExtGate::<D>::wires_coeff(i)),
+                );
+            }
 
-            let (gate, range) = if let Some((g, c_0, c_1)) = builder.free_arithmetic {
-                if c_0 == F::ONE && c_1 == F::ONE {
-                    (g, ArithmeticExtensionGate::<D>::wires_third_output())
-                } else {
-                    (
-                        builder.num_gates(),
-                        ArithmeticExtensionGate::<D>::wires_first_output(),
-                    )
-                }
-            } else {
-                (
-                    builder.num_gates(),
-                    ArithmeticExtensionGate::<D>::wires_first_output(),
-                )
-            };
-            let out_0 = ExtensionTarget::from_range(gate, range);
-            acc = builder
-                .double_arithmetic_extension(
-                    F::ONE,
-                    F::ONE,
-                    self.base,
-                    acc,
-                    pair[0],
-                    self.base,
-                    out_0,
-                    pair[1],
-                )
-                .1;
+            acc = ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_output());
         }
+
         acc
+        // let zero = builder.zero_extension();
+        // let l = terms.len();
+        // self.count += l as u64;
+        //
+        // let mut terms_vec = terms.to_vec();
+        // // If needed, we pad the original vector so that it has even length.
+        // if terms_vec.len().is_odd() {
+        //     terms_vec.push(zero);
+        // }
+        // terms_vec.reverse();
+        //
+        // let mut acc = zero;
+        // for pair in terms_vec.chunks(2) {
+        //     // We will route the output of the first arithmetic operation to the multiplicand of the
+        //     // second, i.e. we compute the following:
+        //     //     out_0 = alpha acc + pair[0]
+        //     //     acc' = out_1 = alpha out_0 + pair[1]
+        //
+        //     let (gate, range) = if let Some((g, c_0, c_1)) = builder.free_arithmetic {
+        //         if c_0 == F::ONE && c_1 == F::ONE {
+        //             (g, ArithmeticExtensionGate::<D>::wires_third_output())
+        //         } else {
+        //             (
+        //                 builder.num_gates(),
+        //                 ArithmeticExtensionGate::<D>::wires_first_output(),
+        //             )
+        //         }
+        //     } else {
+        //         (
+        //             builder.num_gates(),
+        //             ArithmeticExtensionGate::<D>::wires_first_output(),
+        //         )
+        //     };
+        //     let out_0 = ExtensionTarget::from_range(gate, range);
+        //     acc = builder
+        //         .double_arithmetic_extension(
+        //             F::ONE,
+        //             F::ONE,
+        //             self.base,
+        //             acc,
+        //             pair[0],
+        //             self.base,
+        //             out_0,
+        //             pair[1],
+        //         )
+        //         .1;
+        // }
+        // acc
     }
 
     pub fn shift<F>(
@@ -301,7 +337,10 @@ mod tests {
         type FF = QuarticCrandallField;
         const D: usize = 4;
 
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig {
+            num_routed_wires: 64,
+            ..CircuitConfig::large_config()
+        };
 
         let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -321,6 +360,9 @@ mod tests {
 
         builder.assert_equal_extension(manual_reduce, circuit_reduce);
 
+        for g in &builder.gate_instances {
+            println!("{}", g.gate_ref.0.id());
+        }
         let data = builder.build();
         let proof = data.prove(pw)?;
 
@@ -330,6 +372,11 @@ mod tests {
     #[test]
     fn test_reduce_gadget_even() -> Result<()> {
         test_reduce_gadget(10)
+    }
+
+    #[test]
+    fn test_yo() -> Result<()> {
+        test_reduce_gadget(100)
     }
 
     #[test]
