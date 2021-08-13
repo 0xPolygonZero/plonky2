@@ -320,6 +320,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let g_ext = self.convert_to_ext(g);
             let phi_ext = self.convert_to_ext(phi);
             let zero = self.zero_extension();
+            // `subgroup_x = g*phi, vanish_zeta = g*phi - zeta`
             let tmp = self.double_arithmetic_extension(
                 F::ONE,
                 F::NEG_ONE,

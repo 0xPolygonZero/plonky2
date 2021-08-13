@@ -215,6 +215,8 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder.mul_extension(exp, x)
     }
 
+    /// Returns `(self.shift(x), a*b)`.
+    /// Used to take advantage of the second arithmetic operation in the `ArithmeticExtensionGate`.
     pub fn shift_and_mul<F>(
         &mut self,
         x: ExtensionTarget<D>,
