@@ -7,7 +7,6 @@ use crate::field::extension_field::{Extendable, Frobenius};
 use crate::field::field_types::Field;
 use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gates::reducing::ReducingGate;
-use crate::gates::reducing_ext::ReducingExtGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::polynomial::polynomial::PolynomialCoeffs;

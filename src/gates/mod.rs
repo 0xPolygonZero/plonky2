@@ -14,7 +14,6 @@ pub(crate) mod noop;
 pub(crate) mod public_input;
 pub mod random_access;
 pub mod reducing;
-pub mod reducing_ext;
 
 #[cfg(test)]
 mod gate_testing;

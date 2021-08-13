@@ -496,9 +496,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         };
         let first_out = ExtensionTarget::from_range(gate, range);
-        // let gate = self.num_gates();
-        // let first_out =
-        //     ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_first_output());
         self.double_arithmetic_extension(F::ONE, F::ONE, a, b, zero, c, first_out, zero)
             .1
     }
