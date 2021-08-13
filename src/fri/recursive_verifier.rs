@@ -215,7 +215,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
         common_data: &CommonCircuitData<F, D>,
     ) -> ExtensionTarget<D> {
-        println!("combine initial: {}", self.num_gates());
         assert!(D > 1, "Not implemented for D=1.");
         let config = self.config.clone();
         let degree_log = common_data.degree_bits;
@@ -252,7 +251,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         sum = self.div_add_extension(single_numerator, vanish_zeta, sum);
         alpha.reset();
 
-        println!("done single: {}", self.num_gates());
         // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
         let zs_evals = proof
             .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
@@ -276,7 +274,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let (mut sum, zs_denominator) =
             alpha.shift_and_mul(sum, vanish_zeta, vanish_zeta_right, self);
         sum = self.div_add_extension(zs_numerator, zs_denominator, sum);
-        println!("done doubles: {}", self.num_gates());
 
         sum
     }
@@ -294,7 +291,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         round_proof: &FriQueryRoundTarget<D>,
         common_data: &CommonCircuitData<F, D>,
     ) {
-        println!("query round: {}", self.num_gates());
         let config = &common_data.config.fri_config;
         let n_log = log2_strict(n);
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
@@ -353,7 +349,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
-            println!("query round, {}-th arity: {}", i, self.num_gates());
             let evals = &round_proof.steps[i].evals;
 
             // Split x_index into the index of the coset x is in, and the index of x within that coset.
