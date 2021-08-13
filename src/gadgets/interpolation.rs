@@ -12,9 +12,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         interpolation_points: [(ExtensionTarget<D>, ExtensionTarget<D>); 2],
         evaluation_point: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        // a0 -> a1
-        // b0 -> b1
+        // a0 -> a1 : zeta -> precomp0
+        // b0 -> b1 : g*zeta -> precomp1
         // x  -> a1 + (x-a0)*(b1-a1)/(b0-a0)
+        // x -> precomp0 + (x-zeta)*(precomp1-precomp0)/(g*zeta - zeta)
 
         let (x_m_a0, b1_m_a1) = self.sub_two_extension(
             evaluation_point,

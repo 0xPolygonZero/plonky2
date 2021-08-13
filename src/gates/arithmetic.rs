@@ -24,16 +24,16 @@ impl<const D: usize> ArithmeticExtensionGate<D> {
     pub fn wires_first_addend() -> Range<usize> {
         2 * D..3 * D
     }
-    pub fn wires_second_multiplicand_0() -> Range<usize> {
+    pub fn wires_first_output() -> Range<usize> {
         3 * D..4 * D
     }
-    pub fn wires_second_multiplicand_1() -> Range<usize> {
+    pub fn wires_second_multiplicand_0() -> Range<usize> {
         4 * D..5 * D
     }
-    pub fn wires_second_addend() -> Range<usize> {
+    pub fn wires_second_multiplicand_1() -> Range<usize> {
         5 * D..6 * D
     }
-    pub fn wires_first_output() -> Range<usize> {
+    pub fn wires_second_addend() -> Range<usize> {
         6 * D..7 * D
     }
     pub fn wires_second_output() -> Range<usize> {

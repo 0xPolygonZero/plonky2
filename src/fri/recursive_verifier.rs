@@ -139,7 +139,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let precomputed_reduced_evals = with_context!(
             self,
             "precompute reduced evaluations",
-            PrecomputedReducedEvalsTarget::from_os_and_alpha(os, alpha, self)
+            PrecomputedReducedEvalsTarget::from_os_and_alpha(
+                os,
+                alpha,
+                common_data.degree_bits,
+                zeta,
+                self
+            )
         );
 
         for (i, round_proof) in proof.query_round_proofs.iter().enumerate() {
@@ -209,6 +215,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
         common_data: &CommonCircuitData<F, D>,
     ) -> ExtensionTarget<D> {
+        println!("combine initial: {}", self.num_gates());
         assert!(D > 1, "Not implemented for D=1.");
         let config = self.config.clone();
         let degree_log = common_data.degree_bits;
@@ -246,6 +253,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         sum = self.div_add_extension(single_numerator, vanish_zeta, sum);
         alpha.reset();
 
+        println!("done single: {}", self.num_gates());
         // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
         let zs_evals = proof
             .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
@@ -255,20 +263,21 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect::<Vec<_>>();
         let zs_composition_eval = alpha.reduce_base(&zs_evals, self);
 
-        let g = self.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
-        let zeta_right = self.mul_extension(g, zeta);
-        let interpol_val = self.interpolate2(
-            [
-                (zeta, precomputed_reduced_evals.zs),
-                (zeta_right, precomputed_reduced_evals.zs_right),
-            ],
-            subgroup_x,
+        let interpol_val = self.mul_add_extension(
+            vanish_zeta,
+            precomputed_reduced_evals.slope,
+            precomputed_reduced_evals.zs,
         );
-        let (zs_numerator, vanish_zeta_right) =
-            self.sub_two_extension(zs_composition_eval, interpol_val, subgroup_x, zeta_right);
-        let zs_denominator = self.mul_extension(vanish_zeta, vanish_zeta_right);
-        sum = alpha.shift(sum, self);
+        let (zs_numerator, vanish_zeta_right) = self.sub_two_extension(
+            zs_composition_eval,
+            interpol_val,
+            subgroup_x,
+            precomputed_reduced_evals.zeta_right,
+        );
+        let (mut sum, zs_denominator) =
+            alpha.shift_and_mul(sum, vanish_zeta, vanish_zeta_right, self);
         sum = self.div_add_extension(zs_numerator, zs_denominator, sum);
+        println!("done doubles: {}", self.num_gates());
 
         sum
     }
@@ -286,6 +295,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         round_proof: &FriQueryRoundTarget<D>,
         common_data: &CommonCircuitData<F, D>,
     ) {
+        println!("query round: {}", self.num_gates());
         let config = &common_data.config.fri_config;
         let n_log = log2_strict(n);
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
@@ -308,7 +318,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
         let mut subgroup_x = with_context!(self, "compute x from its index", {
-            let g = self.constant(F::MULTIPLICATIVE_GROUP_GENERATOR);
+            let g = self.constant(F::coset_shift());
             let phi = self.constant(F::primitive_root_of_unity(n_log));
 
             let phi = self.exp_from_bits(phi, x_index_bits.iter().rev());
@@ -331,6 +341,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
+            println!("query round, {}-th arity: {}", i, self.num_gates());
             let evals = &round_proof.steps[i].evals;
 
             // Split x_index into the index of the coset x is in, and the index of x within that coset.
@@ -393,12 +404,16 @@ struct PrecomputedReducedEvalsTarget<const D: usize> {
     pub single: ExtensionTarget<D>,
     pub zs: ExtensionTarget<D>,
     pub zs_right: ExtensionTarget<D>,
+    pub slope: ExtensionTarget<D>,
+    pub zeta_right: ExtensionTarget<D>,
 }
 
 impl<const D: usize> PrecomputedReducedEvalsTarget<D> {
     fn from_os_and_alpha<F: Extendable<D>>(
         os: &OpeningSetTarget<D>,
         alpha: ExtensionTarget<D>,
+        degree_log: usize,
+        zeta: ExtensionTarget<D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let mut alpha = ReducingFactorTarget::new(alpha);
@@ -416,10 +431,16 @@ impl<const D: usize> PrecomputedReducedEvalsTarget<D> {
         let zs = alpha.reduce(&os.plonk_zs, builder);
         let zs_right = alpha.reduce(&os.plonk_zs_right, builder);
 
+        let g = builder.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
+        let zeta_right = builder.mul_extension(g, zeta);
+        let (numerator, denominator) = builder.sub_two_extension(zs_right, zs, zeta_right, zeta);
+
         Self {
             single,
             zs,
             zs_right,
+            slope: builder.div_extension(numerator, denominator),
+            zeta_right,
         }
     }
 }

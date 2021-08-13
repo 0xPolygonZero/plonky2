@@ -426,7 +426,7 @@ mod tests {
         const D: usize = 4;
         let config = CircuitConfig {
             num_wires: 126,
-            num_routed_wires: 37,
+            num_routed_wires: 64,
             security_bits: 128,
             rate_bits: 3,
             num_challenges: 3,
@@ -434,7 +434,7 @@ mod tests {
             cap_height: 3,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
-                reduction_arity_bits: vec![2, 2, 2, 2, 2, 2],
+                reduction_arity_bits: vec![3, 3, 3],
                 num_query_rounds: 40,
                 cap_height: 3,
             },
@@ -443,9 +443,9 @@ mod tests {
             let (proof_with_pis, vd, cd) = {
                 let mut builder = CircuitBuilder::<F, D>::new(config.clone());
                 let _two = builder.two();
-                let _two = builder.hash_n_to_hash(vec![_two], true).elements[0];
+                let mut _two = builder.hash_n_to_hash(vec![_two], true).elements[0];
                 for _ in 0..10000 {
-                    let _two = builder.mul(_two, _two);
+                    _two = builder.mul(_two, _two);
                 }
                 let data = builder.build();
                 (

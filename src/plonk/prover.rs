@@ -68,6 +68,26 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
         partial_witness.full_witness(degree, num_wires)
     );
 
+    {
+        let mut count = 0;
+        let mut count_bad = 0;
+        for i in 0..degree {
+            if prover_data.gate_instances[i].gate_ref.0.id()
+                != "ArithmeticExtensionGate".to_string()
+            {
+                continue;
+            }
+            count += 1;
+            let row = witness.wire_values.iter().map(|c| c[i]).collect::<Vec<_>>();
+            // println!("{} {:?}", i, &row);
+            if row[16..].iter().all(|x| x.is_zero()) {
+                println!("{} {:?}", i, row);
+                count_bad += 1;
+            }
+        }
+        println!("{} {}", count, count_bad);
+    }
+
     let wires_values: Vec<PolynomialValues<F>> = timed!(
         timing,
         "compute wire polynomials",
