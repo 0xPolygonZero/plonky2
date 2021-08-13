@@ -435,7 +435,7 @@ mod tests {
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
                 reduction_arity_bits: vec![3, 3, 3],
-                num_query_rounds: 33,
+                num_query_rounds: 32,
                 cap_height: 3,
             },
         };

@@ -15,51 +15,6 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bits_u64;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn yo(
-        &mut self,
-        gate: usize,
-        first_multiplicand_0: ExtensionTarget<D>,
-        first_multiplicand_1: ExtensionTarget<D>,
-        first_addend: ExtensionTarget<D>,
-        second_multiplicand_0: ExtensionTarget<D>,
-        second_multiplicand_1: ExtensionTarget<D>,
-        second_addend: ExtensionTarget<D>,
-    ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
-        let wire_third_multiplicand_0 = ExtensionTarget::from_range(
-            gate,
-            ArithmeticExtensionGate::<D>::wires_third_multiplicand_0(),
-        );
-        let wire_third_multiplicand_1 = ExtensionTarget::from_range(
-            gate,
-            ArithmeticExtensionGate::<D>::wires_third_multiplicand_1(),
-        );
-        let wire_third_addend =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_third_addend());
-        let wire_fourth_multiplicand_0 = ExtensionTarget::from_range(
-            gate,
-            ArithmeticExtensionGate::<D>::wires_fourth_multiplicand_0(),
-        );
-        let wire_fourth_multiplicand_1 = ExtensionTarget::from_range(
-            gate,
-            ArithmeticExtensionGate::<D>::wires_fourth_multiplicand_1(),
-        );
-        let wire_fourth_addend =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_fourth_addend());
-        let wire_third_output =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_third_output());
-        let wire_fourth_output =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_fourth_output());
-
-        self.route_extension(first_multiplicand_0, wire_third_multiplicand_0);
-        self.route_extension(first_multiplicand_1, wire_third_multiplicand_1);
-        self.route_extension(first_addend, wire_third_addend);
-        self.route_extension(second_multiplicand_0, wire_fourth_multiplicand_0);
-        self.route_extension(second_multiplicand_1, wire_fourth_multiplicand_1);
-        self.route_extension(second_addend, wire_fourth_addend);
-        self.free_arithmetic = None;
-
-        (wire_third_output, wire_fourth_output)
-    }
     pub fn double_arithmetic_extension(
         &mut self,
         const_0: F,
@@ -73,7 +28,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
         if let Some((g, c_0, c_1)) = self.free_arithmetic {
             if c_0 == const_0 && c_1 == const_1 {
-                return self.yo(
+                return self.arithmetic_reusing_gate(
                     g,
                     first_multiplicand_0,
                     first_multiplicand_1,
@@ -119,6 +74,52 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.route_extension(second_multiplicand_1, wire_second_multiplicand_1);
         self.route_extension(second_addend, wire_second_addend);
         (wire_first_output, wire_second_output)
+    }
+
+    fn arithmetic_reusing_gate(
+        &mut self,
+        gate: usize,
+        first_multiplicand_0: ExtensionTarget<D>,
+        first_multiplicand_1: ExtensionTarget<D>,
+        first_addend: ExtensionTarget<D>,
+        second_multiplicand_0: ExtensionTarget<D>,
+        second_multiplicand_1: ExtensionTarget<D>,
+        second_addend: ExtensionTarget<D>,
+    ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
+        let wire_third_multiplicand_0 = ExtensionTarget::from_range(
+            gate,
+            ArithmeticExtensionGate::<D>::wires_third_multiplicand_0(),
+        );
+        let wire_third_multiplicand_1 = ExtensionTarget::from_range(
+            gate,
+            ArithmeticExtensionGate::<D>::wires_third_multiplicand_1(),
+        );
+        let wire_third_addend =
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_third_addend());
+        let wire_fourth_multiplicand_0 = ExtensionTarget::from_range(
+            gate,
+            ArithmeticExtensionGate::<D>::wires_fourth_multiplicand_0(),
+        );
+        let wire_fourth_multiplicand_1 = ExtensionTarget::from_range(
+            gate,
+            ArithmeticExtensionGate::<D>::wires_fourth_multiplicand_1(),
+        );
+        let wire_fourth_addend =
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_fourth_addend());
+        let wire_third_output =
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_third_output());
+        let wire_fourth_output =
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_fourth_output());
+
+        self.route_extension(first_multiplicand_0, wire_third_multiplicand_0);
+        self.route_extension(first_multiplicand_1, wire_third_multiplicand_1);
+        self.route_extension(first_addend, wire_third_addend);
+        self.route_extension(second_multiplicand_0, wire_fourth_multiplicand_0);
+        self.route_extension(second_multiplicand_1, wire_fourth_multiplicand_1);
+        self.route_extension(second_addend, wire_fourth_addend);
+        self.free_arithmetic = None;
+
+        (wire_third_output, wire_fourth_output)
     }
 
     pub fn arithmetic_extension(
@@ -762,31 +763,6 @@ mod tests {
     use crate::plonk::verifier::verify;
 
     #[test]
-    fn test_gaga() -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticCrandallField;
-        const D: usize = 4;
-
-        let config = CircuitConfig {
-            num_routed_wires: 64,
-            ..CircuitConfig::large_config()
-        };
-
-        let mut pw = PartialWitness::new(config.num_wires);
-        let mut builder = CircuitBuilder::<F, D>::new(config);
-
-        let n = 6;
-        let vs = FF::rand_vec(n);
-        let ts = builder.add_virtual_extension_targets(n);
-        pw.set_extension_targets(&ts, &vs);
-        let mul0 = builder.mul_many_extension(&ts);
-        let data = builder.build();
-        let proof = data.prove(pw)?;
-
-        verify(proof, &data.verifier_only, &data.common)
-    }
-
-    #[test]
     fn test_mul_many() -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
@@ -816,34 +792,6 @@ mod tests {
         builder.assert_equal_extension(mul0, mul1);
         builder.assert_equal_extension(mul1, mul2);
         builder.assert_equal_extension(mul2, mul3);
-
-        let data = builder.build();
-        let proof = data.prove(pw)?;
-
-        verify(proof, &data.verifier_only, &data.common)
-    }
-
-    #[test]
-    fn test_mul() -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticCrandallField;
-        const D: usize = 4;
-
-        let config = CircuitConfig::large_config();
-
-        let pw = PartialWitness::new(config.num_wires);
-        let mut builder = CircuitBuilder::<F, D>::new(config);
-
-        let x = FF::ONE;
-        let y = FF::TWO;
-        let z = x * y;
-        let xt = builder.constant_extension(x);
-        let yt = builder.constant_extension(y);
-        let zt = builder.constant_extension(z);
-        let comp_zt = builder.mul_extension(xt, yt);
-        builder.add_marked(zt.into(), "yo");
-        builder.add_marked(comp_zt.into(), "ya");
-        builder.assert_equal_extension(zt, comp_zt);
 
         let data = builder.build();
         let proof = data.prove(pw)?;

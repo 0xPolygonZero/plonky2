@@ -39,7 +39,7 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     gates: HashSet<GateRef<F, D>>,
 
     /// The concrete placement of each gate.
-    pub gate_instances: Vec<GateInstance<F, D>>,
+    gate_instances: Vec<GateInstance<F, D>>,
 
     /// Targets to be made public.
     public_inputs: Vec<Target>,
