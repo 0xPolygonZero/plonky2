@@ -72,7 +72,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         second_addend: ExtensionTarget<D>,
     ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
         if let Some((g, c_0, c_1)) = self.free_arithmetic {
-            if g == self.num_gates() - 1 && c_0 == const_0 && c_1 == const_1 {
+            if c_0 == const_0 && c_1 == const_1 {
                 return self.yo(
                     g,
                     first_multiplicand_0,
@@ -236,7 +236,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let (a0, b0) = chunk[0];
             let (a1, b1) = chunk[1];
             let (gate, range) = if let Some((g, c_0, c_1)) = self.free_arithmetic {
-                if g == self.num_gates() - 1 && c_0 == constant && c_1 == F::ONE {
+                if c_0 == constant && c_1 == F::ONE {
                     (g, ArithmeticExtensionGate::<D>::wires_third_output())
                 } else {
                     (
@@ -480,7 +480,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> ExtensionTarget<D> {
         let zero = self.zero_extension();
         let (gate, range) = if let Some((g, c_0, c_1)) = self.free_arithmetic {
-            if g == self.num_gates() - 1 && c_0 == F::ONE && c_1 == F::ONE {
+            if c_0 == F::ONE && c_1 == F::ONE {
                 (g, ArithmeticExtensionGate::<D>::wires_third_output())
             } else {
                 (

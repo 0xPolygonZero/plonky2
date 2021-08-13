@@ -183,7 +183,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
             //     acc' = out_1 = alpha out_0 + pair[1]
 
             let (gate, range) = if let Some((g, c_0, c_1)) = builder.free_arithmetic {
-                if g == builder.num_gates() - 1 && c_0 == F::ONE && c_1 == F::ONE {
+                if c_0 == F::ONE && c_1 == F::ONE {
                     (g, ArithmeticExtensionGate::<D>::wires_third_output())
                 } else {
                     (
