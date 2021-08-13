@@ -66,11 +66,11 @@ impl CircuitConfig {
             security_bits: 128,
             rate_bits: 3,
             num_challenges: 3,
-            zero_knowledge: true,
+            zero_knowledge: false,
             cap_height: 1,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
-                reduction_arity_bits: vec![1, 1, 1, 1],
+                reduction_arity_bits: vec![1],
                 num_query_rounds: 1,
                 cap_height: 1,
             },

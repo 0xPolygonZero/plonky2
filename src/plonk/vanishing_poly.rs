@@ -382,6 +382,9 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
     ]
     .concat();
 
+    for (i, &v) in vanishing_terms.iter().enumerate() {
+        builder.add_marked(v.into(), &format!("v {}", i));
+    }
     alphas
         .iter()
         .map(|&alpha| {

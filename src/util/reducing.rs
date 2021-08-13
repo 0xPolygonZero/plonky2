@@ -176,16 +176,30 @@ impl<const D: usize> ReducingFactorTarget<D> {
         terms_vec.reverse();
 
         let mut acc = zero;
+        let mut countt = 0;
+        dbg!(terms_vec.len());
         for pair in terms_vec.chunks(2) {
             // We will route the output of the first arithmetic operation to the multiplicand of the
             // second, i.e. we compute the following:
             //     out_0 = alpha acc + pair[0]
             //     acc' = out_1 = alpha out_0 + pair[1]
-            let gate = builder.num_gates();
-            let out_0 = ExtensionTarget::from_range(
-                gate,
-                ArithmeticExtensionGate::<D>::wires_first_output(),
-            );
+
+            let (gate, range) = if let Some((g, c_0, c_1)) = builder.free_arithmetic {
+                if g == builder.num_gates() - 1 && c_0 == F::ONE && c_1 == F::ONE {
+                    (g, ArithmeticExtensionGate::<D>::wires_third_output())
+                } else {
+                    (
+                        builder.num_gates(),
+                        ArithmeticExtensionGate::<D>::wires_first_output(),
+                    )
+                }
+            } else {
+                (
+                    builder.num_gates(),
+                    ArithmeticExtensionGate::<D>::wires_first_output(),
+                )
+            };
+            let out_0 = ExtensionTarget::from_range(gate, range);
             acc = builder
                 .double_arithmetic_extension(
                     F::ONE,
@@ -198,6 +212,9 @@ impl<const D: usize> ReducingFactorTarget<D> {
                     pair[1],
                 )
                 .1;
+            // dbg!(countt, acc);
+            // builder.add_marked(acc.into(), &format!("acc {}", countt));
+            countt += 1;
         }
         acc
     }

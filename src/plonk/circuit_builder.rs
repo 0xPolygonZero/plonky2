@@ -60,6 +60,8 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
 
     constants_to_targets: HashMap<F, Target>,
     targets_to_constants: HashMap<Target, F>,
+
+    pub(crate) free_arithmetic: Option<(usize, F, F)>,
 }
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -76,6 +78,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             generators: Vec::new(),
             constants_to_targets: HashMap::new(),
             targets_to_constants: HashMap::new(),
+            free_arithmetic: None,
         }
     }
 
