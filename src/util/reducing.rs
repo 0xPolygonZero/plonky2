@@ -211,9 +211,23 @@ impl<const D: usize> ReducingFactorTarget<D> {
         F: Extendable<D>,
     {
         let exp = builder.exp_u64_extension(self.base, self.count);
-        let tmp = builder.mul_extension(exp, x);
         self.count = 0;
-        tmp
+        builder.mul_extension(exp, x)
+    }
+
+    pub fn shift_and_mul<F>(
+        &mut self,
+        x: ExtensionTarget<D>,
+        a: ExtensionTarget<D>,
+        b: ExtensionTarget<D>,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> (ExtensionTarget<D>, ExtensionTarget<D>)
+    where
+        F: Extendable<D>,
+    {
+        let exp = builder.exp_u64_extension(self.base, self.count);
+        self.count = 0;
+        builder.mul_two_extension(exp, x, a, b)
     }
 
     pub fn reset(&mut self) {
