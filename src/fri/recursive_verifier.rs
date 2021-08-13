@@ -210,8 +210,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         proof: &FriInitialTreeProofTarget,
         alpha: ExtensionTarget<D>,
-        zeta: ExtensionTarget<D>,
         subgroup_x: Target,
+        vanish_zeta: ExtensionTarget<D>,
         precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
         common_data: &CommonCircuitData<F, D>,
     ) -> ExtensionTarget<D> {
@@ -225,7 +225,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 - config.rate_bits
         );
         let subgroup_x = self.convert_to_ext(subgroup_x);
-        let vanish_zeta = self.sub_extension(subgroup_x, zeta);
         let mut alpha = ReducingFactorTarget::new(alpha);
         let mut sum = self.zero_extension();
 
@@ -317,12 +316,25 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
-        let mut subgroup_x = with_context!(self, "compute x from its index", {
+        let (mut subgroup_x, vanish_zeta) = with_context!(self, "compute x from its index", {
             let g = self.constant(F::coset_shift());
             let phi = self.constant(F::primitive_root_of_unity(n_log));
 
             let phi = self.exp_from_bits(phi, x_index_bits.iter().rev());
-            self.mul(g, phi)
+            let g_ext = self.convert_to_ext(g);
+            let phi_ext = self.convert_to_ext(phi);
+            let zero = self.zero_extension();
+            let tmp = self.double_arithmetic_extension(
+                F::ONE,
+                F::NEG_ONE,
+                g_ext,
+                phi_ext,
+                zero,
+                g_ext,
+                phi_ext,
+                zeta,
+            );
+            (tmp.0 .0[0], tmp.1)
         });
 
         // old_eval is the last derived evaluation; it will be checked for consistency with its
@@ -333,8 +345,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.fri_combine_initial(
                 &round_proof.initial_trees_proof,
                 alpha,
-                zeta,
                 subgroup_x,
+                vanish_zeta,
                 precomputed_reduced_evals,
                 common_data,
             )
