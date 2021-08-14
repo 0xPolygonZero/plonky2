@@ -602,11 +602,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
-            constants_sigmas_cap
-                .0
-                .into_iter()
-                .flat_map(|h| h.elements)
-                .collect::<Vec<_>>(),
+            constants_sigmas_cap.flatten(),
             vec![/* Add other circuit data here */],
         ];
         let circuit_digest = hash_n_to_hash(circuit_digest_parts.concat(), false);
