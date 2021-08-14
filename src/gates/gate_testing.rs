@@ -137,9 +137,7 @@ pub(crate) fn test_eval_fns<F: Extendable<D>, G: Gate<F, D>, const D: usize>(
     let vars = EvaluationVars {
         local_constants: &constants,
         local_wires: &wires,
-        public_inputs_hash: &HashOut {
-            elements: [F::ZERO; 4],
-        },
+        public_inputs_hash: &public_inputs_hash,
     };
     let evals = gate.eval_unfiltered(vars);
 
