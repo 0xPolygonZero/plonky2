@@ -205,7 +205,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
             lde_final_poly,
             lde_final_values,
             challenger,
-            &config.fri_config,
+            &config,
             timing,
         );
 
@@ -281,14 +281,13 @@ mod tests {
             proof_of_work_bits: 2,
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
-            cap_height: 1,
         };
         // We only care about `fri_config, num_constants`, and `num_routed_wires` here.
         let common_data = CommonCircuitData {
             config: CircuitConfig {
                 fri_config,
                 num_routed_wires: 6,
-                ..CircuitConfig::large_config()
+                ..CircuitConfig::large_zk_config() // TODO: Why does this fail without ZK?
             },
             degree_bits,
             gates: vec![],
