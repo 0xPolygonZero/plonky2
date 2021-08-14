@@ -375,7 +375,6 @@ mod tests {
                 proof_of_work_bits: 1,
                 reduction_arity_bits: vec![2, 2, 2, 2, 2, 2],
                 num_query_rounds: 40,
-                cap_height: 1,
             },
         };
         let (proof_with_pis, vd, cd) = {
@@ -431,7 +430,6 @@ mod tests {
                 proof_of_work_bits: 1,
                 reduction_arity_bits: vec![2, 2, 2, 2, 2, 2],
                 num_query_rounds: 40,
-                cap_height: 3,
             },
         };
         let (proof_with_pis, vd, cd) = {

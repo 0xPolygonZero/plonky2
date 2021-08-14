@@ -16,6 +16,4 @@ pub struct FriConfig {
 
     /// Number of query rounds to perform.
     pub num_query_rounds: usize,
-
-    pub cap_height: usize,
 }

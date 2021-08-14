@@ -48,7 +48,6 @@ impl Default for CircuitConfig {
                 proof_of_work_bits: 1,
                 reduction_arity_bits: vec![1, 1, 1, 1],
                 num_query_rounds: 1,
-                cap_height: 1,
             },
         }
     }
@@ -66,14 +65,25 @@ impl CircuitConfig {
             security_bits: 128,
             rate_bits: 3,
             num_challenges: 3,
-            zero_knowledge: true,
+            zero_knowledge: false,
             cap_height: 1,
+            fri_config: FriConfig {
+                proof_of_work_bits: 1,
+                reduction_arity_bits: vec![1],
+                num_query_rounds: 1,
+            },
+        }
+    }
+
+    pub(crate) fn large_zk_config() -> Self {
+        CircuitConfig {
+            zero_knowledge: true,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
                 reduction_arity_bits: vec![1, 1, 1, 1],
                 num_query_rounds: 1,
-                cap_height: 1,
             },
+            ..Self::large_config()
         }
     }
 }

@@ -291,15 +291,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         round_proof: &FriQueryRoundTarget<D>,
         common_data: &CommonCircuitData<F, D>,
     ) {
-        let config = &common_data.config.fri_config;
+        let config = &common_data.config;
         let n_log = log2_strict(n);
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
         let x_index = challenger.get_challenge(self);
         let mut x_index_bits = self.low_bits(x_index, n_log, 64);
-        let cap_index = self.le_sum(
-            x_index_bits[x_index_bits.len() - common_data.config.fri_config.cap_height..]
-                .into_iter(),
-        );
+        let cap_index = self
+            .le_sum(x_index_bits[x_index_bits.len() - common_data.config.cap_height..].into_iter());
         with_context!(
             self,
             "check FRI initial proof",
@@ -349,7 +347,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         );
 
-        for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
+        for (i, &arity_bits) in config.fri_config.reduction_arity_bits.iter().enumerate() {
             let evals = &round_proof.steps[i].evals;
 
             // Split x_index into the index of the coset x is in, and the index of x within that coset.
