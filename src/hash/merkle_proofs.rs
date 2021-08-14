@@ -10,7 +10,7 @@ use crate::gates::gmimc::GMiMCGate;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::{compress, hash_or_noop, GMIMC_ROUNDS};
 use crate::hash::merkle_tree::MerkleCap;
-use crate::iop::target::Target;
+use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -66,7 +66,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub(crate) fn verify_merkle_proof(
         &mut self,
         leaf_data: Vec<Target>,
-        leaf_index_bits: &[Target],
+        leaf_index_bits: &[BoolTarget],
         merkle_cap: &MerkleCapTarget,
         proof: &MerkleProofTarget,
     ) {
@@ -83,7 +83,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 gate,
                 input: swap_wire,
             });
-            self.generate_copy(bit, swap_wire);
+            self.generate_copy(bit.target, swap_wire);
 
             let input_wires = (0..12)
                 .map(|i| {
@@ -131,7 +131,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub(crate) fn verify_merkle_proof_with_cap_index(
         &mut self,
         leaf_data: Vec<Target>,
-        leaf_index_bits: &[Target],
+        leaf_index_bits: &[BoolTarget],
         cap_index: Target,
         merkle_cap: &MerkleCapTarget,
         proof: &MerkleProofTarget,
@@ -149,7 +149,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 gate,
                 input: swap_wire,
             });
-            self.generate_copy(bit, swap_wire);
+            self.generate_copy(bit.target, swap_wire);
 
             let input_wires = (0..12)
                 .map(|i| {

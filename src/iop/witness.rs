@@ -9,7 +9,7 @@ use crate::gates::gate::GateInstance;
 use crate::hash::hash_types::HashOutTarget;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
-use crate::iop::target::Target;
+use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::copy_constraint::CopyConstraint;
 
@@ -68,6 +68,15 @@ impl<F: Field> PartialWitness<F> {
         ets.iter()
             .map(|&et| self.get_extension_target(et))
             .collect()
+    }
+
+    pub fn get_bool_target(&self, target: BoolTarget) -> bool {
+        let value = self.get_target(target.target).to_canonical_u64();
+        match value {
+            0 => false,
+            1 => true,
+            _ => panic!("not a bool"),
+        }
     }
 
     pub fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {
@@ -178,6 +187,10 @@ impl<F: Field> PartialWitness<F> {
         ets.iter()
             .zip(values)
             .for_each(|(&et, &v)| self.set_extension_target(et, v));
+    }
+
+    pub fn set_bool_target(&mut self, target: BoolTarget, value: bool) {
+        self.set_target(target.target, F::from_bool(value))
     }
 
     pub fn set_wire(&mut self, wire: Wire, value: F) {

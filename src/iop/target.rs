@@ -31,3 +31,20 @@ impl Target {
         range.map(|i| Self::wire(gate, i)).collect()
     }
 }
+
+/// A `Target` which has already been constrained such that it can only be 0 or 1.
+#[derive(Copy, Clone, Debug)]
+pub struct BoolTarget {
+    pub target: Target,
+    /// This private field is here to force all instantiations to go through `new_unsafe`.
+    _private: (),
+}
+
+impl BoolTarget {
+    pub fn new_unsafe(target: Target) -> BoolTarget {
+        BoolTarget {
+            target,
+            _private: (),
+        }
+    }
+}
