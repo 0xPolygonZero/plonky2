@@ -4,7 +4,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::base_sum::BaseSumGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
-use crate::iop::target::Target;
+use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::PartialWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -33,7 +33,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// the number with little-endian bit representation given by `bits`.
     pub(crate) fn le_sum(
         &mut self,
-        bits: impl ExactSizeIterator<Item = impl Borrow<Target>> + Clone,
+        bits: impl ExactSizeIterator<Item = impl Borrow<BoolTarget>> + Clone,
     ) -> Target {
         let num_bits = bits.len();
         debug_assert!(
@@ -45,7 +45,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .clone()
             .zip(BaseSumGate::<2>::START_LIMBS..BaseSumGate::<2>::START_LIMBS + num_bits)
         {
-            self.route(*limb.borrow(), Target::wire(gate_index, wire));
+            self.route(limb.borrow().target, Target::wire(gate_index, wire));
         }
 
         self.add_generator(BaseSumGenerator::<2> {
@@ -60,21 +60,23 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[derive(Debug)]
 struct BaseSumGenerator<const B: usize> {
     gate_index: usize,
-    limbs: Vec<Target>,
+    limbs: Vec<BoolTarget>,
 }
 
 impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
     fn dependencies(&self) -> Vec<Target> {
-        self.limbs.clone()
+        self.limbs.iter().map(|b| b.target).collect()
     }
 
     fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let sum = self
             .limbs
             .iter()
-            .map(|&t| witness.get_target(t))
+            .map(|&t| witness.get_bool_target(t))
             .rev()
-            .fold(F::ZERO, |acc, limb| acc * F::from_canonical_usize(B) + limb);
+            .fold(F::ZERO, |acc, limb| {
+                acc * F::from_canonical_usize(B) + F::from_bool(limb)
+            });
 
         out_buffer.set_target(
             Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM),
@@ -131,8 +133,8 @@ mod tests {
         let n = thread_rng().gen_range(0..(1 << 10));
         let x = builder.constant(F::from_canonical_usize(n));
 
-        let zero = builder.zero();
-        let one = builder.one();
+        let zero = builder._false();
+        let one = builder._true();
 
         let y = builder.le_sum(
             (0..10)

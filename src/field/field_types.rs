@@ -185,6 +185,10 @@ pub trait Field:
         Self::from_canonical_u64(n as u64)
     }
 
+    fn from_bool(b: bool) -> Self {
+        Self::from_canonical_u64(b as u64)
+    }
+
     fn to_canonical_biguint(&self) -> BigUint;
 
     fn from_canonical_biguint(n: BigUint) -> Self;

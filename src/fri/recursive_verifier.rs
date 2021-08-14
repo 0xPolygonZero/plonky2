@@ -5,7 +5,7 @@ use crate::fri::proof::{FriInitialTreeProofTarget, FriProofTarget, FriQueryRound
 use crate::fri::FriConfig;
 use crate::hash::hash_types::MerkleCapTarget;
 use crate::iop::challenger::RecursiveChallenger;
-use crate::iop::target::Target;
+use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::PlonkPolynomials;
@@ -20,7 +20,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn compute_evaluation(
         &mut self,
         x: Target,
-        x_index_within_coset_bits: &[Target],
+        x_index_within_coset_bits: &[BoolTarget],
         arity_bits: usize,
         evals: &[ExtensionTarget<D>],
         beta: ExtensionTarget<D>,
@@ -181,7 +181,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn fri_verify_initial_proof(
         &mut self,
-        x_index_bits: &[Target],
+        x_index_bits: &[BoolTarget],
         proof: &FriInitialTreeProofTarget,
         initial_merkle_caps: &[MerkleCapTarget],
         cap_index: Target,
