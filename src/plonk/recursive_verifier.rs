@@ -9,9 +9,6 @@ use crate::plonk::vars::EvaluationTargets;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
 
-const MIN_WIRES: usize = 120; // TODO: Double check.
-const MIN_ROUTED_WIRES: usize = 28; // TODO: Double check.
-
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
     pub fn add_recursive_verifier(
@@ -21,8 +18,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
     ) {
-        assert!(self.config.num_wires >= MIN_WIRES);
-        assert!(self.config.num_wires >= MIN_ROUTED_WIRES);
         let ProofWithPublicInputsTarget {
             proof,
             public_inputs,
