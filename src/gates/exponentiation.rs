@@ -322,14 +322,14 @@ mod tests {
 
             let num_power_bits = power_bits.len();
 
-            let power_bits_F: Vec<_> = power_bits
+            let power_bits_f: Vec<_> = power_bits
                 .iter()
                 .map(|b| F::from_canonical_u64(*b))
                 .collect();
 
             let mut v = Vec::new();
             v.push(base);
-            v.extend(power_bits_F.clone());
+            v.extend(power_bits_f.clone());
 
             let mut intermediate_values = Vec::new();
             let mut current_intermediate_value = F::ONE;

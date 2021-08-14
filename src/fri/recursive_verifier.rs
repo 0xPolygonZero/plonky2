@@ -22,18 +22,18 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x: Target,
         x_index_within_coset_bits: &[Target],
         arity_bits: usize,
-        last_evals: &[ExtensionTarget<D>],
+        evals: &[ExtensionTarget<D>],
         beta: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
         let arity = 1 << arity_bits;
-        debug_assert_eq!(last_evals.len(), arity);
+        debug_assert_eq!(evals.len(), arity);
 
         let g = F::primitive_root_of_unity(arity_bits);
         let g_inv = g.exp((arity as u64) - 1);
         let g_inv_t = self.constant(g_inv);
 
         // The evaluation vector needs to be reordered first.
-        let mut evals = last_evals.to_vec();
+        let mut evals = evals.to_vec();
         reverse_index_bits_in_place(&mut evals);
         // Want `g^(arity - rev_x_index_within_coset)` as in the out-of-circuit version. Compute it
         // as `(g^-1)^rev_x_index_within_coset`.
