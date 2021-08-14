@@ -712,7 +712,7 @@ mod tests {
         type FF = QuarticCrandallField;
         const D: usize = 4;
 
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::large_zk_config();
 
         let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, D>::new(config);

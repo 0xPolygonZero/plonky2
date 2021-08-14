@@ -282,12 +282,13 @@ mod tests {
             reduction_arity_bits: vec![2, 3, 1, 2],
             num_query_rounds: 3,
         };
+
         // We only care about `fri_config, num_constants`, and `num_routed_wires` here.
         let common_data = CommonCircuitData {
             config: CircuitConfig {
                 fri_config,
                 num_routed_wires: 6,
-                ..CircuitConfig::large_zk_config() // TODO: Why does this fail without ZK?
+                ..CircuitConfig::large_config()
             },
             degree_bits,
             gates: vec![],
@@ -299,12 +300,12 @@ mod tests {
             circuit_digest: HashOut::from_partial(vec![]),
         };
 
-        let lpcs = (0..4)
+        let commitments = (0..4)
             .map(|i| {
                 PolynomialBatchCommitment::<F>::from_values(
                     gen_random_test_case(ks[i], degree_bits),
                     common_data.config.rate_bits,
-                    PlonkPolynomials::polynomials(i).blinding,
+                    common_data.config.zero_knowledge && PlonkPolynomials::polynomials(i).blinding,
                     common_data.config.cap_height,
                     &mut TimingTree::default(),
                 )
@@ -313,7 +314,12 @@ mod tests {
 
         let zeta = gen_random_point::<F, D>(degree_bits);
         let (proof, os) = PolynomialBatchCommitment::open_plonk::<D>(
-            &[&lpcs[0], &lpcs[1], &lpcs[2], &lpcs[3]],
+            &[
+                &commitments[0],
+                &commitments[1],
+                &commitments[2],
+                &commitments[3],
+            ],
             zeta,
             &mut Challenger::new(),
             &common_data,
@@ -321,10 +327,10 @@ mod tests {
         );
 
         let merkle_caps = &[
-            lpcs[0].merkle_tree.cap.clone(),
-            lpcs[1].merkle_tree.cap.clone(),
-            lpcs[2].merkle_tree.cap.clone(),
-            lpcs[3].merkle_tree.cap.clone(),
+            commitments[0].merkle_tree.cap.clone(),
+            commitments[1].merkle_tree.cap.clone(),
+            commitments[2].merkle_tree.cap.clone(),
+            commitments[3].merkle_tree.cap.clone(),
         ];
 
         verify_fri_proof(
