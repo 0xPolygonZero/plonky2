@@ -412,6 +412,7 @@ struct PrecomputedReducedEvalsTarget<const D: usize> {
     pub single: ExtensionTarget<D>,
     pub zs: ExtensionTarget<D>,
     pub zs_right: ExtensionTarget<D>,
+    /// Slope of the line from `(zeta, zs)` to `(zeta_right, zs_right)`.
     pub slope: ExtensionTarget<D>,
     pub zeta_right: ExtensionTarget<D>,
 }
