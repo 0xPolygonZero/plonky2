@@ -103,7 +103,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
         values = coeffs.coset_fft(shift.into())
     }
 
-    /// The coefficients being removed here should always be zero.
+    // The coefficients being removed here should always be zero.
     coeffs.coeffs.truncate(coeffs.len() >> config.rate_bits);
 
     challenger.observe_extension_elements(&coeffs.coeffs);
