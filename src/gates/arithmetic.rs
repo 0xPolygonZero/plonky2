@@ -108,7 +108,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
         gate_index: usize,
         local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        (0..4)
+        (0..NUM_ARITHMETIC_OPS)
             .map(|i| {
                 let g: Box<dyn WitnessGenerator<F>> = Box::new(ArithmeticExtensionGenerator {
                     gate_index,

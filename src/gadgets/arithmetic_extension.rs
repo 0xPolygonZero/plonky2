@@ -13,6 +13,9 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bits_u64;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    /// Finds the last available arithmetic gate with the given constants or add one if there aren't any.
+    /// Returns `(g,i)` such that there is an arithmetic gate with the given constants at index
+    /// `g` and the gate's `i`-th operation is available.
     fn find_arithmetic_gate(&mut self, const_0: F, const_1: F) -> (usize, usize) {
         let (gate, i) = self
             .free_arithmetic

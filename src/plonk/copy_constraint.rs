@@ -1,7 +1,6 @@
 use crate::iop::target::Target;
 
 /// A named copy constraint.
-#[derive(Debug)]
 pub struct CopyConstraint {
     pub pair: (Target, Target),
     pub name: String,
