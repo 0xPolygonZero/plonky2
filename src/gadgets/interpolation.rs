@@ -5,29 +5,6 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Interpolate two points. No need for an `InterpolationGate` since the coefficients
-    /// of the linear interpolation polynomial can be easily computed with arithmetic operations.
-    pub fn interpolate2(
-        &mut self,
-        interpolation_points: [(ExtensionTarget<D>, ExtensionTarget<D>); 2],
-        evaluation_point: ExtensionTarget<D>,
-    ) -> ExtensionTarget<D> {
-        // a0 -> a1
-        // b0 -> b1
-        // x  -> a1 + (x-a0)*(b1-a1)/(b0-a0)
-
-        let (x_m_a0, b1_m_a1) = self.sub_two_extension(
-            evaluation_point,
-            interpolation_points[0].0,
-            interpolation_points[1].1,
-            interpolation_points[0].1,
-        );
-        let b0_m_a0 = self.sub_extension(interpolation_points[1].0, interpolation_points[0].0);
-        let quotient = self.div_extension(b1_m_a1, b0_m_a0);
-
-        self.mul_add_extension(x_m_a0, quotient, interpolation_points[0].1)
-    }
-
     /// Interpolate a list of point/evaluation pairs at a given point.
     /// Returns the evaluation of the interpolated polynomial at `evaluation_point`.
     pub fn interpolate(
@@ -100,41 +77,6 @@ mod tests {
         let zt = builder.constant_extension(z);
 
         let eval = builder.interpolate(&points_target, zt);
-        let true_eval_target = builder.constant_extension(true_eval);
-        builder.assert_equal_extension(eval, true_eval_target);
-
-        let data = builder.build();
-        let proof = data.prove(pw)?;
-
-        verify(proof, &data.verifier_only, &data.common)
-    }
-
-    #[test]
-    fn test_interpolate2() -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticCrandallField;
-        let config = CircuitConfig::large_zk_config();
-        let pw = PartialWitness::new(config.num_wires);
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
-
-        let len = 2;
-        let points = (0..len)
-            .map(|_| (FF::rand(), FF::rand()))
-            .collect::<Vec<_>>();
-
-        let true_interpolant = interpolant(&points);
-
-        let z = FF::rand();
-        let true_eval = true_interpolant.eval(z);
-
-        let points_target = points
-            .iter()
-            .map(|&(p, v)| (builder.constant_extension(p), builder.constant_extension(v)))
-            .collect::<Vec<_>>();
-
-        let zt = builder.constant_extension(z);
-
-        let eval = builder.interpolate2(points_target.try_into().unwrap(), zt);
         let true_eval_target = builder.constant_extension(true_eval);
         builder.assert_equal_extension(eval, true_eval_target);
 

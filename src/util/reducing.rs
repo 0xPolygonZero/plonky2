@@ -164,52 +164,15 @@ impl<const D: usize> ReducingFactorTarget<D> {
     where
         F: Extendable<D>,
     {
-        let zero = builder.zero_extension();
         let l = terms.len();
         self.count += l as u64;
 
         let mut terms_vec = terms.to_vec();
-        // If needed, we pad the original vector so that it has even length.
-        if terms_vec.len().is_odd() {
-            terms_vec.push(zero);
-        }
+        let mut acc = terms_vec.pop().unwrap();
         terms_vec.reverse();
 
-        let mut acc = zero;
-        for pair in terms_vec.chunks(2) {
-            // We will route the output of the first arithmetic operation to the multiplicand of the
-            // second, i.e. we compute the following:
-            //     out_0 = alpha acc + pair[0]
-            //     acc' = out_1 = alpha out_0 + pair[1]
-
-            let (gate, range) = if let Some((g, c_0, c_1)) = builder.free_arithmetic {
-                if c_0 == F::ONE && c_1 == F::ONE {
-                    (g, ArithmeticExtensionGate::<D>::wires_third_output())
-                } else {
-                    (
-                        builder.num_gates(),
-                        ArithmeticExtensionGate::<D>::wires_first_output(),
-                    )
-                }
-            } else {
-                (
-                    builder.num_gates(),
-                    ArithmeticExtensionGate::<D>::wires_first_output(),
-                )
-            };
-            let out_0 = ExtensionTarget::from_range(gate, range);
-            acc = builder
-                .double_arithmetic_extension(
-                    F::ONE,
-                    F::ONE,
-                    self.base,
-                    acc,
-                    pair[0],
-                    self.base,
-                    out_0,
-                    pair[1],
-                )
-                .1;
+        for x in terms_vec {
+            acc = builder.mul_add_extension(self.base, acc, x);
         }
         acc
     }
@@ -225,21 +188,6 @@ impl<const D: usize> ReducingFactorTarget<D> {
         let exp = builder.exp_u64_extension(self.base, self.count);
         self.count = 0;
         builder.mul_extension(exp, x)
-    }
-
-    pub fn shift_and_mul<F>(
-        &mut self,
-        x: ExtensionTarget<D>,
-        a: ExtensionTarget<D>,
-        b: ExtensionTarget<D>,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> (ExtensionTarget<D>, ExtensionTarget<D>)
-    where
-        F: Extendable<D>,
-    {
-        let exp = builder.exp_u64_extension(self.base, self.count);
-        self.count = 0;
-        builder.mul_two_extension(exp, x, a, b)
     }
 
     pub fn reset(&mut self) {

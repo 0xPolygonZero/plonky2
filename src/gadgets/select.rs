@@ -25,25 +25,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x: ExtensionTarget<D>,
         y: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        // Holds `by - y`.
-        let (gate, range) = if let Some((g, c_0, c_1)) = self.free_arithmetic {
-            if c_0 == F::ONE && c_1 == F::NEG_ONE {
-                (g, ArithmeticExtensionGate::<D>::wires_third_output())
-            } else {
-                (
-                    self.num_gates(),
-                    ArithmeticExtensionGate::<D>::wires_first_output(),
-                )
-            }
-        } else {
-            (
-                self.num_gates(),
-                ArithmeticExtensionGate::<D>::wires_first_output(),
-            )
-        };
-        let first_out = ExtensionTarget::from_range(gate, range);
-        self.double_arithmetic_extension(F::ONE, F::NEG_ONE, b, y, y, b, x, first_out)
-            .1
+        let tmp = self.mul_sub_extension(b, y, y);
+        self.mul_sub_extension(b, x, tmp)
     }
 
     /// See `select_ext`.

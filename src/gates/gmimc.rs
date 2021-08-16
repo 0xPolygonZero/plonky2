@@ -197,18 +197,8 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
             let cubing_input_wire = vars.local_wires[Self::wire_cubing_input(r)];
             constraints.push(builder.sub_extension(cubing_input, cubing_input_wire));
             let f = builder.cube_extension(cubing_input_wire);
-            // addition_buffer += f
-            // state[active] -= f
-            (addition_buffer, state[active]) = builder.double_arithmetic_extension(
-                F::ONE,
-                F::ONE,
-                one,
-                addition_buffer,
-                f,
-                neg_one,
-                f,
-                state[active],
-            );
+            addition_buffer = builder.add_extension(addition_buffer, f);
+            state[active] = builder.sub_extension(state[active], f);
         }
 
         for i in 0..W {
