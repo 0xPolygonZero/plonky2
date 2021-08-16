@@ -427,9 +427,9 @@ mod tests {
             zero_knowledge: false,
             cap_height: 3,
             fri_config: FriConfig {
-                proof_of_work_bits: 1,
+                proof_of_work_bits: 20,
                 reduction_arity_bits: vec![3, 3, 3],
-                num_query_rounds: 40,
+                num_query_rounds: 27,
             },
         };
         let (proof_with_pis, vd, cd) = {
@@ -437,7 +437,7 @@ mod tests {
                 let mut builder = CircuitBuilder::<F, D>::new(config.clone());
                 let _two = builder.two();
                 let mut _two = builder.hash_n_to_hash(vec![_two], true).elements[0];
-                for _ in 0..20000 {
+                for _ in 0..10000 {
                     _two = builder.mul(_two, _two);
                 }
                 let data = builder.build();
