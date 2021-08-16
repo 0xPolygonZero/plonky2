@@ -16,7 +16,7 @@ use crate::gates::public_input::PublicInputGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
-use crate::iop::target::Target;
+use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
@@ -130,6 +130,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (0..n)
             .map(|_i| self.add_virtual_extension_target())
             .collect()
+    }
+
+    // TODO: Unsafe
+    pub fn add_virtual_bool_target(&mut self) -> BoolTarget {
+        BoolTarget::new_unsafe(self.add_virtual_target())
     }
 
     /// Adds a gate to the circuit, and returns its index.
@@ -282,6 +287,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.constant(F::NEG_ONE)
     }
 
+    pub fn _false(&mut self) -> BoolTarget {
+        BoolTarget::new_unsafe(self.zero())
+    }
+
+    pub fn _true(&mut self) -> BoolTarget {
+        BoolTarget::new_unsafe(self.one())
+    }
+
     /// Returns a routable target with the given constant value.
     pub fn constant(&mut self, c: F) -> Target {
         if let Some(&target) = self.constants_to_targets.get(&c) {
@@ -301,6 +314,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn constants(&mut self, constants: &[F]) -> Vec<Target> {
         constants.iter().map(|&c| self.constant(c)).collect()
+    }
+
+    pub fn constant_bool(&mut self, b: bool) -> BoolTarget {
+        if b {
+            self._true()
+        } else {
+            self._false()
+        }
     }
 
     /// If the given target is a constant (i.e. it was created by the `constant(F)` method), returns
@@ -605,11 +626,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
-            constants_sigmas_cap
-                .0
-                .into_iter()
-                .flat_map(|h| h.elements)
-                .collect::<Vec<_>>(),
+            constants_sigmas_cap.flatten(),
             vec![/* Add other circuit data here */],
         ];
         let circuit_digest = hash_n_to_hash(circuit_digest_parts.concat(), false);

@@ -1,34 +1,18 @@
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::base_sum::BaseSumGate;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::iop::target::Target;
-use crate::iop::wire::Wire;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator};
+use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::PartialWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::ceil_div_usize;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Split the given integer into a list of virtual targets, where each one represents a bit of
-    /// the integer, with little-endian ordering.
-    ///
-    /// Note that this only handles witness generation; it does not enforce that the decomposition
-    /// is correct. The output should be treated as a "purported" decomposition which must be
-    /// enforced elsewhere.
-    pub(crate) fn split_le_virtual(&mut self, integer: Target, num_bits: usize) -> Vec<Target> {
-        let bit_targets = self.add_virtual_targets(num_bits);
-        self.add_generator(SplitGenerator {
-            integer,
-            bits: bit_targets.clone(),
-        });
-        bit_targets
-    }
-
     /// Split the given integer into a list of wires, where each one represents a
     /// bit of the integer, with little-endian ordering.
     /// Verifies that the decomposition is correct by using `k` `BaseSum<2>` gates
-    /// with `k` such that `k*num_routed_wires>=num_bits`.
-    pub(crate) fn split_le(&mut self, integer: Target, num_bits: usize) -> Vec<Target> {
+    /// with `k` such that `k * num_routed_wires >= num_bits`.
+    pub(crate) fn split_le(&mut self, integer: Target, num_bits: usize) -> Vec<BoolTarget> {
         if num_bits == 0 {
             return Vec::new();
         }
@@ -40,10 +24,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut bits = Vec::with_capacity(num_bits);
         for &gate in &gates {
-            bits.extend(Target::wires_from_range(
-                gate,
-                BaseSumGate::<2>::START_LIMBS..BaseSumGate::<2>::START_LIMBS + bits_per_gate,
-            ));
+            let start_limbs = BaseSumGate::<2>::START_LIMBS;
+            for limb_input in start_limbs..start_limbs + bits_per_gate {
+                // `new_unsafe` is safe here because BaseSumGate::<2> forces it to be in `{0, 1}`.
+                bits.push(BoolTarget::new_unsafe(Target::wire(gate, limb_input)));
+            }
         }
         bits.drain(num_bits..);
 
@@ -70,33 +55,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         bits
     }
-}
-
-/// Generator for a little-endian split.
-#[must_use]
-pub fn split_le_generator<F: Field>(
-    integer: Target,
-    bits: Vec<Target>,
-) -> Box<dyn WitnessGenerator<F>> {
-    Box::new(SplitGenerator { integer, bits })
-}
-
-/// Generator for a little-endian split.
-#[must_use]
-pub fn split_le_generator_local_wires<F: Field>(
-    gate: usize,
-    integer_input_index: usize,
-    bit_input_indices: &[usize],
-) -> Box<dyn WitnessGenerator<F>> {
-    let integer = Target::Wire(Wire {
-        gate,
-        input: integer_input_index,
-    });
-    let bits = bit_input_indices
-        .iter()
-        .map(|&input| Target::Wire(Wire { gate, input }))
-        .collect();
-    Box::new(SplitGenerator { integer, bits })
 }
 
 #[derive(Debug)]

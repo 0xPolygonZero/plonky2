@@ -301,10 +301,7 @@ mod tests {
         type FF = QuarticCrandallField;
         const D: usize = 4;
 
-        let config = CircuitConfig {
-            num_routed_wires: 64,
-            ..CircuitConfig::large_config()
-        };
+        let config = CircuitConfig::large_config();
 
         let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, D>::new(config);

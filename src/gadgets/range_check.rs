@@ -2,7 +2,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::base_sum::BaseSumGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
-use crate::iop::target::Target;
+use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::PartialWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -15,7 +15,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Returns the first `num_low_bits` little-endian bits of `x`.
-    pub fn low_bits(&mut self, x: Target, num_low_bits: usize, num_bits: usize) -> Vec<Target> {
+    pub fn low_bits(&mut self, x: Target, num_low_bits: usize, num_bits: usize) -> Vec<BoolTarget> {
         let mut res = self.split_le(x, num_bits);
         res.truncate(num_low_bits);
         res

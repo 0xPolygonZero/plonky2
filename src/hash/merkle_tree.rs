@@ -13,6 +13,12 @@ use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 #[serde(bound = "")]
 pub struct MerkleCap<F: Field>(pub Vec<HashOut<F>>);
 
+impl<F: Field> MerkleCap<F> {
+    pub fn flatten(&self) -> Vec<F> {
+        self.0.iter().flat_map(|h| h.elements).collect()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct MerkleTree<F: Field> {
     /// The data in the leaves of the Merkle tree.

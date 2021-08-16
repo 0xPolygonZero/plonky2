@@ -113,7 +113,7 @@ mod tests {
     fn test_interpolate2() -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::large_zk_config();
         let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 

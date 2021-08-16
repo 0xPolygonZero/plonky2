@@ -5,7 +5,7 @@ use crate::fri::proof::{FriInitialTreeProofTarget, FriProofTarget, FriQueryRound
 use crate::fri::FriConfig;
 use crate::hash::hash_types::MerkleCapTarget;
 use crate::iop::challenger::RecursiveChallenger;
-use crate::iop::target::Target;
+use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::PlonkPolynomials;
@@ -20,20 +20,20 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn compute_evaluation(
         &mut self,
         x: Target,
-        x_index_within_coset_bits: &[Target],
+        x_index_within_coset_bits: &[BoolTarget],
         arity_bits: usize,
-        last_evals: &[ExtensionTarget<D>],
+        evals: &[ExtensionTarget<D>],
         beta: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
         let arity = 1 << arity_bits;
-        debug_assert_eq!(last_evals.len(), arity);
+        debug_assert_eq!(evals.len(), arity);
 
         let g = F::primitive_root_of_unity(arity_bits);
         let g_inv = g.exp((arity as u64) - 1);
         let g_inv_t = self.constant(g_inv);
 
         // The evaluation vector needs to be reordered first.
-        let mut evals = last_evals.to_vec();
+        let mut evals = evals.to_vec();
         reverse_index_bits_in_place(&mut evals);
         // Want `g^(arity - rev_x_index_within_coset)` as in the out-of-circuit version. Compute it
         // as `(g^-1)^rev_x_index_within_coset`.
@@ -181,7 +181,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn fri_verify_initial_proof(
         &mut self,
-        x_index_bits: &[Target],
+        x_index_bits: &[BoolTarget],
         proof: &FriInitialTreeProofTarget,
         initial_merkle_caps: &[MerkleCapTarget],
         cap_index: Target,
@@ -291,15 +291,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         round_proof: &FriQueryRoundTarget<D>,
         common_data: &CommonCircuitData<F, D>,
     ) {
-        let config = &common_data.config.fri_config;
+        let config = &common_data.config;
         let n_log = log2_strict(n);
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
         let x_index = challenger.get_challenge(self);
         let mut x_index_bits = self.low_bits(x_index, n_log, 64);
-        let cap_index = self.le_sum(
-            x_index_bits[x_index_bits.len() - common_data.config.fri_config.cap_height..]
-                .into_iter(),
-        );
+        let cap_index = self
+            .le_sum(x_index_bits[x_index_bits.len() - common_data.config.cap_height..].into_iter());
         with_context!(
             self,
             "check FRI initial proof",
@@ -320,6 +318,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let g_ext = self.convert_to_ext(g);
             let phi_ext = self.convert_to_ext(phi);
             let zero = self.zero_extension();
+            // `subgroup_x = g*phi, vanish_zeta = g*phi - zeta`
             let tmp = self.double_arithmetic_extension(
                 F::ONE,
                 F::NEG_ONE,
@@ -348,7 +347,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         );
 
-        for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
+        for (i, &arity_bits) in config.fri_config.reduction_arity_bits.iter().enumerate() {
             let evals = &round_proof.steps[i].evals;
 
             // Split x_index into the index of the coset x is in, and the index of x within that coset.
@@ -411,6 +410,7 @@ struct PrecomputedReducedEvalsTarget<const D: usize> {
     pub single: ExtensionTarget<D>,
     pub zs: ExtensionTarget<D>,
     pub zs_right: ExtensionTarget<D>,
+    /// Slope of the line from `(zeta, zs)` to `(zeta_right, zs_right)`.
     pub slope: ExtensionTarget<D>,
     pub zeta_right: ExtensionTarget<D>,
 }

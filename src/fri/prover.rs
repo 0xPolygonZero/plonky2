@@ -8,6 +8,7 @@ use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_1;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
+use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::plonk_common::reduce_with_powers;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::timed;
@@ -22,7 +23,7 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
     // Evaluation of the polynomial on the large domain.
     lde_polynomial_values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
-    config: &FriConfig,
+    config: &CircuitConfig,
     timing: &mut TimingTree,
 ) -> FriProof<F, D> {
     let n = lde_polynomial_values.values.len();
@@ -45,12 +46,17 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
     let pow_witness = timed!(
         timing,
         "find for proof-of-work witness",
-        fri_proof_of_work(current_hash, config)
+        fri_proof_of_work(current_hash, &config.fri_config)
     );
 
     // Query phase
-    let query_round_proofs =
-        fri_prover_query_rounds(initial_merkle_trees, &trees, challenger, n, config);
+    let query_round_proofs = fri_prover_query_rounds(
+        initial_merkle_trees,
+        &trees,
+        challenger,
+        n,
+        &config.fri_config,
+    );
 
     FriProof {
         commit_phase_merkle_caps: trees.iter().map(|t| t.cap.clone()).collect(),
@@ -64,14 +70,14 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
     mut coeffs: PolynomialCoeffs<F::Extension>,
     mut values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
-    config: &FriConfig,
+    config: &CircuitConfig,
 ) -> (Vec<MerkleTree<F>>, PolynomialCoeffs<F::Extension>) {
     let mut trees = Vec::new();
 
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
-    let num_reductions = config.reduction_arity_bits.len();
+    let num_reductions = config.fri_config.reduction_arity_bits.len();
     for i in 0..num_reductions {
-        let arity = 1 << config.reduction_arity_bits[i];
+        let arity = 1 << config.fri_config.reduction_arity_bits[i];
 
         reverse_index_bits_in_place(&mut values.values);
         let chunked_values = values
@@ -97,7 +103,9 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
         values = coeffs.coset_fft(shift.into())
     }
 
-    coeffs.trim();
+    /// The coefficients being removed here should always be zero.
+    coeffs.coeffs.truncate(coeffs.len() >> config.rate_bits);
+
     challenger.observe_extension_elements(&coeffs.coeffs);
     (trees, coeffs)
 }

@@ -158,7 +158,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 
             // power_bits is in LE order, but we accumulate in BE order.
             let cur_bit = power_bits[self.num_power_bits - i - 1];
-            let mul_by = builder.select_ext(cur_bit, base, one);
+            let mul_by = builder.select_ext_generalized(cur_bit, base, one);
             let intermediate_value_diff =
                 builder.mul_sub_extension(prev_intermediate_value, mul_by, intermediate_values[i]);
             constraints.push(intermediate_value_diff);
@@ -322,14 +322,14 @@ mod tests {
 
             let num_power_bits = power_bits.len();
 
-            let power_bits_F: Vec<_> = power_bits
+            let power_bits_f: Vec<_> = power_bits
                 .iter()
                 .map(|b| F::from_canonical_u64(*b))
                 .collect();
 
             let mut v = Vec::new();
             v.push(base);
-            v.extend(power_bits_F.clone());
+            v.extend(power_bits_f.clone());
 
             let mut intermediate_values = Vec::new();
             let mut current_intermediate_value = F::ONE;

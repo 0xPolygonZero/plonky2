@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use crate::field::extension_field::Extendable;
 use crate::gates::exponentiation::ExponentiationGate;
-use crate::iop::target::Target;
+use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -115,21 +115,21 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn exp_from_bits(
         &mut self,
         base: Target,
-        exponent_bits: impl IntoIterator<Item = impl Borrow<Target>>,
+        exponent_bits: impl IntoIterator<Item = impl Borrow<BoolTarget>>,
     ) -> Target {
-        let zero = self.zero();
+        let _false = self._false();
         let gate = ExponentiationGate::new(self.config.clone());
         let num_power_bits = gate.num_power_bits;
-        let mut exp_bits_vec: Vec<Target> =
+        let mut exp_bits_vec: Vec<BoolTarget> =
             exponent_bits.into_iter().map(|b| *b.borrow()).collect();
         while exp_bits_vec.len() < num_power_bits {
-            exp_bits_vec.push(zero);
+            exp_bits_vec.push(_false);
         }
         let gate_index = self.add_gate(gate.clone(), vec![]);
 
         self.route(base, Target::wire(gate_index, gate.wire_base()));
         exp_bits_vec.iter().enumerate().for_each(|(i, bit)| {
-            self.route(*bit, Target::wire(gate_index, gate.wire_power_bit(i)));
+            self.route(bit.target, Target::wire(gate_index, gate.wire_power_bit(i)));
         });
 
         Target::wire(gate_index, gate.wire_output())
@@ -148,8 +148,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn exp_u64(&mut self, base: Target, mut exponent: u64) -> Target {
         let mut exp_bits = Vec::new();
         while exponent != 0 {
-            let bit = exponent & 1;
-            let bit_target = self.constant(F::from_canonical_u64(bit));
+            let bit = (exponent & 1) == 1;
+            let bit_target = self.constant_bool(bit);
             exp_bits.push(bit_target);
             exponent >>= 1;
         }

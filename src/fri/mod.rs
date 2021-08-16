@@ -4,10 +4,6 @@ pub mod prover;
 pub mod recursive_verifier;
 pub mod verifier;
 
-/// Somewhat arbitrary. Smaller values will increase delta, but with diminishing returns,
-/// while increasing L, potentially requiring more challenge points.
-const EPSILON: f64 = 0.01;
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FriConfig {
     pub proof_of_work_bits: u32,
@@ -20,29 +16,4 @@ pub struct FriConfig {
 
     /// Number of query rounds to perform.
     pub num_query_rounds: usize,
-
-    pub cap_height: usize,
-}
-
-fn fri_delta(rate_log: usize, conjecture: bool) -> f64 {
-    let rate = (1 << rate_log) as f64;
-    if conjecture {
-        // See Conjecture 2.3 in DEEP-FRI.
-        1.0 - rate - EPSILON
-    } else {
-        // See the Johnson radius.
-        1.0 - rate.sqrt() - EPSILON
-    }
-}
-
-fn fri_l(codeword_len: usize, rate_log: usize, conjecture: bool) -> f64 {
-    let rate = (1 << rate_log) as f64;
-    if conjecture {
-        // See Conjecture 2.3 in DEEP-FRI.
-        // We assume the conjecture holds with a constant of 1 (as do other STARK implementations).
-        (codeword_len as f64) / EPSILON
-    } else {
-        // See the Johnson bound.
-        1.0 / (2.0 * EPSILON * rate.sqrt())
-    }
 }
