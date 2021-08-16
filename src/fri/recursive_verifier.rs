@@ -91,7 +91,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Size of the LDE domain.
         let n = proof.final_poly.len() << (total_arities + config.rate_bits);
 
-        challenger.observe_opening_set(&os);
+        challenger.observe_opening_set(os);
 
         // Scaling factor to combine polynomials.
         let alpha = challenger.get_extension_challenge(self);
@@ -284,8 +284,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
         let x_index = challenger.get_challenge(self);
         let mut x_index_bits = self.low_bits(x_index, n_log, 64);
-        let cap_index = self
-            .le_sum(x_index_bits[x_index_bits.len() - common_data.config.cap_height..].into_iter());
+        let cap_index =
+            self.le_sum(x_index_bits[x_index_bits.len() - common_data.config.cap_height..].iter());
         with_context!(
             self,
             "check FRI initial proof",
@@ -305,7 +305,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let phi = self.exp_from_bits(phi, x_index_bits.iter().rev());
             let g_ext = self.convert_to_ext(g);
             let phi_ext = self.convert_to_ext(phi);
-            let zero = self.zero_extension();
             // `subgroup_x = g*phi, vanish_zeta = g*phi - zeta`
             let subgroup_x = self.mul(g, phi);
             let vanish_zeta = self.mul_sub_extension(g_ext, phi_ext, zeta);
@@ -349,7 +348,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 "infer evaluation using interpolation",
                 self.compute_evaluation(
                     subgroup_x,
-                    &x_index_within_coset_bits,
+                    x_index_within_coset_bits,
                     arity_bits,
                     evals,
                     betas[i],
@@ -389,7 +388,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 struct PrecomputedReducedEvalsTarget<const D: usize> {
     pub single: ExtensionTarget<D>,
     pub zs: ExtensionTarget<D>,
-    pub zs_right: ExtensionTarget<D>,
     /// Slope of the line from `(zeta, zs)` to `(zeta_right, zs_right)`.
     pub slope: ExtensionTarget<D>,
     pub zeta_right: ExtensionTarget<D>,
@@ -426,7 +424,6 @@ impl<const D: usize> PrecomputedReducedEvalsTarget<D> {
         Self {
             single,
             zs,
-            zs_right,
             slope: builder.div_extension(numerator, denominator),
             zeta_right,
         }

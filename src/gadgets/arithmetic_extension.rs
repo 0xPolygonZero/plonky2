@@ -1,6 +1,5 @@
 use std::convert::TryInto;
 
-use itertools::Itertools;
 use num::Integer;
 
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
@@ -9,7 +8,6 @@ use crate::field::field_types::Field;
 use crate::gates::arithmetic::{ArithmeticExtensionGate, NUM_ARITHMETIC_OPS};
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
-use crate::iop::wire::Wire;
 use crate::iop::witness::PartialWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bits_u64;
@@ -455,7 +453,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         z: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
         let inv = self.add_virtual_extension_target();
-        let zero = self.zero_extension();
         let one = self.one_extension();
         self.add_generator(QuotientGeneratorExtension {
             numerator: one,

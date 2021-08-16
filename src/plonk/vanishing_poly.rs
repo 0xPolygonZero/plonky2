@@ -1,5 +1,3 @@
-use num::Integer;
-
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;

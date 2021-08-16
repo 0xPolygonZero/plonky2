@@ -1,11 +1,8 @@
 use std::borrow::Borrow;
 
-use num::Integer;
-
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, Frobenius};
 use crate::field::field_types::Field;
-use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gates::reducing::ReducingGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;

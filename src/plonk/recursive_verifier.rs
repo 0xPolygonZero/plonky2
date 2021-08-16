@@ -37,7 +37,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     self.constants(&inner_common_data.circuit_digest.elements),
                 );
                 challenger.observe_hash(&digest);
-                challenger.observe_hash(&public_inputs_hash);
+                challenger.observe_hash(public_inputs_hash);
 
                 challenger.observe_cap(&proof.wires_cap);
                 let betas = challenger.get_n_challenges(self, num_challenges);

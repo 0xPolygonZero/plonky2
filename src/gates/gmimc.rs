@@ -139,7 +139,7 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
 
         for r in 0..R {
             let active = r % W;
-            let cubing_input = state[active] + addition_buffer + self.constants[r].into();
+            let cubing_input = state[active] + addition_buffer + self.constants[r];
             let cubing_input_wire = vars.local_wires[Self::wire_cubing_input(r)];
             constraints.push(cubing_input - cubing_input_wire);
             let f = cubing_input_wire.cube();
@@ -160,8 +160,6 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        let one = builder.one_extension();
-        let neg_one = builder.neg_one_extension();
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         let swap = vars.local_wires[Self::WIRE_SWAP];
