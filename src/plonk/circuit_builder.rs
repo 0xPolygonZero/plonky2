@@ -8,6 +8,7 @@ use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::fri::commitment::PolynomialBatchCommitment;
+use crate::gates::arithmetic::{ArithmeticExtensionGate, NUM_ARITHMETIC_OPS};
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
@@ -527,6 +528,33 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         wire_partition.get_sigma_polys(degree_log, k_is, subgroup)
     }
 
+    /// Fill the remaining unused arithmetic operations with zeros, so that all
+    /// `ArithmeticExtensionGenerator` are run.
+    fn fill_arithmetic_gates(&mut self) {
+        let zero = self.zero_extension();
+        let remaining_arithmetic_gates = self.free_arithmetic.values().copied().collect::<Vec<_>>();
+        for (gate, i) in remaining_arithmetic_gates {
+            for j in i..NUM_ARITHMETIC_OPS {
+                let wires_multiplicand_0 = ExtensionTarget::from_range(
+                    gate,
+                    ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(j),
+                );
+                let wires_multiplicand_1 = ExtensionTarget::from_range(
+                    gate,
+                    ArithmeticExtensionGate::<D>::wires_ith_multiplicand_1(j),
+                );
+                let wires_addend = ExtensionTarget::from_range(
+                    gate,
+                    ArithmeticExtensionGate::<D>::wires_ith_addend(j),
+                );
+
+                self.route_extension(zero, wires_multiplicand_0);
+                self.route_extension(zero, wires_multiplicand_1);
+                self.route_extension(zero, wires_addend);
+            }
+        }
+    }
+
     pub fn print_gate_counts(&self, min_delta: usize) {
         self.context_log
             .filter(self.num_gates(), min_delta)
@@ -537,6 +565,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn build(mut self) -> CircuitData<F, D> {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
         let start = Instant::now();
+
+        self.fill_arithmetic_gates();
 
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
         // those hash wires match the claimed public inputs.
