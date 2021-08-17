@@ -109,7 +109,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
         for i in 0..self.num_points {
             let point = vars.local_wires[self.wire_point(i)];
             let value = vars.get_local_ext_algebra(self.wires_value(i));
-            let computed_value = interpolant.eval(point.into());
+            let computed_value = interpolant.eval_base(point);
             constraints.extend(&(value - computed_value).to_basefield_array());
         }
 
@@ -132,7 +132,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
         for i in 0..self.num_points {
             let point = vars.local_wires[self.wire_point(i)];
             let value = vars.get_local_ext(self.wires_value(i));
-            let computed_value = interpolant.eval(point.into());
+            let computed_value = interpolant.eval_base(point);
             constraints.extend(&(value - computed_value).to_basefield_array());
         }
 

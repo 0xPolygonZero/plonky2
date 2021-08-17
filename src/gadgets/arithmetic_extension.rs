@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
+use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
 use crate::field::field_types::Field;
 use crate::gates::arithmetic::{ArithmeticExtensionGate, NUM_ARITHMETIC_OPS};
@@ -98,14 +99,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let first_term_const = if first_term_zero {
             Some(F::Extension::ZERO)
         } else if let (Some(x), Some(y)) = (mul_0_const, mul_1_const) {
-            Some(x * y * const_0.into())
+            Some((x * y).scalar_mul(const_0))
         } else {
             None
         };
         let second_term_const = if second_term_zero {
             Some(F::Extension::ZERO)
         } else {
-            addend_const.map(|x| x * const_1.into())
+            addend_const.map(|x| x.scalar_mul(const_1))
         };
         if let (Some(x), Some(y)) = (first_term_const, second_term_const) {
             return Some(self.constant_extension(x + y));
@@ -117,12 +118,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         if second_term_zero {
             if let Some(x) = mul_0_const {
-                if (x * const_0.into()).is_one() {
+                if x.scalar_mul(const_0).is_one() {
                     return Some(multiplicand_1);
                 }
             }
             if let Some(x) = mul_1_const {
-                if (x * const_0.into()).is_one() {
+                if x.scalar_mul(const_0).is_one() {
                     return Some(multiplicand_0);
                 }
             }

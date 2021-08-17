@@ -97,13 +97,13 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             constraints.push(difference * equality_dummy - (F::Extension::ONE - insert_here));
             constraints.push(insert_here * difference);
 
-            let mut new_item = element_to_insert * insert_here.into();
+            let mut new_item = element_to_insert.scalar_mul(insert_here);
             if r > 0 {
-                new_item += list_items[r - 1] * already_inserted.into();
+                new_item += list_items[r - 1].scalar_mul(already_inserted);
             }
             already_inserted += insert_here;
             if r < self.vec_size {
-                new_item += list_items[r] * (F::Extension::ONE - already_inserted).into();
+                new_item += list_items[r].scalar_mul(F::Extension::ONE - already_inserted);
             }
 
             // Output constraint.
@@ -135,13 +135,13 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             constraints.push(difference * equality_dummy - (F::ONE - insert_here));
             constraints.push(insert_here * difference);
 
-            let mut new_item = element_to_insert * insert_here.into();
+            let mut new_item = element_to_insert.scalar_mul(insert_here);
             if r > 0 {
-                new_item += list_items[r - 1] * already_inserted.into();
+                new_item += list_items[r - 1].scalar_mul(already_inserted);
             }
             already_inserted += insert_here;
             if r < self.vec_size {
-                new_item += list_items[r] * (F::ONE - already_inserted).into();
+                new_item += list_items[r].scalar_mul(F::ONE - already_inserted);
             }
 
             // Output constraint.

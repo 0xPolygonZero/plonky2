@@ -85,7 +85,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
             constraints.push(index_matches * difference);
             // Value equality constraint.
             constraints.extend(
-                ((list_items[i] - claimed_element) * index_matches.into()).to_basefield_array(),
+                ((list_items[i] - claimed_element).scalar_mul(index_matches)).to_basefield_array(),
             );
         }
 
@@ -112,7 +112,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
 
             // Value equality constraint.
             constraints.extend(
-                ((list_items[i] - claimed_element) * index_matches.into()).to_basefield_array(),
+                ((list_items[i] - claimed_element).scalar_mul(index_matches)).to_basefield_array(),
             );
         }
 

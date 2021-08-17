@@ -77,7 +77,10 @@ impl Field for QuadraticCrandallField {
         let a_pow_r = a_pow_r_minus_1 * *self;
         debug_assert!(FieldExtension::<2>::is_in_basefield(&a_pow_r));
 
-        Some(a_pow_r_minus_1 * a_pow_r.0[0].inverse().into())
+        Some(FieldExtension::<2>::scalar_mul(
+            &a_pow_r_minus_1,
+            a_pow_r.0[0].inverse(),
+        ))
     }
 
     fn to_canonical_u64(&self) -> u64 {
