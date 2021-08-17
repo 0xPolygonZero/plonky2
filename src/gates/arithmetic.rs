@@ -67,7 +67,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
             let addend = vars.get_local_ext(Self::wires_ith_addend(i));
             let output = vars.get_local_ext(Self::wires_ith_output(i));
             let computed_output =
-                multiplicand_0 * multiplicand_1 * const_0.into() + addend * const_1.into();
+                (multiplicand_0 * multiplicand_1).scalar_mul(const_0) + addend.scalar_mul(const_1);
 
             constraints.extend((output - computed_output).to_basefield_array());
         }
