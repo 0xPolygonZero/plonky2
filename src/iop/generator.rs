@@ -1,3 +1,4 @@
+use std::convert::identity;
 use std::fmt::Debug;
 
 use crate::field::extension_field::target::ExtensionTarget;
@@ -74,6 +75,11 @@ pub(crate) fn generate_partial_witness<F: Field>(
 
         pending_generator_indices = next_pending_generator_indices;
     }
+
+    assert!(
+        generator_is_expired.into_iter().all(identity),
+        "Some generators weren't run."
+    );
 }
 
 /// A generator participates in the generation of the witness.
