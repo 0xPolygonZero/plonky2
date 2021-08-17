@@ -1,11 +1,8 @@
 use std::borrow::Borrow;
 
-use num::Integer;
-
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, Frobenius};
 use crate::field::field_types::Field;
-use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gates::reducing::ReducingGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -164,40 +161,15 @@ impl<const D: usize> ReducingFactorTarget<D> {
     where
         F: Extendable<D>,
     {
-        let zero = builder.zero_extension();
         let l = terms.len();
         self.count += l as u64;
 
         let mut terms_vec = terms.to_vec();
-        // If needed, we pad the original vector so that it has even length.
-        if terms_vec.len().is_odd() {
-            terms_vec.push(zero);
-        }
+        let mut acc = terms_vec.pop().unwrap();
         terms_vec.reverse();
 
-        let mut acc = zero;
-        for pair in terms_vec.chunks(2) {
-            // We will route the output of the first arithmetic operation to the multiplicand of the
-            // second, i.e. we compute the following:
-            //     out_0 = alpha acc + pair[0]
-            //     acc' = out_1 = alpha out_0 + pair[1]
-            let gate = builder.num_gates();
-            let out_0 = ExtensionTarget::from_range(
-                gate,
-                ArithmeticExtensionGate::<D>::wires_first_output(),
-            );
-            acc = builder
-                .double_arithmetic_extension(
-                    F::ONE,
-                    F::ONE,
-                    self.base,
-                    acc,
-                    pair[0],
-                    self.base,
-                    out_0,
-                    pair[1],
-                )
-                .1;
+        for x in terms_vec {
+            acc = builder.mul_add_extension(self.base, acc, x);
         }
         acc
     }
@@ -213,23 +185,6 @@ impl<const D: usize> ReducingFactorTarget<D> {
         let exp = builder.exp_u64_extension(self.base, self.count);
         self.count = 0;
         builder.mul_extension(exp, x)
-    }
-
-    /// Returns `(self.shift(x), a*b)`.
-    /// Used to take advantage of the second arithmetic operation in the `ArithmeticExtensionGate`.
-    pub fn shift_and_mul<F>(
-        &mut self,
-        x: ExtensionTarget<D>,
-        a: ExtensionTarget<D>,
-        b: ExtensionTarget<D>,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> (ExtensionTarget<D>, ExtensionTarget<D>)
-    where
-        F: Extendable<D>,
-    {
-        let exp = builder.exp_u64_extension(self.base, self.count);
-        self.count = 0;
-        builder.mul_two_extension(exp, x, a, b)
     }
 
     pub fn reset(&mut self) {

@@ -1,12 +1,11 @@
 use std::convert::TryInto;
 
-use itertools::Itertools;
 use num::Integer;
 
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::{Extendable, OEF};
 use crate::field::field_types::Field;
-use crate::gates::arithmetic::ArithmeticExtensionGate;
+use crate::gates::arithmetic::{ArithmeticExtensionGate, NUM_ARITHMETIC_OPS};
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::PartialWitness;
@@ -14,51 +13,28 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bits_u64;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn double_arithmetic_extension(
-        &mut self,
-        const_0: F,
-        const_1: F,
-        first_multiplicand_0: ExtensionTarget<D>,
-        first_multiplicand_1: ExtensionTarget<D>,
-        first_addend: ExtensionTarget<D>,
-        second_multiplicand_0: ExtensionTarget<D>,
-        second_multiplicand_1: ExtensionTarget<D>,
-        second_addend: ExtensionTarget<D>,
-    ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
-        let gate = self.add_gate(ArithmeticExtensionGate, vec![const_0, const_1]);
+    /// Finds the last available arithmetic gate with the given constants or add one if there aren't any.
+    /// Returns `(g,i)` such that there is an arithmetic gate with the given constants at index
+    /// `g` and the gate's `i`-th operation is available.
+    fn find_arithmetic_gate(&mut self, const_0: F, const_1: F) -> (usize, usize) {
+        let (gate, i) = self
+            .free_arithmetic
+            .get(&(const_0, const_1))
+            .copied()
+            .unwrap_or_else(|| {
+                let gate = self.add_gate(ArithmeticExtensionGate, vec![const_0, const_1]);
+                (gate, 0)
+            });
 
-        let wire_first_multiplicand_0 = ExtensionTarget::from_range(
-            gate,
-            ArithmeticExtensionGate::<D>::wires_first_multiplicand_0(),
-        );
-        let wire_first_multiplicand_1 = ExtensionTarget::from_range(
-            gate,
-            ArithmeticExtensionGate::<D>::wires_first_multiplicand_1(),
-        );
-        let wire_first_addend =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_first_addend());
-        let wire_second_multiplicand_0 = ExtensionTarget::from_range(
-            gate,
-            ArithmeticExtensionGate::<D>::wires_second_multiplicand_0(),
-        );
-        let wire_second_multiplicand_1 = ExtensionTarget::from_range(
-            gate,
-            ArithmeticExtensionGate::<D>::wires_second_multiplicand_1(),
-        );
-        let wire_second_addend =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_second_addend());
-        let wire_first_output =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_first_output());
-        let wire_second_output =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_second_output());
+        // Update `free_arithmetic` with new values.
+        if i < NUM_ARITHMETIC_OPS - 1 {
+            self.free_arithmetic
+                .insert((const_0, const_1), (gate, i + 1));
+        } else {
+            self.free_arithmetic.remove(&(const_0, const_1));
+        }
 
-        self.route_extension(first_multiplicand_0, wire_first_multiplicand_0);
-        self.route_extension(first_multiplicand_1, wire_first_multiplicand_1);
-        self.route_extension(first_addend, wire_first_addend);
-        self.route_extension(second_multiplicand_0, wire_second_multiplicand_0);
-        self.route_extension(second_multiplicand_1, wire_second_multiplicand_1);
-        self.route_extension(second_addend, wire_second_addend);
-        (wire_first_output, wire_second_output)
+        (gate, i)
     }
 
     pub fn arithmetic_extension(
@@ -80,18 +56,23 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return result;
         }
 
-        let zero = self.zero_extension();
-        self.double_arithmetic_extension(
-            const_0,
-            const_1,
-            multiplicand_0,
-            multiplicand_1,
-            addend,
-            zero,
-            zero,
-            zero,
-        )
-        .0
+        let (gate, i) = self.find_arithmetic_gate(const_0, const_1);
+        let wires_multiplicand_0 = ExtensionTarget::from_range(
+            gate,
+            ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(i),
+        );
+        let wires_multiplicand_1 = ExtensionTarget::from_range(
+            gate,
+            ArithmeticExtensionGate::<D>::wires_ith_multiplicand_1(i),
+        );
+        let wires_addend =
+            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_addend(i));
+
+        self.route_extension(multiplicand_0, wires_multiplicand_0);
+        self.route_extension(multiplicand_1, wires_multiplicand_1);
+        self.route_extension(addend, wires_addend);
+
+        ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_output(i))
     }
 
     /// Checks for special cases where the value of
@@ -172,21 +153,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         pairs: Vec<(ExtensionTarget<D>, ExtensionTarget<D>)>,
     ) -> ExtensionTarget<D> {
         let mut acc = starting_acc;
-        for chunk in pairs.chunks_exact(2) {
-            let (a0, b0) = chunk[0];
-            let (a1, b1) = chunk[1];
-            let gate = self.num_gates();
-            let first_out = ExtensionTarget::from_range(
-                gate,
-                ArithmeticExtensionGate::<D>::wires_first_output(),
-            );
-            acc = self
-                .double_arithmetic_extension(constant, F::ONE, a0, b0, acc, a1, b1, first_out)
-                .1;
-        }
-        if pairs.len().is_odd() {
-            let n = pairs.len() - 1;
-            acc = self.arithmetic_extension(constant, F::ONE, pairs[n].0, pairs[n].1, acc);
+        for (a, b) in pairs {
+            acc = self.arithmetic_extension(constant, F::ONE, a, b, acc);
         }
         acc
     }
@@ -200,38 +168,15 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.arithmetic_extension(F::ONE, F::ONE, one, a, b)
     }
 
-    /// Returns `(a0+b0, a1+b1)`.
-    pub fn add_two_extension(
-        &mut self,
-        a0: ExtensionTarget<D>,
-        b0: ExtensionTarget<D>,
-        a1: ExtensionTarget<D>,
-        b1: ExtensionTarget<D>,
-    ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
-        let one = self.one_extension();
-        self.double_arithmetic_extension(F::ONE, F::ONE, one, a0, b0, one, a1, b1)
-    }
-
     pub fn add_ext_algebra(
         &mut self,
-        a: ExtensionAlgebraTarget<D>,
+        mut a: ExtensionAlgebraTarget<D>,
         b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
-        // We run two additions in parallel. So `[a0,a1,a2,a3] + [b0,b1,b2,b3]` is computed with two
-        // `add_two_extension`, first `[a0,a1]+[b0,b1]` then `[a2,a3]+[b2,b3]`.
-        let mut res = Vec::with_capacity(D);
-        // We need some extra logic if D is odd.
-        let d_even = D & (D ^ 1); // = 2 * (D/2)
-        for mut chunk in &(0..d_even).chunks(2) {
-            let i = chunk.next().unwrap();
-            let j = chunk.next().unwrap();
-            let (o0, o1) = self.add_two_extension(a.0[i], b.0[i], a.0[j], b.0[j]);
-            res.extend([o0, o1]);
+        for i in 0..D {
+            a.0[i] = self.add_extension(a.0[i], b.0[i]);
         }
-        if D.is_odd() {
-            res.push(self.add_extension(a.0[D - 1], b.0[D - 1]));
-        }
-        ExtensionAlgebraTarget(res.try_into().unwrap())
+        a
     }
 
     /// Add 3 `ExtensionTarget`s with 1 `ArithmeticExtensionGate`s.
@@ -274,35 +219,15 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.arithmetic_extension(F::ONE, F::NEG_ONE, one, a, b)
     }
 
-    pub fn sub_two_extension(
-        &mut self,
-        a0: ExtensionTarget<D>,
-        b0: ExtensionTarget<D>,
-        a1: ExtensionTarget<D>,
-        b1: ExtensionTarget<D>,
-    ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
-        let one = self.one_extension();
-        self.double_arithmetic_extension(F::ONE, F::NEG_ONE, one, a0, b0, one, a1, b1)
-    }
-
     pub fn sub_ext_algebra(
         &mut self,
-        a: ExtensionAlgebraTarget<D>,
+        mut a: ExtensionAlgebraTarget<D>,
         b: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
-        // See `add_ext_algebra`.
-        let mut res = Vec::with_capacity(D);
-        let d_even = D & (D ^ 1); // = 2 * (D/2)
-        for mut chunk in &(0..d_even).chunks(2) {
-            let i = chunk.next().unwrap();
-            let j = chunk.next().unwrap();
-            let (o0, o1) = self.sub_two_extension(a.0[i], b.0[i], a.0[j], b.0[j]);
-            res.extend([o0, o1]);
+        for i in 0..D {
+            a.0[i] = self.sub_extension(a.0[i], b.0[i]);
         }
-        if D.is_odd() {
-            res.push(self.sub_extension(a.0[D - 1], b.0[D - 1]));
-        }
-        ExtensionAlgebraTarget(res.try_into().unwrap())
+        a
     }
 
     pub fn mul_extension_with_const(
@@ -312,17 +237,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         multiplicand_1: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
         let zero = self.zero_extension();
-        self.double_arithmetic_extension(
-            const_0,
-            F::ZERO,
-            multiplicand_0,
-            multiplicand_1,
-            zero,
-            zero,
-            zero,
-            zero,
-        )
-        .0
+        self.arithmetic_extension(const_0, F::ZERO, multiplicand_0, multiplicand_1, zero)
     }
 
     pub fn mul_extension(
@@ -331,18 +246,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         multiplicand_1: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
         self.mul_extension_with_const(F::ONE, multiplicand_0, multiplicand_1)
-    }
-
-    /// Returns `(a0*b0, a1*b1)`.
-    pub fn mul_two_extension(
-        &mut self,
-        a0: ExtensionTarget<D>,
-        b0: ExtensionTarget<D>,
-        a1: ExtensionTarget<D>,
-        b1: ExtensionTarget<D>,
-    ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
-        let zero = self.zero_extension();
-        self.double_arithmetic_extension(F::ONE, F::ZERO, a0, b0, zero, a1, b1, zero)
     }
 
     /// Computes `x^2`.
@@ -402,12 +305,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         b: ExtensionTarget<D>,
         c: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let zero = self.zero_extension();
-        let gate = self.num_gates();
-        let first_out =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_first_output());
-        self.double_arithmetic_extension(F::ONE, F::ZERO, a, b, zero, c, first_out, zero)
-            .1
+        let tmp = self.mul_extension(a, b);
+        self.mul_extension(tmp, c)
     }
 
     /// Multiply `n` `ExtensionTarget`s with `n/2` `ArithmeticExtensionGate`s.
@@ -484,22 +383,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         b: ExtensionAlgebraTarget<D>,
         mut c: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
-        for i in 0..D / 2 {
-            let res = self.double_arithmetic_extension(
-                F::ONE,
-                F::ONE,
-                a,
-                b.0[2 * i],
-                c.0[2 * i],
-                a,
-                b.0[2 * i + 1],
-                c.0[2 * i + 1],
-            );
-            c.0[2 * i] = res.0;
-            c.0[2 * i + 1] = res.1;
-        }
-        if D.is_odd() {
-            c.0[D - 1] = self.arithmetic_extension(F::ONE, F::ONE, a, b.0[D - 1], c.0[D - 1]);
+        for i in 0..D {
+            c.0[i] = self.mul_add_extension(a, b.0[i], c.0[i]);
         }
         c
     }
@@ -571,7 +456,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         z: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
         let inv = self.add_virtual_extension_target();
-        let zero = self.zero_extension();
         let one = self.one_extension();
         self.add_generator(QuotientGeneratorExtension {
             numerator: one,
@@ -580,11 +464,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         });
 
         // Enforce that x times its purported inverse equals 1.
-        let (y_inv, res) =
-            self.double_arithmetic_extension(F::ONE, F::ONE, y, inv, zero, x, inv, z);
+        let y_inv = self.mul_extension(y, inv);
         self.assert_equal_extension(y_inv, one);
 
-        res
+        self.mul_add_extension(x, inv, z)
     }
 
     /// Computes `1 / x`. Results in an unsatisfiable instance if `x = 0`.

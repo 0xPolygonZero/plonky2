@@ -1,6 +1,5 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -25,12 +24,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x: ExtensionTarget<D>,
         y: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let gate = self.num_gates();
-        // Holds `by - y`.
-        let first_out =
-            ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_first_output());
-        self.double_arithmetic_extension(F::ONE, F::NEG_ONE, b, y, y, b, x, first_out)
-            .1
+        let tmp = self.mul_sub_extension(b, y, y);
+        self.mul_sub_extension(b, x, tmp)
     }
 
     /// See `select_ext`.

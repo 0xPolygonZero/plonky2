@@ -1,5 +1,3 @@
-use num::Integer;
-
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
@@ -306,17 +304,8 @@ pub(crate) fn eval_vanishing_poly_recursively<F: Extendable<D>, const D: usize>(
 
     // Holds `k[i] * x`.
     let mut s_ids = Vec::new();
-    for j in 0..common_data.config.num_routed_wires / 2 {
-        let k_0 = builder.constant(common_data.k_is[2 * j]);
-        let k_0_ext = builder.convert_to_ext(k_0);
-        let k_1 = builder.constant(common_data.k_is[2 * j + 1]);
-        let k_1_ext = builder.convert_to_ext(k_1);
-        let tmp = builder.mul_two_extension(k_0_ext, x, k_1_ext, x);
-        s_ids.push(tmp.0);
-        s_ids.push(tmp.1);
-    }
-    if common_data.config.num_routed_wires.is_odd() {
-        let k = builder.constant(common_data.k_is[common_data.k_is.len() - 1]);
+    for j in 0..common_data.config.num_routed_wires {
+        let k = builder.constant(common_data.k_is[j]);
         let k_ext = builder.convert_to_ext(k);
         s_ids.push(builder.mul_extension(k_ext, x));
     }

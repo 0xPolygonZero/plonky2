@@ -41,23 +41,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let coset_start = self.mul(start, x);
 
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
-        let g_powers = g
+        let points = g
             .powers()
-            .take(arity)
-            .map(|y| self.constant(y))
+            .map(|y| {
+                let yc = self.constant(y);
+                self.mul(coset_start, yc)
+            })
+            .zip(evals)
             .collect::<Vec<_>>();
-        let mut coset = Vec::new();
-        for i in 0..arity / 2 {
-            let res = self.mul_two(
-                coset_start,
-                g_powers[2 * i],
-                coset_start,
-                g_powers[2 * i + 1],
-            );
-            coset.push(res.0);
-            coset.push(res.1);
-        }
-        let points = coset.into_iter().zip(evals).collect::<Vec<_>>();
 
         self.interpolate(&points, beta)
     }
@@ -100,7 +91,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Size of the LDE domain.
         let n = proof.final_poly.len() << (total_arities + config.rate_bits);
 
-        challenger.observe_opening_set(&os);
+        challenger.observe_opening_set(os);
 
         // Scaling factor to combine polynomials.
         let alpha = challenger.get_extension_challenge(self);
@@ -265,14 +256,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             precomputed_reduced_evals.slope,
             precomputed_reduced_evals.zs,
         );
-        let (zs_numerator, vanish_zeta_right) = self.sub_two_extension(
-            zs_composition_eval,
-            interpol_val,
-            subgroup_x,
-            precomputed_reduced_evals.zeta_right,
-        );
-        let (mut sum, zs_denominator) =
-            alpha.shift_and_mul(sum, vanish_zeta, vanish_zeta_right, self);
+        let zs_numerator = self.sub_extension(zs_composition_eval, interpol_val);
+        let vanish_zeta_right =
+            self.sub_extension(subgroup_x, precomputed_reduced_evals.zeta_right);
+        sum = alpha.shift(sum, self);
+        let zs_denominator = self.mul_extension(vanish_zeta, vanish_zeta_right);
         sum = self.div_add_extension(zs_numerator, zs_denominator, sum);
 
         sum
@@ -296,8 +284,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
         let x_index = challenger.get_challenge(self);
         let mut x_index_bits = self.low_bits(x_index, n_log, 64);
-        let cap_index = self
-            .le_sum(x_index_bits[x_index_bits.len() - common_data.config.cap_height..].into_iter());
+        let cap_index =
+            self.le_sum(x_index_bits[x_index_bits.len() - common_data.config.cap_height..].iter());
         with_context!(
             self,
             "check FRI initial proof",
@@ -317,19 +305,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let phi = self.exp_from_bits(phi, x_index_bits.iter().rev());
             let g_ext = self.convert_to_ext(g);
             let phi_ext = self.convert_to_ext(phi);
-            let zero = self.zero_extension();
             // `subgroup_x = g*phi, vanish_zeta = g*phi - zeta`
-            let tmp = self.double_arithmetic_extension(
-                F::ONE,
-                F::NEG_ONE,
-                g_ext,
-                phi_ext,
-                zero,
-                g_ext,
-                phi_ext,
-                zeta,
-            );
-            (tmp.0 .0[0], tmp.1)
+            let subgroup_x = self.mul(g, phi);
+            let vanish_zeta = self.mul_sub_extension(g_ext, phi_ext, zeta);
+            (subgroup_x, vanish_zeta)
         });
 
         // old_eval is the last derived evaluation; it will be checked for consistency with its
@@ -369,7 +348,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 "infer evaluation using interpolation",
                 self.compute_evaluation(
                     subgroup_x,
-                    &x_index_within_coset_bits,
+                    x_index_within_coset_bits,
                     arity_bits,
                     evals,
                     betas[i],
@@ -409,7 +388,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 struct PrecomputedReducedEvalsTarget<const D: usize> {
     pub single: ExtensionTarget<D>,
     pub zs: ExtensionTarget<D>,
-    pub zs_right: ExtensionTarget<D>,
     /// Slope of the line from `(zeta, zs)` to `(zeta_right, zs_right)`.
     pub slope: ExtensionTarget<D>,
     pub zeta_right: ExtensionTarget<D>,
@@ -440,12 +418,12 @@ impl<const D: usize> PrecomputedReducedEvalsTarget<D> {
 
         let g = builder.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
         let zeta_right = builder.mul_extension(g, zeta);
-        let (numerator, denominator) = builder.sub_two_extension(zs_right, zs, zeta_right, zeta);
+        let numerator = builder.sub_extension(zs_right, zs);
+        let denominator = builder.sub_extension(zeta_right, zeta);
 
         Self {
             single,
             zs,
-            zs_right,
             slope: builder.div_extension(numerator, denominator),
             zeta_right,
         }
