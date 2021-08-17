@@ -1,7 +1,5 @@
 use std::convert::TryInto;
 
-use num::Integer;
-
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::{Extendable, OEF};
 use crate::field::field_types::Field;
@@ -179,35 +177,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a
     }
 
-    /// Add 3 `ExtensionTarget`s with 1 `ArithmeticExtensionGate`s.
-    pub fn add_three_extension(
-        &mut self,
-        a: ExtensionTarget<D>,
-        b: ExtensionTarget<D>,
-        c: ExtensionTarget<D>,
-    ) -> ExtensionTarget<D> {
-        let one = self.one_extension();
-        self.wide_arithmetic_extension(one, a, one, b, c)
-    }
-
-    /// Add `n` `ExtensionTarget`s with `n/2` `ArithmeticExtensionGate`s.
+    /// Add `n` `ExtensionTarget`s.
     pub fn add_many_extension(&mut self, terms: &[ExtensionTarget<D>]) -> ExtensionTarget<D> {
-        let zero = self.zero_extension();
-        let mut terms = terms.to_vec();
-        if terms.is_empty() {
-            return zero;
-        } else if terms.len() < 3 {
-            terms.resize(3, zero);
-        } else if terms.len().is_even() {
-            terms.push(zero);
+        let mut sum = self.zero_extension();
+        for &term in terms {
+            sum = self.add_extension(sum, term);
         }
-
-        let mut acc = self.add_three_extension(terms[0], terms[1], terms[2]);
-        terms.drain(0..3);
-        for chunk in terms.chunks_exact(2) {
-            acc = self.add_three_extension(acc, chunk[0], chunk[1]);
-        }
-        acc
+        sum
     }
 
     pub fn sub_extension(
@@ -255,7 +231,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Computes `x^3`.
     pub fn cube_extension(&mut self, x: ExtensionTarget<D>) -> ExtensionTarget<D> {
-        self.mul_three_extension(x, x, x)
+        self.mul_many_extension(&[x, x, x])
     }
 
     /// Returns `a * b + c`.
@@ -298,34 +274,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_add_ext_algebra(a, b, zero)
     }
 
-    /// Multiply 3 `ExtensionTarget`s with 1 `ArithmeticExtensionGate`s.
-    pub fn mul_three_extension(
-        &mut self,
-        a: ExtensionTarget<D>,
-        b: ExtensionTarget<D>,
-        c: ExtensionTarget<D>,
-    ) -> ExtensionTarget<D> {
-        let tmp = self.mul_extension(a, b);
-        self.mul_extension(tmp, c)
-    }
-
-    /// Multiply `n` `ExtensionTarget`s with `n/2` `ArithmeticExtensionGate`s.
+    /// Multiply `n` `ExtensionTarget`s.
     pub fn mul_many_extension(&mut self, terms: &[ExtensionTarget<D>]) -> ExtensionTarget<D> {
-        let one = self.one_extension();
-        let mut terms = terms.to_vec();
-        if terms.is_empty() {
-            return one;
-        } else if terms.len() < 3 {
-            terms.resize(3, one);
-        } else if terms.len().is_even() {
-            terms.push(one);
+        let mut product = self.one_extension();
+        for &term in terms {
+            product = self.mul_extension(product, term);
         }
-        let mut acc = self.mul_three_extension(terms[0], terms[1], terms[2]);
-        terms.drain(0..3);
-        for chunk in terms.chunks_exact(2) {
-            acc = self.mul_three_extension(acc, chunk[0], chunk[1]);
-        }
-        acc
+        product
     }
 
     /// Like `mul_add`, but for `ExtensionTarget`s.
@@ -576,12 +531,10 @@ mod tests {
             }
             acc
         };
-        let mul2 = builder.mul_three_extension(ts[0], ts[1], ts[2]);
-        let mul3 = builder.constant_extension(vs.into_iter().product());
+        let mul2 = builder.constant_extension(vs.into_iter().product());
 
         builder.assert_equal_extension(mul0, mul1);
         builder.assert_equal_extension(mul1, mul2);
-        builder.assert_equal_extension(mul2, mul3);
 
         let data = builder.build();
         let proof = data.prove(pw)?;

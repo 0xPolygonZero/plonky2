@@ -191,7 +191,7 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
 
             let constant = builder.constant_extension(self.constants[r].into());
             let cubing_input =
-                builder.add_three_extension(state[active], addition_buffer, constant);
+                builder.add_many_extension(&[state[active], addition_buffer, constant]);
             let cubing_input_wire = vars.local_wires[Self::wire_cubing_input(r)];
             constraints.push(builder.sub_extension(cubing_input, cubing_input_wire));
             let f = builder.cube_extension(cubing_input_wire);

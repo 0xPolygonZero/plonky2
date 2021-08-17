@@ -19,8 +19,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Computes `x^3`.
     pub fn cube(&mut self, x: Target) -> Target {
-        let xe = self.convert_to_ext(x);
-        self.mul_three_extension(xe, xe, xe).to_target_array()[0]
+        self.mul_many(&[x, x, x])
     }
 
     /// Computes `const_0 * multiplicand_0 * multiplicand_1 + const_1 * addend`.
@@ -63,8 +62,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.arithmetic(F::ONE, x, one, F::ONE, y)
     }
 
-    /// Add `n` `Target`s with `ceil(n/2) + 1` `ArithmeticExtensionGate`s.
-    // TODO: Can be made `2*D` times more efficient by using all wires of an `ArithmeticExtensionGate`.
+    /// Add `n` `Target`s.
+    // TODO: Can be made `D` times more efficient by using all wires of an `ArithmeticExtensionGate`.
     pub fn add_many(&mut self, terms: &[Target]) -> Target {
         let terms_ext = terms
             .iter()
@@ -86,7 +85,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.arithmetic(F::ONE, x, y, F::ZERO, x)
     }
 
-    /// Multiply `n` `Target`s with `ceil(n/2) + 1` `ArithmeticExtensionGate`s.
+    /// Multiply `n` `Target`s.
     pub fn mul_many(&mut self, terms: &[Target]) -> Target {
         let terms_ext = terms
             .iter()
