@@ -19,8 +19,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Computes `x^3`.
     pub fn cube(&mut self, x: Target) -> Target {
-        let xe = self.convert_to_ext(x);
-        self.mul_three_extension(xe, xe, xe).to_target_array()[0]
+        self.mul_many(&[x, x, x])
     }
 
     /// Computes `const_0 * multiplicand_0 * multiplicand_1 + const_1 * addend`.

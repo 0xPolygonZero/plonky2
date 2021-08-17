@@ -32,8 +32,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
-
     use anyhow::Result;
 
     use crate::field::crandall_field::CrandallField;
