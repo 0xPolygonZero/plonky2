@@ -1,5 +1,5 @@
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::Extendable;
+use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::Field;
 use crate::gates::gate::PrefixedGate;
 use crate::iop::target::Target;
@@ -51,15 +51,15 @@ pub(crate) fn eval_vanishing_poly<F: Extendable<D>, const D: usize>(
             .map(|j| {
                 let wire_value = vars.local_wires[j];
                 let k_i = common_data.k_is[j];
-                let s_id = x * k_i.into();
-                wire_value + s_id * betas[i].into() + gammas[i].into()
+                let s_id = x.scalar_mul(k_i);
+                wire_value + s_id.scalar_mul(betas[i]) + gammas[i].into()
             })
             .collect::<Vec<_>>();
         let denominator_values = (0..common_data.config.num_routed_wires)
             .map(|j| {
                 let wire_value = vars.local_wires[j];
                 let s_sigma = s_sigmas[j];
-                wire_value + s_sigma * betas[i].into() + gammas[i].into()
+                wire_value + s_sigma.scalar_mul(betas[i]) + gammas[i].into()
             })
             .collect::<Vec<_>>();
         let quotient_values = (0..common_data.config.num_routed_wires)

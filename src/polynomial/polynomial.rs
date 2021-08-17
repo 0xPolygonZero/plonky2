@@ -137,6 +137,16 @@ impl<F: Field> PolynomialCoeffs<F> {
             .fold(F::ZERO, |acc, &c| acc * x + c)
     }
 
+    pub fn eval_base<const D: usize>(&self, x: F::BaseField) -> F
+    where
+        F: FieldExtension<D>,
+    {
+        self.coeffs
+            .iter()
+            .rev()
+            .fold(F::ZERO, |acc, &c| acc.scalar_mul(x) + c)
+    }
+
     pub fn lde_multiple(polys: Vec<&Self>, rate_bits: usize) -> Vec<Self> {
         polys.into_iter().map(|p| p.lde(rate_bits)).collect()
     }
