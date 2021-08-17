@@ -43,11 +43,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
         let points = g
             .powers()
-            .zip(evals)
-            .map(|(y, v)| {
+            .map(|y| {
                 let yc = self.constant(y);
-                (self.mul(coset_start, yc), v)
+                self.mul(coset_start, yc)
             })
+            .zip(evals)
             .collect::<Vec<_>>();
 
         self.interpolate(&points, beta)
