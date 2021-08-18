@@ -3,7 +3,6 @@
 
 use unroll::unroll_for_loops;
 use crate::hash::poseidon_constants::{
-    WIDTH,
     HALF_N_FULL_ROUNDS, N_PARTIAL_ROUNDS,
     MDS_MATRIX_EXPS, ALL_ROUND_CONSTANTS,
     FAST_PARTIAL_FIRST_ROUND_CONSTANT, FAST_PARTIAL_ROUND_CONSTANTS,
@@ -14,7 +13,7 @@ use crate::field::field_types::Field;
 
 #[inline]
 #[unroll_for_loops]
-fn constant_layer<F: Field>(state: &mut [F; WIDTH], round_ctr: usize) {
+fn constant_layer<F: Field, const WIDTH: usize>(state: &mut [F; WIDTH], round_ctr: usize) {
     for i in 0..WIDTH {
         state[i] += F::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]);
     }
@@ -22,6 +21,7 @@ fn constant_layer<F: Field>(state: &mut [F; WIDTH], round_ctr: usize) {
 
 #[inline]
 fn sbox_monomial<F: Field>(x: F) -> F {
+    // x |--> x^7
     let x2 = x * x;
     let x4 = x2 * x2;
     let x3 = x * x2;
@@ -30,7 +30,7 @@ fn sbox_monomial<F: Field>(x: F) -> F {
 
 #[inline]
 #[unroll_for_loops]
-fn sbox_layer<F: Field>(state: &mut [F; WIDTH]) {
+fn sbox_layer<F: Field, const WIDTH: usize>(state: &mut [F; WIDTH]) {
     for i in 0..WIDTH {
         state[i] = sbox_monomial(state[i]);
     }
@@ -38,13 +38,14 @@ fn sbox_layer<F: Field>(state: &mut [F; WIDTH]) {
 
 #[inline]
 #[unroll_for_loops]
-fn mds_row_shf(r: usize, v: &[u64; WIDTH]) -> u128 {
+fn mds_row_shf<const WIDTH: usize>(r: usize, v: &[u64; WIDTH]) -> u128 {
     debug_assert!(r < WIDTH);
-    // TODO: Double-check that the calculations associated with the
-    // zeros in this const array are not removed by the compiler; they
-    // weren't removed when I used MDS_MATRIX_EXPS[(i + r) % WIDTH],
-    // but they seem to be when using MDS_MATRIX_EXPS[i].
+    // The values of MDS_MATRIX_EXPS are known to be small, so we can
+    // accumulate all the products for each row and reduce just once
+    // at the end (done by the caller).
 
+    // NB: Unrolling this, calculating each term independently, and
+    // summing at the end, didn't improve performance for me.
     let mut res = 0u128;
     for i in 0..WIDTH {
         res += (v[(i + r) % WIDTH] as u128) << MDS_MATRIX_EXPS[i];
@@ -54,10 +55,11 @@ fn mds_row_shf(r: usize, v: &[u64; WIDTH]) -> u128 {
 
 #[inline]
 #[unroll_for_loops]
-fn mds_layer<F: Field>(state_: &[F; WIDTH]) -> [F; WIDTH] {
+fn mds_layer<F: Field, const WIDTH: usize>(state_: &[F; WIDTH]) -> [F; WIDTH] {
     let mut result = [F::ZERO; WIDTH];
 
-    // TODO: Need a better way to do this; we only want the raw u64 anyway.
+    // NB: This is a bit wasteful. Replacing it by initialising state
+    // directly with the raw u64 only saved a few percent though.
     let mut state = [0u64; WIDTH];
     for r in 0..WIDTH {
         state[r] = state_[r].to_canonical_u64();
@@ -71,7 +73,7 @@ fn mds_layer<F: Field>(state_: &[F; WIDTH]) -> [F; WIDTH] {
 
 #[inline]
 #[unroll_for_loops]
-fn partial_first_constant_layer<F: Field>(state: &mut [F; WIDTH]) {
+fn partial_first_constant_layer<F: Field, const WIDTH: usize>(state: &mut [F; WIDTH]) {
     for i in 0..WIDTH {
         state[i] += F::from_canonical_u64(FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]);
     }
@@ -79,7 +81,7 @@ fn partial_first_constant_layer<F: Field>(state: &mut [F; WIDTH]) {
 
 #[inline]
 #[unroll_for_loops]
-fn mds_partial_layer_init<F: Field>(state: &[F; WIDTH]) -> [F; WIDTH] {
+fn mds_partial_layer_init<F: Field, const WIDTH: usize>(state: &[F; WIDTH]) -> [F; WIDTH] {
     let mut result = [F::ZERO; WIDTH];
 
     // Initial matrix has first row/column = [1, 0, ..., 0];
@@ -109,7 +111,7 @@ fn mds_partial_layer_init<F: Field>(state: &[F; WIDTH]) -> [F; WIDTH] {
 /// (t-1)x(t-1) identity matrix.
 #[inline]
 #[unroll_for_loops]
-fn mds_partial_layer_fast<F: Field>(state: &[F; WIDTH], r: usize) -> [F; WIDTH] {
+fn mds_partial_layer_fast<F: Field, const WIDTH: usize>(state: &[F; WIDTH], r: usize) -> [F; WIDTH] {
     // Set d = [M_00 | w^] dot [state]
     const MDS_TOP_LEFT: u64 = 1u64 << MDS_MATRIX_EXPS[0];
     let mut d = F::from_canonical_u64(MDS_TOP_LEFT) * state[0];
@@ -130,7 +132,7 @@ fn mds_partial_layer_fast<F: Field>(state: &[F; WIDTH], r: usize) -> [F; WIDTH] 
 
 #[inline]
 #[unroll_for_loops]
-fn full_rounds<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
+fn full_rounds<F: Field, const WIDTH: usize>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
     for _ in 0..HALF_N_FULL_ROUNDS {
         constant_layer(state, *round_ctr);
         sbox_layer(state);
@@ -141,7 +143,7 @@ fn full_rounds<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
 
 #[inline]
 #[unroll_for_loops]
-fn partial_rounds<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
+fn partial_rounds<F: Field, const WIDTH: usize>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
     for _ in 0..N_PARTIAL_ROUNDS {
         constant_layer(state, *round_ctr);
         state[0] = sbox_monomial(state[0]);
@@ -152,7 +154,7 @@ fn partial_rounds<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
 
 #[inline]
 #[unroll_for_loops]
-fn partial_rounds_fast<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
+fn partial_rounds_fast<F: Field, const WIDTH: usize>(state: &mut [F; WIDTH], round_ctr: &mut usize) {
     partial_first_constant_layer(state);
     *state = mds_partial_layer_init(state);
 
@@ -168,7 +170,7 @@ fn partial_rounds_fast<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) 
     *round_ctr += N_PARTIAL_ROUNDS;
 }
 
-pub fn poseidon<F: Field>(input: [F; WIDTH]) -> [F; WIDTH] {
+pub fn poseidon<F: Field, const WIDTH: usize>(input: [F; WIDTH]) -> [F; WIDTH] {
     let mut state = input;
     let mut round_ctr = 0;
 
@@ -179,7 +181,7 @@ pub fn poseidon<F: Field>(input: [F; WIDTH]) -> [F; WIDTH] {
     state
 }
 
-pub fn poseidon_naive<F: Field>(input: [F; WIDTH]) -> [F; WIDTH] {
+pub fn poseidon_naive<F: Field, const WIDTH: usize>(input: [F; WIDTH]) -> [F; WIDTH] {
     let mut state = input;
     let mut round_ctr = 0;
 
@@ -198,6 +200,7 @@ mod tests {
 
     #[test]
     fn test_vectors() {
+        const WIDTH: usize = 12;
         const N_TEST_VECTORS: usize = 3;
         // Test inputs are:
         // 1. all zeros
@@ -238,6 +241,7 @@ mod tests {
 
     #[test]
     fn consistency() {
+        const WIDTH: usize = 12;
         let mut input = [F::ZERO; WIDTH];
         for i in 0..WIDTH {
             input[i] = F::from_canonical_u64(i as u64);
