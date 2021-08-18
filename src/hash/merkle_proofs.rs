@@ -191,18 +191,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.random_access(cap_index, state_ext, cap_ext);
     }
 
-    pub(crate) fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
+    pub fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
         for i in 0..4 {
             self.assert_equal(x.elements[i], y.elements[i]);
         }
     }
 
-    pub(crate) fn named_assert_hashes_equal(
-        &mut self,
-        x: HashOutTarget,
-        y: HashOutTarget,
-        name: String,
-    ) {
+    pub fn named_assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget, name: String) {
         for i in 0..4 {
             self.named_assert_equal(
                 x.elements[i],

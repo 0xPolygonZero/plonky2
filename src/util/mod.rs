@@ -4,7 +4,7 @@ use crate::polynomial::polynomial::PolynomialValues;
 pub(crate) mod context_tree;
 pub(crate) mod marking;
 pub(crate) mod partial_products;
-pub(crate) mod reducing;
+pub mod reducing;
 pub(crate) mod timing;
 
 pub(crate) fn bits_u64(n: u64) -> usize {
@@ -13,10 +13,6 @@ pub(crate) fn bits_u64(n: u64) -> usize {
 
 pub(crate) const fn ceil_div_usize(a: usize, b: usize) -> usize {
     (a + b - 1) / b
-}
-
-pub(crate) fn pad_to_multiple_usize(a: usize, b: usize) -> usize {
-    ceil_div_usize(a, b) * b
 }
 
 /// Computes `ceil(log_2(n))`.

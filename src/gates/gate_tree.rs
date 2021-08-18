@@ -200,7 +200,7 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
     }
 
     /// Returns the tree's maximum filtered constraint degree.
-    fn max_filtered_degree(&self) -> usize {
+    pub fn max_filtered_degree(&self) -> usize {
         self.traversal()
             .into_iter()
             .map(|(g, p)| g.0.degree() + p.len())
