@@ -1,6 +1,5 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use plonky2::field::crandall_field::CrandallField;
-use plonky2::field::extension_field::quartic::QuarticCrandallField;
 use plonky2::field::fft::FftStrategy;
 use plonky2::field::field_types::Field;
 use plonky2::polynomial::polynomial::PolynomialCoeffs;
