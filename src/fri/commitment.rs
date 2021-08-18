@@ -1,6 +1,7 @@
 use rayon::prelude::*;
 
 use crate::field::extension_field::Extendable;
+use crate::field::fft::DEFAULT_STRATEGY;
 use crate::field::field_types::Field;
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
@@ -92,7 +93,12 @@ impl<F: Field> PolynomialBatchCommitment<F> {
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degrees inconsistent");
                 p.lde(rate_bits)
-                    .coset_fft_with_options(F::coset_shift(), Some(rate_bits), None)
+                    .coset_fft_with_options(
+                        F::coset_shift(),
+                        DEFAULT_STRATEGY,
+                        Some(rate_bits),
+                        None,
+                    )
                     .values
             })
             .chain(

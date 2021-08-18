@@ -6,12 +6,13 @@ use crate::util::{log2_strict, reverse_index_bits};
 
 // TODO: Should really do some "dynamic" dispatch to handle the
 // different FFT algos rather than C-style enum dispatch.
-enum FftStrategy {
+#[derive(Copy, Clone, Debug)]
+pub enum FftStrategy {
     Classic,
     Unrolled,
 }
 
-const FFT_STRATEGY: FftStrategy = FftStrategy::Classic;
+pub(crate) const DEFAULT_STRATEGY: FftStrategy = FftStrategy::Classic;
 
 pub(crate) type FftRootTable<F> = Vec<Vec<F>>;
 
@@ -68,11 +69,12 @@ fn fft_unrolled_root_table<F: Field>(n: usize) -> FftRootTable<F> {
 #[inline]
 fn fft_dispatch<F: Field>(
     input: &[F],
+    strategy: FftStrategy,
     zero_factor: Option<usize>,
     root_table: Option<FftRootTable<F>>,
 ) -> Vec<F> {
     let n = input.len();
-    match FFT_STRATEGY {
+    match strategy {
         FftStrategy::Classic => fft_classic(
             input,
             zero_factor.unwrap_or(0),
@@ -88,28 +90,30 @@ fn fft_dispatch<F: Field>(
 
 #[inline]
 pub fn fft<F: Field>(poly: &PolynomialCoeffs<F>) -> PolynomialValues<F> {
-    fft_with_options(poly, None, None)
+    fft_with_options(poly, DEFAULT_STRATEGY, None, None)
 }
 
 #[inline]
 pub fn fft_with_options<F: Field>(
     poly: &PolynomialCoeffs<F>,
+    strategy: FftStrategy,
     zero_factor: Option<usize>,
     root_table: Option<FftRootTable<F>>,
 ) -> PolynomialValues<F> {
     let PolynomialCoeffs { coeffs } = poly;
     PolynomialValues {
-        values: fft_dispatch(coeffs, zero_factor, root_table),
+        values: fft_dispatch(coeffs, strategy, zero_factor, root_table),
     }
 }
 
 #[inline]
 pub fn ifft<F: Field>(poly: &PolynomialValues<F>) -> PolynomialCoeffs<F> {
-    ifft_with_options(poly, None, None)
+    ifft_with_options(poly, DEFAULT_STRATEGY, None, None)
 }
 
 pub fn ifft_with_options<F: Field>(
     poly: &PolynomialValues<F>,
+    strategy: FftStrategy,
     zero_factor: Option<usize>,
     root_table: Option<FftRootTable<F>>,
 ) -> PolynomialCoeffs<F> {
@@ -118,7 +122,7 @@ pub fn ifft_with_options<F: Field>(
     let n_inv = F::inverse_2exp(lg_n);
 
     let PolynomialValues { values } = poly;
-    let mut coeffs = fft_dispatch(values, zero_factor, root_table);
+    let mut coeffs = fft_dispatch(values, strategy, zero_factor, root_table);
 
     // We reverse all values except the first, and divide each by n.
     coeffs[0] *= n_inv;
@@ -305,7 +309,7 @@ fn fft_unrolled<F: Field>(input: &[F], r_orig: usize, root_table: FftRootTable<F
 #[cfg(test)]
 mod tests {
     use crate::field::crandall_field::CrandallField;
-    use crate::field::fft::{fft, fft_with_options, ifft};
+    use crate::field::fft::{fft, fft_with_options, ifft, FftStrategy};
     use crate::field::field_types::Field;
     use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
     use crate::util::{log2_ceil, log2_strict};
@@ -332,10 +336,15 @@ mod tests {
             assert_eq!(interpolated_coefficients.coeffs[i], F::ZERO);
         }
 
-        for r in 0..4 {
-            // expand coefficients by factor 2^r by filling with zeros
-            let zero_tail = coefficients.lde(r);
-            assert_eq!(fft(&zero_tail), fft_with_options(&zero_tail, Some(r), None));
+        for strategy in [FftStrategy::Classic, FftStrategy::Unrolled] {
+            for r in 0..4 {
+                // expand coefficients by factor 2^r by filling with zeros
+                let zero_tail = coefficients.lde(r);
+                assert_eq!(
+                    fft(&zero_tail),
+                    fft_with_options(&zero_tail, strategy, Some(r), None)
+                );
+            }
         }
     }
 
