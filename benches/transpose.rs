@@ -16,9 +16,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     // involves 100+ polynomials.
     for height in [5, 50, 100, 150] {
         group.bench_with_input(BenchmarkId::from_parameter(height), &height, |b, _| {
-            let matrix = (0..height)
-                .map(|_| F::rand_vec(WIDTH))
-                .collect::<Vec<_>>();
+            let matrix = (0..height).map(|_| F::rand_vec(WIDTH)).collect::<Vec<_>>();
             b.iter(|| transpose(&matrix));
         });
     }
