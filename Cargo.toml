@@ -36,6 +36,10 @@ harness = false
 name = "ffts"
 harness = false
 
+[[bench]]
+name = "transpose"
+harness = false
+
 [profile.release]
 opt-level = 3
 #lto = "fat"
