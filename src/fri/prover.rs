@@ -111,7 +111,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
 }
 
 fn fri_proof_of_work<F: Field>(current_hash: HashOut<F>, config: &FriConfig) -> F {
-    (0..u64::MAX)
+    (0..=F::NEG_ONE.to_canonical_u64())
         .into_par_iter()
         .find_any(|&i| {
             hash_n_to_1(
