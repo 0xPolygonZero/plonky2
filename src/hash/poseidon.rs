@@ -159,11 +159,11 @@ fn partial_rounds_fast<F: Field>(state: &mut [F; WIDTH], round_ctr: &mut usize) 
     // One less than N_PARTIAL_ROUNDS because we do the last one
     // separately at the end.
     for i in 0..(N_PARTIAL_ROUNDS - 1) {
-        state[0] = state[0].cube();
+        state[0] = sbox_monomial(state[0]);
         state[0] += F::from_canonical_u64(FAST_PARTIAL_ROUND_CONSTANTS[i]);
         *state = mds_partial_layer_fast(state, i);
     }
-    state[0] = state[0].cube();
+    state[0] = sbox_monomial(state[0]);
     *state = mds_partial_layer_fast(state, N_PARTIAL_ROUNDS - 1);
     *round_ctr += N_PARTIAL_ROUNDS;
 }
