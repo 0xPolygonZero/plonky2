@@ -427,7 +427,7 @@ mod tests {
             zero_knowledge: false,
             cap_height: 3,
             fri_config: FriConfig {
-                proof_of_work_bits: 20,
+                proof_of_work_bits: 15,
                 reduction_arity_bits: vec![3, 3, 3],
                 num_query_rounds: 27,
             },
