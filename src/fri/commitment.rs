@@ -65,7 +65,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         let merkle_tree = timed!(
             timing,
             "build Merkle tree",
-            MerkleTree::new(leaves, cap_height, false)
+            MerkleTree::new(leaves, cap_height,)
         );
 
         Self {
