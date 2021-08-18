@@ -6,8 +6,8 @@ use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::fft::FftRootTable;
 use crate::field::fft::{fft, fft_with_options, ifft};
+use crate::field::fft::{FftRootTable, FftStrategy, DEFAULT_STRATEGY};
 use crate::field::field_types::Field;
 use crate::util::log2_strict;
 
@@ -57,7 +57,7 @@ impl<F: Field> PolynomialValues<F> {
 
     pub fn lde(&self, rate_bits: usize) -> Self {
         let coeffs = ifft(self).lde(rate_bits);
-        fft_with_options(&coeffs, Some(rate_bits), None)
+        fft_with_options(&coeffs, DEFAULT_STRATEGY, Some(rate_bits), None)
     }
 
     pub fn degree(&self) -> usize {
@@ -151,7 +151,7 @@ impl<F: Field> PolynomialCoeffs<F> {
         polys.into_iter().map(|p| p.lde(rate_bits)).collect()
     }
 
-    pub(crate) fn lde(&self, rate_bits: usize) -> Self {
+    pub fn lde(&self, rate_bits: usize) -> Self {
         self.padded(self.len() << rate_bits)
     }
 
@@ -211,21 +211,23 @@ impl<F: Field> PolynomialCoeffs<F> {
 
     pub fn fft_with_options(
         &self,
+        strategy: FftStrategy,
         zero_factor: Option<usize>,
         root_table: Option<FftRootTable<F>>,
     ) -> PolynomialValues<F> {
-        fft_with_options(self, zero_factor, root_table)
+        fft_with_options(self, strategy, zero_factor, root_table)
     }
 
     /// Returns the evaluation of the polynomial on the coset `shift*H`.
     pub fn coset_fft(&self, shift: F) -> PolynomialValues<F> {
-        self.coset_fft_with_options(shift, None, None)
+        self.coset_fft_with_options(shift, DEFAULT_STRATEGY, None, None)
     }
 
     /// Returns the evaluation of the polynomial on the coset `shift*H`.
     pub fn coset_fft_with_options(
         &self,
         shift: F,
+        strategy: FftStrategy,
         zero_factor: Option<usize>,
         root_table: Option<FftRootTable<F>>,
     ) -> PolynomialValues<F> {
@@ -235,7 +237,7 @@ impl<F: Field> PolynomialCoeffs<F> {
             .map(|(r, &c)| r * c)
             .collect::<Vec<_>>()
             .into();
-        modified_poly.fft_with_options(zero_factor, root_table)
+        modified_poly.fft_with_options(strategy, zero_factor, root_table)
     }
 
     pub fn to_extension<const D: usize>(&self) -> PolynomialCoeffs<F::Extension>

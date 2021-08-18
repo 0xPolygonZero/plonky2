@@ -26,12 +26,20 @@ serde_cbor = "0.11.1"
 
 [dev-dependencies]
 criterion = "0.3.5"
+tynm = "0.1.6"
 
 [[bench]]
 name = "field_arithmetic"
+harness = false
+
+[[bench]]
+name = "ffts"
 harness = false
 
 [profile.release]
 opt-level = 3
 #lto = "fat"
 #codegen-units = 1
+
+[profile.bench]
+opt-level = 3

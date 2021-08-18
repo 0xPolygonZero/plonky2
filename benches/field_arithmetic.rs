@@ -1,12 +1,11 @@
-use std::any::type_name;
-
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::extension_field::quartic::QuarticCrandallField;
 use plonky2::field::field_types::Field;
+use tynm::type_name;
 
 pub(crate) fn bench_field<F: Field>(c: &mut Criterion) {
-    c.bench_function(&format!("{} mul", type_name::<F>()), |b| {
+    c.bench_function(&format!("mul<{}>", type_name::<F>()), |b| {
         b.iter_batched(
             || (F::rand(), F::rand()),
             |(x, y)| x * y,
@@ -14,7 +13,7 @@ pub(crate) fn bench_field<F: Field>(c: &mut Criterion) {
         )
     });
 
-    c.bench_function(&format!("{} try_inverse", type_name::<F>()), |b| {
+    c.bench_function(&format!("try_inverse<{}>", type_name::<F>()), |b| {
         b.iter_batched(|| F::rand(), |x| x.try_inverse(), BatchSize::SmallInput)
     });
 }
