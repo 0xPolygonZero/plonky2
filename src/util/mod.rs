@@ -35,24 +35,22 @@ pub(crate) fn transpose_poly_values<F: Field>(polys: Vec<PolynomialValues<F>>) -
     transpose(&poly_values)
 }
 
-const TRANSPOSE_BAND: usize = 8;  // 64B cache line / 8B elements
-
 pub fn transpose<F: Field>(matrix: &[Vec<F>]) -> Vec<Vec<F>> {
     let l = matrix.len();
     let w = matrix[0].len();
-    let mut transposed = vec![vec![F::ZERO; l]; w];
-    for i in 0..(w / TRANSPOSE_BAND) {
-        for j in 0..l {
-            for ii in i..(i + TRANSPOSE_BAND) {
-                transposed[ii][j] = matrix[j][ii];
-            }
+    let mut transposed = vec![vec![]; w];
+    for i in 0..w {
+        transposed[i].reserve_exact(l);
+        unsafe {
+            // After .reserve_exact(l), transposed[i] will have capacity at least l. Hence, set_len
+            // will not cause the buffer to overrun.
+            transposed[i].set_len(l);
         }
-    }
-    for i in (w / TRANSPOSE_BAND * TRANSPOSE_BAND)..w {
         for j in 0..l {
             transposed[i][j] = matrix[j][i];
         }
     }
+
     transposed
 }
 
