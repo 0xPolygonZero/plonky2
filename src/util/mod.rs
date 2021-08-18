@@ -38,6 +38,12 @@ pub(crate) fn transpose_poly_values<F: Field>(polys: Vec<PolynomialValues<F>>) -
 pub fn transpose<F: Field>(matrix: &[Vec<F>]) -> Vec<Vec<F>> {
     let l = matrix.len();
     let w = matrix[0].len();
+    for j in 0..l {
+        if matrix[j].len() != w {
+            panic!("non-equal row lengths");
+        }
+    }
+
     let mut transposed = vec![vec![]; w];
     for i in 0..w {
         transposed[i].reserve_exact(l);
@@ -46,8 +52,27 @@ pub fn transpose<F: Field>(matrix: &[Vec<F>]) -> Vec<Vec<F>> {
             // will not cause the buffer to overrun.
             transposed[i].set_len(l);
         }
+    }
+
+    // Optimization: ensure the larger loop is outside.
+    if w >= l {
+        for i in 0..w {
+            for j in 0..l {
+                unsafe {
+                    // Avoid bounds checks.
+                    *transposed.get_unchecked_mut(i).get_unchecked_mut(j)
+                        = *matrix.get_unchecked(j).get_unchecked(i);
+                }
+            }
+        }
+    } else {
         for j in 0..l {
-            transposed[i][j] = matrix[j][i];
+            for i in 0..w {
+                unsafe {
+                    *transposed.get_unchecked_mut(i).get_unchecked_mut(j)
+                        = *matrix.get_unchecked(j).get_unchecked(i);
+                }
+            }
         }
     }
 
