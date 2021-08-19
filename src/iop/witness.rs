@@ -28,6 +28,7 @@ impl<F: Field> Witness<F> {
 pub struct PartialWitness<F: Field> {
     pub(crate) wire_values: Vec<Vec<Option<F>>>,
     pub(crate) virtual_target_values: Vec<Option<F>>,
+    pub(crate) set_targets: Vec<(Target, F)>,
 }
 
 impl<F: Field> PartialWitness<F> {
@@ -35,6 +36,7 @@ impl<F: Field> PartialWitness<F> {
         PartialWitness {
             wire_values: vec![vec![None; num_wires]],
             virtual_target_values: vec![],
+            set_targets: vec![],
         }
     }
 
@@ -148,6 +150,7 @@ impl<F: Field> PartialWitness<F> {
                 }
             }
         }
+        self.set_targets.push((target, value));
     }
 
     pub fn set_hash_target(&mut self, ht: HashOutTarget, value: HashOut<F>) {

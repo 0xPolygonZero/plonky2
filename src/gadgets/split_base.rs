@@ -3,7 +3,7 @@ use std::borrow::Borrow;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::base_sum::BaseSumGate;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator};
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, Yo};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::PartialWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -68,7 +68,7 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
         self.limbs.iter().map(|b| b.target).collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &Yo<F>, out_buffer: &mut GeneratedValues<F>) {
         let sum = self
             .limbs
             .iter()

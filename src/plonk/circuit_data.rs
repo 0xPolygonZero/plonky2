@@ -13,6 +13,7 @@ use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;
 use crate::iop::witness::PartialWitness;
 use crate::plonk::copy_constraint::CopyConstraint;
+use crate::plonk::permutation_argument::ForestNode;
 use crate::plonk::proof::ProofWithPublicInputs;
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
@@ -155,6 +156,8 @@ pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
     pub marked_targets: Vec<MarkedTargets<D>>,
     /// Number of virtual targets used in the circuit.
     pub num_virtual_targets: usize,
+
+    pub partition: Vec<ForestNode<Target, F>>,
 }
 
 /// Circuit data required by the verifier, but not the prover.

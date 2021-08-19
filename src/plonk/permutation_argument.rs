@@ -11,22 +11,25 @@ use crate::polynomial::polynomial::PolynomialValues;
 
 /// Node in the Disjoint Set Forest.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ForestNode<T: Debug + Copy + Eq + PartialEq> {
-    t: T,
-    parent: usize,
-    size: usize,
-    index: usize,
+pub struct ForestNode<T: Debug + Copy + Eq + PartialEq, V: Field> {
+    pub t: T,
+    pub parent: usize,
+    pub size: usize,
+    pub index: usize,
+    pub value: Option<V>,
 }
 
 /// Disjoint Set Forest data-structure following https://en.wikipedia.org/wiki/Disjoint-set_data_structure.
 #[derive(Debug, Clone)]
-pub struct TargetPartition<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> {
-    forest: Vec<ForestNode<T>>,
+pub struct TargetPartition<T: Debug + Copy + Eq + PartialEq + Hash, V: Field, F: Fn(T) -> usize> {
+    forest: Vec<ForestNode<T, V>>,
     /// Function to compute a node's index in the forest.
     indices: F,
 }
 
-impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition<T, F> {
+impl<T: Debug + Copy + Eq + PartialEq + Hash, V: Field, F: Fn(T) -> usize>
+    TargetPartition<T, V, F>
+{
     pub fn new(f: F) -> Self {
         Self {
             forest: Vec::new(),
@@ -42,11 +45,12 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition
             parent: index,
             size: 1,
             index,
+            value: None,
         });
     }
 
     /// Path compression method, see https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives.
-    pub fn find(&mut self, x: ForestNode<T>) -> ForestNode<T> {
+    pub fn find(&mut self, x: ForestNode<T, V>) -> ForestNode<T, V> {
         if x.parent != x.index {
             let root = self.find(self.forest[x.parent]);
             self.forest[x.index].parent = root.index;
@@ -80,8 +84,8 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition
         self.forest[y.index] = y;
     }
 }
-impl<F: Fn(Target) -> usize> TargetPartition<Target, F> {
-    pub fn wire_partition(&mut self) -> WirePartitions {
+impl<V: Field, F: Fn(Target) -> usize> TargetPartition<Target, V, F> {
+    pub fn wire_partition(mut self) -> (WirePartitions, Vec<ForestNode<Target, V>>) {
         let mut partition = HashMap::<_, Vec<_>>::new();
         let nodes = self.forest.clone();
         for x in nodes {
@@ -89,7 +93,7 @@ impl<F: Fn(Target) -> usize> TargetPartition<Target, F> {
             v.push(x.t);
         }
 
-        let mut indices = HashMap::new();
+        // let mut indices = HashMap::new();
         // Here we keep just the Wire targets, filtering out everything else.
         let partition = partition
             .into_values()
@@ -102,13 +106,13 @@ impl<F: Fn(Target) -> usize> TargetPartition<Target, F> {
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        partition.iter().enumerate().for_each(|(i, v)| {
-            v.iter().for_each(|t| {
-                indices.insert(*t, i);
-            });
-        });
+        // partition.iter().enumerate().for_each(|(i, v)| {
+        //     v.iter().for_each(|t| {
+        //         indices.insert(*t, i);
+        //     });
+        // });
 
-        WirePartitions { partition }
+        (WirePartitions { partition }, self.forest)
     }
 }
 

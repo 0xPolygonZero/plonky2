@@ -24,7 +24,7 @@ use crate::plonk::circuit_data::{
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
 use crate::plonk::copy_constraint::CopyConstraint;
-use crate::plonk::permutation_argument::TargetPartition;
+use crate::plonk::permutation_argument::{ForestNode, TargetPartition};
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::util::context_tree::ContextTree;
@@ -176,13 +176,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Shorthand for `generate_copy` and `assert_equal`.
     /// Both elements must be routable, otherwise this method will panic.
     pub fn route(&mut self, src: Target, dst: Target) {
-        self.generate_copy(src, dst);
+        // self.generate_copy(src, dst);
         self.assert_equal(src, dst);
     }
 
     /// Same as `route` with a named copy constraint.
     pub fn named_route(&mut self, src: Target, dst: Target, name: String) {
-        self.generate_copy(src, dst);
+        // self.generate_copy(src, dst);
         self.named_assert_equal(src, dst, name);
     }
 
@@ -263,10 +263,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn add_generators(&mut self, generators: Vec<Box<dyn WitnessGenerator<F>>>) {
+        // for g in &generators {
+        //     println!("{:?}", g);
+        // }
         self.generators.extend(generators);
     }
 
     pub fn add_generator<G: WitnessGenerator<F>>(&mut self, generator: G) {
+        // println!("{:?}", generator);
         self.generators.push(Box::new(generator));
     }
 
@@ -502,7 +506,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> Vec<PolynomialValues<F>> {
+    fn sigma_vecs(
+        &self,
+        k_is: &[F],
+        subgroup: &[F],
+    ) -> (Vec<PolynomialValues<F>>, Vec<ForestNode<Target, F>>) {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
         let mut target_partition = TargetPartition::new(|t| match t {
@@ -524,8 +532,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             target_partition.merge(a, b);
         }
 
-        let wire_partition = target_partition.wire_partition();
-        wire_partition.get_sigma_polys(degree_log, k_is, subgroup)
+        let (wire_partition, partition) = target_partition.wire_partition();
+        (
+            wire_partition.get_sigma_polys(degree_log, k_is, subgroup),
+            partition,
+        )
     }
 
     /// Fill the remaining unused arithmetic operations with zeros, so that all
@@ -614,7 +625,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let constant_vecs = self.constant_polys(&prefixed_gates, num_constants);
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
-        let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
+        let (sigma_vecs, partition) = self.sigma_vecs(&k_is, &subgroup);
 
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
         let constants_sigmas_commitment = PolynomialBatchCommitment::from_values(
@@ -640,6 +651,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             public_inputs: self.public_inputs,
             marked_targets: self.marked_targets,
             num_virtual_targets: self.virtual_target_index,
+            partition,
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we

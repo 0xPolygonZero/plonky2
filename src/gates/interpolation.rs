@@ -8,7 +8,7 @@ use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::interpolation::interpolant;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::Gate;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator, Yo};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::PartialWitness;
@@ -213,6 +213,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
     }
 }
 
+#[derive(Debug)]
 struct InterpolationGenerator<F: Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: InterpolationGate<F, D>,
@@ -239,7 +240,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGener
         deps
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &Yo<F>, out_buffer: &mut GeneratedValues<F>) {
         let n = self.gate.num_points;
 
         let local_wire = |input| Wire {

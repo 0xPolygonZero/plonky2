@@ -7,9 +7,12 @@ use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::challenger::Challenger;
-use crate::iop::generator::generate_partial_witness;
+use crate::iop::generator::{generate_partial_witness, Yo};
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
 use crate::iop::witness::{PartialWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
+use crate::plonk::permutation_argument::ForestNode;
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::plonk_common::ZeroPolyOnCoset;
 use crate::plonk::proof::{Proof, ProofWithPublicInputs};
@@ -32,8 +35,44 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
     let degree = common_data.degree();
+    println!("{}", prover_data.gate_instances[0].gate_ref.0.id());
+    println!("{}", prover_data.gate_instances[1].gate_ref.0.id());
 
-    let mut partial_witness = inputs;
+    let nrw = config.num_routed_wires;
+    let nw = config.num_wires;
+    let nvt = prover_data.num_virtual_targets;
+    let target_index = move |t: Target| -> usize {
+        match t {
+            Target::Wire(Wire { gate, input }) if input < nrw => gate * nrw + input,
+            Target::Wire(Wire { gate, input }) if input >= nrw => {
+                degree * nrw + nvt + gate * (nw - nrw) + input - nrw
+            }
+            Target::VirtualTarget { index } => degree * nrw + index,
+            _ => unreachable!(),
+        }
+    };
+    let mut partial_witness = prover_data.partition.clone();
+    let n = partial_witness.len();
+    timed!(timing, "fill partition", {
+        partial_witness.reserve_exact(degree * (config.num_wires - config.num_routed_wires));
+        for i in 0..degree * (config.num_wires - config.num_routed_wires) {
+            partial_witness.push(ForestNode {
+                t: Target::Wire(Wire { gate: 0, input: 0 }),
+                parent: n + i,
+                size: 0,
+                index: n + i,
+                value: None,
+            })
+        }
+        for &(t, v) in &inputs.set_targets {
+            // println!("{:?} {} {}", t, target_index(t), partial_witness.len());
+            let parent = partial_witness[target_index(t)].parent;
+            // println!("{} {}", parent, partial_witness.len());
+            partial_witness[parent].value = Some(v);
+        }
+    });
+    // let mut partial_witness = inputs;
+    let mut partial_witness = Yo(partial_witness, Box::new(target_index));
     timed!(
         timing,
         &format!("run {} generators", prover_data.generators.len()),
@@ -50,17 +89,17 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let public_inputs = partial_witness.get_targets(&prover_data.public_inputs);
     let public_inputs_hash = hash_n_to_hash(public_inputs.clone(), true);
 
-    // Display the marked targets for debugging purposes.
-    for m in &prover_data.marked_targets {
-        m.display(&partial_witness);
-    }
-
-    timed!(
-        timing,
-        "check copy constraints",
-        partial_witness
-            .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)?
-    );
+    // // Display the marked targets for debugging purposes.
+    // for m in &prover_data.marked_targets {
+    //     m.display(&partial_witness);
+    // }
+    //
+    // timed!(
+    //     timing,
+    //     "check copy constraints",
+    //     partial_witness
+    //         .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)?
+    // );
 
     let witness = timed!(
         timing,
