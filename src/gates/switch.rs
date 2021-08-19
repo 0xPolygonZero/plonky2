@@ -216,32 +216,23 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
 
         let get_local_wire = |input| witness.get_wire(local_wire(input));
 
-        // Compute the new vector and the values for equality_dummy and index_matches
-        let vec_size = self.gate.vec_size;
-        let access_index_f = get_local_wire(self.gate.wires_access_index());
+        for c in 0..self.gate.num_copies {
+            let switch_bool = get_local_wire(self.gate.wire_switch_bool(c));
+            for e in 0..CHUNK_SIZE {
+                let first_input = get_local_wire(self.gate.wire_first_input(c, e));
+                let second_input = get_local_wire(self.gate.wire_second_input(c, e));
+                let first_output_wire = local_wire(self.gate.wire_first_output(c, e));
+                let second_output_wire = local_wire(self.gate.wire_second_output(c, e));
 
-        let access_index = access_index_f.to_canonical_u64() as usize;
-        debug_assert!(
-            access_index < vec_size,
-            "Access index {} is larger than the vector size {}",
-            access_index,
-            vec_size
-        );
-
-        for i in 0..vec_size {
-            let equality_dummy_wire = local_wire(self.gate.wire_equality_dummy_for_index(i));
-            let index_matches_wire = local_wire(self.gate.wire_index_matches_for_index(i));
-
-            if i == access_index {
-                out_buffer.set_wire(equality_dummy_wire, F::ONE);
-                out_buffer.set_wire(index_matches_wire, F::ONE);
-            } else {
-                out_buffer.set_wire(
-                    equality_dummy_wire,
-                    (F::from_canonical_usize(i) - F::from_canonical_usize(access_index)).inverse(),
-                );
-                out_buffer.set_wire(index_matches_wire, F::ZERO);
+                if switch_bool == F::ONE {
+                    out_buffer.set_wire(first_output_wire, second_input);
+                    out_buffer.set_wire(second_output_wire, first_input);
+                } else {
+                    out_buffer.set_wire(first_output_wire, first_input);
+                    out_buffer.set_wire(second_output_wire, second_input);
+                }
             }
+            
         }
     }
 }
