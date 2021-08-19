@@ -11,11 +11,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given element into a list of targets, where each one represents a
     /// base-B limb of the element, with little-endian ordering.
-    pub(crate) fn split_le_base<const B: usize>(
-        &mut self,
-        x: Target,
-        num_limbs: usize,
-    ) -> Vec<Target> {
+    pub fn split_le_base<const B: usize>(&mut self, x: Target, num_limbs: usize) -> Vec<Target> {
         let gate_type = BaseSumGate::<B>::new(num_limbs);
         let gate = self.add_gate(gate_type.clone(), vec![]);
         let sum = Target::wire(gate, BaseSumGate::<B>::WIRE_SUM);

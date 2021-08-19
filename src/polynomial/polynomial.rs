@@ -115,11 +115,11 @@ impl<F: Field> PolynomialCoeffs<F> {
 
     /// The number of coefficients. This does not filter out any zero coefficients, so it is not
     /// necessarily related to the degree.
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.coeffs.len()
     }
 
-    pub(crate) fn log_len(&self) -> usize {
+    pub fn log_len(&self) -> usize {
         log2_strict(self.len())
     }
 

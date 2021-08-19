@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::{Extendable, Frobenius};
+use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::reducing::ReducingGate;
 use crate::iop::target::Target;
@@ -79,16 +79,6 @@ impl<F: Field> ReducingFactor<F> {
 
     pub fn reset(&mut self) {
         self.count = 0;
-    }
-
-    pub fn repeated_frobenius<const D: usize>(&self, count: usize) -> Self
-    where
-        F: Frobenius<D>,
-    {
-        Self {
-            base: self.base.repeated_frobenius(count),
-            count: self.count,
-        }
     }
 }
 
@@ -189,16 +179,6 @@ impl<const D: usize> ReducingFactorTarget<D> {
 
     pub fn reset(&mut self) {
         self.count = 0;
-    }
-
-    pub fn repeated_frobenius<F>(&self, count: usize, builder: &mut CircuitBuilder<F, D>) -> Self
-    where
-        F: Extendable<D>,
-    {
-        Self {
-            base: self.base.repeated_frobenius(count, builder),
-            count: self.count,
-        }
     }
 }
 

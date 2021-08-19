@@ -30,7 +30,7 @@ impl<F: Field> HashOut<F> {
         }
     }
 
-    pub(crate) fn rand() -> Self {
+    pub fn rand() -> Self {
         Self {
             elements: [F::rand(), F::rand(), F::rand(), F::rand()],
         }

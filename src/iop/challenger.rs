@@ -114,18 +114,6 @@ impl<F: Field> Challenger<F> {
             .expect("Output buffer should be non-empty")
     }
 
-    pub fn get_2_challenges(&mut self) -> (F, F) {
-        (self.get_challenge(), self.get_challenge())
-    }
-
-    pub fn get_3_challenges(&mut self) -> (F, F, F) {
-        (
-            self.get_challenge(),
-            self.get_challenge(),
-            self.get_challenge(),
-        )
-    }
-
     pub fn get_n_challenges(&mut self, n: usize) -> Vec<F> {
         (0..n).map(|_| self.get_challenge()).collect()
     }
@@ -277,24 +265,6 @@ impl RecursiveChallenger {
         self.output_buffer
             .pop()
             .expect("Output buffer should be non-empty")
-    }
-
-    pub(crate) fn get_2_challenges<F: Extendable<D>, const D: usize>(
-        &mut self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> (Target, Target) {
-        (self.get_challenge(builder), self.get_challenge(builder))
-    }
-
-    pub(crate) fn get_3_challenges<F: Extendable<D>, const D: usize>(
-        &mut self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> (Target, Target, Target) {
-        (
-            self.get_challenge(builder),
-            self.get_challenge(builder),
-            self.get_challenge(builder),
-        )
     }
 
     pub(crate) fn get_n_challenges<F: Extendable<D>, const D: usize>(

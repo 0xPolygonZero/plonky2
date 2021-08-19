@@ -58,6 +58,7 @@ impl CircuitConfig {
         self.num_wires - self.num_routed_wires
     }
 
+    #[cfg(test)]
     pub(crate) fn large_config() -> Self {
         Self {
             num_wires: 126,
@@ -75,6 +76,7 @@ impl CircuitConfig {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn large_zk_config() -> Self {
         CircuitConfig {
             zero_knowledge: true,
