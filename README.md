@@ -7,10 +7,10 @@ plonky2 is largely focused on recursion performance. We use custom gates to miti
 
 ## Running
 
-To run the recursion benchmark,
+To see recursion performance, one can run this test, which generates a chain of three recursion proofs:
 
 ```sh
-RUSTFLAGS=-Ctarget-cpu=native cargo run --release
+RUST_LOG=debug RUSTFLAGS=-Ctarget-cpu=native cargo test --release test_recursive_recursive_verifier -- --ignored
 ```
 
 
