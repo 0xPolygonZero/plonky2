@@ -14,6 +14,7 @@ pub(crate) mod noop;
 pub(crate) mod public_input;
 pub mod random_access;
 pub mod reducing;
+pub mod switch;
 
 #[cfg(test)]
 mod gate_testing;
