@@ -35,8 +35,9 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
     let degree = common_data.degree();
-    println!("{}", prover_data.gate_instances[0].gate_ref.0.id());
-    println!("{}", prover_data.gate_instances[1].gate_ref.0.id());
+    // for i in 0..prover_data.gate_instances.len() {
+    //     println!("{}: {}", i, prover_data.gate_instances[i].gate_ref.0.id());
+    // }
 
     let nrw = config.num_routed_wires;
     let nw = config.num_wires;
@@ -71,6 +72,12 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
             partial_witness[parent].value = Some(v);
         }
     });
+    // let t = partial_witness[target_index(Target::Wire(Wire {
+    //     gate: 14,
+    //     input: 16,
+    // }))];
+    // dbg!(t);
+    // dbg!(partial_witness[t.parent]);
     // let mut partial_witness = inputs;
     let mut partial_witness = Yo(partial_witness, Box::new(target_index));
     timed!(
