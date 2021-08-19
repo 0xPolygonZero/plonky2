@@ -34,39 +34,41 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SwitchGate<F, D,
         copy * (4 * CHUNK_SIZE + 1)
     }
 
-    pub fn wire_first_input(&self, copy: usize, element: usize) {
+    pub fn wire_first_input(&self, copy: usize, element: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         debug_assert!(element < CHUNK_SIZE);
         copy * (4 * CHUNK_SIZE + 1) + 1 + element
     }
 
-    pub fn wire_second_input(&self, copy: usize, element: usize) {
+    pub fn wire_second_input(&self, copy: usize, element: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         debug_assert!(element < CHUNK_SIZE);
         copy * (4 * CHUNK_SIZE + 1) + 1 + CHUNK_SIZE + element
     }
 
-    pub fn wire_first_output(&self, copy: usize, element: usize) {
+    pub fn wire_first_output(&self, copy: usize, element: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         debug_assert!(element < CHUNK_SIZE);
         copy * (4 * CHUNK_SIZE + 1) + 1 + 2 * CHUNK_SIZE + element
     }
 
-    pub fn wire_second_output(&self, copy: usize, element: usize) {
+    pub fn wire_second_output(&self, copy: usize, element: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         debug_assert!(element < CHUNK_SIZE);
         copy * (4 * CHUNK_SIZE + 1) + 1 + 3 * CHUNK_SIZE + element
     }
 }
 
-impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D> for SwitchGate<F, D, CHUNK_SIZE> {
+impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
+    for SwitchGate<F, D, CHUNK_SIZE>
+{
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
-        
+
         for c in 0..self.num_copies {
             let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
 
@@ -75,20 +77,21 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D> for S
                 let second_input = vars.local_wires[self.wire_second_input(c, e)];
                 let first_output = vars.local_wires[self.wire_first_output(c, e)];
                 let second_output = vars.local_wires[self.wire_second_output(c, e)];
-                
+
                 constraints.push(switch_bool * (first_input - second_output));
                 constraints.push(switch_bool * (second_input - first_output));
                 constraints.push((F::Extension::ONE - switch_bool) * (first_input - first_output));
-                constraints.push((F::Extension::ONE - switch_bool) * (second_input - second_output));
+                constraints
+                    .push((F::Extension::ONE - switch_bool) * (second_input - second_output));
             }
         }
 
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F, D>) -> Vec<F> {
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
-        
+
         for c in 0..self.num_copies {
             let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
 
@@ -97,7 +100,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D> for S
                 let second_input = vars.local_wires[self.wire_second_input(c, e)];
                 let first_output = vars.local_wires[self.wire_first_output(c, e)];
                 let second_output = vars.local_wires[self.wire_second_output(c, e)];
-                
+
                 constraints.push(switch_bool * (first_input - second_output));
                 constraints.push(switch_bool * (second_input - first_output));
                 constraints.push((F::ONE - switch_bool) * (first_input - first_output));
@@ -114,7 +117,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D> for S
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
-        
+
         let one = builder.one_extension();
         for c in 0..self.num_copies {
             let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
@@ -125,22 +128,24 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D> for S
                 let second_input = vars.local_wires[self.wire_second_input(c, e)];
                 let first_output = vars.local_wires[self.wire_first_output(c, e)];
                 let second_output = vars.local_wires[self.wire_second_output(c, e)];
-                
-                
+
                 let first_switched = builder.sub_extension(first_input, second_output);
                 let first_switched_constraint = builder.mul_extension(switch_bool, first_switched);
                 constraints.push(first_switched_constraint);
 
                 let second_switched = builder.sub_extension(second_input, first_output);
-                let second_switched_constraint = builder.mul_extension(switch_bool, second_switched);
+                let second_switched_constraint =
+                    builder.mul_extension(switch_bool, second_switched);
                 constraints.push(second_switched_constraint);
 
                 let first_not_switched = builder.sub_extension(first_input, first_output);
-                let first_not_switched_constraint = builder.mul_extension(not_switch, first_not_switched);
+                let first_not_switched_constraint =
+                    builder.mul_extension(not_switch, first_not_switched);
                 constraints.push(first_not_switched_constraint);
 
                 let second_not_switched = builder.sub_extension(second_input, second_output);
-                let second_not_switched_constraint = builder.mul_extension(not_switch, second_not_switched);
+                let second_not_switched_constraint =
+                    builder.mul_extension(not_switch, second_not_switched);
                 constraints.push(second_not_switched_constraint);
             }
         }
@@ -183,7 +188,9 @@ struct SwitchGenerator<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize
     gate: SwitchGate<F, D, CHUNK_SIZE>,
 }
 
-impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<F> for SwitchGenerator<F, D, CHUNK_SIZE> {
+impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<F>
+    for SwitchGenerator<F, D, CHUNK_SIZE>
+{
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
@@ -252,6 +259,7 @@ mod tests {
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::switch::SwitchGate;
     use crate::hash::hash_types::HashOut;
+    use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::vars::EvaluationVars;
 
     #[test]
@@ -260,7 +268,6 @@ mod tests {
             num_copies: 3,
             _phantom: PhantomData,
         };
-
 
         assert_eq!(gate.wire_switch_bool(0), 0);
         assert_eq!(gate.wire_first_input(0, 0), 1);
@@ -290,67 +297,55 @@ mod tests {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         const D: usize = 4;
+        const CHUNK_SIZE: usize = 4;
+        let num_copies = 3;
 
         /// Returns the local wires for a random access gate given the vector, element to compare,
         /// and index.
-        fn get_wires(list: Vec<FF>, access_index: usize, claimed_element: FF) -> Vec<FF> {
-            let vec_size = list.len();
+        fn get_wires(
+            first_inputs: Vec<Vec<F>>,
+            second_inputs: Vec<Vec<F>>,
+            switch_bools: Vec<bool>,
+        ) -> Vec<F> {
+            let num_copies = first_inputs.len();
 
             let mut v = Vec::new();
-            v.push(F::from_canonical_usize(access_index));
-            v.extend(claimed_element.0);
-            for j in 0..vec_size {
-                v.extend(list[j].0);
-            }
-
-            let mut equality_dummy_vals = Vec::new();
-            let mut index_matches_vals = Vec::new();
-            for i in 0..vec_size {
-                if i == access_index {
-                    equality_dummy_vals.push(F::ONE);
-                    index_matches_vals.push(F::ONE);
-                } else {
-                    equality_dummy_vals.push(
-                        (F::from_canonical_usize(i) - F::from_canonical_usize(access_index))
-                            .inverse(),
-                    );
-                    index_matches_vals.push(F::ZERO);
+            for c in 0..num_copies {
+                let switch = switch_bools[c];
+                v.push(F::from_bool(switch));
+                for e in 0..CHUNK_SIZE {
+                    let first_input = first_inputs[c][e];
+                    let second_input = second_inputs[c][e];
+                    let first_output = if switch { second_input } else { first_input };
+                    let second_output = if switch { first_input } else { second_input };
+                    v.push(first_input);
+                    v.push(second_input);
+                    v.push(first_output);
+                    v.push(second_output);
                 }
             }
-
-            v.extend(equality_dummy_vals);
-            v.extend(index_matches_vals);
 
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         }
 
-        let list = vec![FF::rand(); 3];
-        let access_index = 1;
-        let gate = SwitchGate::<F, D> {
-            vec_size: 3,
+        let first_inputs = vec![vec![F::rand(); CHUNK_SIZE]; num_copies];
+        let second_inputs = vec![vec![F::rand(); CHUNK_SIZE]; num_copies];
+        let switch_bools = vec![true, false, true];
+
+        let gate = SwitchGate::<F, D, CHUNK_SIZE> {
+            num_copies,
             _phantom: PhantomData,
         };
 
-        let good_claimed_element = list[access_index];
-        let good_vars = EvaluationVars {
+        let vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires(list.clone(), access_index, good_claimed_element),
-            public_inputs_hash: &HashOut::rand(),
-        };
-        let bad_claimed_element = FF::rand();
-        let bad_vars = EvaluationVars {
-            local_constants: &[],
-            local_wires: &get_wires(list, access_index, bad_claimed_element),
+            local_wires: &get_wires(first_inputs, second_inputs, switch_bools),
             public_inputs_hash: &HashOut::rand(),
         };
 
         assert!(
-            gate.eval_unfiltered(good_vars).iter().all(|x| x.is_zero()),
+            gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),
             "Gate constraints are not satisfied."
-        );
-        assert!(
-            !gate.eval_unfiltered(bad_vars).iter().all(|x| x.is_zero()),
-            "Gate constraints are satisfied but shouold not be."
         );
     }
 }
