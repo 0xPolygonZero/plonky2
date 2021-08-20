@@ -328,8 +328,8 @@ mod tests {
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         }
 
-        let first_inputs = vec![vec![F::rand(); CHUNK_SIZE]; num_copies];
-        let second_inputs = vec![vec![F::rand(); CHUNK_SIZE]; num_copies];
+        let first_inputs: Vec<Vec<F>> = (0..num_copies).map(|_| F::rand_vec(CHUNK_SIZE)).collect();
+        let second_inputs: Vec<Vec<F>> = (0..num_copies).map(|_| F::rand_vec(CHUNK_SIZE)).collect();
         let switch_bools = vec![true, false, true];
 
         let gate = SwitchGate::<F, D, CHUNK_SIZE> {
