@@ -3,6 +3,7 @@ use crate::polynomial::polynomial::PolynomialValues;
 
 pub(crate) mod context_tree;
 pub(crate) mod marking;
+pub(crate) mod matrix;
 pub(crate) mod partial_products;
 pub mod reducing;
 pub(crate) mod timing;
