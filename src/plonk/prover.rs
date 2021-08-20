@@ -10,7 +10,7 @@ use crate::iop::challenger::Challenger;
 use crate::iop::generator::{generate_partial_witness, Yo};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
-use crate::iop::witness::{PartialWitness, Witness};
+use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::plonk::permutation_argument::ForestNode;
 use crate::plonk::plonk_common::PlonkPolynomials;
@@ -268,7 +268,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
 /// Compute the partial products used in the `Z` polynomials.
 fn all_wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
-    witness: &Witness<F>,
+    witness: &MatrixWitness<F>,
     betas: &[F],
     gammas: &[F],
     prover_data: &ProverOnlyCircuitData<F, D>,
@@ -291,7 +291,7 @@ fn all_wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
 /// Returns the polynomials interpolating `partial_products(f / g)`
 /// where `f, g` are the products in the definition of `Z`: `Z(g^i) = f / g`.
 fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
-    witness: &Witness<F>,
+    witness: &MatrixWitness<F>,
     beta: F,
     gamma: F,
     prover_data: &ProverOnlyCircuitData<F, D>,

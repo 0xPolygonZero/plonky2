@@ -221,7 +221,7 @@ mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
     use crate::hash::merkle_tree::MerkleTree;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;

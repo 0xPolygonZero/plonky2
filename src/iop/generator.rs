@@ -9,7 +9,7 @@ use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
-use crate::iop::witness::{PartialWitness, Witness};
+use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
 use crate::plonk::permutation_argument::ForestNode;
 use crate::timed;
 use crate::util::timing::TimingTree;
@@ -159,7 +159,7 @@ impl<F: Field> Yo<F> {
         }
     }
 
-    pub fn full_witness(self, degree: usize, num_wires: usize) -> Witness<F> {
+    pub fn full_witness(self, degree: usize, num_wires: usize) -> MatrixWitness<F> {
         let mut wire_values = vec![vec![F::ZERO; degree]; num_wires];
         // assert!(self.wire_values.len() <= degree);
         for i in 0..degree {
@@ -168,7 +168,7 @@ impl<F: Field> Yo<F> {
                 wire_values[j][i] = self.0[self.0[self.1(t)].parent].value.unwrap_or(F::ZERO);
             }
         }
-        Witness { wire_values }
+        MatrixWitness { wire_values }
     }
 }
 

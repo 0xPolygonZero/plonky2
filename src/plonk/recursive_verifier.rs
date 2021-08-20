@@ -137,7 +137,7 @@ mod tests {
     use crate::fri::FriConfig;
     use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
     use crate::hash::merkle_proofs::MerkleProofTarget;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::proof::{OpeningSetTarget, Proof, ProofTarget, ProofWithPublicInputs};
     use crate::plonk::verifier::verify;
     use crate::util::log2_strict;
