@@ -11,7 +11,7 @@ use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartialWitness, PartitionWitness};
 use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::permutation_argument::ForestNode;
 use crate::plonk::proof::ProofWithPublicInputs;
@@ -157,7 +157,7 @@ pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
     /// Number of virtual targets used in the circuit.
     pub num_virtual_targets: usize,
 
-    pub partition: Vec<ForestNode<Target, F>>,
+    pub partition: PartitionWitness<F>,
 }
 
 /// Circuit data required by the verifier, but not the prover.

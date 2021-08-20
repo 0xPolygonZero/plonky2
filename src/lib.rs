@@ -1,4 +1,5 @@
 #![feature(destructuring_assignment)]
+#![feature(const_fn_trait_bound)]
 
 pub mod field;
 pub mod fri;

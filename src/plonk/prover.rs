@@ -35,58 +35,23 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
     let degree = common_data.degree();
-    // for i in 0..prover_data.gate_instances.len() {
-    //     println!("{}: {}", i, prover_data.gate_instances[i].gate_ref.0.id());
-    // }
 
-    let nrw = config.num_routed_wires;
-    let nw = config.num_wires;
-    let nvt = prover_data.num_virtual_targets;
-    let target_index = move |t: Target| -> usize {
-        match t {
-            Target::Wire(Wire { gate, input }) if input < nrw => gate * nrw + input,
-            Target::Wire(Wire { gate, input }) if input >= nrw => {
-                degree * nrw + nvt + gate * (nw - nrw) + input - nrw
-            }
-            Target::VirtualTarget { index } => degree * nrw + index,
-            _ => unreachable!(),
-        }
-    };
     let mut partial_witness = prover_data.partition.clone();
-    let n = partial_witness.len();
-    timed!(timing, "fill partition", {
-        partial_witness.reserve_exact(degree * (config.num_wires - config.num_routed_wires));
-        for i in 0..degree * (config.num_wires - config.num_routed_wires) {
-            partial_witness.push(ForestNode {
-                t: Target::Wire(Wire { gate: 0, input: 0 }),
-                parent: n + i,
-                size: 0,
-                index: n + i,
-                value: None,
-            })
-        }
+    timed!(
+        timing,
+        "fill partition",
         for &(t, v) in &inputs.set_targets {
-            // println!("{:?} {} {}", t, target_index(t), partial_witness.len());
-            let parent = partial_witness[target_index(t)].parent;
-            // println!("{} {}", parent, partial_witness.len());
-            partial_witness[parent].value = Some(v);
+            partial_witness.set_target(t, v);
         }
-    });
-    // let t = partial_witness[target_index(Target::Wire(Wire {
-    //     gate: 14,
-    //     input: 16,
-    // }))];
-    // dbg!(t);
-    // dbg!(partial_witness[t.parent]);
-    // let mut partial_witness = inputs;
-    let mut partial_witness = PartitionWitness(partial_witness, Box::new(target_index));
+    );
+
     timed!(
         timing,
         &format!("run {} generators", prover_data.generators.len()),
         generate_partial_witness(
             &mut partial_witness,
             &prover_data.generators,
-            config.num_wires,
+            num_wires,
             degree,
             prover_data.num_virtual_targets,
             &mut timing
@@ -96,22 +61,17 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let public_inputs = partial_witness.get_targets(&prover_data.public_inputs);
     let public_inputs_hash = hash_n_to_hash(public_inputs.clone(), true);
 
-    // // Display the marked targets for debugging purposes.
-    // for m in &prover_data.marked_targets {
-    //     m.display(&partial_witness);
-    // }
-    //
-    // timed!(
-    //     timing,
-    //     "check copy constraints",
-    //     partial_witness
-    //         .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)?
-    // );
+    if cfg!(debug_assertions) {
+        // Display the marked targets for debugging purposes.
+        for m in &prover_data.marked_targets {
+            m.display(&partial_witness);
+        }
+    }
 
     let witness = timed!(
         timing,
         "compute full witness",
-        partial_witness.full_witness(degree, num_wires)
+        partial_witness.full_witness()
     );
 
     let wires_values: Vec<PolynomialValues<F>> = timed!(

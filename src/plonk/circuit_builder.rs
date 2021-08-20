@@ -19,12 +19,13 @@ use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
+use crate::iop::witness::{PartialWitness, PartitionWitness};
 use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
 use crate::plonk::copy_constraint::CopyConstraint;
-use crate::plonk::permutation_argument::{ForestNode, TargetPartition};
+use crate::plonk::permutation_argument::ForestNode;
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::util::context_tree::ContextTree;
@@ -510,16 +511,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &self,
         k_is: &[F],
         subgroup: &[F],
-    ) -> (Vec<PolynomialValues<F>>, Vec<ForestNode<Target, F>>) {
+    ) -> (Vec<PolynomialValues<F>>, PartitionWitness<F>) {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
-        let mut target_partition = TargetPartition::new(|t| match t {
-            Target::Wire(Wire { gate, input }) => gate * self.config.num_routed_wires + input,
-            Target::VirtualTarget { index } => degree * self.config.num_routed_wires + index,
-        });
+        let mut target_partition =
+            PartitionWitness::new(self.config.num_wires, self.config.num_routed_wires, degree);
 
         for gate in 0..degree {
-            for input in 0..self.config.num_routed_wires {
+            for input in 0..self.config.num_wires {
                 target_partition.add(Target::Wire(Wire { gate, input }));
             }
         }

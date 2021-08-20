@@ -217,32 +217,50 @@ impl<F: Field> Witness<F> for PartialWitness<F> {
     }
 }
 
-pub struct PartitionWitness<F: Field>(
-    pub Vec<ForestNode<Target, F>>,
-    pub Box<dyn Fn(Target) -> usize>,
-);
+#[derive(Clone)]
+pub struct PartitionWitness<F: Field> {
+    pub nodes: Vec<ForestNode<Target, F>>,
+    pub num_wires: usize,
+    pub num_routed_wires: usize,
+    pub degree: usize,
+}
 
 impl<F: Field> Witness<F> for PartitionWitness<F> {
     fn try_get_target(&self, target: Target) -> Option<F> {
-        self.0[self.0[self.1(target)].parent].value
+        self.nodes[self.nodes[self.target_index(target)].parent].value
     }
 
     fn set_target(&mut self, target: Target, value: F) {
-        let i = self.0[self.1(target)].parent;
-        self.0[i].value = Some(value);
+        let i = self.nodes[self.target_index(target)].parent;
+        self.nodes[i].value = Some(value);
     }
 }
 
 impl<F: Field> PartitionWitness<F> {
-    pub fn full_witness(self, degree: usize, num_wires: usize) -> MatrixWitness<F> {
-        let mut wire_values = vec![vec![F::ZERO; degree]; num_wires];
-        // assert!(self.wire_values.len() <= degree);
-        for i in 0..degree {
-            for j in 0..num_wires {
-                let t = Target::Wire(Wire { gate: i, input: j });
-                wire_values[j][i] = self.0[self.0[self.1(t)].parent].value.unwrap_or(F::ZERO);
+    pub const fn target_index(&self, target: Target) -> usize {
+        match target {
+            Target::Wire(Wire { gate, input }) => gate * self.num_wires + input,
+            Target::VirtualTarget { index } => self.degree * self.num_wires + index,
+        }
+    }
+
+    pub fn full_witness(self) -> MatrixWitness<F> {
+        let mut wire_values = vec![vec![]; self.num_wires];
+        for j in 0..self.num_wires {
+            wire_values[j].reserve_exact(self.degree);
+            unsafe {
+                // After .reserve_exact(l), wire_values[i] will have capacity at least l. Hence, set_len
+                // will not cause the buffer to overrun.
+                wire_values[j].set_len(self.degree);
             }
         }
+        for i in 0..self.degree {
+            for j in 0..self.num_wires {
+                let t = Target::Wire(Wire { gate: i, input: j });
+                wire_values[j][i] = self.try_get_target(t).unwrap_or(F::ZERO);
+            }
+        }
+
         MatrixWitness { wire_values }
     }
 }
