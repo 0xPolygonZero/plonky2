@@ -13,7 +13,9 @@ pub struct HashOut<F: Field> {
 }
 
 impl<F: Field> HashOut<F> {
-    pub const ZERO: Self = Self { elements: [F::ZERO; 4] };
+    pub const ZERO: Self = Self {
+        elements: [F::ZERO; 4],
+    };
 
     pub(crate) fn from_vec(elements: Vec<F>) -> Self {
         debug_assert!(elements.len() == 4);
