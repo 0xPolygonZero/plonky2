@@ -1,17 +1,13 @@
 use std::convert::TryInto;
 
-use anyhow::{ensure, Result};
-
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::Field;
-use crate::gates::gate::GateInstance;
 use crate::hash::hash_types::HashOutTarget;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
-use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::permutation_argument::ForestNode;
 
 pub trait Witness<F: Field> {

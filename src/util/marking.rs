@@ -2,7 +2,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::hash::hash_types::HashOutTarget;
 use crate::iop::target::Target;
-use crate::iop::witness::{PartialWitness, PartitionWitness, Witness};
+use crate::iop::witness::{PartitionWitness, Witness};
 
 /// Enum representing all types of targets, so that they can be marked.
 #[derive(Clone)]

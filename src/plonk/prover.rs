@@ -8,11 +8,8 @@ use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::challenger::Challenger;
 use crate::iop::generator::generate_partial_witness;
-use crate::iop::target::Target;
-use crate::iop::wire::Wire;
-use crate::iop::witness::{MatrixWitness, PartialWitness, PartitionWitness, Witness};
+use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
-use crate::plonk::permutation_argument::ForestNode;
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::plonk_common::ZeroPolyOnCoset;
 use crate::plonk::proof::{Proof, ProofWithPublicInputs};
@@ -31,12 +28,11 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 ) -> Result<ProofWithPublicInputs<F, D>> {
     let mut timing = TimingTree::new("prove", Level::Debug);
     let config = &common_data.config;
-    let num_wires = config.num_wires;
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
     let degree = common_data.degree();
 
-    let mut partition_witness = prover_data.partition.clone();
+    let mut partition_witness = prover_data.partition_witness.clone();
     timed!(
         timing,
         "fill partition",
@@ -258,14 +254,12 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
         .enumerate()
         .map(|(i, &x)| {
             let s_sigmas = &prover_data.sigmas[i];
-            let numerators = (0..common_data.config.num_routed_wires)
-                .map(|j| {
-                    let wire_value = witness.get_wire(i, j);
-                    let k_i = k_is[j];
-                    let s_id = k_i * x;
-                    wire_value + beta * s_id + gamma
-                })
-                .collect::<Vec<_>>();
+            let numerators = (0..common_data.config.num_routed_wires).map(|j| {
+                let wire_value = witness.get_wire(i, j);
+                let k_i = k_is[j];
+                let s_id = k_i * x;
+                wire_value + beta * s_id + gamma
+            });
             let denominators = (0..common_data.config.num_routed_wires)
                 .map(|j| {
                     let wire_value = witness.get_wire(i, j);
@@ -275,7 +269,6 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
                 .collect::<Vec<_>>();
             let denominator_invs = F::batch_multiplicative_inverse(&denominators);
             let quotient_values = numerators
-                .into_iter()
                 .zip(denominator_invs)
                 .map(|(num, den_inv)| num * den_inv)
                 .collect::<Vec<_>>();

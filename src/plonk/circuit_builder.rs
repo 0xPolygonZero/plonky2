@@ -19,13 +19,12 @@ use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
-use crate::iop::witness::{PartialWitness, PartitionWitness};
+use crate::iop::witness::PartitionWitness;
 use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
 use crate::plonk::copy_constraint::CopyConstraint;
-use crate::plonk::permutation_argument::ForestNode;
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::util::context_tree::ContextTree;
@@ -645,12 +644,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_commitment,
             sigmas: transpose_poly_values(sigma_vecs),
             subgroup,
-            copy_constraints: self.copy_constraints,
             gate_instances: self.gate_instances,
             public_inputs: self.public_inputs,
             marked_targets: self.marked_targets,
-            num_virtual_targets: self.virtual_target_index,
-            partition,
+            partition_witness: partition,
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we

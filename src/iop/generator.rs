@@ -1,16 +1,12 @@
-use std::collections::HashMap;
-use std::convert::{identity, TryInto};
 use std::fmt::Debug;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::Field;
-use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
-use crate::hash::merkle_tree::MerkleCap;
-use crate::iop::target::{BoolTarget, Target};
+use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::iop::target::Target;
 use crate::iop::wire::Wire;
-use crate::iop::witness::{MatrixWitness, PartialWitness, PartitionWitness, Witness};
-use crate::plonk::permutation_argument::ForestNode;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::timed;
 use crate::util::timing::TimingTree;
 
