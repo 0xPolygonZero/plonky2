@@ -14,22 +14,13 @@ use crate::plonk::permutation_argument::ForestNode;
 use crate::timed;
 use crate::util::timing::TimingTree;
 
-/// Given a `PartialWitness` that has only inputs set, populates the rest of the witness using the
+/// Given a `PartitionWitness` that has only inputs set, populates the rest of the witness using the
 /// given set of generators.
 pub(crate) fn generate_partial_witness<F: Field>(
     witness: &mut PartitionWitness<F>,
     generators: &[Box<dyn WitnessGenerator<F>>],
-    num_wires: usize,
-    degree: usize,
-    max_virtual_target: usize,
     timing: &mut TimingTree,
 ) {
-    // let target_index = |t: Target| -> usize {
-    //     match t {
-    //         Target::Wire(Wire { gate, input }) => gate * num_wires + input,
-    //         Target::VirtualTarget { index } => degree * num_wires + index,
-    //     }
-    // };
     let max_target_index = witness.nodes.len();
     // Index generator indices by their watched targets.
     let mut generator_indices_by_watches = vec![Vec::new(); max_target_index];
@@ -47,13 +38,12 @@ pub(crate) fn generate_partial_witness<F: Field>(
 
     // We also track a list of "expired" generators which have already returned false.
     let mut generator_is_expired = vec![false; generators.len()];
+    let mut remaining_generators = generators.len();
 
     let mut buffer = GeneratedValues::empty();
 
-    let mut count = 0;
-    // Keep running generators until no generators are queued.
-    // while !pending_generator_indices.is_empty() {
-    while !generator_is_expired.iter().all(|&x| x) {
+    // Keep running generators until all generators have run.
+    while remaining_generators > 0 {
         let mut next_pending_generator_indices = Vec::new();
 
         for &generator_idx in &pending_generator_indices {
@@ -62,11 +52,9 @@ pub(crate) fn generate_partial_witness<F: Field>(
             }
 
             let finished = generators[generator_idx].run(&witness, &mut buffer);
-            // dbg!(&generators[generator_idx], &buffer);
             if finished {
                 generator_is_expired[generator_idx] = true;
-            } else {
-                count += 1;
+                remaining_generators -= 1;
             }
 
             // Enqueue unfinished generators that were watching one of the newly populated targets.
@@ -83,27 +71,14 @@ pub(crate) fn generate_partial_witness<F: Field>(
             witness.extend(buffer.target_values.drain(..));
         }
 
-        // pending_generator_indices = next_pending_generator_indices;
-        pending_generator_indices = if next_pending_generator_indices.is_empty() {
-            (0..generators.len()).collect()
-        } else {
-            next_pending_generator_indices
-        };
+        // If we still need to run som generators, but none were enqueued, we enqueue all generators.
+        pending_generator_indices =
+            if remaining_generators > 0 && next_pending_generator_indices.is_empty() {
+                (0..generators.len()).collect()
+            } else {
+                next_pending_generator_indices
+            };
     }
-
-    dbg!(count);
-    // for i in 0..generator_is_expired.len() {
-    //     if !generator_is_expired[i] {
-    //         println!("{}: {:?}", i, generators[i]);
-    //         for a in generators[i].watch_list() {
-    //             println!("{:?} {}", a, witness.contains(a));
-    //         }
-    //     }
-    // }
-    assert!(
-        generator_is_expired.into_iter().all(identity),
-        "Some generators weren't run."
-    );
 }
 
 /// A generator participates in the generation of the witness.

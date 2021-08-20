@@ -36,42 +36,35 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let quotient_degree = common_data.quotient_degree();
     let degree = common_data.degree();
 
-    let mut partial_witness = prover_data.partition.clone();
+    let mut partition_witness = prover_data.partition.clone();
     timed!(
         timing,
         "fill partition",
         for &(t, v) in &inputs.set_targets {
-            partial_witness.set_target(t, v);
+            partition_witness.set_target(t, v);
         }
     );
 
     timed!(
         timing,
         &format!("run {} generators", prover_data.generators.len()),
-        generate_partial_witness(
-            &mut partial_witness,
-            &prover_data.generators,
-            num_wires,
-            degree,
-            prover_data.num_virtual_targets,
-            &mut timing
-        )
+        generate_partial_witness(&mut partition_witness, &prover_data.generators, &mut timing)
     );
 
-    let public_inputs = partial_witness.get_targets(&prover_data.public_inputs);
+    let public_inputs = partition_witness.get_targets(&prover_data.public_inputs);
     let public_inputs_hash = hash_n_to_hash(public_inputs.clone(), true);
 
     if cfg!(debug_assertions) {
         // Display the marked targets for debugging purposes.
         for m in &prover_data.marked_targets {
-            m.display(&partial_witness);
+            m.display(&partition_witness);
         }
     }
 
     let witness = timed!(
         timing,
         "compute full witness",
-        partial_witness.full_witness()
+        partition_witness.full_witness()
     );
 
     let wires_values: Vec<PolynomialValues<F>> = timed!(
