@@ -360,7 +360,7 @@ mod tests {
     use crate::iop::challenger::{Challenger, RecursiveChallenger};
     use crate::iop::generator::generate_partial_witness;
     use crate::iop::target::Target;
-    use crate::iop::witness::{PartialWitness, Witness};
+    use crate::iop::witness::Witness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::util::timing::TimingTree;
