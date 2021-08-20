@@ -1,18 +1,23 @@
 use std::convert::TryInto;
 
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::field::field_types::Field;
 use crate::iop::target::Target;
 
 /// Represents a ~256 bit hash output.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]
 pub struct HashOut<F: Field> {
-    pub(crate) elements: [F; 4],
+    pub elements: [F; 4],
 }
 
 impl<F: Field> HashOut<F> {
+    pub const ZERO: Self = Self {
+        elements: [F::ZERO; 4],
+    };
+
     pub(crate) fn from_vec(elements: Vec<F>) -> Self {
         debug_assert!(elements.len() == 4);
         Self {
@@ -30,10 +35,27 @@ impl<F: Field> HashOut<F> {
         }
     }
 
+    pub fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+        Self {
+            elements: [
+                F::rand_from_rng(rng),
+                F::rand_from_rng(rng),
+                F::rand_from_rng(rng),
+                F::rand_from_rng(rng),
+            ],
+        }
+    }
+
     pub fn rand() -> Self {
         Self {
             elements: [F::rand(), F::rand(), F::rand(), F::rand()],
         }
+    }
+}
+
+impl<F: Field> Default for HashOut<F> {
+    fn default() -> Self {
+        Self::ZERO
     }
 }
 

@@ -15,6 +15,12 @@ use crate::field::field_types::Field;
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct QuarticCrandallField(pub(crate) [CrandallField; 4]);
 
+impl Default for QuarticCrandallField {
+    fn default() -> Self {
+        Self::ZERO
+    }
+}
+
 impl OEF<4> for QuarticCrandallField {
     // Verifiable in Sage with
     //     R.<x> = GF(p)[]

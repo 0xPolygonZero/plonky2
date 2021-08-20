@@ -13,6 +13,12 @@ use crate::field::field_types::Field;
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct QuadraticCrandallField([CrandallField; 2]);
 
+impl Default for QuadraticCrandallField {
+    fn default() -> Self {
+        Self::ZERO
+    }
+}
+
 impl OEF<2> for QuadraticCrandallField {
     // Verifiable in Sage with
     // ``R.<x> = GF(p)[]; assert (x^2 -3).is_irreducible()`.

@@ -31,6 +31,7 @@ pub trait Field:
     + Div<Self, Output = Self>
     + DivAssign<Self>
     + Debug
+    + Default
     + Display
     + Send
     + Sync

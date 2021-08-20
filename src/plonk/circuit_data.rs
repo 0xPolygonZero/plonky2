@@ -18,7 +18,7 @@ use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
 use crate::util::marking::MarkedTargets;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
@@ -127,6 +127,7 @@ impl<F: Extendable<D>, const D: usize> ProverCircuitData<F, D> {
 }
 
 /// Circuit data required by the prover.
+#[derive(Debug)]
 pub struct VerifierCircuitData<F: Extendable<D>, const D: usize> {
     pub(crate) verifier_only: VerifierOnlyCircuitData<F>,
     pub(crate) common: CommonCircuitData<F, D>,
@@ -160,12 +161,14 @@ pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
 }
 
 /// Circuit data required by the verifier, but not the prover.
+#[derive(Debug)]
 pub(crate) struct VerifierOnlyCircuitData<F: Field> {
     /// A commitment to each constant polynomial and each permutation polynomial.
     pub(crate) constants_sigmas_cap: MerkleCap<F>,
 }
 
 /// Circuit data required by both the prover and the verifier.
+#[derive(Debug)]
 pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
