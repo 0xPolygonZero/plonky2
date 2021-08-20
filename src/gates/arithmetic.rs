@@ -138,7 +138,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct ArithmeticExtensionGenerator<F: Extendable<D>, const D: usize> {
     gate_index: usize,
     const_0: F,
