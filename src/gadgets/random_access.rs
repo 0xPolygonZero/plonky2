@@ -24,7 +24,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         });
         self.route(
             access_index,
-            Target::wire(gate_index, gate.wires_access_index()),
+            Target::wire(gate_index, gate.wire_access_index()),
         );
         self.route_extension(
             claimed_element,

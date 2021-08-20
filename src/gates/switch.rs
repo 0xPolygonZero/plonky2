@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::ops::Range;
 
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -13,7 +13,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-/// A gate for checking that a particular value in a list matches a given
+/// A gate for conditionally swapping input values based on a boolean.
 #[derive(Clone, Debug)]
 pub(crate) struct SwitchGate<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> {
     num_copies: usize,
@@ -22,11 +22,15 @@ pub(crate) struct SwitchGate<F: Extendable<D>, const D: usize, const CHUNK_SIZE:
 
 impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SwitchGate<F, D, CHUNK_SIZE> {
     pub fn new(config: CircuitConfig) -> Self {
-        let num_copies = Self::max_num_chunks(config.num_wires, config.num_routed_wires);
+        let num_copies = Self::max_num_copies(config.num_routed_wires);
         Self {
             num_copies,
             _phantom: PhantomData,
         }
+    }
+
+    fn max_num_copies(num_routed_wires: usize) -> usize {
+        num_routed_wires / (4 * CHUNK_SIZE + 1)
     }
 
     pub fn wire_switch_bool(&self, copy: usize) -> usize {
@@ -158,7 +162,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
         gate_index: usize,
         _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = SwitchGenerator::<F, D> {
+        let gen = SwitchGenerator::<F, D, CHUNK_SIZE> {
             gate_index,
             gate: self.clone(),
         };
@@ -232,7 +236,6 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
                     out_buffer.set_wire(second_output_wire, second_input);
                 }
             }
-            
         }
     }
 }
@@ -267,20 +270,26 @@ mod tests {
         assert_eq!(gate.wire_second_input(0, 2), 6);
         assert_eq!(gate.wire_first_output(0, 0), 7);
         assert_eq!(gate.wire_second_output(0, 2), 12);
-        assert_eq!(gate.wire_first_input(1, 0), 13);
-        assert_eq!(gate.wire_second_output(1, 2), 24);
-        assert_eq!(gate.wire_first_input(2, 0), 25);
-        assert_eq!(gate.wire_second_output(2, 2), 36);
+        assert_eq!(gate.wire_switch_bool(1), 13);
+        assert_eq!(gate.wire_first_input(1, 0), 14);
+        assert_eq!(gate.wire_second_output(1, 2), 25);
+        assert_eq!(gate.wire_switch_bool(2), 26);
+        assert_eq!(gate.wire_first_input(2, 0), 27);
+        assert_eq!(gate.wire_second_output(2, 2), 38);
     }
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(SwitchGate::new(CircuitConfig::large_config()));
+        test_low_degree::<CrandallField, _, 4>(SwitchGate::<_, 4, 3>::new(
+            CircuitConfig::large_config(),
+        ));
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(SwitchGate::new(CircuitConfig::large_config()))
+        test_eval_fns::<CrandallField, _, 4>(SwitchGate::<_, 4, 3>::new(
+            CircuitConfig::large_config(),
+        ))
     }
 
     #[test]
@@ -291,13 +300,12 @@ mod tests {
         const CHUNK_SIZE: usize = 4;
         let num_copies = 3;
 
-        /// Returns the local wires for a random access gate given the vector, element to compare,
-        /// and index.
+        /// Returns the local wires for a switch gate given the inputs and the switch booleans.
         fn get_wires(
             first_inputs: Vec<Vec<F>>,
             second_inputs: Vec<Vec<F>>,
             switch_bools: Vec<bool>,
-        ) -> Vec<F> {
+        ) -> Vec<FF> {
             let num_copies = first_inputs.len();
 
             let mut v = Vec::new();

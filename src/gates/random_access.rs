@@ -12,7 +12,7 @@ use crate::iop::witness::PartialWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-/// A gate for checking that a particular value in a list matches a given
+/// A gate for checking that a particular element of a list matches a given value.
 #[derive(Clone, Debug)]
 pub(crate) struct RandomAccessGate<F: Extendable<D>, const D: usize> {
     pub vec_size: usize,
