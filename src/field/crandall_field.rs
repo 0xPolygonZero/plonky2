@@ -114,6 +114,12 @@ const CAUCHY_MDS_8: [[CrandallField; 8]; 8] = [
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct CrandallField(pub u64);
 
+impl Default for CrandallField {
+    fn default() -> Self {
+        Self::ZERO
+    }
+}
+
 impl PartialEq for CrandallField {
     fn eq(&self, other: &Self) -> bool {
         self.to_canonical_u64() == other.to_canonical_u64()
@@ -148,8 +154,8 @@ impl Field for CrandallField {
     const TWO: Self = Self(2);
     const NEG_ONE: Self = Self(FIELD_ORDER - 1);
 
-    const TWO_ADICITY: usize = 28;
     const CHARACTERISTIC: u64 = FIELD_ORDER;
+    const TWO_ADICITY: usize = 28;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(5);
     const POWER_OF_TWO_GENERATOR: Self = Self(10281950781551402419);
@@ -254,6 +260,10 @@ impl Field for CrandallField {
         Self(n.iter_u64_digits().next().unwrap_or(0))
     }
 
+    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+        Self::from_canonical_u64(rng.gen_range(0..FIELD_ORDER))
+    }
+
     fn cube_root(&self) -> Self {
         let x0 = *self;
         let x1 = x0.square();
@@ -340,10 +350,6 @@ impl Field for CrandallField {
             }
         }
         result
-    }
-
-    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
-        Self::from_canonical_u64(rng.gen_range(0..FIELD_ORDER))
     }
 }
 
