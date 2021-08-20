@@ -4,9 +4,9 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator, Yo};
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartialWitness, PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
@@ -132,7 +132,7 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
         vec![Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM)]
     }
 
-    fn run_once(&self, witness: &Yo<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let sum_value = witness
             .get_target(Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM))
             .to_canonical_u64() as usize;

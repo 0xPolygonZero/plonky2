@@ -1,9 +1,9 @@
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::base_sum::BaseSumGate;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, Yo};
+use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartialWitness, PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -56,7 +56,7 @@ impl<F: Field> SimpleGenerator<F> for LowHighGenerator {
         vec![self.integer]
     }
 
-    fn run_once(&self, witness: &Yo<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let integer_value = witness.get_target(self.integer).to_canonical_u64();
         let low = integer_value & ((1 << self.n_log) - 1);
         let high = integer_value >> self.n_log;

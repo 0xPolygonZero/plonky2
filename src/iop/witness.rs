@@ -12,6 +12,7 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::copy_constraint::CopyConstraint;
+use crate::plonk::permutation_argument::ForestNode;
 
 pub trait Witness<F: Field> {
     fn try_get_target(&self, target: Target) -> Option<F>;
@@ -213,5 +214,35 @@ impl<F: Field> Witness<F> for PartialWitness<F> {
             }
         }
         self.set_targets.push((target, value));
+    }
+}
+
+pub struct PartitionWitness<F: Field>(
+    pub Vec<ForestNode<Target, F>>,
+    pub Box<dyn Fn(Target) -> usize>,
+);
+
+impl<F: Field> Witness<F> for PartitionWitness<F> {
+    fn try_get_target(&self, target: Target) -> Option<F> {
+        self.0[self.0[self.1(target)].parent].value
+    }
+
+    fn set_target(&mut self, target: Target, value: F) {
+        let i = self.0[self.1(target)].parent;
+        self.0[i].value = Some(value);
+    }
+}
+
+impl<F: Field> PartitionWitness<F> {
+    pub fn full_witness(self, degree: usize, num_wires: usize) -> MatrixWitness<F> {
+        let mut wire_values = vec![vec![F::ZERO; degree]; num_wires];
+        // assert!(self.wire_values.len() <= degree);
+        for i in 0..degree {
+            for j in 0..num_wires {
+                let t = Target::Wire(Wire { gate: i, input: j });
+                wire_values[j][i] = self.0[self.0[self.1(t)].parent].value.unwrap_or(F::ZERO);
+            }
+        }
+        MatrixWitness { wire_values }
     }
 }

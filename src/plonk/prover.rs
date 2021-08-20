@@ -7,10 +7,10 @@ use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::challenger::Challenger;
-use crate::iop::generator::{generate_partial_witness, Yo};
+use crate::iop::generator::generate_partial_witness;
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
-use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
+use crate::iop::witness::{MatrixWitness, PartialWitness, PartitionWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::plonk::permutation_argument::ForestNode;
 use crate::plonk::plonk_common::PlonkPolynomials;
@@ -79,7 +79,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     // dbg!(t);
     // dbg!(partial_witness[t.parent]);
     // let mut partial_witness = inputs;
-    let mut partial_witness = Yo(partial_witness, Box::new(target_index));
+    let mut partial_witness = PartitionWitness(partial_witness, Box::new(target_index));
     timed!(
         timing,
         &format!("run {} generators", prover_data.generators.len()),
