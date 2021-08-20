@@ -173,16 +173,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
-    /// Shorthand for `generate_copy` and `assert_equal`.
     /// Both elements must be routable, otherwise this method will panic.
     pub fn route(&mut self, src: Target, dst: Target) {
-        // self.generate_copy(src, dst);
         self.assert_equal(src, dst);
     }
 
     /// Same as `route` with a named copy constraint.
     pub fn named_route(&mut self, src: Target, dst: Target, name: String) {
-        // self.generate_copy(src, dst);
         self.named_assert_equal(src, dst, name);
     }
 
@@ -263,14 +260,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn add_generators(&mut self, generators: Vec<Box<dyn WitnessGenerator<F>>>) {
-        // for g in &generators {
-        //     println!("{:?}", g);
-        // }
         self.generators.extend(generators);
     }
 
     pub fn add_generator<G: WitnessGenerator<F>>(&mut self, generator: G) {
-        // println!("{:?}", generator);
         self.generators.push(Box::new(generator));
     }
 
