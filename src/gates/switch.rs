@@ -67,7 +67,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
     for SwitchGate<F, D, CHUNK_SIZE>
 {
     fn id(&self) -> String {
-        format!("{:?}<D={}>", self, D)
+        format!("{:?}<D={},CHUNK_SIZE={}>", self, D, CHUNK_SIZE)
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
@@ -75,6 +75,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
 
         for c in 0..self.num_copies {
             let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
+            let not_switch = F::Extension::ONE - switch_bool;
 
             for e in 0..CHUNK_SIZE {
                 let first_input = vars.local_wires[self.wire_first_input(c, e)];
@@ -84,9 +85,9 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
 
                 constraints.push(switch_bool * (first_input - second_output));
                 constraints.push(switch_bool * (second_input - first_output));
-                constraints.push((F::Extension::ONE - switch_bool) * (first_input - first_output));
+                constraints.push(not_switch * (first_input - first_output));
                 constraints
-                    .push((F::Extension::ONE - switch_bool) * (second_input - second_output));
+                    .push(not_switch * (second_input - second_output));
             }
         }
 
@@ -98,6 +99,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
 
         for c in 0..self.num_copies {
             let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
+            let not_switch = F::ONE - switch_bool;
 
             for e in 0..CHUNK_SIZE {
                 let first_input = vars.local_wires[self.wire_first_input(c, e)];
@@ -107,8 +109,8 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
 
                 constraints.push(switch_bool * (first_input - second_output));
                 constraints.push(switch_bool * (second_input - first_output));
-                constraints.push((F::ONE - switch_bool) * (first_input - first_output));
-                constraints.push((F::ONE - switch_bool) * (second_input - second_output));
+                constraints.push(not_switch * (first_input - first_output));
+                constraints.push(not_switch * (second_input - second_output));
             }
         }
 
