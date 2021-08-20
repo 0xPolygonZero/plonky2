@@ -517,7 +517,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
-        let mut pw = PartialWitness::new(config.num_wires);
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let vs = FF::rand_vec(3);
@@ -552,7 +552,7 @@ mod tests {
 
         let config = CircuitConfig::large_zk_config();
 
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = FF::rand();
@@ -580,7 +580,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = FF::rand_vec(4);

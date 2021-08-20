@@ -12,7 +12,6 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;
 use crate::iop::witness::{PartialWitness, PartitionWitness};
-use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::proof::ProofWithPublicInputs;
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::convert::TryInto;
 
 use crate::field::extension_field::target::ExtensionTarget;
@@ -154,62 +155,33 @@ impl<F: Field> MatrixWitness<F> {
 
 #[derive(Clone, Debug)]
 pub struct PartialWitness<F: Field> {
-    pub(crate) wire_values: Vec<Vec<Option<F>>>,
-    pub(crate) virtual_target_values: Vec<Option<F>>,
-    pub(crate) set_targets: Vec<(Target, F)>,
+    // pub(crate) wire_values: Vec<Vec<Option<F>>>,
+    // pub(crate) virtual_target_values: Vec<Option<F>>,
+    pub(crate) target_values: HashMap<Target, F>,
 }
 
 impl<F: Field> PartialWitness<F> {
-    pub fn new(num_wires: usize) -> Self {
+    pub fn new() -> Self {
         PartialWitness {
-            wire_values: vec![vec![None; num_wires]],
-            virtual_target_values: vec![],
-            set_targets: vec![],
+            target_values: HashMap::new(),
         }
     }
 }
 
 impl<F: Field> Witness<F> for PartialWitness<F> {
     fn try_get_target(&self, target: Target) -> Option<F> {
-        match target {
-            Target::Wire(Wire { gate, input }) => *self.wire_values.get(gate)?.get(input)?,
-            Target::VirtualTarget { index } => *self.virtual_target_values.get(index)?,
-        }
+        self.target_values.get(&target).copied()
     }
 
     fn set_target(&mut self, target: Target, value: F) {
-        match target {
-            Target::Wire(Wire { gate, input }) => {
-                if gate >= self.wire_values.len() {
-                    self.wire_values
-                        .resize(gate + 1, vec![None; self.wire_values[0].len()]);
-                }
-                if let Some(old_value) = self.wire_values[gate][input] {
-                    assert_eq!(
-                        old_value, value,
-                        "Target was set twice with different values: {:?}",
-                        target
-                    );
-                } else {
-                    self.wire_values[gate][input] = Some(value);
-                }
-            }
-            Target::VirtualTarget { index } => {
-                if index >= self.virtual_target_values.len() {
-                    self.virtual_target_values.resize(index + 1, None);
-                }
-                if let Some(old_value) = self.virtual_target_values[index] {
-                    assert_eq!(
-                        old_value, value,
-                        "Target was set twice with different values: {:?}",
-                        target
-                    );
-                } else {
-                    self.virtual_target_values[index] = Some(value);
-                }
-            }
+        let opt_old_value = self.target_values.insert(target, value);
+        if let Some(old_value) = opt_old_value {
+            assert_eq!(
+                old_value, value,
+                "Target {:?} was set twice with different values",
+                target
+            );
         }
-        self.set_targets.push((target, value));
     }
 }
 
@@ -241,19 +213,13 @@ impl<F: Field> PartitionWitness<F> {
     }
 
     pub fn full_witness(self) -> MatrixWitness<F> {
-        let mut wire_values = vec![vec![]; self.num_wires];
-        for j in 0..self.num_wires {
-            wire_values[j].reserve_exact(self.degree);
-            unsafe {
-                // After .reserve_exact(l), wire_values[i] will have capacity at least l. Hence, set_len
-                // will not cause the buffer to overrun.
-                wire_values[j].set_len(self.degree);
-            }
-        }
+        let mut wire_values = vec![vec![F::ZERO; self.degree]; self.num_wires];
         for i in 0..self.degree {
             for j in 0..self.num_wires {
                 let t = Target::Wire(Wire { gate: i, input: j });
-                wire_values[j][i] = self.try_get_target(t).unwrap_or(F::ZERO);
+                if let Some(x) = self.try_get_target(t) {
+                    wire_values[j][i] = x;
+                }
             }
         }
 
