@@ -35,7 +35,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let mut partition_witness = prover_data.partition_witness.clone();
     timed!(
         timing,
-        "fill partition",
+        "fill partition witness",
         for (t, v) in inputs.target_values.into_iter() {
             partition_witness.set_target(t, v);
         }

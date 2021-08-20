@@ -506,27 +506,27 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> (Vec<PolynomialValues<F>>, PartitionWitness<F>) {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
-        let mut target_partition =
+        let mut partition_witness =
             PartitionWitness::new(self.config.num_wires, self.config.num_routed_wires, degree);
 
         for gate in 0..degree {
             for input in 0..self.config.num_wires {
-                target_partition.add(Target::Wire(Wire { gate, input }));
+                partition_witness.add(Target::Wire(Wire { gate, input }));
             }
         }
 
         for index in 0..self.virtual_target_index {
-            target_partition.add(Target::VirtualTarget { index });
+            partition_witness.add(Target::VirtualTarget { index });
         }
 
         for &CopyConstraint { pair: (a, b), .. } in &self.copy_constraints {
-            target_partition.merge(a, b);
+            partition_witness.merge(a, b);
         }
 
-        let (wire_partition, partition) = target_partition.wire_partition();
+        let wire_partition = partition_witness.wire_partition();
         (
             wire_partition.get_sigma_polys(degree_log, k_is, subgroup),
-            partition,
+            partition_witness,
         )
     }
 
@@ -616,7 +616,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let constant_vecs = self.constant_polys(&prefixed_gates, num_constants);
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
-        let (sigma_vecs, partition) = self.sigma_vecs(&k_is, &subgroup);
+        let (sigma_vecs, partition_witness) = self.sigma_vecs(&k_is, &subgroup);
 
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
         let constants_sigmas_commitment = PolynomialBatchCommitment::from_values(
@@ -640,7 +640,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             gate_instances: self.gate_instances,
             public_inputs: self.public_inputs,
             marked_targets: self.marked_targets,
-            partition_witness: partition,
+            partition_witness,
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we

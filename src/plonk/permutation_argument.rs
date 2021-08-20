@@ -79,7 +79,7 @@ impl<F: Field> PartitionWitness<F> {
     }
 }
 impl<F: Field> PartitionWitness<F> {
-    pub fn wire_partition(mut self) -> (WirePartitions, Self) {
+    pub fn wire_partition(&mut self) -> WirePartition {
         let mut partition = HashMap::<_, Vec<_>>::new();
         for gate in 0..self.degree {
             for input in 0..self.num_routed_wires {
@@ -99,15 +99,15 @@ impl<F: Field> PartitionWitness<F> {
         // Here we keep just the Wire targets, filtering out everything else.
         let partition = partition.into_values().collect::<Vec<_>>();
 
-        (WirePartitions { partition }, self)
+        WirePartition { partition }
     }
 }
 
-pub struct WirePartitions {
+pub struct WirePartition {
     partition: Vec<Vec<Wire>>,
 }
 
-impl WirePartitions {
+impl WirePartition {
     pub(crate) fn get_sigma_polys<F: Field>(
         &self,
         degree_log: usize,
