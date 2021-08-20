@@ -23,7 +23,7 @@ pub struct ForestNode<T: Debug + Copy + Eq + PartialEq, V: Field> {
 impl<F: Field> PartitionWitness<F> {
     pub fn new(num_wires: usize, num_routed_wires: usize, degree: usize) -> Self {
         Self {
-            nodes: vec![],
+            forest: vec![],
             num_wires,
             num_routed_wires,
             degree,
@@ -32,9 +32,9 @@ impl<F: Field> PartitionWitness<F> {
 
     /// Add a new partition with a single member.
     pub fn add(&mut self, t: Target) {
-        let index = self.nodes.len();
+        let index = self.forest.len();
         debug_assert_eq!(self.target_index(t), index);
-        self.nodes.push(ForestNode {
+        self.forest.push(ForestNode {
             t,
             parent: index,
             size: 1,
@@ -46,8 +46,8 @@ impl<F: Field> PartitionWitness<F> {
     /// Path compression method, see https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives.
     pub fn find(&mut self, x: ForestNode<Target, F>) -> ForestNode<Target, F> {
         if x.parent != x.index {
-            let root = self.find(self.nodes[x.parent]);
-            self.nodes[x.index].parent = root.index;
+            let root = self.find(self.forest[x.parent]);
+            self.forest[x.index].parent = root.index;
             root
         } else {
             x
@@ -56,8 +56,8 @@ impl<F: Field> PartitionWitness<F> {
 
     /// Merge two sets.
     pub fn merge(&mut self, tx: Target, ty: Target) {
-        let mut x = self.nodes[self.target_index(tx)];
-        let mut y = self.nodes[self.target_index(ty)];
+        let mut x = self.forest[self.target_index(tx)];
+        let mut y = self.forest[self.target_index(ty)];
 
         x = self.find(x);
         y = self.find(y);
@@ -74,8 +74,8 @@ impl<F: Field> PartitionWitness<F> {
             y.size += x.size;
         }
 
-        self.nodes[x.index] = x;
-        self.nodes[y.index] = y;
+        self.forest[x.index] = x;
+        self.forest[y.index] = y;
     }
 }
 impl<F: Field> PartitionWitness<F> {
@@ -85,14 +85,14 @@ impl<F: Field> PartitionWitness<F> {
             for input in 0..self.num_routed_wires {
                 let w = Wire { gate, input };
                 let t = Target::Wire(w);
-                let x = self.nodes[self.target_index(t)];
+                let x = self.forest[self.target_index(t)];
                 partition.entry(self.find(x).t).or_default().push(w);
             }
         }
         // I'm not 100% sure this loop is needed, but I'm afraid removing it might lead to subtle bugs.
-        for index in 0..self.nodes.len() - self.degree * self.num_wires {
+        for index in 0..self.forest.len() - self.degree * self.num_wires {
             let t = Target::VirtualTarget { index };
-            let x = self.nodes[self.target_index(t)];
+            let x = self.forest[self.target_index(t)];
             self.find(x);
         }
 

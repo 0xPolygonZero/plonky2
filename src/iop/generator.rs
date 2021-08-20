@@ -17,7 +17,7 @@ pub(crate) fn generate_partial_witness<F: Field>(
     generators: &[Box<dyn WitnessGenerator<F>>],
     timing: &mut TimingTree,
 ) {
-    let max_target_index = witness.nodes.len();
+    let max_target_index = witness.forest.len();
     // Index generator indices by their watched targets.
     let mut generator_indices_by_watches = vec![Vec::new(); max_target_index];
     timed!(timing, "index generators by their watched targets", {

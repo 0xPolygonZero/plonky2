@@ -83,7 +83,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 gate,
                 input: swap_wire,
             });
-            self.generate_copy(bit.target, swap_wire);
+            self.route(bit.target, swap_wire);
 
             let input_wires = (0..12)
                 .map(|i| {

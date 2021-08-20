@@ -11,6 +11,7 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::permutation_argument::ForestNode;
 
+/// A witness holds information on the values of targets in a circuit.
 pub trait Witness<F: Field> {
     fn try_get_target(&self, target: Target) -> Option<F>;
 
@@ -155,8 +156,6 @@ impl<F: Field> MatrixWitness<F> {
 
 #[derive(Clone, Debug)]
 pub struct PartialWitness<F: Field> {
-    // pub(crate) wire_values: Vec<Vec<Option<F>>>,
-    // pub(crate) virtual_target_values: Vec<Option<F>>,
     pub(crate) target_values: HashMap<Target, F>,
 }
 
@@ -185,9 +184,11 @@ impl<F: Field> Witness<F> for PartialWitness<F> {
     }
 }
 
+/// `PartitionWitness` holds a disjoint-set forest of the targets respecting a ciruit's copy constraints.
+/// The value of a target is defined to be the value of its root in the forest.
 #[derive(Clone)]
 pub struct PartitionWitness<F: Field> {
-    pub nodes: Vec<ForestNode<Target, F>>,
+    pub forest: Vec<ForestNode<Target, F>>,
     pub num_wires: usize,
     pub num_routed_wires: usize,
     pub degree: usize,
@@ -195,12 +196,12 @@ pub struct PartitionWitness<F: Field> {
 
 impl<F: Field> Witness<F> for PartitionWitness<F> {
     fn try_get_target(&self, target: Target) -> Option<F> {
-        self.nodes[self.nodes[self.target_index(target)].parent].value
+        self.forest[self.forest[self.target_index(target)].parent].value
     }
 
     fn set_target(&mut self, target: Target, value: F) {
-        let i = self.nodes[self.target_index(target)].parent;
-        self.nodes[i].value = Some(value);
+        let i = self.forest[self.target_index(target)].parent;
+        self.forest[i].value = Some(value);
     }
 }
 
