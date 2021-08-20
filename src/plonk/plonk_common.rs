@@ -1,12 +1,9 @@
-use std::borrow::Borrow;
-
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::fri::commitment::SALT_SIZE;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::util::reducing::ReducingFactorTarget;
 
 /// Holds the Merkle tree index and blinding flag of a set of polynomials used in FRI.
@@ -46,6 +43,7 @@ impl PlonkPolynomials {
         blinding: true,
     };
 
+    #[cfg(test)]
     pub fn polynomials(i: usize) -> PolynomialsIndexBlinding {
         match i {
             0 => Self::CONSTANTS_SIGMAS,
@@ -165,18 +163,6 @@ pub(crate) fn reduce_with_powers<F: Field>(terms: &[F], alpha: F) -> F {
     sum
 }
 
-pub(crate) fn reduce_with_powers_recursive<F: Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    terms: &[Target],
-    alpha: Target,
-) -> Target {
-    let mut sum = builder.zero();
-    for &term in terms.iter().rev() {
-        sum = builder.mul_add(sum, alpha, term);
-    }
-    sum
-}
-
 pub(crate) fn reduce_with_powers_ext_recursive<F: Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     terms: &[ExtensionTarget<D>],
@@ -185,28 +171,4 @@ pub(crate) fn reduce_with_powers_ext_recursive<F: Extendable<D>, const D: usize>
     let alpha = builder.convert_to_ext(alpha);
     let mut alpha = ReducingFactorTarget::new(alpha);
     alpha.reduce(terms, builder)
-}
-
-/// Reduce a sequence of field elements by the given coefficients.
-pub(crate) fn reduce_with_iter<F: Field>(
-    terms: impl IntoIterator<Item = impl Borrow<F>>,
-    coeffs: impl IntoIterator<Item = impl Borrow<F>>,
-) -> F {
-    terms
-        .into_iter()
-        .zip(coeffs)
-        .map(|(t, c)| *t.borrow() * *c.borrow())
-        .sum()
-}
-
-/// Reduce a sequence of polynomials by the given coefficients.
-pub(crate) fn reduce_polys_with_iter<F: Field>(
-    polys: impl IntoIterator<Item = impl Borrow<PolynomialCoeffs<F>>>,
-    coeffs: impl IntoIterator<Item = impl Borrow<F>>,
-) -> PolynomialCoeffs<F> {
-    polys
-        .into_iter()
-        .zip(coeffs)
-        .map(|(p, c)| p.borrow() * *c.borrow())
-        .sum()
 }
