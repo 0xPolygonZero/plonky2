@@ -86,8 +86,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
                 constraints.push(switch_bool * (first_input - second_output));
                 constraints.push(switch_bool * (second_input - first_output));
                 constraints.push(not_switch * (first_input - first_output));
-                constraints
-                    .push(not_switch * (second_input - second_output));
+                constraints.push(not_switch * (second_input - second_output));
             }
         }
 
