@@ -38,7 +38,7 @@ pub(crate) fn generate_partial_witness<F: Field>(
 
     let mut buffer = GeneratedValues::empty();
 
-    // Keep running generators until all generators have run.
+    // Keep running generators until all generators have been run.
     while remaining_generators > 0 {
         let mut next_pending_generator_indices = Vec::new();
 
