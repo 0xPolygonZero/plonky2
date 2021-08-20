@@ -1,5 +1,6 @@
 use std::convert::TryInto;
 
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::field::field_types::Field;
@@ -31,6 +32,17 @@ impl<F: Field> HashOut<F> {
         }
         Self {
             elements: [elements[0], elements[1], elements[2], elements[3]],
+        }
+    }
+
+    pub fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+        Self {
+            elements: [
+                F::rand_from_rng(rng),
+                F::rand_from_rng(rng),
+                F::rand_from_rng(rng),
+                F::rand_from_rng(rng),
+            ],
         }
     }
 
