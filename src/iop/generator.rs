@@ -199,11 +199,6 @@ pub(crate) fn generate_partial_witness<F: Field>(
         }
     });
 
-    let mut parents: HashMap<usize, Vec<usize>> = HashMap::new();
-    for i in 0..witness.0.len() {
-        parents.entry(witness.0[i].parent).or_default().push(i);
-    }
-
     // Build a list of "pending" generators which are queued to be run. Initially, all generators
     // are queued.
     let mut pending_generator_indices: Vec<_> = (0..generators.len()).collect();
@@ -213,8 +208,10 @@ pub(crate) fn generate_partial_witness<F: Field>(
 
     let mut buffer = GeneratedValues::empty();
 
+    let mut count = 0;
     // Keep running generators until no generators are queued.
-    while !pending_generator_indices.is_empty() {
+    // while !pending_generator_indices.is_empty() {
+    while !generator_is_expired.iter().all(|&x| x) {
         let mut next_pending_generator_indices = Vec::new();
 
         for &generator_idx in &pending_generator_indices {
@@ -226,16 +223,15 @@ pub(crate) fn generate_partial_witness<F: Field>(
             // dbg!(&generators[generator_idx], &buffer);
             if finished {
                 generator_is_expired[generator_idx] = true;
+            } else {
+                count += 1;
             }
 
             // Enqueue unfinished generators that were watching one of the newly populated targets.
             for &(watch, _) in &buffer.target_values {
-                let parent = witness.0[witness.1(watch)].parent;
-                for &yo in &parents[&parent] {
-                    for &watching_generator_idx in &generator_indices_by_watches[yo] {
-                        if !generator_is_expired[watching_generator_idx] {
-                            next_pending_generator_indices.push(watching_generator_idx);
-                        }
+                for &watching_generator_idx in &generator_indices_by_watches[witness.1(watch)] {
+                    if !generator_is_expired[watching_generator_idx] {
+                        next_pending_generator_indices.push(watching_generator_idx);
                     }
                 }
             }
@@ -243,9 +239,15 @@ pub(crate) fn generate_partial_witness<F: Field>(
             witness.extend(buffer.target_values.drain(..));
         }
 
-        pending_generator_indices = next_pending_generator_indices;
+        // pending_generator_indices = next_pending_generator_indices;
+        pending_generator_indices = if next_pending_generator_indices.is_empty() {
+            (0..generators.len()).collect()
+        } else {
+            next_pending_generator_indices
+        };
     }
 
+    dbg!(count);
     // for i in 0..generator_is_expired.len() {
     //     if !generator_is_expired[i] {
     //         println!("{}: {:?}", i, generators[i]);
