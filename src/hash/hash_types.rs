@@ -9,7 +9,7 @@ use crate::iop::target::Target;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]
 pub struct HashOut<F: Field> {
-    pub(crate) elements: [F; 4],
+    pub elements: [F; 4],
 }
 
 impl<F: Field> HashOut<F> {
