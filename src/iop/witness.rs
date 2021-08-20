@@ -184,7 +184,7 @@ impl<F: Field> Witness<F> for PartialWitness<F> {
     }
 }
 
-/// `PartitionWitness` holds a disjoint-set forest of the targets respecting a ciruit's copy constraints.
+/// `PartitionWitness` holds a disjoint-set forest of the targets respecting a circuit's copy constraints.
 /// The value of a target is defined to be the value of its root in the forest.
 #[derive(Clone)]
 pub struct PartitionWitness<F: Field> {
@@ -200,8 +200,17 @@ impl<F: Field> Witness<F> for PartitionWitness<F> {
     }
 
     fn set_target(&mut self, target: Target, value: F) {
-        let i = self.forest[self.target_index(target)].parent;
-        self.forest[i].value = Some(value);
+        let parent_index = self.forest[self.target_index(target)].parent;
+        let parent_value = &mut self.forest[parent_index].value;
+        if let Some(old_value) = *parent_value {
+            assert_eq!(
+                value, old_value,
+                "Partition containing {:?} was set twice with different values",
+                target
+            );
+        } else {
+            *parent_value = Some(value);
+        }
     }
 }
 
