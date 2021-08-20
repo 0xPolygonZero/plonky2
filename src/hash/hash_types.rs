@@ -39,6 +39,12 @@ impl<F: Field> HashOut<F> {
     }
 }
 
+impl<F: Field> Default for HashOut<F> {
+    fn default() -> Self {
+        Self::ZERO
+    }
+}
+
 /// Represents a ~256 bit hash output.
 #[derive(Copy, Clone, Debug)]
 pub struct HashOutTarget {
