@@ -196,7 +196,8 @@ pub struct PartitionWitness<F: Field> {
 
 impl<F: Field> Witness<F> for PartitionWitness<F> {
     fn try_get_target(&self, target: Target) -> Option<F> {
-        self.forest[self.forest[self.target_index(target)].parent].value
+        let parent_index = self.forest[self.target_index(target)].parent;
+        self.forest[parent_index].value
     }
 
     fn set_target(&mut self, target: Target, value: F) {
@@ -215,7 +216,7 @@ impl<F: Field> Witness<F> for PartitionWitness<F> {
 }
 
 impl<F: Field> PartitionWitness<F> {
-    pub const fn target_index(&self, target: Target) -> usize {
+    pub fn target_index(&self, target: Target) -> usize {
         match target {
             Target::Wire(Wire { gate, input }) => gate * self.num_wires + input,
             Target::VirtualTarget { index } => self.degree * self.num_wires + index,

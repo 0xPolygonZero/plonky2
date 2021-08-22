@@ -21,9 +21,14 @@ pub struct ForestNode<T: Debug + Copy + Eq + PartialEq, V: Field> {
 
 /// Disjoint Set Forest data-structure following https://en.wikipedia.org/wiki/Disjoint-set_data_structure.
 impl<F: Field> PartitionWitness<F> {
-    pub fn new(num_wires: usize, num_routed_wires: usize, degree: usize) -> Self {
+    pub fn new(
+        num_wires: usize,
+        num_routed_wires: usize,
+        degree: usize,
+        num_virtual_targets: usize,
+    ) -> Self {
         Self {
-            forest: vec![],
+            forest: Vec::with_capacity(degree * num_wires + num_virtual_targets),
             num_wires,
             num_routed_wires,
             degree,

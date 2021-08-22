@@ -506,8 +506,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> (Vec<PolynomialValues<F>>, PartitionWitness<F>) {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
-        let mut partition_witness =
-            PartitionWitness::new(self.config.num_wires, self.config.num_routed_wires, degree);
+        let mut partition_witness = PartitionWitness::new(
+            self.config.num_wires,
+            self.config.num_routed_wires,
+            degree,
+            self.virtual_target_index,
+        );
 
         for gate in 0..degree {
             for input in 0..self.config.num_wires {

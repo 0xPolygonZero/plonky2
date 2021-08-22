@@ -364,7 +364,7 @@ mod tests {
             );
         }
 
-        let mut partition_witness = PartitionWitness::new(gate.num_wires(), gate.num_wires(), 1);
+        let mut partition_witness = PartitionWitness::new(gate.num_wires(), gate.num_wires(), 1, 0);
         for input in 0..gate.num_wires() {
             partition_witness.add(Target::Wire(Wire { gate: 0, input }));
         }
