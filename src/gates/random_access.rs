@@ -12,7 +12,7 @@ use crate::iop::witness::PartialWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-/// A gate for checking that a particular value in a list matches a given
+/// A gate for checking that a particular element of a list matches a given value.
 #[derive(Clone, Debug)]
 pub(crate) struct RandomAccessGate<F: Extendable<D>, const D: usize> {
     pub vec_size: usize,
@@ -27,7 +27,7 @@ impl<F: Extendable<D>, const D: usize> RandomAccessGate<F, D> {
         }
     }
 
-    pub fn wires_access_index(&self) -> usize {
+    pub fn wire_access_index(&self) -> usize {
         0
     }
 
@@ -67,7 +67,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
-        let access_index = vars.local_wires[self.wires_access_index()];
+        let access_index = vars.local_wires[self.wire_access_index()];
         let list_items = (0..self.vec_size)
             .map(|i| vars.get_local_ext_algebra(self.wires_list_item(i)))
             .collect::<Vec<_>>();
@@ -93,7 +93,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
     }
 
     fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let access_index = vars.local_wires[self.wires_access_index()];
+        let access_index = vars.local_wires[self.wire_access_index()];
         let list_items = (0..self.vec_size)
             .map(|i| vars.get_local_ext(self.wires_list_item(i)))
             .collect::<Vec<_>>();
@@ -124,7 +124,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        let access_index = vars.local_wires[self.wires_access_index()];
+        let access_index = vars.local_wires[self.wire_access_index()];
         let list_items = (0..self.vec_size)
             .map(|i| vars.get_local_ext_algebra(self.wires_list_item(i)))
             .collect::<Vec<_>>();
@@ -200,7 +200,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
         let local_targets = |inputs: Range<usize>| inputs.map(local_target);
 
         let mut deps = Vec::new();
-        deps.push(local_target(self.gate.wires_access_index()));
+        deps.push(local_target(self.gate.wire_access_index()));
         deps.extend(local_targets(self.gate.wires_claimed_element()));
         for i in 0..self.gate.vec_size {
             deps.extend(local_targets(self.gate.wires_list_item(i)));
@@ -218,7 +218,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
 
         // Compute the new vector and the values for equality_dummy and index_matches
         let vec_size = self.gate.vec_size;
-        let access_index_f = get_local_wire(self.gate.wires_access_index());
+        let access_index_f = get_local_wire(self.gate.wire_access_index());
 
         let access_index = access_index_f.to_canonical_u64() as usize;
         debug_assert!(
@@ -268,7 +268,7 @@ mod tests {
             _phantom: PhantomData,
         };
 
-        assert_eq!(gate.wires_access_index(), 0);
+        assert_eq!(gate.wire_access_index(), 0);
         assert_eq!(gate.wires_claimed_element(), 1..5);
         assert_eq!(gate.wires_list_item(0), 5..9);
         assert_eq!(gate.wires_list_item(2), 13..17);
