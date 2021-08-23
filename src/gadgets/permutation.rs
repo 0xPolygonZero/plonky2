@@ -1,10 +1,11 @@
+use std::convert::TryInto;
+
 use crate::field::{extension_field::Extendable, field_types::Field};
 use crate::gates::switch::SwitchGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::PartialWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use std::convert::TryInto;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Assert that two lists of expressions evaluate to permutations of one another.
@@ -55,7 +56,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         a: [Target; CHUNK_SIZE],
         b: [Target; CHUNK_SIZE],
-    ) -> (SwitchGate<F, D, CHUNK_SIZE>, usize, [Target; CHUNK_SIZE], [Target; CHUNK_SIZE]) {
+    ) -> (
+        SwitchGate<F, D, CHUNK_SIZE>,
+        usize,
+        [Target; CHUNK_SIZE],
+        [Target; CHUNK_SIZE],
+    ) {
         let gate = SwitchGate::<F, D, CHUNK_SIZE>::new(1);
         let gate_index = self.add_gate(gate.clone(), vec![]);
 
@@ -89,11 +95,34 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // See Figure 8 in the AS-Waksman paper.
         let a_num_switches = n / 2;
-        let b_num_switches = if even { a_num_switches - 1 } else { a_num_switches };
+        let b_num_switches = if even {
+            a_num_switches - 1
+        } else {
+            a_num_switches
+        };
 
         for i in 0..a_num_switches {
-            let (gate, gate_index) = self.create_switch()
+            let (_, _, out_1, out_2) = self.create_switch(a[i * 2], a[i * 2 + 1]);
+            child_1_a.push(out_1);
+            child_2_a.push(out_2);
         }
+        for i in 0..b_num_switches {
+            let (_, _, out_1, out_2) = self.create_switch(b[i * 2], b[i * 2 + 1]);
+            child_1_b.push(out_1);
+            child_2_b.push(out_2);
+        }
+
+        // See Figure 8 in the AS-Waksman paper.
+        if even {
+            child_1_b.push(b[n - 2].clone());
+            child_2_b.push(b[n - 1].clone());
+        } else {
+            child_2_a.push(a[n - 1].clone());
+            child_2_b.push(b[n - 1].clone());
+        }
+
+        self.assert_permutation(child_1_a, child_1_b);
+        self.assert_permutation(child_2_a, child_2_b);
     }
 }
 
