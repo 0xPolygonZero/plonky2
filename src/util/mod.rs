@@ -172,7 +172,7 @@ fn reverse_index_bits_in_place_large<T>(arr: &mut Vec<T>, n_power: usize) {
 // Lookup table of 6-bit reverses.
 // NB: 2^6=64 bytes is a cacheline. A smaller table wastes cache space.
 #[rustfmt::skip]
-static BIT_REVERSE_6BIT: &[u8] = &[
+const BIT_REVERSE_6BIT: &[u8] = &[
     0o00, 0o40, 0o20, 0o60, 0o10, 0o50, 0o30, 0o70,
     0o04, 0o44, 0o24, 0o64, 0o14, 0o54, 0o34, 0o74,
     0o02, 0o42, 0o22, 0o62, 0o12, 0o52, 0o32, 0o72,
