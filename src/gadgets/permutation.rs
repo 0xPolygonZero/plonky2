@@ -4,6 +4,7 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::PartialWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
+use std::convert::TryInto;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Assert that two lists of expressions evaluate to permutations of one another.
@@ -43,18 +44,34 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         c: [Target; CHUNK_SIZE],
         d: [Target; CHUNK_SIZE],
     ) {
+        let (_, _, gate_c, gate_d) = self.create_switch(a, b);
+        for e in 0..CHUNK_SIZE {
+            self.route(c[e], gate_c[e]);
+            self.route(d[e], gate_d[e]);
+        }
+    }
+
+    fn create_switch<const CHUNK_SIZE: usize>(
+        &mut self,
+        a: [Target; CHUNK_SIZE],
+        b: [Target; CHUNK_SIZE],
+    ) -> (SwitchGate<F, D, CHUNK_SIZE>, usize, [Target; CHUNK_SIZE], [Target; CHUNK_SIZE]) {
         let gate = SwitchGate::<F, D, CHUNK_SIZE>::new(1);
         let gate_index = self.add_gate(gate.clone(), vec![]);
 
+        let mut c = Vec::new();
+        let mut d = Vec::new();
         for e in 0..CHUNK_SIZE {
             self.route(a[e], Target::wire(gate_index, gate.wire_first_input(0, e)));
             self.route(b[e], Target::wire(gate_index, gate.wire_second_input(0, e)));
-            self.route(c[e], Target::wire(gate_index, gate.wire_first_output(0, e)));
-            self.route(
-                d[e],
-                Target::wire(gate_index, gate.wire_second_output(0, e)),
-            );
+            c.push(Target::wire(gate_index, gate.wire_first_output(0, e)));
+            d.push(Target::wire(gate_index, gate.wire_second_output(0, e)));
         }
+
+        let c_arr: [Target; CHUNK_SIZE] = c.try_into().unwrap();
+        let d_arr: [Target; CHUNK_SIZE] = d.try_into().unwrap();
+
+        (gate, gate_index, c_arr, d_arr)
     }
 
     fn assert_permutation_recursive<const CHUNK_SIZE: usize>(
@@ -62,6 +79,21 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a: Vec<[Target; CHUNK_SIZE]>,
         b: Vec<[Target; CHUNK_SIZE]>,
     ) {
+        let n = a.len();
+        let even = n % 2 == 0;
+
+        let mut child_1_a = Vec::new();
+        let mut child_1_b = Vec::new();
+        let mut child_2_a = Vec::new();
+        let mut child_2_b = Vec::new();
+
+        // See Figure 8 in the AS-Waksman paper.
+        let a_num_switches = n / 2;
+        let b_num_switches = if even { a_num_switches - 1 } else { a_num_switches };
+
+        for i in 0..a_num_switches {
+            let (gate, gate_index) = self.create_switch()
+        }
     }
 }
 
