@@ -95,7 +95,7 @@ fn reverse_index_bits_small<T: Copy>(arr: &[T], n_power: usize) -> Vec<T> {
     result
 }
 
-fn reverse_index_bits_large<T: Copy>(arr: &[T], n_power: usize) -> Vec<T>  {
+fn reverse_index_bits_large<T: Copy>(arr: &[T], n_power: usize) -> Vec<T> {
     let n = arr.len();
     // LLVM does not know that it does not need to reverse src at each iteration (which is expensive
     // on x86). We take advantage of the fact that the low bits of dst change rarely and the high
@@ -171,6 +171,7 @@ fn reverse_index_bits_in_place_large<T>(arr: &mut Vec<T>, n_power: usize) {
 
 // Lookup table of 6-bit reverses.
 // NB: 2^6=64 bytes is a cacheline. A smaller table wastes cache space.
+#[rustfmt::skip]
 static BIT_REVERSE_6BIT: &[u8] = &[
     0o00, 0o40, 0o20, 0o60, 0o10, 0o50, 0o30, 0o70,
     0o04, 0o44, 0o24, 0o64, 0o14, 0o54, 0o34, 0o74,
