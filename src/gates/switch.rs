@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-use std::ops::Range;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
@@ -203,8 +202,6 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
-        let local_targets = |inputs: Range<usize>| inputs.map(local_target);
-
         let mut deps = Vec::new();
         for c in 0..self.gate.num_copies {
             for e in 0..CHUNK_SIZE {
@@ -316,16 +313,24 @@ mod tests {
             for c in 0..num_copies {
                 let switch = switch_bools[c];
                 v.push(F::from_bool(switch));
+                let mut first_input_chunk = Vec::with_capacity(CHUNK_SIZE);
+                let mut second_input_chunk = Vec::with_capacity(CHUNK_SIZE);
+                let mut first_output_chunk = Vec::with_capacity(CHUNK_SIZE);
+                let mut second_output_chunk = Vec::with_capacity(CHUNK_SIZE);
                 for e in 0..CHUNK_SIZE {
                     let first_input = first_inputs[c][e];
                     let second_input = second_inputs[c][e];
                     let first_output = if switch { second_input } else { first_input };
                     let second_output = if switch { first_input } else { second_input };
-                    v.push(first_input);
-                    v.push(second_input);
-                    v.push(first_output);
-                    v.push(second_output);
+                    first_input_chunk.push(first_input);
+                    second_input_chunk.push(second_input);
+                    first_output_chunk.push(first_output);
+                    second_output_chunk.push(second_output);
                 }
+                v.append(&mut first_input_chunk);
+                v.append(&mut second_input_chunk);
+                v.append(&mut first_output_chunk);
+                v.append(&mut second_output_chunk);
             }
 
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
