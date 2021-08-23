@@ -20,12 +20,16 @@ pub(crate) struct ExponentiationGate<F: Extendable<D>, const D: usize> {
 }
 
 impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
-    pub fn new(config: CircuitConfig) -> Self {
-        let num_power_bits = Self::max_power_bits(config.num_wires, config.num_routed_wires);
+    pub fn new(num_power_bits: usize) -> Self {
         Self {
             num_power_bits,
             _phantom: PhantomData,
         }
+    }
+
+    pub fn new_from_config(config: CircuitConfig) -> Self {
+        let num_power_bits = Self::max_power_bits(config.num_wires, config.num_routed_wires);
+        Self::new(num_power_bits)
     }
 
     fn max_power_bits(num_wires: usize, num_routed_wires: usize) -> usize {
@@ -296,12 +300,14 @@ mod tests {
             ..CircuitConfig::large_config()
         };
 
-        test_low_degree::<CrandallField, _, 4>(ExponentiationGate::new(config));
+        test_low_degree::<CrandallField, _, 4>(ExponentiationGate::new_from_config(config));
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(ExponentiationGate::new(CircuitConfig::large_config()))
+        test_eval_fns::<CrandallField, _, 4>(ExponentiationGate::new_from_config(
+            CircuitConfig::large_config(),
+        ))
     }
 
     #[test]

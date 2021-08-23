@@ -107,7 +107,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         exponent_bits: impl IntoIterator<Item = impl Borrow<BoolTarget>>,
     ) -> Target {
         let _false = self._false();
-        let gate = ExponentiationGate::new(self.config.clone());
+        let gate = ExponentiationGate::new_from_config(self.config.clone());
         let num_power_bits = gate.num_power_bits;
         let mut exp_bits_vec: Vec<BoolTarget> =
             exponent_bits.into_iter().map(|b| *b.borrow()).collect();

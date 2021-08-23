@@ -21,45 +21,49 @@ pub(crate) struct SwitchGate<F: Extendable<D>, const D: usize, const CHUNK_SIZE:
 }
 
 impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SwitchGate<F, D, CHUNK_SIZE> {
-    pub fn new(config: CircuitConfig) -> Self {
-        let num_copies = Self::max_num_copies(config.num_routed_wires);
+    pub fn new(num_copies: usize) -> Self {
         Self {
             num_copies,
             _phantom: PhantomData,
         }
     }
 
-    fn max_num_copies(num_routed_wires: usize) -> usize {
-        num_routed_wires / (4 * CHUNK_SIZE + 1)
+    pub fn new_from_config(config: CircuitConfig) -> Self {
+        let num_copies = Self::max_num_copies(config.num_routed_wires);
+        Self::new(num_copies)
     }
 
-    pub fn wire_switch_bool(&self, copy: usize) -> usize {
-        debug_assert!(copy < self.num_copies);
-        copy * (4 * CHUNK_SIZE + 1)
+    fn max_num_copies(num_routed_wires: usize) -> usize {
+        num_routed_wires / (4 * CHUNK_SIZE)
     }
 
     pub fn wire_first_input(&self, copy: usize, element: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         debug_assert!(element < CHUNK_SIZE);
-        copy * (4 * CHUNK_SIZE + 1) + 1 + element
+        copy * (4 * CHUNK_SIZE) + element
     }
 
     pub fn wire_second_input(&self, copy: usize, element: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         debug_assert!(element < CHUNK_SIZE);
-        copy * (4 * CHUNK_SIZE + 1) + 1 + CHUNK_SIZE + element
+        copy * (4 * CHUNK_SIZE) + CHUNK_SIZE + element
     }
 
     pub fn wire_first_output(&self, copy: usize, element: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         debug_assert!(element < CHUNK_SIZE);
-        copy * (4 * CHUNK_SIZE + 1) + 1 + 2 * CHUNK_SIZE + element
+        copy * (4 * CHUNK_SIZE) + 2 * CHUNK_SIZE + element
     }
 
     pub fn wire_second_output(&self, copy: usize, element: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         debug_assert!(element < CHUNK_SIZE);
-        copy * (4 * CHUNK_SIZE + 1) + 1 + 3 * CHUNK_SIZE + element
+        copy * (4 * CHUNK_SIZE) + 3 * CHUNK_SIZE + element
+    }
+
+    pub fn wire_switch_bool(&self, copy: usize) -> usize {
+        debug_assert!(copy < self.num_copies);
+        self.num_copies * (4 * CHUNK_SIZE) + copy
     }
 }
 
@@ -203,10 +207,11 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
 
         let mut deps = Vec::new();
         for c in 0..self.gate.num_copies {
-            deps.push(local_target(self.gate.wire_switch_bool(c)));
             for e in 0..CHUNK_SIZE {
                 deps.push(local_target(self.gate.wire_first_input(c, e)));
                 deps.push(local_target(self.gate.wire_second_input(c, e)));
+                deps.push(local_target(self.gate.wire_first_output(c, e)));
+                deps.push(local_target(self.gate.wire_second_output(c, e)));
             }
         }
 
@@ -222,19 +227,17 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
         let get_local_wire = |input| witness.get_wire(local_wire(input));
 
         for c in 0..self.gate.num_copies {
-            let switch_bool = get_local_wire(self.gate.wire_switch_bool(c));
+            let switch_bool_wire = local_wire(self.gate.wire_switch_bool(c));
             for e in 0..CHUNK_SIZE {
                 let first_input = get_local_wire(self.gate.wire_first_input(c, e));
                 let second_input = get_local_wire(self.gate.wire_second_input(c, e));
-                let first_output_wire = local_wire(self.gate.wire_first_output(c, e));
-                let second_output_wire = local_wire(self.gate.wire_second_output(c, e));
+                let first_output = get_local_wire(self.gate.wire_first_output(c, e));
+                let second_output = get_local_wire(self.gate.wire_second_output(c, e));
 
-                if switch_bool == F::ONE {
-                    out_buffer.set_wire(first_output_wire, second_input);
-                    out_buffer.set_wire(second_output_wire, first_input);
+                if first_input == first_output {
+                    out_buffer.set_wire(switch_bool_wire, F::ONE);
                 } else {
-                    out_buffer.set_wire(first_output_wire, first_input);
-                    out_buffer.set_wire(second_output_wire, second_input);
+                    out_buffer.set_wire(switch_bool_wire, F::ZERO);
                 }
             }
         }
@@ -264,19 +267,19 @@ mod tests {
             _phantom: PhantomData,
         };
 
-        assert_eq!(gate.wire_switch_bool(0), 0);
-        assert_eq!(gate.wire_first_input(0, 0), 1);
-        assert_eq!(gate.wire_first_input(0, 2), 3);
-        assert_eq!(gate.wire_second_input(0, 0), 4);
-        assert_eq!(gate.wire_second_input(0, 2), 6);
-        assert_eq!(gate.wire_first_output(0, 0), 7);
-        assert_eq!(gate.wire_second_output(0, 2), 12);
-        assert_eq!(gate.wire_switch_bool(1), 13);
-        assert_eq!(gate.wire_first_input(1, 0), 14);
-        assert_eq!(gate.wire_second_output(1, 2), 25);
-        assert_eq!(gate.wire_switch_bool(2), 26);
-        assert_eq!(gate.wire_first_input(2, 0), 27);
-        assert_eq!(gate.wire_second_output(2, 2), 38);
+        assert_eq!(gate.wire_first_input(0, 0), 0);
+        assert_eq!(gate.wire_first_input(0, 2), 2);
+        assert_eq!(gate.wire_second_input(0, 0), 3);
+        assert_eq!(gate.wire_second_input(0, 2), 5);
+        assert_eq!(gate.wire_first_output(0, 0), 6);
+        assert_eq!(gate.wire_second_output(0, 2), 11);
+        assert_eq!(gate.wire_first_input(1, 0), 12);
+        assert_eq!(gate.wire_second_output(1, 2), 23);
+        assert_eq!(gate.wire_first_input(2, 0), 24);
+        assert_eq!(gate.wire_second_output(2, 2), 35);
+        assert_eq!(gate.wire_switch_bool(0), 36);
+        assert_eq!(gate.wire_switch_bool(1), 37);
+        assert_eq!(gate.wire_switch_bool(2), 38);
     }
 
     #[test]
