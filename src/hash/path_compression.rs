@@ -1,0 +1,166 @@
+use std::collections::HashMap;
+
+use anyhow::{ensure, Result};
+use num::Integer;
+
+use crate::field::field_types::Field;
+use crate::hash::hash_types::HashOut;
+use crate::hash::hashing::{compress, hash_or_noop};
+use crate::hash::merkle_proofs::MerkleProof;
+use crate::hash::merkle_tree::{MerkleCap, MerkleTree};
+use crate::util::log2_strict;
+
+pub struct CompressedMerkleProof<F: Field> {
+    pub proof: Vec<HashOut<F>>,
+}
+
+pub(crate) fn compress_path<F: Field>(
+    cap: &MerkleCap<F>,
+    mut proofs: Vec<(usize, MerkleProof<F>)>,
+) -> CompressedMerkleProof<F> {
+    let height = log2_strict(cap.0.len()) + proofs[0].1.siblings.len();
+    let num_leaves = 1 << height;
+    let mut proof = Vec::new();
+    proofs.sort_by(|x, y| y.0.cmp(&x.0));
+    let mut known = vec![false; 2 * num_leaves];
+    for (i, _) in &proofs {
+        known[*i + num_leaves] = true;
+    }
+    for (i, p) in proofs {
+        let mut index = i + num_leaves;
+        for sibling in p.siblings {
+            let sibling_index = index ^ 1;
+            // if (sibling_index < num_leaves) {
+            //     println!(
+            //         "{} {} {} {}",
+            //         sibling_index,
+            //         known[sibling_index],
+            //         known[2 * sibling_index],
+            //         known[2 * sibling_index + 1]
+            //     );
+            // }
+            if known[sibling_index] {
+                continue;
+            } else if (sibling_index < num_leaves)
+                && (known[2 * sibling_index] && known[2 * sibling_index + 1])
+            {
+                known[sibling_index] = true;
+                continue;
+            }
+            // dbg!(sibling_index);
+            proof.push(sibling);
+            index >>= 1;
+            known[sibling_index] = true;
+            known[index] = true;
+        }
+    }
+
+    CompressedMerkleProof { proof }
+}
+
+pub(crate) fn verify_compressed_proof<F: Field>(
+    leaves_data: &[Vec<F>],
+    leaves_indices: &[usize],
+    proof: &CompressedMerkleProof<F>,
+    height: usize,
+    cap: &MerkleCap<F>,
+) -> Result<()> {
+    let cap_height = log2_strict(cap.0.len());
+    let mut proof = proof.proof.clone();
+    let mut seen = HashMap::new();
+    let mut leaves = leaves_indices
+        .iter()
+        .zip(leaves_data)
+        .map(|(&i, v)| (i, v.clone()))
+        .collect::<Vec<_>>();
+    leaves.sort_by(|x, y| y.0.cmp(&x.0));
+
+    for (i, v) in &leaves {
+        seen.insert(i + (1 << height), hash_or_noop(v.to_vec()));
+    }
+    for (i, v) in leaves {
+        let mut index = i + (1 << height);
+        let mut current_digest = seen[&index];
+        for _ in 0..height - cap_height {
+            // dbg!(index);
+            let sibling_index = index ^ 1;
+            let h = if seen.contains_key(&sibling_index) {
+                // println!("yo {}", sibling_index);
+                seen[&sibling_index]
+            } else if seen.contains_key(&(2 * sibling_index))
+                && seen.contains_key(&(2 * sibling_index + 1))
+            {
+                // println!("ya {}", sibling_index);
+                let a = seen[&(2 * sibling_index)];
+                let b = seen[&(2 * sibling_index + 1)];
+                compress(a, b)
+            } else {
+                // println!("yu {}", sibling_index);
+                proof.remove(0)
+            };
+            if index == 9 {
+                // dbg!(current_digest, h);
+            }
+            if index.is_even() {
+                current_digest = compress(current_digest, h);
+            } else {
+                current_digest = compress(h, current_digest);
+            }
+            index >>= 1;
+            // dbg!(seen.get(&index), current_digest);
+            seen.insert(index, current_digest);
+        }
+        ensure!(current_digest == cap.0[index - 1], "Invalid Merkle proof.");
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::{thread_rng, Rng};
+
+    use crate::field::crandall_field::CrandallField;
+    use crate::field::field_types::Field;
+    use crate::hash::merkle_proofs::MerkleProof;
+    use crate::hash::merkle_tree::MerkleTree;
+    use crate::hash::path_compression::{compress_path, verify_compressed_proof};
+
+    #[test]
+    fn test_path_compression() {
+        type F = CrandallField;
+        let h = 3;
+        let vs = (0..1 << h).map(|i| vec![F::rand()]).collect::<Vec<_>>();
+        // let vs = (0..1 << h)
+        //     .map(|i| vec![F::from_canonical_u64(i)])
+        //     .collect::<Vec<_>>();
+        let mt = MerkleTree::new(vs.clone(), 0);
+        for l in &mt.layers {
+            // dbg!(l);
+        }
+
+        let mut rng = thread_rng();
+        let k = rng.gen_range(0..1 << h);
+        let k = 3;
+        let proofs: Vec<(usize, MerkleProof<_>)> = (0..k)
+            .map(|_| rng.gen_range(0..1 << h))
+            .map(|i| (i, mt.prove(i)))
+            .collect();
+        let indices = proofs.iter().map(|x| x.0).collect::<Vec<_>>();
+        dbg!(&indices);
+
+        // let proofs = vec![(1, mt.prove(1)), (3, mt.prove(3)), (5, mt.prove(5))];
+        let cp = compress_path(&mt.cap, proofs);
+
+        // dbg!(cp.proof);
+        verify_compressed_proof(
+            &indices.iter().map(|&i| vs[i].clone()).collect::<Vec<_>>(),
+            // &[1, 3, 5].iter().map(|&i| vs[i].clone()).collect::<Vec<_>>(),
+            &indices,
+            &cp,
+            h,
+            &mt.cap,
+        )
+        .unwrap();
+    }
+}
