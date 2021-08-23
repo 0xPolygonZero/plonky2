@@ -82,8 +82,7 @@ impl<F: Field> PartitionWitness<F> {
         self.forest[x.index] = x;
         self.forest[y.index] = y;
     }
-}
-impl<F: Field> PartitionWitness<F> {
+
     pub fn wire_partition(&mut self) -> WirePartition {
         let mut partition = HashMap::<_, Vec<_>>::new();
         for gate in 0..self.degree {
