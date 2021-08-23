@@ -34,13 +34,8 @@ pub(crate) fn verify_merkle_proof<F: Field>(
     leaf_index: usize,
     merkle_cap: &MerkleCap<F>,
     proof: &MerkleProof<F>,
-    reverse_bits: bool,
 ) -> Result<()> {
-    let mut index = if reverse_bits {
-        crate::util::reverse_bits(leaf_index, proof.siblings.len())
-    } else {
-        leaf_index
-    };
+    let mut index = leaf_index;
     let mut current_digest = hash_or_noop(leaf_data);
     for &sibling_digest in proof.siblings.iter() {
         let bit = index & 1;

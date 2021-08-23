@@ -86,15 +86,11 @@ mod tests {
         (0..n).map(|_| F::rand_vec(k)).collect()
     }
 
-    fn verify_all_leaves<F: Field>(
-        leaves: Vec<Vec<F>>,
-        n: usize,
-        reverse_bits: bool,
-    ) -> Result<()> {
+    fn verify_all_leaves<F: Field>(leaves: Vec<Vec<F>>, n: usize) -> Result<()> {
         let tree = MerkleTree::new(leaves.clone(), 1);
         for i in 0..n {
             let proof = tree.prove(i);
-            verify_merkle_proof(leaves[i].clone(), i, &tree.cap, &proof, reverse_bits)?;
+            verify_merkle_proof(leaves[i].clone(), i, &tree.cap, &proof)?;
         }
         Ok(())
     }
@@ -107,7 +103,7 @@ mod tests {
         let n = 1 << log_n;
         let leaves = random_data::<F>(n, 7);
 
-        verify_all_leaves(leaves, n, false)?;
+        verify_all_leaves(leaves, n)?;
 
         Ok(())
     }

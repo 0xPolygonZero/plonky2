@@ -142,7 +142,7 @@ fn fri_verify_initial_proof<F: Field>(
     initial_merkle_caps: &[MerkleCap<F>],
 ) -> Result<()> {
     for ((evals, merkle_proof), cap) in proof.evals_proofs.iter().zip(initial_merkle_caps) {
-        verify_merkle_proof(evals.clone(), x_index, cap, merkle_proof, false)?;
+        verify_merkle_proof(evals.clone(), x_index, cap, merkle_proof)?;
     }
 
     Ok(())
@@ -305,7 +305,6 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
             coset_index,
             &proof.commit_phase_merkle_caps[i],
             &round_proof.steps[i].merkle_proof,
-            false,
         )?;
 
         // Update the point x to x^arity.
