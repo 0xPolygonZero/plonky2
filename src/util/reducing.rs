@@ -119,16 +119,16 @@ impl<const D: usize> ReducingFactorTarget<D> {
             let gate = ReducingGate::new(max_coeffs_len);
             let gate_index = builder.add_gate(gate.clone(), Vec::new());
 
-            builder.route_extension(
+            builder.connect_extension(
                 self.base,
                 ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_alpha()),
             );
-            builder.route_extension(
+            builder.connect_extension(
                 acc,
                 ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_old_acc()),
             );
             for (&t, c) in chunk.iter().zip(gate.wires_coeffs()) {
-                builder.route(t, Target::wire(gate_index, c));
+                builder.connect(t, Target::wire(gate_index, c));
             }
 
             acc = ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_output());

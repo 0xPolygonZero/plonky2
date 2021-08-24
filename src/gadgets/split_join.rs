@@ -45,7 +45,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 sum,
             );
         }
-        self.assert_equal(acc, integer);
+        self.connect(acc, integer);
 
         self.add_generator(WireSplitGenerator {
             integer,

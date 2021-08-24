@@ -78,7 +78,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 gate,
                 input: swap_wire,
             });
-            self.route(bit.target, swap_wire);
+            self.connect(bit.target, swap_wire);
 
             let input_wires = (0..12)
                 .map(|i| {
@@ -90,9 +90,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .collect::<Vec<_>>();
 
             for i in 0..4 {
-                self.route(state.elements[i], input_wires[i]);
-                self.route(sibling.elements[i], input_wires[4 + i]);
-                self.route(zero, input_wires[8 + i]);
+                self.connect(state.elements[i], input_wires[i]);
+                self.connect(sibling.elements[i], input_wires[4 + i]);
+                self.connect(zero, input_wires[8 + i]);
             }
 
             state = HashOutTarget::from_vec(
@@ -156,9 +156,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .collect::<Vec<_>>();
 
             for i in 0..4 {
-                self.route(state.elements[i], input_wires[i]);
-                self.route(sibling.elements[i], input_wires[4 + i]);
-                self.route(zero, input_wires[8 + i]);
+                self.connect(state.elements[i], input_wires[i]);
+                self.connect(sibling.elements[i], input_wires[4 + i]);
+                self.connect(zero, input_wires[8 + i]);
             }
 
             state = HashOutTarget::from_vec(
@@ -188,13 +188,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
         for i in 0..4 {
-            self.assert_equal(x.elements[i], y.elements[i]);
+            self.connect(x.elements[i], y.elements[i]);
         }
     }
 
     pub fn named_assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget, name: String) {
         for i in 0..4 {
-            self.named_assert_equal(
+            self.named_connect(
                 x.elements[i],
                 y.elements[i],
                 format!("{}: {}-th hash element", name, i),

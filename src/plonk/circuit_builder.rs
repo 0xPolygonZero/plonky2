@@ -173,30 +173,20 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
-    /// Both elements must be routable, otherwise this method will panic.
-    pub fn route(&mut self, src: Target, dst: Target) {
-        self.assert_equal(src, dst);
-    }
-
-    /// Same as `route` with a named copy constraint.
-    pub fn named_route(&mut self, src: Target, dst: Target, name: String) {
-        self.named_assert_equal(src, dst, name);
-    }
-
-    pub fn route_extension(&mut self, src: ExtensionTarget<D>, dst: ExtensionTarget<D>) {
+    pub fn connect_extension(&mut self, src: ExtensionTarget<D>, dst: ExtensionTarget<D>) {
         for i in 0..D {
-            self.route(src.0[i], dst.0[i]);
+            self.connect(src.0[i], dst.0[i]);
         }
     }
 
-    pub fn named_route_extension(
+    pub fn named_connect_extension(
         &mut self,
         src: ExtensionTarget<D>,
         dst: ExtensionTarget<D>,
         name: String,
     ) {
         for i in 0..D {
-            self.named_route(src.0[i], dst.0[i], format!("{}: limb {}", name, i));
+            self.named_connect(src.0[i], dst.0[i], format!("{}: limb {}", name, i));
         }
     }
 
@@ -207,7 +197,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Uses Plonk's permutation argument to require that two elements be equal.
     /// Both elements must be routable, otherwise this method will panic.
-    pub fn assert_equal(&mut self, x: Target, y: Target) {
+    pub fn connect(&mut self, x: Target, y: Target) {
         assert!(
             x.is_routable(&self.config),
             "Tried to route a wire that isn't routable"
@@ -221,7 +211,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Same as `assert_equal` for a named copy constraint.
-    pub fn named_assert_equal(&mut self, x: Target, y: Target, name: String) {
+    pub fn named_connect(&mut self, x: Target, y: Target, name: String) {
         assert!(
             x.is_routable(&self.config),
             "Tried to route a wire that isn't routable"
@@ -238,12 +228,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn assert_zero(&mut self, x: Target) {
         let zero = self.zero();
-        self.assert_equal(x, zero);
+        self.connect(x, zero);
     }
 
     pub fn assert_equal_extension(&mut self, x: ExtensionTarget<D>, y: ExtensionTarget<D>) {
         for i in 0..D {
-            self.assert_equal(x.0[i], y.0[i]);
+            self.connect(x.0[i], y.0[i]);
         }
     }
 
@@ -254,8 +244,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         name: String,
     ) {
         for i in 0..D {
-            self.assert_equal(x.0[i], y.0[i]);
-            self.named_assert_equal(x.0[i], y.0[i], format!("{}: limb {}", name, i));
+            self.connect(x.0[i], y.0[i]);
+            self.named_connect(x.0[i], y.0[i], format!("{}: limb {}", name, i));
         }
     }
 
@@ -554,9 +544,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     ArithmeticExtensionGate::<D>::wires_ith_addend(j),
                 );
 
-                self.route_extension(zero, wires_multiplicand_0);
-                self.route_extension(zero, wires_multiplicand_1);
-                self.route_extension(zero, wires_addend);
+                self.connect_extension(zero, wires_multiplicand_0);
+                self.connect_extension(zero, wires_multiplicand_1);
+                self.connect_extension(zero, wires_addend);
             }
         }
     }
@@ -583,7 +573,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .iter()
             .zip(PublicInputGate::wires_public_inputs_hash())
         {
-            self.route(hash_part, Target::wire(pi_gate, wire))
+            self.connect(hash_part, Target::wire(pi_gate, wire))
         }
 
         info!(

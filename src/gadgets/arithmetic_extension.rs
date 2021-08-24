@@ -67,9 +67,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let wires_addend =
             ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_addend(i));
 
-        self.route_extension(multiplicand_0, wires_multiplicand_0);
-        self.route_extension(multiplicand_1, wires_multiplicand_1);
-        self.route_extension(addend, wires_addend);
+        self.connect_extension(multiplicand_0, wires_multiplicand_0);
+        self.connect_extension(multiplicand_1, wires_multiplicand_1);
+        self.connect_extension(addend, wires_addend);
 
         ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_output(i))
     }

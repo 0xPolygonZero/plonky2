@@ -116,9 +116,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
         let gate_index = self.add_gate(gate.clone(), vec![]);
 
-        self.route(base, Target::wire(gate_index, gate.wire_base()));
+        self.connect(base, Target::wire(gate_index, gate.wire_base()));
         exp_bits_vec.iter().enumerate().for_each(|(i, bit)| {
-            self.route(bit.target, Target::wire(gate_index, gate.wire_power_bit(i)));
+            self.connect(bit.target, Target::wire(gate_index, gate.wire_power_bit(i)));
         });
 
         Target::wire(gate_index, gate.wire_output())

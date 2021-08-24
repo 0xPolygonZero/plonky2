@@ -11,7 +11,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn range_check(&mut self, x: Target, n_log: usize) {
         let gate = self.add_gate(BaseSumGate::<2>::new(n_log), vec![]);
         let sum = Target::wire(gate, BaseSumGate::<2>::WIRE_SUM);
-        self.route(x, sum);
+        self.connect(x, sum);
     }
 
     /// Returns the first `num_low_bits` little-endian bits of `x`.
@@ -37,7 +37,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let pow2 = self.constant(F::from_canonical_u64(1 << n_log));
         let comp_x = self.mul_add(high, pow2, low);
-        self.assert_equal(x, comp_x);
+        self.connect(x, comp_x);
 
         (low, high)
     }
