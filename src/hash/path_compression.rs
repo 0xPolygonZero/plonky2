@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{ensure, Result};
 use num::Integer;
+use serde::{Deserialize, Serialize};
 
 use crate::field::field_types::Field;
 use crate::hash::hash_types::HashOut;
@@ -10,6 +11,8 @@ use crate::hash::merkle_proofs::MerkleProof;
 use crate::hash::merkle_tree::{MerkleCap, MerkleTree};
 use crate::util::log2_strict;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(bound = "")]
 pub struct CompressedMerkleProof<F: Field> {
     pub proof: Vec<HashOut<F>>,
 }
@@ -40,14 +43,16 @@ pub(crate) fn compress_path<F: Field>(
             //     );
             // }
             if known[sibling_index] {
+                index >>= 1;
                 continue;
             } else if (sibling_index < num_leaves)
                 && (known[2 * sibling_index] && known[2 * sibling_index + 1])
             {
+                index >>= 1;
                 known[sibling_index] = true;
                 continue;
             }
-            // dbg!(sibling_index);
+            // println!("go {}", sibling_index);
             proof.push(sibling);
             index >>= 1;
             known[sibling_index] = true;
@@ -82,7 +87,6 @@ pub(crate) fn verify_compressed_proof<F: Field>(
         let mut index = i + (1 << height);
         let mut current_digest = seen[&index];
         for _ in 0..height - cap_height {
-            // dbg!(index);
             let sibling_index = index ^ 1;
             let h = if seen.contains_key(&sibling_index) {
                 // println!("yo {}", sibling_index);
@@ -98,6 +102,7 @@ pub(crate) fn verify_compressed_proof<F: Field>(
                 // println!("yu {}", sibling_index);
                 proof.remove(0)
             };
+            seen.insert(sibling_index, h);
             if index == 9 {
                 // dbg!(current_digest, h);
             }
@@ -110,7 +115,10 @@ pub(crate) fn verify_compressed_proof<F: Field>(
             // dbg!(seen.get(&index), current_digest);
             seen.insert(index, current_digest);
         }
-        ensure!(current_digest == cap.0[index - 1], "Invalid Merkle proof.");
+        ensure!(
+            current_digest == cap.0[index - cap.0.len()],
+            "Invalid Merkle proof."
+        );
     }
 
     Ok(())
@@ -129,38 +137,31 @@ mod tests {
     #[test]
     fn test_path_compression() {
         type F = CrandallField;
-        let h = 3;
+        let h = 13;
         let vs = (0..1 << h).map(|i| vec![F::rand()]).collect::<Vec<_>>();
-        // let vs = (0..1 << h)
-        //     .map(|i| vec![F::from_canonical_u64(i)])
-        //     .collect::<Vec<_>>();
-        let mt = MerkleTree::new(vs.clone(), 0);
-        for l in &mt.layers {
-            // dbg!(l);
-        }
+        let mt = MerkleTree::new(vs.clone(), 4);
 
         let mut rng = thread_rng();
         let k = rng.gen_range(0..1 << h);
-        let k = 3;
-        let proofs: Vec<(usize, MerkleProof<_>)> = (0..k)
-            .map(|_| rng.gen_range(0..1 << h))
-            .map(|i| (i, mt.prove(i)))
-            .collect();
-        let indices = proofs.iter().map(|x| x.0).collect::<Vec<_>>();
-        dbg!(&indices);
+        let indices = (0..k).map(|_| rng.gen_range(0..1 << h)).collect::<Vec<_>>();
+        let proofs: Vec<(usize, MerkleProof<_>)> =
+            indices.iter().map(|&i| (i, mt.prove(i))).collect();
 
-        // let proofs = vec![(1, mt.prove(1)), (3, mt.prove(3)), (5, mt.prove(5))];
-        let cp = compress_path(&mt.cap, proofs);
+        let cp = compress_path(&mt.cap, proofs.clone());
 
-        // dbg!(cp.proof);
         verify_compressed_proof(
             &indices.iter().map(|&i| vs[i].clone()).collect::<Vec<_>>(),
-            // &[1, 3, 5].iter().map(|&i| vs[i].clone()).collect::<Vec<_>>(),
             &indices,
             &cp,
             h,
             &mt.cap,
         )
         .unwrap();
+
+        println!("Proof length: {} ", proofs.len());
+        let proof_bytes = serde_cbor::to_vec(&cp).unwrap();
+        println!("Proof length: {} bytes", proof_bytes.len());
+        let proof_bytes = serde_cbor::to_vec(&proofs).unwrap();
+        println!("Proof length: {} bytes", proof_bytes.len());
     }
 }
