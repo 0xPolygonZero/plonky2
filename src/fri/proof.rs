@@ -66,6 +66,7 @@ impl FriInitialTreeProofTarget {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(bound = "")]
 pub struct FriQueryRound<F: Extendable<D>, const D: usize> {
+    pub index: usize,
     pub initial_trees_proof: FriInitialTreeProof<F>,
     pub steps: Vec<FriQueryStep<F, D>>,
 }
@@ -121,7 +122,6 @@ pub struct CompressedFriProof<F: Extendable<D>, const D: usize> {
 
 pub fn compress_fri_proof<F: Extendable<D>, const D: usize>(
     proof: FriProof<F, D>,
-    indices: &[usize],
 ) -> CompressedFriProof<F, D> {
     let FriProof {
         commit_phase_merkle_caps,
@@ -138,17 +138,17 @@ pub fn compress_fri_proof<F: Extendable<D>, const D: usize>(
     let mut steps_evals = vec![vec![]; num_reductions];
     let mut steps_proofs = vec![vec![]; num_reductions];
 
-    for (&index, qrp) in indices.iter().zip(query_round_proofs) {
-        let mut index = index;
+    for qrp in query_round_proofs {
+        let mut index = qrp.index;
         for i in 0..num_initial_trees {
             initial_trees_leaves[i].push(qrp.initial_trees_proof.evals_proofs[i].0.clone());
             initial_trees_proofs[i]
                 .push((index, qrp.initial_trees_proof.evals_proofs[i].1.clone()));
         }
         for i in 0..num_reductions {
+            index >>= 1;
             steps_evals[i].push(qrp.steps[i].evals.clone());
             steps_proofs[i].push((index, qrp.steps[i].merkle_proof.clone()));
-            index >>= 1;
         }
     }
 

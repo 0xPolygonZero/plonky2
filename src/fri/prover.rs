@@ -152,7 +152,8 @@ fn fri_prover_query_round<F: Field + Extendable<D>, const D: usize>(
 ) -> FriQueryRound<F, D> {
     let mut query_steps = Vec::new();
     let x = challenger.get_challenge();
-    let mut x_index = x.to_canonical_u64() as usize % n;
+    let initial_index = x.to_canonical_u64() as usize % n;
+    let mut x_index = initial_index;
     let initial_proof = initial_merkle_trees
         .iter()
         .map(|t| (t.get(x_index).to_vec(), t.prove(x_index)))
@@ -170,6 +171,7 @@ fn fri_prover_query_round<F: Field + Extendable<D>, const D: usize>(
         x_index >>= arity_bits;
     }
     FriQueryRound {
+        index: initial_index,
         initial_trees_proof: FriInitialTreeProof {
             evals_proofs: initial_proof,
         },

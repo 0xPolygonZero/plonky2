@@ -503,10 +503,14 @@ mod tests {
     use crate::field::extension_field::algebra::ExtensionAlgebra;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field_types::Field;
+    use crate::fri::proof::compress_fri_proof;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::verifier::verify;
+    use crate::plonk::proof::{
+        CompressedProof, CompressedProofWithPublicInputs, ProofWithPublicInputs,
+    };
+    use crate::plonk::verifier::{verify, verify_compressed};
 
     #[test]
     fn test_mul_many() -> Result<()> {
@@ -600,5 +604,58 @@ mod tests {
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_yo() -> Result<()> {
+        type F = CrandallField;
+        type FF = QuarticCrandallField;
+        const D: usize = 4;
+
+        let config = CircuitConfig::large_config();
+
+        let pw = PartialWitness::new(config.num_wires);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let x = FF::rand_vec(4);
+        let y = FF::rand_vec(4);
+        let xa = ExtensionAlgebra(x.try_into().unwrap());
+        let ya = ExtensionAlgebra(y.try_into().unwrap());
+        let za = xa * ya;
+
+        let xt = builder.constant_ext_algebra(xa);
+        let yt = builder.constant_ext_algebra(ya);
+        let zt = builder.constant_ext_algebra(za);
+        let comp_zt = builder.mul_ext_algebra(xt, yt);
+        for i in 0..D {
+            builder.assert_equal_extension(zt.0[i], comp_zt.0[i]);
+        }
+
+        let data = builder.build();
+        let proof = data.prove(pw)?;
+        let proof_bytes = serde_cbor::to_vec(&proof).unwrap();
+        println!("Proof length: {} bytes", proof_bytes.len());
+
+        verify(proof.clone(), &data.verifier_only, &data.common).unwrap();
+        let compfriproof = compress_fri_proof(proof.proof.opening_proof.clone());
+        let ProofWithPublicInputs {
+            proof,
+            public_inputs,
+        } = proof;
+        let comproof = CompressedProofWithPublicInputs {
+            proof: CompressedProof {
+                wires_cap: proof.wires_cap,
+                plonk_zs_partial_products_cap: proof.plonk_zs_partial_products_cap,
+                quotient_polys_cap: proof.quotient_polys_cap,
+                openings: proof.openings,
+                opening_proof: compfriproof,
+            },
+            public_inputs,
+        };
+        let proof_bytes = serde_cbor::to_vec(&comproof).unwrap();
+        println!("Comp proof length: {} bytes", proof_bytes.len());
+        verify_compressed(comproof, &data.verifier_only, &data.common).unwrap();
+
+        Ok(())
     }
 }
