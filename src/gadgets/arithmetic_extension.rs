@@ -7,7 +7,7 @@ use crate::field::field_types::Field;
 use crate::gates::arithmetic::{ArithmeticExtensionGate, NUM_ARITHMETIC_OPS};
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bits_u64;
 
@@ -433,6 +433,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
+#[derive(Debug)]
 struct QuotientGeneratorExtension<const D: usize> {
     numerator: ExtensionTarget<D>,
     denominator: ExtensionTarget<D>,
@@ -446,7 +447,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for QuotientGeneratorE
         deps
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let num = witness.get_extension_target(self.numerator);
         let dem = witness.get_extension_target(self.denominator);
         let quotient = num / dem;
@@ -503,7 +504,7 @@ mod tests {
     use crate::field::extension_field::algebra::ExtensionAlgebra;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field_types::Field;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
@@ -516,7 +517,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
-        let mut pw = PartialWitness::new(config.num_wires);
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let vs = FF::rand_vec(3);
@@ -551,7 +552,7 @@ mod tests {
 
         let config = CircuitConfig::large_zk_config();
 
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = FF::rand();
@@ -579,7 +580,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = FF::rand_vec(4);

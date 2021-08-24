@@ -137,7 +137,7 @@ mod tests {
     use crate::fri::FriConfig;
     use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
     use crate::hash::merkle_proofs::MerkleProofTarget;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::proof::{OpeningSetTarget, Proof, ProofTarget, ProofWithPublicInputs};
     use crate::plonk::verifier::verify;
     use crate::util::log2_strict;
@@ -386,7 +386,7 @@ mod tests {
             }
             let data = builder.build();
             (
-                data.prove(PartialWitness::new(config.num_wires))?,
+                data.prove(PartialWitness::new())?,
                 data.verifier_only,
                 data.common,
             )
@@ -394,7 +394,7 @@ mod tests {
         verify(proof_with_pis.clone(), &vd, &cd)?;
 
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        let mut pw = PartialWitness::new(config.num_wires);
+        let mut pw = PartialWitness::new();
         let pt = proof_to_proof_target(&proof_with_pis, &mut builder);
         set_proof_target(&proof_with_pis, &pt, &mut pw);
 
@@ -442,7 +442,7 @@ mod tests {
                 }
                 let data = builder.build();
                 (
-                    data.prove(PartialWitness::new(config.num_wires))?,
+                    data.prove(PartialWitness::new())?,
                     data.verifier_only,
                     data.common,
                 )
@@ -450,7 +450,7 @@ mod tests {
             verify(proof_with_pis.clone(), &vd, &cd)?;
 
             let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-            let mut pw = PartialWitness::new(config.num_wires);
+            let mut pw = PartialWitness::new();
             let pt = proof_to_proof_target(&proof_with_pis, &mut builder);
             set_proof_target(&proof_with_pis, &pt, &mut pw);
 
@@ -468,7 +468,7 @@ mod tests {
 
         verify(proof_with_pis.clone(), &vd, &cd)?;
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        let mut pw = PartialWitness::new(config.num_wires);
+        let mut pw = PartialWitness::new();
         let pt = proof_to_proof_target(&proof_with_pis, &mut builder);
         set_proof_target(&proof_with_pis, &pt, &mut pw);
 

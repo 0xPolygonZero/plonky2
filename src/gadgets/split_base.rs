@@ -5,7 +5,7 @@ use crate::field::field_types::Field;
 use crate::gates::base_sum::BaseSumGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -64,7 +64,7 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
         self.limbs.iter().map(|b| b.target).collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let sum = self
             .limbs
             .iter()
@@ -97,7 +97,7 @@ mod tests {
     fn test_split_base() -> Result<()> {
         type F = CrandallField;
         let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let x = F::from_canonical_usize(0b110100000); // 416 = 1532 in base 6.
         let xt = builder.constant(x);
@@ -123,7 +123,7 @@ mod tests {
     fn test_base_sum() -> Result<()> {
         type F = CrandallField;
         let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let n = thread_rng().gen_range(0..(1 << 10));

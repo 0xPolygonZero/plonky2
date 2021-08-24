@@ -78,7 +78,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 gate,
                 input: swap_wire,
             });
-            self.generate_copy(bit.target, swap_wire);
+            self.route(bit.target, swap_wire);
 
             let input_wires = (0..12)
                 .map(|i| {
@@ -211,7 +211,7 @@ mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
     use crate::hash::merkle_tree::MerkleTree;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
@@ -224,7 +224,7 @@ mod tests {
     fn test_recursive_merkle_proof() -> Result<()> {
         type F = CrandallField;
         let config = CircuitConfig::large_config();
-        let mut pw = PartialWitness::new(config.num_wires);
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let log_n = 8;

@@ -64,7 +64,7 @@ mod tests {
         type FF = QuarticCrandallField;
         let len = 1 << len_log;
         let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let v = (0..len - 1)
             .map(|_| builder.constant_extension(FF::rand()))

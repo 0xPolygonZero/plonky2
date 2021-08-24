@@ -8,7 +8,7 @@ use crate::hash::gmimc::gmimc_automatic_constants;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
@@ -264,7 +264,7 @@ impl<F: Extendable<D>, const D: usize, const R: usize> SimpleGenerator<F>
             .collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let mut state = (0..W)
             .map(|i| {
                 witness.get_wire(Wire {
@@ -331,8 +331,9 @@ mod tests {
     use crate::gates::gmimc::{GMiMCGate, W};
     use crate::hash::gmimc::gmimc_permute_naive;
     use crate::iop::generator::generate_partial_witness;
+    use crate::iop::target::Target;
     use crate::iop::wire::Wire;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, PartitionWitness, Witness};
     use crate::util::timing::TimingTree;
 
     #[test]
@@ -345,7 +346,7 @@ mod tests {
 
         let permutation_inputs = (0..W).map(F::from_canonical_usize).collect::<Vec<_>>();
 
-        let mut witness = PartialWitness::new(gate.num_wires());
+        let mut witness = PartialWitness::new();
         witness.set_wire(
             Wire {
                 gate: 0,
@@ -363,13 +364,17 @@ mod tests {
             );
         }
 
+        let mut partition_witness = PartitionWitness::new(gate.num_wires(), gate.num_wires(), 1, 0);
+        for input in 0..gate.num_wires() {
+            partition_witness.add(Target::Wire(Wire { gate: 0, input }));
+        }
+        for (&t, &v) in witness.target_values.iter() {
+            partition_witness.set_target(t, v);
+        }
         let generators = gate.generators(0, &[]);
         generate_partial_witness(
-            &mut witness,
+            &mut partition_witness,
             &generators,
-            gate.num_wires(),
-            1,
-            1,
             &mut TimingTree::default(),
         );
 
@@ -377,7 +382,7 @@ mod tests {
             gmimc_permute_naive(permutation_inputs.try_into().unwrap(), constants);
 
         for i in 0..W {
-            let out = witness.get_wire(Wire {
+            let out = partition_witness.get_wire(Wire {
                 gate: 0,
                 input: Gate::wire_output(i),
             });

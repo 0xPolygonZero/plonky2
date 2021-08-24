@@ -11,8 +11,7 @@ use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;
-use crate::iop::witness::PartialWitness;
-use crate::plonk::copy_constraint::CopyConstraint;
+use crate::iop::witness::{PartialWitness, PartitionWitness};
 use crate::plonk::proof::ProofWithPublicInputs;
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
@@ -148,16 +147,14 @@ pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
     pub sigmas: Vec<Vec<F>>,
     /// Subgroup of order `degree`.
     pub subgroup: Vec<F>,
-    /// The circuit's copy constraints.
-    pub copy_constraints: Vec<CopyConstraint>,
     /// The concrete placement of each gate in the circuit.
     pub gate_instances: Vec<GateInstance<F, D>>,
     /// Targets to be made public.
     pub public_inputs: Vec<Target>,
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
     pub marked_targets: Vec<MarkedTargets<D>>,
-    /// Number of virtual targets used in the circuit.
-    pub num_virtual_targets: usize,
+    /// Partial witness holding the copy constraints information.
+    pub partition_witness: PartitionWitness<F>,
 }
 
 /// Circuit data required by the verifier, but not the prover.

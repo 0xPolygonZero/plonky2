@@ -4,7 +4,7 @@ use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::HashOut;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartialWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
@@ -124,7 +124,7 @@ pub(crate) fn test_eval_fns<F: Extendable<D>, G: Gate<F, D>, const D: usize>(
     let constants = F::Extension::rand_vec(gate.num_constants());
 
     let config = CircuitConfig::large_config();
-    let mut pw = PartialWitness::new(config.num_wires);
+    let mut pw = PartialWitness::new();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
     let wires_t = builder.add_virtual_extension_targets(wires.len());

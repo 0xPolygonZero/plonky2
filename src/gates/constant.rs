@@ -5,7 +5,7 @@ use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::PartitionWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
@@ -85,7 +85,7 @@ impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
         Vec::new()
     }
 
-    fn run_once(&self, _witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let wire = Wire {
             gate: self.gate_index,
             input: ConstantGate::WIRE_OUTPUT,
