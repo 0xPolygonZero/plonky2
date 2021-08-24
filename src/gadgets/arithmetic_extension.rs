@@ -67,9 +67,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let wires_addend =
             ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_addend(i));
 
-        self.route_extension(multiplicand_0, wires_multiplicand_0);
-        self.route_extension(multiplicand_1, wires_multiplicand_1);
-        self.route_extension(addend, wires_addend);
+        self.connect_extension(multiplicand_0, wires_multiplicand_0);
+        self.connect_extension(multiplicand_1, wires_multiplicand_1);
+        self.connect_extension(addend, wires_addend);
 
         ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_output(i))
     }
@@ -421,7 +421,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Enforce that x times its purported inverse equals 1.
         let y_inv = self.mul_extension(y, inv);
-        self.assert_equal_extension(y_inv, one);
+        self.connect_extension(y_inv, one);
 
         self.mul_add_extension(x, inv, z)
     }
@@ -535,8 +535,8 @@ mod tests {
         };
         let mul2 = builder.constant_extension(vs.into_iter().product());
 
-        builder.assert_equal_extension(mul0, mul1);
-        builder.assert_equal_extension(mul1, mul2);
+        builder.connect_extension(mul0, mul1);
+        builder.connect_extension(mul1, mul2);
 
         let data = builder.build();
         let proof = data.prove(pw)?;
@@ -563,8 +563,8 @@ mod tests {
         let zt = builder.constant_extension(z);
         let comp_zt = builder.div_extension(xt, yt);
         let comp_zt_unsafe = builder.div_extension(xt, yt);
-        builder.assert_equal_extension(zt, comp_zt);
-        builder.assert_equal_extension(zt, comp_zt_unsafe);
+        builder.connect_extension(zt, comp_zt);
+        builder.connect_extension(zt, comp_zt_unsafe);
 
         let data = builder.build();
         let proof = data.prove(pw)?;
@@ -594,7 +594,7 @@ mod tests {
         let zt = builder.constant_ext_algebra(za);
         let comp_zt = builder.mul_ext_algebra(xt, yt);
         for i in 0..D {
-            builder.assert_equal_extension(zt.0[i], comp_zt.0[i]);
+            builder.connect_extension(zt.0[i], comp_zt.0[i]);
         }
 
         let data = builder.build();

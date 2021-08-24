@@ -68,8 +68,8 @@ mod tests {
         let should_be_x = builder.select_ext(truet, xt, yt);
         let should_be_y = builder.select_ext(falset, xt, yt);
 
-        builder.assert_equal_extension(should_be_x, xt);
-        builder.assert_equal_extension(should_be_y, yt);
+        builder.connect_extension(should_be_x, xt);
+        builder.connect_extension(should_be_y, yt);
 
         let data = builder.build();
         let proof = data.prove(pw)?;

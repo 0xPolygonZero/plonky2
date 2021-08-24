@@ -15,7 +15,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let gate_type = BaseSumGate::<B>::new(num_limbs);
         let gate = self.add_gate(gate_type.clone(), vec![]);
         let sum = Target::wire(gate, BaseSumGate::<B>::WIRE_SUM);
-        self.route(x, sum);
+        self.connect(x, sum);
 
         Target::wires_from_range(gate, gate_type.limbs())
     }
@@ -41,7 +41,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .clone()
             .zip(BaseSumGate::<2>::START_LIMBS..BaseSumGate::<2>::START_LIMBS + num_bits)
         {
-            self.route(limb.borrow().target, Target::wire(gate_index, wire));
+            self.connect(limb.borrow().target, Target::wire(gate_index, wire));
         }
 
         self.add_generator(BaseSumGenerator::<2> {
@@ -106,10 +106,10 @@ mod tests {
         let two = builder.two();
         let three = builder.constant(F::from_canonical_u64(3));
         let five = builder.constant(F::from_canonical_u64(5));
-        builder.route(limbs[0], two);
-        builder.route(limbs[1], three);
-        builder.route(limbs[2], five);
-        builder.route(limbs[3], one);
+        builder.connect(limbs[0], two);
+        builder.connect(limbs[1], three);
+        builder.connect(limbs[2], five);
+        builder.connect(limbs[3], one);
 
         builder.assert_leading_zeros(xt, 64 - 9);
         let data = builder.build();
@@ -143,7 +143,7 @@ mod tests {
                 .iter(),
         );
 
-        builder.assert_equal(x, y);
+        builder.connect(x, y);
 
         let data = builder.build();
 

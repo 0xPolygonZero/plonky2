@@ -15,13 +15,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let gate = InterpolationGate::new(interpolation_points.len());
         let gate_index = self.add_gate(gate.clone(), vec![]);
         for (i, &(p, v)) in interpolation_points.iter().enumerate() {
-            self.route(p, Target::wire(gate_index, gate.wire_point(i)));
-            self.route_extension(
+            self.connect(p, Target::wire(gate_index, gate.wire_point(i)));
+            self.connect_extension(
                 v,
                 ExtensionTarget::from_range(gate_index, gate.wires_value(i)),
             );
         }
-        self.route_extension(
+        self.connect_extension(
             evaluation_point,
             ExtensionTarget::from_range(gate_index, gate.wires_evaluation_point()),
         );
@@ -76,7 +76,7 @@ mod tests {
 
         let eval = builder.interpolate(&points_target, zt);
         let true_eval_target = builder.constant_extension(true_eval);
-        builder.assert_equal_extension(eval, true_eval_target);
+        builder.connect_extension(eval, true_eval_target);
 
         let data = builder.build();
         let proof = data.prove(pw)?;
