@@ -191,16 +191,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.connect(x.elements[i], y.elements[i]);
         }
     }
-
-    pub fn named_assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget, name: String) {
-        for i in 0..4 {
-            self.named_connect(
-                x.elements[i],
-                y.elements[i],
-                format!("{}: {}-th hash element", name, i),
-            );
-        }
-    }
 }
 
 #[cfg(test)]

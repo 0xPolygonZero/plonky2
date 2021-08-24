@@ -179,17 +179,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn named_connect_extension(
-        &mut self,
-        src: ExtensionTarget<D>,
-        dst: ExtensionTarget<D>,
-        name: String,
-    ) {
-        for i in 0..D {
-            self.named_connect(src.0[i], dst.0[i], format!("{}: limb {}", name, i));
-        }
-    }
-
     /// Adds a generator which will copy `src` to `dst`.
     pub fn generate_copy(&mut self, src: Target, dst: Target) {
         self.add_generator(CopyGenerator { src, dst });
@@ -208,22 +197,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         self.copy_constraints
             .push(CopyConstraint::new((x, y), self.context_log.open_stack()));
-    }
-
-    /// Same as connect` for a named copy constraint.
-    pub fn named_connect(&mut self, x: Target, y: Target, name: String) {
-        assert!(
-            x.is_routable(&self.config),
-            "Tried to route a wire that isn't routable"
-        );
-        assert!(
-            y.is_routable(&self.config),
-            "Tried to route a wire that isn't routable"
-        );
-        self.copy_constraints.push(CopyConstraint::new(
-            (x, y),
-            format!("{} > {}", self.context_log.open_stack(), name),
-        ));
     }
 
     pub fn assert_zero(&mut self, x: Target) {
