@@ -17,11 +17,11 @@ pub struct CompressedMerkleProof<F: Field> {
     pub proof: Vec<HashOut<F>>,
 }
 
-pub(crate) fn compress_path<F: Field>(
-    cap: &MerkleCap<F>,
+pub(crate) fn compress_merkle_proofs<F: Field>(
+    cap_height: usize,
     mut proofs: Vec<(usize, MerkleProof<F>)>,
 ) -> CompressedMerkleProof<F> {
-    let height = log2_strict(cap.0.len()) + proofs[0].1.siblings.len();
+    let height = cap_height + proofs[0].1.siblings.len();
     let num_leaves = 1 << height;
     let mut proof = Vec::new();
     proofs.sort_by(|x, y| y.0.cmp(&x.0));
@@ -33,15 +33,6 @@ pub(crate) fn compress_path<F: Field>(
         let mut index = i + num_leaves;
         for sibling in p.siblings {
             let sibling_index = index ^ 1;
-            // if (sibling_index < num_leaves) {
-            //     println!(
-            //         "{} {} {} {}",
-            //         sibling_index,
-            //         known[sibling_index],
-            //         known[2 * sibling_index],
-            //         known[2 * sibling_index + 1]
-            //     );
-            // }
             if known[sibling_index] {
                 index >>= 1;
                 continue;
@@ -52,7 +43,6 @@ pub(crate) fn compress_path<F: Field>(
                 known[sibling_index] = true;
                 continue;
             }
-            // println!("go {}", sibling_index);
             proof.push(sibling);
             index >>= 1;
             known[sibling_index] = true;
@@ -89,30 +79,23 @@ pub(crate) fn verify_compressed_proof<F: Field>(
         for _ in 0..height - cap_height {
             let sibling_index = index ^ 1;
             let h = if seen.contains_key(&sibling_index) {
-                // println!("yo {}", sibling_index);
                 seen[&sibling_index]
             } else if seen.contains_key(&(2 * sibling_index))
                 && seen.contains_key(&(2 * sibling_index + 1))
             {
-                // println!("ya {}", sibling_index);
                 let a = seen[&(2 * sibling_index)];
                 let b = seen[&(2 * sibling_index + 1)];
                 compress(a, b)
             } else {
-                // println!("yu {}", sibling_index);
                 proof.remove(0)
             };
             seen.insert(sibling_index, h);
-            if index == 9 {
-                // dbg!(current_digest, h);
-            }
             if index.is_even() {
                 current_digest = compress(current_digest, h);
             } else {
                 current_digest = compress(h, current_digest);
             }
             index >>= 1;
-            // dbg!(seen.get(&index), current_digest);
             seen.insert(index, current_digest);
         }
         ensure!(
@@ -132,14 +115,15 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::hash::merkle_proofs::MerkleProof;
     use crate::hash::merkle_tree::MerkleTree;
-    use crate::hash::path_compression::{compress_path, verify_compressed_proof};
+    use crate::hash::path_compression::{compress_merkle_proofs, verify_compressed_proof};
 
     #[test]
     fn test_path_compression() {
         type F = CrandallField;
         let h = 13;
+        let cap_height = 4;
         let vs = (0..1 << h).map(|i| vec![F::rand()]).collect::<Vec<_>>();
-        let mt = MerkleTree::new(vs.clone(), 4);
+        let mt = MerkleTree::new(vs.clone(), cap_height);
 
         let mut rng = thread_rng();
         let k = rng.gen_range(0..1 << h);
@@ -147,7 +131,7 @@ mod tests {
         let proofs: Vec<(usize, MerkleProof<_>)> =
             indices.iter().map(|&i| (i, mt.prove(i))).collect();
 
-        let cp = compress_path(&mt.cap, proofs.clone());
+        let cp = compress_merkle_proofs(cap_height, proofs.clone());
 
         verify_compressed_proof(
             &indices.iter().map(|&i| vs[i].clone()).collect::<Vec<_>>(),
