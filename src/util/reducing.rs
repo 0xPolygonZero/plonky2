@@ -213,7 +213,7 @@ mod tests {
         let vs_t = vs.iter().map(|&v| builder.constant(v)).collect::<Vec<_>>();
         let circuit_reduce = alpha_t.reduce_base(&vs_t, &mut builder);
 
-        builder.assert_equal_extension(manual_reduce, circuit_reduce);
+        builder.connect_extension(manual_reduce, circuit_reduce);
 
         let data = builder.build();
         let proof = data.prove(pw)?;
@@ -244,7 +244,7 @@ mod tests {
             .collect::<Vec<_>>();
         let circuit_reduce = alpha_t.reduce(&vs_t, &mut builder);
 
-        builder.assert_equal_extension(manual_reduce, circuit_reduce);
+        builder.connect_extension(manual_reduce, circuit_reduce);
 
         let data = builder.build();
         let proof = data.prove(pw)?;

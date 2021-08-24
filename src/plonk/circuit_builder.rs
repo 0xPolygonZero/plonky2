@@ -210,7 +210,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .push(CopyConstraint::new((x, y), self.context_log.open_stack()));
     }
 
-    /// Same as `assert_equal` for a named copy constraint.
+    /// Same as connect` for a named copy constraint.
     pub fn named_connect(&mut self, x: Target, y: Target, name: String) {
         assert!(
             x.is_routable(&self.config),
@@ -229,24 +229,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn assert_zero(&mut self, x: Target) {
         let zero = self.zero();
         self.connect(x, zero);
-    }
-
-    pub fn assert_equal_extension(&mut self, x: ExtensionTarget<D>, y: ExtensionTarget<D>) {
-        for i in 0..D {
-            self.connect(x.0[i], y.0[i]);
-        }
-    }
-
-    pub fn named_assert_equal_extension(
-        &mut self,
-        x: ExtensionTarget<D>,
-        y: ExtensionTarget<D>,
-        name: String,
-    ) {
-        for i in 0..D {
-            self.connect(x.0[i], y.0[i]);
-            self.named_connect(x.0[i], y.0[i], format!("{}: limb {}", name, i));
-        }
     }
 
     pub fn add_generators(&mut self, generators: Vec<Box<dyn WitnessGenerator<F>>>) {

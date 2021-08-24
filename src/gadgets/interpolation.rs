@@ -76,7 +76,7 @@ mod tests {
 
         let eval = builder.interpolate(&points_target, zt);
         let true_eval_target = builder.constant_extension(true_eval);
-        builder.assert_equal_extension(eval, true_eval_target);
+        builder.connect_extension(eval, true_eval_target);
 
         let data = builder.build();
         let proof = data.prove(pw)?;

@@ -380,7 +380,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "evaluate final polynomial",
             proof.final_poly.eval_scalar(self, subgroup_x)
         );
-        self.assert_equal_extension(eval, old_eval);
+        self.connect_extension(eval, old_eval);
     }
 }
 
