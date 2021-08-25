@@ -1,52 +1,55 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::hash::Hash;
 
 use rayon::prelude::*;
 
 use crate::field::field_types::Field;
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
+use crate::iop::witness::PartitionWitness;
 use crate::polynomial::polynomial::PolynomialValues;
 
 /// Node in the Disjoint Set Forest.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ForestNode<T: Debug + Copy + Eq + PartialEq> {
-    t: T,
-    parent: usize,
-    size: usize,
-    index: usize,
+pub struct ForestNode<T: Debug + Copy + Eq + PartialEq, V: Field> {
+    pub t: T,
+    pub parent: usize,
+    pub size: usize,
+    pub index: usize,
+    pub value: Option<V>,
 }
 
 /// Disjoint Set Forest data-structure following https://en.wikipedia.org/wiki/Disjoint-set_data_structure.
-#[derive(Debug, Clone)]
-pub struct TargetPartition<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> {
-    forest: Vec<ForestNode<T>>,
-    /// Function to compute a node's index in the forest.
-    indices: F,
-}
-
-impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition<T, F> {
-    pub fn new(f: F) -> Self {
+impl<F: Field> PartitionWitness<F> {
+    pub fn new(
+        num_wires: usize,
+        num_routed_wires: usize,
+        degree: usize,
+        num_virtual_targets: usize,
+    ) -> Self {
         Self {
-            forest: Vec::new(),
-            indices: f,
+            forest: Vec::with_capacity(degree * num_wires + num_virtual_targets),
+            num_wires,
+            num_routed_wires,
+            degree,
         }
     }
+
     /// Add a new partition with a single member.
-    pub fn add(&mut self, t: T) {
+    pub fn add(&mut self, t: Target) {
         let index = self.forest.len();
-        debug_assert_eq!((self.indices)(t), index);
+        debug_assert_eq!(self.target_index(t), index);
         self.forest.push(ForestNode {
             t,
             parent: index,
             size: 1,
             index,
+            value: None,
         });
     }
 
     /// Path compression method, see https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives.
-    pub fn find(&mut self, x: ForestNode<T>) -> ForestNode<T> {
+    pub fn find(&mut self, x: ForestNode<Target, F>) -> ForestNode<Target, F> {
         if x.parent != x.index {
             let root = self.find(self.forest[x.parent]);
             self.forest[x.index].parent = root.index;
@@ -57,9 +60,9 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition
     }
 
     /// Merge two sets.
-    pub fn merge(&mut self, tx: T, ty: T) {
-        let mut x = self.forest[(self.indices)(tx)];
-        let mut y = self.forest[(self.indices)(ty)];
+    pub fn merge(&mut self, tx: Target, ty: Target) {
+        let mut x = self.forest[self.target_index(tx)];
+        let mut y = self.forest[self.target_index(ty)];
 
         x = self.find(x);
         y = self.find(y);
@@ -79,44 +82,36 @@ impl<T: Debug + Copy + Eq + PartialEq + Hash, F: Fn(T) -> usize> TargetPartition
         self.forest[x.index] = x;
         self.forest[y.index] = y;
     }
-}
-impl<F: Fn(Target) -> usize> TargetPartition<Target, F> {
-    pub fn wire_partition(&mut self) -> WirePartitions {
+
+    pub fn wire_partition(&mut self) -> WirePartition {
         let mut partition = HashMap::<_, Vec<_>>::new();
-        let nodes = self.forest.clone();
-        for x in nodes {
-            let v = partition.entry(self.find(x).t).or_default();
-            v.push(x.t);
+        for gate in 0..self.degree {
+            for input in 0..self.num_routed_wires {
+                let w = Wire { gate, input };
+                let t = Target::Wire(w);
+                let x = self.forest[self.target_index(t)];
+                partition.entry(self.find(x).t).or_default().push(w);
+            }
+        }
+        // I'm not 100% sure this loop is needed, but I'm afraid removing it might lead to subtle bugs.
+        for index in 0..self.forest.len() - self.degree * self.num_wires {
+            let t = Target::VirtualTarget { index };
+            let x = self.forest[self.target_index(t)];
+            self.find(x);
         }
 
-        let mut indices = HashMap::new();
         // Here we keep just the Wire targets, filtering out everything else.
-        let partition = partition
-            .into_values()
-            .map(|v| {
-                v.into_iter()
-                    .filter_map(|t| match t {
-                        Target::Wire(w) => Some(w),
-                        _ => None,
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-        partition.iter().enumerate().for_each(|(i, v)| {
-            v.iter().for_each(|t| {
-                indices.insert(*t, i);
-            });
-        });
+        let partition = partition.into_values().collect::<Vec<_>>();
 
-        WirePartitions { partition }
+        WirePartition { partition }
     }
 }
 
-pub struct WirePartitions {
+pub struct WirePartition {
     partition: Vec<Vec<Wire>>,
 }
 
-impl WirePartitions {
+impl WirePartition {
     pub(crate) fn get_sigma_polys<F: Field>(
         &self,
         degree_log: usize,

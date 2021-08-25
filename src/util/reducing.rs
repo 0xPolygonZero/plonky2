@@ -119,16 +119,16 @@ impl<const D: usize> ReducingFactorTarget<D> {
             let gate = ReducingGate::new(max_coeffs_len);
             let gate_index = builder.add_gate(gate.clone(), Vec::new());
 
-            builder.route_extension(
+            builder.connect_extension(
                 self.base,
                 ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_alpha()),
             );
-            builder.route_extension(
+            builder.connect_extension(
                 acc,
                 ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_old_acc()),
             );
             for (&t, c) in chunk.iter().zip(gate.wires_coeffs()) {
-                builder.route(t, Target::wire(gate_index, c));
+                builder.connect(t, Target::wire(gate_index, c));
             }
 
             acc = ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_output());
@@ -200,7 +200,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let alpha = FF::rand();
@@ -213,7 +213,7 @@ mod tests {
         let vs_t = vs.iter().map(|&v| builder.constant(v)).collect::<Vec<_>>();
         let circuit_reduce = alpha_t.reduce_base(&vs_t, &mut builder);
 
-        builder.assert_equal_extension(manual_reduce, circuit_reduce);
+        builder.connect_extension(manual_reduce, circuit_reduce);
 
         let data = builder.build();
         let proof = data.prove(pw)?;
@@ -228,7 +228,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let alpha = FF::rand();
@@ -244,7 +244,7 @@ mod tests {
             .collect::<Vec<_>>();
         let circuit_reduce = alpha_t.reduce(&vs_t, &mut builder);
 
-        builder.assert_equal_extension(manual_reduce, circuit_reduce);
+        builder.connect_extension(manual_reduce, circuit_reduce);
 
         let data = builder.build();
         let proof = data.prove(pw)?;

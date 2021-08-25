@@ -5,7 +5,7 @@ use crate::field::field_types::Field;
 use crate::gates::base_sum::BaseSumGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -15,7 +15,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let gate_type = BaseSumGate::<B>::new(num_limbs);
         let gate = self.add_gate(gate_type.clone(), vec![]);
         let sum = Target::wire(gate, BaseSumGate::<B>::WIRE_SUM);
-        self.route(x, sum);
+        self.connect(x, sum);
 
         Target::wires_from_range(gate, gate_type.limbs())
     }
@@ -41,7 +41,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .clone()
             .zip(BaseSumGate::<2>::START_LIMBS..BaseSumGate::<2>::START_LIMBS + num_bits)
         {
-            self.route(limb.borrow().target, Target::wire(gate_index, wire));
+            self.connect(limb.borrow().target, Target::wire(gate_index, wire));
         }
 
         self.add_generator(BaseSumGenerator::<2> {
@@ -64,7 +64,7 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
         self.limbs.iter().map(|b| b.target).collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let sum = self
             .limbs
             .iter()
@@ -97,7 +97,7 @@ mod tests {
     fn test_split_base() -> Result<()> {
         type F = CrandallField;
         let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let x = F::from_canonical_usize(0b110100000); // 416 = 1532 in base 6.
         let xt = builder.constant(x);
@@ -106,10 +106,10 @@ mod tests {
         let two = builder.two();
         let three = builder.constant(F::from_canonical_u64(3));
         let five = builder.constant(F::from_canonical_u64(5));
-        builder.route(limbs[0], two);
-        builder.route(limbs[1], three);
-        builder.route(limbs[2], five);
-        builder.route(limbs[3], one);
+        builder.connect(limbs[0], two);
+        builder.connect(limbs[1], three);
+        builder.connect(limbs[2], five);
+        builder.connect(limbs[3], one);
 
         builder.assert_leading_zeros(xt, 64 - 9);
         let data = builder.build();
@@ -123,7 +123,7 @@ mod tests {
     fn test_base_sum() -> Result<()> {
         type F = CrandallField;
         let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let n = thread_rng().gen_range(0..(1 << 10));
@@ -143,7 +143,7 @@ mod tests {
                 .iter(),
         );
 
-        builder.assert_equal(x, y);
+        builder.connect(x, y);
 
         let data = builder.build();
 

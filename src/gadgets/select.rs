@@ -43,7 +43,7 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field_types::Field;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
@@ -53,7 +53,7 @@ mod tests {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
-        let mut pw = PartialWitness::new(config.num_wires);
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let (x, y) = (FF::rand(), FF::rand());
@@ -68,8 +68,8 @@ mod tests {
         let should_be_x = builder.select_ext(truet, xt, yt);
         let should_be_y = builder.select_ext(falset, xt, yt);
 
-        builder.assert_equal_extension(should_be_x, xt);
-        builder.assert_equal_extension(should_be_y, yt);
+        builder.connect_extension(should_be_x, xt);
+        builder.connect_extension(should_be_y, yt);
 
         let data = builder.build();
         let proof = data.prove(pw)?;

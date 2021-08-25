@@ -34,13 +34,8 @@ pub(crate) fn verify_merkle_proof<F: Field>(
     leaf_index: usize,
     merkle_cap: &MerkleCap<F>,
     proof: &MerkleProof<F>,
-    reverse_bits: bool,
 ) -> Result<()> {
-    let mut index = if reverse_bits {
-        crate::util::reverse_bits(leaf_index, proof.siblings.len())
-    } else {
-        leaf_index
-    };
+    let mut index = leaf_index;
     let mut current_digest = hash_or_noop(leaf_data);
     for &sibling_digest in proof.siblings.iter() {
         let bit = index & 1;
@@ -83,7 +78,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 gate,
                 input: swap_wire,
             });
-            self.generate_copy(bit.target, swap_wire);
+            self.connect(bit.target, swap_wire);
 
             let input_wires = (0..12)
                 .map(|i| {
@@ -95,9 +90,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .collect::<Vec<_>>();
 
             for i in 0..4 {
-                self.route(state.elements[i], input_wires[i]);
-                self.route(sibling.elements[i], input_wires[4 + i]);
-                self.route(zero, input_wires[8 + i]);
+                self.connect(state.elements[i], input_wires[i]);
+                self.connect(sibling.elements[i], input_wires[4 + i]);
+                self.connect(zero, input_wires[8 + i]);
             }
 
             state = HashOutTarget::from_vec(
@@ -161,9 +156,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .collect::<Vec<_>>();
 
             for i in 0..4 {
-                self.route(state.elements[i], input_wires[i]);
-                self.route(sibling.elements[i], input_wires[4 + i]);
-                self.route(zero, input_wires[8 + i]);
+                self.connect(state.elements[i], input_wires[i]);
+                self.connect(sibling.elements[i], input_wires[4 + i]);
+                self.connect(zero, input_wires[8 + i]);
             }
 
             state = HashOutTarget::from_vec(
@@ -193,17 +188,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
         for i in 0..4 {
-            self.assert_equal(x.elements[i], y.elements[i]);
-        }
-    }
-
-    pub fn named_assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget, name: String) {
-        for i in 0..4 {
-            self.named_assert_equal(
-                x.elements[i],
-                y.elements[i],
-                format!("{}: {}-th hash element", name, i),
-            );
+            self.connect(x.elements[i], y.elements[i]);
         }
     }
 }
@@ -216,7 +201,7 @@ mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
     use crate::hash::merkle_tree::MerkleTree;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
@@ -229,7 +214,7 @@ mod tests {
     fn test_recursive_merkle_proof() -> Result<()> {
         type F = CrandallField;
         let config = CircuitConfig::large_config();
-        let mut pw = PartialWitness::new(config.num_wires);
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let log_n = 8;

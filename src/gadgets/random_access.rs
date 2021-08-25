@@ -17,16 +17,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let gate_index = self.add_gate(gate.clone(), vec![]);
 
         v.iter().enumerate().for_each(|(i, &val)| {
-            self.route_extension(
+            self.connect_extension(
                 val,
                 ExtensionTarget::from_range(gate_index, gate.wires_list_item(i)),
             );
         });
-        self.route(
+        self.connect(
             access_index,
-            Target::wire(gate_index, gate.wires_access_index()),
+            Target::wire(gate_index, gate.wire_access_index()),
         );
-        self.route_extension(
+        self.connect_extension(
             claimed_element,
             ExtensionTarget::from_range(gate_index, gate.wires_claimed_element()),
         );
@@ -66,7 +66,7 @@ mod tests {
         type FF = QuarticCrandallField;
         let len = 1 << len_log;
         let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let vec = FF::rand_vec(len);
         let v: Vec<_> = vec.iter().map(|x| builder.constant_extension(*x)).collect();

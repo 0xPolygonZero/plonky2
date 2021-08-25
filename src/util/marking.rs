@@ -2,7 +2,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::hash::hash_types::HashOutTarget;
 use crate::iop::target::Target;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 
 /// Enum representing all types of targets, so that they can be marked.
 #[derive(Clone)]
@@ -36,7 +36,7 @@ impl<M: Into<Markable<D>>, const D: usize> From<Vec<M>> for Markable<D> {
 
 impl<const D: usize> Markable<D> {
     /// Display a `Markable` by querying a partial witness.
-    fn print_markable<F: Extendable<D>>(&self, pw: &PartialWitness<F>) {
+    fn print_markable<F: Extendable<D>>(&self, pw: &PartitionWitness<F>) {
         match self {
             Markable::Target(t) => println!("{}", pw.get_target(*t)),
             Markable::ExtensionTarget(et) => println!("{}", pw.get_extension_target(*et)),
@@ -55,7 +55,7 @@ pub struct MarkedTargets<const D: usize> {
 
 impl<const D: usize> MarkedTargets<D> {
     /// Display the collection of targets along with its name by querying a partial witness.
-    pub fn display<F: Extendable<D>>(&self, pw: &PartialWitness<F>) {
+    pub fn display<F: Extendable<D>>(&self, pw: &PartitionWitness<F>) {
         println!("Values for {}:", self.name);
         self.targets.print_markable(pw);
         println!("End of values for {}", self.name);

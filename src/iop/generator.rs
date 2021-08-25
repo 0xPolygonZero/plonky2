@@ -1,4 +1,3 @@
-use std::convert::identity;
 use std::fmt::Debug;
 
 use crate::field::extension_field::target::ExtensionTarget;
@@ -7,35 +6,24 @@ use crate::field::field_types::Field;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::timed;
 use crate::util::timing::TimingTree;
 
-/// Given a `PartialWitness` that has only inputs set, populates the rest of the witness using the
+/// Given a `PartitionWitness` that has only inputs set, populates the rest of the witness using the
 /// given set of generators.
 pub(crate) fn generate_partial_witness<F: Field>(
-    witness: &mut PartialWitness<F>,
+    witness: &mut PartitionWitness<F>,
     generators: &[Box<dyn WitnessGenerator<F>>],
-    num_wires: usize,
-    degree: usize,
-    max_virtual_target: usize,
     timing: &mut TimingTree,
 ) {
-    let target_index = |t: Target| -> usize {
-        match t {
-            Target::Wire(Wire { gate, input }) => gate * num_wires + input,
-            Target::VirtualTarget { index } => degree * num_wires + index,
-        }
-    };
-    let max_target_index = target_index(Target::VirtualTarget {
-        index: max_virtual_target,
-    });
+    let max_target_index = witness.forest.len();
     // Index generator indices by their watched targets.
     let mut generator_indices_by_watches = vec![Vec::new(); max_target_index];
     timed!(timing, "index generators by their watched targets", {
         for (i, generator) in generators.iter().enumerate() {
             for watch in generator.watch_list() {
-                generator_indices_by_watches[target_index(watch)].push(i);
+                generator_indices_by_watches[witness.target_index(watch)].push(i);
             }
         }
     });
@@ -46,11 +34,12 @@ pub(crate) fn generate_partial_witness<F: Field>(
 
     // We also track a list of "expired" generators which have already returned false.
     let mut generator_is_expired = vec![false; generators.len()];
+    let mut remaining_generators = generators.len();
 
     let mut buffer = GeneratedValues::empty();
 
-    // Keep running generators until no generators are queued.
-    while !pending_generator_indices.is_empty() {
+    // Keep running generators until all generators have been run.
+    while remaining_generators > 0 {
         let mut next_pending_generator_indices = Vec::new();
 
         for &generator_idx in &pending_generator_indices {
@@ -61,29 +50,35 @@ pub(crate) fn generate_partial_witness<F: Field>(
             let finished = generators[generator_idx].run(&witness, &mut buffer);
             if finished {
                 generator_is_expired[generator_idx] = true;
+                remaining_generators -= 1;
             }
 
             // Enqueue unfinished generators that were watching one of the newly populated targets.
             for &(watch, _) in &buffer.target_values {
-                for &watching_generator_idx in &generator_indices_by_watches[target_index(watch)] {
-                    next_pending_generator_indices.push(watching_generator_idx);
+                for &watching_generator_idx in
+                    &generator_indices_by_watches[witness.target_index(watch)]
+                {
+                    if !generator_is_expired[watching_generator_idx] {
+                        next_pending_generator_indices.push(watching_generator_idx);
+                    }
                 }
             }
 
             witness.extend(buffer.target_values.drain(..));
         }
 
-        pending_generator_indices = next_pending_generator_indices;
+        // If we still need to run som generators, but none were enqueued, we enqueue all generators.
+        pending_generator_indices =
+            if remaining_generators > 0 && next_pending_generator_indices.is_empty() {
+                (0..generators.len()).collect()
+            } else {
+                next_pending_generator_indices
+            };
     }
-
-    assert!(
-        generator_is_expired.into_iter().all(identity),
-        "Some generators weren't run."
-    );
 }
 
 /// A generator participates in the generation of the witness.
-pub trait WitnessGenerator<F: Field>: 'static + Send + Sync {
+pub trait WitnessGenerator<F: Field>: 'static + Send + Sync + Debug {
     /// Targets to be "watched" by this generator. Whenever a target in the watch list is populated,
     /// the generator will be queued to run.
     fn watch_list(&self) -> Vec<Target>;
@@ -91,10 +86,11 @@ pub trait WitnessGenerator<F: Field>: 'static + Send + Sync {
     /// Run this generator, returning a flag indicating whether the generator is finished. If the
     /// flag is true, the generator will never be run again, otherwise it will be queued for another
     /// run next time a target in its watch list is populated.
-    fn run(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) -> bool;
+    fn run(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> bool;
 }
 
 /// Values generated by a generator invocation.
+#[derive(Debug)]
 pub struct GeneratedValues<F: Field> {
     pub(crate) target_values: Vec<(Target, F)>,
 }
@@ -186,10 +182,10 @@ impl<F: Field> GeneratedValues<F> {
 }
 
 /// A generator which runs once after a list of dependencies is present in the witness.
-pub trait SimpleGenerator<F: Field>: 'static + Send + Sync {
+pub trait SimpleGenerator<F: Field>: 'static + Send + Sync + Debug {
     fn dependencies(&self) -> Vec<Target>;
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>);
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>);
 }
 
 impl<F: Field, SG: SimpleGenerator<F>> WitnessGenerator<F> for SG {
@@ -197,7 +193,7 @@ impl<F: Field, SG: SimpleGenerator<F>> WitnessGenerator<F> for SG {
         self.dependencies()
     }
 
-    fn run(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) -> bool {
+    fn run(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> bool {
         if witness.contains_all(&self.dependencies()) {
             self.run_once(witness, out_buffer);
             true
@@ -219,13 +215,14 @@ impl<F: Field> SimpleGenerator<F> for CopyGenerator {
         vec![self.src]
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let value = witness.get_target(self.src);
         out_buffer.set_target(self.dst, value);
     }
 }
 
 /// A generator for including a random value
+#[derive(Debug)]
 pub(crate) struct RandomValueGenerator {
     pub(crate) target: Target,
 }
@@ -235,7 +232,7 @@ impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
         Vec::new()
     }
 
-    fn run_once(&self, _witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let random_value = F::rand();
 
         out_buffer.set_target(self.target, random_value);
@@ -243,6 +240,7 @@ impl<F: Field> SimpleGenerator<F> for RandomValueGenerator {
 }
 
 /// A generator for testing if a value equals zero
+#[derive(Debug)]
 pub(crate) struct NonzeroTestGenerator {
     pub(crate) to_test: Target,
     pub(crate) dummy: Target,
@@ -253,7 +251,7 @@ impl<F: Field> SimpleGenerator<F> for NonzeroTestGenerator {
         vec![self.to_test]
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let to_test_value = witness.get_target(self.to_test);
 
         let dummy_value = if to_test_value == F::ZERO {

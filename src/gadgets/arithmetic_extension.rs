@@ -7,7 +7,7 @@ use crate::field::field_types::Field;
 use crate::gates::arithmetic::{ArithmeticExtensionGate, NUM_ARITHMETIC_OPS};
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bits_u64;
 
@@ -67,9 +67,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let wires_addend =
             ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_addend(i));
 
-        self.route_extension(multiplicand_0, wires_multiplicand_0);
-        self.route_extension(multiplicand_1, wires_multiplicand_1);
-        self.route_extension(addend, wires_addend);
+        self.connect_extension(multiplicand_0, wires_multiplicand_0);
+        self.connect_extension(multiplicand_1, wires_multiplicand_1);
+        self.connect_extension(addend, wires_addend);
 
         ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_output(i))
     }
@@ -421,7 +421,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Enforce that x times its purported inverse equals 1.
         let y_inv = self.mul_extension(y, inv);
-        self.assert_equal_extension(y_inv, one);
+        self.connect_extension(y_inv, one);
 
         self.mul_add_extension(x, inv, z)
     }
@@ -433,6 +433,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
+#[derive(Debug)]
 struct QuotientGeneratorExtension<const D: usize> {
     numerator: ExtensionTarget<D>,
     denominator: ExtensionTarget<D>,
@@ -446,7 +447,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for QuotientGeneratorE
         deps
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let num = witness.get_extension_target(self.numerator);
         let dem = witness.get_extension_target(self.denominator);
         let quotient = num / dem;
@@ -505,6 +506,7 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::fri::proof::compress_fri_proof;
     use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::proof::{
@@ -520,7 +522,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
-        let mut pw = PartialWitness::new(config.num_wires);
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let vs = FF::rand_vec(3);
@@ -538,8 +540,8 @@ mod tests {
         };
         let mul2 = builder.constant_extension(vs.into_iter().product());
 
-        builder.assert_equal_extension(mul0, mul1);
-        builder.assert_equal_extension(mul1, mul2);
+        builder.connect_extension(mul0, mul1);
+        builder.connect_extension(mul1, mul2);
 
         let data = builder.build();
         let proof = data.prove(pw)?;
@@ -555,7 +557,7 @@ mod tests {
 
         let config = CircuitConfig::large_zk_config();
 
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = FF::rand();
@@ -566,8 +568,8 @@ mod tests {
         let zt = builder.constant_extension(z);
         let comp_zt = builder.div_extension(xt, yt);
         let comp_zt_unsafe = builder.div_extension(xt, yt);
-        builder.assert_equal_extension(zt, comp_zt);
-        builder.assert_equal_extension(zt, comp_zt_unsafe);
+        builder.connect_extension(zt, comp_zt);
+        builder.connect_extension(zt, comp_zt_unsafe);
 
         let data = builder.build();
         let proof = data.prove(pw)?;
@@ -583,7 +585,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
-        let pw = PartialWitness::new(config.num_wires);
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = FF::rand_vec(4);
@@ -597,52 +599,12 @@ mod tests {
         let zt = builder.constant_ext_algebra(za);
         let comp_zt = builder.mul_ext_algebra(xt, yt);
         for i in 0..D {
-            builder.assert_equal_extension(zt.0[i], comp_zt.0[i]);
+            builder.connect_extension(zt.0[i], comp_zt.0[i]);
         }
 
         let data = builder.build();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
-    }
-
-    #[test]
-    fn test_yo() -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticCrandallField;
-        const D: usize = 4;
-
-        let config = CircuitConfig::large_config();
-
-        let pw = PartialWitness::new(config.num_wires);
-        let mut builder = CircuitBuilder::<F, D>::new(config);
-
-        let x = FF::rand_vec(4);
-        let y = FF::rand_vec(4);
-        let xa = ExtensionAlgebra(x.try_into().unwrap());
-        let ya = ExtensionAlgebra(y.try_into().unwrap());
-        let za = xa * ya;
-
-        let xt = builder.constant_ext_algebra(xa);
-        let yt = builder.constant_ext_algebra(ya);
-        let zt = builder.constant_ext_algebra(za);
-        let comp_zt = builder.mul_ext_algebra(xt, yt);
-        for i in 0..D {
-            builder.assert_equal_extension(zt.0[i], comp_zt.0[i]);
-        }
-
-        let data = builder.build();
-        dbg!(data.common.degree_bits);
-        let proof = data.prove(pw)?;
-        let proof_bytes = serde_cbor::to_vec(&proof).unwrap();
-        println!("Proof length: {} bytes", proof_bytes.len());
-
-        verify(proof.clone(), &data.verifier_only, &data.common).unwrap();
-        let compressed_proof = proof.compress(&data.common.config.fri_config);
-        let proof_bytes = serde_cbor::to_vec(&compressed_proof).unwrap();
-        println!("Comp proof length: {} bytes", proof_bytes.len());
-        verify_compressed(compressed_proof, &data.verifier_only, &data.common).unwrap();
-
-        Ok(())
     }
 }

@@ -19,12 +19,12 @@ use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
+use crate::iop::witness::PartitionWitness;
 use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
 use crate::plonk::copy_constraint::CopyConstraint;
-use crate::plonk::permutation_argument::TargetPartition;
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::util::context_tree::ContextTree;
@@ -173,33 +173,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
-    /// Shorthand for `generate_copy` and `assert_equal`.
-    /// Both elements must be routable, otherwise this method will panic.
-    pub fn route(&mut self, src: Target, dst: Target) {
-        self.generate_copy(src, dst);
-        self.assert_equal(src, dst);
-    }
-
-    /// Same as `route` with a named copy constraint.
-    pub fn named_route(&mut self, src: Target, dst: Target, name: String) {
-        self.generate_copy(src, dst);
-        self.named_assert_equal(src, dst, name);
-    }
-
-    pub fn route_extension(&mut self, src: ExtensionTarget<D>, dst: ExtensionTarget<D>) {
+    pub fn connect_extension(&mut self, src: ExtensionTarget<D>, dst: ExtensionTarget<D>) {
         for i in 0..D {
-            self.route(src.0[i], dst.0[i]);
-        }
-    }
-
-    pub fn named_route_extension(
-        &mut self,
-        src: ExtensionTarget<D>,
-        dst: ExtensionTarget<D>,
-        name: String,
-    ) {
-        for i in 0..D {
-            self.named_route(src.0[i], dst.0[i], format!("{}: limb {}", name, i));
+            self.connect(src.0[i], dst.0[i]);
         }
     }
 
@@ -210,7 +186,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Uses Plonk's permutation argument to require that two elements be equal.
     /// Both elements must be routable, otherwise this method will panic.
-    pub fn assert_equal(&mut self, x: Target, y: Target) {
+    pub fn connect(&mut self, x: Target, y: Target) {
         assert!(
             x.is_routable(&self.config),
             "Tried to route a wire that isn't routable"
@@ -223,43 +199,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .push(CopyConstraint::new((x, y), self.context_log.open_stack()));
     }
 
-    /// Same as `assert_equal` for a named copy constraint.
-    pub fn named_assert_equal(&mut self, x: Target, y: Target, name: String) {
-        assert!(
-            x.is_routable(&self.config),
-            "Tried to route a wire that isn't routable"
-        );
-        assert!(
-            y.is_routable(&self.config),
-            "Tried to route a wire that isn't routable"
-        );
-        self.copy_constraints.push(CopyConstraint::new(
-            (x, y),
-            format!("{} > {}", self.context_log.open_stack(), name),
-        ));
-    }
-
     pub fn assert_zero(&mut self, x: Target) {
         let zero = self.zero();
-        self.assert_equal(x, zero);
-    }
-
-    pub fn assert_equal_extension(&mut self, x: ExtensionTarget<D>, y: ExtensionTarget<D>) {
-        for i in 0..D {
-            self.assert_equal(x.0[i], y.0[i]);
-        }
-    }
-
-    pub fn named_assert_equal_extension(
-        &mut self,
-        x: ExtensionTarget<D>,
-        y: ExtensionTarget<D>,
-        name: String,
-    ) {
-        for i in 0..D {
-            self.assert_equal(x.0[i], y.0[i]);
-            self.named_assert_equal(x.0[i], y.0[i], format!("{}: limb {}", name, i));
-        }
+        self.connect(x, zero);
     }
 
     pub fn add_generators(&mut self, generators: Vec<Box<dyn WitnessGenerator<F>>>) {
@@ -502,30 +444,39 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> Vec<PolynomialValues<F>> {
+    fn sigma_vecs(
+        &self,
+        k_is: &[F],
+        subgroup: &[F],
+    ) -> (Vec<PolynomialValues<F>>, PartitionWitness<F>) {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
-        let mut target_partition = TargetPartition::new(|t| match t {
-            Target::Wire(Wire { gate, input }) => gate * self.config.num_routed_wires + input,
-            Target::VirtualTarget { index } => degree * self.config.num_routed_wires + index,
-        });
+        let mut partition_witness = PartitionWitness::new(
+            self.config.num_wires,
+            self.config.num_routed_wires,
+            degree,
+            self.virtual_target_index,
+        );
 
         for gate in 0..degree {
-            for input in 0..self.config.num_routed_wires {
-                target_partition.add(Target::Wire(Wire { gate, input }));
+            for input in 0..self.config.num_wires {
+                partition_witness.add(Target::Wire(Wire { gate, input }));
             }
         }
 
         for index in 0..self.virtual_target_index {
-            target_partition.add(Target::VirtualTarget { index });
+            partition_witness.add(Target::VirtualTarget { index });
         }
 
         for &CopyConstraint { pair: (a, b), .. } in &self.copy_constraints {
-            target_partition.merge(a, b);
+            partition_witness.merge(a, b);
         }
 
-        let wire_partition = target_partition.wire_partition();
-        wire_partition.get_sigma_polys(degree_log, k_is, subgroup)
+        let wire_partition = partition_witness.wire_partition();
+        (
+            wire_partition.get_sigma_polys(degree_log, k_is, subgroup),
+            partition_witness,
+        )
     }
 
     /// Fill the remaining unused arithmetic operations with zeros, so that all
@@ -548,9 +499,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     ArithmeticExtensionGate::<D>::wires_ith_addend(j),
                 );
 
-                self.route_extension(zero, wires_multiplicand_0);
-                self.route_extension(zero, wires_multiplicand_1);
-                self.route_extension(zero, wires_addend);
+                self.connect_extension(zero, wires_multiplicand_0);
+                self.connect_extension(zero, wires_multiplicand_1);
+                self.connect_extension(zero, wires_addend);
             }
         }
     }
@@ -577,7 +528,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .iter()
             .zip(PublicInputGate::wires_public_inputs_hash())
         {
-            self.route(hash_part, Target::wire(pi_gate, wire))
+            self.connect(hash_part, Target::wire(pi_gate, wire))
         }
 
         info!(
@@ -614,7 +565,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let constant_vecs = self.constant_polys(&prefixed_gates, num_constants);
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
-        let sigma_vecs = self.sigma_vecs(&k_is, &subgroup);
+        let (sigma_vecs, partition_witness) = self.sigma_vecs(&k_is, &subgroup);
 
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
         let constants_sigmas_commitment = PolynomialBatchCommitment::from_values(
@@ -635,11 +586,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_commitment,
             sigmas: transpose_poly_values(sigma_vecs),
             subgroup,
-            copy_constraints: self.copy_constraints,
             gate_instances: self.gate_instances,
             public_inputs: self.public_inputs,
             marked_targets: self.marked_targets,
-            num_virtual_targets: self.virtual_target_index,
+            partition_witness,
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we

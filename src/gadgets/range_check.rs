@@ -3,7 +3,7 @@ use crate::field::field_types::Field;
 use crate::gates::base_sum::BaseSumGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -11,7 +11,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn range_check(&mut self, x: Target, n_log: usize) {
         let gate = self.add_gate(BaseSumGate::<2>::new(n_log), vec![]);
         let sum = Target::wire(gate, BaseSumGate::<2>::WIRE_SUM);
-        self.route(x, sum);
+        self.connect(x, sum);
     }
 
     /// Returns the first `num_low_bits` little-endian bits of `x`.
@@ -37,7 +37,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let pow2 = self.constant(F::from_canonical_u64(1 << n_log));
         let comp_x = self.mul_add(high, pow2, low);
-        self.assert_equal(x, comp_x);
+        self.connect(x, comp_x);
 
         (low, high)
     }
@@ -56,7 +56,7 @@ impl<F: Field> SimpleGenerator<F> for LowHighGenerator {
         vec![self.integer]
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let integer_value = witness.get_target(self.integer).to_canonical_u64();
         let low = integer_value & ((1 << self.n_log) - 1);
         let high = integer_value >> self.n_log;

@@ -94,11 +94,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             {
                 let recombined_quotient = scale.reduce(chunk, self);
                 let computed_vanishing_poly = self.mul_extension(z_h_zeta, recombined_quotient);
-                self.named_assert_equal_extension(
-                    vanishing_polys_zeta[i],
-                    computed_vanishing_poly,
-                    format!("Vanishing polynomial == Z_H * quotient, challenge {}", i),
-                );
+                self.connect_extension(vanishing_polys_zeta[i], computed_vanishing_poly);
             }
         });
 
@@ -137,7 +133,7 @@ mod tests {
     use crate::fri::FriConfig;
     use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
     use crate::hash::merkle_proofs::MerkleProofTarget;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::proof::{OpeningSetTarget, Proof, ProofTarget, ProofWithPublicInputs};
     use crate::plonk::verifier::{verify, verify_compressed};
     use crate::timed;
@@ -388,7 +384,7 @@ mod tests {
             }
             let data = builder.build();
             (
-                data.prove(PartialWitness::new(config.num_wires))?,
+                data.prove(PartialWitness::new())?,
                 data.verifier_only,
                 data.common,
             )
@@ -396,7 +392,7 @@ mod tests {
         verify(proof_with_pis.clone(), &vd, &cd)?;
 
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        let mut pw = PartialWitness::new(config.num_wires);
+        let mut pw = PartialWitness::new();
         let pt = proof_to_proof_target(&proof_with_pis, &mut builder);
         set_proof_target(&proof_with_pis, &pt, &mut pw);
 
@@ -444,7 +440,7 @@ mod tests {
                 }
                 let data = builder.build();
                 (
-                    data.prove(PartialWitness::new(config.num_wires))?,
+                    data.prove(PartialWitness::new())?,
                     data.verifier_only,
                     data.common,
                 )
@@ -452,7 +448,7 @@ mod tests {
             verify(proof_with_pis.clone(), &vd, &cd)?;
 
             let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-            let mut pw = PartialWitness::new(config.num_wires);
+            let mut pw = PartialWitness::new();
             let pt = proof_to_proof_target(&proof_with_pis, &mut builder);
             set_proof_target(&proof_with_pis, &pt, &mut pw);
 
@@ -470,7 +466,7 @@ mod tests {
 
         verify(proof_with_pis.clone(), &vd, &cd)?;
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        let mut pw = PartialWitness::new(config.num_wires);
+        let mut pw = PartialWitness::new();
         let pt = proof_to_proof_target(&proof_with_pis, &mut builder);
         set_proof_target(&proof_with_pis, &pt, &mut pw);
 
