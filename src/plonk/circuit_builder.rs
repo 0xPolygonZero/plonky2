@@ -40,7 +40,7 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     gates: HashSet<GateRef<F, D>>,
 
     /// The concrete placement of each gate.
-    gate_instances: Vec<GateInstance<F, D>>,
+    pub(crate) gate_instances: Vec<GateInstance<F, D>>,
 
     /// Targets to be made public.
     public_inputs: Vec<Target>,
@@ -65,6 +65,8 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     /// A map `(c0, c1) -> (g, i)` from constants `(c0,c1)` to an available arithmetic gate using
     /// these constants with gate index `g` and already using `i` arithmetic operations.
     pub(crate) free_arithmetic: HashMap<(F, F), (usize, usize)>,
+
+    pub(crate) current_switch_gates: Vec<Option<(usize, usize)>>,
 }
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -82,6 +84,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_to_targets: HashMap::new(),
             targets_to_constants: HashMap::new(),
             free_arithmetic: HashMap::new(),
+            current_switch_gates: Vec::new(),
         }
     }
 

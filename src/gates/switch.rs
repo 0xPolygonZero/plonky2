@@ -32,37 +32,32 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SwitchGate<F, D,
         Self::new(num_copies)
     }
 
-    fn max_num_copies(num_routed_wires: usize) -> usize {
+    pub fn max_num_copies(num_routed_wires: usize) -> usize {
         num_routed_wires / (4 * CHUNK_SIZE)
     }
 
-    pub fn wire_first_input(&self, copy: usize, element: usize) -> usize {
-        debug_assert!(copy < self.num_copies);
+    pub fn wire_first_input(copy: usize, element: usize) -> usize {
         debug_assert!(element < CHUNK_SIZE);
         copy * (4 * CHUNK_SIZE) + element
     }
 
-    pub fn wire_second_input(&self, copy: usize, element: usize) -> usize {
-        debug_assert!(copy < self.num_copies);
+    pub fn wire_second_input(copy: usize, element: usize) -> usize {
         debug_assert!(element < CHUNK_SIZE);
         copy * (4 * CHUNK_SIZE) + CHUNK_SIZE + element
     }
 
-    pub fn wire_first_output(&self, copy: usize, element: usize) -> usize {
-        debug_assert!(copy < self.num_copies);
+    pub fn wire_first_output(copy: usize, element: usize) -> usize {
         debug_assert!(element < CHUNK_SIZE);
         copy * (4 * CHUNK_SIZE) + 2 * CHUNK_SIZE + element
     }
 
-    pub fn wire_second_output(&self, copy: usize, element: usize) -> usize {
-        debug_assert!(copy < self.num_copies);
+    pub fn wire_second_output(copy: usize, element: usize) -> usize {
         debug_assert!(element < CHUNK_SIZE);
         copy * (4 * CHUNK_SIZE) + 3 * CHUNK_SIZE + element
     }
 
-    pub fn wire_switch_bool(&self, copy: usize) -> usize {
-        debug_assert!(copy < self.num_copies);
-        self.num_copies * (4 * CHUNK_SIZE) + copy
+    pub fn wire_switch_bool(num_copies: usize, copy: usize) -> usize {
+        num_copies * (4 * CHUNK_SIZE) + copy
     }
 }
 
@@ -77,14 +72,14 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         for c in 0..self.num_copies {
-            let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
+            let switch_bool = vars.local_wires[Self::wire_switch_bool(self.num_wires(), c)];
             let not_switch = F::Extension::ONE - switch_bool;
 
             for e in 0..CHUNK_SIZE {
-                let first_input = vars.local_wires[self.wire_first_input(c, e)];
-                let second_input = vars.local_wires[self.wire_second_input(c, e)];
-                let first_output = vars.local_wires[self.wire_first_output(c, e)];
-                let second_output = vars.local_wires[self.wire_second_output(c, e)];
+                let first_input = vars.local_wires[Self::wire_first_input(c, e)];
+                let second_input = vars.local_wires[Self::wire_second_input(c, e)];
+                let first_output = vars.local_wires[Self::wire_first_output(c, e)];
+                let second_output = vars.local_wires[Self::wire_second_output(c, e)];
 
                 constraints.push(switch_bool * (first_input - second_output));
                 constraints.push(switch_bool * (second_input - first_output));
@@ -100,14 +95,14 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         for c in 0..self.num_copies {
-            let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
+            let switch_bool = vars.local_wires[Self::wire_switch_bool(self.num_copies, c)];
             let not_switch = F::ONE - switch_bool;
 
             for e in 0..CHUNK_SIZE {
-                let first_input = vars.local_wires[self.wire_first_input(c, e)];
-                let second_input = vars.local_wires[self.wire_second_input(c, e)];
-                let first_output = vars.local_wires[self.wire_first_output(c, e)];
-                let second_output = vars.local_wires[self.wire_second_output(c, e)];
+                let first_input = vars.local_wires[Self::wire_first_input(c, e)];
+                let second_input = vars.local_wires[Self::wire_second_input(c, e)];
+                let first_output = vars.local_wires[Self::wire_first_output(c, e)];
+                let second_output = vars.local_wires[Self::wire_second_output(c, e)];
 
                 constraints.push(switch_bool * (first_input - second_output));
                 constraints.push(switch_bool * (second_input - first_output));
@@ -128,14 +123,14 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
 
         let one = builder.one_extension();
         for c in 0..self.num_copies {
-            let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
+            let switch_bool = vars.local_wires[Self::wire_switch_bool(self.num_copies, c)];
             let not_switch = builder.sub_extension(one, switch_bool);
 
             for e in 0..CHUNK_SIZE {
-                let first_input = vars.local_wires[self.wire_first_input(c, e)];
-                let second_input = vars.local_wires[self.wire_second_input(c, e)];
-                let first_output = vars.local_wires[self.wire_first_output(c, e)];
-                let second_output = vars.local_wires[self.wire_second_output(c, e)];
+                let first_input = vars.local_wires[Self::wire_first_input(c, e)];
+                let second_input = vars.local_wires[Self::wire_second_input(c, e)];
+                let first_output = vars.local_wires[Self::wire_first_output(c, e)];
+                let second_output = vars.local_wires[Self::wire_second_output(c, e)];
 
                 let first_switched = builder.sub_extension(first_input, second_output);
                 let first_switched_constraint = builder.mul_extension(switch_bool, first_switched);
@@ -174,7 +169,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
     }
 
     fn num_wires(&self) -> usize {
-        self.wire_second_output(self.num_copies - 1, CHUNK_SIZE - 1) + 1
+        Self::wire_second_output(self.num_copies - 1, CHUNK_SIZE - 1) + 1
     }
 
     fn num_constants(&self) -> usize {
@@ -205,10 +200,18 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
         let mut deps = Vec::new();
         for c in 0..self.gate.num_copies {
             for e in 0..CHUNK_SIZE {
-                deps.push(local_target(self.gate.wire_first_input(c, e)));
-                deps.push(local_target(self.gate.wire_second_input(c, e)));
-                deps.push(local_target(self.gate.wire_first_output(c, e)));
-                deps.push(local_target(self.gate.wire_second_output(c, e)));
+                deps.push(local_target(
+                    SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(c, e),
+                ));
+                deps.push(local_target(
+                    SwitchGate::<F, D, CHUNK_SIZE>::wire_second_input(c, e),
+                ));
+                deps.push(local_target(
+                    SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(c, e),
+                ));
+                deps.push(local_target(
+                    SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(c, e),
+                ));
             }
         }
 
@@ -224,12 +227,19 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
         let get_local_wire = |input| witness.get_wire(local_wire(input));
 
         for c in 0..self.gate.num_copies {
-            let switch_bool_wire = local_wire(self.gate.wire_switch_bool(c));
+            let switch_bool_wire = local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_switch_bool(
+                self.gate.num_copies,
+                c,
+            ));
             for e in 0..CHUNK_SIZE {
-                let first_input = get_local_wire(self.gate.wire_first_input(c, e));
-                let second_input = get_local_wire(self.gate.wire_second_input(c, e));
-                let first_output = get_local_wire(self.gate.wire_first_output(c, e));
-                let second_output = get_local_wire(self.gate.wire_second_output(c, e));
+                let first_input =
+                    get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(c, e));
+                let second_input =
+                    get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_second_input(c, e));
+                let first_output =
+                    get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(c, e));
+                let second_output =
+                    get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(c, e));
 
                 if first_input == first_output {
                     out_buffer.set_wire(switch_bool_wire, F::ONE);
@@ -259,24 +269,27 @@ mod tests {
 
     #[test]
     fn wire_indices() {
-        let gate = SwitchGate::<CrandallField, 4, 3> {
-            num_copies: 3,
+        type SG = SwitchGate<CrandallField, 4, 3>;
+        let num_copies = 3;
+
+        let gate = SG {
+            num_copies,
             _phantom: PhantomData,
         };
 
-        assert_eq!(gate.wire_first_input(0, 0), 0);
-        assert_eq!(gate.wire_first_input(0, 2), 2);
-        assert_eq!(gate.wire_second_input(0, 0), 3);
-        assert_eq!(gate.wire_second_input(0, 2), 5);
-        assert_eq!(gate.wire_first_output(0, 0), 6);
-        assert_eq!(gate.wire_second_output(0, 2), 11);
-        assert_eq!(gate.wire_first_input(1, 0), 12);
-        assert_eq!(gate.wire_second_output(1, 2), 23);
-        assert_eq!(gate.wire_first_input(2, 0), 24);
-        assert_eq!(gate.wire_second_output(2, 2), 35);
-        assert_eq!(gate.wire_switch_bool(0), 36);
-        assert_eq!(gate.wire_switch_bool(1), 37);
-        assert_eq!(gate.wire_switch_bool(2), 38);
+        assert_eq!(SG::wire_first_input(0, 0), 0);
+        assert_eq!(SG::wire_first_input(0, 2), 2);
+        assert_eq!(SG::wire_second_input(0, 0), 3);
+        assert_eq!(SG::wire_second_input(0, 2), 5);
+        assert_eq!(SG::wire_first_output(0, 0), 6);
+        assert_eq!(SG::wire_second_output(0, 2), 11);
+        assert_eq!(SG::wire_first_input(1, 0), 12);
+        assert_eq!(SG::wire_second_output(1, 2), 23);
+        assert_eq!(SG::wire_first_input(2, 0), 24);
+        assert_eq!(SG::wire_second_output(2, 2), 35);
+        assert_eq!(SG::wire_switch_bool(num_copies, 0), 36);
+        assert_eq!(SG::wire_switch_bool(num_copies, 1), 37);
+        assert_eq!(SG::wire_switch_bool(num_copies, 2), 38);
     }
 
     #[test]
