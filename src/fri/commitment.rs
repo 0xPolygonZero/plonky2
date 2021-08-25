@@ -343,7 +343,7 @@ mod tests {
             &os,
             zeta,
             merkle_caps,
-            &proof,
+            proof,
             &mut Challenger::new(),
             &common_data,
         )

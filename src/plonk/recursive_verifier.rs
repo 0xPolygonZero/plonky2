@@ -127,7 +127,6 @@ mod tests {
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
-    use crate::field::field_types::Field;
     use crate::fri::proof::{
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
     };
@@ -184,11 +183,11 @@ mod tests {
             public_inputs,
         } = proof_with_pis;
 
-        let wires_cap = builder.add_virtual_cap(log2_strict(proof.wires_cap.0.len()));
+        let wires_cap = builder.add_virtual_cap(log2_strict(proof.wires_cap.len()));
         let plonk_zs_cap =
-            builder.add_virtual_cap(log2_strict(proof.plonk_zs_partial_products_cap.0.len()));
+            builder.add_virtual_cap(log2_strict(proof.plonk_zs_partial_products_cap.len()));
         let quotient_polys_cap =
-            builder.add_virtual_cap(log2_strict(proof.quotient_polys_cap.0.len()));
+            builder.add_virtual_cap(log2_strict(proof.quotient_polys_cap.len()));
 
         let openings = OpeningSetTarget {
             constants: builder.add_virtual_extension_targets(proof.openings.constants.len()),
@@ -497,7 +496,7 @@ mod tests {
         let compressed_proof = timed!(
             &mut verifier_timing,
             "to compress proof",
-            proof_clone.compress(&data.common.config.fri_config)
+            proof_clone.compress(&data.common)
         );
 
         let compressed_proof_bytes = serde_cbor::to_vec(&compressed_proof).unwrap();

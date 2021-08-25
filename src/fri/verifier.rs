@@ -3,7 +3,7 @@ use anyhow::{ensure, Result};
 use crate::field::extension_field::{flatten, Extendable, FieldExtension};
 use crate::field::field_types::Field;
 use crate::field::interpolation::{barycentric_weights, interpolate, interpolate2};
-use crate::fri::proof::{CompressedFriProof, FriInitialTreeProof, FriProof, FriQueryRound};
+use crate::fri::proof::{CompressedFriProof, FriInitialTreeProof, FriProof};
 use crate::fri::FriConfig;
 use crate::hash::hashing::hash_n_to_1;
 use crate::hash::merkle_proofs::{verify_merkle_proof, MerkleProof};
@@ -75,7 +75,7 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     // Point at which the PLONK polynomials are opened.
     zeta: F::Extension,
     initial_merkle_caps: &[MerkleCap<F>],
-    proof: &FriProof<F, D>,
+    proof: FriProof<F, D>,
     challenger: &mut Challenger<F>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
@@ -119,20 +119,17 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     );
 
     let precomputed_reduced_evals = PrecomputedReducedEvals::from_os_and_alpha(os, alpha);
-    for round_proof in &proof.query_round_proofs {
-        fri_verifier_query_round(
-            zeta,
-            alpha,
-            precomputed_reduced_evals,
-            initial_merkle_caps,
-            proof,
-            challenger,
-            n,
-            &betas,
-            round_proof,
-            common_data,
-        )?;
-    }
+    fri_verifier_query_round(
+        zeta,
+        alpha,
+        precomputed_reduced_evals,
+        initial_merkle_caps,
+        proof,
+        challenger,
+        n,
+        &betas,
+        common_data,
+    )?;
 
     Ok(())
 }
@@ -143,7 +140,7 @@ pub fn verify_compressed_fri_proof<F: Field + Extendable<D>, const D: usize>(
     // Point at which the PLONK polynomials are opened.
     zeta: F::Extension,
     initial_merkle_caps: &[MerkleCap<F>],
-    proof: &CompressedFriProof<F, D>,
+    proof: CompressedFriProof<F, D>,
     challenger: &mut Challenger<F>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
@@ -202,7 +199,7 @@ fn fri_verifier_compressed_query_rounds<F: Extendable<D>, const D: usize>(
     alpha: F::Extension,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
     initial_merkle_caps: &[MerkleCap<F>],
-    proof: &CompressedFriProof<F, D>,
+    proof: CompressedFriProof<F, D>,
     challenger: &mut Challenger<F>,
     n: usize,
     betas: &[F::Extension],
@@ -426,77 +423,78 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
     alpha: F::Extension,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
     initial_merkle_caps: &[MerkleCap<F>],
-    proof: &FriProof<F, D>,
+    proof: FriProof<F, D>,
     challenger: &mut Challenger<F>,
     n: usize,
     betas: &[F::Extension],
-    round_proof: &FriQueryRound<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
     let config = &common_data.config.fri_config;
-    let x = challenger.get_challenge();
-    let mut x_index = x.to_canonical_u64() as usize % n;
-    debug_assert_eq!(x_index, round_proof.index);
-    fri_verify_initial_proof(
-        x_index,
-        &round_proof.initial_trees_proof,
-        initial_merkle_caps,
-    )?;
-    // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
-    let log_n = log2_strict(n);
-    let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
-        * F::primitive_root_of_unity(log_n).exp(reverse_bits(x_index, log_n) as u64);
+    for round_proof in proof.query_round_proofs {
+        let x = challenger.get_challenge();
+        let mut x_index = x.to_canonical_u64() as usize % n;
+        debug_assert_eq!(x_index, round_proof.index);
+        fri_verify_initial_proof(
+            x_index,
+            &round_proof.initial_trees_proof,
+            initial_merkle_caps,
+        )?;
+        // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
+        let log_n = log2_strict(n);
+        let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
+            * F::primitive_root_of_unity(log_n).exp(reverse_bits(x_index, log_n) as u64);
 
-    // old_eval is the last derived evaluation; it will be checked for consistency with its
-    // committed "parent" value in the next iteration.
-    let mut old_eval = fri_combine_initial(
-        &round_proof.initial_trees_proof,
-        alpha,
-        zeta,
-        subgroup_x,
-        precomputed_reduced_evals,
-        common_data,
-    );
-
-    for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
-        let arity = 1 << arity_bits;
-        let evals = &round_proof.steps[i].evals;
-
-        // Split x_index into the index of the coset x is in, and the index of x within that coset.
-        let coset_index = x_index >> arity_bits;
-        let x_index_within_coset = x_index & (arity - 1);
-
-        // Check consistency with our old evaluation from the previous round.
-        ensure!(evals[x_index_within_coset] == old_eval);
-
-        // Infer P(y) from {P(x)}_{x^arity=y}.
-        old_eval = compute_evaluation(
+        // old_eval is the last derived evaluation; it will be checked for consistency with its
+        // committed "parent" value in the next iteration.
+        let mut old_eval = fri_combine_initial(
+            &round_proof.initial_trees_proof,
+            alpha,
+            zeta,
             subgroup_x,
-            x_index_within_coset,
-            arity_bits,
-            evals,
-            betas[i],
+            precomputed_reduced_evals,
+            common_data,
         );
 
-        verify_merkle_proof(
-            flatten(evals),
-            coset_index,
-            &proof.commit_phase_merkle_caps[i],
-            &round_proof.steps[i].merkle_proof,
-        )?;
+        for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
+            let arity = 1 << arity_bits;
+            let evals = &round_proof.steps[i].evals;
 
-        // Update the point x to x^arity.
-        subgroup_x = subgroup_x.exp_power_of_2(arity_bits);
+            // Split x_index into the index of the coset x is in, and the index of x within that coset.
+            let coset_index = x_index >> arity_bits;
+            let x_index_within_coset = x_index & (arity - 1);
 
-        x_index = coset_index;
+            // Check consistency with our old evaluation from the previous round.
+            ensure!(evals[x_index_within_coset] == old_eval);
+
+            // Infer P(y) from {P(x)}_{x^arity=y}.
+            old_eval = compute_evaluation(
+                subgroup_x,
+                x_index_within_coset,
+                arity_bits,
+                evals,
+                betas[i],
+            );
+
+            verify_merkle_proof(
+                flatten(evals),
+                coset_index,
+                &proof.commit_phase_merkle_caps[i],
+                &round_proof.steps[i].merkle_proof,
+            )?;
+
+            // Update the point x to x^arity.
+            subgroup_x = subgroup_x.exp_power_of_2(arity_bits);
+
+            x_index = coset_index;
+        }
+
+        // Final check of FRI. After all the reductions, we check that the final polynomial is equal
+        // to the one sent by the prover.
+        ensure!(
+            proof.final_poly.eval(subgroup_x.into()) == old_eval,
+            "Final polynomial evaluation is invalid."
+        );
     }
-
-    // Final check of FRI. After all the reductions, we check that the final polynomial is equal
-    // to the one sent by the prover.
-    ensure!(
-        proof.final_poly.eval(subgroup_x.into()) == old_eval,
-        "Final polynomial evaluation is invalid."
-    );
 
     Ok(())
 }

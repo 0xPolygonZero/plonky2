@@ -16,6 +16,10 @@ impl<F: Field> MerkleCap<F> {
     pub fn flatten(&self) -> Vec<F> {
         self.0.iter().flat_map(|h| h.elements).collect()
     }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 #[derive(Clone, Debug)]

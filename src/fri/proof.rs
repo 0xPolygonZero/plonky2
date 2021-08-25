@@ -3,16 +3,15 @@ use serde::{Deserialize, Serialize};
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
-use crate::fri::FriConfig;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::hash::hash_types::MerkleCapTarget;
 use crate::hash::merkle_proofs::{MerkleProof, MerkleProofTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::hash::path_compression::{compress_merkle_proofs, CompressedMerkleProof};
 use crate::iop::target::Target;
+use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::PolynomialsIndexBlinding;
 use crate::polynomial::polynomial::PolynomialCoeffs;
-use crate::util::log2_strict;
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -121,57 +120,64 @@ pub struct CompressedFriProof<F: Extendable<D>, const D: usize> {
     pub pow_witness: F,
 }
 
-pub fn compress_fri_proof<F: Extendable<D>, const D: usize>(
-    proof: FriProof<F, D>,
-    config: &FriConfig,
-) -> CompressedFriProof<F, D> {
-    let FriProof {
-        commit_phase_merkle_caps,
-        query_round_proofs,
-        final_poly,
-        pow_witness,
-    } = proof;
-    let cap_height = log2_strict(commit_phase_merkle_caps[0].0.len());
+impl<F: Extendable<D>, const D: usize> FriProof<F, D> {
+    pub fn compress(self, common_data: &CommonCircuitData<F, D>) -> CompressedFriProof<F, D> {
+        let FriProof {
+            commit_phase_merkle_caps,
+            query_round_proofs,
+            final_poly,
+            pow_witness,
+        } = self;
+        let cap_height = common_data.config.cap_height;
+        let reduction_arity_bits = &common_data.config.fri_config.reduction_arity_bits;
+        let num_reductions = reduction_arity_bits.len();
+        let num_initial_trees = query_round_proofs[0].initial_trees_proof.evals_proofs.len();
 
-    let num_initial_trees = query_round_proofs[0].initial_trees_proof.evals_proofs.len();
-    let mut initial_trees_leaves = vec![vec![]; num_initial_trees];
-    let mut initial_trees_proofs = vec![vec![]; num_initial_trees];
-    let num_reductions = config.reduction_arity_bits.len();
-    let mut steps_evals = vec![vec![]; num_reductions];
-    let mut steps_proofs = vec![vec![]; num_reductions];
+        // "Transpose" the query round proofs, so that information for each Merkle tree is collected together.
+        let mut initial_trees_leaves = vec![vec![]; num_initial_trees];
+        let mut initial_trees_proofs = vec![vec![]; num_initial_trees];
+        let mut steps_evals = vec![vec![]; num_reductions];
+        let mut steps_proofs = vec![vec![]; num_reductions];
 
-    for qrp in query_round_proofs {
-        let mut index = qrp.index;
-        for i in 0..num_initial_trees {
-            initial_trees_leaves[i].push(qrp.initial_trees_proof.evals_proofs[i].0.clone());
-            initial_trees_proofs[i]
-                .push((index, qrp.initial_trees_proof.evals_proofs[i].1.clone()));
+        for qrp in query_round_proofs {
+            let FriQueryRound {
+                mut index,
+                initial_trees_proof,
+                steps,
+            } = qrp;
+            for (i, (leaves_data, proof)) in
+                initial_trees_proof.evals_proofs.into_iter().enumerate()
+            {
+                initial_trees_leaves[i].push(leaves_data);
+                initial_trees_proofs[i].push((index, proof));
+            }
+            for (i, query_step) in steps.into_iter().enumerate() {
+                index >>= reduction_arity_bits[i];
+                steps_evals[i].push(query_step.evals);
+                steps_proofs[i].push((index, query_step.merkle_proof));
+            }
         }
-        for i in 0..num_reductions {
-            index >>= config.reduction_arity_bits[i];
-            steps_evals[i].push(qrp.steps[i].evals.clone());
-            steps_proofs[i].push((index, qrp.steps[i].merkle_proof.clone()));
+
+        // Compress all Merkle proofs.
+        let initial_trees_proofs = initial_trees_proofs
+            .into_iter()
+            .map(|ps| compress_merkle_proofs(cap_height, ps))
+            .collect();
+        let steps_proofs = steps_proofs
+            .into_iter()
+            .map(|ps| compress_merkle_proofs(cap_height, ps))
+            .collect();
+
+        CompressedFriProof {
+            commit_phase_merkle_caps,
+            query_rounds_proof: CompressedFriQueryRounds {
+                initial_trees_leaves,
+                initial_trees_proofs,
+                steps_evals,
+                steps_proofs,
+            },
+            final_poly,
+            pow_witness,
         }
-    }
-
-    let initial_trees_proofs = initial_trees_proofs
-        .into_iter()
-        .map(|ps| compress_merkle_proofs(cap_height, ps))
-        .collect();
-    let steps_proofs = steps_proofs
-        .into_iter()
-        .map(|ps| compress_merkle_proofs(cap_height, ps))
-        .collect();
-
-    CompressedFriProof {
-        commit_phase_merkle_caps,
-        query_rounds_proof: CompressedFriQueryRounds {
-            initial_trees_leaves,
-            initial_trees_proofs,
-            steps_evals,
-            steps_proofs,
-        },
-        final_poly,
-        pow_witness,
     }
 }

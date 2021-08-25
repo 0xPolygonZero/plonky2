@@ -17,6 +17,7 @@ pub struct CompressedMerkleProof<F: Field> {
     pub proof: Vec<HashOut<F>>,
 }
 
+/// Compress multiple Merkle proofs on the same tree by removing redundancy in the Merkle paths.
 pub(crate) fn compress_merkle_proofs<F: Field>(
     cap_height: usize,
     proofs: Vec<(usize, MerkleProof<F>)>,
@@ -24,27 +25,24 @@ pub(crate) fn compress_merkle_proofs<F: Field>(
     let height = cap_height + proofs[0].1.siblings.len();
     let num_leaves = 1 << height;
     let mut proof = Vec::new();
+    // Holds the known nodes in the tree at a given time. The root is at index 1.
     let mut known = vec![false; 2 * num_leaves];
     for (i, _) in &proofs {
+        // The leaves are known.
         known[*i + num_leaves] = true;
     }
+    // For each proof collect all the unknown proof elements.
     for (i, p) in proofs {
         let mut index = i + num_leaves;
         for sibling in p.siblings {
             let sibling_index = index ^ 1;
-            if known[sibling_index] {
-                index >>= 1;
-                continue;
-            } else if (sibling_index < num_leaves)
-                && (known[2 * sibling_index] && known[2 * sibling_index + 1])
-            {
-                index >>= 1;
+            if !known[sibling_index] {
+                // If the sibling is not yet known, add it to the proof and set it to known.
+                proof.push(sibling);
                 known[sibling_index] = true;
-                continue;
             }
-            proof.push(sibling);
+            // Go up the tree and set the parent to known.
             index >>= 1;
-            known[sibling_index] = true;
             known[index] = true;
         }
     }
@@ -52,6 +50,8 @@ pub(crate) fn compress_merkle_proofs<F: Field>(
     CompressedMerkleProof { proof }
 }
 
+/// Verify a compressed Merkle proof.
+/// Note: The data and indices must be in the same order as in `compress_merkle_proofs`.
 pub(crate) fn verify_compressed_merkle_proof<F: Field>(
     leaves_data: &[Vec<F>],
     leaves_indices: &[usize],
@@ -59,40 +59,41 @@ pub(crate) fn verify_compressed_merkle_proof<F: Field>(
     height: usize,
     cap: &MerkleCap<F>,
 ) -> Result<()> {
-    let cap_height = log2_strict(cap.0.len());
+    let num_leaves = 1 << height;
+    let cap_height = log2_strict(cap.len());
     let mut proof = proof.proof.clone();
+    proof.reverse();
+    // Holds the already seen nodes in the tree along with their value.
     let mut seen = HashMap::new();
 
     for (&i, v) in leaves_indices.iter().zip(leaves_data) {
-        seen.insert(i + (1 << height), hash_or_noop(v.to_vec()));
+        // Observe the leaves.
+        seen.insert(i + num_leaves, hash_or_noop(v.to_vec()));
     }
+    // For every index, go up the tree by querying `seen` to get node values, or if they are unknown
+    // pop them from the compressed proof.
     for &i in leaves_indices {
-        let mut index = i + (1 << height);
+        let mut index = i + num_leaves;
         let mut current_digest = seen[&index];
         for _ in 0..height - cap_height {
             let sibling_index = index ^ 1;
-            let h = if seen.contains_key(&sibling_index) {
-                seen[&sibling_index]
-            } else if seen.contains_key(&(2 * sibling_index))
-                && seen.contains_key(&(2 * sibling_index + 1))
-            {
-                let a = seen[&(2 * sibling_index)];
-                let b = seen[&(2 * sibling_index + 1)];
-                compress(a, b)
+            // Get the value of the sibling node by querying it or popping it from the proof.
+            let h = *seen
+                .entry(sibling_index)
+                .or_insert_with(|| proof.pop().unwrap());
+            // Update the current digest to the value of the parent.
+            current_digest = if index.is_even() {
+                compress(current_digest, h)
             } else {
-                proof.remove(0)
+                compress(h, current_digest)
             };
-            seen.insert(sibling_index, h);
-            if index.is_even() {
-                current_digest = compress(current_digest, h);
-            } else {
-                current_digest = compress(h, current_digest);
-            }
+            // Observe the parent.
             index >>= 1;
             seen.insert(index, current_digest);
         }
+
         ensure!(
-            current_digest == cap.0[index - cap.0.len()],
+            current_digest == cap.0[index - cap.len()],
             "Invalid Merkle proof."
         );
     }
@@ -113,7 +114,7 @@ mod tests {
     #[test]
     fn test_path_compression() {
         type F = CrandallField;
-        let h = 16;
+        let h = 10;
         let cap_height = 3;
         let vs = (0..1 << h).map(|_| vec![F::rand()]).collect::<Vec<_>>();
         let mt = MerkleTree::new(vs.clone(), cap_height);

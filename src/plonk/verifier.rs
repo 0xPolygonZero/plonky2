@@ -94,7 +94,7 @@ pub(crate) fn verify<F: Extendable<D>, const D: usize>(
         &proof.openings,
         zeta,
         merkle_caps,
-        &proof.opening_proof,
+        proof.opening_proof,
         &mut challenger,
         common_data,
     )?;
@@ -185,7 +185,7 @@ pub(crate) fn verify_compressed<F: Extendable<D>, const D: usize>(
         &proof.openings,
         zeta,
         merkle_caps,
-        &proof.opening_proof,
+        proof.opening_proof,
         &mut challenger,
         common_data,
     )?;
