@@ -505,7 +505,6 @@ mod tests {
     use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field_types::Field;
     use crate::fri::proof::compress_fri_proof;
-    use crate::iop::witness::PartialWitness;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
