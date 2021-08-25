@@ -478,7 +478,7 @@ fn reduce128(x: u128) -> CrandallField {
 
     unsafe {
         // This is safe to do because lo_2 + lo_3 < 2^64 + FIELD_ORDER. Notice that hi_2 <=
-        // 2^32 - 1. Then lo_3 = hi_2 * EPSILON <= (2^32 - 1) * EPSILON < 2^64 + FIELD_ORDER.
+        // 2^32 - 1. Then lo_3 = hi_2 * EPSILON <= (2^32 - 1) * EPSILON < FIELD_ORDER.
         // Use of standard addition here would make multiplication 20% more expensive.
         add_no_canonicalize(CrandallField(lo_2), CrandallField(lo_3))
     }
