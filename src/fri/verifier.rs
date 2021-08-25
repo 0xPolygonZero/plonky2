@@ -436,6 +436,7 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
     let config = &common_data.config.fri_config;
     let x = challenger.get_challenge();
     let mut x_index = x.to_canonical_u64() as usize % n;
+    debug_assert_eq!(x_index, round_proof.index);
     fri_verify_initial_proof(
         x_index,
         &round_proof.initial_trees_proof,
