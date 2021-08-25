@@ -119,7 +119,7 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     );
 
     let precomputed_reduced_evals = PrecomputedReducedEvals::from_os_and_alpha(os, alpha);
-    fri_verifier_query_round(
+    fri_verifier_query_rounds(
         zeta,
         alpha,
         precomputed_reduced_evals,
@@ -248,10 +248,6 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     let config = &common_data.config;
     assert!(D > 1, "Not implemented for D=1.");
     let degree_log = common_data.degree_bits;
-    // debug_assert_eq!(
-    //     degree_log,
-    //     common_data.config.cap_height + proof.evals_proofs[0].1.siblings.len() - config.rate_bits
-    // );
     let subgroup_x = F::Extension::from_basefield(subgroup_x);
     let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;
@@ -302,7 +298,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     sum
 }
 
-fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
+fn fri_verifier_query_rounds<F: Field + Extendable<D>, const D: usize>(
     zeta: F::Extension,
     alpha: F::Extension,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
@@ -428,7 +424,14 @@ fn fri_verifier_compressed_query_rounds<F: Extendable<D>, const D: usize>(
                 .query_rounds_proof
                 .initial_trees_leaves
                 .iter()
-                .map(|l| (l[j].to_vec(), MerkleProof { siblings: vec![] }))
+                .map(|l| {
+                    (
+                        l[j].to_vec(),
+                        MerkleProof {
+                            siblings: vec![/*The function doesn't use siblings. */],
+                        },
+                    )
+                })
                 .collect(),
         };
         let mut old_eval = fri_combine_initial(
@@ -465,13 +468,6 @@ fn fri_verifier_compressed_query_rounds<F: Extendable<D>, const D: usize>(
             leaves_by_step[i].push(flatten(evals));
             indices_by_step[i].push(coset_index);
             heights_by_step[i] = height;
-            // verify_merkle_proof(
-            //     flatten(evals),
-            //     coset_index,
-            //     &proof.commit_phase_merkle_caps[i],
-            //     &round_proof.steps[i].merkle_proof,
-            //     false,
-            // )?;
 
             // Update the point x to x^arity.
             subgroup_x = subgroup_x.exp_power_of_2(arity_bits);
@@ -487,6 +483,7 @@ fn fri_verifier_compressed_query_rounds<F: Extendable<D>, const D: usize>(
         );
     }
 
+    // Check all the compressed Merkle proofs.
     for i in 0..config.reduction_arity_bits.len() {
         verify_compressed_merkle_proof(
             &leaves_by_step[i],

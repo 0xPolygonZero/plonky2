@@ -101,9 +101,13 @@ pub struct FriProofTarget<const D: usize> {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(bound = "")]
 pub struct CompressedFriQueryRounds<F: Extendable<D>, const D: usize> {
+    // `initial_trees_leaves[i][j]` is the vector of leaves of the i-th initial tree at the j-th query.
     pub initial_trees_leaves: Vec<Vec<Vec<F>>>,
+    // `initial_trees_proofs[i]` is the compressed Merkle proof for the i-th initial tree.
     pub initial_trees_proofs: Vec<CompressedMerkleProof<F>>,
+    // `steps_evals[i][j]` is the vector of leaves of the i-th reduced tree at the j-th query.
     pub steps_evals: Vec<Vec<Vec<F::Extension>>>,
+    // `steps_proofs[i]` is the compressed Merkle proof for the i-th reduced tree.
     pub steps_proofs: Vec<CompressedMerkleProof<F>>,
 }
 
@@ -112,7 +116,7 @@ pub struct CompressedFriQueryRounds<F: Extendable<D>, const D: usize> {
 pub struct CompressedFriProof<F: Extendable<D>, const D: usize> {
     /// A Merkle cap for each reduced polynomial in the commit phase.
     pub commit_phase_merkle_caps: Vec<MerkleCap<F>>,
-    /// Query rounds proofs
+    /// Query rounds proof
     pub query_rounds_proof: CompressedFriQueryRounds<F, D>,
     /// The final polynomial in coefficient form.
     pub final_poly: PolynomialCoeffs<F::Extension>,
