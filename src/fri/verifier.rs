@@ -6,9 +6,9 @@ use crate::field::interpolation::{barycentric_weights, interpolate, interpolate2
 use crate::fri::proof::{CompressedFriProof, FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::FriConfig;
 use crate::hash::hashing::hash_n_to_1;
-use crate::hash::merkle_proofs::verify_merkle_proof;
+use crate::hash::merkle_proofs::{verify_merkle_proof, MerkleProof};
 use crate::hash::merkle_tree::MerkleCap;
-use crate::hash::path_compression::verify_compressed_proof;
+use crate::hash::path_compression::verify_compressed_merkle_proof;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::PlonkPolynomials;
@@ -216,7 +216,7 @@ fn fri_verifier_compressed_query_rounds<F: Extendable<D>, const D: usize>(
         indices.push(x.to_canonical_u64() as usize % n);
     }
     for (i, cap) in initial_merkle_caps.iter().enumerate() {
-        verify_compressed_proof(
+        verify_compressed_merkle_proof(
             &proof.query_rounds_proof.initial_trees_leaves[i],
             &indices,
             &proof.query_rounds_proof.initial_trees_proofs[i],
@@ -224,15 +224,28 @@ fn fri_verifier_compressed_query_rounds<F: Extendable<D>, const D: usize>(
             cap,
         )?;
     }
-    for &(mut x_index) in &indices {
+
+    let mut leaves_by_step = vec![vec![]; config.reduction_arity_bits.len()];
+    let mut indices_by_step = vec![vec![]; config.reduction_arity_bits.len()];
+    let mut heights_by_step = vec![0; config.reduction_arity_bits.len()];
+
+    for (j, &(mut x_index)) in indices.iter().enumerate() {
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
         let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
             * F::primitive_root_of_unity(log_n).exp(reverse_bits(x_index, log_n) as u64);
 
         // old_eval is the last derived evaluation; it will be checked for consistency with its
         // committed "parent" value in the next iteration.
+        let initial_proof = FriInitialTreeProof {
+            evals_proofs: proof
+                .query_rounds_proof
+                .initial_trees_leaves
+                .iter()
+                .map(|l| (l[j].to_vec(), MerkleProof { siblings: vec![] }))
+                .collect(),
+        };
         let mut old_eval = fri_combine_initial(
-            &proof.initial_trees_proof,
+            &initial_proof,
             alpha,
             zeta,
             subgroup_x,
@@ -240,11 +253,13 @@ fn fri_verifier_compressed_query_rounds<F: Extendable<D>, const D: usize>(
             common_data,
         );
 
+        let mut height = log_n;
         for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
             let arity = 1 << arity_bits;
-            let evals = &round_proof.steps[i].evals;
+            let evals = &proof.query_rounds_proof.steps_evals[i][j];
 
             // Split x_index into the index of the coset x is in, and the index of x within that coset.
+            height -= arity_bits;
             let coset_index = x_index >> arity_bits;
             let x_index_within_coset = x_index & (arity - 1);
 
@@ -260,6 +275,9 @@ fn fri_verifier_compressed_query_rounds<F: Extendable<D>, const D: usize>(
                 betas[i],
             );
 
+            leaves_by_step[i].push(flatten(evals));
+            indices_by_step[i].push(coset_index);
+            heights_by_step[i] = height;
             // verify_merkle_proof(
             //     flatten(evals),
             //     coset_index,
@@ -280,6 +298,16 @@ fn fri_verifier_compressed_query_rounds<F: Extendable<D>, const D: usize>(
             proof.final_poly.eval(subgroup_x.into()) == old_eval,
             "Final polynomial evaluation is invalid."
         );
+    }
+
+    for i in 0..config.reduction_arity_bits.len() {
+        verify_compressed_merkle_proof(
+            &leaves_by_step[i],
+            &indices_by_step[i],
+            &proof.query_rounds_proof.steps_proofs[i],
+            heights_by_step[i],
+            &proof.commit_phase_merkle_caps[i],
+        )?;
     }
 
     Ok(())
@@ -339,10 +367,10 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     let config = &common_data.config;
     assert!(D > 1, "Not implemented for D=1.");
     let degree_log = common_data.degree_bits;
-    debug_assert_eq!(
-        degree_log,
-        common_data.config.cap_height + proof.evals_proofs[0].1.siblings.len() - config.rate_bits
-    );
+    // debug_assert_eq!(
+    //     degree_log,
+    //     common_data.config.cap_height + proof.evals_proofs[0].1.siblings.len() - config.rate_bits
+    // );
     let subgroup_x = F::Extension::from_basefield(subgroup_x);
     let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;

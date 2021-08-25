@@ -632,12 +632,16 @@ mod tests {
         }
 
         let data = builder.build();
+        dbg!(data.common.degree_bits);
         let proof = data.prove(pw)?;
         let proof_bytes = serde_cbor::to_vec(&proof).unwrap();
         println!("Proof length: {} bytes", proof_bytes.len());
 
         verify(proof.clone(), &data.verifier_only, &data.common).unwrap();
-        let compfriproof = compress_fri_proof(proof.proof.opening_proof.clone());
+        let compfriproof = compress_fri_proof(
+            proof.proof.opening_proof.clone(),
+            &data.common.config.fri_config,
+        );
         let ProofWithPublicInputs {
             proof,
             public_inputs,

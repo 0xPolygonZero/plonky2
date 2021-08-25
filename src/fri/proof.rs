@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
+use crate::fri::FriConfig;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::hash::hash_types::MerkleCapTarget;
 use crate::hash::merkle_proofs::{MerkleProof, MerkleProofTarget};
@@ -122,6 +123,7 @@ pub struct CompressedFriProof<F: Extendable<D>, const D: usize> {
 
 pub fn compress_fri_proof<F: Extendable<D>, const D: usize>(
     proof: FriProof<F, D>,
+    config: &FriConfig,
 ) -> CompressedFriProof<F, D> {
     let FriProof {
         commit_phase_merkle_caps,
@@ -134,7 +136,7 @@ pub fn compress_fri_proof<F: Extendable<D>, const D: usize>(
     let num_initial_trees = query_round_proofs[0].initial_trees_proof.evals_proofs.len();
     let mut initial_trees_leaves = vec![vec![]; num_initial_trees];
     let mut initial_trees_proofs = vec![vec![]; num_initial_trees];
-    let num_reductions = query_round_proofs[0].steps.len();
+    let num_reductions = config.reduction_arity_bits.len();
     let mut steps_evals = vec![vec![]; num_reductions];
     let mut steps_proofs = vec![vec![]; num_reductions];
 
@@ -146,7 +148,7 @@ pub fn compress_fri_proof<F: Extendable<D>, const D: usize>(
                 .push((index, qrp.initial_trees_proof.evals_proofs[i].1.clone()));
         }
         for i in 0..num_reductions {
-            index >>= 1;
+            index >>= config.reduction_arity_bits[i];
             steps_evals[i].push(qrp.steps[i].evals.clone());
             steps_proofs[i].push((index, qrp.steps[i].merkle_proof.clone()));
         }

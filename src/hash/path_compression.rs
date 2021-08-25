@@ -53,7 +53,7 @@ pub(crate) fn compress_merkle_proofs<F: Field>(
     CompressedMerkleProof { proof }
 }
 
-pub(crate) fn verify_compressed_proof<F: Field>(
+pub(crate) fn verify_compressed_merkle_proof<F: Field>(
     leaves_data: &[Vec<F>],
     leaves_indices: &[usize],
     proof: &CompressedMerkleProof<F>,
@@ -115,7 +115,7 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::hash::merkle_proofs::MerkleProof;
     use crate::hash::merkle_tree::MerkleTree;
-    use crate::hash::path_compression::{compress_merkle_proofs, verify_compressed_proof};
+    use crate::hash::path_compression::{compress_merkle_proofs, verify_compressed_merkle_proof};
 
     #[test]
     fn test_path_compression() {
@@ -133,7 +133,7 @@ mod tests {
 
         let cp = compress_merkle_proofs(cap_height, proofs.clone());
 
-        verify_compressed_proof(
+        verify_compressed_merkle_proof(
             &indices.iter().map(|&i| vs[i].clone()).collect::<Vec<_>>(),
             &indices,
             &cp,
