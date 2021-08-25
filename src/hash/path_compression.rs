@@ -24,7 +24,6 @@ pub(crate) fn compress_merkle_proofs<F: Field>(
     let height = cap_height + proofs[0].1.siblings.len();
     let num_leaves = 1 << height;
     let mut proof = Vec::new();
-    proofs.sort_by(|x, y| y.0.cmp(&x.0));
     let mut known = vec![false; 2 * num_leaves];
     for (i, _) in &proofs {
         known[*i + num_leaves] = true;
@@ -68,7 +67,6 @@ pub(crate) fn verify_compressed_merkle_proof<F: Field>(
         .zip(leaves_data)
         .map(|(&i, v)| (i, v.clone()))
         .collect::<Vec<_>>();
-    leaves.sort_by(|x, y| y.0.cmp(&x.0));
 
     for (i, v) in &leaves {
         seen.insert(i + (1 << height), hash_or_noop(v.to_vec()));
@@ -120,13 +118,14 @@ mod tests {
     #[test]
     fn test_path_compression() {
         type F = CrandallField;
-        let h = 13;
-        let cap_height = 4;
+        let h = 16;
+        let cap_height = 3;
         let vs = (0..1 << h).map(|i| vec![F::rand()]).collect::<Vec<_>>();
         let mt = MerkleTree::new(vs.clone(), cap_height);
 
         let mut rng = thread_rng();
         let k = rng.gen_range(0..1 << h);
+        let k = 27;
         let indices = (0..k).map(|_| rng.gen_range(0..1 << h)).collect::<Vec<_>>();
         let proofs: Vec<(usize, MerkleProof<_>)> =
             indices.iter().map(|&i| (i, mt.prove(i))).collect();
