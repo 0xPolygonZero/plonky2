@@ -1,5 +1,6 @@
 use std::option::Option;
 
+use crate::field::crandall_field::CrandallField;
 use crate::field::field_types::Field;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_strict, reverse_index_bits};
@@ -137,6 +138,105 @@ pub fn ifft_with_options<F: Field>(
     PolynomialCoeffs { coeffs }
 }
 
+trait FFTClassicInnerLoop<F: Field> {
+    fn fft_classic_inner_loop(
+        values: &mut [F], roots: &[F],
+        half_m: usize, k: usize, j: usize
+    );
+}
+
+impl<F: Field> FFTClassicInnerLoop<F> for F {
+    #[inline]
+    default fn fft_classic_inner_loop(
+        values: &mut [F], roots: &[F],
+        half_m: usize, k: usize, j: usize
+    ) {
+        unsafe {
+            // Rustc can't prove that the indices are valid, so it emits runtime checks.
+            // Omitting them saves 8 micro-ops on x86.
+            let omega = *roots.get_unchecked(j);
+            let t = omega * *values.get_unchecked(k + half_m + j);
+            let u = *values.get_unchecked(k + j);
+            *values.get_unchecked_mut(k + j) = u + t;
+            *values.get_unchecked_mut(k + half_m + j) = u - t;
+        }
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+impl FFTClassicInnerLoop<CrandallField> for CrandallField {
+    #[inline]
+    fn fft_classic_inner_loop(
+        values: &mut [CrandallField], roots: &[CrandallField],
+        half_m: usize, k: usize, j: usize
+    ) {
+        let epsilon: u64 = 2415919103;
+        let field_order: u64 = 18446744071293632513;
+        let res1: u64;
+        let res2: u64;
+        unsafe {
+            let values1 = values.get_unchecked(k .. k + half_m);
+            let values2 = values.get_unchecked(k + half_m .. k + 2 * half_m);
+            asm!(
+                "mov   rdx, [{1} + {0} * 8]",
+                "mulx  rdx, {7}, [{3} + {0} * 8]",
+                "mulx  {6}, rdx, {4}",
+                "add   rdx, {7}",
+                "adc   {6}, 0",
+                "imul  {6}, {4}",
+
+                "cmp   rdx, {5}",
+                "jnb   2f",
+
+                "4:",
+                "add   {6}, rdx",
+                "lea   rdx, [{6} + {4}]",
+                "cmovc {6}, rdx",
+
+                "cmp   {6}, {5}",
+                "jnb   3f",
+
+                "5:",
+                "mov   {7}, [{2} + {0} * 8]",
+                "sub   {7}, {6}",
+                "lea   rdx, [{7} + {5}]",
+                "cmovc {7}, rdx",
+
+                "add   {6}, [{2} + {0} * 8]",
+                "lea   rdx, [{6} + {4}]",
+                "cmovc {6}, rdx",
+                "jmp 6f",
+
+                "2:",
+                "sub rdx, {5}",
+                "jmp 4b",
+
+                "3:",
+                "sub {6}, {5}",
+                "jmp 5b",
+
+                "6:",
+
+                in(reg) j,
+                in(reg) roots.as_ptr(),
+                in(reg) values1.as_ptr(),
+                in(reg) values2.as_ptr(),
+                in(reg) epsilon,
+                in(reg) field_order,
+                out(reg) res1,
+                out(reg) res2,
+                out("rdx") _,
+                options(pure, readonly, nostack)
+            );
+        *values.get_unchecked_mut(k + j) = CrandallField(res1);
+        *values.get_unchecked_mut(k + j + half_m) = CrandallField(res2);
+        }
+    }
+}
+
+
+
+
 /// FFT implementation based on Section 32.3 of "Introduction to
 /// Algorithms" by Cormen et al.
 ///
@@ -172,16 +272,14 @@ pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: FftRootTa
         }
     }
 
+    let values_slice = &mut values[..];
     let mut m = 1 << (r + 1);
     for lg_m in (r + 1)..=lg_n {
         let half_m = m / 2;
+        let roots = &root_table[lg_m - 1][..];
         for k in (0..n).step_by(m) {
-            for j in 0..half_m {
-                let omega = root_table[lg_m - 1][j];
-                let t = omega * values[k + half_m + j];
-                let u = values[k + j];
-                values[k + j] = u + t;
-                values[k + half_m + j] = u - t;
+            for j in (0..half_m).rev() {
+                F::fft_classic_inner_loop(values_slice, roots, half_m, k, j);
             }
         }
         m *= 2;

@@ -1,4 +1,6 @@
+#![feature(asm)]
 #![feature(destructuring_assignment)]
+#![feature(min_specialization)]
 
 pub mod field;
 pub mod fri;
