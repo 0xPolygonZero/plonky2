@@ -127,6 +127,7 @@ mod tests {
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
+    use crate::field::field_types::Field;
     use crate::fri::proof::{
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
     };
@@ -480,10 +481,13 @@ mod tests {
         builder.print_gate_counts(0);
         let data = builder.build();
         let recursive_proof = data.prove(pw)?;
+
         let proof_bytes = serde_cbor::to_vec(&recursive_proof).unwrap();
         info!("Proof length: {} bytes", proof_bytes.len());
+
         let proof_clone = recursive_proof.clone();
         let mut verifier_timing = TimingTree::default();
+
         timed!(
             &mut verifier_timing,
             "to verify non-compressed proof.",
@@ -495,11 +499,13 @@ mod tests {
             "to compress proof",
             proof_clone.compress(&data.common.config.fri_config)
         );
+
         let compressed_proof_bytes = serde_cbor::to_vec(&compressed_proof).unwrap();
         info!(
             "Compressed proof length: {} bytes",
             compressed_proof_bytes.len()
         );
+
         timed!(
             &mut verifier_timing,
             "to verify compressed proof.",
