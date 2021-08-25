@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::fri::commitment::PolynomialBatchCommitment;
-use crate::fri::proof::{CompressedFriProof, FriProof, FriProofTarget};
+use crate::fri::proof::{compress_fri_proof, CompressedFriProof, FriProof, FriProofTarget};
+use crate::fri::FriConfig;
 use crate::hash::hash_types::MerkleCapTarget;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
@@ -40,17 +41,30 @@ pub struct CompressedProof<F: Extendable<D>, const D: usize> {
     pub opening_proof: CompressedFriProof<F, D>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(bound = "")]
-pub struct ProofWithPublicInputs<F: Extendable<D>, const D: usize> {
-    pub proof: Proof<F, D>,
-    pub public_inputs: Vec<F>,
+impl<F: Extendable<D>, const D: usize> Proof<F, D> {
+    pub fn compress(self, config: &FriConfig) -> CompressedProof<F, D> {
+        let Proof {
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            opening_proof,
+        } = self;
+        let compressed_fri_proof = compress_fri_proof(opening_proof, config);
+        CompressedProof {
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            opening_proof: compressed_fri_proof,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(bound = "")]
-pub struct CompressedProofWithPublicInputs<F: Extendable<D>, const D: usize> {
-    pub proof: CompressedProof<F, D>,
+pub struct ProofWithPublicInputs<F: Extendable<D>, const D: usize> {
+    pub proof: Proof<F, D>,
     pub public_inputs: Vec<F>,
 }
 
@@ -65,6 +79,26 @@ pub struct ProofTarget<const D: usize> {
 pub struct ProofWithPublicInputsTarget<const D: usize> {
     pub proof: ProofTarget<D>,
     pub public_inputs: Vec<Target>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(bound = "")]
+pub struct CompressedProofWithPublicInputs<F: Extendable<D>, const D: usize> {
+    pub proof: CompressedProof<F, D>,
+    pub public_inputs: Vec<F>,
+}
+
+impl<F: Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
+    pub fn compress(self, config: &FriConfig) -> CompressedProofWithPublicInputs<F, D> {
+        let ProofWithPublicInputs {
+            proof,
+            public_inputs,
+        } = self;
+        CompressedProofWithPublicInputs {
+            proof: proof.compress(config),
+            public_inputs,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

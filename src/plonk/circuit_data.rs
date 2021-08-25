@@ -70,8 +70,8 @@ impl CircuitConfig {
             cap_height: 1,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
-                reduction_arity_bits: vec![2, 3, 1],
-                num_query_rounds: 27,
+                reduction_arity_bits: vec![1, 1],
+                num_query_rounds: 2,
             },
         }
     }

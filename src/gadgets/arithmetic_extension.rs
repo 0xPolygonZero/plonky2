@@ -638,27 +638,10 @@ mod tests {
         println!("Proof length: {} bytes", proof_bytes.len());
 
         verify(proof.clone(), &data.verifier_only, &data.common).unwrap();
-        let compfriproof = compress_fri_proof(
-            proof.proof.opening_proof.clone(),
-            &data.common.config.fri_config,
-        );
-        let ProofWithPublicInputs {
-            proof,
-            public_inputs,
-        } = proof;
-        let comproof = CompressedProofWithPublicInputs {
-            proof: CompressedProof {
-                wires_cap: proof.wires_cap,
-                plonk_zs_partial_products_cap: proof.plonk_zs_partial_products_cap,
-                quotient_polys_cap: proof.quotient_polys_cap,
-                openings: proof.openings,
-                opening_proof: compfriproof,
-            },
-            public_inputs,
-        };
-        let proof_bytes = serde_cbor::to_vec(&comproof).unwrap();
+        let compressed_proof = proof.compress(&data.common.config.fri_config);
+        let proof_bytes = serde_cbor::to_vec(&compressed_proof).unwrap();
         println!("Comp proof length: {} bytes", proof_bytes.len());
-        verify_compressed(comproof, &data.verifier_only, &data.common).unwrap();
+        verify_compressed(compressed_proof, &data.verifier_only, &data.common).unwrap();
 
         Ok(())
     }

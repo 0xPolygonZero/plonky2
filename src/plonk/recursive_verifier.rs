@@ -139,8 +139,10 @@ mod tests {
     use crate::hash::merkle_proofs::MerkleProofTarget;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::proof::{OpeningSetTarget, Proof, ProofTarget, ProofWithPublicInputs};
-    use crate::plonk::verifier::verify;
+    use crate::plonk::verifier::{verify, verify_compressed};
+    use crate::timed;
     use crate::util::log2_strict;
+    use crate::util::timing::TimingTree;
 
     // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
     fn get_fri_query_round<F: Extendable<D>, const D: usize>(
@@ -484,6 +486,32 @@ mod tests {
         let recursive_proof = data.prove(pw)?;
         let proof_bytes = serde_cbor::to_vec(&recursive_proof).unwrap();
         info!("Proof length: {} bytes", proof_bytes.len());
-        verify(recursive_proof, &data.verifier_only, &data.common)
+        let proof_clone = recursive_proof.clone();
+        let mut verifier_timing = TimingTree::default();
+        timed!(
+            &mut verifier_timing,
+            "to verify non-compressed proof.",
+            verify(recursive_proof, &data.verifier_only, &data.common)
+        )?;
+
+        let compressed_proof = timed!(
+            &mut verifier_timing,
+            "to compress proof",
+            proof_clone.compress(&data.common.config.fri_config)
+        );
+        let compressed_proof_bytes = serde_cbor::to_vec(&compressed_proof).unwrap();
+        info!(
+            "Compressed proof length: {} bytes",
+            compressed_proof_bytes.len()
+        );
+        timed!(
+            &mut verifier_timing,
+            "to verify compressed proof.",
+            verify_compressed(compressed_proof, &data.verifier_only, &data.common)
+        )?;
+
+        verifier_timing.print();
+
+        Ok(())
     }
 }
