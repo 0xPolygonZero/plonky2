@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::convert::TryInto;
 
 use crate::field::{extension_field::Extendable, field_types::Field};
@@ -6,6 +7,7 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::PartialWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::util::bimap::bimap_from_lists;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Assert that two lists of expressions evaluate to permutations of one another.
@@ -162,18 +164,150 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-fn route_one_layer<F: Field, const CHUNK_SIZE: usize>(
-    a_values: Vec<F>,
-    b_values: Vec<F>,
-    a_wires: Vec<[Target; CHUNK_SIZE]>,
-    b_wires: Vec<[Target; CHUNK_SIZE]>,
+fn route<F: Field, const CHUNK_SIZE: usize>(
+    a_values: Vec<[F; CHUNK_SIZE]>,
+    b_values: Vec<[F; CHUNK_SIZE]>,
+    a_switches: Vec<[Target; CHUNK_SIZE]>,
+    b_switches: Vec<[Target; CHUNK_SIZE]>,
+    witness: &PartialWitness<F>,
+    out_buffer: &mut GeneratedValues<F>,
 ) {
-    todo!()
+    assert_eq!(a_values.len(), b_values.len());
+    let n = a_values.len();
+    let even = n % 2 == 0;
+    // Bimap: maps indices of values in a to indices of the same values in b
+    let ab_map = bimap_from_lists(a_values, b_values);
+    let switches = [a_switches, b_switches];
+
+    // Given a side and an index, returns the index in the other side that corresponds to the same value.
+    let ab_map_by_side = |side: usize, index: usize| -> usize {
+        *match side {
+            0 => ab_map.get_by_left(&index),
+            1 => ab_map.get_by_right(&index),
+            _ => panic!("Expected side to be 0 or 1"),
+        }
+        .unwrap()
+    };
+
+    // We maintain two maps for wires which have been routed to a particular subnetwork on one side
+    // of the network (left or right) but not the other. The keys are wire indices, and the values
+    // are subnetwork indices.
+    let mut partial_routes = [BTreeMap::new(), BTreeMap::new()];
+
+    // After we route a wire on one side, we find the corresponding wire on the other side and check
+    // if it still needs to be routed. If so, we add it to partial_routes.
+    let enqueue_other_side = |partial_routes: &mut [BTreeMap<usize, bool>],
+                              witness: &PartialWitness<F>,
+                              out_buffer: &mut GeneratedValues<F>,
+                              side: usize,
+                              this_i: usize,
+                              subnet: bool| {
+        let other_side = 1 - side;
+        let other_i = ab_map_by_side(side, this_i);
+        let other_switch_i = other_i / 2;
+
+        if other_switch_i >= switches[other_side].len() {
+            // The other wire doesn't go through a switch, so there's no routing to be done.
+            // This happens in the case of the very last wire.
+            return;
+        }
+
+        if witness.contains_all(&switches[other_side][other_switch_i]) {
+            // The other switch has already been routed.
+            return;
+        }
+
+        let other_i_sibling = 4 * other_switch_i + 1 - other_i;
+        if let Some(&sibling_subnet) = partial_routes[other_side].get(&other_i_sibling) {
+            // The other switch's sibling is already pending routing.
+            assert_ne!(subnet, sibling_subnet);
+        } else {
+            let opt_old_subnet = partial_routes[other_side].insert(other_i, subnet);
+            if let Some(old_subnet) = opt_old_subnet {
+                assert_eq!(subnet, old_subnet, "Routing conflict (should never happen)");
+            }
+        }
+    };
+
+    // See Figure 8 in the AS-Waksman paper.
+    if even {
+        enqueue_other_side(&mut partial_routes, witness, out_buffer, 1, n - 2, false);
+        enqueue_other_side(&mut partial_routes, witness, out_buffer, 1, n - 1, true);
+    } else {
+        enqueue_other_side(&mut partial_routes, witness, out_buffer, 0, n - 1, true);
+        enqueue_other_side(&mut partial_routes, witness, out_buffer, 1, n - 1, true);
+    }
+
+    let route_switch = |partial_routes: &mut [BTreeMap<usize, bool>],
+                        witness: &PartialWitness<F>,
+                        out_buffer: &mut GeneratedValues<F>,
+                        side: usize,
+                        switch_index: usize,
+                        swap: bool| {
+        // First, we actually set the switch configuration.
+        for e in 0..CHUNK_SIZE {
+            out_buffer.set_target(switches[side][switch_index][e], F::from_bool(swap));
+        }
+
+        // Then, we enqueue the two corresponding wires on the other side of the network, to ensure
+        // that they get routed in the next step.
+        let this_i_1 = switch_index * 2;
+        let this_i_2 = this_i_1 + 1;
+        enqueue_other_side(partial_routes, witness, out_buffer, side, this_i_1, swap);
+        enqueue_other_side(partial_routes, witness, out_buffer, side, this_i_2, !swap);
+    };
+
+    // If {a,b}_only_routes is empty, then we can route any switch next. For efficiency, we will
+    // simply do top-down scans (one on the left side, one on the right side) for switches which
+    // have not yet been routed. These variables represent the positions of those two scans.
+    let mut scan_index = [0, 0];
+
+    // Until both scans complete, we alternate back and worth between the left and right switch
+    // layers. We process any partially routed wires for that side, or if there aren't any, we route
+    // the next switch in our scan.
+    while scan_index[0] < switches[0].len() || scan_index[1] < switches[1].len() {
+        for side in 0..=1 {
+            if !partial_routes[side].is_empty() {
+                for (this_i, subnet) in partial_routes[side].clone().into_iter() {
+                    let this_first_switch_input = this_i % 2 == 0;
+                    let swap = this_first_switch_input == subnet;
+                    let this_switch_i = this_i / 2;
+                    route_switch(
+                        &mut partial_routes,
+                        witness,
+                        out_buffer,
+                        side,
+                        this_switch_i,
+                        swap,
+                    );
+                }
+                partial_routes[side].clear();
+            } else {
+                // We can route any switch next. Continue our scan for pending switches.
+                while scan_index[side] < switches[side].len()
+                    && witness.contains_all(&switches[side][scan_index[side]])
+                {
+                    scan_index[side] += 1;
+                }
+                if scan_index[side] < switches[side].len() {
+                    // Either switch configuration would work; we arbitrarily choose to not swap.
+                    route_switch(
+                        &mut partial_routes,
+                        witness,
+                        out_buffer,
+                        side,
+                        scan_index[side],
+                        false,
+                    );
+                }
+            }
+        }
+    }
 }
 
 struct PermutationGenerator<F: Field, const CHUNK_SIZE: usize> {
-    a_values: Vec<F>,
-    b_values: Vec<F>,
+    a_values: Vec<[F; CHUNK_SIZE]>,
+    b_values: Vec<[F; CHUNK_SIZE]>,
     a_wires: Vec<[Target; CHUNK_SIZE]>,
     b_wires: Vec<[Target; CHUNK_SIZE]>,
 }
@@ -185,11 +319,17 @@ impl<F: Field, const CHUNK_SIZE: usize> SimpleGenerator<F> for PermutationGenera
             .map(|arr| arr.to_vec())
             .flatten()
             .collect()
-        //.chain(self.b_wires.iter()).collect()
     }
 
     fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        todo!()
+        route(
+            self.a_values.clone(),
+            self.b_values.clone(),
+            self.a_wires.clone(),
+            self.b_wires.clone(),
+            witness,
+            out_buffer,
+        );
     }
 }
 
@@ -205,10 +345,36 @@ mod tests {
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
 
-    fn test_permutation(size: usize) -> Result<()> {
+    #[test]
+    fn route_2x2() -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
-        let len = 1 << len_log;
+        let config = CircuitConfig::large_config();
+        let pw = PartialWitness::new(config.num_wires);
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+
+        let one = F::ONE;
+        let two = F::from_canonical_usize(2);
+        let seven = F::from_canonical_usize(7);
+        let eight = F::from_canonical_usize(8);
+
+        let one_two = [builder.constant(one), builder.constant(two)];
+        let seven_eight = [builder.constant(seven), builder.constant(eight)];
+
+        let a = vec![one_two, seven_eight];
+        let b = vec![seven_eight, one_two];
+
+        builder.assert_permutation(a, b);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    /*fn test_permutation(size: usize) -> Result<()> {
+        type F = CrandallField;
+        type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
@@ -225,5 +391,5 @@ mod tests {
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
-    }
+    }*/
 }

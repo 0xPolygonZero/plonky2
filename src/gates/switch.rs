@@ -169,7 +169,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
     }
 
     fn num_wires(&self) -> usize {
-        Self::wire_second_output(self.num_copies - 1, CHUNK_SIZE - 1) + 1
+        Self::wire_switch_bool(self.num_copies, self.num_copies - 1) + 1
     }
 
     fn num_constants(&self) -> usize {
@@ -294,14 +294,14 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(SwitchGate::<_, 4, 3>::new(
+        test_low_degree::<CrandallField, _, 4>(SwitchGate::<_, 4, 3>::new_from_config(
             CircuitConfig::large_config(),
         ));
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(SwitchGate::<_, 4, 3>::new(
+        test_eval_fns::<CrandallField, _, 4>(SwitchGate::<_, 4, 3>::new_from_config(
             CircuitConfig::large_config(),
         ))
     }
