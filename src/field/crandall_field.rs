@@ -452,11 +452,11 @@ impl Extendable<4> for CrandallField {
     type Extension = QuarticCrandallField;
 }
 
-// Faster addition for when we know that lhs.0 + rhs.0 < 2^64 + FIELD_ORDER. If this is the case,
-// then the .to_canonical_u64() that addition usually performs is unnecessary. Omitting it saves
-// three instructions.
-// This function is marked unsafe because it may yield incorrect result if the condition is not
-// satisfied.
+/// Faster addition for when we know that lhs.0 + rhs.0 < 2^64 + FIELD_ORDER. If this is the case,
+/// then the .to_canonical_u64() that addition usually performs is unnecessary. Omitting it saves
+/// three instructions.
+/// This function is marked unsafe because it may yield incorrect result if the condition is not
+/// satisfied.
 #[inline]
 unsafe fn add_no_canonicalize(lhs: CrandallField, rhs: CrandallField) -> CrandallField {
     let (sum, over) = lhs.0.overflowing_add(rhs.0);
