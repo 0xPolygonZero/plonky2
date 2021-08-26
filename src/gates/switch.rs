@@ -318,10 +318,12 @@ mod tests {
         ) -> Vec<FF> {
             let num_copies = first_inputs.len();
 
+            let mut switches = Vec::new();
             let mut v = Vec::new();
             for c in 0..num_copies {
                 let switch = switch_bools[c];
-                v.push(F::from_bool(switch));
+                switches.push(F::from_bool(switch));
+
                 let mut first_input_chunk = Vec::with_capacity(CHUNK_SIZE);
                 let mut second_input_chunk = Vec::with_capacity(CHUNK_SIZE);
                 let mut first_output_chunk = Vec::with_capacity(CHUNK_SIZE);
@@ -341,6 +343,7 @@ mod tests {
                 v.append(&mut first_output_chunk);
                 v.append(&mut second_output_chunk);
             }
+            v.extend(switches);
 
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         }
