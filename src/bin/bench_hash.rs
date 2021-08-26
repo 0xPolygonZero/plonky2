@@ -6,10 +6,11 @@ use plonky2::field::field_types::Field;
 use plonky2::hash::gmimc::gmimc_permute_array;
 use plonky2::hash::hashing::{GMIMC_CONSTANTS, GMIMC_ROUNDS};
 use plonky2::hash::rescue::rescue;
-use plonky2::hash::poseidon::{poseidon, poseidon_naive};
+use plonky2::hash::poseidon::{poseidon8, poseidon8_naive, poseidon12, poseidon12_naive};
 
 /// Number of elements in the hash input/state/result.
 const W: usize = 12;
+//const W: usize = 8;
 
 #[inline]
 fn gmimc_hash(x: [F; W]) -> [F; W] {
@@ -23,12 +24,12 @@ fn rescue_hash(x: [F; W]) -> [F; W] {
 
 #[inline]
 fn poseidon_hash(x: [F; W]) -> [F; W] {
-    poseidon(x)
+    poseidon12(x)
 }
 
 #[inline]
 fn poseidon_naive_hash(x: [F; W]) -> [F; W] {
-    poseidon_naive(x)
+    poseidon12_naive(x)
 }
 
 

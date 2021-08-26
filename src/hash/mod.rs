@@ -5,4 +5,3 @@ pub mod merkle_proofs;
 pub mod merkle_tree;
 pub mod rescue;
 pub mod poseidon;
-mod poseidon_constants;
