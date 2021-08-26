@@ -72,7 +72,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         for c in 0..self.num_copies {
-            let switch_bool = vars.local_wires[Self::wire_switch_bool(self.num_wires(), c)];
+            let switch_bool = vars.local_wires[Self::wire_switch_bool(self.num_copies, c)];
             let not_switch = F::Extension::ONE - switch_bool;
 
             for e in 0..CHUNK_SIZE {
@@ -234,12 +234,8 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
             for e in 0..CHUNK_SIZE {
                 let first_input =
                     get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(c, e));
-                let second_input =
-                    get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_second_input(c, e));
                 let first_output =
                     get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(c, e));
-                let second_output =
-                    get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(c, e));
 
                 if first_input == first_output {
                     out_buffer.set_wire(switch_bool_wire, F::ONE);
