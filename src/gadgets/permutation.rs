@@ -58,19 +58,19 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         a: [Target; CHUNK_SIZE],
         b: [Target; CHUNK_SIZE],
-    ) -> (usize, [Target; CHUNK_SIZE], [Target; CHUNK_SIZE]) {
+    ) -> (Target, [Target; CHUNK_SIZE], [Target; CHUNK_SIZE]) {
         if self.current_switch_gates.len() < CHUNK_SIZE {
             self.current_switch_gates
                 .extend(vec![None; CHUNK_SIZE - self.current_switch_gates.len()]);
         }
 
-        let (gate_index, mut next_copy) = match self.current_switch_gates[CHUNK_SIZE - 1] {
+        let (gate, gate_index, mut next_copy) = match self.current_switch_gates[CHUNK_SIZE - 1] {
             None => {
                 let gate = SwitchGate::<F, D, CHUNK_SIZE>::new_from_config(self.config.clone());
                 let gate_index = self.add_gate(gate.clone(), vec![]);
-                (gate_index, 0)
+                (gate, gate_index, 0)
             }
-            Some((idx, next_copy)) => (idx, next_copy),
+            Some((idx, next_copy)) => (self.gate_instances[idx], idx, next_copy),
         };
 
         let num_copies =
@@ -83,25 +83,30 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 a[e],
                 Target::wire(
                     gate_index,
-                    SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(0, e),
+                    SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(next_copy, e),
                 ),
             );
             self.route(
                 b[e],
                 Target::wire(
                     gate_index,
-                    SwitchGate::<F, D, CHUNK_SIZE>::wire_second_input(0, e),
+                    SwitchGate::<F, D, CHUNK_SIZE>::wire_second_input(next_copy, e),
                 ),
             );
             c.push(Target::wire(
                 gate_index,
-                SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(0, e),
+                SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(next_copy, e),
             ));
             d.push(Target::wire(
                 gate_index,
-                SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(0, e),
+                SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(next_copy, e),
             ));
         }
+
+        let switch = Target::wire(
+            gate_index,
+            SwitchGate::<F, D, CHUNK_SIZE>::wire_switch_bool(gate.num_copies, next_copy),
+        );
 
         let c_arr: [Target; CHUNK_SIZE] = c.try_into().unwrap();
         let d_arr: [Target; CHUNK_SIZE] = d.try_into().unwrap();
@@ -115,7 +120,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.current_switch_gates[CHUNK_SIZE - 1] = Some((gate_index, next_copy));
         }
 
-        (gate_index, c_arr, d_arr)
+        (switch, c_arr, d_arr)
     }
 
     fn assert_permutation_recursive<const CHUNK_SIZE: usize>(
@@ -140,12 +145,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         };
 
         for i in 0..a_num_switches {
-            let (_, out_1, out_2) = self.create_switch(a[i * 2], a[i * 2 + 1]);
+            let (a_switch, out_1, out_2) = self.create_switch(a[i * 2], a[i * 2 + 1]);
             child_1_a.push(out_1);
             child_2_a.push(out_2);
         }
         for i in 0..b_num_switches {
-            let (_, out_1, out_2) = self.create_switch(b[i * 2], b[i * 2 + 1]);
+            let (b_switch, out_1, out_2) = self.create_switch(b[i * 2], b[i * 2 + 1]);
             child_1_b.push(out_1);
             child_2_b.push(out_2);
         }
@@ -161,6 +166,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         self.assert_permutation(child_1_a, child_1_b);
         self.assert_permutation(child_2_a, child_2_b);
+
+        self.add_generator(PermutationGenerator {});
     }
 }
 
@@ -198,7 +205,7 @@ fn route<F: Field, const CHUNK_SIZE: usize>(
     // if it still needs to be routed. If so, we add it to partial_routes.
     let enqueue_other_side = |partial_routes: &mut [BTreeMap<usize, bool>],
                               witness: &PartialWitness<F>,
-                              out_buffer: &mut GeneratedValues<F>,
+                              _out_buffer: &mut GeneratedValues<F>,
                               side: usize,
                               this_i: usize,
                               subnet: bool| {
@@ -306,8 +313,6 @@ fn route<F: Field, const CHUNK_SIZE: usize>(
 }
 
 struct PermutationGenerator<F: Field, const CHUNK_SIZE: usize> {
-    a_values: Vec<[F; CHUNK_SIZE]>,
-    b_values: Vec<[F; CHUNK_SIZE]>,
     a_wires: Vec<[Target; CHUNK_SIZE]>,
     b_wires: Vec<[Target; CHUNK_SIZE]>,
 }
@@ -322,9 +327,19 @@ impl<F: Field, const CHUNK_SIZE: usize> SimpleGenerator<F> for PermutationGenera
     }
 
     fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        let wire_chunk_to_vals = |wire| {
+            let mut vals = [F::ZERO; CHUNK_SIZE];
+            for e in 0..CHUNK_SIZE {
+                vals[e] = witness.get_target(wire[e]);
+            }
+            vals
+        };
+
+        let a_values = self.a_wires.iter().map(wire_chunk_to_vals).collect();
+        let b_values = self.b_wires.iter().map(wire_chunk_to_vals).collect();
         route(
-            self.a_values.clone(),
-            self.b_values.clone(),
+            a_values.clone(),
+            b_values.clone(),
             self.a_wires.clone(),
             self.b_wires.clone(),
             witness,

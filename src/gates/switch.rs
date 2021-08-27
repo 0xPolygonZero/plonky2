@@ -161,11 +161,12 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
         gate_index: usize,
         _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = SwitchGenerator::<F, D, CHUNK_SIZE> {
+        /*let gen = SwitchGenerator::<F, D, CHUNK_SIZE> {
             gate_index,
             gate: self.clone(),
         };
-        vec![Box::new(gen)]
+        vec![Box::new(gen)]*/
+        vec![]
     }
 
     fn num_wires(&self) -> usize {
