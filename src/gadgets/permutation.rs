@@ -345,8 +345,16 @@ impl<F: Field, const CHUNK_SIZE: usize> SimpleGenerator<F> for PermutationGenera
             vals
         };
 
-        let a_values = self.a.iter().map(|chunk| wire_chunk_to_vals(*chunk)).collect();
-        let b_values = self.b.iter().map(|chunk| wire_chunk_to_vals(*chunk)).collect();
+        let a_values = self
+            .a
+            .iter()
+            .map(|chunk| wire_chunk_to_vals(*chunk))
+            .collect();
+        let b_values = self
+            .b
+            .iter()
+            .map(|chunk| wire_chunk_to_vals(*chunk))
+            .collect();
         route(
             a_values,
             b_values,
