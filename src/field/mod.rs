@@ -7,3 +7,6 @@ pub(crate) mod interpolation;
 
 #[cfg(test)]
 mod field_testing;
+
+#[cfg(all(test, target_feature = "avx2"))]
+mod crandall_field_vec;
