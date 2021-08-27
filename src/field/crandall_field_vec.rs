@@ -195,103 +195,100 @@ mod tests {
 
     #[test]
     fn test_add() {
-        let a = vec![
-            14479013849828404771u64,
-            9087029921428221768u64,
-            2441288194761790662u64,
-            5646033492608483824u64,
+        let a: Vec<u64> = vec![
+            14479013849828404771,
+            9087029921428221768,
+            2441288194761790662,
+            5646033492608483824,
         ];
-        let b = vec![
-            17891926589593242302u64,
-            11009798273260028228u64,
-            2028722748960791447u64,
-            7929433601095175579u64,
+        let b: Vec<u64> = vec![
+            17891926589593242302,
+            11009798273260028228,
+            2028722748960791447,
+            7929433601095175579,
         ];
 
+        let (res_v0, res_v1, res_v2, res_v3);
         unsafe {
             let av = _mm256_setr_epi64x(a[0] as i64, a[1] as i64, a[2] as i64, a[3] as i64);
             let bv = _mm256_setr_epi64x(b[0] as i64, b[1] as i64, b[2] as i64, b[3] as i64);
             let res_v = add(av, bv);
 
-            let res_cf0 = CrandallField(a[0]) + CrandallField(b[0]);
-            assert_eq!(
-                CrandallField(_mm256_extract_epi64(res_v, 0) as u64),
-                res_cf0
-            );
-            let res_cf1 = CrandallField(a[1]) + CrandallField(b[1]);
-            assert_eq!(_mm256_extract_epi64(res_v, 1) as u64, res_cf1.0);
-            let res_cf2 = CrandallField(a[2]) + CrandallField(b[2]);
-            assert_eq!(_mm256_extract_epi64(res_v, 2) as u64, res_cf2.0);
-            let res_cf3 = CrandallField(a[3]) + CrandallField(b[3]);
-            assert_eq!(_mm256_extract_epi64(res_v, 3) as u64, res_cf3.0);
+            res_v0 = CrandallField(_mm256_extract_epi64(res_v, 0) as u64);
+            res_v1 = CrandallField(_mm256_extract_epi64(res_v, 1) as u64);
+            res_v2 = CrandallField(_mm256_extract_epi64(res_v, 2) as u64);
+            res_v3 = CrandallField(_mm256_extract_epi64(res_v, 3) as u64);
         }
+
+        assert_eq!(res_v0, CrandallField(a[0]) + CrandallField(b[0]));
+        assert_eq!(res_v1, CrandallField(a[1]) + CrandallField(b[1]));
+        assert_eq!(res_v2, CrandallField(a[2]) + CrandallField(b[2]));
+        assert_eq!(res_v3, CrandallField(a[3]) + CrandallField(b[3]));
     }
 
     #[test]
     fn test_sub() {
-        let a = vec![
-            16227227439196075598u64,
-            6716317602924211287u64,
-            2841323442296127245u64,
-            7263852802381042972u64,
+        let a: Vec<u64> = vec![
+            16227227439196075598,
+            6716317602924211287,
+            2841323442296127245,
+            7263852802381042972,
         ];
-        let b = vec![
-            12281116264768601762u64,
-            6622018881932723404u64,
-            8760433989034129451u64,
-            15591286958183010066u64,
+        let b: Vec<u64> = vec![
+            12281116264768601762,
+            6622018881932723404,
+            8760433989034129451,
+            15591286958183010066,
         ];
 
+        let (res_v0, res_v1, res_v2, res_v3);
         unsafe {
             let av = _mm256_setr_epi64x(a[0] as i64, a[1] as i64, a[2] as i64, a[3] as i64);
             let bv = _mm256_setr_epi64x(b[0] as i64, b[1] as i64, b[2] as i64, b[3] as i64);
             let res_v = sub(av, bv);
 
-            let res_cf0 = CrandallField(a[0]) - CrandallField(b[0]);
-            assert_eq!(
-                CrandallField(_mm256_extract_epi64(res_v, 0) as u64),
-                res_cf0
-            );
-            let res_cf1 = CrandallField(a[1]) - CrandallField(b[1]);
-            assert_eq!(_mm256_extract_epi64(res_v, 1) as u64, res_cf1.0);
-            let res_cf2 = CrandallField(a[2]) - CrandallField(b[2]);
-            assert_eq!(_mm256_extract_epi64(res_v, 2) as u64, res_cf2.0);
-            let res_cf3 = CrandallField(a[3]) - CrandallField(b[3]);
-            assert_eq!(_mm256_extract_epi64(res_v, 3) as u64, res_cf3.0);
+            res_v0 = CrandallField(_mm256_extract_epi64(res_v, 0) as u64);
+            res_v1 = CrandallField(_mm256_extract_epi64(res_v, 1) as u64);
+            res_v2 = CrandallField(_mm256_extract_epi64(res_v, 2) as u64);
+            res_v3 = CrandallField(_mm256_extract_epi64(res_v, 3) as u64);
         }
+
+        assert_eq!(res_v0, CrandallField(a[0]) - CrandallField(b[0]));
+        assert_eq!(res_v1, CrandallField(a[1]) - CrandallField(b[1]));
+        assert_eq!(res_v2, CrandallField(a[2]) - CrandallField(b[2]));
+        assert_eq!(res_v3, CrandallField(a[3]) - CrandallField(b[3]));
     }
 
     #[test]
     fn test_mul() {
-        let a = vec![
-            6809398725176840431u64,
-            4482334701449839908u64,
-            6005174454137817907u64,
-            2577767633704502274u64,
+        let a: Vec<u64> = vec![
+            6809398725176840431,
+            4482334701449839908,
+            6005174454137817907,
+            2577767633704502274,
         ];
-        let b = vec![
-            17152612508452320018u64,
-            6114367496342734588u64,
-            17057706769499534236u64,
-            5548681120235370693u64,
+        let b: Vec<u64> = vec![
+            17152612508452320018,
+            6114367496342734588,
+            17057706769499534236,
+            5548681120235370693,
         ];
 
+        let (res_v0, res_v1, res_v2, res_v3);
         unsafe {
             let av = _mm256_setr_epi64x(a[0] as i64, a[1] as i64, a[2] as i64, a[3] as i64);
             let bv = _mm256_setr_epi64x(b[0] as i64, b[1] as i64, b[2] as i64, b[3] as i64);
             let res_v = mul(av, bv);
 
-            let res_cf0 = CrandallField(a[0]) * CrandallField(b[0]);
-            assert_eq!(
-                CrandallField(_mm256_extract_epi64(res_v, 0) as u64),
-                res_cf0
-            );
-            let res_cf1 = CrandallField(a[1]) * CrandallField(b[1]);
-            assert_eq!(_mm256_extract_epi64(res_v, 1) as u64, res_cf1.0);
-            let res_cf2 = CrandallField(a[2]) * CrandallField(b[2]);
-            assert_eq!(_mm256_extract_epi64(res_v, 2) as u64, res_cf2.0);
-            let res_cf3 = CrandallField(a[3]) * CrandallField(b[3]);
-            assert_eq!(_mm256_extract_epi64(res_v, 3) as u64, res_cf3.0);
+            res_v0 = CrandallField(_mm256_extract_epi64(res_v, 0) as u64);
+            res_v1 = CrandallField(_mm256_extract_epi64(res_v, 1) as u64);
+            res_v2 = CrandallField(_mm256_extract_epi64(res_v, 2) as u64);
+            res_v3 = CrandallField(_mm256_extract_epi64(res_v, 3) as u64);
         }
+
+        assert_eq!(res_v0, CrandallField(a[0]) * CrandallField(b[0]));
+        assert_eq!(res_v1, CrandallField(a[1]) * CrandallField(b[1]));
+        assert_eq!(res_v2, CrandallField(a[2]) * CrandallField(b[2]));
+        assert_eq!(res_v3, CrandallField(a[3]) * CrandallField(b[3]));
     }
 }
