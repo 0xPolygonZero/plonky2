@@ -58,11 +58,14 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
 
         let mut constraints = Vec::with_capacity(limbs.len() + 1);
         constraints.push(computed_sum - sum);
-        constraints.extend(limbs.iter().map(|&limb| {
+
+        let constraints_iter = limbs.iter().map(|&limb| {
             (0..B)
                 .map(|i| limb - F::from_canonical_usize(i))
                 .product::<F>()
-        }));
+        });
+        constraints.extend(constraints_iter);
+
         constraints
     }
 
