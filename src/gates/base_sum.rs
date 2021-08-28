@@ -53,12 +53,19 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
 
     fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
         let sum = vars.local_wires[Self::WIRE_SUM];
-        let limbs = vars.local_wires[self.limbs()].to_vec();
-        let computed_sum = reduce_with_powers(&limbs, F::from_canonical_usize(B));
-        let mut constraints = vec![computed_sum - sum];
-        for limb in limbs {
-            constraints.push((0..B).map(|i| limb - F::from_canonical_usize(i)).product());
-        }
+        let limbs = &vars.local_wires[self.limbs()];
+        let computed_sum = reduce_with_powers(limbs, F::from_canonical_usize(B));
+
+        let mut constraints = Vec::with_capacity(limbs.len() + 1);
+        constraints.push(computed_sum - sum);
+
+        let constraints_iter = limbs.iter().map(|&limb| {
+            (0..B)
+                .map(|i| limb - F::from_canonical_usize(i))
+                .product::<F>()
+        });
+        constraints.extend(constraints_iter);
+
         constraints
     }
 
