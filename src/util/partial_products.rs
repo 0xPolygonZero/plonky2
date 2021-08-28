@@ -43,19 +43,18 @@ pub fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
 /// products of size `max_degree` or less.
 pub fn check_partial_products<T: Product + Copy + Sub<Output = T>>(
     v: &[T],
-    partials: &[T],
+    mut partials: &[T],
     max_degree: usize,
 ) -> Vec<T> {
     let mut res = Vec::new();
-    let mut remainder = v.to_vec();
-    let mut partials = partials.to_vec();
+    let mut remainder = v;
     while remainder.len() > max_degree {
         let products = remainder
             .chunks(max_degree)
-            .map(|chunk| chunk.iter().copied().product())
-            .collect::<Vec<T>>();
-        res.extend(products.iter().zip(&partials).map(|(&a, &b)| a - b));
-        remainder = partials.drain(..products.len()).collect();
+            .map(|chunk| chunk.iter().copied().product::<T>());
+        let products_len = products.len();
+        res.extend(products.zip(partials).map(|(a, &b)| a - b));
+        (remainder, partials) = partials.split_at(products_len);
     }
 
     res
