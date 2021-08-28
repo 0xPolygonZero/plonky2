@@ -52,13 +52,8 @@ pub fn check_partial_products<T: Product + Copy + Sub<Output = T>>(
         let products = remainder
             .chunks(max_degree)
             .map(|chunk| chunk.iter().copied().product::<T>());
-        let products_len = {
-            // Count number of element from iterator without consuming it.
-            let old_len = res.len();
-            res.extend(products.zip(partials).map(|(a, &b)| a - b));
-            res.len() - old_len
-        };
-
+        let products_len = products.len();
+        res.extend(products.zip(partials).map(|(a, &b)| a - b));
         (remainder, partials) = partials.split_at(products_len);
     }
 
