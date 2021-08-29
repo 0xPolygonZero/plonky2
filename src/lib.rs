@@ -1,4 +1,8 @@
 #![feature(destructuring_assignment)]
+#![feature(const_panic)]
+#![feature(specialization)]
+#![feature(const_generics)]
+#![feature(const_evaluatable_checked)]
 
 pub mod field;
 pub mod fri;
