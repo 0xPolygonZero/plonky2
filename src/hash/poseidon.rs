@@ -112,7 +112,6 @@ const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
 mod poseidon_width8 {
     use unroll::unroll_for_loops;
     use crate::field::field_types::Field;
-    use std::mem::MaybeUninit;
 
     use crate::hash::poseidon::{
         ALL_ROUND_CONSTANTS, N_ROUNDS, N_PARTIAL_ROUNDS, HALF_N_FULL_ROUNDS
@@ -277,7 +276,6 @@ mod poseidon_width8 {
     #[inline]
     #[unroll_for_loops]
     fn mds_layer<F: Field>(state_: &[F; WIDTH]) -> [F; WIDTH] {
-        // TODO: Use MaybeUninit
         let mut result = [F::ZERO; WIDTH];
 
         // NB: This is a bit wasteful. Replacing it by initialising state
@@ -305,7 +303,6 @@ mod poseidon_width8 {
     #[inline]
     #[unroll_for_loops]
     fn mds_partial_layer_init<F: Field>(state: &[F; WIDTH]) -> [F; WIDTH] {
-        // TODO: Use MaybeUninit
         let mut result = [F::ZERO; WIDTH];
 
         // Initial matrix has first row/column = [1, 0, ..., 0];
@@ -455,7 +452,6 @@ mod poseidon_width8 {
 mod poseidon_width12 {
     use unroll::unroll_for_loops;
     use crate::field::field_types::Field;
-    use std::mem::MaybeUninit;
 
     use crate::hash::poseidon::{
         ALL_ROUND_CONSTANTS, N_ROUNDS, N_PARTIAL_ROUNDS, HALF_N_FULL_ROUNDS
@@ -686,7 +682,6 @@ mod poseidon_width12 {
     #[inline]
     #[unroll_for_loops]
     fn mds_layer<F: Field>(state_: &[F; WIDTH]) -> [F; WIDTH] {
-        // TODO: Use MaybeUninit
         let mut result = [F::ZERO; WIDTH];
 
         // NB: This is a bit wasteful. Replacing it by initialising state
@@ -714,7 +709,6 @@ mod poseidon_width12 {
     #[inline]
     #[unroll_for_loops]
     fn mds_partial_layer_init<F: Field>(state: &[F; WIDTH]) -> [F; WIDTH] {
-        // TODO: Use MaybeUninit
         let mut result = [F::ZERO; WIDTH];
 
         // Initial matrix has first row/column = [1, 0, ..., 0];
