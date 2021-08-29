@@ -133,129 +133,128 @@ mod poseidon_width8 {
     const MDS_MATRIX_EXPS: [u64; WIDTH] = [2, 0, 1, 8, 4, 3, 0, 0];
 
     const FAST_PARTIAL_FIRST_ROUND_CONSTANT: [u64; WIDTH]  = [
-        0x66bbd30e99d311da, 0x922cdd920d5ac419, 0x5cab27a0c15b168b, 0xa733ad3667055dc6,
-        0x1a746ebd8adb885b, 0xfec96302d0793c32, 0x30d4dcccf965bece, 0x5505d4978a83ad06,
+        0x66bbd30e99d311da, 0x1d6beb91f1441299, 0x1dfb41ac10a5bda8, 0xcbe9eb8f6bfd79fb,
+        0x2c943b9a8d9ee4f4, 0x6d70fcb874f05f57, 0xf48e800880a87878, 0x24b1eb418f3994c3,
     ];
 
     const FAST_PARTIAL_ROUND_CONSTANTS: [u64; N_PARTIAL_ROUNDS - 1]  = [
-        0xa9fca60179a34b27, 0x910f523e761d5cf7, 0xf4381501631c51c3, 0xc0807cefd7f480a7,
-        0xdd16bf949cade59c, 0x3fab1a2e78b09325, 0xaa7f685d961479b3, 0x53f3d661745e253f,
-        0x2213f04ad2f65b70, 0xe2ed250f09674faf, 0x776f2b2c2c3e3360, 0x7f941321c1eab8e9,
-        0x472f7ff111dae518, 0xa7587380d00c7171, 0x3bc2301bb03c506a, 0x5e7548da8c740bd5,
-        0x78b7bc1e27198977, 0xd543e5e950f31b97, 0x42f8d1bc07d79f7a, 0xb8b0aed3f19bc871,
-        0xc6fd030a1a9f267c,
+        0x6d69d39f98b01c69, 0x7694ae5bbd92de89, 0x0b9bfb9fbb252451, 0xf547651a6893f655,
+        0x44f4e70e9f77cd03, 0xd8e2801a322a6f39, 0xbd0f7e1bc9649171, 0x2eda14ffc32245e4,
+        0x296e04e8222b9265, 0x9aa740fd9cf504ea, 0xe5e868a6d4315bcc, 0x7d430efe75c6ece5,
+        0x37ca54f0b49f6214, 0xde83a9f01bfa62d2, 0xb0831b529dbb5b9c, 0xa1d590c3b2b945b5,
+        0xa130846268961080, 0x79e6e27330006b7a, 0xba12695bd255613b, 0x0091d7aaf86c0e15,
+        0xe9028a7b418aa9f2,
     ];
 
     const FAST_PARTIAL_ROUND_VS: [[u64; WIDTH - 1]; N_PARTIAL_ROUNDS] = [
-        [0xd988c89fed32790c, 0x9591f8e0d649b98c, 0xfc4168643da877c7, 0xedada09f7a299564,
-         0xad77fff957050234, 0x4c7abaa24552bc93, 0xc14c8ec240605dd3, ],
-        [0x269a8266e1f24a61, 0x92d584664cae4540, 0x8000a46f5e0d59be, 0x2c6f0f3ee91f18be,
-         0xcd992a29c33e3668, 0x262754408c6fa3ab, 0xbf5b14d522b49c24, ],
-        [0xe3676f32baab3bc5, 0x89de03dd1633bdb0, 0x5669c09ce55a8a5d, 0xec5542016500559f,
-         0x75998153067af4ff, 0xf01b44ac771b97dc, 0xb72e5f1e2900244c, ],
-        [0x26cd38cca2a8e873, 0xd6ec077d612a405f, 0x560fc75d2bca8b8e, 0xd2804351c8bad70f,
-         0x288003159f41a7ab, 0xade9051b7ce5d812, 0x04a0817b69d542c3, ],
-        [0x3ee18781eefd9b80, 0x65441e0deb9c1896, 0x4f577aec290e328c, 0xf2e72c41b27d5637,
-         0xdd341f2cf7a9f285, 0x19e2f006cdaf010d, 0x42c54c87f1230ae3, ],
-        [0xf89381bb46f7df6b, 0xdac45f5772bff325, 0xe9900763cca7c4cb, 0xd3ae7a9dac4f45d2,
-         0x209bac72d29da249, 0x16c2a74dc27c7567, 0x2961a1507e4f56de, ],
-        [0x1fd9cf0291a05b5a, 0x1df4da71ea88e852, 0x1ee2b69c7017bcf5, 0x1d7ec870b3d2d366,
-         0x12347dcab71cab3a, 0x21bc50cd8d876139, 0x22ece57cce482578, ],
-        [0x02021eca5670f1e5, 0x01e40136ebac9ba3, 0x01f329b6a6982471, 0x01dce277cac0f4d3,
-         0x012623d00535cecf, 0x0220ec3d9bc27b19, 0x0233b75c8fe7731f, ],
-        [0x002077652696b6d5, 0x001e82ab2d8593f8, 0x001f733584f16e63, 0x001e09b9165afb3c,
-         0x00128ef5c791bf77, 0x00226663911114b4, 0x0023a04e5326b8a5, ],
-        [0x00020c16fb7a21ab, 0x0001eded600ef1b7, 0x0001fd8333154956, 0x0001e66cd558845e,
-         0x00012b8a9a089c1f, 0x00022ab64de2323f, 0x00023dbc856b2b68, ],
-        [0x0000210be20b1fac, 0x00001f076ad50f4c, 0x00001ffb27ad8c81, 0x00001e995bd6d9b6,
-         0x000012f3420f4338, 0x000023240d962916, 0x0000245e4d3e691b, ],
-        [0x000002180ffadf8a, 0x000001f8dff7d091, 0x0000020883bd3622, 0x000001ef14c4a919,
-         0x00000130350d9d61, 0x000002334154240e, 0x00000247f821189b, ],
-        [0x00000021701b6c99, 0x0000001f8777cda2, 0x000000208c3a2996, 0x0000001f5d995a1c,
-         0x000000136e779e7a, 0x00000023fef585fe, 0x0000002501494523, ],
-        [0x000000022a01915d, 0x0000000202699a0e, 0x000000020fb21174, 0x00000001f1a13322,
-         0x0000000133868466, 0x000000023b162f41, 0x0000000258278210, ],
-        [0x0000000021637d50, 0x0000000020673c58, 0x0000000021b7295f, 0x0000000020fc5040,
-         0x0000000013f34a1e, 0x00000000249beba2, 0x0000000024dc45e2, ],
-        [0x0000000002417afa, 0x0000000001fceaa8, 0x0000000002009f1a, 0x0000000001e28790,
-         0x000000000138f67b, 0x00000000024d45f2, 0x000000000284b148, ],
-        [0x0000000000211948, 0x000000000023815f, 0x0000000000257e12, 0x0000000000243554,
-         0x000000000013c96e, 0x000000000022fe00, 0x0000000000227a62, ],
-        [0x0000000000022df8, 0x000000000001cc5d, 0x000000000001b67c, 0x000000000001b7f4,
-         0x0000000000015c4e, 0x0000000000029cac, 0x000000000002f3db, ],
-        [0x000000000000249a, 0x0000000000002e24, 0x0000000000002df4, 0x000000000000242f,
-         0x000000000000114c, 0x0000000000001ab8, 0x0000000000001ce2, ],
-        [0x000000000000014b, 0x000000000000018d, 0x00000000000000f4, 0x00000000000001af,
-         0x0000000000000228, 0x00000000000003a8, 0x0000000000000329, ],
-        [0x0000000000000046, 0x0000000000000048, 0x0000000000000016, 0x0000000000000009,
-         0x0000000000000010, 0x000000000000000b, 0x0000000000000018, ],
-        [0x0000000000000000, 0x0000000000000000, 0x0000000000000003, 0x0000000000000004,
-         0x0000000000000008, 0x0000000000000001, 0x0000000000000000, ],
+        [0xa22ff49d0671165e, 0x90333ff5780b9eec, 0x919457d220ebe522, 0xd4d8b0a8abc35c6e,
+         0x1eca5e0b617850b2, 0x0baa903332edef19, 0x09f1096d496c30f1, ],
+        [0x1eb2711afa8d6426, 0x533628d26840e36f, 0xde3f8282ae0806b9, 0x5b96c6c0b7997a68,
+         0xec6a242a596b9076, 0x739b857159e03511, 0x1d6bd33258b57d6d, ],
+        [0x3603d13c3b01d6c6, 0xc0f959147dc91ee1, 0x7d3b89b472d64db2, 0x49e58d37e29f4c85,
+         0xc718800efb8b1033, 0x73b0ca72c31e03fd, 0x9697330fea22a70e, ],
+        [0x978123b0febeabd5, 0x8efbca443cb8bfca, 0x9f24c447f2d051bb, 0x45ee906ad9703d20,
+         0x9ec6215940d574a8, 0x42b4738de9fed9a9, 0x1a23d296f0228cc0, ],
+        [0xbf9c7b22a247969f, 0xf45041b94b8fac96, 0xce23d5f90c9f2a39, 0x64524dbaaef7a56d,
+         0xc9b92c71390db85c, 0xd622ef228ef8a6df, 0x697f4e5dc08c2716, ],
+        [0x1116bcc5722efae3, 0xfbb5345317c9d731, 0xf696a78eb4b4b9ed, 0xaa08800cfdb59ad3,
+         0xf6e9c007ec8900aa, 0xdb35e3b5c9ac6745, 0x4193d903dcca4903, ],
+        [0x44b28ca6cb051164, 0xa63264849056f8e7, 0x0cc5dd14b73e4b34, 0xb0c213ed14737e89,
+         0xde4ba41535b7cd0f, 0x31de7a36cb4f7f3a, 0x08cc6af0fdcfd306, ],
+        [0x97f04080745484ff, 0x40b15e2cd05957bb, 0x27f5279de5eb0729, 0x7b19caab04109b68,
+         0xd326745e4bfb87bf, 0xd7e15457e6d7c2d0, 0x4919494236719d7d, ],
+        [0x21e9432cc31e919c, 0x837603b01af94b56, 0xe6067467c4e0480a, 0x9dd36e1da07e354e,
+         0xe529a3d3f271beb2, 0xa5acad30d3c3fb59, 0x6d5a82823faf4ff1, ],
+        [0x88b05b29984e6429, 0x2635decc12d3e510, 0x823fe6152336d209, 0xe7cb76fca3c4fa32,
+         0x30443c9279dafcb9, 0x6734acbbe14ba020, 0xcb11ff5d7b9c7a38, ],
+        [0x82cdd90e134c2173, 0xff5acf3f7c55d923, 0x63220d8165dcf1a2, 0xe0ce19b67f54977b,
+         0x9fbf941303d8b998, 0xf8eda0fc08ccd441, 0x265a0c94ca846c64, ],
+        [0x2d43cc534ce9a518, 0x7e78354cb4fdb780, 0x7f33160cefcdb183, 0x33390d373007e718,
+         0xe463fb62f8c5e845, 0x454ac64497ad7b5f, 0xa73d26ae995afb8b, ],
+        [0x9482c8097651113c, 0x24764722d2be2d59, 0x65b49db52c50cf30, 0x54298f2c474c206f,
+         0x13a426fc7958905f, 0xe876f9b953c377f0, 0x43cfbf90c880605f, ],
+        [0xdb016a76619ed366, 0x92a1be5140bdb3d3, 0xd399da81f92fb81a, 0xd7a41636505c38bd,
+         0x40358caf39317262, 0x8fbc20933dd7d4e9, 0xc957a47b7eaa161b, ],
+        [0x11d39c39e8228a7a, 0x071b598d448b6c05, 0x211f8baa562a3196, 0x0cc5b375756650c5,
+         0x059feb689a554440, 0x3ee782c2a0c19619, 0x336a46904e832094, ],
+        [0x0034133810f09fc5, 0x0021fada430e3c09, 0x010540e301677234, 0x000db9ed138d5010,
+         0x000331ce727cd24c, 0x001c07a12edb566a, 0x00098bb5328b02e5, ],
+        [0x000016d34ac3c4e3, 0x000005c883b88ffe, 0x00001054167214c0, 0x00002a5a393b8713,
+         0x000010d7401feb08, 0x000103f43d476cf3, 0x00000a2b0d83a7a3, ],
+        [0x00000102d65ebdaa, 0x0000000663cf5317, 0x00000009aedd7f7a, 0x00000011fad0f867,
+         0x00000002a1022998, 0x0000000ceff381ff, 0x00000021cf076bb8, ],
+        [0x0000000008679bb3, 0x000000001567aab3, 0x0000000040a61838, 0x0000000101ac6a94,
+         0x0000000002ec5178, 0x0000000006b2488e, 0x000000000d4a83cb, ],
+        [0x0000000000043801, 0x0000000000089d36, 0x000000000003d5c0, 0x0000000000052021,
+         0x00000000000a24e8, 0x0000000000306095, 0x000000000100fed1, ],
+        [0x0000000000002026, 0x0000000000010055, 0x0000000000000442, 0x0000000000000255,
+         0x0000000000000434, 0x0000000000000269, 0x0000000000000308, ],
+        [0x0000000000000001, 0x0000000000000001, 0x0000000000000008, 0x0000000000000010,
+         0x0000000000000100, 0x0000000000000002, 0x0000000000000001, ],
     ];
 
     const FAST_PARTIAL_ROUND_W_HATS: [[u64; WIDTH - 1]; N_PARTIAL_ROUNDS] = [
-        [0xa58aa8ac20026048, 0xd59d1e437f494b49, 0x074e020db8252bc1, 0x0deda591d62ae741,
-         0xf708eb061e358c00, 0x59990aae2f59b396, 0x7aed7284903a81c8, ],
-        [0x98b7b620c663c4c3, 0xce24bc7ba86e1721, 0xaca796e60f43d9a9, 0x8e960659cc61a15c,
-         0x38736cec9ee41f1e, 0x42a43e71b333fa6b, 0xfa605fa18e725a73, ],
-        [0xce818633f58f17d7, 0x2337b6969deb48d5, 0xa3751dcb9850d11c, 0xa02f991f2fa68f41,
-         0xf1932d24ba0be3f0, 0x7bd54ec4d1cc0e3c, 0xbef0f00f852f8ae0, ],
-        [0xe179f294a5d169e6, 0x0205b0310aa6cd5f, 0x84af6e5b1053103d, 0x1475eaa8d93fc6a5,
-         0xda5f459d31ff3efa, 0xabe69200fe1f9f69, 0x686d71351ca4929d, ],
-        [0x3174bcdbdd00b17d, 0x862f02eb08ee6a30, 0x90424a250368b30a, 0x70096dcbc19f61a8,
-         0xcf83457330cda0bc, 0x3e431a09f426fa85, 0x67b8474fd6874269, ],
-        [0x4ae3f08b29d5216c, 0xb1b678da191bb3e9, 0xaba3bc84ca6410c1, 0x29109b5337c8809f,
-         0x2693dfd7107a0bef, 0x1bbc354bffeeac31, 0xf2d573ca93453d7e, ],
-        [0x7c0050987fa69374, 0xdcc504c30d8a284a, 0xc0b5d8a5db7e3d74, 0x33778f3cf12578fb,
-         0xb20f05344b8a4d90, 0x652c9f207cb492e8, 0x1875feabea2bea9a, ],
-        [0x9c7e5b6cc0b749ec, 0x28198b07a1e4d9ae, 0x8ec9d9f705707179, 0x6d18a4077b8d75a9,
-         0xfafd4b8e7d7e68aa, 0xea949788ab9ce5e4, 0x17dded58bfa55942, ],
-        [0xd8be7acf569d1fd0, 0xaa6cc1a757e34ef3, 0xd9478b5a0d04438e, 0x2dd7768a3daa2020,
-         0x378a3707727137e7, 0x2e71e13ad80411ac, 0x46f24f72c4a51b5d, ],
-        [0xd3ad8ea6f4c32855, 0xecd228e8cc53672f, 0x326c73014b464960, 0xa0e67393560fdfc2,
-         0xfebbf1e61b75aa2b, 0x88e60ae27938fb18, 0x988efca114c76aab, ],
-        [0x64bd935bf81bdbfb, 0xbde8381ca6270e8c, 0x357487d81a185704, 0x95b87b2ffce2a952,
-         0xe52bd8b677d97876, 0x746770ffc24b36a4, 0xc735ce882796d894, ],
-        [0x89c551ada036236e, 0x36a032a3b9be259e, 0x49b4302ee189903a, 0x64e734f8c78fcabd,
-         0x8204479f2b732c33, 0x5005367ac32b9cd4, 0x30e61702a8f2fbd8, ],
-        [0xfb612b9e67383a51, 0xba92ce278a1c21e1, 0xd0d5b187709809bc, 0xe14b6f0d1567ca0b,
-         0x29d39b445739a343, 0xca63e2fff1ce86f2, 0xd5bb76143d382b88, ],
-        [0x6acd9f8ff73ac2db, 0xca0baac3fae0a588, 0x5326100292b490b7, 0xd9656b7866560b0b,
-         0xe69807cbaccd4884, 0xd92f7cc9bbde5c38, 0x52b53071bd9cd730, ],
-        [0x185cb77f513c81c9, 0x4246e3a578894ef2, 0xe77cf7bb86b255ad, 0xcb630f8d1a395800,
-         0x1be9f3ff403f5961, 0x8d8c6ee554ea27db, 0x01e904cf562b82a4, ],
-        [0x70d6e9a0df9f328b, 0x1dc5855a66d55e90, 0x97a006e5660daf41, 0xa1adcd2959629524,
-         0x92fadae4c06d8720, 0x7495604d6f7b1637, 0xdf9d03eae2c66229, ],
-        [0x96eaacac3bbb54da, 0xc3b93bf58312bc9a, 0x7c4b2802e5455c50, 0x86af7878aee743a4,
-         0x6f1d8e07dc107c29, 0x1173974022f94d73, 0x1773f7afbdc5cd3c, ],
-        [0x216aac9599fe9e13, 0xd6393c82c46a8d58, 0x21aba13286492ac1, 0xcec9795b580d5260,
-         0xd3fad674b4e98cd1, 0x5f94dcefee81b1f7, 0x0fd9951dfd23dac6, ],
-        [0x0b9d9bb290fcd0ff, 0x25831916aab75f29, 0xc2e6da42f6a57491, 0xaeae5341ebe5b2ff,
-         0x0115e48d8b6b2766, 0x5875349ea7001be9, 0x735405e37600285f, ],
-        [0x5e9b6e3c91586035, 0x4abce16f13b1e71b, 0x681b05a48b48af54, 0x39c8aedb1c69c639,
-         0x1fa1dadec72a009f, 0x2fb4c60dcce57ef2, 0xd9553eb8c154ffd2, ],
-        [0x4013c3aefd170cef, 0x7ddc617c3b1fca63, 0x2344c694e3ee3af6, 0x3f296d377b4774a5,
-         0x77b37fcf3c8d6a3a, 0x20d03890734afbc2, 0x21348a0bf55aa4a6, ],
-        [0x44281cd32deca367, 0xefb8750953e8e7a9, 0x6de022ba843f08b8, 0x606af788aa770914,
-         0x01dde0d48a639638, 0x529ce3ffa513942e, 0xba103c6d8296a3ab, ],
+        [0xa243d101153eb562, 0x1f670d5d8c14c000, 0xced8026856dd6a07, 0x1b7c4f1704047b8e,
+         0x41ea3a3855c2d39e, 0x066101717cef6c02, 0xee96a3b009f99df7, ],
+        [0xb00328edb79d53bd, 0x1639f163c71eee14, 0x192788e832e46178, 0x7c68b41f104d68ec,
+         0x41174fa1485efe00, 0x618f488d942ec9f2, 0x4bdb7e3318926ebe, ],
+        [0x0b28434790c294ef, 0x9ba864afff9e233c, 0x629092442534bdc0, 0x3be9b41110ccdb7d,
+         0x9aa3bdeb8d16ac39, 0x17429e3995825d63, 0x702b4284837a4846, ],
+        [0xd75842068900c798, 0x8cce741a1060389b, 0xcf91c066d7913b3e, 0xe50be3cbf8a4ace7,
+         0x4df095d852da37da, 0x84078b181ce8bbcf, 0x085fc2670b73de72, ],
+        [0xd97455be3e610261, 0xceef7dfe63f37fd2, 0x52faf29e9aa95f11, 0xea9672f8f70dde6c,
+         0x8c51444bebd1b0ee, 0x49f00564527f62e3, 0x8433762d9a2fcba3, ],
+        [0x99eff4ff916d648e, 0x87c459e036359734, 0xd763393ed532616b, 0x0766745aef99a96a,
+         0x16b83fbe31e685fb, 0xc2fee2ab39b9e5b3, 0x8a72cfd149535052, ],
+        [0x8167512548df88b2, 0xf04b045f4d32a8a1, 0xf673ef6ce25e4806, 0x21c85f4ab3a3b118,
+         0xc1d8c8d07113367d, 0x6af20849e27ac1b5, 0xcef5545ab2bdd1b3, ],
+        [0xa81eb29c319d5be8, 0x0e0ad7ad11c3a5ab, 0xf770147f2cd4ea74, 0x69f20eddd45794e6,
+         0xb174303b7286d9a2, 0x04013980dd7245c7, 0x5dd6a119eba2db57, ],
+        [0xc9aff46079c3bea7, 0xe40268bb580ef209, 0x54e2aba7d4f0596f, 0x7e2b0e6fcc266ad5,
+         0x0d3daa4a7ead5ad6, 0x84eb64836ab1a2d2, 0x5fc9b471a5a97c6a, ],
+        [0xcfcfeaa93d0d1462, 0xaf1f5dd31517b872, 0x7a4c24137a5077e0, 0x55feca2820116ffc,
+         0xdf0429c64c459ac5, 0xed5ce47466d0bc8e, 0x8189efb2fe5e0478, ],
+        [0x68dc6e8fc5fa43f7, 0xb47798ff890af473, 0xf078d6404130f753, 0xd9213de357e084ef,
+         0x51eb0ba5b3814334, 0x7e9885e240657b0c, 0x9de439a115165582, ],
+        [0x046b28c7d8e50ccf, 0x616f43798beeddb8, 0x4627e1d7b9b6523c, 0x5a00ee6489a654d1,
+         0x239bc16f685c02a3, 0xa3a71de01b6747a9, 0xcf6402218da7a24a, ],
+        [0x08ed374a2ec320d1, 0xe5a31270acf40388, 0x13fadd610c48f98e, 0x1e95da99ae3a8c7e,
+         0x9dc0de1504c07254, 0x97cd6d98b355eadb, 0x9bc070176cd3c501, ],
+        [0xf2fdfc56a1b76de8, 0xfd581b091c3df5a0, 0x7e321d7d5684d10c, 0x5a61834a90f088bc,
+         0x2302d1337a2d8cec, 0x725afc4089b3c89f, 0x4ddf24c735a5374d, ],
+        [0x4175e1cb9310a009, 0xdddd1e503c04dc25, 0xca4b0ca8bccfe503, 0xe4bbab954b3bd636,
+         0x2b05f339af75dbe1, 0x8e9ffe84ceeeccd5, 0x124129078120a6e6, ],
+        [0x48bd19a1b761d33d, 0xeb499cf8a6725e0d, 0x32c937fe09983757, 0xda84fd5479d2dec3,
+         0xbac726cfd8a8a826, 0x75cc0a190b812741, 0xbe6bbdc6be692697, ],
+        [0x0a832806a4ace872, 0xa1e96219bb14acfb, 0x7251019780ae0c31, 0x547b2847470eaf47,
+         0x34da63bb720b7bbc, 0xc927a26df327fab7, 0x39a42518adce0d14, ],
+        [0xcab13a56ab3a6144, 0x366737df19a4f4db, 0xed08a988f6618092, 0x565b9c84939e7446,
+         0xa0e71c6ce10a3fdf, 0xffc45cb3ff5515fa, 0xd373981245598077, ],
+        [0x7ac75a736a509479, 0x5ec9215122f1fe35, 0xac8b72753e8924f5, 0xa0c81c2f8db1d81c,
+         0x998cdabdb1d3fa4e, 0xe4ca3a836097e99e, 0x39730c86a3bdee63, ],
+        [0xd2a127e3d4f1549e, 0xcf5673508860595f, 0xfe5d3387e1dbc076, 0xfe8812fecc245152,
+         0xf3e6abb09d715f64, 0xf5f868062e1ebabe, 0xff93de5aff828886, ],
+        [0x42735ce753f9bb15, 0x9f7a7533b471f7c6, 0x097d75da8c661359, 0x1ed051078c26b3eb,
+         0x40ef3e78b2b13b0d, 0xb0104cc90708254d, 0x97503325810d1378, ],
+        [0xf728fe2c1747bad4, 0x415cdecd416e0602, 0x9f9c2e9615e80c24, 0xe291b04af1c1e362,
+         0x1e93b91509607640, 0x5ed95be1c52cf97e, 0x359f0220d53d82f4, ],
     ];
 
-    // NB: This is in COLUMN-major order to support cache-friendly pre-multiplication.
     const FAST_PARTIAL_ROUND_INITIAL_MATRIX: [[u64; WIDTH - 1]; WIDTH - 1] = [
-        [0x3ca7766c0f02a97f, 0x595c5ea991cb443c, 0x312171c7b15a9d42, 0xca18c09bda766f05,
-         0xc49844ab6ce76933, 0xd786b14be0417613, 0x1fcc411469e49e7f, ],
-        [0xba1e6a03b2377a00, 0x353defa584902c61, 0xd864d1052328b529, 0xca8ab74c79219c33,
-         0x18e95f5796202b29, 0x7fbdddfff64f3c4e, 0xd786b14be0417613, ],
-        [0xae995a4d6bcf1d6c, 0x126e6e68ced97421, 0x6ff28bf211012fe1, 0x95b3ce2379ab5862,
-         0x49ee54a44dd3862a, 0x18e95f5796202b29, 0xc49844ab6ce76933, ],
-        [0x15675de2f683c08d, 0x2ed3f1a0463a06d0, 0x08c50a4bc8296260, 0x4b1721226951eeac,
-         0x95b3ce2379ab5862, 0xca8ab74c79219c33, 0xca18c09bda766f05, ],
-        [0x14bdd436838abd95, 0x64178f2edb5c8cc8, 0x9802c0b0f8bde71f, 0x08c50a4bc8296260,
-         0x6ff28bf211012fe1, 0xd864d1052328b529, 0x312171c7b15a9d42, ],
-        [0x354b2c93b59db840, 0x859dcbe542ec635e, 0x64178f2edb5c8cc8, 0x2ed3f1a0463a06d0,
-         0x126e6e68ced97421, 0x353defa584902c61, 0x595c5ea991cb443c, ],
-        [0xad6830e3e470192d, 0x354b2c93b59db840, 0x14bdd436838abd95, 0x15675de2f683c08d,
-         0xae995a4d6bcf1d6c, 0xba1e6a03b2377a00, 0x3ca7766c0f02a97f, ],
+        [0x3fc702a71c42c8df, 0xdc5d5c2cec372bd8, 0x61e9415bfc0d135a, 0x9b7a25991a49b57f,
+         0xaaee943e6eccf7b8, 0x2be97f5416341131, 0x3f3fd62d28872386, ],
+        [0xda6cfb436cf6973e, 0x5ed3accc77ae85d0, 0xd63481d84fa12429, 0x38d80c86e3eb1887,
+         0xf8ad1187508f709c, 0xd0b8c098bdcf7407, 0x2be97f5416341131, ],
+        [0x800fc4e2c9f585d8, 0xc768961eecdcb554, 0xc8e4a9f96ab57c10, 0xeae1feb52d6eb09a,
+         0x7ffbbc7ce8823d72, 0xf8ad1187508f709c, 0xaaee943e6eccf7b8, ],
+        [0x3864e0e53027baf7, 0x95af3551b40289ce, 0x29d0d07fd9b6e9ea, 0xda20f5c812c60b4e,
+         0xeae1feb52d6eb09a, 0x38d80c86e3eb1887, 0x9b7a25991a49b57f, ],
+        [0x44ae739518db1d10, 0xa3ae8c5444f37d9a, 0xa5aac4ccc8b791cc, 0x29d0d07fd9b6e9ea,
+         0xc8e4a9f96ab57c10, 0xd63481d84fa12429, 0x61e9415bfc0d135a, ],
+        [0x1d46b66c2ad3ef0c, 0x53c070eae0ad0c38, 0xa3ae8c5444f37d9a, 0x95af3551b40289ce,
+         0xc768961eecdcb554, 0x5ed3accc77ae85d0, 0xdc5d5c2cec372bd8, ],
+        [0xbc75b7bb6f92fb6b, 0x1d46b66c2ad3ef0c, 0x44ae739518db1d10, 0x3864e0e53027baf7,
+         0x800fc4e2c9f585d8, 0xda6cfb436cf6973e, 0x3fc702a71c42c8df, ],
     ];
 
     #[inline]
@@ -316,7 +315,7 @@ mod poseidon_width8 {
 
         for c in 1..WIDTH {
             for r in 1..WIDTH {
-                // NB: FAST_PARTIAL_ROUND_INITAL_MATRIX is stored in
+                // NB: FAST_PARTIAL_ROUND_INITIAL_MATRIX is stored in
                 // column-major order so that this dot product is cache
                 // friendly.
                 let t = F::from_canonical_u64(
@@ -476,11 +475,12 @@ mod poseidon_width12 {
     //  - FAST_PARTIAL_ROUND_INITIAL_MATRIX
     const MDS_MATRIX_EXPS: [u64; WIDTH] = [10, 13, 2, 0, 4, 1, 8, 7, 15, 5, 0, 0];
 
-    const FAST_PARTIAL_FIRST_ROUND_CONSTANT: [u64; WIDTH]  = [
+        const FAST_PARTIAL_FIRST_ROUND_CONSTANT: [u64; WIDTH]  = [
         0x3cc3f89232e3b0c8, 0x62fbbf978e28f47d, 0x39fdb188ec8547ef, 0x39df2d6d45a69859,
         0x8f0728b06d02b8ef, 0xaef06dc095c5e82a, 0xbca538714a7b9590, 0xbac7d7e5a0dd105c,
         0x6b92ff930094a160, 0xdaf229f00331101e, 0xd39b0be8a5c868c6, 0x47b0452c32f4fddb,
     ];
+
 
     const FAST_PARTIAL_ROUND_CONSTANTS: [u64; N_PARTIAL_ROUNDS - 1]  = [
         0xa00e150786abac6c, 0xe71901e012a81740, 0x8c4517d65a4d4813, 0x62b1661b06dafd6b,
@@ -555,8 +555,6 @@ mod poseidon_width12 {
         [0x0000000000015900, 0x00000000000c2505, 0x0000000020008642, 0x0000000002200945,
          0x0000000000430070, 0x0000000000058581, 0x0000000000240b08, 0x000000004000a214,
          0x0000000000814424, 0x00000000050050a2, 0x000000000083040a, ],
-        // TODO: This is the same as [2^x for x in MDS_MATRIX_EXPS].reverse() and
-        // could/should be treated separately
         [0x0000000000000001, 0x0000000000000001, 0x0000000000000020, 0x0000000000008000,
          0x0000000000000080, 0x0000000000000100, 0x0000000000000002, 0x0000000000000010,
          0x0000000000000001, 0x0000000000000004, 0x0000000000002000, ],
@@ -726,7 +724,7 @@ mod poseidon_width12 {
 
         for c in 1..WIDTH {
             for r in 1..WIDTH {
-                // NB: FAST_PARTIAL_ROUND_INITAL_MATRIX is stored in
+                // NB: FAST_PARTIAL_ROUND_INITIAL_MATRIX is stored in
                 // column-major order so that this dot product is cache
                 // friendly.
                 let t = F::from_canonical_u64(
@@ -888,10 +886,47 @@ pub fn poseidon12_naive<F: Field>(input: [F; 12]) -> [F; 12] {
 mod tests {
     use crate::field::crandall_field::CrandallField as F;
     use crate::field::field_types::Field;
-    use crate::hash::poseidon::{poseidon12, poseidon12_naive};
+    use crate::hash::poseidon::{poseidon8, poseidon8_naive, poseidon12, poseidon12_naive};
 
     #[test]
-    fn test_vectors() {
+    fn test_vectors8() {
+        const WIDTH: usize = 8;
+        const N_TEST_VECTORS: usize = 3;
+        // Test inputs are:
+        // 1. all zeros
+        // 2. range 0..WIDTH
+        // 3. random elements of CrandallField.
+        let inputs: [[u64; WIDTH]; N_TEST_VECTORS] = [
+            [0, 0, 0, 0, 0, 0, 0, 0, ],
+            [0, 1, 2, 3, 4, 5, 6, 7, ],
+            [0xb69ed321abbeffbb, 0xfb496d8c39b64e42, 0x274f1cfbb925c789, 0x9e846d2b9a56b834,
+             0xc7f297c0d48bc3b6, 0xb859ab1e45850a0a, 0x3244fe3bcb1244cb, 0xb98e1cfa647575de, ],
+        ];
+        // expected_output calculated with (modified) hadeshash reference implementation.
+        let expected_outputs: [[u64; WIDTH]; N_TEST_VECTORS] = [
+            [0x0751cebf68b361b0, 0x35d3c97c66539351, 0xd8658ef4a6240e92, 0x6781ebb9bbbb4e9f,
+             0x274e5747ffc945ab, 0xf145287440599e51, 0xb193e521a83175a1, 0xcc133eb594e53a80, ],
+            [0x1183fb3b5cbb3c6c, 0xa4ac49f197402036, 0xd752a2f6b9f1e6a2, 0x508da1afbebd9538,
+             0xd32e183335ea3b8a, 0x79eb2ab985665a18, 0xa6a43cefcee4bfc2, 0x50521374c3cf82e1, ],
+            [0xa7369ab44b1aadd2, 0x884abb3db138372d, 0x9fc2e4ee64df8608, 0x12a205150a1dbe5a,
+             0x934ab794bd534b3c, 0xb39ef937e8caa038, 0x9e5fe73f4b03983c, 0x9539e39e93c28978, ],
+        ];
+
+        for tv in 0..N_TEST_VECTORS {
+            let mut input = [F::ZERO; WIDTH];
+            for i in 0..WIDTH {
+                input[i] = F::from_canonical_u64(inputs[tv][i] as u64);
+            }
+            let output = poseidon8(input);
+            for i in 0..WIDTH {
+                let ex_output = F::from_canonical_u64(expected_outputs[tv][i]);
+                assert_eq!(output[i], ex_output);
+            }
+        }
+    }
+
+    #[test]
+    fn test_vectors12() {
         const WIDTH: usize = 12;
         const N_TEST_VECTORS: usize = 3;
         // Test inputs are:
@@ -907,15 +942,15 @@ mod tests {
         ];
         // expected_output calculated with (modified) hadeshash reference implementation.
         let expected_outputs: [[u64; WIDTH]; N_TEST_VECTORS] = [
-            [0x733dbb2084c331ac, 0x3cbd068569889642, 0x0bc75ee3b4b351ab, 0xc3cbdf8b7a447540,
-             0x2a6a9ddd090b6ca8, 0x66f55b580f0fcd31, 0x80935eec8cb4c86f, 0xc3b66cf805fb8332,
-             0xbbabe999ab606d17, 0x9618aca73ce5d896, 0xc4a523675a92c0d5, 0x3be6d1cdc14ca266, ],
-            [0xb03c984fae455fae, 0x79e7d53c5d25d456, 0x1ae40aa47d2bf9a5, 0x2ccda76dfcb2fc87,
-             0x1b1c79f82ece56d6, 0xe8c12ce2fe88c79e, 0x878dbb782b5015bc, 0x79b0a229fffd51c7,
-             0x606a66880f03946c, 0xe81378acf56dc99e, 0x29fd49a23025a4cb, 0x24a459927ee2dc66, ],
-            [0x68f4332a44f578d6, 0x778a6cb3296c4b1c, 0xbcb896697757fd75, 0x8571e71af645b680,
-             0x87e5fb8beeb58064, 0x1a773e0082e1bc3e, 0x49279a03c03740e0, 0xefc01f3e5bce40d6,
-             0x9c94e9dc2f4e644e, 0x1045284ba253bc2d, 0x6345d5906c37d80d, 0x10fc9428d0de1df3, ],
+            [0x3e7b141d38447d8e, 0x66c245618877844a, 0xb8e1c45f458b0f13, 0x2f1d4710145a8698,
+             0x7af9686a09b78693, 0xc0e5b9a1c728d4ea, 0x25a8a20844491890, 0x8e9d1b1b58ae2019,
+             0x593286e9cfdd9e55, 0x131ac26134caca32, 0xc1c6e880dc77f0a6, 0x94db15af6ad9527b, ],
+            [0x8ca83bb7e510aff5, 0x68a7a9441166cc2c, 0xa1ba50df7e5d9f68, 0xbd14765ff1725536,
+             0xcea83c5e2680f3da, 0xa7782c56559f6d32, 0x03d5cb8d13adf174, 0x298de89026c219a6,
+             0x481f50c421e19bf7, 0x3ea5672a17888b27, 0x2f223e603dd1cd7e, 0x05826e3e65f9d4e7, ],
+            [0x402cd8c7a11a682a, 0xc25b92012a2ad940, 0x64a26e5d349a800d, 0x78fcf2d5fe54bd74,
+             0x0724f91d1abd3154, 0xb1fa8e7a8853fe41, 0x0b82a2b53fa007f0, 0x226f2dbe1bae032f,
+             0x8c86ef4f325ff4ce, 0xce2fe2273aed3f7a, 0x3f67b6b298ae64a6, 0xaaf13b4630e53e41, ],
         ];
 
         for tv in 0..N_TEST_VECTORS {
@@ -932,7 +967,21 @@ mod tests {
     }
 
     #[test]
-    fn consistency() {
+    fn consistency8() {
+        const WIDTH: usize = 8;
+        let mut input = [F::ZERO; WIDTH];
+        for i in 0..WIDTH {
+            input[i] = F::from_canonical_u64(i as u64);
+        }
+        let output = poseidon8(input);
+        let output_fast = poseidon8_naive(input);
+        for i in 0..WIDTH {
+            assert_eq!(output[i], output_fast[i]);
+        }
+    }
+
+    #[test]
+    fn consistency12() {
         const WIDTH: usize = 12;
         let mut input = [F::ZERO; WIDTH];
         for i in 0..WIDTH {
