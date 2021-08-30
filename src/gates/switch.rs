@@ -161,12 +161,11 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
         gate_index: usize,
         _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        /*let gen = SwitchGenerator::<F, D, CHUNK_SIZE> {
+        (0..self.num_copies).map(|c| Box::new(SwitchGenerator::<F, D, CHUNK_SIZE> {
             gate_index,
             gate: self.clone(),
-        };
-        vec![Box::new(gen)]*/
-        vec![]
+            copy: c,
+        })).collect()
     }
 
     fn num_wires(&self) -> usize {
@@ -190,6 +189,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
 struct SwitchGenerator<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> {
     gate_index: usize,
     gate: SwitchGate<F, D, CHUNK_SIZE>,
+    copy: usize,
 }
 
 impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<F>
@@ -199,21 +199,19 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
         let local_target = |input| Target::wire(self.gate_index, input);
 
         let mut deps = Vec::new();
-        for c in 0..self.gate.num_copies {
-            for e in 0..CHUNK_SIZE {
-                deps.push(local_target(
-                    SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(c, e),
-                ));
-                deps.push(local_target(
-                    SwitchGate::<F, D, CHUNK_SIZE>::wire_second_input(c, e),
-                ));
-                deps.push(local_target(
-                    SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(c, e),
-                ));
-                deps.push(local_target(
-                    SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(c, e),
-                ));
-            }
+        for e in 0..CHUNK_SIZE {
+            deps.push(local_target(
+                SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(self.copy, e),
+            ));
+            deps.push(local_target(
+                SwitchGate::<F, D, CHUNK_SIZE>::wire_second_input(self.copy, e),
+            ));
+            deps.push(local_target(
+                SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(self.copy, e),
+            ));
+            deps.push(local_target(
+                SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(self.copy, e),
+            ));
         }
 
         deps
@@ -227,22 +225,20 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
 
         let get_local_wire = |input| witness.get_wire(local_wire(input));
 
-        for c in 0..self.gate.num_copies {
-            let switch_bool_wire = local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_switch_bool(
-                self.gate.num_copies,
-                c,
-            ));
-            for e in 0..CHUNK_SIZE {
-                let first_input =
-                    get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(c, e));
-                let first_output =
-                    get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(c, e));
+        let switch_bool_wire = local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_switch_bool(
+            self.gate.num_copies,
+            self.copy,
+        ));
+        for e in 0..CHUNK_SIZE {
+            let first_input =
+                get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(self.copy, e));
+            let first_output =
+                get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(self.copy, e));
 
-                if first_input == first_output {
-                    out_buffer.set_wire(switch_bool_wire, F::ONE);
-                } else {
-                    out_buffer.set_wire(switch_bool_wire, F::ZERO);
-                }
+            if first_input == first_output {
+                out_buffer.set_wire(switch_bool_wire, F::ONE);
+            } else {
+                out_buffer.set_wire(switch_bool_wire, F::ZERO);
             }
         }
     }
