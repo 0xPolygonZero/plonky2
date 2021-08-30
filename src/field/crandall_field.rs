@@ -232,6 +232,11 @@ impl Field for CrandallField {
     }
 
     #[inline]
+    fn to_noncanonical_u64(&self) -> u64 {
+        self.0
+    }
+
+    #[inline]
     fn to_canonical_u64(&self) -> u64 {
         let mut c = self.0;
         // We only need one condition subtraction, since 2 * ORDER would not fit in a u64.
@@ -242,7 +247,7 @@ impl Field for CrandallField {
     }
 
     #[inline]
-    fn from_canonical_u128(n: u128) -> Self {
+    fn from_noncanonical_u128(n: u128) -> Self {
         reduce128(n)
     }
 

@@ -143,15 +143,13 @@ where [(); WIDTH - 1]:  // magic to get const generic expressions to work
     fn mds_layer(state_: &[F; WIDTH]) -> [F; WIDTH] {
         let mut result = [F::ZERO; WIDTH];
 
-        // NB: This is a bit wasteful. Replacing it by initialising state
-        // directly with the raw u64 only saved a few percent though.
         let mut state = [0u64; WIDTH];
         for r in 0..WIDTH {
-            state[r] = state_[r].to_canonical_u64();
+            state[r] = state_[r].to_noncanonical_u64();
         }
 
         for r in 0..WIDTH {
-            result[r] = F::from_canonical_u128(Self::mds_row_shf(r, &state));
+            result[r] = F::from_noncanonical_u128(Self::mds_row_shf(r, &state));
         }
         result
     }
@@ -201,14 +199,8 @@ where [(); WIDTH - 1]:  // magic to get const generic expressions to work
     fn mds_partial_layer_fast(state: &[F; WIDTH], r: usize) -> [F; WIDTH] {
         // Set d = [M_00 | w^] dot [state]
 
-        // TODO: Can't make MDS_TOP_LEFT const or we get a 'use of
-        // generic parameter from outer function' error; whatever that
-        // means.
-        // TODO: Should be shifting state[0] with MDS_MATRIX_EXPS[0]
-        // directly
-        let MDS_TOP_LEFT: u64 = 1u64 << Self::MDS_MATRIX_EXPS[0];
-        //const MDS_TOP_LEFT: u64 = 1u64 << Self::MDS_MATRIX_EXPS[0];
-        let mut d = F::from_canonical_u64(MDS_TOP_LEFT) * state[0];
+        let s0 = state[0].to_noncanonical_u64() as u128;
+        let mut d = F::from_noncanonical_u128(s0 << Self::MDS_MATRIX_EXPS[0]);
         for i in 1..WIDTH {
             let t = F::from_canonical_u64(
                 Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
