@@ -686,87 +686,66 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::hash::poseidon::{Poseidon, PoseidonInterface};
 
-    #[test]
-    fn test_vectors8() {
-        const WIDTH: usize = 8;
-        const N_TEST_VECTORS: usize = 3;
-        // Test inputs are:
-        // 1. all zeros
-        // 2. range 0..WIDTH
-        // 3. random elements of CrandallField.
-        let inputs: [[u64; WIDTH]; N_TEST_VECTORS] = [
-            [0, 0, 0, 0, 0, 0, 0, 0, ],
-            [0, 1, 2, 3, 4, 5, 6, 7, ],
-            [0xb69ed321abbeffbb, 0xfb496d8c39b64e42, 0x274f1cfbb925c789, 0x9e846d2b9a56b834,
-             0xc7f297c0d48bc3b6, 0xb859ab1e45850a0a, 0x3244fe3bcb1244cb, 0xb98e1cfa647575de, ],
-        ];
-        // expected_output calculated with (modified) hadeshash reference implementation.
-        let expected_outputs: [[u64; WIDTH]; N_TEST_VECTORS] = [
-            [0x0751cebf68b361b0, 0x35d3c97c66539351, 0xd8658ef4a6240e92, 0x6781ebb9bbbb4e9f,
-             0x274e5747ffc945ab, 0xf145287440599e51, 0xb193e521a83175a1, 0xcc133eb594e53a80, ],
-            [0x1183fb3b5cbb3c6c, 0xa4ac49f197402036, 0xd752a2f6b9f1e6a2, 0x508da1afbebd9538,
-             0xd32e183335ea3b8a, 0x79eb2ab985665a18, 0xa6a43cefcee4bfc2, 0x50521374c3cf82e1, ],
-            [0xa7369ab44b1aadd2, 0x884abb3db138372d, 0x9fc2e4ee64df8608, 0x12a205150a1dbe5a,
-             0x934ab794bd534b3c, 0xb39ef937e8caa038, 0x9e5fe73f4b03983c, 0x9539e39e93c28978, ],
-        ];
-
-        for tv in 0..N_TEST_VECTORS {
+    fn check_test_vectors<const WIDTH: usize>(test_vectors: Vec<([u64; WIDTH], [u64; WIDTH])>)
+    where [(); WIDTH - 1]: {
+        for (input_, expected_output_) in test_vectors.into_iter() {
             let mut input = [F::ZERO; WIDTH];
             for i in 0..WIDTH {
-                input[i] = F::from_canonical_u64(inputs[tv][i] as u64);
+                input[i] = F::from_canonical_u64(input_[i]);
             }
             let output = Poseidon::poseidon(input);
             for i in 0..WIDTH {
-                let ex_output = F::from_canonical_u64(expected_outputs[tv][i]);
+                let ex_output = F::from_canonical_u64(expected_output_[i]);
                 assert_eq!(output[i], ex_output);
             }
         }
     }
 
     #[test]
-    fn test_vectors12() {
-        const WIDTH: usize = 12;
-        const N_TEST_VECTORS: usize = 3;
+    fn test_vectors() {
         // Test inputs are:
         // 1. all zeros
         // 2. range 0..WIDTH
         // 3. random elements of CrandallField.
-        let inputs: [[u64; WIDTH]; N_TEST_VECTORS] = [
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],
-            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, ],
-            [0xb69ed321abbeffbb, 0xfb496d8c39b64e42, 0x274f1cfbb925c789, 0x9e846d2b9a56b834,
-             0xc7f297c0d48bc3b6, 0xb859ab1e45850a0a, 0x3244fe3bcb1244cb, 0xb98e1cfa647575de,
-             0x3c9ed8013b0b366b, 0x6a242cb943c91b16, 0x404794ad562239f1, 0x209363e20945adf6, ],
-        ];
-        // expected_output calculated with (modified) hadeshash reference implementation.
-        let expected_outputs: [[u64; WIDTH]; N_TEST_VECTORS] = [
-            [0x3e7b141d38447d8e, 0x66c245618877844a, 0xb8e1c45f458b0f13, 0x2f1d4710145a8698,
-             0x7af9686a09b78693, 0xc0e5b9a1c728d4ea, 0x25a8a20844491890, 0x8e9d1b1b58ae2019,
-             0x593286e9cfdd9e55, 0x131ac26134caca32, 0xc1c6e880dc77f0a6, 0x94db15af6ad9527b, ],
-            [0x8ca83bb7e510aff5, 0x68a7a9441166cc2c, 0xa1ba50df7e5d9f68, 0xbd14765ff1725536,
-             0xcea83c5e2680f3da, 0xa7782c56559f6d32, 0x03d5cb8d13adf174, 0x298de89026c219a6,
-             0x481f50c421e19bf7, 0x3ea5672a17888b27, 0x2f223e603dd1cd7e, 0x05826e3e65f9d4e7, ],
-            [0x402cd8c7a11a682a, 0xc25b92012a2ad940, 0x64a26e5d349a800d, 0x78fcf2d5fe54bd74,
-             0x0724f91d1abd3154, 0xb1fa8e7a8853fe41, 0x0b82a2b53fa007f0, 0x226f2dbe1bae032f,
-             0x8c86ef4f325ff4ce, 0xce2fe2273aed3f7a, 0x3f67b6b298ae64a6, 0xaaf13b4630e53e41, ],
+        // expected output calculated with (modified) hadeshash reference implementation.
+
+        let test_vectors8: Vec<([u64; 8], [u64; 8])> = vec![
+            ([0, 0, 0, 0, 0, 0, 0, 0, ],
+             [0x0751cebf68b361b0, 0x35d3c97c66539351, 0xd8658ef4a6240e92, 0x6781ebb9bbbb4e9f,
+              0x274e5747ffc945ab, 0xf145287440599e51, 0xb193e521a83175a1, 0xcc133eb594e53a80, ]),
+            ([0, 1, 2, 3, 4, 5, 6, 7, ],
+             [0x1183fb3b5cbb3c6c, 0xa4ac49f197402036, 0xd752a2f6b9f1e6a2, 0x508da1afbebd9538,
+              0xd32e183335ea3b8a, 0x79eb2ab985665a18, 0xa6a43cefcee4bfc2, 0x50521374c3cf82e1, ]),
+            ([0xb69ed321abbeffbb, 0xfb496d8c39b64e42, 0x274f1cfbb925c789, 0x9e846d2b9a56b834,
+              0xc7f297c0d48bc3b6, 0xb859ab1e45850a0a, 0x3244fe3bcb1244cb, 0xb98e1cfa647575de, ],
+             [0xa7369ab44b1aadd2, 0x884abb3db138372d, 0x9fc2e4ee64df8608, 0x12a205150a1dbe5a,
+              0x934ab794bd534b3c, 0xb39ef937e8caa038, 0x9e5fe73f4b03983c, 0x9539e39e93c28978, ]),
         ];
 
-        for tv in 0..N_TEST_VECTORS {
-            let mut input = [F::ZERO; WIDTH];
-            for i in 0..WIDTH {
-                input[i] = F::from_canonical_u64(inputs[tv][i] as u64);
-            }
-            let output = Poseidon::poseidon(input);
-            for i in 0..WIDTH {
-                let ex_output = F::from_canonical_u64(expected_outputs[tv][i]);
-                assert_eq!(output[i], ex_output);
-            }
-        }
+        check_test_vectors(test_vectors8);
+
+        let test_vectors12: Vec<([u64; 12], [u64; 12])> = vec![
+            ([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],
+             [0x3e7b141d38447d8e, 0x66c245618877844a, 0xb8e1c45f458b0f13, 0x2f1d4710145a8698,
+              0x7af9686a09b78693, 0xc0e5b9a1c728d4ea, 0x25a8a20844491890, 0x8e9d1b1b58ae2019,
+              0x593286e9cfdd9e55, 0x131ac26134caca32, 0xc1c6e880dc77f0a6, 0x94db15af6ad9527b, ]),
+            ([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, ],
+             [0x8ca83bb7e510aff5, 0x68a7a9441166cc2c, 0xa1ba50df7e5d9f68, 0xbd14765ff1725536,
+              0xcea83c5e2680f3da, 0xa7782c56559f6d32, 0x03d5cb8d13adf174, 0x298de89026c219a6,
+              0x481f50c421e19bf7, 0x3ea5672a17888b27, 0x2f223e603dd1cd7e, 0x05826e3e65f9d4e7, ]),
+            ([0xb69ed321abbeffbb, 0xfb496d8c39b64e42, 0x274f1cfbb925c789, 0x9e846d2b9a56b834,
+              0xc7f297c0d48bc3b6, 0xb859ab1e45850a0a, 0x3244fe3bcb1244cb, 0xb98e1cfa647575de,
+              0x3c9ed8013b0b366b, 0x6a242cb943c91b16, 0x404794ad562239f1, 0x209363e20945adf6, ],
+             [0x402cd8c7a11a682a, 0xc25b92012a2ad940, 0x64a26e5d349a800d, 0x78fcf2d5fe54bd74,
+              0x0724f91d1abd3154, 0xb1fa8e7a8853fe41, 0x0b82a2b53fa007f0, 0x226f2dbe1bae032f,
+              0x8c86ef4f325ff4ce, 0xce2fe2273aed3f7a, 0x3f67b6b298ae64a6, 0xaaf13b4630e53e41, ]),
+        ];
+
+        check_test_vectors(test_vectors12);
     }
 
-    #[test]
-    fn consistency8() {
-        const WIDTH: usize = 8;
+    fn check_consistency<const WIDTH: usize>()
+    where [(); WIDTH - 1]: {
         let mut input = [F::ZERO; WIDTH];
         for i in 0..WIDTH {
             input[i] = F::from_canonical_u64(i as u64);
@@ -779,16 +758,8 @@ mod tests {
     }
 
     #[test]
-    fn consistency12() {
-        const WIDTH: usize = 12;
-        let mut input = [F::ZERO; WIDTH];
-        for i in 0..WIDTH {
-            input[i] = F::from_canonical_u64(i as u64);
-        }
-        let output = Poseidon::poseidon(input);
-        let output_naive = Poseidon::poseidon_naive(input);
-        for i in 0..WIDTH {
-            assert_eq!(output[i], output_naive[i]);
-        }
+    fn consistency() {
+        check_consistency::<8>();
+        check_consistency::<12>();
     }
 }
