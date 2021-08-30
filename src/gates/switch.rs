@@ -213,10 +213,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
                 SwitchGate::<F, D, CHUNK_SIZE>::wire_second_input(self.copy, e),
             ));
             deps.push(local_target(
-                SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(self.copy, e),
-            ));
-            deps.push(local_target(
-                SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(self.copy, e),
+                SwitchGate::<F, D, CHUNK_SIZE>::wire_switch_bool(self.copy, e),
             ));
         }
 
@@ -231,7 +228,11 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
 
         let get_local_wire = |input| witness.get_wire(local_wire(input));
 
-        let switch_bool_wire = local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_switch_bool(
+        let first_output_wire = local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(
+            self.gate.num_copies,
+            self.copy,
+        ));
+        let second_output_wire = local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(
             self.gate.num_copies,
             self.copy,
         ));
@@ -239,15 +240,21 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
             let first_input = get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(
                 self.copy, e,
             ));
-            let first_output = get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(
+            let second_input = get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_second_input(
+                self.copy, e,
+            ));
+            let switch_bool = get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_switch_bool(
                 self.copy, e,
             ));
 
-            if first_input == first_output {
-                out_buffer.set_wire(switch_bool_wire, F::ONE);
+            let (first_output, second_output) = if switch_bool == F::ZERO {
+                (first_input, second_input)
             } else {
-                out_buffer.set_wire(switch_bool_wire, F::ZERO);
-            }
+                (second_input, first_input)
+            };
+
+            out_buffer.set_wire(first_output_wire, first_output);
+            out_buffer.set_wire(second_output_wire, second_output);
         }
     }
 }

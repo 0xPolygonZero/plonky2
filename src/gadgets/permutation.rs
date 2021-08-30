@@ -22,7 +22,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             b.len(),
             "Permutation must have same number of inputs and outputs"
         );
-        assert_eq!(a[0].len(), b[0].len(), "Chunk sizes must be the same");
 
         match a.len() {
             // Two empty lists are permutations of one another, trivially.
@@ -455,7 +454,6 @@ mod tests {
     #[test]
     fn test_permutation_2x2() -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
@@ -482,7 +480,6 @@ mod tests {
     #[test]
     fn test_permutation_4x4() -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
