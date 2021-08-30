@@ -48,10 +48,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         b1: [Target; CHUNK_SIZE],
         b2: [Target; CHUNK_SIZE],
     ) {
-        let (switch, gate_c, gate_d) = self.create_switch(a1, a2);
+        let (switch, gate_out1, gate_out2) = self.create_switch(a1, a2);
         for e in 0..CHUNK_SIZE {
-            self.route(b1[e], gate_c[e]);
-            self.route(b2[e], gate_d[e]);
+            self.route(b1[e], gate_out1[e]);
+            self.route(b2[e], gate_out2[e]);
         }
 
         self.add_generator(TwoByTwoPermutationGenerator::<F, CHUNK_SIZE> {
@@ -453,7 +453,7 @@ mod tests {
     use crate::plonk::verifier::verify;
 
     #[test]
-    fn route_2x2() -> Result<()> {
+    fn test_permutation_2x2() -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
@@ -479,24 +479,36 @@ mod tests {
         verify(proof, &data.verifier_only, &data.common)
     }
 
-    /*fn test_permutation(size: usize) -> Result<()> {
+    #[test]
+    fn test_permutation_4x4() -> Result<()> {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new(config.num_wires);
         let mut builder = CircuitBuilder::<F, 4>::new(config);
-        let vec = FF::rand_vec(len);
-        let v: Vec<_> = vec.iter().map(|x| builder.constant_extension(*x)).collect();
 
-        for i in 0..len {
-            let it = builder.constant(F::from_canonical_usize(i));
-            let elem = builder.constant_extension(vec[i]);
-            builder.random_access(it, elem, v.clone());
-        }
+        let one = F::ONE;
+        let two = F::from_canonical_usize(2);
+        let three = F::from_canonical_usize(3);
+        let four = F::from_canonical_usize(4);
+        let five = F::from_canonical_usize(5);
+        let six = F::from_canonical_usize(6);
+        let seven = F::from_canonical_usize(7);
+        let eight = F::from_canonical_usize(8);
+
+        let one_two = [builder.constant(one), builder.constant(two)];
+        let three_four = [builder.constant(three), builder.constant(four)];
+        let five_six = [builder.constant(five), builder.constant(six)];
+        let seven_eight = [builder.constant(seven), builder.constant(eight)];
+
+        let a = vec![one_two, three_four, five_six, seven_eight];
+        let b = vec![seven_eight, one_two, five_six, three_four];
+
+        builder.assert_permutation(a, b);
 
         let data = builder.build();
-        let proof = data.prove(pw)?;
+        let proof = data.prove(pw).unwrap();
 
         verify(proof, &data.verifier_only, &data.common)
-    }*/
+    }
 }
