@@ -6,12 +6,15 @@ use crate::field::field_types::Field;
 
 // The number of full rounds and partial rounds is given by the
 // calc_round_numbers.py script. They happen to be the same for both
-// widths with s-box x^7.
+// width 8 and width 12 with s-box x^7.
+//
+// NB: Changing any of these values will require regenerating all of
+// the precomputed constant arrays in this file.
 const HALF_N_FULL_ROUNDS: usize = 4;
 const N_FULL_ROUNDS_TOTAL: usize = 2 * HALF_N_FULL_ROUNDS;
 const N_PARTIAL_ROUNDS: usize = 22;
 const N_ROUNDS: usize = N_FULL_ROUNDS_TOTAL + N_PARTIAL_ROUNDS;
-const MAX_WIDTH: usize = 12;
+const MAX_WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :)
 
 // The round constants are the same as for GMiMC (hash.rs):
 // generated from ChaCha8 with a seed of 0. In this case we need
@@ -113,8 +116,16 @@ const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
 pub trait PoseidonInterface<F: Field, const WIDTH: usize>
 where [(); WIDTH - 1]:  // magic to get const generic expressions to work
 {
+    // Total number of round constants required: width of the input
+    // times number of rounds.
     const N_ROUND_CONSTANTS: usize = WIDTH * N_ROUNDS;
+
+    // Use the MDS matrix which is circulant with entries 2^x for each
+    // x in MDS_MATRIX_EXPS.
     const MDS_MATRIX_EXPS: [u64; WIDTH];
+
+    // Precomputed constants for the fast Poseidon calculation. See
+    // the paper.
     const FAST_PARTIAL_FIRST_ROUND_CONSTANT: [u64; WIDTH];
     const FAST_PARTIAL_ROUND_CONSTANTS: [u64; N_PARTIAL_ROUNDS - 1];
     const FAST_PARTIAL_ROUND_VS: [[u64; WIDTH - 1]; N_PARTIAL_ROUNDS];
