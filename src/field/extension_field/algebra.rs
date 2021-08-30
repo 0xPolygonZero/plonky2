@@ -7,7 +7,7 @@ use crate::field::extension_field::OEF;
 /// Let `F_D` be the optimal extension field `F[X]/(X^D-W)`. Then `ExtensionAlgebra<F_D>` is the quotient `F_D[X]/(X^D-W)`.
 /// It's a `D`-dimensional algebra over `F_D` useful to lift the multiplication over `F_D` to a multiplication over `(F_D)^D`.
 #[derive(Copy, Clone)]
-pub struct ExtensionAlgebra<F: OEF<D>, const D: usize>([F; D]);
+pub struct ExtensionAlgebra<F: OEF<D>, const D: usize>(pub [F; D]);
 
 impl<F: OEF<D>, const D: usize> ExtensionAlgebra<F, D> {
     pub const ZERO: Self = Self([F::ZERO; D]);
@@ -22,6 +22,14 @@ impl<F: OEF<D>, const D: usize> ExtensionAlgebra<F, D> {
 
     pub fn to_basefield_array(self) -> [F; D] {
         self.0
+    }
+
+    pub fn scalar_mul(&self, scalar: F) -> Self {
+        let mut res = self.0;
+        res.iter_mut().for_each(|x| {
+            *x *= scalar;
+        });
+        Self(res)
     }
 }
 
@@ -151,6 +159,13 @@ impl<F: OEF<D>, const D: usize> PolynomialCoeffsAlgebra<F, D> {
             .rev()
             .fold(ExtensionAlgebra::ZERO, |acc, &c| acc * x + c)
     }
+
+    pub fn eval_base(&self, x: F) -> ExtensionAlgebra<F, D> {
+        self.coeffs
+            .iter()
+            .rev()
+            .fold(ExtensionAlgebra::ZERO, |acc, &c| acc.scalar_mul(x) + c)
+    }
 }
 
 #[cfg(test)]
@@ -205,7 +220,7 @@ mod tests {
                 let c = a * b;
                 let res = selector(xs, &ts);
                 for i in 0..D {
-                    ans[i] += res * c.to_basefield_array()[i].into();
+                    ans[i] += res.scalar_mul(c.to_basefield_array()[i]);
                 }
             }
             ans

@@ -15,6 +15,12 @@ use crate::field::field_types::Field;
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct QuarticCrandallField(pub(crate) [CrandallField; 4]);
 
+impl Default for QuarticCrandallField {
+    fn default() -> Self {
+        Self::ZERO
+    }
+}
+
 impl OEF<4> for QuarticCrandallField {
     // Verifiable in Sage with
     //     R.<x> = GF(p)[]
@@ -110,7 +116,10 @@ impl Field for QuarticCrandallField {
         let a_pow_r = a_pow_r_minus_1 * *self;
         debug_assert!(FieldExtension::<4>::is_in_basefield(&a_pow_r));
 
-        Some(a_pow_r_minus_1 * a_pow_r.0[0].inverse().into())
+        Some(FieldExtension::<4>::scalar_mul(
+            &a_pow_r_minus_1,
+            a_pow_r.0[0].inverse(),
+        ))
     }
 
     fn to_canonical_u64(&self) -> u64 {

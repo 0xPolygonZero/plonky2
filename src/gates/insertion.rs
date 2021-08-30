@@ -9,7 +9,7 @@ use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
@@ -85,7 +85,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             .collect::<Vec<_>>();
         let element_to_insert = vars.get_local_ext_algebra(self.wires_element_to_insert());
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
         let mut already_inserted = F::Extension::ZERO;
         for r in 0..=self.vec_size {
             let cur_index = F::Extension::from_canonical_usize(r);
@@ -97,13 +97,13 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             constraints.push(difference * equality_dummy - (F::Extension::ONE - insert_here));
             constraints.push(insert_here * difference);
 
-            let mut new_item = element_to_insert * insert_here.into();
+            let mut new_item = element_to_insert.scalar_mul(insert_here);
             if r > 0 {
-                new_item += list_items[r - 1] * already_inserted.into();
+                new_item += list_items[r - 1].scalar_mul(already_inserted);
             }
             already_inserted += insert_here;
             if r < self.vec_size {
-                new_item += list_items[r] * (F::Extension::ONE - already_inserted).into();
+                new_item += list_items[r].scalar_mul(F::Extension::ONE - already_inserted);
             }
 
             // Output constraint.
@@ -123,7 +123,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             .collect::<Vec<_>>();
         let element_to_insert = vars.get_local_ext(self.wires_element_to_insert());
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
         let mut already_inserted = F::ZERO;
         for r in 0..=self.vec_size {
             let cur_index = F::from_canonical_usize(r);
@@ -135,13 +135,13 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             constraints.push(difference * equality_dummy - (F::ONE - insert_here));
             constraints.push(insert_here * difference);
 
-            let mut new_item = element_to_insert * insert_here.into();
+            let mut new_item = element_to_insert.scalar_mul(insert_here);
             if r > 0 {
-                new_item += list_items[r - 1] * already_inserted.into();
+                new_item += list_items[r - 1].scalar_mul(already_inserted);
             }
             already_inserted += insert_here;
             if r < self.vec_size {
-                new_item += list_items[r] * (F::ONE - already_inserted).into();
+                new_item += list_items[r].scalar_mul(F::ONE - already_inserted);
             }
 
             // Output constraint.
@@ -165,7 +165,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             .collect::<Vec<_>>();
         let element_to_insert = vars.get_local_ext_algebra(self.wires_element_to_insert());
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
         let mut already_inserted = builder.constant_extension(F::Extension::ZERO);
         for r in 0..=self.vec_size {
             let cur_index_ext = F::Extension::from_canonical_usize(r);
@@ -187,14 +187,20 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
 
             let mut new_item = builder.scalar_mul_ext_algebra(insert_here, element_to_insert);
             if r > 0 {
-                let to_add = builder.scalar_mul_ext_algebra(already_inserted, list_items[r - 1]);
-                new_item = builder.add_ext_algebra(new_item, to_add);
+                new_item = builder.scalar_mul_add_ext_algebra(
+                    already_inserted,
+                    list_items[r - 1],
+                    new_item,
+                );
             }
             already_inserted = builder.add_extension(already_inserted, insert_here);
             if r < self.vec_size {
                 let not_already_inserted = builder.sub_extension(one, already_inserted);
-                let to_add = builder.scalar_mul_ext_algebra(not_already_inserted, list_items[r]);
-                new_item = builder.add_ext_algebra(new_item, to_add);
+                new_item = builder.scalar_mul_add_ext_algebra(
+                    not_already_inserted,
+                    list_items[r],
+                    new_item,
+                );
             }
 
             // Output constraint.
@@ -255,7 +261,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator
         deps
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |input| Wire {
             gate: self.gate_index,
             input,

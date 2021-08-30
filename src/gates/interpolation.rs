@@ -11,7 +11,7 @@ use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::polynomial::polynomial::PolynomialCoeffs;
@@ -109,7 +109,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
         for i in 0..self.num_points {
             let point = vars.local_wires[self.wire_point(i)];
             let value = vars.get_local_ext_algebra(self.wires_value(i));
-            let computed_value = interpolant.eval(point.into());
+            let computed_value = interpolant.eval_base(point);
             constraints.extend(&(value - computed_value).to_basefield_array());
         }
 
@@ -132,7 +132,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
         for i in 0..self.num_points {
             let point = vars.local_wires[self.wire_point(i)];
             let value = vars.get_local_ext(self.wires_value(i));
-            let computed_value = interpolant.eval(point.into());
+            let computed_value = interpolant.eval_base(point);
             constraints.extend(&(value - computed_value).to_basefield_array());
         }
 
@@ -213,6 +213,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
     }
 }
 
+#[derive(Debug)]
 struct InterpolationGenerator<F: Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: InterpolationGate<F, D>,
@@ -239,7 +240,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGener
         deps
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let n = self.gate.num_points;
 
         let local_wire = |input| Wire {

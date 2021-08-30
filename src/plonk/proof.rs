@@ -5,19 +5,20 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::proof::{FriProof, FriProofTarget};
-use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::hash::hash_types::MerkleCapTarget;
+use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::plonk::circuit_data::CommonCircuitData;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(bound = "")]
 pub struct Proof<F: Extendable<D>, const D: usize> {
-    /// Merkle root of LDEs of wire values.
-    pub wires_root: HashOut<F>,
-    /// Merkle root of LDEs of Z, in the context of Plonk's permutation argument.
-    pub plonk_zs_partial_products_root: HashOut<F>,
-    /// Merkle root of LDEs of the quotient polynomial components.
-    pub quotient_polys_root: HashOut<F>,
+    /// Merkle cap of LDEs of wire values.
+    pub wires_cap: MerkleCap<F>,
+    /// Merkle cap of LDEs of Z, in the context of Plonk's permutation argument.
+    pub plonk_zs_partial_products_cap: MerkleCap<F>,
+    /// Merkle cap of LDEs of the quotient polynomial components.
+    pub quotient_polys_cap: MerkleCap<F>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A batch FRI argument for all openings.
@@ -32,9 +33,9 @@ pub struct ProofWithPublicInputs<F: Extendable<D>, const D: usize> {
 }
 
 pub struct ProofTarget<const D: usize> {
-    pub wires_root: HashOutTarget,
-    pub plonk_zs_partial_products_root: HashOutTarget,
-    pub quotient_polys_root: HashOutTarget,
+    pub wires_cap: MerkleCapTarget,
+    pub plonk_zs_partial_products_cap: MerkleCapTarget,
+    pub quotient_polys_cap: MerkleCapTarget,
     pub openings: OpeningSetTarget<D>,
     pub opening_proof: FriProofTarget<D>,
 }

@@ -31,6 +31,7 @@ pub trait Field:
     + Div<Self, Output = Self>
     + DivAssign<Self>
     + Debug
+    + Default
     + Display
     + Send
     + Sync
@@ -190,6 +191,10 @@ pub trait Field:
 
     fn from_canonical_usize(n: usize) -> Self {
         Self::from_canonical_u64(n as u64)
+    }
+
+    fn from_bool(b: bool) -> Self {
+        Self::from_canonical_u64(b as u64)
     }
 
     fn to_canonical_biguint(&self) -> BigUint;

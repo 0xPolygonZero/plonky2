@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::fft::{fft, fft_with_options, ifft};
+use crate::field::fft::{FftRootTable, FftStrategy, DEFAULT_STRATEGY};
 use crate::field::field_types::Field;
 use crate::util::log2_strict;
 
@@ -56,7 +57,7 @@ impl<F: Field> PolynomialValues<F> {
 
     pub fn lde(&self, rate_bits: usize) -> Self {
         let coeffs = ifft(self).lde(rate_bits);
-        fft_with_options(&coeffs, Some(rate_bits), None)
+        fft_with_options(&coeffs, DEFAULT_STRATEGY, Some(rate_bits), None)
     }
 
     pub fn degree(&self) -> usize {
@@ -114,11 +115,11 @@ impl<F: Field> PolynomialCoeffs<F> {
 
     /// The number of coefficients. This does not filter out any zero coefficients, so it is not
     /// necessarily related to the degree.
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.coeffs.len()
     }
 
-    pub(crate) fn log_len(&self) -> usize {
+    pub fn log_len(&self) -> usize {
         log2_strict(self.len())
     }
 
@@ -136,11 +137,21 @@ impl<F: Field> PolynomialCoeffs<F> {
             .fold(F::ZERO, |acc, &c| acc * x + c)
     }
 
+    pub fn eval_base<const D: usize>(&self, x: F::BaseField) -> F
+    where
+        F: FieldExtension<D>,
+    {
+        self.coeffs
+            .iter()
+            .rev()
+            .fold(F::ZERO, |acc, &c| acc.scalar_mul(x) + c)
+    }
+
     pub fn lde_multiple(polys: Vec<&Self>, rate_bits: usize) -> Vec<Self> {
         polys.into_iter().map(|p| p.lde(rate_bits)).collect()
     }
 
-    pub(crate) fn lde(&self, rate_bits: usize) -> Self {
+    pub fn lde(&self, rate_bits: usize) -> Self {
         self.padded(self.len() << rate_bits)
     }
 
@@ -198,15 +209,35 @@ impl<F: Field> PolynomialCoeffs<F> {
         fft(self)
     }
 
+    pub fn fft_with_options(
+        &self,
+        strategy: FftStrategy,
+        zero_factor: Option<usize>,
+        root_table: Option<FftRootTable<F>>,
+    ) -> PolynomialValues<F> {
+        fft_with_options(self, strategy, zero_factor, root_table)
+    }
+
     /// Returns the evaluation of the polynomial on the coset `shift*H`.
     pub fn coset_fft(&self, shift: F) -> PolynomialValues<F> {
+        self.coset_fft_with_options(shift, DEFAULT_STRATEGY, None, None)
+    }
+
+    /// Returns the evaluation of the polynomial on the coset `shift*H`.
+    pub fn coset_fft_with_options(
+        &self,
+        shift: F,
+        strategy: FftStrategy,
+        zero_factor: Option<usize>,
+        root_table: Option<FftRootTable<F>>,
+    ) -> PolynomialValues<F> {
         let modified_poly: Self = shift
             .powers()
             .zip(&self.coeffs)
             .map(|(r, &c)| r * c)
             .collect::<Vec<_>>()
             .into();
-        modified_poly.fft()
+        modified_poly.fft_with_options(strategy, zero_factor, root_table)
     }
 
     pub fn to_extension<const D: usize>(&self) -> PolynomialCoeffs<F::Extension>
@@ -434,7 +465,7 @@ mod tests {
     fn test_polynomial_multiplication() {
         type F = CrandallField;
         let mut rng = thread_rng();
-        let (a_deg, b_deg) = (rng.gen_range(1, 10_000), rng.gen_range(1, 10_000));
+        let (a_deg, b_deg) = (rng.gen_range(1..10_000), rng.gen_range(1..10_000));
         let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
         let b = PolynomialCoeffs::new(F::rand_vec(b_deg));
         let m1 = &a * &b;
@@ -450,8 +481,8 @@ mod tests {
     fn test_inv_mod_xn() {
         type F = CrandallField;
         let mut rng = thread_rng();
-        let a_deg = rng.gen_range(1, 1_000);
-        let n = rng.gen_range(1, 1_000);
+        let a_deg = rng.gen_range(1..1_000);
+        let n = rng.gen_range(1..1_000);
         let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
         let b = a.inv_mod_xn(n);
         let mut m = &a * &b;
@@ -472,7 +503,7 @@ mod tests {
     fn test_polynomial_long_division() {
         type F = CrandallField;
         let mut rng = thread_rng();
-        let (a_deg, b_deg) = (rng.gen_range(1, 10_000), rng.gen_range(1, 10_000));
+        let (a_deg, b_deg) = (rng.gen_range(1..10_000), rng.gen_range(1..10_000));
         let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
         let b = PolynomialCoeffs::new(F::rand_vec(b_deg));
         let (q, r) = a.div_rem_long_division(&b);
@@ -486,7 +517,7 @@ mod tests {
     fn test_polynomial_division() {
         type F = CrandallField;
         let mut rng = thread_rng();
-        let (a_deg, b_deg) = (rng.gen_range(1, 10_000), rng.gen_range(1, 10_000));
+        let (a_deg, b_deg) = (rng.gen_range(1..10_000), rng.gen_range(1..10_000));
         let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
         let b = PolynomialCoeffs::new(F::rand_vec(b_deg));
         let (q, r) = a.div_rem(&b);
@@ -500,7 +531,7 @@ mod tests {
     fn test_polynomial_division_by_constant() {
         type F = CrandallField;
         let mut rng = thread_rng();
-        let a_deg = rng.gen_range(1, 10_000);
+        let a_deg = rng.gen_range(1..10_000);
         let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
         let b = PolynomialCoeffs::from(vec![F::rand()]);
         let (q, r) = a.div_rem(&b);
@@ -514,8 +545,8 @@ mod tests {
     fn test_division_by_z_h() {
         type F = CrandallField;
         let mut rng = thread_rng();
-        let a_deg = rng.gen_range(1, 10_000);
-        let n = rng.gen_range(1, a_deg);
+        let a_deg = rng.gen_range(1..10_000);
+        let n = rng.gen_range(1..a_deg);
         let mut a = PolynomialCoeffs::new(F::rand_vec(a_deg));
         a.trim();
         let z_h = {
@@ -554,7 +585,7 @@ mod tests {
             PolynomialCoeffs::new(xn_min_one_vec)
         };
 
-        let a = g.exp(rng.gen_range(0, n as u64));
+        let a = g.exp(rng.gen_range(0..(n as u64)));
         let denom = PolynomialCoeffs::new(vec![-a, F::ONE]);
         let now = Instant::now();
         xn_minus_one.div_rem(&denom);

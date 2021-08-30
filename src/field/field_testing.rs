@@ -364,7 +364,7 @@ macro_rules! test_prime_field_arithmetic {
             }
 
             #[test]
-            fn subtraction() {
+            fn subtraction_double_wraparound() {
                 type F = $field;
 
                 let (a, b) = (
@@ -374,6 +374,19 @@ macro_rules! test_prime_field_arithmetic {
                 let x = a * b;
                 assert_eq!(x, F::ONE);
                 assert_eq!(F::ZERO - x, F::NEG_ONE);
+            }
+
+            #[test]
+            fn addition_double_wraparound() {
+                type F = $field;
+
+                let a = F::from_canonical_biguint(u64::MAX - F::order());
+                let b = F::NEG_ONE;
+
+                let c = (a + a) + (b + b);
+                let d = (a + b) + (a + b);
+
+                assert_eq!(c, d);
             }
         }
     };

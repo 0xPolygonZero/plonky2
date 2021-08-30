@@ -5,9 +5,9 @@ use crate::field::field_types::Field;
 use crate::field::interpolation::{barycentric_weights, interpolate, interpolate2};
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::FriConfig;
-use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_1;
 use crate::hash::merkle_proofs::verify_merkle_proof;
+use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::PlonkPolynomials;
@@ -19,26 +19,26 @@ use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 /// and P' is the FRI reduced polynomial.
 fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     x: F,
-    old_x_index: usize,
+    x_index_within_coset: usize,
     arity_bits: usize,
-    last_evals: &[F::Extension],
+    evals: &[F::Extension],
     beta: F::Extension,
 ) -> F::Extension {
     let arity = 1 << arity_bits;
-    debug_assert_eq!(last_evals.len(), arity);
+    debug_assert_eq!(evals.len(), arity);
 
     let g = F::primitive_root_of_unity(arity_bits);
 
     // The evaluation vector needs to be reordered first.
-    let mut evals = last_evals.to_vec();
+    let mut evals = evals.to_vec();
     reverse_index_bits_in_place(&mut evals);
-    let rev_old_x_index = reverse_bits(old_x_index, arity_bits);
-    let coset_start = x * g.exp((arity - rev_old_x_index) as u64);
+    let rev_x_index_within_coset = reverse_bits(x_index_within_coset, arity_bits);
+    let coset_start = x * g.exp((arity - rev_x_index_within_coset) as u64);
     // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
     let points = g
         .powers()
+        .map(|y| (coset_start * y).into())
         .zip(evals)
-        .map(|(y, e)| ((coset_start * y).into(), e))
         .collect::<Vec<_>>();
     let barycentric_weights = barycentric_weights(&points);
     interpolate(&points, beta, &barycentric_weights)
@@ -73,7 +73,7 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
     os: &OpeningSet<F, D>,
     // Point at which the PLONK polynomials are opened.
     zeta: F::Extension,
-    initial_merkle_roots: &[HashOut<F>],
+    initial_merkle_caps: &[MerkleCap<F>],
     proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     common_data: &CommonCircuitData<F, D>,
@@ -95,10 +95,10 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
 
     // Recover the random betas used in the FRI reductions.
     let betas = proof
-        .commit_phase_merkle_roots
+        .commit_phase_merkle_caps
         .iter()
-        .map(|root| {
-            challenger.observe_hash(root);
+        .map(|cap| {
+            challenger.observe_cap(cap);
             challenger.get_extension_challenge()
         })
         .collect::<Vec<_>>();
@@ -123,7 +123,7 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
             zeta,
             alpha,
             precomputed_reduced_evals,
-            initial_merkle_roots,
+            initial_merkle_caps,
             &proof,
             challenger,
             n,
@@ -139,10 +139,10 @@ pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
 fn fri_verify_initial_proof<F: Field>(
     x_index: usize,
     proof: &FriInitialTreeProof<F>,
-    initial_merkle_roots: &[HashOut<F>],
+    initial_merkle_caps: &[MerkleCap<F>],
 ) -> Result<()> {
-    for ((evals, merkle_proof), &root) in proof.evals_proofs.iter().zip(initial_merkle_roots) {
-        verify_merkle_proof(evals.clone(), x_index, root, merkle_proof, false)?;
+    for ((evals, merkle_proof), cap) in proof.evals_proofs.iter().zip(initial_merkle_caps) {
+        verify_merkle_proof(evals.clone(), x_index, cap, merkle_proof)?;
     }
 
     Ok(())
@@ -150,7 +150,7 @@ fn fri_verify_initial_proof<F: Field>(
 
 /// Holds the reduced (by `alpha`) evaluations at `zeta` for the polynomial opened just at
 /// zeta, for `Z` at zeta and for `Z` at `g*zeta`.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 struct PrecomputedReducedEvals<F: Extendable<D>, const D: usize> {
     pub single: F::Extension,
     pub zs: F::Extension,
@@ -189,7 +189,11 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
 ) -> F::Extension {
     let config = &common_data.config;
     assert!(D > 1, "Not implemented for D=1.");
-    let degree_log = proof.evals_proofs[0].1.siblings.len() - config.rate_bits;
+    let degree_log = common_data.degree_bits;
+    debug_assert_eq!(
+        degree_log,
+        common_data.config.cap_height + proof.evals_proofs[0].1.siblings.len() - config.rate_bits
+    );
     let subgroup_x = F::Extension::from_basefield(subgroup_x);
     let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;
@@ -244,7 +248,7 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
     zeta: F::Extension,
     alpha: F::Extension,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
-    initial_merkle_roots: &[HashOut<F>],
+    initial_merkle_caps: &[MerkleCap<F>],
     proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     n: usize,
@@ -254,79 +258,65 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
 ) -> Result<()> {
     let config = &common_data.config.fri_config;
     let x = challenger.get_challenge();
-    let mut domain_size = n;
     let mut x_index = x.to_canonical_u64() as usize % n;
     fri_verify_initial_proof(
         x_index,
         &round_proof.initial_trees_proof,
-        initial_merkle_roots,
+        initial_merkle_caps,
     )?;
-    let mut old_x_index = 0;
     // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
     let log_n = log2_strict(n);
     let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
         * F::primitive_root_of_unity(log_n).exp(reverse_bits(x_index, log_n) as u64);
 
-    let mut evaluations: Vec<Vec<F::Extension>> = Vec::new();
+    // old_eval is the last derived evaluation; it will be checked for consistency with its
+    // committed "parent" value in the next iteration.
+    let mut old_eval = fri_combine_initial(
+        &round_proof.initial_trees_proof,
+        alpha,
+        zeta,
+        subgroup_x,
+        precomputed_reduced_evals,
+        common_data,
+    );
+
     for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
         let arity = 1 << arity_bits;
-        let next_domain_size = domain_size >> arity_bits;
-        let e_x = if i == 0 {
-            fri_combine_initial(
-                &round_proof.initial_trees_proof,
-                alpha,
-                zeta,
-                subgroup_x,
-                precomputed_reduced_evals,
-                common_data,
-            )
-        } else {
-            let last_evals = &evaluations[i - 1];
-            // Infer P(y) from {P(x)}_{x^arity=y}.
-            compute_evaluation(
-                subgroup_x,
-                old_x_index,
-                config.reduction_arity_bits[i - 1],
-                last_evals,
-                betas[i - 1],
-            )
-        };
-        let mut evals = round_proof.steps[i].evals.clone();
-        // Insert P(y) into the evaluation vector, since it wasn't included by the prover.
-        evals.insert(x_index & (arity - 1), e_x);
+        let evals = &round_proof.steps[i].evals;
+
+        // Split x_index into the index of the coset x is in, and the index of x within that coset.
+        let coset_index = x_index >> arity_bits;
+        let x_index_within_coset = x_index & (arity - 1);
+
+        // Check consistency with our old evaluation from the previous round.
+        ensure!(evals[x_index_within_coset] == old_eval);
+
+        // Infer P(y) from {P(x)}_{x^arity=y}.
+        old_eval = compute_evaluation(
+            subgroup_x,
+            x_index_within_coset,
+            arity_bits,
+            evals,
+            betas[i],
+        );
+
         verify_merkle_proof(
-            flatten(&evals),
-            x_index >> arity_bits,
-            proof.commit_phase_merkle_roots[i],
+            flatten(evals),
+            coset_index,
+            &proof.commit_phase_merkle_caps[i],
             &round_proof.steps[i].merkle_proof,
-            false,
         )?;
-        evaluations.push(evals);
 
-        if i > 0 {
-            // Update the point x to x^arity.
-            subgroup_x = subgroup_x.exp_power_of_2(config.reduction_arity_bits[i - 1]);
-        }
-        domain_size = next_domain_size;
-        old_x_index = x_index & (arity - 1);
-        x_index >>= arity_bits;
+        // Update the point x to x^arity.
+        subgroup_x = subgroup_x.exp_power_of_2(arity_bits);
+
+        x_index = coset_index;
     }
-
-    let last_evals = evaluations.last().unwrap();
-    let final_arity_bits = *config.reduction_arity_bits.last().unwrap();
-    let purported_eval = compute_evaluation(
-        subgroup_x,
-        old_x_index,
-        final_arity_bits,
-        last_evals,
-        *betas.last().unwrap(),
-    );
-    subgroup_x = subgroup_x.exp_power_of_2(final_arity_bits);
 
     // Final check of FRI. After all the reductions, we check that the final polynomial is equal
     // to the one sent by the prover.
     ensure!(
-        proof.final_poly.eval(subgroup_x.into()) == purported_eval,
+        proof.final_poly.eval(subgroup_x.into()) == old_eval,
         "Final polynomial evaluation is invalid."
     );
 

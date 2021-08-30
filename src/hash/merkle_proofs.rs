@@ -1,12 +1,16 @@
+use std::convert::TryInto;
+
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::gmimc::GMiMCGate;
-use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::{compress, hash_or_noop, GMIMC_ROUNDS};
-use crate::iop::target::Target;
+use crate::hash::merkle_tree::MerkleCap;
+use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -24,46 +28,41 @@ pub struct MerkleProofTarget {
 }
 
 /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
-/// given root.
+/// given cap.
 pub(crate) fn verify_merkle_proof<F: Field>(
     leaf_data: Vec<F>,
     leaf_index: usize,
-    merkle_root: HashOut<F>,
+    merkle_cap: &MerkleCap<F>,
     proof: &MerkleProof<F>,
-    reverse_bits: bool,
 ) -> Result<()> {
-    ensure!(
-        leaf_index >> proof.siblings.len() == 0,
-        "Merkle leaf index is too large."
-    );
-
-    let index = if reverse_bits {
-        crate::util::reverse_bits(leaf_index, proof.siblings.len())
-    } else {
-        leaf_index
-    };
+    let mut index = leaf_index;
     let mut current_digest = hash_or_noop(leaf_data);
-    for (i, &sibling_digest) in proof.siblings.iter().enumerate() {
-        let bit = (index >> i & 1) == 1;
-        current_digest = if bit {
+    for &sibling_digest in proof.siblings.iter() {
+        let bit = index & 1;
+        index >>= 1;
+        current_digest = if bit == 1 {
             compress(sibling_digest, current_digest)
         } else {
             compress(current_digest, sibling_digest)
         }
     }
-    ensure!(current_digest == merkle_root, "Invalid Merkle proof.");
+    ensure!(
+        current_digest == merkle_cap.0[index],
+        "Invalid Merkle proof."
+    );
 
     Ok(())
 }
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
-    /// given root. The index is given by it's little-endian bits.
+    /// given cap. The index is given by it's little-endian bits.
+    /// Note: Works only for D=4.
     pub(crate) fn verify_merkle_proof(
         &mut self,
         leaf_data: Vec<Target>,
-        leaf_index_bits: &[Target],
-        merkle_root: HashOutTarget,
+        leaf_index_bits: &[BoolTarget],
+        merkle_cap: &MerkleCapTarget,
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
@@ -79,7 +78,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 gate,
                 input: swap_wire,
             });
-            self.generate_copy(bit, swap_wire);
+            self.connect(bit.target, swap_wire);
 
             let input_wires = (0..12)
                 .map(|i| {
@@ -91,9 +90,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .collect::<Vec<_>>();
 
             for i in 0..4 {
-                self.route(state.elements[i], input_wires[i]);
-                self.route(sibling.elements[i], input_wires[4 + i]);
-                self.route(zero, input_wires[8 + i]);
+                self.connect(state.elements[i], input_wires[i]);
+                self.connect(sibling.elements[i], input_wires[4 + i]);
+                self.connect(zero, input_wires[8 + i]);
             }
 
             state = HashOutTarget::from_vec(
@@ -108,27 +107,88 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         }
 
-        self.named_assert_hashes_equal(state, merkle_root, "check Merkle root".into())
+        let index = self.le_sum(leaf_index_bits[proof.siblings.len()..].to_vec().into_iter());
+        let state_ext = state.elements[..].try_into().expect("requires D = 4");
+        let state_ext = ExtensionTarget(state_ext);
+        let cap_ext = merkle_cap
+            .0
+            .iter()
+            .map(|h| {
+                let tmp = h.elements[..].try_into().expect("requires D = 4");
+                ExtensionTarget(tmp)
+            })
+            .collect();
+        self.random_access(index, state_ext, cap_ext);
     }
 
-    pub(crate) fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
-        for i in 0..4 {
-            self.assert_equal(x.elements[i], y.elements[i]);
-        }
-    }
-
-    pub(crate) fn named_assert_hashes_equal(
+    /// Same a `verify_merkle_proof` but with the final "cap index" as extra parameter.
+    /// Note: Works only for D=4.
+    pub(crate) fn verify_merkle_proof_with_cap_index(
         &mut self,
-        x: HashOutTarget,
-        y: HashOutTarget,
-        name: String,
+        leaf_data: Vec<Target>,
+        leaf_index_bits: &[BoolTarget],
+        cap_index: Target,
+        merkle_cap: &MerkleCapTarget,
+        proof: &MerkleProofTarget,
     ) {
+        let zero = self.zero();
+
+        let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
+
+        for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
+            let gate_type = GMiMCGate::<F, D, GMIMC_ROUNDS>::new_automatic_constants();
+            let gate = self.add_gate(gate_type, vec![]);
+
+            let swap_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_SWAP;
+            let swap_wire = Target::Wire(Wire {
+                gate,
+                input: swap_wire,
+            });
+            self.generate_copy(bit.target, swap_wire);
+
+            let input_wires = (0..12)
+                .map(|i| {
+                    Target::Wire(Wire {
+                        gate,
+                        input: GMiMCGate::<F, D, GMIMC_ROUNDS>::wire_input(i),
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            for i in 0..4 {
+                self.connect(state.elements[i], input_wires[i]);
+                self.connect(sibling.elements[i], input_wires[4 + i]);
+                self.connect(zero, input_wires[8 + i]);
+            }
+
+            state = HashOutTarget::from_vec(
+                (0..4)
+                    .map(|i| {
+                        Target::Wire(Wire {
+                            gate,
+                            input: GMiMCGate::<F, D, GMIMC_ROUNDS>::wire_output(i),
+                        })
+                    })
+                    .collect(),
+            )
+        }
+
+        let state_ext = state.elements[..].try_into().expect("requires D = 4");
+        let state_ext = ExtensionTarget(state_ext);
+        let cap_ext = merkle_cap
+            .0
+            .iter()
+            .map(|h| {
+                let tmp = h.elements[..].try_into().expect("requires D = 4");
+                ExtensionTarget(tmp)
+            })
+            .collect();
+        self.random_access(cap_index, state_ext, cap_ext);
+    }
+
+    pub fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
         for i in 0..4 {
-            self.named_assert_equal(
-                x.elements[i],
-                y.elements[i],
-                format!("{}: {}-th hash element", name, i),
-            );
+            self.connect(x.elements[i], y.elements[i]);
         }
     }
 }
@@ -141,7 +201,7 @@ mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
     use crate::hash::merkle_tree::MerkleTree;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
@@ -154,14 +214,15 @@ mod tests {
     fn test_recursive_merkle_proof() -> Result<()> {
         type F = CrandallField;
         let config = CircuitConfig::large_config();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
         let mut pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
 
         let log_n = 8;
         let n = 1 << log_n;
+        let cap_height = 1;
         let leaves = random_data::<F>(n, 7);
-        let tree = MerkleTree::new(leaves, false);
-        let i: usize = thread_rng().gen_range(0, n);
+        let tree = MerkleTree::new(leaves, cap_height);
+        let i: usize = thread_rng().gen_range(0..n);
         let proof = tree.prove(i);
 
         let proof_t = MerkleProofTarget {
@@ -171,8 +232,8 @@ mod tests {
             pw.set_hash_target(proof_t.siblings[i], proof.siblings[i]);
         }
 
-        let root_t = builder.add_virtual_hash();
-        pw.set_hash_target(root_t, tree.root);
+        let cap_t = builder.add_virtual_cap(cap_height);
+        pw.set_cap_target(&cap_t, &tree.cap);
 
         let i_c = builder.constant(F::from_canonical_usize(i));
         let i_bits = builder.split_le(i_c, log_n);
@@ -182,7 +243,7 @@ mod tests {
             pw.set_target(data[j], tree.leaves[i][j]);
         }
 
-        builder.verify_merkle_proof(data, &i_bits, root_t, &proof_t);
+        builder.verify_merkle_proof(data, &i_bits, &cap_t, &proof_t);
 
         let data = builder.build();
         let proof = data.prove(pw)?;

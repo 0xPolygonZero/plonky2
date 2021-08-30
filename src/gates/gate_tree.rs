@@ -64,9 +64,9 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
         gates.sort_unstable_by_key(|g| (-(g.0.degree() as isize), -(g.0.num_constants() as isize)));
 
         for max_degree_bits in 1..10 {
-            // The constraint polynomials are padded to the next power in `compute_vanishig_polys`.
-            // So we can restrict our search space by setting `max_degree` to a power of 2.
-            let max_degree = 1 << max_degree_bits;
+            // The quotient polynomials are padded to the next power of 2 in `compute_quotient_polys`.
+            // So we can restrict our search space by setting `max_degree` to 1 + a power of 2.
+            let max_degree = (1 << max_degree_bits) + 1;
             for max_constants in 1..100 {
                 if let Some(mut best_tree) = Self::find_tree(&gates, max_degree, max_constants) {
                     let mut best_num_constants = best_tree.num_constants();
@@ -200,7 +200,7 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
     }
 
     /// Returns the tree's maximum filtered constraint degree.
-    fn max_filtered_degree(&self) -> usize {
+    pub fn max_filtered_degree(&self) -> usize {
         self.traversal()
             .into_iter()
             .map(|(g, p)| g.0.degree() + p.len())

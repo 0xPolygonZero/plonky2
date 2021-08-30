@@ -27,13 +27,15 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
         rate_bits: 3,
         num_challenges: 3,
         zero_knowledge: false,
+        cap_height: 1,
         fri_config: FriConfig {
-            proof_of_work_bits: 20,
+            proof_of_work_bits: 15,
             reduction_arity_bits: vec![2, 2, 2, 2, 2, 2],
             num_query_rounds: 35,
         },
     };
 
+    let inputs = PartialWitness::new();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
     let zero = builder.zero();
@@ -49,7 +51,6 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
     builder.add_extension(zero_ext, zero_ext);
 
     let circuit = builder.build();
-    let inputs = PartialWitness::new();
     let proof_with_pis = circuit.prove(inputs)?;
     let proof_bytes = serde_cbor::to_vec(&proof_with_pis).unwrap();
     info!("Proof length: {} bytes", proof_bytes.len());

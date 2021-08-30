@@ -4,7 +4,7 @@ use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::HashOut;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartialWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
@@ -124,8 +124,8 @@ pub(crate) fn test_eval_fns<F: Extendable<D>, G: Gate<F, D>, const D: usize>(
     let constants = F::Extension::rand_vec(gate.num_constants());
 
     let config = CircuitConfig::large_config();
-    let mut builder = CircuitBuilder::<F, D>::new(config);
     let mut pw = PartialWitness::new();
+    let mut builder = CircuitBuilder::<F, D>::new(config);
 
     let wires_t = builder.add_virtual_extension_targets(wires.len());
     let constants_t = builder.add_virtual_extension_targets(constants.len());
@@ -137,9 +137,7 @@ pub(crate) fn test_eval_fns<F: Extendable<D>, G: Gate<F, D>, const D: usize>(
     let vars = EvaluationVars {
         local_constants: &constants,
         local_wires: &wires,
-        public_inputs_hash: &HashOut {
-            elements: [F::ZERO; 4],
-        },
+        public_inputs_hash: &public_inputs_hash,
     };
     let evals = gate.eval_unfiltered(vars);
 

@@ -8,7 +8,7 @@ use crate::hash::gmimc::gmimc_automatic_constants;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
@@ -139,7 +139,7 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
 
         for r in 0..R {
             let active = r % W;
-            let cubing_input = state[active] + addition_buffer + self.constants[r].into();
+            let cubing_input = state[active] + addition_buffer + self.constants[r];
             let cubing_input_wire = vars.local_wires[Self::wire_cubing_input(r)];
             constraints.push(cubing_input - cubing_input_wire);
             let f = cubing_input_wire.cube();
@@ -191,7 +191,7 @@ impl<F: Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<
 
             let constant = builder.constant_extension(self.constants[r].into());
             let cubing_input =
-                builder.add_three_extension(state[active], addition_buffer, constant);
+                builder.add_many_extension(&[state[active], addition_buffer, constant]);
             let cubing_input_wire = vars.local_wires[Self::wire_cubing_input(r)];
             constraints.push(builder.sub_extension(cubing_input, cubing_input_wire));
             let f = builder.cube_extension(cubing_input_wire);
@@ -264,7 +264,7 @@ impl<F: Extendable<D>, const D: usize, const R: usize> SimpleGenerator<F>
             .collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let mut state = (0..W)
             .map(|i| {
                 witness.get_wire(Wire {
@@ -331,8 +331,9 @@ mod tests {
     use crate::gates::gmimc::{GMiMCGate, W};
     use crate::hash::gmimc::gmimc_permute_naive;
     use crate::iop::generator::generate_partial_witness;
+    use crate::iop::target::Target;
     use crate::iop::wire::Wire;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, PartitionWitness, Witness};
     use crate::util::timing::TimingTree;
 
     #[test]
@@ -363,13 +364,17 @@ mod tests {
             );
         }
 
+        let mut partition_witness = PartitionWitness::new(gate.num_wires(), gate.num_wires(), 1, 0);
+        for input in 0..gate.num_wires() {
+            partition_witness.add(Target::Wire(Wire { gate: 0, input }));
+        }
+        for (&t, &v) in witness.target_values.iter() {
+            partition_witness.set_target(t, v);
+        }
         let generators = gate.generators(0, &[]);
         generate_partial_witness(
-            &mut witness,
+            &mut partition_witness,
             &generators,
-            gate.num_wires(),
-            1,
-            1,
             &mut TimingTree::default(),
         );
 
@@ -377,7 +382,7 @@ mod tests {
             gmimc_permute_naive(permutation_inputs.try_into().unwrap(), constants);
 
         for i in 0..W {
-            let out = witness.get_wire(Wire {
+            let out = partition_witness.get_wire(Wire {
                 gate: 0,
                 input: Gate::wire_output(i),
             });

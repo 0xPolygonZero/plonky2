@@ -7,17 +7,17 @@ use crate::field::field_types::Field;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::FriConfig;
 use crate::gates::gate::{GateInstance, PrefixedGate};
-use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::hash::hash_types::{HashOut, MerkleCapTarget};
+use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;
-use crate::iop::witness::PartialWitness;
-use crate::plonk::copy_constraint::CopyConstraint;
+use crate::iop::witness::{PartialWitness, PartitionWitness};
 use crate::plonk::proof::ProofWithPublicInputs;
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
 use crate::util::marking::MarkedTargets;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
@@ -27,6 +27,7 @@ pub struct CircuitConfig {
     /// `degree / |F|`.
     pub num_challenges: usize,
     pub zero_knowledge: bool,
+    pub cap_height: usize,
 
     // TODO: Find a better place for this.
     pub fri_config: FriConfig,
@@ -41,6 +42,7 @@ impl Default for CircuitConfig {
             rate_bits: 3,
             num_challenges: 3,
             zero_knowledge: true,
+            cap_height: 1,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
                 reduction_arity_bits: vec![1, 1, 1, 1],
@@ -55,19 +57,35 @@ impl CircuitConfig {
         self.num_wires - self.num_routed_wires
     }
 
+    #[cfg(test)]
     pub(crate) fn large_config() -> Self {
         Self {
             num_wires: 126,
-            num_routed_wires: 33,
+            num_routed_wires: 64,
             security_bits: 128,
             rate_bits: 3,
             num_challenges: 3,
+            zero_knowledge: false,
+            cap_height: 1,
+            fri_config: FriConfig {
+                proof_of_work_bits: 1,
+                reduction_arity_bits: vec![1],
+                num_query_rounds: 1,
+            },
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn large_zk_config() -> Self {
+        CircuitConfig {
             zero_knowledge: true,
+            cap_height: 1,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
                 reduction_arity_bits: vec![1, 1, 1, 1],
                 num_query_rounds: 1,
             },
+            ..Self::large_config()
         }
     }
 }
@@ -108,6 +126,7 @@ impl<F: Extendable<D>, const D: usize> ProverCircuitData<F, D> {
 }
 
 /// Circuit data required by the prover.
+#[derive(Debug)]
 pub struct VerifierCircuitData<F: Extendable<D>, const D: usize> {
     pub(crate) verifier_only: VerifierOnlyCircuitData<F>,
     pub(crate) common: CommonCircuitData<F, D>,
@@ -128,25 +147,25 @@ pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
     pub sigmas: Vec<Vec<F>>,
     /// Subgroup of order `degree`.
     pub subgroup: Vec<F>,
-    /// The circuit's copy constraints.
-    pub copy_constraints: Vec<CopyConstraint>,
     /// The concrete placement of each gate in the circuit.
     pub gate_instances: Vec<GateInstance<F, D>>,
     /// Targets to be made public.
     pub public_inputs: Vec<Target>,
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
     pub marked_targets: Vec<MarkedTargets<D>>,
-    /// Number of virtual targets used in the circuit.
-    pub num_virtual_targets: usize,
+    /// Partial witness holding the copy constraints information.
+    pub partition_witness: PartitionWitness<F>,
 }
 
 /// Circuit data required by the verifier, but not the prover.
+#[derive(Debug)]
 pub(crate) struct VerifierOnlyCircuitData<F: Field> {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_root: HashOut<F>,
+    pub(crate) constants_sigmas_cap: MerkleCap<F>,
 }
 
 /// Circuit data required by both the prover and the verifier.
+#[derive(Debug)]
 pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
@@ -233,5 +252,5 @@ impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
 /// dynamic, at least not without setting a maximum wire count and paying for the worst case.
 pub struct VerifierCircuitTarget {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_root: HashOutTarget,
+    pub(crate) constants_sigmas_cap: MerkleCapTarget,
 }

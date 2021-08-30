@@ -13,6 +13,12 @@ use crate::field::field_types::Field;
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct QuadraticCrandallField([CrandallField; 2]);
 
+impl Default for QuadraticCrandallField {
+    fn default() -> Self {
+        Self::ZERO
+    }
+}
+
 impl OEF<2> for QuadraticCrandallField {
     // Verifiable in Sage with
     // ``R.<x> = GF(p)[]; assert (x^2 -3).is_irreducible()`.
@@ -77,7 +83,10 @@ impl Field for QuadraticCrandallField {
         let a_pow_r = a_pow_r_minus_1 * *self;
         debug_assert!(FieldExtension::<2>::is_in_basefield(&a_pow_r));
 
-        Some(a_pow_r_minus_1 * a_pow_r.0[0].inverse().into())
+        Some(FieldExtension::<2>::scalar_mul(
+            &a_pow_r_minus_1,
+            a_pow_r.0[0].inverse(),
+        ))
     }
 
     fn to_canonical_u64(&self) -> u64 {

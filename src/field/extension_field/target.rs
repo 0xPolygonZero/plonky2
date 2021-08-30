@@ -105,6 +105,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.constant_extension(F::Extension::TWO)
     }
 
+    pub fn neg_one_extension(&mut self) -> ExtensionTarget<D> {
+        self.constant_extension(F::Extension::NEG_ONE)
+    }
+
     pub fn zero_ext_algebra(&mut self) -> ExtensionAlgebraTarget<D> {
         self.constant_ext_algebra(ExtensionAlgebra::ZERO)
     }

@@ -3,8 +3,9 @@ use std::convert::TryInto;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::Field;
-use crate::hash::hash_types::{HashOut, HashOutTarget};
+use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::{permute, SPONGE_RATE, SPONGE_WIDTH};
+use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
@@ -93,6 +94,12 @@ impl<F: Field> Challenger<F> {
         self.observe_elements(&hash.elements)
     }
 
+    pub fn observe_cap(&mut self, cap: &MerkleCap<F>) {
+        for hash in &cap.0 {
+            self.observe_elements(&hash.elements)
+        }
+    }
+
     pub fn get_challenge(&mut self) -> F {
         self.absorb_buffered_inputs();
 
@@ -105,18 +112,6 @@ impl<F: Field> Challenger<F> {
         self.output_buffer
             .pop()
             .expect("Output buffer should be non-empty")
-    }
-
-    pub fn get_2_challenges(&mut self) -> (F, F) {
-        (self.get_challenge(), self.get_challenge())
-    }
-
-    pub fn get_3_challenges(&mut self) -> (F, F, F) {
-        (
-            self.get_challenge(),
-            self.get_challenge(),
-            self.get_challenge(),
-        )
     }
 
     pub fn get_n_challenges(&mut self, n: usize) -> Vec<F> {
@@ -239,6 +234,12 @@ impl RecursiveChallenger {
         self.observe_elements(&hash.elements)
     }
 
+    pub fn observe_cap(&mut self, cap: &MerkleCapTarget) {
+        for hash in &cap.0 {
+            self.observe_hash(hash)
+        }
+    }
+
     pub fn observe_extension_element<const D: usize>(&mut self, element: ExtensionTarget<D>) {
         self.observe_elements(&element.0);
     }
@@ -264,24 +265,6 @@ impl RecursiveChallenger {
         self.output_buffer
             .pop()
             .expect("Output buffer should be non-empty")
-    }
-
-    pub(crate) fn get_2_challenges<F: Extendable<D>, const D: usize>(
-        &mut self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> (Target, Target) {
-        (self.get_challenge(builder), self.get_challenge(builder))
-    }
-
-    pub(crate) fn get_3_challenges<F: Extendable<D>, const D: usize>(
-        &mut self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> (Target, Target, Target) {
-        (
-            self.get_challenge(builder),
-            self.get_challenge(builder),
-            self.get_challenge(builder),
-        )
     }
 
     pub(crate) fn get_n_challenges<F: Extendable<D>, const D: usize>(
@@ -347,7 +330,7 @@ mod tests {
     use crate::iop::challenger::{Challenger, RecursiveChallenger};
     use crate::iop::generator::generate_partial_witness;
     use crate::iop::target::Target;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::Witness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::util::timing::TimingTree;
@@ -409,18 +392,15 @@ mod tests {
             );
         }
         let circuit = builder.build();
-        let mut witness = PartialWitness::new();
+        let mut partition_witness = circuit.prover_only.partition_witness.clone();
         generate_partial_witness(
-            &mut witness,
+            &mut partition_witness,
             &circuit.prover_only.generators,
-            config.num_wires,
-            circuit.common.degree(),
-            circuit.prover_only.num_virtual_targets,
             &mut TimingTree::default(),
         );
         let recursive_output_values_per_round: Vec<Vec<F>> = recursive_outputs_per_round
             .iter()
-            .map(|outputs| witness.get_targets(outputs))
+            .map(|outputs| partition_witness.get_targets(outputs))
             .collect();
 
         assert_eq!(outputs_per_round, recursive_output_values_per_round);

@@ -20,7 +20,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             gate,
             input: swap_wire,
         });
-        self.route(zero, swap_wire);
+        self.connect(zero, swap_wire);
 
         // Route input wires.
         for i in 0..12 {
@@ -29,7 +29,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 gate,
                 input: in_wire,
             });
-            self.route(inputs[i], in_wire);
+            self.connect(inputs[i], in_wire);
         }
 
         // Collect output wires.

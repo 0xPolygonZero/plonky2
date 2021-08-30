@@ -6,7 +6,7 @@ use crate::util::{log2_ceil, log2_strict};
 impl<F: Field> PolynomialCoeffs<F> {
     /// Polynomial division.
     /// Returns `(q, r)`, the quotient and remainder of the polynomial division of `a` by `b`.
-    pub(crate) fn div_rem(&self, b: &Self) -> (Self, Self) {
+    pub fn div_rem(&self, b: &Self) -> (Self, Self) {
         let (a_degree_plug_1, b_degree_plus_1) = (self.degree_plus_one(), b.degree_plus_one());
         if a_degree_plug_1 == 0 {
             (Self::zero(1), Self::empty())

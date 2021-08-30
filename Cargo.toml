@@ -12,12 +12,12 @@ edition = "2018"
 default-run = "bench_recursion"
 
 [dependencies]
-env_logger = "0.8.3"
+env_logger = "0.9.0"
 log = "0.4.14"
 itertools = "0.10.0"
-num = "0.3"
-rand = "0.7.3"
-rand_chacha = "0.2.2"
+num = "0.4"
+rand = "0.8.4"
+rand_chacha = "0.3.1"
 rayon = "1.5.1"
 unroll = "0.1.5"
 anyhow = "1.0.40"
@@ -26,12 +26,24 @@ serde_cbor = "0.11.1"
 
 [dev-dependencies]
 criterion = "0.3.5"
+tynm = "0.1.6"
 
 [[bench]]
 name = "field_arithmetic"
+harness = false
+
+[[bench]]
+name = "ffts"
+harness = false
+
+[[bench]]
+name = "transpose"
 harness = false
 
 [profile.release]
 opt-level = 3
 #lto = "fat"
 #codegen-units = 1
+
+[profile.bench]
+opt-level = 3

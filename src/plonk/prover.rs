@@ -8,7 +8,7 @@ use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::challenger::Challenger;
 use crate::iop::generator::generate_partial_witness;
-use crate::iop::witness::{PartialWitness, Witness};
+use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::plonk_common::ZeroPolyOnCoset;
@@ -28,44 +28,39 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 ) -> Result<ProofWithPublicInputs<F, D>> {
     let mut timing = TimingTree::new("prove", Level::Debug);
     let config = &common_data.config;
-    let num_wires = config.num_wires;
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
     let degree = common_data.degree();
 
-    let mut partial_witness = inputs;
+    let mut partition_witness = prover_data.partition_witness.clone();
+    timed!(
+        timing,
+        "fill partition witness",
+        for (t, v) in inputs.target_values.into_iter() {
+            partition_witness.set_target(t, v);
+        }
+    );
+
     timed!(
         timing,
         &format!("run {} generators", prover_data.generators.len()),
-        generate_partial_witness(
-            &mut partial_witness,
-            &prover_data.generators,
-            config.num_wires,
-            degree,
-            prover_data.num_virtual_targets,
-            &mut timing
-        )
+        generate_partial_witness(&mut partition_witness, &prover_data.generators, &mut timing)
     );
 
-    let public_inputs = partial_witness.get_targets(&prover_data.public_inputs);
+    let public_inputs = partition_witness.get_targets(&prover_data.public_inputs);
     let public_inputs_hash = hash_n_to_hash(public_inputs.clone(), true);
 
-    // Display the marked targets for debugging purposes.
-    for m in &prover_data.marked_targets {
-        m.display(&partial_witness);
+    if cfg!(debug_assertions) {
+        // Display the marked targets for debugging purposes.
+        for m in &prover_data.marked_targets {
+            m.display(&partition_witness);
+        }
     }
-
-    timed!(
-        timing,
-        "check copy constraints",
-        partial_witness
-            .check_copy_constraints(&prover_data.copy_constraints, &prover_data.gate_instances)?
-    );
 
     let witness = timed!(
         timing,
         "compute full witness",
-        partial_witness.full_witness(degree, num_wires)
+        partition_witness.full_witness()
     );
 
     let wires_values: Vec<PolynomialValues<F>> = timed!(
@@ -81,10 +76,11 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let wires_commitment = timed!(
         timing,
         "compute wires commitment",
-        PolynomialBatchCommitment::new(
+        PolynomialBatchCommitment::from_values(
             wires_values,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::WIRES.blinding,
+            config.cap_height,
             &mut timing,
         )
     );
@@ -95,7 +91,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     challenger.observe_hash(&common_data.circuit_digest);
     challenger.observe_hash(&public_inputs_hash);
 
-    challenger.observe_hash(&wires_commitment.merkle_tree.root);
+    challenger.observe_cap(&wires_commitment.merkle_tree.cap);
     let betas = challenger.get_n_challenges(num_challenges);
     let gammas = challenger.get_n_challenges(num_challenges);
 
@@ -125,15 +121,16 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let zs_partial_products_commitment = timed!(
         timing,
         "commit to Z's",
-        PolynomialBatchCommitment::new(
+        PolynomialBatchCommitment::from_values(
             zs_partial_products,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding,
+            config.cap_height,
             &mut timing,
         )
     );
 
-    challenger.observe_hash(&zs_partial_products_commitment.merkle_tree.root);
+    challenger.observe_cap(&zs_partial_products_commitment.merkle_tree.cap);
 
     let alphas = challenger.get_n_challenges(num_challenges);
 
@@ -173,15 +170,16 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     let quotient_polys_commitment = timed!(
         timing,
         "commit to quotient polys",
-        PolynomialBatchCommitment::new_from_polys(
+        PolynomialBatchCommitment::from_coeffs(
             all_quotient_poly_chunks,
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding,
+            config.cap_height,
             &mut timing
         )
     );
 
-    challenger.observe_hash(&quotient_polys_commitment.merkle_tree.root);
+    challenger.observe_cap(&quotient_polys_commitment.merkle_tree.cap);
 
     let zeta = challenger.get_extension_challenge();
 
@@ -205,9 +203,9 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
     timing.print();
 
     let proof = Proof {
-        wires_root: wires_commitment.merkle_tree.root,
-        plonk_zs_partial_products_root: zs_partial_products_commitment.merkle_tree.root,
-        quotient_polys_root: quotient_polys_commitment.merkle_tree.root,
+        wires_cap: wires_commitment.merkle_tree.cap,
+        plonk_zs_partial_products_cap: zs_partial_products_commitment.merkle_tree.cap,
+        quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
         openings,
         opening_proof,
     };
@@ -219,7 +217,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 
 /// Compute the partial products used in the `Z` polynomials.
 fn all_wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
-    witness: &Witness<F>,
+    witness: &MatrixWitness<F>,
     betas: &[F],
     gammas: &[F],
     prover_data: &ProverOnlyCircuitData<F, D>,
@@ -242,7 +240,7 @@ fn all_wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
 /// Returns the polynomials interpolating `partial_products(f / g)`
 /// where `f, g` are the products in the definition of `Z`: `Z(g^i) = f / g`.
 fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
-    witness: &Witness<F>,
+    witness: &MatrixWitness<F>,
     beta: F,
     gamma: F,
     prover_data: &ProverOnlyCircuitData<F, D>,
@@ -256,14 +254,12 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
         .enumerate()
         .map(|(i, &x)| {
             let s_sigmas = &prover_data.sigmas[i];
-            let numerators = (0..common_data.config.num_routed_wires)
-                .map(|j| {
-                    let wire_value = witness.get_wire(i, j);
-                    let k_i = k_is[j];
-                    let s_id = k_i * x;
-                    wire_value + beta * s_id + gamma
-                })
-                .collect::<Vec<_>>();
+            let numerators = (0..common_data.config.num_routed_wires).map(|j| {
+                let wire_value = witness.get_wire(i, j);
+                let k_i = k_is[j];
+                let s_id = k_i * x;
+                wire_value + beta * s_id + gamma
+            });
             let denominators = (0..common_data.config.num_routed_wires)
                 .map(|j| {
                     let wire_value = witness.get_wire(i, j);
@@ -273,7 +269,6 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
                 .collect::<Vec<_>>();
             let denominator_invs = F::batch_multiplicative_inverse(&denominators);
             let quotient_values = numerators
-                .into_iter()
                 .zip(denominator_invs)
                 .map(|(num, den_inv)| num * den_inv)
                 .collect::<Vec<_>>();
@@ -332,7 +327,7 @@ fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
     alphas: &[F],
 ) -> Vec<PolynomialCoeffs<F>> {
     let num_challenges = common_data.config.num_challenges;
-    let max_degree_bits = log2_ceil(common_data.quotient_degree_factor + 1);
+    let max_degree_bits = log2_ceil(common_data.quotient_degree_factor);
     assert!(
         max_degree_bits <= common_data.config.rate_bits,
         "Having constraints of degree higher than the rate is not supported yet. \

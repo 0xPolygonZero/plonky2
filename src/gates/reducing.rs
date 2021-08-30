@@ -6,7 +6,7 @@ use crate::field::extension_field::FieldExtension;
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
@@ -66,7 +66,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
             .map(|i| vars.get_local_ext_algebra(self.wires_accs(i)))
             .collect::<Vec<_>>();
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(<Self as Gate<F, D>>::num_constraints(self));
         let mut acc = old_acc;
         for i in 0..self.num_coeffs {
             constraints.push(acc * alpha + coeffs[i].into() - accs[i]);
@@ -90,17 +90,14 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
             .map(|i| vars.get_local_ext(self.wires_accs(i)))
             .collect::<Vec<_>>();
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(<Self as Gate<F, D>>::num_constraints(self));
         let mut acc = old_acc;
         for i in 0..self.num_coeffs {
-            constraints.push(acc * alpha + coeffs[i].into() - accs[i]);
+            constraints.extend((acc * alpha + coeffs[i].into() - accs[i]).to_basefield_array());
             acc = accs[i];
         }
 
         constraints
-            .into_iter()
-            .flat_map(|alg| alg.to_basefield_array())
-            .collect()
     }
 
     fn eval_unfiltered_recursively(
@@ -118,12 +115,11 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
             .map(|i| vars.get_local_ext_algebra(self.wires_accs(i)))
             .collect::<Vec<_>>();
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(<Self as Gate<F, D>>::num_constraints(self));
         let mut acc = old_acc;
         for i in 0..self.num_coeffs {
-            let mut tmp = builder.mul_ext_algebra(acc, alpha);
             let coeff = builder.convert_to_ext_algebra(coeffs[i]);
-            tmp = builder.add_ext_algebra(tmp, coeff);
+            let mut tmp = builder.mul_add_ext_algebra(acc, alpha, coeff);
             tmp = builder.sub_ext_algebra(tmp, accs[i]);
             constraints.push(tmp);
             acc = accs[i];
@@ -163,6 +159,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
     }
 }
 
+#[derive(Debug)]
 struct ReducingGenerator<const D: usize> {
     gate_index: usize,
     gate: ReducingGate<D>,
@@ -177,7 +174,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<
             .collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let extract_extension = |range: Range<usize>| -> F::Extension {
             let t = ExtensionTarget::from_range(self.gate_index, range);
             witness.get_extension_target(t)

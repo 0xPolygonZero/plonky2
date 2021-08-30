@@ -1,11 +1,8 @@
 use std::borrow::Borrow;
 
-use num::Integer;
-
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::{Extendable, Frobenius};
+use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
-use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gates::reducing::ReducingGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -83,16 +80,6 @@ impl<F: Field> ReducingFactor<F> {
     pub fn reset(&mut self) {
         self.count = 0;
     }
-
-    pub fn repeated_frobenius<const D: usize>(&self, count: usize) -> Self
-    where
-        F: Frobenius<D>,
-    {
-        Self {
-            base: self.base.repeated_frobenius(count),
-            count: self.count,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -132,16 +119,16 @@ impl<const D: usize> ReducingFactorTarget<D> {
             let gate = ReducingGate::new(max_coeffs_len);
             let gate_index = builder.add_gate(gate.clone(), Vec::new());
 
-            builder.route_extension(
+            builder.connect_extension(
                 self.base,
                 ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_alpha()),
             );
-            builder.route_extension(
+            builder.connect_extension(
                 acc,
                 ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_old_acc()),
             );
             for (&t, c) in chunk.iter().zip(gate.wires_coeffs()) {
-                builder.route(t, Target::wire(gate_index, c));
+                builder.connect(t, Target::wire(gate_index, c));
             }
 
             acc = ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_output());
@@ -164,40 +151,15 @@ impl<const D: usize> ReducingFactorTarget<D> {
     where
         F: Extendable<D>,
     {
-        let zero = builder.zero_extension();
         let l = terms.len();
         self.count += l as u64;
 
         let mut terms_vec = terms.to_vec();
-        // If needed, we pad the original vector so that it has even length.
-        if terms_vec.len().is_odd() {
-            terms_vec.push(zero);
-        }
+        let mut acc = terms_vec.pop().unwrap();
         terms_vec.reverse();
 
-        let mut acc = zero;
-        for pair in terms_vec.chunks(2) {
-            // We will route the output of the first arithmetic operation to the multiplicand of the
-            // second, i.e. we compute the following:
-            //     out_0 = alpha acc + pair[0]
-            //     acc' = out_1 = alpha out_0 + pair[1]
-            let gate = builder.num_gates();
-            let out_0 = ExtensionTarget::from_range(
-                gate,
-                ArithmeticExtensionGate::<D>::wires_first_output(),
-            );
-            acc = builder
-                .double_arithmetic_extension(
-                    F::ONE,
-                    F::ONE,
-                    self.base,
-                    acc,
-                    pair[0],
-                    self.base,
-                    out_0,
-                    pair[1],
-                )
-                .1;
+        for x in terms_vec {
+            acc = builder.mul_add_extension(self.base, acc, x);
         }
         acc
     }
@@ -211,23 +173,12 @@ impl<const D: usize> ReducingFactorTarget<D> {
         F: Extendable<D>,
     {
         let exp = builder.exp_u64_extension(self.base, self.count);
-        let tmp = builder.mul_extension(exp, x);
         self.count = 0;
-        tmp
+        builder.mul_extension(exp, x)
     }
 
     pub fn reset(&mut self) {
         self.count = 0;
-    }
-
-    pub fn repeated_frobenius<F>(&self, count: usize, builder: &mut CircuitBuilder<F, D>) -> Self
-    where
-        F: Extendable<D>,
-    {
-        Self {
-            base: self.base.repeated_frobenius(count, builder),
-            count: self.count,
-        }
     }
 }
 
@@ -249,6 +200,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let alpha = FF::rand();
@@ -261,10 +213,10 @@ mod tests {
         let vs_t = vs.iter().map(|&v| builder.constant(v)).collect::<Vec<_>>();
         let circuit_reduce = alpha_t.reduce_base(&vs_t, &mut builder);
 
-        builder.assert_equal_extension(manual_reduce, circuit_reduce);
+        builder.connect_extension(manual_reduce, circuit_reduce);
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new())?;
+        let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
@@ -276,6 +228,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
 
+        let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let alpha = FF::rand();
@@ -291,10 +244,10 @@ mod tests {
             .collect::<Vec<_>>();
         let circuit_reduce = alpha_t.reduce(&vs_t, &mut builder);
 
-        builder.assert_equal_extension(manual_reduce, circuit_reduce);
+        builder.connect_extension(manual_reduce, circuit_reduce);
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new())?;
+        let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
