@@ -1,6 +1,4 @@
 #![feature(destructuring_assignment)]
-#![feature(const_panic)]
-#![feature(specialization)]
 #![feature(const_generics)]
 #![feature(const_evaluatable_checked)]
 
