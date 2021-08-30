@@ -161,11 +161,17 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
         gate_index: usize,
         _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        (0..self.num_copies).map(|c| Box::new(SwitchGenerator::<F, D, CHUNK_SIZE> {
-            gate_index,
-            gate: self.clone(),
-            copy: c,
-        })).collect()
+        (0..self.num_copies)
+            .map(|c| {
+                let g: Box<dyn WitnessGenerator<F>> =
+                    Box::new(SwitchGenerator::<F, D, CHUNK_SIZE> {
+                        gate_index,
+                        gate: self.clone(),
+                        copy: c,
+                    });
+                g
+            })
+            .collect()
     }
 
     fn num_wires(&self) -> usize {
@@ -230,10 +236,12 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
             self.copy,
         ));
         for e in 0..CHUNK_SIZE {
-            let first_input =
-                get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(self.copy, e));
-            let first_output =
-                get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(self.copy, e));
+            let first_input = get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(
+                self.copy, e,
+            ));
+            let first_output = get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(
+                self.copy, e,
+            ));
 
             if first_input == first_output {
                 out_buffer.set_wire(switch_bool_wire, F::ONE);
