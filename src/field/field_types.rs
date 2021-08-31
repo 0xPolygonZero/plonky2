@@ -91,7 +91,7 @@ pub trait Field:
             return Vec::new();
         }
         if n == 1 {
-            return vec![x[0].try_inverse().expect("No inverse")];
+            return vec![x[0].inverse()];
         }
 
         // Fill buf with cumulative product of x.
@@ -105,7 +105,7 @@ pub trait Field:
 
         // At this stage buf contains the the cumulative product of x. We reuse the buffer for
         // efficiency. At the end of the loop, it is filled with inverses of x.
-        let mut a_inv = cumul_prod.try_inverse().expect("No inverse");
+        let mut a_inv = cumul_prod.inverse();
         buf[n - 1] = buf[n - 2] * a_inv;
         for i in (1..n - 1).rev() {
             a_inv = x[i + 1] * a_inv;
