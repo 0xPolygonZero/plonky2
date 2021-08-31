@@ -142,22 +142,20 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
         let z_gz = next_zs[i];
         vanishing_z_1_terms.push(l1_x * (z_x - F::ONE));
 
-        numerator_values.extend((0..num_routed_wires)
-            .map(|j| {
-                let wire_value = vars.local_wires[j];
-                let k_i = common_data.k_is[j];
-                let s_id = k_i * x;
-                wire_value + betas[i] * s_id + gammas[i]
-            }));
-        denominator_values.extend((0..num_routed_wires)
-            .map(|j| {
-                let wire_value = vars.local_wires[j];
-                let s_sigma = s_sigmas[j];
-                wire_value + betas[i] * s_sigma + gammas[i]
-            }));
+        numerator_values.extend((0..num_routed_wires).map(|j| {
+            let wire_value = vars.local_wires[j];
+            let k_i = common_data.k_is[j];
+            let s_id = k_i * x;
+            wire_value + betas[i] * s_id + gammas[i]
+        }));
+        denominator_values.extend((0..num_routed_wires).map(|j| {
+            let wire_value = vars.local_wires[j];
+            let s_sigma = s_sigmas[j];
+            wire_value + betas[i] * s_sigma + gammas[i]
+        }));
         let denominator_inverses = F::batch_multiplicative_inverse(&denominator_values);
-        quotient_values.extend((0..num_routed_wires)
-            .map(|j| numerator_values[j] * denominator_inverses[j]));
+        quotient_values
+            .extend((0..num_routed_wires).map(|j| numerator_values[j] * denominator_inverses[j]));
 
         // The partial products considered for this iteration of `i`.
         let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
