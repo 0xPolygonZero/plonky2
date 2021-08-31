@@ -174,7 +174,7 @@ pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: FftRootTa
 
     // First iteration of loop below. It's an easy case and it's separated out for efficiency.
     let mut i = r + 1;
-    if i == 1 {
+    if i == 1 && n > 1 {
         for k in (0..n).step_by(2) {
             let t = values[k + 1];
             let u = values[k];
