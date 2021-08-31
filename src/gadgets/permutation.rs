@@ -204,6 +204,7 @@ fn route<F: Field, const CHUNK_SIZE: usize>(
     // Bimap: maps indices of values in a to indices of the same values in b
     let ab_map = bimap_from_lists(a_values, b_values);
     let switches = [a_switches, b_switches];
+    let mut newly_set = [vec![false; n], vec![false; n]];
 
     // Given a side and an index, returns the index in the other side that corresponds to the same value.
     let ab_map_by_side = |side: usize, index: usize| -> usize {
@@ -224,7 +225,7 @@ fn route<F: Field, const CHUNK_SIZE: usize>(
     // if it still needs to be routed. If so, we add it to partial_routes.
     let enqueue_other_side = |partial_routes: &mut [BTreeMap<usize, bool>],
                               witness: &PartialWitness<F>,
-                              _out_buffer: &mut GeneratedValues<F>,
+                              newly_set: &mut [Vec<bool>],
                               side: usize,
                               this_i: usize,
                               subnet: bool| {
@@ -238,7 +239,9 @@ fn route<F: Field, const CHUNK_SIZE: usize>(
             return;
         }
 
-        if witness.contains(switches[other_side][other_switch_i]) {
+        if witness.contains(switches[other_side][other_switch_i])
+            || newly_set[other_side][other_switch_i]
+        {
             // The other switch has already been routed.
             return;
         }
@@ -257,28 +260,50 @@ fn route<F: Field, const CHUNK_SIZE: usize>(
 
     // See Figure 8 in the AS-Waksman paper.
     if even {
-        enqueue_other_side(&mut partial_routes, witness, out_buffer, 1, n - 2, false);
-        enqueue_other_side(&mut partial_routes, witness, out_buffer, 1, n - 1, true);
+        enqueue_other_side(
+            &mut partial_routes,
+            witness,
+            &mut newly_set,
+            1,
+            n - 2,
+            false,
+        );
+        enqueue_other_side(&mut partial_routes, witness, &mut newly_set, 1, n - 1, true);
     } else {
-        enqueue_other_side(&mut partial_routes, witness, out_buffer, 0, n - 1, true);
-        enqueue_other_side(&mut partial_routes, witness, out_buffer, 1, n - 1, true);
+        enqueue_other_side(&mut partial_routes, witness, &mut newly_set, 0, n - 1, true);
+        enqueue_other_side(&mut partial_routes, witness, &mut newly_set, 1, n - 1, true);
     }
 
-    let route_switch = |partial_routes: &mut [BTreeMap<usize, bool>],
-                        witness: &PartialWitness<F>,
-                        out_buffer: &mut GeneratedValues<F>,
-                        side: usize,
-                        switch_index: usize,
-                        swap: bool| {
+    let mut route_switch = |partial_routes: &mut [BTreeMap<usize, bool>],
+                            witness: &PartialWitness<F>,
+                            out_buffer: &mut GeneratedValues<F>,
+                            side: usize,
+                            switch_index: usize,
+                            swap: bool| {
         // First, we actually set the switch configuration.
         out_buffer.set_target(switches[side][switch_index], F::from_bool(swap));
+        newly_set[side][switch_index] = true;
 
         // Then, we enqueue the two corresponding wires on the other side of the network, to ensure
         // that they get routed in the next step.
         let this_i_1 = switch_index * 2;
         let this_i_2 = this_i_1 + 1;
-        enqueue_other_side(partial_routes, witness, out_buffer, side, this_i_1, swap);
-        enqueue_other_side(partial_routes, witness, out_buffer, side, this_i_2, !swap);
+        enqueue_other_side(
+            partial_routes,
+            witness,
+            &mut newly_set,
+            side,
+            this_i_1,
+            swap,
+        );
+        enqueue_other_side(
+            partial_routes,
+            witness,
+            &mut newly_set,
+            side,
+            this_i_2,
+            !swap,
+        );
     };
 
     // If {a,b}_only_routes is empty, then we can route any switch next. For efficiency, we will
@@ -351,26 +376,10 @@ impl<F: Field, const CHUNK_SIZE: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let a1_values: Vec<_> = self
-            .a1
-            .iter()
-            .map(|x| witness.get_target(*x))
-            .collect();
-        let a2_values: Vec<_> = self
-            .a2
-            .iter()
-            .map(|x| witness.get_target(*x))
-            .collect();
-        let b1_values: Vec<_> = self
-            .b1
-            .iter()
-            .map(|x| witness.get_target(*x))
-            .collect();
-        let b2_values: Vec<_> = self
-            .b2
-            .iter()
-            .map(|x| witness.get_target(*x))
-            .collect();
+        let a1_values: Vec<_> = self.a1.iter().map(|x| witness.get_target(*x)).collect();
+        let a2_values: Vec<_> = self.a2.iter().map(|x| witness.get_target(*x)).collect();
+        let b1_values: Vec<_> = self.b1.iter().map(|x| witness.get_target(*x)).collect();
+        let b2_values: Vec<_> = self.b2.iter().map(|x| witness.get_target(*x)).collect();
 
         let no_switch = a1_values.iter().zip(b1_values.iter()).all(|(a, b)| a == b)
             && a2_values.iter().zip(b2_values.iter()).all(|(a, b)| a == b);

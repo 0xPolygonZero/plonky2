@@ -233,9 +233,9 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
             let first_output_wire = local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(
                 self.copy, e,
             ));
-            let second_output_wire = local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(
-                self.copy, e,
-            ));
+            let second_output_wire = local_wire(
+                SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(self.copy, e),
+            );
             let first_input = get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(
                 self.copy, e,
             ));
