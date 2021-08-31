@@ -172,8 +172,20 @@ pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: FftRootTa
         }
     }
 
-    let mut m = 1 << (r + 1);
-    for lg_m in (r + 1)..=lg_n {
+    // First iteration of loop below. It's an easy case and it's separated out for efficiency.
+    let mut i = r + 1;
+    if i == 1 {
+        for k in (0..n).step_by(2) {
+            let t = values[k + 1];
+            let u = values[k];
+            values[k] = u + t;
+            values[k + 1] = u - t;
+        }
+        i += 1;
+    }
+
+    let mut m = 1 << i;
+    for lg_m in i..=lg_n {
         let half_m = m / 2;
         for k in (0..n).step_by(m) {
             for j in 0..half_m {
