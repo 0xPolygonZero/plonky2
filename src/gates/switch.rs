@@ -57,6 +57,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SwitchGate<F, D,
     }
 
     pub fn wire_switch_bool(num_copies: usize, copy: usize) -> usize {
+        debug_assert!(copy < num_copies);
         num_copies * (4 * CHUNK_SIZE) + copy
     }
 }
@@ -213,7 +214,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
                 SwitchGate::<F, D, CHUNK_SIZE>::wire_second_input(self.copy, e),
             ));
             deps.push(local_target(
-                SwitchGate::<F, D, CHUNK_SIZE>::wire_switch_bool(self.copy, e),
+                SwitchGate::<F, D, CHUNK_SIZE>::wire_switch_bool(self.gate.num_copies, self.copy),
             ));
         }
 
@@ -228,15 +229,13 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
 
         let get_local_wire = |input| witness.get_wire(local_wire(input));
 
-        let first_output_wire = local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(
-            self.gate.num_copies,
-            self.copy,
-        ));
-        let second_output_wire = local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(
-            self.gate.num_copies,
-            self.copy,
-        ));
         for e in 0..CHUNK_SIZE {
+            let first_output_wire = local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(
+                self.copy, e,
+            ));
+            let second_output_wire = local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(
+                self.copy, e,
+            ));
             let first_input = get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(
                 self.copy, e,
             ));
@@ -244,7 +243,8 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
                 self.copy, e,
             ));
             let switch_bool = get_local_wire(SwitchGate::<F, D, CHUNK_SIZE>::wire_switch_bool(
-                self.copy, e,
+                self.gate.num_copies,
+                self.copy,
             ));
 
             let (first_output, second_output) = if switch_bool == F::ZERO {

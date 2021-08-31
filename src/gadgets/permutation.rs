@@ -323,6 +323,7 @@ fn route<F: Field, const CHUNK_SIZE: usize>(
                         scan_index[side],
                         false,
                     );
+                    scan_index[side] += 1;
                 }
             }
         }
