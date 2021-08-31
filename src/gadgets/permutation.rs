@@ -344,7 +344,6 @@ impl<F: Field, const CHUNK_SIZE: usize> SimpleGenerator<F>
 {
     fn dependencies(&self) -> Vec<Target> {
         [self.a1, self.a2, self.b1, self.b2]
-            .to_vec()
             .iter()
             .map(|arr| arr.to_vec())
             .flatten()
@@ -399,10 +398,10 @@ struct PermutationGenerator<F: Field, const CHUNK_SIZE: usize> {
 impl<F: Field, const CHUNK_SIZE: usize> SimpleGenerator<F> for PermutationGenerator<F, CHUNK_SIZE> {
     fn dependencies(&self) -> Vec<Target> {
         self.a
-            .iter()
-            .map(|arr| arr.to_vec())
+            .clone()
+            .into_iter()
             .flatten()
-            .chain(self.b.iter().map(|arr| arr.to_vec()).flatten())
+            .chain(self.b.clone().into_iter().flatten())
             .collect()
     }
 
