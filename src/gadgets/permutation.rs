@@ -354,25 +354,21 @@ impl<F: Field, const CHUNK_SIZE: usize> SimpleGenerator<F>
     fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let a1_values: Vec<_> = self
             .a1
-            .to_vec()
             .iter()
             .map(|x| witness.get_target(*x))
             .collect();
         let a2_values: Vec<_> = self
             .a2
-            .to_vec()
             .iter()
             .map(|x| witness.get_target(*x))
             .collect();
         let b1_values: Vec<_> = self
             .b1
-            .to_vec()
             .iter()
             .map(|x| witness.get_target(*x))
             .collect();
         let b2_values: Vec<_> = self
             .b2
-            .to_vec()
             .iter()
             .map(|x| witness.get_target(*x))
             .collect();
