@@ -190,8 +190,9 @@ impl Field for CrandallField {
         let mut c = 0u64;
 
         while u != 1 && v != 1 {
-            while u.is_even() {
-                u /= 2;
+            let u_tz = u.trailing_zeros();
+            u >>= u_tz;
+            for _ in 0..u_tz {
                 if b.is_even() {
                     b /= 2;
                 } else {
@@ -200,8 +201,9 @@ impl Field for CrandallField {
                 }
             }
 
-            while v.is_even() {
-                v /= 2;
+            let v_tz = v.trailing_zeros();
+            v >>= v_tz;
+            for _ in 0..v_tz {
                 if c.is_even() {
                     c /= 2;
                 } else {

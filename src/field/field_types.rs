@@ -90,25 +90,31 @@ pub trait Field:
         if n == 0 {
             return Vec::new();
         }
+        if n == 1 {
+            return vec![x[0].try_inverse().expect("No inverse")];
+        }
 
-        let mut a = Vec::with_capacity(n);
-        a.push(x[0]);
+        // Fill buf with cumulative product of x.
+        let mut buf = Vec::with_capacity(n);
+        let mut cumul_prod = x[0];
+        buf.push(cumul_prod);
         for i in 1..n {
-            a.push(a[i - 1] * x[i]);
+            cumul_prod *= x[i];
+            buf.push(cumul_prod);
         }
 
-        let mut a_inv = vec![Self::ZERO; n];
-        a_inv[n - 1] = a[n - 1].try_inverse().expect("No inverse");
-        for i in (0..n - 1).rev() {
-            a_inv[i] = x[i + 1] * a_inv[i + 1];
+        // At this stage buf contains the the cumulative product of x. We reuse the buffer for
+        // efficiency. At the end of the loop, it is filled with inverses of x.
+        let mut a_inv = cumul_prod.try_inverse().expect("No inverse");
+        buf[n - 1] = buf[n - 2] * a_inv;
+        for i in (1..n - 1).rev() {
+            a_inv = x[i + 1] * a_inv;
+            // buf[i - 1] has not been written to by this loop, so it equals x[0] * ... x[n - 1].
+            buf[i] = buf[i - 1] * a_inv;
+            // buf[i] now holds the inverse of x[i].
         }
-
-        let mut x_inv = Vec::with_capacity(n);
-        x_inv.push(a_inv[0]);
-        for i in 1..n {
-            x_inv.push(a[i - 1] * a_inv[i]);
-        }
-        x_inv
+        buf[0] = x[1] * a_inv;
+        buf
     }
 
     /// Compute the inverse of 2^exp in this field.
