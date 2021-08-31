@@ -122,39 +122,42 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
     let constraint_terms =
         evaluate_gate_constraints_base(&common_data.gates, common_data.num_gate_constraints, vars);
 
+    let num_challenges = common_data.config.num_challenges;
+    let num_routed_wires = common_data.config.num_routed_wires;
+
     // The L_1(x) (Z(x) - 1) vanishing terms.
-    let mut vanishing_z_1_terms = Vec::new();
+    let mut vanishing_z_1_terms = Vec::with_capacity(num_challenges);
     // The terms checking the partial products.
     let mut vanishing_partial_products_terms = Vec::new();
     // The Z(x) f'(x) - g'(x) Z(g x) terms.
-    let mut vanishing_v_shift_terms = Vec::new();
+    let mut vanishing_v_shift_terms = Vec::with_capacity(num_challenges);
 
     let l1_x = z_h_on_coset.eval_l1(index, x);
 
-    for i in 0..common_data.config.num_challenges {
+    let mut numerator_values = Vec::with_capacity(num_routed_wires);
+    let mut denominator_values = Vec::with_capacity(num_routed_wires);
+    let mut quotient_values = Vec::with_capacity(num_routed_wires);
+    for i in 0..num_challenges {
         let z_x = local_zs[i];
         let z_gz = next_zs[i];
         vanishing_z_1_terms.push(l1_x * (z_x - F::ONE));
 
-        let numerator_values = (0..common_data.config.num_routed_wires)
+        numerator_values.extend((0..num_routed_wires)
             .map(|j| {
                 let wire_value = vars.local_wires[j];
                 let k_i = common_data.k_is[j];
                 let s_id = k_i * x;
                 wire_value + betas[i] * s_id + gammas[i]
-            })
-            .collect::<Vec<_>>();
-        let denominator_values = (0..common_data.config.num_routed_wires)
+            }));
+        denominator_values.extend((0..num_routed_wires)
             .map(|j| {
                 let wire_value = vars.local_wires[j];
                 let s_sigma = s_sigmas[j];
                 wire_value + betas[i] * s_sigma + gammas[i]
-            })
-            .collect::<Vec<_>>();
+            }));
         let denominator_inverses = F::batch_multiplicative_inverse(&denominator_values);
-        let quotient_values = (0..common_data.config.num_routed_wires)
-            .map(|j| numerator_values[j] * denominator_inverses[j])
-            .collect::<Vec<_>>();
+        quotient_values.extend((0..num_routed_wires)
+            .map(|j| numerator_values[j] * denominator_inverses[j]));
 
         // The partial products considered for this iteration of `i`.
         let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
@@ -177,7 +180,12 @@ pub(crate) fn eval_vanishing_poly_base<F: Extendable<D>, const D: usize>(
             .copied()
             .product();
         vanishing_v_shift_terms.push(quotient * z_x - z_gz);
+
+        numerator_values.clear();
+        denominator_values.clear();
+        quotient_values.clear();
     }
+
     let vanishing_terms = [
         vanishing_z_1_terms,
         vanishing_partial_products_terms,
