@@ -8,7 +8,7 @@ use plonky2::field::proth_field::ProthField;
 use plonky2::field::field::Field;
 
 type F = GoldilocksField;
-//type F = CrandallField;
+// type F = CrandallField;
 //type F = ProthField;
 
 /// The number of exponentiations to perform in parallel.

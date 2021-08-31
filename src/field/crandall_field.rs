@@ -423,20 +423,58 @@ impl Extendable<4> for CrandallField {
     type Extension = QuarticCrandallField;
 }
 
-/// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
-/// field order and `2^64`.
+// /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
+// /// field order and `2^64`.
+// #[inline]
+// fn reduce128(x: u128) -> CrandallField {
+//     // This is Crandall's algorithm. When we have some high-order bits (i.e. with a weight of 2^64),
+//     // we convert them to low-order bits by multiplying by EPSILON (the logic is a simple
+//     // generalization of Mersenne prime reduction). The first time we do this, the product will take
+//     // ~96 bits, so we still have some high-order bits. But when we repeat this another time, the
+//     // product will fit in 64 bits.
+//     let (lo_1, hi_1) = split(x);
+//     let (lo_2, hi_2) = split((EPSILON as u128) * (hi_1 as u128) + (lo_1 as u128));
+//     let lo_3 = hi_2 * EPSILON;
+
+//     CrandallField(lo_2) + CrandallField(lo_3)
+//     // let mut x = lo_2;
+//     // unsafe {
+//     // asm!(
+//     //     "add {0}, {1}",
+//     //     "lea {2}, [{0} + {3}]",
+//     //     "cmovc {0}, {2}",
+//     //     inout(reg) x,
+//     //     in(reg) lo_3,
+//     //     lateout(reg) _,
+//     //     in(reg) EPSILON,
+//     //     options(pure, nomem, nostack)
+//     // );
+//     // }
+//     // CrandallField(x)
+// }
+
 #[inline]
 fn reduce128(x: u128) -> CrandallField {
-    // This is Crandall's algorithm. When we have some high-order bits (i.e. with a weight of 2^64),
-    // we convert them to low-order bits by multiplying by EPSILON (the logic is a simple
-    // generalization of Mersenne prime reduction). The first time we do this, the product will take
-    // ~96 bits, so we still have some high-order bits. But when we repeat this another time, the
-    // product will fit in 64 bits.
     let (lo_1, hi_1) = split(x);
     let (lo_2, hi_2) = split((EPSILON as u128) * (hi_1 as u128) + (lo_1 as u128));
     let lo_3 = hi_2 * EPSILON;
 
-    CrandallField(lo_2) + CrandallField(lo_3)
+    // CrandallField(lo_2) + CrandallField(lo_3)
+    let mut x = lo_2;
+    let mut z = 0u64;
+    unsafe {
+        asm!(
+            "add {0}, {1}",
+            "cmovc {2}, {3}",
+            inout(reg) x,
+            in(reg) lo_3,
+            inlateout(reg) z,
+            in(reg) EPSILON,
+            options(pure, nomem, nostack)
+        );
+    }
+    x = x.overflowing_add(z).0;
+    CrandallField(x)
 }
 
 #[inline]

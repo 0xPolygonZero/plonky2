@@ -317,28 +317,156 @@ impl DivAssign for GoldilocksField {
     }
 }
 
-/// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
-/// field order and `2^64`.
+// #[inline]
+// fn reduce128(x: u128) -> GoldilocksField {
+//     const LO_32_BITS: u64 = (1u64 << 32) - 1u64;
+//     let (x_lo, x_hi) = split(x);
+
+//     let x_hi_hi = x_hi >> 32;
+//     let (mut t0, borrow) = x_lo.overflowing_sub(x_hi_hi);
+//     t0 = t0.overflowing_sub(EPSILON * (borrow as u64)).0;
+
+//     let x_hi_lo = x_hi & EPSILON;
+//     let t1 = x_hi_lo * EPSILON;
+
+//     let (mut t2, carry) = t1.overflowing_add(t0);
+//     t2 = t2.overflowing_add(EPSILON * (carry as u64)).0;
+//     GoldilocksField(t2)
+// }
+
+
 #[inline]
 fn reduce128(x: u128) -> GoldilocksField {
-    // Write x = a0 + a1*2^64  (0 <= a0, a1 < 2^64)
-    //         = b0 + b1*2^32 + b2*2^64 + b3*2^96  (0 <= b0, b1, b2, b3 < 2^32)
-    const MASK_LO_32_BITS: u64 = (1u64 << 32) - 1u64;
-    let (a0, a1) = split(x);
-    let b3 = a1 >> 32;
-    let b2 = a1 & MASK_LO_32_BITS;
-    let x = (b2 << 32) - b2;
-    let (y, cy) = x.overflowing_add(a0);
-    let (mut z, br) = y.overflowing_sub(b3);
+    const LO_32_BITS: u64 = (1u64 << 32) - 1u64;
+    let (x_lo, x_hi) = split(x);
 
-    if cy {
-        z = z.overflowing_sub(GoldilocksField::ORDER).0;
+    let x_hi_hi = x_hi >> 32;
+    let mut t0 = x_lo;
+    let mut s0 = x_hi_hi;
+    unsafe {
+        asm!(
+            "sub {0}, {1}",
+            "sbb {1:e}, {1:e}",
+            inlateout(reg) t0,
+            inlateout(reg) s0,
+            options(pure, nomem, nostack)
+        );
     }
-    if br {
-        z = z.overflowing_add(GoldilocksField::ORDER).0;
+    t0 = t0.overflowing_sub(s0).0;
+
+    let x_hi_lo = x_hi & EPSILON;
+    let t1 = x_hi_lo * EPSILON;
+
+    let mut t2 = t1;
+    let mut s2 = t0;
+    unsafe {
+        asm!(
+            "add {0}, {1}",
+            "sbb {1:e}, {1:e}",
+            inlateout(reg) t2,
+            inlateout(reg) s2,
+            options(pure, nomem, nostack)
+        );
     }
-    GoldilocksField(z)
+    t2 = t2.overflowing_add(s2).0;
+
+    GoldilocksField(t2)
 }
+
+// /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
+// /// field order and `2^64`.
+// #[inline]
+// fn reduce128(x: u128) -> GoldilocksField {
+//     const MASK_LO_32_BITS: u64 = (1u64 << 32) - 1u64;
+//     const EPSILON: u64 = (1u64 << 32) - 1u64;
+//     const FIELD_ORDER: u64 = 0u64.overflowing_sub(EPSILON).0;
+
+//     let (x_lo, x_hi) = split(x);
+
+//     let x_hi_hi = x_hi >> 32;
+//     let mut r0 = x_hi_hi;
+//     let mut t0 = x_lo;
+//     unsafe {
+//         asm!(
+//             "sub {0}, {1}",
+//             "sbb {1:e}, {1:e}",
+//             "sub {0}, {1}",
+//             inout(reg) t0,
+//             inout(reg) r0,
+//             options(pure, nomem, nostack)
+//         );
+//     }
+
+//     let x_hi_lo = x_hi & MASK_LO_32_BITS;
+//     let t1 = x_hi_lo * EPSILON;
+
+//     let mut t2 = t1;
+//     let mut r2 = t0;
+//     unsafe {
+//         asm!(
+//             "add {0}, {1}",
+//             "sbb {1:e}, {1:e}",
+//             "add {0}, {1}",
+//             inout(reg) t2,
+//             inout(reg) r2,
+//             options(pure, nomem, nostack)
+//         );
+//     }
+//     GoldilocksField(t2)
+// }
+
+// /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
+// /// field order and `2^64`.
+// #[inline]
+// fn reduce128(x: u128) -> GoldilocksField {
+//     // This is Crandall's algorithm. When we have some high-order bits (i.e. with a weight of 2^64),
+//     // we convert them to low-order bits by multiplying by EPSILON (the logic is a simple
+//     // generalization of Mersenne prime reduction). The first time we do this, the product will take
+//     // ~96 bits, so we still have some high-order bits. But when we repeat this another time, the
+//     // product will fit in 64 bits.
+//     let (lo_1, hi_1) = split(x);
+//     let (lo_2, hi_2) = split((EPSILON as u128) * (hi_1 as u128) + (lo_1 as u128));
+//     let lo_3 = hi_2 * EPSILON;
+
+//     GoldilocksField(lo_2) + GoldilocksField(lo_3)
+//     // let mut x = lo_2;
+//     // unsafe {
+//     // asm!(
+//     //     "add {0}, {1}",
+//     //     "lea {2}, [{0} + {3}]",
+//     //     "cmovc {0}, {2}",
+//     //     inout(reg) x,
+//     //     in(reg) lo_3,
+//     //     lateout(reg) _,
+//     //     in(reg) EPSILON,
+//     //     options(pure, nomem, nostack)
+//     // );
+//     // }
+//     // GoldilocksField(x)
+// }
+
+// /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
+// /// field order and `2^64`.
+// #[inline]
+// fn reduce128(x: u128) -> GoldilocksField {
+//     // Write x = a0 + a1*2^64  (0 <= a0, a1 < 2^64)
+//     //         = b0 + b1*2^32 + b2*2^64 + b3*2^96  (0 <= b0, b1, b2, b3 < 2^32)
+//     const MASK_LO_32_BITS: u64 = (1u64 << 32) - 1u64;
+//     let (a0, a1) = split(x);
+//     let b3 = a1 >> 32;
+//     let b2 = a1 & MASK_LO_32_BITS;
+//     let x = (b2 << 32) - b2;
+//     let (y, cy) = x.overflowing_add(a0);
+//     let (mut z, br) = y.overflowing_sub(b3);
+
+//     if cy {
+//         z = z.overflowing_sub(GoldilocksField::ORDER).0;
+//     }
+//     if br {
+//         z = z.overflowing_add(GoldilocksField::ORDER).0;
+//     }
+//     GoldilocksField(z)
+// }
 
 /*
 #[inline]
