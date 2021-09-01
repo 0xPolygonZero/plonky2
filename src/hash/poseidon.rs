@@ -3,6 +3,7 @@
 
 use unroll::unroll_for_loops;
 
+use crate::field::crandall_field::CrandallField;
 use crate::field::field_types::Field;
 
 // The number of full rounds and partial rounds is given by the
@@ -115,7 +116,7 @@ const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     0x4543d9df72c4831d, 0xf172d73e69f20739, 0xdfd1c4ff1eb3d868, 0xbc8dfb62d26376f7,
 ];
 
-pub trait PoseidonInterface<F: Field, const WIDTH: usize>
+pub trait PoseidonInterface<const WIDTH: usize>: Field
 where
     // magic to get const generic expressions to work
     [(); WIDTH - 1]: ,
@@ -155,8 +156,8 @@ where
 
     #[inline]
     #[unroll_for_loops]
-    fn mds_layer(state_: &[F; WIDTH]) -> [F; WIDTH] {
-        let mut result = [F::ZERO; WIDTH];
+    fn mds_layer(state_: &[Self; WIDTH]) -> [Self; WIDTH] {
+        let mut result = [Self::ZERO; WIDTH];
 
         let mut state = [0u64; WIDTH];
         for r in 0..WIDTH {
@@ -164,23 +165,23 @@ where
         }
 
         for r in 0..WIDTH {
-            result[r] = F::from_noncanonical_u128(Self::mds_row_shf(r, &state));
+            result[r] = Self::from_noncanonical_u128(Self::mds_row_shf(r, &state));
         }
         result
     }
 
     #[inline]
     #[unroll_for_loops]
-    fn partial_first_constant_layer(state: &mut [F; WIDTH]) {
+    fn partial_first_constant_layer(state: &mut [Self; WIDTH]) {
         for i in 0..WIDTH {
-            state[i] += F::from_canonical_u64(Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]);
+            state[i] += Self::from_canonical_u64(Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]);
         }
     }
 
     #[inline]
     #[unroll_for_loops]
-    fn mds_partial_layer_init(state: &[F; WIDTH]) -> [F; WIDTH] {
-        let mut result = [F::ZERO; WIDTH];
+    fn mds_partial_layer_init(state: &[Self; WIDTH]) -> [Self; WIDTH] {
+        let mut result = [Self::ZERO; WIDTH];
 
         // Initial matrix has first row/column = [1, 0, ..., 0];
 
@@ -193,7 +194,7 @@ where
                 // column-major order so that this dot product is cache
                 // friendly.
                 let t =
-                    F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[c - 1][r - 1]);
+                    Self::from_canonical_u64(Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[c - 1][r - 1]);
                 result[c] += state[r] * t;
             }
         }
@@ -210,21 +211,21 @@ where
     /// (t-1)x(t-1) identity matrix.
     #[inline]
     #[unroll_for_loops]
-    fn mds_partial_layer_fast(state: &[F; WIDTH], r: usize) -> [F; WIDTH] {
+    fn mds_partial_layer_fast(state: &[Self; WIDTH], r: usize) -> [Self; WIDTH] {
         // Set d = [M_00 | w^] dot [state]
 
         let s0 = state[0].to_noncanonical_u64() as u128;
-        let mut d = F::from_noncanonical_u128(s0 << Self::MDS_MATRIX_EXPS[0]);
+        let mut d = Self::from_noncanonical_u128(s0 << Self::MDS_MATRIX_EXPS[0]);
         for i in 1..WIDTH {
-            let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
+            let t = Self::from_canonical_u64(Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
             d += state[i] * t;
         }
 
         // result = [d] concat [state[0] * v + state[shift up by 1]]
-        let mut result = [F::ZERO; WIDTH];
+        let mut result = [Self::ZERO; WIDTH];
         result[0] = d;
         for i in 1..WIDTH {
-            let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
+            let t = Self::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
             result[i] = state[0] * t + state[i];
         }
         result
@@ -232,14 +233,14 @@ where
 
     #[inline]
     #[unroll_for_loops]
-    fn constant_layer(state: &mut [F; WIDTH], round_ctr: usize) {
+    fn constant_layer(state: &mut [Self; WIDTH], round_ctr: usize) {
         for i in 0..WIDTH {
-            state[i] += F::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]);
+            state[i] += Self::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]);
         }
     }
 
     #[inline]
-    fn sbox_monomial(x: F) -> F {
+    fn sbox_monomial(x: Self) -> Self {
         // x |--> x^7
         let x2 = x * x;
         let x4 = x2 * x2;
@@ -249,7 +250,7 @@ where
 
     #[inline]
     #[unroll_for_loops]
-    fn sbox_layer(state: &mut [F; WIDTH]) {
+    fn sbox_layer(state: &mut [Self; WIDTH]) {
         for i in 0..WIDTH {
             state[i] = Self::sbox_monomial(state[i]);
         }
@@ -257,7 +258,7 @@ where
 
     #[inline]
     #[unroll_for_loops]
-    fn full_rounds(state: &mut [F; WIDTH], round_ctr: &mut usize) {
+    fn full_rounds(state: &mut [Self; WIDTH], round_ctr: &mut usize) {
         for _ in 0..HALF_N_FULL_ROUNDS {
             Self::constant_layer(state, *round_ctr);
             Self::sbox_layer(state);
@@ -268,7 +269,7 @@ where
 
     #[inline]
     #[unroll_for_loops]
-    fn partial_rounds_fast(state: &mut [F; WIDTH], round_ctr: &mut usize) {
+    fn partial_rounds_fast(state: &mut [Self; WIDTH], round_ctr: &mut usize) {
         Self::partial_first_constant_layer(state);
         *state = Self::mds_partial_layer_init(state);
 
@@ -276,7 +277,7 @@ where
         // separately at the end.
         for i in 0..(N_PARTIAL_ROUNDS - 1) {
             state[0] = Self::sbox_monomial(state[0]);
-            state[0] += F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_CONSTANTS[i]);
+            state[0] += Self::from_canonical_u64(Self::FAST_PARTIAL_ROUND_CONSTANTS[i]);
             *state = Self::mds_partial_layer_fast(state, i);
         }
         state[0] = Self::sbox_monomial(state[0]);
@@ -286,7 +287,7 @@ where
 
     #[inline]
     #[unroll_for_loops]
-    fn partial_rounds(state: &mut [F; WIDTH], round_ctr: &mut usize) {
+    fn partial_rounds(state: &mut [Self; WIDTH], round_ctr: &mut usize) {
         for _ in 0..N_PARTIAL_ROUNDS {
             Self::constant_layer(state, *round_ctr);
             state[0] = Self::sbox_monomial(state[0]);
@@ -296,7 +297,7 @@ where
     }
 
     #[inline]
-    fn poseidon(input: [F; WIDTH]) -> [F; WIDTH] {
+    fn poseidon(input: [Self; WIDTH]) -> [Self; WIDTH] {
         let mut state = input;
         let mut round_ctr = 0;
 
@@ -308,7 +309,7 @@ where
     }
 
     #[inline]
-    fn poseidon_naive(input: [F; WIDTH]) -> [F; WIDTH] {
+    fn poseidon_naive(input: [Self; WIDTH]) -> [Self; WIDTH] {
         let mut state = input;
         let mut round_ctr = 0;
 
@@ -320,24 +321,8 @@ where
     }
 }
 
-pub struct Poseidon;
-
-impl<F: Field, const WIDTH: usize> PoseidonInterface<F, WIDTH> for Poseidon
-where
-    [(); WIDTH - 1]: ,
-{
-    // Any attempt to use a WIDTH other than the specialisations to 8
-    // and 12 below will result in a panic.
-    default const MDS_MATRIX_EXPS: [u64; WIDTH] = panic!();
-    default const FAST_PARTIAL_FIRST_ROUND_CONSTANT: [u64; WIDTH] = panic!();
-    default const FAST_PARTIAL_ROUND_CONSTANTS: [u64; N_PARTIAL_ROUNDS - 1] = panic!();
-    default const FAST_PARTIAL_ROUND_VS: [[u64; WIDTH - 1]; N_PARTIAL_ROUNDS] = panic!();
-    default const FAST_PARTIAL_ROUND_W_HATS: [[u64; WIDTH - 1]; N_PARTIAL_ROUNDS] = panic!();
-    default const FAST_PARTIAL_ROUND_INITIAL_MATRIX: [[u64; WIDTH - 1]; WIDTH - 1] = panic!();
-}
-
 #[rustfmt::skip]
-impl<F: Field> PoseidonInterface<F, 8> for Poseidon {
+impl PoseidonInterface<8> for CrandallField {
     // The MDS matrix we use is the circulant matrix with first row given by the vector
     // [ 2^x for x in MDS_MATRIX_EXPS] = [4, 1, 2, 256, 16, 8, 1, 1]
     //
@@ -477,7 +462,7 @@ impl<F: Field> PoseidonInterface<F, 8> for Poseidon {
 }
 
 #[rustfmt::skip]
-impl<F: Field> PoseidonInterface<F, 12> for Poseidon {
+impl PoseidonInterface<12> for CrandallField {
     // The MDS matrix we use is the circulant matrix with first row given by the vector
     // [ 2^x for x in MDS_MATRIX_EXPS] = [1024, 8192, 4, 1, 16, 2, 256, 128, 32768, 32, 1, 1]
     //
@@ -685,10 +670,11 @@ impl<F: Field> PoseidonInterface<F, 12> for Poseidon {
 mod tests {
     use crate::field::crandall_field::CrandallField as F;
     use crate::field::field_types::Field;
-    use crate::hash::poseidon::{Poseidon, PoseidonInterface};
+    use crate::hash::poseidon::PoseidonInterface;
 
     fn check_test_vectors<const WIDTH: usize>(test_vectors: Vec<([u64; WIDTH], [u64; WIDTH])>)
     where
+        F: PoseidonInterface<WIDTH>,
         [(); WIDTH - 1]: ,
     {
         for (input_, expected_output_) in test_vectors.into_iter() {
@@ -696,7 +682,7 @@ mod tests {
             for i in 0..WIDTH {
                 input[i] = F::from_canonical_u64(input_[i]);
             }
-            let output = Poseidon::poseidon(input);
+            let output = F::poseidon(input);
             for i in 0..WIDTH {
                 let ex_output = F::from_canonical_u64(expected_output_[i]);
                 assert_eq!(output[i], ex_output);
@@ -726,7 +712,7 @@ mod tests {
               0x934ab794bd534b3c, 0xb39ef937e8caa038, 0x9e5fe73f4b03983c, 0x9539e39e93c28978, ]),
         ];
 
-        check_test_vectors(test_vectors8);
+        check_test_vectors::<8>(test_vectors8);
 
         #[rustfmt::skip]
         let test_vectors12: Vec<([u64; 12], [u64; 12])> = vec![
@@ -751,14 +737,15 @@ mod tests {
 
     fn check_consistency<const WIDTH: usize>()
     where
+        F: PoseidonInterface<WIDTH>,
         [(); WIDTH - 1]: ,
     {
         let mut input = [F::ZERO; WIDTH];
         for i in 0..WIDTH {
             input[i] = F::from_canonical_u64(i as u64);
         }
-        let output = Poseidon::poseidon(input);
-        let output_naive = Poseidon::poseidon_naive(input);
+        let output = F::poseidon(input);
+        let output_naive = F::poseidon_naive(input);
         for i in 0..WIDTH {
             assert_eq!(output[i], output_naive[i]);
         }
