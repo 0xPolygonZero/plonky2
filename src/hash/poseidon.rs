@@ -120,7 +120,6 @@ pub trait PoseidonInterface<const WIDTH: usize>: Field
 where
     // magic to get const generic expressions to work
     [(); WIDTH - 1]: ,
-
 {
     // Total number of round constants required: width of the input
     // times number of rounds.
@@ -671,7 +670,7 @@ impl PoseidonInterface<12> for CrandallField {
 mod tests {
     use crate::field::crandall_field::CrandallField as F;
     use crate::field::field_types::Field;
-    use crate::hash::poseidon::{PoseidonInterface};
+    use crate::hash::poseidon::PoseidonInterface;
 
     fn check_test_vectors<const WIDTH: usize>(test_vectors: Vec<([u64; WIDTH], [u64; WIDTH])>)
     where
