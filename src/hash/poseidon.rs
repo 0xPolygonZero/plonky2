@@ -304,6 +304,7 @@ where
         Self::full_rounds(&mut state, &mut round_ctr);
         Self::partial_rounds_fast(&mut state, &mut round_ctr);
         Self::full_rounds(&mut state, &mut round_ctr);
+        debug_assert_eq!(round_ctr, N_ROUNDS);
 
         state
     }
@@ -316,6 +317,7 @@ where
         Self::full_rounds(&mut state, &mut round_ctr);
         Self::partial_rounds(&mut state, &mut round_ctr);
         Self::full_rounds(&mut state, &mut round_ctr);
+        debug_assert_eq!(round_ctr, N_ROUNDS);
 
         state
     }
