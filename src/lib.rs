@@ -1,6 +1,5 @@
 #![feature(destructuring_assignment)]
-#![feature(const_generics)]
-#![feature(const_evaluatable_checked)]
+#![feature(generic_const_exprs)]
 
 pub mod field;
 pub mod fri;
