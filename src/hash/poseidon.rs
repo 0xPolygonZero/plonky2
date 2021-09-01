@@ -3,8 +3,8 @@
 
 use unroll::unroll_for_loops;
 
-use crate::field::field_types::Field;
 use crate::field::crandall_field::CrandallField;
+use crate::field::field_types::Field;
 
 // The number of full rounds and partial rounds is given by the
 // calc_round_numbers.py script. They happen to be the same for both
@@ -270,7 +270,7 @@ where
 
     #[inline]
     #[unroll_for_loops]
-    fn partial_rounds_fast(state: &mut [F; WIDTH], round_ctr: &mut usize) {
+    fn partial_rounds_fast(state: &mut [Self; WIDTH], round_ctr: &mut usize) {
         Self::partial_first_constant_layer(state);
         *state = Self::mds_partial_layer_init(state);
 

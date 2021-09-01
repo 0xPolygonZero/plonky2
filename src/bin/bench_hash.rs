@@ -4,7 +4,7 @@ use plonky2::field::crandall_field::CrandallField as F;
 use plonky2::field::field_types::Field;
 use plonky2::hash::gmimc::gmimc_permute_array;
 use plonky2::hash::hashing::{GMIMC_CONSTANTS, GMIMC_ROUNDS};
-use plonky2::hash::poseidon::{Poseidon, PoseidonInterface};
+use plonky2::hash::poseidon::PoseidonInterface;
 use plonky2::hash::rescue::rescue;
 
 #[inline]
@@ -19,22 +19,22 @@ fn rescue_hash(x: [F; 12]) -> [F; 12] {
 
 #[inline]
 fn poseidon8_hash(x: [F; 8]) -> [F; 8] {
-    Poseidon::poseidon(x)
+    F::poseidon(x)
 }
 
 #[inline]
 fn poseidon8_naive_hash(x: [F; 8]) -> [F; 8] {
-    Poseidon::poseidon_naive(x)
+    F::poseidon_naive(x)
 }
 
 #[inline]
 fn poseidon12_hash(x: [F; 12]) -> [F; 12] {
-    Poseidon::poseidon(x)
+    F::poseidon(x)
 }
 
 #[inline]
 fn poseidon12_naive_hash(x: [F; 12]) -> [F; 12] {
-    Poseidon::poseidon_naive(x)
+    F::poseidon_naive(x)
 }
 
 fn bench_hash<const W: usize>(name: &str, hash: fn([F; W]) -> [F; W], gmimc_tm: &mut f64) {
