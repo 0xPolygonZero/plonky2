@@ -12,27 +12,28 @@ use crate::util::bimap::bimap_from_lists;
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Assert that two lists of expressions evaluate to permutations of one another.
-    pub fn assert_permutation<const CHUNK_SIZE: usize>(
-        &mut self,
-        a: Vec<[Target; CHUNK_SIZE]>,
-        b: Vec<[Target; CHUNK_SIZE]>,
-    ) {
+    pub fn assert_permutation(&mut self, a: Vec<Vec<Target>>, b: Vec<Vec<Target>>) {
         assert_eq!(
             a.len(),
             b.len(),
             "Permutation must have same number of inputs and outputs"
         );
+        assert_eq!(a[0].len(), b[0].len(), "Chunk size must be the same");
+
+        let chunk_size = a[0].len();
 
         match a.len() {
             // Two empty lists are permutations of one another, trivially.
             0 => (),
             // Two singleton lists are permutations of one another as long as their items are equal.
             1 => {
-                for e in 0..CHUNK_SIZE {
+                for e in 0..chunk_size {
                     self.assert_equal(a[0][e], b[0][e])
                 }
             }
-            2 => self.assert_permutation_2x2(a[0], a[1], b[0], b[1]),
+            2 => {
+                self.assert_permutation_2x2(a[0].clone(), a[1].clone(), b[0].clone(), b[1].clone())
+            }
             // For larger lists, we recursively use two smaller permutation networks.
             //_ => self.assert_permutation_recursive(a, b)
             _ => self.assert_permutation_recursive(a, b),
@@ -40,103 +41,98 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Assert that [a1, a2] is a permutation of [b1, b2].
-    fn assert_permutation_2x2<const CHUNK_SIZE: usize>(
+    fn assert_permutation_2x2(
         &mut self,
-        a1: [Target; CHUNK_SIZE],
-        a2: [Target; CHUNK_SIZE],
-        b1: [Target; CHUNK_SIZE],
-        b2: [Target; CHUNK_SIZE],
+        a1: Vec<Target>,
+        a2: Vec<Target>,
+        b1: Vec<Target>,
+        b2: Vec<Target>,
     ) {
+        assert!(
+            a1.len() == a2.len() && a2.len() == b1.len() && b1.len() == b2.len(),
+            "Chunk size must be the same"
+        );
+
+        let chunk_size = a1.len();
+
         let (switch, gate_out1, gate_out2) = self.create_switch(a1, a2);
-        for e in 0..CHUNK_SIZE {
+        for e in 0..chunk_size {
             self.route(b1[e], gate_out1[e]);
             self.route(b2[e], gate_out2[e]);
         }
-
-        self.add_generator(TwoByTwoPermutationGenerator::<F, CHUNK_SIZE> {
-            a1,
-            a2,
-            b1,
-            b2,
-            switch,
-            _phantom: PhantomData,
-        });
     }
 
-    fn create_switch<const CHUNK_SIZE: usize>(
+    fn create_switch(
         &mut self,
-        a1: [Target; CHUNK_SIZE],
-        a2: [Target; CHUNK_SIZE],
-    ) -> (Target, [Target; CHUNK_SIZE], [Target; CHUNK_SIZE]) {
-        if self.current_switch_gates.len() < CHUNK_SIZE {
+        a1: Vec<Target>,
+        a2: Vec<Target>,
+    ) -> (Target, Vec<Target>, Vec<Target>) {
+        assert!(a1.len() == a2.len(), "Chunk size must be the same");
+
+        let chunk_size = a1.len();
+
+        if self.current_switch_gates.len() < chunk_size {
             self.current_switch_gates
-                .extend(vec![None; CHUNK_SIZE - self.current_switch_gates.len()]);
+                .extend(vec![None; chunk_size - self.current_switch_gates.len()]);
         }
 
-        let (gate_index, mut next_copy) = match self.current_switch_gates[CHUNK_SIZE - 1] {
-            None => {
-                let gate = SwitchGate::<F, D, CHUNK_SIZE>::new_from_config(self.config.clone());
-                let gate_index = self.add_gate(gate.clone(), vec![]);
-                (gate_index, 0)
-            }
-            Some((idx, next_copy)) => (idx, next_copy),
-        };
+        let (gate, gate_index, mut next_copy) =
+            match self.current_switch_gates[chunk_size - 1].clone() {
+                None => {
+                    let gate = SwitchGate::<F, D>::new_from_config(self.config.clone(), chunk_size);
+                    let gate_index = self.add_gate(gate.clone(), vec![]);
+                    (gate, gate_index, 0)
+                }
+                Some((gate, idx, next_copy)) => (gate, idx, next_copy),
+            };
 
-        let num_copies =
-            SwitchGate::<F, D, CHUNK_SIZE>::max_num_copies(self.config.num_routed_wires);
+        let num_copies = gate.num_copies;
 
         let mut c = Vec::new();
         let mut d = Vec::new();
-        for e in 0..CHUNK_SIZE {
+        for e in 0..chunk_size {
             self.route(
                 a1[e],
-                Target::wire(
-                    gate_index,
-                    SwitchGate::<F, D, CHUNK_SIZE>::wire_first_input(next_copy, e),
-                ),
+                Target::wire(gate_index, gate.wire_first_input(next_copy, e)),
             );
             self.route(
                 a2[e],
-                Target::wire(
-                    gate_index,
-                    SwitchGate::<F, D, CHUNK_SIZE>::wire_second_input(next_copy, e),
-                ),
+                Target::wire(gate_index, gate.wire_second_input(next_copy, e)),
             );
             c.push(Target::wire(
                 gate_index,
-                SwitchGate::<F, D, CHUNK_SIZE>::wire_first_output(next_copy, e),
+                gate.wire_first_output(next_copy, e),
             ));
             d.push(Target::wire(
                 gate_index,
-                SwitchGate::<F, D, CHUNK_SIZE>::wire_second_output(next_copy, e),
+                gate.wire_second_output(next_copy, e),
             ));
         }
 
-        let switch = Target::wire(
-            gate_index,
-            SwitchGate::<F, D, CHUNK_SIZE>::wire_switch_bool(num_copies, next_copy),
-        );
-
-        let c_arr: [Target; CHUNK_SIZE] = c.try_into().unwrap();
-        let d_arr: [Target; CHUNK_SIZE] = d.try_into().unwrap();
+        let switch = Target::wire(gate_index, gate.wire_switch_bool(next_copy));
 
         next_copy += 1;
         if next_copy == num_copies {
-            let new_gate = SwitchGate::<F, D, CHUNK_SIZE>::new_from_config(self.config.clone());
+            let new_gate = SwitchGate::<F, D>::new_from_config(self.config.clone(), chunk_size);
             let new_gate_index = self.add_gate(new_gate.clone(), vec![]);
-            self.current_switch_gates[CHUNK_SIZE - 1] = Some((new_gate_index, 0));
+            self.current_switch_gates[chunk_size - 1] = Some((new_gate, new_gate_index, 0));
         } else {
-            self.current_switch_gates[CHUNK_SIZE - 1] = Some((gate_index, next_copy));
+            self.current_switch_gates[chunk_size - 1] = Some((gate, gate_index, next_copy));
         }
 
-        (switch, c_arr, d_arr)
+        (switch, c, d)
     }
 
-    fn assert_permutation_recursive<const CHUNK_SIZE: usize>(
-        &mut self,
-        a: Vec<[Target; CHUNK_SIZE]>,
-        b: Vec<[Target; CHUNK_SIZE]>,
-    ) {
+    fn assert_permutation_recursive(&mut self, a: Vec<Vec<Target>>, b: Vec<Vec<Target>>) {
+        assert_eq!(
+            a.len(),
+            b.len(),
+            "Permutation must have same number of inputs and outputs"
+        );
+        assert_eq!(a[0].len(), b[0].len(), "Chunk size must be the same");
+
+        let chunk_size = a[0].len();
+
         let n = a.len();
         let even = n % 2 == 0;
 
@@ -156,13 +152,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut a_switches = Vec::new();
         let mut b_switches = Vec::new();
         for i in 0..a_num_switches {
-            let (switch, out_1, out_2) = self.create_switch(a[i * 2], a[i * 2 + 1]);
+            let (switch, out_1, out_2) = self.create_switch(a[i * 2].clone(), a[i * 2 + 1].clone());
             a_switches.push(switch);
             child_1_a.push(out_1);
             child_2_a.push(out_2);
         }
         for i in 0..b_num_switches {
-            let (switch, out_1, out_2) = self.create_switch(b[i * 2], b[i * 2 + 1]);
+            let (switch, out_1, out_2) = self.create_switch(b[i * 2].clone(), b[i * 2 + 1].clone());
             b_switches.push(switch);
             child_1_b.push(out_1);
             child_2_b.push(out_2);
@@ -180,7 +176,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_permutation(child_1_a, child_1_b);
         self.assert_permutation(child_2_a, child_2_b);
 
-        self.add_generator(PermutationGenerator::<F, CHUNK_SIZE> {
+        self.add_generator(PermutationGenerator::<F> {
+            chunk_size,
             a,
             b,
             a_switches,
@@ -190,9 +187,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-fn route<F: Field, const CHUNK_SIZE: usize>(
-    a_values: Vec<[F; CHUNK_SIZE]>,
-    b_values: Vec<[F; CHUNK_SIZE]>,
+fn route<F: Field>(
+    a_values: Vec<Vec<F>>,
+    b_values: Vec<Vec<F>>,
     a_switches: Vec<Target>,
     b_switches: Vec<Target>,
     witness: &PartialWitness<F>,
@@ -354,57 +351,16 @@ fn route<F: Field, const CHUNK_SIZE: usize>(
         }
     }
 }
-
-struct TwoByTwoPermutationGenerator<F: Field, const CHUNK_SIZE: usize> {
-    a1: [Target; CHUNK_SIZE],
-    a2: [Target; CHUNK_SIZE],
-    b1: [Target; CHUNK_SIZE],
-    b2: [Target; CHUNK_SIZE],
-    switch: Target,
-    _phantom: PhantomData<F>,
-}
-
-impl<F: Field, const CHUNK_SIZE: usize> SimpleGenerator<F>
-    for TwoByTwoPermutationGenerator<F, CHUNK_SIZE>
-{
-    fn dependencies(&self) -> Vec<Target> {
-        [self.a1, self.a2, self.b1, self.b2]
-            .iter()
-            .map(|arr| arr.to_vec())
-            .flatten()
-            .collect()
-    }
-
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let a1_values: Vec<_> = self.a1.iter().map(|x| witness.get_target(*x)).collect();
-        let a2_values: Vec<_> = self.a2.iter().map(|x| witness.get_target(*x)).collect();
-        let b1_values: Vec<_> = self.b1.iter().map(|x| witness.get_target(*x)).collect();
-        let b2_values: Vec<_> = self.b2.iter().map(|x| witness.get_target(*x)).collect();
-
-        let no_switch = a1_values.iter().zip(b1_values.iter()).all(|(a, b)| a == b)
-            && a2_values.iter().zip(b2_values.iter()).all(|(a, b)| a == b);
-        let switch = a1_values.iter().zip(b2_values.iter()).all(|(a, b)| a == b)
-            && a2_values.iter().zip(b1_values.iter()).all(|(a, b)| a == b);
-
-        if no_switch {
-            out_buffer.set_target(self.switch, F::ZERO);
-        } else if switch {
-            out_buffer.set_target(self.switch, F::ONE);
-        } else {
-            panic!("No permutation");
-        }
-    }
-}
-
-struct PermutationGenerator<F: Field, const CHUNK_SIZE: usize> {
-    a: Vec<[Target; CHUNK_SIZE]>,
-    b: Vec<[Target; CHUNK_SIZE]>,
+struct PermutationGenerator<F: Field> {
+    chunk_size: usize,
+    a: Vec<Vec<Target>>,
+    b: Vec<Vec<Target>>,
     a_switches: Vec<Target>,
     b_switches: Vec<Target>,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Field, const CHUNK_SIZE: usize> SimpleGenerator<F> for PermutationGenerator<F, CHUNK_SIZE> {
+impl<F: Field> SimpleGenerator<F> for PermutationGenerator<F> {
     fn dependencies(&self) -> Vec<Target> {
         self.a
             .clone()
@@ -415,23 +371,15 @@ impl<F: Field, const CHUNK_SIZE: usize> SimpleGenerator<F> for PermutationGenera
     }
 
     fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let wire_chunk_to_vals = |wire: [Target; CHUNK_SIZE]| {
-            let mut vals = [F::ZERO; CHUNK_SIZE];
-            for e in 0..CHUNK_SIZE {
-                vals[e] = witness.get_target(wire[e]);
-            }
-            vals
-        };
-
         let a_values = self
             .a
             .iter()
-            .map(|chunk| wire_chunk_to_vals(*chunk))
+            .map(|chunk| chunk.iter().map(|wire| witness.get_target(*wire)).collect())
             .collect();
         let b_values = self
             .b
             .iter()
-            .map(|chunk| wire_chunk_to_vals(*chunk))
+            .map(|chunk| chunk.iter().map(|wire| witness.get_target(*wire)).collect())
             .collect();
         route(
             a_values,
@@ -450,7 +398,6 @@ mod tests {
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
     use crate::field::field_types::Field;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
@@ -468,10 +415,10 @@ mod tests {
         let seven = F::from_canonical_usize(7);
         let eight = F::from_canonical_usize(8);
 
-        let one_two = [builder.constant(one), builder.constant(two)];
-        let seven_eight = [builder.constant(seven), builder.constant(eight)];
+        let one_two = vec![builder.constant(one), builder.constant(two)];
+        let seven_eight = vec![builder.constant(seven), builder.constant(eight)];
 
-        let a = vec![one_two, seven_eight];
+        let a = vec![one_two.clone(), seven_eight.clone()];
         let b = vec![seven_eight, one_two];
 
         builder.assert_permutation(a, b);
@@ -498,12 +445,17 @@ mod tests {
         let seven = F::from_canonical_usize(7);
         let eight = F::from_canonical_usize(8);
 
-        let one_two = [builder.constant(one), builder.constant(two)];
-        let three_four = [builder.constant(three), builder.constant(four)];
-        let five_six = [builder.constant(five), builder.constant(six)];
-        let seven_eight = [builder.constant(seven), builder.constant(eight)];
+        let one_two = vec![builder.constant(one), builder.constant(two)];
+        let three_four = vec![builder.constant(three), builder.constant(four)];
+        let five_six = vec![builder.constant(five), builder.constant(six)];
+        let seven_eight = vec![builder.constant(seven), builder.constant(eight)];
 
-        let a = vec![one_two, three_four, five_six, seven_eight];
+        let a = vec![
+            one_two.clone(),
+            three_four.clone(),
+            five_six.clone(),
+            seven_eight.clone(),
+        ];
         let b = vec![seven_eight, one_two, five_six, three_four];
 
         builder.assert_permutation(a, b);

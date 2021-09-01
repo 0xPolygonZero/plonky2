@@ -14,6 +14,7 @@ use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
+use crate::gates::switch::SwitchGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
@@ -66,7 +67,10 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     /// these constants with gate index `g` and already using `i` arithmetic operations.
     pub(crate) free_arithmetic: HashMap<(F, F), (usize, usize)>,
 
-    pub(crate) current_switch_gates: Vec<Option<(usize, usize)>>,
+    // `current_switch_gates[chunk_size - 1]` contains None if we have no switch gates with the value
+    // chunk_size, and contains `(g, i, c)`, if the gate `g`, at index `i`, already contains `c` copies
+    // of switches
+    pub(crate) current_switch_gates: Vec<Option<(SwitchGate<F, D>, usize, usize)>>,
 }
 
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -505,6 +509,29 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.connect_extension(zero, wires_multiplicand_0);
                 self.connect_extension(zero, wires_multiplicand_1);
                 self.connect_extension(zero, wires_addend);
+            }
+        }
+    }
+
+    /// Fill the remaining unused switch gates with dummy values, so that all
+    /// `SwitchGenerator` are run.
+    fn fill_switch_gates(&mut self) {
+        let zero = self.zero();
+
+        for chunk_size in 1..=self.current_switch_gates.len() {
+            if let Some((gate, gate_index, copy)) =
+                self.current_switch_gates[chunk_size - 1].clone()
+            {
+                for element in 0..chunk_size {
+                    let wire_first_input =
+                        Target::wire(gate_index, gate.wire_first_input(copy, element));
+                    let wire_second_input =
+                        Target::wire(gate_index, gate.wire_second_input(copy, element));
+                    let wire_switch_bool = Target::wire(gate_index, gate.wire_switch_bool(copy));
+                    self.route(zero, wire_first_input);
+                    self.route(zero, wire_second_input);
+                    self.route(zero, wire_switch_bool);
+                }
             }
         }
     }
