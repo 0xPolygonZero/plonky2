@@ -180,7 +180,14 @@ pub trait Field:
         subgroup.into_iter().map(|x| x * shift).collect()
     }
 
+    // Converting to u64 only makes sense in a prime field, not in
+    // an extension; probably means these two functions don't belong
+    // the Field trait...
     fn to_canonical_u64(&self) -> u64;
+
+    fn to_noncanonical_u64(&self) -> u64;
+
+    fn from_noncanonical_u128(n: u128) -> Self;
 
     fn from_canonical_u64(n: u64) -> Self;
 
