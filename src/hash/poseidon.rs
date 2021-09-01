@@ -2,6 +2,7 @@
 //! https://eprint.iacr.org/2019/458.pdf
 
 use unroll::unroll_for_loops;
+
 use crate::field::field_types::Field;
 
 // The number of full rounds and partial rounds is given by the
@@ -20,6 +21,7 @@ const MAX_WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :
 // generated from ChaCha8 with a seed of 0. In this case we need
 // to generate more though. We include enough for a WIDTH of 12;
 // smaller widths just use a subset.
+#[rustfmt::skip]
 const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     0xb585f767417ee042, 0x7746a55f77c10331, 0xb2fb0d321d356f7a, 0x0f6760a486f1621f,
     0xe10d6666b36abcdf, 0x8cae14cb455cc50b, 0xd438539cf2cee334, 0xef781c7d4c1fd8b4,
@@ -114,7 +116,9 @@ const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
 ];
 
 pub trait PoseidonInterface<F: Field, const WIDTH: usize>
-where [(); WIDTH - 1]:  // magic to get const generic expressions to work
+where
+    // magic to get const generic expressions to work
+    [(); WIDTH - 1]: ,
 {
     // Total number of round constants required: width of the input
     // times number of rounds.
@@ -169,8 +173,7 @@ where [(); WIDTH - 1]:  // magic to get const generic expressions to work
     #[unroll_for_loops]
     fn partial_first_constant_layer(state: &mut [F; WIDTH]) {
         for i in 0..WIDTH {
-            state[i] += F::from_canonical_u64(
-                Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]);
+            state[i] += F::from_canonical_u64(Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]);
         }
     }
 
@@ -189,8 +192,8 @@ where [(); WIDTH - 1]:  // magic to get const generic expressions to work
                 // NB: FAST_PARTIAL_ROUND_INITIAL_MATRIX is stored in
                 // column-major order so that this dot product is cache
                 // friendly.
-                let t = F::from_canonical_u64(
-                    Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[c - 1][r - 1]);
+                let t =
+                    F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[c - 1][r - 1]);
                 result[c] += state[r] * t;
             }
         }
@@ -213,8 +216,7 @@ where [(); WIDTH - 1]:  // magic to get const generic expressions to work
         let s0 = state[0].to_noncanonical_u64() as u128;
         let mut d = F::from_noncanonical_u128(s0 << Self::MDS_MATRIX_EXPS[0]);
         for i in 1..WIDTH {
-            let t = F::from_canonical_u64(
-                Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
+            let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
             d += state[i] * t;
         }
 
@@ -222,8 +224,7 @@ where [(); WIDTH - 1]:  // magic to get const generic expressions to work
         let mut result = [F::ZERO; WIDTH];
         result[0] = d;
         for i in 1..WIDTH {
-            let t = F::from_canonical_u64(
-                Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
+            let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
             result[i] = state[0] * t + state[i];
         }
         result
@@ -233,8 +234,7 @@ where [(); WIDTH - 1]:  // magic to get const generic expressions to work
     #[unroll_for_loops]
     fn constant_layer(state: &mut [F; WIDTH], round_ctr: usize) {
         for i in 0..WIDTH {
-            state[i] += F::from_canonical_u64(
-                ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]);
+            state[i] += F::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]);
         }
     }
 
@@ -268,8 +268,7 @@ where [(); WIDTH - 1]:  // magic to get const generic expressions to work
 
     #[inline]
     #[unroll_for_loops]
-    fn partial_rounds_fast(state: &mut [F; WIDTH], round_ctr: &mut usize)
-    {
+    fn partial_rounds_fast(state: &mut [F; WIDTH], round_ctr: &mut usize) {
         Self::partial_first_constant_layer(state);
         *state = Self::mds_partial_layer_init(state);
 
@@ -277,8 +276,7 @@ where [(); WIDTH - 1]:  // magic to get const generic expressions to work
         // separately at the end.
         for i in 0..(N_PARTIAL_ROUNDS - 1) {
             state[0] = Self::sbox_monomial(state[0]);
-            state[0] += F::from_canonical_u64(
-                Self::FAST_PARTIAL_ROUND_CONSTANTS[i]);
+            state[0] += F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_CONSTANTS[i]);
             *state = Self::mds_partial_layer_fast(state, i);
         }
         state[0] = Self::sbox_monomial(state[0]);
@@ -325,7 +323,8 @@ where [(); WIDTH - 1]:  // magic to get const generic expressions to work
 pub struct Poseidon;
 
 impl<F: Field, const WIDTH: usize> PoseidonInterface<F, WIDTH> for Poseidon
-where [(); WIDTH - 1]:
+where
+    [(); WIDTH - 1]: ,
 {
     // Any attempt to use a WIDTH other than the specialisations to 8
     // and 12 below will result in a panic.
@@ -337,6 +336,7 @@ where [(); WIDTH - 1]:
     default const FAST_PARTIAL_ROUND_INITIAL_MATRIX: [[u64; WIDTH - 1]; WIDTH - 1] = panic!();
 }
 
+#[rustfmt::skip]
 impl<F: Field> PoseidonInterface<F, 8> for Poseidon {
     // The MDS matrix we use is the circulant matrix with first row given by the vector
     // [ 2^x for x in MDS_MATRIX_EXPS] = [4, 1, 2, 256, 16, 8, 1, 1]
@@ -476,6 +476,7 @@ impl<F: Field> PoseidonInterface<F, 8> for Poseidon {
     ];
 }
 
+#[rustfmt::skip]
 impl<F: Field> PoseidonInterface<F, 12> for Poseidon {
     // The MDS matrix we use is the circulant matrix with first row given by the vector
     // [ 2^x for x in MDS_MATRIX_EXPS] = [1024, 8192, 4, 1, 16, 2, 256, 128, 32768, 32, 1, 1]
@@ -687,7 +688,9 @@ mod tests {
     use crate::hash::poseidon::{Poseidon, PoseidonInterface};
 
     fn check_test_vectors<const WIDTH: usize>(test_vectors: Vec<([u64; WIDTH], [u64; WIDTH])>)
-    where [(); WIDTH - 1]: {
+    where
+        [(); WIDTH - 1]: ,
+    {
         for (input_, expected_output_) in test_vectors.into_iter() {
             let mut input = [F::ZERO; WIDTH];
             for i in 0..WIDTH {
@@ -709,6 +712,7 @@ mod tests {
         // 3. random elements of CrandallField.
         // expected output calculated with (modified) hadeshash reference implementation.
 
+        #[rustfmt::skip]
         let test_vectors8: Vec<([u64; 8], [u64; 8])> = vec![
             ([0, 0, 0, 0, 0, 0, 0, 0, ],
              [0x0751cebf68b361b0, 0x35d3c97c66539351, 0xd8658ef4a6240e92, 0x6781ebb9bbbb4e9f,
@@ -724,6 +728,7 @@ mod tests {
 
         check_test_vectors(test_vectors8);
 
+        #[rustfmt::skip]
         let test_vectors12: Vec<([u64; 12], [u64; 12])> = vec![
             ([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],
              [0x3e7b141d38447d8e, 0x66c245618877844a, 0xb8e1c45f458b0f13, 0x2f1d4710145a8698,
@@ -745,7 +750,9 @@ mod tests {
     }
 
     fn check_consistency<const WIDTH: usize>()
-    where [(); WIDTH - 1]: {
+    where
+        [(); WIDTH - 1]: ,
+    {
         let mut input = [F::ZERO; WIDTH];
         for i in 0..WIDTH {
             input[i] = F::from_canonical_u64(i as u64);

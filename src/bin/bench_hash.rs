@@ -2,12 +2,10 @@ use std::time::Instant;
 
 use plonky2::field::crandall_field::CrandallField as F;
 use plonky2::field::field_types::Field;
-
 use plonky2::hash::gmimc::gmimc_permute_array;
 use plonky2::hash::hashing::{GMIMC_CONSTANTS, GMIMC_ROUNDS};
-use plonky2::hash::rescue::rescue;
 use plonky2::hash::poseidon::{Poseidon, PoseidonInterface};
-
+use plonky2::hash::rescue::rescue;
 
 #[inline]
 fn gmimc_hash<const W: usize>(x: [F; W]) -> [F; W] {
@@ -39,7 +37,7 @@ fn poseidon12_naive_hash(x: [F; 12]) -> [F; 12] {
     Poseidon::poseidon_naive(x)
 }
 
-fn bench_hash<const W: usize>(name: &str, hash: fn([F; W])-> [F; W], gmimc_tm: &mut f64) {
+fn bench_hash<const W: usize>(name: &str, hash: fn([F; W]) -> [F; W], gmimc_tm: &mut f64) {
     // 113 wire polys, 3 Z polys, 4 parts of quotient poly.
     const PROVER_POLYS: usize = 113 + 3 + 4;
     const LDE_BITS: i32 = 3;
