@@ -89,19 +89,6 @@ impl Field for QuadraticCrandallField {
         ))
     }
 
-    fn to_canonical_u64(&self) -> u64 {
-        //panic!("Can't convert extension field element to a u64.");
-        self.0[0].to_canonical_u64()
-    }
-
-    fn to_noncanonical_u64(&self) -> u64 {
-        panic!("Can't convert extension field element to a u64.");
-    }
-
-    fn from_noncanonical_u128(n: u128) -> Self {
-        <Self as FieldExtension<2>>::BaseField::from_noncanonical_u128(n).into()
-    }
-
     fn from_canonical_u64(n: u64) -> Self {
         <Self as FieldExtension<2>>::BaseField::from_canonical_u64(n).into()
     }
@@ -288,7 +275,8 @@ mod tests {
         type F = QuadraticCrandallField;
         let x = F::rand();
         assert_eq!(
-            x.exp(18446744071293632512).exp(18446744071293632514),
+            x.exp_u64(18446744071293632512)
+                .exp_u64(18446744071293632514),
             F::ONE
         );
     }
@@ -299,13 +287,13 @@ mod tests {
         // F::order() = 2^29 * 2762315674048163 * 229454332791453 + 1
         assert_eq!(
             F::MULTIPLICATIVE_GROUP_GENERATOR
-                .exp(2762315674048163)
-                .exp(229454332791453),
+                .exp_u64(2762315674048163)
+                .exp_u64(229454332791453),
             F::POWER_OF_TWO_GENERATOR
         );
         assert_eq!(
             F::POWER_OF_TWO_GENERATOR
-                .exp(1 << (F::TWO_ADICITY - <F as FieldExtension<2>>::BaseField::TWO_ADICITY)),
+                .exp_u64(1 << (F::TWO_ADICITY - <F as FieldExtension<2>>::BaseField::TWO_ADICITY)),
             <F as FieldExtension<2>>::BaseField::POWER_OF_TWO_GENERATOR.into()
         );
     }

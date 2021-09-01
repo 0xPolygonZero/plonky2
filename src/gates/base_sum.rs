@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, Field64};
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -31,7 +31,7 @@ impl<const B: usize> BaseSumGate<B> {
     }
 }
 
-impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGate<B> {
+impl<F: Field64 + Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGate<B> {
     fn id(&self) -> String {
         format!("{:?} + Base: {}", self, B)
     }
@@ -134,7 +134,7 @@ pub struct BaseSplitGenerator<const B: usize> {
     num_limbs: usize,
 }
 
-impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
+impl<F: Field64, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
     fn dependencies(&self) -> Vec<Target> {
         vec![Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM)]
     }

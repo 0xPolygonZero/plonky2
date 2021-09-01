@@ -3,6 +3,7 @@ use std::ops::Range;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::FieldExtension;
+use crate::field::field_types::Field64;
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -32,7 +33,7 @@ impl<const D: usize> ArithmeticExtensionGate<D> {
     }
 }
 
-impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D> {
+impl<F: Field64 + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
@@ -139,14 +140,16 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
 }
 
 #[derive(Clone, Debug)]
-struct ArithmeticExtensionGenerator<F: Extendable<D>, const D: usize> {
+struct ArithmeticExtensionGenerator<F: Field64 + Extendable<D>, const D: usize> {
     gate_index: usize,
     const_0: F,
     const_1: F,
     i: usize,
 }
 
-impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensionGenerator<F, D> {
+impl<F: Field64 + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for ArithmeticExtensionGenerator<F, D>
+{
     fn dependencies(&self) -> Vec<Target> {
         ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(self.i)
             .chain(ArithmeticExtensionGate::<D>::wires_ith_multiplicand_1(

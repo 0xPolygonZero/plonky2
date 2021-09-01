@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::Field64;
 use crate::gates::gmimc::GMiMCGate;
 use crate::hash::hashing::GMIMC_ROUNDS;
 use crate::iop::target::Target;
@@ -8,7 +9,7 @@ use crate::iop::wire::Wire;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 // TODO: Move to be next to native `permute`?
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Field64 + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn permute(&mut self, inputs: [Target; 12]) -> [Target; 12] {
         let zero = self.zero();
         let gate_type = GMiMCGate::<F, D, GMIMC_ROUNDS>::new_automatic_constants();

@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, Field64};
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -15,12 +15,12 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for inserting a value into a list at a non-deterministic location.
 #[derive(Clone, Debug)]
-pub(crate) struct InsertionGate<F: Extendable<D>, const D: usize> {
+pub(crate) struct InsertionGate<F: Field64 + Extendable<D>, const D: usize> {
     pub vec_size: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
+impl<F: Field64 + Extendable<D>, const D: usize> InsertionGate<F, D> {
     pub fn new(vec_size: usize) -> Self {
         Self {
             vec_size,
@@ -70,7 +70,7 @@ impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
     }
 }
 
-impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
+impl<F: Field64 + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -241,12 +241,12 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
 }
 
 #[derive(Debug)]
-struct InsertionGenerator<F: Extendable<D>, const D: usize> {
+struct InsertionGenerator<F: Field64 + Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: InsertionGate<F, D>,
 }
 
-impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator<F, D> {
+impl<F: Field64 + Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 

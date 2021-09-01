@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, Field64};
 use crate::gates::reducing::ReducingGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -67,13 +67,13 @@ impl<F: Field> ReducingFactor<F> {
     }
 
     pub fn shift(&mut self, x: F) -> F {
-        let tmp = self.base.exp(self.count) * x;
+        let tmp = self.base.exp_u64(self.count) * x;
         self.count = 0;
         tmp
     }
 
     pub fn shift_poly(&mut self, p: &mut PolynomialCoeffs<F>) {
-        *p *= self.base.exp(self.count);
+        *p *= self.base.exp_u64(self.count);
         self.count = 0;
     }
 
@@ -100,7 +100,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: Extendable<D>,
+        F: Field64 + Extendable<D>,
     {
         let max_coeffs_len = ReducingGate::<D>::max_coeffs_len(
             builder.config.num_wires,
@@ -149,7 +149,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: Extendable<D>,
+        F: Field64 + Extendable<D>,
     {
         let l = terms.len();
         self.count += l as u64;
@@ -170,7 +170,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: Extendable<D>,
+        F: Field64 + Extendable<D>,
     {
         let exp = builder.exp_u64_extension(self.base, self.count);
         self.count = 0;

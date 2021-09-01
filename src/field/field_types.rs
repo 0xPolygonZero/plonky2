@@ -13,7 +13,7 @@ use serde::Serialize;
 use crate::field::extension_field::Frobenius;
 use crate::util::bits_u64;
 
-/// A finite field with prime order less than 2^64.
+/// A finite field of prime order.
 pub trait Field:
     'static
     + Copy
@@ -133,7 +133,7 @@ pub trait Field:
             // In the general case we compute 1/2 = (p+1)/2 and then exponentiate
             // by exp to get 1/2^exp. Costs about log_2(exp) operations.
             let half = Self::from_canonical_u64((p + 1) >> 1);
-            half.exp(exp as u64)
+            half.exp_u64(exp as u64)
 
             // TODO: Faster to combine several high powers of 1/2 using multiple
             // applications of the trick above. E.g. if the 2-adicity is v, then
@@ -180,15 +180,6 @@ pub trait Field:
         subgroup.into_iter().map(|x| x * shift).collect()
     }
 
-    // Converting to u64 only makes sense in a prime field, not in
-    // an extension; probably means these two functions don't belong
-    // the Field trait...
-    fn to_canonical_u64(&self) -> u64;
-
-    fn to_noncanonical_u64(&self) -> u64;
-
-    fn from_noncanonical_u128(n: u128) -> Self;
-
     fn from_canonical_u64(n: u64) -> Self;
 
     fn from_canonical_u32(n: u32) -> Self {
@@ -209,10 +200,6 @@ pub trait Field:
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self;
 
-    fn bits(&self) -> usize {
-        bits_u64(self.to_canonical_u64())
-    }
-
     fn exp_power_of_2(&self, power_log: usize) -> Self {
         let mut res = *self;
         for _ in 0..power_log {
@@ -221,7 +208,7 @@ pub trait Field:
         res
     }
 
-    fn exp(&self, power: u64) -> Self {
+    fn exp_u64(&self, power: u64) -> Self {
         let mut current = *self;
         let mut product = Self::ONE;
 
@@ -235,7 +222,7 @@ pub trait Field:
     }
 
     fn exp_u32(&self, power: u32) -> Self {
-        self.exp(power as u64)
+        self.exp_u64(power as u64)
     }
 
     fn exp_biguint(&self, power: &BigUint) -> Self {
@@ -246,7 +233,7 @@ pub trait Field:
         for (radix_power, &digit) in digits.iter().enumerate() {
             let mut current = self.exp_u32(digit);
             for _ in 0..radix_power {
-                current = current.exp(radix);
+                current = current.exp_u64(radix);
             }
             result *= current;
         }
@@ -254,7 +241,7 @@ pub trait Field:
     }
 
     /// Returns whether `x^power` is a permutation of this field.
-    fn is_monomial_permutation(power: u64) -> bool {
+    fn is_monomial_permutation_u64(power: u64) -> bool {
         match power {
             0 => false,
             1 => true,
@@ -262,11 +249,11 @@ pub trait Field:
         }
     }
 
-    fn kth_root(&self, k: u64) -> Self {
+    fn kth_root_u64(&self, k: u64) -> Self {
         let p = Self::order().clone();
         let p_minus_1 = &p - 1u32;
         debug_assert!(
-            Self::is_monomial_permutation(k),
+            Self::is_monomial_permutation_u64(k),
             "Not a permutation of this field"
         );
 
@@ -290,11 +277,11 @@ pub trait Field:
     }
 
     fn kth_root_u32(&self, k: u32) -> Self {
-        self.kth_root(k as u64)
+        self.kth_root_u64(k as u64)
     }
 
     fn cube_root(&self) -> Self {
-        self.kth_root(3)
+        self.kth_root_u64(3)
     }
 
     fn powers(&self) -> Powers<Self> {
@@ -345,6 +332,17 @@ pub trait Field:
     fn coset_shift() -> Self {
         Self::MULTIPLICATIVE_GROUP_GENERATOR
     }
+}
+
+/// A finite field of prime order less than 2^64.
+pub trait Field64: Field {
+    const ORDER: u64;
+
+    fn to_canonical_u64(&self) -> u64;
+
+    fn to_noncanonical_u64(&self) -> u64;
+
+    fn from_noncanonical_u128(n: u128) -> Self;
 }
 
 /// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.

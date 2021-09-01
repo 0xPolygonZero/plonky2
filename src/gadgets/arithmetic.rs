@@ -1,11 +1,12 @@
 use std::borrow::Borrow;
 
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::Field64;
 use crate::gates::exponentiation::ExponentiationGate;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Field64 + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes `-x`.
     pub fn neg(&mut self, x: Target) -> Target {
         let neg_one = self.neg_one();

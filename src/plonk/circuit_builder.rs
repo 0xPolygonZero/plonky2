@@ -7,6 +7,7 @@ use log::{info, Level};
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::field_types::Field64;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::gates::arithmetic::{ArithmeticExtensionGate, NUM_ARITHMETIC_OPS};
 use crate::gates::constant::ConstantGate;
@@ -33,7 +34,7 @@ use crate::util::partial_products::num_partial_products;
 use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 
-pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
+pub struct CircuitBuilder<F: Field64 + Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
     /// The types of gates used in this circuit.
@@ -67,7 +68,7 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     pub(crate) free_arithmetic: HashMap<(F, F), (usize, usize)>,
 }
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Field64 + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn new(config: CircuitConfig) -> Self {
         CircuitBuilder {
             config,

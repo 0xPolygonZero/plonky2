@@ -1,10 +1,11 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::Field64;
 use crate::gates::insertion::InsertionGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Field64 + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Inserts a `Target` in a vector at a non-deterministic index.
     /// Note: `index` is not range-checked.
     pub fn insert(

@@ -1,7 +1,7 @@
 use anyhow::{ensure, Result};
 
 use crate::field::extension_field::{flatten, Extendable, FieldExtension};
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, Field64};
 use crate::field::interpolation::{barycentric_weights, interpolate, interpolate2};
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::FriConfig;
@@ -33,7 +33,7 @@ fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     let mut evals = evals.to_vec();
     reverse_index_bits_in_place(&mut evals);
     let rev_x_index_within_coset = reverse_bits(x_index_within_coset, arity_bits);
-    let coset_start = x * g.exp((arity - rev_x_index_within_coset) as u64);
+    let coset_start = x * g.exp_u64((arity - rev_x_index_within_coset) as u64);
     // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
     let points = g
         .powers()
@@ -44,7 +44,7 @@ fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     interpolate(&points, beta, &barycentric_weights)
 }
 
-fn fri_verify_proof_of_work<F: Field + Extendable<D>, const D: usize>(
+fn fri_verify_proof_of_work<F: Field64 + Extendable<D>, const D: usize>(
     proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
@@ -68,7 +68,7 @@ fn fri_verify_proof_of_work<F: Field + Extendable<D>, const D: usize>(
     Ok(())
 }
 
-pub fn verify_fri_proof<F: Field + Extendable<D>, const D: usize>(
+pub fn verify_fri_proof<F: Field64 + Extendable<D>, const D: usize>(
     // Openings of the PLONK polynomials.
     os: &OpeningSet<F, D>,
     // Point at which the PLONK polynomials are opened.
@@ -179,7 +179,7 @@ impl<F: Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D> {
     }
 }
 
-fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
+fn fri_combine_initial<F: Field64 + Extendable<D>, const D: usize>(
     proof: &FriInitialTreeProof<F>,
     alpha: F::Extension,
     zeta: F::Extension,
@@ -244,7 +244,7 @@ fn fri_combine_initial<F: Field + Extendable<D>, const D: usize>(
     sum
 }
 
-fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
+fn fri_verifier_query_round<F: Field64 + Extendable<D>, const D: usize>(
     zeta: F::Extension,
     alpha: F::Extension,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
@@ -267,7 +267,7 @@ fn fri_verifier_query_round<F: Field + Extendable<D>, const D: usize>(
     // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
     let log_n = log2_strict(n);
     let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
-        * F::primitive_root_of_unity(log_n).exp(reverse_bits(x_index, log_n) as u64);
+        * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
 
     // old_eval is the last derived evaluation; it will be checked for consistency with its
     // committed "parent" value in the next iteration.

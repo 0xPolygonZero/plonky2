@@ -1,5 +1,6 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::Field64;
 use crate::gates::gate::Gate;
 use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -8,7 +9,7 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 /// A gate which does nothing.
 pub struct NoopGate;
 
-impl<F: Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
+impl<F: Field64 + Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
     fn id(&self) -> String {
         "NoopGate".into()
     }

@@ -1,4 +1,5 @@
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::Field64;
 use crate::hash::hash_types::HashOutTarget;
 use crate::iop::challenger::RecursiveChallenger;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -9,7 +10,7 @@ use crate::plonk::vars::EvaluationTargets;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Field64 + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
     pub fn add_recursive_verifier(
         &mut self,
@@ -139,7 +140,7 @@ mod tests {
     use crate::util::log2_strict;
 
     // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
-    fn get_fri_query_round<F: Extendable<D>, const D: usize>(
+    fn get_fri_query_round<F: Field64 + Extendable<D>, const D: usize>(
         proof: &Proof<F, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> FriQueryRoundTarget<D> {
@@ -172,7 +173,7 @@ mod tests {
     }
 
     // Construct a `ProofTarget` with the same dimensions as `proof`.
-    fn proof_to_proof_target<F: Extendable<D>, const D: usize>(
+    fn proof_to_proof_target<F: Field64 + Extendable<D>, const D: usize>(
         proof_with_pis: &ProofWithPublicInputs<F, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> ProofWithPublicInputsTarget<D> {

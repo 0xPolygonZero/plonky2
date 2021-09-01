@@ -1,7 +1,7 @@
 use rayon::prelude::*;
 
 use crate::field::extension_field::{flatten, unflatten, Extendable};
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, Field64};
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::FriConfig;
 use crate::hash::hash_types::HashOut;
@@ -16,7 +16,7 @@ use crate::util::reverse_index_bits_in_place;
 use crate::util::timing::TimingTree;
 
 /// Builds a FRI proof.
-pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
+pub fn fri_proof<F: Field64 + Extendable<D>, const D: usize>(
     initial_merkle_trees: &[&MerkleTree<F>],
     // Coefficients of the polynomial on which the LDT is performed. Only the first `1/rate` coefficients are non-zero.
     lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
@@ -110,7 +110,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
     (trees, coeffs)
 }
 
-fn fri_proof_of_work<F: Field>(current_hash: HashOut<F>, config: &FriConfig) -> F {
+fn fri_proof_of_work<F: Field64>(current_hash: HashOut<F>, config: &FriConfig) -> F {
     (0..=F::NEG_ONE.to_canonical_u64())
         .into_par_iter()
         .find_any(|&i| {
@@ -131,7 +131,7 @@ fn fri_proof_of_work<F: Field>(current_hash: HashOut<F>, config: &FriConfig) -> 
         .expect("Proof of work failed. This is highly unlikely!")
 }
 
-fn fri_prover_query_rounds<F: Field + Extendable<D>, const D: usize>(
+fn fri_prover_query_rounds<F: Field64 + Extendable<D>, const D: usize>(
     initial_merkle_trees: &[&MerkleTree<F>],
     trees: &[MerkleTree<F>],
     challenger: &mut Challenger<F>,
@@ -143,7 +143,7 @@ fn fri_prover_query_rounds<F: Field + Extendable<D>, const D: usize>(
         .collect()
 }
 
-fn fri_prover_query_round<F: Field + Extendable<D>, const D: usize>(
+fn fri_prover_query_round<F: Field64 + Extendable<D>, const D: usize>(
     initial_merkle_trees: &[&MerkleTree<F>],
     trees: &[MerkleTree<F>],
     challenger: &mut Challenger<F>,

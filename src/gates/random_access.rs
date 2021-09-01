@@ -3,7 +3,7 @@ use std::ops::Range;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, Field64};
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -14,12 +14,12 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for checking that a particular element of a list matches a given value.
 #[derive(Clone, Debug)]
-pub(crate) struct RandomAccessGate<F: Extendable<D>, const D: usize> {
+pub(crate) struct RandomAccessGate<F: Field64 + Extendable<D>, const D: usize> {
     pub vec_size: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Extendable<D>, const D: usize> RandomAccessGate<F, D> {
+impl<F: Field64 + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
     pub fn new(vec_size: usize) -> Self {
         Self {
             vec_size,
@@ -61,7 +61,7 @@ impl<F: Extendable<D>, const D: usize> RandomAccessGate<F, D> {
     }
 }
 
-impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
+impl<F: Field64 + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -188,12 +188,14 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
 }
 
 #[derive(Debug)]
-struct RandomAccessGenerator<F: Extendable<D>, const D: usize> {
+struct RandomAccessGenerator<F: Field64 + Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: RandomAccessGate<F, D>,
 }
 
-impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenerator<F, D> {
+impl<F: Field64 + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for RandomAccessGenerator<F, D>
+{
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
