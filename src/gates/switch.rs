@@ -37,32 +37,32 @@ impl<F: Extendable<D>, const D: usize> SwitchGate<F, D> {
     }
 
     pub fn max_num_copies(num_routed_wires: usize, chunk_size: usize) -> usize {
-        num_routed_wires / (4 * chunk_size)
+        num_routed_wires / (4 * chunk_size + 1)
     }
 
     pub fn wire_first_input(&self, copy: usize, element: usize) -> usize {
         debug_assert!(element < self.chunk_size);
-        copy * (4 * self.chunk_size) + element
+        copy * (4 * self.chunk_size + 1) + element
     }
 
     pub fn wire_second_input(&self, copy: usize, element: usize) -> usize {
         debug_assert!(element < self.chunk_size);
-        copy * (4 * self.chunk_size) + self.chunk_size + element
+        copy * (4 * self.chunk_size + 1) + self.chunk_size + element
     }
 
     pub fn wire_first_output(&self, copy: usize, element: usize) -> usize {
         debug_assert!(element < self.chunk_size);
-        copy * (4 * self.chunk_size) + 2 * self.chunk_size + element
+        copy * (4 * self.chunk_size + 1) + 2 * self.chunk_size + element
     }
 
     pub fn wire_second_output(&self, copy: usize, element: usize) -> usize {
         debug_assert!(element < self.chunk_size);
-        copy * (4 * self.chunk_size) + 3 * self.chunk_size + element
+        copy * (4 * self.chunk_size + 1) + 3 * self.chunk_size + element
     }
 
     pub fn wire_switch_bool(&self, copy: usize) -> usize {
         debug_assert!(copy < self.num_copies);
-        self.num_copies * (4 * self.chunk_size) + copy
+        copy * (4 * self.chunk_size + 1) + 4 * self.chunk_size
     }
 }
 
