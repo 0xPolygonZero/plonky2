@@ -521,18 +521,22 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let zero = self.zero();
 
         for chunk_size in 1..=self.current_switch_gates.len() {
-            if let Some((gate, gate_index, copy)) =
+            if let Some((gate, gate_index, mut copy)) =
                 self.current_switch_gates[chunk_size - 1].clone()
             {
-                for element in 0..chunk_size {
-                    let wire_first_input =
-                        Target::wire(gate_index, gate.wire_first_input(copy, element));
-                    let wire_second_input =
-                        Target::wire(gate_index, gate.wire_second_input(copy, element));
-                    let wire_switch_bool = Target::wire(gate_index, gate.wire_switch_bool(copy));
-                    self.connect(zero, wire_first_input);
-                    self.connect(zero, wire_second_input);
-                    self.connect(zero, wire_switch_bool);
+                while copy < gate.num_copies {
+                    for element in 0..chunk_size {
+                        let wire_first_input =
+                            Target::wire(gate_index, gate.wire_first_input(copy, element));
+                        let wire_second_input =
+                            Target::wire(gate_index, gate.wire_second_input(copy, element));
+                        let wire_switch_bool =
+                            Target::wire(gate_index, gate.wire_switch_bool(copy));
+                        self.connect(zero, wire_first_input);
+                        self.connect(zero, wire_second_input);
+                        self.connect(zero, wire_switch_bool);
+                    }
+                    copy += 1;
                 }
             }
         }
@@ -550,6 +554,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let start = Instant::now();
 
         self.fill_arithmetic_gates();
+        self.fill_switch_gates();
 
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
         // those hash wires match the claimed public inputs.
