@@ -136,10 +136,13 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
         gate_index: usize,
         _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        vec![Box::new(ReducingGenerator {
-            gate_index,
-            gate: self.clone(),
-        })]
+        vec![Box::new(
+            ReducingGenerator {
+                gate_index,
+                gate: self.clone(),
+            }
+            .adapter(),
+        )]
     }
 
     fn num_wires(&self) -> usize {

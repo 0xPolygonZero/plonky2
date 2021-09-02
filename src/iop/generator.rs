@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
@@ -186,16 +187,32 @@ pub trait SimpleGenerator<F: Field>: 'static + Send + Sync + Debug {
     fn dependencies(&self) -> Vec<Target>;
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>);
+
+    fn adapter(self) -> SimpleGeneratorAdapter<F, Self>
+    where
+        Self: Sized,
+    {
+        SimpleGeneratorAdapter {
+            inner: self,
+            _phantom: PhantomData,
+        }
+    }
 }
 
-impl<F: Field, SG: SimpleGenerator<F>> WitnessGenerator<F> for SG {
+#[derive(Debug)]
+pub struct SimpleGeneratorAdapter<F: Field, SG: SimpleGenerator<F> + ?Sized> {
+    _phantom: PhantomData<F>,
+    inner: SG,
+}
+
+impl<F: Field, SG: SimpleGenerator<F>> WitnessGenerator<F> for SimpleGeneratorAdapter<F, SG> {
     fn watch_list(&self) -> Vec<Target> {
-        self.dependencies()
+        self.inner.dependencies()
     }
 
     fn run(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> bool {
-        if witness.contains_all(&self.dependencies()) {
-            self.run_once(witness, out_buffer);
+        if witness.contains_all(&self.inner.dependencies()) {
+            self.inner.run_once(witness, out_buffer);
             true
         } else {
             false

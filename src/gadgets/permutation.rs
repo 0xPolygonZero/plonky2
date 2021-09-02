@@ -6,7 +6,7 @@ use crate::field::{extension_field::Extendable, field_types::Field};
 use crate::gates::switch::SwitchGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bimap::bimap_from_lists;
 
@@ -28,7 +28,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             // Two singleton lists are permutations of one another as long as their items are equal.
             1 => {
                 for e in 0..chunk_size {
-                    self.assert_equal(a[0][e], b[0][e])
+                    self.connect(a[0][e], b[0][e])
                 }
             }
             2 => {
@@ -57,8 +57,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let (switch, gate_out1, gate_out2) = self.create_switch(a1, a2);
         for e in 0..chunk_size {
-            self.route(b1[e], gate_out1[e]);
-            self.route(b2[e], gate_out2[e]);
+            self.connect(b1[e], gate_out1[e]);
+            self.connect(b2[e], gate_out2[e]);
         }
     }
 
@@ -91,11 +91,11 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut c = Vec::new();
         let mut d = Vec::new();
         for e in 0..chunk_size {
-            self.route(
+            self.connect(
                 a1[e],
                 Target::wire(gate_index, gate.wire_first_input(next_copy, e)),
             );
-            self.route(
+            self.connect(
                 a2[e],
                 Target::wire(gate_index, gate.wire_second_input(next_copy, e)),
             );
@@ -176,7 +176,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_permutation(child_1_a, child_1_b);
         self.assert_permutation(child_2_a, child_2_b);
 
-        self.add_generator(PermutationGenerator::<F> {
+        self.add_simple_generator(PermutationGenerator::<F> {
             chunk_size,
             a,
             b,
@@ -192,7 +192,7 @@ fn route<F: Field>(
     b_values: Vec<Vec<F>>,
     a_switches: Vec<Target>,
     b_switches: Vec<Target>,
-    witness: &PartialWitness<F>,
+    witness: &PartitionWitness<F>,
     out_buffer: &mut GeneratedValues<F>,
 ) {
     assert_eq!(a_values.len(), b_values.len());
@@ -221,7 +221,7 @@ fn route<F: Field>(
     // After we route a wire on one side, we find the corresponding wire on the other side and check
     // if it still needs to be routed. If so, we add it to partial_routes.
     let enqueue_other_side = |partial_routes: &mut [BTreeMap<usize, bool>],
-                              witness: &PartialWitness<F>,
+                              witness: &PartitionWitness<F>,
                               newly_set: &mut [Vec<bool>],
                               side: usize,
                               this_i: usize,
@@ -272,7 +272,7 @@ fn route<F: Field>(
     }
 
     let mut route_switch = |partial_routes: &mut [BTreeMap<usize, bool>],
-                            witness: &PartialWitness<F>,
+                            witness: &PartitionWitness<F>,
                             out_buffer: &mut GeneratedValues<F>,
                             side: usize,
                             switch_index: usize,
@@ -351,6 +351,8 @@ fn route<F: Field>(
         }
     }
 }
+
+#[derive(Debug)]
 struct PermutationGenerator<F: Field> {
     chunk_size: usize,
     a: Vec<Vec<Target>>,
@@ -370,7 +372,7 @@ impl<F: Field> SimpleGenerator<F> for PermutationGenerator<F> {
             .collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let a_values = self
             .a
             .iter()
@@ -406,9 +408,10 @@ mod tests {
     #[test]
     fn test_permutation_2x2() -> Result<()> {
         type F = CrandallField;
-        let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(config.num_wires);
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let config = CircuitConfig::large_zk_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let one = F::ONE;
         let two = F::from_canonical_usize(2);
@@ -432,9 +435,10 @@ mod tests {
     #[test]
     fn test_permutation_4x4() -> Result<()> {
         type F = CrandallField;
-        let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(config.num_wires);
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let config = CircuitConfig::large_zk_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let one = F::ONE;
         let two = F::from_canonical_usize(2);

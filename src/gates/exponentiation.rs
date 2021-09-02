@@ -184,7 +184,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
             gate_index,
             gate: self.clone(),
         };
-        vec![Box::new(gen)]
+        vec![Box::new(gen.adapter())]
     }
 
     fn num_wires(&self) -> usize {

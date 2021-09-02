@@ -228,7 +228,7 @@ impl<F: Extendable<D>, const D: usize> SwitchGenerator<F, D> {
         deps
     }
 
-    fn run_in_out(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_in_out(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |input| Wire {
             gate: self.gate_index,
             input,
@@ -253,7 +253,7 @@ impl<F: Extendable<D>, const D: usize> SwitchGenerator<F, D> {
         }
     }
 
-    fn run_in_switch(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_in_switch(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |input| Wire {
             gate: self.gate_index,
             input,
@@ -288,7 +288,7 @@ impl<F: Extendable<D>, const D: usize> WitnessGenerator<F> for SwitchGenerator<F
             .union(self.in_switch_dependencies())
     }
 
-    fn run(&self, witness: &PartialWitness<F>, out_buffer: &mut GeneratedValues<F>) -> bool {
+    fn run(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> bool {
         if witness.contains_all(&self.in_out_dependencies()) {
             self.run_in_out(witness, out_buffer);
             true

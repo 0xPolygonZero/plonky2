@@ -44,7 +44,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.connect(limb.borrow().target, Target::wire(gate_index, wire));
         }
 
-        self.add_generator(BaseSumGenerator::<2> {
+        self.add_simple_generator(BaseSumGenerator::<2> {
             gate_index,
             limbs: bits.map(|l| *l.borrow()).collect(),
         });

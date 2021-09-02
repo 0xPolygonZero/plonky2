@@ -413,7 +413,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> ExtensionTarget<D> {
         let inv = self.add_virtual_extension_target();
         let one = self.one_extension();
-        self.add_generator(QuotientGeneratorExtension {
+        self.add_simple_generator(QuotientGeneratorExtension {
             numerator: one,
             denominator: y,
             quotient: inv,

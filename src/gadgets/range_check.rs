@@ -28,7 +28,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let high_gate = self.add_gate(BaseSumGate::<2>::new(num_bits - n_log), vec![]);
         let low = Target::wire(low_gate, BaseSumGate::<2>::WIRE_SUM);
         let high = Target::wire(high_gate, BaseSumGate::<2>::WIRE_SUM);
-        self.add_generator(LowHighGenerator {
+        self.add_simple_generator(LowHighGenerator {
             integer: x,
             n_log,
             low,

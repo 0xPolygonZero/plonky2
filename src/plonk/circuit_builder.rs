@@ -17,7 +17,9 @@ use crate::gates::public_input::PublicInputGate;
 use crate::gates::switch::SwitchGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
-use crate::iop::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
+use crate::iop::generator::{
+    CopyGenerator, RandomValueGenerator, SimpleGenerator, WitnessGenerator,
+};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::iop::witness::PartitionWitness;
@@ -188,7 +190,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Adds a generator which will copy `src` to `dst`.
     pub fn generate_copy(&mut self, src: Target, dst: Target) {
-        self.add_generator(CopyGenerator { src, dst });
+        self.add_simple_generator(CopyGenerator { src, dst });
     }
 
     /// Uses Plonk's permutation argument to require that two elements be equal.
@@ -215,8 +217,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.generators.extend(generators);
     }
 
-    pub fn add_generator<G: WitnessGenerator<F>>(&mut self, generator: G) {
-        self.generators.push(Box::new(generator));
+    pub fn add_simple_generator<G: SimpleGenerator<F>>(&mut self, generator: G) {
+        self.generators.push(Box::new(generator.adapter()));
     }
 
     /// Returns a routable target with a value of 0.
@@ -389,7 +391,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         for _ in 0..regular_poly_openings {
             let gate = self.add_gate(NoopGate, vec![]);
             for w in 0..num_wires {
-                self.add_generator(RandomValueGenerator {
+                self.add_simple_generator(RandomValueGenerator {
                     target: Target::Wire(Wire { gate, input: w }),
                 });
             }
@@ -403,7 +405,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let gate_2 = self.add_gate(NoopGate, vec![]);
 
             for w in 0..num_routed_wires {
-                self.add_generator(RandomValueGenerator {
+                self.add_simple_generator(RandomValueGenerator {
                     target: Target::Wire(Wire {
                         gate: gate_1,
                         input: w,
@@ -528,9 +530,9 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     let wire_second_input =
                         Target::wire(gate_index, gate.wire_second_input(copy, element));
                     let wire_switch_bool = Target::wire(gate_index, gate.wire_switch_bool(copy));
-                    self.route(zero, wire_first_input);
-                    self.route(zero, wire_second_input);
-                    self.route(zero, wire_switch_bool);
+                    self.connect(zero, wire_first_input);
+                    self.connect(zero, wire_second_input);
+                    self.connect(zero, wire_switch_bool);
                 }
             }
         }

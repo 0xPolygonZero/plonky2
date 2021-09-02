@@ -47,7 +47,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
         self.connect(acc, integer);
 
-        self.add_generator(WireSplitGenerator {
+        self.add_simple_generator(WireSplitGenerator {
             integer,
             gates,
             num_limbs: bits_per_gate,

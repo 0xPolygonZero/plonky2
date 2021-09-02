@@ -105,7 +105,7 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
             gate_index,
             num_limbs: self.num_limbs,
         };
-        vec![Box::new(gen)]
+        vec![Box::new(gen.adapter())]
     }
 
     // 1 for the sum then `num_limbs` for the limbs.
