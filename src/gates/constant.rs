@@ -1,6 +1,6 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, Field64};
+use crate::field::field_types::{Field, PrimeField};
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -18,7 +18,7 @@ impl ConstantGate {
     pub const WIRE_OUTPUT: usize = 0;
 }
 
-impl<F: Field64 + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
+impl<F: PrimeField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     fn id(&self) -> String {
         "ConstantGate".into()
     }

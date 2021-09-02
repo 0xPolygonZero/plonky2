@@ -3,7 +3,7 @@ use std::ops::Range;
 
 use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::{Extendable, FieldExtension, OEF};
-use crate::field::field_types::{Field, Field64};
+use crate::field::field_types::{Field, PrimeField};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -16,14 +16,14 @@ impl<const D: usize> ExtensionTarget<D> {
         self.0
     }
 
-    pub fn frobenius<F: Field64 + Extendable<D>>(
+    pub fn frobenius<F: PrimeField + Extendable<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         self.repeated_frobenius(1, builder)
     }
 
-    pub fn repeated_frobenius<F: Field64 + Extendable<D>>(
+    pub fn repeated_frobenius<F: PrimeField + Extendable<D>>(
         &self,
         count: usize,
         builder: &mut CircuitBuilder<F, D>,
@@ -74,7 +74,7 @@ impl<const D: usize> ExtensionAlgebraTarget<D> {
     }
 }
 
-impl<F: Field64 + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn constant_extension(&mut self, c: F::Extension) -> ExtensionTarget<D> {
         let c_parts = c.to_basefield_array();
         let mut parts = [self.zero(); D];

@@ -13,7 +13,7 @@ use serde::Serialize;
 use crate::field::extension_field::Frobenius;
 use crate::util::bits_u64;
 
-/// A finite field of prime order.
+/// A finite field.
 pub trait Field:
     'static
     + Copy
@@ -335,7 +335,7 @@ pub trait Field:
 }
 
 /// A finite field of prime order less than 2^64.
-pub trait Field64: Field {
+pub trait PrimeField: Field {
     const ORDER: u64;
 
     fn to_canonical_u64(&self) -> u64;

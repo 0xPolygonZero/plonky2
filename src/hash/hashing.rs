@@ -1,7 +1,7 @@
 //! Concrete instantiation of a hash function.
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, Field64};
+use crate::field::field_types::{Field, PrimeField};
 use crate::hash::gmimc::gmimc_permute_array;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
@@ -127,7 +127,7 @@ pub fn hash_or_noop<F: Field>(inputs: Vec<F>) -> HashOut<F> {
     }
 }
 
-impl<F: Field64 + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn hash_or_noop(&mut self, inputs: Vec<Target>) -> HashOutTarget {
         let zero = self.zero();
         if inputs.len() <= 4 {

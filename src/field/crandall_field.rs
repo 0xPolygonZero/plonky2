@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::field::extension_field::quadratic::QuadraticCrandallField;
 use crate::field::extension_field::quartic::QuarticCrandallField;
 use crate::field::extension_field::{Extendable, Frobenius};
-use crate::field::field_types::{Field, Field64};
+use crate::field::field_types::{Field, PrimeField};
 
 /// EPSILON = 9 * 2**28 - 1
 const EPSILON: u64 = 2415919103;
@@ -343,7 +343,7 @@ impl Field for CrandallField {
     }
 }
 
-impl Field64 for CrandallField {
+impl PrimeField for CrandallField {
     const ORDER: u64 = 18446744071293632513;
 
     #[inline]

@@ -2,7 +2,7 @@ use rayon::prelude::*;
 
 use crate::field::extension_field::Extendable;
 use crate::field::fft::DEFAULT_STRATEGY;
-use crate::field::field_types::{Field, Field64};
+use crate::field::field_types::{Field, PrimeField};
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
 use crate::hash::merkle_tree::MerkleTree;
@@ -20,7 +20,7 @@ use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transp
 pub const SALT_SIZE: usize = 2;
 
 /// Represents a batch FRI based commitment to a list of polynomials.
-pub struct PolynomialBatchCommitment<F: Field64> {
+pub struct PolynomialBatchCommitment<F: PrimeField> {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
     pub merkle_tree: MerkleTree<F>,
     pub degree_log: usize,
@@ -28,7 +28,7 @@ pub struct PolynomialBatchCommitment<F: Field64> {
     pub blinding: bool,
 }
 
-impl<F: Field64> PolynomialBatchCommitment<F> {
+impl<F: PrimeField> PolynomialBatchCommitment<F> {
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
     pub(crate) fn from_values(
         values: Vec<PolynomialValues<F>>,
@@ -125,7 +125,7 @@ impl<F: Field64> PolynomialBatchCommitment<F> {
         timing: &mut TimingTree,
     ) -> (FriProof<F, D>, OpeningSet<F, D>)
     where
-        F: Field64 + Extendable<D>,
+        F: PrimeField + Extendable<D>,
     {
         let config = &common_data.config;
         assert!(D > 1, "Not implemented for D=1.");
@@ -280,8 +280,8 @@ mod tests {
         point
     }
 
-    fn check_batch_polynomial_commitment<F: Field64 + Extendable<D>, const D: usize>() -> Result<()>
-    {
+    fn check_batch_polynomial_commitment<F: PrimeField + Extendable<D>, const D: usize>(
+    ) -> Result<()> {
         let ks = [10, 2, 10, 8];
         let degree_bits = 11;
         let fri_config = FriConfig {

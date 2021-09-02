@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, Field64};
+use crate::field::field_types::{Field, PrimeField};
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -14,12 +14,13 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for conditionally swapping input values based on a boolean.
 #[derive(Clone, Debug)]
-pub(crate) struct SwitchGate<F: Field64 + Extendable<D>, const D: usize, const CHUNK_SIZE: usize> {
+pub(crate) struct SwitchGate<F: PrimeField + Extendable<D>, const D: usize, const CHUNK_SIZE: usize>
+{
     num_copies: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Field64 + Extendable<D>, const D: usize, const CHUNK_SIZE: usize>
+impl<F: PrimeField + Extendable<D>, const D: usize, const CHUNK_SIZE: usize>
     SwitchGate<F, D, CHUNK_SIZE>
 {
     pub fn new(config: CircuitConfig) -> Self {
@@ -64,7 +65,7 @@ impl<F: Field64 + Extendable<D>, const D: usize, const CHUNK_SIZE: usize>
     }
 }
 
-impl<F: Field64 + Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
+impl<F: PrimeField + Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
     for SwitchGate<F, D, CHUNK_SIZE>
 {
     fn id(&self) -> String {
@@ -189,12 +190,12 @@ impl<F: Field64 + Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F
 }
 
 #[derive(Debug)]
-struct SwitchGenerator<F: Field64 + Extendable<D>, const D: usize, const CHUNK_SIZE: usize> {
+struct SwitchGenerator<F: PrimeField + Extendable<D>, const D: usize, const CHUNK_SIZE: usize> {
     gate_index: usize,
     gate: SwitchGate<F, D, CHUNK_SIZE>,
 }
 
-impl<F: Field64 + Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<F>
+impl<F: PrimeField + Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<F>
     for SwitchGenerator<F, D, CHUNK_SIZE>
 {
     fn dependencies(&self) -> Vec<Target> {

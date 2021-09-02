@@ -1,5 +1,5 @@
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, Field64};
+use crate::field::field_types::{Field, PrimeField};
 use crate::gates::base_sum::BaseSumGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
@@ -7,7 +7,7 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::ceil_div_usize;
 
-impl<F: Field64 + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given integer into a list of wires, where each one represents a
     /// bit of the integer, with little-endian ordering.
     /// Verifies that the decomposition is correct by using `k` `BaseSum<2>` gates
@@ -63,7 +63,7 @@ struct SplitGenerator {
     bits: Vec<Target>,
 }
 
-impl<F: Field64> SimpleGenerator<F> for SplitGenerator {
+impl<F: PrimeField> SimpleGenerator<F> for SplitGenerator {
     fn dependencies(&self) -> Vec<Target> {
         vec![self.integer]
     }
@@ -91,7 +91,7 @@ struct WireSplitGenerator {
     num_limbs: usize,
 }
 
-impl<F: Field64> SimpleGenerator<F> for WireSplitGenerator {
+impl<F: PrimeField> SimpleGenerator<F> for WireSplitGenerator {
     fn dependencies(&self) -> Vec<Target> {
         vec![self.integer]
     }

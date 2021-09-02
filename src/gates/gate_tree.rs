@@ -1,7 +1,7 @@
 use log::info;
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field64;
+use crate::field::field_types::PrimeField;
 use crate::gates::gate::GateRef;
 
 /// A binary tree where leaves hold some type `T` and other nodes are empty.
@@ -51,7 +51,7 @@ impl<T: Clone> Tree<T> {
     }
 }
 
-impl<F: Field64 + Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
+impl<F: PrimeField + Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
     /// The binary gate tree influences the degree `D` of the constraint polynomial and the number `C`
     /// of constant wires in the circuit. We want to construct a tree minimizing both values. To do so
     /// we iterate over possible values of `(D, C)` and try to construct a tree with these values.

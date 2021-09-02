@@ -3,7 +3,7 @@ use std::convert::TryInto;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
-use crate::field::field_types::{Field, Field64};
+use crate::field::field_types::{Field, PrimeField};
 use crate::gates::arithmetic::{ArithmeticExtensionGate, NUM_ARITHMETIC_OPS};
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
@@ -11,7 +11,7 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bits_u64;
 
-impl<F: Field64 + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Finds the last available arithmetic gate with the given constants or add one if there aren't any.
     /// Returns `(g,i)` such that there is an arithmetic gate with the given constants at index
     /// `g` and the gate's `i`-th operation is available.
@@ -440,7 +440,7 @@ struct QuotientGeneratorExtension<const D: usize> {
     quotient: ExtensionTarget<D>,
 }
 
-impl<F: Field64 + Extendable<D>, const D: usize> SimpleGenerator<F>
+impl<F: PrimeField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for QuotientGeneratorExtension<D>
 {
     fn dependencies(&self) -> Vec<Target> {
@@ -465,7 +465,7 @@ pub struct PowersTarget<const D: usize> {
 }
 
 impl<const D: usize> PowersTarget<D> {
-    pub fn next<F: Field64 + Extendable<D>>(
+    pub fn next<F: PrimeField + Extendable<D>>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D> {
@@ -474,7 +474,7 @@ impl<const D: usize> PowersTarget<D> {
         result
     }
 
-    pub fn repeated_frobenius<F: Field64 + Extendable<D>>(
+    pub fn repeated_frobenius<F: PrimeField + Extendable<D>>(
         self,
         k: usize,
         builder: &mut CircuitBuilder<F, D>,
@@ -487,7 +487,7 @@ impl<const D: usize> PowersTarget<D> {
     }
 }
 
-impl<F: Field64 + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn powers(&mut self, base: ExtensionTarget<D>) -> PowersTarget<D> {
         PowersTarget {
             base,

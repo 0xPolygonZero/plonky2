@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, Field64};
+use crate::field::field_types::{Field, PrimeField};
 use crate::gates::gate::Gate;
 use crate::hash::gmimc::gmimc_automatic_constants;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -23,11 +23,11 @@ const W: usize = 12;
 /// sibling digests. It also has an accumulator that computes the weighted sum of these flags, for
 /// computing the index of the leaf based on these swap bits.
 #[derive(Debug)]
-pub struct GMiMCGate<F: Field64 + Extendable<D>, const D: usize, const R: usize> {
+pub struct GMiMCGate<F: PrimeField + Extendable<D>, const D: usize, const R: usize> {
     constants: Arc<[F; R]>,
 }
 
-impl<F: Field64 + Extendable<D>, const D: usize, const R: usize> GMiMCGate<F, D, R> {
+impl<F: PrimeField + Extendable<D>, const D: usize, const R: usize> GMiMCGate<F, D, R> {
     pub fn new(constants: Arc<[F; R]>) -> Self {
         Self { constants }
     }
@@ -62,7 +62,9 @@ impl<F: Field64 + Extendable<D>, const D: usize, const R: usize> GMiMCGate<F, D,
     }
 }
 
-impl<F: Field64 + Extendable<D>, const D: usize, const R: usize> Gate<F, D> for GMiMCGate<F, D, R> {
+impl<F: PrimeField + Extendable<D>, const D: usize, const R: usize> Gate<F, D>
+    for GMiMCGate<F, D, R>
+{
     fn id(&self) -> String {
         format!("<R={}> {:?}", R, self)
     }
@@ -238,12 +240,12 @@ impl<F: Field64 + Extendable<D>, const D: usize, const R: usize> Gate<F, D> for 
 }
 
 #[derive(Debug)]
-struct GMiMCGenerator<F: Field64 + Extendable<D>, const D: usize, const R: usize> {
+struct GMiMCGenerator<F: PrimeField + Extendable<D>, const D: usize, const R: usize> {
     gate_index: usize,
     constants: Arc<[F; R]>,
 }
 
-impl<F: Field64 + Extendable<D>, const D: usize, const R: usize> SimpleGenerator<F>
+impl<F: PrimeField + Extendable<D>, const D: usize, const R: usize> SimpleGenerator<F>
     for GMiMCGenerator<F, D, R>
 {
     fn dependencies(&self) -> Vec<Target> {
