@@ -149,6 +149,7 @@ where
         // summing at the end, didn't improve performance for me.
         let mut res = 0u128;
 
+        // This is a hacky way of fully unrolling the loop.
         assert!(WIDTH <= 12);
         for i in 0..12 {
             if i < WIDTH {
@@ -169,6 +170,7 @@ where
             state[r] = state_[r].to_noncanonical_u64();
         }
 
+        // This is a hacky way of fully unrolling the loop.
         assert!(WIDTH <= 12);
         for r in 0..12 {
             if r < WIDTH {
