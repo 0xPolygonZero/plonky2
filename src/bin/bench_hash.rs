@@ -2,14 +2,16 @@ use std::time::Instant;
 
 use plonky2::field::crandall_field::CrandallField as F;
 use plonky2::field::field_types::Field;
-use plonky2::hash::gmimc::gmimc_permute_array;
-use plonky2::hash::hashing::{GMIMC_CONSTANTS, GMIMC_ROUNDS};
+use plonky2::hash::gmimc::GMiMCInterface;
 use plonky2::hash::poseidon::PoseidonInterface;
 use plonky2::hash::rescue::rescue;
 
 #[inline]
-fn gmimc_hash<const W: usize>(x: [F; W]) -> [F; W] {
-    gmimc_permute_array::<_, W, GMIMC_ROUNDS>(x, GMIMC_CONSTANTS)
+fn gmimc_hash<const W: usize>(x: [F; W]) -> [F; W]
+where
+    F: GMiMCInterface<W>,
+{
+    F::gmimc_permute(x)
 }
 
 #[inline]
@@ -70,7 +72,7 @@ fn bench_hash<const W: usize>(name: &str, hash: fn([F; W]) -> [F; W], gmimc_tm: 
 fn main() {
     println!(" -- Width 8 (time μs, slowdown wrt GMiMC)--");
     let mut tm: f64 = 0.0;
-    bench_hash("GMiMC", gmimc_hash::<8>, &mut tm);
+    // bench_hash("GMiMC", gmimc_hash::<8>, &mut tm); // Not implemented yet.
     bench_hash("Poseidon", poseidon8_hash, &mut tm);
     bench_hash("Poseidon naive", poseidon8_naive_hash, &mut tm);
 

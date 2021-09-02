@@ -22,6 +22,8 @@ const MAX_WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :
 // generated from ChaCha8 with a seed of 0. In this case we need
 // to generate more though. We include enough for a WIDTH of 12;
 // smaller widths just use a subset.
+// TODO: These are specific to CrandallField; for other fields they wouldn't represent uniformly
+// random numbers.
 #[rustfmt::skip]
 const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     0xb585f767417ee042, 0x7746a55f77c10331, 0xb2fb0d321d356f7a, 0x0f6760a486f1621f,

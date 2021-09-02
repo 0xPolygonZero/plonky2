@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::PrimeField;
+use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::proof::{FriProof, FriProofTarget};
 use crate::hash::hash_types::MerkleCapTarget;
@@ -58,7 +58,7 @@ pub struct OpeningSet<F: Extendable<D>, const D: usize> {
     pub quotient_polys: Vec<F::Extension>,
 }
 
-impl<F: PrimeField + Extendable<D>, const D: usize> OpeningSet<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
     pub fn new(
         z: F::Extension,
         g: F::Extension,

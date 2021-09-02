@@ -1,7 +1,7 @@
 use anyhow::{ensure, Result};
 
 use crate::field::extension_field::{flatten, Extendable, FieldExtension};
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::{Field, RichField};
 use crate::field::interpolation::{barycentric_weights, interpolate, interpolate2};
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::FriConfig;
@@ -44,7 +44,7 @@ fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     interpolate(&points, beta, &barycentric_weights)
 }
 
-fn fri_verify_proof_of_work<F: PrimeField + Extendable<D>, const D: usize>(
+fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: usize>(
     proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
@@ -68,7 +68,7 @@ fn fri_verify_proof_of_work<F: PrimeField + Extendable<D>, const D: usize>(
     Ok(())
 }
 
-pub fn verify_fri_proof<F: PrimeField + Extendable<D>, const D: usize>(
+pub fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
     // Openings of the PLONK polynomials.
     os: &OpeningSet<F, D>,
     // Point at which the PLONK polynomials are opened.
@@ -136,7 +136,7 @@ pub fn verify_fri_proof<F: PrimeField + Extendable<D>, const D: usize>(
     Ok(())
 }
 
-fn fri_verify_initial_proof<F: Field>(
+fn fri_verify_initial_proof<F: RichField>(
     x_index: usize,
     proof: &FriInitialTreeProof<F>,
     initial_merkle_caps: &[MerkleCap<F>],
@@ -179,7 +179,7 @@ impl<F: Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D> {
     }
 }
 
-fn fri_combine_initial<F: PrimeField + Extendable<D>, const D: usize>(
+fn fri_combine_initial<F: RichField + Extendable<D>, const D: usize>(
     proof: &FriInitialTreeProof<F>,
     alpha: F::Extension,
     zeta: F::Extension,
@@ -244,7 +244,7 @@ fn fri_combine_initial<F: PrimeField + Extendable<D>, const D: usize>(
     sum
 }
 
-fn fri_verifier_query_round<F: PrimeField + Extendable<D>, const D: usize>(
+fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
     zeta: F::Extension,
     alpha: F::Extension,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,

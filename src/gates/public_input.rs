@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::PrimeField;
+use crate::field::field_types::RichField;
 use crate::gates::gate::Gate;
 use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -17,7 +17,7 @@ impl PublicInputGate {
     }
 }
 
-impl<F: PrimeField + Extendable<D>, const D: usize> Gate<F, D> for PublicInputGate {
+impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PublicInputGate {
     fn id(&self) -> String {
         "PublicInputGate".into()
     }

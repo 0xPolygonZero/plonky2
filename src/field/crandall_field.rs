@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::field::extension_field::quadratic::QuadraticCrandallField;
 use crate::field::extension_field::quartic::QuarticCrandallField;
 use crate::field::extension_field::{Extendable, Frobenius};
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::{Field, PrimeField, RichField};
 
 /// EPSILON = 9 * 2**28 - 1
 const EPSILON: u64 = 2415919103;
@@ -458,7 +458,9 @@ impl Extendable<4> for CrandallField {
     type Extension = QuarticCrandallField;
 }
 
-/// Faster addition for when we know that lhs.0 + rhs.0 < 2^64 + Self::ORDER. If this is the case,
+impl RichField for CrandallField {}
+
+/// Faster addition for when we know that lhs.0 + rhs.0 < 2^64 + FIELD_ORDER. If this is the case,
 /// then the .to_canonical_u64() that addition usually performs is unnecessary. Omitting it saves
 /// three instructions.
 /// This function is marked unsafe because it may yield incorrect result if the condition is not

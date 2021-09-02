@@ -4,14 +4,14 @@ use std::sync::Arc;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::{Field, RichField};
 use crate::gates::gate_tree::Tree;
 use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A custom gate.
-pub trait Gate<F: PrimeField + Extendable<D>, const D: usize>: 'static + Send + Sync {
+pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + Sync {
     fn id(&self) -> String;
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension>;
@@ -108,48 +108,48 @@ pub trait Gate<F: PrimeField + Extendable<D>, const D: usize>: 'static + Send + 
 
 /// A wrapper around an `Rc<Gate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
 #[derive(Clone)]
-pub struct GateRef<F: PrimeField + Extendable<D>, const D: usize>(pub(crate) Arc<dyn Gate<F, D>>);
+pub struct GateRef<F: RichField + Extendable<D>, const D: usize>(pub(crate) Arc<dyn Gate<F, D>>);
 
-impl<F: PrimeField + Extendable<D>, const D: usize> GateRef<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> GateRef<F, D> {
     pub fn new<G: Gate<F, D>>(gate: G) -> GateRef<F, D> {
         GateRef(Arc::new(gate))
     }
 }
 
-impl<F: PrimeField + Extendable<D>, const D: usize> PartialEq for GateRef<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> PartialEq for GateRef<F, D> {
     fn eq(&self, other: &Self) -> bool {
         self.0.id() == other.0.id()
     }
 }
 
-impl<F: PrimeField + Extendable<D>, const D: usize> Hash for GateRef<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> Hash for GateRef<F, D> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.id().hash(state)
     }
 }
 
-impl<F: PrimeField + Extendable<D>, const D: usize> Eq for GateRef<F, D> {}
+impl<F: RichField + Extendable<D>, const D: usize> Eq for GateRef<F, D> {}
 
-impl<F: PrimeField + Extendable<D>, const D: usize> Debug for GateRef<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> Debug for GateRef<F, D> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{}", self.0.id())
     }
 }
 
 /// A gate along with any constants used to configure it.
-pub struct GateInstance<F: PrimeField + Extendable<D>, const D: usize> {
+pub struct GateInstance<F: RichField + Extendable<D>, const D: usize> {
     pub gate_ref: GateRef<F, D>,
     pub constants: Vec<F>,
 }
 
 /// Map each gate to a boolean prefix used to construct the gate's selector polynomial.
 #[derive(Debug, Clone)]
-pub struct PrefixedGate<F: PrimeField + Extendable<D>, const D: usize> {
+pub struct PrefixedGate<F: RichField + Extendable<D>, const D: usize> {
     pub gate: GateRef<F, D>,
     pub prefix: Vec<bool>,
 }
 
-impl<F: PrimeField + Extendable<D>, const D: usize> PrefixedGate<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> PrefixedGate<F, D> {
     pub fn from_tree(tree: Tree<GateRef<F, D>>) -> Vec<Self> {
         tree.traversal()
             .into_iter()
@@ -174,7 +174,7 @@ fn compute_filter<K: Field>(prefix: &[bool], constants: &[K]) -> K {
         .product()
 }
 
-fn compute_filter_recursively<F: PrimeField + Extendable<D>, const D: usize>(
+fn compute_filter_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     prefix: &[bool],
     constants: &[ExtensionTarget<D>],

@@ -1,5 +1,3 @@
-use crate::field::field_types::PrimeField;
-
 #[macro_export]
 macro_rules! test_field_arithmetic {
     ($field:ty) => {

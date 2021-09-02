@@ -2,9 +2,9 @@ use std::convert::TryInto;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
-use crate::hash::hashing::{permute, SPONGE_RATE, SPONGE_WIDTH};
+use crate::hash::hashing::{SPONGE_RATE, SPONGE_WIDTH};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -12,7 +12,7 @@ use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
 
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
 #[derive(Clone)]
-pub struct Challenger<F: Field> {
+pub struct Challenger<F: RichField> {
     sponge_state: [F; SPONGE_WIDTH],
     input_buffer: Vec<F>,
     output_buffer: Vec<F>,
@@ -26,7 +26,7 @@ pub struct Challenger<F: Field> {
 /// design, but it can be viewed as a duplex sponge whose inputs are sometimes zero (when we perform
 /// multiple squeezes) and whose outputs are sometimes ignored (when we perform multiple
 /// absorptions). Thus the security properties of a duplex sponge still apply to our design.
-impl<F: Field> Challenger<F> {
+impl<F: RichField> Challenger<F> {
     pub fn new() -> Challenger<F> {
         Challenger {
             sponge_state: [F::ZERO; SPONGE_WIDTH],
@@ -105,7 +105,7 @@ impl<F: Field> Challenger<F> {
 
         if self.output_buffer.is_empty() {
             // Evaluate the permutation to produce `r` new outputs.
-            self.sponge_state = permute(self.sponge_state);
+            self.sponge_state = F::gmimc_permute(self.sponge_state);
             self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
         }
 
@@ -160,7 +160,7 @@ impl<F: Field> Challenger<F> {
             }
 
             // Apply the permutation.
-            self.sponge_state = permute(self.sponge_state);
+            self.sponge_state = F::gmimc_permute(self.sponge_state);
         }
 
         self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
@@ -169,7 +169,7 @@ impl<F: Field> Challenger<F> {
     }
 }
 
-impl<F: Field> Default for Challenger<F> {
+impl<F: RichField> Default for Challenger<F> {
     fn default() -> Self {
         Self::new()
     }
@@ -183,7 +183,7 @@ pub struct RecursiveChallenger {
 }
 
 impl RecursiveChallenger {
-    pub(crate) fn new<F: PrimeField + Extendable<D>, const D: usize>(
+    pub(crate) fn new<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let zero = builder.zero();
@@ -250,7 +250,7 @@ impl RecursiveChallenger {
         }
     }
 
-    pub(crate) fn get_challenge<F: PrimeField + Extendable<D>, const D: usize>(
+    pub(crate) fn get_challenge<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Target {
@@ -267,7 +267,7 @@ impl RecursiveChallenger {
             .expect("Output buffer should be non-empty")
     }
 
-    pub(crate) fn get_n_challenges<F: PrimeField + Extendable<D>, const D: usize>(
+    pub(crate) fn get_n_challenges<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         n: usize,
@@ -275,7 +275,7 @@ impl RecursiveChallenger {
         (0..n).map(|_| self.get_challenge(builder)).collect()
     }
 
-    pub fn get_hash<F: PrimeField + Extendable<D>, const D: usize>(
+    pub fn get_hash<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -289,7 +289,7 @@ impl RecursiveChallenger {
         }
     }
 
-    pub fn get_extension_challenge<F: PrimeField + Extendable<D>, const D: usize>(
+    pub fn get_extension_challenge<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D> {
@@ -297,7 +297,7 @@ impl RecursiveChallenger {
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
-    fn absorb_buffered_inputs<F: PrimeField + Extendable<D>, const D: usize>(
+    fn absorb_buffered_inputs<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) {
