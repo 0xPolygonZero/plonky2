@@ -119,7 +119,7 @@ const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
 pub trait PoseidonInterface<const WIDTH: usize>: Field
 where
     // magic to get const generic expressions to work
-    [(); WIDTH - 1]: ,
+    [(); WIDTH - 1]: , [(); 2 * WIDTH - 1]: ,
 {
     // Total number of round constants required: width of the input
     // times number of rounds.
@@ -139,7 +139,7 @@ where
 
     #[inline]
     #[unroll_for_loops]
-    fn mds_row_shf(r: usize, v: &[u64; WIDTH]) -> u128 {
+    fn mds_row_shf(r: usize, v: &[u64; 2 * WIDTH]) -> u128 {
         debug_assert!(r < WIDTH);
         // The values of MDS_MATRIX_EXPS are known to be small, so we can
         // accumulate all the products for each row and reduce just once
@@ -149,7 +149,7 @@ where
         // summing at the end, didn't improve performance for me.
         let mut res = 0u128;
         for i in 0..WIDTH {
-            res += (v[(i + r) % WIDTH] as u128) << Self::MDS_MATRIX_EXPS[i];
+            res += (v[i + r] as u128) << Self::MDS_MATRIX_EXPS[i];
         }
         res
     }
@@ -159,9 +159,11 @@ where
     fn mds_layer(state_: &[Self; WIDTH]) -> [Self; WIDTH] {
         let mut result = [Self::ZERO; WIDTH];
 
-        let mut state = [0u64; WIDTH];
+        let mut state = [0u64; 2 * WIDTH];
         for r in 0..WIDTH {
-            state[r] = state_[r].to_noncanonical_u64();
+            let s = state_[r].to_noncanonical_u64();
+            state[r] = s;
+            state[r + WIDTH] = s;
         }
 
         for r in 0..WIDTH {
