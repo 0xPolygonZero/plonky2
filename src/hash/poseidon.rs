@@ -119,7 +119,8 @@ const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
 pub trait PoseidonInterface<const WIDTH: usize>: Field
 where
     // magic to get const generic expressions to work
-    [(); WIDTH - 1]: , [(); 2 * WIDTH - 1]: ,
+    [(); WIDTH - 1]: ,
+    [(); 2 * WIDTH - 1]: ,
 {
     // Total number of round constants required: width of the input
     // times number of rounds.
@@ -680,6 +681,7 @@ mod tests {
     where
         F: PoseidonInterface<WIDTH>,
         [(); WIDTH - 1]: ,
+        [(); 2 * WIDTH - 1]: ,
     {
         for (input_, expected_output_) in test_vectors.into_iter() {
             let mut input = [F::ZERO; WIDTH];
@@ -743,6 +745,7 @@ mod tests {
     where
         F: PoseidonInterface<WIDTH>,
         [(); WIDTH - 1]: ,
+        [(); 2 * WIDTH - 1]: ,
     {
         let mut input = [F::ZERO; WIDTH];
         for i in 0..WIDTH {
