@@ -55,7 +55,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let chunk_size = a1.len();
 
-        let (switch, gate_out1, gate_out2) = self.create_switch(a1, a2);
+        let (_switch, gate_out1, gate_out2) = self.create_switch(a1, a2);
         for e in 0..chunk_size {
             self.connect(b1[e], gate_out1[e]);
             self.connect(b2[e], gate_out2[e]);
@@ -177,7 +177,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_permutation(child_2_a, child_2_b);
 
         self.add_simple_generator(PermutationGenerator::<F> {
-            chunk_size,
             a,
             b,
             a_switches,
@@ -271,12 +270,13 @@ fn route<F: Field>(
         enqueue_other_side(&mut partial_routes, witness, &mut newly_set, 1, n - 1, true);
     }
 
-    let mut route_switch = |partial_routes: &mut [BTreeMap<usize, bool>],
-                            witness: &PartitionWitness<F>,
-                            out_buffer: &mut GeneratedValues<F>,
-                            side: usize,
-                            switch_index: usize,
-                            swap: bool| {
+    let route_switch = |partial_routes: &mut [BTreeMap<usize, bool>],
+                        witness: &PartitionWitness<F>,
+                        out_buffer: &mut GeneratedValues<F>,
+                        newly_set: &mut [Vec<bool>],
+                        side: usize,
+                        switch_index: usize,
+                        swap: bool| {
         // First, we actually set the switch configuration.
         out_buffer.set_target(switches[side][switch_index], F::from_bool(swap));
         newly_set[side][switch_index] = true;
@@ -285,22 +285,8 @@ fn route<F: Field>(
         // that they get routed in the next step.
         let this_i_1 = switch_index * 2;
         let this_i_2 = this_i_1 + 1;
-        enqueue_other_side(
-            partial_routes,
-            witness,
-            &mut newly_set,
-            side,
-            this_i_1,
-            swap,
-        );
-        enqueue_other_side(
-            partial_routes,
-            witness,
-            &mut newly_set,
-            side,
-            this_i_2,
-            !swap,
-        );
+        enqueue_other_side(partial_routes, witness, newly_set, side, this_i_1, swap);
+        enqueue_other_side(partial_routes, witness, newly_set, side, this_i_2, !swap);
     };
 
     // If {a,b}_only_routes is empty, then we can route any switch next. For efficiency, we will
@@ -322,6 +308,7 @@ fn route<F: Field>(
                         &mut partial_routes,
                         witness,
                         out_buffer,
+                        &mut newly_set,
                         side,
                         this_switch_i,
                         swap,
@@ -331,7 +318,8 @@ fn route<F: Field>(
             } else {
                 // We can route any switch next. Continue our scan for pending switches.
                 while scan_index[side] < switches[side].len()
-                    && witness.contains(switches[side][scan_index[side]])
+                    && (witness.contains(switches[side][scan_index[side]])
+                        || newly_set[side][scan_index[side]])
                 {
                     scan_index[side] += 1;
                 }
@@ -341,6 +329,7 @@ fn route<F: Field>(
                         &mut partial_routes,
                         witness,
                         out_buffer,
+                        &mut newly_set,
                         side,
                         scan_index[side],
                         false,
@@ -354,7 +343,6 @@ fn route<F: Field>(
 
 #[derive(Debug)]
 struct PermutationGenerator<F: Field> {
-    chunk_size: usize,
     a: Vec<Vec<Target>>,
     b: Vec<Vec<Target>>,
     a_switches: Vec<Target>,
