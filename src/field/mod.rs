@@ -7,6 +7,9 @@ pub(crate) mod interpolation;
 pub(crate) mod packable;
 pub(crate) mod packed_field;
 
+#[cfg(target_feature = "avx2")]
+pub(crate) mod packed_crandall_avx2;
+
 #[cfg(test)]
 mod field_testing;
 #[cfg(test)]

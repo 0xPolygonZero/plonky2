@@ -110,6 +110,7 @@ const CAUCHY_MDS_8: [[CrandallField; 8]; 8] = [
 ///   = 2**28 * (2**36 - 9) + 1
 /// ```
 #[derive(Copy, Clone, Serialize, Deserialize)]
+#[repr(transparent)] // Must be compatible with PackedCrandallAVX2
 pub struct CrandallField(pub u64);
 
 impl Default for CrandallField {
