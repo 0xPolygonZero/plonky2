@@ -1,6 +1,6 @@
 use num::{bigint::BigUint, Zero};
 
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::PrimeField;
 use crate::util::ceil_div_usize;
 
 /// Generates a series of non-negative integers less than

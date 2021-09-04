@@ -3,7 +3,7 @@ use env_logger::Env;
 use log::info;
 use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::extension_field::Extendable;
-use plonky2::field::field_types::{Field, PrimeField};
+use plonky2::field::field_types::PrimeField;
 use plonky2::fri::FriConfig;
 use plonky2::iop::witness::PartialWitness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;

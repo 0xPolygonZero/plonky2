@@ -4,7 +4,7 @@
 use unroll::unroll_for_loops;
 
 use crate::field::crandall_field::CrandallField;
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::PrimeField;
 
 // The number of full rounds and partial rounds is given by the
 // calc_round_numbers.py script. They happen to be the same for both

@@ -143,6 +143,10 @@ impl Field for QuarticCrandallField {
         ])
     }
 
+    fn from_noncanonical_u128(n: u128) -> Self {
+        <Self as FieldExtension<4>>::BaseField::from_noncanonical_u128(n).into()
+    }
+
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self([
             <Self as FieldExtension<4>>::BaseField::rand_from_rng(rng),

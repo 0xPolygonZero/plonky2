@@ -246,6 +246,11 @@ impl Field for CrandallField {
         Self(n.iter_u64_digits().next().unwrap_or(0))
     }
 
+    #[inline]
+    fn from_noncanonical_u128(n: u128) -> Self {
+        reduce128(n)
+    }
+
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self::from_canonical_u64(rng.gen_range(0..Self::ORDER))
     }
@@ -355,11 +360,6 @@ impl PrimeField for CrandallField {
     #[inline]
     fn to_noncanonical_u64(&self) -> u64 {
         self.0
-    }
-
-    #[inline]
-    fn from_noncanonical_u128(n: u128) -> Self {
-        reduce128(n)
     }
 
     fn to_canonical_biguint(&self) -> BigUint {

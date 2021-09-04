@@ -196,6 +196,9 @@ pub trait Field:
 
     fn from_canonical_biguint(n: BigUint) -> Self;
 
+    /// Returns `n % Self::CHARACTERISTIC`.
+    fn from_noncanonical_u128(n: u128) -> Self;
+
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self;
 
     fn exp_power_of_2(&self, power_log: usize) -> Self {
@@ -325,8 +328,6 @@ pub trait PrimeField: Field {
     fn to_canonical_u64(&self) -> u64;
 
     fn to_noncanonical_u64(&self) -> u64;
-
-    fn from_noncanonical_u128(n: u128) -> Self;
 
     fn to_canonical_biguint(&self) -> BigUint;
 }
