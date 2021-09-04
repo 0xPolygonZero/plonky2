@@ -396,6 +396,8 @@ mod tests {
 
     fn test_permutation_good(size: usize) -> Result<()> {
         type F = CrandallField;
+        const D: usize = 4;
+
         let config = CircuitConfig::large_zk_config();
 
         let pw = PartialWitness::new();
@@ -419,6 +421,8 @@ mod tests {
 
     fn test_permutation_bad(size: usize) -> Result<()> {
         type F = CrandallField;
+        const D: usize = 4;
+
         let config = CircuitConfig::large_zk_config();
 
         let pw = PartialWitness::new();
