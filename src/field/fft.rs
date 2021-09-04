@@ -152,47 +152,59 @@ fn fft_classic_simd<P: PackedField>(
 ) {
     let log_packed_width = P::LOG2_WIDTH; // 0 when P is a scalar.
     let packed_values = P::pack_slice_mut(values);
+    let packed_n = packed_values.len();
+    debug_assert!(packed_n == 1 << (lg_n - log_packed_width));
 
     // Want the below for loop to unroll, hence the need for a literal.
     // This loop will not run when P is a scalar.
     assert!(log_packed_width <= 4);
     for i in 0..4 {
-        if i < log_packed_width && i >= r {
+        if i < log_packed_width && i >= r && i + 1 >= lg_n {
+            // Intuitively, we split values into m slices: subarr[0], ..., subarr[m - 1]. Each of
+            // those slices is split into two halves: subarr[j].left, subarr[j].right. We do
+            // (subarr[j].left[k], subarr[j].right[k])
+            //   := f(subarr[j].left[k], subarr[j].right[k], omega[k]),
+            // where f(u, v, omega) = (u + omega * v, u - omega * v).
             let half_m = 1 << i;
+
+            // Set omega to root_table[i][0..half_m] but repeated
             let mut omega_arr = P::zero().to_vec();
             for j in 0..omega_arr.len() {
                 omega_arr[j] = root_table[i][j % half_m];
             }
             let omega = P::new_from_slice(&omega_arr);
-            for k in (0..packed_values.len()).step_by(2) {
+
+            for k in (0..packed_n).step_by(2) {
+                // We have two vectors and want to do math on pairs of adjacent elements (or for
+                // i > 0, pairs of adjacent blocks of elements). .interleave does the appropriate
+                // shuffling and is its own transpose.
                 let (u, v) = packed_values[k].interleave(packed_values[k + 1], i);
                 let t = omega * v;
-                let a_out = u + t;
-                let b_out = u - t;
                 (packed_values[k], packed_values[k + 1]) = (u + t).interleave(u - t, i);
             }
         }
     }
 
-    // Start at i == log_packed_width
-    // Start at half_m == 1 << log_packed_width
-    // Start at m == 1 << (log_packed_width + 1)
+    // We've already done the first log_packed_width (if they were required) iterations.
+    let s = max(r, log_packed_width) + 1;
 
-    let s = max(r, log_packed_width);
-    let mut m = 1 << (s + 1);
-    for lg_m in (s + 1)..=lg_n {
+    for lg_m in s..=lg_n {
+        let m = 1 << lg_m; // Subarray size (in field elements).
+        let packed_m = m >> log_packed_width; // Subarray size (in vectors).
+        let half_packed_m = packed_m / 2;
+        debug_assert!(half_packed_m != 0);
+
+        // omega values for this iteration, as slice of vectors
         let omega_table = P::pack_slice(&root_table[lg_m - 1][..]);
-        let half_m = m / 2;
-        for k in (0..packed_values.len()).step_by(m >> log_packed_width) {
-            for j in 0..(half_m >> log_packed_width) {
+        for k in (0..packed_n).step_by(packed_m) {
+            for j in 0..half_packed_m {
                 let omega = omega_table[j];
-                let t = omega * packed_values[k + (half_m >> log_packed_width) + j];
+                let t = omega * packed_values[k + half_packed_m + j];
                 let u = packed_values[k + j];
                 packed_values[k + j] = u + t;
-                packed_values[k + (half_m >> log_packed_width) + j] = u - t;
+                packed_values[k + half_packed_m + j] = u - t;
             }
         }
-        m *= 2;
     }
 }
 
