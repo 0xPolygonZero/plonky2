@@ -34,16 +34,38 @@ pub trait PackedField:
     const LOG2_WIDTH: usize;
     const WIDTH: usize = 1 << Self::LOG2_WIDTH;
 
-    fn square(&self) -> Self;
+    fn square(&self) -> Self {
+        *self * *self
+    }
 
-    fn zero() -> Self;
-    fn one() -> Self;
+    fn zero() -> Self {
+        Self::broadcast(Self::FieldType::ZERO)
+    }
+    fn one() -> Self {
+        Self::broadcast(Self::FieldType::ONE)
+    }
 
     fn broadcast(x: Self::FieldType) -> Self;
 
     fn new_from_slice(arr: &[Self::FieldType]) -> Self;
     fn to_vec(&self) -> Vec<Self::FieldType>;
 
+    /// Take interpret two vectors as chunks of (1 << r) elements. Unpack and interleave those
+    /// chunks. This is best seen with an example. If we have:
+    ///     A = [x0, y0, x1, y1],
+    ///     B = [x2, y2, x3, y3],
+    /// then
+    ///     interleave(A, B, 0) = ([x0, x2, x1, x3], [y0, y2, y1, y3]).
+    /// Pairs that were adjacent in the input are at corresponding positions in the output.
+    ///   r lets us set the size of chunks we're interleaving. If we set r = 1, then for
+    ///     A = [x0, x1, y0, y1],
+    ///     B = [x2, x3, y2, y3],
+    /// we obtain
+    ///     interleave(A, B, r) = ([x0, x1, x2, x3], [y0, y1, y2, y3]).
+    ///   We can also think about this as stacking the vectors, dividing them into 2x2 matrices, and
+    /// transposing those matrices.
+    ///   When r = LOG2_WIDTH, this operation is a no-op. Values of r > LOG2_WIDTH are not
+    /// permitted.
     fn interleave(&self, other: Self, r: usize) -> (Self, Self);
 
     fn pack_slice(buf: &[Self::FieldType]) -> &[Self] {
@@ -54,7 +76,6 @@ pub trait PackedField:
             Self::WIDTH
         );
         let buf_ptr = buf.as_ptr().cast::<Self>();
-        // assert!(buf_ptr.align_offset(align_of::<Self>()) == 0, "Not aligned");
         let n = buf.len() / Self::WIDTH;
         unsafe { std::slice::from_raw_parts(buf_ptr, n) }
     }
@@ -66,7 +87,6 @@ pub trait PackedField:
             Self::WIDTH
         );
         let buf_ptr = buf.as_mut_ptr().cast::<Self>();
-        // assert!(buf_ptr.align_offset(align_of::<Self>()) == 0, "Not aligned");
         let n = buf.len() / Self::WIDTH;
         unsafe { std::slice::from_raw_parts_mut(buf_ptr, n) }
     }
@@ -150,17 +170,6 @@ impl<F: Field> Product for Singleton<F> {
 impl<F: Field> PackedField for Singleton<F> {
     const LOG2_WIDTH: usize = 0;
     type FieldType = F;
-
-    fn square(&self) -> Self {
-        *self * *self
-    }
-
-    fn zero() -> Self {
-        Self::broadcast(F::ZERO)
-    }
-    fn one() -> Self {
-        Self::broadcast(F::ONE)
-    }
 
     fn broadcast(x: F) -> Self {
         Self(x)
