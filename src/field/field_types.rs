@@ -221,21 +221,11 @@ pub trait Field:
         product
     }
 
-    fn exp_u32(&self, power: u32) -> Self {
-        self.exp_u64(power as u64)
-    }
-
     fn exp_biguint(&self, power: &BigUint) -> Self {
-        let digits = power.to_u32_digits();
-        let radix = 1u64 << 32;
-
         let mut result = Self::ONE;
-        for (radix_power, &digit) in digits.iter().enumerate() {
-            let mut current = self.exp_u32(digit);
-            for _ in 0..radix_power {
-                current = current.exp_u64(radix);
-            }
-            result *= current;
+        for &digit in power.to_u64_digits().iter().rev() {
+            result = result.exp_power_of_2(64);
+            result *= self.exp_u64(digit);
         }
         result
     }
@@ -274,10 +264,6 @@ pub trait Field:
             "x^{} and x^(1/{}) are not permutations of this field, or we have a bug!",
             k, k
         );
-    }
-
-    fn kth_root_u32(&self, k: u32) -> Self {
-        self.kth_root_u64(k as u64)
     }
 
     fn cube_root(&self) -> Self {

@@ -99,7 +99,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
                 .map(|chunk| reduce_with_powers(chunk, beta))
                 .collect::<Vec<_>>(),
         );
-        shift = shift.exp_u32(arity as u32);
+        shift = shift.exp_u64(arity as u64);
         values = coeffs.coset_fft(shift.into())
     }
 
