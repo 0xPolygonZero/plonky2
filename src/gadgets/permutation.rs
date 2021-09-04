@@ -385,6 +385,7 @@ impl<F: Field> SimpleGenerator<F> for PermutationGenerator<F> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use rand::{seq::SliceRandom, thread_rng};
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
@@ -449,6 +450,29 @@ mod tests {
             seven_eight.clone(),
         ];
         let b = vec![seven_eight, one_two, five_six, three_four];
+
+        builder.assert_permutation(a, b);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_permutation_6x6() -> Result<()> {
+        type F = CrandallField;
+        let config = CircuitConfig::large_config();
+        let pw = PartialWitness::new(config.num_wires);
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+
+        let lst: Vec<F> = (0..12).map(|n| F::from_canonical_usize(n)).collect();
+        let a: Vec<Vec<Target>> = lst[..]
+            .windows(2)
+            .map(|pair| vec![builder.constant(pair[0]), builder.constant(pair[1])])
+            .collect();
+        let mut b = a.clone();
+        b.shuffle(&mut thread_rng());
 
         builder.assert_permutation(a, b);
 
