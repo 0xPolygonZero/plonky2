@@ -394,79 +394,14 @@ mod tests {
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
 
-    #[test]
-    fn test_permutation_2x2() -> Result<()> {
+    fn test_permutation_good(size: usize) -> Result<()> {
         type F = CrandallField;
         let config = CircuitConfig::large_zk_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let one = F::ONE;
-        let two = F::from_canonical_usize(2);
-        let seven = F::from_canonical_usize(7);
-        let eight = F::from_canonical_usize(8);
-
-        let one_two = vec![builder.constant(one), builder.constant(two)];
-        let seven_eight = vec![builder.constant(seven), builder.constant(eight)];
-
-        let a = vec![one_two.clone(), seven_eight.clone()];
-        let b = vec![seven_eight, one_two];
-
-        builder.assert_permutation(a, b);
-
-        let data = builder.build();
-        let proof = data.prove(pw).unwrap();
-
-        verify(proof, &data.verifier_only, &data.common)
-    }
-
-    #[test]
-    fn test_permutation_4x4() -> Result<()> {
-        type F = CrandallField;
-        let config = CircuitConfig::large_zk_config();
-
-        let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, D>::new(config);
-
-        let one = F::ONE;
-        let two = F::from_canonical_usize(2);
-        let three = F::from_canonical_usize(3);
-        let four = F::from_canonical_usize(4);
-        let five = F::from_canonical_usize(5);
-        let six = F::from_canonical_usize(6);
-        let seven = F::from_canonical_usize(7);
-        let eight = F::from_canonical_usize(8);
-
-        let one_two = vec![builder.constant(one), builder.constant(two)];
-        let three_four = vec![builder.constant(three), builder.constant(four)];
-        let five_six = vec![builder.constant(five), builder.constant(six)];
-        let seven_eight = vec![builder.constant(seven), builder.constant(eight)];
-
-        let a = vec![
-            one_two.clone(),
-            three_four.clone(),
-            five_six.clone(),
-            seven_eight.clone(),
-        ];
-        let b = vec![seven_eight, one_two, five_six, three_four];
-
-        builder.assert_permutation(a, b);
-
-        let data = builder.build();
-        let proof = data.prove(pw).unwrap();
-
-        verify(proof, &data.verifier_only, &data.common)
-    }
-
-    #[test]
-    fn test_permutation_6x6() -> Result<()> {
-        type F = CrandallField;
-        let config = CircuitConfig::large_config();
-        let pw = PartialWitness::new(config.num_wires);
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
-
-        let lst: Vec<F> = (0..12).map(|n| F::from_canonical_usize(n)).collect();
+        let lst: Vec<F> = (0..size * 2).map(|n| F::from_canonical_usize(n)).collect();
         let a: Vec<Vec<Target>> = lst[..]
             .windows(2)
             .map(|pair| vec![builder.constant(pair[0]), builder.constant(pair[1])])
@@ -480,5 +415,48 @@ mod tests {
         let proof = data.prove(pw).unwrap();
 
         verify(proof, &data.verifier_only, &data.common)
+    }
+
+    fn test_permutation_bad(size: usize) -> Result<()> {
+        type F = CrandallField;
+        let config = CircuitConfig::large_zk_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let lst1: Vec<F> = (0..size * 2).map(|_| F::rand()).collect();
+        let lst2: Vec<F> = (0..size * 2).map(|_| F::rand()).collect();
+        let a: Vec<Vec<Target>> = lst1[..]
+            .windows(2)
+            .map(|pair| vec![builder.constant(pair[0]), builder.constant(pair[1])])
+            .collect();
+        let b: Vec<Vec<Target>> = lst2[..]
+            .windows(2)
+            .map(|pair| vec![builder.constant(pair[0]), builder.constant(pair[1])])
+            .collect();
+
+        builder.assert_permutation(a, b);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_permutations_good() -> Result<()> {
+        for n in 2..9 {
+            test_permutation_good(n).unwrap()
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_permutations_bad() -> () {
+        for n in 2..9 {
+            test_permutation_bad(n).unwrap()
+        }
     }
 }

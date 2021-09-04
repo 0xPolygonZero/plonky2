@@ -365,7 +365,7 @@ mod tests {
         type F = CrandallField;
         type FF = QuarticCrandallField;
         const D: usize = 4;
-        const chunk_size: usize = 4;
+        const CHUNK_SIZE: usize = 4;
         let num_copies = 3;
 
         /// Returns the local wires for a switch gate given the inputs and the switch booleans.
@@ -382,11 +382,11 @@ mod tests {
                 let switch = switch_bools[c];
                 switches.push(F::from_bool(switch));
 
-                let mut first_input_chunk = Vec::with_capacity(chunk_size);
-                let mut second_input_chunk = Vec::with_capacity(chunk_size);
-                let mut first_output_chunk = Vec::with_capacity(chunk_size);
-                let mut second_output_chunk = Vec::with_capacity(chunk_size);
-                for e in 0..chunk_size {
+                let mut first_input_chunk = Vec::with_capacity(CHUNK_SIZE);
+                let mut second_input_chunk = Vec::with_capacity(CHUNK_SIZE);
+                let mut first_output_chunk = Vec::with_capacity(CHUNK_SIZE);
+                let mut second_output_chunk = Vec::with_capacity(CHUNK_SIZE);
+                for e in 0..CHUNK_SIZE {
                     let first_input = first_inputs[c][e];
                     let second_input = second_inputs[c][e];
                     let first_output = if switch { second_input } else { first_input };
@@ -406,12 +406,12 @@ mod tests {
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         }
 
-        let first_inputs: Vec<Vec<F>> = (0..num_copies).map(|_| F::rand_vec(chunk_size)).collect();
-        let second_inputs: Vec<Vec<F>> = (0..num_copies).map(|_| F::rand_vec(chunk_size)).collect();
+        let first_inputs: Vec<Vec<F>> = (0..num_copies).map(|_| F::rand_vec(CHUNK_SIZE)).collect();
+        let second_inputs: Vec<Vec<F>> = (0..num_copies).map(|_| F::rand_vec(CHUNK_SIZE)).collect();
         let switch_bools = vec![true, false, true];
 
         let gate = SwitchGate::<F, D> {
-            chunk_size,
+            chunk_size: CHUNK_SIZE,
             num_copies,
             _phantom: PhantomData,
         };
