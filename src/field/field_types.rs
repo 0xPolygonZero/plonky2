@@ -38,7 +38,7 @@ pub trait Field:
     + Serialize
     + DeserializeOwned
 {
-    type PrimeField: Field;
+    type PrimeField: PrimeField;
 
     const ZERO: Self;
     const ONE: Self;
