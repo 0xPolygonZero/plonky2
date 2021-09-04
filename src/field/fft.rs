@@ -1,6 +1,11 @@
+use std::cmp::max;
 use std::option::Option;
 
+use unroll::unroll_for_loops;
+
 use crate::field::field_types::Field;
+use crate::field::packable::Packable;
+use crate::field::packed_field::{PackedField, Singleton};
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_strict, reverse_index_bits};
 
@@ -137,6 +142,60 @@ pub fn ifft_with_options<F: Field>(
     PolynomialCoeffs { coeffs }
 }
 
+/// Generic FFT implementation that works with both scalar and packed inputs.
+#[unroll_for_loops]
+fn fft_classic_simd<P: PackedField>(
+    values: &mut [P::FieldType],
+    r: usize,
+    lg_n: usize,
+    root_table: &FftRootTable<P::FieldType>,
+) {
+    let log_packed_width = P::LOG2_WIDTH; // 0 when P is a scalar.
+    let packed_values = P::pack_slice_mut(values);
+
+    // Want the below for loop to unroll, hence the need for a literal.
+    // This loop will not run when P is a scalar.
+    assert!(log_packed_width <= 4);
+    for i in 0..4 {
+        if i < log_packed_width && i >= r {
+            let half_m = 1 << i;
+            let mut omega_arr = P::zero().to_vec();
+            for j in 0..omega_arr.len() {
+                omega_arr[j] = root_table[i][j % half_m];
+            }
+            let omega = P::new_from_slice(&omega_arr);
+            for k in (0..packed_values.len()).step_by(2) {
+                let (u, v) = packed_values[k].interleave(packed_values[k + 1], i);
+                let t = omega * v;
+                let a_out = u + t;
+                let b_out = u - t;
+                (packed_values[k], packed_values[k + 1]) = (u + t).interleave(u - t, i);
+            }
+        }
+    }
+
+    // Start at i == log_packed_width
+    // Start at half_m == 1 << log_packed_width
+    // Start at m == 1 << (log_packed_width + 1)
+
+    let s = max(r, log_packed_width);
+    let mut m = 1 << (s + 1);
+    for lg_m in (s + 1)..=lg_n {
+        let omega_table = P::pack_slice(&root_table[lg_m - 1][..]);
+        let half_m = m / 2;
+        for k in (0..packed_values.len()).step_by(m >> log_packed_width) {
+            for j in 0..(half_m >> log_packed_width) {
+                let omega = omega_table[j];
+                let t = omega * packed_values[k + (half_m >> log_packed_width) + j];
+                let u = packed_values[k + j];
+                packed_values[k + j] = u + t;
+                packed_values[k + (half_m >> log_packed_width) + j] = u - t;
+            }
+        }
+        m *= 2;
+    }
+}
+
 /// FFT implementation based on Section 32.3 of "Introduction to
 /// Algorithms" by Cormen et al.
 ///
@@ -172,19 +231,13 @@ pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: FftRootTa
         }
     }
 
-    let mut m = 1 << (r + 1);
-    for lg_m in (r + 1)..=lg_n {
-        let half_m = m / 2;
-        for k in (0..n).step_by(m) {
-            for j in 0..half_m {
-                let omega = root_table[lg_m - 1][j];
-                let t = omega * values[k + half_m + j];
-                let u = values[k + j];
-                values[k + j] = u + t;
-                values[k + half_m + j] = u - t;
-            }
-        }
-        m *= 2;
+    let log_packed_width = <F as Packable>::PackedType::LOG2_WIDTH;
+    if lg_n <= log_packed_width {
+        // Need the slice to be at least the width of two packed vectors for the vectorized version
+        // to work. Do this tiny problem in scalar.
+        fft_classic_simd::<Singleton<F>>(&mut values[..], r, lg_n, &root_table);
+    } else {
+        fft_classic_simd::<<F as Packable>::PackedType>(&mut values[..], r, lg_n, &root_table);
     }
     values
 }
