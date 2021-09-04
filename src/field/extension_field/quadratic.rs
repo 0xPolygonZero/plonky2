@@ -93,14 +93,6 @@ impl Field for QuadraticCrandallField {
         <Self as FieldExtension<2>>::BaseField::from_canonical_u64(n).into()
     }
 
-    fn to_canonical_biguint(&self) -> BigUint {
-        let first = self.0[0].to_canonical_biguint();
-        let second = self.0[1].to_canonical_biguint();
-        let combined = second * Self::CHARACTERISTIC + first;
-
-        combined
-    }
-
     fn from_canonical_biguint(n: BigUint) -> Self {
         let smaller = n.clone() % Self::CHARACTERISTIC;
         let larger = n.clone() / Self::CHARACTERISTIC;

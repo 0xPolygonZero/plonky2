@@ -1,6 +1,6 @@
 use num::{bigint::BigUint, Zero};
 
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, PrimeField};
 use crate::util::ceil_div_usize;
 
 /// Generates a series of non-negative integers less than
@@ -67,7 +67,7 @@ pub fn run_unaryop_test_cases<F, UnaryOp, ExpectedOp>(
     op: UnaryOp,
     expected_op: ExpectedOp,
 ) where
-    F: Field,
+    F: PrimeField,
     UnaryOp: Fn(F) -> F,
     ExpectedOp: Fn(BigUint) -> BigUint,
 {
@@ -99,7 +99,7 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
     op: BinaryOp,
     expected_op: ExpectedOp,
 ) where
-    F: Field,
+    F: PrimeField,
     BinaryOp: Fn(F, F) -> F,
     ExpectedOp: Fn(BigUint, BigUint) -> BigUint,
 {
