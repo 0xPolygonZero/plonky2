@@ -4,7 +4,7 @@
 use unroll::unroll_for_loops;
 
 use crate::field::crandall_field::CrandallField;
-use crate::field::field_types::Field;
+use crate::field::field_types::PrimeField;
 
 // The number of full rounds and partial rounds is given by the
 // calc_round_numbers.py script. They happen to be the same for both
@@ -116,7 +116,7 @@ const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     0x4543d9df72c4831d, 0xf172d73e69f20739, 0xdfd1c4ff1eb3d868, 0xbc8dfb62d26376f7,
 ];
 
-pub trait PoseidonInterface<const WIDTH: usize>: Field
+pub trait PoseidonInterface<const WIDTH: usize>: PrimeField
 where
     // magic to get const generic expressions to work
     [(); WIDTH - 1]: ,

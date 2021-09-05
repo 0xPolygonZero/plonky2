@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, PrimeField};
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::{permute, SPONGE_RATE, SPONGE_WIDTH};
 use crate::hash::merkle_tree::MerkleCap;
@@ -183,7 +183,7 @@ pub struct RecursiveChallenger {
 }
 
 impl RecursiveChallenger {
-    pub(crate) fn new<F: Extendable<D>, const D: usize>(
+    pub(crate) fn new<F: PrimeField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let zero = builder.zero();
@@ -250,7 +250,7 @@ impl RecursiveChallenger {
         }
     }
 
-    pub(crate) fn get_challenge<F: Extendable<D>, const D: usize>(
+    pub(crate) fn get_challenge<F: PrimeField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Target {
@@ -267,7 +267,7 @@ impl RecursiveChallenger {
             .expect("Output buffer should be non-empty")
     }
 
-    pub(crate) fn get_n_challenges<F: Extendable<D>, const D: usize>(
+    pub(crate) fn get_n_challenges<F: PrimeField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         n: usize,
@@ -275,7 +275,7 @@ impl RecursiveChallenger {
         (0..n).map(|_| self.get_challenge(builder)).collect()
     }
 
-    pub fn get_hash<F: Extendable<D>, const D: usize>(
+    pub fn get_hash<F: PrimeField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -289,7 +289,7 @@ impl RecursiveChallenger {
         }
     }
 
-    pub fn get_extension_challenge<F: Extendable<D>, const D: usize>(
+    pub fn get_extension_challenge<F: PrimeField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D> {
@@ -297,7 +297,7 @@ impl RecursiveChallenger {
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
-    fn absorb_buffered_inputs<F: Extendable<D>, const D: usize>(
+    fn absorb_buffered_inputs<F: PrimeField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) {
