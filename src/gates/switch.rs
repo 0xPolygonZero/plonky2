@@ -335,12 +335,12 @@ mod tests {
         assert_eq!(gate.wire_second_input(0, 2), 5);
         assert_eq!(gate.wire_first_output(0, 0), 6);
         assert_eq!(gate.wire_second_output(0, 2), 11);
-        assert_eq!(gate.wire_first_input(1, 0), 12);
-        assert_eq!(gate.wire_second_output(1, 2), 23);
-        assert_eq!(gate.wire_first_input(2, 0), 24);
-        assert_eq!(gate.wire_second_output(2, 2), 35);
-        assert_eq!(gate.wire_switch_bool(0), 36);
-        assert_eq!(gate.wire_switch_bool(1), 37);
+        assert_eq!(gate.wire_switch_bool(0), 12);
+        assert_eq!(gate.wire_first_input(1, 0), 13);
+        assert_eq!(gate.wire_second_output(1, 2), 24);
+        assert_eq!(gate.wire_switch_bool(1), 25);
+        assert_eq!(gate.wire_first_input(2, 0), 26);
+        assert_eq!(gate.wire_second_output(2, 2), 37);
         assert_eq!(gate.wire_switch_bool(2), 38);
     }
 
@@ -376,11 +376,9 @@ mod tests {
         ) -> Vec<FF> {
             let num_copies = first_inputs.len();
 
-            let mut switches = Vec::new();
             let mut v = Vec::new();
             for c in 0..num_copies {
                 let switch = switch_bools[c];
-                switches.push(F::from_bool(switch));
 
                 let mut first_input_chunk = Vec::with_capacity(CHUNK_SIZE);
                 let mut second_input_chunk = Vec::with_capacity(CHUNK_SIZE);
@@ -400,8 +398,9 @@ mod tests {
                 v.append(&mut second_input_chunk);
                 v.append(&mut first_output_chunk);
                 v.append(&mut second_output_chunk);
+
+                v.push(F::from_bool(switch));
             }
-            v.extend(switches);
 
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         }
