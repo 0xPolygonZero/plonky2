@@ -5,7 +5,6 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::bigint::BigUint;
-use num::Integer;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +12,7 @@ use crate::field::extension_field::quadratic::QuadraticCrandallField;
 use crate::field::extension_field::quartic::QuarticCrandallField;
 use crate::field::extension_field::{Extendable, Frobenius};
 use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::inversion::try_inverse_u64;
 
 /// EPSILON = 9 * 2**28 - 1
 const EPSILON: u64 = 2415919103;
@@ -160,82 +160,11 @@ impl Field for CrandallField {
     const POWER_OF_TWO_GENERATOR: Self = Self(10281950781551402419);
 
     fn order() -> BigUint {
-        BigUint::from(Self::ORDER)
+        Self::ORDER.into()
     }
 
-    #[inline]
-    fn square(&self) -> Self {
-        *self * *self
-    }
-
-    #[inline]
-    fn cube(&self) -> Self {
-        *self * *self * *self
-    }
-
-    #[allow(clippy::many_single_char_names)] // The names are from the paper.
     fn try_inverse(&self) -> Option<Self> {
-        if self.is_zero() {
-            return None;
-        }
-
-        // Based on Algorithm 16 of "Efficient Software-Implementation of Finite Fields with
-        // Applications to Cryptography".
-
-        let p = Self::ORDER;
-        let mut u = self.to_canonical_u64();
-        let mut v = p;
-        let mut b = 1u64;
-        let mut c = 0u64;
-
-        while u != 1 && v != 1 {
-            let u_tz = u.trailing_zeros();
-            u >>= u_tz;
-            for _ in 0..u_tz {
-                if b.is_even() {
-                    b /= 2;
-                } else {
-                    // b = (b + p)/2, avoiding overflow
-                    b = (b / 2) + (p / 2) + 1;
-                }
-            }
-
-            let v_tz = v.trailing_zeros();
-            v >>= v_tz;
-            for _ in 0..v_tz {
-                if c.is_even() {
-                    c /= 2;
-                } else {
-                    // c = (c + p)/2, avoiding overflow
-                    c = (c / 2) + (p / 2) + 1;
-                }
-            }
-
-            if u >= v {
-                u -= v;
-                // b -= c
-                let (mut diff, under) = b.overflowing_sub(c);
-                if under {
-                    diff = diff.overflowing_add(p).0;
-                }
-                b = diff;
-            } else {
-                v -= u;
-                // c -= b
-                let (mut diff, under) = c.overflowing_sub(b);
-                if under {
-                    diff = diff.overflowing_add(p).0;
-                }
-                c = diff;
-            }
-        }
-
-        let inverse = Self(if u == 1 { b } else { c });
-
-        // Should change to debug_assert_eq; using assert_eq as an extra precaution for now until
-        // we're more confident the impl is correct.
-        assert_eq!(*self * inverse, Self::ONE);
-        Some(inverse)
+        try_inverse_u64(self.0, Self::ORDER).map(|inv| Self(inv))
     }
 
     #[inline]
