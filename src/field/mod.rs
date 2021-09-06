@@ -9,3 +9,5 @@ pub(crate) mod packed_field;
 
 #[cfg(test)]
 mod field_testing;
+#[cfg(test)]
+mod prime_field_testing;

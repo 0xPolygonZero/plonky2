@@ -194,8 +194,6 @@ pub trait Field:
         Self::from_canonical_u64(b as u64)
     }
 
-    fn from_canonical_biguint(n: BigUint) -> Self;
-
     /// Returns `n % Self::CHARACTERISTIC`.
     fn from_noncanonical_u128(n: u128) -> Self;
 
@@ -328,8 +326,6 @@ pub trait PrimeField: Field {
     fn to_canonical_u64(&self) -> u64;
 
     fn to_noncanonical_u64(&self) -> u64;
-
-    fn to_canonical_biguint(&self) -> BigUint;
 }
 
 /// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
