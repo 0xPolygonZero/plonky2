@@ -126,23 +126,6 @@ impl Field for QuarticCrandallField {
         <Self as FieldExtension<4>>::BaseField::from_canonical_u64(n).into()
     }
 
-    fn from_canonical_biguint(n: BigUint) -> Self {
-        let first = &n % Self::CHARACTERISTIC;
-        let mut remaining = &n / Self::CHARACTERISTIC;
-        let second = &remaining % Self::CHARACTERISTIC;
-        remaining = remaining / Self::CHARACTERISTIC;
-        let third = &remaining % Self::CHARACTERISTIC;
-        remaining = remaining / Self::CHARACTERISTIC;
-        let fourth = &remaining % Self::CHARACTERISTIC;
-
-        Self([
-            <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(first),
-            <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(second),
-            <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(third),
-            <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(fourth),
-        ])
-    }
-
     fn from_noncanonical_u128(n: u128) -> Self {
         <Self as FieldExtension<4>>::BaseField::from_noncanonical_u128(n).into()
     }
