@@ -587,7 +587,6 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_commitment,
             sigmas: transpose_poly_values(sigma_vecs),
             subgroup,
-            gate_instances: self.gate_instances,
             public_inputs: self.public_inputs,
             marked_targets: self.marked_targets,
             partition_witness,

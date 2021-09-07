@@ -147,8 +147,6 @@ pub(crate) struct ProverOnlyCircuitData<F: PrimeField + Extendable<D>, const D: 
     pub sigmas: Vec<Vec<F>>,
     /// Subgroup of order `degree`.
     pub subgroup: Vec<F>,
-    /// The concrete placement of each gate in the circuit.
-    pub gate_instances: Vec<GateInstance<F, D>>,
     /// Targets to be made public.
     pub public_inputs: Vec<Target>,
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
