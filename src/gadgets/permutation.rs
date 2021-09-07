@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
-use crate::field::{extension_field::Extendable, field_types::{Field, PrimeField}};
+use crate::field::{
+    extension_field::Extendable,
+    field_types::{Field, PrimeField},
+};
 use crate::gates::switch::SwitchGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
