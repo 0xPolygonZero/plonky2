@@ -220,7 +220,7 @@ impl<F: PrimeField + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate
             gate_index,
             gate: self.clone(),
         };
-        vec![Box::new(gen)]
+        vec![Box::new(gen.adapter())]
     }
 
     fn num_wires(&self) -> usize {

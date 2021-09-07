@@ -111,12 +111,15 @@ impl<F: PrimeField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExt
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         (0..NUM_ARITHMETIC_OPS)
             .map(|i| {
-                let g: Box<dyn WitnessGenerator<F>> = Box::new(ArithmeticExtensionGenerator {
-                    gate_index,
-                    const_0: local_constants[0],
-                    const_1: local_constants[1],
-                    i,
-                });
+                let g: Box<dyn WitnessGenerator<F>> = Box::new(
+                    ArithmeticExtensionGenerator {
+                        gate_index,
+                        const_0: local_constants[0],
+                        const_1: local_constants[1],
+                        i,
+                    }
+                    .adapter(),
+                );
                 g
             })
             .collect::<Vec<_>>()

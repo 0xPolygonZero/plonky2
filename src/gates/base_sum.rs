@@ -105,7 +105,7 @@ impl<F: PrimeField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> f
             gate_index,
             num_limbs: self.num_limbs,
         };
-        vec![Box::new(gen)]
+        vec![Box::new(gen.adapter())]
     }
 
     // 1 for the sum then `num_limbs` for the limbs.

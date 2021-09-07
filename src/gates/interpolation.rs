@@ -190,7 +190,7 @@ impl<F: PrimeField + Extendable<D>, const D: usize> Gate<F, D> for Interpolation
             gate: self.clone(),
             _phantom: PhantomData,
         };
-        vec![Box::new(gen)]
+        vec![Box::new(gen.adapter())]
     }
 
     fn num_wires(&self) -> usize {

@@ -54,7 +54,7 @@ impl<F: PrimeField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate 
             gate_index,
             constant: local_constants[0],
         };
-        vec![Box::new(gen)]
+        vec![Box::new(gen.adapter())]
     }
 
     fn num_wires(&self) -> usize {

@@ -15,9 +15,12 @@ use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
+use crate::gates::switch::SwitchGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
-use crate::iop::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
+use crate::iop::generator::{
+    CopyGenerator, RandomValueGenerator, SimpleGenerator, WitnessGenerator,
+};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::iop::witness::PartitionWitness;
@@ -41,7 +44,7 @@ pub struct CircuitBuilder<F: PrimeField + Extendable<D>, const D: usize> {
     gates: HashSet<GateRef<F, D>>,
 
     /// The concrete placement of each gate.
-    gate_instances: Vec<GateInstance<F, D>>,
+    pub(crate) gate_instances: Vec<GateInstance<F, D>>,
 
     /// Targets to be made public.
     public_inputs: Vec<Target>,
@@ -66,6 +69,11 @@ pub struct CircuitBuilder<F: PrimeField + Extendable<D>, const D: usize> {
     /// A map `(c0, c1) -> (g, i)` from constants `(c0,c1)` to an available arithmetic gate using
     /// these constants with gate index `g` and already using `i` arithmetic operations.
     pub(crate) free_arithmetic: HashMap<(F, F), (usize, usize)>,
+
+    // `current_switch_gates[chunk_size - 1]` contains None if we have no switch gates with the value
+    // chunk_size, and contains `(g, i, c)`, if the gate `g`, at index `i`, already contains `c` copies
+    // of switches
+    pub(crate) current_switch_gates: Vec<Option<(SwitchGate<F, D>, usize, usize)>>,
 }
 
 impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -83,6 +91,7 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_to_targets: HashMap::new(),
             targets_to_constants: HashMap::new(),
             free_arithmetic: HashMap::new(),
+            current_switch_gates: Vec::new(),
         }
     }
 
@@ -182,7 +191,7 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Adds a generator which will copy `src` to `dst`.
     pub fn generate_copy(&mut self, src: Target, dst: Target) {
-        self.add_generator(CopyGenerator { src, dst });
+        self.add_simple_generator(CopyGenerator { src, dst });
     }
 
     /// Uses Plonk's permutation argument to require that two elements be equal.
@@ -209,8 +218,8 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.generators.extend(generators);
     }
 
-    pub fn add_generator<G: WitnessGenerator<F>>(&mut self, generator: G) {
-        self.generators.push(Box::new(generator));
+    pub fn add_simple_generator<G: SimpleGenerator<F>>(&mut self, generator: G) {
+        self.generators.push(Box::new(generator.adapter()));
     }
 
     /// Returns a routable target with a value of 0.
@@ -383,7 +392,7 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         for _ in 0..regular_poly_openings {
             let gate = self.add_gate(NoopGate, vec![]);
             for w in 0..num_wires {
-                self.add_generator(RandomValueGenerator {
+                self.add_simple_generator(RandomValueGenerator {
                     target: Target::Wire(Wire { gate, input: w }),
                 });
             }
@@ -397,7 +406,7 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let gate_2 = self.add_gate(NoopGate, vec![]);
 
             for w in 0..num_routed_wires {
-                self.add_generator(RandomValueGenerator {
+                self.add_simple_generator(RandomValueGenerator {
                     target: Target::Wire(Wire {
                         gate: gate_1,
                         input: w,
@@ -507,6 +516,33 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// Fill the remaining unused switch gates with dummy values, so that all
+    /// `SwitchGenerator` are run.
+    fn fill_switch_gates(&mut self) {
+        let zero = self.zero();
+
+        for chunk_size in 1..=self.current_switch_gates.len() {
+            if let Some((gate, gate_index, mut copy)) =
+                self.current_switch_gates[chunk_size - 1].clone()
+            {
+                while copy < gate.num_copies {
+                    for element in 0..chunk_size {
+                        let wire_first_input =
+                            Target::wire(gate_index, gate.wire_first_input(copy, element));
+                        let wire_second_input =
+                            Target::wire(gate_index, gate.wire_second_input(copy, element));
+                        let wire_switch_bool =
+                            Target::wire(gate_index, gate.wire_switch_bool(copy));
+                        self.connect(zero, wire_first_input);
+                        self.connect(zero, wire_second_input);
+                        self.connect(zero, wire_switch_bool);
+                    }
+                    copy += 1;
+                }
+            }
+        }
+    }
+
     pub fn print_gate_counts(&self, min_delta: usize) {
         self.context_log
             .filter(self.num_gates(), min_delta)
@@ -519,6 +555,7 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let start = Instant::now();
 
         self.fill_arithmetic_gates();
+        self.fill_switch_gates();
 
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
         // those hash wires match the claimed public inputs.
