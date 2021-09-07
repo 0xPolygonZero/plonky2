@@ -122,38 +122,8 @@ impl Field for QuarticCrandallField {
         ))
     }
 
-    fn to_canonical_u64(&self) -> u64 {
-        //panic!("Can't convert extension field element to a u64.");
-        self.0[0].to_canonical_u64()
-    }
-
-    fn to_noncanonical_u64(&self) -> u64 {
-        panic!("Can't convert extension field element to a u64.");
-    }
-
-    fn from_noncanonical_u128(n: u128) -> Self {
-        <Self as FieldExtension<4>>::BaseField::from_noncanonical_u128(n).into()
-    }
-
     fn from_canonical_u64(n: u64) -> Self {
         <Self as FieldExtension<4>>::BaseField::from_canonical_u64(n).into()
-    }
-
-    fn to_canonical_biguint(&self) -> BigUint {
-        let first = self.0[0].to_canonical_biguint();
-        let second = self.0[1].to_canonical_biguint();
-        let third = self.0[2].to_canonical_biguint();
-        let fourth = self.0[3].to_canonical_biguint();
-
-        let mut combined = fourth;
-        combined *= Self::CHARACTERISTIC;
-        combined += third;
-        combined *= Self::CHARACTERISTIC;
-        combined += second;
-        combined *= Self::CHARACTERISTIC;
-        combined += first;
-
-        combined
     }
 
     fn from_canonical_biguint(n: BigUint) -> Self {
@@ -171,6 +141,10 @@ impl Field for QuarticCrandallField {
             <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(third),
             <Self as FieldExtension<4>>::BaseField::from_canonical_biguint(fourth),
         ])
+    }
+
+    fn from_noncanonical_u128(n: u128) -> Self {
+        <Self as FieldExtension<4>>::BaseField::from_noncanonical_u128(n).into()
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
@@ -399,7 +373,7 @@ mod tests {
         );
         assert_eq!(
             F::POWER_OF_TWO_GENERATOR
-                .exp(1 << (F::TWO_ADICITY - <F as FieldExtension<4>>::BaseField::TWO_ADICITY)),
+                .exp_u64(1 << (F::TWO_ADICITY - <F as FieldExtension<4>>::BaseField::TWO_ADICITY)),
             <F as FieldExtension<4>>::BaseField::POWER_OF_TWO_GENERATOR.into()
         );
     }

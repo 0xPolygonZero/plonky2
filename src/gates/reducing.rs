@@ -3,6 +3,7 @@ use std::ops::Range;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::FieldExtension;
+use crate::field::field_types::PrimeField;
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -50,7 +51,7 @@ impl<const D: usize> ReducingGate<D> {
     }
 }
 
-impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }

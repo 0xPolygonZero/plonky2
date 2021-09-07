@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, PrimeField};
 use crate::gates::gmimc::GMiMCGate;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::{compress, hash_or_noop, GMIMC_ROUNDS};
@@ -54,7 +54,7 @@ pub(crate) fn verify_merkle_proof<F: Field>(
     Ok(())
 }
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
     /// given cap. The index is given by it's little-endian bits.
     /// Note: Works only for D=4.

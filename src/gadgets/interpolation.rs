@@ -1,10 +1,11 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::PrimeField;
 use crate::gates::interpolation::InterpolationGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Interpolate a list of point/evaluation pairs at a given point.
     /// Returns the evaluation of the interpolated polynomial at `evaluation_point`.
     pub fn interpolate(

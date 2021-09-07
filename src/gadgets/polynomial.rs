@@ -1,5 +1,6 @@
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::PrimeField;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::reducing::ReducingFactorTarget;
@@ -11,7 +12,7 @@ impl<const D: usize> PolynomialCoeffsExtTarget<D> {
         self.0.len()
     }
 
-    pub fn eval_scalar<F: Extendable<D>>(
+    pub fn eval_scalar<F: PrimeField + Extendable<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         point: Target,
@@ -21,7 +22,7 @@ impl<const D: usize> PolynomialCoeffsExtTarget<D> {
         point.reduce(&self.0, builder)
     }
 
-    pub fn eval<F: Extendable<D>>(
+    pub fn eval<F: PrimeField + Extendable<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         point: ExtensionTarget<D>,
@@ -40,7 +41,7 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
         point: ExtensionTarget<D>,
     ) -> ExtensionAlgebraTarget<D>
     where
-        F: Extendable<D>,
+        F: PrimeField + Extendable<D>,
     {
         let mut acc = builder.zero_ext_algebra();
         for &c in self.0.iter().rev() {
@@ -55,7 +56,7 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
         point: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D>
     where
-        F: Extendable<D>,
+        F: PrimeField + Extendable<D>,
     {
         let mut acc = builder.zero_ext_algebra();
         for &c in self.0.iter().rev() {

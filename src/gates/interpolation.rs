@@ -5,6 +5,7 @@ use std::ops::Range;
 use crate::field::extension_field::algebra::PolynomialCoeffsAlgebra;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::field_types::PrimeField;
 use crate::field::interpolation::interpolant;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::Gate;
@@ -22,12 +23,12 @@ use crate::polynomial::polynomial::PolynomialCoeffs;
 /// to evaluate the interpolant at. It computes the interpolant and outputs its evaluation at the
 /// given point.
 #[derive(Clone, Debug)]
-pub(crate) struct InterpolationGate<F: Extendable<D>, const D: usize> {
+pub(crate) struct InterpolationGate<F: PrimeField + Extendable<D>, const D: usize> {
     pub num_points: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> InterpolationGate<F, D> {
     pub fn new(num_points: usize) -> Self {
         Self {
             num_points,
@@ -93,7 +94,7 @@ impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D> {
     }
 }
 
-impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -214,13 +215,15 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
 }
 
 #[derive(Debug)]
-struct InterpolationGenerator<F: Extendable<D>, const D: usize> {
+struct InterpolationGenerator<F: PrimeField + Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: InterpolationGate<F, D>,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGenerator<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for InterpolationGenerator<F, D>
+{
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| {
             Target::Wire(Wire {

@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, PrimeField};
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -14,12 +14,12 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for raising a value to a power.
 #[derive(Clone, Debug)]
-pub(crate) struct ExponentiationGate<F: Extendable<D>, const D: usize> {
+pub(crate) struct ExponentiationGate<F: PrimeField + Extendable<D>, const D: usize> {
     pub num_power_bits: usize,
     pub _phantom: PhantomData<F>,
 }
 
-impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> ExponentiationGate<F, D> {
     pub fn new(num_power_bits: usize) -> Self {
         Self {
             num_power_bits,
@@ -59,7 +59,7 @@ impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
     }
 }
 
-impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -205,12 +205,14 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 }
 
 #[derive(Debug)]
-struct ExponentiationGenerator<F: Extendable<D>, const D: usize> {
+struct ExponentiationGenerator<F: PrimeField + Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: ExponentiationGate<F, D>,
 }
 
-impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGenerator<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for ExponentiationGenerator<F, D>
+{
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 

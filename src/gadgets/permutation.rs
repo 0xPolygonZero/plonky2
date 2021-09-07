@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
-use crate::field::{extension_field::Extendable, field_types::Field};
+use crate::field::{extension_field::Extendable, field_types::{Field, PrimeField}};
 use crate::gates::switch::SwitchGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
@@ -9,7 +9,7 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bimap::bimap_from_lists;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Assert that two lists of expressions evaluate to permutations of one another.
     pub fn assert_permutation(&mut self, a: Vec<Vec<Target>>, b: Vec<Vec<Target>>) {
         assert_eq!(

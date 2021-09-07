@@ -3,6 +3,7 @@ use std::ops::Sub;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::PrimeField;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::ceil_div_usize;
 
@@ -60,7 +61,7 @@ pub fn check_partial_products<T: Product + Copy + Sub<Output = T>>(
     res
 }
 
-pub fn check_partial_products_recursively<F: Extendable<D>, const D: usize>(
+pub fn check_partial_products_recursively<F: PrimeField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     v: &[ExtensionTarget<D>],
     partials: &[ExtensionTarget<D>],

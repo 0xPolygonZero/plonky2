@@ -1,10 +1,11 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::PrimeField;
 use crate::gates::random_access::RandomAccessGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Checks that a `Target` matches a vector at a non-deterministic index.
     /// Note: `index` is not range-checked.
     pub fn random_access(

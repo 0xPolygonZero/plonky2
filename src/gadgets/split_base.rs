@@ -1,14 +1,14 @@
 use std::borrow::Borrow;
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, PrimeField};
 use crate::gates::base_sum::BaseSumGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given element into a list of targets, where each one represents a
     /// base-B limb of the element, with little-endian ordering.
     pub fn split_le_base<const B: usize>(&mut self, x: Target, num_limbs: usize) -> Vec<Target> {

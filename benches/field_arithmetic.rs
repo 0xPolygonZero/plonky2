@@ -23,7 +23,7 @@ pub(crate) fn bench_field<F: Field>(c: &mut Criterion) {
     c.bench_function(&format!("mul-latency<{}>", type_name::<F>()), |b| {
         b.iter_batched(
             || F::rand(),
-            |(mut x)| {
+            |mut x| {
                 for _ in 0..100 {
                     x = x * x;
                 }

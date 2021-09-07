@@ -1,6 +1,6 @@
 use num::{bigint::BigUint, Zero};
 
-use crate::field::field_types::Field;
+use crate::field::field_types::PrimeField;
 use crate::util::ceil_div_usize;
 
 /// Generates a series of non-negative integers less than
@@ -67,7 +67,7 @@ pub fn run_unaryop_test_cases<F, UnaryOp, ExpectedOp>(
     op: UnaryOp,
     expected_op: ExpectedOp,
 ) where
-    F: Field,
+    F: PrimeField,
     UnaryOp: Fn(F) -> F,
     ExpectedOp: Fn(BigUint) -> BigUint,
 {
@@ -99,7 +99,7 @@ pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
     op: BinaryOp,
     expected_op: ExpectedOp,
 ) where
-    F: Field,
+    F: PrimeField,
     BinaryOp: Fn(F, F) -> F,
     ExpectedOp: Fn(BigUint, BigUint) -> BigUint,
 {
@@ -193,35 +193,25 @@ macro_rules! test_field_arithmetic {
             }
 
             #[test]
-            fn bits() {
-                assert_eq!(<$field>::ZERO.bits(), 0);
-                assert_eq!(<$field>::ONE.bits(), 1);
-                assert_eq!(<$field>::TWO.bits(), 2);
-                assert_eq!(<$field>::from_canonical_u64(3).bits(), 2);
-                assert_eq!(<$field>::from_canonical_u64(4).bits(), 3);
-                assert_eq!(<$field>::from_canonical_u64(5).bits(), 3);
-            }
-
-            #[test]
             fn exponentiation() {
                 type F = $field;
 
-                assert_eq!(F::ZERO.exp_u32(0), <F>::ONE);
-                assert_eq!(F::ONE.exp_u32(0), <F>::ONE);
-                assert_eq!(F::TWO.exp_u32(0), <F>::ONE);
+                assert_eq!(F::ZERO.exp_u64(0), <F>::ONE);
+                assert_eq!(F::ONE.exp_u64(0), <F>::ONE);
+                assert_eq!(F::TWO.exp_u64(0), <F>::ONE);
 
-                assert_eq!(F::ZERO.exp_u32(1), <F>::ZERO);
-                assert_eq!(F::ONE.exp_u32(1), <F>::ONE);
-                assert_eq!(F::TWO.exp_u32(1), <F>::TWO);
+                assert_eq!(F::ZERO.exp_u64(1), <F>::ZERO);
+                assert_eq!(F::ONE.exp_u64(1), <F>::ONE);
+                assert_eq!(F::TWO.exp_u64(1), <F>::TWO);
 
-                assert_eq!(F::ZERO.kth_root_u32(1), <F>::ZERO);
-                assert_eq!(F::ONE.kth_root_u32(1), <F>::ONE);
-                assert_eq!(F::TWO.kth_root_u32(1), <F>::TWO);
+                assert_eq!(F::ZERO.kth_root_u64(1), <F>::ZERO);
+                assert_eq!(F::ONE.kth_root_u64(1), <F>::ONE);
+                assert_eq!(F::TWO.kth_root_u64(1), <F>::TWO);
 
                 for power in 1..10 {
-                    if F::is_monomial_permutation(power) {
+                    if F::is_monomial_permutation_u64(power) {
                         let x = F::rand();
-                        assert_eq!(x.exp(power).kth_root(power), x);
+                        assert_eq!(x.exp_u64(power).kth_root_u64(power), x);
                     }
                 }
             }
@@ -251,7 +241,7 @@ macro_rules! test_field_arithmetic {
                 let v = <F as Field>::PrimeField::TWO_ADICITY;
 
                 for e in [0, 1, 2, 3, 4, v - 2, v - 1, v, v + 1, v + 2, 123 * v] {
-                    let x = F::TWO.exp(e as u64).inverse();
+                    let x = F::TWO.exp_u64(e as u64).inverse();
                     let y = F::inverse_2exp(e);
                     assert_eq!(x, y);
                 }

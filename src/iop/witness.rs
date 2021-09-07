@@ -44,12 +44,14 @@ pub trait Witness<F: Field> {
     }
 
     fn get_bool_target(&self, target: BoolTarget) -> bool {
-        let value = self.get_target(target.target).to_canonical_u64();
-        match value {
-            0 => false,
-            1 => true,
-            _ => panic!("not a bool"),
+        let value = self.get_target(target.target);
+        if value.is_zero() {
+            return false;
         }
+        if value.is_one() {
+            return true;
+        }
+        panic!("not a bool")
     }
 
     fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {

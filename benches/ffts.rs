@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::fft::FftStrategy;
 use plonky2::field::field_types::Field;

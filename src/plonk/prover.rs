@@ -3,6 +3,7 @@ use log::Level;
 use rayon::prelude::*;
 
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::PrimeField;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_hash;
@@ -21,7 +22,7 @@ use crate::util::partial_products::partial_products;
 use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, transpose};
 
-pub(crate) fn prove<F: Extendable<D>, const D: usize>(
+pub(crate) fn prove<F: PrimeField + Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
@@ -216,7 +217,7 @@ pub(crate) fn prove<F: Extendable<D>, const D: usize>(
 }
 
 /// Compute the partial products used in the `Z` polynomials.
-fn all_wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
+fn all_wires_permutation_partial_products<F: PrimeField + Extendable<D>, const D: usize>(
     witness: &MatrixWitness<F>,
     betas: &[F],
     gammas: &[F],
@@ -239,7 +240,7 @@ fn all_wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
 /// Compute the partial products used in the `Z` polynomial.
 /// Returns the polynomials interpolating `partial_products(f / g)`
 /// where `f, g` are the products in the definition of `Z`: `Z(g^i) = f / g`.
-fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
+fn wires_permutation_partial_products<F: PrimeField + Extendable<D>, const D: usize>(
     witness: &MatrixWitness<F>,
     beta: F,
     gamma: F,
@@ -293,7 +294,7 @@ fn wires_permutation_partial_products<F: Extendable<D>, const D: usize>(
         .collect()
 }
 
-fn compute_zs<F: Extendable<D>, const D: usize>(
+fn compute_zs<F: PrimeField + Extendable<D>, const D: usize>(
     partial_products: &[Vec<PolynomialValues<F>>],
     common_data: &CommonCircuitData<F, D>,
 ) -> Vec<PolynomialValues<F>> {
@@ -303,7 +304,7 @@ fn compute_zs<F: Extendable<D>, const D: usize>(
 }
 
 /// Compute the `Z` polynomial by reusing the computations done in `wires_permutation_partial_products`.
-fn compute_z<F: Extendable<D>, const D: usize>(
+fn compute_z<F: PrimeField + Extendable<D>, const D: usize>(
     partial_products: &[PolynomialValues<F>],
     common_data: &CommonCircuitData<F, D>,
 ) -> PolynomialValues<F> {
@@ -316,7 +317,7 @@ fn compute_z<F: Extendable<D>, const D: usize>(
     plonk_z_points.into()
 }
 
-fn compute_quotient_polys<'a, F: Extendable<D>, const D: usize>(
+fn compute_quotient_polys<'a, F: PrimeField + Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     prover_data: &'a ProverOnlyCircuitData<F, D>,
     public_inputs_hash: &HashOut<F>,
