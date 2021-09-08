@@ -13,6 +13,6 @@ impl<F: Field> Packable for F {
 }
 
 #[cfg(target_feature = "avx2")]
-impl Packable for CrandallField {
+impl Packable for crate::field::crandall_field::CrandallField {
     type PackedType = crate::field::packed_crandall_avx2::PackedCrandallAVX2;
 }
