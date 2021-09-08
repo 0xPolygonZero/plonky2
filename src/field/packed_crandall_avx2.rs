@@ -142,7 +142,12 @@ impl PackedField for PackedCrandallAVX2 {
 
     #[inline]
     fn to_arr(&self) -> [Self::FieldType; Self::WIDTH] {
-        [CrandallField(self.0[0]), CrandallField(self.0[1]), CrandallField(self.0[2]), CrandallField(self.0[3])]
+        [
+            CrandallField(self.0[0]),
+            CrandallField(self.0[1]),
+            CrandallField(self.0[2]),
+            CrandallField(self.0[3]),
+        ]
     }
 
     #[inline]
@@ -438,10 +443,7 @@ mod tests {
         let packed_res = packed_a + packed_b;
         let arr_res = packed_res.to_arr();
 
-        let expected = TEST_VALS_A
-            .iter()
-            .zip(TEST_VALS_B)
-            .map(|(&a, b)| a + b);
+        let expected = TEST_VALS_A.iter().zip(TEST_VALS_B).map(|(&a, b)| a + b);
         for (exp, res) in expected.zip(arr_res) {
             assert_eq!(res, exp);
         }
@@ -454,10 +456,7 @@ mod tests {
         let packed_res = packed_a * packed_b;
         let arr_res = packed_res.to_arr();
 
-        let expected = TEST_VALS_A
-            .iter()
-            .zip(TEST_VALS_B)
-            .map(|(&a, b)| a * b);
+        let expected = TEST_VALS_A.iter().zip(TEST_VALS_B).map(|(&a, b)| a * b);
         for (exp, res) in expected.zip(arr_res) {
             assert_eq!(res, exp);
         }
