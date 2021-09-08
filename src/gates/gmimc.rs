@@ -63,8 +63,8 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
     }
 }
 
-impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize>
-    Gate<F, D> for GMiMCGate<F, D, WIDTH>
+impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> Gate<F, D>
+    for GMiMCGate<F, D, WIDTH>
 {
     fn id(&self) -> String {
         format!("<WIDTH={}> {:?}", WIDTH, self)
