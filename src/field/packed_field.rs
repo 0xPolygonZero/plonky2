@@ -47,8 +47,8 @@ pub trait PackedField:
 
     fn broadcast(x: Self::FieldType) -> Self;
 
-    fn new_from_slice(arr: &[Self::FieldType]) -> Self;
-    fn to_vec(&self) -> Vec<Self::FieldType>;
+    fn from_arr(arr: [Self::FieldType; Self::WIDTH]) -> Self;
+    fn to_arr(&self) -> [Self::FieldType; Self::WIDTH];
 
     /// Take interpret two vectors as chunks of (1 << r) elements. Unpack and interleave those
     /// chunks. This is best seen with an example. If we have:
@@ -175,11 +175,12 @@ impl<F: Field> PackedField for Singleton<F> {
         Self(x)
     }
 
-    fn new_from_slice(arr: &[Self::FieldType]) -> Self {
+    fn from_arr(arr: [Self::FieldType; Self::WIDTH]) -> Self {
         Self(arr[0])
     }
-    fn to_vec(&self) -> Vec<Self::FieldType> {
-        vec![self.0]
+
+    fn to_arr(&self) -> [Self::FieldType; Self::WIDTH] {
+        [self.0]
     }
 
     fn interleave(&self, other: Self, r: usize) -> (Self, Self) {
