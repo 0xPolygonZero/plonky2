@@ -136,26 +136,13 @@ impl PackedField for PackedCrandallAVX2 {
     }
 
     #[inline]
-    fn new_from_slice(arr: &[Self::FieldType]) -> Self {
-        if let [a, b, c, d] = arr {
-            let v = unsafe { _mm256_setr_epi64x(a.0 as i64, b.0 as i64, c.0 as i64, d.0 as i64) };
-            Self::new(v)
-        } else {
-            panic!();
-        }
+    fn from_arr(arr: [Self::FieldType; Self::WIDTH]) -> Self {
+        Self([arr[0].0, arr[1].0, arr[2].0, arr[3].0])
     }
+
     #[inline]
-    fn to_vec(&self) -> Vec<Self::FieldType> {
-        let a = unsafe { _mm256_extract_epi64::<0>(self.get()) } as u64;
-        let b = unsafe { _mm256_extract_epi64::<1>(self.get()) } as u64;
-        let c = unsafe { _mm256_extract_epi64::<2>(self.get()) } as u64;
-        let d = unsafe { _mm256_extract_epi64::<3>(self.get()) } as u64;
-        vec![
-            CrandallField(a),
-            CrandallField(b),
-            CrandallField(c),
-            CrandallField(d),
-        ]
+    fn to_arr(&self) -> [Self::FieldType; Self::WIDTH] {
+        [CrandallField(self.0[0]), CrandallField(self.0[1]), CrandallField(self.0[2]), CrandallField(self.0[3])]
     }
 
     #[inline]
@@ -431,13 +418,13 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::packed_crandall_avx2::*;
 
-    const TEST_VALS_A: &[CrandallField] = &[
+    const TEST_VALS_A: [CrandallField; 4] = [
         CrandallField(14479013849828404771),
         CrandallField(9087029921428221768),
         CrandallField(2441288194761790662),
         CrandallField(5646033492608483824),
     ];
-    const TEST_VALS_B: &[CrandallField] = &[
+    const TEST_VALS_B: [CrandallField; 4] = [
         CrandallField(17891926589593242302),
         CrandallField(11009798273260028228),
         CrandallField(2028722748960791447),
@@ -446,15 +433,15 @@ mod tests {
 
     #[test]
     fn test_add() {
-        let packed_a = PackedCrandallAVX2::new_from_slice(TEST_VALS_A);
-        let packed_b = PackedCrandallAVX2::new_from_slice(TEST_VALS_B);
+        let packed_a = PackedCrandallAVX2::from_arr(TEST_VALS_A);
+        let packed_b = PackedCrandallAVX2::from_arr(TEST_VALS_B);
         let packed_res = packed_a + packed_b;
-        let arr_res = packed_res.to_vec();
+        let arr_res = packed_res.to_arr();
 
         let expected = TEST_VALS_A
             .iter()
-            .zip(TEST_VALS_B.iter())
-            .map(|(&a, &b)| a + b);
+            .zip(TEST_VALS_B)
+            .map(|(&a, b)| a + b);
         for (exp, res) in expected.zip(arr_res) {
             assert_eq!(res, exp);
         }
@@ -462,15 +449,15 @@ mod tests {
 
     #[test]
     fn test_mul() {
-        let packed_a = PackedCrandallAVX2::new_from_slice(TEST_VALS_A);
-        let packed_b = PackedCrandallAVX2::new_from_slice(TEST_VALS_B);
+        let packed_a = PackedCrandallAVX2::from_arr(TEST_VALS_A);
+        let packed_b = PackedCrandallAVX2::from_arr(TEST_VALS_B);
         let packed_res = packed_a * packed_b;
-        let arr_res = packed_res.to_vec();
+        let arr_res = packed_res.to_arr();
 
         let expected = TEST_VALS_A
             .iter()
-            .zip(TEST_VALS_B.iter())
-            .map(|(&a, &b)| a * b);
+            .zip(TEST_VALS_B)
+            .map(|(&a, b)| a * b);
         for (exp, res) in expected.zip(arr_res) {
             assert_eq!(res, exp);
         }
@@ -478,9 +465,9 @@ mod tests {
 
     #[test]
     fn test_neg() {
-        let packed_a = PackedCrandallAVX2::new_from_slice(TEST_VALS_A);
+        let packed_a = PackedCrandallAVX2::from_arr(TEST_VALS_A);
         let packed_res = -packed_a;
-        let arr_res = packed_res.to_vec();
+        let arr_res = packed_res.to_arr();
 
         let expected = TEST_VALS_A.iter().map(|&a| -a);
         for (exp, res) in expected.zip(arr_res) {
@@ -490,12 +477,12 @@ mod tests {
 
     #[test]
     fn test_sub() {
-        let packed_a = PackedCrandallAVX2::new_from_slice(TEST_VALS_A);
-        let packed_b = PackedCrandallAVX2::new_from_slice(TEST_VALS_B);
+        let packed_a = PackedCrandallAVX2::from_arr(TEST_VALS_A);
+        let packed_b = PackedCrandallAVX2::from_arr(TEST_VALS_B);
         let packed_res = packed_a - packed_b;
-        let arr_res = packed_res.to_vec();
+        let arr_res = packed_res.to_arr();
 
-        let expected = TEST_VALS_A.iter().zip(TEST_VALS_B).map(|(&a, &b)| a - b);
+        let expected = TEST_VALS_A.iter().zip(TEST_VALS_B).map(|(&a, b)| a - b);
         for (exp, res) in expected.zip(arr_res) {
             assert_eq!(res, exp);
         }
@@ -503,20 +490,20 @@ mod tests {
 
     #[test]
     fn test_interleave_is_involution() {
-        let packed_a = PackedCrandallAVX2::new_from_slice(TEST_VALS_A);
-        let packed_b = PackedCrandallAVX2::new_from_slice(TEST_VALS_B);
+        let packed_a = PackedCrandallAVX2::from_arr(TEST_VALS_A);
+        let packed_b = PackedCrandallAVX2::from_arr(TEST_VALS_B);
         {
             // Interleave, then deinterleave.
             let (x, y) = packed_a.interleave(packed_b, 0);
             let (res_a, res_b) = x.interleave(y, 0);
-            assert_eq!(res_a.to_vec(), TEST_VALS_A);
-            assert_eq!(res_b.to_vec(), TEST_VALS_B);
+            assert_eq!(res_a.to_arr(), TEST_VALS_A);
+            assert_eq!(res_b.to_arr(), TEST_VALS_B);
         }
         {
             let (x, y) = packed_a.interleave(packed_b, 1);
             let (res_a, res_b) = x.interleave(y, 1);
-            assert_eq!(res_a.to_vec(), TEST_VALS_A);
-            assert_eq!(res_b.to_vec(), TEST_VALS_B);
+            assert_eq!(res_a.to_arr(), TEST_VALS_A);
+            assert_eq!(res_b.to_arr(), TEST_VALS_B);
         }
     }
 
@@ -559,17 +546,17 @@ mod tests {
             CrandallField(13),
         ];
 
-        let packed_a = PackedCrandallAVX2::new_from_slice(&in_a);
-        let packed_b = PackedCrandallAVX2::new_from_slice(&in_b);
+        let packed_a = PackedCrandallAVX2::from_arr(in_a);
+        let packed_b = PackedCrandallAVX2::from_arr(in_b);
         {
             let (x0, y0) = packed_a.interleave(packed_b, 0);
-            assert_eq!(x0.to_vec()[..], int0_a);
-            assert_eq!(y0.to_vec()[..], int0_b);
+            assert_eq!(x0.to_arr(), int0_a);
+            assert_eq!(y0.to_arr(), int0_b);
         }
         {
             let (x1, y1) = packed_a.interleave(packed_b, 1);
-            assert_eq!(x1.to_vec()[..], int1_a);
-            assert_eq!(y1.to_vec()[..], int1_b);
+            assert_eq!(x1.to_arr(), int1_a);
+            assert_eq!(y1.to_arr(), int1_b);
         }
     }
 }
