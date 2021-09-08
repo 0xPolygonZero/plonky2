@@ -168,11 +168,11 @@ fn fft_classic_simd<P: PackedField>(
             let half_m = 1 << i;
 
             // Set omega to root_table[i][0..half_m] but repeated
-            let mut omega_arr = P::zero().to_vec();
+            let mut omega_arr = P::zero().to_arr();
             for j in 0..omega_arr.len() {
                 omega_arr[j] = root_table[i][j % half_m];
             }
-            let omega = P::new_from_slice(&omega_arr);
+            let omega = P::from_arr(omega_arr);
 
             for k in (0..packed_n).step_by(2) {
                 // We have two vectors and want to do math on pairs of adjacent elements (or for
