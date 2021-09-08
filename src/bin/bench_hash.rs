@@ -2,14 +2,14 @@ use std::time::Instant;
 
 use plonky2::field::crandall_field::CrandallField as F;
 use plonky2::field::field_types::Field;
-use plonky2::hash::gmimc::GMiMCInterface;
-use plonky2::hash::poseidon::PoseidonInterface;
+use plonky2::hash::gmimc::GMiMC;
+use plonky2::hash::poseidon::Poseidon;
 use plonky2::hash::rescue::rescue;
 
 #[inline]
 fn gmimc_hash<const W: usize>(x: [F; W]) -> [F; W]
 where
-    F: GMiMCInterface<W>,
+    F: GMiMC<W>,
 {
     F::gmimc_permute(x)
 }

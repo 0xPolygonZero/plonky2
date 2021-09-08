@@ -5,7 +5,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
 use crate::hash::gmimc;
-use crate::hash::gmimc::GMiMCInterface;
+use crate::hash::gmimc::GMiMC;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -22,14 +22,14 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 /// computing the index of the leaf based on these swap bits.
 #[derive(Debug)]
 pub struct GMiMCGate<
-    F: RichField + Extendable<D> + GMiMCInterface<WIDTH>,
+    F: RichField + Extendable<D> + GMiMC<WIDTH>,
     const D: usize,
     const WIDTH: usize,
 > {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D> + GMiMCInterface<WIDTH>, const D: usize, const WIDTH: usize>
+impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize>
     GMiMCGate<F, D, WIDTH>
 {
     pub fn new() -> Self {
@@ -63,7 +63,7 @@ impl<F: RichField + Extendable<D> + GMiMCInterface<WIDTH>, const D: usize, const
     }
 }
 
-impl<F: RichField + Extendable<D> + GMiMCInterface<WIDTH>, const D: usize, const WIDTH: usize>
+impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize>
     Gate<F, D> for GMiMCGate<F, D, WIDTH>
 {
     fn id(&self) -> String {
@@ -98,7 +98,7 @@ impl<F: RichField + Extendable<D> + GMiMCInterface<WIDTH>, const D: usize, const
 
         for r in 0..gmimc::NUM_ROUNDS {
             let active = r % WIDTH;
-            let constant = F::from_canonical_u64(<F as GMiMCInterface<WIDTH>>::ROUND_CONSTANTS[r]);
+            let constant = F::from_canonical_u64(<F as GMiMC<WIDTH>>::ROUND_CONSTANTS[r]);
             let cubing_input = state[active] + addition_buffer + constant.into();
             let cubing_input_wire = vars.local_wires[Self::wire_cubing_input(r)];
             constraints.push(cubing_input - cubing_input_wire);
@@ -143,7 +143,7 @@ impl<F: RichField + Extendable<D> + GMiMCInterface<WIDTH>, const D: usize, const
 
         for r in 0..gmimc::NUM_ROUNDS {
             let active = r % WIDTH;
-            let constant = F::from_canonical_u64(<F as GMiMCInterface<WIDTH>>::ROUND_CONSTANTS[r]);
+            let constant = F::from_canonical_u64(<F as GMiMC<WIDTH>>::ROUND_CONSTANTS[r]);
             let cubing_input = state[active] + addition_buffer + constant;
             let cubing_input_wire = vars.local_wires[Self::wire_cubing_input(r)];
             constraints.push(cubing_input - cubing_input_wire);
@@ -194,7 +194,7 @@ impl<F: RichField + Extendable<D> + GMiMCInterface<WIDTH>, const D: usize, const
         for r in 0..gmimc::NUM_ROUNDS {
             let active = r % WIDTH;
 
-            let constant = F::from_canonical_u64(<F as GMiMCInterface<WIDTH>>::ROUND_CONSTANTS[r]);
+            let constant = F::from_canonical_u64(<F as GMiMC<WIDTH>>::ROUND_CONSTANTS[r]);
             let constant = builder.constant_extension(constant.into());
             let cubing_input =
                 builder.add_many_extension(&[state[active], addition_buffer, constant]);
@@ -245,7 +245,7 @@ impl<F: RichField + Extendable<D> + GMiMCInterface<WIDTH>, const D: usize, const
 
 #[derive(Debug)]
 struct GMiMCGenerator<
-    F: RichField + Extendable<D> + GMiMCInterface<WIDTH>,
+    F: RichField + Extendable<D> + GMiMC<WIDTH>,
     const D: usize,
     const WIDTH: usize,
 > {
@@ -253,7 +253,7 @@ struct GMiMCGenerator<
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D> + GMiMCInterface<WIDTH>, const D: usize, const WIDTH: usize>
+impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize>
     SimpleGenerator<F> for GMiMCGenerator<F, D, WIDTH>
 {
     fn dependencies(&self) -> Vec<Target> {
@@ -301,7 +301,7 @@ impl<F: RichField + Extendable<D> + GMiMCInterface<WIDTH>, const D: usize, const
 
         for r in 0..gmimc::NUM_ROUNDS {
             let active = r % WIDTH;
-            let constant = F::from_canonical_u64(<F as GMiMCInterface<WIDTH>>::ROUND_CONSTANTS[r]);
+            let constant = F::from_canonical_u64(<F as GMiMC<WIDTH>>::ROUND_CONSTANTS[r]);
             let cubing_input = state[active] + addition_buffer + constant;
             out_buffer.set_wire(
                 Wire {
@@ -339,7 +339,7 @@ mod tests {
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::gmimc::GMiMCGate;
-    use crate::hash::gmimc::GMiMCInterface;
+    use crate::hash::gmimc::GMiMC;
     use crate::iop::generator::generate_partial_witness;
     use crate::iop::target::Target;
     use crate::iop::wire::Wire;

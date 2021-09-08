@@ -2,7 +2,7 @@
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
-use crate::hash::gmimc::GMiMCInterface;
+use crate::hash::gmimc::GMiMC;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -121,7 +121,7 @@ pub fn compress<F: RichField>(x: HashOut<F>, y: HashOut<F>) -> HashOut<F> {
 /// If `pad` is enabled, the message is padded using the pad10*1 rule. In general this is required
 /// for the hash to be secure, but it can safely be disabled in certain cases, like if the input
 /// length is fixed.
-pub fn hash_n_to_m<F: Field + GMiMCInterface<12>>(
+pub fn hash_n_to_m<F: Field + GMiMC<12>>(
     mut inputs: Vec<F>,
     num_outputs: usize,
     pad: bool,

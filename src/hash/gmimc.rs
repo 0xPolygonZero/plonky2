@@ -5,7 +5,7 @@ use crate::field::field_types::Field;
 
 pub(crate) const NUM_ROUNDS: usize = 101;
 
-pub trait GMiMCInterface<const WIDTH: usize>: Field
+pub trait GMiMC<const WIDTH: usize>: Field
 where
     [u64; NUM_ROUNDS]: Sized,
 {
@@ -47,7 +47,7 @@ where
     }
 }
 
-impl GMiMCInterface<12> for CrandallField {
+impl GMiMC<12> for CrandallField {
     /// This is the result of `gmimc_automatic_constants`; i.e. it's from ChaCha20 seeded with 0.
     #[rustfmt::skip]
     const ROUND_CONSTANTS: [u64; NUM_ROUNDS] = [
@@ -83,9 +83,9 @@ impl GMiMCInterface<12> for CrandallField {
 #[cfg(test)]
 mod tests {
     use crate::field::crandall_field::CrandallField;
-    use crate::hash::gmimc::GMiMCInterface;
+    use crate::hash::gmimc::GMiMC;
 
-    fn check_consistency<F: GMiMCInterface<WIDTH>, const WIDTH: usize>() {
+    fn check_consistency<F: GMiMC<WIDTH>, const WIDTH: usize>() {
         let xs = F::rand_arr::<WIDTH>();
         let out = F::gmimc_permute(xs);
         let out_naive = F::gmimc_permute_naive(xs);

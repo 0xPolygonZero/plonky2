@@ -11,11 +11,11 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::field::extension_field::Frobenius;
-use crate::hash::gmimc::GMiMCInterface;
+use crate::hash::gmimc::GMiMC;
 use crate::util::bits_u64;
 
 /// A prime order field with the features we need to use it as a base field in our argument system.
-pub trait RichField: PrimeField + GMiMCInterface<12> {}
+pub trait RichField: PrimeField + GMiMC<12> {}
 
 /// A finite field.
 pub trait Field:
