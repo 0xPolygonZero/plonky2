@@ -303,10 +303,6 @@ unsafe fn add_no_canonicalize_64_64s_s(x: __m256i, y_s: __m256i) -> __m256i {
     res_s
 }
 
-// Theoretical throughput (Skylake)
-// Scalar version (compiled): 1.75 cycles/(op * word)
-// Scalar version (optimized asm): 1 cycle/(op * word)
-// Below (256-bit vectors): .75 cycles/(op * word)
 #[inline]
 unsafe fn add(x: __m256i, y: __m256i) -> __m256i {
     let y_s = shift(y);
@@ -314,10 +310,6 @@ unsafe fn add(x: __m256i, y: __m256i) -> __m256i {
     shift(res_s)
 }
 
-// Theoretical throughput (Skylake)
-// Scalar version (compiled): 1.75 cycles/(op * word)
-// Scalar version (optimized asm): 1 cycle/(op * word)
-// Below (256-bit vectors): .75 cycles/(op * word)
 #[inline]
 unsafe fn sub(x: __m256i, y: __m256i) -> __m256i {
     let mut y_s = shift(y);
@@ -330,20 +322,10 @@ unsafe fn sub(x: __m256i, y: __m256i) -> __m256i {
     res
 }
 
-// Theoretical throughput (Skylake)
-// Scalar version (compiled): 1 cycle/(op * word)
-// Scalar version (optimized asm): .5 cycles/(op * word)
-// Below (256-bit vectors): .42 cycles/(op * word)
 #[inline]
 unsafe fn neg(y: __m256i) -> __m256i {
     let y_s = shift(y);
-    let field_order_s = shift(field_order());
-    // mask is -1 if sub will underflow (y > field_order) else 0.
-    let mask = _mm256_cmpgt_epi64(y_s, field_order_s);
-    let wrapback_amt = _mm256_and_si256(mask, epsilon()); // -FIELD_ORDER if underflow else 0.
-    let res_wrapped = _mm256_sub_epi64(field_order_s, y_s);
-    let res = _mm256_sub_epi64(res_wrapped, wrapback_amt);
-    res
+    _mm256_sub_epi64(shift(field_order()), canonicalize_s(y_s))
 }
 
 /// Full 64-bit by 64-bit multiplication. This emulated multiplication is 1.5x slower than the
