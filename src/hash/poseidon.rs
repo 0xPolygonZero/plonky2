@@ -22,6 +22,8 @@ const MAX_WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :
 // generated from ChaCha8 with a seed of 0. In this case we need
 // to generate more though. We include enough for a WIDTH of 12;
 // smaller widths just use a subset.
+// TODO: These are specific to CrandallField; for other fields they wouldn't represent uniformly
+// random numbers.
 #[rustfmt::skip]
 const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     0xb585f767417ee042, 0x7746a55f77c10331, 0xb2fb0d321d356f7a, 0x0f6760a486f1621f,
@@ -116,7 +118,7 @@ const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     0x4543d9df72c4831d, 0xf172d73e69f20739, 0xdfd1c4ff1eb3d868, 0xbc8dfb62d26376f7,
 ];
 
-pub trait PoseidonInterface<const WIDTH: usize>: PrimeField
+pub trait Poseidon<const WIDTH: usize>: PrimeField
 where
     // magic to get const generic expressions to work
     [(); WIDTH - 1]: ,
@@ -335,7 +337,7 @@ where
 }
 
 #[rustfmt::skip]
-impl PoseidonInterface<8> for CrandallField {
+impl Poseidon<8> for CrandallField {
     // The MDS matrix we use is the circulant matrix with first row given by the vector
     // [ 2^x for x in MDS_MATRIX_EXPS] = [4, 1, 2, 256, 16, 8, 1, 1]
     //
@@ -475,7 +477,7 @@ impl PoseidonInterface<8> for CrandallField {
 }
 
 #[rustfmt::skip]
-impl PoseidonInterface<12> for CrandallField {
+impl Poseidon<12> for CrandallField {
     // The MDS matrix we use is the circulant matrix with first row given by the vector
     // [ 2^x for x in MDS_MATRIX_EXPS] = [1024, 8192, 4, 1, 16, 2, 256, 128, 32768, 32, 1, 1]
     //
@@ -683,11 +685,11 @@ impl PoseidonInterface<12> for CrandallField {
 mod tests {
     use crate::field::crandall_field::CrandallField as F;
     use crate::field::field_types::Field;
-    use crate::hash::poseidon::PoseidonInterface;
+    use crate::hash::poseidon::Poseidon;
 
     fn check_test_vectors<const WIDTH: usize>(test_vectors: Vec<([u64; WIDTH], [u64; WIDTH])>)
     where
-        F: PoseidonInterface<WIDTH>,
+        F: Poseidon<WIDTH>,
         [(); WIDTH - 1]: ,
     {
         for (input_, expected_output_) in test_vectors.into_iter() {
@@ -750,7 +752,7 @@ mod tests {
 
     fn check_consistency<const WIDTH: usize>()
     where
-        F: PoseidonInterface<WIDTH>,
+        F: Poseidon<WIDTH>,
         [(); WIDTH - 1]: ,
     {
         let mut input = [F::ZERO; WIDTH];

@@ -11,7 +11,11 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::field::extension_field::Frobenius;
+use crate::hash::gmimc::GMiMC;
 use crate::util::bits_u64;
+
+/// A prime order field with the features we need to use it as a base field in our argument system.
+pub trait RichField: PrimeField + GMiMC<12> {}
 
 /// A finite field.
 pub trait Field:
@@ -307,6 +311,10 @@ pub trait Field:
 
     fn rand() -> Self {
         Self::rand_from_rng(&mut rand::thread_rng())
+    }
+
+    fn rand_arr<const N: usize>() -> [Self; N] {
+        Self::rand_vec(N).try_into().unwrap()
     }
 
     fn rand_vec(n: usize) -> Vec<Self> {

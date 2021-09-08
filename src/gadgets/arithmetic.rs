@@ -1,12 +1,12 @@
 use std::borrow::Borrow;
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::PrimeField;
+use crate::field::field_types::RichField;
 use crate::gates::exponentiation::ExponentiationGate;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes `-x`.
     pub fn neg(&mut self, x: Target) -> Target {
         let neg_one = self.neg_one();

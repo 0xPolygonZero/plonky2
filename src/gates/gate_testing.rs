@@ -1,7 +1,7 @@
 use anyhow::{ensure, Result};
 
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::HashOut;
 use crate::iop::witness::{PartialWitness, Witness};
@@ -17,7 +17,7 @@ const WITNESS_DEGREE: usize = WITNESS_SIZE - 1;
 
 /// Tests that the constraints imposed by the given gate are low-degree by applying them to random
 /// low-degree witness polynomials.
-pub(crate) fn test_low_degree<F: PrimeField + Extendable<D>, G: Gate<F, D>, const D: usize>(
+pub(crate) fn test_low_degree<F: RichField + Extendable<D>, G: Gate<F, D>, const D: usize>(
     gate: G,
 ) {
     let rate_bits = log2_ceil(gate.degree() + 1);
@@ -84,7 +84,7 @@ fn random_low_degree_values<F: Field>(rate_bits: usize) -> Vec<F> {
         .values
 }
 
-pub(crate) fn test_eval_fns<F: PrimeField + Extendable<D>, G: Gate<F, D>, const D: usize>(
+pub(crate) fn test_eval_fns<F: RichField + Extendable<D>, G: Gate<F, D>, const D: usize>(
     gate: G,
 ) -> Result<()> {
     // Test that `eval_unfiltered` and `eval_unfiltered_base` are coherent.

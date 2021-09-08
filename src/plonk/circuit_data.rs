@@ -3,10 +3,10 @@ use std::ops::{Range, RangeFrom};
 use anyhow::Result;
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::{Field, RichField};
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::FriConfig;
-use crate::gates::gate::{GateInstance, PrefixedGate};
+use crate::gates::gate::PrefixedGate;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::WitnessGenerator;
@@ -91,13 +91,13 @@ impl CircuitConfig {
 }
 
 /// Circuit data required by the prover or the verifier.
-pub struct CircuitData<F: PrimeField + Extendable<D>, const D: usize> {
+pub struct CircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) prover_only: ProverOnlyCircuitData<F, D>,
     pub(crate) verifier_only: VerifierOnlyCircuitData<F>,
     pub(crate) common: CommonCircuitData<F, D>,
 }
 
-impl<F: PrimeField + Extendable<D>, const D: usize> CircuitData<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitData<F, D> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, D>> {
         prove(&self.prover_only, &self.common, inputs)
     }
@@ -114,12 +114,12 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitData<F, D> {
 /// structure as succinct as we can. Thus we include various precomputed data which isn't strictly
 /// required, like LDEs of preprocessed polynomials. If more succinctness was desired, we could
 /// construct a more minimal prover structure and convert back and forth.
-pub struct ProverCircuitData<F: PrimeField + Extendable<D>, const D: usize> {
+pub struct ProverCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) prover_only: ProverOnlyCircuitData<F, D>,
     pub(crate) common: CommonCircuitData<F, D>,
 }
 
-impl<F: PrimeField + Extendable<D>, const D: usize> ProverCircuitData<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> ProverCircuitData<F, D> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, D>> {
         prove(&self.prover_only, &self.common, inputs)
     }
@@ -127,19 +127,19 @@ impl<F: PrimeField + Extendable<D>, const D: usize> ProverCircuitData<F, D> {
 
 /// Circuit data required by the prover.
 #[derive(Debug)]
-pub struct VerifierCircuitData<F: PrimeField + Extendable<D>, const D: usize> {
+pub struct VerifierCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) verifier_only: VerifierOnlyCircuitData<F>,
     pub(crate) common: CommonCircuitData<F, D>,
 }
 
-impl<F: PrimeField + Extendable<D>, const D: usize> VerifierCircuitData<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> VerifierCircuitData<F, D> {
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, D>) -> Result<()> {
         verify(proof_with_pis, &self.verifier_only, &self.common)
     }
 }
 
 /// Circuit data required by the prover, but not the verifier.
-pub(crate) struct ProverOnlyCircuitData<F: PrimeField + Extendable<D>, const D: usize> {
+pub(crate) struct ProverOnlyCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
     /// Commitments to the constants polynomials and sigma polynomials.
     pub constants_sigmas_commitment: PolynomialBatchCommitment<F>,
@@ -164,7 +164,7 @@ pub(crate) struct VerifierOnlyCircuitData<F: Field> {
 
 /// Circuit data required by both the prover and the verifier.
 #[derive(Debug)]
-pub struct CommonCircuitData<F: PrimeField + Extendable<D>, const D: usize> {
+pub struct CommonCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
     pub(crate) degree_bits: usize,
@@ -193,7 +193,7 @@ pub struct CommonCircuitData<F: PrimeField + Extendable<D>, const D: usize> {
     pub(crate) circuit_digest: HashOut<F>,
 }
 
-impl<F: PrimeField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     pub fn degree(&self) -> usize {
         1 << self.degree_bits
     }

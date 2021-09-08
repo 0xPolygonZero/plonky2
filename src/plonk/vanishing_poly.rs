@@ -1,6 +1,6 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::PrefixedGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -15,7 +15,7 @@ use crate::with_context;
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
 /// linear combination of gate constraints, plus some other terms relating to the permutation
 /// argument. All such terms should vanish on `H`.
-pub(crate) fn eval_vanishing_poly<F: PrimeField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     x: F::Extension,
     vars: EvaluationVars<F, D>,
@@ -102,7 +102,7 @@ pub(crate) fn eval_vanishing_poly<F: PrimeField + Extendable<D>, const D: usize>
 }
 
 /// Like `eval_vanishing_poly`, but specialized for base field points.
-pub(crate) fn eval_vanishing_poly_base<F: PrimeField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_vanishing_poly_base<F: RichField + Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     index: usize,
     x: F,
@@ -200,7 +200,7 @@ pub(crate) fn eval_vanishing_poly_base<F: PrimeField + Extendable<D>, const D: u
 /// `num_gate_constraints` is the largest number of constraints imposed by any gate. It is not
 /// strictly necessary, but it helps performance by ensuring that we allocate a vector with exactly
 /// the capacity that we need.
-pub fn evaluate_gate_constraints<F: PrimeField + Extendable<D>, const D: usize>(
+pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
     vars: EvaluationVars<F, D>,
@@ -219,7 +219,7 @@ pub fn evaluate_gate_constraints<F: PrimeField + Extendable<D>, const D: usize>(
     constraints
 }
 
-pub fn evaluate_gate_constraints_base<F: PrimeField + Extendable<D>, const D: usize>(
+pub fn evaluate_gate_constraints_base<F: RichField + Extendable<D>, const D: usize>(
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
     vars: EvaluationVarsBase<F>,
@@ -238,7 +238,7 @@ pub fn evaluate_gate_constraints_base<F: PrimeField + Extendable<D>, const D: us
     constraints
 }
 
-pub fn evaluate_gate_constraints_recursively<F: PrimeField + Extendable<D>, const D: usize>(
+pub fn evaluate_gate_constraints_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
@@ -270,7 +270,7 @@ pub fn evaluate_gate_constraints_recursively<F: PrimeField + Extendable<D>, cons
 ///
 /// Assumes `x != 1`; if `x` could be 1 then this is unsound. This is fine if `x` is a random
 /// variable drawn from a sufficiently large domain.
-pub(crate) fn eval_vanishing_poly_recursively<F: PrimeField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     common_data: &CommonCircuitData<F, D>,
     x: ExtensionTarget<D>,

@@ -1,7 +1,7 @@
 use log::info;
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::PrimeField;
+use crate::field::field_types::RichField;
 use crate::gates::gate::GateRef;
 
 /// A binary tree where leaves hold some type `T` and other nodes are empty.
@@ -51,7 +51,7 @@ impl<T: Clone> Tree<T> {
     }
 }
 
-impl<F: PrimeField + Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
+impl<F: RichField + Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
     /// The binary gate tree influences the degree `D` of the constraint polynomial and the number `C`
     /// of constant wires in the circuit. We want to construct a tree minimizing both values. To do so
     /// we iterate over possible values of `(D, C)` and try to construct a tree with these values.
@@ -229,7 +229,6 @@ mod tests {
     use crate::gates::gmimc::GMiMCGate;
     use crate::gates::interpolation::InterpolationGate;
     use crate::gates::noop::NoopGate;
-    use crate::hash::hashing::GMIMC_ROUNDS;
 
     #[test]
     fn test_prefix_generation() {
@@ -242,7 +241,7 @@ mod tests {
             GateRef::new(ConstantGate),
             GateRef::new(ArithmeticExtensionGate),
             GateRef::new(BaseSumGate::<4>::new(4)),
-            GateRef::new(GMiMCGate::<F, D, GMIMC_ROUNDS>::new_automatic_constants()),
+            GateRef::new(GMiMCGate::<F, D, 12>::new()),
             GateRef::new(InterpolationGate::new(4)),
         ];
 

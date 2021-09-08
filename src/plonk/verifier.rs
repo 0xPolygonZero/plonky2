@@ -1,7 +1,7 @@
 use anyhow::{ensure, Result};
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::{Field, RichField};
 use crate::fri::verifier::verify_fri_proof;
 use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::challenger::Challenger;
@@ -11,7 +11,7 @@ use crate::plonk::proof::ProofWithPublicInputs;
 use crate::plonk::vanishing_poly::eval_vanishing_poly;
 use crate::plonk::vars::EvaluationVars;
 
-pub(crate) fn verify<F: PrimeField + Extendable<D>, const D: usize>(
+pub(crate) fn verify<F: RichField + Extendable<D>, const D: usize>(
     proof_with_pis: ProofWithPublicInputs<F, D>,
     verifier_data: &VerifierOnlyCircuitData<F>,
     common_data: &CommonCircuitData<F, D>,

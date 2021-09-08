@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::{Field, RichField};
 use crate::gates::gmimc::GMiMCGate;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
-use crate::hash::hashing::{compress, hash_or_noop, GMIMC_ROUNDS};
+use crate::hash::hashing::{compress, hash_or_noop};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
@@ -29,7 +29,7 @@ pub struct MerkleProofTarget {
 
 /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
 /// given cap.
-pub(crate) fn verify_merkle_proof<F: Field>(
+pub(crate) fn verify_merkle_proof<F: RichField>(
     leaf_data: Vec<F>,
     leaf_index: usize,
     merkle_cap: &MerkleCap<F>,
@@ -54,7 +54,7 @@ pub(crate) fn verify_merkle_proof<F: Field>(
     Ok(())
 }
 
-impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
     /// given cap. The index is given by it's little-endian bits.
     /// Note: Works only for D=4.
@@ -70,10 +70,10 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
-            let gate_type = GMiMCGate::<F, D, GMIMC_ROUNDS>::new_automatic_constants();
+            let gate_type = GMiMCGate::<F, D, 12>::new();
             let gate = self.add_gate(gate_type, vec![]);
 
-            let swap_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_SWAP;
+            let swap_wire = GMiMCGate::<F, D, 12>::WIRE_SWAP;
             let swap_wire = Target::Wire(Wire {
                 gate,
                 input: swap_wire,
@@ -84,7 +84,7 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .map(|i| {
                     Target::Wire(Wire {
                         gate,
-                        input: GMiMCGate::<F, D, GMIMC_ROUNDS>::wire_input(i),
+                        input: GMiMCGate::<F, D, 12>::wire_input(i),
                     })
                 })
                 .collect::<Vec<_>>();
@@ -100,7 +100,7 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     .map(|i| {
                         Target::Wire(Wire {
                             gate,
-                            input: GMiMCGate::<F, D, GMIMC_ROUNDS>::wire_output(i),
+                            input: GMiMCGate::<F, D, 12>::wire_output(i),
                         })
                     })
                     .collect(),
@@ -136,10 +136,10 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
-            let gate_type = GMiMCGate::<F, D, GMIMC_ROUNDS>::new_automatic_constants();
+            let gate_type = GMiMCGate::<F, D, 12>::new();
             let gate = self.add_gate(gate_type, vec![]);
 
-            let swap_wire = GMiMCGate::<F, D, GMIMC_ROUNDS>::WIRE_SWAP;
+            let swap_wire = GMiMCGate::<F, D, 12>::WIRE_SWAP;
             let swap_wire = Target::Wire(Wire {
                 gate,
                 input: swap_wire,
@@ -150,7 +150,7 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .map(|i| {
                     Target::Wire(Wire {
                         gate,
-                        input: GMiMCGate::<F, D, GMIMC_ROUNDS>::wire_input(i),
+                        input: GMiMCGate::<F, D, 12>::wire_input(i),
                     })
                 })
                 .collect::<Vec<_>>();
@@ -166,7 +166,7 @@ impl<F: PrimeField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     .map(|i| {
                         Target::Wire(Wire {
                             gate,
-                            input: GMiMCGate::<F, D, GMIMC_ROUNDS>::wire_output(i),
+                            input: GMiMCGate::<F, D, 12>::wire_output(i),
                         })
                     })
                     .collect(),
