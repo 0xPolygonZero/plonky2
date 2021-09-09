@@ -159,7 +159,7 @@ fn fft_classic_simd<P: PackedField>(
     // This loop will not run when P is a scalar.
     assert!(log_packed_width <= 4);
     for i in 0..4 {
-        if i < log_packed_width && i >= r && i + 1 >= lg_n {
+        if i < log_packed_width && i >= r && i + 1 <= lg_n {
             // Intuitively, we split values into m slices: subarr[0], ..., subarr[m - 1]. Each of
             // those slices is split into two halves: subarr[j].left, subarr[j].right. We do
             // (subarr[j].left[k], subarr[j].right[k])
@@ -168,11 +168,11 @@ fn fft_classic_simd<P: PackedField>(
             let half_m = 1 << i;
 
             // Set omega to root_table[i][0..half_m] but repeated
-            let mut omega_arr = P::zero().to_arr();
-            for j in 0..omega_arr.len() {
-                omega_arr[j] = root_table[i][j % half_m];
+            let mut omega_vec = P::zero().to_vec();
+            for j in 0..omega_vec.len() {
+                omega_vec[j] = root_table[i][j % half_m];
             }
-            let omega = P::from_arr(omega_arr);
+            let omega = P::from_slice(&omega_vec[..]);
 
             for k in (0..packed_n).step_by(2) {
                 // We have two vectors and want to do math on pairs of adjacent elements (or for

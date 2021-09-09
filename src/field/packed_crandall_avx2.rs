@@ -151,6 +151,22 @@ impl PackedField for PackedCrandallAVX2 {
     }
 
     #[inline]
+    fn from_slice(slice: &[Self::FieldType]) -> Self {
+        assert!(slice.len() == 4);
+        Self::from_arr([slice[0], slice[1], slice[2], slice[3]])
+    }
+
+    #[inline]
+    fn to_vec(&self) -> Vec<Self::FieldType> {
+        vec![
+            CrandallField(self.0[0]),
+            CrandallField(self.0[1]),
+            CrandallField(self.0[2]),
+            CrandallField(self.0[3]),
+        ]
+    }
+
+    #[inline]
     fn interleave(&self, other: Self, r: usize) -> (Self, Self) {
         let (v0, v1) = (self.get(), other.get());
         let (res0, res1) = match r {
