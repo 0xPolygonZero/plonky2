@@ -4,6 +4,7 @@
 use unroll::unroll_for_loops;
 
 use crate::field::crandall_field::CrandallField;
+use crate::field::field_types::Field;
 use crate::field::field_types::PrimeField;
 
 // The number of full rounds and partial rounds is given by the
@@ -474,6 +475,33 @@ impl Poseidon<8> for CrandallField {
         [0xbc75b7bb6f92fb6b, 0x1d46b66c2ad3ef0c, 0x44ae739518db1d10, 0x3864e0e53027baf7,
          0x800fc4e2c9f585d8, 0xda6cfb436cf6973e, 0x3fc702a71c42c8df, ],
     ];
+
+    #[cfg(target_feature="avx2")]
+    #[inline]
+    #[unroll_for_loops]
+    fn mds_layer(state_: &[CrandallField; 8]) -> [CrandallField; 8] {
+        let in_state = [
+            state_[0].to_noncanonical_u64(),
+            state_[1].to_noncanonical_u64(),
+            state_[2].to_noncanonical_u64(),
+            state_[3].to_noncanonical_u64(),
+            state_[4].to_noncanonical_u64(),
+            state_[5].to_noncanonical_u64(),
+            state_[6].to_noncanonical_u64(),
+            state_[7].to_noncanonical_u64(),
+        ];
+        let out_state = crate::hash::poseidon_avx2::crandall_poseidon8_mds_avx2(in_state);
+        [
+            Self::from_canonical_u64(out_state[0]),
+            Self::from_canonical_u64(out_state[1]),
+            Self::from_canonical_u64(out_state[2]),
+            Self::from_canonical_u64(out_state[3]),
+            Self::from_canonical_u64(out_state[4]),
+            Self::from_canonical_u64(out_state[5]),
+            Self::from_canonical_u64(out_state[6]),
+            Self::from_canonical_u64(out_state[7]),
+        ]
+    }
 }
 
 #[rustfmt::skip]
