@@ -1,7 +1,13 @@
 use core::arch::x86_64::*;
 
-const EPSILON: u64 = (1 << 31) + (1 << 28) - 1;
+use crate::field::crandall_field::CrandallField;
+use crate::field::field_types::PrimeField;
+
+const EPSILON: u64 = 0u64.wrapping_sub(CrandallField::ORDER);
 const SIGN_BIT: u64 = 1 << 63;
+
+const MDS_MATRIX_EXPS8: [i32; 8] = [2, 0, 1, 8, 4, 3, 0, 0];
+const MDS_MATRIX_EXPS12: [i32; 12] = [10, 13, 2, 0, 4, 1, 8, 7, 15, 5, 0, 0];
 
 #[inline(always)]
 unsafe fn shift_and_accumulate<const SHIFT: i32>(
@@ -11,12 +17,24 @@ unsafe fn shift_and_accumulate<const SHIFT: i32>(
 where
     [(); (64 - SHIFT) as usize]: ,
 {
-    let x_shifted_lo = _mm256_slli_epi64(x, SHIFT);
-    let x_shifted_hi = _mm256_srli_epi64(x, 64 - SHIFT);
+    let x_shifted_lo = _mm256_slli_epi64::<SHIFT>(x);
+    let x_shifted_hi = _mm256_srli_epi64::<{ 64 - SHIFT }>(x);
     let res_lo_s = _mm256_add_epi64(lo_cumul_s, x_shifted_lo);
     let carry = _mm256_cmpgt_epi64(lo_cumul_s, res_lo_s);
     let res_hi = _mm256_sub_epi64(_mm256_add_epi64(hi_cumul, x_shifted_hi), carry);
     (res_hi, res_lo_s)
+}
+
+#[inline(always)]
+unsafe fn get_vector_with_offset<const WIDTH: usize, const OFFSET: usize>(
+    state: [u64; WIDTH],
+) -> __m256i {
+    _mm256_setr_epi64x(
+        state[OFFSET % WIDTH] as i64,
+        state[(OFFSET + 1) % WIDTH] as i64,
+        state[(OFFSET + 2) % WIDTH] as i64,
+        state[(OFFSET + 3) % WIDTH] as i64,
+    )
 }
 
 #[inline(always)]
@@ -25,46 +43,45 @@ pub fn crandall_poseidon8_mds_avx2(state: [u64; 8]) -> [u64; 8] {
         let mut res0_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
         let mut res1_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
 
-        let state_extended: [u64; 12] = [
-            state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7],
-            state[0], state[1], state[2], state[3],
-        ];
+        let rot0state = get_vector_with_offset::<8, 0>(state);
+        let rot1state = get_vector_with_offset::<8, 1>(state);
+        let rot2state = get_vector_with_offset::<8, 2>(state);
+        let rot3state = get_vector_with_offset::<8, 3>(state);
+        let rot4state = get_vector_with_offset::<8, 4>(state);
+        let rot5state = get_vector_with_offset::<8, 5>(state);
+        let rot6state = get_vector_with_offset::<8, 6>(state);
+        let rot7state = get_vector_with_offset::<8, 7>(state);
 
-        let rot0state = _mm256_loadu_si256(state_extended[0..4].as_ptr().cast::<__m256i>());
-        let rot1state = _mm256_loadu_si256(state_extended[1..5].as_ptr().cast::<__m256i>());
-        let rot2state = _mm256_loadu_si256(state_extended[2..6].as_ptr().cast::<__m256i>());
-        let rot3state = _mm256_loadu_si256(state_extended[3..7].as_ptr().cast::<__m256i>());
-        let rot4state = _mm256_loadu_si256(state_extended[4..8].as_ptr().cast::<__m256i>());
-        let rot5state = _mm256_loadu_si256(state_extended[5..9].as_ptr().cast::<__m256i>());
-        let rot6state = _mm256_loadu_si256(state_extended[6..10].as_ptr().cast::<__m256i>());
-        let rot7state = _mm256_loadu_si256(state_extended[7..11].as_ptr().cast::<__m256i>());
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[0] }>(rot0state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[1] }>(rot1state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[2] }>(rot2state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[3] }>(rot3state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[4] }>(rot4state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[5] }>(rot5state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[6] }>(rot6state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[7] }>(rot7state, res0_s);
 
-        res0_s = shift_and_accumulate::<2>(rot0state, res0_s);
-        res0_s = shift_and_accumulate::<0>(rot1state, res0_s);
-        res0_s = shift_and_accumulate::<1>(rot2state, res0_s);
-        res0_s = shift_and_accumulate::<8>(rot3state, res0_s);
-        res0_s = shift_and_accumulate::<4>(rot4state, res0_s);
-        res0_s = shift_and_accumulate::<3>(rot5state, res0_s);
-        res0_s = shift_and_accumulate::<0>(rot6state, res0_s);
-        res0_s = shift_and_accumulate::<0>(rot7state, res0_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[0] }>(rot4state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[1] }>(rot5state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[2] }>(rot6state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[3] }>(rot7state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[4] }>(rot0state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[5] }>(rot1state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[6] }>(rot2state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[7] }>(rot3state, res1_s);
 
-        res1_s = shift_and_accumulate::<2>(rot4state, res1_s);
-        res1_s = shift_and_accumulate::<0>(rot5state, res1_s);
-        res1_s = shift_and_accumulate::<1>(rot6state, res1_s);
-        res1_s = shift_and_accumulate::<8>(rot7state, res1_s);
-        res1_s = shift_and_accumulate::<4>(rot0state, res1_s);
-        res1_s = shift_and_accumulate::<3>(rot1state, res1_s);
-        res1_s = shift_and_accumulate::<0>(rot2state, res1_s);
-        res1_s = shift_and_accumulate::<0>(rot3state, res1_s);
-
-        // Finalize
         let reduced0 = reduce96s(res0_s);
         let reduced1 = reduce96s(res1_s);
-
-        let mut reduced = [0u64; 8];
-        _mm256_storeu_si256(reduced[0..4].as_mut_ptr().cast::<__m256i>(), reduced0);
-        _mm256_storeu_si256(reduced[4..8].as_mut_ptr().cast::<__m256i>(), reduced1);
-        reduced
+        [
+            _mm256_extract_epi64::<0>(reduced0) as u64,
+            _mm256_extract_epi64::<1>(reduced0) as u64,
+            _mm256_extract_epi64::<2>(reduced0) as u64,
+            _mm256_extract_epi64::<3>(reduced0) as u64,
+            _mm256_extract_epi64::<0>(reduced1) as u64,
+            _mm256_extract_epi64::<1>(reduced1) as u64,
+            _mm256_extract_epi64::<2>(reduced1) as u64,
+            _mm256_extract_epi64::<3>(reduced1) as u64,
+        ]
     }
 }
 
@@ -75,73 +92,75 @@ pub fn crandall_poseidon12_mds_avx2(state: [u64; 12]) -> [u64; 12] {
         let mut res1_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
         let mut res2_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
 
-        let state_extended: [u64; 16] = [
-            state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7],
-            state[8], state[9], state[10], state[11], state[0], state[1], state[2], state[3],
-        ];
+        let rot0state = get_vector_with_offset::<12, 0>(state);
+        let rot1state = get_vector_with_offset::<12, 1>(state);
+        let rot2state = get_vector_with_offset::<12, 2>(state);
+        let rot3state = get_vector_with_offset::<12, 3>(state);
+        let rot4state = get_vector_with_offset::<12, 4>(state);
+        let rot5state = get_vector_with_offset::<12, 5>(state);
+        let rot6state = get_vector_with_offset::<12, 6>(state);
+        let rot7state = get_vector_with_offset::<12, 7>(state);
+        let rot8state = get_vector_with_offset::<12, 8>(state);
+        let rot9state = get_vector_with_offset::<12, 9>(state);
+        let rot10state = get_vector_with_offset::<12, 10>(state);
+        let rot11state = get_vector_with_offset::<12, 11>(state);
 
-        let rot0state = _mm256_loadu_si256(state_extended[0..4].as_ptr().cast::<__m256i>());
-        let rot1state = _mm256_loadu_si256(state_extended[1..5].as_ptr().cast::<__m256i>());
-        let rot2state = _mm256_loadu_si256(state_extended[2..6].as_ptr().cast::<__m256i>());
-        let rot3state = _mm256_loadu_si256(state_extended[3..7].as_ptr().cast::<__m256i>());
-        let rot4state = _mm256_loadu_si256(state_extended[4..8].as_ptr().cast::<__m256i>());
-        let rot5state = _mm256_loadu_si256(state_extended[5..9].as_ptr().cast::<__m256i>());
-        let rot6state = _mm256_loadu_si256(state_extended[6..10].as_ptr().cast::<__m256i>());
-        let rot7state = _mm256_loadu_si256(state_extended[7..11].as_ptr().cast::<__m256i>());
-        let rot8state = _mm256_loadu_si256(state_extended[8..12].as_ptr().cast::<__m256i>());
-        let rot9state = _mm256_loadu_si256(state_extended[9..13].as_ptr().cast::<__m256i>());
-        let rot10state = _mm256_loadu_si256(state_extended[10..14].as_ptr().cast::<__m256i>());
-        let rot11state = _mm256_loadu_si256(state_extended[11..15].as_ptr().cast::<__m256i>());
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[0] }>(rot0state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[1] }>(rot1state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[2] }>(rot2state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[3] }>(rot3state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[4] }>(rot4state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[5] }>(rot5state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[6] }>(rot6state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[7] }>(rot7state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[8] }>(rot8state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[9] }>(rot9state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[10] }>(rot10state, res0_s);
+        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[11] }>(rot11state, res0_s);
 
-        res0_s = shift_and_accumulate::<10>(rot0state, res0_s);
-        res0_s = shift_and_accumulate::<13>(rot1state, res0_s);
-        res0_s = shift_and_accumulate::<2>(rot2state, res0_s);
-        res0_s = shift_and_accumulate::<0>(rot3state, res0_s);
-        res0_s = shift_and_accumulate::<4>(rot4state, res0_s);
-        res0_s = shift_and_accumulate::<1>(rot5state, res0_s);
-        res0_s = shift_and_accumulate::<8>(rot6state, res0_s);
-        res0_s = shift_and_accumulate::<7>(rot7state, res0_s);
-        res0_s = shift_and_accumulate::<15>(rot8state, res0_s);
-        res0_s = shift_and_accumulate::<5>(rot9state, res0_s);
-        res0_s = shift_and_accumulate::<0>(rot10state, res0_s);
-        res0_s = shift_and_accumulate::<0>(rot11state, res0_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[0] }>(rot4state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[1] }>(rot5state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[2] }>(rot6state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[3] }>(rot7state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[4] }>(rot8state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[5] }>(rot9state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[6] }>(rot10state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[7] }>(rot11state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[8] }>(rot0state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[9] }>(rot1state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[10] }>(rot2state, res1_s);
+        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[11] }>(rot3state, res1_s);
 
-        res1_s = shift_and_accumulate::<10>(rot4state, res1_s);
-        res1_s = shift_and_accumulate::<13>(rot5state, res1_s);
-        res1_s = shift_and_accumulate::<2>(rot6state, res1_s);
-        res1_s = shift_and_accumulate::<0>(rot7state, res1_s);
-        res1_s = shift_and_accumulate::<4>(rot8state, res1_s);
-        res1_s = shift_and_accumulate::<1>(rot9state, res1_s);
-        res1_s = shift_and_accumulate::<8>(rot10state, res1_s);
-        res1_s = shift_and_accumulate::<7>(rot11state, res1_s);
-        res1_s = shift_and_accumulate::<15>(rot0state, res1_s);
-        res1_s = shift_and_accumulate::<5>(rot1state, res1_s);
-        res1_s = shift_and_accumulate::<0>(rot2state, res1_s);
-        res1_s = shift_and_accumulate::<0>(rot3state, res1_s);
+        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[0] }>(rot8state, res2_s);
+        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[1] }>(rot9state, res2_s);
+        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[2] }>(rot10state, res2_s);
+        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[3] }>(rot11state, res2_s);
+        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[4] }>(rot0state, res2_s);
+        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[5] }>(rot1state, res2_s);
+        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[6] }>(rot2state, res2_s);
+        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[7] }>(rot3state, res2_s);
+        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[8] }>(rot4state, res2_s);
+        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[9] }>(rot5state, res2_s);
+        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[10] }>(rot6state, res2_s);
+        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[11] }>(rot7state, res2_s);
 
-        res2_s = shift_and_accumulate::<10>(rot8state, res2_s);
-        res2_s = shift_and_accumulate::<13>(rot9state, res2_s);
-        res2_s = shift_and_accumulate::<2>(rot10state, res2_s);
-        res2_s = shift_and_accumulate::<0>(rot11state, res2_s);
-        res2_s = shift_and_accumulate::<4>(rot0state, res2_s);
-        res2_s = shift_and_accumulate::<1>(rot1state, res2_s);
-        res2_s = shift_and_accumulate::<8>(rot2state, res2_s);
-        res2_s = shift_and_accumulate::<7>(rot3state, res2_s);
-        res2_s = shift_and_accumulate::<15>(rot4state, res2_s);
-        res2_s = shift_and_accumulate::<5>(rot5state, res2_s);
-        res2_s = shift_and_accumulate::<0>(rot6state, res2_s);
-        res2_s = shift_and_accumulate::<0>(rot7state, res2_s);
-
-        // Finalize
         let reduced0 = reduce96s(res0_s);
         let reduced1 = reduce96s(res1_s);
         let reduced2 = reduce96s(res2_s);
-
-        let mut reduced = [0u64; 12];
-        _mm256_storeu_si256(reduced[0..4].as_mut_ptr().cast::<__m256i>(), reduced0);
-        _mm256_storeu_si256(reduced[4..8].as_mut_ptr().cast::<__m256i>(), reduced1);
-        _mm256_storeu_si256(reduced[8..12].as_mut_ptr().cast::<__m256i>(), reduced2);
-        reduced
+        [
+            _mm256_extract_epi64::<0>(reduced0) as u64,
+            _mm256_extract_epi64::<1>(reduced0) as u64,
+            _mm256_extract_epi64::<2>(reduced0) as u64,
+            _mm256_extract_epi64::<3>(reduced0) as u64,
+            _mm256_extract_epi64::<0>(reduced1) as u64,
+            _mm256_extract_epi64::<1>(reduced1) as u64,
+            _mm256_extract_epi64::<2>(reduced1) as u64,
+            _mm256_extract_epi64::<3>(reduced1) as u64,
+            _mm256_extract_epi64::<0>(reduced2) as u64,
+            _mm256_extract_epi64::<1>(reduced2) as u64,
+            _mm256_extract_epi64::<2>(reduced2) as u64,
+            _mm256_extract_epi64::<3>(reduced2) as u64,
+        ]
     }
 }
 
