@@ -71,7 +71,7 @@ impl Field for GoldilocksField {
     // Sage:
     // ```
     // g_2 = g^((p - 1) / 2^32)
-    // g2.multiplicative_order()
+    // g_2.multiplicative_order()
     // ```
     const POWER_OF_TWO_GENERATOR: Self = Self(1753635133440165772);
 
