@@ -3,7 +3,9 @@ pub mod crandall_field;
 pub mod extension_field;
 pub mod fft;
 pub mod field_types;
+pub mod goldilocks_field;
 pub(crate) mod interpolation;
+mod inversion;
 pub(crate) mod packable;
 pub(crate) mod packed_field;
 

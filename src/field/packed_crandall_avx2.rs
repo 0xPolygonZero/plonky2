@@ -198,7 +198,7 @@ impl Sum for PackedCrandallAVX2 {
 }
 
 const EPSILON: u64 = (1 << 31) + (1 << 28) - 1;
-const FIELD_ORDER: u64 = 0u64.overflowing_sub(EPSILON).0;
+const FIELD_ORDER: u64 = 0u64.wrapping_sub(EPSILON);
 const SIGN_BIT: u64 = 1 << 63;
 
 #[inline]
