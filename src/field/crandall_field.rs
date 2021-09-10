@@ -309,7 +309,7 @@ impl Add for CrandallField {
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, rhs: Self) -> Self {
         let (sum, over) = self.0.overflowing_add(rhs.to_canonical_u64());
-        Self(sum.overflowing_sub((over as u64) * Self::ORDER).0)
+        Self(sum.wrapping_sub((over as u64) * Self::ORDER))
     }
 }
 
@@ -332,7 +332,7 @@ impl Sub for CrandallField {
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: Self) -> Self {
         let (diff, under) = self.0.overflowing_sub(rhs.to_canonical_u64());
-        Self(diff.overflowing_add((under as u64) * Self::ORDER).0)
+        Self(diff.wrapping_add((under as u64) * Self::ORDER))
     }
 }
 
@@ -399,7 +399,7 @@ impl RichField for CrandallField {}
 #[inline]
 unsafe fn add_no_canonicalize(lhs: CrandallField, rhs: CrandallField) -> CrandallField {
     let (sum, over) = lhs.0.overflowing_add(rhs.0);
-    CrandallField(sum.overflowing_sub((over as u64) * CrandallField::ORDER).0)
+    CrandallField(sum.wrapping_sub((over as u64) * CrandallField::ORDER))
 }
 
 /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the

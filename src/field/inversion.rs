@@ -43,7 +43,7 @@ pub(crate) fn try_inverse_u64(x: u64, p: u64) -> Option<u64> {
             // b -= c
             let (mut diff, under) = b.overflowing_sub(c);
             if under {
-                diff = diff.overflowing_add(p).0;
+                diff = diff.wrapping_add(p);
             }
             b = diff;
         } else {
@@ -51,7 +51,7 @@ pub(crate) fn try_inverse_u64(x: u64, p: u64) -> Option<u64> {
             // c -= b
             let (mut diff, under) = c.overflowing_sub(b);
             if under {
-                diff = diff.overflowing_add(p).0;
+                diff = diff.wrapping_add(p);
             }
             c = diff;
         }
