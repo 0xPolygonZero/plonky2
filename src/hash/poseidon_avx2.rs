@@ -1,6 +1,5 @@
 use core::arch::x86_64::*;
 
-
 const EPSILON: u64 = (1 << 31) + (1 << 28) - 1;
 const SIGN_BIT: u64 = 1 << 63;
 
@@ -13,8 +12,7 @@ pub fn crandall_poseidon8_mds_avx2(state: [u64; 8]) -> [u64; 8] {
         let res0hi1 = _mm256_setzero_si256();
 
         let state_extended: [u64; 12] = [
-            state[0], state[1], state[2], state[3],
-            state[4], state[5], state[6], state[7],
+            state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7],
             state[0], state[1], state[2], state[3],
         ];
 
