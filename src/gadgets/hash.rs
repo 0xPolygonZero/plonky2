@@ -11,7 +11,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 
 // TODO: Move to be next to native `permute`?
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub(crate) fn permute<const W: usize>(&mut self, inputs: [Target; W]) -> [Target; W]
+    pub fn permute<const W: usize>(&mut self, inputs: [Target; W]) -> [Target; W]
     where
         F: GMiMC<W>,
     {
