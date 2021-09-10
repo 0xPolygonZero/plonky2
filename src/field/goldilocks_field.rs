@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use crate::field::field_types::{Field, PrimeField};
 use crate::field::inversion::try_inverse_u64;
 
+const EPSILON: u64 = (1 << 32) - 1;
+
 /// A field selected to have fast reduction.
 ///
 /// Its order is 2^64 - 2^32 + 1.
@@ -135,7 +137,7 @@ impl Add for GoldilocksField {
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, rhs: Self) -> Self {
         let (sum, over) = self.0.overflowing_add(rhs.to_canonical_u64());
-        Self(sum.overflowing_sub((over as u64) * Self::ORDER).0)
+        Self(sum.wrapping_sub((over as u64) * Self::ORDER))
     }
 }
 
@@ -158,7 +160,7 @@ impl Sub for GoldilocksField {
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: Self) -> Self {
         let (diff, under) = self.0.overflowing_sub(rhs.to_canonical_u64());
-        Self(diff.overflowing_add((under as u64) * Self::ORDER).0)
+        Self(diff.wrapping_add((under as u64) * Self::ORDER))
     }
 }
 
@@ -210,23 +212,21 @@ impl DivAssign for GoldilocksField {
 /// field order and `2^64`.
 #[inline]
 fn reduce128(x: u128) -> GoldilocksField {
-    // Write x = a0 + a1*2^64  (0 <= a0, a1 < 2^64)
-    //         = b0 + b1*2^32 + b2*2^64 + b3*2^96  (0 <= b0, b1, b2, b3 < 2^32)
-    const MASK_LO_32_BITS: u64 = (1u64 << 32) - 1u64;
-    let (a0, a1) = split(x); // This is a no-op
-    let b3 = a1 >> 32;
-    let b2 = a1 & MASK_LO_32_BITS;
-    let x = (b2 << 32) - b2; // Can't underflow
-    let (y, cy) = x.overflowing_add(a0);
-    let (mut z, br) = y.overflowing_sub(b3);
+    // Write x = x_lo + x_hi*2^64  (0 <= x_lo, x_hi < 2^64)
+    //         = x_lo + b1*2^32 + b2*2^64 + b3*2^96  (0 <= b0, b1, b2, b3 < 2^32)
+    let (x_lo, x_hi) = split(x); // This is a no-op
 
-    if cy {
-        z = z.overflowing_sub(GoldilocksField::ORDER).0;
-    }
-    if br {
-        z = z.overflowing_add(GoldilocksField::ORDER).0;
-    }
-    GoldilocksField(z)
+    let x_hi_hi = x_hi >> 32;
+    let x_hi_lo = x_hi & EPSILON;
+
+    let (mut t0, borrow) = x_lo.overflowing_sub(x_hi_hi);
+    t0 = t0.wrapping_sub(EPSILON * (borrow as u64));
+
+    let t1 = x_hi_lo * EPSILON;
+
+    let (mut t2, carry) = t1.overflowing_add(t0);
+    t2 = t2.wrapping_add(EPSILON * (carry as u64));
+    GoldilocksField(t2)
 }
 
 #[inline]

@@ -5,6 +5,7 @@ use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::extension_field::quartic::QuarticCrandallField;
 use plonky2::field::field_types::Field;
 use tynm::type_name;
+use plonky2::field::goldilocks_field::GoldilocksField;
 
 pub(crate) fn bench_field<F: Field>(c: &mut Criterion) {
     c.bench_function(&format!("mul-throughput<{}>", type_name::<F>()), |b| {
@@ -90,6 +91,7 @@ pub(crate) fn bench_field<F: Field>(c: &mut Criterion) {
 
 fn criterion_benchmark(c: &mut Criterion) {
     bench_field::<CrandallField>(c);
+    bench_field::<GoldilocksField>(c);
     bench_field::<QuarticCrandallField>(c);
 }
 
