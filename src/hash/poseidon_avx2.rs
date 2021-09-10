@@ -69,6 +69,83 @@ pub fn crandall_poseidon8_mds_avx2(state: [u64; 8]) -> [u64; 8] {
 }
 
 #[inline(always)]
+pub fn crandall_poseidon12_mds_avx2(state: [u64; 12]) -> [u64; 12] {
+    unsafe {
+        let mut res0_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
+        let mut res1_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
+        let mut res2_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
+
+        let state_extended: [u64; 16] = [
+            state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7],
+            state[8], state[9], state[10], state[11], state[0], state[1], state[2], state[3],
+        ];
+
+        let rot0state = _mm256_loadu_si256(state_extended[0..4].as_ptr().cast::<__m256i>());
+        let rot1state = _mm256_loadu_si256(state_extended[1..5].as_ptr().cast::<__m256i>());
+        let rot2state = _mm256_loadu_si256(state_extended[2..6].as_ptr().cast::<__m256i>());
+        let rot3state = _mm256_loadu_si256(state_extended[3..7].as_ptr().cast::<__m256i>());
+        let rot4state = _mm256_loadu_si256(state_extended[4..8].as_ptr().cast::<__m256i>());
+        let rot5state = _mm256_loadu_si256(state_extended[5..9].as_ptr().cast::<__m256i>());
+        let rot6state = _mm256_loadu_si256(state_extended[6..10].as_ptr().cast::<__m256i>());
+        let rot7state = _mm256_loadu_si256(state_extended[7..11].as_ptr().cast::<__m256i>());
+        let rot8state = _mm256_loadu_si256(state_extended[8..12].as_ptr().cast::<__m256i>());
+        let rot9state = _mm256_loadu_si256(state_extended[9..13].as_ptr().cast::<__m256i>());
+        let rot10state = _mm256_loadu_si256(state_extended[10..14].as_ptr().cast::<__m256i>());
+        let rot11state = _mm256_loadu_si256(state_extended[11..15].as_ptr().cast::<__m256i>());
+
+        res0_s = shift_and_accumulate::<10>(rot0state, res0_s);
+        res0_s = shift_and_accumulate::<13>(rot1state, res0_s);
+        res0_s = shift_and_accumulate::<2>(rot2state, res0_s);
+        res0_s = shift_and_accumulate::<0>(rot3state, res0_s);
+        res0_s = shift_and_accumulate::<4>(rot4state, res0_s);
+        res0_s = shift_and_accumulate::<1>(rot5state, res0_s);
+        res0_s = shift_and_accumulate::<8>(rot6state, res0_s);
+        res0_s = shift_and_accumulate::<7>(rot7state, res0_s);
+        res0_s = shift_and_accumulate::<15>(rot8state, res0_s);
+        res0_s = shift_and_accumulate::<5>(rot9state, res0_s);
+        res0_s = shift_and_accumulate::<0>(rot10state, res0_s);
+        res0_s = shift_and_accumulate::<0>(rot11state, res0_s);
+
+        res1_s = shift_and_accumulate::<10>(rot4state, res1_s);
+        res1_s = shift_and_accumulate::<13>(rot5state, res1_s);
+        res1_s = shift_and_accumulate::<2>(rot6state, res1_s);
+        res1_s = shift_and_accumulate::<0>(rot7state, res1_s);
+        res1_s = shift_and_accumulate::<4>(rot8state, res1_s);
+        res1_s = shift_and_accumulate::<1>(rot9state, res1_s);
+        res1_s = shift_and_accumulate::<8>(rot10state, res1_s);
+        res1_s = shift_and_accumulate::<7>(rot11state, res1_s);
+        res1_s = shift_and_accumulate::<15>(rot0state, res1_s);
+        res1_s = shift_and_accumulate::<5>(rot1state, res1_s);
+        res1_s = shift_and_accumulate::<0>(rot2state, res1_s);
+        res1_s = shift_and_accumulate::<0>(rot3state, res1_s);
+
+        res2_s = shift_and_accumulate::<10>(rot8state, res2_s);
+        res2_s = shift_and_accumulate::<13>(rot9state, res2_s);
+        res2_s = shift_and_accumulate::<2>(rot10state, res2_s);
+        res2_s = shift_and_accumulate::<0>(rot11state, res2_s);
+        res2_s = shift_and_accumulate::<4>(rot0state, res2_s);
+        res2_s = shift_and_accumulate::<1>(rot1state, res2_s);
+        res2_s = shift_and_accumulate::<8>(rot2state, res2_s);
+        res2_s = shift_and_accumulate::<7>(rot3state, res2_s);
+        res2_s = shift_and_accumulate::<15>(rot4state, res2_s);
+        res2_s = shift_and_accumulate::<5>(rot5state, res2_s);
+        res2_s = shift_and_accumulate::<0>(rot6state, res2_s);
+        res2_s = shift_and_accumulate::<0>(rot7state, res2_s);
+
+        // Finalize
+        let reduced0 = reduce96s(res0_s);
+        let reduced1 = reduce96s(res1_s);
+        let reduced2 = reduce96s(res2_s);
+
+        let mut reduced = [0u64; 12];
+        _mm256_storeu_si256(reduced[0..4].as_mut_ptr().cast::<__m256i>(), reduced0);
+        _mm256_storeu_si256(reduced[4..8].as_mut_ptr().cast::<__m256i>(), reduced1);
+        _mm256_storeu_si256(reduced[8..12].as_mut_ptr().cast::<__m256i>(), reduced2);
+        reduced
+    }
+}
+
+#[inline(always)]
 unsafe fn reduce96s(x_s: (__m256i, __m256i)) -> __m256i {
     let (hi0, lo0_s) = x_s;
     let lo1 = _mm256_mul_epu32(hi0, _mm256_set1_epi64x(EPSILON as i64));

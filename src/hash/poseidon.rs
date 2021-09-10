@@ -707,6 +707,41 @@ impl Poseidon<12> for CrandallField {
          0x857f31827fb3fe60, 0xfdb6ca0a6d5cc865, 0x7e60116e98d5e20c, 0x685ef5a6b9e241d3,
          0xe7ad8152c5d50bed, 0xb5d5efb12203ef9a, 0x8a041eb885fb24f5, ],
     ];
+
+    #[cfg(target_feature="avx2")]
+    #[inline]
+    #[unroll_for_loops]
+    fn mds_layer(state_: &[CrandallField; 12]) -> [CrandallField; 12] {
+        let in_state = [
+            state_[0].to_noncanonical_u64(),
+            state_[1].to_noncanonical_u64(),
+            state_[2].to_noncanonical_u64(),
+            state_[3].to_noncanonical_u64(),
+            state_[4].to_noncanonical_u64(),
+            state_[5].to_noncanonical_u64(),
+            state_[6].to_noncanonical_u64(),
+            state_[7].to_noncanonical_u64(),
+            state_[8].to_noncanonical_u64(),
+            state_[9].to_noncanonical_u64(),
+            state_[10].to_noncanonical_u64(),
+            state_[11].to_noncanonical_u64(),
+        ];
+        let out_state = crate::hash::poseidon_avx2::crandall_poseidon12_mds_avx2(in_state);
+        [
+            Self::from_canonical_u64(out_state[0]),
+            Self::from_canonical_u64(out_state[1]),
+            Self::from_canonical_u64(out_state[2]),
+            Self::from_canonical_u64(out_state[3]),
+            Self::from_canonical_u64(out_state[4]),
+            Self::from_canonical_u64(out_state[5]),
+            Self::from_canonical_u64(out_state[6]),
+            Self::from_canonical_u64(out_state[7]),
+            Self::from_canonical_u64(out_state[8]),
+            Self::from_canonical_u64(out_state[9]),
+            Self::from_canonical_u64(out_state[10]),
+            Self::from_canonical_u64(out_state[11]),
+        ]
+    }
 }
 
 #[cfg(test)]
