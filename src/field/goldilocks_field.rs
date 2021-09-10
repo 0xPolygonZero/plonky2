@@ -212,10 +212,7 @@ impl DivAssign for GoldilocksField {
 /// field order and `2^64`.
 #[inline]
 fn reduce128(x: u128) -> GoldilocksField {
-    // Write x = x_lo + x_hi*2^64  (0 <= x_lo, x_hi < 2^64)
-    //         = x_lo + b1*2^32 + b2*2^64 + b3*2^96  (0 <= b0, b1, b2, b3 < 2^32)
     let (x_lo, x_hi) = split(x); // This is a no-op
-
     let x_hi_hi = x_hi >> 32;
     let x_hi_lo = x_hi & EPSILON;
 
