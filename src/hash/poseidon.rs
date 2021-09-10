@@ -480,27 +480,7 @@ impl Poseidon<8> for CrandallField {
     #[inline]
     #[unroll_for_loops]
     fn mds_layer(state_: &[CrandallField; 8]) -> [CrandallField; 8] {
-        let in_state = [
-            state_[0].to_noncanonical_u64(),
-            state_[1].to_noncanonical_u64(),
-            state_[2].to_noncanonical_u64(),
-            state_[3].to_noncanonical_u64(),
-            state_[4].to_noncanonical_u64(),
-            state_[5].to_noncanonical_u64(),
-            state_[6].to_noncanonical_u64(),
-            state_[7].to_noncanonical_u64(),
-        ];
-        let out_state = crate::hash::poseidon_avx2::crandall_poseidon8_mds_avx2(in_state);
-        [
-            Self::from_canonical_u64(out_state[0]),
-            Self::from_canonical_u64(out_state[1]),
-            Self::from_canonical_u64(out_state[2]),
-            Self::from_canonical_u64(out_state[3]),
-            Self::from_canonical_u64(out_state[4]),
-            Self::from_canonical_u64(out_state[5]),
-            Self::from_canonical_u64(out_state[6]),
-            Self::from_canonical_u64(out_state[7]),
-        ]
+        crate::hash::poseidon_avx2::crandall_poseidon8_mds_avx2(*state_)
     }
 }
 
@@ -712,35 +692,7 @@ impl Poseidon<12> for CrandallField {
     #[inline]
     #[unroll_for_loops]
     fn mds_layer(state_: &[CrandallField; 12]) -> [CrandallField; 12] {
-        let in_state = [
-            state_[0].to_noncanonical_u64(),
-            state_[1].to_noncanonical_u64(),
-            state_[2].to_noncanonical_u64(),
-            state_[3].to_noncanonical_u64(),
-            state_[4].to_noncanonical_u64(),
-            state_[5].to_noncanonical_u64(),
-            state_[6].to_noncanonical_u64(),
-            state_[7].to_noncanonical_u64(),
-            state_[8].to_noncanonical_u64(),
-            state_[9].to_noncanonical_u64(),
-            state_[10].to_noncanonical_u64(),
-            state_[11].to_noncanonical_u64(),
-        ];
-        let out_state = crate::hash::poseidon_avx2::crandall_poseidon12_mds_avx2(in_state);
-        [
-            Self::from_canonical_u64(out_state[0]),
-            Self::from_canonical_u64(out_state[1]),
-            Self::from_canonical_u64(out_state[2]),
-            Self::from_canonical_u64(out_state[3]),
-            Self::from_canonical_u64(out_state[4]),
-            Self::from_canonical_u64(out_state[5]),
-            Self::from_canonical_u64(out_state[6]),
-            Self::from_canonical_u64(out_state[7]),
-            Self::from_canonical_u64(out_state[8]),
-            Self::from_canonical_u64(out_state[9]),
-            Self::from_canonical_u64(out_state[10]),
-            Self::from_canonical_u64(out_state[11]),
-        ]
+        crate::hash::poseidon_avx2::crandall_poseidon12_mds_avx2(*state_)
     }
 }
 

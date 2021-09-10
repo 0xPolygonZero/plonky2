@@ -27,18 +27,23 @@ where
 
 #[inline(always)]
 unsafe fn get_vector_with_offset<const WIDTH: usize, const OFFSET: usize>(
-    state: [u64; WIDTH],
+    state: [CrandallField; WIDTH],
 ) -> __m256i {
     _mm256_setr_epi64x(
-        state[OFFSET % WIDTH] as i64,
-        state[(OFFSET + 1) % WIDTH] as i64,
-        state[(OFFSET + 2) % WIDTH] as i64,
-        state[(OFFSET + 3) % WIDTH] as i64,
+        state[OFFSET % WIDTH].0 as i64,
+        state[(OFFSET + 1) % WIDTH].0 as i64,
+        state[(OFFSET + 2) % WIDTH].0 as i64,
+        state[(OFFSET + 3) % WIDTH].0 as i64,
     )
 }
 
 #[inline(always)]
-pub fn crandall_poseidon8_mds_avx2(state: [u64; 8]) -> [u64; 8] {
+unsafe fn extract<const INDEX: i32>(v: __m256i) -> CrandallField {
+    CrandallField(_mm256_extract_epi64::<INDEX>(v) as u64)
+}
+
+#[inline(always)]
+pub fn crandall_poseidon8_mds_avx2(state: [CrandallField; 8]) -> [CrandallField; 8] {
     unsafe {
         let mut res0_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
         let mut res1_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
@@ -73,20 +78,20 @@ pub fn crandall_poseidon8_mds_avx2(state: [u64; 8]) -> [u64; 8] {
         let reduced0 = reduce96s(res0_s);
         let reduced1 = reduce96s(res1_s);
         [
-            _mm256_extract_epi64::<0>(reduced0) as u64,
-            _mm256_extract_epi64::<1>(reduced0) as u64,
-            _mm256_extract_epi64::<2>(reduced0) as u64,
-            _mm256_extract_epi64::<3>(reduced0) as u64,
-            _mm256_extract_epi64::<0>(reduced1) as u64,
-            _mm256_extract_epi64::<1>(reduced1) as u64,
-            _mm256_extract_epi64::<2>(reduced1) as u64,
-            _mm256_extract_epi64::<3>(reduced1) as u64,
+            extract::<0>(reduced0),
+            extract::<1>(reduced0),
+            extract::<2>(reduced0),
+            extract::<3>(reduced0),
+            extract::<0>(reduced1),
+            extract::<1>(reduced1),
+            extract::<2>(reduced1),
+            extract::<3>(reduced1),
         ]
     }
 }
 
 #[inline(always)]
-pub fn crandall_poseidon12_mds_avx2(state: [u64; 12]) -> [u64; 12] {
+pub fn crandall_poseidon12_mds_avx2(state: [CrandallField; 12]) -> [CrandallField; 12] {
     unsafe {
         let mut res0_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
         let mut res1_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
@@ -148,18 +153,18 @@ pub fn crandall_poseidon12_mds_avx2(state: [u64; 12]) -> [u64; 12] {
         let reduced1 = reduce96s(res1_s);
         let reduced2 = reduce96s(res2_s);
         [
-            _mm256_extract_epi64::<0>(reduced0) as u64,
-            _mm256_extract_epi64::<1>(reduced0) as u64,
-            _mm256_extract_epi64::<2>(reduced0) as u64,
-            _mm256_extract_epi64::<3>(reduced0) as u64,
-            _mm256_extract_epi64::<0>(reduced1) as u64,
-            _mm256_extract_epi64::<1>(reduced1) as u64,
-            _mm256_extract_epi64::<2>(reduced1) as u64,
-            _mm256_extract_epi64::<3>(reduced1) as u64,
-            _mm256_extract_epi64::<0>(reduced2) as u64,
-            _mm256_extract_epi64::<1>(reduced2) as u64,
-            _mm256_extract_epi64::<2>(reduced2) as u64,
-            _mm256_extract_epi64::<3>(reduced2) as u64,
+            extract::<0>(reduced0),
+            extract::<1>(reduced0),
+            extract::<2>(reduced0),
+            extract::<3>(reduced0),
+            extract::<0>(reduced1),
+            extract::<1>(reduced1),
+            extract::<2>(reduced1),
+            extract::<3>(reduced1),
+            extract::<0>(reduced2),
+            extract::<1>(reduced2),
+            extract::<2>(reduced2),
+            extract::<3>(reduced2),
         ]
     }
 }
