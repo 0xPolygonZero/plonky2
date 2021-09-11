@@ -12,7 +12,7 @@ const MDS_MATRIX_EXPS12: [i32; 12] = [10, 13, 2, 0, 4, 1, 8, 7, 15, 5, 0, 0];
 /// Pair of vectors (hi, lo) representing a u128.
 type Vecs128 = (__m256i, __m256i);
 
-/// Takes cumul (u128) and x (u64). Returns cumul + (x << SHIFT) as u64.
+/// Takes cumul (u128) and x (u64). Returns cumul + (x << SHIFT) as u128.
 /// Assumes that cumul is shifted by 1 << 63; the result is similarly shifted.
 #[inline(always)]
 unsafe fn shift_and_accumulate<const SHIFT: i32>(
@@ -106,7 +106,7 @@ unsafe fn iteration12<const INDEX: usize, const SHIFT: i32>(
     (cumul0_s, cumul1_s, cumul2_s): (Vecs128, Vecs128, Vecs128),
     state: [CrandallField; 12],
 ) -> (Vecs128, Vecs128, Vecs128)
-// 2 vectors of 4 needed to represent entire state.
+// 3 vectors of 4 needed to represent entire state.
 where
     [(); { INDEX + 4 }]: ,
     [(); { INDEX + 8 }]: ,

@@ -476,8 +476,7 @@ impl Poseidon<8> for CrandallField {
     ];
 
     #[cfg(target_feature="avx2")]
-    #[inline]
-    #[unroll_for_loops]
+    #[inline(always)]
     fn mds_layer(state_: &[CrandallField; 8]) -> [CrandallField; 8] {
         crate::hash::poseidon_avx2::crandall_poseidon8_mds_avx2(*state_)
     }
@@ -688,8 +687,7 @@ impl Poseidon<12> for CrandallField {
     ];
 
     #[cfg(target_feature="avx2")]
-    #[inline]
-    #[unroll_for_loops]
+    #[inline(always)]
     fn mds_layer(state_: &[CrandallField; 12]) -> [CrandallField; 12] {
         crate::hash::poseidon_avx2::crandall_poseidon12_mds_avx2(*state_)
     }
