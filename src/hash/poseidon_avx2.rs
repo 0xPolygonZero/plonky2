@@ -177,7 +177,7 @@ unsafe fn reduce96s(x_s: Vecs128) -> __m256i {
 unsafe fn add_no_canonicalize_64_64s(x: __m256i, y_s: __m256i) -> __m256i {
     let res_wrapped_s = _mm256_add_epi64(x, y_s);
     let mask = _mm256_cmpgt_epi64(y_s, res_wrapped_s);
-    let res_wrapped = _mm256_xor_epi64(res_wrapped_s, _mm256_set1_epi64x(SIGN_BIT as i64));
+    let res_wrapped = _mm256_xor_si256(res_wrapped_s, _mm256_set1_epi64x(SIGN_BIT as i64));
     let wrapback_amt = _mm256_and_si256(mask, _mm256_set1_epi64x(EPSILON as i64));
     let res = _mm256_add_epi64(res_wrapped, wrapback_amt);
     res
