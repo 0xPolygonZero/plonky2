@@ -188,14 +188,14 @@ mod tests {
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
 
     fn test_reduce_gadget_base(n: usize) -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();
@@ -223,7 +223,7 @@ mod tests {
 
     fn test_reduce_gadget(n: usize) -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();

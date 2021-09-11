@@ -8,9 +8,7 @@ use num::bigint::BigUint;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::field::extension_field::quadratic::QuadraticCrandallField;
-use crate::field::extension_field::quartic::QuarticCrandallField;
-use crate::field::extension_field::{Extendable, Frobenius};
+use crate::field::extension_field::{AutoExtendable, Frobenius};
 use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::field::inversion::try_inverse_u64;
 
@@ -381,12 +379,29 @@ impl DivAssign for CrandallField {
     }
 }
 
-impl Extendable<2> for CrandallField {
-    type Extension = QuadraticCrandallField;
+impl AutoExtendable<2> for CrandallField {
+    // Verifiable in Sage with
+    // ``R.<x> = GF(p)[]; assert (x^2 - 3).is_irreducible()`.
+    const W: Self = Self(3);
+
+    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 2] =
+        [Self(6483724566312148654), Self(12194665049945415126)];
+
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 2] = [Self(0), Self(14420468973723774561)];
 }
 
-impl Extendable<4> for CrandallField {
-    type Extension = QuarticCrandallField;
+impl AutoExtendable<4> for CrandallField {
+    const W: Self = Self(3);
+
+    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 4] = [
+        Self(12476589904174392631),
+        Self(896937834427772243),
+        Self(7795248119019507390),
+        Self(9005769437373554825),
+    ];
+
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 4] =
+        [Self(0), Self(0), Self(0), Self(15170983443234254033)];
 }
 
 impl RichField for CrandallField {}

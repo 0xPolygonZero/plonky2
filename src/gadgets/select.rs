@@ -42,7 +42,7 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
@@ -52,7 +52,7 @@ mod tests {
     #[test]
     fn test_select() -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         let config = CircuitConfig::large_config();
         let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
