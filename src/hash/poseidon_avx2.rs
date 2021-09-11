@@ -43,38 +43,40 @@ unsafe fn extract<const INDEX: i32>(v: __m256i) -> CrandallField {
 }
 
 #[inline(always)]
+unsafe fn iteration8<const INDEX: usize, const SHIFT: i32>(
+    (cumul0_s, cumul1_s): ((__m256i, __m256i), (__m256i, __m256i)),
+    state: [CrandallField; 8],
+) -> ((__m256i, __m256i), (__m256i, __m256i))
+where
+    [(); { INDEX + 4 }]: ,
+    [(); (64 - SHIFT) as usize]: ,
+{
+    let state0 = get_vector_with_offset::<8, INDEX>(state);
+    let state1 = get_vector_with_offset::<8, { INDEX + 4 }>(state);
+    (
+        shift_and_accumulate::<SHIFT>(state0, cumul0_s),
+        shift_and_accumulate::<SHIFT>(state1, cumul1_s),
+    )
+}
+
+#[inline(always)]
 pub fn crandall_poseidon8_mds_avx2(state: [CrandallField; 8]) -> [CrandallField; 8] {
     unsafe {
-        let mut res0_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
-        let mut res1_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
+        let mut res_s = (
+            (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)),
+            (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)),
+        );
 
-        let rot0state = get_vector_with_offset::<8, 0>(state);
-        let rot1state = get_vector_with_offset::<8, 1>(state);
-        let rot2state = get_vector_with_offset::<8, 2>(state);
-        let rot3state = get_vector_with_offset::<8, 3>(state);
-        let rot4state = get_vector_with_offset::<8, 4>(state);
-        let rot5state = get_vector_with_offset::<8, 5>(state);
-        let rot6state = get_vector_with_offset::<8, 6>(state);
-        let rot7state = get_vector_with_offset::<8, 7>(state);
+        res_s = iteration8::<0, { MDS_MATRIX_EXPS8[0] }>(res_s, state);
+        res_s = iteration8::<1, { MDS_MATRIX_EXPS8[1] }>(res_s, state);
+        res_s = iteration8::<2, { MDS_MATRIX_EXPS8[2] }>(res_s, state);
+        res_s = iteration8::<3, { MDS_MATRIX_EXPS8[3] }>(res_s, state);
+        res_s = iteration8::<4, { MDS_MATRIX_EXPS8[4] }>(res_s, state);
+        res_s = iteration8::<5, { MDS_MATRIX_EXPS8[5] }>(res_s, state);
+        res_s = iteration8::<6, { MDS_MATRIX_EXPS8[6] }>(res_s, state);
+        res_s = iteration8::<7, { MDS_MATRIX_EXPS8[7] }>(res_s, state);
 
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[0] }>(rot0state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[1] }>(rot1state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[2] }>(rot2state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[3] }>(rot3state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[4] }>(rot4state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[5] }>(rot5state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[6] }>(rot6state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[7] }>(rot7state, res0_s);
-
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[0] }>(rot4state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[1] }>(rot5state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[2] }>(rot6state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[3] }>(rot7state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[4] }>(rot0state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[5] }>(rot1state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[6] }>(rot2state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS8[7] }>(rot3state, res1_s);
-
+        let (res0_s, res1_s) = res_s;
         let reduced0 = reduce96s(res0_s);
         let reduced1 = reduce96s(res1_s);
         [
@@ -91,64 +93,48 @@ pub fn crandall_poseidon8_mds_avx2(state: [CrandallField; 8]) -> [CrandallField;
 }
 
 #[inline(always)]
+unsafe fn iteration12<const INDEX: usize, const SHIFT: i32>(
+    (cumul0_s, cumul1_s, cumul2_s): ((__m256i, __m256i), (__m256i, __m256i), (__m256i, __m256i)),
+    state: [CrandallField; 12],
+) -> ((__m256i, __m256i), (__m256i, __m256i), (__m256i, __m256i))
+where
+    [(); { INDEX + 4 }]: ,
+    [(); { INDEX + 8 }]: ,
+    [(); (64 - SHIFT) as usize]: ,
+{
+    let state0 = get_vector_with_offset::<12, INDEX>(state);
+    let state1 = get_vector_with_offset::<12, { INDEX + 4 }>(state);
+    let state2 = get_vector_with_offset::<12, { INDEX + 8 }>(state);
+    (
+        shift_and_accumulate::<SHIFT>(state0, cumul0_s),
+        shift_and_accumulate::<SHIFT>(state1, cumul1_s),
+        shift_and_accumulate::<SHIFT>(state2, cumul2_s),
+    )
+}
+
+#[inline(always)]
 pub fn crandall_poseidon12_mds_avx2(state: [CrandallField; 12]) -> [CrandallField; 12] {
     unsafe {
-        let mut res0_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
-        let mut res1_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
-        let mut res2_s = (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64));
+        let mut res_s = (
+            (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)),
+            (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)),
+            (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)),
+        );
 
-        let rot0state = get_vector_with_offset::<12, 0>(state);
-        let rot1state = get_vector_with_offset::<12, 1>(state);
-        let rot2state = get_vector_with_offset::<12, 2>(state);
-        let rot3state = get_vector_with_offset::<12, 3>(state);
-        let rot4state = get_vector_with_offset::<12, 4>(state);
-        let rot5state = get_vector_with_offset::<12, 5>(state);
-        let rot6state = get_vector_with_offset::<12, 6>(state);
-        let rot7state = get_vector_with_offset::<12, 7>(state);
-        let rot8state = get_vector_with_offset::<12, 8>(state);
-        let rot9state = get_vector_with_offset::<12, 9>(state);
-        let rot10state = get_vector_with_offset::<12, 10>(state);
-        let rot11state = get_vector_with_offset::<12, 11>(state);
+        res_s = iteration12::<0, { MDS_MATRIX_EXPS12[0] }>(res_s, state);
+        res_s = iteration12::<1, { MDS_MATRIX_EXPS12[1] }>(res_s, state);
+        res_s = iteration12::<2, { MDS_MATRIX_EXPS12[2] }>(res_s, state);
+        res_s = iteration12::<3, { MDS_MATRIX_EXPS12[3] }>(res_s, state);
+        res_s = iteration12::<4, { MDS_MATRIX_EXPS12[4] }>(res_s, state);
+        res_s = iteration12::<5, { MDS_MATRIX_EXPS12[5] }>(res_s, state);
+        res_s = iteration12::<6, { MDS_MATRIX_EXPS12[6] }>(res_s, state);
+        res_s = iteration12::<7, { MDS_MATRIX_EXPS12[7] }>(res_s, state);
+        res_s = iteration12::<8, { MDS_MATRIX_EXPS12[8] }>(res_s, state);
+        res_s = iteration12::<9, { MDS_MATRIX_EXPS12[9] }>(res_s, state);
+        res_s = iteration12::<10, { MDS_MATRIX_EXPS12[10] }>(res_s, state);
+        res_s = iteration12::<11, { MDS_MATRIX_EXPS12[11] }>(res_s, state);
 
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[0] }>(rot0state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[1] }>(rot1state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[2] }>(rot2state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[3] }>(rot3state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[4] }>(rot4state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[5] }>(rot5state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[6] }>(rot6state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[7] }>(rot7state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[8] }>(rot8state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[9] }>(rot9state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[10] }>(rot10state, res0_s);
-        res0_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[11] }>(rot11state, res0_s);
-
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[0] }>(rot4state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[1] }>(rot5state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[2] }>(rot6state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[3] }>(rot7state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[4] }>(rot8state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[5] }>(rot9state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[6] }>(rot10state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[7] }>(rot11state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[8] }>(rot0state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[9] }>(rot1state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[10] }>(rot2state, res1_s);
-        res1_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[11] }>(rot3state, res1_s);
-
-        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[0] }>(rot8state, res2_s);
-        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[1] }>(rot9state, res2_s);
-        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[2] }>(rot10state, res2_s);
-        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[3] }>(rot11state, res2_s);
-        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[4] }>(rot0state, res2_s);
-        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[5] }>(rot1state, res2_s);
-        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[6] }>(rot2state, res2_s);
-        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[7] }>(rot3state, res2_s);
-        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[8] }>(rot4state, res2_s);
-        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[9] }>(rot5state, res2_s);
-        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[10] }>(rot6state, res2_s);
-        res2_s = shift_and_accumulate::<{ MDS_MATRIX_EXPS12[11] }>(rot7state, res2_s);
-
+        let (res0_s, res1_s, res2_s) = res_s;
         let reduced0 = reduce96s(res0_s);
         let reduced1 = reduce96s(res1_s);
         let reduced2 = reduce96s(res2_s);
