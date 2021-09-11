@@ -11,6 +11,19 @@ const MDS_MATRIX_EXPS12: [i32; 12] = [10, 13, 2, 0, 4, 1, 8, 7, 15, 5, 0, 0];
 /// Pair of vectors (hi, lo) representing a u128.
 type Vecs128 = (uint64x2_t, uint64x2_t);
 
+#[inline(always)]
+unsafe fn real_vsraq_n_u64<const SHIFT: i32>(a: uint64x2_t, b: uint64x2_t) -> uint64x2_t {
+    let res;
+    asm!(
+        "usra {0:v}.2D, {1:v}.2D, #{2}",
+        inlateout(vreg) a => res,
+        in(vreg) b,
+        const SHIFT,
+        options(pure, nomem, preserves_flags, nostack),
+    );
+    res
+}
+
 /// Takes cumul (u128) and x (u64). Returns cumul + (x << SHIFT) as u64.
 /// Assumes that cumul is shifted by 1 << 63; the result is similarly shifted.
 #[inline(always)]
@@ -24,7 +37,8 @@ where
     let x_shifted_lo = vshlq_n_u64::<SHIFT>(x);
     let res_lo = vaddq_u64(lo_cumul, x_shifted_lo);
     let carry = vcgtq_u64(lo_cumul, res_lo);
-    let tmp_hi = vsraq_n_u64::<{ 64 - SHIFT }>(hi_cumul, x);
+    let tmp_hi = real_vsraq_n_u64::<{ 64 - SHIFT }>(hi_cumul, x);
+    println!("{} = {} + ({} << {})", vgetq_lane_u64::<0>(tmp_hi), vgetq_lane_u64::<0>(hi_cumul), vgetq_lane_u64::<0>(x), 64 - SHIFT);
     let res_hi = vsubq_u64(tmp_hi, carry);
     (res_hi, res_lo)
 }
@@ -203,5 +217,5 @@ unsafe fn mul_add_no_canonicalize_64_64(x: uint32x2_t, y: uint32x2_t, z: uint64x
     let res_wrapped = vmlal_u32(z, x, y);
     let mask = vcgtq_u64(z, res_wrapped);
     let res_unwrapped = vaddq_u64(res_wrapped, vmovq_n_u64(EPSILON));
-    vbslq_u64(mask, res_wrapped, res_wrapped)
+    vbslq_u64(mask, res_unwrapped, res_wrapped)
 }
