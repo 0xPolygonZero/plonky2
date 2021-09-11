@@ -195,11 +195,11 @@ pub fn crandall_poseidon12_mds_neon(state: [CrandallField; 12]) -> [CrandallFiel
 unsafe fn reduce96(x: Vecs128) -> uint64x2_t {
     let (hi, lo) = x;
     let hi_lo = vmovn_u64(hi); // Extract the low 32 bits of each 64-bit element
-    add_no_canonicalize_64_64s(hi_lo, vmov_n_u32(EPSILON as u32), lo0)
+    mul_add_no_canonicalize_64_64(hi_lo, vmov_n_u32(EPSILON as u32), lo)
 }
 
 #[inline(always)]
-unsafe fn mul_add_no_canonicalize_64_64s(x: uint32x2_t, y: uint32x2_t, y: uint64x2_t) -> uint64x2_t {
+unsafe fn mul_add_no_canonicalize_64_64(x: uint32x2_t, y: uint32x2_t, z: uint64x2_t) -> uint64x2_t {
     let res_wrapped = vmlal_u32(z, x, y);
     let mask = vcgtq_u64(z, res_wrapped);
     let res_unwrapped = vaddq_u64(res_wrapped, vmovq_n_u64(EPSILON));
