@@ -9,11 +9,16 @@ const SIGN_BIT: u64 = 1 << 63;
 const MDS_MATRIX_EXPS8: [i32; 8] = [2, 0, 1, 8, 4, 3, 0, 0];
 const MDS_MATRIX_EXPS12: [i32; 12] = [10, 13, 2, 0, 4, 1, 8, 7, 15, 5, 0, 0];
 
+/// Pair of vectors (hi, lo) representing a u128.
+type Vecs128 = (__m256i, __m256i);
+
+/// Takes cumul (u128) and x (u64). Returns cumul + (x << SHIFT) as u64.
+/// Assumes that cumul is shifted by 1 << 63; the result is similarly shifted.
 #[inline(always)]
 unsafe fn shift_and_accumulate<const SHIFT: i32>(
     x: __m256i,
-    (hi_cumul, lo_cumul_s): (__m256i, __m256i),
-) -> (__m256i, __m256i)
+    (hi_cumul, lo_cumul_s): Vecs128,
+) -> Vecs128
 where
     [(); (64 - SHIFT) as usize]: ,
 {
@@ -25,6 +30,7 @@ where
     (res_hi, res_lo_s)
 }
 
+/// Extract state[OFFSET..OFFSET + 4] as a vector. Wraps around the boundary.
 #[inline(always)]
 unsafe fn get_vector_with_offset<const WIDTH: usize, const OFFSET: usize>(
     state: [CrandallField; WIDTH],
@@ -37,6 +43,7 @@ unsafe fn get_vector_with_offset<const WIDTH: usize, const OFFSET: usize>(
     )
 }
 
+/// Extract CrandallField element from vector.
 #[inline(always)]
 unsafe fn extract<const INDEX: i32>(v: __m256i) -> CrandallField {
     CrandallField(_mm256_extract_epi64::<INDEX>(v) as u64)
@@ -44,13 +51,15 @@ unsafe fn extract<const INDEX: i32>(v: __m256i) -> CrandallField {
 
 #[inline(always)]
 unsafe fn iteration8<const INDEX: usize, const SHIFT: i32>(
-    (cumul0_s, cumul1_s): ((__m256i, __m256i), (__m256i, __m256i)),
+    (cumul0_s, cumul1_s): (Vecs128, Vecs128),
     state: [CrandallField; 8],
-) -> ((__m256i, __m256i), (__m256i, __m256i))
+) -> (Vecs128, Vecs128)
+// 2 vectors of 4 needed to represent entire state.
 where
     [(); { INDEX + 4 }]: ,
     [(); (64 - SHIFT) as usize]: ,
 {
+    // Entire state, rotated by INDEX.
     let state0 = get_vector_with_offset::<8, INDEX>(state);
     let state1 = get_vector_with_offset::<8, { INDEX + 4 }>(state);
     (
@@ -94,14 +103,16 @@ pub fn crandall_poseidon8_mds_avx2(state: [CrandallField; 8]) -> [CrandallField;
 
 #[inline(always)]
 unsafe fn iteration12<const INDEX: usize, const SHIFT: i32>(
-    (cumul0_s, cumul1_s, cumul2_s): ((__m256i, __m256i), (__m256i, __m256i), (__m256i, __m256i)),
+    (cumul0_s, cumul1_s, cumul2_s): (Vecs128, Vecs128, Vecs128),
     state: [CrandallField; 12],
-) -> ((__m256i, __m256i), (__m256i, __m256i), (__m256i, __m256i))
+) -> (Vecs128, Vecs128, Vecs128)
+// 2 vectors of 4 needed to represent entire state.
 where
     [(); { INDEX + 4 }]: ,
     [(); { INDEX + 8 }]: ,
     [(); (64 - SHIFT) as usize]: ,
 {
+    // Entire state, rotated by INDEX.
     let state0 = get_vector_with_offset::<12, INDEX>(state);
     let state1 = get_vector_with_offset::<12, { INDEX + 4 }>(state);
     let state2 = get_vector_with_offset::<12, { INDEX + 8 }>(state);
@@ -156,7 +167,7 @@ pub fn crandall_poseidon12_mds_avx2(state: [CrandallField; 12]) -> [CrandallFiel
 }
 
 #[inline(always)]
-unsafe fn reduce96s(x_s: (__m256i, __m256i)) -> __m256i {
+unsafe fn reduce96s(x_s: Vecs128) -> __m256i {
     let (hi0, lo0_s) = x_s;
     let lo1 = _mm256_mul_epu32(hi0, _mm256_set1_epi64x(EPSILON as i64));
     add_no_canonicalize_64_64s(lo1, lo0_s)
