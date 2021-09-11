@@ -38,7 +38,6 @@ where
     let res_lo = vaddq_u64(lo_cumul, x_shifted_lo);
     let carry = vcgtq_u64(lo_cumul, res_lo);
     let tmp_hi = real_vsraq_n_u64::<{ 64 - SHIFT }>(hi_cumul, x);
-    println!("{} = {} + ({} << {})", vgetq_lane_u64::<0>(tmp_hi), vgetq_lane_u64::<0>(hi_cumul), vgetq_lane_u64::<0>(x), 64 - SHIFT);
     let res_hi = vsubq_u64(tmp_hi, carry);
     (res_hi, res_lo)
 }
@@ -68,9 +67,9 @@ unsafe fn iteration8<const INDEX: usize, const SHIFT: i32>(
 ) -> StateVecs8
 // 4 vectors of 2 needed to represent entire state.
 where
-    [(); { INDEX + 2 }]: ,
-    [(); { INDEX + 4 }]: ,
-    [(); { INDEX + 6 }]: ,
+    [(); INDEX + 2]: ,
+    [(); INDEX + 4]: ,
+    [(); INDEX + 6]: ,
     [(); (64 - SHIFT) as usize]: ,
 {
     // Entire state, rotated by INDEX.
@@ -132,11 +131,11 @@ unsafe fn iteration12<const INDEX: usize, const SHIFT: i32>(
 ) -> StateVecs12
 // 6 vectors of 2 needed to represent entire state.
 where
-    [(); { INDEX + 2 }]: ,
-    [(); { INDEX + 4 }]: ,
-    [(); { INDEX + 6 }]: ,
-    [(); { INDEX + 8 }]: ,
-    [(); { INDEX + 10 }]: ,
+    [(); INDEX + 2]: ,
+    [(); INDEX + 4]: ,
+    [(); INDEX + 6]: ,
+    [(); INDEX + 8]: ,
+    [(); INDEX + 10]: ,
     [(); (64 - SHIFT) as usize]: ,
 {
     // Entire state, rotated by INDEX.
