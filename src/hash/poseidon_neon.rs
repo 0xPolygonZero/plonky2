@@ -11,7 +11,7 @@ const MDS_MATRIX_EXPS12: [i32; 12] = [10, 13, 2, 0, 4, 1, 8, 7, 15, 5, 0, 0];
 /// Pair of vectors (hi, lo) representing a u128.
 type Vecs128 = (uint64x2_t, uint64x2_t);
 
-/// Takes cumul (u128) and x (u64). Returns cumul + (x << SHIFT) as u64.
+/// Takes cumul (u128) and x (u64). Returns cumul + (x << SHIFT) as u128.
 #[inline(always)]
 unsafe fn shift_and_accumulate<const SHIFT: i32>(
     x: uint64x2_t,
