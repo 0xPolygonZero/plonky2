@@ -4,7 +4,6 @@
 use unroll::unroll_for_loops;
 
 use crate::field::crandall_field::CrandallField;
-use crate::field::field_types::Field;
 use crate::field::field_types::PrimeField;
 
 // The number of full rounds and partial rounds is given by the
