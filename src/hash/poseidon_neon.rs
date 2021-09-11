@@ -11,33 +11,22 @@ const MDS_MATRIX_EXPS12: [i32; 12] = [10, 13, 2, 0, 4, 1, 8, 7, 15, 5, 0, 0];
 /// Pair of vectors (hi, lo) representing a u128.
 type Vecs128 = (uint64x2_t, uint64x2_t);
 
-#[inline(always)]
-unsafe fn real_vsraq_n_u64<const SHIFT: i32>(a: uint64x2_t, b: uint64x2_t) -> uint64x2_t {
-    let res;
-    asm!(
-        "usra {0:v}.2D, {1:v}.2D, #{2}",
-        inlateout(vreg) a => res,
-        in(vreg) b,
-        const SHIFT,
-        options(pure, nomem, preserves_flags, nostack),
-    );
-    res
-}
-
 /// Takes cumul (u128) and x (u64). Returns cumul + (x << SHIFT) as u64.
-/// Assumes that cumul is shifted by 1 << 63; the result is similarly shifted.
 #[inline(always)]
 unsafe fn shift_and_accumulate<const SHIFT: i32>(
     x: uint64x2_t,
     (hi_cumul, lo_cumul): Vecs128,
 ) -> Vecs128
 where
-    [(); (64 - SHIFT) as usize]: ,
+    [(); (63 - SHIFT) as usize]: ,
 {
     let x_shifted_lo = vshlq_n_u64::<SHIFT>(x);
     let res_lo = vaddq_u64(lo_cumul, x_shifted_lo);
     let carry = vcgtq_u64(lo_cumul, res_lo);
-    let tmp_hi = real_vsraq_n_u64::<{ 64 - SHIFT }>(hi_cumul, x);
+    // This works around a bug in Rust's NEON intrisics. A shift by 64, even though well-defined
+    // in ARM's docs, is considered undefined behavior by LLVM. Instead of shifting by 64 - x, we
+    // shift by 1 and then by 63 - x to avoid this UB.
+    let tmp_hi = vsraq_n_u64::<{ 63 - SHIFT }>(hi_cumul, vshrq_n_u64::<1>(x));
     let res_hi = vsubq_u64(tmp_hi, carry);
     (res_hi, res_lo)
 }
@@ -70,7 +59,7 @@ where
     [(); INDEX + 2]: ,
     [(); INDEX + 4]: ,
     [(); INDEX + 6]: ,
-    [(); (64 - SHIFT) as usize]: ,
+    [(); (63 - SHIFT) as usize]: ,
 {
     // Entire state, rotated by INDEX.
     let state0 = get_vector_with_offset::<8, INDEX>(state);
@@ -136,7 +125,7 @@ where
     [(); INDEX + 6]: ,
     [(); INDEX + 8]: ,
     [(); INDEX + 10]: ,
-    [(); (64 - SHIFT) as usize]: ,
+    [(); (63 - SHIFT) as usize]: ,
 {
     // Entire state, rotated by INDEX.
     let state0 = get_vector_with_offset::<12, INDEX>(state);
