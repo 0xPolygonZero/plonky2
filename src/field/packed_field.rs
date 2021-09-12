@@ -189,6 +189,10 @@ impl<F: Field> PackedField for Singleton<F> {
             _ => panic!("r cannot be more than LOG2_WIDTH"),
         }
     }
+
+    fn square(&self) -> Self {
+        Self(self.0.square())
+    }
 }
 
 impl<F: Field> Sub<Self> for Singleton<F> {
