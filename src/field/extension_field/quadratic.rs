@@ -60,7 +60,10 @@ impl<F: AutoExtendable<2>> Field for QuadraticExtension<F> {
     const NEG_ONE: Self = Self([F::NEG_ONE, F::ZERO]);
 
     const CHARACTERISTIC: u64 = F::CHARACTERISTIC;
-    const TWO_ADICITY: usize = F::TWO_ADICITY + 1;
+
+    // `p^2 - 1 = (p - 1)(p + 1)`. The `p - 1` term contributes `F::TWO_ADICITY` factors of two;
+    // here we add in the factors contributed by `p + 1`.
+    const TWO_ADICITY: usize = F::TWO_ADICITY + (F::ORDER + 1).trailing_zeros() as usize;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
     const POWER_OF_TWO_GENERATOR: Self = Self(F::EXT_POWER_OF_TWO_GENERATOR);

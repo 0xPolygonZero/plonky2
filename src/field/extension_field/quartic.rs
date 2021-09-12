@@ -61,7 +61,12 @@ impl<F: AutoExtendable<4>> Field for QuarticExtension<F> {
     const NEG_ONE: Self = Self([F::NEG_ONE, F::ZERO, F::ZERO, F::ZERO]);
 
     const CHARACTERISTIC: u64 = F::ORDER;
-    const TWO_ADICITY: usize = F::TWO_ADICITY + 2;
+
+    // `p^4 - 1 = (p - 1)(p + 1)(p^2 + 1)`. The `p - 1` term contributes `F::TWO_ADICITY` factors of
+    // two; here we add in the factors contributed by `p + 1` and `p^2 + 1`.
+    const TWO_ADICITY: usize = F::TWO_ADICITY
+        + (F::ORDER + 1).trailing_zeros() as usize
+        + ((F::ORDER as u128) * (F::ORDER as u128) + 1).trailing_zeros() as usize;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
     const POWER_OF_TWO_GENERATOR: Self = Self(F::EXT_POWER_OF_TWO_GENERATOR);
