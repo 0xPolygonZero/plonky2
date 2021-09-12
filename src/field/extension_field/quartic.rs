@@ -62,11 +62,11 @@ impl<F: AutoExtendable<4>> Field for QuarticExtension<F> {
 
     const CHARACTERISTIC: u64 = F::ORDER;
 
-    // `p^4 - 1 = (p - 1)(p + 1)(p^2 + 1)`. The `p - 1` term contributes `F::TWO_ADICITY` factors of
-    // two; here we add in the factors contributed by `p + 1` and `p^2 + 1`.
-    const TWO_ADICITY: usize = F::TWO_ADICITY
-        + (F::ORDER + 1).trailing_zeros() as usize
-        + ((F::ORDER as u128) * (F::ORDER as u128) + 1).trailing_zeros() as usize;
+    // `p^2 - 1 = (p - 1)(p + 1)`. The `p - 1` term contributes `F::TWO_ADICITY` factors of two. As
+    // long as `F::TWO_ADICITY >= 2`, `p` can be written as `4n + 1`, so `p + 1` can be written as
+    // `2(2n + 1)`, which only has a single factor of 2. A similar argument can show that `p^2 + 1`
+    // only has a single factor of 2.
+    const TWO_ADICITY: usize = F::TWO_ADICITY + 2;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
     const POWER_OF_TWO_GENERATOR: Self = Self(F::EXT_POWER_OF_TWO_GENERATOR);
