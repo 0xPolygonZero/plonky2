@@ -4,16 +4,16 @@ use std::fmt::{Debug, Formatter};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use crate::field::crandall_field::CrandallField;
-use crate::field::field_types::Field;
+use crate::field::field_types::PrimeField;
 use crate::field::packed_field::PackedField;
+use crate::field::packed_avx2::common::{ReducibleAVX2, add_no_canonicalize_64_64s_s, epsilon, field_order};
 
-// PackedCrandallAVX2 wraps an array of four u64s, with the new and get methods to convert that
+// PackedPrimeField wraps an array of four u64s, with the new and get methods to convert that
 // array to and from __m256i, which is the type we actually operate on. This indirection is a
-// terrible trick to change PackedCrandallAVX2's alignment.
-//   We'd like to be able to cast slices of CrandallField to slices of PackedCrandallAVX2. Rust
-// aligns __m256i to 32 bytes but CrandallField has a lower alignment. That alignment extends to
-// PackedCrandallAVX2 and it appears that it cannot be lowered with #[repr(C, blah)]. It is
+// terrible trick to change PackedPrimeField's alignment.
+//   We'd like to be able to cast slices of PrimeField to slices of PackedPrimeField. Rust
+// aligns __m256i to 32 bytes but PrimeField has a lower alignment. That alignment extends to
+// PackedPrimeField and it appears that it cannot be lowered with #[repr(C, blah)]. It is
 // important for Rust not to assume 32-byte alignment, so we cannot wrap __m256i directly.
 //   There are two versions of vectorized load/store instructions on x86: aligned (vmovaps and
 // friends) and unaligned (vmovups etc.). The difference between them is that aligned loads and
@@ -21,12 +21,12 @@ use crate::field::packed_field::PackedField;
 // were faster, and although this is no longer the case, compilers prefer the aligned versions if
 // they know that the address is aligned. Using aligned instructions on unaligned addresses leads to
 // bugs that can be frustrating to diagnose. Hence, we can't have Rust assuming alignment, and
-// therefore PackedCrandallAVX2 wraps [u64; 4] and not __m256i.
+// therefore PackedPrimeField wraps [F; 4] and not __m256i.
 #[derive(Copy, Clone)]
 #[repr(transparent)]
-pub struct PackedCrandallAVX2(pub [u64; 4]);
+pub struct PackedPrimeField<F: ReducibleAVX2>(pub [F; 4]);
 
-impl PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> PackedPrimeField<F> {
     #[inline]
     fn new(x: __m256i) -> Self {
         let mut obj = Self([0, 0, 0, 0]);
@@ -43,75 +43,75 @@ impl PackedCrandallAVX2 {
     }
 }
 
-impl Add<Self> for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> Add<Self> for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
     fn add(self, rhs: Self) -> Self {
         Self::new(unsafe { add(self.get(), rhs.get()) })
     }
 }
-impl Add<CrandallField> for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> Add<F> for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
-    fn add(self, rhs: CrandallField) -> Self {
+    fn add(self, rhs: F) -> Self {
         self + Self::broadcast(rhs)
     }
 }
-impl AddAssign<Self> for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> AddAssign<Self> for PackedPrimeField<F> {
     #[inline]
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
-impl AddAssign<CrandallField> for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> AddAssign<F> for PackedPrimeField<F> {
     #[inline]
-    fn add_assign(&mut self, rhs: CrandallField) {
+    fn add_assign(&mut self, rhs: F) {
         *self = *self + rhs;
     }
 }
 
-impl Debug for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> Debug for PackedPrimeField<F> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "({:?})", self.get())
     }
 }
 
-impl Default for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> Default for PackedPrimeField<F> {
     #[inline]
     fn default() -> Self {
         Self::zero()
     }
 }
 
-impl Mul<Self> for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> Mul<Self> for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
     fn mul(self, rhs: Self) -> Self {
         Self::new(unsafe { mul(self.get(), rhs.get()) })
     }
 }
-impl Mul<CrandallField> for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> Mul<F> for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
-    fn mul(self, rhs: CrandallField) -> Self {
+    fn mul(self, rhs: F) -> Self {
         self * Self::broadcast(rhs)
     }
 }
-impl MulAssign<Self> for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> MulAssign<Self> for PackedPrimeField<F> {
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
-impl MulAssign<CrandallField> for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> MulAssign<F> for PackedPrimeField<F> {
     #[inline]
-    fn mul_assign(&mut self, rhs: CrandallField) {
+    fn mul_assign(&mut self, rhs: F) {
         *self = *self * rhs;
     }
 }
 
-impl Neg for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> Neg for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
     fn neg(self) -> Self {
@@ -119,51 +119,51 @@ impl Neg for PackedCrandallAVX2 {
     }
 }
 
-impl Product for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> Product for PackedPrimeField<F> {
     #[inline]
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.reduce(|x, y| x * y).unwrap_or(Self::one())
     }
 }
 
-impl PackedField for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> PackedField for PackedPrimeField<F> {
     const LOG2_WIDTH: usize = 2;
 
-    type FieldType = CrandallField;
+    type FieldType = F;
 
     #[inline]
-    fn broadcast(x: CrandallField) -> Self {
+    fn broadcast(x: F) -> Self {
         Self::new(unsafe { _mm256_set1_epi64x(x.0 as i64) })
     }
 
     #[inline]
-    fn from_arr(arr: [Self::FieldType; Self::WIDTH]) -> Self {
+    fn from_arr(arr: [F; Self::WIDTH]) -> Self {
         Self([arr[0].0, arr[1].0, arr[2].0, arr[3].0])
     }
 
     #[inline]
-    fn to_arr(&self) -> [Self::FieldType; Self::WIDTH] {
+    fn to_arr(&self) -> [F; Self::WIDTH] {
         [
-            CrandallField(self.0[0]),
-            CrandallField(self.0[1]),
-            CrandallField(self.0[2]),
-            CrandallField(self.0[3]),
+            F::from_noncanonical_u64(self.0[0]),
+            F::from_noncanonical_u64(self.0[1]),
+            F::from_noncanonical_u64(self.0[2]),
+            F::from_noncanonical_u64(self.0[3]),
         ]
     }
 
     #[inline]
-    fn from_slice(slice: &[Self::FieldType]) -> Self {
+    fn from_slice(slice: &[F]) -> Self {
         assert!(slice.len() == 4);
         Self::from_arr([slice[0], slice[1], slice[2], slice[3]])
     }
 
     #[inline]
-    fn to_vec(&self) -> Vec<Self::FieldType> {
+    fn to_vec(&self) -> Vec<F> {
         vec![
-            CrandallField(self.0[0]),
-            CrandallField(self.0[1]),
-            CrandallField(self.0[2]),
-            CrandallField(self.0[3]),
+            F::from_noncanonical_u64(self.0[0]),
+            F::from_noncanonical_u64(self.0[1]),
+            F::from_noncanonical_u64(self.0[2]),
+            F::from_noncanonical_u64(self.0[3]),
         ]
     }
 
@@ -185,53 +185,41 @@ impl PackedField for PackedCrandallAVX2 {
     }
 }
 
-impl Sub<Self> for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> Sub<Self> for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
     fn sub(self, rhs: Self) -> Self {
         Self::new(unsafe { sub(self.get(), rhs.get()) })
     }
 }
-impl Sub<CrandallField> for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> Sub<F> for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
-    fn sub(self, rhs: CrandallField) -> Self {
+    fn sub(self, rhs: F) -> Self {
         self - Self::broadcast(rhs)
     }
 }
-impl SubAssign<Self> for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> SubAssign<Self> for PackedPrimeField<F> {
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
 }
-impl SubAssign<CrandallField> for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> SubAssign<F> for PackedPrimeField<F> {
     #[inline]
-    fn sub_assign(&mut self, rhs: CrandallField) {
+    fn sub_assign(&mut self, rhs: F) {
         *self = *self - rhs;
     }
 }
 
-impl Sum for PackedCrandallAVX2 {
+impl<F: ReducibleAVX2> Sum for PackedPrimeField<F> {
     #[inline]
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.reduce(|x, y| x + y).unwrap_or(Self::zero())
     }
 }
 
-const EPSILON: u64 = (1 << 31) + (1 << 28) - 1;
-const FIELD_ORDER: u64 = 0u64.wrapping_sub(EPSILON);
 const SIGN_BIT: u64 = 1 << 63;
-
-#[inline]
-unsafe fn field_order() -> __m256i {
-    _mm256_set1_epi64x(FIELD_ORDER as i64)
-}
-
-#[inline]
-unsafe fn epsilon() -> __m256i {
-    _mm256_set1_epi64x(EPSILON as i64)
-}
 
 #[inline]
 unsafe fn sign_bit() -> __m256i {
@@ -294,52 +282,41 @@ unsafe fn shift(x: __m256i) -> __m256i {
 }
 
 /// Convert to canonical representation.
-/// The argument is assumed to be shifted by 1 << 63 (i.e. x_s = x + 1<<63, where x is the
-///   Crandall field value). The returned value is similarly shifted by 1 << 63 (i.e. we return y`_s
-///   = y + 1<<63, where 0 <= y < FIELD_ORDER).
+/// The argument is assumed to be shifted by 1 << 63 (i.e. x_s = x + 1<<63, where x is the field
+///   value). The returned value is similarly shifted by 1 << 63 (i.e. we return y_s = y + (1<<63),
+///   where 0 <= y < FIELD_ORDER).
 #[inline]
-unsafe fn canonicalize_s(x_s: __m256i) -> __m256i {
+unsafe fn canonicalize_s<F: PrimeField>(x_s: __m256i) -> __m256i {
     // If x >= FIELD_ORDER then corresponding mask bits are all 0; otherwise all 1.
-    let mask = _mm256_cmpgt_epi64(shift(field_order()), x_s);
+    let mask = _mm256_cmpgt_epi64(shift(field_order::<F>()), x_s);
     // wrapback_amt is -FIELD_ORDER if mask is 0; otherwise 0.
-    let wrapback_amt = _mm256_andnot_si256(mask, epsilon());
+    let wrapback_amt = _mm256_andnot_si256(mask, epsilon::<F>());
     _mm256_add_epi64(x_s, wrapback_amt)
 }
 
-/// Addition u64 + u64 -> u64. Assumes that x + y < 2^64 + FIELD_ORDER. The second argument is
-/// pre-shifted by 1 << 63. The result is similarly shifted.
 #[inline]
-unsafe fn add_no_canonicalize_64_64s_s(x: __m256i, y_s: __m256i) -> __m256i {
-    let res_wrapped_s = _mm256_add_epi64(x, y_s);
-    let mask = _mm256_cmpgt_epi64(y_s, res_wrapped_s); // -1 if overflowed else 0.
-    let wrapback_amt = _mm256_and_si256(mask, epsilon()); // -FIELD_ORDER if overflowed else 0.
-    let res_s = _mm256_add_epi64(res_wrapped_s, wrapback_amt);
-    res_s
-}
-
-#[inline]
-unsafe fn add(x: __m256i, y: __m256i) -> __m256i {
+unsafe fn add<F: PrimeField>(x: __m256i, y: __m256i) -> __m256i {
     let y_s = shift(y);
-    let res_s = add_no_canonicalize_64_64s_s(x, canonicalize_s(y_s));
+    let res_s = add_no_canonicalize_64_64s_s::<F>(x, canonicalize_s::<F>(y_s));
     shift(res_s)
 }
 
 #[inline]
-unsafe fn sub(x: __m256i, y: __m256i) -> __m256i {
+unsafe fn sub<F: PrimeField>(x: __m256i, y: __m256i) -> __m256i {
     let mut y_s = shift(y);
-    y_s = canonicalize_s(y_s);
+    y_s = canonicalize_s::<F>(y_s);
     let x_s = shift(x);
     let mask = _mm256_cmpgt_epi64(y_s, x_s); // -1 if sub will underflow (y > x) else 0.
-    let wrapback_amt = _mm256_and_si256(mask, epsilon()); // -FIELD_ORDER if underflow else 0.
+    let wrapback_amt = _mm256_and_si256(mask, epsilon::<F>()); // -FIELD_ORDER if underflow else 0.
     let res_wrapped = _mm256_sub_epi64(x_s, y_s);
     let res = _mm256_sub_epi64(res_wrapped, wrapback_amt);
     res
 }
 
 #[inline]
-unsafe fn neg(y: __m256i) -> __m256i {
+unsafe fn neg<F: PrimeField>(y: __m256i) -> __m256i {
     let y_s = shift(y);
-    _mm256_sub_epi64(shift(field_order()), canonicalize_s(y_s))
+    _mm256_sub_epi64(shift(field_order::<F>()), canonicalize_s::<F>(y_s))
 }
 
 /// Full 64-bit by 64-bit multiplication. This emulated multiplication is 1.5x slower than the
@@ -393,52 +370,16 @@ unsafe fn square64_s(x: __m256i) -> (__m256i, __m256i) {
     (res_hi2, res_lo1_s)
 }
 
-/// (u64 << 64) + u64 + u64 -> u128 addition with carry. The third argument is pre-shifted by 2^63.
-/// The result is also shifted.
-#[inline]
-unsafe fn add_with_carry_hi_lo_los_s(
-    hi: __m256i,
-    lo0: __m256i,
-    lo1_s: __m256i,
-) -> (__m256i, __m256i) {
-    let res_lo_s = _mm256_add_epi64(lo0, lo1_s);
-    // carry is -1 if overflow (res_lo < lo1) because cmpgt returns -1 on true and 0 on false.
-    let carry = _mm256_cmpgt_epi64(lo1_s, res_lo_s);
-    let res_hi = _mm256_sub_epi64(hi, carry);
-    (res_hi, res_lo_s)
-}
-
-/// u64 * u32 + u64 fused multiply-add. The result is given as a tuple (u64, u64). The third
-/// argument is assumed to be pre-shifted by 2^63. The result is similarly shifted.
-#[inline]
-unsafe fn fmadd_64_32_64s_s(x: __m256i, y: __m256i, z_s: __m256i) -> (__m256i, __m256i) {
-    let x_hi = _mm256_srli_epi64(x, 32);
-    let mul_lo = _mm256_mul_epu32(x, y);
-    let mul_hi = _mm256_mul_epu32(x_hi, y);
-    let (tmp_hi, tmp_lo_s) = add_with_carry_hi_lo_los_s(_mm256_srli_epi64(mul_hi, 32), mul_lo, z_s);
-    add_with_carry_hi_lo_los_s(tmp_hi, _mm256_slli_epi64(mul_hi, 32), tmp_lo_s)
-}
-
-/// Reduce a u128 modulo FIELD_ORDER. The input is (u64, u64), pre-shifted by 2^63. The result is
-/// similarly shifted.
-#[inline]
-unsafe fn reduce128s_s(x_s: (__m256i, __m256i)) -> __m256i {
-    let (hi0, lo0_s) = x_s;
-    let (hi1, lo1_s) = fmadd_64_32_64s_s(hi0, epsilon(), lo0_s);
-    let lo2 = _mm256_mul_epu32(hi1, epsilon());
-    add_no_canonicalize_64_64s_s(lo2, lo1_s)
-}
-
 /// Multiply two integers modulo FIELD_ORDER.
 #[inline]
-unsafe fn mul(x: __m256i, y: __m256i) -> __m256i {
-    shift(reduce128s_s(mul64_64_s(x, y)))
+unsafe fn mul<F: ReducibleAVX2>(x: __m256i, y: __m256i) -> __m256i {
+    shift(F::reduce128s_s(mul64_64_s(x, y)))
 }
 
 /// Square an integer modulo FIELD_ORDER.
 #[inline]
-unsafe fn square(x: __m256i) -> __m256i {
-    shift(reduce128s_s(square64_s(x)))
+unsafe fn square<F: ReducibleAVX2>(x: __m256i) -> __m256i {
+    shift(F::reduce128s_s(square64_s(x)))
 }
 
 #[inline]
@@ -466,158 +407,4 @@ unsafe fn interleave1(x: __m256i, y: __m256i) -> (__m256i, __m256i) {
     let b = _mm256_permute2x128_si256::<0x31>(x, y);
 
     (a, b)
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::field::crandall_field::CrandallField;
-    use crate::field::packed_crandall_avx2::*;
-
-    const TEST_VALS_A: [CrandallField; 4] = [
-        CrandallField(14479013849828404771),
-        CrandallField(9087029921428221768),
-        CrandallField(2441288194761790662),
-        CrandallField(5646033492608483824),
-    ];
-    const TEST_VALS_B: [CrandallField; 4] = [
-        CrandallField(17891926589593242302),
-        CrandallField(11009798273260028228),
-        CrandallField(2028722748960791447),
-        CrandallField(7929433601095175579),
-    ];
-
-    #[test]
-    fn test_add() {
-        let packed_a = PackedCrandallAVX2::from_arr(TEST_VALS_A);
-        let packed_b = PackedCrandallAVX2::from_arr(TEST_VALS_B);
-        let packed_res = packed_a + packed_b;
-        let arr_res = packed_res.to_arr();
-
-        let expected = TEST_VALS_A.iter().zip(TEST_VALS_B).map(|(&a, b)| a + b);
-        for (exp, res) in expected.zip(arr_res) {
-            assert_eq!(res, exp);
-        }
-    }
-
-    #[test]
-    fn test_mul() {
-        let packed_a = PackedCrandallAVX2::from_arr(TEST_VALS_A);
-        let packed_b = PackedCrandallAVX2::from_arr(TEST_VALS_B);
-        let packed_res = packed_a * packed_b;
-        let arr_res = packed_res.to_arr();
-
-        let expected = TEST_VALS_A.iter().zip(TEST_VALS_B).map(|(&a, b)| a * b);
-        for (exp, res) in expected.zip(arr_res) {
-            assert_eq!(res, exp);
-        }
-    }
-
-    #[test]
-    fn test_square() {
-        let packed_a = PackedCrandallAVX2::from_arr(TEST_VALS_A);
-        let packed_res = packed_a.square();
-        let arr_res = packed_res.to_arr();
-
-        let expected = TEST_VALS_A.iter().map(|&a| a.square());
-        for (exp, res) in expected.zip(arr_res) {
-            assert_eq!(res, exp);
-        }
-    }
-
-    #[test]
-    fn test_neg() {
-        let packed_a = PackedCrandallAVX2::from_arr(TEST_VALS_A);
-        let packed_res = -packed_a;
-        let arr_res = packed_res.to_arr();
-
-        let expected = TEST_VALS_A.iter().map(|&a| -a);
-        for (exp, res) in expected.zip(arr_res) {
-            assert_eq!(res, exp);
-        }
-    }
-
-    #[test]
-    fn test_sub() {
-        let packed_a = PackedCrandallAVX2::from_arr(TEST_VALS_A);
-        let packed_b = PackedCrandallAVX2::from_arr(TEST_VALS_B);
-        let packed_res = packed_a - packed_b;
-        let arr_res = packed_res.to_arr();
-
-        let expected = TEST_VALS_A.iter().zip(TEST_VALS_B).map(|(&a, b)| a - b);
-        for (exp, res) in expected.zip(arr_res) {
-            assert_eq!(res, exp);
-        }
-    }
-
-    #[test]
-    fn test_interleave_is_involution() {
-        let packed_a = PackedCrandallAVX2::from_arr(TEST_VALS_A);
-        let packed_b = PackedCrandallAVX2::from_arr(TEST_VALS_B);
-        {
-            // Interleave, then deinterleave.
-            let (x, y) = packed_a.interleave(packed_b, 0);
-            let (res_a, res_b) = x.interleave(y, 0);
-            assert_eq!(res_a.to_arr(), TEST_VALS_A);
-            assert_eq!(res_b.to_arr(), TEST_VALS_B);
-        }
-        {
-            let (x, y) = packed_a.interleave(packed_b, 1);
-            let (res_a, res_b) = x.interleave(y, 1);
-            assert_eq!(res_a.to_arr(), TEST_VALS_A);
-            assert_eq!(res_b.to_arr(), TEST_VALS_B);
-        }
-    }
-
-    #[test]
-    fn test_interleave() {
-        let in_a: [CrandallField; 4] = [
-            CrandallField(00),
-            CrandallField(01),
-            CrandallField(02),
-            CrandallField(03),
-        ];
-        let in_b: [CrandallField; 4] = [
-            CrandallField(10),
-            CrandallField(11),
-            CrandallField(12),
-            CrandallField(13),
-        ];
-        let int0_a: [CrandallField; 4] = [
-            CrandallField(00),
-            CrandallField(10),
-            CrandallField(02),
-            CrandallField(12),
-        ];
-        let int0_b: [CrandallField; 4] = [
-            CrandallField(01),
-            CrandallField(11),
-            CrandallField(03),
-            CrandallField(13),
-        ];
-        let int1_a: [CrandallField; 4] = [
-            CrandallField(00),
-            CrandallField(01),
-            CrandallField(10),
-            CrandallField(11),
-        ];
-        let int1_b: [CrandallField; 4] = [
-            CrandallField(02),
-            CrandallField(03),
-            CrandallField(12),
-            CrandallField(13),
-        ];
-
-        let packed_a = PackedCrandallAVX2::from_arr(in_a);
-        let packed_b = PackedCrandallAVX2::from_arr(in_b);
-        {
-            let (x0, y0) = packed_a.interleave(packed_b, 0);
-            assert_eq!(x0.to_arr(), int0_a);
-            assert_eq!(y0.to_arr(), int0_b);
-        }
-        {
-            let (x1, y1) = packed_a.interleave(packed_b, 1);
-            assert_eq!(x1.to_arr(), int1_a);
-            assert_eq!(y1.to_arr(), int1_b);
-        }
-    }
 }
