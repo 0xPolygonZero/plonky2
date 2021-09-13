@@ -34,8 +34,8 @@ pub(crate) fn generate_partial_witness<F: RichField + Extendable<D>, const D: us
 
     let mut buffer = GeneratedValues::empty();
 
-    // Keep running generators until all generators have been run.
-    while remaining_generators > 0 {
+    // Keep running generators until we fail to make progress.
+    while !pending_generator_indices.is_empty() {
         let mut next_pending_generator_indices = Vec::new();
 
         for &generator_idx in &pending_generator_indices {
@@ -66,7 +66,11 @@ pub(crate) fn generate_partial_witness<F: RichField + Extendable<D>, const D: us
         pending_generator_indices = next_pending_generator_indices;
     }
 
-    assert_eq!(remaining_generators, 0, "Some generators weren't run.");
+    assert_eq!(
+        remaining_generators, 0,
+        "{} generators weren't run",
+        remaining_generators
+    );
 
     witness
 }
