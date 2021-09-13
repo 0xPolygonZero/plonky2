@@ -3,31 +3,26 @@ use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, RichField};
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
-use crate::iop::witness::{PartitionWitness, Witness};
-use crate::timed;
-use crate::util::timing::TimingTree;
+use crate::iop::witness::{PartialWitness, PartitionWitness, Witness};
+use crate::plonk::circuit_data::ProverOnlyCircuitData;
 
 /// Given a `PartitionWitness` that has only inputs set, populates the rest of the witness using the
 /// given set of generators.
-pub(crate) fn generate_partial_witness<F: Field>(
-    witness: &mut PartitionWitness<F>,
-    generators: &[Box<dyn WitnessGenerator<F>>],
-    timing: &mut TimingTree,
-) {
-    let max_target_index = witness.forest.len();
-    // Index generator indices by their watched targets.
-    let mut generator_indices_by_watches = vec![Vec::new(); max_target_index];
-    timed!(timing, "index generators by their watched targets", {
-        for (i, generator) in generators.iter().enumerate() {
-            for watch in generator.watch_list() {
-                generator_indices_by_watches[witness.target_index(watch)].push(i);
-            }
-        }
-    });
+pub(crate) fn generate_partial_witness<F: RichField + Extendable<D>, const D: usize>(
+    inputs: PartialWitness<F>,
+    prover_data: &ProverOnlyCircuitData<F, D>,
+) -> PartitionWitness<F> {
+    let generators = &prover_data.generators;
+    let generator_indices_by_watches = &prover_data.generator_indices_by_watches;
+
+    let mut witness = prover_data.partition_witness.clone();
+    for (t, v) in inputs.target_values.into_iter() {
+        witness.set_target(t, v);
+    }
 
     // Build a list of "pending" generators which are queued to be run. Initially, all generators
     // are queued.
@@ -69,13 +64,12 @@ pub(crate) fn generate_partial_witness<F: Field>(
         }
 
         // If we still need to run som generators, but none were enqueued, we enqueue all generators.
-        pending_generator_indices =
-            if remaining_generators > 0 && next_pending_generator_indices.is_empty() {
-                (0..generators.len()).collect()
-            } else {
-                next_pending_generator_indices
-            };
+        pending_generator_indices = next_pending_generator_indices;
     }
+
+    assert_eq!(remaining_generators, 0, "Some generators weren't run.");
+
+    witness
 }
 
 /// A generator participates in the generation of the witness.
