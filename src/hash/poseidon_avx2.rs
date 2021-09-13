@@ -51,9 +51,9 @@ unsafe fn extract<const INDEX: i32>(v: __m256i) -> CrandallField {
 
 #[inline(always)]
 unsafe fn iteration8<const INDEX: usize, const SHIFT: i32>(
-    (cumul0_s, cumul1_s): (Vecs128, Vecs128),
+    [cumul0_s, cumul1_s]: [Vecs128; 2],
     state: [CrandallField; 8],
-) -> (Vecs128, Vecs128)
+) -> [Vecs128; 2]
 // 2 vectors of 4 needed to represent entire state.
 where
     [(); { INDEX + 4 }]: ,
@@ -62,19 +62,41 @@ where
     // Entire state, rotated by INDEX.
     let state0 = get_vector_with_offset::<8, INDEX>(state);
     let state1 = get_vector_with_offset::<8, { INDEX + 4 }>(state);
-    (
+    [
         shift_and_accumulate::<SHIFT>(state0, cumul0_s),
         shift_and_accumulate::<SHIFT>(state1, cumul1_s),
-    )
+    ]
 }
 
 #[inline(always)]
 pub fn crandall_poseidon8_mds_avx2(state: [CrandallField; 8]) -> [CrandallField; 8] {
     unsafe {
-        let mut res_s = (
-            (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)),
-            (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)),
-        );
+        let mut res_s = [(_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)); 2];
+
+        // The scalar loop goes:
+        //     for r in 0..WIDTH {
+        //         let mut res = 0u128;
+        //         for i in 0..WIDTH {
+        //             res += (state[(i + r) % WIDTH] as u128) << MDS_MATRIX_EXPS[i];
+        //         }
+        //         result[r] = reduce(res);
+        //     }
+        //
+        // Here, we swap the loops. Equivalent to:
+        //     let mut res = [0u128; WIDTH];
+        //     for i in 0..WIDTH {
+        //         let mds_matrix_exp = MDS_MATRIX_EXPS[i];
+        //         for r in 0..WIDTH {
+        //             res[r] += (state[(i + r) % WIDTH] as u128) << mds_matrix_exp;
+        //         }
+        //     }
+        //     for r in 0..WIDTH {
+        //         result[r] = reduce(res[r]);
+        //     }
+        //
+        // Notice that that in the lower version, all iterations of the inner loop shift by the same
+        // amount. In vector, we perform multiple iterations of the loop at once, and vector shifts
+        // are cheaper when all elements are shifted by the same amount.
 
         res_s = iteration8::<0, { MDS_MATRIX_EXPS8[0] }>(res_s, state);
         res_s = iteration8::<1, { MDS_MATRIX_EXPS8[1] }>(res_s, state);
@@ -85,7 +107,7 @@ pub fn crandall_poseidon8_mds_avx2(state: [CrandallField; 8]) -> [CrandallField;
         res_s = iteration8::<6, { MDS_MATRIX_EXPS8[6] }>(res_s, state);
         res_s = iteration8::<7, { MDS_MATRIX_EXPS8[7] }>(res_s, state);
 
-        let (res0_s, res1_s) = res_s;
+        let [res0_s, res1_s] = res_s;
         let reduced0 = reduce96s(res0_s);
         let reduced1 = reduce96s(res1_s);
         [
@@ -103,9 +125,9 @@ pub fn crandall_poseidon8_mds_avx2(state: [CrandallField; 8]) -> [CrandallField;
 
 #[inline(always)]
 unsafe fn iteration12<const INDEX: usize, const SHIFT: i32>(
-    (cumul0_s, cumul1_s, cumul2_s): (Vecs128, Vecs128, Vecs128),
+    [cumul0_s, cumul1_s, cumul2_s]: [Vecs128; 3],
     state: [CrandallField; 12],
-) -> (Vecs128, Vecs128, Vecs128)
+) -> [Vecs128; 3]
 // 3 vectors of 4 needed to represent entire state.
 where
     [(); { INDEX + 4 }]: ,
@@ -116,21 +138,19 @@ where
     let state0 = get_vector_with_offset::<12, INDEX>(state);
     let state1 = get_vector_with_offset::<12, { INDEX + 4 }>(state);
     let state2 = get_vector_with_offset::<12, { INDEX + 8 }>(state);
-    (
+    [
         shift_and_accumulate::<SHIFT>(state0, cumul0_s),
         shift_and_accumulate::<SHIFT>(state1, cumul1_s),
         shift_and_accumulate::<SHIFT>(state2, cumul2_s),
-    )
+    ]
 }
 
 #[inline(always)]
 pub fn crandall_poseidon12_mds_avx2(state: [CrandallField; 12]) -> [CrandallField; 12] {
     unsafe {
-        let mut res_s = (
-            (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)),
-            (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)),
-            (_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)),
-        );
+        let mut res_s = [(_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)); 3];
+
+        // See width-8 version for explanation.
 
         res_s = iteration12::<0, { MDS_MATRIX_EXPS12[0] }>(res_s, state);
         res_s = iteration12::<1, { MDS_MATRIX_EXPS12[1] }>(res_s, state);
@@ -145,7 +165,7 @@ pub fn crandall_poseidon12_mds_avx2(state: [CrandallField; 12]) -> [CrandallFiel
         res_s = iteration12::<10, { MDS_MATRIX_EXPS12[10] }>(res_s, state);
         res_s = iteration12::<11, { MDS_MATRIX_EXPS12[11] }>(res_s, state);
 
-        let (res0_s, res1_s, res2_s) = res_s;
+        let [res0_s, res1_s, res2_s] = res_s;
         let reduced0 = reduce96s(res0_s);
         let reduced1 = reduce96s(res1_s);
         let reduced2 = reduce96s(res2_s);
