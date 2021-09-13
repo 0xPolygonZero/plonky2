@@ -49,59 +49,51 @@ impl<F: RichField + Extendable<D>, const D: usize> ComparisonGate<F, D> {
         num_routed_wires / wires_per_copy
     }
 
+    pub fn wires_per_copy(&self) -> usize {
+        4 + self.chunk_bits + 4 * self.num_chunks()
+    }
+
     pub fn wire_first_input(&self, copy: usize) -> usize {
         debug_assert!(copy < self.num_copies);
-        copy * (4 + self.chunk_bits + 4 * self.num_chunks())
+        copy * self.wires_per_copy()
     }
 
     pub fn wire_second_input(&self, copy: usize) -> usize {
         debug_assert!(copy < self.num_copies);
-        copy * (4 + self.chunk_bits + 4 * self.num_chunks()) + 1
+        copy * self.wires_per_copy() + 1
     }
 
     pub fn wire_z_val(&self, copy: usize) -> usize {
-        copy * (4 + self.chunk_bits + 4 * self.num_chunks()) + 3
+        copy * self.wires_per_copy() + 3
     }
 
     pub fn wire_z_bit(&self, copy: usize, bit_index: usize) -> usize {
         debug_assert!(bit_index < self.chunk_bits + 1);
-        copy * (4 + self.chunk_bits + 4 * self.num_chunks()) + 4 + bit_index
+        copy * self.wires_per_copy() + 4 + bit_index
     }
 
     pub fn wire_first_chunk_val(&self, copy: usize, chunk: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         debug_assert!(chunk < self.num_chunks());
-        copy * (4 + self.chunk_bits + 4 * self.num_chunks()) + 4 + self.chunk_bits + chunk
+        copy * self.wires_per_copy() + 4 + self.chunk_bits + chunk
     }
 
     pub fn wire_second_chunk_val(&self, copy: usize, chunk: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         debug_assert!(chunk < self.num_chunks());
-        copy * (4 + self.chunk_bits + 4 * self.num_chunks())
-            + 4
-            + self.chunk_bits
-            + self.num_chunks()
-            + chunk
+        copy * self.wires_per_copy() + 4 + self.chunk_bits + self.num_chunks() + chunk
     }
 
     pub fn wire_equality_dummy(&self, copy: usize, chunk: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         debug_assert!(chunk < self.num_chunks());
-        copy * (4 + self.chunk_bits + 4 * self.num_chunks())
-            + 4
-            + self.chunk_bits
-            + 2 * self.num_chunks()
-            + chunk
+        copy * self.wires_per_copy() + 4 + self.chunk_bits + 2 * self.num_chunks() + chunk
     }
 
     pub fn wire_chunks_equal(&self, copy: usize, chunk: usize) -> usize {
         debug_assert!(copy < self.num_copies);
         debug_assert!(chunk < self.num_chunks());
-        copy * (4 + self.chunk_bits + 4 * self.num_chunks())
-            + 4
-            + self.chunk_bits
-            + 3 * self.num_chunks()
-            + chunk
+        copy * self.wires_per_copy() + 4 + self.chunk_bits + 3 * self.num_chunks() + chunk
     }
 }
 
