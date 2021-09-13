@@ -330,10 +330,9 @@ mod tests {
     use crate::iop::challenger::{Challenger, RecursiveChallenger};
     use crate::iop::generator::generate_partial_witness;
     use crate::iop::target::Target;
-    use crate::iop::witness::Witness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::util::timing::TimingTree;
 
     #[test]
     fn no_duplicate_challenges() {
@@ -377,11 +376,7 @@ mod tests {
             outputs_per_round.push(challenger.get_n_challenges(num_outputs_per_round[r]));
         }
 
-        let config = CircuitConfig {
-            num_wires: 12 + 12 + 1 + 101,
-            num_routed_wires: 27,
-            ..CircuitConfig::default()
-        };
+        let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, 4>::new(config.clone());
         let mut recursive_challenger = RecursiveChallenger::new(&mut builder);
         let mut recursive_outputs_per_round: Vec<Vec<Target>> = Vec::new();
@@ -392,15 +387,11 @@ mod tests {
             );
         }
         let circuit = builder.build();
-        let mut partition_witness = circuit.prover_only.partition_witness.clone();
-        generate_partial_witness(
-            &mut partition_witness,
-            &circuit.prover_only.generators,
-            &mut TimingTree::default(),
-        );
+        let inputs = PartialWitness::new();
+        let witness = generate_partial_witness(inputs, &circuit.prover_only);
         let recursive_output_values_per_round: Vec<Vec<F>> = recursive_outputs_per_round
             .iter()
-            .map(|outputs| partition_witness.get_targets(outputs))
+            .map(|outputs| witness.get_targets(outputs))
             .collect();
 
         assert_eq!(outputs_per_round, recursive_output_values_per_round);
