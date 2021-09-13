@@ -493,6 +493,12 @@ impl Poseidon<8> for CrandallField {
         [0xbc75b7bb6f92fb6b, 0x1d46b66c2ad3ef0c, 0x44ae739518db1d10, 0x3864e0e53027baf7,
          0x800fc4e2c9f585d8, 0xda6cfb436cf6973e, 0x3fc702a71c42c8df, ],
     ];
+
+    #[cfg(target_feature="avx2")]
+    #[inline(always)]
+    fn mds_layer(state_: &[CrandallField; 8]) -> [CrandallField; 8] {
+        crate::hash::poseidon_avx2::crandall_poseidon8_mds_avx2(*state_)
+    }
 }
 
 #[rustfmt::skip]
@@ -698,6 +704,12 @@ impl Poseidon<12> for CrandallField {
          0x857f31827fb3fe60, 0xfdb6ca0a6d5cc865, 0x7e60116e98d5e20c, 0x685ef5a6b9e241d3,
          0xe7ad8152c5d50bed, 0xb5d5efb12203ef9a, 0x8a041eb885fb24f5, ],
     ];
+
+    #[cfg(target_feature="avx2")]
+    #[inline(always)]
+    fn mds_layer(state_: &[CrandallField; 12]) -> [CrandallField; 12] {
+        crate::hash::poseidon_avx2::crandall_poseidon12_mds_avx2(*state_)
+    }
 }
 
 #[cfg(test)]
