@@ -63,7 +63,6 @@ pub(crate) fn generate_partial_witness<F: RichField + Extendable<D>, const D: us
             witness.extend(buffer.target_values.drain(..));
         }
 
-        // If we still need to run som generators, but none were enqueued, we enqueue all generators.
         pending_generator_indices = next_pending_generator_indices;
     }
 
