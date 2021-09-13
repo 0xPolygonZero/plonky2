@@ -66,12 +66,12 @@ impl<F: RichField + Extendable<D>, const D: usize> ComparisonGate<F, D> {
     }
 
     pub fn wire_z_val(&self, copy: usize) -> usize {
-        copy * self.wires_per_copy() + 3
+        copy * self.wires_per_copy() + 2
     }
 
     pub fn wire_z_bit(&self, copy: usize, bit_index: usize) -> usize {
         debug_assert!(bit_index < self.chunk_bits() + 1);
-        copy * self.wires_per_copy() + 4 + bit_index
+        copy * self.wires_per_copy() + 3 + bit_index
     }
 
     pub fn wire_first_chunk_val(&self, copy: usize, chunk: usize) -> usize {
@@ -377,105 +377,47 @@ mod tests {
         assert_eq!(gate.wire_second_input(0), 1);
         assert_eq!(gate.wire_z_val(0), 2);
         assert_eq!(gate.wire_z_bit(0, 0), 3);
-        assert_eq!(gate.wire_z_bit(0, 3), 6);
-        assert_eq!(gate.wire_first_chunk_val(0, 0), 7);
-        assert_eq!(gate.wire_first_chunk_val(0, 0), 7);
-
-        assert_eq!(gate.wire_first_input(0, 0), 0);
-        assert_eq!(gate.wire_first_input(0, 2), 2);
-        assert_eq!(gate.wire_second_input(0, 0), 3);
-        assert_eq!(gate.wire_second_input(0, 2), 5);
-        assert_eq!(gate.wire_first_output(0, 0), 6);
-        assert_eq!(gate.wire_second_output(0, 2), 11);
-        assert_eq!(gate.wire_switch_bool(0), 12);
-        assert_eq!(gate.wire_first_input(1, 0), 13);
-        assert_eq!(gate.wire_second_output(1, 2), 24);
-        assert_eq!(gate.wire_switch_bool(1), 25);
-        assert_eq!(gate.wire_first_input(2, 0), 26);
-        assert_eq!(gate.wire_second_output(2, 2), 37);
-        assert_eq!(gate.wire_switch_bool(2), 38);
+        assert_eq!(gate.wire_z_bit(0, 8), 11);
+        assert_eq!(gate.wire_first_chunk_val(0, 0), 12);
+        assert_eq!(gate.wire_first_chunk_val(0, 4), 16);
+        assert_eq!(gate.wire_second_chunk_val(0, 0), 17);
+        assert_eq!(gate.wire_second_chunk_val(0, 4), 21);
+        assert_eq!(gate.wire_equality_dummy(0, 0), 22);
+        assert_eq!(gate.wire_equality_dummy(0, 4), 26);
+        assert_eq!(gate.wire_chunks_equal(0, 0), 27);
+        assert_eq!(gate.wire_chunks_equal(0, 4), 31);
+        assert_eq!(gate.wire_first_input(1), 32);
+        assert_eq!(gate.wire_chunks_equal(1, 4), 63);
+        assert_eq!(gate.wire_first_input(2), 64);
+        assert_eq!(gate.wire_chunks_equal(2, 4), 95);
     }
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(SwitchGate::<_, 4>::new_from_config(
+        let num_bits = 40;
+        let num_chunks = 5;
+
+        test_low_degree::<CrandallField, _, 4>(ComparisonGate::<_, 4>::new_from_config(
             CircuitConfig::large_config(),
-            3,
-        ));
+            num_bits,
+            num_chunks,
+        ))
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(SwitchGate::<_, 4>::new_from_config(
+        let num_bits = 40;
+        let num_chunks = 5;
+
+        test_eval_fns::<CrandallField, _, 4>(ComparisonGate::<_, 4>::new_from_config(
             CircuitConfig::large_config(),
-            3,
+            num_bits,
+            num_chunks,
         ))
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = CrandallField;
-        type FF = QuarticCrandallField;
-        const D: usize = 4;
-        const CHUNK_SIZE: usize = 4;
-        let num_copies = 3;
-
-        /// Returns the local wires for a switch gate given the inputs and the switch booleans.
-        fn get_wires(
-            first_inputs: Vec<Vec<F>>,
-            second_inputs: Vec<Vec<F>>,
-            switch_bools: Vec<bool>,
-        ) -> Vec<FF> {
-            let num_copies = first_inputs.len();
-
-            let mut v = Vec::new();
-            for c in 0..num_copies {
-                let switch = switch_bools[c];
-
-                let mut first_input_chunk = Vec::with_capacity(CHUNK_SIZE);
-                let mut second_input_chunk = Vec::with_capacity(CHUNK_SIZE);
-                let mut first_output_chunk = Vec::with_capacity(CHUNK_SIZE);
-                let mut second_output_chunk = Vec::with_capacity(CHUNK_SIZE);
-                for e in 0..CHUNK_SIZE {
-                    let first_input = first_inputs[c][e];
-                    let second_input = second_inputs[c][e];
-                    let first_output = if switch { second_input } else { first_input };
-                    let second_output = if switch { first_input } else { second_input };
-                    first_input_chunk.push(first_input);
-                    second_input_chunk.push(second_input);
-                    first_output_chunk.push(first_output);
-                    second_output_chunk.push(second_output);
-                }
-                v.append(&mut first_input_chunk);
-                v.append(&mut second_input_chunk);
-                v.append(&mut first_output_chunk);
-                v.append(&mut second_output_chunk);
-
-                v.push(F::from_bool(switch));
-            }
-
-            v.iter().map(|&x| x.into()).collect::<Vec<_>>()
-        }
-
-        let first_inputs: Vec<Vec<F>> = (0..num_copies).map(|_| F::rand_vec(CHUNK_SIZE)).collect();
-        let second_inputs: Vec<Vec<F>> = (0..num_copies).map(|_| F::rand_vec(CHUNK_SIZE)).collect();
-        let switch_bools = vec![true, false, true];
-
-        let gate = SwitchGate::<F, D> {
-            chunk_bits: CHUNK_SIZE,
-            num_copies,
-            _phantom: PhantomData,
-        };
-
-        let vars = EvaluationVars {
-            local_constants: &[],
-            local_wires: &get_wires(first_inputs, second_inputs, switch_bools),
-            public_inputs_hash: &HashOut::rand(),
-        };
-
-        assert!(
-            gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),
-            "Gate constraints are not satisfied."
-        );
+        todo!()
     }
 }
