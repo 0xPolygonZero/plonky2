@@ -504,7 +504,7 @@ mod tests {
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::algebra::ExtensionAlgebra;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
@@ -514,7 +514,7 @@ mod tests {
     #[test]
     fn test_mul_many() -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();
@@ -549,7 +549,7 @@ mod tests {
     #[test]
     fn test_div_extension() -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
         let config = CircuitConfig::large_zk_config();
@@ -577,7 +577,7 @@ mod tests {
     #[test]
     fn test_mul_algebra() -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();

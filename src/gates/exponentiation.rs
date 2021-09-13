@@ -267,7 +267,7 @@ mod tests {
     use rand::Rng;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::gates::exponentiation::ExponentiationGate;
     use crate::gates::gate::Gate;
@@ -315,7 +315,7 @@ mod tests {
     #[test]
     fn test_gate_constraint() {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
         /// Returns the local wires for an exponentiation gate given the base, power, and power bit

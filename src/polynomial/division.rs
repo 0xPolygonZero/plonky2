@@ -185,7 +185,7 @@ mod tests {
     use std::time::Instant;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::polynomial::polynomial::PolynomialCoeffs;
 
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_division_by_linear() {
-        type F = QuarticCrandallField;
+        type F = QuarticExtension<CrandallField>;
         let n = 1_000_000;
         let poly = PolynomialCoeffs::new(F::rand_vec(n));
         let z = F::rand();
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_division_by_quadratic() {
-        type F = QuarticCrandallField;
+        type F = QuarticExtension<CrandallField>;
         let n = 1_000_000;
         let poly = PolynomialCoeffs::new(F::rand_vec(n));
         let quad = PolynomialCoeffs::new(F::rand_vec(2));

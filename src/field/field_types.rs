@@ -51,6 +51,8 @@ pub trait Field:
     const NEG_ONE: Self;
 
     const CHARACTERISTIC: u64;
+
+    /// The 2-adicity of this field's multiplicative group.
     const TWO_ADICITY: usize;
 
     /// Generator of the entire multiplicative group, i.e. all non-zero elements.
