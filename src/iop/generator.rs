@@ -53,8 +53,7 @@ pub(crate) fn generate_partial_witness<F: RichField + Extendable<D>, const D: us
             for &(watch, _) in &buffer.target_values {
                 let opt_watchers = generator_indices_by_watches.get(&witness.target_index(watch));
                 if let Some(watchers) = opt_watchers {
-                    for &watching_generator_idx in watchers
-                    {
+                    for &watching_generator_idx in watchers {
                         if !generator_is_expired[watching_generator_idx] {
                             next_pending_generator_indices.push(watching_generator_idx);
                         }

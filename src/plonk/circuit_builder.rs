@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, BTreeMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::TryInto;
 use std::time::Instant;
 
@@ -626,7 +626,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             for watch in generator.watch_list() {
                 let watch_index = partition_witness.target_index(watch);
                 let watch_rep_index = partition_witness.forest[watch_index].parent;
-                generator_indices_by_watches.entry(watch_rep_index).or_insert(vec![]).push(i);
+                generator_indices_by_watches
+                    .entry(watch_rep_index)
+                    .or_insert(vec![])
+                    .push(i);
             }
         }
         for indices in generator_indices_by_watches.values_mut() {

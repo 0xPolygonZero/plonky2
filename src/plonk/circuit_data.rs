@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::ops::{Range, RangeFrom};
 
 use anyhow::Result;
@@ -16,7 +17,6 @@ use crate::plonk::proof::ProofWithPublicInputs;
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
 use crate::util::marking::MarkedTargets;
-use std::collections::BTreeMap;
 
 #[derive(Clone, Debug)]
 pub struct CircuitConfig {
