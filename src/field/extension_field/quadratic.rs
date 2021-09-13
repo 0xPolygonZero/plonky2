@@ -61,9 +61,9 @@ impl<F: AutoExtendable<2>> Field for QuadraticExtension<F> {
 
     const CHARACTERISTIC: u64 = F::CHARACTERISTIC;
 
-    // `p^2 - 1 = (p - 1)(p + 1)`. The `p - 1` term contributes `F::TWO_ADICITY` factors of two. As
+    // `p^2 - 1 = (p - 1)(p + 1)`. The `p - 1` term has a two-adicity of `F::TWO_ADICITY`. As
     // long as `F::TWO_ADICITY >= 2`, `p` can be written as `4n + 1`, so `p + 1` can be written as
-    // `2(2n + 1)`, which only has a single factor of 2.
+    // `2(2n + 1)`, which has a 2-adicity of 1.
     const TWO_ADICITY: usize = F::TWO_ADICITY + 1;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
