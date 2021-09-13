@@ -7,30 +7,26 @@ use num::traits::Pow;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::field::extension_field::{AutoExtendable, Extendable, FieldExtension, Frobenius, OEF};
+use crate::field::extension_field::{Extendable, FieldExtension, Frobenius, OEF};
 use crate::field::field_types::Field;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]
-pub struct QuarticExtension<F: AutoExtendable<4>>(pub(crate) [F; 4]);
+pub struct QuarticExtension<F: Extendable<4>>(pub(crate) [F; 4]);
 
-impl<F: AutoExtendable<4>> Extendable<4> for F {
-    type Extension = QuarticExtension<Self>;
-}
-
-impl<F: AutoExtendable<4>> Default for QuarticExtension<F> {
+impl<F: Extendable<4>> Default for QuarticExtension<F> {
     fn default() -> Self {
         Self::ZERO
     }
 }
 
-impl<F: AutoExtendable<4>> OEF<4> for QuarticExtension<F> {
+impl<F: Extendable<4>> OEF<4> for QuarticExtension<F> {
     const W: F = F::W;
 }
 
-impl<F: AutoExtendable<4>> Frobenius<4> for QuarticExtension<F> {}
+impl<F: Extendable<4>> Frobenius<4> for QuarticExtension<F> {}
 
-impl<F: AutoExtendable<4>> FieldExtension<4> for QuarticExtension<F> {
+impl<F: Extendable<4>> FieldExtension<4> for QuarticExtension<F> {
     type BaseField = F;
 
     fn to_basefield_array(&self) -> [F; 4] {
@@ -46,13 +42,13 @@ impl<F: AutoExtendable<4>> FieldExtension<4> for QuarticExtension<F> {
     }
 }
 
-impl<F: AutoExtendable<4>> From<F> for QuarticExtension<F> {
+impl<F: Extendable<4>> From<F> for QuarticExtension<F> {
     fn from(x: F) -> Self {
         Self([x, F::ZERO, F::ZERO, F::ZERO])
     }
 }
 
-impl<F: AutoExtendable<4>> Field for QuarticExtension<F> {
+impl<F: Extendable<4>> Field for QuarticExtension<F> {
     type PrimeField = F;
 
     const ZERO: Self = Self([F::ZERO; 4]);
@@ -112,7 +108,7 @@ impl<F: AutoExtendable<4>> Field for QuarticExtension<F> {
     }
 }
 
-impl<F: AutoExtendable<4>> Display for QuarticExtension<F> {
+impl<F: Extendable<4>> Display for QuarticExtension<F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -122,13 +118,13 @@ impl<F: AutoExtendable<4>> Display for QuarticExtension<F> {
     }
 }
 
-impl<F: AutoExtendable<4>> Debug for QuarticExtension<F> {
+impl<F: Extendable<4>> Debug for QuarticExtension<F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl<F: AutoExtendable<4>> Neg for QuarticExtension<F> {
+impl<F: Extendable<4>> Neg for QuarticExtension<F> {
     type Output = Self;
 
     #[inline]
@@ -137,7 +133,7 @@ impl<F: AutoExtendable<4>> Neg for QuarticExtension<F> {
     }
 }
 
-impl<F: AutoExtendable<4>> Add for QuarticExtension<F> {
+impl<F: Extendable<4>> Add for QuarticExtension<F> {
     type Output = Self;
 
     #[inline]
@@ -151,19 +147,19 @@ impl<F: AutoExtendable<4>> Add for QuarticExtension<F> {
     }
 }
 
-impl<F: AutoExtendable<4>> AddAssign for QuarticExtension<F> {
+impl<F: Extendable<4>> AddAssign for QuarticExtension<F> {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
 
-impl<F: AutoExtendable<4>> Sum for QuarticExtension<F> {
+impl<F: Extendable<4>> Sum for QuarticExtension<F> {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::ZERO, |acc, x| acc + x)
     }
 }
 
-impl<F: AutoExtendable<4>> Sub for QuarticExtension<F> {
+impl<F: Extendable<4>> Sub for QuarticExtension<F> {
     type Output = Self;
 
     #[inline]
@@ -177,14 +173,14 @@ impl<F: AutoExtendable<4>> Sub for QuarticExtension<F> {
     }
 }
 
-impl<F: AutoExtendable<4>> SubAssign for QuarticExtension<F> {
+impl<F: Extendable<4>> SubAssign for QuarticExtension<F> {
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
 }
 
-impl<F: AutoExtendable<4>> Mul for QuarticExtension<F> {
+impl<F: Extendable<4>> Mul for QuarticExtension<F> {
     type Output = Self;
 
     #[inline]
@@ -201,20 +197,20 @@ impl<F: AutoExtendable<4>> Mul for QuarticExtension<F> {
     }
 }
 
-impl<F: AutoExtendable<4>> MulAssign for QuarticExtension<F> {
+impl<F: Extendable<4>> MulAssign for QuarticExtension<F> {
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
 
-impl<F: AutoExtendable<4>> Product for QuarticExtension<F> {
+impl<F: Extendable<4>> Product for QuarticExtension<F> {
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::ONE, |acc, x| acc * x)
     }
 }
 
-impl<F: AutoExtendable<4>> Div for QuarticExtension<F> {
+impl<F: Extendable<4>> Div for QuarticExtension<F> {
     type Output = Self;
 
     #[allow(clippy::suspicious_arithmetic_impl)]
@@ -223,7 +219,7 @@ impl<F: AutoExtendable<4>> Div for QuarticExtension<F> {
     }
 }
 
-impl<F: AutoExtendable<4>> DivAssign for QuarticExtension<F> {
+impl<F: Extendable<4>> DivAssign for QuarticExtension<F> {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
@@ -233,7 +229,7 @@ impl<F: AutoExtendable<4>> DivAssign for QuarticExtension<F> {
 mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
-    use crate::field::extension_field::{FieldExtension, Frobenius};
+    use crate::field::extension_field::Frobenius;
     use crate::field::field_types::Field;
     use crate::test_field_arithmetic;
 
