@@ -56,7 +56,7 @@ unsafe fn iteration8<const INDEX: usize, const SHIFT: i32>(
 ) -> [Vecs128; 2]
 // 2 vectors of 4 needed to represent entire state.
 where
-    [(); { INDEX + 4 }]: ,
+    [(); INDEX + 4]: ,
     [(); (64 - SHIFT) as usize]: ,
 {
     // Entire state, rotated by INDEX.
@@ -130,8 +130,8 @@ unsafe fn iteration12<const INDEX: usize, const SHIFT: i32>(
 ) -> [Vecs128; 3]
 // 3 vectors of 4 needed to represent entire state.
 where
-    [(); { INDEX + 4 }]: ,
-    [(); { INDEX + 8 }]: ,
+    [(); INDEX + 4]: ,
+    [(); INDEX + 8]: ,
     [(); (64 - SHIFT) as usize]: ,
 {
     // Entire state, rotated by INDEX.

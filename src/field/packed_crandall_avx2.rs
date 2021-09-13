@@ -5,7 +5,6 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::field::crandall_field::CrandallField;
-use crate::field::field_types::Field;
 use crate::field::packed_field::PackedField;
 
 // PackedCrandallAVX2 wraps an array of four u64s, with the new and get methods to convert that
@@ -470,7 +469,7 @@ unsafe fn interleave1(x: __m256i, y: __m256i) -> (__m256i, __m256i) {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::crandall_field::CrandallField;
+    use crate::field::field_types::Field;
     use crate::field::packed_crandall_avx2::*;
 
     const TEST_VALS_A: [CrandallField; 4] = [
