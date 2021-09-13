@@ -8,3 +8,6 @@ pub mod rescue;
 
 #[cfg(target_feature = "avx2")]
 mod poseidon_avx2;
+
+#[cfg(target_feature = "neon")]
+mod poseidon_neon;
