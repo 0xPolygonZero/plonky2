@@ -16,6 +16,7 @@ use crate::plonk::proof::ProofWithPublicInputs;
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
 use crate::util::marking::MarkedTargets;
+use std::collections::BTreeMap;
 
 #[derive(Clone, Debug)]
 pub struct CircuitConfig {
@@ -143,7 +144,7 @@ pub(crate) struct ProverOnlyCircuitData<F: RichField + Extendable<D>, const D: u
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
     /// Generator indices (within the `Vec` above), indexed by the representative of each target
     /// they watch.
-    pub generator_indices_by_watches: Vec<Vec<usize>>,
+    pub generator_indices_by_watches: BTreeMap<usize, Vec<usize>>,
     /// Commitments to the constants polynomials and sigma polynomials.
     pub constants_sigmas_commitment: PolynomialBatchCommitment<F>,
     /// The transpose of the list of sigma polynomials.
