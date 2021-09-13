@@ -4,7 +4,8 @@ use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::gates::gmimc::GMiMCGate;
 use crate::hash::gmimc::GMiMC;
-use crate::iop::target::Target;
+use crate::hash::hashing::{HashFamily, HASH_FAMILY};
+use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -14,7 +15,37 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     where
         F: GMiMC<W>,
     {
-        let zero = self.zero();
+        // We don't want to swap any inputs, so set that wire to 0.
+        let _false = self._false();
+        self.permute_swapped(inputs, _false)
+    }
+
+    /// Conditionally swap two chunks of the inputs (useful in verifying Merkle proofs), then apply
+    /// a cryptographic permutation.
+    pub(crate) fn permute_swapped<const W: usize>(
+        &mut self,
+        inputs: [Target; W],
+        swap: BoolTarget,
+    ) -> [Target; W]
+    where
+        F: GMiMC<W>,
+    {
+        match HASH_FAMILY {
+            HashFamily::GMiMC => self.gmimc_permute_swapped(inputs, swap),
+            HashFamily::Poseidon => todo!(),
+        }
+    }
+
+    /// Conditionally swap two chunks of the inputs (useful in verifying Merkle proofs), then apply
+    /// the GMiMC permutation.
+    pub(crate) fn gmimc_permute_swapped<const W: usize>(
+        &mut self,
+        inputs: [Target; W],
+        swap: BoolTarget,
+    ) -> [Target; W]
+    where
+        F: GMiMC<W>,
+    {
         let gate_type = GMiMCGate::<F, D, W>::new();
         let gate = self.add_gate(gate_type, vec![]);
 
@@ -24,7 +55,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             gate,
             input: swap_wire,
         });
-        self.connect(zero, swap_wire);
+        self.connect(swap.target, swap_wire);
 
         // Route input wires.
         for i in 0..W {

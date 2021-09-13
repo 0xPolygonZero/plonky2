@@ -12,10 +12,11 @@ use serde::Serialize;
 
 use crate::field::extension_field::Frobenius;
 use crate::hash::gmimc::GMiMC;
+use crate::hash::poseidon::Poseidon;
 use crate::util::bits_u64;
 
 /// A prime order field with the features we need to use it as a base field in our argument system.
-pub trait RichField: PrimeField + GMiMC<12> {}
+pub trait RichField: PrimeField + GMiMC<12> + Poseidon<12> {}
 
 /// A finite field.
 pub trait Field:
@@ -50,6 +51,8 @@ pub trait Field:
     const NEG_ONE: Self;
 
     const CHARACTERISTIC: u64;
+
+    /// The 2-adicity of this field's multiplicative group.
     const TWO_ADICITY: usize;
 
     /// Generator of the entire multiplicative group, i.e. all non-zero elements.
@@ -278,35 +281,6 @@ pub trait Field:
             base: *self,
             current: Self::ONE,
         }
-    }
-
-    /// Apply an MDS matrix to the given vector. Any MDS matrix can be used, as long as the same one
-    /// is used among calls with the same vector length.
-    ///
-    /// Note that the default implementation is quite slow. If speed is important, this should be
-    /// overridden with a field-specific implementation which applies a precomputed MDS matrix.
-    fn mds(vec: Vec<Self>) -> Vec<Self> {
-        // We use a Cauchy matrix with x_r = n + r, y_c = c.
-        let n = vec.len();
-        let mut result = Vec::with_capacity(n);
-        for r in 0..n {
-            let mut sum = Self::ZERO;
-            for c in 0..n {
-                let x = Self::from_canonical_usize(n + r);
-                let y = Self::from_canonical_usize(c);
-                // This is the (r, c) entry of the Cauchy matrix.
-                let entry = (x - y).inverse();
-                sum += entry * vec[c];
-            }
-            result.push(sum);
-        }
-        result
-    }
-
-    /// Like `mds`, but specialized to n=8. For specific fields, this can be overridden with an
-    /// impl which applies a fast, precomputed 8x8 MDS matrix.
-    fn mds_8(vec: [Self; 8]) -> [Self; 8] {
-        Self::mds(vec.to_vec()).try_into().unwrap()
     }
 
     fn rand() -> Self {

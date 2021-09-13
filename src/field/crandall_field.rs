@@ -8,98 +8,14 @@ use num::bigint::BigUint;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::field::extension_field::quadratic::QuadraticCrandallField;
-use crate::field::extension_field::quartic::QuarticCrandallField;
+use crate::field::extension_field::quadratic::QuadraticExtension;
+use crate::field::extension_field::quartic::QuarticExtension;
 use crate::field::extension_field::{Extendable, Frobenius};
 use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::field::inversion::try_inverse_u64;
 
 /// EPSILON = 9 * 2**28 - 1
 const EPSILON: u64 = 2415919103;
-
-/// A precomputed 8*8 Cauchy matrix, generated with `Field::mds_8`.
-const CAUCHY_MDS_8: [[CrandallField; 8]; 8] = [
-    [
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-        CrandallField(3074457345215605419),
-        CrandallField(11068046442776179508),
-        CrandallField(13835058053470224385),
-        CrandallField(6148914690431210838),
-        CrandallField(9223372035646816257),
-        CrandallField(1),
-    ],
-    [
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-        CrandallField(3074457345215605419),
-        CrandallField(11068046442776179508),
-        CrandallField(13835058053470224385),
-        CrandallField(6148914690431210838),
-        CrandallField(9223372035646816257),
-    ],
-    [
-        CrandallField(5534023221388089754),
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-        CrandallField(3074457345215605419),
-        CrandallField(11068046442776179508),
-        CrandallField(13835058053470224385),
-        CrandallField(6148914690431210838),
-    ],
-    [
-        CrandallField(16769767337539665921),
-        CrandallField(5534023221388089754),
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-        CrandallField(3074457345215605419),
-        CrandallField(11068046442776179508),
-        CrandallField(13835058053470224385),
-    ],
-    [
-        CrandallField(10760600708254618966),
-        CrandallField(16769767337539665921),
-        CrandallField(5534023221388089754),
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-        CrandallField(3074457345215605419),
-        CrandallField(11068046442776179508),
-    ],
-    [
-        CrandallField(5675921252705733081),
-        CrandallField(10760600708254618966),
-        CrandallField(16769767337539665921),
-        CrandallField(5534023221388089754),
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-        CrandallField(3074457345215605419),
-    ],
-    [
-        CrandallField(1317624576520973751),
-        CrandallField(5675921252705733081),
-        CrandallField(10760600708254618966),
-        CrandallField(16769767337539665921),
-        CrandallField(5534023221388089754),
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-    ],
-    [
-        CrandallField(15987178195121148178),
-        CrandallField(1317624576520973751),
-        CrandallField(5675921252705733081),
-        CrandallField(10760600708254618966),
-        CrandallField(16769767337539665921),
-        CrandallField(5534023221388089754),
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-    ],
-];
 
 /// A field designed for use with the Crandall reduction algorithm.
 ///
@@ -257,17 +173,6 @@ impl Field for CrandallField {
         let x74 = x73 * x39;
         x74
     }
-
-    fn mds_8(vec: [Self; 8]) -> [Self; 8] {
-        let mut result = [Self::ZERO; 8];
-        for r in 0..8 {
-            for c in 0..8 {
-                let entry = CAUCHY_MDS_8[r][c];
-                result[r] += entry * vec[c];
-            }
-        }
-        result
-    }
 }
 
 impl PrimeField for CrandallField {
@@ -382,11 +287,32 @@ impl DivAssign for CrandallField {
 }
 
 impl Extendable<2> for CrandallField {
-    type Extension = QuadraticCrandallField;
+    type Extension = QuadraticExtension<Self>;
+
+    // Verifiable in Sage with
+    // `R.<x> = GF(p)[]; assert (x^2 - 3).is_irreducible()`.
+    const W: Self = Self(3);
+
+    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 2] =
+        [Self(6483724566312148654), Self(12194665049945415126)];
+
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 2] = [Self(0), Self(14420468973723774561)];
 }
 
 impl Extendable<4> for CrandallField {
-    type Extension = QuarticCrandallField;
+    type Extension = QuarticExtension<Self>;
+
+    const W: Self = Self(3);
+
+    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 4] = [
+        Self(12476589904174392631),
+        Self(896937834427772243),
+        Self(7795248119019507390),
+        Self(9005769437373554825),
+    ];
+
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 4] =
+        [Self(0), Self(0), Self(0), Self(15170983443234254033)];
 }
 
 impl RichField for CrandallField {}

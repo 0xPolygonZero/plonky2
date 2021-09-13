@@ -50,6 +50,9 @@ pub trait PackedField:
     fn from_arr(arr: [Self::FieldType; Self::WIDTH]) -> Self;
     fn to_arr(&self) -> [Self::FieldType; Self::WIDTH];
 
+    fn from_slice(slice: &[Self::FieldType]) -> Self;
+    fn to_vec(&self) -> Vec<Self::FieldType>;
+
     /// Take interpret two vectors as chunks of (1 << r) elements. Unpack and interleave those
     /// chunks. This is best seen with an example. If we have:
     ///     A = [x0, y0, x1, y1],
@@ -183,11 +186,24 @@ impl<F: Field> PackedField for Singleton<F> {
         [self.0]
     }
 
+    fn from_slice(slice: &[Self::FieldType]) -> Self {
+        assert!(slice.len() == 1);
+        Self(slice[0])
+    }
+
+    fn to_vec(&self) -> Vec<Self::FieldType> {
+        vec![self.0]
+    }
+
     fn interleave(&self, other: Self, r: usize) -> (Self, Self) {
         match r {
             0 => (*self, other), // This is a no-op whenever r == LOG2_WIDTH.
             _ => panic!("r cannot be more than LOG2_WIDTH"),
         }
+    }
+
+    fn square(&self) -> Self {
+        Self(self.0.square())
     }
 }
 

@@ -36,7 +36,7 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::extension_field::FieldExtension;
     use crate::field::field_types::Field;
     use crate::field::interpolation::interpolant;
@@ -48,7 +48,7 @@ mod tests {
     #[test]
     fn test_interpolate() -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);

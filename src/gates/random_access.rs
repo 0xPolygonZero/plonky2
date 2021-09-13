@@ -255,7 +255,7 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
@@ -293,7 +293,7 @@ mod tests {
     #[test]
     fn test_gate_constraint() {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
         /// Returns the local wires for a random access gate given the vector, element to compare,

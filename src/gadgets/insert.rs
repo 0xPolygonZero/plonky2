@@ -44,7 +44,7 @@ mod tests {
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
@@ -62,7 +62,7 @@ mod tests {
 
     fn test_insert_given_len(len_log: usize) -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         let len = 1 << len_log;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new();
