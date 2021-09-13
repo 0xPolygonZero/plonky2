@@ -18,15 +18,19 @@ unsafe fn shift_and_accumulate<const SHIFT: i32>(
     (hi_cumul, lo_cumul): Vecs128,
 ) -> Vecs128
 where
-    [(); (63 - SHIFT) as usize]: ,
+    [(); (64 - SHIFT) as usize]: ,
 {
     let x_shifted_lo = vshlq_n_u64::<SHIFT>(x);
     let res_lo = vaddq_u64(lo_cumul, x_shifted_lo);
     let carry = vcgtq_u64(lo_cumul, res_lo);
     // This works around a bug in Rust's NEON intrisics. A shift by 64, even though well-defined
-    // in ARM's docs, is considered undefined behavior by LLVM. Instead of shifting by 64 - x, we
-    // shift by 1 and then by 63 - x to avoid this UB.
-    let tmp_hi = vsraq_n_u64::<{ 63 - SHIFT }>(hi_cumul, vshrq_n_u64::<1>(x));
+    // in ARM's docs, is considered undefined behavior by LLVM. Avoid the intrinsic when
+    // SHIFT == 0.
+    let tmp_hi = if SHIFT == 0 {
+        hi_cumul
+    } else {
+        vsraq_n_u64::<{ 64 - SHIFT }>(hi_cumul, x)
+    };
     let res_hi = vsubq_u64(tmp_hi, carry);
     (res_hi, res_lo)
 }
@@ -59,7 +63,7 @@ where
     [(); INDEX + 2]: ,
     [(); INDEX + 4]: ,
     [(); INDEX + 6]: ,
-    [(); (63 - SHIFT) as usize]: ,
+    [(); (64 - SHIFT) as usize]: ,
 {
     // Entire state, rotated by INDEX.
     let state0 = get_vector_with_offset::<8, INDEX>(state);
@@ -145,7 +149,7 @@ where
     [(); INDEX + 6]: ,
     [(); INDEX + 8]: ,
     [(); INDEX + 10]: ,
-    [(); (63 - SHIFT) as usize]: ,
+    [(); (64 - SHIFT) as usize]: ,
 {
     // Entire state, rotated by INDEX.
     let state0 = get_vector_with_offset::<12, INDEX>(state);
@@ -212,7 +216,7 @@ pub fn crandall_poseidon12_mds_neon(state: [CrandallField; 12]) -> [CrandallFiel
 unsafe fn reduce96(x: Vecs128) -> uint64x2_t {
     let (hi, lo) = x;
     let hi_lo = vmovn_u64(hi); // Extract the low 32 bits of each 64-bit element
-    mul_add_no_canonicalize_64_64(hi_lo, vmov_n_u32(EPSILON as u32), lo)
+    mul_add_32_32_64(hi_lo, vmov_n_u32(EPSILON as u32), lo)
 }
 
 // x * y + z in the prime field. x and y are u32; z is u64.
