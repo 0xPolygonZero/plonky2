@@ -45,12 +45,9 @@ pub trait Frobenius<const D: usize>: OEF<D> {
     }
 }
 
-pub trait Extendable<const D: usize>: Field + Sized {
+pub trait Extendable<const D: usize>: PrimeField + Sized {
     type Extension: Field + OEF<D, BaseField = Self> + Frobenius<D> + From<Self>;
-}
 
-/// A description of an optimal extension field, with this field as the base.
-pub trait AutoExtendable<const D: usize>: PrimeField {
     const W: Self;
 
     const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; D];
@@ -61,8 +58,11 @@ pub trait AutoExtendable<const D: usize>: PrimeField {
     const EXT_POWER_OF_TWO_GENERATOR: [Self; D];
 }
 
-impl<F: Frobenius<1> + FieldExtension<1, BaseField = F>> Extendable<1> for F {
+impl<F: PrimeField + Frobenius<1> + FieldExtension<1, BaseField = F>> Extendable<1> for F {
     type Extension = F;
+    const W: Self = F::ZERO;
+    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 1] = [F::MULTIPLICATIVE_GROUP_GENERATOR];
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 1] = [F::POWER_OF_TWO_GENERATOR];
 }
 
 pub trait FieldExtension<const D: usize>: Field {
