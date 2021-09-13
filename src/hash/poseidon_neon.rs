@@ -47,11 +47,11 @@ unsafe fn extract<const INDEX: i32>(v: uint64x2_t) -> CrandallField {
     CrandallField(vgetq_lane_u64::<INDEX>(v))
 }
 
-type StateVecs8 = (Vecs128, Vecs128, Vecs128, Vecs128);
+type StateVecs8 = [Vecs128; 4];
 
 #[inline(always)]
 unsafe fn iteration8<const INDEX: usize, const SHIFT: i32>(
-    (cumul0, cumul1, cumul2, cumul3): StateVecs8,
+    [cumul0, cumul1, cumul2, cumul3]: StateVecs8,
     state: [CrandallField; 8],
 ) -> StateVecs8
 // 4 vectors of 2 needed to represent entire state.
@@ -66,23 +66,43 @@ where
     let state1 = get_vector_with_offset::<8, { INDEX + 2 }>(state);
     let state2 = get_vector_with_offset::<8, { INDEX + 4 }>(state);
     let state3 = get_vector_with_offset::<8, { INDEX + 6 }>(state);
-    (
+    [
         shift_and_accumulate::<SHIFT>(state0, cumul0),
         shift_and_accumulate::<SHIFT>(state1, cumul1),
         shift_and_accumulate::<SHIFT>(state2, cumul2),
         shift_and_accumulate::<SHIFT>(state3, cumul3),
-    )
+    ]
 }
 
 #[inline(always)]
 pub fn crandall_poseidon8_mds_neon(state: [CrandallField; 8]) -> [CrandallField; 8] {
     unsafe {
-        let mut res = (
-            (vmovq_n_u64(0), vmovq_n_u64(0)),
-            (vmovq_n_u64(0), vmovq_n_u64(0)),
-            (vmovq_n_u64(0), vmovq_n_u64(0)),
-            (vmovq_n_u64(0), vmovq_n_u64(0)),
-        );
+        let mut res = [(vmovq_n_u64(0), vmovq_n_u64(0)); 4];
+
+        // The scalar loop goes:
+        //     for r in 0..WIDTH {
+        //         let mut res = 0u128;
+        //         for i in 0..WIDTH {
+        //             res += (state[(i + r) % WIDTH] as u128) << MDS_MATRIX_EXPS[i];
+        //         }
+        //         result[r] = reduce(res);
+        //     }
+        //
+        // Here, we swap the loops. Equivalent to:
+        //     let mut res = [0u128; WIDTH];
+        //     for i in 0..WIDTH {
+        //         let mds_matrix_exp = MDS_MATRIX_EXPS[i];
+        //         for r in 0..WIDTH {
+        //             res[r] += (state[(i + r) % WIDTH] as u128) << mds_matrix_exp;
+        //         }
+        //     }
+        //     for r in 0..WIDTH {
+        //         result[r] = reduce(res[r]);
+        //     }
+        //
+        // Notice that that in the lower version, all iterations of the inner loop shift by the same
+        // amount. In vector, we perform multiple iterations of the loop at once, and vector shifts
+        // are cheaper when all elements are shifted by the same amount.
 
         res = iteration8::<0, { MDS_MATRIX_EXPS8[0] }>(res, state);
         res = iteration8::<1, { MDS_MATRIX_EXPS8[1] }>(res, state);
@@ -93,7 +113,7 @@ pub fn crandall_poseidon8_mds_neon(state: [CrandallField; 8]) -> [CrandallField;
         res = iteration8::<6, { MDS_MATRIX_EXPS8[6] }>(res, state);
         res = iteration8::<7, { MDS_MATRIX_EXPS8[7] }>(res, state);
 
-        let (res0, res1, res2, res3) = res;
+        let [res0, res1, res2, res3] = res;
         let reduced0 = reduce96(res0);
         let reduced1 = reduce96(res1);
         let reduced2 = reduce96(res2);
@@ -111,11 +131,11 @@ pub fn crandall_poseidon8_mds_neon(state: [CrandallField; 8]) -> [CrandallField;
     }
 }
 
-type StateVecs12 = (Vecs128, Vecs128, Vecs128, Vecs128, Vecs128, Vecs128);
+type StateVecs12 = [Vecs128; 6];
 
 #[inline(always)]
 unsafe fn iteration12<const INDEX: usize, const SHIFT: i32>(
-    (cumul0, cumul1, cumul2, cumul3, cumul4, cumul5): StateVecs12,
+    [cumul0, cumul1, cumul2, cumul3, cumul4, cumul5]: StateVecs12,
     state: [CrandallField; 12],
 ) -> StateVecs12
 // 6 vectors of 2 needed to represent entire state.
@@ -134,27 +154,22 @@ where
     let state3 = get_vector_with_offset::<12, { INDEX + 6 }>(state);
     let state4 = get_vector_with_offset::<12, { INDEX + 8 }>(state);
     let state5 = get_vector_with_offset::<12, { INDEX + 10 }>(state);
-    (
+    [
         shift_and_accumulate::<SHIFT>(state0, cumul0),
         shift_and_accumulate::<SHIFT>(state1, cumul1),
         shift_and_accumulate::<SHIFT>(state2, cumul2),
         shift_and_accumulate::<SHIFT>(state3, cumul3),
         shift_and_accumulate::<SHIFT>(state4, cumul4),
         shift_and_accumulate::<SHIFT>(state5, cumul5),
-    )
+    ]
 }
 
 #[inline(always)]
 pub fn crandall_poseidon12_mds_neon(state: [CrandallField; 12]) -> [CrandallField; 12] {
     unsafe {
-        let mut res = (
-            (vmovq_n_u64(0), vmovq_n_u64(0)),
-            (vmovq_n_u64(0), vmovq_n_u64(0)),
-            (vmovq_n_u64(0), vmovq_n_u64(0)),
-            (vmovq_n_u64(0), vmovq_n_u64(0)),
-            (vmovq_n_u64(0), vmovq_n_u64(0)),
-            (vmovq_n_u64(0), vmovq_n_u64(0)),
-        );
+        let mut res = [(vmovq_n_u64(0), vmovq_n_u64(0)); 6];
+
+        // See width-8 version for explanation.
 
         res = iteration12::<0, { MDS_MATRIX_EXPS12[0] }>(res, state);
         res = iteration12::<1, { MDS_MATRIX_EXPS12[1] }>(res, state);
@@ -169,7 +184,7 @@ pub fn crandall_poseidon12_mds_neon(state: [CrandallField; 12]) -> [CrandallFiel
         res = iteration12::<10, { MDS_MATRIX_EXPS12[10] }>(res, state);
         res = iteration12::<11, { MDS_MATRIX_EXPS12[11] }>(res, state);
 
-        let (res0, res1, res2, res3, res4, res5) = res;
+        let [res0, res1, res2, res3, res4, res5] = res;
         let reduced0 = reduce96(res0);
         let reduced1 = reduce96(res1);
         let reduced2 = reduce96(res2);
@@ -200,8 +215,10 @@ unsafe fn reduce96(x: Vecs128) -> uint64x2_t {
     mul_add_no_canonicalize_64_64(hi_lo, vmov_n_u32(EPSILON as u32), lo)
 }
 
+// x * y + z in the prime field. x and y are u32; z is u64.
 #[inline(always)]
-unsafe fn mul_add_no_canonicalize_64_64(x: uint32x2_t, y: uint32x2_t, z: uint64x2_t) -> uint64x2_t {
+unsafe fn mul_add_32_32_64(x: uint32x2_t, y: uint32x2_t, z: uint64x2_t) -> uint64x2_t {
+    // No canonicalization needed because x * y + z < 2^64 + FIELD_ORDER.
     let res_wrapped = vmlal_u32(z, x, y);
     let mask = vcgtq_u64(z, res_wrapped);
     let res_unwrapped = vaddq_u64(res_wrapped, vmovq_n_u64(EPSILON));
