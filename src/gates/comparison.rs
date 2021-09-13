@@ -137,11 +137,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             constraints.push(first_chunks_combined - first_input);
             constraints.push(second_chunks_combined - second_input);
 
-            // Get bits to assert they match the chosen chunk.
-            let powers_of_two: Vec<F::Extension> = (0..self.chunk_bits())
-                .map(|i| F::Extension::TWO.exp_u64(i as u64))
-                .collect();
-
             let mut most_significant_diff =
                 first_chunks[self.num_chunks - 1] - second_chunks[self.num_chunks - 1];
 
@@ -221,11 +216,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
     }
 
     fn degree(&self) -> usize {
-        2
+        self.num_chunks + 1
     }
 
     fn num_constraints(&self) -> usize {
-        4 * self.num_copies * self.chunk_bits()
+        self.num_copies * (4 + 2 * self.num_chunks)
     }
 }
 
