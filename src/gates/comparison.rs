@@ -206,6 +206,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let first_input_u64 = first_input.to_canonical_u64();
         let second_input_u64 = second_input.to_canonical_u64();
 
+        debug_assert!(first_input_u64 < second_input_u64);
+
         let first_input_bits: Vec<F> = (0..self.gate.num_bits)
             .scan(first_input_u64, |acc, _| {
                 let tmp = *acc % 2;
