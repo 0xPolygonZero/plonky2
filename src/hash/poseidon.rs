@@ -1,6 +1,8 @@
 //! Implementation of the Poseidon hash function, as described in
 //! https://eprint.iacr.org/2019/458.pdf
 
+use std::convert::TryInto;
+
 use unroll::unroll_for_loops;
 
 use crate::field::crandall_field::CrandallField;
@@ -26,6 +28,9 @@ const MAX_WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :
 // random numbers.
 #[rustfmt::skip]
 const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
+    // WARNING: These must be in 0..CrandallField::ORDER (i.e. canonical form). If this condition is
+    // not met, some platform-specific implementation of constant_layer may return incorrect
+    // results.
     0xb585f767417ee042, 0x7746a55f77c10331, 0xb2fb0d321d356f7a, 0x0f6760a486f1621f,
     0xe10d6666b36abcdf, 0x8cae14cb455cc50b, 0xd438539cf2cee334, 0xef781c7d4c1fd8b4,
     0xcdc4a23a0aca4b1f, 0x277fa208d07b52e3, 0xe17653a300493d38, 0xc54302f27c287dc1,
@@ -496,6 +501,14 @@ impl Poseidon<8> for CrandallField {
 
     #[cfg(target_feature="avx2")]
     #[inline(always)]
+    fn constant_layer(state: &mut [Self; 8], round_ctr: usize) {
+        // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
+        unsafe { crate::hash::poseidon_avx2::crandall_poseidon_const_avx2::<2>(state,
+            ALL_ROUND_CONSTANTS[8 * round_ctr..8 * round_ctr + 8].try_into().unwrap()) };
+    }
+
+    #[cfg(target_feature="avx2")]
+    #[inline(always)]
     fn mds_layer(state_: &[CrandallField; 8]) -> [CrandallField; 8] {
         crate::hash::poseidon_avx2::crandall_poseidon8_mds_avx2(*state_)
     }
@@ -710,6 +723,14 @@ impl Poseidon<12> for CrandallField {
          0x857f31827fb3fe60, 0xfdb6ca0a6d5cc865, 0x7e60116e98d5e20c, 0x685ef5a6b9e241d3,
          0xe7ad8152c5d50bed, 0xb5d5efb12203ef9a, 0x8a041eb885fb24f5, ],
     ];
+
+    #[cfg(target_feature="avx2")]
+    #[inline(always)]
+    fn constant_layer(state: &mut [Self; 12], round_ctr: usize) {
+        // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
+        unsafe { crate::hash::poseidon_avx2::crandall_poseidon_const_avx2::<3>(state,
+            ALL_ROUND_CONSTANTS[12 * round_ctr..12 * round_ctr + 12].try_into().unwrap()) };
+    }
 
     #[cfg(target_feature="avx2")]
     #[inline(always)]

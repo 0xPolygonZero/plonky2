@@ -2,6 +2,8 @@ use core::arch::x86_64::*;
 
 use crate::field::crandall_field::CrandallField;
 use crate::field::field_types::PrimeField;
+use crate::field::packed_avx2::PackedCrandallAVX2;
+use crate::field::packed_field::PackedField;
 
 const EPSILON: u64 = 0u64.wrapping_sub(CrandallField::ORDER);
 const SIGN_BIT: u64 = 1 << 63;
@@ -201,4 +203,20 @@ unsafe fn add_no_canonicalize_64_64s(x: __m256i, y_s: __m256i) -> __m256i {
     let wrapback_amt = _mm256_and_si256(mask, _mm256_set1_epi64x(EPSILON as i64));
     let res = _mm256_add_epi64(res_wrapped, wrapback_amt);
     res
+}
+
+/// Poseidon constant layer for Crandall. Assumes that every element in offsets is in
+/// 0..CrandallField::ORDER; when this is not true it may return garbage. It's marked unsafe for
+/// this reason.
+#[inline(always)]
+pub unsafe fn crandall_poseidon_const_avx2<const PACKED_WIDTH: usize>(
+    state: &mut [CrandallField; 4 * PACKED_WIDTH],
+    offsets: [u64; 4 * PACKED_WIDTH],
+) {
+    let packed_state = PackedCrandallAVX2::pack_slice_mut(state);
+    let packed_offsets =
+        std::slice::from_raw_parts((&offsets).as_ptr().cast::<__m256i>(), PACKED_WIDTH);
+    for i in 0..PACKED_WIDTH {
+        packed_state[i] = packed_state[i].add_canonical_u64(packed_offsets[i]);
+    }
 }

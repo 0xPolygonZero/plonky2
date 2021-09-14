@@ -43,6 +43,13 @@ impl<F: ReducibleAVX2> PackedPrimeField<F> {
         let ptr = (&self.0).as_ptr().cast::<__m256i>();
         unsafe { _mm256_loadu_si256(ptr) }
     }
+
+    /// Addition that assumes x + y < 2^64 + F::ORDER. May return incorrect results if this
+    /// condition is not met, hence it is marked unsafe.
+    #[inline]
+    pub unsafe fn add_canonical_u64(&self, rhs: __m256i) -> Self {
+        Self::new(add_canonical_u64::<F>(self.get(), rhs))
+    }
 }
 
 impl<F: ReducibleAVX2> Add<Self> for PackedPrimeField<F> {
@@ -284,6 +291,14 @@ unsafe fn canonicalize_s<F: PrimeField>(x_s: __m256i) -> __m256i {
     // wrapback_amt is -FIELD_ORDER if mask is 0; otherwise 0.
     let wrapback_amt = _mm256_andnot_si256(mask, epsilon::<F>());
     _mm256_add_epi64(x_s, wrapback_amt)
+}
+
+/// Addition that assumes x + y < 2^64 + F::ORDER.
+#[inline]
+unsafe fn add_canonical_u64<F: PrimeField>(x: __m256i, y: __m256i) -> __m256i {
+    let y_s = shift(y);
+    let res_s = add_no_canonicalize_64_64s_s::<F>(x, y_s);
+    shift(res_s)
 }
 
 #[inline]
