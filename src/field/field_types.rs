@@ -308,6 +308,8 @@ pub trait PrimeField: Field {
     fn to_canonical_u64(&self) -> u64;
 
     fn to_noncanonical_u64(&self) -> u64;
+
+    fn from_noncanonical_u64(n: u64) -> Self;
 }
 
 /// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
