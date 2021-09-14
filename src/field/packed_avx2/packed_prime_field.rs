@@ -5,8 +5,10 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::field::field_types::PrimeField;
+use crate::field::packed_avx2::common::{
+    add_no_canonicalize_64_64s_s, epsilon, field_order, ReducibleAVX2,
+};
 use crate::field::packed_field::PackedField;
-use crate::field::packed_avx2::common::{ReducibleAVX2, add_no_canonicalize_64_64s_s, epsilon, field_order};
 
 // PackedPrimeField wraps an array of four u64s, with the new and get methods to convert that
 // array to and from __m256i, which is the type we actually operate on. This indirection is a
@@ -29,7 +31,7 @@ pub struct PackedPrimeField<F: ReducibleAVX2>(pub [F; 4]);
 impl<F: ReducibleAVX2> PackedPrimeField<F> {
     #[inline]
     fn new(x: __m256i) -> Self {
-        let mut obj = Self([0, 0, 0, 0]);
+        let mut obj = Self([F::ZERO; 4]);
         let ptr = (&mut obj.0).as_mut_ptr().cast::<__m256i>();
         unsafe {
             _mm256_storeu_si256(ptr, x);
@@ -47,7 +49,7 @@ impl<F: ReducibleAVX2> Add<Self> for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
     fn add(self, rhs: Self) -> Self {
-        Self::new(unsafe { add(self.get(), rhs.get()) })
+        Self::new(unsafe { add::<F>(self.get(), rhs.get()) })
     }
 }
 impl<F: ReducibleAVX2> Add<F> for PackedPrimeField<F> {
@@ -88,7 +90,7 @@ impl<F: ReducibleAVX2> Mul<Self> for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
     fn mul(self, rhs: Self) -> Self {
-        Self::new(unsafe { mul(self.get(), rhs.get()) })
+        Self::new(unsafe { mul::<F>(self.get(), rhs.get()) })
     }
 }
 impl<F: ReducibleAVX2> Mul<F> for PackedPrimeField<F> {
@@ -115,7 +117,7 @@ impl<F: ReducibleAVX2> Neg for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
     fn neg(self) -> Self {
-        Self::new(unsafe { neg(self.get()) })
+        Self::new(unsafe { neg::<F>(self.get()) })
     }
 }
 
@@ -133,38 +135,28 @@ impl<F: ReducibleAVX2> PackedField for PackedPrimeField<F> {
 
     #[inline]
     fn broadcast(x: F) -> Self {
-        Self::new(unsafe { _mm256_set1_epi64x(x.0 as i64) })
+        Self([x; 4])
     }
 
     #[inline]
     fn from_arr(arr: [F; Self::WIDTH]) -> Self {
-        Self([arr[0].0, arr[1].0, arr[2].0, arr[3].0])
+        Self(arr)
     }
 
     #[inline]
     fn to_arr(&self) -> [F; Self::WIDTH] {
-        [
-            F::from_noncanonical_u64(self.0[0]),
-            F::from_noncanonical_u64(self.0[1]),
-            F::from_noncanonical_u64(self.0[2]),
-            F::from_noncanonical_u64(self.0[3]),
-        ]
+        self.0
     }
 
     #[inline]
     fn from_slice(slice: &[F]) -> Self {
         assert!(slice.len() == 4);
-        Self::from_arr([slice[0], slice[1], slice[2], slice[3]])
+        Self([slice[0], slice[1], slice[2], slice[3]])
     }
 
     #[inline]
     fn to_vec(&self) -> Vec<F> {
-        vec![
-            F::from_noncanonical_u64(self.0[0]),
-            F::from_noncanonical_u64(self.0[1]),
-            F::from_noncanonical_u64(self.0[2]),
-            F::from_noncanonical_u64(self.0[3]),
-        ]
+        self.0.into()
     }
 
     #[inline]
@@ -181,7 +173,7 @@ impl<F: ReducibleAVX2> PackedField for PackedPrimeField<F> {
 
     #[inline]
     fn square(&self) -> Self {
-        Self::new(unsafe { square(self.get()) })
+        Self::new(unsafe { square::<F>(self.get()) })
     }
 }
 
@@ -189,7 +181,7 @@ impl<F: ReducibleAVX2> Sub<Self> for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
     fn sub(self, rhs: Self) -> Self {
-        Self::new(unsafe { sub(self.get(), rhs.get()) })
+        Self::new(unsafe { sub::<F>(self.get(), rhs.get()) })
     }
 }
 impl<F: ReducibleAVX2> Sub<F> for PackedPrimeField<F> {

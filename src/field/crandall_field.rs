@@ -192,6 +192,11 @@ impl PrimeField for CrandallField {
     fn to_noncanonical_u64(&self) -> u64 {
         self.0
     }
+
+    #[inline]
+    fn from_noncanonical_u64(n: u64) -> Self {
+        Self(n)
+    }
 }
 
 impl Neg for CrandallField {

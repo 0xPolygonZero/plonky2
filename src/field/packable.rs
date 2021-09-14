@@ -11,3 +11,13 @@ pub trait Packable: Field {
 impl<F: Field> Packable for F {
     default type PackedType = Singleton<Self>;
 }
+
+#[cfg(target_feature = "avx2")]
+impl Packable for crate::field::crandall_field::CrandallField {
+    type PackedType = crate::field::packed_avx2::PackedCrandallAVX2;
+}
+
+#[cfg(target_feature = "avx2")]
+impl Packable for crate::field::goldilocks_field::GoldilocksField {
+    type PackedType = crate::field::packed_avx2::PackedGoldilocksAVX2;
+}

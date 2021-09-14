@@ -1,6 +1,7 @@
 use core::arch::x86_64::*;
 
-use crate::field::packed_avx2::common::{add_no_canonicalize_64_64s_s, epsilon};
+use crate::field::crandall_field::CrandallField;
+use crate::field::packed_avx2::common::{add_no_canonicalize_64_64s_s, epsilon, ReducibleAVX2};
 
 /// (u64 << 64) + u64 + u64 -> u128 addition with carry. The third argument is pre-shifted by 2^63.
 /// The result is also shifted.
@@ -30,10 +31,12 @@ unsafe fn fmadd_64_32_64s_s(x: __m256i, y: __m256i, z_s: __m256i) -> (__m256i, _
 
 /// Reduce a u128 modulo FIELD_ORDER. The input is (u64, u64), pre-shifted by 2^63. The result is
 /// similarly shifted.
-#[inline]
-unsafe fn reduce128s_s(x_s: (__m256i, __m256i)) -> __m256i {
-    let (hi0, lo0_s) = x_s;
-    let (hi1, lo1_s) = fmadd_64_32_64s_s(hi0, epsilon(), lo0_s);
-    let lo2 = _mm256_mul_epu32(hi1, epsilon());
-    add_no_canonicalize_64_64s_s(lo2, lo1_s)
+impl ReducibleAVX2 for CrandallField {
+    #[inline]
+    unsafe fn reduce128s_s(x_s: (__m256i, __m256i)) -> __m256i {
+        let (hi0, lo0_s) = x_s;
+        let (hi1, lo1_s) = fmadd_64_32_64s_s(hi0, epsilon::<CrandallField>(), lo0_s);
+        let lo2 = _mm256_mul_epu32(hi1, epsilon::<CrandallField>());
+        add_no_canonicalize_64_64s_s::<CrandallField>(lo2, lo1_s)
+    }
 }
