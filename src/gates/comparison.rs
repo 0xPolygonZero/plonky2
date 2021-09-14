@@ -123,7 +123,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let z_bits: Vec<F::Extension> = (0..self.chunk_bits() + 1)
             .map(|i| vars.local_wires[self.wire_z_bit(i)])
             .collect();
-        let z_bits_combined: F::Extension = reduce_with_powers(&z_bits, F::Extension::TWO);
+        let z_bits_combined = reduce_with_powers(&z_bits, F::Extension::TWO);
 
         let two_n = F::Extension::TWO.exp_u64(self.chunk_bits() as u64);
         constraints.push(z_bits_combined - (two_n + most_significant_diff));
@@ -134,7 +134,59 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
     }
 
     fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        todo!()
+        let mut constraints = Vec::with_capacity(self.num_constraints());
+
+        let first_input = vars.local_wires[self.wire_first_input()];
+        let second_input = vars.local_wires[self.wire_second_input()];
+
+        // Get chunks and assert that they match
+        let first_chunks: Vec<F> = (0..self.num_chunks)
+            .map(|i| vars.local_wires[self.wire_first_chunk_val(i)])
+            .collect();
+        let second_chunks: Vec<F> = (0..self.num_chunks)
+            .map(|i| vars.local_wires[self.wire_second_chunk_val(i)])
+            .collect();
+
+        let first_chunks_combined = reduce_with_powers(
+            &first_chunks,
+            F::from_canonical_usize(1 << self.chunk_bits()),
+        );
+        let second_chunks_combined = reduce_with_powers(
+            &second_chunks,
+            F::from_canonical_usize(1 << self.chunk_bits()),
+        );
+
+        constraints.push(first_chunks_combined - first_input);
+        constraints.push(second_chunks_combined - second_input);
+
+        let mut most_significant_diff = F::ZERO;
+
+        // Find the chosen chunk.
+        for i in 0..self.num_chunks {
+            let difference = first_chunks[i] - second_chunks[i];
+            let equality_dummy = vars.local_wires[self.wire_equality_dummy(i)];
+            let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
+
+            // Two constraints identifying index.
+            constraints.push(difference * equality_dummy - (F::ONE - chunks_equal));
+            constraints.push(chunks_equal * difference);
+
+            let this_diff = first_chunks[i] - second_chunks[i];
+            most_significant_diff =
+                chunks_equal * most_significant_diff + (F::ONE - chunks_equal) * this_diff;
+        }
+
+        let z_bits: Vec<F> = (0..self.chunk_bits() + 1)
+            .map(|i| vars.local_wires[self.wire_z_bit(i)])
+            .collect();
+        let z_bits_combined = reduce_with_powers(&z_bits, F::TWO);
+
+        let two_n = F::TWO.exp_u64(self.chunk_bits() as u64);
+        constraints.push(z_bits_combined - (two_n + most_significant_diff));
+
+        constraints.push(z_bits[self.chunk_bits()]);
+
+        constraints
     }
 
     fn eval_unfiltered_recursively(
