@@ -14,7 +14,6 @@ pub type PackedGoldilocksAVX2 = PackedPrimeField<GoldilocksField>;
 #[cfg(test)]
 mod tests {
     use crate::field::crandall_field::CrandallField;
-    use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::packed_avx2::common::ReducibleAVX2;
     use crate::field::packed_avx2::packed_prime_field::PackedPrimeField;
