@@ -304,7 +304,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
                 diff_index = i;
             }
         }
-        let most_significant_diff = first_input_chunks[diff_index] - second_input_chunks[diff_index];
+        let most_significant_diff =
+            first_input_chunks[diff_index] - second_input_chunks[diff_index];
 
         let z = F::TWO.exp_u64(self.gate.chunk_bits() as u64) + most_significant_diff;
         let z_bits: Vec<F> = (0..self.gate.chunk_bits() + 1)
@@ -481,14 +482,15 @@ mod tests {
                     .zip(second_input_chunks.iter())
                     .map(|(f, s)| if *f == *s { F::ONE } else { F::ONE / (*f - *s) })
                     .collect();
-                
+
                 let mut diff_index = 0;
                 for i in 1..num_chunks {
                     if first_input_chunks[i] != second_input_chunks[i] {
                         diff_index = i;
                     }
                 }
-                let most_significant_diff = first_input_chunks[diff_index] - second_input_chunks[diff_index];
+                let most_significant_diff =
+                    first_input_chunks[diff_index] - second_input_chunks[diff_index];
 
                 let z = F::TWO.exp_u64(chunk_bits as u64) + most_significant_diff;
                 let mut z_bits: Vec<F> = (0..chunk_bits + 1)
