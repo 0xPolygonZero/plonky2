@@ -9,9 +9,9 @@ use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::CircuitConfig;
+use crate::plonk::plonk_common::reduce_with_powers;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use crate::util::{bits_u64, ceil_div_usize};
+use crate::util::ceil_div_usize;
 
 /// A gate for checking that one value is smaller than another.
 #[derive(Clone, Debug)]
@@ -91,20 +91,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             .map(|i| vars.local_wires[self.wire_second_chunk_val(i)])
             .collect();
 
-        let chunk_base_powers: Vec<F::Extension> = (0..self.num_chunks)
-            .map(|i| F::Extension::TWO.exp_u64((i * self.chunk_bits()) as u64))
-            .collect();
-
-        let first_chunks_combined = first_chunks
-            .iter()
-            .zip(chunk_base_powers.iter())
-            .map(|(&b, &x)| b * x)
-            .fold(F::Extension::ZERO, |a, b| a + b);
-        let second_chunks_combined = second_chunks
-            .iter()
-            .zip(chunk_base_powers.iter())
-            .map(|(&b, &x)| b * x)
-            .fold(F::Extension::ZERO, |a, b| a + b);
+        let first_chunks_combined = reduce_with_powers(
+            &first_chunks,
+            F::Extension::from_canonical_usize(1 << self.chunk_bits()),
+        );
+        let second_chunks_combined = reduce_with_powers(
+            &second_chunks,
+            F::Extension::from_canonical_usize(1 << self.chunk_bits()),
+        );
 
         constraints.push(first_chunks_combined - first_input);
         constraints.push(second_chunks_combined - second_input);
@@ -129,15 +123,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let z_bits: Vec<F::Extension> = (0..self.chunk_bits() + 1)
             .map(|i| vars.local_wires[self.wire_z_bit(i)])
             .collect();
-
-        let powers_of_two: Vec<F::Extension> = (0..self.chunk_bits() + 1)
-            .map(|i| F::Extension::TWO.exp_u64(i as u64))
-            .collect();
-        let z_bits_combined = z_bits
-            .iter()
-            .zip(powers_of_two.iter())
-            .map(|(&b, &x)| b * x)
-            .fold(F::Extension::ZERO, |a, b| a + b);
+        let z_bits_combined: F::Extension = reduce_with_powers(&z_bits, F::Extension::TWO);
 
         let two_n = F::Extension::TWO.exp_u64(self.chunk_bits() as u64);
         constraints.push(z_bits_combined - (two_n + most_significant_diff));
@@ -235,26 +221,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             })
             .collect();
 
-        let powers_of_two: Vec<F> = (0..self.gate.chunk_bits())
-            .map(|i| F::TWO.exp_u64(i as u64))
-            .collect();
         let first_input_chunks: Vec<F> = first_input_bits
             .chunks(self.gate.chunk_bits())
-            .map(|bits| {
-                bits.iter()
-                    .zip(powers_of_two.iter())
-                    .map(|(&b, &x)| b * x)
-                    .fold(F::ZERO, |a, b| a + b)
-            })
+            .map(|bits| reduce_with_powers(&bits, F::TWO))
             .collect();
         let second_input_chunks: Vec<F> = second_input_bits
             .chunks(self.gate.chunk_bits())
-            .map(|bits| {
-                bits.iter()
-                    .zip(powers_of_two.iter())
-                    .map(|(&b, &x)| b * x)
-                    .fold(F::ZERO, |a, b| a + b)
-            })
+            .map(|bits| reduce_with_powers(&bits, F::TWO))
             .collect();
 
         let chunks_equal: Vec<F> = (0..self.gate.num_chunks)
@@ -320,6 +293,7 @@ mod tests {
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
+    use crate::plonk::plonk_common::reduce_with_powers;
     use crate::plonk::vars::EvaluationVars;
 
     #[test]
@@ -403,25 +377,13 @@ mod tests {
                     })
                     .collect();
 
-                let powers_of_two: Vec<F> =
-                    (0..chunk_bits).map(|i| F::TWO.exp_u64(i as u64)).collect();
                 let mut first_input_chunks: Vec<F> = first_input_bits
                     .chunks(chunk_bits)
-                    .map(|bits| {
-                        bits.iter()
-                            .zip(powers_of_two.iter())
-                            .map(|(&b, &x)| b * x)
-                            .fold(F::ZERO, |a, b| a + b)
-                    })
+                    .map(|bits| reduce_with_powers(&bits, F::TWO))
                     .collect();
                 let mut second_input_chunks: Vec<F> = second_input_bits
                     .chunks(chunk_bits)
-                    .map(|bits| {
-                        bits.iter()
-                            .zip(powers_of_two.iter())
-                            .map(|(&b, &x)| b * x)
-                            .fold(F::ZERO, |a, b| a + b)
-                    })
+                    .map(|bits| reduce_with_powers(&bits, F::TWO))
                     .collect();
 
                 let mut chunks_equal: Vec<F> = (0..num_chunks)
