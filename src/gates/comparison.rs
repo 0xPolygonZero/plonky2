@@ -133,18 +133,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             constraints.push(first_chunks_combined - first_input);
             constraints.push(second_chunks_combined - second_input);
 
-            let mut most_significant_diff =
-                first_chunks[self.num_chunks - 1] - second_chunks[self.num_chunks - 1];
+            let mut most_significant_diff = F::Extension::ZERO;
 
             // Find the chosen chunk.
-            for i in (0..self.num_chunks).rev() {
+            for i in 0..self.num_chunks {
                 let difference = first_chunks[i] - second_chunks[i];
                 let equality_dummy = vars.local_wires[self.wire_equality_dummy(c, i)];
                 let chunks_equal = vars.local_wires[self.wire_chunks_equal(c, i)];
 
                 // Two constraints identifying index.
-                //constraints.push(difference * equality_dummy - (F::Extension::ONE - chunks_equal));
-                //constraints.push(chunks_equal * difference);
+                constraints.push(difference * equality_dummy - (F::Extension::ONE - chunks_equal));
+                constraints.push(chunks_equal * difference);
 
                 let this_diff = first_chunks[i] - second_chunks[i];
                 most_significant_diff = chunks_equal * most_significant_diff
@@ -165,7 +164,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
                 .fold(F::Extension::ZERO, |a, b| a + b);
 
             let two_n = F::Extension::TWO.exp_u64(self.chunk_bits() as u64);
-            //constraints.push(z_bits_combined - (two_n + most_significant_diff));
+            constraints.push(z_bits_combined - (two_n + most_significant_diff));
 
             //constraints.push(z_bits[self.chunk_bits() - 1]);
         }
@@ -299,7 +298,15 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             .map(|(f, s)| if *f == *s { F::ONE } else { F::ONE / (*f - *s) })
             .collect();
 
-        let z = F::TWO.exp_u64(self.gate.chunk_bits() as u64) + first_input - second_input;
+        let mut diff_index = 0;
+        for i in 1..self.gate.num_chunks {
+            if first_input_chunks[i] != second_input_chunks[i] {
+                diff_index = i;
+            }
+        }
+        let most_significant_diff = first_input_chunks[diff_index] - second_input_chunks[diff_index];
+
+        let z = F::TWO.exp_u64(self.gate.chunk_bits() as u64) + most_significant_diff;
         let z_bits: Vec<F> = (0..self.gate.chunk_bits() + 1)
             .scan(z.to_canonical_u64(), |acc, _| {
                 let tmp = *acc % 2;
@@ -474,8 +481,16 @@ mod tests {
                     .zip(second_input_chunks.iter())
                     .map(|(f, s)| if *f == *s { F::ONE } else { F::ONE / (*f - *s) })
                     .collect();
+                
+                let mut diff_index = 0;
+                for i in 1..num_chunks {
+                    if first_input_chunks[i] != second_input_chunks[i] {
+                        diff_index = i;
+                    }
+                }
+                let most_significant_diff = first_input_chunks[diff_index] - second_input_chunks[diff_index];
 
-                let z = F::TWO.exp_u64(chunk_bits as u64) + first_input - second_input;
+                let z = F::TWO.exp_u64(chunk_bits as u64) + most_significant_diff;
                 let mut z_bits: Vec<F> = (0..chunk_bits + 1)
                     .scan(z.to_canonical_u64(), |acc, _| {
                         let tmp = *acc % 2;
