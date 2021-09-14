@@ -142,7 +142,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let two_n = F::Extension::TWO.exp_u64(self.chunk_bits() as u64);
         constraints.push(z_bits_combined - (two_n + most_significant_diff));
 
-        //constraints.push(z_bits[self.chunk_bits() - 1]);
+        constraints.push(z_bits[self.chunk_bits()]);
 
         constraints
     }
@@ -467,12 +467,21 @@ mod tests {
 
         let mut rng = rand::thread_rng();
         let max: u64 = 1 << num_bits - 1;
-        let first_inputs = (0..num_copies)
-            .map(|_| F::from_canonical_u64(rng.gen_range(0..max)))
+        let first_inputs_u64: Vec<u64> = (0..num_copies)
+            .map(|_| rng.gen_range(0..max))
             .collect();
-        let second_inputs = (0..num_copies)
-            .map(|_| F::from_canonical_u64(rng.gen_range(0..max)))
+        let second_inputs_u64: Vec<u64> = (0..num_copies)
+            .map(|i| {
+                let mut val = rng.gen_range(0..max);
+                while val <= first_inputs_u64[i] {
+                    val = rng.gen_range(0..max);
+                }
+                val
+            })
             .collect();
+        
+        let first_inputs = first_inputs_u64.iter().map(|&x| F::from_canonical_u64(x)).collect();
+        let second_inputs = second_inputs_u64.iter().map(|&x| F::from_canonical_u64(x)).collect();
 
         let gate = ComparisonGate::<F, D> {
             num_bits,
