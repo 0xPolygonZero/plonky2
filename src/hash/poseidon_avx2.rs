@@ -235,12 +235,9 @@ pub fn crandall_poseidon_sbox_avx2<const PACKED_WIDTH: usize>(
     }
 
     let mut x3 = [PackedCrandallAVX2::zero(); PACKED_WIDTH];
-    for i in 0..PACKED_WIDTH {
-        x3[i] = packed_state[i] * x2[i];
-    }
-
     let mut x4 = [PackedCrandallAVX2::zero(); PACKED_WIDTH];
     for i in 0..PACKED_WIDTH {
+        x3[i] = packed_state[i] * x2[i];
         x4[i] = x2[i].square();
     }
 
