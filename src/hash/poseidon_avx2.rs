@@ -220,3 +220,29 @@ pub unsafe fn crandall_poseidon_const_avx2<const PACKED_WIDTH: usize>(
         packed_state[i] = packed_state[i].add_canonical_u64(packed_round_constants[i]);
     }
 }
+
+#[inline(always)]
+pub fn crandall_poseidon_sbox_avx2<const PACKED_WIDTH: usize>(
+    state: &mut [CrandallField; 4 * PACKED_WIDTH],
+) {
+    let packed_state = PackedCrandallAVX2::pack_slice_mut(state);
+
+    let mut x2 = [PackedCrandallAVX2::zero(); PACKED_WIDTH];
+    for i in 0..PACKED_WIDTH {
+        x2[i] = packed_state[i].square();
+    }
+
+    let mut x3 = [PackedCrandallAVX2::zero(); PACKED_WIDTH];
+    for i in 0..PACKED_WIDTH {
+        x3[i] = packed_state[i] * x2[i];
+    }
+
+    let mut x4 = [PackedCrandallAVX2::zero(); PACKED_WIDTH];
+    for i in 0..PACKED_WIDTH {
+        x4[i] = x2[i].square();
+    }
+
+    for i in 0..PACKED_WIDTH {
+        packed_state[i] = x3[i] * x4[i];
+    }
+}
