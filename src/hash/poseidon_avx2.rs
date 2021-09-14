@@ -205,18 +205,18 @@ unsafe fn add_no_canonicalize_64_64s(x: __m256i, y_s: __m256i) -> __m256i {
     res
 }
 
-/// Poseidon constant layer for Crandall. Assumes that every element in offsets is in
+/// Poseidon constant layer for Crandall. Assumes that every element in round_constants is in
 /// 0..CrandallField::ORDER; when this is not true it may return garbage. It's marked unsafe for
 /// this reason.
 #[inline(always)]
 pub unsafe fn crandall_poseidon_const_avx2<const PACKED_WIDTH: usize>(
     state: &mut [CrandallField; 4 * PACKED_WIDTH],
-    offsets: [u64; 4 * PACKED_WIDTH],
+    round_constants: [u64; 4 * PACKED_WIDTH],
 ) {
     let packed_state = PackedCrandallAVX2::pack_slice_mut(state);
-    let packed_offsets =
-        std::slice::from_raw_parts((&offsets).as_ptr().cast::<__m256i>(), PACKED_WIDTH);
+    let packed_round_constants =
+        std::slice::from_raw_parts((&round_constants).as_ptr().cast::<__m256i>(), PACKED_WIDTH);
     for i in 0..PACKED_WIDTH {
-        packed_state[i] = packed_state[i].add_canonical_u64(packed_offsets[i]);
+        packed_state[i] = packed_state[i].add_canonical_u64(packed_round_constants[i]);
     }
 }
