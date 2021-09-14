@@ -115,7 +115,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
                 .map(|i| vars.local_wires[self.wire_second_chunk_val(c, i)])
                 .collect();
 
-            let chunk_base_powers: Vec<F::Extension> = (0..self.chunk_bits())
+            let chunk_base_powers: Vec<F::Extension> = (0..self.num_chunks)
                 .map(|i| F::Extension::TWO.exp_u64((i * self.chunk_bits()) as u64))
                 .collect();
 
@@ -143,8 +143,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
                 let chunks_equal = vars.local_wires[self.wire_chunks_equal(c, i)];
 
                 // Two constraints identifying index.
-                constraints.push(difference * equality_dummy - (F::Extension::ONE - chunks_equal));
-                constraints.push(chunks_equal * difference);
+                //constraints.push(difference * equality_dummy - (F::Extension::ONE - chunks_equal));
+                //constraints.push(chunks_equal * difference);
 
                 let this_diff = first_chunks[i] - second_chunks[i];
                 most_significant_diff = chunks_equal * most_significant_diff
@@ -165,9 +165,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
                 .fold(F::Extension::ZERO, |a, b| a + b);
 
             let two_n = F::Extension::TWO.exp_u64(self.chunk_bits() as u64);
-            constraints.push(z_bits_combined - (two_n + most_significant_diff));
+            //constraints.push(z_bits_combined - (two_n + most_significant_diff));
 
-            constraints.push(z_bits[self.chunk_bits() - 1]);
+            //constraints.push(z_bits[self.chunk_bits() - 1]);
         }
 
         constraints
@@ -335,9 +335,9 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
-    use std::marker::PhantomData;
-
     use anyhow::Result;
+    use rand::Rng;
+    use std::marker::PhantomData;
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
@@ -496,8 +496,10 @@ mod tests {
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         };
 
-        let first_inputs = F::rand_vec(num_copies);
-        let second_inputs = F::rand_vec(num_copies);
+        let mut rng = rand::thread_rng();
+        let max: u64 = 1 << num_bits - 1;
+        let first_inputs = (0..num_copies).map(|_| F::from_canonical_u64(rng.gen_range(0..max))).collect();
+        let second_inputs = (0..num_copies).map(|_| F::from_canonical_u64(rng.gen_range(0..max))).collect();
 
         let gate = ComparisonGate::<F, D> {
             num_copies,
