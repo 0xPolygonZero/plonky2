@@ -487,9 +487,9 @@ mod tests {
                 v.push(first_input);
                 v.push(second_input);
                 v.push(z);
+                v.append(&mut z_bits);
                 v.append(&mut first_input_chunks);
                 v.append(&mut second_input_chunks);
-                v.append(&mut z_bits);
                 v.append(&mut equality_dummies);
                 v.append(&mut chunks_equal);
             }
