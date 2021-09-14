@@ -335,9 +335,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
+    use std::marker::PhantomData;
+
     use anyhow::Result;
     use rand::Rng;
-    use std::marker::PhantomData;
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
@@ -498,8 +499,12 @@ mod tests {
 
         let mut rng = rand::thread_rng();
         let max: u64 = 1 << num_bits - 1;
-        let first_inputs = (0..num_copies).map(|_| F::from_canonical_u64(rng.gen_range(0..max))).collect();
-        let second_inputs = (0..num_copies).map(|_| F::from_canonical_u64(rng.gen_range(0..max))).collect();
+        let first_inputs = (0..num_copies)
+            .map(|_| F::from_canonical_u64(rng.gen_range(0..max)))
+            .collect();
+        let second_inputs = (0..num_copies)
+            .map(|_| F::from_canonical_u64(rng.gen_range(0..max)))
+            .collect();
 
         let gate = ComparisonGate::<F, D> {
             num_copies,
