@@ -32,10 +32,6 @@ impl<F: RichField + Extendable<D>, const D: usize> ComparisonGate<F, D> {
         }
     }
 
-    pub fn field_bits() -> usize {
-        bits_u64(F::ORDER)
-    }
-
     pub fn chunk_bits(&self) -> usize {
         ceil_div_usize(self.num_bits, self.num_chunks)
     }
@@ -254,18 +250,17 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let first_input = get_local_wire(self.gate.wire_first_input(self.copy));
         let second_input = get_local_wire(self.gate.wire_second_input(self.copy));
 
-        let field_bits = bits_u64(F::ORDER);
         let first_input_u64 = first_input.to_canonical_u64();
         let second_input_u64 = second_input.to_canonical_u64();
 
-        let first_input_bits: Vec<F> = (0..field_bits)
+        let first_input_bits: Vec<F> = (0..self.gate.num_bits)
             .scan(first_input_u64, |acc, _| {
                 let tmp = *acc % 2;
                 *acc /= 2;
                 Some(F::from_canonical_u64(tmp))
             })
             .collect();
-        let second_input_bits: Vec<F> = (0..field_bits)
+        let second_input_bits: Vec<F> = (0..self.gate.num_bits)
             .scan(second_input_u64, |acc, _| {
                 let tmp = *acc % 2;
                 *acc /= 2;
@@ -346,7 +341,7 @@ mod tests {
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
-    use crate::field::field_types::Field;
+    use crate::field::field_types::{Field, PrimeField};
     use crate::gates::comparison::ComparisonGate;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
@@ -413,6 +408,113 @@ mod tests {
 
     #[test]
     fn test_gate_constraint() {
-        todo!()
+        type F = CrandallField;
+        type FF = QuarticExtension<CrandallField>;
+        const D: usize = 4;
+
+        let num_copies = 3;
+        let num_bits = 40;
+        let num_chunks = 5;
+        let chunk_bits = num_bits / num_chunks;
+
+        // Returns the local wires for a comparison gate given the two inputs.
+        let get_wires = |first_inputs: Vec<F>, second_inputs: Vec<F>| -> Vec<FF> {
+            let num_copies = first_inputs.len();
+
+            let mut v = Vec::new();
+            for c in 0..num_copies {
+                let first_input = first_inputs[c];
+                let second_input = second_inputs[c];
+
+                let first_input_u64 = first_input.to_canonical_u64();
+                let second_input_u64 = second_input.to_canonical_u64();
+
+                let first_input_bits: Vec<F> = (0..num_bits)
+                    .scan(first_input_u64, |acc, _| {
+                        let tmp = *acc % 2;
+                        *acc /= 2;
+                        Some(F::from_canonical_u64(tmp))
+                    })
+                    .collect();
+                let second_input_bits: Vec<F> = (0..num_bits)
+                    .scan(second_input_u64, |acc, _| {
+                        let tmp = *acc % 2;
+                        *acc /= 2;
+                        Some(F::from_canonical_u64(tmp))
+                    })
+                    .collect();
+
+                let powers_of_two: Vec<F> =
+                    (0..chunk_bits).map(|i| F::TWO.exp_u64(i as u64)).collect();
+                let mut first_input_chunks: Vec<F> = first_input_bits
+                    .chunks(chunk_bits)
+                    .map(|bits| {
+                        bits.iter()
+                            .zip(powers_of_two.iter())
+                            .map(|(b, x)| *b * *x)
+                            .fold(F::ZERO, |a, b| a + b)
+                    })
+                    .collect();
+                let mut second_input_chunks: Vec<F> = second_input_bits
+                    .chunks(chunk_bits)
+                    .map(|bits| {
+                        bits.iter()
+                            .zip(powers_of_two.iter())
+                            .map(|(b, x)| *b * *x)
+                            .fold(F::ZERO, |a, b| a + b)
+                    })
+                    .collect();
+
+                let mut chunks_equal: Vec<F> = (0..num_chunks)
+                    .map(|i| F::from_bool(first_input_chunks[i] == second_input_chunks[i]))
+                    .collect();
+                let mut equality_dummies: Vec<F> = first_input_chunks
+                    .iter()
+                    .zip(second_input_chunks.iter())
+                    .map(|(f, s)| if *f == *s { F::ONE } else { F::ONE / (*f - *s) })
+                    .collect();
+
+                let z = F::TWO.exp_u64(chunk_bits as u64) + first_input - second_input;
+                let mut z_bits: Vec<F> = (0..chunk_bits + 1)
+                    .scan(z.to_canonical_u64(), |acc, _| {
+                        let tmp = *acc % 2;
+                        *acc /= 2;
+                        Some(F::from_canonical_u64(tmp))
+                    })
+                    .collect();
+
+                v.push(first_input);
+                v.push(second_input);
+                v.push(z);
+                v.append(&mut first_input_chunks);
+                v.append(&mut second_input_chunks);
+                v.append(&mut z_bits);
+                v.append(&mut equality_dummies);
+                v.append(&mut chunks_equal);
+            }
+
+            v.iter().map(|&x| x.into()).collect::<Vec<_>>()
+        };
+
+        let first_inputs = F::rand_vec(num_copies);
+        let second_inputs = F::rand_vec(num_copies);
+
+        let gate = ComparisonGate::<F, D> {
+            num_copies,
+            num_bits,
+            num_chunks,
+            _phantom: PhantomData,
+        };
+
+        let vars = EvaluationVars {
+            local_constants: &[],
+            local_wires: &get_wires(first_inputs, second_inputs),
+            public_inputs_hash: &HashOut::rand(),
+        };
+
+        assert!(
+            gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),
+            "Gate constraints are not satisfied."
+        );
     }
 }
