@@ -1,8 +1,7 @@
 //! Concrete instantiation of a hash function.
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
-use crate::hash::gmimc::GMiMC;
+use crate::field::field_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;

@@ -33,19 +33,10 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
     let quotient_degree = common_data.quotient_degree();
     let degree = common_data.degree();
 
-    let mut partition_witness = prover_data.partition_witness.clone();
-    timed!(
-        timing,
-        "fill partition witness",
-        for (t, v) in inputs.target_values.into_iter() {
-            partition_witness.set_target(t, v);
-        }
-    );
-
-    timed!(
+    let partition_witness = timed!(
         timing,
         &format!("run {} generators", prover_data.generators.len()),
-        generate_partial_witness(&mut partition_witness, &prover_data.generators, &mut timing)
+        generate_partial_witness(inputs, &prover_data)
     );
 
     let public_inputs = partition_witness.get_targets(&prover_data.public_inputs);

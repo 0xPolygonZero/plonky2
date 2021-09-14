@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::ops::{Range, RangeFrom};
 
 use anyhow::Result;
@@ -141,6 +142,9 @@ impl<F: RichField + Extendable<D>, const D: usize> VerifierCircuitData<F, D> {
 /// Circuit data required by the prover, but not the verifier.
 pub(crate) struct ProverOnlyCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
+    /// Generator indices (within the `Vec` above), indexed by the representative of each target
+    /// they watch.
+    pub generator_indices_by_watches: BTreeMap<usize, Vec<usize>>,
     /// Commitments to the constants polynomials and sigma polynomials.
     pub constants_sigmas_commitment: PolynomialBatchCommitment<F>,
     /// The transpose of the list of sigma polynomials.

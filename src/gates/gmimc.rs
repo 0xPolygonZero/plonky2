@@ -336,62 +336,53 @@ mod tests {
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
-    use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::gmimc::GMiMCGate;
     use crate::hash::gmimc::GMiMC;
     use crate::iop::generator::generate_partial_witness;
-    use crate::iop::target::Target;
     use crate::iop::wire::Wire;
-    use crate::iop::witness::{PartialWitness, PartitionWitness, Witness};
-    use crate::util::timing::TimingTree;
+    use crate::iop::witness::{PartialWitness, Witness};
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
 
     #[test]
     fn generated_output() {
         type F = CrandallField;
         const WIDTH: usize = 12;
+
+        let config = CircuitConfig::large_config();
+        let mut builder = CircuitBuilder::new(config);
         type Gate = GMiMCGate<F, 4, WIDTH>;
         let gate = Gate::new();
+        let gate_index = builder.add_gate(gate, vec![]);
+        let circuit = builder.build_prover();
 
         let permutation_inputs = (0..WIDTH).map(F::from_canonical_usize).collect::<Vec<_>>();
 
-        let mut witness = PartialWitness::new();
-        witness.set_wire(
+        let mut inputs = PartialWitness::new();
+        inputs.set_wire(
             Wire {
-                gate: 0,
+                gate: gate_index,
                 input: Gate::WIRE_SWAP,
             },
             F::ZERO,
         );
         for i in 0..WIDTH {
-            witness.set_wire(
+            inputs.set_wire(
                 Wire {
-                    gate: 0,
+                    gate: gate_index,
                     input: Gate::wire_input(i),
                 },
                 permutation_inputs[i],
             );
         }
 
-        let mut partition_witness = PartitionWitness::new(gate.num_wires(), gate.num_wires(), 1, 0);
-        for input in 0..gate.num_wires() {
-            partition_witness.add(Target::Wire(Wire { gate: 0, input }));
-        }
-        for (&t, &v) in witness.target_values.iter() {
-            partition_witness.set_target(t, v);
-        }
-        let generators = gate.generators(0, &[]);
-        generate_partial_witness(
-            &mut partition_witness,
-            &generators,
-            &mut TimingTree::default(),
-        );
+        let witness = generate_partial_witness(inputs, &circuit.prover_only);
 
         let expected_outputs: [F; WIDTH] =
             F::gmimc_permute_naive(permutation_inputs.try_into().unwrap());
-
         for i in 0..WIDTH {
-            let out = partition_witness.get_wire(Wire {
+            let out = witness.get_wire(Wire {
                 gate: 0,
                 input: Gate::wire_output(i),
             });
