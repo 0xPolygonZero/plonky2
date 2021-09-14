@@ -98,12 +98,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let first_chunks_combined = first_chunks
             .iter()
             .zip(chunk_base_powers.iter())
-            .map(|(b, x)| *b * *x)
+            .map(|(&b, &x)| b * x)
             .fold(F::Extension::ZERO, |a, b| a + b);
         let second_chunks_combined = second_chunks
             .iter()
             .zip(chunk_base_powers.iter())
-            .map(|(b, x)| *b * *x)
+            .map(|(&b, &x)| b * x)
             .fold(F::Extension::ZERO, |a, b| a + b);
 
         constraints.push(first_chunks_combined - first_input);
@@ -136,7 +136,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let z_bits_combined = z_bits
             .iter()
             .zip(powers_of_two.iter())
-            .map(|(b, x)| *b * *x)
+            .map(|(&b, &x)| b * x)
             .fold(F::Extension::ZERO, |a, b| a + b);
 
         let two_n = F::Extension::TWO.exp_u64(self.chunk_bits() as u64);
@@ -243,7 +243,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             .map(|bits| {
                 bits.iter()
                     .zip(powers_of_two.iter())
-                    .map(|(b, x)| *b * *x)
+                    .map(|(&b, &x)| b * x)
                     .fold(F::ZERO, |a, b| a + b)
             })
             .collect();
@@ -252,7 +252,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             .map(|bits| {
                 bits.iter()
                     .zip(powers_of_two.iter())
-                    .map(|(b, x)| *b * *x)
+                    .map(|(&b, &x)| b * x)
                     .fold(F::ZERO, |a, b| a + b)
             })
             .collect();
@@ -411,7 +411,7 @@ mod tests {
                     .map(|bits| {
                         bits.iter()
                             .zip(powers_of_two.iter())
-                            .map(|(b, x)| *b * *x)
+                            .map(|(&b, &x)| b * x)
                             .fold(F::ZERO, |a, b| a + b)
                     })
                     .collect();
@@ -420,7 +420,7 @@ mod tests {
                     .map(|bits| {
                         bits.iter()
                             .zip(powers_of_two.iter())
-                            .map(|(b, x)| *b * *x)
+                            .map(|(&b, &x)| b * x)
                             .fold(F::ZERO, |a, b| a + b)
                     })
                     .collect();
@@ -431,7 +431,7 @@ mod tests {
                 let mut equality_dummies: Vec<F> = first_input_chunks
                     .iter()
                     .zip(second_input_chunks.iter())
-                    .map(|(f, s)| if *f == *s { F::ONE } else { F::ONE / (*f - *s) })
+                    .map(|(&f, &s)| if f == s { F::ONE } else { F::ONE / (f - s) })
                     .collect();
 
                 let mut diff_index = 0;
@@ -467,9 +467,7 @@ mod tests {
 
         let mut rng = rand::thread_rng();
         let max: u64 = 1 << num_bits - 1;
-        let first_inputs_u64: Vec<u64> = (0..num_copies)
-            .map(|_| rng.gen_range(0..max))
-            .collect();
+        let first_inputs_u64: Vec<u64> = (0..num_copies).map(|_| rng.gen_range(0..max)).collect();
         let second_inputs_u64: Vec<u64> = (0..num_copies)
             .map(|i| {
                 let mut val = rng.gen_range(0..max);
@@ -479,9 +477,15 @@ mod tests {
                 val
             })
             .collect();
-        
-        let first_inputs = first_inputs_u64.iter().map(|&x| F::from_canonical_u64(x)).collect();
-        let second_inputs = second_inputs_u64.iter().map(|&x| F::from_canonical_u64(x)).collect();
+
+        let first_inputs = first_inputs_u64
+            .iter()
+            .map(|&x| F::from_canonical_u64(x))
+            .collect();
+        let second_inputs = second_inputs_u64
+            .iter()
+            .map(|&x| F::from_canonical_u64(x))
+            .collect();
 
         let gate = ComparisonGate::<F, D> {
             num_bits,
