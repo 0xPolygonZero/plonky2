@@ -508,6 +508,14 @@ impl Poseidon<8> for CrandallField {
             ALL_ROUND_CONSTANTS[8 * round_ctr..8 * round_ctr + 8].try_into().unwrap()); }
     }
 
+    #[cfg(target_feature="neon")]
+    #[inline(always)]
+    fn constant_layer(state: &mut [Self; 8], round_ctr: usize) {
+        // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
+        unsafe { crate::hash::poseidon_neon::crandall_poseidon_const_neon::<4>(state,
+            ALL_ROUND_CONSTANTS[8 * round_ctr..8 * round_ctr + 8].try_into().unwrap()); }
+    }
+
     #[cfg(target_feature="avx2")]
     #[inline(always)]
     fn mds_layer(state_: &[CrandallField; 8]) -> [CrandallField; 8] {
@@ -730,6 +738,14 @@ impl Poseidon<12> for CrandallField {
     fn constant_layer(state: &mut [Self; 12], round_ctr: usize) {
         // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
         unsafe { crate::hash::poseidon_avx2::crandall_poseidon_const_avx2::<3>(state,
+            ALL_ROUND_CONSTANTS[12 * round_ctr..12 * round_ctr + 12].try_into().unwrap()); }
+    }
+
+    #[cfg(target_feature="neon")]
+    #[inline(always)]
+    fn constant_layer(state: &mut [Self; 12], round_ctr: usize) {
+        // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
+        unsafe { crate::hash::poseidon_neon::crandall_poseidon_const_neon::<6>(state,
             ALL_ROUND_CONSTANTS[12 * round_ctr..12 * round_ctr + 12].try_into().unwrap()); }
     }
 

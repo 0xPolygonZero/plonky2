@@ -7,15 +7,18 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use crate::field::crandall_field::CrandallField;
 use crate::field::packed_field::PackedField;
 
+/// PackedCrandallNeon wraps to ensure that Rust does not assume 16-byte alignment. Similar to
+/// AVX2's PackedPrimeField. I don't think it matters as much on ARM but incorrectly-aligned
+/// pointers are undefined behavior in Rust, so let's avoid them.
 #[derive(Copy, Clone)]
 #[repr(transparent)]
-pub struct PackedCrandallNeon(pub [u64; 2]);
+pub struct PackedCrandallNeon(pub [CrandallField; 2]);
 
 impl PackedCrandallNeon {
     #[inline]
     fn new(x: uint64x2_t) -> Self {
-        let mut obj = Self([0, 0]);
-        let ptr = (&mut obj.0).as_mut_ptr();
+        let mut obj = Self([CrandallField::ZERO, CrandallField::ZERO]);
+        let ptr = (&mut obj.0).as_mut_ptr().cast::<u64>();
         unsafe {
             vst1q_u64(ptr, x);
         }
@@ -23,8 +26,15 @@ impl PackedCrandallNeon {
     }
     #[inline]
     fn get(&self) -> uint64x2_t {
-        let ptr = (&self.0).as_ptr();
+        let ptr = (&self.0).as_ptr().cast::<u64>();
         unsafe { vld1q_u64(ptr) }
+    }
+
+    /// Addition that assumes x + y < 2^64 + F::ORDER. May return incorrect results if this
+    /// condition is not met, hence it is marked unsafe.
+    #[inline]
+    pub unsafe fn add_canonical_u64(&self, rhs: __m256i) -> Self {
+        Self::new(add_canonical_u64::<F>(self.get(), rhs))
     }
 }
 
@@ -73,7 +83,9 @@ impl Mul<Self> for PackedCrandallNeon {
     type Output = Self;
     #[inline]
     fn mul(self, rhs: Self) -> Self {
-        Self::new(unsafe { mul(self.get(), rhs.get()) })
+        // TODO: Implement.
+        // Do this in scalar for now.
+        Self([self.0[0] * rhs[0], self.0[1] * rhs[1]])
     }
 }
 impl Mul<CrandallField> for PackedCrandallNeon {
@@ -118,20 +130,27 @@ impl PackedField for PackedCrandallNeon {
 
     #[inline]
     fn broadcast(x: CrandallField) -> Self {
-        Self::new(unsafe { vmovq_n_u64(x.0) })
+        Self[x; 2]
     }
 
     #[inline]
     fn from_arr(arr: [Self::FieldType; Self::WIDTH]) -> Self {
-        Self([arr[0].0, arr[1].0])
+        Self(arr)
     }
 
     #[inline]
     fn to_arr(&self) -> [Self::FieldType; Self::WIDTH] {
-        [
-            CrandallField(self.0[0]),
-            CrandallField(self.0[1]),
-        ]
+        self.0
+    }
+
+    #[inline]
+    fn from_slice(slice: &[F]) -> Self {
+        Self(slice.try_into().unwrap())
+    }
+
+    #[inline]
+    fn to_vec(&self) -> Vec<F> {
+        self.0.into()
     }
 
     #[inline]
@@ -180,9 +199,8 @@ impl Sum for PackedCrandallNeon {
     }
 }
 
-const EPSILON: u64 = (1 << 31) + (1 << 28) - 1;
-const FIELD_ORDER: u64 = 0u64.overflowing_sub(EPSILON).0;
-const SIGN_BIT: u64 = 1 << 63;
+const FIELD_ORDER: u64 = CrandallField::ORDER;
+const EPSILON: u64 = 0u64.wrapping_sub(FIELD_ORDER);
 
 #[inline]
 unsafe fn field_order() -> uint64x2_t {
@@ -196,17 +214,22 @@ unsafe fn epsilon() -> uint64x2_t {
 
 #[inline]
 unsafe fn canonicalize(x: uint64x2_t) -> uint64x2_t {
-    let mask = vcgeq_u64(x, field_order());
+    let mask = vcgeq_u64(x, field_order()); // Mask is -1 if x >= FIELD_ORDER.
     let x_maybe_unwrapped = vsubq_u64(x, field_order());
-    vbslq_u64(mask, x_maybe_unwrapped, x)
+    vbslq_u64(mask, x_maybe_unwrapped, x) // Bitwise select
 }
 
 #[inline]
 unsafe fn add_no_canonicalize_64_64(x: uint64x2_t, y: uint64x2_t) -> uint64x2_t {
     let res_wrapped = vaddq_u64(x, y);
-    let mask = vcgtq_u64(y, res_wrapped);
+    let mask = vcgtq_u64(y, res_wrapped); // Mask is -1 if overflow.
     let res_maybe_unwrapped = vsubq_u64(res_wrapped, field_order());
-    vbslq_u64(mask, res_maybe_unwrapped, res_wrapped)
+    vbslq_u64(mask, res_maybe_unwrapped, res_wrapped) // Bitwise select
+}
+
+#[inline]
+unsafe fn add_canonical_u64(x: uint64x2_t, y: uint64x2_t) -> uint64x2_t {
+    add_no_canonicalize_64_64(x, y)
 }
 
 #[inline]
@@ -217,77 +240,15 @@ unsafe fn add(x: uint64x2_t, y: uint64x2_t) -> uint64x2_t {
 #[inline]
 unsafe fn sub(x: uint64x2_t, y: uint64x2_t) -> uint64x2_t {
     let y = canonicalize(y);
-    let mask = vcgtq_u64(y, x);
+    let mask = vcgtq_u64(y, x); // Mask is -1 if overflow.
     let res_wrapped = vsubq_u64(x, y);
     let res_maybe_unwrapped = vaddq_u64(res_wrapped, field_order());
-    vbslq_u64(mask, res_maybe_unwrapped, res_wrapped)
+    vbslq_u64(mask, res_maybe_unwrapped, res_wrapped) // Bitwise select
 }
 
 #[inline]
 unsafe fn neg(y: uint64x2_t) -> uint64x2_t {
     vsubq_u64(field_order(), canonicalize(y))
-}
-
-#[inline]
-unsafe fn mul64_64(x: uint64x2_t, y: uint64x2_t) -> (uint64x2_t, uint64x2_t) {
-    let x_lo = blah; // TODO
-    let y_lo = blah; // TODO
-    let x_hi = blah; // TODO
-    let y_hi = blah; // TODO
-
-    let mul_ll = vmull_u32(x_lo, y_lo);
-    let mul_lh = vmull_u32(x_lo, y_hi);
-    let mul_hl = vmull_u32(x_hi, y_lo);
-    let mul_hh = vmull_u32(x_hi, y_hi);
-
-    let res_lo0 = mul_ll;
-    let res_lo1 = vaddq_u64(res_lo0, vshlq_n_u64(mul_lh, 32));
-    let res_lo2 = vaddq_u64(res_lo1, vshlq_n_u64(mul_hl, 32));
-
-    let carry0 = vcgtq_u64(res_lo0, res_lo1);
-    let carry1 = vcgtq_u64(res_lo1, res_lo2);
-
-    let res_hi0 = mul_hh;
-    let res_hi1 = vsraq_n_u64(res_hi0, mul_lh, 32);
-    let res_hi2 = vsraq_n_u64(res_hi1, mul_hl, 32));
-    let res_hi3 = vsubq_u64(res_hi2, carry0);
-    let res_hi4 = vsubq_u64(res_hi3, carry1);
-
-    (res_hi4, res_lo2)
-}
-
-#[inline]
-unsafe fn add_with_carry_hi_lo_lo(
-    hi: uint64x2_t,
-    lo0: uint64x2_t,
-    lo1: uint64x2_t,
-) -> (uint64x2_t, uint64x2_t) {
-    let res_lo = vaddq_u64(lo0, lo1);
-    let carry = vcgtq_u64(res_lo, lo1);
-    let res_hi = vsubq_u64(hi, carry);
-    (res_hi, res_lo)
-}
-
-#[inline] // TODO
-unsafe fn fmadd_64_32_64(x: uint64x2_t, y: uint64x2_t, z: uint64x2_t) -> (uint64x2_t, uint64x2_t) {
-    let x_hi = _mm256_srli_epi64(x, 32);
-    let mul_lo = _mm256_mul_epu32(x, y);
-    let mul_hi = _mm256_mul_epu32(x_hi, y);
-    let (tmp_hi, tmp_lo) = add_with_carry_hi_lo_lo(_mm256_srli_epi64(mul_hi, 32), mul_lo, z);
-    add_with_carry_hi_lo_lo(tmp_hi, _mm256_slli_epi64(mul_hi, 32), tmp_lo)
-}
-
-#[inline] // TODO
-unsafe fn reduce128(x: (uint64x2_t, uint64x2_t)) -> uint64x2_t {
-    let (hi0, lo0) = x;
-    let (hi1, lo1) = fmadd_64_32_64(hi0, epsilon(), lo0);
-    let lo2 = _mm256_mul_epu32(hi1, epsilon());
-    add_no_canonicalize_64_64(lo2, lo1)
-}
-
-#[inline]
-unsafe fn mul(x: uint64x2_t, y: uint64x2_t) -> uint64x2_t {
-    reduce128(mul64_64(x, y))
 }
 
 #[inline]
