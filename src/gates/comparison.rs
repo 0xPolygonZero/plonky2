@@ -320,7 +320,6 @@ mod tests {
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
-    use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::vars::EvaluationVars;
 
     #[test]
