@@ -1,6 +1,7 @@
 //! Implementation of the Poseidon hash function, as described in
 //! https://eprint.iacr.org/2019/458.pdf
 
+#[cfg(target_feature = "avx2")]
 use std::convert::TryInto;
 
 use unroll::unroll_for_loops;
@@ -504,7 +505,7 @@ impl Poseidon<8> for CrandallField {
     fn constant_layer(state: &mut [Self; 8], round_ctr: usize) {
         // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
         unsafe { crate::hash::poseidon_avx2::crandall_poseidon_const_avx2::<2>(state,
-            ALL_ROUND_CONSTANTS[8 * round_ctr..8 * round_ctr + 8].try_into().unwrap()) };
+            ALL_ROUND_CONSTANTS[8 * round_ctr..8 * round_ctr + 8].try_into().unwrap()); }
     }
 
     #[cfg(target_feature="avx2")]
@@ -729,7 +730,7 @@ impl Poseidon<12> for CrandallField {
     fn constant_layer(state: &mut [Self; 12], round_ctr: usize) {
         // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
         unsafe { crate::hash::poseidon_avx2::crandall_poseidon_const_avx2::<3>(state,
-            ALL_ROUND_CONSTANTS[12 * round_ctr..12 * round_ctr + 12].try_into().unwrap()) };
+            ALL_ROUND_CONSTANTS[12 * round_ctr..12 * round_ctr + 12].try_into().unwrap()); }
     }
 
     #[cfg(target_feature="avx2")]
