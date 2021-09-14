@@ -1,10 +1,12 @@
 use core::arch::aarch64::*;
+use std::convert::TryInto;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::field::crandall_field::CrandallField;
+use crate::field::field_types::PrimeField;
 use crate::field::packed_field::PackedField;
 
 /// PackedCrandallNeon wraps to ensure that Rust does not assume 16-byte alignment. Similar to
@@ -17,24 +19,22 @@ pub struct PackedCrandallNeon(pub [CrandallField; 2]);
 impl PackedCrandallNeon {
     #[inline]
     fn new(x: uint64x2_t) -> Self {
-        let mut obj = Self([CrandallField::ZERO, CrandallField::ZERO]);
-        let ptr = (&mut obj.0).as_mut_ptr().cast::<u64>();
-        unsafe {
-            vst1q_u64(ptr, x);
-        }
-        obj
+        let x0 = unsafe { vgetq_lane_u64::<0>(x) };
+        let x1 = unsafe { vgetq_lane_u64::<1>(x) };
+        Self([CrandallField(x0), CrandallField(x1)])
     }
     #[inline]
     fn get(&self) -> uint64x2_t {
-        let ptr = (&self.0).as_ptr().cast::<u64>();
-        unsafe { vld1q_u64(ptr) }
+        let x0 = self.0[0].0;
+        let x1 = self.0[1].0;
+        unsafe { vcombine_u64(vmov_n_u64(x0), vmov_n_u64(x1)) }
     }
 
     /// Addition that assumes x + y < 2^64 + F::ORDER. May return incorrect results if this
     /// condition is not met, hence it is marked unsafe.
     #[inline]
-    pub unsafe fn add_canonical_u64(&self, rhs: __m256i) -> Self {
-        Self::new(add_canonical_u64::<F>(self.get(), rhs))
+    pub unsafe fn add_canonical_u64(&self, rhs: uint64x2_t) -> Self {
+        Self::new(add_canonical_u64(self.get(), rhs))
     }
 }
 
@@ -85,7 +85,7 @@ impl Mul<Self> for PackedCrandallNeon {
     fn mul(self, rhs: Self) -> Self {
         // TODO: Implement.
         // Do this in scalar for now.
-        Self([self.0[0] * rhs[0], self.0[1] * rhs[1]])
+        Self([self.0[0] * rhs.0[0], self.0[1] * rhs.0[1]])
     }
 }
 impl Mul<CrandallField> for PackedCrandallNeon {
@@ -130,7 +130,7 @@ impl PackedField for PackedCrandallNeon {
 
     #[inline]
     fn broadcast(x: CrandallField) -> Self {
-        Self[x; 2]
+        Self([x; 2])
     }
 
     #[inline]
@@ -144,12 +144,12 @@ impl PackedField for PackedCrandallNeon {
     }
 
     #[inline]
-    fn from_slice(slice: &[F]) -> Self {
+    fn from_slice(slice: &[CrandallField]) -> Self {
         Self(slice.try_into().unwrap())
     }
 
     #[inline]
-    fn to_vec(&self) -> Vec<F> {
+    fn to_vec(&self) -> Vec<CrandallField> {
         self.0.into()
     }
 
@@ -200,16 +200,10 @@ impl Sum for PackedCrandallNeon {
 }
 
 const FIELD_ORDER: u64 = CrandallField::ORDER;
-const EPSILON: u64 = 0u64.wrapping_sub(FIELD_ORDER);
 
 #[inline]
 unsafe fn field_order() -> uint64x2_t {
     vmovq_n_u64(FIELD_ORDER)
-}
-
-#[inline]
-unsafe fn epsilon() -> uint64x2_t {
-    vmovq_n_u64(EPSILON)
 }
 
 #[inline]

@@ -3,6 +3,7 @@ use core::arch::aarch64::*;
 use crate::field::crandall_field::CrandallField;
 use crate::field::field_types::PrimeField;
 use crate::field::packed_crandall_neon::PackedCrandallNeon;
+use crate::field::packed_field::PackedField;
 
 const EPSILON: u64 = 0u64.wrapping_sub(CrandallField::ORDER);
 
@@ -239,9 +240,8 @@ pub unsafe fn crandall_poseidon_const_neon<const PACKED_WIDTH: usize>(
     round_constants: [u64; 2 * PACKED_WIDTH],
 ) {
     let packed_state = PackedCrandallNeon::pack_slice_mut(state);
-    let packed_round_constants =
-        std::slice::from_raw_parts((&round_constants).as_ptr().cast::<__m256i>(), PACKED_WIDTH);
     for i in 0..PACKED_WIDTH {
-        packed_state[i] = packed_state[i].add_canonical_u64(packed_round_constants[i]);
+        let packed_round_const = vld1q_u64(round_constants[2 * i..2 * i + 2].as_ptr());
+        packed_state[i] = packed_state[i].add_canonical_u64(packed_round_const);
     }
 }

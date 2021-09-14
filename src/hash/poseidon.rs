@@ -1,7 +1,7 @@
 //! Implementation of the Poseidon hash function, as described in
 //! https://eprint.iacr.org/2019/458.pdf
 
-#[cfg(target_feature = "avx2")]
+#[cfg(any(target_feature = "avx2", target_feature = "neon"))]
 use std::convert::TryInto;
 
 use unroll::unroll_for_loops;
