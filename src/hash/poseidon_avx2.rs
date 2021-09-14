@@ -225,6 +225,8 @@ pub unsafe fn crandall_poseidon_const_avx2<const PACKED_WIDTH: usize>(
 pub fn crandall_poseidon_sbox_avx2<const PACKED_WIDTH: usize>(
     state: &mut [CrandallField; 4 * PACKED_WIDTH],
 ) {
+    // This function is manually interleaved to maximize instruction-level parallelism.
+
     let packed_state = PackedCrandallAVX2::pack_slice_mut(state);
 
     let mut x2 = [PackedCrandallAVX2::zero(); PACKED_WIDTH];
