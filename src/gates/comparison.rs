@@ -274,7 +274,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         }
 
         let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
-        constraints.push(builder.sub_extension(most_significant_diff, most_significant_diff_so_far));
+        constraints
+            .push(builder.sub_extension(most_significant_diff, most_significant_diff_so_far));
 
         // Range check
         let mut product = builder.one_extension();
@@ -390,10 +391,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
                 diff_index = i;
             }
         }
-        
-        let most_significant_diff = second_input_chunks[diff_index] - first_input_chunks[diff_index];
 
-        out_buffer.set_wire(local_wire(self.gate.wire_most_significant_diff()), most_significant_diff);
+        let most_significant_diff =
+            second_input_chunks[diff_index] - first_input_chunks[diff_index];
+
+        out_buffer.set_wire(
+            local_wire(self.gate.wire_most_significant_diff()),
+            most_significant_diff,
+        );
         for i in 0..self.gate.num_chunks {
             out_buffer.set_wire(
                 local_wire(self.gate.wire_first_chunk_val(i)),
@@ -527,7 +532,8 @@ mod tests {
                 }
             }
 
-            let most_significant_diff = second_input_chunks[diff_index] - first_input_chunks[diff_index];
+            let most_significant_diff =
+                second_input_chunks[diff_index] - first_input_chunks[diff_index];
 
             v.push(first_input);
             v.push(second_input);
