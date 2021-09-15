@@ -201,82 +201,25 @@ impl<F: Extendable<2>> DivAssign for QuadraticExtension<F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quadratic::QuadraticExtension;
-    use crate::field::extension_field::Frobenius;
-    use crate::field::field_types::Field;
-    use crate::test_field_arithmetic;
+    mod crandall {
+        use crate::{test_field_arithmetic, test_field_extension};
 
-    #[test]
-    fn test_add_neg_sub_mul() {
-        type F = QuadraticExtension<CrandallField>;
-        let x = F::rand();
-        let y = F::rand();
-        let z = F::rand();
-        assert_eq!(x + (-x), F::ZERO);
-        assert_eq!(-x, F::ZERO - x);
-        assert_eq!(x + x, x * F::TWO);
-        assert_eq!(x * (-x), -x.square());
-        assert_eq!(x + y, y + x);
-        assert_eq!(x * y, y * x);
-        assert_eq!(x * (y * z), (x * y) * z);
-        assert_eq!(x - (y + z), (x - y) - z);
-        assert_eq!((x + y) - z, x + (y - z));
-        assert_eq!(x * (y + z), x * y + x * z);
-    }
-
-    #[test]
-    fn test_inv_div() {
-        type F = QuadraticExtension<CrandallField>;
-        let x = F::rand();
-        let y = F::rand();
-        let z = F::rand();
-        assert_eq!(x * x.inverse(), F::ONE);
-        assert_eq!(x.inverse() * x, F::ONE);
-        assert_eq!(x.square().inverse(), x.inverse().square());
-        assert_eq!((x / y) * y, x);
-        assert_eq!(x / (y * z), (x / y) / z);
-        assert_eq!((x * y) / z, x * (y / z));
-    }
-
-    #[test]
-    fn test_frobenius() {
-        type F = QuadraticExtension<CrandallField>;
-        let x = F::rand();
-        assert_eq!(x.exp_biguint(&CrandallField::order()), x.frobenius());
-    }
-
-    #[test]
-    fn test_field_order() {
-        // F::order() = 340282366831806780677557380898690695169 = 18446744071293632512 *18446744071293632514 + 1
-        type F = QuadraticExtension<CrandallField>;
-        let x = F::rand();
-        assert_eq!(
-            x.exp_u64(18446744071293632512)
-                .exp_u64(18446744071293632514),
-            F::ONE
+        test_field_extension!(crate::field::crandall_field::CrandallField, 2);
+        test_field_arithmetic!(
+            crate::field::extension_field::quadratic::QuadraticExtension<
+                crate::field::crandall_field::CrandallField,
+            >
         );
     }
 
-    #[test]
-    fn test_power_of_two_gen() {
-        type F = QuadraticExtension<CrandallField>;
-        // F::order() = 2^29 * 2762315674048163 * 229454332791453 + 1
-        assert_eq!(
-            F::MULTIPLICATIVE_GROUP_GENERATOR
-                .exp_u64(2762315674048163)
-                .exp_u64(229454332791453),
-            F::POWER_OF_TWO_GENERATOR
-        );
-        assert_eq!(
-            F::POWER_OF_TWO_GENERATOR.exp_u64(1 << (F::TWO_ADICITY - CrandallField::TWO_ADICITY)),
-            CrandallField::POWER_OF_TWO_GENERATOR.into()
+    mod goldilocks {
+        use crate::{test_field_arithmetic, test_field_extension};
+
+        test_field_extension!(crate::field::goldilocks_field::GoldilocksField, 2);
+        test_field_arithmetic!(
+            crate::field::extension_field::quadratic::QuadraticExtension<
+                crate::field::goldilocks_field::GoldilocksField,
+            >
         );
     }
-
-    test_field_arithmetic!(
-        crate::field::extension_field::quadratic::QuadraticExtension<
-            crate::field::crandall_field::CrandallField,
-        >
-    );
 }
