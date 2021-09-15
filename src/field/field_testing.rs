@@ -1,3 +1,7 @@
+use crate::field::extension_field::Extendable;
+use crate::field::extension_field::Frobenius;
+use crate::field::field_types::Field;
+
 #[macro_export]
 macro_rules! test_field_arithmetic {
     ($field:ty) => {
@@ -90,6 +94,92 @@ macro_rules! test_field_arithmetic {
                     assert_eq!(x, y);
                 }
             }
+        }
+    };
+}
+
+pub(crate) fn test_add_neg_sub_mul<BF: Extendable<D>, const D: usize>() {
+    let x = BF::Extension::rand();
+    let y = BF::Extension::rand();
+    let z = BF::Extension::rand();
+    assert_eq!(x + (-x), BF::Extension::ZERO);
+    assert_eq!(-x, BF::Extension::ZERO - x);
+    assert_eq!(x + x, x * BF::Extension::TWO);
+    assert_eq!(x * (-x), -x.square());
+    assert_eq!(x + y, y + x);
+    assert_eq!(x * y, y * x);
+    assert_eq!(x * (y * z), (x * y) * z);
+    assert_eq!(x - (y + z), (x - y) - z);
+    assert_eq!((x + y) - z, x + (y - z));
+    assert_eq!(x * (y + z), x * y + x * z);
+}
+
+pub(crate) fn test_inv_div<BF: Extendable<D>, const D: usize>() {
+    let x = BF::Extension::rand();
+    let y = BF::Extension::rand();
+    let z = BF::Extension::rand();
+    assert_eq!(x * x.inverse(), BF::Extension::ONE);
+    assert_eq!(x.inverse() * x, BF::Extension::ONE);
+    assert_eq!(x.square().inverse(), x.inverse().square());
+    assert_eq!((x / y) * y, x);
+    assert_eq!(x / (y * z), (x / y) / z);
+    assert_eq!((x * y) / z, x * (y / z));
+}
+
+pub(crate) fn test_frobenius<BF: Extendable<D>, const D: usize>() {
+    let x = BF::Extension::rand();
+    assert_eq!(x.exp_biguint(&BF::order()), x.frobenius());
+    for count in 2..D {
+        assert_eq!(
+            x.repeated_frobenius(count),
+            (0..count).fold(x, |acc, _| acc.frobenius())
+        );
+    }
+}
+
+pub(crate) fn test_field_order<BF: Extendable<D>, const D: usize>() {
+    let x = BF::Extension::rand();
+    assert_eq!(
+        x.exp_biguint(&(BF::Extension::order() - 1u8)),
+        BF::Extension::ONE
+    );
+}
+
+pub(crate) fn test_power_of_two_gen<BF: Extendable<D>, const D: usize>() {
+    assert_eq!(
+        BF::Extension::MULTIPLICATIVE_GROUP_GENERATOR
+            .exp_biguint(&(BF::Extension::order() >> BF::Extension::TWO_ADICITY)),
+        BF::Extension::POWER_OF_TWO_GENERATOR.into()
+    );
+    assert_eq!(
+        BF::Extension::POWER_OF_TWO_GENERATOR
+            .exp_u64(1 << (BF::Extension::TWO_ADICITY - BF::TWO_ADICITY)),
+        BF::POWER_OF_TWO_GENERATOR.into()
+    );
+}
+
+#[macro_export]
+macro_rules! test_field_extension {
+    ($field:ty, $d:expr) => {
+        #[test]
+        fn test_add_neg_sub_mul() {
+            crate::field::field_testing::test_add_neg_sub_mul::<$field, $d>();
+        }
+        #[test]
+        fn test_inv_div() {
+            crate::field::field_testing::test_inv_div::<$field, $d>();
+        }
+        #[test]
+        fn test_frobenius() {
+            crate::field::field_testing::test_frobenius::<$field, $d>();
+        }
+        #[test]
+        fn test_field_order() {
+            crate::field::field_testing::test_field_order::<$field, $d>();
+        }
+        #[test]
+        fn test_power_of_two_gen() {
+            crate::field::field_testing::test_power_of_two_gen::<$field, $d>();
         }
     };
 }

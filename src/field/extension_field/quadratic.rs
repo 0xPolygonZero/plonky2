@@ -204,89 +204,11 @@ mod tests {
     use crate::field::extension_field::{Extendable, Frobenius};
     use crate::field::field_types::Field;
 
-    fn test_add_neg_sub_mul<BF: Extendable<2>>() {
-        let x = BF::Extension::rand();
-        let y = BF::Extension::rand();
-        let z = BF::Extension::rand();
-        assert_eq!(x + (-x), BF::Extension::ZERO);
-        assert_eq!(-x, BF::Extension::ZERO - x);
-        assert_eq!(x + x, x * BF::Extension::TWO);
-        assert_eq!(x * (-x), -x.square());
-        assert_eq!(x + y, y + x);
-        assert_eq!(x * y, y * x);
-        assert_eq!(x * (y * z), (x * y) * z);
-        assert_eq!(x - (y + z), (x - y) - z);
-        assert_eq!((x + y) - z, x + (y - z));
-        assert_eq!(x * (y + z), x * y + x * z);
-    }
-
-    fn test_inv_div<BF: Extendable<2>>() {
-        let x = BF::Extension::rand();
-        let y = BF::Extension::rand();
-        let z = BF::Extension::rand();
-        assert_eq!(x * x.inverse(), BF::Extension::ONE);
-        assert_eq!(x.inverse() * x, BF::Extension::ONE);
-        assert_eq!(x.square().inverse(), x.inverse().square());
-        assert_eq!((x / y) * y, x);
-        assert_eq!(x / (y * z), (x / y) / z);
-        assert_eq!((x * y) / z, x * (y / z));
-    }
-
-    fn test_frobenius<BF: Extendable<2>>() {
-        let x = BF::Extension::rand();
-        assert_eq!(x.exp_biguint(&BF::order()), x.frobenius());
-    }
-
-    fn test_field_order<BF: Extendable<2>>() {
-        let x = BF::Extension::rand();
-        assert_eq!(
-            x.exp_biguint(&(BF::Extension::order() - 1u8)),
-            BF::Extension::ONE
-        );
-    }
-
-    fn test_power_of_two_gen<BF: Extendable<2>>() {
-        assert_eq!(
-            BF::Extension::MULTIPLICATIVE_GROUP_GENERATOR
-                .exp_biguint(&(BF::Extension::order() >> BF::Extension::TWO_ADICITY)),
-            BF::Extension::POWER_OF_TWO_GENERATOR.into()
-        );
-        assert_eq!(
-            BF::Extension::POWER_OF_TWO_GENERATOR
-                .exp_u64(1 << (BF::Extension::TWO_ADICITY - BF::TWO_ADICITY)),
-            BF::POWER_OF_TWO_GENERATOR.into()
-        );
-    }
-
-    macro_rules! test_quadratic_extension {
-        ($field:ty) => {
-            #[test]
-            fn test_add_neg_sub_mul() {
-                super::test_add_neg_sub_mul::<$field>();
-            }
-            #[test]
-            fn test_inv_div() {
-                super::test_inv_div::<$field>();
-            }
-            #[test]
-            fn test_frobenius() {
-                super::test_frobenius::<$field>();
-            }
-            #[test]
-            fn test_field_order() {
-                super::test_field_order::<$field>();
-            }
-            #[test]
-            fn test_power_of_two_gen() {
-                super::test_power_of_two_gen::<$field>();
-            }
-        };
-    }
     mod crandall {
         use crate::field::crandall_field::CrandallField;
-        use crate::test_field_arithmetic;
+        use crate::{test_field_arithmetic, test_field_extension};
 
-        test_quadratic_extension!(CrandallField);
+        test_field_extension!(CrandallField, 2);
         test_field_arithmetic!(
             crate::field::extension_field::quadratic::QuadraticExtension<
                 crate::field::crandall_field::CrandallField,
@@ -296,9 +218,9 @@ mod tests {
 
     mod goldilocks {
         use crate::field::goldilocks_field::GoldilocksField;
-        use crate::test_field_arithmetic;
+        use crate::{test_field_arithmetic, test_field_extension};
 
-        test_quadratic_extension!(GoldilocksField);
+        test_field_extension!(GoldilocksField, 2);
         test_field_arithmetic!(
             crate::field::extension_field::quadratic::QuadraticExtension<
                 crate::field::goldilocks_field::GoldilocksField,
