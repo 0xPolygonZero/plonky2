@@ -201,21 +201,21 @@ impl<F: Extendable<2>> DivAssign for QuadraticExtension<F> {
 
 #[cfg(test)]
 mod tests {
+    use num::{BigUint, One};
+
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quadratic::QuadraticExtension;
-    use crate::field::extension_field::Frobenius;
+    use crate::field::extension_field::{Extendable, Frobenius};
     use crate::field::field_types::Field;
     use crate::test_field_arithmetic;
 
-    #[test]
-    fn test_add_neg_sub_mul() {
-        type F = QuadraticExtension<CrandallField>;
-        let x = F::rand();
-        let y = F::rand();
-        let z = F::rand();
-        assert_eq!(x + (-x), F::ZERO);
-        assert_eq!(-x, F::ZERO - x);
-        assert_eq!(x + x, x * F::TWO);
+    fn test_add_neg_sub_mul<BF: Extendable<2>>() {
+        let x = BF::Extension::rand();
+        let y = BF::Extension::rand();
+        let z = BF::Extension::rand();
+        assert_eq!(x + (-x), BF::Extension::ZERO);
+        assert_eq!(-x, BF::Extension::ZERO - x);
+        assert_eq!(x + x, x * BF::Extension::TWO);
         assert_eq!(x * (-x), -x.square());
         assert_eq!(x + y, y + x);
         assert_eq!(x * y, y * x);
@@ -225,58 +225,89 @@ mod tests {
         assert_eq!(x * (y + z), x * y + x * z);
     }
 
-    #[test]
-    fn test_inv_div() {
-        type F = QuadraticExtension<CrandallField>;
-        let x = F::rand();
-        let y = F::rand();
-        let z = F::rand();
-        assert_eq!(x * x.inverse(), F::ONE);
-        assert_eq!(x.inverse() * x, F::ONE);
+    fn test_inv_div<BF: Extendable<2>>() {
+        let x = BF::Extension::rand();
+        let y = BF::Extension::rand();
+        let z = BF::Extension::rand();
+        assert_eq!(x * x.inverse(), BF::Extension::ONE);
+        assert_eq!(x.inverse() * x, BF::Extension::ONE);
         assert_eq!(x.square().inverse(), x.inverse().square());
         assert_eq!((x / y) * y, x);
         assert_eq!(x / (y * z), (x / y) / z);
         assert_eq!((x * y) / z, x * (y / z));
     }
 
-    #[test]
-    fn test_frobenius() {
-        type F = QuadraticExtension<CrandallField>;
-        let x = F::rand();
-        assert_eq!(x.exp_biguint(&CrandallField::order()), x.frobenius());
+    fn test_frobenius<BF: Extendable<2>>() {
+        let x = BF::Extension::rand();
+        assert_eq!(x.exp_biguint(&BF::order()), x.frobenius());
     }
 
-    #[test]
-    fn test_field_order() {
-        // F::order() = 340282366831806780677557380898690695169 = 18446744071293632512 *18446744071293632514 + 1
-        type F = QuadraticExtension<CrandallField>;
-        let x = F::rand();
+    fn test_field_order<BF: Extendable<2>>() {
+        let x = BF::Extension::rand();
         assert_eq!(
-            x.exp_u64(18446744071293632512)
-                .exp_u64(18446744071293632514),
-            F::ONE
+            x.exp_biguint(&(BF::Extension::order() - 1u8)),
+            BF::Extension::ONE
         );
     }
 
-    #[test]
-    fn test_power_of_two_gen() {
-        type F = QuadraticExtension<CrandallField>;
-        // F::order() = 2^29 * 2762315674048163 * 229454332791453 + 1
+    fn test_power_of_two_gen<BF: Extendable<2>>() {
         assert_eq!(
-            F::MULTIPLICATIVE_GROUP_GENERATOR
-                .exp_u64(2762315674048163)
-                .exp_u64(229454332791453),
-            F::POWER_OF_TWO_GENERATOR
+            BF::Extension::MULTIPLICATIVE_GROUP_GENERATOR
+                .exp_biguint(&(BF::Extension::order() >> BF::Extension::TWO_ADICITY)),
+            BF::Extension::POWER_OF_TWO_GENERATOR.into()
         );
         assert_eq!(
-            F::POWER_OF_TWO_GENERATOR.exp_u64(1 << (F::TWO_ADICITY - CrandallField::TWO_ADICITY)),
-            CrandallField::POWER_OF_TWO_GENERATOR.into()
+            BF::Extension::POWER_OF_TWO_GENERATOR
+                .exp_u64(1 << (BF::Extension::TWO_ADICITY - BF::TWO_ADICITY)),
+            BF::POWER_OF_TWO_GENERATOR.into()
         );
     }
 
-    test_field_arithmetic!(
-        crate::field::extension_field::quadratic::QuadraticExtension<
-            crate::field::crandall_field::CrandallField,
-        >
-    );
+    macro_rules! test_quadratic_extension {
+        ($field:ty) => {
+            #[test]
+            fn test_add_neg_sub_mul() {
+                super::test_add_neg_sub_mul::<$field>();
+            }
+            #[test]
+            fn test_inv_div() {
+                super::test_inv_div::<$field>();
+            }
+            #[test]
+            fn test_frobenius() {
+                super::test_frobenius::<$field>();
+            }
+            #[test]
+            fn test_field_order() {
+                super::test_field_order::<$field>();
+            }
+            #[test]
+            fn test_power_of_two_gen() {
+                super::test_power_of_two_gen::<$field>();
+            }
+        };
+    }
+    mod crandall {
+        use crate::field::crandall_field::CrandallField;
+        use crate::test_field_arithmetic;
+
+        test_quadratic_extension!(CrandallField);
+        test_field_arithmetic!(
+            crate::field::extension_field::quadratic::QuadraticExtension<
+                crate::field::crandall_field::CrandallField,
+            >
+        );
+    }
+
+    mod goldilocks {
+        use crate::field::goldilocks_field::GoldilocksField;
+        use crate::test_field_arithmetic;
+
+        test_quadratic_extension!(GoldilocksField);
+        test_field_arithmetic!(
+            crate::field::extension_field::quadratic::QuadraticExtension<
+                crate::field::goldilocks_field::GoldilocksField,
+            >
+        );
+    }
 }
