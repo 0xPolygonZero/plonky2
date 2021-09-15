@@ -12,6 +12,9 @@ pub(crate) mod packed_field;
 #[cfg(target_feature = "avx2")]
 pub(crate) mod packed_avx2;
 
+#[cfg(target_feature = "neon")]
+pub(crate) mod packed_crandall_neon;
+
 #[cfg(test)]
 mod field_testing;
 #[cfg(test)]

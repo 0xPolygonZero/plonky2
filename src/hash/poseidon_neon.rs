@@ -2,6 +2,8 @@ use core::arch::aarch64::*;
 
 use crate::field::crandall_field::CrandallField;
 use crate::field::field_types::PrimeField;
+use crate::field::packed_crandall_neon::PackedCrandallNeon;
+use crate::field::packed_field::PackedField;
 
 const EPSILON: u64 = 0u64.wrapping_sub(CrandallField::ORDER);
 
@@ -227,4 +229,19 @@ unsafe fn mul_add_32_32_64(x: uint32x2_t, y: uint32x2_t, z: uint64x2_t) -> uint6
     let mask = vcgtq_u64(z, res_wrapped);
     let res_unwrapped = vaddq_u64(res_wrapped, vmovq_n_u64(EPSILON));
     vbslq_u64(mask, res_unwrapped, res_wrapped)
+}
+
+/// Poseidon constant layer for Crandall. Assumes that every element in round_constants is in
+/// 0..CrandallField::ORDER; when this is not true it may return garbage. It's marked unsafe for
+/// this reason.
+#[inline(always)]
+pub unsafe fn crandall_poseidon_const_neon<const PACKED_WIDTH: usize>(
+    state: &mut [CrandallField; 2 * PACKED_WIDTH],
+    round_constants: [u64; 2 * PACKED_WIDTH],
+) {
+    let packed_state = PackedCrandallNeon::pack_slice_mut(state);
+    for i in 0..PACKED_WIDTH {
+        let packed_round_const = vld1q_u64(round_constants[2 * i..2 * i + 2].as_ptr());
+        packed_state[i] = packed_state[i].add_canonical_u64(packed_round_const);
+    }
 }
