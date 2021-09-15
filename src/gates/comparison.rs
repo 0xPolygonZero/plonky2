@@ -107,6 +107,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
 
         // Find the chosen chunk.
         for i in 0..self.num_chunks {
+            let max_chunk_size = 1 << self.chunk_bits();
+            let mut first_product = F::Extension::ONE;
+            let mut second_product = F::Extension::ONE;
+            for x in 1..max_chunk_size {
+                let x_F = F::Extension::from_canonical_usize(x);
+                first_product = first_product * (first_chunks[i] - x_F);
+                second_product = second_product * (second_chunks[i] - x_F);
+            }
+            constraints.push(first_product);
+            constraints.push(second_product);
+
             let difference = first_chunks[i] - second_chunks[i];
             let equality_dummy = vars.local_wires[self.wire_equality_dummy(i)];
             let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
@@ -163,6 +174,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
 
         // Find the chosen chunk.
         for i in 0..self.num_chunks {
+            let max_chunk_size = 1 << self.chunk_bits();
+            let mut first_product = F::ONE;
+            let mut second_product = F::ONE;
+            for x in 1..max_chunk_size {
+                let x_F = F::from_canonical_usize(x);
+                first_product = first_product * (first_chunks[i] - x_F);
+                second_product = second_product * (second_chunks[i] - x_F);
+            }
+            constraints.push(first_product);
+            constraints.push(second_product);
+
             let difference = first_chunks[i] - second_chunks[i];
             let equality_dummy = vars.local_wires[self.wire_equality_dummy(i)];
             let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
@@ -221,6 +243,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let one = builder.one_extension();
         // Find the chosen chunk.
         for i in 0..self.num_chunks {
+            let max_chunk_size = 1 << self.chunk_bits();
+            let mut first_product = one;
+            let mut second_product = one;
+            for x in 1..max_chunk_size {
+                let x_F = builder.constant_extension(F::Extension::from_canonical_usize(x));
+                let first_diff = builder.sub_extension(first_chunks[i], x_F);
+                let second_diff = builder.sub_extension(second_chunks[i], x_F);
+                first_product = builder.mul_extension(first_product, first_diff);
+                second_product = builder.mul_extension(second_product, second_diff);
+            }
+            constraints.push(first_product);
+            constraints.push(second_product);
+
             let difference = builder.sub_extension(first_chunks[i], second_chunks[i]);
             let equality_dummy = vars.local_wires[self.wire_equality_dummy(i)];
             let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
@@ -275,11 +310,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
     }
 
     fn degree(&self) -> usize {
-        self.num_chunks + 1
+        (self.num_chunks + 1).max(1 << self.chunk_bits())
     }
 
     fn num_constraints(&self) -> usize {
-        4 + 2 * self.num_chunks
+        4 + 4 * self.num_chunks
     }
 }
 
