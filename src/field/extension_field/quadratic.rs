@@ -201,9 +201,6 @@ impl<F: Extendable<2>> DivAssign for QuadraticExtension<F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::extension_field::{Extendable, Frobenius};
-    use crate::field::field_types::Field;
-
     mod crandall {
         use crate::field::crandall_field::CrandallField;
         use crate::{test_field_arithmetic, test_field_extension};

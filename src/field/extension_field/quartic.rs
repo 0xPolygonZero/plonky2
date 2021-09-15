@@ -227,108 +227,27 @@ impl<F: Extendable<4>> DivAssign for QuarticExtension<F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticExtension;
-    use crate::field::extension_field::Frobenius;
-    use crate::field::field_types::Field;
-    use crate::test_field_arithmetic;
+    mod crandall {
+        use crate::field::crandall_field::CrandallField;
+        use crate::{test_field_arithmetic, test_field_extension};
 
-    fn exp_naive<F: Field>(x: F, power: u128) -> F {
-        let mut current = x;
-        let mut product = F::ONE;
-
-        for j in 0..128 {
-            if (power >> j & 1) != 0 {
-                product *= current;
-            }
-            current = current.square();
-        }
-        product
-    }
-
-    #[test]
-    fn test_add_neg_sub_mul() {
-        type F = QuarticExtension<CrandallField>;
-        let x = F::rand();
-        let y = F::rand();
-        let z = F::rand();
-        assert_eq!(x + (-x), F::ZERO);
-        assert_eq!(-x, F::ZERO - x);
-        assert_eq!(x + x, x * F::TWO.into());
-        assert_eq!(x * (-x), -x.square());
-        assert_eq!(x + y, y + x);
-        assert_eq!(x * y, y * x);
-        assert_eq!(x * (y * z), (x * y) * z);
-        assert_eq!(x - (y + z), (x - y) - z);
-        assert_eq!((x + y) - z, x + (y - z));
-        assert_eq!(x * (y + z), x * y + x * z);
-    }
-
-    #[test]
-    fn test_inv_div() {
-        type F = QuarticExtension<CrandallField>;
-        let x = F::rand();
-        let y = F::rand();
-        let z = F::rand();
-        assert_eq!(x * x.inverse(), F::ONE);
-        assert_eq!(x.inverse() * x, F::ONE);
-        assert_eq!(x.square().inverse(), x.inverse().square());
-        assert_eq!((x / y) * y, x);
-        assert_eq!(x / (y * z), (x / y) / z);
-        assert_eq!((x * y) / z, x * (y / z));
-    }
-
-    #[test]
-    fn test_frobenius() {
-        type F = QuarticExtension<CrandallField>;
-        const D: usize = 4;
-        let x = F::rand();
-        assert_eq!(x.exp_biguint(&CrandallField::order()), x.frobenius());
-        for count in 2..D {
-            assert_eq!(
-                x.repeated_frobenius(count),
-                (0..count).fold(x, |acc, _| acc.frobenius())
-            );
-        }
-    }
-
-    #[test]
-    fn test_field_order() {
-        // F::order() = 340282366831806780677557380898690695168 * 340282366831806780677557380898690695170 + 1
-        type F = QuarticExtension<CrandallField>;
-        let x = F::rand();
-        assert_eq!(
-            exp_naive(
-                exp_naive(x, 340282366831806780677557380898690695168),
-                340282366831806780677557380898690695170
-            ),
-            F::ONE
+        test_field_extension!(CrandallField, 4);
+        test_field_arithmetic!(
+            crate::field::extension_field::quartic::QuarticExtension<
+                crate::field::crandall_field::CrandallField,
+            >
         );
     }
 
-    #[test]
-    fn test_power_of_two_gen() {
-        type F = QuarticExtension<CrandallField>;
-        // F::order() = 2^30 * 1090552343587053358839971118999869 * 98885475095492590491252558464653635 + 1
-        assert_eq!(
-            exp_naive(
-                exp_naive(
-                    F::MULTIPLICATIVE_GROUP_GENERATOR,
-                    1090552343587053358839971118999869
-                ),
-                98885475095492590491252558464653635
-            ),
-            F::POWER_OF_TWO_GENERATOR
-        );
-        assert_eq!(
-            F::POWER_OF_TWO_GENERATOR.exp_u64(1 << (F::TWO_ADICITY - CrandallField::TWO_ADICITY)),
-            CrandallField::POWER_OF_TWO_GENERATOR.into()
+    mod goldilocks {
+        use crate::field::goldilocks_field::GoldilocksField;
+        use crate::{test_field_arithmetic, test_field_extension};
+
+        test_field_extension!(GoldilocksField, 4);
+        test_field_arithmetic!(
+            crate::field::extension_field::quartic::QuarticExtension<
+                crate::field::goldilocks_field::GoldilocksField,
+            >
         );
     }
-
-    test_field_arithmetic!(
-        crate::field::extension_field::quartic::QuarticExtension<
-            crate::field::crandall_field::CrandallField,
-        >
-    );
 }
