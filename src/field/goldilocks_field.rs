@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::field::extension_field::quadratic::QuadraticExtension;
 use crate::field::extension_field::quartic::QuarticExtension;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::field_types::{Field, PrimeField};
 use crate::field::inversion::try_inverse_u64;
 
 const EPSILON: u64 = (1 << 32) - 1;

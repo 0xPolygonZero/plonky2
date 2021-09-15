@@ -201,13 +201,8 @@ impl<F: Extendable<2>> DivAssign for QuadraticExtension<F> {
 
 #[cfg(test)]
 mod tests {
-    use num::{BigUint, One};
-
-    use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quadratic::QuadraticExtension;
     use crate::field::extension_field::{Extendable, Frobenius};
     use crate::field::field_types::Field;
-    use crate::test_field_arithmetic;
 
     fn test_add_neg_sub_mul<BF: Extendable<2>>() {
         let x = BF::Extension::rand();
