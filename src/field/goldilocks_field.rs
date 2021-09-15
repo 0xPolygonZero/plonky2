@@ -8,7 +8,10 @@ use num::BigUint;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::extension_field::quadratic::QuadraticExtension;
+use crate::field::extension_field::quartic::QuarticExtension;
+use crate::field::extension_field::Extendable;
+use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::field::inversion::try_inverse_u64;
 
 const EPSILON: u64 = (1 << 32) - 1;
@@ -211,6 +214,35 @@ impl DivAssign for GoldilocksField {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
+}
+
+impl Extendable<2> for GoldilocksField {
+    type Extension = QuadraticExtension<Self>;
+
+    // Verifiable in Sage with
+    // `R.<x> = GF(p)[]; assert (x^2 - 7).is_irreducible()`.
+    const W: Self = Self(7);
+
+    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 2] =
+        [Self(18081566051660590251), Self(16121475356294670766)];
+
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 2] = [Self(0), Self(15659105665374529263)];
+}
+
+impl Extendable<4> for GoldilocksField {
+    type Extension = QuarticExtension<Self>;
+
+    const W: Self = Self(7);
+
+    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 4] = [
+        Self(5024755240244648895),
+        Self(13227474371289740625),
+        Self(3912887029498544536),
+        Self(3900057112666848848),
+    ];
+
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 4] =
+        [Self(0), Self(0), Self(0), Self(12587610116473453104)];
 }
 
 /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
