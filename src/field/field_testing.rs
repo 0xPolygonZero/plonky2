@@ -149,7 +149,7 @@ pub(crate) fn test_power_of_two_gen<BF: Extendable<D>, const D: usize>() {
     assert_eq!(
         BF::Extension::MULTIPLICATIVE_GROUP_GENERATOR
             .exp_biguint(&(BF::Extension::order() >> BF::Extension::TWO_ADICITY)),
-        BF::Extension::POWER_OF_TWO_GENERATOR.into()
+        BF::Extension::POWER_OF_TWO_GENERATOR,
     );
     assert_eq!(
         BF::Extension::POWER_OF_TWO_GENERATOR
