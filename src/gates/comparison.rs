@@ -42,33 +42,29 @@ impl<F: RichField + Extendable<D>, const D: usize> ComparisonGate<F, D> {
         1
     }
 
-    pub fn wire_z_val(&self) -> usize {
-        2
-    }
-
     pub fn wire_z_bit(&self, bit_index: usize) -> usize {
         debug_assert!(bit_index < self.chunk_bits() + 1);
-        3 + bit_index
+        2 + bit_index
     }
 
     pub fn wire_first_chunk_val(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        4 + self.chunk_bits() + chunk
+        3 + self.chunk_bits() + chunk
     }
 
     pub fn wire_second_chunk_val(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        4 + self.chunk_bits() + self.num_chunks + chunk
+        3 + self.chunk_bits() + self.num_chunks + chunk
     }
 
     pub fn wire_equality_dummy(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        4 + self.chunk_bits() + 2 * self.num_chunks + chunk
+        3 + self.chunk_bits() + 2 * self.num_chunks + chunk
     }
 
     pub fn wire_chunks_equal(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        4 + self.chunk_bits() + 3 * self.num_chunks + chunk
+        3 + self.chunk_bits() + 3 * self.num_chunks + chunk
     }
 }
 
@@ -403,7 +399,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             })
             .collect();
 
-        out_buffer.set_wire(local_wire(self.gate.wire_z_val()), z);
         for b in 0..self.gate.chunk_bits() + 1 {
             out_buffer.set_wire(local_wire(self.gate.wire_z_bit(b)), z_bits[b]);
         }
@@ -456,17 +451,16 @@ mod tests {
 
         assert_eq!(gate.wire_first_input(), 0);
         assert_eq!(gate.wire_second_input(), 1);
-        assert_eq!(gate.wire_z_val(), 2);
-        assert_eq!(gate.wire_z_bit(0), 3);
-        assert_eq!(gate.wire_z_bit(8), 11);
-        assert_eq!(gate.wire_first_chunk_val(0), 12);
-        assert_eq!(gate.wire_first_chunk_val(4), 16);
-        assert_eq!(gate.wire_second_chunk_val(0), 17);
-        assert_eq!(gate.wire_second_chunk_val(4), 21);
-        assert_eq!(gate.wire_equality_dummy(0), 22);
-        assert_eq!(gate.wire_equality_dummy(4), 26);
-        assert_eq!(gate.wire_chunks_equal(0), 27);
-        assert_eq!(gate.wire_chunks_equal(4), 31);
+        assert_eq!(gate.wire_z_bit(0), 2);
+        assert_eq!(gate.wire_z_bit(8), 10);
+        assert_eq!(gate.wire_first_chunk_val(0), 11);
+        assert_eq!(gate.wire_first_chunk_val(4), 15);
+        assert_eq!(gate.wire_second_chunk_val(0), 16);
+        assert_eq!(gate.wire_second_chunk_val(4), 20);
+        assert_eq!(gate.wire_equality_dummy(0), 21);
+        assert_eq!(gate.wire_equality_dummy(4), 25);
+        assert_eq!(gate.wire_chunks_equal(0), 26);
+        assert_eq!(gate.wire_chunks_equal(4), 30);
     }
 
     #[test]
@@ -561,7 +555,6 @@ mod tests {
 
                 v.push(first_input);
                 v.push(second_input);
-                v.push(z);
                 v.append(&mut z_bits);
                 v.append(&mut first_input_chunks);
                 v.append(&mut second_input_chunks);
