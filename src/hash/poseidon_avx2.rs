@@ -190,6 +190,8 @@ pub fn crandall_poseidon12_mds_avx2(state: [CrandallField; 12]) -> [CrandallFiel
     }
 }
 
+/// Crandall reduce a 96-bit integer. It is encoded as (u32 as u64, u64s). The input is assumed to
+/// be pre-shifted by (1 << 63). The result is not shifted.
 #[inline(always)]
 unsafe fn reduce96s(x_s: Vecs128) -> __m256i {
     let (hi, lo_s) = x_s;
@@ -198,6 +200,8 @@ unsafe fn reduce96s(x_s: Vecs128) -> __m256i {
     reduced.get()
 }
 
+/// Crandall reduce a 128-bit integer. It is encoded as (u64, u64s). The input is assumed to be
+/// pre-shifted by (1 << 63). The result is not shifted.
 #[inline(always)]
 unsafe fn reduce128s(x_s: Vecs128) -> __m256i {
     let (hi, lo_s) = x_s;
@@ -206,52 +210,13 @@ unsafe fn reduce128s(x_s: Vecs128) -> __m256i {
     reduced.get()
 }
 
+/// Crandall reduce a 160-bit integer. It is encoded as (u32 as u64, u64s, u64s). The input is
+/// assumed to be pre-shifted by (1 << 127) + (1 << 63). The result is not shifted.
 #[inline(always)]
 unsafe fn reduce160ss(x_ss: (__m256i, __m256i, __m256i)) -> __m256i {
     let (top0, hi0_s, lo0_s) = x_ss;
     let t_s = reduce96s((top0, hi0_s));
     reduce128s((t_s, lo0_s))
-}
-
-/// Poseidon constant layer for Crandall. Assumes that every element in round_constants is in
-/// 0..CrandallField::ORDER; when this is not true it may return garbage. It's marked unsafe for
-/// this reason.
-#[inline(always)]
-pub unsafe fn crandall_poseidon_const_avx2<const PACKED_WIDTH: usize>(
-    state: &mut [CrandallField; 4 * PACKED_WIDTH],
-    round_constants: [u64; 4 * PACKED_WIDTH],
-) {
-    let packed_state = PackedCrandallAVX2::pack_slice_mut(state);
-    let packed_round_constants =
-        std::slice::from_raw_parts((&round_constants).as_ptr().cast::<__m256i>(), PACKED_WIDTH);
-    for i in 0..PACKED_WIDTH {
-        packed_state[i] = packed_state[i].add_canonical_u64(packed_round_constants[i]);
-    }
-}
-
-#[inline(always)]
-pub fn crandall_poseidon_sbox_avx2<const PACKED_WIDTH: usize>(
-    state: &mut [CrandallField; 4 * PACKED_WIDTH],
-) {
-    // This function is manually interleaved to maximize instruction-level parallelism.
-
-    let packed_state = PackedCrandallAVX2::pack_slice_mut(state);
-
-    let mut x2 = [PackedCrandallAVX2::zero(); PACKED_WIDTH];
-    for i in 0..PACKED_WIDTH {
-        x2[i] = packed_state[i].square();
-    }
-
-    let mut x3 = [PackedCrandallAVX2::zero(); PACKED_WIDTH];
-    let mut x4 = [PackedCrandallAVX2::zero(); PACKED_WIDTH];
-    for i in 0..PACKED_WIDTH {
-        x3[i] = packed_state[i] * x2[i];
-        x4[i] = x2[i].square();
-    }
-
-    for i in 0..PACKED_WIDTH {
-        packed_state[i] = x3[i] * x4[i];
-    }
 }
 
 /// 64-bit by 64-bit multiplication with accumulation into a 192-bit integer. The third argument is
@@ -293,6 +258,47 @@ unsafe fn mac64_64_192ss_ss(
     let res_top = _mm256_sub_epi64(z_top, carry_hi);
 
     (res_top, res_hi5_s, res_lo2_s)
+}
+
+/// Poseidon constant layer for Crandall. Assumes that every element in round_constants is in
+/// 0..CrandallField::ORDER; when this is not true it may return garbage. It's marked unsafe for
+/// this reason.
+#[inline(always)]
+pub unsafe fn crandall_poseidon_const_avx2<const PACKED_WIDTH: usize>(
+    state: &mut [CrandallField; 4 * PACKED_WIDTH],
+    round_constants: [u64; 4 * PACKED_WIDTH],
+) {
+    let packed_state = PackedCrandallAVX2::pack_slice_mut(state);
+    let packed_round_constants =
+        std::slice::from_raw_parts((&round_constants).as_ptr().cast::<__m256i>(), PACKED_WIDTH);
+    for i in 0..PACKED_WIDTH {
+        packed_state[i] = packed_state[i].add_canonical_u64(packed_round_constants[i]);
+    }
+}
+
+#[inline(always)]
+pub fn crandall_poseidon_sbox_avx2<const PACKED_WIDTH: usize>(
+    state: &mut [CrandallField; 4 * PACKED_WIDTH],
+) {
+    // This function is manually interleaved to maximize instruction-level parallelism.
+
+    let packed_state = PackedCrandallAVX2::pack_slice_mut(state);
+
+    let mut x2 = [PackedCrandallAVX2::zero(); PACKED_WIDTH];
+    for i in 0..PACKED_WIDTH {
+        x2[i] = packed_state[i].square();
+    }
+
+    let mut x3 = [PackedCrandallAVX2::zero(); PACKED_WIDTH];
+    let mut x4 = [PackedCrandallAVX2::zero(); PACKED_WIDTH];
+    for i in 0..PACKED_WIDTH {
+        x3[i] = packed_state[i] * x2[i];
+        x4[i] = x2[i].square();
+    }
+
+    for i in 0..PACKED_WIDTH {
+        packed_state[i] = x3[i] * x4[i];
+    }
 }
 
 #[inline(always)]
