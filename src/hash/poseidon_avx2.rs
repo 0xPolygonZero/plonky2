@@ -1,5 +1,7 @@
 use core::arch::x86_64::*;
 
+use unroll::unroll_for_loops;
+
 use crate::field::crandall_field::CrandallField;
 use crate::field::field_types::{Field, PrimeField};
 use crate::field::packed_avx2::PackedCrandallAVX2;
@@ -323,6 +325,7 @@ unsafe fn reduce160ss(x_ss: (__m256i, __m256i, __m256i)) -> __m256i {
 }
 
 #[inline(always)]
+#[unroll_for_loops]
 pub fn crandall_mds_partial_layer_init<const PACKED_WIDTH: usize>(
     state: &[CrandallField; 4 * PACKED_WIDTH],
     matrix: &[[u64; 4 * PACKED_WIDTH]; 4 * PACKED_WIDTH - 1],
@@ -335,13 +338,21 @@ pub fn crandall_mds_partial_layer_init<const PACKED_WIDTH: usize>(
         ); PACKED_WIDTH]
     };
 
-    for r in 1..4 * PACKED_WIDTH {
-        unsafe {
-            let state_r = _mm256_set1_epi64x(state[r].0 as i64);
-            let matrix_row = matrix[r - 1];
-            for c in 0..PACKED_WIDTH {
-                let t = _mm256_loadu_si256(matrix_row[4 * c..4 * c + 4].as_ptr().cast::<__m256i>());
-                cumul[c] = mac64_64_192ss_ss(state_r, t, cumul[c]);
+    assert!(4 * PACKED_WIDTH <= 12);
+    for r in 1..12 {
+        if r < 4 * PACKED_WIDTH {
+            unsafe {
+                let state_r = _mm256_set1_epi64x(state[r].0 as i64);
+                let matrix_row = matrix[r - 1];
+                assert!(PACKED_WIDTH <= 3);
+                for c in 0..3 {
+                    if c < PACKED_WIDTH {
+                        let t = _mm256_loadu_si256(
+                            matrix_row[4 * c..4 * c + 4].as_ptr().cast::<__m256i>(),
+                        );
+                        cumul[c] = mac64_64_192ss_ss(state_r, t, cumul[c]);
+                    }
+                }
             }
         }
     }
@@ -349,8 +360,11 @@ pub fn crandall_mds_partial_layer_init<const PACKED_WIDTH: usize>(
     let mut res = [CrandallField::ZERO; 4 * PACKED_WIDTH];
     {
         let packed_res = PackedCrandallAVX2::pack_slice_mut(&mut res[..]);
-        for c in 0..PACKED_WIDTH {
-            packed_res[c] = PackedCrandallAVX2::new(unsafe { reduce160ss(cumul[c]) });
+        assert!(PACKED_WIDTH <= 3);
+        for c in 0..3 {
+            if c < PACKED_WIDTH {
+                packed_res[c] = PackedCrandallAVX2::new(unsafe { reduce160ss(cumul[c]) });
+            }
         }
     }
     res[0] = state[0];
@@ -358,16 +372,22 @@ pub fn crandall_mds_partial_layer_init<const PACKED_WIDTH: usize>(
 }
 
 #[inline(always)]
+#[unroll_for_loops]
 pub fn crandall_partial_first_constant_layer<const PACKED_WIDTH: usize>(
     state: &mut [CrandallField; 4 * PACKED_WIDTH],
     round_constants: &[u64; 4 * PACKED_WIDTH],
 ) {
     let packed_state = PackedCrandallAVX2::pack_slice_mut(state);
-    for (i, s) in packed_state.iter_mut().enumerate() {
-        unsafe {
-            let c =
-                _mm256_loadu_si256(round_constants[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
-            *s = s.add_canonical_u64(c);
+    assert!(PACKED_WIDTH <= 3);
+    for i in 0..3 {
+        if i < PACKED_WIDTH {
+            let s = &mut packed_state[i];
+            unsafe {
+                let c = _mm256_loadu_si256(
+                    round_constants[4 * i..4 * i + 4].as_ptr().cast::<__m256i>(),
+                );
+                *s = s.add_canonical_u64(c);
+            }
         }
     }
 }
