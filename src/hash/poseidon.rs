@@ -21,12 +21,9 @@ const N_PARTIAL_ROUNDS: usize = 22;
 const N_ROUNDS: usize = N_FULL_ROUNDS_TOTAL + N_PARTIAL_ROUNDS;
 const MAX_WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :)
 
-// The round constants are the same as for GMiMC (hash.rs):
-// generated from ChaCha8 with a seed of 0. In this case we need
-// to generate more though. We include enough for a WIDTH of 12;
-// smaller widths just use a subset.
-// TODO: These are specific to CrandallField; for other fields they wouldn't represent uniformly
-// random numbers.
+/// Note that these work for the Crandall and Goldilocks fields, but not necessarily others. See
+/// `generate_constants` about how these were generated. We include enough for a WIDTH of 12;
+/// smaller widths just use a subset.
 #[rustfmt::skip]
 const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     // WARNING: These must be in 0..CrandallField::ORDER (i.e. canonical form). If this condition is
