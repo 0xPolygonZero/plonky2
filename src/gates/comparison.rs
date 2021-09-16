@@ -122,9 +122,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             constraints.push(difference * equality_dummy - (F::Extension::ONE - chunks_equal));
             constraints.push(chunks_equal * difference);
 
-            let this_diff = second_chunks[i] - first_chunks[i];
             most_significant_diff_so_far = chunks_equal * most_significant_diff_so_far
-                + (F::Extension::ONE - chunks_equal) * this_diff;
+                + (F::Extension::ONE - chunks_equal) * difference;
         }
 
         let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
@@ -183,7 +182,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             constraints.push(first_product);
             constraints.push(second_product);
 
-            let difference = first_chunks[i] - second_chunks[i];
+            let difference = second_chunks[i] - first_chunks[i];
             let equality_dummy = vars.local_wires[self.wire_equality_dummy(i)];
             let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
 
@@ -191,9 +190,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             constraints.push(difference * equality_dummy - (F::ONE - chunks_equal));
             constraints.push(chunks_equal * difference);
 
-            let this_diff = first_chunks[i] - second_chunks[i];
             most_significant_diff_so_far =
-                chunks_equal * most_significant_diff_so_far + (F::ONE - chunks_equal) * this_diff;
+                chunks_equal * most_significant_diff_so_far + (F::ONE - chunks_equal) * difference;
         }
 
         let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
@@ -266,10 +264,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             constraints.push(builder.sub_extension(diff_times_equal, not_equal));
             constraints.push(builder.mul_extension(chunks_equal, difference));
 
-            let this_diff = builder.sub_extension(second_chunks[i], first_chunks[i]);
             let old_diff = builder.mul_extension(chunks_equal, most_significant_diff_so_far);
             let not_equal = builder.sub_extension(one, chunks_equal);
-            let new_diff = builder.mul_extension(not_equal, this_diff);
+            let new_diff = builder.mul_extension(not_equal, difference);
             most_significant_diff_so_far = builder.add_extension(old_diff, new_diff);
         }
 
