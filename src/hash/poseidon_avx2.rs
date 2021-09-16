@@ -250,7 +250,9 @@ pub fn crandall_poseidon_sbox_avx2<const PACKED_WIDTH: usize>(
 /// assumed to be pre-shifted by (1 << 127) + (1 << 63). The result is similarly shifted.
 #[inline]
 unsafe fn mac64_64_192ss_ss(
-    x: __m256i, y: __m256i, z_ss: (__m256i, __m256i, __m256i)
+    x: __m256i,
+    y: __m256i,
+    z_ss: (__m256i, __m256i, __m256i),
 ) -> (__m256i, __m256i, __m256i) {
     let (z_top, z_hi_s, z_lo_s) = z_ss;
 
@@ -326,9 +328,11 @@ pub fn crandall_mds_partial_layer_init<const PACKED_WIDTH: usize>(
     matrix: &[[u64; 4 * PACKED_WIDTH]; 4 * PACKED_WIDTH - 1],
 ) -> [CrandallField; 4 * PACKED_WIDTH] {
     let mut cumul = unsafe {
-        [(_mm256_setzero_si256(),
-          _mm256_set1_epi64x(SIGN_BIT as i64),
-          _mm256_set1_epi64x(SIGN_BIT as i64)); PACKED_WIDTH]
+        [(
+            _mm256_setzero_si256(),
+            _mm256_set1_epi64x(SIGN_BIT as i64),
+            _mm256_set1_epi64x(SIGN_BIT as i64),
+        ); PACKED_WIDTH]
     };
 
     for r in 1..4 * PACKED_WIDTH {
@@ -361,7 +365,8 @@ pub fn crandall_partial_first_constant_layer<const PACKED_WIDTH: usize>(
     let packed_state = PackedCrandallAVX2::pack_slice_mut(state);
     for (i, s) in packed_state.iter_mut().enumerate() {
         unsafe {
-            let c = _mm256_loadu_si256(round_constants[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
+            let c =
+                _mm256_loadu_si256(round_constants[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
             *s = s.add_canonical_u64(c);
         }
     }
