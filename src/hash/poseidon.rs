@@ -7,8 +7,10 @@ use std::convert::TryInto;
 use unroll::unroll_for_loops;
 
 use crate::field::crandall_field::CrandallField;
-use crate::field::extension_field::FieldExtension;
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::extension_field::target::ExtensionTarget;
+use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::plonk::circuit_builder::CircuitBuilder;
 
 // The number of full rounds and partial rounds is given by the
 // calc_round_numbers.py script. They happen to be the same for both
@@ -194,6 +196,40 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
+    fn mds_row_shf_recursive<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        r: usize,
+        v: &[ExtensionTarget<D>; WIDTH],
+    ) -> ExtensionTarget<D> {
+        let one = builder.one_extension();
+        debug_assert!(r < WIDTH);
+        // The values of MDS_MATRIX_EXPS are known to be small, so we can
+        // accumulate all the products for each row and reduce just once
+        // at the end (done by the caller).
+
+        // NB: Unrolling this, calculating each term independently, and
+        // summing at the end, didn't improve performance for me.
+        let mut res = builder.zero_extension();
+
+        // This is a hacky way of fully unrolling the loop.
+        assert!(WIDTH <= 12);
+        for i in 0..12 {
+            if i < WIDTH {
+                res = builder.arithmetic_extension(
+                    F::from_canonical_u64(1 << Self::MDS_MATRIX_EXPS[i]),
+                    F::ONE,
+                    one,
+                    v[(i + r) % WIDTH],
+                    res,
+                );
+            }
+        }
+
+        res
+    }
+
+    #[inline(always)]
+    #[unroll_for_loops]
     fn mds_layer(state_: &[Self; WIDTH]) -> [Self; WIDTH] {
         let mut result = [Self::ZERO; WIDTH];
 
@@ -233,6 +269,25 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
+    fn mds_layer_recursive<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        state: &[ExtensionTarget<D>; WIDTH],
+    ) -> [ExtensionTarget<D>; WIDTH] {
+        let mut result = [builder.zero_extension(); WIDTH];
+
+        // This is a hacky way of fully unrolling the loop.
+        assert!(WIDTH <= 12);
+        for r in 0..12 {
+            if r < WIDTH {
+                result[r] = Self::mds_row_shf_recursive(builder, r, state);
+            }
+        }
+
+        result
+    }
+
+    #[inline(always)]
+    #[unroll_for_loops]
     fn partial_first_constant_layer<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         state: &mut [F; WIDTH],
     ) {
@@ -240,6 +295,27 @@ where
         for i in 0..12 {
             if i < WIDTH {
                 state[i] += F::from_canonical_u64(Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]);
+            }
+        }
+    }
+
+    #[inline(always)]
+    #[unroll_for_loops]
+    fn partial_first_constant_layer_recursive<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        state: &mut [ExtensionTarget<D>; WIDTH],
+    ) {
+        let one = builder.one_extension();
+        assert!(WIDTH <= 12);
+        for i in 0..12 {
+            if i < WIDTH {
+                state[i] = builder.arithmetic_extension(
+                    F::from_canonical_u64(Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]),
+                    F::ONE,
+                    one,
+                    one,
+                    state[i],
+                );
             }
         }
     }
@@ -269,6 +345,41 @@ where
                             Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[c - 1][r - 1],
                         );
                         result[c] += state[r] * t;
+                    }
+                }
+            }
+        }
+        result
+    }
+
+    #[inline(always)]
+    #[unroll_for_loops]
+    fn mds_partial_layer_init_recursive<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        state: &[ExtensionTarget<D>; WIDTH],
+    ) -> [ExtensionTarget<D>; WIDTH] {
+        let one = builder.one_extension();
+        let mut result = [builder.zero_extension(); WIDTH];
+
+        // Initial matrix has first row/column = [1, 0, ..., 0];
+
+        // c = 0
+        result[0] = state[0];
+
+        assert!(WIDTH <= 12);
+        for c in 1..12 {
+            if c < WIDTH {
+                assert!(WIDTH <= 12);
+                for r in 1..12 {
+                    if r < WIDTH {
+                        // NB: FAST_PARTIAL_ROUND_INITIAL_MATRIX is stored in
+                        // column-major order so that this dot product is cache
+                        // friendly.
+                        let t = F::from_canonical_u64(
+                            Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[c - 1][r - 1],
+                        );
+                        result[c] =
+                            builder.arithmetic_extension(t, F::ONE, one, state[r], result[c]);
                     }
                 }
             }
@@ -345,6 +456,46 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
+    fn mds_partial_layer_fast_field_recursive<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        state: &[ExtensionTarget<D>; WIDTH],
+        r: usize,
+    ) -> [ExtensionTarget<D>; WIDTH] {
+        let zero = builder.zero_extension();
+        let one = builder.one_extension();
+
+        // Set d = [M_00 | w^] dot [state]
+        let s0 = state[0];
+        let mut d = builder.arithmetic_extension(
+            F::from_canonical_u64(1 << Self::MDS_MATRIX_EXPS[0]),
+            F::ONE,
+            one,
+            s0,
+            zero,
+        );
+        assert!(WIDTH <= 12);
+        for i in 1..12 {
+            if i < WIDTH {
+                let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
+                d = builder.arithmetic_extension(t, F::ONE, one, state[i], d);
+            }
+        }
+
+        // result = [d] concat [state[0] * v + state[shift up by 1]]
+        let mut result = [zero; WIDTH];
+        result[0] = d;
+        assert!(WIDTH <= 12);
+        for i in 1..12 {
+            if i < WIDTH {
+                let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
+                result[i] = builder.arithmetic_extension(t, F::ONE, one, state[0], state[i]);
+            }
+        }
+        result
+    }
+
+    #[inline(always)]
+    #[unroll_for_loops]
     fn constant_layer<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         state: &mut [F; WIDTH],
         round_ctr: usize,
@@ -353,6 +504,28 @@ where
         for i in 0..12 {
             if i < WIDTH {
                 state[i] += F::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]);
+            }
+        }
+    }
+
+    #[inline(always)]
+    #[unroll_for_loops]
+    fn constant_layer_recursive<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        state: &mut [ExtensionTarget<D>; WIDTH],
+        round_ctr: usize,
+    ) {
+        let one = builder.one_extension();
+        assert!(WIDTH <= 12);
+        for i in 0..12 {
+            if i < WIDTH {
+                state[i] = builder.arithmetic_extension(
+                    F::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]),
+                    F::ONE,
+                    one,
+                    one,
+                    state[i],
+                );
             }
         }
     }
@@ -367,12 +540,38 @@ where
     }
 
     #[inline(always)]
+    fn sbox_monomial_recursive<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        x: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
+        // x |--> x^7
+        let x2 = builder.mul_extension(x, x);
+        let x4 = builder.mul_extension(x2, x2);
+        let x3 = builder.mul_extension(x, x2);
+        builder.mul_extension(x3, x4)
+    }
+
+    #[inline(always)]
     #[unroll_for_loops]
     fn sbox_layer<F: FieldExtension<D, BaseField = Self>, const D: usize>(state: &mut [F; WIDTH]) {
         assert!(WIDTH <= 12);
         for i in 0..12 {
             if i < WIDTH {
                 state[i] = Self::sbox_monomial(state[i]);
+            }
+        }
+    }
+
+    #[inline(always)]
+    #[unroll_for_loops]
+    fn sbox_layer_recursive<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        state: &mut [ExtensionTarget<D>; WIDTH],
+    ) {
+        assert!(WIDTH <= 12);
+        for i in 0..12 {
+            if i < WIDTH {
+                state[i] = Self::sbox_monomial_recursive(builder, state[i]);
             }
         }
     }
