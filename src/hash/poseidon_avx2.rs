@@ -192,19 +192,25 @@ pub fn crandall_poseidon12_mds_avx2(state: [CrandallField; 12]) -> [CrandallFiel
 
 #[inline(always)]
 unsafe fn reduce96s(x_s: Vecs128) -> __m256i {
-    let (hi0, lo0_s) = x_s;
-    let lo1 = _mm256_mul_epu32(hi0, _mm256_set1_epi64x(EPSILON as i64));
-    add_no_canonicalize_64_64s(lo1, lo0_s)
+    let (hi, lo_s) = x_s;
+    let lo = _mm256_xor_si256(lo_s, _mm256_set1_epi64x(SIGN_BIT as i64));
+    let reduced = PackedCrandallAVX2::from_noncanonical_u96((hi, lo));
+    reduced.get()
 }
 
 #[inline(always)]
-unsafe fn add_no_canonicalize_64_64s(x: __m256i, y_s: __m256i) -> __m256i {
-    let res_wrapped_s = _mm256_add_epi64(x, y_s);
-    let mask = _mm256_cmpgt_epi64(y_s, res_wrapped_s);
-    let res_wrapped = _mm256_xor_si256(res_wrapped_s, _mm256_set1_epi64x(SIGN_BIT as i64));
-    let wrapback_amt = _mm256_and_si256(mask, _mm256_set1_epi64x(EPSILON as i64));
-    let res = _mm256_add_epi64(res_wrapped, wrapback_amt);
-    res
+unsafe fn reduce128s(x_s: Vecs128) -> __m256i {
+    let (hi, lo_s) = x_s;
+    let lo = _mm256_xor_si256(lo_s, _mm256_set1_epi64x(SIGN_BIT as i64));
+    let reduced = PackedCrandallAVX2::from_noncanonical_u128((hi, lo));
+    reduced.get()
+}
+
+#[inline(always)]
+unsafe fn reduce160ss(x_ss: (__m256i, __m256i, __m256i)) -> __m256i {
+    let (top0, hi0_s, lo0_s) = x_ss;
+    let t_s = reduce96s((top0, hi0_s));
+    reduce128s((t_s, lo0_s))
 }
 
 /// Poseidon constant layer for Crandall. Assumes that every element in round_constants is in
@@ -287,41 +293,6 @@ unsafe fn mac64_64_192ss_ss(
     let res_top = _mm256_sub_epi64(z_top, carry_hi);
 
     (res_top, res_hi5_s, res_lo2_s)
-}
-
-#[inline]
-unsafe fn add_with_carry_hi_lo_los_s(
-    hi: __m256i,
-    lo0: __m256i,
-    lo1_s: __m256i,
-) -> (__m256i, __m256i) {
-    let res_lo_s = _mm256_add_epi64(lo0, lo1_s);
-    let carry = _mm256_cmpgt_epi64(lo1_s, res_lo_s);
-    let res_hi = _mm256_sub_epi64(hi, carry);
-    (res_hi, res_lo_s)
-}
-
-#[inline]
-unsafe fn fmadd_64_32_64s_s(x: __m256i, y: __m256i, z_s: __m256i) -> (__m256i, __m256i) {
-    let x_hi = _mm256_srli_epi64(x, 32);
-    let mul_lo = _mm256_mul_epu32(x, y);
-    let mul_hi = _mm256_mul_epu32(x_hi, y);
-    let (tmp_hi, tmp_lo_s) = add_with_carry_hi_lo_los_s(_mm256_srli_epi64(mul_hi, 32), mul_lo, z_s);
-    add_with_carry_hi_lo_los_s(tmp_hi, _mm256_slli_epi64(mul_hi, 32), tmp_lo_s)
-}
-
-#[inline]
-unsafe fn reduce128s(x_s: (__m256i, __m256i)) -> __m256i {
-    let (hi0, lo0_s) = x_s;
-    let t_s = fmadd_64_32_64s_s(hi0, _mm256_set1_epi64x(EPSILON as i64), lo0_s);
-    reduce96s(t_s)
-}
-
-#[inline(always)]
-unsafe fn reduce160ss(x_ss: (__m256i, __m256i, __m256i)) -> __m256i {
-    let (top0, hi0_s, lo0_s) = x_ss;
-    let t_s = reduce96s((top0, hi0_s));
-    reduce128s((t_s, lo0_s))
 }
 
 #[inline(always)]

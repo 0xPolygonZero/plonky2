@@ -29,14 +29,22 @@ unsafe fn fmadd_64_32_64s_s(x: __m256i, y: __m256i, z_s: __m256i) -> (__m256i, _
     add_with_carry_hi_lo_los_s(tmp_hi, _mm256_slli_epi64(mul_hi, 32), tmp_lo_s)
 }
 
-/// Reduce a u128 modulo FIELD_ORDER. The input is (u64, u64), pre-shifted by 2^63. The result is
-/// similarly shifted.
 impl ReducibleAVX2 for CrandallField {
+    /// Reduce a u128 modulo FIELD_ORDER. The input is (u64, u64), pre-shifted by 2^63. The result is
+    /// similarly shifted.
     #[inline]
     unsafe fn reduce128s_s(x_s: (__m256i, __m256i)) -> __m256i {
-        let (hi0, lo0_s) = x_s;
-        let (hi1, lo1_s) = fmadd_64_32_64s_s(hi0, epsilon::<CrandallField>(), lo0_s);
-        let lo2 = _mm256_mul_epu32(hi1, epsilon::<CrandallField>());
-        add_no_canonicalize_64_64s_s::<CrandallField>(lo2, lo1_s)
+        let (x_hi, x_lo_s) = x_s;
+        let t = fmadd_64_32_64s_s(x_hi, epsilon::<CrandallField>(), x_lo_s);
+        Self::reduce96s_s(t)
+    }
+
+    /// Reduce a u96 modulo FIELD_ORDER. The input is (u32 as u64, u64), pre-shifted by 2^63. The result
+    /// is similarly shifted.
+    #[inline]
+    unsafe fn reduce96s_s(x_s: (__m256i, __m256i)) -> __m256i {
+        let (x_hi, x_lo_s) = x_s;
+        let t = _mm256_mul_epu32(x_hi, epsilon::<CrandallField>());
+        add_no_canonicalize_64_64s_s::<CrandallField>(t, x_lo_s)
     }
 }

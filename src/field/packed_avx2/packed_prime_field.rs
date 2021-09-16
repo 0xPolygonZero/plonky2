@@ -50,6 +50,16 @@ impl<F: ReducibleAVX2> PackedPrimeField<F> {
     pub unsafe fn add_canonical_u64(&self, rhs: __m256i) -> Self {
         Self::new(add_canonical_u64::<F>(self.get(), rhs))
     }
+
+    #[inline]
+    pub unsafe fn from_noncanonical_u96(x: (__m256i, __m256i)) -> Self {
+        Self::new(from_noncanonical_u96::<F>(x))
+    }
+
+    #[inline]
+    pub unsafe fn from_noncanonical_u128(x: (__m256i, __m256i)) -> Self {
+        Self::new(from_noncanonical_u128::<F>(x))
+    }
 }
 
 impl<F: ReducibleAVX2> Add<Self> for PackedPrimeField<F> {
@@ -278,6 +288,22 @@ unsafe fn sign_bit() -> __m256i {
 #[inline]
 unsafe fn shift(x: __m256i) -> __m256i {
     _mm256_xor_si256(x, sign_bit())
+}
+
+#[inline]
+unsafe fn from_noncanonical_u96<F: ReducibleAVX2>(x: (__m256i, __m256i)) -> __m256i {
+    let (x_hi, x_lo) = x;
+    let x_lo_s = shift(x_lo);
+    let x_s = (x_hi, x_lo_s);
+    shift(F::reduce96s_s(x_s))
+}
+
+#[inline]
+unsafe fn from_noncanonical_u128<F: ReducibleAVX2>(x: (__m256i, __m256i)) -> __m256i {
+    let (x_hi, x_lo) = x;
+    let x_lo_s = shift(x_lo);
+    let x_s = (x_hi, x_lo_s);
+    shift(F::reduce128s_s(x_s))
 }
 
 /// Convert to canonical representation.

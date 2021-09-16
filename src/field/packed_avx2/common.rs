@@ -4,6 +4,9 @@ use crate::field::field_types::PrimeField;
 
 pub trait ReducibleAVX2: PrimeField {
     unsafe fn reduce128s_s(x_s: (__m256i, __m256i)) -> __m256i;
+    unsafe fn reduce96s_s(x_s: (__m256i, __m256i)) -> __m256i {
+        Self::reduce128s_s(x_s)
+    }
 }
 
 #[inline]
