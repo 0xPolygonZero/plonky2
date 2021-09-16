@@ -375,6 +375,9 @@ impl Poseidon<8> for CrandallField {
     const MDS_MATRIX_EXPS: [u64; 8] = [2, 0, 1, 8, 4, 3, 0, 0];
 
     const FAST_PARTIAL_FIRST_ROUND_CONSTANT: [u64; 8]  = [
+        // WARNING: These must be in 0..CrandallField::ORDER (i.e. canonical form). Otherwise some
+        // platform-specific implementations of partial_first_constant_layer may return incorrect
+        // results.
         0x66bbd30e99d311da, 0x1d6beb91f1441299, 0x1dfb41ac10a5bda8, 0xcbe9eb8f6bfd79fb,
         0x2c943b9a8d9ee4f4, 0x6d70fcb874f05f57, 0xf48e800880a87878, 0x24b1eb418f3994c3,
     ];
@@ -529,6 +532,13 @@ impl Poseidon<8> for CrandallField {
 
     #[cfg(target_feature="avx2")]
     #[inline(always)]
+    fn partial_first_constant_layer(state: &mut [Self; 8]) {
+        crate::hash::poseidon_avx2::crandall_partial_first_constant_layer::<2>(
+            state, &Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT);
+    }
+
+    #[cfg(target_feature="avx2")]
+    #[inline(always)]
     fn sbox_layer(state: &mut [Self; 8]) {
         crate::hash::poseidon_avx2::crandall_poseidon_sbox_avx2::<2>(state);
     }
@@ -548,6 +558,9 @@ impl Poseidon<12> for CrandallField {
     const MDS_MATRIX_EXPS: [u64; 12] = [10, 13, 2, 0, 4, 1, 8, 7, 15, 5, 0, 0];
 
     const FAST_PARTIAL_FIRST_ROUND_CONSTANT: [u64; 12]  = [
+        // WARNING: These must be in 0..CrandallField::ORDER (i.e. canonical form). Otherwise some
+        // platform-specific implementations of partial_first_constant_layer may return incorrect
+        // results.
         0x3cc3f89232e3b0c8, 0x62fbbf978e28f47d, 0x39fdb188ec8547ef, 0x39df2d6d45a69859,
         0x8f0728b06d02b8ef, 0xaef06dc095c5e82a, 0xbca538714a7b9590, 0xbac7d7e5a0dd105c,
         0x6b92ff930094a160, 0xdaf229f00331101e, 0xd39b0be8a5c868c6, 0x47b0452c32f4fddb,
@@ -763,6 +776,13 @@ impl Poseidon<12> for CrandallField {
     fn mds_partial_layer_init(state: &[Self; 12]) -> [Self; 12] {
         crate::hash::poseidon_avx2::crandall_mds_partial_layer_init::<3>(
             state, &Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX)
+    }
+
+    #[cfg(target_feature="avx2")]
+    #[inline(always)]
+    fn partial_first_constant_layer(state: &mut [Self; 12]) {
+        crate::hash::poseidon_avx2::crandall_partial_first_constant_layer::<3>(
+            state, &Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT);
     }
 
     #[cfg(target_feature="avx2")]

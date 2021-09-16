@@ -1,7 +1,7 @@
 use core::arch::x86_64::*;
 
 use crate::field::crandall_field::CrandallField;
-use crate::field::field_types::PrimeField;
+use crate::field::field_types::{Field, PrimeField};
 use crate::field::packed_avx2::PackedCrandallAVX2;
 use crate::field::packed_field::PackedField;
 
@@ -351,4 +351,18 @@ pub fn crandall_mds_partial_layer_init<const PACKED_WIDTH: usize>(
     }
     res[0] = state[0];
     res
+}
+
+#[inline(always)]
+pub fn crandall_partial_first_constant_layer<const PACKED_WIDTH: usize>(
+    state: &mut [CrandallField; 4 * PACKED_WIDTH],
+    round_constants: &[u64; 4 * PACKED_WIDTH],
+) {
+    let packed_state = PackedCrandallAVX2::pack_slice_mut(state);
+    for (i, s) in packed_state.iter_mut().enumerate() {
+        unsafe {
+            let c = _mm256_loadu_si256(round_constants[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
+            *s = s.add_canonical_u64(c);
+        }
+    }
 }

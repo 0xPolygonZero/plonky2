@@ -30,7 +30,7 @@ pub struct PackedPrimeField<F: ReducibleAVX2>(pub [F; 4]);
 
 impl<F: ReducibleAVX2> PackedPrimeField<F> {
     #[inline]
-    fn new(x: __m256i) -> Self {
+    pub fn new(x: __m256i) -> Self {
         let mut obj = Self([F::ZERO; 4]);
         let ptr = (&mut obj.0).as_mut_ptr().cast::<__m256i>();
         unsafe {
@@ -39,7 +39,7 @@ impl<F: ReducibleAVX2> PackedPrimeField<F> {
         obj
     }
     #[inline]
-    fn get(&self) -> __m256i {
+    pub fn get(&self) -> __m256i {
         let ptr = (&self.0).as_ptr().cast::<__m256i>();
         unsafe { _mm256_loadu_si256(ptr) }
     }
