@@ -74,7 +74,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .concat()
                 .try_into()
                 .unwrap();
-            let outputs = self.gmimc_permute_swapped(inputs, bit);
+            let outputs = self.permute_swapped(inputs, bit);
             state = HashOutTarget::from_vec(outputs[0..4].to_vec());
         }
 

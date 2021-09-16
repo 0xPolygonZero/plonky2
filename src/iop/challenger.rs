@@ -4,7 +4,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
-use crate::hash::hashing::{SPONGE_RATE, SPONGE_WIDTH};
+use crate::hash::hashing::{permute, SPONGE_RATE, SPONGE_WIDTH};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -105,7 +105,7 @@ impl<F: RichField> Challenger<F> {
 
         if self.output_buffer.is_empty() {
             // Evaluate the permutation to produce `r` new outputs.
-            self.sponge_state = F::gmimc_permute(self.sponge_state);
+            self.sponge_state = permute(self.sponge_state);
             self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
         }
 
@@ -160,7 +160,7 @@ impl<F: RichField> Challenger<F> {
             }
 
             // Apply the permutation.
-            self.sponge_state = F::gmimc_permute(self.sponge_state);
+            self.sponge_state = permute(self.sponge_state);
         }
 
         self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
