@@ -324,7 +324,6 @@ where
     }
 }
 
-mod yo {}
 #[cfg(test)]
 mod tests {
     use std::convert::TryInto;
