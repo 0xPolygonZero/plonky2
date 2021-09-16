@@ -224,6 +224,7 @@ impl Add for CrandallField {
 }
 
 impl AddAssign for CrandallField {
+    #[inline]
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }

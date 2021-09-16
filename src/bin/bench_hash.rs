@@ -44,14 +44,14 @@ fn bench_hash<const W: usize>(name: &str, hash: fn([F; W]) -> [F; W], gmimc_tm: 
     const PROVER_POLYS: usize = 113 + 3 + 4;
     const LDE_BITS: i32 = 3;
     const HASHES_PER_POLY: usize = 1 << (13 + LDE_BITS) / 6;
-    const N_HASHES: usize = HASHES_PER_POLY * PROVER_POLYS;
+    const N_HASHES: usize = HASHES_PER_POLY * PROVER_POLYS * 2000;
 
     let mut input = [F::ZERO; W];
     for i in 0..W {
         input[i] = F::from_canonical_u64((i as u64) * 123456 + 789);
     }
 
-    print!("{:16}", name);
+    print!("{}", name);
 
     let mut x = input;
     let start = Instant::now();
@@ -66,20 +66,19 @@ fn bench_hash<const W: usize>(name: &str, hash: fn([F; W]) -> [F; W], gmimc_tm: 
         *gmimc_tm = tm;
     }
 
-    println!(" {:5.2}  {:5.2}", tm, tm / *gmimc_tm);
+    println!(" {:5.2}", tm);
 }
 
 fn main() {
     println!(" -- Width 8 (time μs, slowdown wrt GMiMC)--");
     let mut tm: f64 = 0.0;
     // bench_hash("GMiMC", gmimc_hash::<8>, &mut tm); // Not implemented yet.
-    bench_hash("Poseidon", poseidon8_hash, &mut tm);
-    bench_hash("Poseidon naive", poseidon8_naive_hash, &mut tm);
+    // bench_hash("08F", poseidon8_hash, &mut tm);
+    // bench_hash("08N", poseidon8_naive_hash, &mut tm);
 
-    println!("\n -- Width 12 (time μs, slowdown wrt GMiMC) --");
-    let mut tm: f64 = 0.0;
-    bench_hash("GMiMC", gmimc_hash::<12>, &mut tm);
-    bench_hash("Poseidon", poseidon12_hash, &mut tm);
-    bench_hash("Poseidon naive", poseidon12_naive_hash, &mut tm);
-    bench_hash("Rescue", rescue_hash, &mut tm);
+    // let mut tm: f64 = 0.0;
+    // bench_hash("GMiMC", gmimc_hash::<12>, &mut tm);
+    bench_hash("12F", poseidon12_hash, &mut tm);
+    // bench_hash("12N", poseidon12_naive_hash, &mut tm);
+    // bench_hash("Rescue", rescue_hash, &mut tm);
 }

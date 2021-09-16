@@ -368,3 +368,63 @@ pub fn crandall_partial_first_constant_layer<const PACKED_WIDTH: usize>(
         }
     }
 }
+
+#[inline(always)]
+unsafe fn crandall_mds_partial_layer_fast_w_hat<const PACKED_WIDTH: usize>(
+    state1p: &[CrandallField; 4 * PACKED_WIDTH],
+    w_hat: &[u64; 4 * PACKED_WIDTH],
+) -> CrandallField {
+    let packed_state1p = PackedCrandallAVX2::pack_slice(&state1p[..]);
+
+    let mut cumul = PackedCrandallAVX2::broadcast(CrandallField::ZERO);
+    for i in 0..PACKED_WIDTH {
+        let packed_w_hat = _mm256_loadu_si256(w_hat[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
+        cumul += PackedCrandallAVX2::new(packed_w_hat) * packed_state1p[i];
+    }
+    cumul.to_arr().iter().copied().sum()
+}
+
+#[inline(always)]
+unsafe fn crandall_mds_partial_layer_fast_v<const PACKED_WIDTH: usize>(
+    state0: CrandallField,
+    state1p: &[CrandallField; 4 * PACKED_WIDTH],
+    v: &[u64; 4 * PACKED_WIDTH],
+) -> [CrandallField; 4 * PACKED_WIDTH] {
+    let mut res = [CrandallField::ZERO; 4 * PACKED_WIDTH];
+    let packed_res = PackedCrandallAVX2::pack_slice_mut(&mut res[..]);
+
+    let state0_broadcast = PackedCrandallAVX2::broadcast(state0);
+    let packed_state1p = PackedCrandallAVX2::pack_slice(&state1p[..]);
+    for i in 0..PACKED_WIDTH {
+        let packed_v = _mm256_loadu_si256(v[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
+        packed_res[i] = state0_broadcast * PackedCrandallAVX2::new(packed_v) + packed_state1p[i];
+    }
+
+    res
+}
+
+#[inline(always)]
+fn crandall_mds_partial_layer_m_00(state0: CrandallField, lg_m_00: u64) -> CrandallField {
+    let s0 = state0.to_noncanonical_u64() as u128;
+    CrandallField::from_noncanonical_u128(s0 << lg_m_00)
+}
+
+
+#[inline(always)]
+pub fn crandall_mds_partial_layer_fast<const PACKED_WIDTH: usize>(
+    state: &[CrandallField; 4 * PACKED_WIDTH],
+    w_hat: &[u64; 4 * PACKED_WIDTH],
+    v: &[u64; 4 * PACKED_WIDTH],
+    lg_m_00: u64,
+) -> [CrandallField; 4 * PACKED_WIDTH] {
+    let state0 = state[0];
+
+    let mut state1p = *state;
+    state1p[0] = CrandallField::ZERO;
+
+    let mut res = unsafe { crandall_mds_partial_layer_fast_v::<PACKED_WIDTH>(state0, &state1p, v) };
+    let res_w_hat = unsafe { crandall_mds_partial_layer_fast_w_hat::<PACKED_WIDTH>(&state1p, w_hat) };
+    let res_m_00 = crandall_mds_partial_layer_m_00(state0, lg_m_00);
+    res[0] = res_w_hat + res_m_00;
+    res
+}
