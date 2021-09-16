@@ -13,8 +13,7 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-/// Evaluates a full GMiMC permutation with 12 state elements, and writes the output to the next
-/// gate's first `width` wires (which could be the input of another `GMiMCGate`).
+/// Evaluates a full GMiMC permutation with 12 state elements.
 ///
 /// This also has some extra features to make it suitable for efficiently verifying Merkle proofs.
 /// It has a flag which can be used to swap the first four inputs with the next four, for ordering
