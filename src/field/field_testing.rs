@@ -344,21 +344,19 @@ macro_rules! test_prime_field_arithmetic {
             fn inversion() {
                 let zero = <$field>::ZERO;
                 let one = <$field>::ONE;
-                let order = <$field>::order();
+                let modulus = <$field>::order();
 
                 assert_eq!(zero.try_inverse(), None);
 
-                for x in [
-                    BigUint::one(),
-                    BigUint::from(2u32),
-                    BigUint::from(3u32),
-                    &order - 3u32,
-                    &order - 2u32,
-                    &order - 1u32,
-                ] {
-                    let x = <$field>::from_canonical_biguint(x);
-                    let inv = x.inverse();
-                    assert_eq!(x * inv, one);
+                let inputs = crate::field::field_testing::test_inputs(
+                    modulus.clone(), WORD_BITS);
+
+                for x in inputs {
+                    if ! x.is_zero() {
+                        let x = <$field>::from_canonical_biguint(x);
+                        let inv = x.inverse();
+                        assert_eq!(x * inv, one);
+                    }
                 }
             }
 
