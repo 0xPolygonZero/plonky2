@@ -3,6 +3,7 @@
 
 pub mod arithmetic;
 pub mod base_sum;
+pub mod comparison;
 pub mod constant;
 pub mod exponentiation;
 pub mod gate;
