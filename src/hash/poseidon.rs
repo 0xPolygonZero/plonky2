@@ -9,7 +9,7 @@ use unroll::unroll_for_loops;
 use crate::field::crandall_field::CrandallField;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::field_types::{PrimeField, RichField};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 // The number of full rounds and partial rounds is given by the
@@ -478,7 +478,18 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
-    fn constant_layer<F: FieldExtension<D, BaseField = Self>, const D: usize>(
+    fn constant_layer(state: &mut [Self; WIDTH], round_ctr: usize) {
+        assert!(WIDTH <= 12);
+        for i in 0..12 {
+            if i < WIDTH {
+                state[i] += Self::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]);
+            }
+        }
+    }
+
+    #[inline(always)]
+    #[unroll_for_loops]
+    fn constant_layer_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         state: &mut [F; WIDTH],
         round_ctr: usize,
     ) {
@@ -534,7 +545,20 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
-    fn sbox_layer<F: FieldExtension<D, BaseField = Self>, const D: usize>(state: &mut [F; WIDTH]) {
+    fn sbox_layer(state: &mut [Self; WIDTH]) {
+        assert!(WIDTH <= 12);
+        for i in 0..12 {
+            if i < WIDTH {
+                state[i] = Self::sbox_monomial(state[i]);
+            }
+        }
+    }
+
+    #[inline(always)]
+    #[unroll_for_loops]
+    fn sbox_layer_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
+        state: &mut [F; WIDTH],
+    ) {
         assert!(WIDTH <= 12);
         for i in 0..12 {
             if i < WIDTH {
