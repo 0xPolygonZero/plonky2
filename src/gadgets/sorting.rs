@@ -1,5 +1,6 @@
-use itertools::izip;
 use std::marker::PhantomData;
+
+use itertools::izip;
 
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
@@ -18,35 +19,51 @@ pub struct MemoryOpTarget {
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn assert_permutation_memory_ops(&mut self, a: &[MemoryOpTarget], b: &[MemoryOpTarget]) {
-        let a_chunks: Vec<Vec<Target>> = a.iter().map(|op| {
-            vec![op.address, op.timestamp, op.is_write.target, op.value]
-        }).collect();
-        let b_chunks: Vec<Vec<Target>> = b.iter().map(|op| {
-            vec![op.address, op.timestamp, op.is_write.target, op.value]
-        }).collect();
+        let a_chunks: Vec<Vec<Target>> = a
+            .iter()
+            .map(|op| vec![op.address, op.timestamp, op.is_write.target, op.value])
+            .collect();
+        let b_chunks: Vec<Vec<Target>> = b
+            .iter()
+            .map(|op| vec![op.address, op.timestamp, op.is_write.target, op.value])
+            .collect();
 
         self.assert_permutation(a_chunks, b_chunks);
     }
 
-    pub fn sort_memory_ops(&mut self, ops: &[MemoryOpTarget], address_bits: usize, timestamp_bits: usize) -> Vec<MemoryOpTarget> {
+    pub fn sort_memory_ops(
+        &mut self,
+        ops: &[MemoryOpTarget],
+        address_bits: usize,
+        timestamp_bits: usize,
+    ) -> Vec<MemoryOpTarget> {
         let n = ops.len();
 
         let address_chunk_size = (address_bits as f64).sqrt() as usize;
         let timestamp_chunk_size = (timestamp_bits as f64).sqrt() as usize;
 
-        let is_write_targets: Vec<_> = self.add_virtual_targets(n).iter().map(|&t| BoolTarget::new_unsafe(t)).collect();
+        let is_write_targets: Vec<_> = self
+            .add_virtual_targets(n)
+            .iter()
+            .map(|&t| BoolTarget::new_unsafe(t))
+            .collect();
         let address_targets = self.add_virtual_targets(n);
         let timestamp_targets = self.add_virtual_targets(n);
         let value_targets = self.add_virtual_targets(n);
 
-        let output_targets: Vec<_> = izip!(is_write_targets, address_targets, timestamp_targets, value_targets).map(|(i, a, t, v)| {
-            MemoryOpTarget {
-                is_write: i,
-                address: a,
-                timestamp: t,
-                value: v,
-            }
-        }).collect();
+        let output_targets: Vec<_> = izip!(
+            is_write_targets,
+            address_targets,
+            timestamp_targets,
+            value_targets
+        )
+        .map(|(i, a, t, v)| MemoryOpTarget {
+            is_write: i,
+            address: a,
+            timestamp: t,
+            value: v,
+        })
+        .collect();
 
         for i in 1..n {
             let (address_gate, address_gate_index) = {
@@ -57,7 +74,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
             self.connect(
                 Target::wire(address_gate_index, address_gate.wire_first_input()),
-                output_targets[i-1].address,
+                output_targets[i - 1].address,
             );
             self.connect(
                 Target::wire(address_gate_index, address_gate.wire_second_input()),
@@ -72,7 +89,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
             self.connect(
                 Target::wire(timestamp_gate_index, timestamp_gate.wire_first_input()),
-                output_targets[i-1].timestamp,
+                output_targets[i - 1].timestamp,
             );
             self.connect(
                 Target::wire(timestamp_gate_index, timestamp_gate.wire_second_input()),
