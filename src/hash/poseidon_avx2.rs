@@ -214,10 +214,10 @@ pub unsafe fn crandall_poseidon_const_avx2<const PACKED_WIDTH: usize>(
     round_constants: [u64; 4 * PACKED_WIDTH],
 ) {
     let packed_state = PackedCrandallAVX2::pack_slice_mut(state);
-    let packed_round_constants =
-        std::slice::from_raw_parts((&round_constants).as_ptr().cast::<__m256i>(), PACKED_WIDTH);
     for i in 0..PACKED_WIDTH {
-        packed_state[i] = packed_state[i].add_canonical_u64(packed_round_constants[i]);
+        let constants_ptr = (&round_constants[4 * i..4 * i + 4]).as_ptr();
+        let packed_constants = _mm256_loadu_si256(constants_ptr.cast::<__m256i>());
+        packed_state[i] = packed_state[i].add_canonical_u64(packed_constants);
     }
 }
 
