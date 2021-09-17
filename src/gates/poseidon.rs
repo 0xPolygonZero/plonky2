@@ -307,13 +307,12 @@ where
                 one,
                 state[0],
             );
-            state =
-                <F as Poseidon<WIDTH>>::mds_partial_layer_fast_field_recursive(builder, &state, r);
+            state = <F as Poseidon<WIDTH>>::mds_partial_layer_fast_recursive(builder, &state, r);
         }
         let sbox_in = vars.local_wires[Self::wire_partial_sbox(poseidon::N_PARTIAL_ROUNDS - 1)];
         constraints.push(builder.sub_extension(state[0], sbox_in));
         state[0] = <F as Poseidon<WIDTH>>::sbox_monomial_recursive(builder, sbox_in);
-        state = <F as Poseidon<WIDTH>>::mds_partial_layer_fast_field_recursive(
+        state = <F as Poseidon<WIDTH>>::mds_partial_layer_fast_recursive(
             builder,
             &state,
             poseidon::N_PARTIAL_ROUNDS - 1,
