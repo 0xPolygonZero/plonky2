@@ -370,21 +370,50 @@ pub fn crandall_partial_first_constant_layer<const PACKED_WIDTH: usize>(
 }
 
 #[inline(always)]
+#[unroll_for_loops]
 unsafe fn crandall_mds_partial_layer_fast_w_hat<const PACKED_WIDTH: usize>(
     state1p: &[CrandallField; 4 * PACKED_WIDTH],
     w_hat: &[u64; 4 * PACKED_WIDTH],
 ) -> CrandallField {
     let packed_state1p = PackedCrandallAVX2::pack_slice(&state1p[..]);
 
-    let mut cumul = PackedCrandallAVX2::broadcast(CrandallField::ZERO);
-    for i in 0..PACKED_WIDTH {
-        let packed_w_hat = _mm256_loadu_si256(w_hat[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
-        cumul += PackedCrandallAVX2::new(packed_w_hat) * packed_state1p[i];
+    let mut cumul = (
+        _mm256_setzero_si256(),
+        _mm256_set1_epi64x(SIGN_BIT as i64),
+        _mm256_set1_epi64x(SIGN_BIT as i64),
+    );
+    assert!(PACKED_WIDTH <= 3);
+    for i in 0..3 {
+        if i < PACKED_WIDTH {
+            let packed_w_hat = _mm256_loadu_si256(w_hat[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
+            cumul = mac64_64_192ss_ss(packed_w_hat, packed_state1p[i].get(), cumul);
+        }
     }
-    cumul.to_arr().iter().copied().sum()
+
+    let (cumul_top, cumul_hi_s, cumul_lo_s) = cumul;
+    let cumul_hi = _mm256_xor_si256(cumul_hi_s, _mm256_set1_epi64x(SIGN_BIT as i64));
+    let cumul_lo = _mm256_xor_si256(cumul_lo_s, _mm256_set1_epi64x(SIGN_BIT as i64));
+
+    let cumul_top_arr = PackedCrandallAVX2::new(cumul_top).to_arr().map(|x| x.0);
+    let cumul_hi_arr = PackedCrandallAVX2::new(cumul_hi).to_arr().map(|x| x.0);
+    let cumul_lo_arr = PackedCrandallAVX2::new(cumul_lo).to_arr().map(|x| x.0);
+
+    let sum_lo_full = (cumul_lo_arr[0] as u128) + (cumul_lo_arr[1] as u128) + (cumul_lo_arr[2] as u128) + (cumul_lo_arr[3] as u128);
+    let sum_lo = sum_lo_full as u64;
+    let sum_lo_carry = (sum_lo_full >> 64) as u64;
+
+    let sum_hi_full = (cumul_hi_arr[0] as u128) + (cumul_hi_arr[1] as u128) + (cumul_hi_arr[2] as u128) + (cumul_hi_arr[3] as u128) + (sum_lo_carry as u128);
+    let sum_hi = sum_hi_full as u64;
+    let sum_hi_carry = (sum_hi_full >> 64) as u64;
+
+    let sum_top = (cumul_top_arr[0] as u32) + (cumul_top_arr[1] as u32) + (cumul_top_arr[2] as u32) + (cumul_top_arr[3] as u32) + (sum_hi_carry as u32);
+
+    let reduced_hi = CrandallField::from_noncanonical_u128(((sum_top as u128) << 64) + (sum_hi as u128)).0;
+    CrandallField::from_noncanonical_u128(((reduced_hi as u128) << 64) + (sum_lo as u128))
 }
 
 #[inline(always)]
+#[unroll_for_loops]
 unsafe fn crandall_mds_partial_layer_fast_v<const PACKED_WIDTH: usize>(
     state0: CrandallField,
     state1p: &[CrandallField; 4 * PACKED_WIDTH],
@@ -395,9 +424,12 @@ unsafe fn crandall_mds_partial_layer_fast_v<const PACKED_WIDTH: usize>(
 
     let state0_broadcast = PackedCrandallAVX2::broadcast(state0);
     let packed_state1p = PackedCrandallAVX2::pack_slice(&state1p[..]);
-    for i in 0..PACKED_WIDTH {
-        let packed_v = _mm256_loadu_si256(v[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
-        packed_res[i] = state0_broadcast * PackedCrandallAVX2::new(packed_v) + packed_state1p[i];
+    assert!(PACKED_WIDTH <= 3);
+    for i in 0..3 {
+        if i < PACKED_WIDTH {
+            let packed_v = _mm256_loadu_si256(v[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
+            packed_res[i] = state0_broadcast * PackedCrandallAVX2::new(packed_v) + packed_state1p[i];
+        }
     }
 
     res

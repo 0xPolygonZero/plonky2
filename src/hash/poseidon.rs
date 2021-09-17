@@ -528,15 +528,15 @@ impl Poseidon<8> for CrandallField {
         crate::hash::poseidon_neon::crandall_poseidon8_mds_neon(*state_)
     }
 
-    // #[cfg(target_feature="avx2")]
-    // #[inline(always)]
-    // fn mds_partial_layer_fast(state: &[Self; 8], r: usize) -> [Self; 8] {
-    //     crate::hash::poseidon_avx2::crandall_mds_partial_layer_fast::<2>(
-    //         state,
-    //         &Self::FAST_PARTIAL_ROUND_W_HATS[r],
-    //         &Self::FAST_PARTIAL_ROUND_VS[r],
-    //         2)
-    // }
+    #[cfg(target_feature="avx2")]
+    #[inline(always)]
+    fn mds_partial_layer_fast(state: &[Self; 8], r: usize) -> [Self; 8] {
+        crate::hash::poseidon_avx2::crandall_mds_partial_layer_fast::<2>(
+            state,
+            &Self::FAST_PARTIAL_ROUND_W_HATS[r],
+            &Self::FAST_PARTIAL_ROUND_VS[r],
+            2)
+    }
 
     #[cfg(target_feature="avx2")]
     #[inline(always)]
@@ -794,15 +794,15 @@ impl Poseidon<12> for CrandallField {
         crate::hash::poseidon_neon::crandall_poseidon12_mds_neon(*state_)
     }
 
-    // #[cfg(target_feature="avx2")]
-    // #[inline(always)]
-    // fn mds_partial_layer_fast(state: &[Self; 12], r: usize) -> [Self; 12] {
-    //     crate::hash::poseidon_avx2::crandall_mds_partial_layer_fast::<3>(
-    //         state,
-    //         &Self::FAST_PARTIAL_ROUND_W_HATS[r],
-    //         &Self::FAST_PARTIAL_ROUND_VS[r],
-    //         10)
-    // }
+    #[cfg(target_feature="avx2")]
+    #[inline(always)]
+    fn mds_partial_layer_fast(state: &[Self; 12], r: usize) -> [Self; 12] {
+        crate::hash::poseidon_avx2::crandall_mds_partial_layer_fast::<3>(
+            state,
+            &Self::FAST_PARTIAL_ROUND_W_HATS[r],
+            &Self::FAST_PARTIAL_ROUND_VS[r],
+            10)
+    }
 
     #[cfg(target_feature="avx2")]
     #[inline(always)]
