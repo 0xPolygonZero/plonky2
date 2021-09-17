@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
-use itertools::izip;
+use itertools::{izip, Itertools};
 
-use crate::field::field_types::RichField;
+use crate::field::field_types::{PrimeField, RichField};
 use crate::field::{extension_field::Extendable, field_types::Field};
 use crate::gates::comparison::ComparisonGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
@@ -10,6 +10,7 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
+#[derive(Debug)]
 pub struct MemoryOpTarget {
     is_write: BoolTarget,
     address: Target,
@@ -94,41 +95,75 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-/*#[derive(Debug)]
-struct MemoryOpSortGenerator<F: Field> {
-    a: Vec<Vec<Target>>,
-    b: Vec<Vec<Target>>,
-    a_switches: Vec<Target>,
-    b_switches: Vec<Target>,
+#[derive(Debug)]
+struct MemoryOpSortGenerator<F: RichField> {
+    input_ops: Vec<MemoryOpTarget>,
+    output_ops: Vec<MemoryOpTarget>,
+    address_bits: usize,
+    timestamp_bits: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Field> SimpleGenerator<F> for MemoryOpSortGenerator<F> {
+impl<F: RichField> SimpleGenerator<F> for MemoryOpSortGenerator<F> {
     fn dependencies(&self) -> Vec<Target> {
-        self.a.iter().chain(&self.b).flatten().cloned().collect()
+        self.input_ops
+            .iter()
+            .map(|op| vec![op.is_write.target, op.address, op.timestamp, op.value])
+            .flatten()
+            .collect()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let a_values = self
-            .a
+        let n = self.input_ops.len();
+        debug_assert!(self.output_ops.len() == n);
+
+        let (timestamp_values, address_values): (Vec<_>, Vec<_>) = self
+            .input_ops
             .iter()
-            .map(|chunk| chunk.iter().map(|wire| witness.get_target(*wire)).collect())
-            .collect();
-        let b_values = self
-            .b
+            .map(|op| {
+                (
+                    witness.get_target(op.timestamp),
+                    witness.get_target(op.address),
+                )
+            })
+            .unzip();
+
+        let combined_values_u64: Vec<_> = timestamp_values
             .iter()
-            .map(|chunk| chunk.iter().map(|wire| witness.get_target(*wire)).collect())
+            .zip(address_values.iter())
+            .map(|(&t, &a)| {
+                a.to_canonical_u64() * (1 << self.timestamp_bits as u64) + t.to_canonical_u64()
+            })
             .collect();
-        route(
-            a_values,
-            b_values,
-            self.a_switches.clone(),
-            self.b_switches.clone(),
-            witness,
-            out_buffer,
-        );
+
+        let mut input_ops_and_keys: Vec<_> = self
+            .input_ops
+            .iter()
+            .zip(combined_values_u64)
+            .collect::<Vec<_>>();
+        input_ops_and_keys.sort_by(|(_, a_val), (_, b_val)| a_val.cmp(b_val));
+        let input_ops_sorted: Vec<_> = input_ops_and_keys.iter().map(|(op, _)| op).collect();
+
+        for i in 0..n {
+            out_buffer.set_target(
+                self.output_ops[i].is_write.target,
+                witness.get_target(input_ops_sorted[i].is_write.target),
+            );
+            out_buffer.set_target(
+                self.output_ops[i].address,
+                witness.get_target(input_ops_sorted[i].address),
+            );
+            out_buffer.set_target(
+                self.output_ops[i].timestamp,
+                witness.get_target(input_ops_sorted[i].timestamp),
+            );
+            out_buffer.set_target(
+                self.output_ops[i].value,
+                witness.get_target(input_ops_sorted[i].value),
+            );
+        }
     }
-}*/
+}
 
 #[cfg(test)]
 mod tests {
