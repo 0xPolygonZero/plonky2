@@ -545,10 +545,7 @@ where
         x: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
         // x |--> x^7
-        let x2 = builder.mul_extension(x, x);
-        let x4 = builder.mul_extension(x2, x2);
-        let x3 = builder.mul_extension(x, x2);
-        builder.mul_extension(x3, x4)
+        builder.exp_u64_extension(x, 7)
     }
 
     #[inline(always)]

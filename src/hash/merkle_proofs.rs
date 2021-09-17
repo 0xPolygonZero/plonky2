@@ -6,9 +6,8 @@ use serde::{Deserialize, Serialize};
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
-use crate::gates::gmimc::GMiMCGate;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
-use crate::hash::hashing::{compress, hash_or_noop};
+use crate::hash::hashing::{compress, hash_or_noop, HashGate};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
@@ -107,10 +106,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
-            let gate_type = GMiMCGate::<F, D, 12>::new();
+            let gate_type = HashGate::<F, D, 12>::new();
             let gate = self.add_gate(gate_type, vec![]);
 
-            let swap_wire = GMiMCGate::<F, D, 12>::WIRE_SWAP;
+            let swap_wire = HashGate::<F, D, 12>::WIRE_SWAP;
             let swap_wire = Target::Wire(Wire {
                 gate,
                 input: swap_wire,
@@ -121,7 +120,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .map(|i| {
                     Target::Wire(Wire {
                         gate,
-                        input: GMiMCGate::<F, D, 12>::wire_input(i),
+                        input: HashGate::<F, D, 12>::wire_input(i),
                     })
                 })
                 .collect::<Vec<_>>();
@@ -137,7 +136,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     .map(|i| {
                         Target::Wire(Wire {
                             gate,
-                            input: GMiMCGate::<F, D, 12>::wire_output(i),
+                            input: HashGate::<F, D, 12>::wire_output(i),
                         })
                     })
                     .collect(),

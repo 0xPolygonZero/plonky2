@@ -2,6 +2,7 @@
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
+use crate::gates::poseidon::PoseidonGate;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -11,6 +12,7 @@ pub(crate) const SPONGE_CAPACITY: usize = 4;
 pub(crate) const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 
 pub(crate) const HASH_FAMILY: HashFamily = HashFamily::Poseidon;
+pub(crate) type HashGate<F, const D: usize, const W: usize> = PoseidonGate<F, D, W>;
 
 pub(crate) enum HashFamily {
     GMiMC,
