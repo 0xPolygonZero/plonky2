@@ -170,6 +170,7 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
+    /// Same as `mds_row_shf` for general fields.
     fn mds_row_shf_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         r: usize,
         v: &[F; WIDTH],
@@ -189,6 +190,7 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
+    /// Recursive version of `mds_row_shf`.
     fn mds_row_shf_recursive<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         r: usize,
@@ -237,6 +239,7 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
+    /// Same as `mds_layer` for general fields.
     fn mds_layer_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         state: &[F; WIDTH],
     ) -> [F; WIDTH] {
@@ -254,6 +257,7 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
+    /// Recursive version of `mds_layer`.
     fn mds_layer_recursive<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         state: &[ExtensionTarget<D>; WIDTH],
@@ -285,6 +289,7 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
+    /// Recursive version of `partial_first_constant_layer`.
     fn partial_first_constant_layer_recursive<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
@@ -338,6 +343,7 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
+    /// Recursive version of `mds_partial_layer_init`.
     fn mds_partial_layer_init_recursive<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         state: &[ExtensionTarget<D>; WIDTH],
@@ -403,6 +409,7 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
+    /// Same as `mds_partial_layer_fast` for general fields.
     fn mds_partial_layer_fast_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         state: &[F; WIDTH],
         r: usize,
@@ -432,7 +439,8 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
-    fn mds_partial_layer_fast_field_recursive<F: RichField + Extendable<D>, const D: usize>(
+    /// Recursive version of `mds_partial_layer_fast`.
+    fn mds_partial_layer_fast_recursive<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         state: &[ExtensionTarget<D>; WIDTH],
         r: usize,
@@ -484,6 +492,7 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
+    /// Recursive version of `constant_layer`.
     fn constant_layer_recursive<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
@@ -514,6 +523,7 @@ where
     }
 
     #[inline(always)]
+    /// Recursive version of `sbox_monomial`.
     fn sbox_monomial_recursive<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         x: ExtensionTarget<D>,
@@ -535,6 +545,7 @@ where
 
     #[inline(always)]
     #[unroll_for_loops]
+    /// Recursive version of `sbox_layer`.
     fn sbox_layer_recursive<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],

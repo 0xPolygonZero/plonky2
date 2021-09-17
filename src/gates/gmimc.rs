@@ -17,8 +17,7 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 ///
 /// This also has some extra features to make it suitable for efficiently verifying Merkle proofs.
 /// It has a flag which can be used to swap the first four inputs with the next four, for ordering
-/// sibling digests. It also has an accumulator that computes the weighted sum of these flags, for
-/// computing the index of the leaf based on these swap bits.
+/// sibling digests.
 #[derive(Debug)]
 pub struct GMiMCGate<
     F: RichField + Extendable<D> + GMiMC<WIDTH>,

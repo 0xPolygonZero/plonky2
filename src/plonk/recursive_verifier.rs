@@ -361,7 +361,7 @@ mod tests {
         type F = CrandallField;
         const D: usize = 4;
         let config = CircuitConfig {
-            num_wires: 126,
+            num_wires: 143,
             num_routed_wires: 33,
             security_bits: 128,
             rate_bits: 3,

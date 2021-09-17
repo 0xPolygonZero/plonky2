@@ -18,8 +18,7 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 ///
 /// This also has some extra features to make it suitable for efficiently verifying Merkle proofs.
 /// It has a flag which can be used to swap the first four inputs with the next four, for ordering
-/// sibling digests. It also has an accumulator that computes the weighted sum of these flags, for
-/// computing the index of the leaf based on these swap bits.
+/// sibling digests.
 #[derive(Debug)]
 pub struct PoseidonGate<
     F: RichField + Extendable<D> + Poseidon<WIDTH>,
@@ -117,6 +116,7 @@ where
         let mut state: [F::Extension; WIDTH] = state.try_into().unwrap();
         let mut round_ctr = 0;
 
+        // First set of full rounds.
         for r in 0..poseidon::HALF_N_FULL_ROUNDS {
             <F as Poseidon<WIDTH>>::constant_layer(&mut state, round_ctr);
             for i in 0..WIDTH {
@@ -129,6 +129,7 @@ where
             round_ctr += 1;
         }
 
+        // Partial rounds.
         <F as Poseidon<WIDTH>>::partial_first_constant_layer(&mut state);
         state = <F as Poseidon<WIDTH>>::mds_partial_layer_init(&mut state);
         for r in 0..(poseidon::N_PARTIAL_ROUNDS - 1) {
@@ -149,6 +150,7 @@ where
         );
         round_ctr += poseidon::N_PARTIAL_ROUNDS;
 
+        // Second set of full rounds.
         for r in 0..poseidon::HALF_N_FULL_ROUNDS {
             <F as Poseidon<WIDTH>>::constant_layer(&mut state, round_ctr);
             for i in 0..WIDTH {
@@ -193,6 +195,7 @@ where
         let mut state: [F; WIDTH] = state.try_into().unwrap();
         let mut round_ctr = 0;
 
+        // First set of full rounds.
         for r in 0..poseidon::HALF_N_FULL_ROUNDS {
             <F as Poseidon<WIDTH>>::constant_layer(&mut state, round_ctr);
             for i in 0..WIDTH {
@@ -205,6 +208,7 @@ where
             round_ctr += 1;
         }
 
+        // Partial rounds.
         <F as Poseidon<WIDTH>>::partial_first_constant_layer(&mut state);
         state = <F as Poseidon<WIDTH>>::mds_partial_layer_init(&mut state);
         for r in 0..(poseidon::N_PARTIAL_ROUNDS - 1) {
@@ -224,6 +228,7 @@ where
         );
         round_ctr += poseidon::N_PARTIAL_ROUNDS;
 
+        // Second set of full rounds.
         for r in 0..poseidon::HALF_N_FULL_ROUNDS {
             <F as Poseidon<WIDTH>>::constant_layer(&mut state, round_ctr);
             for i in 0..WIDTH {
@@ -275,6 +280,7 @@ where
         let mut state: [ExtensionTarget<D>; WIDTH] = state.try_into().unwrap();
         let mut round_ctr = 0;
 
+        // First set of full rounds.
         for r in 0..poseidon::HALF_N_FULL_ROUNDS {
             <F as Poseidon<WIDTH>>::constant_layer_recursive(builder, &mut state, round_ctr);
             for i in 0..WIDTH {
@@ -287,6 +293,7 @@ where
             round_ctr += 1;
         }
 
+        // Partial rounds.
         <F as Poseidon<WIDTH>>::partial_first_constant_layer_recursive(builder, &mut state);
         state = <F as Poseidon<WIDTH>>::mds_partial_layer_init_recursive(builder, &mut state);
         for r in 0..(poseidon::N_PARTIAL_ROUNDS - 1) {
@@ -313,6 +320,7 @@ where
         );
         round_ctr += poseidon::N_PARTIAL_ROUNDS;
 
+        // Second set of full rounds.
         for r in 0..poseidon::HALF_N_FULL_ROUNDS {
             <F as Poseidon<WIDTH>>::constant_layer_recursive(builder, &mut state, round_ctr);
             for i in 0..WIDTH {
