@@ -13,7 +13,7 @@ use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recu
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::util::ceil_div_usize;
 
-/// A gate for checking that one value is less than another.
+/// A gate for checking that one value is less than or equal to another.
 #[derive(Clone, Debug)]
 pub(crate) struct ComparisonGate<F: PrimeField + Extendable<D>, const D: usize> {
     pub(crate) num_bits: usize,
@@ -137,7 +137,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         constraints.push(most_significant_diff - most_significant_diff_so_far);
 
         // Range check `most_significant_diff` to be less than `chunk_size`.
-        let product = (1..chunk_size)
+        let product = (0..chunk_size)
             .map(|x| most_significant_diff - F::Extension::from_canonical_usize(x))
             .product();
         constraints.push(product);
@@ -205,7 +205,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         constraints.push(most_significant_diff - most_significant_diff_so_far);
 
         // Range check `most_significant_diff` to be less than `chunk_size`.
-        let product = (1..chunk_size)
+        let product = (0..chunk_size)
             .map(|x| most_significant_diff - F::from_canonical_usize(x))
             .product();
         constraints.push(product);
@@ -286,7 +286,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
 
         // Range check `most_significant_diff` to be less than `chunk_size`.
         let mut product = builder.one_extension();
-        for x in 1..chunk_size {
+        for x in 0..chunk_size {
             let x_F = builder.constant_extension(F::Extension::from_canonical_usize(x));
             let diff = builder.sub_extension(most_significant_diff, x_F);
             product = builder.mul_extension(product, diff);
@@ -553,7 +553,7 @@ mod tests {
         let first_input_u64 = rng.gen_range(0..max);
         let second_input_u64 = {
             let mut val = rng.gen_range(0..max);
-            while val <= first_input_u64 {
+            while val < first_input_u64 {
                 val = rng.gen_range(0..max);
             }
             val
@@ -562,20 +562,39 @@ mod tests {
         let first_input = F::from_canonical_u64(first_input_u64);
         let second_input = F::from_canonical_u64(second_input_u64);
 
-        let gate = ComparisonGate::<F, D> {
+        let less_than_gate = ComparisonGate::<F, D> {
             num_bits,
             num_chunks,
             _phantom: PhantomData,
         };
-
-        let vars = EvaluationVars {
+        let less_than_vars = EvaluationVars {
             local_constants: &[],
             local_wires: &get_wires(first_input, second_input),
             public_inputs_hash: &HashOut::rand(),
         };
-
         assert!(
-            gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),
+            less_than_gate
+                .eval_unfiltered(less_than_vars)
+                .iter()
+                .all(|x| x.is_zero()),
+            "Gate constraints are not satisfied."
+        );
+
+        let equal_gate = ComparisonGate::<F, D> {
+            num_bits,
+            num_chunks,
+            _phantom: PhantomData,
+        };
+        let equal_vars = EvaluationVars {
+            local_constants: &[],
+            local_wires: &get_wires(first_input, first_input),
+            public_inputs_hash: &HashOut::rand(),
+        };
+        assert!(
+            equal_gate
+                .eval_unfiltered(equal_vars)
+                .iter()
+                .all(|x| x.is_zero()),
             "Gate constraints are not satisfied."
         );
     }

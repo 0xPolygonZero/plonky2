@@ -39,8 +39,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> Vec<MemoryOpTarget> {
         let n = ops.len();
 
-        let address_chunk_size = (address_bits as f64).sqrt() as usize;
-        let timestamp_chunk_size = (timestamp_bits as f64).sqrt() as usize;
+        let combined_bits = address_bits + timestamp_bits;
+        let chunk_size = 3;
 
         let is_write_targets: Vec<_> = self
             .add_virtual_targets(n)
@@ -65,35 +65,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         })
         .collect();
 
+        let two_n = self.constant(F::from_canonical_usize(1 << timestamp_bits));
+        let address_timestamp_combined: Vec<_> = output_targets
+            .iter()
+            .map(|op| self.mul_add(op.timestamp, two_n, op.address))
+            .collect();
+
         for i in 1..n {
-            let (address_gate, address_gate_index) = {
-                let gate = ComparisonGate::new(address_bits, address_chunk_size);
+            let (gate, gate_index) = {
+                let gate = ComparisonGate::new(combined_bits, chunk_size);
                 let gate_index = self.add_gate(gate.clone(), vec![]);
                 (gate, gate_index)
             };
 
             self.connect(
-                Target::wire(address_gate_index, address_gate.wire_first_input()),
-                output_targets[i - 1].address,
+                Target::wire(gate_index, gate.wire_first_input()),
+                address_timestamp_combined[i - 1],
             );
             self.connect(
-                Target::wire(address_gate_index, address_gate.wire_second_input()),
-                output_targets[i].address,
-            );
-
-            let (timestamp_gate, timestamp_gate_index) = {
-                let gate = ComparisonGate::new(timestamp_bits, timestamp_chunk_size);
-                let gate_index = self.add_gate(gate.clone(), vec![]);
-                (gate, gate_index)
-            };
-
-            self.connect(
-                Target::wire(timestamp_gate_index, timestamp_gate.wire_first_input()),
-                output_targets[i - 1].timestamp,
-            );
-            self.connect(
-                Target::wire(timestamp_gate_index, timestamp_gate.wire_second_input()),
-                output_targets[i].timestamp,
+                Target::wire(gate_index, gate.wire_second_input()),
+                address_timestamp_combined[i],
             );
         }
 
