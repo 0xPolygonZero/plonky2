@@ -11,3 +11,5 @@ mod poseidon_avx2;
 
 #[cfg(target_feature = "neon")]
 mod poseidon_neon;
+
+mod poseidon_fft;
