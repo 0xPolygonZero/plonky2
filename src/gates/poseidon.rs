@@ -58,17 +58,22 @@ where
     /// A wire which stores the input of the `i`-th S-box of the `round`-th round of the first set
     /// of full rounds.
     fn wire_full_sbox_0(round: usize, i: usize) -> usize {
+        debug_assert!(round < poseidon::HALF_N_FULL_ROUNDS);
+        debug_assert!(i < WIDTH);
         2 * WIDTH + 1 + WIDTH * round + i
     }
 
     /// A wire which stores the input of the S-box of the `round`-th round of the partial rounds.
     fn wire_partial_sbox(round: usize) -> usize {
+        debug_assert!(round < poseidon::N_PARTIAL_ROUNDS);
         2 * WIDTH + 1 + WIDTH * poseidon::HALF_N_FULL_ROUNDS + round
     }
 
     /// A wire which stores the input of the `i`-th S-box of the `round`-th round of the second set
     /// of full rounds.
     fn wire_full_sbox_1(round: usize, i: usize) -> usize {
+        debug_assert!(round < poseidon::HALF_N_FULL_ROUNDS);
+        debug_assert!(i < WIDTH);
         2 * WIDTH
             + 1
             + WIDTH * (poseidon::HALF_N_FULL_ROUNDS + round)
