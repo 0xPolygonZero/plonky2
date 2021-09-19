@@ -237,10 +237,10 @@ where
     /// (t-1)x(t-1) identity matrix.
     #[inline(always)]
     #[unroll_for_loops]
-    fn mds_partial_layer_fast(state: &[Self; WIDTH], r: usize) -> [Self; WIDTH] {
+    fn mds_partial_layer_fast(state0: Self, state: &[Self; WIDTH], r: usize) -> (Self, [Self; WIDTH]) {
         // Set d = [M_00 | w^] dot [state]
 
-        let s0 = state[0].to_noncanonical_u64() as u128;
+        let s0 = state0.to_noncanonical_u64() as u128;
         let mut d = Self::from_noncanonical_u128(s0 << Self::MDS_MATRIX_EXPS[0]);
         assert!(WIDTH <= 12);
         for i in 1..12 {
@@ -250,17 +250,16 @@ where
             }
         }
 
-        // result = [d] concat [state[0] * v + state[shift up by 1]]
+        // result = [d] concat [state0 * v + state[1..]]
         let mut result = [Self::ZERO; WIDTH];
-        result[0] = d;
         assert!(WIDTH <= 12);
         for i in 1..12 {
             if i < WIDTH {
                 let t = Self::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i]);
-                result[i] = state[0] * t + state[i];
+                result[i] = state0 * t + state[i];
             }
         }
-        result
+        (d, result)
     }
 
     #[inline(always)]
@@ -309,15 +308,17 @@ where
         Self::partial_first_constant_layer(state);
         *state = Self::mds_partial_layer_init(state);
 
+        let mut state0 = state[0];
         // One less than N_PARTIAL_ROUNDS because we do the last one
         // separately at the end.
         for i in 0..(N_PARTIAL_ROUNDS - 1) {
-            state[0] = Self::sbox_monomial(state[0]);
-            state[0] += Self::from_canonical_u64(Self::FAST_PARTIAL_ROUND_CONSTANTS[i]);
-            *state = Self::mds_partial_layer_fast(state, i);
+            state0 = Self::sbox_monomial(state0);
+            state0 += Self::from_canonical_u64(Self::FAST_PARTIAL_ROUND_CONSTANTS[i]);
+            (state0, *state) = Self::mds_partial_layer_fast(state0, state, i);
         }
-        state[0] = Self::sbox_monomial(state[0]);
-        *state = Self::mds_partial_layer_fast(state, N_PARTIAL_ROUNDS - 1);
+        state0 = Self::sbox_monomial(state0);
+        (state0, *state) = Self::mds_partial_layer_fast(state0, state, N_PARTIAL_ROUNDS - 1);
+        state[0] = state0;
         *round_ctr += N_PARTIAL_ROUNDS;
     }
 
@@ -530,12 +531,12 @@ impl Poseidon<8> for CrandallField {
 
     #[cfg(target_feature="avx2")]
     #[inline(always)]
-    fn mds_partial_layer_fast(state: &[Self; 8], r: usize) -> [Self; 8] {
-        crate::hash::poseidon_avx2::crandall_mds_partial_layer_fast::<2>(
+    fn mds_partial_layer_fast(state0: Self, state: &[Self; 8], r: usize) -> (Self, [Self; 8]) {
+        crate::hash::poseidon_avx2::crandall_mds_partial_layer_fast::<2, 2>(
+            state0,
             state,
             &Self::FAST_PARTIAL_ROUND_W_HATS[r],
-            &Self::FAST_PARTIAL_ROUND_VS[r],
-            2)
+            &Self::FAST_PARTIAL_ROUND_VS[r])
     }
 
     #[cfg(target_feature="avx2")]
@@ -796,12 +797,12 @@ impl Poseidon<12> for CrandallField {
 
     #[cfg(target_feature="avx2")]
     #[inline(always)]
-    fn mds_partial_layer_fast(state: &[Self; 12], r: usize) -> [Self; 12] {
-        crate::hash::poseidon_avx2::crandall_mds_partial_layer_fast::<3>(
+    fn mds_partial_layer_fast(state0: Self, state: &[Self; 12], r: usize) -> (Self, [Self; 12]) {
+        crate::hash::poseidon_avx2::crandall_mds_partial_layer_fast::<3, 10>(
+            state0,
             state,
             &Self::FAST_PARTIAL_ROUND_W_HATS[r],
-            &Self::FAST_PARTIAL_ROUND_VS[r],
-            10)
+            &Self::FAST_PARTIAL_ROUND_VS[r])
     }
 
     #[cfg(target_feature="avx2")]

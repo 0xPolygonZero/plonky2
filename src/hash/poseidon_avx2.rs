@@ -370,7 +370,6 @@ pub fn crandall_partial_first_constant_layer<const PACKED_WIDTH: usize>(
 }
 
 #[inline(always)]
-#[unroll_for_loops]
 unsafe fn crandall_mds_partial_layer_fast_w_hat<const PACKED_WIDTH: usize>(
     state1p: &[CrandallField; 4 * PACKED_WIDTH],
     w_hat: &[u64; 4 * PACKED_WIDTH],
@@ -382,12 +381,9 @@ unsafe fn crandall_mds_partial_layer_fast_w_hat<const PACKED_WIDTH: usize>(
         _mm256_set1_epi64x(SIGN_BIT as i64),
         _mm256_set1_epi64x(SIGN_BIT as i64),
     );
-    assert!(PACKED_WIDTH <= 3);
-    for i in 0..3 {
-        if i < PACKED_WIDTH {
-            let packed_w_hat = _mm256_loadu_si256(w_hat[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
-            cumul = mac64_64_192ss_ss(packed_w_hat, packed_state1p[i].get(), cumul);
-        }
+    for i in 0..PACKED_WIDTH {
+        let packed_w_hat = _mm256_loadu_si256(w_hat[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
+        cumul = mac64_64_192ss_ss(packed_w_hat, packed_state1p[i].get(), cumul);
     }
 
     let (cumul_top, cumul_hi_s, cumul_lo_s) = cumul;
@@ -408,12 +404,11 @@ unsafe fn crandall_mds_partial_layer_fast_w_hat<const PACKED_WIDTH: usize>(
 
     let sum_top = (cumul_top_arr[0] as u32) + (cumul_top_arr[1] as u32) + (cumul_top_arr[2] as u32) + (cumul_top_arr[3] as u32) + (sum_hi_carry as u32);
 
-    let reduced_hi = CrandallField::from_noncanonical_u128(((sum_top as u128) << 64) + (sum_hi as u128)).0;
+    let reduced_hi = reduce96_scalar(((sum_top as u128) << 64) + (sum_hi as u128)).0;
     CrandallField::from_noncanonical_u128(((reduced_hi as u128) << 64) + (sum_lo as u128))
 }
 
 #[inline(always)]
-#[unroll_for_loops]
 unsafe fn crandall_mds_partial_layer_fast_v<const PACKED_WIDTH: usize>(
     state0: CrandallField,
     state1p: &[CrandallField; 4 * PACKED_WIDTH],
@@ -424,39 +419,70 @@ unsafe fn crandall_mds_partial_layer_fast_v<const PACKED_WIDTH: usize>(
 
     let state0_broadcast = PackedCrandallAVX2::broadcast(state0);
     let packed_state1p = PackedCrandallAVX2::pack_slice(&state1p[..]);
-    assert!(PACKED_WIDTH <= 3);
-    for i in 0..3 {
-        if i < PACKED_WIDTH {
-            let packed_v = _mm256_loadu_si256(v[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
-            packed_res[i] = state0_broadcast * PackedCrandallAVX2::new(packed_v) + packed_state1p[i];
-        }
+    for i in 0..PACKED_WIDTH {
+        let packed_v = _mm256_loadu_si256(v[4 * i..4 * i + 4].as_ptr().cast::<__m256i>());
+        packed_res[i] = PackedCrandallAVX2::new(reduce128s(mac64_64_64_s(state0_broadcast.get(), packed_v, packed_state1p[i].get())));
     }
 
     res
 }
 
 #[inline(always)]
-fn crandall_mds_partial_layer_m_00(state0: CrandallField, lg_m_00: u64) -> CrandallField {
+fn crandall_mds_partial_layer_m_00<const LG_M_00: u64>(state0: CrandallField) -> CrandallField {
     let s0 = state0.to_noncanonical_u64() as u128;
-    CrandallField::from_noncanonical_u128(s0 << lg_m_00)
+    reduce96_scalar(s0 << LG_M_00)
 }
 
 
 #[inline(always)]
-pub fn crandall_mds_partial_layer_fast<const PACKED_WIDTH: usize>(
+pub fn crandall_mds_partial_layer_fast<const PACKED_WIDTH: usize, const LG_M_00: u64>(
+    state0: CrandallField,
     state: &[CrandallField; 4 * PACKED_WIDTH],
     w_hat: &[u64; 4 * PACKED_WIDTH],
     v: &[u64; 4 * PACKED_WIDTH],
-    lg_m_00: u64,
-) -> [CrandallField; 4 * PACKED_WIDTH] {
-    let state0 = state[0];
+) -> (CrandallField, [CrandallField; 4 * PACKED_WIDTH]) {
+    let res_w_hat = unsafe { crandall_mds_partial_layer_fast_w_hat::<PACKED_WIDTH>(state, w_hat) };
+    let mut res = unsafe { crandall_mds_partial_layer_fast_v::<PACKED_WIDTH>(state0, state, v) };
+    let res_m_00 = crandall_mds_partial_layer_m_00::<LG_M_00>(state0);
+    let res0 = res_w_hat + res_m_00;
+    (res0, res)
+}
 
-    let mut state1p = *state;
-    state1p[0] = CrandallField::ZERO;
+#[inline(always)]
+unsafe fn mac64_64_64_s(x: __m256i, y: __m256i, z: __m256i) -> (__m256i, __m256i) {
+    let x_hi = _mm256_srli_epi64(x, 32);
+    let y_hi = _mm256_srli_epi64(y, 32);
+    let mul_ll = _mm256_mul_epu32(x, y);
+    let mul_lh = _mm256_mul_epu32(x, y_hi);
+    let mul_hl = _mm256_mul_epu32(x_hi, y);
+    let mul_hh = _mm256_mul_epu32(x_hi, y_hi);
 
-    let mut res = unsafe { crandall_mds_partial_layer_fast_v::<PACKED_WIDTH>(state0, &state1p, v) };
-    let res_w_hat = unsafe { crandall_mds_partial_layer_fast_w_hat::<PACKED_WIDTH>(&state1p, w_hat) };
-    let res_m_00 = crandall_mds_partial_layer_m_00(state0, lg_m_00);
-    res[0] = res_w_hat + res_m_00;
-    res
+    let res_lo0_s = _mm256_xor_si256(z, _mm256_set1_epi64x(SIGN_BIT as i64));
+    let res_lo1_s = _mm256_add_epi64(res_lo0_s, mul_ll);
+    let res_lo2_s = _mm256_add_epi64(res_lo1_s, _mm256_slli_epi64(mul_lh, 32));
+    let res_lo3_s = _mm256_add_epi64(res_lo2_s, _mm256_slli_epi64(mul_hl, 32));
+
+    // cmpgt returns -1 on true and 0 on false. Hence, the carry values below are set to -1 on
+    // overflow and must be subtracted, not added.
+    let carry0 = _mm256_cmpgt_epi64(res_lo0_s, res_lo1_s);
+    let carry1 = _mm256_cmpgt_epi64(res_lo1_s, res_lo2_s);
+    let carry2 = _mm256_cmpgt_epi64(res_lo2_s, res_lo3_s);
+
+    let res_hi0 = mul_hh;
+    let res_hi1 = _mm256_add_epi64(res_hi0, _mm256_srli_epi64(mul_lh, 32));
+    let res_hi2 = _mm256_add_epi64(res_hi1, _mm256_srli_epi64(mul_hl, 32));
+    let res_hi3 = _mm256_sub_epi64(res_hi2, carry0);
+    let res_hi4 = _mm256_sub_epi64(res_hi3, carry1);
+    let res_hi5 = _mm256_sub_epi64(res_hi3, carry2);
+
+    (res_hi5, res_lo3_s)
+}
+
+#[inline(always)]
+fn reduce96_scalar(x: u128) -> CrandallField {
+    let hi = ((x >> 64) & ((1 << 32) - 1)) as u64;
+    let lo = x as u64;
+    let t = hi * EPSILON;
+    let (sum, over) = lo.overflowing_add(t);
+    CrandallField(sum.wrapping_add((over as u64) * EPSILON))
 }
