@@ -93,6 +93,11 @@ impl Field for CrandallField {
         reduce128(n)
     }
 
+    #[inline]
+    fn from_noncanonical_u96(n: (u64, u32)) -> Self {
+        reduce96(n)
+    }
+
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self::from_canonical_u64(rng.gen_range(0..Self::ORDER))
     }
@@ -173,6 +178,12 @@ impl Field for CrandallField {
         let x74 = x73 * x39;
         x74
     }
+
+    #[inline]
+    fn multiply_accumulate(&self, x: Self, y: Self) -> Self {
+        // u64 + u64 * u64 cannot overflow.
+        reduce128((self.0 as u128) + (x.0 as u128) * (y.0 as u128))
+    }
 }
 
 impl PrimeField for CrandallField {
@@ -197,6 +208,16 @@ impl PrimeField for CrandallField {
     fn from_noncanonical_u64(n: u64) -> Self {
         Self(n)
     }
+
+    #[inline]
+    /// Faster addition for when we know that rhs <= ORDER. If this is the case, then the
+    /// .to_canonical_u64() that addition usually performs is unnecessary. Omitting it saves three
+    /// instructions. This function is marked unsafe because it may yield incorrect results if the
+    /// condition is not satisfied.
+    unsafe fn add_canonical_u64(&self, rhs: u64) -> Self {
+        let (sum, over) = self.0.overflowing_add(rhs);
+        Self(sum.wrapping_sub((over as u64) * Self::ORDER))
+    }
 }
 
 impl Neg for CrandallField {
@@ -218,8 +239,9 @@ impl Add for CrandallField {
     #[inline]
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, rhs: Self) -> Self {
-        let (sum, over) = self.0.overflowing_add(rhs.to_canonical_u64());
-        Self(sum.wrapping_sub((over as u64) * Self::ORDER))
+        let rhs_canonical = rhs.to_canonical_u64();
+        // rhs_canonical is definitely canonical, so below is safe.
+        unsafe { self.add_canonical_u64(rhs_canonical) }
     }
 }
 
@@ -323,17 +345,6 @@ impl Extendable<4> for CrandallField {
 
 impl RichField for CrandallField {}
 
-/// Faster addition for when we know that lhs.0 + rhs.0 < 2^64 + FIELD_ORDER. If this is the case,
-/// then the .to_canonical_u64() that addition usually performs is unnecessary. Omitting it saves
-/// three instructions.
-/// This function is marked unsafe because it may yield incorrect result if the condition is not
-/// satisfied.
-#[inline]
-unsafe fn add_no_canonicalize(lhs: CrandallField, rhs: CrandallField) -> CrandallField {
-    let (sum, over) = lhs.0.overflowing_add(rhs.0);
-    CrandallField(sum.wrapping_sub((over as u64) * CrandallField::ORDER))
-}
-
 /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
 /// field order and `2^64`.
 #[inline]
@@ -345,13 +356,21 @@ fn reduce128(x: u128) -> CrandallField {
     // product will fit in 64 bits.
     let (lo_1, hi_1) = split(x);
     let (lo_2, hi_2) = split((EPSILON as u128) * (hi_1 as u128) + (lo_1 as u128));
-    let lo_3 = hi_2 * EPSILON;
+    reduce96((lo_2, hi_2 as u32)) // hi_2 will always fit in a u32.
+}
+
+/// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
+/// field order and `2^64`.
+#[inline]
+fn reduce96((x_lo, x_hi): (u64, u32)) -> CrandallField {
+    // This is Crandall's algorithm. See reduce128.
+    let t = (x_hi as u64) * EPSILON;
 
     unsafe {
-        // This is safe to do because lo_2 + lo_3 < 2^64 + Self::ORDER. Notice that hi_2 <=
-        // 2^32 - 1. Then lo_3 = hi_2 * EPSILON <= (2^32 - 1) * EPSILON < Self::ORDER.
+        // This is safe to do because x_lo + t < 2^64 + Self::ORDER. Notice that x_hi <= 2^32 - 1.
+        // Then t = x_hi * EPSILON <= (2^32 - 1) * EPSILON < Self::ORDER.
         // Use of standard addition here would make multiplication 20% more expensive.
-        add_no_canonicalize(CrandallField(lo_2), CrandallField(lo_3))
+        CrandallField(x_lo).add_canonical_u64(t)
     }
 }
 

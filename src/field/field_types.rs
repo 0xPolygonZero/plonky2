@@ -204,6 +204,15 @@ pub trait Field:
     /// Returns `n % Self::CHARACTERISTIC`.
     fn from_noncanonical_u128(n: u128) -> Self;
 
+    /// Returns `n % Self::CHARACTERISTIC`. May be cheaper than from_noncanonical_u128 when we know
+    /// that n < 2 ** 96.
+    #[inline]
+    fn from_noncanonical_u96((n_lo, n_hi): (u64, u32)) -> Self {
+        // Default implementation.
+        let n: u128 = ((n_hi as u128) << 64) + (n_lo as u128);
+        Self::from_noncanonical_u128(n)
+    }
+
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self;
 
     fn exp_power_of_2(&self, power_log: usize) -> Self {
@@ -299,6 +308,13 @@ pub trait Field:
     fn coset_shift() -> Self {
         Self::MULTIPLICATIVE_GROUP_GENERATOR
     }
+
+    /// Equivalent to *self + x * y, but may be cheaper.
+    #[inline]
+    fn multiply_accumulate(&self, x: Self, y: Self) -> Self {
+        // Default implementation.
+        *self + x * y
+    }
 }
 
 /// A finite field of prime order less than 2^64.
@@ -310,6 +326,15 @@ pub trait PrimeField: Field {
     fn to_noncanonical_u64(&self) -> u64;
 
     fn from_noncanonical_u64(n: u64) -> Self;
+
+    /// Equivalent to *self + Self::from_canonical_u64(rhs), but may be cheaper. The caller must
+    /// ensure that 0 <= rhs < Self::ORDER. The function may return incorrect results if this
+    /// precondition is not met. It is marked unsafe for this reason.
+    #[inline]
+    unsafe fn add_canonical_u64(&self, rhs: u64) -> Self {
+        // Default implementation.
+        *self + Self::from_canonical_u64(rhs)
+    }
 }
 
 /// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
