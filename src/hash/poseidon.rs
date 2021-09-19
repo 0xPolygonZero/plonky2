@@ -168,8 +168,6 @@ where
         res
     }
 
-    #[inline(always)]
-    #[unroll_for_loops]
     /// Same as `mds_row_shf` for field extensions of `Self`.
     fn mds_row_shf_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         r: usize,
@@ -178,11 +176,8 @@ where
         debug_assert!(r < WIDTH);
         let mut res = F::ZERO;
 
-        assert!(WIDTH <= 12);
-        for i in 0..12 {
-            if i < WIDTH {
-                res += v[(i + r) % WIDTH] * F::from_canonical_u64(1 << Self::MDS_MATRIX_EXPS[i]);
-            }
+        for i in 0..WIDTH {
+            res += v[(i + r) % WIDTH] * F::from_canonical_u64(1 << Self::MDS_MATRIX_EXPS[i]);
         }
 
         res
@@ -232,19 +227,14 @@ where
         result
     }
 
-    #[inline(always)]
-    #[unroll_for_loops]
     /// Same as `mds_layer` for field extensions of `Self`.
     fn mds_layer_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         state: &[F; WIDTH],
     ) -> [F; WIDTH] {
         let mut result = [F::ZERO; WIDTH];
 
-        assert!(WIDTH <= 12);
-        for r in 0..12 {
-            if r < WIDTH {
-                result[r] = Self::mds_row_shf_field(r, state);
-            }
+        for r in 0..WIDTH {
+            result[r] = Self::mds_row_shf_field(r, state);
         }
 
         result
@@ -337,14 +327,10 @@ where
         result[0] = state[0];
 
         for c in 1..WIDTH {
-            assert!(WIDTH <= 12);
-            for r in 1..12 {
-                if r < WIDTH {
-                    let t = F::from_canonical_u64(
-                        Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[c - 1][r - 1],
-                    );
-                    result[c] = builder.arithmetic_extension(t, F::ONE, one, state[r], result[c]);
-                }
+            for r in 1..WIDTH {
+                let t =
+                    F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[c - 1][r - 1]);
+                result[c] = builder.arithmetic_extension(t, F::ONE, one, state[r], result[c]);
             }
         }
         result
@@ -386,8 +372,6 @@ where
         result
     }
 
-    #[inline(always)]
-    #[unroll_for_loops]
     /// Same as `mds_partial_layer_fast` for field extensions of `Self`.
     fn mds_partial_layer_fast_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         state: &[F; WIDTH],
@@ -395,23 +379,17 @@ where
     ) -> [F; WIDTH] {
         let s0 = state[0];
         let mut d = s0 * F::from_canonical_u64(1 << Self::MDS_MATRIX_EXPS[0]);
-        assert!(WIDTH <= 12);
-        for i in 1..12 {
-            if i < WIDTH {
-                let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
-                d += state[i] * t;
-            }
+        for i in 1..WIDTH {
+            let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
+            d += state[i] * t;
         }
 
         // result = [d] concat [state[0] * v + state[shift up by 1]]
         let mut result = [F::ZERO; WIDTH];
         result[0] = d;
-        assert!(WIDTH <= 12);
-        for i in 1..12 {
-            if i < WIDTH {
-                let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
-                result[i] = state[0] * t + state[i];
-            }
+        for i in 1..WIDTH {
+            let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
+            result[i] = state[0] * t + state[i];
         }
         result
     }
@@ -440,12 +418,9 @@ where
 
         let mut result = [zero; WIDTH];
         result[0] = d;
-        assert!(WIDTH <= 12);
-        for i in 1..12 {
-            if i < WIDTH {
-                let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
-                result[i] = builder.arithmetic_extension(t, F::ONE, one, state[0], state[i]);
-            }
+        for i in 1..WIDTH {
+            let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
+            result[i] = builder.arithmetic_extension(t, F::ONE, one, state[0], state[i]);
         }
         result
     }
@@ -461,18 +436,13 @@ where
         }
     }
 
-    #[inline(always)]
-    #[unroll_for_loops]
     /// Same as `constant_layer` for field extensions of `Self`.
     fn constant_layer_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         state: &mut [F; WIDTH],
         round_ctr: usize,
     ) {
-        assert!(WIDTH <= 12);
-        for i in 0..12 {
-            if i < WIDTH {
-                state[i] += F::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]);
-            }
+        for i in 0..WIDTH {
+            state[i] += F::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]);
         }
     }
 
@@ -523,17 +493,12 @@ where
         }
     }
 
-    #[inline(always)]
-    #[unroll_for_loops]
     /// Same as `sbox_layer` for field extensions of `Self`.
     fn sbox_layer_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         state: &mut [F; WIDTH],
     ) {
-        assert!(WIDTH <= 12);
-        for i in 0..12 {
-            if i < WIDTH {
-                state[i] = Self::sbox_monomial(state[i]);
-            }
+        for i in 0..WIDTH {
+            state[i] = Self::sbox_monomial(state[i]);
         }
     }
 
