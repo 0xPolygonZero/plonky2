@@ -338,7 +338,8 @@ where
 
         for r in 1..WIDTH {
             for c in 1..WIDTH {
-                let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[r - 1][c - 1]);
+                let t =
+                    F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[r - 1][c - 1]);
                 result[c] = builder.arithmetic_extension(t, F::ONE, one, state[r], result[c]);
             }
         }
