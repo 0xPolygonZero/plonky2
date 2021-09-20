@@ -24,6 +24,22 @@ pub(crate) const N_PARTIAL_ROUNDS: usize = 22;
 const N_ROUNDS: usize = N_FULL_ROUNDS_TOTAL + N_PARTIAL_ROUNDS;
 const MAX_WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :)
 
+#[inline(always)]
+fn add_u160_u128((x_lo, x_hi): (u128, u32), y: u128) -> (u128, u32) {
+    let (res_lo, over) = x_lo.overflowing_add(y);
+    let res_hi = x_hi + (over as u32);
+    (res_lo, res_hi)
+}
+
+#[inline(always)]
+fn reduce_u160<F: PrimeField>((n_lo, n_hi): (u128, u32)) -> F {
+    let n_lo_hi = (n_lo >> 64) as u64;
+    let n_lo_lo = n_lo as u64;
+    let reduced_hi: u64 = F::from_noncanonical_u96((n_lo_hi, n_hi)).to_noncanonical_u64();
+    let reduced128: u128 = ((reduced_hi as u128) << 64) + (n_lo_lo as u128);
+    F::from_noncanonical_u128(reduced128)
+}
+
 /// Note that these work for the Crandall and Goldilocks fields, but not necessarily others. See
 /// `generate_constants` about how these were generated. We include enough for a WIDTH of 12;
 /// smaller widths just use a subset.
@@ -140,7 +156,7 @@ where
     // Precomputed constants for the fast Poseidon calculation. See
     // the paper.
     const FAST_PARTIAL_FIRST_ROUND_CONSTANT: [u64; WIDTH];
-    const FAST_PARTIAL_ROUND_CONSTANTS: [u64; N_PARTIAL_ROUNDS - 1];
+    const FAST_PARTIAL_ROUND_CONSTANTS: [u64; N_PARTIAL_ROUNDS];
     const FAST_PARTIAL_ROUND_VS: [[u64; WIDTH - 1]; N_PARTIAL_ROUNDS];
     const FAST_PARTIAL_ROUND_W_HATS: [[u64; WIDTH - 1]; N_PARTIAL_ROUNDS];
     const FAST_PARTIAL_ROUND_INITIAL_MATRIX: [[u64; WIDTH - 1]; WIDTH - 1];
@@ -220,7 +236,10 @@ where
         assert!(WIDTH <= 12);
         for r in 0..12 {
             if r < WIDTH {
-                result[r] = Self::from_noncanonical_u128(Self::mds_row_shf(r, &state));
+                let sum = Self::mds_row_shf(r, &state);
+                let sum_lo = sum as u64;
+                let sum_hi = (sum >> 64) as u32;
+                result[r] = Self::from_noncanonical_u96((sum_lo, sum_hi));
             }
         }
 
@@ -297,16 +316,16 @@ where
         result[0] = state[0];
 
         assert!(WIDTH <= 12);
-        for c in 1..12 {
-            if c < WIDTH {
+        for r in 1..12 {
+            if r < WIDTH {
                 assert!(WIDTH <= 12);
-                for r in 1..12 {
-                    if r < WIDTH {
+                for c in 1..12 {
+                    if c < WIDTH {
                         // NB: FAST_PARTIAL_ROUND_INITIAL_MATRIX is stored in
-                        // column-major order so that this dot product is cache
+                        // row-major order so that this dot product is cache
                         // friendly.
                         let t = F::from_canonical_u64(
-                            Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[c - 1][r - 1],
+                            Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[r - 1][c - 1],
                         );
                         result[c] += state[r] * t;
                     }
@@ -326,10 +345,10 @@ where
 
         result[0] = state[0];
 
-        for c in 1..WIDTH {
-            for r in 1..WIDTH {
+        for r in 1..WIDTH {
+            for c in 1..WIDTH {
                 let t =
-                    F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[c - 1][r - 1]);
+                    F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[r - 1][c - 1]);
                 result[c] = builder.arithmetic_extension(t, F::ONE, one, state[r], result[c]);
             }
         }
@@ -349,15 +368,18 @@ where
     fn mds_partial_layer_fast(state: &[Self; WIDTH], r: usize) -> [Self; WIDTH] {
         // Set d = [M_00 | w^] dot [state]
 
-        let s0 = state[0].to_noncanonical_u64() as u128;
-        let mut d = Self::from_noncanonical_u128(s0 << Self::MDS_MATRIX_EXPS[0]);
+        let mut d_sum = (0u128, 0u32); // u160 accumulator
         assert!(WIDTH <= 12);
         for i in 1..12 {
             if i < WIDTH {
-                let t = Self::from_canonical_u64(Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
-                d += state[i] * t;
+                let t = Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1] as u128;
+                let si = state[i].to_noncanonical_u64() as u128;
+                d_sum = add_u160_u128(d_sum, si * t);
             }
         }
+        let s0 = state[0].to_noncanonical_u64() as u128;
+        d_sum = add_u160_u128(d_sum, s0 << Self::MDS_MATRIX_EXPS[0]);
+        let d = reduce_u160::<Self>(d_sum);
 
         // result = [d] concat [state[0] * v + state[shift up by 1]]
         let mut result = [Self::ZERO; WIDTH];
@@ -366,7 +388,7 @@ where
         for i in 1..12 {
             if i < WIDTH {
                 let t = Self::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
-                result[i] = state[0] * t + state[i];
+                result[i] = state[i].multiply_accumulate(state[0], t);
             }
         }
         result
@@ -431,7 +453,10 @@ where
         assert!(WIDTH <= 12);
         for i in 0..12 {
             if i < WIDTH {
-                state[i] += Self::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]);
+                let round_constant = ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr];
+                unsafe {
+                    state[i] = state[i].add_canonical_u64(round_constant);
+                }
             }
         }
     }
@@ -527,15 +552,13 @@ where
         Self::partial_first_constant_layer(state);
         *state = Self::mds_partial_layer_init(state);
 
-        // One less than N_PARTIAL_ROUNDS because we do the last one
-        // separately at the end.
-        for i in 0..(N_PARTIAL_ROUNDS - 1) {
+        for i in 0..N_PARTIAL_ROUNDS {
             state[0] = Self::sbox_monomial(state[0]);
-            state[0] += Self::from_canonical_u64(Self::FAST_PARTIAL_ROUND_CONSTANTS[i]);
+            unsafe {
+                state[0] = state[0].add_canonical_u64(Self::FAST_PARTIAL_ROUND_CONSTANTS[i]);
+            }
             *state = Self::mds_partial_layer_fast(state, i);
         }
-        state[0] = Self::sbox_monomial(state[0]);
-        *state = Self::mds_partial_layer_fast(state, N_PARTIAL_ROUNDS - 1);
         *round_ctr += N_PARTIAL_ROUNDS;
     }
 
@@ -594,13 +617,13 @@ impl Poseidon<8> for CrandallField {
         0x2c943b9a8d9ee4f4, 0x6d70fcb874f05f57, 0xf48e800880a87878, 0x24b1eb418f3994c3,
     ];
 
-    const FAST_PARTIAL_ROUND_CONSTANTS: [u64; N_PARTIAL_ROUNDS - 1]  = [
+    const FAST_PARTIAL_ROUND_CONSTANTS: [u64; N_PARTIAL_ROUNDS]  = [
         0x6d69d39f98b01c69, 0x7694ae5bbd92de89, 0x0b9bfb9fbb252451, 0xf547651a6893f655,
         0x44f4e70e9f77cd03, 0xd8e2801a322a6f39, 0xbd0f7e1bc9649171, 0x2eda14ffc32245e4,
         0x296e04e8222b9265, 0x9aa740fd9cf504ea, 0xe5e868a6d4315bcc, 0x7d430efe75c6ece5,
         0x37ca54f0b49f6214, 0xde83a9f01bfa62d2, 0xb0831b529dbb5b9c, 0xa1d590c3b2b945b5,
         0xa130846268961080, 0x79e6e27330006b7a, 0xba12695bd255613b, 0x0091d7aaf86c0e15,
-        0xe9028a7b418aa9f2,
+        0xe9028a7b418aa9f2, 0x0000000000000000,
     ];
 
     const FAST_PARTIAL_ROUND_VS: [[u64; 8 - 1]; N_PARTIAL_ROUNDS] = [
@@ -697,22 +720,22 @@ impl Poseidon<8> for CrandallField {
          0x1e93b91509607640, 0x5ed95be1c52cf97e, 0x359f0220d53d82f4, ],
     ];
 
-    // NB: This is in COLUMN-major order to support cache-friendly pre-multiplication.
+    // NB: This is in ROW-major order to support cache-friendly pre-multiplication.
     const FAST_PARTIAL_ROUND_INITIAL_MATRIX: [[u64; 8 - 1]; 8 - 1] = [
-        [0x3fc702a71c42c8df, 0xdc5d5c2cec372bd8, 0x61e9415bfc0d135a, 0x9b7a25991a49b57f,
-         0xaaee943e6eccf7b8, 0x2be97f5416341131, 0x3f3fd62d28872386, ],
-        [0xda6cfb436cf6973e, 0x5ed3accc77ae85d0, 0xd63481d84fa12429, 0x38d80c86e3eb1887,
-         0xf8ad1187508f709c, 0xd0b8c098bdcf7407, 0x2be97f5416341131, ],
-        [0x800fc4e2c9f585d8, 0xc768961eecdcb554, 0xc8e4a9f96ab57c10, 0xeae1feb52d6eb09a,
-         0x7ffbbc7ce8823d72, 0xf8ad1187508f709c, 0xaaee943e6eccf7b8, ],
-        [0x3864e0e53027baf7, 0x95af3551b40289ce, 0x29d0d07fd9b6e9ea, 0xda20f5c812c60b4e,
-         0xeae1feb52d6eb09a, 0x38d80c86e3eb1887, 0x9b7a25991a49b57f, ],
-        [0x44ae739518db1d10, 0xa3ae8c5444f37d9a, 0xa5aac4ccc8b791cc, 0x29d0d07fd9b6e9ea,
-         0xc8e4a9f96ab57c10, 0xd63481d84fa12429, 0x61e9415bfc0d135a, ],
-        [0x1d46b66c2ad3ef0c, 0x53c070eae0ad0c38, 0xa3ae8c5444f37d9a, 0x95af3551b40289ce,
-         0xc768961eecdcb554, 0x5ed3accc77ae85d0, 0xdc5d5c2cec372bd8, ],
-        [0xbc75b7bb6f92fb6b, 0x1d46b66c2ad3ef0c, 0x44ae739518db1d10, 0x3864e0e53027baf7,
-         0x800fc4e2c9f585d8, 0xda6cfb436cf6973e, 0x3fc702a71c42c8df, ],
+        [0x3fc702a71c42c8df, 0xda6cfb436cf6973e, 0x800fc4e2c9f585d8, 0x3864e0e53027baf7,
+         0x44ae739518db1d10, 0x1d46b66c2ad3ef0c, 0xbc75b7bb6f92fb6b, ],
+        [0xdc5d5c2cec372bd8, 0x5ed3accc77ae85d0, 0xc768961eecdcb554, 0x95af3551b40289ce,
+         0xa3ae8c5444f37d9a, 0x53c070eae0ad0c38, 0x1d46b66c2ad3ef0c, ],
+        [0x61e9415bfc0d135a, 0xd63481d84fa12429, 0xc8e4a9f96ab57c10, 0x29d0d07fd9b6e9ea,
+         0xa5aac4ccc8b791cc, 0xa3ae8c5444f37d9a, 0x44ae739518db1d10, ],
+        [0x9b7a25991a49b57f, 0x38d80c86e3eb1887, 0xeae1feb52d6eb09a, 0xda20f5c812c60b4e,
+         0x29d0d07fd9b6e9ea, 0x95af3551b40289ce, 0x3864e0e53027baf7, ],
+        [0xaaee943e6eccf7b8, 0xf8ad1187508f709c, 0x7ffbbc7ce8823d72, 0xeae1feb52d6eb09a,
+         0xc8e4a9f96ab57c10, 0xc768961eecdcb554, 0x800fc4e2c9f585d8, ],
+        [0x2be97f5416341131, 0xd0b8c098bdcf7407, 0xf8ad1187508f709c, 0x38d80c86e3eb1887,
+         0xd63481d84fa12429, 0x5ed3accc77ae85d0, 0xda6cfb436cf6973e, ],
+        [0x3f3fd62d28872386, 0x2be97f5416341131, 0xaaee943e6eccf7b8, 0x9b7a25991a49b57f,
+         0x61e9415bfc0d135a, 0xdc5d5c2cec372bd8, 0x3fc702a71c42c8df, ],
     ];
 
     #[cfg(target_feature="avx2")]
@@ -770,13 +793,13 @@ impl Poseidon<12> for CrandallField {
     ];
 
 
-    const FAST_PARTIAL_ROUND_CONSTANTS: [u64; N_PARTIAL_ROUNDS - 1]  = [
+    const FAST_PARTIAL_ROUND_CONSTANTS: [u64; N_PARTIAL_ROUNDS]  = [
         0xa00e150786abac6c, 0xe71901e012a81740, 0x8c4517d65a4d4813, 0x62b1661b06dafd6b,
         0x25b991b65a886452, 0x51bcd73c6aaabd6e, 0xb8956d71320d9266, 0x62e603408b7b7092,
         0x9839210869008dc0, 0xc6b3ebc672dd2b86, 0x816bd6d0838e9e05, 0x0e80e96e5f3cc3fd,
         0x4c8ea37c218378c9, 0x21a24a8087e0e306, 0x30c877124f60bdfa, 0x8e92578bf67f43f3,
         0x79089cd2893d3cfa, 0x4a2da1f7351fe5b1, 0x7941de449fea07f0, 0x9f9fe970f90fe0b9,
-        0x8aff5500f81c1181,
+        0x8aff5500f81c1181, 0x0000000000000000,
     ];
 
     const FAST_PARTIAL_ROUND_VS: [[u64; 12 - 1]; N_PARTIAL_ROUNDS] = [
@@ -917,41 +940,41 @@ impl Poseidon<12> for CrandallField {
          0x2e97f1cb8689f623, 0xa2a9961db0d614d8, 0xf87c2101134b253c, ],
     ];
 
-    // NB: This is in COLUMN-major order to support cache-friendly pre-multiplication.
+    // NB: This is in ROW-major order to support cache-friendly pre-multiplication.
     const FAST_PARTIAL_ROUND_INITIAL_MATRIX: [[u64; 12 - 1]; 12 - 1] = [
-        [0x8a041eb885fb24f5, 0xeb159cc540fb5e78, 0xf2bc5f8a1eb47c5f, 0x029914d117a17af3,
-         0xf2bfc6a0100f3c6d, 0x2d506a5bb5b7480c, 0xda5e708c57dfe9f9, 0xd7b5feb73cd3a335,
-         0xeab0a50ac0fa5244, 0xad929b347785656d, 0xa344593dadcaf3de, ],
-        [0xb5d5efb12203ef9a, 0xe2afdb22f2e0801a, 0xac34f93c00842bef, 0xb908389bbeee3c9d,
-         0xf88cbe5484d71f29, 0x3e815f5ac59316cf, 0xaa5a5bcedc8ce58c, 0x2f1dcb0b29bcce64,
-         0x22f96387ab3046d8, 0x87b1d6bd50b96399, 0xad929b347785656d, ],
-        [0xe7ad8152c5d50bed, 0x2b68f22b6b414b24, 0x397f9c162cea9170, 0x33ab6239c8b237f3,
-         0x110365276c97b11f, 0x68bc309864072be8, 0xc0e1cb8013a75747, 0x10a1b57ff824d1f1,
-         0x45a7029a0a30d66f, 0x22f96387ab3046d8, 0xeab0a50ac0fa5244, ],
-        [0x685ef5a6b9e241d3, 0x9e085548eeb422b1, 0x3fd7af7763f724a2, 0x337d2955b1c463ae,
-         0x1927309728b02b2c, 0x56a37505b7b907a7, 0xfd7c623553723df6, 0x35b7afed907102a9,
-         0x10a1b57ff824d1f1, 0x2f1dcb0b29bcce64, 0xd7b5feb73cd3a335, ],
-        [0x7e60116e98d5e20c, 0xb561d1111e413cce, 0xeb3a58c29ba7f596, 0xb2ec0e3facb37f22,
-         0x95dc8a5e61463c07, 0xecd49c2975d75106, 0x7b298b0fc4b796ab, 0xfd7c623553723df6,
-         0xc0e1cb8013a75747, 0xaa5a5bcedc8ce58c, 0xda5e708c57dfe9f9, ],
-        [0xfdb6ca0a6d5cc865, 0xe351dee9a4f90434, 0x9fedefd5f6653e80, 0xb7f57d2afbb79622,
-         0xa84c2200dfb57d3e, 0x0cdf9734cbbc0e07, 0xecd49c2975d75106, 0x56a37505b7b907a7,
-         0x68bc309864072be8, 0x3e815f5ac59316cf, 0x2d506a5bb5b7480c, ],
-        [0x857f31827fb3fe60, 0x6aa96c0125bddef7, 0xe629261862a9a8e1, 0xf285b4aa369079a1,
-         0x01838a8c1d92d250, 0xa84c2200dfb57d3e, 0x95dc8a5e61463c07, 0x1927309728b02b2c,
-         0x110365276c97b11f, 0xf88cbe5484d71f29, 0xf2bfc6a0100f3c6d, ],
-        [0xe31988229a5fcb6e, 0x06f4e7db60b9d3b3, 0x4e093de640582a4f, 0xa3a167ee9469e711,
-         0xf285b4aa369079a1, 0xb7f57d2afbb79622, 0xb2ec0e3facb37f22, 0x337d2955b1c463ae,
-         0x33ab6239c8b237f3, 0xb908389bbeee3c9d, 0x029914d117a17af3, ],
-        [0xc06fefcd7cea8405, 0xa7b2498836972dc4, 0x4e3662cf34ca1a70, 0x4e093de640582a4f,
-         0xe629261862a9a8e1, 0x9fedefd5f6653e80, 0xeb3a58c29ba7f596, 0x3fd7af7763f724a2,
-         0x397f9c162cea9170, 0xac34f93c00842bef, 0xf2bc5f8a1eb47c5f, ],
-        [0x05adcaa7427c172c, 0xdc59b1fe6c753a07, 0xa7b2498836972dc4, 0x06f4e7db60b9d3b3,
-         0x6aa96c0125bddef7, 0xe351dee9a4f90434, 0xb561d1111e413cce, 0x9e085548eeb422b1,
-         0x2b68f22b6b414b24, 0xe2afdb22f2e0801a, 0xeb159cc540fb5e78, ],
-        [0x4ff536f518f675c7, 0x05adcaa7427c172c, 0xc06fefcd7cea8405, 0xe31988229a5fcb6e,
-         0x857f31827fb3fe60, 0xfdb6ca0a6d5cc865, 0x7e60116e98d5e20c, 0x685ef5a6b9e241d3,
-         0xe7ad8152c5d50bed, 0xb5d5efb12203ef9a, 0x8a041eb885fb24f5, ],
+        [0x8a041eb885fb24f5, 0xb5d5efb12203ef9a, 0xe7ad8152c5d50bed, 0x685ef5a6b9e241d3,
+         0x7e60116e98d5e20c, 0xfdb6ca0a6d5cc865, 0x857f31827fb3fe60, 0xe31988229a5fcb6e,
+         0xc06fefcd7cea8405, 0x05adcaa7427c172c, 0x4ff536f518f675c7, ],
+        [0xeb159cc540fb5e78, 0xe2afdb22f2e0801a, 0x2b68f22b6b414b24, 0x9e085548eeb422b1,
+         0xb561d1111e413cce, 0xe351dee9a4f90434, 0x6aa96c0125bddef7, 0x06f4e7db60b9d3b3,
+         0xa7b2498836972dc4, 0xdc59b1fe6c753a07, 0x05adcaa7427c172c, ],
+        [0xf2bc5f8a1eb47c5f, 0xac34f93c00842bef, 0x397f9c162cea9170, 0x3fd7af7763f724a2,
+         0xeb3a58c29ba7f596, 0x9fedefd5f6653e80, 0xe629261862a9a8e1, 0x4e093de640582a4f,
+         0x4e3662cf34ca1a70, 0xa7b2498836972dc4, 0xc06fefcd7cea8405, ],
+        [0x029914d117a17af3, 0xb908389bbeee3c9d, 0x33ab6239c8b237f3, 0x337d2955b1c463ae,
+         0xb2ec0e3facb37f22, 0xb7f57d2afbb79622, 0xf285b4aa369079a1, 0xa3a167ee9469e711,
+         0x4e093de640582a4f, 0x06f4e7db60b9d3b3, 0xe31988229a5fcb6e, ],
+        [0xf2bfc6a0100f3c6d, 0xf88cbe5484d71f29, 0x110365276c97b11f, 0x1927309728b02b2c,
+         0x95dc8a5e61463c07, 0xa84c2200dfb57d3e, 0x01838a8c1d92d250, 0xf285b4aa369079a1,
+         0xe629261862a9a8e1, 0x6aa96c0125bddef7, 0x857f31827fb3fe60, ],
+        [0x2d506a5bb5b7480c, 0x3e815f5ac59316cf, 0x68bc309864072be8, 0x56a37505b7b907a7,
+         0xecd49c2975d75106, 0x0cdf9734cbbc0e07, 0xa84c2200dfb57d3e, 0xb7f57d2afbb79622,
+         0x9fedefd5f6653e80, 0xe351dee9a4f90434, 0xfdb6ca0a6d5cc865, ],
+        [0xda5e708c57dfe9f9, 0xaa5a5bcedc8ce58c, 0xc0e1cb8013a75747, 0xfd7c623553723df6,
+         0x7b298b0fc4b796ab, 0xecd49c2975d75106, 0x95dc8a5e61463c07, 0xb2ec0e3facb37f22,
+         0xeb3a58c29ba7f596, 0xb561d1111e413cce, 0x7e60116e98d5e20c, ],
+        [0xd7b5feb73cd3a335, 0x2f1dcb0b29bcce64, 0x10a1b57ff824d1f1, 0x35b7afed907102a9,
+         0xfd7c623553723df6, 0x56a37505b7b907a7, 0x1927309728b02b2c, 0x337d2955b1c463ae,
+         0x3fd7af7763f724a2, 0x9e085548eeb422b1, 0x685ef5a6b9e241d3, ],
+        [0xeab0a50ac0fa5244, 0x22f96387ab3046d8, 0x45a7029a0a30d66f, 0x10a1b57ff824d1f1,
+         0xc0e1cb8013a75747, 0x68bc309864072be8, 0x110365276c97b11f, 0x33ab6239c8b237f3,
+         0x397f9c162cea9170, 0x2b68f22b6b414b24, 0xe7ad8152c5d50bed, ],
+        [0xad929b347785656d, 0x87b1d6bd50b96399, 0x22f96387ab3046d8, 0x2f1dcb0b29bcce64,
+         0xaa5a5bcedc8ce58c, 0x3e815f5ac59316cf, 0xf88cbe5484d71f29, 0xb908389bbeee3c9d,
+         0xac34f93c00842bef, 0xe2afdb22f2e0801a, 0xb5d5efb12203ef9a, ],
+        [0xa344593dadcaf3de, 0xad929b347785656d, 0xeab0a50ac0fa5244, 0xd7b5feb73cd3a335,
+         0xda5e708c57dfe9f9, 0x2d506a5bb5b7480c, 0xf2bfc6a0100f3c6d, 0x029914d117a17af3,
+         0xf2bc5f8a1eb47c5f, 0xeb159cc540fb5e78, 0x8a041eb885fb24f5, ],
     ];
 
     #[cfg(target_feature="avx2")]
