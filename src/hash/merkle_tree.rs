@@ -13,6 +13,10 @@ use crate::hash::merkle_proofs::MerkleProof;
 pub struct MerkleCap<F: Field>(pub Vec<HashOut<F>>);
 
 impl<F: Field> MerkleCap<F> {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     pub fn flatten(&self) -> Vec<F> {
         self.0.iter().flat_map(|h| h.elements).collect()
     }

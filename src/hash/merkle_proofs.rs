@@ -13,7 +13,7 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "")]
 pub struct MerkleProof<F: Field> {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.
