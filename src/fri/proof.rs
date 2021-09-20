@@ -1,5 +1,3 @@
-use std::collections::hash_map::Entry::Vacant;
-
 use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::target::ExtensionTarget;
@@ -102,6 +100,7 @@ pub struct FriProofTarget<const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
+    /// Compress all the Merkle paths in the FRI proof.
     pub fn compress(self, common_data: &CommonCircuitData<F, D>) -> Self {
         if self.is_compressed {
             panic!("Proof is already compressed.");
@@ -159,6 +158,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
             .map(|(is, ps)| compress_merkle_proofs(cap_height, is, &ps))
             .collect::<Vec<_>>();
 
+        // Replace the query round proofs with the decompressed versions.
         for (i, qrp) in query_round_proofs.iter_mut().enumerate() {
             qrp.initial_trees_proof = FriInitialTreeProof {
                 evals_proofs: (0..num_initial_trees)
@@ -187,6 +187,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
         }
     }
 
+    /// Decompress all the Merkle paths in the FRI proof.
     pub fn decompress(self, common_data: &CommonCircuitData<F, D>) -> Self {
         if !self.is_compressed {
             panic!("Proof is not compressed.");
@@ -255,6 +256,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
             .map(|(((ls, is), ps), h)| decompress_merkle_proofs(ls, is, &ps, h, cap_height))
             .collect::<Vec<_>>();
 
+        // Replace the query round proofs with the decompressed versions.
         for (i, qrp) in query_round_proofs.iter_mut().enumerate() {
             qrp.initial_trees_proof = FriInitialTreeProof {
                 evals_proofs: (0..num_initial_trees)

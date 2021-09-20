@@ -50,7 +50,7 @@ pub(crate) fn compress_merkle_proofs<F: Field>(
     compressed_proofs
 }
 
-/// Verify a compressed Merkle proof.
+/// Decompress compressed Merkle proofs.
 /// Note: The data and indices must be in the same order as in `compress_merkle_proofs`.
 pub(crate) fn decompress_merkle_proofs<F: RichField>(
     leaves_data: &[Vec<F>],
