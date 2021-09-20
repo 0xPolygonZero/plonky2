@@ -31,6 +31,15 @@ fn add_u160_u128((x_lo, x_hi): (u128, u32), y: u128) -> (u128, u32) {
     (res_lo, res_hi)
 }
 
+#[inline]
+fn reduce_u160<F: PrimeField>((n_lo, n_hi): (u128, u32)) -> F {
+    let n_lo_hi = (n_lo >> 64) as u64;
+    let n_lo_lo = n_lo as u64;
+    let reduced_hi: u64 = F::from_noncanonical_u96((n_lo_hi, n_hi)).to_noncanonical_u64();
+    let reduced128: u128 = ((reduced_hi as u128) << 64) + (n_lo_lo as u128);
+    F::from_noncanonical_u128(reduced128)
+}
+
 /// Note that these work for the Crandall and Goldilocks fields, but not necessarily others. See
 /// `generate_constants` about how these were generated. We include enough for a WIDTH of 12;
 /// smaller widths just use a subset.
@@ -370,15 +379,7 @@ where
         }
         let s0 = state[0].to_noncanonical_u64() as u128;
         d_sum = add_u160_u128(d_sum, s0 << Self::MDS_MATRIX_EXPS[0]);
-        let d = {
-            // Reduce from u160.
-            let (d_lo, d_hi) = d_sum;
-            let d_lo_hi = (d_lo >> 64) as u64;
-            let d_lo_lo = d_lo as u64;
-            let reduced_hi = Self::from_noncanonical_u96((d_lo_hi, d_hi)).to_noncanonical_u64();
-            let reduced128 = ((reduced_hi as u128) << 64) + (d_lo_lo as u128);
-            Self::from_noncanonical_u128(reduced128)
-        };
+        let d = reduce_u160::<Self>(d_sum);
 
         // result = [d] concat [state[0] * v + state[shift up by 1]]
         let mut result = [Self::ZERO; WIDTH];
