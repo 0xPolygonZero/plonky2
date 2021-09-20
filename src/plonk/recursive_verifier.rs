@@ -479,8 +479,16 @@ mod tests {
         builder.print_gate_counts(0);
         let data = builder.build();
         let recursive_proof = data.prove(pw)?;
+        let now = std::time::Instant::now();
+        let compressed_recursive_proof = recursive_proof.clone().compress(&data.common);
+        info!("{:.4} to compress proof", now.elapsed().as_secs_f64());
         let proof_bytes = serde_cbor::to_vec(&recursive_proof).unwrap();
         info!("Proof length: {} bytes", proof_bytes.len());
+        let compressed_proof_bytes = serde_cbor::to_vec(&compressed_recursive_proof).unwrap();
+        info!(
+            "Compressed proof length: {} bytes",
+            compressed_proof_bytes.len()
+        );
         verify(recursive_proof, &data.verifier_only, &data.common)
     }
 }

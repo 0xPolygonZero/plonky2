@@ -14,25 +14,26 @@ use crate::util::log2_strict;
 /// Compress multiple Merkle proofs on the same tree by removing redundancy in the Merkle paths.
 pub(crate) fn compress_merkle_proofs<F: Field>(
     cap_height: usize,
-    proofs: Vec<(usize, MerkleProof<F>)>,
+    indices: &[usize],
+    proofs: &[MerkleProof<F>],
 ) -> Vec<MerkleProof<F>> {
     assert!(!proofs.is_empty());
-    let height = cap_height + proofs[0].1.siblings.len();
+    let height = cap_height + proofs[0].siblings.len();
     let num_leaves = 1 << height;
     let mut compressed_proofs = Vec::with_capacity(proofs.len());
     // Holds the known nodes in the tree at a given time. The root is at index 1.
     let mut known = vec![false; 2 * num_leaves];
-    for (i, _) in &proofs {
+    for &i in indices {
         // The leaves are known.
-        known[*i + num_leaves] = true;
+        known[i + num_leaves] = true;
     }
     // For each proof collect all the unknown proof elements.
-    for (i, p) in proofs {
+    for (&i, p) in indices.iter().zip(proofs) {
         let mut compressed_proof = MerkleProof {
             siblings: Vec::new(),
         };
         let mut index = i + num_leaves;
-        for sibling in p.siblings {
+        for &sibling in &p.siblings {
             let sibling_index = index ^ 1;
             if !known[sibling_index] {
                 // If the sibling is not yet known, add it to the proof and set it to known.
@@ -51,15 +52,14 @@ pub(crate) fn compress_merkle_proofs<F: Field>(
 
 /// Verify a compressed Merkle proof.
 /// Note: The data and indices must be in the same order as in `compress_merkle_proofs`.
-pub(crate) fn decompress_merkle_proof<F: RichField>(
+pub(crate) fn decompress_merkle_proofs<F: RichField>(
     leaves_data: &[Vec<F>],
     leaves_indices: &[usize],
     compressed_proofs: &[MerkleProof<F>],
     height: usize,
-    cap: &MerkleCap<F>,
+    cap_height: usize,
 ) -> Vec<MerkleProof<F>> {
     let num_leaves = 1 << height;
-    let cap_height = log2_strict(cap.len());
     let mut compressed_proofs = compressed_proofs.to_vec();
     let mut decompressed_proofs = Vec::with_capacity(compressed_proofs.len());
     // Holds the already seen nodes in the tree along with their value.
@@ -124,19 +124,17 @@ mod tests {
         let mut rng = thread_rng();
         let k = rng.gen_range(1..=1 << h);
         let indices = (0..k).map(|_| rng.gen_range(0..1 << h)).collect::<Vec<_>>();
-        let proofs: Vec<(usize, MerkleProof<_>)> =
-            indices.iter().map(|&i| (i, mt.prove(i))).collect();
+        let proofs = indices.iter().map(|&i| mt.prove(i)).collect::<Vec<_>>();
 
-        let compressed_proofs = compress_merkle_proofs(cap_height, proofs.clone());
-        let decompressed_proofs = decompress_merkle_proof(
+        let compressed_proofs = compress_merkle_proofs(cap_height, &indices, &proofs);
+        let decompressed_proofs = decompress_merkle_proofs(
             &indices.iter().map(|&i| vs[i].clone()).collect::<Vec<_>>(),
             &indices,
             &compressed_proofs,
             h,
-            &mt.cap,
+            cap_height,
         );
 
-        let proofs = proofs.into_iter().map(|(_, p)| p).collect::<Vec<_>>();
         assert_eq!(proofs, decompressed_proofs);
 
         let compressed_proof_bytes = serde_cbor::to_vec(&compressed_proofs).unwrap();

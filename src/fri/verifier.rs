@@ -259,6 +259,7 @@ fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
     let config = &common_data.config.fri_config;
     let x = challenger.get_challenge();
     let mut x_index = x.to_canonical_u64() as usize % n;
+    ensure!(x_index == round_proof.index, "Wrong index.");
     fri_verify_initial_proof(
         x_index,
         &round_proof.initial_trees_proof,

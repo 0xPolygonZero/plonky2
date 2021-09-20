@@ -601,6 +601,10 @@ mod tests {
 
         let data = builder.build();
         let proof = data.prove(pw)?;
+        let mut go = proof.proof.opening_proof.clone();
+        let goc = go.clone().compress(&data.common);
+        let gocd = goc.decompress(&data.common);
+        assert_eq!(go, gocd);
 
         verify(proof, &data.verifier_only, &data.common)
     }

@@ -12,10 +12,14 @@ use crate::plonk::vanishing_poly::eval_vanishing_poly;
 use crate::plonk::vars::EvaluationVars;
 
 pub(crate) fn verify<F: RichField + Extendable<D>, const D: usize>(
-    proof_with_pis: ProofWithPublicInputs<F, D>,
+    mut proof_with_pis: ProofWithPublicInputs<F, D>,
     verifier_data: &VerifierOnlyCircuitData<F>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
+    // Decompress the proof if needed.
+    if proof_with_pis.is_compressed() {
+        proof_with_pis = proof_with_pis.decompress(common_data);
+    }
     let ProofWithPublicInputs {
         proof,
         public_inputs,

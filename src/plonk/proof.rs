@@ -26,13 +26,6 @@ pub struct Proof<F: Extendable<D>, const D: usize> {
     pub opening_proof: FriProof<F, D>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(bound = "")]
-pub struct ProofWithPublicInputs<F: Extendable<D>, const D: usize> {
-    pub proof: Proof<F, D>,
-    pub public_inputs: Vec<F>,
-}
-
 pub struct ProofTarget<const D: usize> {
     pub wires_cap: MerkleCapTarget,
     pub plonk_zs_partial_products_cap: MerkleCapTarget,
@@ -41,9 +34,48 @@ pub struct ProofTarget<const D: usize> {
     pub opening_proof: FriProofTarget<D>,
 }
 
+impl<F: RichField + Extendable<D>, const D: usize> Proof<F, D> {
+    pub fn is_compressed(&self) -> bool {
+        self.opening_proof.is_compressed
+    }
+
+    pub fn compress(mut self, common_data: &CommonCircuitData<F, D>) -> Self {
+        self.opening_proof = self.opening_proof.compress(common_data);
+        self
+    }
+
+    pub fn decompress(mut self, common_data: &CommonCircuitData<F, D>) -> Self {
+        self.opening_proof = self.opening_proof.decompress(common_data);
+        self
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(bound = "")]
+pub struct ProofWithPublicInputs<F: Extendable<D>, const D: usize> {
+    pub proof: Proof<F, D>,
+    pub public_inputs: Vec<F>,
+}
+
 pub struct ProofWithPublicInputsTarget<const D: usize> {
     pub proof: ProofTarget<D>,
     pub public_inputs: Vec<Target>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
+    pub fn is_compressed(&self) -> bool {
+        self.proof.is_compressed()
+    }
+
+    pub fn compress(mut self, common_data: &CommonCircuitData<F, D>) -> Self {
+        self.proof = self.proof.compress(common_data);
+        self
+    }
+
+    pub fn decompress(mut self, common_data: &CommonCircuitData<F, D>) -> Self {
+        self.proof = self.proof.decompress(common_data);
+        self
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
