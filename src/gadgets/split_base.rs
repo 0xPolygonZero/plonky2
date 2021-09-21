@@ -34,6 +34,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_bits = bits.len();
         if num_bits == 0 {
             return self.zero();
+        } else if num_bits == 1 {
+            let mut bits = bits;
+            return bits.next().unwrap().borrow().target;
+        } else if num_bits == 2 {
+            let two = self.two();
+            let mut bits = bits;
+            let b0 = bits.next().unwrap().borrow().target;
+            let b1 = bits.next().unwrap().borrow().target;
+            return self.mul_add(two, b1, b0);
         }
         debug_assert!(
             BaseSumGate::<2>::START_LIMBS + num_bits <= self.config.num_routed_wires,
