@@ -32,6 +32,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         bits: impl ExactSizeIterator<Item = impl Borrow<BoolTarget>> + Clone,
     ) -> Target {
         let num_bits = bits.len();
+        if num_bits == 0 {
+            return self.zero();
+        }
         debug_assert!(
             BaseSumGate::<2>::START_LIMBS + num_bits <= self.config.num_routed_wires,
             "Not enough routed wires."

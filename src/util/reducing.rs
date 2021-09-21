@@ -137,12 +137,6 @@ impl<const D: usize> ReducingFactorTarget<D> {
         acc
     }
 
-    /// Reduces a length `n` vector of `ExtensionTarget`s using `n/2` `ArithmeticExtensionGate`s.
-    /// It does this by batching two steps of Horner's method in each gate.
-    /// Here's an example with `n=4, alpha=2, D=1`:
-    /// 1st gate: 2  0 4  4 3  4 11 <- 2*0+4=4, 2*4+3=11
-    /// 2nd gate: 2 11 2 24 1 24 49 <- 2*11+2=24, 2*24+1=49
-    /// which verifies that `2.reduce([1,2,3,4]) = 49`.
     pub fn reduce<F>(
         &mut self,
         terms: &[ExtensionTarget<D>], // Could probably work with a `DoubleEndedIterator` too.
@@ -155,7 +149,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         self.count += l as u64;
 
         let mut terms_vec = terms.to_vec();
-        let mut acc = terms_vec.pop().unwrap();
+        let mut acc = builder.zero_extension();
         terms_vec.reverse();
 
         for x in terms_vec {
