@@ -12,7 +12,6 @@ pub(crate) const SPONGE_CAPACITY: usize = 4;
 pub(crate) const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 
 pub(crate) const HASH_FAMILY: HashFamily = HashFamily::Poseidon;
-pub(crate) type HashGate<F, const D: usize, const W: usize> = PoseidonGate<F, D, W>;
 
 pub(crate) enum HashFamily {
     GMiMC,
