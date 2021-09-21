@@ -211,7 +211,7 @@ impl<F: Field> PolynomialCoeffs<F> {
     pub fn fft_with_options(
         &self,
         zero_factor: Option<usize>,
-        root_table: Option<FftRootTable<F>>,
+        root_table: Option<&FftRootTable<F>>,
     ) -> PolynomialValues<F> {
         fft_with_options(self, zero_factor, root_table)
     }
@@ -226,7 +226,7 @@ impl<F: Field> PolynomialCoeffs<F> {
         &self,
         shift: F,
         zero_factor: Option<usize>,
-        root_table: Option<FftRootTable<F>>,
+        root_table: Option<&FftRootTable<F>>,
     ) -> PolynomialValues<F> {
         let modified_poly: Self = shift
             .powers()

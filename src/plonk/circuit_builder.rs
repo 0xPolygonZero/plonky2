@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::TryInto;
 use std::time::Instant;
@@ -7,6 +8,7 @@ use log::{info, Level};
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::fft::fft_root_table;
 use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::gates::arithmetic::{ArithmeticExtensionGate, NUM_ARITHMETIC_OPS};
@@ -605,6 +607,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let (sigma_vecs, partition_witness) = self.sigma_vecs(&k_is, &subgroup);
 
+        // Precompute FFT roots.
+        let max_fft_points =
+            1 << degree_bits + max(self.config.rate_bits, log2_ceil(quotient_degree_factor));
+        let fft_root_table = fft_root_table(max_fft_points);
+
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
         let constants_sigmas_commitment = PolynomialBatchCommitment::from_values(
             constants_sigmas_vecs,
@@ -612,6 +619,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.config.zero_knowledge & PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
             self.config.cap_height,
             &mut timing,
+            Some(&fft_root_table),
         );
 
         let constants_sigmas_cap = constants_sigmas_commitment.merkle_tree.cap.clone();
@@ -645,6 +653,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             public_inputs: self.public_inputs,
             marked_targets: self.marked_targets,
             partition_witness,
+            fft_root_table: Some(fft_root_table),
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
