@@ -1,15 +1,10 @@
 use std::collections::HashMap;
 
-use anyhow::{ensure, Result};
 use num::Integer;
-use serde::{Deserialize, Serialize};
 
 use crate::field::field_types::{Field, RichField};
-use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::{compress, hash_or_noop};
 use crate::hash::merkle_proofs::MerkleProof;
-use crate::hash::merkle_tree::MerkleCap;
-use crate::util::log2_strict;
 
 /// Compress multiple Merkle proofs on the same tree by removing redundancy in the Merkle paths.
 pub(crate) fn compress_merkle_proofs<F: Field>(
@@ -62,7 +57,7 @@ pub(crate) fn decompress_merkle_proofs<F: RichField>(
     cap_height: usize,
 ) -> Vec<MerkleProof<F>> {
     let num_leaves = 1 << height;
-    let mut compressed_proofs = compressed_proofs.to_vec();
+    let compressed_proofs = compressed_proofs.to_vec();
     let mut decompressed_proofs = Vec::with_capacity(compressed_proofs.len());
     // Holds the already seen nodes in the tree along with their value.
     let mut seen = HashMap::new();
@@ -111,7 +106,6 @@ mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
-    use crate::hash::merkle_proofs::MerkleProof;
     use crate::hash::merkle_tree::MerkleTree;
 
     #[test]

@@ -146,8 +146,6 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::algebra::ExtensionAlgebra;
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
@@ -157,7 +155,6 @@ mod tests {
     #[test]
     fn test_proof_compression() -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();
