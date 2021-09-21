@@ -7,10 +7,9 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
-use crate::hash::hashing::{compress, hash_or_noop, HashGate};
+use crate::hash::hashing::{compress, hash_or_noop};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
-use crate::iop::wire::Wire;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
@@ -69,11 +68,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
-            let inputs = [state.elements, sibling.elements, [zero; 4]]
+            let perm_inputs = [state.elements, sibling.elements, [zero; 4]]
                 .concat()
                 .try_into()
                 .unwrap();
-            let outputs = self.permute_swapped(inputs, bit);
+            let outputs = self.permute_swapped(perm_inputs, bit);
             state = HashOutTarget::from_vec(outputs[0..4].to_vec());
         }
 
@@ -102,45 +101,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
+        let zero_x4 = [zero; 4];
 
         let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
-            let gate_type = HashGate::<F, D, 12>::new();
-            let gate = self.add_gate(gate_type, vec![]);
-
-            let swap_wire = HashGate::<F, D, 12>::WIRE_SWAP;
-            let swap_wire = Target::Wire(Wire {
-                gate,
-                input: swap_wire,
-            });
-            self.generate_copy(bit.target, swap_wire);
-
-            let input_wires = (0..12)
-                .map(|i| {
-                    Target::Wire(Wire {
-                        gate,
-                        input: HashGate::<F, D, 12>::wire_input(i),
-                    })
-                })
-                .collect::<Vec<_>>();
-
-            for i in 0..4 {
-                self.connect(state.elements[i], input_wires[i]);
-                self.connect(sibling.elements[i], input_wires[4 + i]);
-                self.connect(zero, input_wires[8 + i]);
-            }
-
-            state = HashOutTarget::from_vec(
-                (0..4)
-                    .map(|i| {
-                        Target::Wire(Wire {
-                            gate,
-                            input: HashGate::<F, D, 12>::wire_output(i),
-                        })
-                    })
-                    .collect(),
-            )
+            let inputs = [state.elements, sibling.elements, zero_x4]
+                .concat()
+                .try_into()
+                .unwrap();
+            let perm_outs = self.permute_swapped(inputs, bit);
+            let hash_outs = perm_outs[0..4].try_into().unwrap();
+            state = HashOutTarget {
+                elements: hash_outs,
+            };
         }
 
         let state_ext = state.elements[..].try_into().expect("requires D = 4");
