@@ -22,6 +22,8 @@ pub(crate) fn compress_merkle_proofs<F: Field>(
     let num_leaves = 1 << height;
     let mut compressed_proofs = Vec::with_capacity(proofs.len());
     // Holds the known nodes in the tree at a given time. The root is at index 1.
+    // Valid indices are 1 through n, and each element at index `i` has
+    // children at indices `2i` and `2i +1` its parent at index `floor(i ∕ 2)`.
     let mut known = vec![false; 2 * num_leaves];
     for &i in indices {
         // The leaves are known.
@@ -70,10 +72,9 @@ pub(crate) fn decompress_merkle_proofs<F: RichField>(
         seen.insert(i + num_leaves, hash_or_noop(v.to_vec()));
     }
     // For every index, go up the tree by querying `seen` to get node values, or if they are unknown
-    // pop them from the compressed proof.
-    for (&i, p) in leaves_indices.iter().zip(compressed_proofs.iter_mut()) {
-        // We'll use `pop` to run through the Merkle paths, so we reverse it first.
-        p.siblings.reverse();
+    // get them from the compressed proof.
+    for (&i, p) in leaves_indices.iter().zip(compressed_proofs) {
+        let mut compressed_siblings = p.siblings.into_iter();
         let mut decompressed_proof = MerkleProof {
             siblings: Vec::new(),
         };
@@ -81,10 +82,10 @@ pub(crate) fn decompress_merkle_proofs<F: RichField>(
         let mut current_digest = seen[&index];
         for _ in 0..height - cap_height {
             let sibling_index = index ^ 1;
-            // Get the value of the sibling node by querying it or popping it from the proof.
+            // Get the value of the sibling node by querying it or getting it from the proof.
             let h = *seen
                 .entry(sibling_index)
-                .or_insert_with(|| p.siblings.pop().unwrap());
+                .or_insert_with(|| compressed_siblings.next().unwrap());
             decompressed_proof.siblings.push(h);
             // Update the current digest to the value of the parent.
             current_digest = if index.is_even() {

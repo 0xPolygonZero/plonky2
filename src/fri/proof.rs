@@ -1,3 +1,4 @@
+use itertools::izip;
 use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::target::ExtensionTarget;
@@ -158,7 +159,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
             .map(|(is, ps)| compress_merkle_proofs(cap_height, is, &ps))
             .collect::<Vec<_>>();
 
-        // Replace the query round proofs with the decompressed versions.
+        // Replace the query round proofs with the compressed versions.
         for (i, qrp) in query_round_proofs.iter_mut().enumerate() {
             qrp.initial_trees_proof = FriInitialTreeProof {
                 evals_proofs: (0..num_initial_trees)
@@ -241,19 +242,16 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
             }
         }
 
-        // Compress all Merkle proofs.
-        let initial_trees_proofs = initial_trees_leaves
-            .iter()
-            .zip(&initial_trees_indices)
-            .zip(initial_trees_proofs)
-            .map(|((ls, is), ps)| decompress_merkle_proofs(&ls, is, &ps, height, cap_height))
-            .collect::<Vec<_>>();
-        let steps_proofs = steps_evals
-            .iter()
-            .zip(&steps_indices)
-            .zip(steps_proofs)
-            .zip(heights)
-            .map(|(((ls, is), ps), h)| decompress_merkle_proofs(ls, is, &ps, h, cap_height))
+        // Decompress all Merkle proofs.
+        let initial_trees_proofs = izip!(
+            &initial_trees_leaves,
+            &initial_trees_indices,
+            initial_trees_proofs
+        )
+        .map(|(ls, is, ps)| decompress_merkle_proofs(&ls, is, &ps, height, cap_height))
+        .collect::<Vec<_>>();
+        let steps_proofs = izip!(&steps_evals, &steps_indices, steps_proofs, heights)
+            .map(|(ls, is, ps, h)| decompress_merkle_proofs(ls, is, &ps, h, cap_height))
             .collect::<Vec<_>>();
 
         // Replace the query round proofs with the decompressed versions.
