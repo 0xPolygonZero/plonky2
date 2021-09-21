@@ -11,7 +11,7 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::plonk::circuit_data::CommonCircuitData;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
 pub struct Proof<F: Extendable<D>, const D: usize> {
     /// Merkle cap of LDEs of wire values.
@@ -26,13 +26,6 @@ pub struct Proof<F: Extendable<D>, const D: usize> {
     pub opening_proof: FriProof<F, D>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(bound = "")]
-pub struct ProofWithPublicInputs<F: Extendable<D>, const D: usize> {
-    pub proof: Proof<F, D>,
-    pub public_inputs: Vec<F>,
-}
-
 pub struct ProofTarget<const D: usize> {
     pub wires_cap: MerkleCapTarget,
     pub plonk_zs_partial_products_cap: MerkleCapTarget,
@@ -41,12 +34,57 @@ pub struct ProofTarget<const D: usize> {
     pub opening_proof: FriProofTarget<D>,
 }
 
+impl<F: RichField + Extendable<D>, const D: usize> Proof<F, D> {
+    /// Returns `true` iff the opening proof is compressed.
+    pub fn is_compressed(&self) -> bool {
+        self.opening_proof.is_compressed
+    }
+
+    /// Compress the opening proof.
+    pub fn compress(mut self, common_data: &CommonCircuitData<F, D>) -> Self {
+        self.opening_proof = self.opening_proof.compress(common_data);
+        self
+    }
+
+    /// Decompress the opening proof.
+    pub fn decompress(mut self, common_data: &CommonCircuitData<F, D>) -> Self {
+        self.opening_proof = self.opening_proof.decompress(common_data);
+        self
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(bound = "")]
+pub struct ProofWithPublicInputs<F: Extendable<D>, const D: usize> {
+    pub proof: Proof<F, D>,
+    pub public_inputs: Vec<F>,
+}
+
 pub struct ProofWithPublicInputsTarget<const D: usize> {
     pub proof: ProofTarget<D>,
     pub public_inputs: Vec<Target>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
+    /// Returns `true` iff the opening proof is compressed.
+    pub fn is_compressed(&self) -> bool {
+        self.proof.is_compressed()
+    }
+
+    /// Compress the opening proof.
+    pub fn compress(mut self, common_data: &CommonCircuitData<F, D>) -> Self {
+        self.proof = self.proof.compress(common_data);
+        self
+    }
+
+    /// Decompress the opening proof.
+    pub fn decompress(mut self, common_data: &CommonCircuitData<F, D>) -> Self {
+        self.proof = self.proof.decompress(common_data);
+        self
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 /// The purported values of each polynomial at a single point.
 pub struct OpeningSet<F: Extendable<D>, const D: usize> {
     pub constants: Vec<F::Extension>,
@@ -101,4 +139,50 @@ pub struct OpeningSetTarget<const D: usize> {
     pub plonk_zs_right: Vec<ExtensionTarget<D>>,
     pub partial_products: Vec<ExtensionTarget<D>>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+
+    use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::algebra::ExtensionAlgebra;
+    use crate::field::extension_field::quartic::QuarticExtension;
+    use crate::field::field_types::Field;
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::verifier::verify;
+
+    #[test]
+    fn test_proof_compression() -> Result<()> {
+        type F = CrandallField;
+        type FF = QuarticExtension<CrandallField>;
+        const D: usize = 4;
+
+        let config = CircuitConfig::large_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        // Build dummy circuit to get a valid proof.
+        let x = F::rand();
+        let y = F::rand();
+        let z = x * y;
+        let xt = builder.constant(x);
+        let yt = builder.constant(y);
+        let zt = builder.constant(z);
+        let comp_zt = builder.mul(xt, yt);
+        builder.connect(zt, comp_zt);
+        let data = builder.build();
+        let proof = data.prove(pw)?;
+
+        // Verify that `decompress ∘ compress = identity`.
+        let compressed_proof = proof.clone().compress(&data.common);
+        let decompressed_compressed_proof = compressed_proof.clone().decompress(&data.common);
+        assert_eq!(proof, decompressed_compressed_proof);
+
+        verify(proof, &data.verifier_only, &data.common)?;
+        verify(compressed_proof, &data.verifier_only, &data.common)
+    }
 }
