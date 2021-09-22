@@ -9,16 +9,6 @@ use crate::field::packed_field::{PackedField, Singleton};
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_strict, reverse_index_bits};
 
-// TODO: Should really do some "dynamic" dispatch to handle the
-// different FFT algos rather than C-style enum dispatch.
-#[derive(Copy, Clone, Debug)]
-pub enum FftStrategy {
-    Classic,
-    Unrolled,
-}
-
-pub(crate) const DEFAULT_STRATEGY: FftStrategy = FftStrategy::Classic;
-
 pub(crate) type FftRootTable<F> = Vec<Vec<F>>;
 
 fn fft_classic_root_table<F: Field>(n: usize) -> FftRootTable<F> {
@@ -42,83 +32,44 @@ fn fft_classic_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     root_table
 }
 
-fn fft_unrolled_root_table<F: Field>(n: usize) -> FftRootTable<F> {
-    // Precompute a table of the roots of unity used in the main
-    // loops.
-
-    // Suppose n is the size of the outer vector and g is a primitive nth
-    // root of unity. Then the [lg(m) - 1][j] element of the table is
-    // g^{ n/2m * j } for j = 0..m-1
-
-    let lg_n = log2_strict(n);
-    // bases[i] = g^2^i, for i = 0, ..., lg_n - 2
-    let mut bases = Vec::with_capacity(lg_n);
-    let mut base = F::primitive_root_of_unity(lg_n);
-    bases.push(base);
-    // NB: If n = 1, then lg_n is zero, so we can't do 1..(lg_n-1) here
-    for _ in 2..lg_n {
-        base = base.square(); // base = g^2^(_-1)
-        bases.push(base);
-    }
-
-    let mut root_table = Vec::with_capacity(lg_n);
-    for lg_m in 1..lg_n {
-        let m = 1 << lg_m;
-        let base = bases[lg_n - lg_m - 1];
-        let root_row = base.powers().take(m.max(2)).collect();
-        root_table.push(root_row);
-    }
-    root_table
-}
-
 #[inline]
 fn fft_dispatch<F: Field>(
     input: &[F],
-    strategy: FftStrategy,
     zero_factor: Option<usize>,
     root_table: Option<FftRootTable<F>>,
 ) -> Vec<F> {
     let n = input.len();
-    match strategy {
-        FftStrategy::Classic => fft_classic(
-            input,
-            zero_factor.unwrap_or(0),
-            root_table.unwrap_or_else(|| fft_classic_root_table(n)),
-        ),
-        FftStrategy::Unrolled => fft_unrolled(
-            input,
-            zero_factor.unwrap_or(0),
-            root_table.unwrap_or_else(|| fft_unrolled_root_table(n)),
-        ),
-    }
+    fft_classic(
+        input,
+        zero_factor.unwrap_or(0),
+        root_table.unwrap_or_else(|| fft_classic_root_table(n)),
+    )
 }
 
 #[inline]
 pub fn fft<F: Field>(poly: &PolynomialCoeffs<F>) -> PolynomialValues<F> {
-    fft_with_options(poly, DEFAULT_STRATEGY, None, None)
+    fft_with_options(poly, None, None)
 }
 
 #[inline]
 pub fn fft_with_options<F: Field>(
     poly: &PolynomialCoeffs<F>,
-    strategy: FftStrategy,
     zero_factor: Option<usize>,
     root_table: Option<FftRootTable<F>>,
 ) -> PolynomialValues<F> {
     let PolynomialCoeffs { coeffs } = poly;
     PolynomialValues {
-        values: fft_dispatch(coeffs, strategy, zero_factor, root_table),
+        values: fft_dispatch(coeffs, zero_factor, root_table),
     }
 }
 
 #[inline]
 pub fn ifft<F: Field>(poly: &PolynomialValues<F>) -> PolynomialCoeffs<F> {
-    ifft_with_options(poly, DEFAULT_STRATEGY, None, None)
+    ifft_with_options(poly, None, None)
 }
 
 pub fn ifft_with_options<F: Field>(
     poly: &PolynomialValues<F>,
-    strategy: FftStrategy,
     zero_factor: Option<usize>,
     root_table: Option<FftRootTable<F>>,
 ) -> PolynomialCoeffs<F> {
@@ -127,7 +78,7 @@ pub fn ifft_with_options<F: Field>(
     let n_inv = F::inverse_2exp(lg_n);
 
     let PolynomialValues { values } = poly;
-    let mut coeffs = fft_dispatch(values, strategy, zero_factor, root_table);
+    let mut coeffs = fft_dispatch(values, zero_factor, root_table);
 
     // We reverse all values except the first, and divide each by n.
     coeffs[0] *= n_inv;
@@ -255,127 +206,10 @@ pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: FftRootTa
     values
 }
 
-/// FFT implementation inspired by Barretenberg's (but with extra unrolling):
-/// https://github.com/AztecProtocol/barretenberg/blob/master/barretenberg/src/aztec/polynomials/polynomial_arithmetic.cpp#L58
-/// https://github.com/AztecProtocol/barretenberg/blob/master/barretenberg/src/aztec/polynomials/evaluation_domain.cpp#L30
-///
-/// The parameter r signifies that the first 1/2^r of the entries of
-/// input may be non-zero, but the last 1 - 1/2^r entries are
-/// definitely zero.
-fn fft_unrolled<F: Field>(input: &[F], r_orig: usize, root_table: FftRootTable<F>) -> Vec<F> {
-    let n = input.len();
-    let lg_n = log2_strict(input.len());
-
-    let mut values = reverse_index_bits(input);
-
-    // FFT of a constant polynomial (including zero) is itself.
-    if n < 2 {
-        return values;
-    }
-
-    // The 'm' corresponds to the specialisation from the 'm' in the
-    // main loop (m >= 4) below.
-
-    // (See comment in fft_classic near same code.)
-    let mut r = r_orig;
-    let mut m = 1 << r;
-    if r > 0 {
-        // if r == 0 then this loop is a noop.
-        let mask = !((1 << r) - 1);
-        for i in 0..n {
-            values[i] = values[i & mask];
-        }
-    }
-
-    // m = 1
-    if m == 1 {
-        for k in (0..n).step_by(2) {
-            let t = values[k + 1];
-            values[k + 1] = values[k] - t;
-            values[k] += t;
-        }
-        r += 1;
-        m *= 2;
-    }
-
-    if n == 2 {
-        return values;
-    }
-
-    if root_table.len() != (lg_n - 1) {
-        panic!(
-            "Expected root table of length {}, but it was {}.",
-            lg_n,
-            root_table.len()
-        );
-    }
-
-    // m = 2
-    if m <= 2 {
-        for k in (0..n).step_by(4) {
-            // NB: Grouping statements as is done in the main loop below
-            // does not seem to help here (worse by a few millis).
-            let omega_0 = root_table[0][0];
-            let tmp_0 = omega_0 * values[k + 2];
-            values[k + 2] = values[k] - tmp_0;
-            values[k] += tmp_0;
-
-            let omega_1 = root_table[0][1];
-            let tmp_1 = omega_1 * values[k + 2 + 1];
-            values[k + 2 + 1] = values[k + 1] - tmp_1;
-            values[k + 1] += tmp_1;
-        }
-        r += 1;
-        m *= 2;
-    }
-
-    // m >= 4
-    for lg_m in r..lg_n {
-        for k in (0..n).step_by(2 * m) {
-            // Unrolled the commented loop by groups of 4 and
-            // rearranged the lines. Improves runtime by about
-            // 10%.
-            /*
-            for j in (0..m) {
-                let omega = root_table[lg_m - 1][j];
-                let tmp = omega * values[k + m + j];
-                values[k + m + j] = values[k + j] - tmp;
-                values[k + j] += tmp;
-            }
-            */
-            for j in (0..m).step_by(4) {
-                let off1 = k + j;
-                let off2 = k + m + j;
-
-                let omega_0 = root_table[lg_m - 1][j];
-                let omega_1 = root_table[lg_m - 1][j + 1];
-                let omega_2 = root_table[lg_m - 1][j + 2];
-                let omega_3 = root_table[lg_m - 1][j + 3];
-
-                let tmp_0 = omega_0 * values[off2];
-                let tmp_1 = omega_1 * values[off2 + 1];
-                let tmp_2 = omega_2 * values[off2 + 2];
-                let tmp_3 = omega_3 * values[off2 + 3];
-
-                values[off2] = values[off1] - tmp_0;
-                values[off2 + 1] = values[off1 + 1] - tmp_1;
-                values[off2 + 2] = values[off1 + 2] - tmp_2;
-                values[off2 + 3] = values[off1 + 3] - tmp_3;
-                values[off1] += tmp_0;
-                values[off1 + 1] += tmp_1;
-                values[off1 + 2] += tmp_2;
-                values[off1 + 3] += tmp_3;
-            }
-        }
-        m *= 2;
-    }
-    values
-}
-
 #[cfg(test)]
 mod tests {
     use crate::field::crandall_field::CrandallField;
-    use crate::field::fft::{fft, fft_with_options, ifft, FftStrategy};
+    use crate::field::fft::{fft, fft_with_options, ifft};
     use crate::field::field_types::Field;
     use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
     use crate::util::{log2_ceil, log2_strict};
@@ -402,15 +236,10 @@ mod tests {
             assert_eq!(interpolated_coefficients.coeffs[i], F::ZERO);
         }
 
-        for strategy in [FftStrategy::Classic, FftStrategy::Unrolled] {
-            for r in 0..4 {
-                // expand coefficients by factor 2^r by filling with zeros
-                let zero_tail = coefficients.lde(r);
-                assert_eq!(
-                    fft(&zero_tail),
-                    fft_with_options(&zero_tail, strategy, Some(r), None)
-                );
-            }
+        for r in 0..4 {
+            // expand coefficients by factor 2^r by filling with zeros
+            let zero_tail = coefficients.lde(r);
+            assert_eq!(fft(&zero_tail), fft_with_options(&zero_tail, Some(r), None));
         }
     }
 
