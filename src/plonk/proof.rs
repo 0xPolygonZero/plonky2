@@ -6,8 +6,11 @@ use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::proof::{FriProof, FriProofTarget};
-use crate::hash::hash_types::MerkleCapTarget;
+use crate::fri::verifier::fri_verify_proof_of_work;
+use crate::hash::hash_types::{HashOut, MerkleCapTarget};
+use crate::hash::hashing::hash_n_to_hash;
 use crate::hash::merkle_tree::MerkleCap;
+use crate::iop::challenger::Challenger;
 use crate::iop::target::Target;
 use crate::plonk::circuit_data::CommonCircuitData;
 
@@ -41,28 +44,23 @@ impl<F: RichField + Extendable<D>, const D: usize> Proof<F, D> {
     }
 
     /// Compress the opening proof.
-    pub fn compress(mut self, common_data: &CommonCircuitData<F, D>) -> Self {
-        self.opening_proof = self.opening_proof.compress(common_data);
+    pub fn compress(mut self, indices: &[usize], common_data: &CommonCircuitData<F, D>) -> Self {
+        self.opening_proof = self.opening_proof.compress(&indices, common_data);
         self
     }
 
     /// Decompress the opening proof.
-    pub fn decompress(mut self, common_data: &CommonCircuitData<F, D>) -> Self {
-        self.opening_proof = self.opening_proof.decompress(common_data);
+    pub fn decompress(mut self, indices: &[usize], common_data: &CommonCircuitData<F, D>) -> Self {
+        self.opening_proof = self.opening_proof.decompress(&indices, common_data);
         self
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct ProofWithPublicInputs<F: Extendable<D>, const D: usize> {
+pub struct ProofWithPublicInputs<F: RichField + Extendable<D>, const D: usize> {
     pub proof: Proof<F, D>,
     pub public_inputs: Vec<F>,
-}
-
-pub struct ProofWithPublicInputsTarget<const D: usize> {
-    pub proof: ProofTarget<D>,
-    pub public_inputs: Vec<Target>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
@@ -72,16 +70,56 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
     }
 
     /// Compress the opening proof.
-    pub fn compress(mut self, common_data: &CommonCircuitData<F, D>) -> Self {
-        self.proof = self.proof.compress(common_data);
-        self
+    pub fn compress(mut self, common_data: &CommonCircuitData<F, D>) -> anyhow::Result<Self> {
+        let indices = self.fri_query_indices(common_data)?;
+        self.proof = self.proof.compress(&indices, common_data);
+        Ok(self)
     }
 
     /// Decompress the opening proof.
-    pub fn decompress(mut self, common_data: &CommonCircuitData<F, D>) -> Self {
-        self.proof = self.proof.decompress(common_data);
-        self
+    pub fn decompress(mut self, common_data: &CommonCircuitData<F, D>) -> anyhow::Result<Self> {
+        let indices = self.fri_query_indices(common_data)?;
+        self.proof = self.proof.decompress(&indices, common_data);
+        Ok(self)
     }
+
+    pub(crate) fn get_public_inputs_hash(&self) -> HashOut<F> {
+        hash_n_to_hash(self.public_inputs.clone(), true)
+    }
+
+    fn fri_query_indices(
+        &self,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> anyhow::Result<Vec<usize>> {
+        Ok(self.get_challenges(common_data)?.fri_query_indices)
+    }
+}
+
+pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> {
+    // Random values used in Plonk's permutation argument.
+    pub plonk_betas: Vec<F>,
+
+    // Random values used in Plonk's permutation argument.
+    pub plonk_gammas: Vec<F>,
+
+    // Random values used to combine PLONK constraints.
+    pub plonk_alphas: Vec<F>,
+
+    // Point at which the PLONK polynomials are opened.
+    pub plonk_zeta: F::Extension,
+
+    // Scaling factor to combine polynomials.
+    pub fri_alpha: F::Extension,
+
+    // Betas used in the FRI commit phase reductions.
+    pub fri_betas: Vec<F::Extension>,
+
+    pub fri_query_indices: Vec<usize>,
+}
+
+pub struct ProofWithPublicInputsTarget<const D: usize> {
+    pub proof: ProofTarget<D>,
+    pub public_inputs: Vec<Target>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
@@ -175,8 +213,8 @@ mod tests {
         let proof = data.prove(pw)?;
 
         // Verify that `decompress ∘ compress = identity`.
-        let compressed_proof = proof.clone().compress(&data.common);
-        let decompressed_compressed_proof = compressed_proof.clone().decompress(&data.common);
+        let compressed_proof = proof.clone().compress(&data.common)?;
+        let decompressed_compressed_proof = compressed_proof.clone().decompress(&data.common)?;
         assert_eq!(proof, decompressed_compressed_proof);
 
         verify(proof, &data.verifier_only, &data.common)?;

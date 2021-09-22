@@ -11,7 +11,7 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::PlonkPolynomials;
-use crate::plonk::proof::OpeningSet;
+use crate::plonk::proof::{OpeningSet, ProofChallenges};
 use crate::util::reducing::ReducingFactor;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
@@ -44,7 +44,7 @@ fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     interpolate(&points, beta, &barycentric_weights)
 }
 
-fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: usize>(
     proof: &FriProof<F, D>,
     challenger: &mut Challenger<F>,
     config: &FriConfig,
@@ -68,14 +68,12 @@ fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: usize>(
     Ok(())
 }
 
-pub fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
     // Openings of the PLONK polynomials.
     os: &OpeningSet<F, D>,
-    // Point at which the PLONK polynomials are opened.
-    zeta: F::Extension,
+    challenges: &ProofChallenges<F, D>,
     initial_merkle_caps: &[MerkleCap<F>],
     proof: &FriProof<F, D>,
-    challenger: &mut Challenger<F>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
     let config = &common_data.config;
@@ -85,27 +83,8 @@ pub fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
         "Final polynomial has wrong degree."
     );
 
-    challenger.observe_opening_set(os);
-
-    // Scaling factor to combine polynomials.
-    let alpha = challenger.get_extension_challenge();
-
     // Size of the LDE domain.
     let n = proof.final_poly.len() << (total_arities + config.rate_bits);
-
-    // Recover the random betas used in the FRI reductions.
-    let betas = proof
-        .commit_phase_merkle_caps
-        .iter()
-        .map(|cap| {
-            challenger.observe_cap(cap);
-            challenger.get_extension_challenge()
-        })
-        .collect::<Vec<_>>();
-    challenger.observe_extension_elements(&proof.final_poly.coeffs);
-
-    // Check PoW.
-    fri_verify_proof_of_work(proof, challenger, &config.fri_config)?;
 
     // Check that parameters are coherent.
     ensure!(
@@ -117,17 +96,20 @@ pub fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
         "Number of reductions should be non-zero."
     );
 
-    let precomputed_reduced_evals = PrecomputedReducedEvals::from_os_and_alpha(os, alpha);
-    for round_proof in &proof.query_round_proofs {
+    let precomputed_reduced_evals =
+        PrecomputedReducedEvals::from_os_and_alpha(os, challenges.fri_alpha);
+    for (&x_index, round_proof) in challenges
+        .fri_query_indices
+        .iter()
+        .zip(&proof.query_round_proofs)
+    {
         fri_verifier_query_round(
-            zeta,
-            alpha,
+            challenges,
             precomputed_reduced_evals,
             initial_merkle_caps,
             &proof,
-            challenger,
+            x_index,
             n,
-            &betas,
             round_proof,
             common_data,
         )?;
@@ -245,21 +227,16 @@ fn fri_combine_initial<F: RichField + Extendable<D>, const D: usize>(
 }
 
 fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
-    zeta: F::Extension,
-    alpha: F::Extension,
+    challenges: &ProofChallenges<F, D>,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
     initial_merkle_caps: &[MerkleCap<F>],
     proof: &FriProof<F, D>,
-    challenger: &mut Challenger<F>,
+    mut x_index: usize,
     n: usize,
-    betas: &[F::Extension],
     round_proof: &FriQueryRound<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
     let config = &common_data.config.fri_config;
-    let x = challenger.get_challenge();
-    let mut x_index = x.to_canonical_u64() as usize % n;
-    ensure!(x_index == round_proof.index, "Wrong index.");
     fri_verify_initial_proof(
         x_index,
         &round_proof.initial_trees_proof,
@@ -274,8 +251,8 @@ fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
     // committed "parent" value in the next iteration.
     let mut old_eval = fri_combine_initial(
         &round_proof.initial_trees_proof,
-        alpha,
-        zeta,
+        challenges.fri_alpha,
+        challenges.plonk_zeta,
         subgroup_x,
         precomputed_reduced_evals,
         common_data,
@@ -298,7 +275,7 @@ fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
             x_index_within_coset,
             arity_bits,
             evals,
-            betas[i],
+            challenges.fri_betas[i],
         );
 
         verify_merkle_proof(

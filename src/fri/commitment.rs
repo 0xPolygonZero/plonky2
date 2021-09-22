@@ -260,6 +260,7 @@ mod tests {
     use crate::fri::FriConfig;
     use crate::hash::hash_types::HashOut;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::proof::ProofChallenges;
 
     fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(
         k: usize,
@@ -286,6 +287,7 @@ mod tests {
     }
 
     fn check_batch_polynomial_commitment<F: RichField + Extendable<D>, const D: usize>(
+        fri_query_indices: Vec<usize>,
     ) -> Result<()> {
         let ks = [10, 2, 10, 8];
         let degree_bits = 11;
@@ -312,20 +314,23 @@ mod tests {
             circuit_digest: HashOut::from_partial(vec![]),
         };
 
+        let config = &common_data.config;
+        let fri_config = &config.fri_config;
+
         let commitments = (0..4)
             .map(|i| {
                 PolynomialBatchCommitment::<F>::from_values(
                     gen_random_test_case(ks[i], degree_bits),
-                    common_data.config.rate_bits,
-                    common_data.config.zero_knowledge && PlonkPolynomials::polynomials(i).blinding,
-                    common_data.config.cap_height,
+                    config.rate_bits,
+                    config.zero_knowledge && PlonkPolynomials::polynomials(i).blinding,
+                    config.cap_height,
                     &mut TimingTree::default(),
                     None,
                 )
             })
             .collect::<Vec<_>>();
 
-        let zeta = gen_random_point::<F, D>(degree_bits);
+        let plonk_zeta = gen_random_point::<F, D>(degree_bits);
         let (proof, os) = PolynomialBatchCommitment::open_plonk::<D>(
             &[
                 &commitments[0],
@@ -333,7 +338,7 @@ mod tests {
                 &commitments[2],
                 &commitments[3],
             ],
-            zeta,
+            plonk_zeta,
             &mut Challenger::new(),
             &common_data,
             &mut TimingTree::default(),
@@ -346,14 +351,17 @@ mod tests {
             commitments[3].merkle_tree.cap.clone(),
         ];
 
-        verify_fri_proof(
-            &os,
-            zeta,
-            merkle_caps,
-            &proof,
-            &mut Challenger::new(),
-            &common_data,
-        )
+        let challenges = ProofChallenges {
+            plonk_betas: F::rand_vec(config.num_challenges),
+            plonk_gammas: F::rand_vec(config.num_challenges),
+            plonk_alphas: F::rand_vec(config.num_challenges),
+            plonk_zeta,
+            fri_alpha: F::Extension::rand(),
+            fri_betas: F::Extension::rand_vec(fri_config.reduction_arity_bits.len()),
+            fri_query_indices,
+        };
+
+        verify_fri_proof(&os, &challenges, merkle_caps, &proof, &common_data)
     }
 
     mod quadratic {
@@ -362,7 +370,8 @@ mod tests {
 
         #[test]
         fn test_batch_polynomial_commitment() -> Result<()> {
-            check_batch_polynomial_commitment::<CrandallField, 2>()
+            // Obtained by adding `dbg!(x_index);` in fri_prover_query_round.
+            check_batch_polynomial_commitment::<CrandallField, 2>(vec![4843, 4656, 11739])
         }
     }
 
@@ -372,7 +381,8 @@ mod tests {
 
         #[test]
         fn test_batch_polynomial_commitment() -> Result<()> {
-            check_batch_polynomial_commitment::<CrandallField, 4>()
+            // Obtained by adding `dbg!(x_index);` in fri_prover_query_round.
+            check_batch_polynomial_commitment::<CrandallField, 4>(vec![10358, 5747, 11081])
         }
     }
 }

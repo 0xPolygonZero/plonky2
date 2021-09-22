@@ -67,7 +67,6 @@ impl FriInitialTreeProofTarget {
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
 pub struct FriQueryRound<F: Extendable<D>, const D: usize> {
-    pub index: usize,
     pub initial_trees_proof: FriInitialTreeProof<F>,
     pub steps: Vec<FriQueryStep<F, D>>,
 }
@@ -102,7 +101,7 @@ pub struct FriProofTarget<const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
     /// Compress all the Merkle paths in the FRI proof.
-    pub fn compress(self, common_data: &CommonCircuitData<F, D>) -> Self {
+    pub fn compress(self, indices: &[usize], common_data: &CommonCircuitData<F, D>) -> Self {
         if self.is_compressed {
             panic!("Proof is already compressed.");
         }
@@ -126,9 +125,8 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
         let mut steps_evals = vec![vec![]; num_reductions];
         let mut steps_proofs = vec![vec![]; num_reductions];
 
-        for qrp in &query_round_proofs {
+        for (mut index, qrp) in indices.iter().cloned().zip(&query_round_proofs) {
             let FriQueryRound {
-                mut index,
                 initial_trees_proof,
                 steps,
             } = qrp.clone();
@@ -189,7 +187,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
     }
 
     /// Decompress all the Merkle paths in the FRI proof.
-    pub fn decompress(self, common_data: &CommonCircuitData<F, D>) -> Self {
+    pub fn decompress(self, indices: &[usize], common_data: &CommonCircuitData<F, D>) -> Self {
         if !self.is_compressed {
             panic!("Proof is not compressed.");
         }
@@ -221,9 +219,8 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
             })
             .collect::<Vec<_>>();
 
-        for qrp in &query_round_proofs {
+        for (mut index, qrp) in indices.iter().cloned().zip(&query_round_proofs) {
             let FriQueryRound {
-                mut index,
                 initial_trees_proof,
                 steps,
             } = qrp.clone();
