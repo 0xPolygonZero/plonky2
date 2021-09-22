@@ -15,7 +15,7 @@ use crate::util::ceil_div_usize;
 
 /// A gate for checking that one value is less than or equal to another.
 #[derive(Clone, Debug)]
-pub(crate) struct ComparisonGate<F: PrimeField + Extendable<D>, const D: usize> {
+pub struct ComparisonGate<F: PrimeField + Extendable<D>, const D: usize> {
     pub(crate) num_bits: usize,
     pub(crate) num_chunks: usize,
     _phantom: PhantomData<F>,
@@ -436,7 +436,6 @@ mod tests {
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
-    use crate::plonk::plonk_common::reduce_with_powers;
     use crate::plonk::vars::EvaluationVars;
 
     #[test]

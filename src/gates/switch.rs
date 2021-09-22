@@ -249,27 +249,9 @@ impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
             second_outputs.push(get_local_wire(self.gate.wire_second_output(self.copy, e)));
         }
 
-        let first_keep = first_outputs
-            .iter()
-            .zip(first_inputs.iter())
-            .all(|(x, y)| x == y);
-        let second_keep = second_outputs
-            .iter()
-            .zip(second_inputs.iter())
-            .all(|(x, y)| x == y);
-
-        let first_swap = first_outputs
-            .iter()
-            .zip(second_inputs.iter())
-            .all(|(x, y)| x == y);
-        let second_swap = second_outputs
-            .iter()
-            .zip(first_inputs.iter())
-            .all(|(x, y)| x == y);
-
-        if first_keep && second_keep {
+        if first_outputs == first_inputs && second_outputs == second_inputs {
             out_buffer.set_wire(switch_bool_wire, F::ZERO);
-        } else if first_swap && second_swap {
+        } else if first_outputs == second_inputs && second_outputs == first_inputs {
             out_buffer.set_wire(switch_bool_wire, F::ONE);
         } else {
             panic!("No permutation from given inputs to given outputs");

@@ -31,6 +31,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_permutation(a_chunks, b_chunks);
     }
 
+    /// Add a ComparisonGate to
+    /// Returns the gate and its index
+    pub fn assert_le(
+        &mut self,
+        lhs: Target,
+        rhs: Target,
+        bits: usize,
+        num_chunks: usize,
+    ) -> (ComparisonGate<F, D>, usize) {
+        let gate = ComparisonGate::new(bits, num_chunks);
+        let gate_index = self.add_gate(gate.clone(), vec![]);
+
+        self.connect(Target::wire(gate_index, gate.wire_first_input()), lhs);
+        self.connect(Target::wire(gate_index, gate.wire_second_input()), rhs);
+
+        (gate, gate_index)
+    }
+
+    /// Sort memory operations by address value, then by timestamp value.
+    /// This is done by combining address and timestamp into one field element (using their given bit lengths).
     pub fn sort_memory_ops(
         &mut self,
         ops: &[MemoryOpTarget],
@@ -43,11 +63,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let chunk_bits = 3;
         let num_chunks = ceil_div_usize(combined_bits, chunk_bits);
 
+        // This is safe because `assert_permutation` will force these targets (in the output list) to match the boolean values from the input list.
         let is_write_targets: Vec<_> = self
             .add_virtual_targets(n)
             .iter()
             .map(|&t| BoolTarget::new_unsafe(t))
             .collect();
+
         let address_targets = self.add_virtual_targets(n);
         let timestamp_targets = self.add_virtual_targets(n);
         let value_targets = self.add_virtual_targets(n);
@@ -72,22 +94,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .map(|op| self.mul_add(op.address, two_n, op.timestamp))
             .collect();
 
-        let mut gate_indices = Vec::new();
         let mut gates = Vec::new();
+        let mut gate_indices = Vec::new();
         for i in 1..n {
-            let (gate, gate_index) = {
-                let gate = ComparisonGate::new(combined_bits, num_chunks);
-                let gate_index = self.add_gate(gate.clone(), vec![]);
-                (gate, gate_index)
-            };
-
-            self.connect(
-                Target::wire(gate_index, gate.wire_first_input()),
+            let (gate, gate_index) = self.assert_le(
                 address_timestamp_combined[i - 1],
-            );
-            self.connect(
-                Target::wire(gate_index, gate.wire_second_input()),
                 address_timestamp_combined[i],
+                combined_bits,
+                num_chunks,
             );
 
             gate_indices.push(gate_index);
