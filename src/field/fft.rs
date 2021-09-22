@@ -11,7 +11,7 @@ use crate::util::{log2_strict, reverse_index_bits};
 
 pub(crate) type FftRootTable<F> = Vec<Vec<F>>;
 
-fn fft_classic_root_table<F: Field>(n: usize) -> FftRootTable<F> {
+pub fn fft_root_table<F: Field>(n: usize) -> FftRootTable<F> {
     let lg_n = log2_strict(n);
     // bases[i] = g^2^i, for i = 0, ..., lg_n - 1
     let mut bases = Vec::with_capacity(lg_n);
@@ -36,14 +36,16 @@ fn fft_classic_root_table<F: Field>(n: usize) -> FftRootTable<F> {
 fn fft_dispatch<F: Field>(
     input: &[F],
     zero_factor: Option<usize>,
-    root_table: Option<FftRootTable<F>>,
+    root_table: Option<&FftRootTable<F>>,
 ) -> Vec<F> {
-    let n = input.len();
-    fft_classic(
-        input,
-        zero_factor.unwrap_or(0),
-        root_table.unwrap_or_else(|| fft_classic_root_table(n)),
-    )
+    let computed_root_table = if let Some(_) = root_table {
+        None
+    } else {
+        Some(fft_root_table(input.len()))
+    };
+    let used_root_table = root_table.or(computed_root_table.as_ref()).unwrap();
+
+    fft_classic(input, zero_factor.unwrap_or(0), used_root_table)
 }
 
 #[inline]
@@ -55,7 +57,7 @@ pub fn fft<F: Field>(poly: &PolynomialCoeffs<F>) -> PolynomialValues<F> {
 pub fn fft_with_options<F: Field>(
     poly: &PolynomialCoeffs<F>,
     zero_factor: Option<usize>,
-    root_table: Option<FftRootTable<F>>,
+    root_table: Option<&FftRootTable<F>>,
 ) -> PolynomialValues<F> {
     let PolynomialCoeffs { coeffs } = poly;
     PolynomialValues {
@@ -71,7 +73,7 @@ pub fn ifft<F: Field>(poly: &PolynomialValues<F>) -> PolynomialCoeffs<F> {
 pub fn ifft_with_options<F: Field>(
     poly: &PolynomialValues<F>,
     zero_factor: Option<usize>,
-    root_table: Option<FftRootTable<F>>,
+    root_table: Option<&FftRootTable<F>>,
 ) -> PolynomialCoeffs<F> {
     let n = poly.len();
     let lg_n = log2_strict(n);
@@ -166,7 +168,7 @@ fn fft_classic_simd<P: PackedField>(
 /// The parameter r signifies that the first 1/2^r of the entries of
 /// input may be non-zero, but the last 1 - 1/2^r entries are
 /// definitely zero.
-pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: FftRootTable<F>) -> Vec<F> {
+pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: &FftRootTable<F>) -> Vec<F> {
     let mut values = reverse_index_bits(input);
 
     let n = values.len();

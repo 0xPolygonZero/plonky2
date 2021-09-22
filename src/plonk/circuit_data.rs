@@ -4,6 +4,7 @@ use std::ops::{Range, RangeFrom};
 use anyhow::Result;
 
 use crate::field::extension_field::Extendable;
+use crate::field::fft::FftRootTable;
 use crate::field::field_types::{Field, RichField};
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::FriConfig;
@@ -157,6 +158,8 @@ pub(crate) struct ProverOnlyCircuitData<F: RichField + Extendable<D>, const D: u
     pub marked_targets: Vec<MarkedTargets<D>>,
     /// Partial witness holding the copy constraints information.
     pub partition_witness: PartitionWitness<F>,
+    /// Pre-computed roots for faster FFT.
+    pub fft_root_table: Option<FftRootTable<F>>,
 }
 
 /// Circuit data required by the verifier, but not the prover.

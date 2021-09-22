@@ -74,6 +74,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
             config.zero_knowledge & PlonkPolynomials::WIRES.blinding,
             config.cap_height,
             &mut timing,
+            prover_data.fft_root_table.as_ref(),
         )
     );
 
@@ -119,6 +120,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
             config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding,
             config.cap_height,
             &mut timing,
+            prover_data.fft_root_table.as_ref(),
         )
     );
 
@@ -167,7 +169,8 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding,
             config.cap_height,
-            &mut timing
+            &mut timing,
+            prover_data.fft_root_table.as_ref(),
         )
     );
 

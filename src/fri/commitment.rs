@@ -1,6 +1,7 @@
 use rayon::prelude::*;
 
 use crate::field::extension_field::Extendable;
+use crate::field::fft::FftRootTable;
 use crate::field::field_types::{Field, RichField};
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
@@ -35,6 +36,7 @@ impl<F: RichField> PolynomialBatchCommitment<F> {
         blinding: bool,
         cap_height: usize,
         timing: &mut TimingTree,
+        fft_root_table: Option<&FftRootTable<F>>,
     ) -> Self {
         let coeffs = timed!(
             timing,
@@ -42,7 +44,14 @@ impl<F: RichField> PolynomialBatchCommitment<F> {
             values.par_iter().map(|v| v.ifft()).collect::<Vec<_>>()
         );
 
-        Self::from_coeffs(coeffs, rate_bits, blinding, cap_height, timing)
+        Self::from_coeffs(
+            coeffs,
+            rate_bits,
+            blinding,
+            cap_height,
+            timing,
+            fft_root_table,
+        )
     }
 
     /// Creates a list polynomial commitment for the polynomials `polynomials`.
@@ -52,12 +61,13 @@ impl<F: RichField> PolynomialBatchCommitment<F> {
         blinding: bool,
         cap_height: usize,
         timing: &mut TimingTree,
+        fft_root_table: Option<&FftRootTable<F>>,
     ) -> Self {
         let degree = polynomials[0].len();
         let lde_values = timed!(
             timing,
             "FFT + blinding",
-            Self::lde_values(&polynomials, rate_bits, blinding)
+            Self::lde_values(&polynomials, rate_bits, blinding, fft_root_table)
         );
 
         let mut leaves = timed!(timing, "transpose LDEs", transpose(&lde_values));
@@ -81,6 +91,7 @@ impl<F: RichField> PolynomialBatchCommitment<F> {
         polynomials: &[PolynomialCoeffs<F>],
         rate_bits: usize,
         blinding: bool,
+        fft_root_table: Option<&FftRootTable<F>>,
     ) -> Vec<Vec<F>> {
         let degree = polynomials[0].len();
 
@@ -92,7 +103,7 @@ impl<F: RichField> PolynomialBatchCommitment<F> {
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degrees inconsistent");
                 p.lde(rate_bits)
-                    .coset_fft_with_options(F::coset_shift(), Some(rate_bits), None)
+                    .coset_fft_with_options(F::coset_shift(), Some(rate_bits), fft_root_table)
                     .values
             })
             .chain(
@@ -309,6 +320,7 @@ mod tests {
                     common_data.config.zero_knowledge && PlonkPolynomials::polynomials(i).blinding,
                     common_data.config.cap_height,
                     &mut TimingTree::default(),
+                    None,
                 )
             })
             .collect::<Vec<_>>();
