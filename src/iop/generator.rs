@@ -49,9 +49,11 @@ pub(crate) fn generate_partial_witness<F: RichField + Extendable<D>, const D: us
                 remaining_generators -= 1;
             }
 
+            let new_target_reps = witness.extend_returning_parents(buffer.target_values.drain(..));
+
             // Enqueue unfinished generators that were watching one of the newly populated targets.
-            for &(watch, _) in &buffer.target_values {
-                let opt_watchers = generator_indices_by_watches.get(&witness.target_index(watch));
+            for watch in new_target_reps {
+                let opt_watchers = generator_indices_by_watches.get(&watch);
                 if let Some(watchers) = opt_watchers {
                     for &watching_generator_idx in watchers {
                         if !generator_is_expired[watching_generator_idx] {
@@ -60,8 +62,6 @@ pub(crate) fn generate_partial_witness<F: RichField + Extendable<D>, const D: us
                     }
                 }
             }
-
-            witness.extend(buffer.target_values.drain(..));
         }
 
         pending_generator_indices = next_pending_generator_indices;
