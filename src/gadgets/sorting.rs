@@ -1,7 +1,7 @@
 use itertools::izip;
 
-use crate::field::field_types::RichField;
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::RichField;
 use crate::gates::comparison::ComparisonGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
