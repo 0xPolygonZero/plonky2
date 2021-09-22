@@ -384,7 +384,7 @@ impl<F: Field> SimpleGenerator<F> for PermutationGenerator<F> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use rand::{seq::SliceRandom, thread_rng};
+    use rand::{seq::SliceRandom, thread_rng, Rng};
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
@@ -407,6 +407,35 @@ mod tests {
             .chunks(2)
             .map(|pair| vec![builder.constant(pair[0]), builder.constant(pair[1])])
             .collect();
+        let mut b = a.clone();
+        b.shuffle(&mut thread_rng());
+
+        builder.assert_permutation(a, b);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    fn test_permutation_duplicates(size: usize) -> Result<()> {
+        type F = CrandallField;
+        const D: usize = 4;
+
+        let config = CircuitConfig::large_zk_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let mut rng = thread_rng();
+        let lst: Vec<F> = (0..size * 2)
+            .map(|_| F::from_canonical_usize(rng.gen_range(0..2usize)))
+            .collect();
+        let a: Vec<Vec<Target>> = lst[..]
+            .chunks(2)
+            .map(|pair| vec![builder.constant(pair[0]), builder.constant(pair[1])])
+            .collect();
+
         let mut b = a.clone();
         b.shuffle(&mut thread_rng());
 
@@ -442,6 +471,15 @@ mod tests {
 
         let data = builder.build();
         data.prove(pw).unwrap();
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_permutations_duplicates() -> Result<()> {
+        for n in 2..9 {
+            test_permutation_duplicates(n)?;
+        }
 
         Ok(())
     }

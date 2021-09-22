@@ -386,7 +386,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         let mut most_significant_diff_so_far = F::ZERO;
         let mut intermediate_values = Vec::new();
-        for i in 1..self.gate.num_chunks {
+        for i in 0..self.gate.num_chunks {
             if first_input_chunks[i] != second_input_chunks[i] {
                 most_significant_diff_so_far = second_input_chunks[i] - first_input_chunks[i];
                 intermediate_values.push(F::ZERO);

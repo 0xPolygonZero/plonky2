@@ -1,16 +1,15 @@
-use std::marker::PhantomData;
+use itertools::izip;
 
-use itertools::{izip, Itertools};
-
-use crate::field::field_types::{PrimeField, RichField};
-use crate::field::{extension_field::Extendable, field_types::Field};
+use crate::field::field_types::RichField;
+use crate::field::extension_field::Extendable;
 use crate::gates::comparison::ComparisonGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::util::ceil_div_usize;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MemoryOpTarget {
     is_write: BoolTarget,
     address: Target,
@@ -41,7 +40,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let n = ops.len();
 
         let combined_bits = address_bits + timestamp_bits;
-        let chunk_size = 3;
+        let chunk_bits = 3;
+        let num_chunks = ceil_div_usize(combined_bits, chunk_bits);
 
         let is_write_targets: Vec<_> = self
             .add_virtual_targets(n)
@@ -69,12 +69,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let two_n = self.constant(F::from_canonical_usize(1 << timestamp_bits));
         let address_timestamp_combined: Vec<_> = output_targets
             .iter()
-            .map(|op| self.mul_add(op.timestamp, two_n, op.address))
+            .map(|op| self.mul_add(op.address, two_n, op.timestamp))
             .collect();
 
+        let mut gate_indices = Vec::new();
+        let mut gates = Vec::new();
         for i in 1..n {
             let (gate, gate_index) = {
-                let gate = ComparisonGate::new(combined_bits, chunk_size);
+                let gate = ComparisonGate::new(combined_bits, num_chunks);
                 let gate_index = self.add_gate(gate.clone(), vec![]);
                 (gate, gate_index)
             };
@@ -87,24 +89,39 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 Target::wire(gate_index, gate.wire_second_input()),
                 address_timestamp_combined[i],
             );
+
+            gate_indices.push(gate_index);
+            gates.push(gate);
         }
 
         self.assert_permutation_memory_ops(ops, output_targets.as_slice());
+
+        self.add_simple_generator(MemoryOpSortGenerator::<F, D> {
+            input_ops: ops.to_vec(),
+            gate_indices,
+            gates: gates.clone(),
+            output_ops: output_targets.clone(),
+            address_bits,
+            timestamp_bits,
+        });
 
         output_targets
     }
 }
 
 #[derive(Debug)]
-struct MemoryOpSortGenerator<F: RichField> {
+struct MemoryOpSortGenerator<F: RichField + Extendable<D>, const D: usize> {
     input_ops: Vec<MemoryOpTarget>,
+    gate_indices: Vec<usize>,
+    gates: Vec<ComparisonGate<F, D>>,
     output_ops: Vec<MemoryOpTarget>,
     address_bits: usize,
     timestamp_bits: usize,
-    _phantom: PhantomData<F>,
 }
 
-impl<F: RichField> SimpleGenerator<F> for MemoryOpSortGenerator<F> {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for MemoryOpSortGenerator<F, D>
+{
     fn dependencies(&self) -> Vec<Target> {
         self.input_ops
             .iter()
@@ -136,6 +153,13 @@ impl<F: RichField> SimpleGenerator<F> for MemoryOpSortGenerator<F> {
             })
             .collect();
 
+        let mut combined_values_sorted = combined_values_u64.clone();
+        combined_values_sorted.sort();
+        let combined_values: Vec<_> = combined_values_sorted
+            .iter()
+            .map(|&x| F::from_canonical_u64(x))
+            .collect();
+
         let mut input_ops_and_keys: Vec<_> = self
             .input_ops
             .iter()
@@ -161,12 +185,30 @@ impl<F: RichField> SimpleGenerator<F> for MemoryOpSortGenerator<F> {
                 self.output_ops[i].value,
                 witness.get_target(input_ops_sorted[i].value),
             );
+
+            if i > 0 {
+                out_buffer.set_target(
+                    Target::wire(
+                        self.gate_indices[i - 1],
+                        self.gates[i - 1].wire_second_input(),
+                    ),
+                    combined_values[i],
+                );
+            }
+            if i < n - 1 {
+                out_buffer.set_target(
+                    Target::wire(self.gate_indices[i], self.gates[i].wire_first_input()),
+                    combined_values[i],
+                );
+            }
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use anyhow::Result;
     use rand::{seq::SliceRandom, thread_rng, Rng};
 
@@ -218,6 +260,15 @@ mod tests {
     #[test]
     fn test_sorting_small() -> Result<()> {
         let size = 5;
+        let address_bits = 20;
+        let timestamp_bits = 20;
+
+        test_sorting(size, address_bits, timestamp_bits)
+    }
+
+    #[test]
+    fn test_sorting_large() -> Result<()> {
+        let size = 20;
         let address_bits = 20;
         let timestamp_bits = 20;
 
