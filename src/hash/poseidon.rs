@@ -44,6 +44,11 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     // WARNING: These must be in 0..CrandallField::ORDER (i.e. canonical form). If this condition is
     // not met, some platform-specific implementation of constant_layer may return incorrect
     // results.
+    //
+    // WARNING: If these are changed in any way, then all the
+    // implementations of Poseidon must be regenerated. See comments
+    // in `poseidon_goldilocks.rs` and `poseidon_crandall.rs` for
+    // instructions.
     0xb585f767417ee042, 0x7746a55f77c10331, 0xb2fb0d321d356f7a, 0x0f6760a486f1621f,
     0xe10d6666b36abcdf, 0x8cae14cb455cc50b, 0xd438539cf2cee334, 0xef781c7d4c1fd8b4,
     0xcdc4a23a0aca4b1f, 0x277fa208d07b52e3, 0xe17653a300493d38, 0xc54302f27c287dc1,

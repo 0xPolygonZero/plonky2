@@ -1,3 +1,10 @@
+//!
+//! Implementations for Poseidon over Goldilocks field of widths 8 and 12.
+//!
+//! These contents of the implementations *must* be generated using the
+//! `poseidon_constants.sage` script in the `mir-protocol/hash-constants`
+//! repository.
+
 use crate::field::goldilocks_field::GoldilocksField;
 use crate::hash::poseidon::{Poseidon, N_PARTIAL_ROUNDS};
 

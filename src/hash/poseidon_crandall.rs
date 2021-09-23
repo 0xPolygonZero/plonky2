@@ -1,3 +1,10 @@
+//!
+//! Implementations for Poseidon over Crandall field of widths 8 and 12.
+//!
+//! These contents of the implementations *must* be generated using the
+//! `poseidon_constants.sage` script in the `mir-protocol/hash-constants`
+//! repository.
+
 #[cfg(any(target_feature = "avx2", target_feature = "neon"))]
 use std::convert::TryInto;
 
