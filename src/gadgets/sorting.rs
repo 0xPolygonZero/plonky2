@@ -8,6 +8,7 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::ceil_div_usize;
+use std::marker::PhantomData;
 
 pub struct MemoryOp<F: Field> {
     is_write: bool,
@@ -46,14 +47,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         rhs: Target,
         bits: usize,
         num_chunks: usize,
-    ) -> (ComparisonGate<F, D>, usize) {
+    ) {
         let gate = ComparisonGate::new(bits, num_chunks);
         let gate_index = self.add_gate(gate.clone(), vec![]);
 
         self.connect(Target::wire(gate_index, gate.wire_first_input()), lhs);
         self.connect(Target::wire(gate_index, gate.wire_second_input()), rhs);
-
-        (gate, gate_index)
     }
 
     /// Sort memory operations by address value, then by timestamp value.
@@ -101,29 +100,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .map(|op| self.mul_add(op.address, two_n, op.timestamp))
             .collect();
 
-        let mut gates = Vec::new();
-        let mut gate_indices = Vec::new();
         for i in 1..n {
-            let (gate, gate_index) = self.assert_le(
+            self.assert_le(
                 address_timestamp_combined[i - 1],
                 address_timestamp_combined[i],
                 combined_bits,
                 num_chunks,
             );
-
-            gate_indices.push(gate_index);
-            gates.push(gate);
         }
 
-        self.assert_permutation_memory_ops(ops, output_targets.as_slice());
+        self.assert_permutation_memory_ops(ops, &output_targets);
 
         self.add_simple_generator(MemoryOpSortGenerator::<F, D> {
             input_ops: ops.to_vec(),
-            gate_indices,
-            gates: gates.clone(),
             output_ops: output_targets.clone(),
-            address_bits,
-            timestamp_bits,
+            _phantom: PhantomData,
         });
 
         output_targets
@@ -133,11 +124,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[derive(Debug)]
 struct MemoryOpSortGenerator<F: RichField + Extendable<D>, const D: usize> {
     input_ops: Vec<MemoryOpTarget>,
-    gate_indices: Vec<usize>,
-    gates: Vec<ComparisonGate<F, D>>,
     output_ops: Vec<MemoryOpTarget>,
-    address_bits: usize,
-    timestamp_bits: usize,
+    _phantom: PhantomData<F::Extension>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
