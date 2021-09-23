@@ -1,4 +1,3 @@
-//!
 //! Implementations for Poseidon over Crandall field of widths 8 and 12.
 //!
 //! These contents of the implementations *must* be generated using the
