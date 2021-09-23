@@ -236,20 +236,25 @@ impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
 
         let get_local_wire = |input| witness.get_wire(local_wire(input));
 
-        for e in 0..self.gate.chunk_size {
-            let switch_bool_wire = local_wire(self.gate.wire_switch_bool(self.copy));
-            let first_input = get_local_wire(self.gate.wire_first_input(self.copy, e));
-            let second_input = get_local_wire(self.gate.wire_second_input(self.copy, e));
-            let first_output = get_local_wire(self.gate.wire_first_output(self.copy, e));
-            let second_output = get_local_wire(self.gate.wire_second_output(self.copy, e));
+        let switch_bool_wire = local_wire(self.gate.wire_switch_bool(self.copy));
 
-            if first_output == first_input && second_output == second_input {
-                out_buffer.set_wire(switch_bool_wire, F::ZERO);
-            } else if first_output == second_input && second_output == first_input {
-                out_buffer.set_wire(switch_bool_wire, F::ONE);
-            } else {
-                panic!("No permutation from given inputs to given outputs");
-            }
+        let mut first_inputs = Vec::new();
+        let mut second_inputs = Vec::new();
+        let mut first_outputs = Vec::new();
+        let mut second_outputs = Vec::new();
+        for e in 0..self.gate.chunk_size {
+            first_inputs.push(get_local_wire(self.gate.wire_first_input(self.copy, e)));
+            second_inputs.push(get_local_wire(self.gate.wire_second_input(self.copy, e)));
+            first_outputs.push(get_local_wire(self.gate.wire_first_output(self.copy, e)));
+            second_outputs.push(get_local_wire(self.gate.wire_second_output(self.copy, e)));
+        }
+
+        if first_outputs == first_inputs && second_outputs == second_inputs {
+            out_buffer.set_wire(switch_bool_wire, F::ZERO);
+        } else if first_outputs == second_inputs && second_outputs == first_inputs {
+            out_buffer.set_wire(switch_bool_wire, F::ONE);
+        } else {
+            panic!("No permutation from given inputs to given outputs");
         }
     }
 
@@ -261,12 +266,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
 
         let get_local_wire = |input| witness.get_wire(local_wire(input));
 
+        let switch_bool = get_local_wire(self.gate.wire_switch_bool(self.copy));
         for e in 0..self.gate.chunk_size {
             let first_output_wire = local_wire(self.gate.wire_first_output(self.copy, e));
             let second_output_wire = local_wire(self.gate.wire_second_output(self.copy, e));
             let first_input = get_local_wire(self.gate.wire_first_input(self.copy, e));
             let second_input = get_local_wire(self.gate.wire_second_input(self.copy, e));
-            let switch_bool = get_local_wire(self.gate.wire_switch_bool(self.copy));
 
             let (first_output, second_output) = if switch_bool == F::ZERO {
                 (first_input, second_input)
