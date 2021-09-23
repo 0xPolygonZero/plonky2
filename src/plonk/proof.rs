@@ -84,13 +84,6 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
     pub(crate) fn get_public_inputs_hash(&self) -> HashOut<F> {
         hash_n_to_hash(self.public_inputs.clone(), true)
     }
-
-    fn fri_query_indices(
-        &self,
-        common_data: &CommonCircuitData<F, D>,
-    ) -> anyhow::Result<Vec<usize>> {
-        Ok(self.get_challenges(common_data)?.fri_query_indices)
-    }
 }
 
 pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> {

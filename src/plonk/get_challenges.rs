@@ -6,6 +6,13 @@ use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::proof::{ProofChallenges, ProofWithPublicInputs};
 
 impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
+    pub(crate) fn fri_query_indices(
+        &self,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> anyhow::Result<Vec<usize>> {
+        Ok(self.get_challenges(common_data)?.fri_query_indices)
+    }
+
     pub(crate) fn get_challenges(
         &self,
         common_data: &CommonCircuitData<F, D>,

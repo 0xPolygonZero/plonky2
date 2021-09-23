@@ -154,7 +154,6 @@ fn fri_prover_query_round<F: RichField + Extendable<D>, const D: usize>(
     let mut query_steps = Vec::new();
     let x = challenger.get_challenge();
     let mut x_index = x.to_canonical_u64() as usize % n;
-    dbg!(x_index);
     let initial_proof = initial_merkle_trees
         .iter()
         .map(|t| (t.get(x_index).to_vec(), t.prove(x_index)))
