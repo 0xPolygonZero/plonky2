@@ -5,10 +5,8 @@ use crate::field::field_types::{Field, RichField};
 use crate::field::interpolation::{barycentric_weights, interpolate, interpolate2};
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::FriConfig;
-use crate::hash::hashing::hash_n_to_1;
 use crate::hash::merkle_proofs::verify_merkle_proof;
 use crate::hash::merkle_tree::MerkleCap;
-use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::proof::{OpeningSet, ProofChallenges};
@@ -45,22 +43,11 @@ fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
 }
 
 pub(crate) fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: usize>(
-    proof: &FriProof<F, D>,
-    challenger: &mut Challenger<F>,
+    fri_pow_response: F,
     config: &FriConfig,
 ) -> Result<()> {
-    let hash = hash_n_to_1(
-        challenger
-            .get_hash()
-            .elements
-            .iter()
-            .copied()
-            .chain(Some(proof.pow_witness))
-            .collect(),
-        false,
-    );
     ensure!(
-        hash.to_canonical_u64().leading_zeros()
+        fri_pow_response.to_canonical_u64().leading_zeros()
             >= config.proof_of_work_bits + (64 - F::order().bits()) as u32,
         "Invalid proof of work witness."
     );
@@ -85,6 +72,9 @@ pub(crate) fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
 
     // Size of the LDE domain.
     let n = proof.final_poly.len() << (total_arities + config.rate_bits);
+
+    // Check PoW.
+    fri_verify_proof_of_work(challenges.fri_pow_response, &config.fri_config)?;
 
     // Check that parameters are coherent.
     ensure!(

@@ -2,7 +2,6 @@
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
-use crate::gates::poseidon::PoseidonGate;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;

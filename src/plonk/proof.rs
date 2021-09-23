@@ -6,11 +6,9 @@ use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::proof::{FriProof, FriProofTarget};
-use crate::fri::verifier::fri_verify_proof_of_work;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
 use crate::hash::merkle_tree::MerkleCap;
-use crate::iop::challenger::Challenger;
 use crate::iop::target::Target;
 use crate::plonk::circuit_data::CommonCircuitData;
 
@@ -113,6 +111,8 @@ pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> 
 
     // Betas used in the FRI commit phase reductions.
     pub fri_betas: Vec<F::Extension>,
+
+    pub fri_pow_response: F,
 
     pub fri_query_indices: Vec<usize>,
 }

@@ -1,6 +1,6 @@
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{PrimeField, RichField};
-use crate::fri::verifier::fri_verify_proof_of_work;
+use crate::field::field_types::RichField;
+use crate::hash::hashing::hash_n_to_1;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::proof::{ProofChallenges, ProofWithPublicInputs};
@@ -50,12 +50,16 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
 
         challenger.observe_extension_elements(&self.proof.opening_proof.final_poly.coeffs);
 
-        // Check PoW.
-        fri_verify_proof_of_work(
-            &self.proof.opening_proof,
-            &mut challenger,
-            &config.fri_config,
-        )?;
+        let fri_pow_response = hash_n_to_1(
+            challenger
+                .get_hash()
+                .elements
+                .iter()
+                .copied()
+                .chain(Some(self.proof.opening_proof.pow_witness))
+                .collect(),
+            false,
+        );
 
         let fri_query_indices = (0..num_fri_queries)
             .map(|_| challenger.get_challenge().to_canonical_u64() as usize % lde_size)
@@ -68,6 +72,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
             plonk_zeta,
             fri_alpha,
             fri_betas,
+            fri_pow_response,
             fri_query_indices,
         })
     }
