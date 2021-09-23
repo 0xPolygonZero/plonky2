@@ -203,6 +203,14 @@ impl<F: Field> Witness<F> for PartitionWitness<F> {
     }
 
     fn set_target(&mut self, target: Target, value: F) {
+        self.set_target_returning_parent(target, value);
+    }
+}
+
+impl<F: Field> PartitionWitness<F> {
+    /// Set a `Target`. On success, returns the representative index of the newly-set target. If the
+    /// target was already set, returns `None`.
+    fn set_target_returning_parent(&mut self, target: Target, value: F) -> Option<usize> {
         let parent_index = self.forest[self.target_index(target)].parent;
         let parent_value = &mut self.forest[parent_index].value;
         if let Some(old_value) = *parent_value {
@@ -211,13 +219,21 @@ impl<F: Field> Witness<F> for PartitionWitness<F> {
                 "Partition containing {:?} was set twice with different values",
                 target
             );
+            None
         } else {
             *parent_value = Some(value);
+            Some(parent_index)
         }
     }
-}
 
-impl<F: Field> PartitionWitness<F> {
+    /// Returns the representative indices of any newly-set targets.
+    pub(crate) fn extend_returning_parents<'a, I: 'a + Iterator<Item = (Target, F)>>(
+        &'a mut self,
+        pairs: I,
+    ) -> impl Iterator<Item = usize> + 'a {
+        pairs.flat_map(move |(t, v)| self.set_target_returning_parent(t, v))
+    }
+
     pub fn target_index(&self, target: Target) -> usize {
         match target {
             Target::Wire(Wire { gate, input }) => gate * self.num_wires + input,
