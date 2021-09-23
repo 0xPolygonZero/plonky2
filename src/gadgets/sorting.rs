@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use itertools::izip;
 
 use crate::field::extension_field::Extendable;
@@ -8,7 +10,6 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::ceil_div_usize;
-use std::marker::PhantomData;
 
 pub struct MemoryOp<F: Field> {
     is_write: bool,
@@ -39,15 +40,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_permutation(a_chunks, b_chunks);
     }
 
-    /// Add a ComparisonGate to
-    /// Returns the gate and its index
-    pub fn assert_le(
-        &mut self,
-        lhs: Target,
-        rhs: Target,
-        bits: usize,
-        num_chunks: usize,
-    ) {
+    /// Add a ComparisonGate to assert that `lhs` is less than `rhs`, where their values are at most `bits` bits.
+    pub fn assert_le(&mut self, lhs: Target, rhs: Target, bits: usize, num_chunks: usize) {
         let gate = ComparisonGate::new(bits, num_chunks);
         let gate_index = self.add_gate(gate.clone(), vec![]);
 
@@ -125,7 +119,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 struct MemoryOpSortGenerator<F: RichField + Extendable<D>, const D: usize> {
     input_ops: Vec<MemoryOpTarget>,
     output_ops: Vec<MemoryOpTarget>,
-    _phantom: PhantomData<F::Extension>,
+    _phantom: PhantomData<F>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
