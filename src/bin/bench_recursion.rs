@@ -41,7 +41,7 @@ fn bench_prove<F: RichField + Extendable<D>, const D: usize>() -> Result<()> {
     let zero = builder.zero();
     let zero_ext = builder.zero_extension();
 
-    let mut state = [zero; 12];
+    let mut state = [zero; 8];
     for _ in 0..10000 {
         state = builder.permute(state);
     }

@@ -63,12 +63,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         merkle_cap: &MerkleCapTarget,
         proof: &MerkleProofTarget,
     ) {
-        let zero = self.zero();
-
         let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
-            let perm_inputs = [state.elements, sibling.elements, [zero; 4]]
+            let perm_inputs = [state.elements, sibling.elements]
                 .concat()
                 .try_into()
                 .unwrap();
@@ -100,13 +98,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         merkle_cap: &MerkleCapTarget,
         proof: &MerkleProofTarget,
     ) {
-        let zero = self.zero();
-        let zero_x4 = [zero; 4];
-
         let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
-            let inputs = [state.elements, sibling.elements, zero_x4]
+            let inputs = [state.elements, sibling.elements]
                 .concat()
                 .try_into()
                 .unwrap();

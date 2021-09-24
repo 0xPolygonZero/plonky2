@@ -103,7 +103,7 @@ where
         let swap = vars.local_wires[Self::WIRE_SWAP];
         constraints.push(swap * (swap - F::Extension::ONE));
 
-        let mut state = Vec::with_capacity(12);
+        let mut state = Vec::with_capacity(8);
         for i in 0..4 {
             let a = vars.local_wires[i];
             let b = vars.local_wires[i + 4];
@@ -113,9 +113,6 @@ where
             let a = vars.local_wires[i + 4];
             let b = vars.local_wires[i];
             state.push(a + swap * (b - a));
-        }
-        for i in 8..12 {
-            state.push(vars.local_wires[i]);
         }
 
         let mut state: [F::Extension; WIDTH] = state.try_into().unwrap();
@@ -182,7 +179,7 @@ where
         let swap = vars.local_wires[Self::WIRE_SWAP];
         constraints.push(swap * (swap - F::ONE));
 
-        let mut state = Vec::with_capacity(12);
+        let mut state = Vec::with_capacity(8);
         for i in 0..4 {
             let a = vars.local_wires[i];
             let b = vars.local_wires[i + 4];
@@ -192,9 +189,6 @@ where
             let a = vars.local_wires[i + 4];
             let b = vars.local_wires[i];
             state.push(a + swap * (b - a));
-        }
-        for i in 8..12 {
-            state.push(vars.local_wires[i]);
         }
 
         let mut state: [F; WIDTH] = state.try_into().unwrap();
@@ -265,7 +259,7 @@ where
         let swap = vars.local_wires[Self::WIRE_SWAP];
         constraints.push(builder.mul_sub_extension(swap, swap, swap));
 
-        let mut state = Vec::with_capacity(12);
+        let mut state = Vec::with_capacity(8);
         for i in 0..4 {
             let a = vars.local_wires[i];
             let b = vars.local_wires[i + 4];
@@ -277,9 +271,6 @@ where
             let b = vars.local_wires[i];
             let delta = builder.sub_extension(b, a);
             state.push(builder.mul_add_extension(swap, delta, a));
-        }
-        for i in 8..12 {
-            state.push(vars.local_wires[i]);
         }
 
         let mut state: [ExtensionTarget<D>; WIDTH] = state.try_into().unwrap();
@@ -555,7 +546,7 @@ mod tests {
     #[test]
     fn low_degree() {
         type F = CrandallField;
-        const WIDTH: usize = 12;
+        const WIDTH: usize = 8;
         let gate = PoseidonGate::<F, 4, WIDTH>::new();
         test_low_degree(gate)
     }
@@ -563,7 +554,7 @@ mod tests {
     #[test]
     fn eval_fns() -> Result<()> {
         type F = CrandallField;
-        const WIDTH: usize = 12;
+        const WIDTH: usize = 8;
         let gate = PoseidonGate::<F, 4, WIDTH>::new();
         test_eval_fns(gate)
     }
