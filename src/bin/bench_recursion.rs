@@ -5,6 +5,7 @@ use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::RichField;
 use plonky2::fri::FriConfig;
+use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::iop::witness::PartialWitness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
@@ -41,7 +42,7 @@ fn bench_prove<F: RichField + Extendable<D>, const D: usize>() -> Result<()> {
     let zero = builder.zero();
     let zero_ext = builder.zero_extension();
 
-    let mut state = [zero; 8];
+    let mut state = [zero; SPONGE_WIDTH];
     for _ in 0..10000 {
         state = builder.permute(state);
     }

@@ -11,7 +11,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 
 pub(crate) const SPONGE_RATE: usize = 4;
 pub(crate) const SPONGE_CAPACITY: usize = 4;
-pub(crate) const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
+pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 
 pub(crate) const HASH_FAMILY: HashFamily = HashFamily::Poseidon;
 
@@ -88,7 +88,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 /// A one-way compression function which takes two ~256 bit inputs and returns a ~256 bit output.
 pub fn compress<F: RichField>(x: HashOut<F>, y: HashOut<F>) -> HashOut<F> {
-    let perm_inputs = [x.elements, y.elements].concat().try_into().unwrap();
+    let mut perm_inputs = [F::ZERO; SPONGE_WIDTH];
+    perm_inputs[..4].copy_from_slice(&x.elements);
+    perm_inputs[4..8].copy_from_slice(&y.elements);
     HashOut {
         elements: permute(perm_inputs)[..4].try_into().unwrap(),
     }

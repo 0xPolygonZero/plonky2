@@ -7,7 +7,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
-use crate::hash::hashing::{compress, hash_or_noop};
+use crate::hash::hashing::{compress, hash_or_noop, SPONGE_WIDTH};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -63,13 +63,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         merkle_cap: &MerkleCapTarget,
         proof: &MerkleProofTarget,
     ) {
+        let zero = self.zero();
         let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
-            let perm_inputs = [state.elements, sibling.elements]
-                .concat()
-                .try_into()
-                .unwrap();
+            let mut perm_inputs = [zero; SPONGE_WIDTH];
+            perm_inputs[..4].copy_from_slice(&state.elements);
+            perm_inputs[4..8].copy_from_slice(&sibling.elements);
             let outputs = self.permute_swapped(perm_inputs, bit);
             state = HashOutTarget::from_vec(outputs[0..4].to_vec());
         }
@@ -98,14 +98,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         merkle_cap: &MerkleCapTarget,
         proof: &MerkleProofTarget,
     ) {
+        let zero = self.zero();
         let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
-            let inputs = [state.elements, sibling.elements]
-                .concat()
-                .try_into()
-                .unwrap();
-            let perm_outs = self.permute_swapped(inputs, bit);
+            let mut perm_inputs = [zero; SPONGE_WIDTH];
+            perm_inputs[..4].copy_from_slice(&state.elements);
+            perm_inputs[4..8].copy_from_slice(&sibling.elements);
+            let perm_outs = self.permute_swapped(perm_inputs, bit);
             let hash_outs = perm_outs[0..4].try_into().unwrap();
             state = HashOutTarget {
                 elements: hash_outs,
