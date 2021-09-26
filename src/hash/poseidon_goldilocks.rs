@@ -353,9 +353,9 @@ impl Poseidon<12> for GoldilocksField {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::goldilocks_field::GoldilocksField as F;
     use crate::field::field_types::{Field, PrimeField};
-    use crate::hash::poseidon::test_helpers::{check_test_vectors, check_consistency};
+    use crate::field::goldilocks_field::GoldilocksField as F;
+    use crate::hash::poseidon::test_helpers::{check_consistency, check_test_vectors};
 
     #[test]
     fn test_vectors() {

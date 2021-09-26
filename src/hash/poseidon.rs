@@ -605,9 +605,8 @@ pub(crate) mod test_helpers {
     use crate::hash::poseidon::Poseidon;
 
     pub(crate) fn check_test_vectors<F: Field, const WIDTH: usize>(
-        test_vectors: Vec<([u64; WIDTH], [u64; WIDTH])>
-    )
-    where
+        test_vectors: Vec<([u64; WIDTH], [u64; WIDTH])>,
+    ) where
         F: Poseidon<WIDTH>,
         [(); WIDTH - 1]: ,
     {

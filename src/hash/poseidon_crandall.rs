@@ -427,7 +427,7 @@ impl Poseidon<12> for CrandallField {
 mod tests {
     use crate::field::crandall_field::CrandallField as F;
     use crate::field::field_types::{Field, PrimeField};
-    use crate::hash::poseidon::test_helpers::{check_test_vectors, check_consistency};
+    use crate::hash::poseidon::test_helpers::{check_consistency, check_test_vectors};
 
     #[test]
     fn test_vectors() {
