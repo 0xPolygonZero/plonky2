@@ -53,12 +53,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let gate_type = GMiMCGate::<F, D, W>::new();
         let gate = self.add_gate(gate_type, vec![]);
 
-        // We don't want to swap any inputs, so set that wire to 0.
         let swap_wire = GMiMCGate::<F, D, W>::WIRE_SWAP;
-        let swap_wire = Target::Wire(Wire {
-            gate,
-            input: swap_wire,
-        });
+        let swap_wire = Target::wire(gate, swap_wire);
         self.connect(swap.target, swap_wire);
 
         // Route input wires.
@@ -98,7 +94,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let gate_type = PoseidonGate::<F, D, W>::new();
         let gate = self.add_gate(gate_type, vec![]);
 
-        // We don't want to swap any inputs, so set that wire to 0.
         let swap_wire = PoseidonGate::<F, D, W>::WIRE_SWAP;
         let swap_wire = Target::wire(gate, swap_wire);
         self.connect(swap.target, swap_wire);
