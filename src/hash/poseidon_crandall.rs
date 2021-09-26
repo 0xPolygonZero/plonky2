@@ -426,6 +426,7 @@ impl Poseidon<12> for CrandallField {
 #[cfg(test)]
 mod tests {
     use crate::field::crandall_field::CrandallField as F;
+    use crate::field::field_types::{Field, PrimeField};
     use crate::hash::poseidon::test_helpers::{check_test_vectors, check_consistency};
 
     #[test]
@@ -433,8 +434,11 @@ mod tests {
         // Test inputs are:
         // 1. all zeros
         // 2. range 0..WIDTH
-        // 3. random elements of CrandallField.
+        // 3. all -1's
+        // 4. random elements of CrandallField.
         // expected output calculated with (modified) hadeshash reference implementation.
+
+        let neg_one: u64 = F::NEG_ONE.to_canonical_u64();
 
         #[rustfmt::skip]
         let test_vectors8: Vec<([u64; 8], [u64; 8])> = vec![
@@ -444,6 +448,10 @@ mod tests {
             ([0, 1, 2, 3, 4, 5, 6, 7, ],
              [0x1183fb3b5cbb3c6c, 0xa4ac49f197402036, 0xd752a2f6b9f1e6a2, 0x508da1afbebd9538,
               0xd32e183335ea3b8a, 0x79eb2ab985665a18, 0xa6a43cefcee4bfc2, 0x50521374c3cf82e1, ]),
+            ([neg_one, neg_one, neg_one, neg_one,
+              neg_one, neg_one, neg_one, neg_one, ],
+             [0x17c02c3f41202683, 0x26c7dcdc08616731, 0xb8b3ef710f9d7a22, 0x71700d868f4b5fc4,
+              0x1e55cebeb105081a, 0xbdc0566d7296c89a, 0xfff584fe30b62c67, 0x02ad66312a3d2d5b, ]),
             ([0xb69ed321abbeffbb, 0xfb496d8c39b64e42, 0x274f1cfbb925c789, 0x9e846d2b9a56b834,
               0xc7f297c0d48bc3b6, 0xb859ab1e45850a0a, 0x3244fe3bcb1244cb, 0xb98e1cfa647575de, ],
              [0xa7369ab44b1aadd2, 0x884abb3db138372d, 0x9fc2e4ee64df8608, 0x12a205150a1dbe5a,
@@ -462,6 +470,12 @@ mod tests {
              [0x8ca83bb7e510aff5, 0x68a7a9441166cc2c, 0xa1ba50df7e5d9f68, 0xbd14765ff1725536,
               0xcea83c5e2680f3da, 0xa7782c56559f6d32, 0x03d5cb8d13adf174, 0x298de89026c219a6,
               0x481f50c421e19bf7, 0x3ea5672a17888b27, 0x2f223e603dd1cd7e, 0x05826e3e65f9d4e7, ]),
+            ([neg_one, neg_one, neg_one, neg_one,
+              neg_one, neg_one, neg_one, neg_one,
+              neg_one, neg_one, neg_one, neg_one, ],
+             [0xa0e14c1abda5c4e8, 0xbbfdd7920046e853, 0x85aca557e1acba0b, 0x4c8eabc161c0816a,
+              0x0fcd160bb7b3d704, 0x349d7ecf9c8fda0a, 0x213fad880d8f6d2e, 0x3e91e5904a53a164,
+              0x45434fe525586063, 0x2c4d0cbf12ab7a82, 0xe814fdb7f45befe0, 0x42598ec14df67188, ]),
             ([0xb69ed321abbeffbb, 0xfb496d8c39b64e42, 0x274f1cfbb925c789, 0x9e846d2b9a56b834,
               0xc7f297c0d48bc3b6, 0xb859ab1e45850a0a, 0x3244fe3bcb1244cb, 0xb98e1cfa647575de,
               0x3c9ed8013b0b366b, 0x6a242cb943c91b16, 0x404794ad562239f1, 0x209363e20945adf6, ],

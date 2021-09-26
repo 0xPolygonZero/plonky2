@@ -354,6 +354,7 @@ impl Poseidon<12> for GoldilocksField {
 #[cfg(test)]
 mod tests {
     use crate::field::goldilocks_field::GoldilocksField as F;
+    use crate::field::field_types::{Field, PrimeField};
     use crate::hash::poseidon::test_helpers::{check_test_vectors, check_consistency};
 
     #[test]
@@ -361,8 +362,11 @@ mod tests {
         // Test inputs are:
         // 1. all zeros
         // 2. range 0..WIDTH
-        // 3. random elements of GoldilocksField.
+        // 3. all -1's
+        // 4. random elements of GoldilocksField.
         // expected output calculated with (modified) hadeshash reference implementation.
+
+        let neg_one: u64 = F::NEG_ONE.to_canonical_u64();
 
         #[rustfmt::skip]
         let test_vectors8: Vec<([u64; 8], [u64; 8])> = vec![
@@ -372,6 +376,10 @@ mod tests {
             ([0, 1, 2, 3, 4, 5, 6, 7, ],
              [0xdfda4e2a7ec338f4, 0x3ac8d668054b1873, 0xeaaef2f72528e7ff, 0xee7bcc836ae165bc,
               0x95561d9377c3e696, 0x2e7d39c369dfccaa, 0x992178c050936f8f, 0x34e38ec33f572850, ]),
+            ([neg_one, neg_one, neg_one, neg_one,
+              neg_one, neg_one, neg_one, neg_one, ],
+             [0x9d8553546c658f67, 0xd5f6422aea26962b, 0xffb40b4db302da75, 0x34f43bbd7882c16c,
+              0xccb375313fa146b0, 0x87574c332e89201a, 0x60e9e6c0c0be3a16, 0xf0e2a741e90756ba, ]),
             ([0x016f2dde9ccdaf6f, 0x77e29cda821fece4, 0x2f6686f781255f78, 0xd2c4c9a53070b44f,
               0x4d7035c9fd01fc40, 0xc8d460945c91d509, 0x14855cd8a36a097f, 0x49f640d6a30f9cf0, ],
              [0x4c3c58a3fac4ba05, 0x3f26fc2bcb33a3d4, 0xe13fcddcd7a136bb, 0x27b05be73a91e2f2,
@@ -390,6 +398,12 @@ mod tests {
              [0x641772a94a77c7e5, 0x38d2cec9c47e7314, 0x3577218e825058c9, 0x1cdb3b4d22c54bcc,
               0x803234d4b16eb152, 0xbbb6c8438627c0f0, 0x1b219561c95a41fa, 0x9bdc97531bacc401,
               0x4251f4fac8271d9d, 0x0279ffa7ba5ce9aa, 0x63baf77c533b5874, 0xb7ada3e1f98b25e7, ]),
+            ([neg_one, neg_one, neg_one, neg_one,
+              neg_one, neg_one, neg_one, neg_one,
+              neg_one, neg_one, neg_one, neg_one, ],
+             [0xd2e4605ed1eb9613, 0x62510e8cbaf8a3b5, 0x64dc1e941dbaf46c, 0x1d6c5a5fd43cc4c5,
+              0xac4b4f6bf503a6b4, 0x19e17983f5e52404, 0x927b08e033b29b6f, 0xa41bc2cb5ddb9bc0,
+              0x270d528b1accc148, 0x022169acf46c71ae, 0xbbd4566e7b49ad7d, 0x0ed1ea54401533ef, ]),
             ([0xa48728856b047229, 0xc43ab5e4aa986608, 0x715f470f075c057f, 0x36e955a095478013,
               0x7c036db7200ba52d, 0x20377cd3410dc7dc, 0x058c0956659b05b2, 0xa66c880ee57e8399,
               0xb06521c88afbd610, 0xdfa4d72ba95c8895, 0x25b403dac3622acc, 0xda607d79268a8fce, ],
