@@ -23,12 +23,7 @@ pub(crate) fn verify<F: RichField + Extendable<D>, const D: usize>(
 
     let challenges = proof_with_pis.get_challenges(common_data)?;
 
-    let ProofWithPublicInputs {
-        proof,
-        public_inputs,
-    } = proof_with_pis;
-
-    let config = &common_data.config;
+    let ProofWithPublicInputs { proof, .. } = proof_with_pis;
 
     let local_constants = &proof.openings.constants;
     let local_wires = &proof.openings.wires;
