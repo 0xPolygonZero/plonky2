@@ -234,7 +234,7 @@ mod tests {
     }
 
     // Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
-    fn set_proof_target<F: Extendable<D>, const D: usize>(
+    fn set_proof_target<F: RichField + Extendable<D>, const D: usize>(
         proof: &ProofWithPublicInputs<F, D>,
         pt: &ProofWithPublicInputsTarget<D>,
         pw: &mut PartialWitness<F>,
@@ -480,7 +480,7 @@ mod tests {
         let data = builder.build();
         let recursive_proof = data.prove(pw)?;
         let now = std::time::Instant::now();
-        let compressed_recursive_proof = recursive_proof.clone().compress(&data.common);
+        let compressed_recursive_proof = recursive_proof.clone().compress(&data.common)?;
         info!("{:.4} to compress proof", now.elapsed().as_secs_f64());
         let proof_bytes = serde_cbor::to_vec(&recursive_proof).unwrap();
         info!("Proof length: {} bytes", proof_bytes.len());
