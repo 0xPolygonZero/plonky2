@@ -83,6 +83,14 @@ impl<F: Field> PartitionWitness<F> {
         self.forest[y.index] = y;
     }
 
+    /// Compress all paths. After calling this, every `parent` value will point to the node's
+    /// representative.
+    pub(crate) fn compress_paths(&mut self) {
+        for i in 0..self.forest.len() {
+            self.find(self.forest[i]);
+        }
+    }
+
     pub fn wire_partition(&mut self) -> WirePartition {
         let mut partition = HashMap::<_, Vec<_>>::new();
         for gate in 0..self.degree {
@@ -90,18 +98,12 @@ impl<F: Field> PartitionWitness<F> {
                 let w = Wire { gate, input };
                 let t = Target::Wire(w);
                 let x = self.forest[self.target_index(t)];
-                partition.entry(self.find(x).t).or_default().push(w);
+                partition.entry(self.forest[x.parent].t).or_default().push(w);
             }
-        }
-        // I'm not 100% sure this loop is needed, but I'm afraid removing it might lead to subtle bugs.
-        for index in 0..self.forest.len() - self.degree * self.num_wires {
-            let t = Target::VirtualTarget { index };
-            let x = self.forest[self.target_index(t)];
-            self.find(x);
         }
 
         // Here we keep just the Wire targets, filtering out everything else.
-        let partition = partition.into_values().collect::<Vec<_>>();
+        let partition = partition.into_values().collect();
 
         WirePartition { partition }
     }
