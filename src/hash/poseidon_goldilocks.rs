@@ -350,3 +350,60 @@ impl Poseidon<12> for GoldilocksField {
          0x2c3887c29246a985, 0x863ca0992eae09b0, 0xb8dee12bf8e622dc, ],
     ];
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::field::goldilocks_field::GoldilocksField as F;
+    use crate::hash::poseidon::test_helpers::{check_test_vectors, check_consistency};
+
+    #[test]
+    fn test_vectors() {
+        // Test inputs are:
+        // 1. all zeros
+        // 2. range 0..WIDTH
+        // 3. random elements of GoldilocksField.
+        // expected output calculated with (modified) hadeshash reference implementation.
+
+        #[rustfmt::skip]
+        let test_vectors8: Vec<([u64; 8], [u64; 8])> = vec![
+            ([0, 0, 0, 0, 0, 0, 0, 0, ],
+             [0x649eec3229475d06, 0x72afe85b8b600222, 0x816d0a50ddd39228, 0x5083133a721a187c,
+              0xbb69bd7d90c490a6, 0xea1d33a65d0a3287, 0xb4d27542d2fba3bc, 0xf9756d565d90c20a, ]),
+            ([0, 1, 2, 3, 4, 5, 6, 7, ],
+             [0xdfda4e2a7ec338f4, 0x3ac8d668054b1873, 0xeaaef2f72528e7ff, 0xee7bcc836ae165bc,
+              0x95561d9377c3e696, 0x2e7d39c369dfccaa, 0x992178c050936f8f, 0x34e38ec33f572850, ]),
+            ([0x016f2dde9ccdaf6f, 0x77e29cda821fece4, 0x2f6686f781255f78, 0xd2c4c9a53070b44f,
+              0x4d7035c9fd01fc40, 0xc8d460945c91d509, 0x14855cd8a36a097f, 0x49f640d6a30f9cf0, ],
+             [0x4c3c58a3fac4ba05, 0x3f26fc2bcb33a3d4, 0xe13fcddcd7a136bb, 0x27b05be73a91e2f2,
+              0x37804ed8ca07fcd5, 0xe78ec2f213e28456, 0xecf67d2aacb4dbe3, 0xad14575187c496ca, ]),
+        ];
+
+        check_test_vectors::<F, 8>(test_vectors8);
+
+        #[rustfmt::skip]
+        let test_vectors12: Vec<([u64; 12], [u64; 12])> = vec![
+            ([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],
+             [0x3901858a44be6b3a, 0xb3470607c5f0ba0e, 0xb3b3ac3d89b37e8e, 0xd389513a7f6fe6e9,
+              0x1eceb92f5da1c96b, 0x55d0bdfc6a842adf, 0x0112c568afb8819c, 0x6ac21107619569ee,
+              0x3de33babbb421a85, 0x83688eb15ffe4ca3, 0x47e285b477551fa9, 0x1dd3dda781901271, ]),
+            ([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, ],
+             [0x641772a94a77c7e5, 0x38d2cec9c47e7314, 0x3577218e825058c9, 0x1cdb3b4d22c54bcc,
+              0x803234d4b16eb152, 0xbbb6c8438627c0f0, 0x1b219561c95a41fa, 0x9bdc97531bacc401,
+              0x4251f4fac8271d9d, 0x0279ffa7ba5ce9aa, 0x63baf77c533b5874, 0xb7ada3e1f98b25e7, ]),
+            ([0xa48728856b047229, 0xc43ab5e4aa986608, 0x715f470f075c057f, 0x36e955a095478013,
+              0x7c036db7200ba52d, 0x20377cd3410dc7dc, 0x058c0956659b05b2, 0xa66c880ee57e8399,
+              0xb06521c88afbd610, 0xdfa4d72ba95c8895, 0x25b403dac3622acc, 0xda607d79268a8fce, ],
+             [0xe85b56b0764df429, 0x7c0796201b43fe68, 0x231673b8300a6a16, 0x25db4745a952a677,
+              0x01431a6817415a4d, 0xfdfbbe63602076eb, 0x82c643dabf1154c1, 0x896e7e87b3f3417d,
+              0x27eca78818ef9c27, 0xf08c93583c24dc47, 0x1c9e1552c07a9f73, 0x7659179192cfdc88, ]),
+        ];
+
+        check_test_vectors::<F, 12>(test_vectors12);
+    }
+
+    #[test]
+    fn consistency() {
+        check_consistency::<F, 8>();
+        check_consistency::<F, 12>();
+    }
+}
