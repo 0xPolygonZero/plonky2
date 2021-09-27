@@ -6,50 +6,53 @@ use rayon::prelude::*;
 use crate::field::field_types::Field;
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
-use crate::iop::witness::PartitionWitness;
 use crate::polynomial::polynomial::PolynomialValues;
 
 /// Node in the Disjoint Set Forest.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ForestNode<V: Field> {
+pub struct ForestNode {
     pub parent: usize,
     pub size: usize,
-    pub value: Option<V>,
 }
 
 /// Disjoint Set Forest data-structure following https://en.wikipedia.org/wiki/Disjoint-set_data_structure.
-impl<F: Field> PartitionWitness<F> {
-    pub fn new(
-        num_wires: usize,
-        num_routed_wires: usize,
-        degree: usize,
-        num_virtual_targets: usize,
-    ) -> Self {
+pub struct Forest {
+    pub(crate) nodes: Vec<ForestNode>,
+    num_wires: usize,
+    num_routed_wires: usize,
+    degree: usize,
+}
+
+impl Forest {
+    pub fn new(num_wires: usize, num_routed_wires: usize, degree: usize) -> Self {
         Self {
-            forest: Vec::with_capacity(degree * num_wires + num_virtual_targets),
+            nodes: vec![],
             num_wires,
             num_routed_wires,
             degree,
         }
     }
 
+    pub(crate) fn target_index(&self, target: Target) -> usize {
+        target.index(self.num_wires, self.degree)
+    }
+
     /// Add a new partition with a single member.
     pub fn add(&mut self, t: Target) {
-        let index = self.forest.len();
+        let index = self.nodes.len();
         debug_assert_eq!(self.target_index(t), index);
-        self.forest.push(ForestNode {
+        self.nodes.push(ForestNode {
             parent: index,
             size: 1,
-            value: None,
         });
     }
 
     /// Path compression method, see https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives.
     pub fn find(&mut self, x_index: usize) -> usize {
-        let x = self.forest[x_index];
+        let x = self.nodes[x_index];
         if x.parent != x_index {
             let root_index = self.find(x.parent);
-            self.forest[x_index].parent = root_index;
+            self.nodes[x_index].parent = root_index;
             root_index
         } else {
             x_index
@@ -65,8 +68,8 @@ impl<F: Field> PartitionWitness<F> {
             return;
         }
 
-        let mut x = self.forest[x_index];
-        let mut y = self.forest[y_index];
+        let mut x = self.nodes[x_index];
+        let mut y = self.nodes[y_index];
 
         if x.size >= y.size {
             y.parent = x_index;
@@ -76,14 +79,14 @@ impl<F: Field> PartitionWitness<F> {
             y.size += x.size;
         }
 
-        self.forest[x_index] = x;
-        self.forest[y_index] = y;
+        self.nodes[x_index] = x;
+        self.nodes[y_index] = y;
     }
 
     /// Compress all paths. After calling this, every `parent` value will point to the node's
     /// representative.
     pub(crate) fn compress_paths(&mut self) {
-        for i in 0..self.forest.len() {
+        for i in 0..self.nodes.len() {
             self.find(i);
         }
     }
@@ -96,7 +99,7 @@ impl<F: Field> PartitionWitness<F> {
             for input in 0..self.num_routed_wires {
                 let w = Wire { gate, input };
                 let t = Target::Wire(w);
-                let x = self.forest[self.target_index(t)];
+                let x = self.nodes[self.target_index(t)];
                 partition.entry(x.parent).or_default().push(w);
             }
         }

@@ -8,18 +8,26 @@ use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartialWitness, PartitionWitness, Witness};
-use crate::plonk::circuit_data::ProverOnlyCircuitData;
+use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 
 /// Given a `PartitionWitness` that has only inputs set, populates the rest of the witness using the
 /// given set of generators.
-pub(crate) fn generate_partial_witness<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn generate_partial_witness<'a, F: RichField + Extendable<D>, const D: usize>(
     inputs: PartialWitness<F>,
-    prover_data: &ProverOnlyCircuitData<F, D>,
-) -> PartitionWitness<F> {
+    prover_data: &'a ProverOnlyCircuitData<F, D>,
+    common_data: &'a CommonCircuitData<F, D>,
+) -> PartitionWitness<'a, F> {
+    let config = &common_data.config;
     let generators = &prover_data.generators;
     let generator_indices_by_watches = &prover_data.generator_indices_by_watches;
 
-    let mut witness = prover_data.partition_witness.clone();
+    let mut witness = PartitionWitness::new(
+        config.num_wires,
+        common_data.degree(),
+        common_data.num_virtual_targets,
+        &prover_data.representative_map,
+    );
+
     for (t, v) in inputs.target_values.into_iter() {
         witness.set_target(t, v);
     }
@@ -51,7 +59,10 @@ pub(crate) fn generate_partial_witness<F: RichField + Extendable<D>, const D: us
 
             // Merge any generated values into our witness, and get a list of newly-populated
             // targets' representatives.
-            let new_target_reps = witness.extend_returning_parents(buffer.target_values.drain(..));
+            let new_target_reps = buffer
+                .target_values
+                .drain(..)
+                .flat_map(|(t, v)| witness.set_target_returning_parent(t, v));
 
             // Enqueue unfinished generators that were watching one of the newly populated targets.
             for watch in new_target_reps {

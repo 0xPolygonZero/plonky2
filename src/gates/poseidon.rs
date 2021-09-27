@@ -541,7 +541,7 @@ mod tests {
             );
         }
 
-        let witness = generate_partial_witness(inputs, &circuit.prover_only);
+        let witness = generate_partial_witness(inputs, &circuit.prover_only, &circuit.common);
 
         let expected_outputs: [F; WIDTH] = F::poseidon(permutation_inputs.try_into().unwrap());
         for i in 0..WIDTH {

@@ -36,7 +36,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
     let partition_witness = timed!(
         timing,
         &format!("run {} generators", prover_data.generators.len()),
-        generate_partial_witness(inputs, &prover_data)
+        generate_partial_witness(inputs, prover_data, common_data)
     );
 
     let public_inputs = partition_witness.get_targets(&prover_data.public_inputs);

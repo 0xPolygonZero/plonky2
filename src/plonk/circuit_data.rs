@@ -13,7 +13,7 @@ use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;
-use crate::iop::witness::{PartialWitness, PartitionWitness};
+use crate::iop::witness::PartialWitness;
 use crate::plonk::proof::ProofWithPublicInputs;
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
@@ -156,8 +156,9 @@ pub(crate) struct ProverOnlyCircuitData<F: RichField + Extendable<D>, const D: u
     pub public_inputs: Vec<Target>,
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
     pub marked_targets: Vec<MarkedTargets<D>>,
-    /// Partial witness holding the copy constraints information.
-    pub partition_witness: PartitionWitness<F>,
+    /// A map from each `Target`'s index to the index of its representative in the disjoint-set
+    /// forest.
+    pub representative_map: Vec<usize>,
     /// Pre-computed roots for faster FFT.
     pub fft_root_table: Option<FftRootTable<F>>,
 }
@@ -187,6 +188,8 @@ pub struct CommonCircuitData<F: RichField + Extendable<D>, const D: usize> {
 
     /// The number of constant wires.
     pub(crate) num_constants: usize,
+
+    pub(crate) num_virtual_targets: usize,
 
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
     pub(crate) k_is: Vec<F>,
