@@ -91,6 +91,8 @@ impl<F: Field> PartitionWitness<F> {
 
     pub fn wire_partition(&mut self) -> WirePartition {
         let mut partition = HashMap::<_, Vec<_>>::new();
+
+        // Here we keep just the Wire targets, filtering out everything else.
         for gate in 0..self.degree {
             for input in 0..self.num_routed_wires {
                 let w = Wire { gate, input };
@@ -100,9 +102,7 @@ impl<F: Field> PartitionWitness<F> {
             }
         }
 
-        // Here we keep just the Wire targets, filtering out everything else.
         let partition = partition.into_values().collect();
-
         WirePartition { partition }
     }
 }
