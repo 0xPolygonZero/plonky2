@@ -103,7 +103,7 @@ where
         let swap = vars.local_wires[Self::WIRE_SWAP];
         constraints.push(swap * (swap - F::Extension::ONE));
 
-        let mut state = Vec::with_capacity(12);
+        let mut state = Vec::with_capacity(WIDTH);
         for i in 0..4 {
             let a = vars.local_wires[i];
             let b = vars.local_wires[i + 4];
@@ -114,7 +114,7 @@ where
             let b = vars.local_wires[i];
             state.push(a + swap * (b - a));
         }
-        for i in 8..12 {
+        for i in 8..WIDTH {
             state.push(vars.local_wires[i]);
         }
 
@@ -182,7 +182,7 @@ where
         let swap = vars.local_wires[Self::WIRE_SWAP];
         constraints.push(swap * (swap - F::ONE));
 
-        let mut state = Vec::with_capacity(12);
+        let mut state = Vec::with_capacity(WIDTH);
         for i in 0..4 {
             let a = vars.local_wires[i];
             let b = vars.local_wires[i + 4];
@@ -193,7 +193,7 @@ where
             let b = vars.local_wires[i];
             state.push(a + swap * (b - a));
         }
-        for i in 8..12 {
+        for i in 8..WIDTH {
             state.push(vars.local_wires[i]);
         }
 
@@ -265,7 +265,7 @@ where
         let swap = vars.local_wires[Self::WIRE_SWAP];
         constraints.push(builder.mul_sub_extension(swap, swap, swap));
 
-        let mut state = Vec::with_capacity(12);
+        let mut state = Vec::with_capacity(WIDTH);
         for i in 0..4 {
             let a = vars.local_wires[i];
             let b = vars.local_wires[i + 4];
@@ -278,7 +278,7 @@ where
             let delta = builder.sub_extension(b, a);
             state.push(builder.mul_add_extension(swap, delta, a));
         }
-        for i in 8..12 {
+        for i in 8..WIDTH {
             state.push(vars.local_wires[i]);
         }
 
@@ -498,6 +498,7 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::poseidon::PoseidonGate;
+    use crate::hash::hashing::SPONGE_WIDTH;
     use crate::hash::poseidon::Poseidon;
     use crate::iop::generator::generate_partial_witness;
     use crate::iop::wire::Wire;
@@ -555,16 +556,14 @@ mod tests {
     #[test]
     fn low_degree() {
         type F = CrandallField;
-        const WIDTH: usize = 12;
-        let gate = PoseidonGate::<F, 4, WIDTH>::new();
+        let gate = PoseidonGate::<F, 4, SPONGE_WIDTH>::new();
         test_low_degree(gate)
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
         type F = CrandallField;
-        const WIDTH: usize = 12;
-        let gate = PoseidonGate::<F, 4, WIDTH>::new();
+        let gate = PoseidonGate::<F, 4, SPONGE_WIDTH>::new();
         test_eval_fns(gate)
     }
 }
