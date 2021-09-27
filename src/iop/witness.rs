@@ -190,7 +190,7 @@ impl<F: Field> Witness<F> for PartialWitness<F> {
 /// The value of a target is defined to be the value of its root in the forest.
 #[derive(Clone)]
 pub struct PartitionWitness<F: Field> {
-    pub forest: Vec<ForestNode<Target, F>>,
+    pub forest: Vec<ForestNode<F>>,
     pub num_wires: usize,
     pub num_routed_wires: usize,
     pub degree: usize,

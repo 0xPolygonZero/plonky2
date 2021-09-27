@@ -484,6 +484,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             partition_witness.merge(a, b);
         }
 
+        partition_witness.compress_paths();
+
         let wire_partition = partition_witness.wire_partition();
         (
             wire_partition.get_sigma_polys(degree_log, k_is, subgroup),
