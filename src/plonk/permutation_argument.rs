@@ -11,8 +11,7 @@ use crate::polynomial::polynomial::PolynomialValues;
 
 /// Node in the Disjoint Set Forest.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ForestNode<T: Debug + Copy + Eq + PartialEq, V: Field> {
-    pub t: T,
+pub struct ForestNode<V: Field> {
     pub parent: usize,
     pub size: usize,
     pub index: usize,
@@ -40,7 +39,6 @@ impl<F: Field> PartitionWitness<F> {
         let index = self.forest.len();
         debug_assert_eq!(self.target_index(t), index);
         self.forest.push(ForestNode {
-            t,
             parent: index,
             size: 1,
             index,
@@ -49,7 +47,7 @@ impl<F: Field> PartitionWitness<F> {
     }
 
     /// Path compression method, see https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives.
-    pub fn find(&mut self, x: ForestNode<Target, F>) -> ForestNode<Target, F> {
+    pub fn find(&mut self, x: ForestNode<F>) -> ForestNode<F> {
         if x.parent != x.index {
             let root = self.find(self.forest[x.parent]);
             self.forest[x.index].parent = root.index;
@@ -98,10 +96,7 @@ impl<F: Field> PartitionWitness<F> {
                 let w = Wire { gate, input };
                 let t = Target::Wire(w);
                 let x = self.forest[self.target_index(t)];
-                partition
-                    .entry(self.forest[x.parent].t)
-                    .or_default()
-                    .push(w);
+                partition.entry(x.parent).or_default().push(w);
             }
         }
 
