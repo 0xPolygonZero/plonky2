@@ -98,7 +98,10 @@ impl<F: Field> PartitionWitness<F> {
                 let w = Wire { gate, input };
                 let t = Target::Wire(w);
                 let x = self.forest[self.target_index(t)];
-                partition.entry(self.forest[x.parent].t).or_default().push(w);
+                partition
+                    .entry(self.forest[x.parent].t)
+                    .or_default()
+                    .push(w);
             }
         }
 
