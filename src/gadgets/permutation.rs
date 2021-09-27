@@ -397,7 +397,7 @@ mod tests {
         type F = CrandallField;
         const D: usize = 4;
 
-        let config = CircuitConfig::large_zk_config();
+        let config = CircuitConfig::large_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -422,7 +422,7 @@ mod tests {
         type F = CrandallField;
         const D: usize = 4;
 
-        let config = CircuitConfig::large_zk_config();
+        let config = CircuitConfig::large_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -451,7 +451,7 @@ mod tests {
         type F = CrandallField;
         const D: usize = 4;
 
-        let config = CircuitConfig::large_zk_config();
+        let config = CircuitConfig::large_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
