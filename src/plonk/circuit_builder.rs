@@ -605,7 +605,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let (sigma_vecs, forest) = self.sigma_vecs(&k_is, &subgroup);
-        let representative_map: Vec<usize> = forest.nodes.iter().map(|e| e.parent).collect();
+        let representative_map: Vec<usize> = forest.parents.clone();
 
         // Precompute FFT roots.
         let max_fft_points =

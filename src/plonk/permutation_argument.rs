@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt::Debug;
 
 use rayon::prelude::*;
 
@@ -8,16 +7,10 @@ use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::polynomial::polynomial::PolynomialValues;
 
-/// Node in the Disjoint Set Forest.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ForestNode {
-    pub parent: usize,
-    pub size: usize,
-}
-
 /// Disjoint Set Forest data-structure following https://en.wikipedia.org/wiki/Disjoint-set_data_structure.
 pub struct Forest {
-    pub(crate) nodes: Vec<ForestNode>,
+    pub(crate) parents: Vec<usize>,
+    node_sizes: Vec<usize>,
     num_wires: usize,
     num_routed_wires: usize,
     degree: usize,
@@ -30,8 +23,10 @@ impl Forest {
         degree: usize,
         num_virtual_targets: usize,
     ) -> Self {
+        let capacity = num_wires * degree + num_virtual_targets;
         Self {
-            nodes: Vec::with_capacity(num_wires * degree + num_virtual_targets),
+            parents: Vec::with_capacity(capacity),
+            node_sizes: Vec::with_capacity(capacity),
             num_wires,
             num_routed_wires,
             degree,
@@ -44,20 +39,18 @@ impl Forest {
 
     /// Add a new partition with a single member.
     pub fn add(&mut self, t: Target) {
-        let index = self.nodes.len();
+        let index = self.node_sizes.len();
         debug_assert_eq!(self.target_index(t), index);
-        self.nodes.push(ForestNode {
-            parent: index,
-            size: 1,
-        });
+        self.parents.push(index);
+        self.node_sizes.push(1);
     }
 
     /// Path compression method, see https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives.
     pub fn find(&mut self, x_index: usize) -> usize {
-        let x = self.nodes[x_index];
-        if x.parent != x_index {
-            let root_index = self.find(x.parent);
-            self.nodes[x_index].parent = root_index;
+        let x_parent = self.parents[x_index];
+        if x_parent != x_index {
+            let root_index = self.find(x_parent);
+            self.parents[x_index] = root_index;
             root_index
         } else {
             x_index
@@ -73,25 +66,22 @@ impl Forest {
             return;
         }
 
-        let mut x = self.nodes[x_index];
-        let mut y = self.nodes[y_index];
+        let mut x_size = self.node_sizes[x_index];
+        let mut y_size = self.node_sizes[y_index];
 
-        if x.size >= y.size {
-            y.parent = x_index;
-            x.size += y.size;
+        if x_size >= y_size {
+            self.parents[y_index] = x_index;
+            self.node_sizes[x_index] += y_size;
         } else {
-            x.parent = y_index;
-            y.size += x.size;
+            self.parents[x_index] = y_index;
+            self.node_sizes[y_index] += x_size;
         }
-
-        self.nodes[x_index] = x;
-        self.nodes[y_index] = y;
     }
 
     /// Compress all paths. After calling this, every `parent` value will point to the node's
     /// representative.
     pub(crate) fn compress_paths(&mut self) {
-        for i in 0..self.nodes.len() {
+        for i in 0..self.node_sizes.len() {
             self.find(i);
         }
     }
@@ -104,8 +94,8 @@ impl Forest {
             for input in 0..self.num_routed_wires {
                 let w = Wire { gate, input };
                 let t = Target::Wire(w);
-                let x = self.nodes[self.target_index(t)];
-                partition.entry(x.parent).or_default().push(w);
+                let x_parent = self.parents[self.target_index(t)];
+                partition.entry(x_parent).or_default().push(w);
             }
         }
 
