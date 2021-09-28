@@ -251,9 +251,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             let mut first_product = one;
             let mut second_product = one;
             for x in 0..chunk_size {
-                let x_F = builder.constant_extension(F::Extension::from_canonical_usize(x));
-                let first_diff = builder.sub_extension(first_chunks[i], x_F);
-                let second_diff = builder.sub_extension(second_chunks[i], x_F);
+                let x_f = builder.constant_extension(F::Extension::from_canonical_usize(x));
+                let first_diff = builder.sub_extension(first_chunks[i], x_f);
+                let second_diff = builder.sub_extension(second_chunks[i], x_f);
                 first_product = builder.mul_extension(first_product, first_diff);
                 second_product = builder.mul_extension(second_product, second_diff);
             }
@@ -287,8 +287,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         // Range check `most_significant_diff` to be less than `chunk_size`.
         let mut product = builder.one_extension();
         for x in 0..chunk_size {
-            let x_F = builder.constant_extension(F::Extension::from_canonical_usize(x));
-            let diff = builder.sub_extension(most_significant_diff, x_F);
+            let x_f = builder.constant_extension(F::Extension::from_canonical_usize(x));
+            let diff = builder.sub_extension(most_significant_diff, x_f);
             product = builder.mul_extension(product, diff);
         }
         constraints.push(product);
