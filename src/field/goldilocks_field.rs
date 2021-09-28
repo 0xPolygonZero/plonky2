@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use crate::field::extension_field::quadratic::QuadraticExtension;
 use crate::field::extension_field::quartic::QuarticExtension;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::field::inversion::try_inverse_u64;
 
 const EPSILON: u64 = (1 << 32) - 1;
@@ -244,6 +244,8 @@ impl Extendable<4> for GoldilocksField {
     const EXT_POWER_OF_TWO_GENERATOR: [Self; 4] =
         [Self(0), Self(0), Self(0), Self(12587610116473453104)];
 }
+
+impl RichField for GoldilocksField {}
 
 /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
 /// field order and `2^64`.
