@@ -459,10 +459,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> (Vec<PolynomialValues<F>>, Forest) {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
-        let mut forest = Forest::new(self.config.num_wires, self.config.num_routed_wires, degree);
+        let config = &self.config;
+        let mut forest = Forest::new(
+            config.num_wires,
+            config.num_routed_wires,
+            degree,
+            self.virtual_target_index,
+        );
 
         for gate in 0..degree {
-            for input in 0..self.config.num_wires {
+            for input in 0..config.num_wires {
                 forest.add(Target::Wire(Wire { gate, input }));
             }
         }

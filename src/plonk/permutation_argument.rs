@@ -24,9 +24,14 @@ pub struct Forest {
 }
 
 impl Forest {
-    pub fn new(num_wires: usize, num_routed_wires: usize, degree: usize) -> Self {
+    pub fn new(
+        num_wires: usize,
+        num_routed_wires: usize,
+        degree: usize,
+        num_virtual_targets: usize,
+    ) -> Self {
         Self {
-            nodes: vec![],
+            nodes: Vec::with_capacity(num_wires * degree + num_virtual_targets),
             num_wires,
             num_routed_wires,
             degree,
