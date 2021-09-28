@@ -128,6 +128,7 @@ mod tests {
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::fri::proof::{
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
     };
@@ -358,7 +359,7 @@ mod tests {
     #[ignore]
     fn test_recursive_verifier() -> Result<()> {
         env_logger::init();
-        type F = CrandallField;
+        type F = GoldilocksField;
         const D: usize = 4;
         let config = CircuitConfig {
             num_wires: 143,
@@ -413,7 +414,7 @@ mod tests {
     #[ignore]
     fn test_recursive_recursive_verifier() -> Result<()> {
         env_logger::init();
-        type F = CrandallField;
+        type F = GoldilocksField;
         const D: usize = 4;
         let config = CircuitConfig {
             num_wires: 143,

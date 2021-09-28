@@ -4,9 +4,6 @@
 //! `poseidon_constants.sage` script in the `mir-protocol/hash-constants`
 //! repository.
 
-#[cfg(any(target_feature = "avx2", target_feature = "neon"))]
-use std::convert::TryInto;
-
 use crate::field::crandall_field::CrandallField;
 use crate::hash::poseidon::{Poseidon, N_PARTIAL_ROUNDS};
 
@@ -152,6 +149,9 @@ impl Poseidon<8> for CrandallField {
     #[cfg(target_feature="avx2")]
     #[inline(always)]
     fn constant_layer(state: &mut [Self; 8], round_ctr: usize) {
+        use std::convert::TryInto;
+        use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
+
         // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
         unsafe { crate::hash::poseidon_avx2::crandall_poseidon_const_avx2::<2>(state,
             ALL_ROUND_CONSTANTS[8 * round_ctr..8 * round_ctr + 8].try_into().unwrap()); }
@@ -160,6 +160,9 @@ impl Poseidon<8> for CrandallField {
     #[cfg(target_feature="neon")]
     #[inline(always)]
     fn constant_layer(state: &mut [Self; 8], round_ctr: usize) {
+        use std::convert::TryInto;
+        use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
+
         // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
         unsafe { crate::hash::poseidon_neon::crandall_poseidon_const_neon::<4>(state,
             ALL_ROUND_CONSTANTS[8 * round_ctr..8 * round_ctr + 8].try_into().unwrap()); }
@@ -391,6 +394,9 @@ impl Poseidon<12> for CrandallField {
     #[cfg(target_feature="avx2")]
     #[inline(always)]
     fn constant_layer(state: &mut [Self; 12], round_ctr: usize) {
+        use std::convert::TryInto;
+        use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
+
         // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
         unsafe { crate::hash::poseidon_avx2::crandall_poseidon_const_avx2::<3>(state,
             ALL_ROUND_CONSTANTS[12 * round_ctr..12 * round_ctr + 12].try_into().unwrap()); }
@@ -399,6 +405,9 @@ impl Poseidon<12> for CrandallField {
     #[cfg(target_feature="neon")]
     #[inline(always)]
     fn constant_layer(state: &mut [Self; 12], round_ctr: usize) {
+        use std::convert::TryInto;
+        use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
+
         // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
         unsafe { crate::hash::poseidon_neon::crandall_poseidon_const_neon::<6>(state,
             ALL_ROUND_CONSTANTS[12 * round_ctr..12 * round_ctr + 12].try_into().unwrap()); }
