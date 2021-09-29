@@ -15,7 +15,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// Number of arithmetic operations performed by an arithmetic gate.
-pub const NUM_U32_ARITHMETIC_OPS: usize = 4;
+pub const NUM_U32_ARITHMETIC_OPS: usize = 3;
 
 /// A gate to perform a basic mul-add on 32-bit values (we assume they are range-checked beforehand).
 #[derive(Debug)]
