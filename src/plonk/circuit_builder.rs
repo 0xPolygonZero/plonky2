@@ -25,12 +25,12 @@ use crate::iop::generator::{
 };
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
-use crate::iop::witness::PartitionWitness;
 use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
 use crate::plonk::copy_constraint::CopyConstraint;
+use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::util::context_tree::ContextTree;
@@ -456,40 +456,37 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn sigma_vecs(
-        &self,
-        k_is: &[F],
-        subgroup: &[F],
-    ) -> (Vec<PolynomialValues<F>>, PartitionWitness<F>) {
+    fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> (Vec<PolynomialValues<F>>, Forest) {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
-        let mut partition_witness = PartitionWitness::new(
-            self.config.num_wires,
-            self.config.num_routed_wires,
+        let config = &self.config;
+        let mut forest = Forest::new(
+            config.num_wires,
+            config.num_routed_wires,
             degree,
             self.virtual_target_index,
         );
 
         for gate in 0..degree {
-            for input in 0..self.config.num_wires {
-                partition_witness.add(Target::Wire(Wire { gate, input }));
+            for input in 0..config.num_wires {
+                forest.add(Target::Wire(Wire { gate, input }));
             }
         }
 
         for index in 0..self.virtual_target_index {
-            partition_witness.add(Target::VirtualTarget { index });
+            forest.add(Target::VirtualTarget { index });
         }
 
         for &CopyConstraint { pair: (a, b), .. } in &self.copy_constraints {
-            partition_witness.merge(a, b);
+            forest.merge(a, b);
         }
 
-        partition_witness.compress_paths();
+        forest.compress_paths();
 
-        let wire_partition = partition_witness.wire_partition();
+        let wire_partition = forest.wire_partition();
         (
             wire_partition.get_sigma_polys(degree_log, k_is, subgroup),
-            partition_witness,
+            forest,
         )
     }
 
@@ -607,7 +604,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let constant_vecs = self.constant_polys(&prefixed_gates, num_constants);
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
-        let (sigma_vecs, partition_witness) = self.sigma_vecs(&k_is, &subgroup);
+        let (sigma_vecs, forest) = self.sigma_vecs(&k_is, &subgroup);
 
         // Precompute FFT roots.
         let max_fft_points =
@@ -633,8 +630,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut generator_indices_by_watches = BTreeMap::new();
         for (i, generator) in self.generators.iter().enumerate() {
             for watch in generator.watch_list() {
-                let watch_index = partition_witness.target_index(watch);
-                let watch_rep_index = partition_witness.forest[watch_index].parent;
+                let watch_index = forest.target_index(watch);
+                let watch_rep_index = forest.parents[watch_index];
                 generator_indices_by_watches
                     .entry(watch_rep_index)
                     .or_insert(vec![])
@@ -654,7 +651,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             subgroup,
             public_inputs: self.public_inputs,
             marked_targets: self.marked_targets,
-            partition_witness,
+            representative_map: forest.parents,
             fft_root_table: Some(fft_root_table),
         };
 
@@ -686,6 +683,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             quotient_degree_factor,
             num_gate_constraints,
             num_constants,
+            num_virtual_targets: self.virtual_target_index,
             k_is,
             num_partial_products,
             circuit_digest,

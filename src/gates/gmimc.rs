@@ -375,7 +375,7 @@ mod tests {
             );
         }
 
-        let witness = generate_partial_witness(inputs, &circuit.prover_only);
+        let witness = generate_partial_witness(inputs, &circuit.prover_only, &circuit.common);
 
         let expected_outputs: [F; WIDTH] =
             F::gmimc_permute_naive(permutation_inputs.try_into().unwrap());

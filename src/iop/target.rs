@@ -30,6 +30,13 @@ impl Target {
     pub fn wires_from_range(gate: usize, range: Range<usize>) -> Vec<Self> {
         range.map(|i| Self::wire(gate, i)).collect()
     }
+
+    pub fn index(&self, num_wires: usize, degree: usize) -> usize {
+        match self {
+            Target::Wire(Wire { gate, input }) => gate * num_wires + input,
+            Target::VirtualTarget { index } => degree * num_wires + index,
+        }
+    }
 }
 
 /// A `Target` which has already been constrained such that it can only be 0 or 1.
