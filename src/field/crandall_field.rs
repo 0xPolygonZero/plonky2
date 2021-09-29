@@ -263,25 +263,30 @@ impl Field for CrandallField {
 
     #[allow(clippy::many_single_char_names)]
     fn try_inverse(&self) -> Option<Self> {
-        let mut f = self.0 as u128;
-        let mut g = FIELD_ORDER as u128;
+        let mut f = self.0;
+        let mut g = FIELD_ORDER;
         let mut c = 1i64 as i128;
         let mut d = 0i64 as i128;
+
+        // normal invariants:
+        // - f = c*y (mod p)
+        // - g = d*y (mod p)
+
+        if f == 0 {
+            return None;
+        } else if f == 1 {
+            return Some(*self);
+        }
 
         let mut k = f.trailing_zeros();
 
         if k > 0 {
-            f = f.wrapping_shr(k); // lame; f >>= k;
-
-            //d = d << k; // Can't see why this is included in the source code
+            f >>= k;
         }
 
         loop {
-            // loop invariant: f odd and ???? f*c + g*d = 1
             if f == 1 {
                 break;
-            } else if f == 0 {
-                return None;
             }
 
             if f < g {
@@ -289,23 +294,28 @@ impl Field for CrandallField {
                 (c, d) = (d, c);
             }
 
+            let mut cy = false;
             if f & 3 == g & 3 {
                 // f = g (mod 4)
                 f -= g;
                 c -= d;
             } else {
-                f += g;
+                (f, cy) = f.overflowing_add(g);
+                //f += g
                 c += d;
             }
 
             let kk = f.trailing_zeros();
-            f = f.wrapping_shr(kk); // lame f >>= kk;
+            f >>= kk;
+            if cy {
+                f |= 1u64 << (64 - kk);
+            }
             d <<= kk;
             k += kk;
         }
 
         while c < 0 {
-            c = c + FIELD_ORDER as i128;
+            c += FIELD_ORDER as i128;
         }
 
         //assert!(k >= 128 && k <= 256);
