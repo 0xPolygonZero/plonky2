@@ -5,6 +5,7 @@ use rayon::prelude::*;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
+use crate::fri::proof::FriProof;
 use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::challenger::Challenger;
@@ -202,7 +203,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
         plonk_zs_partial_products_cap: zs_partial_products_commitment.merkle_tree.cap,
         quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
         openings,
-        opening_proof,
+        opening_proof: FriProof::Decompressed(opening_proof),
     };
     Ok(ProofWithPublicInputs {
         proof,

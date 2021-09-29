@@ -2,7 +2,7 @@ use rayon::prelude::*;
 
 use crate::field::extension_field::{flatten, unflatten, Extendable};
 use crate::field::field_types::RichField;
-use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
+use crate::fri::proof::{DecompressedFriProof, FriInitialTreeProof, FriQueryRound, FriQueryStep};
 use crate::fri::FriConfig;
 use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_1;
@@ -25,7 +25,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, const D: usize>(
     challenger: &mut Challenger<F>,
     config: &CircuitConfig,
     timing: &mut TimingTree,
-) -> FriProof<F, D> {
+) -> DecompressedFriProof<F, D> {
     let n = lde_polynomial_values.values.len();
     assert_eq!(lde_polynomial_coeffs.coeffs.len(), n);
 
@@ -58,12 +58,11 @@ pub fn fri_proof<F: RichField + Extendable<D>, const D: usize>(
         &config.fri_config,
     );
 
-    FriProof {
+    DecompressedFriProof {
         commit_phase_merkle_caps: trees.iter().map(|t| t.cap.clone()).collect(),
         query_round_proofs,
         final_poly: final_coeffs,
         pow_witness,
-        is_compressed: false,
     }
 }
 

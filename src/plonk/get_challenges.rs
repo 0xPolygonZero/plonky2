@@ -1,5 +1,6 @@
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
+use crate::fri::proof::FriProof;
 use crate::hash::hashing::hash_n_to_1;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
@@ -44,18 +45,24 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
         let fri_alpha = challenger.get_extension_challenge();
 
         // Recover the random betas used in the FRI reductions.
-        let fri_betas = self
-            .proof
-            .opening_proof
-            .commit_phase_merkle_caps
-            .iter()
-            .map(|cap| {
-                challenger.observe_cap(cap);
-                challenger.get_extension_challenge()
-            })
-            .collect();
+        let fri_betas = match &self.proof.opening_proof {
+            FriProof::Decompressed(p) => &p.commit_phase_merkle_caps,
+            FriProof::Compressed(p) => &p.commit_phase_merkle_caps,
+        }
+        .iter()
+        .map(|cap| {
+            challenger.observe_cap(cap);
+            challenger.get_extension_challenge()
+        })
+        .collect();
 
-        challenger.observe_extension_elements(&self.proof.opening_proof.final_poly.coeffs);
+        challenger.observe_extension_elements(
+            &match &self.proof.opening_proof {
+                FriProof::Decompressed(p) => &p.final_poly,
+                FriProof::Compressed(p) => &p.final_poly,
+            }
+            .coeffs,
+        );
 
         let fri_pow_response = hash_n_to_1(
             challenger
@@ -63,7 +70,10 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
                 .elements
                 .iter()
                 .copied()
-                .chain(Some(self.proof.opening_proof.pow_witness))
+                .chain(Some(match &self.proof.opening_proof {
+                    FriProof::Decompressed(p) => p.pow_witness,
+                    FriProof::Compressed(p) => p.pow_witness,
+                }))
                 .collect(),
             false,
         );

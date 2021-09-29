@@ -2,10 +2,11 @@ use anyhow::{ensure, Result};
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
+use crate::fri::proof::FriProof;
 use crate::fri::verifier::verify_fri_proof;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::plonk::plonk_common::reduce_with_powers;
-use crate::plonk::proof::ProofWithPublicInputs;
+use crate::plonk::proof::{Proof, ProofWithPublicInputs};
 use crate::plonk::vanishing_poly::eval_vanishing_poly;
 use crate::plonk::vars::EvaluationVars;
 
@@ -76,11 +77,20 @@ pub(crate) fn verify<F: RichField + Extendable<D>, const D: usize>(
         proof.quotient_polys_cap,
     ];
 
+    let Proof {
+        openings,
+        opening_proof,
+        ..
+    } = proof;
+    let opening_proof = match opening_proof {
+        FriProof::Decompressed(p) => p,
+        FriProof::Compressed(p) => p.decompress(&challenges.fri_query_indices, common_data),
+    };
     verify_fri_proof(
-        &proof.openings,
+        &openings,
         &challenges,
         merkle_caps,
-        &proof.opening_proof,
+        &opening_proof,
         common_data,
     )?;
 

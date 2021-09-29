@@ -5,7 +5,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
-use crate::fri::proof::{FriProof, FriProofTarget};
+use crate::fri::proof::{DecompressedFriProof, FriProof, FriProofTarget};
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
 use crate::hash::merkle_tree::MerkleCap;
@@ -38,18 +38,24 @@ pub struct ProofTarget<const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> Proof<F, D> {
     /// Returns `true` iff the opening proof is compressed.
     pub fn is_compressed(&self) -> bool {
-        self.opening_proof.is_compressed
+        todo!()
     }
 
     /// Compress the opening proof.
     pub fn compress(mut self, indices: &[usize], common_data: &CommonCircuitData<F, D>) -> Self {
-        self.opening_proof = self.opening_proof.compress(&indices, common_data);
+        self.opening_proof = FriProof::Compressed(match self.opening_proof {
+            FriProof::Decompressed(p) => p.compress(indices, common_data, true),
+            FriProof::Compressed(p) => p,
+        });
         self
     }
 
     /// Decompress the opening proof.
     pub fn decompress(mut self, indices: &[usize], common_data: &CommonCircuitData<F, D>) -> Self {
-        self.opening_proof = self.opening_proof.decompress(&indices, common_data);
+        self.opening_proof = FriProof::Decompressed(match self.opening_proof {
+            FriProof::Decompressed(p) => p,
+            FriProof::Compressed(p) => p.decompress(indices, common_data),
+        });
         self
     }
 }
@@ -64,7 +70,7 @@ pub struct ProofWithPublicInputs<F: RichField + Extendable<D>, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
     /// Returns `true` iff the opening proof is compressed.
     pub fn is_compressed(&self) -> bool {
-        self.proof.is_compressed()
+        todo!()
     }
 
     /// Compress the opening proof.
