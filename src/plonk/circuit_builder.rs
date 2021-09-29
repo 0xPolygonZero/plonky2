@@ -605,7 +605,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let (sigma_vecs, forest) = self.sigma_vecs(&k_is, &subgroup);
-        let representative_map: Vec<usize> = forest.nodes.iter().map(|e| e.parent).collect();
 
         // Precompute FFT roots.
         let max_fft_points =
@@ -632,7 +631,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         for (i, generator) in self.generators.iter().enumerate() {
             for watch in generator.watch_list() {
                 let watch_index = forest.target_index(watch);
-                let watch_rep_index = representative_map[watch_index];
+                let watch_rep_index = forest.parents[watch_index];
                 generator_indices_by_watches
                     .entry(watch_rep_index)
                     .or_insert(vec![])
@@ -652,7 +651,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             subgroup,
             public_inputs: self.public_inputs,
             marked_targets: self.marked_targets,
-            representative_map,
+            representative_map: forest.parents,
             fft_root_table: Some(fft_root_table),
         };
 
