@@ -265,6 +265,9 @@ impl Field for CrandallField {
     fn try_inverse(&self) -> Option<Self> {
         let mut f = self.0;
         let mut g = FIELD_ORDER;
+        // These two are very rarely such that their absolute value
+        // exceeds (p-1)/2; paying the price of i128 for the whole
+        // calculation, just for the times they do though.
         let mut c = 1i64 as i128;
         let mut d = 0i64 as i128;
 
@@ -300,8 +303,12 @@ impl Field for CrandallField {
                 f -= g;
                 c -= d;
             } else {
-                (f, cy) = f.overflowing_add(g);
+                // NB: This addition overflows (requiring the
+                // adjustment in the 'if cy' statement below) only
+                // rarely, and even then only in the first or second
+                // iteration.
                 //f += g
+                (f, cy) = f.overflowing_add(g);
                 c += d;
             }
 
