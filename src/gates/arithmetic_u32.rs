@@ -1,8 +1,11 @@
 use std::marker::PhantomData;
 
+use itertools::unfold;
+
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
+use crate::field::field_types::{Field, RichField};
+use crate::gates::arithmetic::NUM_ARITHMETIC_OPS;
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -12,13 +15,15 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// Number of arithmetic operations performed by an arithmetic gate.
-pub const NUM_U32_ARITHMETIC_OPS: usize = 12;
+pub const NUM_U32_ARITHMETIC_OPS: usize = 4;
 
 /// A gate to perform a basic mul-add on 32-bit values (we assume they are range-checked beforehand).
 #[derive(Debug)]
-pub struct U32ArithmeticGate;
+pub struct U32ArithmeticGate<F: RichField + Extendable<D>, const D: usize> {
+    _phantom: PhantomData<F>,
+}
 
-impl U32ArithmeticGate {
+impl<F: RichField + Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
     pub fn wire_ith_multiplicand_0(i: usize) -> usize {
         5 * i
     }
@@ -28,21 +33,34 @@ impl U32ArithmeticGate {
     pub fn wire_ith_addend(i: usize) -> usize {
         5 * i + 2
     }
-    pub fn wire_ith_output_small_limb(i: usize) -> usize {
+
+    pub fn wire_ith_output_low_half(i: usize) -> usize {
         5 * i + 3
     }
-    pub fn wire_ith_output_large_limb(i: usize) -> usize {
+    pub fn wire_ith_output_high_half(i: usize) -> usize {
         5 * i + 4
+    }
+
+    pub fn limb_bits() -> usize {
+        2
+    }
+    pub fn num_limbs() -> usize {
+        64 / Self::limb_bits()
+    }
+
+    pub fn wire_ith_output_jth_limb(i: usize, j: usize) -> usize {
+        debug_assert!(j < Self::num_limbs());
+        5 * NUM_ARITHMETIC_OPS + Self::num_limbs() * i + j
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticGate {
+impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
         for i in 0..NUM_U32_ARITHMETIC_OPS {
             let multiplicand_0 = vars.local_wires[Self::wire_ith_multiplicand_0(i)];
             let multiplicand_1 = vars.local_wires[Self::wire_ith_multiplicand_1(i)];
@@ -50,20 +68,37 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
 
             let computed_output = multiplicand_0 * multiplicand_1 + addend;
 
-            let output_small = vars.local_wires[Self::wire_ith_output_small_limb(i)];
-            let output_large = vars.local_wires[Self::wire_ith_output_large_limb(i)];
+            let output_low = vars.local_wires[Self::wire_ith_output_low_half(i)];
+            let output_high = vars.local_wires[Self::wire_ith_output_high_half(i)];
 
-            let base: F::Extension = F::from_canonical_u64(1 << 32u64).into();
-            let combined_output = output_large * base + output_small;
+            let base = F::Extension::from_canonical_u64(1 << 32u64);
+            let combined_output = output_high * base + output_low;
 
             constraints.push(combined_output - computed_output);
+
+            let mut combined_limbs = F::Extension::ZERO;
+            for j in 0..Self::num_limbs() {
+                let this_limb = vars.local_wires[Self::wire_ith_output_jth_limb(i, j)];
+                let max_limb = 1 << Self::limb_bits();
+                let product = (0..max_limb)
+                    .map(|x| this_limb - F::Extension::from_canonical_usize(x))
+                    .product();
+                constraints.push(product);
+
+                let base = F::Extension::from_canonical_u64(1u64 << (j * Self::limb_bits()));
+                combined_limbs += base * this_limb;
+            }
+
+            let combined_halves =
+                output_low + F::Extension::from_canonical_u64(1 << 32u64) * output_high;
+            constraints.push(combined_limbs - combined_halves);
         }
 
         constraints
     }
 
     fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
         for i in 0..NUM_U32_ARITHMETIC_OPS {
             let multiplicand_0 = vars.local_wires[Self::wire_ith_multiplicand_0(i)];
             let multiplicand_1 = vars.local_wires[Self::wire_ith_multiplicand_1(i)];
@@ -71,13 +106,29 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
 
             let computed_output = multiplicand_0 * multiplicand_1 + addend;
 
-            let output_small = vars.local_wires[Self::wire_ith_output_small_limb(i)];
-            let output_large = vars.local_wires[Self::wire_ith_output_large_limb(i)];
+            let output_low = vars.local_wires[Self::wire_ith_output_low_half(i)];
+            let output_high = vars.local_wires[Self::wire_ith_output_high_half(i)];
 
             let base = F::from_canonical_u64(1 << 32u64);
-            let combined_output = output_large * base + output_small;
+            let combined_output = output_high * base + output_low;
 
             constraints.push(combined_output - computed_output);
+
+            let mut combined_limbs = F::ZERO;
+            for j in 0..Self::num_limbs() {
+                let this_limb = vars.local_wires[Self::wire_ith_output_jth_limb(i, j)];
+                let max_limb = 1 << Self::limb_bits();
+                let product = (0..max_limb)
+                    .map(|x| this_limb - F::from_canonical_usize(x))
+                    .product();
+                constraints.push(product);
+
+                let base = F::from_canonical_u64(1u64 << (j * Self::limb_bits()));
+                combined_limbs += base * this_limb;
+            }
+
+            let combined_halves = output_low + F::from_canonical_u64(1 << 32u64) * output_high;
+            constraints.push(combined_limbs - combined_halves);
         }
 
         constraints
@@ -88,7 +139,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_constraints());
 
         for i in 0..NUM_U32_ARITHMETIC_OPS {
             let multiplicand_0 = vars.local_wires[Self::wire_ith_multiplicand_0(i)];
@@ -97,15 +148,39 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
 
             let computed_output = builder.mul_add_extension(multiplicand_0, multiplicand_1, addend);
 
-            let output_small = vars.local_wires[Self::wire_ith_output_small_limb(i)];
-            let output_large = vars.local_wires[Self::wire_ith_output_large_limb(i)];
+            let output_low = vars.local_wires[Self::wire_ith_output_low_half(i)];
+            let output_high = vars.local_wires[Self::wire_ith_output_high_half(i)];
 
             let base: F::Extension = F::from_canonical_u64(1 << 32u64).into();
             let base_target = builder.constant_extension(base);
-            let combined_output =
-                builder.mul_add_extension(output_large, base_target, output_small);
+            let combined_output = builder.mul_add_extension(output_high, base_target, output_low);
 
             constraints.push(builder.sub_extension(combined_output, computed_output));
+
+            let mut combined_limbs = builder.zero_extension();
+            for j in 0..Self::num_limbs() {
+                let this_limb = vars.local_wires[Self::wire_ith_output_jth_limb(i, j)];
+                let max_limb = 1 << Self::limb_bits();
+
+                let mut product = builder.one_extension();
+                for x in 0..max_limb {
+                    let x_target =
+                        builder.constant_extension(F::Extension::from_canonical_usize(x));
+                    let diff = builder.sub_extension(this_limb, x_target);
+                    product = builder.mul_extension(product, diff);
+                }
+                constraints.push(product);
+
+                let base = builder.constant_extension(F::Extension::from_canonical_u64(
+                    1u64 << (j * Self::limb_bits()),
+                ));
+                combined_limbs = builder.mul_add_extension(base, this_limb, combined_limbs);
+            }
+
+            let high_base =
+                builder.constant_extension(F::Extension::from_canonical_u64(1 << 32u64));
+            let combined_halves = builder.mul_add_extension(output_high, high_base, output_low);
+            constraints.push(builder.sub_extension(combined_limbs, combined_halves));
         }
 
         constraints
@@ -132,7 +207,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
     }
 
     fn num_wires(&self) -> usize {
-        NUM_U32_ARITHMETIC_OPS * 5
+        NUM_U32_ARITHMETIC_OPS * (5 + Self::num_limbs())
     }
 
     fn num_constants(&self) -> usize {
@@ -140,11 +215,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
     }
 
     fn degree(&self) -> usize {
-        2
+        1 << Self::limb_bits()
     }
 
     fn num_constraints(&self) -> usize {
-        NUM_U32_ARITHMETIC_OPS
+        NUM_U32_ARITHMETIC_OPS * (2 + Self::num_limbs())
     }
 }
 
@@ -161,14 +236,16 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
-        let mut deps = Vec::new();
-        deps.push(local_target(U32ArithmeticGate::wire_ith_multiplicand_0(
+        let mut deps = Vec::with_capacity(3);
+        deps.push(local_target(
+            U32ArithmeticGate::<F, D>::wire_ith_multiplicand_0(self.i),
+        ));
+        deps.push(local_target(
+            U32ArithmeticGate::<F, D>::wire_ith_multiplicand_1(self.i),
+        ));
+        deps.push(local_target(U32ArithmeticGate::<F, D>::wire_ith_addend(
             self.i,
         )));
-        deps.push(local_target(U32ArithmeticGate::wire_ith_multiplicand_1(
-            self.i,
-        )));
-        deps.push(local_target(U32ArithmeticGate::wire_ith_addend(self.i)));
         deps
     }
 
@@ -180,29 +257,58 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         let get_local_wire = |input| witness.get_wire(local_wire(input));
 
-        let multiplicand_0 = get_local_wire(U32ArithmeticGate::wire_ith_multiplicand_0(self.i));
-        let multiplicand_1 = get_local_wire(U32ArithmeticGate::wire_ith_multiplicand_1(self.i));
-        let addend = get_local_wire(U32ArithmeticGate::wire_ith_addend(self.i));
+        let multiplicand_0 =
+            get_local_wire(U32ArithmeticGate::<F, D>::wire_ith_multiplicand_0(self.i));
+        let multiplicand_1 =
+            get_local_wire(U32ArithmeticGate::<F, D>::wire_ith_multiplicand_1(self.i));
+        let addend = get_local_wire(U32ArithmeticGate::<F, D>::wire_ith_addend(self.i));
 
         let output = multiplicand_0 * multiplicand_1 + addend;
-        let output_u64 = output.to_canonical_u64();
+        let mut output_u64 = output.to_canonical_u64();
 
-        let output_large_u64 = output_u64 >> 32;
-        let output_small_u64 = output_u64 & (1 << 32 - 1);
+        let output_high_u64 = output_u64 >> 32;
+        let output_low_u64 = output_u64 & ((1 << 32) - 1);
 
-        let output_large = F::from_canonical_u64(output_large_u64);
-        let output_small = F::from_canonical_u64(output_small_u64);
+        let output_high = F::from_canonical_u64(output_high_u64);
+        let output_low = F::from_canonical_u64(output_low_u64);
 
-        let output_large_wire = local_wire(U32ArithmeticGate::wire_ith_output_large_limb(self.i));
-        let output_small_wire = local_wire(U32ArithmeticGate::wire_ith_output_small_limb(self.i));
+        let output_high_wire =
+            local_wire(U32ArithmeticGate::<F, D>::wire_ith_output_high_half(self.i));
+        let output_low_wire =
+            local_wire(U32ArithmeticGate::<F, D>::wire_ith_output_low_half(self.i));
 
-        out_buffer.set_wire(output_large_wire, output_large);
-        out_buffer.set_wire(output_small_wire, output_small);
+        out_buffer.set_wire(output_high_wire, output_high);
+        out_buffer.set_wire(output_low_wire, output_low);
+
+        let limb_base = 1 << U32ArithmeticGate::<F, D>::limb_bits();
+        let output_limbs_u64: Vec<_> = unfold((), move |_| {
+            if output_u64 == 0 {
+                return None;
+            }
+            let ret = output_u64 % limb_base;
+            output_u64 /= limb_base;
+            Some(ret)
+        })
+        .collect();
+        let output_limbs_F: Vec<_> = output_limbs_u64
+            .iter()
+            .cloned()
+            .map(F::from_canonical_u64)
+            .collect();
+
+        for j in 0..U32ArithmeticGate::<F, D>::num_limbs() {
+            let wire = local_wire(U32ArithmeticGate::<F, D>::wire_ith_output_jth_limb(
+                self.i, j,
+            ));
+            out_buffer.set_wire(wire, output_limbs_F[j]);
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::marker::PhantomData;
+
     use anyhow::Result;
 
     use crate::field::crandall_field::CrandallField;
@@ -211,10 +317,14 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(U32ArithmeticGate)
+        test_low_degree::<CrandallField, _, 4>(U32ArithmeticGate::<CrandallField, 4> {
+            _phantom: PhantomData,
+        })
     }
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(U32ArithmeticGate)
+        test_eval_fns::<CrandallField, _, 4>(U32ArithmeticGate::<CrandallField, 4> {
+            _phantom: PhantomData,
+        })
     }
 }
