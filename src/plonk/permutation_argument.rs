@@ -76,6 +76,7 @@ impl Forest {
         }
     }
 
+    /// Assumes `compress_paths` has already been called.
     pub fn wire_partition(&mut self) -> WirePartition {
         let mut partition = HashMap::<_, Vec<_>>::new();
 

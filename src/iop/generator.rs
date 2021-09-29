@@ -62,7 +62,7 @@ pub(crate) fn generate_partial_witness<'a, F: RichField + Extendable<D>, const D
             let new_target_reps = buffer
                 .target_values
                 .drain(..)
-                .flat_map(|(t, v)| witness.set_target_returning_parent(t, v));
+                .flat_map(|(t, v)| witness.set_target_returning_rep(t, v));
 
             // Enqueue unfinished generators that were watching one of the newly populated targets.
             for watch in new_target_reps {

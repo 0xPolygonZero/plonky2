@@ -212,14 +212,10 @@ impl<'a, F: Field> PartitionWitness<'a, F> {
 
     /// Set a `Target`. On success, returns the representative index of the newly-set target. If the
     /// target was already set, returns `None`.
-    pub(crate) fn set_target_returning_parent(
-        &mut self,
-        target: Target,
-        value: F,
-    ) -> Option<usize> {
-        let parent_index = self.representative_map[self.target_index(target)];
-        let parent_value = &mut self.values[parent_index];
-        if let Some(old_value) = *parent_value {
+    pub(crate) fn set_target_returning_rep(&mut self, target: Target, value: F) -> Option<usize> {
+        let rep_index = self.representative_map[self.target_index(target)];
+        let rep_value = &mut self.values[rep_index];
+        if let Some(old_value) = *rep_value {
             assert_eq!(
                 value, old_value,
                 "Partition containing {:?} was set twice with different values",
@@ -227,8 +223,8 @@ impl<'a, F: Field> PartitionWitness<'a, F> {
             );
             None
         } else {
-            *parent_value = Some(value);
-            Some(parent_index)
+            *rep_value = Some(value);
+            Some(rep_index)
         }
     }
 
@@ -253,11 +249,11 @@ impl<'a, F: Field> PartitionWitness<'a, F> {
 
 impl<'a, F: Field> Witness<F> for PartitionWitness<'a, F> {
     fn try_get_target(&self, target: Target) -> Option<F> {
-        let parent_index = self.representative_map[self.target_index(target)];
-        self.values[parent_index]
+        let rep_index = self.representative_map[self.target_index(target)];
+        self.values[rep_index]
     }
 
     fn set_target(&mut self, target: Target, value: F) {
-        self.set_target_returning_parent(target, value);
+        self.set_target_returning_rep(target, value);
     }
 }
