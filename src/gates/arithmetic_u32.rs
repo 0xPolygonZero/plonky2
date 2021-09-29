@@ -5,7 +5,6 @@ use itertools::unfold;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
-use crate::gates::arithmetic::NUM_ARITHMETIC_OPS;
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -25,19 +24,24 @@ pub struct U32ArithmeticGate<F: RichField + Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
     pub fn wire_ith_multiplicand_0(i: usize) -> usize {
+        debug_assert!(i < NUM_U32_ARITHMETIC_OPS);
         5 * i
     }
     pub fn wire_ith_multiplicand_1(i: usize) -> usize {
+        debug_assert!(i < NUM_U32_ARITHMETIC_OPS);
         5 * i + 1
     }
     pub fn wire_ith_addend(i: usize) -> usize {
+        debug_assert!(i < NUM_U32_ARITHMETIC_OPS);
         5 * i + 2
     }
 
     pub fn wire_ith_output_low_half(i: usize) -> usize {
+        debug_assert!(i < NUM_U32_ARITHMETIC_OPS);
         5 * i + 3
     }
     pub fn wire_ith_output_high_half(i: usize) -> usize {
+        debug_assert!(i < NUM_U32_ARITHMETIC_OPS);
         5 * i + 4
     }
 
@@ -49,8 +53,9 @@ impl<F: RichField + Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
     }
 
     pub fn wire_ith_output_jth_limb(i: usize, j: usize) -> usize {
+        debug_assert!(i < NUM_U32_ARITHMETIC_OPS);
         debug_assert!(j < Self::num_limbs());
-        5 * NUM_ARITHMETIC_OPS + Self::num_limbs() * i + j
+        5 * NUM_U32_ARITHMETIC_OPS + Self::num_limbs() * i + j
     }
 }
 
