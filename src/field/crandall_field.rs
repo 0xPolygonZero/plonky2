@@ -287,45 +287,105 @@ impl Field for CrandallField {
             f >>= k;
         }
 
-        loop {
-            if f == 1 {
-                break;
+        if f < g {
+            (f, g) = (g, f);
+            (c, d) = (d, c);
+        }
+
+        let mut cy = false;
+        if f & 3 == g & 3 {
+            // f = g (mod 4)
+            f -= g;
+            c -= d;
+        } else {
+            // NB: This addition overflows (requiring the
+            // adjustment in the 'if cy' statement below) only
+            // rarely, and even then only in the first or second
+            // iteration.
+            //f += g
+            (f, cy) = f.overflowing_add(g);
+            c += d;
+        }
+
+        let kk = f.trailing_zeros();
+        f >>= kk;
+        if cy {
+            f |= 1u64 << (64 - kk);
+        }
+        d <<= kk;
+        k += kk;
+
+        if f == 1 {
+            if c < 0 {
+                c += FIELD_ORDER as i128;
             }
+            return Some(Self(c as u64) * Self(BINARY_INVERSES[k as usize]));
+        }
+
+        if f < g {
+            (f, g) = (g, f);
+            (c, d) = (d, c);
+        }
+
+        let mut cy = false;
+        if f & 3 == g & 3 {
+            // f = g (mod 4)
+            f -= g;
+            c -= d;
+        } else {
+            // NB: This addition overflows (requiring the
+            // adjustment in the 'if cy' statement below) only
+            // rarely, and even then only in the first or second
+            // iteration.
+            //f += g
+            (f, cy) = f.overflowing_add(g);
+            c += d;
+        }
+
+        let kk = f.trailing_zeros();
+        f >>= kk;
+        if cy {
+            f |= 1u64 << (64 - kk);
+        }
+        d <<= kk;
+        k += kk;
+
+        if f == 1 {
+            if c < 0 {
+                c += FIELD_ORDER as i128;
+            }
+            return Some(Self(c as u64) * Self(BINARY_INVERSES[k as usize]));
+        }
+        loop {
 
             if f < g {
                 (f, g) = (g, f);
                 (c, d) = (d, c);
             }
 
-            let mut cy = false;
             if f & 3 == g & 3 {
                 // f = g (mod 4)
                 f -= g;
                 c -= d;
             } else {
-                // NB: This addition overflows (requiring the
-                // adjustment in the 'if cy' statement below) only
-                // rarely, and even then only in the first or second
-                // iteration.
-                //f += g
-                (f, cy) = f.overflowing_add(g);
+                f += g;
                 c += d;
             }
 
             let kk = f.trailing_zeros();
             f >>= kk;
-            if cy {
-                f |= 1u64 << (64 - kk);
-            }
             d <<= kk;
             k += kk;
+
+            if f == 1 {
+                break;
+            }
         }
 
+        // TODO: document maximum number of iterations (it's at least 2)
         while c < 0 {
             c += FIELD_ORDER as i128;
         }
-
-        //assert!(k >= 128 && k <= 256);
 
         Some(Self(c as u64) * Self(BINARY_INVERSES[k as usize]))
     }
