@@ -2,6 +2,7 @@
 #![allow(clippy::new_ret_no_self)]
 
 pub mod arithmetic;
+pub mod arithmetic_u32;
 pub mod base_sum;
 pub mod comparison;
 pub mod constant;
