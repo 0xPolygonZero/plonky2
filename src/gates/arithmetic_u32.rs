@@ -299,15 +299,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         out_buffer.set_wire(output_high_wire, output_high);
         out_buffer.set_wire(output_low_wire, output_low);
 
+        let num_limbs = U32ArithmeticGate::<F, D>::num_limbs();
         let limb_base = 1 << U32ArithmeticGate::<F, D>::limb_bits();
         let output_limbs_u64: Vec<_> = unfold((), move |_| {
-            if output_u64 == 0 {
-                return None;
-            }
             let ret = output_u64 % limb_base;
             output_u64 /= limb_base;
             Some(ret)
         })
+        .take(num_limbs)
         .collect();
         let output_limbs_F: Vec<_> = output_limbs_u64
             .iter()
@@ -315,7 +314,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             .map(F::from_canonical_u64)
             .collect();
 
-        for j in 0..output_limbs_F.len() {
+        for j in 0..num_limbs {
             let wire = local_wire(U32ArithmeticGate::<F, D>::wire_ith_output_jth_limb(
                 self.i, j,
             ));
