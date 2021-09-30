@@ -343,7 +343,7 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
-    use crate::gates::arithmetic_u32::{NUM_U32_ARITHMETIC_OPS, U32ArithmeticGate};
+    use crate::gates::arithmetic_u32::{U32ArithmeticGate, NUM_U32_ARITHMETIC_OPS};
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
@@ -369,7 +369,11 @@ mod tests {
         type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
-        fn get_wires(multiplicands_0: Vec<u64>, multiplicands_1: Vec<u64>, addends: Vec<u64>)  -> Vec<FF> {
+        fn get_wires(
+            multiplicands_0: Vec<u64>,
+            multiplicands_1: Vec<u64>,
+            addends: Vec<u64>,
+        ) -> Vec<FF> {
             let mut v0 = Vec::new();
             let mut v1 = Vec::new();
 
@@ -390,7 +394,11 @@ mod tests {
                     output_limbs.push(output % limb_base);
                     output /= limb_base;
                 }
-                let mut output_limbs_F: Vec<_> = output_limbs.iter().cloned().map(F::from_canonical_u64).collect();
+                let mut output_limbs_F: Vec<_> = output_limbs
+                    .iter()
+                    .cloned()
+                    .map(F::from_canonical_u64)
+                    .collect();
 
                 v0.push(F::from_canonical_u64(m0));
                 v0.push(F::from_canonical_u64(m1));
@@ -400,13 +408,22 @@ mod tests {
                 v1.append(&mut output_limbs_F);
             }
 
-            v0.iter().chain(v1.iter()).map(|&x| x.into()).collect::<Vec<_>>()
+            v0.iter()
+                .chain(v1.iter())
+                .map(|&x| x.into())
+                .collect::<Vec<_>>()
         }
 
         let mut rng = rand::thread_rng();
-        let multiplicands_0: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS).map(|_| rng.gen::<u32>() as u64).collect();
-        let multiplicands_1: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS).map(|_| rng.gen::<u32>() as u64).collect();
-        let addends: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS).map(|_| rng.gen::<u32>() as u64).collect();
+        let multiplicands_0: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS)
+            .map(|_| rng.gen::<u32>() as u64)
+            .collect();
+        let multiplicands_1: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS)
+            .map(|_| rng.gen::<u32>() as u64)
+            .collect();
+        let addends: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS)
+            .map(|_| rng.gen::<u32>() as u64)
+            .collect();
 
         let gate = U32ArithmeticGate::<F, D> {
             _phantom: PhantomData,
