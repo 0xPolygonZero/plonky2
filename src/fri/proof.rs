@@ -187,7 +187,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
         };
 
         // Replace the query round proofs with the compressed versions.
-        for (i, (mut index, qrp)) in indices.iter().cloned().zip(&query_round_proofs).enumerate() {
+        for (i, mut index) in indices.iter().copied().enumerate() {
             let initial_proof = FriInitialTreeProof {
                 evals_proofs: (0..num_initial_trees)
                     .map(|j| {
@@ -285,7 +285,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
             &initial_trees_indices,
             initial_trees_proofs
         )
-        .map(|(ls, is, ps)| decompress_merkle_proofs(&ls, is, &ps, height, cap_height))
+        .map(|(ls, is, ps)| decompress_merkle_proofs(ls, is, &ps, height, cap_height))
         .collect::<Vec<_>>();
         let steps_proofs = izip!(&steps_evals, &steps_indices, steps_proofs, heights)
             .map(|(ls, is, ps, h)| decompress_merkle_proofs(ls, is, &ps, h, cap_height))

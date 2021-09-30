@@ -69,7 +69,7 @@ pub struct ProofWithPublicInputs<F: RichField + Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
     pub fn compress(
-        mut self,
+        self,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<CompressedProofWithPublicInputs<F, D>> {
         let indices = self.fri_query_indices(common_data)?;
@@ -134,7 +134,7 @@ pub struct CompressedProofWithPublicInputs<F: RichField + Extendable<D>, const D
 
 impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInputs<F, D> {
     pub fn decompress(
-        mut self,
+        self,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, D>> {
         let indices = self.fri_query_indices(common_data)?;
@@ -271,7 +271,7 @@ mod tests {
 
         // Verify that `decompress ∘ compress = identity`.
         let compressed_proof = proof.clone().compress(&data.common)?;
-        let decompressed_compressed_proof = compressed_proof.clone().decompress(&data.common)?;
+        let decompressed_compressed_proof = compressed_proof.decompress(&data.common)?;
         assert_eq!(proof, decompressed_compressed_proof);
 
         verify(proof, &data.verifier_only, &data.common)
