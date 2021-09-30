@@ -96,7 +96,7 @@ pub struct CompressedProof<F: Extendable<D>, const D: usize> {
     pub quotient_polys_cap: MerkleCap<F>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
-    /// A batch FRI argument for all openings.
+    /// A compressed batch FRI argument for all openings.
     pub opening_proof: CompressedFriProof<F, D>,
 }
 

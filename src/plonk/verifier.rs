@@ -2,11 +2,10 @@ use anyhow::{ensure, Result};
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
-use crate::fri::proof::FriProof;
 use crate::fri::verifier::verify_fri_proof;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::plonk::plonk_common::reduce_with_powers;
-use crate::plonk::proof::{Proof, ProofWithPublicInputs};
+use crate::plonk::proof::ProofWithPublicInputs;
 use crate::plonk::vanishing_poly::eval_vanishing_poly;
 use crate::plonk::vars::EvaluationVars;
 

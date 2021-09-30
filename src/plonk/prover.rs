@@ -5,7 +5,6 @@ use rayon::prelude::*;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
-use crate::fri::proof::FriProof;
 use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::challenger::Challenger;
