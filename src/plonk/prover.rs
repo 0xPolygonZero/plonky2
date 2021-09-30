@@ -203,7 +203,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
         plonk_zs_partial_products_cap: zs_partial_products_commitment.merkle_tree.cap,
         quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
         openings,
-        opening_proof: FriProof::Decompressed(opening_proof),
+        opening_proof,
     };
     Ok(ProofWithPublicInputs {
         proof,

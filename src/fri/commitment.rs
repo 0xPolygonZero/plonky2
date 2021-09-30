@@ -3,7 +3,7 @@ use rayon::prelude::*;
 use crate::field::extension_field::Extendable;
 use crate::field::fft::FftRootTable;
 use crate::field::field_types::{Field, RichField};
-use crate::fri::proof::DecompressedFriProof;
+use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
@@ -128,7 +128,7 @@ impl<F: RichField> PolynomialBatchCommitment<F> {
         challenger: &mut Challenger<F>,
         common_data: &CommonCircuitData<F, D>,
         timing: &mut TimingTree,
-    ) -> (DecompressedFriProof<F, D>, OpeningSet<F, D>)
+    ) -> (FriProof<F, D>, OpeningSet<F, D>)
     where
         F: RichField + Extendable<D>,
     {

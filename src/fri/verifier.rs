@@ -3,7 +3,7 @@ use anyhow::{ensure, Result};
 use crate::field::extension_field::{flatten, Extendable, FieldExtension};
 use crate::field::field_types::{Field, RichField};
 use crate::field::interpolation::{barycentric_weights, interpolate, interpolate2};
-use crate::fri::proof::{DecompressedFriProof, FriInitialTreeProof, FriQueryRound};
+use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::FriConfig;
 use crate::hash::merkle_proofs::verify_merkle_proof;
 use crate::hash::merkle_tree::MerkleCap;
@@ -60,7 +60,7 @@ pub(crate) fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
     os: &OpeningSet<F, D>,
     challenges: &ProofChallenges<F, D>,
     initial_merkle_caps: &[MerkleCap<F>],
-    proof: &DecompressedFriProof<F, D>,
+    proof: &FriProof<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
     let config = &common_data.config;
@@ -220,7 +220,7 @@ fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
     challenges: &ProofChallenges<F, D>,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
     initial_merkle_caps: &[MerkleCap<F>],
-    proof: &DecompressedFriProof<F, D>,
+    proof: &FriProof<F, D>,
     mut x_index: usize,
     n: usize,
     round_proof: &FriQueryRound<F, D>,

@@ -89,14 +89,7 @@ pub struct CompressedFriQueryRounds<F: Extendable<D>, const D: usize> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub enum FriProof<F: Extendable<D>, const D: usize> {
-    Decompressed(DecompressedFriProof<F, D>),
-    Compressed(CompressedFriProof<F, D>),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
-#[serde(bound = "")]
-pub struct DecompressedFriProof<F: Extendable<D>, const D: usize> {
+pub struct FriProof<F: Extendable<D>, const D: usize> {
     /// A Merkle cap for each reduced polynomial in the commit phase.
     pub commit_phase_merkle_caps: Vec<MerkleCap<F>>,
     /// Query rounds proofs
@@ -107,7 +100,6 @@ pub struct DecompressedFriProof<F: Extendable<D>, const D: usize> {
     pub pow_witness: F,
 }
 
-/// Corresponds to `DecompressedFriProof`.
 pub struct FriProofTarget<const D: usize> {
     pub commit_phase_merkle_caps: Vec<MerkleCapTarget>,
     pub query_round_proofs: Vec<FriQueryRoundTarget<D>>,
@@ -128,15 +120,14 @@ pub struct CompressedFriProof<F: Extendable<D>, const D: usize> {
     pub pow_witness: F,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> DecompressedFriProof<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
     /// Compress all the Merkle paths in the FRI proof and remove duplicate indices.
     pub fn compress(
         self,
         indices: &[usize],
         common_data: &CommonCircuitData<F, D>,
-        with_indices: bool,
     ) -> CompressedFriProof<F, D> {
-        let DecompressedFriProof {
+        let FriProof {
             commit_phase_merkle_caps,
             query_round_proofs,
             final_poly,
@@ -209,7 +200,7 @@ impl<F: RichField + Extendable<D>, const D: usize> DecompressedFriProof<F, D> {
                 .initial_trees_proofs
                 .insert(index, initial_proof);
             for j in 0..num_reductions {
-                index >>= reduction_arity_bits[i];
+                index >>= reduction_arity_bits[j];
                 let query_step = FriQueryStep {
                     evals: steps_evals[j][i].clone(),
                     merkle_proof: steps_proofs[j][i].clone(),
@@ -233,7 +224,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
         self,
         indices: &[usize],
         common_data: &CommonCircuitData<F, D>,
-    ) -> DecompressedFriProof<F, D> {
+    ) -> FriProof<F, D> {
         let CompressedFriProof {
             commit_phase_merkle_caps,
             query_round_proofs,
@@ -323,7 +314,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
             })
         }
 
-        DecompressedFriProof {
+        FriProof {
             commit_phase_merkle_caps,
             query_round_proofs: decompressed_query_proofs,
             final_poly,

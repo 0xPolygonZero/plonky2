@@ -5,7 +5,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
-use crate::fri::proof::{DecompressedFriProof, FriProof, FriProofTarget};
+use crate::fri::proof::{CompressedFriProof, FriProof, FriProofTarget};
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
 use crate::hash::merkle_tree::MerkleCap;
@@ -36,27 +36,27 @@ pub struct ProofTarget<const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Proof<F, D> {
-    /// Returns `true` iff the opening proof is compressed.
-    pub fn is_compressed(&self) -> bool {
-        todo!()
-    }
+    /// Compress the proof.
+    pub fn compress(
+        self,
+        indices: &[usize],
+        common_data: &CommonCircuitData<F, D>,
+    ) -> CompressedProof<F, D> {
+        let Proof {
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            opening_proof,
+        } = self;
 
-    /// Compress the opening proof.
-    pub fn compress(mut self, indices: &[usize], common_data: &CommonCircuitData<F, D>) -> Self {
-        self.opening_proof = FriProof::Compressed(match self.opening_proof {
-            FriProof::Decompressed(p) => p.compress(indices, common_data, true),
-            FriProof::Compressed(p) => p,
-        });
-        self
-    }
-
-    /// Decompress the opening proof.
-    pub fn decompress(mut self, indices: &[usize], common_data: &CommonCircuitData<F, D>) -> Self {
-        self.opening_proof = FriProof::Decompressed(match self.opening_proof {
-            FriProof::Decompressed(p) => p,
-            FriProof::Compressed(p) => p.decompress(indices, common_data),
-        });
-        self
+        CompressedProof {
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            opening_proof: opening_proof.compress(indices, common_data),
+        }
     }
 }
 
@@ -68,23 +68,81 @@ pub struct ProofWithPublicInputs<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
-    /// Returns `true` iff the opening proof is compressed.
-    pub fn is_compressed(&self) -> bool {
-        todo!()
+    pub fn compress(
+        mut self,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> anyhow::Result<CompressedProofWithPublicInputs<F, D>> {
+        let indices = self.fri_query_indices(common_data)?;
+        let compressed_proof = self.proof.compress(&indices, common_data);
+        Ok(CompressedProofWithPublicInputs {
+            public_inputs: self.public_inputs,
+            proof: compressed_proof,
+        })
     }
 
-    /// Compress the opening proof.
-    pub fn compress(mut self, common_data: &CommonCircuitData<F, D>) -> anyhow::Result<Self> {
-        let indices = self.fri_query_indices(common_data)?;
-        self.proof = self.proof.compress(&indices, common_data);
-        Ok(self)
+    pub(crate) fn get_public_inputs_hash(&self) -> HashOut<F> {
+        hash_n_to_hash(self.public_inputs.clone(), true)
     }
+}
 
-    /// Decompress the opening proof.
-    pub fn decompress(mut self, common_data: &CommonCircuitData<F, D>) -> anyhow::Result<Self> {
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(bound = "")]
+pub struct CompressedProof<F: Extendable<D>, const D: usize> {
+    /// Merkle cap of LDEs of wire values.
+    pub wires_cap: MerkleCap<F>,
+    /// Merkle cap of LDEs of Z, in the context of Plonk's permutation argument.
+    pub plonk_zs_partial_products_cap: MerkleCap<F>,
+    /// Merkle cap of LDEs of the quotient polynomial components.
+    pub quotient_polys_cap: MerkleCap<F>,
+    /// Purported values of each polynomial at the challenge point.
+    pub openings: OpeningSet<F, D>,
+    /// A batch FRI argument for all openings.
+    pub opening_proof: CompressedFriProof<F, D>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> CompressedProof<F, D> {
+    /// Decompress the proof.
+    pub fn decompress(
+        self,
+        indices: &[usize],
+        common_data: &CommonCircuitData<F, D>,
+    ) -> Proof<F, D> {
+        let CompressedProof {
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            opening_proof,
+        } = self;
+
+        Proof {
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            opening_proof: opening_proof.decompress(indices, common_data),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(bound = "")]
+pub struct CompressedProofWithPublicInputs<F: RichField + Extendable<D>, const D: usize> {
+    pub proof: CompressedProof<F, D>,
+    pub public_inputs: Vec<F>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInputs<F, D> {
+    pub fn decompress(
+        mut self,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, D>> {
         let indices = self.fri_query_indices(common_data)?;
-        self.proof = self.proof.decompress(&indices, common_data);
-        Ok(self)
+        let compressed_proof = self.proof.decompress(&indices, common_data);
+        Ok(ProofWithPublicInputs {
+            public_inputs: self.public_inputs,
+            proof: compressed_proof,
+        })
     }
 
     pub(crate) fn get_public_inputs_hash(&self) -> HashOut<F> {
@@ -216,7 +274,7 @@ mod tests {
         let decompressed_compressed_proof = compressed_proof.clone().decompress(&data.common)?;
         assert_eq!(proof, decompressed_compressed_proof);
 
-        verify(proof, &data.verifier_only, &data.common)?;
-        verify(compressed_proof, &data.verifier_only, &data.common)
+        verify(proof, &data.verifier_only, &data.common)
+        // verify(compressed_proof, &data.verifier_only, &data.common)
     }
 }
