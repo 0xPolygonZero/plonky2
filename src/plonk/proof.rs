@@ -275,6 +275,5 @@ mod tests {
         assert_eq!(proof, decompressed_compressed_proof);
 
         verify(proof, &data.verifier_only, &data.common)
-        // verify(compressed_proof, &data.verifier_only, &data.common)
     }
 }
