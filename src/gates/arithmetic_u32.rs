@@ -323,7 +323,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             .map(F::from_canonical_u64)
             .collect();
 
-        for j in 0..U32ArithmeticGate::<F, D>::num_limbs() {
+        for j in 0..output_limbs_F.len() {
             let wire = local_wire(U32ArithmeticGate::<F, D>::wire_ith_output_jth_limb(
                 self.i, j,
             ));
@@ -337,10 +337,17 @@ mod tests {
     use std::marker::PhantomData;
 
     use anyhow::Result;
+    use itertools::{izip, unfold};
+    use rand::Rng;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::gates::arithmetic_u32::U32ArithmeticGate;
+    use crate::field::extension_field::quartic::QuarticExtension;
+    use crate::field::field_types::Field;
+    use crate::gates::arithmetic_u32::{NUM_U32_ARITHMETIC_OPS, U32ArithmeticGate};
+    use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
+    use crate::hash::hash_types::HashOut;
+    use crate::plonk::vars::EvaluationVars;
 
     #[test]
     fn low_degree() {
@@ -348,10 +355,72 @@ mod tests {
             _phantom: PhantomData,
         })
     }
+
     #[test]
     fn eval_fns() -> Result<()> {
         test_eval_fns::<CrandallField, _, 4>(U32ArithmeticGate::<CrandallField, 4> {
             _phantom: PhantomData,
         })
+    }
+
+    #[test]
+    fn test_gate_constraint() {
+        type F = CrandallField;
+        type FF = QuarticExtension<CrandallField>;
+        const D: usize = 4;
+
+        fn get_wires(multiplicands_0: Vec<u64>, multiplicands_1: Vec<u64>, addends: Vec<u64>)  -> Vec<FF> {
+            let mut v0 = Vec::new();
+            let mut v1 = Vec::new();
+
+            let limb_bits = U32ArithmeticGate::<F, D>::limb_bits();
+            let num_limbs = U32ArithmeticGate::<F, D>::num_limbs();
+            let limb_base = 1 << limb_bits;
+            for c in 0..NUM_U32_ARITHMETIC_OPS {
+                let m0 = multiplicands_0[c];
+                let m1 = multiplicands_1[c];
+                let a = addends[c];
+
+                let mut output = m0 * m1 + a;
+                let output_low = output & ((1 << 32) - 1);
+                let output_high = output >> 32;
+
+                let mut output_limbs = Vec::with_capacity(num_limbs);
+                for i in 0..num_limbs {
+                    output_limbs.push(output % limb_base);
+                    output /= limb_base;
+                }
+                let mut output_limbs_F: Vec<_> = output_limbs.iter().cloned().map(F::from_canonical_u64).collect();
+
+                v0.push(F::from_canonical_u64(m0));
+                v0.push(F::from_canonical_u64(m1));
+                v0.push(F::from_canonical_u64(a));
+                v0.push(F::from_canonical_u64(output_low));
+                v0.push(F::from_canonical_u64(output_high));
+                v1.append(&mut output_limbs_F);
+            }
+
+            v0.iter().chain(v1.iter()).map(|&x| x.into()).collect::<Vec<_>>()
+        }
+
+        let mut rng = rand::thread_rng();
+        let multiplicands_0: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS).map(|_| rng.gen::<u32>() as u64).collect();
+        let multiplicands_1: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS).map(|_| rng.gen::<u32>() as u64).collect();
+        let addends: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS).map(|_| rng.gen::<u32>() as u64).collect();
+
+        let gate = U32ArithmeticGate::<F, D> {
+            _phantom: PhantomData,
+        };
+
+        let vars = EvaluationVars {
+            local_constants: &[],
+            local_wires: &get_wires(multiplicands_0, multiplicands_1, addends),
+            public_inputs_hash: &HashOut::rand(),
+        };
+
+        assert!(
+            gate.eval_unfiltered(vars).iter().all(|x| x.is_zero()),
+            "Gate constraints are not satisfied."
+        );
     }
 }
