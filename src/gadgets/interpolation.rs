@@ -1,10 +1,11 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::RichField;
 use crate::gates::interpolation::InterpolationGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Interpolate a list of point/evaluation pairs at a given point.
     /// Returns the evaluation of the interpolated polynomial at `evaluation_point`.
     pub fn interpolate(
@@ -35,7 +36,7 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::extension_field::FieldExtension;
     use crate::field::field_types::Field;
     use crate::field::interpolation::interpolant;
@@ -47,7 +48,7 @@ mod tests {
     #[test]
     fn test_interpolate() -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);

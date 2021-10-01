@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -14,18 +14,22 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for raising a value to a power.
 #[derive(Clone, Debug)]
-pub(crate) struct ExponentiationGate<F: Extendable<D>, const D: usize> {
+pub(crate) struct ExponentiationGate<F: RichField + Extendable<D>, const D: usize> {
     pub num_power_bits: usize,
     pub _phantom: PhantomData<F>,
 }
 
-impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
-    pub fn new(config: CircuitConfig) -> Self {
-        let num_power_bits = Self::max_power_bits(config.num_wires, config.num_routed_wires);
+impl<F: RichField + Extendable<D>, const D: usize> ExponentiationGate<F, D> {
+    pub fn new(num_power_bits: usize) -> Self {
         Self {
             num_power_bits,
             _phantom: PhantomData,
         }
+    }
+
+    pub fn new_from_config(config: CircuitConfig) -> Self {
+        let num_power_bits = Self::max_power_bits(config.num_wires, config.num_routed_wires);
+        Self::new(num_power_bits)
     }
 
     fn max_power_bits(num_wires: usize, num_routed_wires: usize) -> usize {
@@ -55,7 +59,7 @@ impl<F: Extendable<D>, const D: usize> ExponentiationGate<F, D> {
     }
 }
 
-impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -180,7 +184,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
             gate_index,
             gate: self.clone(),
         };
-        vec![Box::new(gen)]
+        vec![Box::new(gen.adapter())]
     }
 
     fn num_wires(&self) -> usize {
@@ -201,12 +205,14 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
 }
 
 #[derive(Debug)]
-struct ExponentiationGenerator<F: Extendable<D>, const D: usize> {
+struct ExponentiationGenerator<F: RichField + Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: ExponentiationGate<F, D>,
 }
 
-impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ExponentiationGenerator<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for ExponentiationGenerator<F, D>
+{
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
@@ -261,7 +267,7 @@ mod tests {
     use rand::Rng;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::gates::exponentiation::ExponentiationGate;
     use crate::gates::gate::Gate;
@@ -296,18 +302,20 @@ mod tests {
             ..CircuitConfig::large_config()
         };
 
-        test_low_degree::<CrandallField, _, 4>(ExponentiationGate::new(config));
+        test_low_degree::<CrandallField, _, 4>(ExponentiationGate::new_from_config(config));
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(ExponentiationGate::new(CircuitConfig::large_config()))
+        test_eval_fns::<CrandallField, _, 4>(ExponentiationGate::new_from_config(
+            CircuitConfig::large_config(),
+        ))
     }
 
     #[test]
     fn test_gate_constraint() {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
         /// Returns the local wires for an exponentiation gate given the base, power, and power bit

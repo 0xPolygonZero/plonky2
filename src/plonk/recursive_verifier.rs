@@ -1,4 +1,5 @@
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::RichField;
 use crate::hash::hash_types::HashOutTarget;
 use crate::iop::challenger::RecursiveChallenger;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -9,7 +10,7 @@ use crate::plonk::vars::EvaluationTargets;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
     pub fn add_recursive_verifier(
         &mut self,
@@ -127,6 +128,7 @@ mod tests {
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::fri::proof::{
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
     };
@@ -139,7 +141,7 @@ mod tests {
     use crate::util::log2_strict;
 
     // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
-    fn get_fri_query_round<F: Extendable<D>, const D: usize>(
+    fn get_fri_query_round<F: RichField + Extendable<D>, const D: usize>(
         proof: &Proof<F, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> FriQueryRoundTarget<D> {
@@ -172,7 +174,7 @@ mod tests {
     }
 
     // Construct a `ProofTarget` with the same dimensions as `proof`.
-    fn proof_to_proof_target<F: Extendable<D>, const D: usize>(
+    fn proof_to_proof_target<F: RichField + Extendable<D>, const D: usize>(
         proof_with_pis: &ProofWithPublicInputs<F, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> ProofWithPublicInputsTarget<D> {
@@ -233,7 +235,7 @@ mod tests {
     }
 
     // Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
-    fn set_proof_target<F: Extendable<D>, const D: usize>(
+    fn set_proof_target<F: RichField + Extendable<D>, const D: usize>(
         proof: &ProofWithPublicInputs<F, D>,
         pt: &ProofWithPublicInputsTarget<D>,
         pw: &mut PartialWitness<F>,
@@ -357,10 +359,10 @@ mod tests {
     #[ignore]
     fn test_recursive_verifier() -> Result<()> {
         env_logger::init();
-        type F = CrandallField;
+        type F = GoldilocksField;
         const D: usize = 4;
         let config = CircuitConfig {
-            num_wires: 126,
+            num_wires: 143,
             num_routed_wires: 33,
             security_bits: 128,
             rate_bits: 3,
@@ -412,10 +414,10 @@ mod tests {
     #[ignore]
     fn test_recursive_recursive_verifier() -> Result<()> {
         env_logger::init();
-        type F = CrandallField;
+        type F = GoldilocksField;
         const D: usize = 4;
         let config = CircuitConfig {
-            num_wires: 126,
+            num_wires: 143,
             num_routed_wires: 64,
             security_bits: 128,
             rate_bits: 3,
@@ -478,8 +480,16 @@ mod tests {
         builder.print_gate_counts(0);
         let data = builder.build();
         let recursive_proof = data.prove(pw)?;
+        let now = std::time::Instant::now();
+        let compressed_recursive_proof = recursive_proof.clone().compress(&data.common)?;
+        info!("{:.4} to compress proof", now.elapsed().as_secs_f64());
         let proof_bytes = serde_cbor::to_vec(&recursive_proof).unwrap();
         info!("Proof length: {} bytes", proof_bytes.len());
+        let compressed_proof_bytes = serde_cbor::to_vec(&compressed_recursive_proof).unwrap();
+        info!(
+            "Compressed proof length: {} bytes",
+            compressed_proof_bytes.len()
+        );
         verify(recursive_proof, &data.verifier_only, &data.common)
     }
 }

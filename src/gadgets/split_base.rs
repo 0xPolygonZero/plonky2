@@ -1,14 +1,14 @@
 use std::borrow::Borrow;
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, RichField};
 use crate::gates::base_sum::BaseSumGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given element into a list of targets, where each one represents a
     /// base-B limb of the element, with little-endian ordering.
     pub fn split_le_base<const B: usize>(&mut self, x: Target, num_limbs: usize) -> Vec<Target> {
@@ -32,6 +32,18 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         bits: impl ExactSizeIterator<Item = impl Borrow<BoolTarget>> + Clone,
     ) -> Target {
         let num_bits = bits.len();
+        if num_bits == 0 {
+            return self.zero();
+        } else if num_bits == 1 {
+            let mut bits = bits;
+            return bits.next().unwrap().borrow().target;
+        } else if num_bits == 2 {
+            let two = self.two();
+            let mut bits = bits;
+            let b0 = bits.next().unwrap().borrow().target;
+            let b1 = bits.next().unwrap().borrow().target;
+            return self.mul_add(two, b1, b0);
+        }
         debug_assert!(
             BaseSumGate::<2>::START_LIMBS + num_bits <= self.config.num_routed_wires,
             "Not enough routed wires."
@@ -44,7 +56,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.connect(limb.borrow().target, Target::wire(gate_index, wire));
         }
 
-        self.add_generator(BaseSumGenerator::<2> {
+        self.add_simple_generator(BaseSumGenerator::<2> {
             gate_index,
             limbs: bits.map(|l| *l.borrow()).collect(),
         });

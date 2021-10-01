@@ -11,9 +11,14 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::field::extension_field::Frobenius;
+use crate::hash::gmimc::GMiMC;
+use crate::hash::poseidon::Poseidon;
 use crate::util::bits_u64;
 
-/// A finite field with prime order less than 2^64.
+/// A prime order field with the features we need to use it as a base field in our argument system.
+pub trait RichField: PrimeField + GMiMC<12> + Poseidon<12> {}
+
+/// A finite field.
 pub trait Field:
     'static
     + Copy
@@ -38,7 +43,7 @@ pub trait Field:
     + Serialize
     + DeserializeOwned
 {
-    type PrimeField: Field;
+    type PrimeField: PrimeField;
 
     const ZERO: Self;
     const ONE: Self;
@@ -46,6 +51,8 @@ pub trait Field:
     const NEG_ONE: Self;
 
     const CHARACTERISTIC: u64;
+
+    /// The 2-adicity of this field's multiplicative group.
     const TWO_ADICITY: usize;
 
     /// Generator of the entire multiplicative group, i.e. all non-zero elements.
@@ -192,15 +199,6 @@ pub trait Field:
         subgroup.into_iter().map(|x| x * shift).collect()
     }
 
-    // Converting to u64 only makes sense in a prime field, not in
-    // an extension; probably means these two functions don't belong
-    // the Field trait...
-    fn to_canonical_u64(&self) -> u64;
-
-    fn to_noncanonical_u64(&self) -> u64;
-
-    fn from_noncanonical_u128(n: u128) -> Self;
-
     fn from_canonical_u64(n: u64) -> Self;
 
     fn from_canonical_u32(n: u32) -> Self {
@@ -215,15 +213,19 @@ pub trait Field:
         Self::from_canonical_u64(b as u64)
     }
 
-    fn to_canonical_biguint(&self) -> BigUint;
+    /// Returns `n % Self::CHARACTERISTIC`.
+    fn from_noncanonical_u128(n: u128) -> Self;
 
-    fn from_canonical_biguint(n: BigUint) -> Self;
+    /// Returns `n % Self::CHARACTERISTIC`. May be cheaper than from_noncanonical_u128 when we know
+    /// that n < 2 ** 96.
+    #[inline]
+    fn from_noncanonical_u96((n_lo, n_hi): (u64, u32)) -> Self {
+        // Default implementation.
+        let n: u128 = ((n_hi as u128) << 64) + (n_lo as u128);
+        Self::from_noncanonical_u128(n)
+    }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self;
-
-    fn bits(&self) -> usize {
-        bits_u64(self.to_canonical_u64())
-    }
 
     fn exp_power_of_2(&self, power_log: usize) -> Self {
         let mut res = *self;
@@ -233,7 +235,7 @@ pub trait Field:
         res
     }
 
-    fn exp(&self, power: u64) -> Self {
+    fn exp_u64(&self, power: u64) -> Self {
         let mut current = *self;
         let mut product = Self::ONE;
 
@@ -246,27 +248,17 @@ pub trait Field:
         product
     }
 
-    fn exp_u32(&self, power: u32) -> Self {
-        self.exp(power as u64)
-    }
-
     fn exp_biguint(&self, power: &BigUint) -> Self {
-        let digits = power.to_u32_digits();
-        let radix = 1u64 << 32;
-
         let mut result = Self::ONE;
-        for (radix_power, &digit) in digits.iter().enumerate() {
-            let mut current = self.exp_u32(digit);
-            for _ in 0..radix_power {
-                current = current.exp(radix);
-            }
-            result *= current;
+        for &digit in power.to_u64_digits().iter().rev() {
+            result = result.exp_power_of_2(64);
+            result *= self.exp_u64(digit);
         }
         result
     }
 
     /// Returns whether `x^power` is a permutation of this field.
-    fn is_monomial_permutation(power: u64) -> bool {
+    fn is_monomial_permutation_u64(power: u64) -> bool {
         match power {
             0 => false,
             1 => true,
@@ -274,11 +266,11 @@ pub trait Field:
         }
     }
 
-    fn kth_root(&self, k: u64) -> Self {
+    fn kth_root_u64(&self, k: u64) -> Self {
         let p = Self::order().clone();
         let p_minus_1 = &p - 1u32;
         debug_assert!(
-            Self::is_monomial_permutation(k),
+            Self::is_monomial_permutation_u64(k),
             "Not a permutation of this field"
         );
 
@@ -301,12 +293,8 @@ pub trait Field:
         );
     }
 
-    fn kth_root_u32(&self, k: u32) -> Self {
-        self.kth_root(k as u64)
-    }
-
     fn cube_root(&self) -> Self {
-        self.kth_root(3)
+        self.kth_root_u64(3)
     }
 
     fn powers(&self) -> Powers<Self> {
@@ -316,37 +304,12 @@ pub trait Field:
         }
     }
 
-    /// Apply an MDS matrix to the given vector. Any MDS matrix can be used, as long as the same one
-    /// is used among calls with the same vector length.
-    ///
-    /// Note that the default implementation is quite slow. If speed is important, this should be
-    /// overridden with a field-specific implementation which applies a precomputed MDS matrix.
-    fn mds(vec: Vec<Self>) -> Vec<Self> {
-        // We use a Cauchy matrix with x_r = n + r, y_c = c.
-        let n = vec.len();
-        let mut result = Vec::with_capacity(n);
-        for r in 0..n {
-            let mut sum = Self::ZERO;
-            for c in 0..n {
-                let x = Self::from_canonical_usize(n + r);
-                let y = Self::from_canonical_usize(c);
-                // This is the (r, c) entry of the Cauchy matrix.
-                let entry = (x - y).inverse();
-                sum += entry * vec[c];
-            }
-            result.push(sum);
-        }
-        result
-    }
-
-    /// Like `mds`, but specialized to n=8. For specific fields, this can be overridden with an
-    /// impl which applies a fast, precomputed 8x8 MDS matrix.
-    fn mds_8(vec: [Self; 8]) -> [Self; 8] {
-        Self::mds(vec.to_vec()).try_into().unwrap()
-    }
-
     fn rand() -> Self {
         Self::rand_from_rng(&mut rand::thread_rng())
+    }
+
+    fn rand_arr<const N: usize>() -> [Self; N] {
+        Self::rand_vec(N).try_into().unwrap()
     }
 
     fn rand_vec(n: usize) -> Vec<Self> {
@@ -356,6 +319,33 @@ pub trait Field:
     /// Representative `g` of the coset used in FRI, so that LDEs in FRI are done over `gH`.
     fn coset_shift() -> Self {
         Self::MULTIPLICATIVE_GROUP_GENERATOR
+    }
+
+    /// Equivalent to *self + x * y, but may be cheaper.
+    #[inline]
+    fn multiply_accumulate(&self, x: Self, y: Self) -> Self {
+        // Default implementation.
+        *self + x * y
+    }
+}
+
+/// A finite field of prime order less than 2^64.
+pub trait PrimeField: Field {
+    const ORDER: u64;
+
+    fn to_canonical_u64(&self) -> u64;
+
+    fn to_noncanonical_u64(&self) -> u64;
+
+    fn from_noncanonical_u64(n: u64) -> Self;
+
+    /// Equivalent to *self + Self::from_canonical_u64(rhs), but may be cheaper. The caller must
+    /// ensure that 0 <= rhs < Self::ORDER. The function may return incorrect results if this
+    /// precondition is not met. It is marked unsafe for this reason.
+    #[inline]
+    unsafe fn add_canonical_u64(&self, rhs: u64) -> Self {
+        // Default implementation.
+        *self + Self::from_canonical_u64(rhs)
     }
 }
 

@@ -9,7 +9,6 @@ use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
-use crate::plonk::permutation_argument::ForestNode;
 
 /// A witness holds information on the values of targets in a circuit.
 pub trait Witness<F: Field> {
@@ -44,12 +43,14 @@ pub trait Witness<F: Field> {
     }
 
     fn get_bool_target(&self, target: BoolTarget) -> bool {
-        let value = self.get_target(target.target).to_canonical_u64();
-        match value {
-            0 => false,
-            1 => true,
-            _ => panic!("not a bool"),
+        let value = self.get_target(target.target);
+        if value.is_zero() {
+            return false;
         }
+        if value.is_one() {
+            return true;
+        }
+        panic!("not a bool")
     }
 
     fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {
@@ -187,40 +188,52 @@ impl<F: Field> Witness<F> for PartialWitness<F> {
 /// `PartitionWitness` holds a disjoint-set forest of the targets respecting a circuit's copy constraints.
 /// The value of a target is defined to be the value of its root in the forest.
 #[derive(Clone)]
-pub struct PartitionWitness<F: Field> {
-    pub forest: Vec<ForestNode<Target, F>>,
+pub struct PartitionWitness<'a, F: Field> {
+    pub values: Vec<Option<F>>,
+    pub representative_map: &'a [usize],
     pub num_wires: usize,
-    pub num_routed_wires: usize,
     pub degree: usize,
 }
 
-impl<F: Field> Witness<F> for PartitionWitness<F> {
-    fn try_get_target(&self, target: Target) -> Option<F> {
-        let parent_index = self.forest[self.target_index(target)].parent;
-        self.forest[parent_index].value
+impl<'a, F: Field> PartitionWitness<'a, F> {
+    pub fn new(
+        num_wires: usize,
+        degree: usize,
+        num_virtual_targets: usize,
+        representative_map: &'a [usize],
+    ) -> Self {
+        Self {
+            values: vec![None; degree * num_wires + num_virtual_targets],
+            representative_map,
+            num_wires,
+            degree,
+        }
     }
 
-    fn set_target(&mut self, target: Target, value: F) {
-        let parent_index = self.forest[self.target_index(target)].parent;
-        let parent_value = &mut self.forest[parent_index].value;
+    /// Set a `Target`. On success, returns the representative index of the newly-set target. If the
+    /// target was already set, returns `None`.
+    pub(crate) fn set_target_returning_parent(
+        &mut self,
+        target: Target,
+        value: F,
+    ) -> Option<usize> {
+        let parent_index = self.representative_map[self.target_index(target)];
+        let parent_value = &mut self.values[parent_index];
         if let Some(old_value) = *parent_value {
             assert_eq!(
                 value, old_value,
                 "Partition containing {:?} was set twice with different values",
                 target
             );
+            None
         } else {
             *parent_value = Some(value);
+            Some(parent_index)
         }
     }
-}
 
-impl<F: Field> PartitionWitness<F> {
-    pub fn target_index(&self, target: Target) -> usize {
-        match target {
-            Target::Wire(Wire { gate, input }) => gate * self.num_wires + input,
-            Target::VirtualTarget { index } => self.degree * self.num_wires + index,
-        }
+    pub(crate) fn target_index(&self, target: Target) -> usize {
+        target.index(self.num_wires, self.degree)
     }
 
     pub fn full_witness(self) -> MatrixWitness<F> {
@@ -235,5 +248,16 @@ impl<F: Field> PartitionWitness<F> {
         }
 
         MatrixWitness { wire_values }
+    }
+}
+
+impl<'a, F: Field> Witness<F> for PartitionWitness<'a, F> {
+    fn try_get_target(&self, target: Target) -> Option<F> {
+        let parent_index = self.representative_map[self.target_index(target)];
+        self.values[parent_index]
+    }
+
+    fn set_target(&mut self, target: Target, value: F) {
+        self.set_target_returning_parent(target, value);
     }
 }

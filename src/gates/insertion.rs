@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -15,12 +15,12 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for inserting a value into a list at a non-deterministic location.
 #[derive(Clone, Debug)]
-pub(crate) struct InsertionGate<F: Extendable<D>, const D: usize> {
+pub(crate) struct InsertionGate<F: RichField + Extendable<D>, const D: usize> {
     pub vec_size: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> InsertionGate<F, D> {
     pub fn new(vec_size: usize) -> Self {
         Self {
             vec_size,
@@ -70,7 +70,7 @@ impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
     }
 }
 
-impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -220,7 +220,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             gate_index,
             gate: self.clone(),
         };
-        vec![Box::new(gen)]
+        vec![Box::new(gen.adapter())]
     }
 
     fn num_wires(&self) -> usize {
@@ -241,12 +241,12 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
 }
 
 #[derive(Debug)]
-struct InsertionGenerator<F: Extendable<D>, const D: usize> {
+struct InsertionGenerator<F: RichField + Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: InsertionGate<F, D>,
 }
 
-impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
@@ -325,7 +325,7 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
@@ -365,7 +365,7 @@ mod tests {
     #[test]
     fn test_gate_constraint() {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
         /// Returns the local wires for an insertion gate given the original vector, element to

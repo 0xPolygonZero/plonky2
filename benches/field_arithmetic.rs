@@ -2,8 +2,9 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use plonky2::field::crandall_field::CrandallField;
-use plonky2::field::extension_field::quartic::QuarticCrandallField;
 use plonky2::field::field_types::Field;
+use plonky2::field::extension_field::quartic::QuarticExtension;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use tynm::type_name;
 
 pub(crate) fn bench_field<F: Field>(c: &mut Criterion) {
@@ -23,7 +24,7 @@ pub(crate) fn bench_field<F: Field>(c: &mut Criterion) {
     c.bench_function(&format!("mul-latency<{}>", type_name::<F>()), |b| {
         b.iter_batched(
             || F::rand(),
-            |(mut x)| {
+            |mut x| {
                 for _ in 0..100 {
                     x = x * x;
                 }
@@ -90,7 +91,8 @@ pub(crate) fn bench_field<F: Field>(c: &mut Criterion) {
 
 fn criterion_benchmark(c: &mut Criterion) {
     bench_field::<CrandallField>(c);
-    bench_field::<QuarticCrandallField>(c);
+    bench_field::<GoldilocksField>(c);
+    bench_field::<QuarticExtension<CrandallField>>(c);
 }
 
 criterion_group!(benches, criterion_benchmark);

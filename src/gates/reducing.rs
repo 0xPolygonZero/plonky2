@@ -3,6 +3,7 @@ use std::ops::Range;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::FieldExtension;
+use crate::field::field_types::RichField;
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -50,7 +51,7 @@ impl<const D: usize> ReducingGate<D> {
     }
 }
 
-impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
+impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
@@ -136,10 +137,13 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D> {
         gate_index: usize,
         _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        vec![Box::new(ReducingGenerator {
-            gate_index,
-            gate: self.clone(),
-        })]
+        vec![Box::new(
+            ReducingGenerator {
+                gate_index,
+                gate: self.clone(),
+            }
+            .adapter(),
+        )]
     }
 
     fn num_wires(&self) -> usize {

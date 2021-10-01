@@ -3,8 +3,9 @@ use env_logger::Env;
 use log::info;
 use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::extension_field::Extendable;
-use plonky2::field::field_types::Field;
+use plonky2::field::field_types::RichField;
 use plonky2::fri::FriConfig;
+use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::iop::witness::PartialWitness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
@@ -19,7 +20,7 @@ fn main() -> Result<()> {
     bench_prove::<CrandallField, 4>()
 }
 
-fn bench_prove<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
+fn bench_prove<F: RichField + Extendable<D>, const D: usize>() -> Result<()> {
     let config = CircuitConfig {
         num_wires: 126,
         num_routed_wires: 33,
@@ -41,7 +42,7 @@ fn bench_prove<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
     let zero = builder.zero();
     let zero_ext = builder.zero_extension();
 
-    let mut state = [zero; 12];
+    let mut state = [zero; SPONGE_WIDTH];
     for _ in 0..10000 {
         state = builder.permute(state);
     }

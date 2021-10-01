@@ -1,18 +1,22 @@
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, RichField};
 use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::{compress, hash_or_noop};
 use crate::hash::merkle_proofs::MerkleProof;
 
 /// The Merkle cap of height `h` of a Merkle tree is the `h`-th layer (from the root) of the tree.
 /// It can be used in place of the root to verify Merkle paths, which are `h` elements shorter.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "")]
 pub struct MerkleCap<F: Field>(pub Vec<HashOut<F>>);
 
 impl<F: Field> MerkleCap<F> {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     pub fn flatten(&self) -> Vec<F> {
         self.0.iter().flat_map(|h| h.elements).collect()
     }
@@ -30,7 +34,7 @@ pub struct MerkleTree<F: Field> {
     pub cap: MerkleCap<F>,
 }
 
-impl<F: Field> MerkleTree<F> {
+impl<F: RichField> MerkleTree<F> {
     pub fn new(leaves: Vec<Vec<F>>, cap_height: usize) -> Self {
         let mut layers = vec![leaves
             .par_iter()
@@ -82,11 +86,11 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::hash::merkle_proofs::verify_merkle_proof;
 
-    fn random_data<F: Field>(n: usize, k: usize) -> Vec<Vec<F>> {
+    fn random_data<F: RichField>(n: usize, k: usize) -> Vec<Vec<F>> {
         (0..n).map(|_| F::rand_vec(k)).collect()
     }
 
-    fn verify_all_leaves<F: Field>(leaves: Vec<Vec<F>>, n: usize) -> Result<()> {
+    fn verify_all_leaves<F: RichField>(leaves: Vec<Vec<F>>, n: usize) -> Result<()> {
         let tree = MerkleTree::new(leaves.clone(), 1);
         for i in 0..n {
             let proof = tree.prove(i);

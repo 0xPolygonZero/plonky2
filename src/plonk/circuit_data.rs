@@ -1,17 +1,19 @@
+use std::collections::BTreeMap;
 use std::ops::{Range, RangeFrom};
 
 use anyhow::Result;
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
+use crate::field::fft::FftRootTable;
+use crate::field::field_types::{Field, RichField};
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::FriConfig;
-use crate::gates::gate::{GateInstance, PrefixedGate};
+use crate::gates::gate::PrefixedGate;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;
-use crate::iop::witness::{PartialWitness, PartitionWitness};
+use crate::iop::witness::PartialWitness;
 use crate::plonk::proof::ProofWithPublicInputs;
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
@@ -60,7 +62,7 @@ impl CircuitConfig {
     #[cfg(test)]
     pub(crate) fn large_config() -> Self {
         Self {
-            num_wires: 126,
+            num_wires: 143,
             num_routed_wires: 64,
             security_bits: 128,
             rate_bits: 3,
@@ -91,13 +93,13 @@ impl CircuitConfig {
 }
 
 /// Circuit data required by the prover or the verifier.
-pub struct CircuitData<F: Extendable<D>, const D: usize> {
+pub struct CircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) prover_only: ProverOnlyCircuitData<F, D>,
     pub(crate) verifier_only: VerifierOnlyCircuitData<F>,
     pub(crate) common: CommonCircuitData<F, D>,
 }
 
-impl<F: Extendable<D>, const D: usize> CircuitData<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitData<F, D> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, D>> {
         prove(&self.prover_only, &self.common, inputs)
     }
@@ -114,12 +116,12 @@ impl<F: Extendable<D>, const D: usize> CircuitData<F, D> {
 /// structure as succinct as we can. Thus we include various precomputed data which isn't strictly
 /// required, like LDEs of preprocessed polynomials. If more succinctness was desired, we could
 /// construct a more minimal prover structure and convert back and forth.
-pub struct ProverCircuitData<F: Extendable<D>, const D: usize> {
+pub struct ProverCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) prover_only: ProverOnlyCircuitData<F, D>,
     pub(crate) common: CommonCircuitData<F, D>,
 }
 
-impl<F: Extendable<D>, const D: usize> ProverCircuitData<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> ProverCircuitData<F, D> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, D>> {
         prove(&self.prover_only, &self.common, inputs)
     }
@@ -127,34 +129,38 @@ impl<F: Extendable<D>, const D: usize> ProverCircuitData<F, D> {
 
 /// Circuit data required by the prover.
 #[derive(Debug)]
-pub struct VerifierCircuitData<F: Extendable<D>, const D: usize> {
+pub struct VerifierCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) verifier_only: VerifierOnlyCircuitData<F>,
     pub(crate) common: CommonCircuitData<F, D>,
 }
 
-impl<F: Extendable<D>, const D: usize> VerifierCircuitData<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> VerifierCircuitData<F, D> {
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, D>) -> Result<()> {
         verify(proof_with_pis, &self.verifier_only, &self.common)
     }
 }
 
 /// Circuit data required by the prover, but not the verifier.
-pub(crate) struct ProverOnlyCircuitData<F: Extendable<D>, const D: usize> {
+pub(crate) struct ProverOnlyCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
+    /// Generator indices (within the `Vec` above), indexed by the representative of each target
+    /// they watch.
+    pub generator_indices_by_watches: BTreeMap<usize, Vec<usize>>,
     /// Commitments to the constants polynomials and sigma polynomials.
     pub constants_sigmas_commitment: PolynomialBatchCommitment<F>,
     /// The transpose of the list of sigma polynomials.
     pub sigmas: Vec<Vec<F>>,
     /// Subgroup of order `degree`.
     pub subgroup: Vec<F>,
-    /// The concrete placement of each gate in the circuit.
-    pub gate_instances: Vec<GateInstance<F, D>>,
     /// Targets to be made public.
     pub public_inputs: Vec<Target>,
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
     pub marked_targets: Vec<MarkedTargets<D>>,
-    /// Partial witness holding the copy constraints information.
-    pub partition_witness: PartitionWitness<F>,
+    /// A map from each `Target`'s index to the index of its representative in the disjoint-set
+    /// forest.
+    pub representative_map: Vec<usize>,
+    /// Pre-computed roots for faster FFT.
+    pub fft_root_table: Option<FftRootTable<F>>,
 }
 
 /// Circuit data required by the verifier, but not the prover.
@@ -166,7 +172,7 @@ pub(crate) struct VerifierOnlyCircuitData<F: Field> {
 
 /// Circuit data required by both the prover and the verifier.
 #[derive(Debug)]
-pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
+pub struct CommonCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
     pub(crate) degree_bits: usize,
@@ -183,6 +189,8 @@ pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     /// The number of constant wires.
     pub(crate) num_constants: usize,
 
+    pub(crate) num_virtual_targets: usize,
+
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
     pub(crate) k_is: Vec<F>,
 
@@ -195,7 +203,7 @@ pub struct CommonCircuitData<F: Extendable<D>, const D: usize> {
     pub(crate) circuit_digest: HashOut<F>,
 }
 
-impl<F: Extendable<D>, const D: usize> CommonCircuitData<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     pub fn degree(&self) -> usize {
         1 << self.degree_bits
     }

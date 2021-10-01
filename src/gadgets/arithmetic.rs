@@ -1,11 +1,12 @@
 use std::borrow::Borrow;
 
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::RichField;
 use crate::gates::exponentiation::ExponentiationGate;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes `-x`.
     pub fn neg(&mut self, x: Target) -> Target {
         let neg_one = self.neg_one();
@@ -107,7 +108,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         exponent_bits: impl IntoIterator<Item = impl Borrow<BoolTarget>>,
     ) -> Target {
         let _false = self._false();
-        let gate = ExponentiationGate::new(self.config.clone());
+        let gate = ExponentiationGate::new_from_config(self.config.clone());
         let num_power_bits = gate.num_power_bits;
         let mut exp_bits_vec: Vec<BoolTarget> =
             exponent_bits.into_iter().map(|b| *b.borrow()).collect();

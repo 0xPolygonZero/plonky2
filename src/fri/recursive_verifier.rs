@@ -1,6 +1,6 @@
 use crate::field::extension_field::target::{flatten_target, ExtensionTarget};
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, RichField};
 use crate::fri::proof::{FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget};
 use crate::fri::FriConfig;
 use crate::hash::hash_types::MerkleCapTarget;
@@ -14,7 +14,7 @@ use crate::util::reducing::ReducingFactorTarget;
 use crate::util::{log2_strict, reverse_index_bits_in_place};
 use crate::with_context;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
     /// and P' is the FRI reduced polynomial.
     fn compute_evaluation(
@@ -29,7 +29,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         debug_assert_eq!(evals.len(), arity);
 
         let g = F::primitive_root_of_unity(arity_bits);
-        let g_inv = g.exp((arity as u64) - 1);
+        let g_inv = g.exp_u64((arity as u64) - 1);
         let g_inv_t = self.constant(g_inv);
 
         // The evaluation vector needs to be reordered first.
@@ -394,7 +394,7 @@ struct PrecomputedReducedEvalsTarget<const D: usize> {
 }
 
 impl<const D: usize> PrecomputedReducedEvalsTarget<D> {
-    fn from_os_and_alpha<F: Extendable<D>>(
+    fn from_os_and_alpha<F: RichField + Extendable<D>>(
         os: &OpeningSetTarget<D>,
         alpha: ExtensionTarget<D>,
         degree_log: usize,

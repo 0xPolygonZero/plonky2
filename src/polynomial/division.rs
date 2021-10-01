@@ -90,8 +90,8 @@ impl<F: Field> PolynomialCoeffs<F> {
         // Equals to the evaluation of `a` on `{g.w^i}`.
         let mut a_eval = fft(&a);
         // Compute the denominators `1/(g^n.w^(n*i) - 1)` using batch inversion.
-        let denominator_g = g.exp(n as u64);
-        let root_n = root.exp(n as u64);
+        let denominator_g = g.exp_u64(n as u64);
+        let root_n = root.exp_u64(n as u64);
         let mut root_pow = F::ONE;
         let denominators = (0..a_eval.len())
             .map(|i| {
@@ -185,7 +185,7 @@ mod tests {
     use std::time::Instant;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::polynomial::polynomial::PolynomialCoeffs;
 
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_division_by_linear() {
-        type F = QuarticCrandallField;
+        type F = QuarticExtension<CrandallField>;
         let n = 1_000_000;
         let poly = PolynomialCoeffs::new(F::rand_vec(n));
         let z = F::rand();
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_division_by_quadratic() {
-        type F = QuarticCrandallField;
+        type F = QuarticExtension<CrandallField>;
         let n = 1_000_000;
         let poly = PolynomialCoeffs::new(F::rand_vec(n));
         let quad = PolynomialCoeffs::new(F::rand_vec(2));

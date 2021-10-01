@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::Field;
+use crate::field::field_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::{permute, SPONGE_RATE, SPONGE_WIDTH};
 use crate::hash::merkle_tree::MerkleCap;
@@ -12,7 +12,7 @@ use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
 
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
 #[derive(Clone)]
-pub struct Challenger<F: Field> {
+pub struct Challenger<F: RichField> {
     sponge_state: [F; SPONGE_WIDTH],
     input_buffer: Vec<F>,
     output_buffer: Vec<F>,
@@ -26,7 +26,7 @@ pub struct Challenger<F: Field> {
 /// design, but it can be viewed as a duplex sponge whose inputs are sometimes zero (when we perform
 /// multiple squeezes) and whose outputs are sometimes ignored (when we perform multiple
 /// absorptions). Thus the security properties of a duplex sponge still apply to our design.
-impl<F: Field> Challenger<F> {
+impl<F: RichField> Challenger<F> {
     pub fn new() -> Challenger<F> {
         Challenger {
             sponge_state: [F::ZERO; SPONGE_WIDTH],
@@ -169,7 +169,7 @@ impl<F: Field> Challenger<F> {
     }
 }
 
-impl<F: Field> Default for Challenger<F> {
+impl<F: RichField> Default for Challenger<F> {
     fn default() -> Self {
         Self::new()
     }
@@ -183,7 +183,7 @@ pub struct RecursiveChallenger {
 }
 
 impl RecursiveChallenger {
-    pub(crate) fn new<F: Extendable<D>, const D: usize>(
+    pub(crate) fn new<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let zero = builder.zero();
@@ -250,7 +250,7 @@ impl RecursiveChallenger {
         }
     }
 
-    pub(crate) fn get_challenge<F: Extendable<D>, const D: usize>(
+    pub(crate) fn get_challenge<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Target {
@@ -267,7 +267,7 @@ impl RecursiveChallenger {
             .expect("Output buffer should be non-empty")
     }
 
-    pub(crate) fn get_n_challenges<F: Extendable<D>, const D: usize>(
+    pub(crate) fn get_n_challenges<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         n: usize,
@@ -275,7 +275,7 @@ impl RecursiveChallenger {
         (0..n).map(|_| self.get_challenge(builder)).collect()
     }
 
-    pub fn get_hash<F: Extendable<D>, const D: usize>(
+    pub fn get_hash<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -289,7 +289,7 @@ impl RecursiveChallenger {
         }
     }
 
-    pub fn get_extension_challenge<F: Extendable<D>, const D: usize>(
+    pub fn get_extension_challenge<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D> {
@@ -297,7 +297,7 @@ impl RecursiveChallenger {
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
-    fn absorb_buffered_inputs<F: Extendable<D>, const D: usize>(
+    fn absorb_buffered_inputs<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) {
@@ -330,10 +330,9 @@ mod tests {
     use crate::iop::challenger::{Challenger, RecursiveChallenger};
     use crate::iop::generator::generate_partial_witness;
     use crate::iop::target::Target;
-    use crate::iop::witness::Witness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::util::timing::TimingTree;
 
     #[test]
     fn no_duplicate_challenges() {
@@ -377,12 +376,8 @@ mod tests {
             outputs_per_round.push(challenger.get_n_challenges(num_outputs_per_round[r]));
         }
 
-        let config = CircuitConfig {
-            num_wires: 12 + 12 + 1 + 101,
-            num_routed_wires: 27,
-            ..CircuitConfig::default()
-        };
-        let mut builder = CircuitBuilder::<F, 4>::new(config.clone());
+        let config = CircuitConfig::large_config();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
         let mut recursive_challenger = RecursiveChallenger::new(&mut builder);
         let mut recursive_outputs_per_round: Vec<Vec<Target>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
@@ -392,15 +387,11 @@ mod tests {
             );
         }
         let circuit = builder.build();
-        let mut partition_witness = circuit.prover_only.partition_witness.clone();
-        generate_partial_witness(
-            &mut partition_witness,
-            &circuit.prover_only.generators,
-            &mut TimingTree::default(),
-        );
+        let inputs = PartialWitness::new();
+        let witness = generate_partial_witness(inputs, &circuit.prover_only, &circuit.common);
         let recursive_output_values_per_round: Vec<Vec<F>> = recursive_outputs_per_round
             .iter()
-            .map(|outputs| partition_witness.get_targets(outputs))
+            .map(|outputs| witness.get_targets(outputs))
             .collect();
 
         assert_eq!(outputs_per_round, recursive_output_values_per_round);

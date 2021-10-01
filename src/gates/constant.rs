@@ -1,6 +1,6 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -18,7 +18,7 @@ impl ConstantGate {
     pub const WIRE_OUTPUT: usize = 0;
 }
 
-impl<F: Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
+impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     fn id(&self) -> String {
         "ConstantGate".into()
     }
@@ -54,7 +54,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
             gate_index,
             constant: local_constants[0],
         };
-        vec![Box::new(gen)]
+        vec![Box::new(gen.adapter())]
     }
 
     fn num_wires(&self) -> usize {

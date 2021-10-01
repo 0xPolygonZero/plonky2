@@ -1,4 +1,5 @@
-use std::collections::{HashMap, HashSet};
+use std::cmp::max;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::TryInto;
 use std::time::Instant;
 
@@ -7,6 +8,8 @@ use log::{info, Level};
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::fft::fft_root_table;
+use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::gates::arithmetic::{ArithmeticExtensionGate, NUM_ARITHMETIC_OPS};
 use crate::gates::constant::ConstantGate;
@@ -14,17 +17,20 @@ use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
+use crate::gates::switch::SwitchGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
-use crate::iop::generator::{CopyGenerator, RandomValueGenerator, WitnessGenerator};
+use crate::iop::generator::{
+    CopyGenerator, RandomValueGenerator, SimpleGenerator, WitnessGenerator,
+};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
-use crate::iop::witness::PartitionWitness;
 use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
 use crate::plonk::copy_constraint::CopyConstraint;
+use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::polynomial::polynomial::PolynomialValues;
 use crate::util::context_tree::ContextTree;
@@ -33,14 +39,14 @@ use crate::util::partial_products::num_partial_products;
 use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 
-pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
+pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
     /// The types of gates used in this circuit.
     gates: HashSet<GateRef<F, D>>,
 
     /// The concrete placement of each gate.
-    gate_instances: Vec<GateInstance<F, D>>,
+    pub(crate) gate_instances: Vec<GateInstance<F, D>>,
 
     /// Targets to be made public.
     public_inputs: Vec<Target>,
@@ -65,9 +71,14 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     /// A map `(c0, c1) -> (g, i)` from constants `(c0,c1)` to an available arithmetic gate using
     /// these constants with gate index `g` and already using `i` arithmetic operations.
     pub(crate) free_arithmetic: HashMap<(F, F), (usize, usize)>,
+
+    // `current_switch_gates[chunk_size - 1]` contains None if we have no switch gates with the value
+    // chunk_size, and contains `(g, i, c)`, if the gate `g`, at index `i`, already contains `c` copies
+    // of switches
+    pub(crate) current_switch_gates: Vec<Option<(SwitchGate<F, D>, usize, usize)>>,
 }
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn new(config: CircuitConfig) -> Self {
         CircuitBuilder {
             config,
@@ -82,6 +93,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_to_targets: HashMap::new(),
             targets_to_constants: HashMap::new(),
             free_arithmetic: HashMap::new(),
+            current_switch_gates: Vec::new(),
         }
     }
 
@@ -181,7 +193,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Adds a generator which will copy `src` to `dst`.
     pub fn generate_copy(&mut self, src: Target, dst: Target) {
-        self.add_generator(CopyGenerator { src, dst });
+        self.add_simple_generator(CopyGenerator { src, dst });
     }
 
     /// Uses Plonk's permutation argument to require that two elements be equal.
@@ -208,8 +220,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.generators.extend(generators);
     }
 
-    pub fn add_generator<G: WitnessGenerator<F>>(&mut self, generator: G) {
-        self.generators.push(Box::new(generator));
+    pub fn add_simple_generator<G: SimpleGenerator<F>>(&mut self, generator: G) {
+        self.generators.push(Box::new(generator.adapter()));
     }
 
     /// Returns a routable target with a value of 0.
@@ -382,7 +394,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         for _ in 0..regular_poly_openings {
             let gate = self.add_gate(NoopGate, vec![]);
             for w in 0..num_wires {
-                self.add_generator(RandomValueGenerator {
+                self.add_simple_generator(RandomValueGenerator {
                     target: Target::Wire(Wire { gate, input: w }),
                 });
             }
@@ -396,7 +408,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let gate_2 = self.add_gate(NoopGate, vec![]);
 
             for w in 0..num_routed_wires {
-                self.add_generator(RandomValueGenerator {
+                self.add_simple_generator(RandomValueGenerator {
                     target: Target::Wire(Wire {
                         gate: gate_1,
                         input: w,
@@ -444,38 +456,37 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn sigma_vecs(
-        &self,
-        k_is: &[F],
-        subgroup: &[F],
-    ) -> (Vec<PolynomialValues<F>>, PartitionWitness<F>) {
+    fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> (Vec<PolynomialValues<F>>, Forest) {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
-        let mut partition_witness = PartitionWitness::new(
-            self.config.num_wires,
-            self.config.num_routed_wires,
+        let config = &self.config;
+        let mut forest = Forest::new(
+            config.num_wires,
+            config.num_routed_wires,
             degree,
             self.virtual_target_index,
         );
 
         for gate in 0..degree {
-            for input in 0..self.config.num_wires {
-                partition_witness.add(Target::Wire(Wire { gate, input }));
+            for input in 0..config.num_wires {
+                forest.add(Target::Wire(Wire { gate, input }));
             }
         }
 
         for index in 0..self.virtual_target_index {
-            partition_witness.add(Target::VirtualTarget { index });
+            forest.add(Target::VirtualTarget { index });
         }
 
         for &CopyConstraint { pair: (a, b), .. } in &self.copy_constraints {
-            partition_witness.merge(a, b);
+            forest.merge(a, b);
         }
 
-        let wire_partition = partition_witness.wire_partition();
+        forest.compress_paths();
+
+        let wire_partition = forest.wire_partition();
         (
             wire_partition.get_sigma_polys(degree_log, k_is, subgroup),
-            partition_witness,
+            forest,
         )
     }
 
@@ -506,6 +517,33 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// Fill the remaining unused switch gates with dummy values, so that all
+    /// `SwitchGenerator` are run.
+    fn fill_switch_gates(&mut self) {
+        let zero = self.zero();
+
+        for chunk_size in 1..=self.current_switch_gates.len() {
+            if let Some((gate, gate_index, mut copy)) =
+                self.current_switch_gates[chunk_size - 1].clone()
+            {
+                while copy < gate.num_copies {
+                    for element in 0..chunk_size {
+                        let wire_first_input =
+                            Target::wire(gate_index, gate.wire_first_input(copy, element));
+                        let wire_second_input =
+                            Target::wire(gate_index, gate.wire_second_input(copy, element));
+                        let wire_switch_bool =
+                            Target::wire(gate_index, gate.wire_switch_bool(copy));
+                        self.connect(zero, wire_first_input);
+                        self.connect(zero, wire_second_input);
+                        self.connect(zero, wire_switch_bool);
+                    }
+                    copy += 1;
+                }
+            }
+        }
+    }
+
     pub fn print_gate_counts(&self, min_delta: usize) {
         self.context_log
             .filter(self.num_gates(), min_delta)
@@ -518,6 +556,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let start = Instant::now();
 
         self.fill_arithmetic_gates();
+        self.fill_switch_gates();
 
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
         // those hash wires match the claimed public inputs.
@@ -565,7 +604,12 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let constant_vecs = self.constant_polys(&prefixed_gates, num_constants);
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
-        let (sigma_vecs, partition_witness) = self.sigma_vecs(&k_is, &subgroup);
+        let (sigma_vecs, forest) = self.sigma_vecs(&k_is, &subgroup);
+
+        // Precompute FFT roots.
+        let max_fft_points =
+            1 << degree_bits + max(self.config.rate_bits, log2_ceil(quotient_degree_factor));
+        let fft_root_table = fft_root_table(max_fft_points);
 
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
         let constants_sigmas_commitment = PolynomialBatchCommitment::from_values(
@@ -574,6 +618,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.config.zero_knowledge & PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
             self.config.cap_height,
             &mut timing,
+            Some(&fft_root_table),
         );
 
         let constants_sigmas_cap = constants_sigmas_commitment.merkle_tree.cap.clone();
@@ -581,15 +626,33 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_cap: constants_sigmas_cap.clone(),
         };
 
+        // Index generator indices by their watched targets.
+        let mut generator_indices_by_watches = BTreeMap::new();
+        for (i, generator) in self.generators.iter().enumerate() {
+            for watch in generator.watch_list() {
+                let watch_index = forest.target_index(watch);
+                let watch_rep_index = forest.parents[watch_index];
+                generator_indices_by_watches
+                    .entry(watch_rep_index)
+                    .or_insert(vec![])
+                    .push(i);
+            }
+        }
+        for indices in generator_indices_by_watches.values_mut() {
+            indices.dedup();
+            indices.shrink_to_fit();
+        }
+
         let prover_only = ProverOnlyCircuitData {
             generators: self.generators,
+            generator_indices_by_watches,
             constants_sigmas_commitment,
             sigmas: transpose_poly_values(sigma_vecs),
             subgroup,
-            gate_instances: self.gate_instances,
             public_inputs: self.public_inputs,
             marked_targets: self.marked_targets,
-            partition_witness,
+            representative_map: forest.parents,
+            fft_root_table: Some(fft_root_table),
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
@@ -620,6 +683,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             quotient_degree_factor,
             num_gate_constraints,
             num_constants,
+            num_virtual_targets: self.virtual_target_index,
             k_is,
             num_partial_products,
             circuit_digest,

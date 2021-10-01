@@ -1,7 +1,7 @@
 use rayon::prelude::*;
 
 use crate::field::extension_field::{flatten, unflatten, Extendable};
-use crate::field::field_types::Field;
+use crate::field::field_types::RichField;
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::FriConfig;
 use crate::hash::hash_types::HashOut;
@@ -16,7 +16,7 @@ use crate::util::reverse_index_bits_in_place;
 use crate::util::timing::TimingTree;
 
 /// Builds a FRI proof.
-pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
+pub fn fri_proof<F: RichField + Extendable<D>, const D: usize>(
     initial_merkle_trees: &[&MerkleTree<F>],
     // Coefficients of the polynomial on which the LDT is performed. Only the first `1/rate` coefficients are non-zero.
     lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
@@ -63,10 +63,11 @@ pub fn fri_proof<F: Field + Extendable<D>, const D: usize>(
         query_round_proofs,
         final_poly: final_coeffs,
         pow_witness,
+        is_compressed: false,
     }
 }
 
-fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
+fn fri_committed_trees<F: RichField + Extendable<D>, const D: usize>(
     mut coeffs: PolynomialCoeffs<F::Extension>,
     mut values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
@@ -99,7 +100,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
                 .map(|chunk| reduce_with_powers(chunk, beta))
                 .collect::<Vec<_>>(),
         );
-        shift = shift.exp_u32(arity as u32);
+        shift = shift.exp_u64(arity as u64);
         values = coeffs.coset_fft(shift.into())
     }
 
@@ -110,7 +111,7 @@ fn fri_committed_trees<F: Field + Extendable<D>, const D: usize>(
     (trees, coeffs)
 }
 
-fn fri_proof_of_work<F: Field>(current_hash: HashOut<F>, config: &FriConfig) -> F {
+fn fri_proof_of_work<F: RichField>(current_hash: HashOut<F>, config: &FriConfig) -> F {
     (0..=F::NEG_ONE.to_canonical_u64())
         .into_par_iter()
         .find_any(|&i| {
@@ -131,7 +132,7 @@ fn fri_proof_of_work<F: Field>(current_hash: HashOut<F>, config: &FriConfig) -> 
         .expect("Proof of work failed. This is highly unlikely!")
 }
 
-fn fri_prover_query_rounds<F: Field + Extendable<D>, const D: usize>(
+fn fri_prover_query_rounds<F: RichField + Extendable<D>, const D: usize>(
     initial_merkle_trees: &[&MerkleTree<F>],
     trees: &[MerkleTree<F>],
     challenger: &mut Challenger<F>,
@@ -143,7 +144,7 @@ fn fri_prover_query_rounds<F: Field + Extendable<D>, const D: usize>(
         .collect()
 }
 
-fn fri_prover_query_round<F: Field + Extendable<D>, const D: usize>(
+fn fri_prover_query_round<F: RichField + Extendable<D>, const D: usize>(
     initial_merkle_trees: &[&MerkleTree<F>],
     trees: &[MerkleTree<F>],
     challenger: &mut Challenger<F>,

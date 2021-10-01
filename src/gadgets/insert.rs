@@ -1,10 +1,11 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::RichField;
 use crate::gates::insertion::InsertionGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Inserts a `Target` in a vector at a non-deterministic index.
     /// Note: `index` is not range-checked.
     pub fn insert(
@@ -43,7 +44,7 @@ mod tests {
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
@@ -61,7 +62,7 @@ mod tests {
 
     fn test_insert_given_len(len_log: usize) -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         let len = 1 << len_log;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new();

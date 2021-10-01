@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, RichField};
 use crate::gates::reducing::ReducingGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -67,13 +67,13 @@ impl<F: Field> ReducingFactor<F> {
     }
 
     pub fn shift(&mut self, x: F) -> F {
-        let tmp = self.base.exp(self.count) * x;
+        let tmp = self.base.exp_u64(self.count) * x;
         self.count = 0;
         tmp
     }
 
     pub fn shift_poly(&mut self, p: &mut PolynomialCoeffs<F>) {
-        *p *= self.base.exp(self.count);
+        *p *= self.base.exp_u64(self.count);
         self.count = 0;
     }
 
@@ -100,7 +100,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: Extendable<D>,
+        F: RichField + Extendable<D>,
     {
         let max_coeffs_len = ReducingGate::<D>::max_coeffs_len(
             builder.config.num_wires,
@@ -137,25 +137,19 @@ impl<const D: usize> ReducingFactorTarget<D> {
         acc
     }
 
-    /// Reduces a length `n` vector of `ExtensionTarget`s using `n/2` `ArithmeticExtensionGate`s.
-    /// It does this by batching two steps of Horner's method in each gate.
-    /// Here's an example with `n=4, alpha=2, D=1`:
-    /// 1st gate: 2  0 4  4 3  4 11 <- 2*0+4=4, 2*4+3=11
-    /// 2nd gate: 2 11 2 24 1 24 49 <- 2*11+2=24, 2*24+1=49
-    /// which verifies that `2.reduce([1,2,3,4]) = 49`.
     pub fn reduce<F>(
         &mut self,
         terms: &[ExtensionTarget<D>], // Could probably work with a `DoubleEndedIterator` too.
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: Extendable<D>,
+        F: RichField + Extendable<D>,
     {
         let l = terms.len();
         self.count += l as u64;
 
         let mut terms_vec = terms.to_vec();
-        let mut acc = terms_vec.pop().unwrap();
+        let mut acc = builder.zero_extension();
         terms_vec.reverse();
 
         for x in terms_vec {
@@ -170,7 +164,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: Extendable<D>,
+        F: RichField + Extendable<D>,
     {
         let exp = builder.exp_u64_extension(self.base, self.count);
         self.count = 0;
@@ -188,14 +182,14 @@ mod tests {
 
     use super::*;
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
 
     fn test_reduce_gadget_base(n: usize) -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();
@@ -223,7 +217,7 @@ mod tests {
 
     fn test_reduce_gadget(n: usize) -> Result<()> {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();

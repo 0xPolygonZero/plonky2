@@ -1,10 +1,12 @@
 use std::marker::PhantomData;
 
+use array_tool::vec::Union;
+
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::generator::{GeneratedValues, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -14,59 +16,59 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for conditionally swapping input values based on a boolean.
 #[derive(Clone, Debug)]
-pub(crate) struct SwitchGate<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> {
-    num_copies: usize,
+pub(crate) struct SwitchGate<F: RichField + Extendable<D>, const D: usize> {
+    pub(crate) chunk_size: usize,
+    pub(crate) num_copies: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SwitchGate<F, D, CHUNK_SIZE> {
-    pub fn new(config: CircuitConfig) -> Self {
-        let num_copies = Self::max_num_copies(config.num_routed_wires);
+impl<F: RichField + Extendable<D>, const D: usize> SwitchGate<F, D> {
+    pub fn new(num_copies: usize, chunk_size: usize) -> Self {
         Self {
+            chunk_size,
             num_copies,
             _phantom: PhantomData,
         }
     }
 
-    fn max_num_copies(num_routed_wires: usize) -> usize {
-        num_routed_wires / (4 * CHUNK_SIZE + 1)
+    pub fn new_from_config(config: CircuitConfig, chunk_size: usize) -> Self {
+        let num_copies = Self::max_num_copies(config.num_routed_wires, chunk_size);
+        Self::new(num_copies, chunk_size)
+    }
+
+    pub fn max_num_copies(num_routed_wires: usize, chunk_size: usize) -> usize {
+        num_routed_wires / (4 * chunk_size + 1)
+    }
+
+    pub fn wire_first_input(&self, copy: usize, element: usize) -> usize {
+        debug_assert!(element < self.chunk_size);
+        copy * (4 * self.chunk_size + 1) + element
+    }
+
+    pub fn wire_second_input(&self, copy: usize, element: usize) -> usize {
+        debug_assert!(element < self.chunk_size);
+        copy * (4 * self.chunk_size + 1) + self.chunk_size + element
+    }
+
+    pub fn wire_first_output(&self, copy: usize, element: usize) -> usize {
+        debug_assert!(element < self.chunk_size);
+        copy * (4 * self.chunk_size + 1) + 2 * self.chunk_size + element
+    }
+
+    pub fn wire_second_output(&self, copy: usize, element: usize) -> usize {
+        debug_assert!(element < self.chunk_size);
+        copy * (4 * self.chunk_size + 1) + 3 * self.chunk_size + element
     }
 
     pub fn wire_switch_bool(&self, copy: usize) -> usize {
         debug_assert!(copy < self.num_copies);
-        copy * (4 * CHUNK_SIZE + 1)
-    }
-
-    pub fn wire_first_input(&self, copy: usize, element: usize) -> usize {
-        debug_assert!(copy < self.num_copies);
-        debug_assert!(element < CHUNK_SIZE);
-        copy * (4 * CHUNK_SIZE + 1) + 1 + element
-    }
-
-    pub fn wire_second_input(&self, copy: usize, element: usize) -> usize {
-        debug_assert!(copy < self.num_copies);
-        debug_assert!(element < CHUNK_SIZE);
-        copy * (4 * CHUNK_SIZE + 1) + 1 + CHUNK_SIZE + element
-    }
-
-    pub fn wire_first_output(&self, copy: usize, element: usize) -> usize {
-        debug_assert!(copy < self.num_copies);
-        debug_assert!(element < CHUNK_SIZE);
-        copy * (4 * CHUNK_SIZE + 1) + 1 + 2 * CHUNK_SIZE + element
-    }
-
-    pub fn wire_second_output(&self, copy: usize, element: usize) -> usize {
-        debug_assert!(copy < self.num_copies);
-        debug_assert!(element < CHUNK_SIZE);
-        copy * (4 * CHUNK_SIZE + 1) + 1 + 3 * CHUNK_SIZE + element
+        copy * (4 * self.chunk_size + 1) + 4 * self.chunk_size
     }
 }
 
-impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
-    for SwitchGate<F, D, CHUNK_SIZE>
-{
+impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, D> {
     fn id(&self) -> String {
-        format!("{:?}<D={},CHUNK_SIZE={}>", self, D, CHUNK_SIZE)
+        format!("{:?}<D={}>", self, D)
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
@@ -76,7 +78,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
             let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
             let not_switch = F::Extension::ONE - switch_bool;
 
-            for e in 0..CHUNK_SIZE {
+            for e in 0..self.chunk_size {
                 let first_input = vars.local_wires[self.wire_first_input(c, e)];
                 let second_input = vars.local_wires[self.wire_second_input(c, e)];
                 let first_output = vars.local_wires[self.wire_first_output(c, e)];
@@ -99,7 +101,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
             let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
             let not_switch = F::ONE - switch_bool;
 
-            for e in 0..CHUNK_SIZE {
+            for e in 0..self.chunk_size {
                 let first_input = vars.local_wires[self.wire_first_input(c, e)];
                 let second_input = vars.local_wires[self.wire_second_input(c, e)];
                 let first_output = vars.local_wires[self.wire_first_output(c, e)];
@@ -127,7 +129,7 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
             let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
             let not_switch = builder.sub_extension(one, switch_bool);
 
-            for e in 0..CHUNK_SIZE {
+            for e in 0..self.chunk_size {
                 let first_input = vars.local_wires[self.wire_first_input(c, e)];
                 let second_input = vars.local_wires[self.wire_second_input(c, e)];
                 let first_output = vars.local_wires[self.wire_first_output(c, e)];
@@ -162,15 +164,20 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
         gate_index: usize,
         _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = SwitchGenerator::<F, D, CHUNK_SIZE> {
-            gate_index,
-            gate: self.clone(),
-        };
-        vec![Box::new(gen)]
+        (0..self.num_copies)
+            .map(|c| {
+                let g: Box<dyn WitnessGenerator<F>> = Box::new(SwitchGenerator::<F, D> {
+                    gate_index,
+                    gate: self.clone(),
+                    copy: c,
+                });
+                g
+            })
+            .collect()
     }
 
     fn num_wires(&self) -> usize {
-        self.wire_second_output(self.num_copies - 1, CHUNK_SIZE - 1) + 1
+        self.wire_switch_bool(self.num_copies - 1) + 1
     }
 
     fn num_constants(&self) -> usize {
@@ -182,35 +189,46 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> Gate<F, D>
     }
 
     fn num_constraints(&self) -> usize {
-        4 * self.num_copies * CHUNK_SIZE
+        4 * self.num_copies * self.chunk_size
     }
 }
 
 #[derive(Debug)]
-struct SwitchGenerator<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> {
+struct SwitchGenerator<F: RichField + Extendable<D>, const D: usize> {
     gate_index: usize,
-    gate: SwitchGate<F, D, CHUNK_SIZE>,
+    gate: SwitchGate<F, D>,
+    copy: usize,
 }
 
-impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<F>
-    for SwitchGenerator<F, D, CHUNK_SIZE>
-{
-    fn dependencies(&self) -> Vec<Target> {
+impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
+    fn in_out_dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
         let mut deps = Vec::new();
-        for c in 0..self.gate.num_copies {
-            deps.push(local_target(self.gate.wire_switch_bool(c)));
-            for e in 0..CHUNK_SIZE {
-                deps.push(local_target(self.gate.wire_first_input(c, e)));
-                deps.push(local_target(self.gate.wire_second_input(c, e)));
-            }
+        for e in 0..self.gate.chunk_size {
+            deps.push(local_target(self.gate.wire_first_input(self.copy, e)));
+            deps.push(local_target(self.gate.wire_second_input(self.copy, e)));
+            deps.push(local_target(self.gate.wire_first_output(self.copy, e)));
+            deps.push(local_target(self.gate.wire_second_output(self.copy, e)));
         }
 
         deps
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn in_switch_dependencies(&self) -> Vec<Target> {
+        let local_target = |input| Target::wire(self.gate_index, input);
+
+        let mut deps = Vec::new();
+        for e in 0..self.gate.chunk_size {
+            deps.push(local_target(self.gate.wire_first_input(self.copy, e)));
+            deps.push(local_target(self.gate.wire_second_input(self.copy, e)));
+            deps.push(local_target(self.gate.wire_switch_bool(self.copy)));
+        }
+
+        deps
+    }
+
+    fn run_in_out(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |input| Wire {
             gate: self.gate_index,
             input,
@@ -218,22 +236,72 @@ impl<F: Extendable<D>, const D: usize, const CHUNK_SIZE: usize> SimpleGenerator<
 
         let get_local_wire = |input| witness.get_wire(local_wire(input));
 
-        for c in 0..self.gate.num_copies {
-            let switch_bool = get_local_wire(self.gate.wire_switch_bool(c));
-            for e in 0..CHUNK_SIZE {
-                let first_input = get_local_wire(self.gate.wire_first_input(c, e));
-                let second_input = get_local_wire(self.gate.wire_second_input(c, e));
-                let first_output_wire = local_wire(self.gate.wire_first_output(c, e));
-                let second_output_wire = local_wire(self.gate.wire_second_output(c, e));
+        let switch_bool_wire = local_wire(self.gate.wire_switch_bool(self.copy));
 
-                if switch_bool == F::ONE {
-                    out_buffer.set_wire(first_output_wire, second_input);
-                    out_buffer.set_wire(second_output_wire, first_input);
-                } else {
-                    out_buffer.set_wire(first_output_wire, first_input);
-                    out_buffer.set_wire(second_output_wire, second_input);
-                }
-            }
+        let mut first_inputs = Vec::new();
+        let mut second_inputs = Vec::new();
+        let mut first_outputs = Vec::new();
+        let mut second_outputs = Vec::new();
+        for e in 0..self.gate.chunk_size {
+            first_inputs.push(get_local_wire(self.gate.wire_first_input(self.copy, e)));
+            second_inputs.push(get_local_wire(self.gate.wire_second_input(self.copy, e)));
+            first_outputs.push(get_local_wire(self.gate.wire_first_output(self.copy, e)));
+            second_outputs.push(get_local_wire(self.gate.wire_second_output(self.copy, e)));
+        }
+
+        if first_outputs == first_inputs && second_outputs == second_inputs {
+            out_buffer.set_wire(switch_bool_wire, F::ZERO);
+        } else if first_outputs == second_inputs && second_outputs == first_inputs {
+            out_buffer.set_wire(switch_bool_wire, F::ONE);
+        } else {
+            panic!("No permutation from given inputs to given outputs");
+        }
+    }
+
+    fn run_in_switch(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        let local_wire = |input| Wire {
+            gate: self.gate_index,
+            input,
+        };
+
+        let get_local_wire = |input| witness.get_wire(local_wire(input));
+
+        let switch_bool = get_local_wire(self.gate.wire_switch_bool(self.copy));
+        for e in 0..self.gate.chunk_size {
+            let first_output_wire = local_wire(self.gate.wire_first_output(self.copy, e));
+            let second_output_wire = local_wire(self.gate.wire_second_output(self.copy, e));
+            let first_input = get_local_wire(self.gate.wire_first_input(self.copy, e));
+            let second_input = get_local_wire(self.gate.wire_second_input(self.copy, e));
+
+            let (first_output, second_output) = if switch_bool == F::ZERO {
+                (first_input, second_input)
+            } else if switch_bool == F::ONE {
+                (second_input, first_input)
+            } else {
+                panic!("Invalid switch bool value");
+            };
+
+            out_buffer.set_wire(first_output_wire, first_output);
+            out_buffer.set_wire(second_output_wire, second_output);
+        }
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> WitnessGenerator<F> for SwitchGenerator<F, D> {
+    fn watch_list(&self) -> Vec<Target> {
+        self.in_out_dependencies()
+            .union(self.in_switch_dependencies())
+    }
+
+    fn run(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> bool {
+        if witness.contains_all(&self.in_out_dependencies()) {
+            self.run_in_out(witness, out_buffer);
+            true
+        } else if witness.contains_all(&self.in_switch_dependencies()) {
+            self.run_in_switch(witness, out_buffer);
+            true
+        } else {
+            false
         }
     }
 }
@@ -245,7 +313,7 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
@@ -256,44 +324,51 @@ mod tests {
 
     #[test]
     fn wire_indices() {
-        let gate = SwitchGate::<CrandallField, 4, 3> {
-            num_copies: 3,
+        type SG = SwitchGate<CrandallField, 4>;
+        let num_copies = 3;
+        let chunk_size = 3;
+
+        let gate = SG {
+            chunk_size,
+            num_copies,
             _phantom: PhantomData,
         };
 
-        assert_eq!(gate.wire_switch_bool(0), 0);
-        assert_eq!(gate.wire_first_input(0, 0), 1);
-        assert_eq!(gate.wire_first_input(0, 2), 3);
-        assert_eq!(gate.wire_second_input(0, 0), 4);
-        assert_eq!(gate.wire_second_input(0, 2), 6);
-        assert_eq!(gate.wire_first_output(0, 0), 7);
-        assert_eq!(gate.wire_second_output(0, 2), 12);
-        assert_eq!(gate.wire_switch_bool(1), 13);
-        assert_eq!(gate.wire_first_input(1, 0), 14);
-        assert_eq!(gate.wire_second_output(1, 2), 25);
-        assert_eq!(gate.wire_switch_bool(2), 26);
-        assert_eq!(gate.wire_first_input(2, 0), 27);
-        assert_eq!(gate.wire_second_output(2, 2), 38);
+        assert_eq!(gate.wire_first_input(0, 0), 0);
+        assert_eq!(gate.wire_first_input(0, 2), 2);
+        assert_eq!(gate.wire_second_input(0, 0), 3);
+        assert_eq!(gate.wire_second_input(0, 2), 5);
+        assert_eq!(gate.wire_first_output(0, 0), 6);
+        assert_eq!(gate.wire_second_output(0, 2), 11);
+        assert_eq!(gate.wire_switch_bool(0), 12);
+        assert_eq!(gate.wire_first_input(1, 0), 13);
+        assert_eq!(gate.wire_second_output(1, 2), 24);
+        assert_eq!(gate.wire_switch_bool(1), 25);
+        assert_eq!(gate.wire_first_input(2, 0), 26);
+        assert_eq!(gate.wire_second_output(2, 2), 37);
+        assert_eq!(gate.wire_switch_bool(2), 38);
     }
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(SwitchGate::<_, 4, 3>::new(
+        test_low_degree::<CrandallField, _, 4>(SwitchGate::<_, 4>::new_from_config(
             CircuitConfig::large_config(),
+            3,
         ));
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(SwitchGate::<_, 4, 3>::new(
+        test_eval_fns::<CrandallField, _, 4>(SwitchGate::<_, 4>::new_from_config(
             CircuitConfig::large_config(),
+            3,
         ))
     }
 
     #[test]
     fn test_gate_constraint() {
         type F = CrandallField;
-        type FF = QuarticCrandallField;
+        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
         const CHUNK_SIZE: usize = 4;
         let num_copies = 3;
@@ -309,7 +384,7 @@ mod tests {
             let mut v = Vec::new();
             for c in 0..num_copies {
                 let switch = switch_bools[c];
-                v.push(F::from_bool(switch));
+
                 let mut first_input_chunk = Vec::with_capacity(CHUNK_SIZE);
                 let mut second_input_chunk = Vec::with_capacity(CHUNK_SIZE);
                 let mut first_output_chunk = Vec::with_capacity(CHUNK_SIZE);
@@ -328,6 +403,8 @@ mod tests {
                 v.append(&mut second_input_chunk);
                 v.append(&mut first_output_chunk);
                 v.append(&mut second_output_chunk);
+
+                v.push(F::from_bool(switch));
             }
 
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
@@ -337,7 +414,8 @@ mod tests {
         let second_inputs: Vec<Vec<F>> = (0..num_copies).map(|_| F::rand_vec(CHUNK_SIZE)).collect();
         let switch_bools = vec![true, false, true];
 
-        let gate = SwitchGate::<F, D, CHUNK_SIZE> {
+        let gate = SwitchGate::<F, D> {
+            chunk_size: CHUNK_SIZE,
             num_copies,
             _phantom: PhantomData,
         };

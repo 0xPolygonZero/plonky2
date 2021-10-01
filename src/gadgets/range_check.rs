@@ -1,12 +1,12 @@
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
+use crate::field::field_types::RichField;
 use crate::gates::base_sum::BaseSumGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Checks that `x < 2^n_log` using a `BaseSumGate`.
     pub fn range_check(&mut self, x: Target, n_log: usize) {
         let gate = self.add_gate(BaseSumGate::<2>::new(n_log), vec![]);
@@ -28,7 +28,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let high_gate = self.add_gate(BaseSumGate::<2>::new(num_bits - n_log), vec![]);
         let low = Target::wire(low_gate, BaseSumGate::<2>::WIRE_SUM);
         let high = Target::wire(high_gate, BaseSumGate::<2>::WIRE_SUM);
-        self.add_generator(LowHighGenerator {
+        self.add_simple_generator(LowHighGenerator {
             integer: x,
             n_log,
             low,
@@ -51,7 +51,7 @@ struct LowHighGenerator {
     high: Target,
 }
 
-impl<F: Field> SimpleGenerator<F> for LowHighGenerator {
+impl<F: RichField> SimpleGenerator<F> for LowHighGenerator {
     fn dependencies(&self) -> Vec<Target> {
         vec![self.integer]
     }

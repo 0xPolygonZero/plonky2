@@ -78,7 +78,7 @@ pub fn interpolate2<F: Field>(points: [(F, F); 2], x: F) -> F {
 mod tests {
     use super::*;
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::polynomial::polynomial::PolynomialCoeffs;
 
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_interpolate2() {
-        type F = QuarticCrandallField;
+        type F = QuarticExtension<CrandallField>;
         let points = [(F::rand(), F::rand()), (F::rand(), F::rand())];
         let x = F::rand();
 

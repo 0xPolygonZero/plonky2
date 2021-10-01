@@ -1,8 +1,8 @@
 use rayon::prelude::*;
 
 use crate::field::extension_field::Extendable;
-use crate::field::fft::DEFAULT_STRATEGY;
-use crate::field::field_types::Field;
+use crate::field::fft::FftRootTable;
+use crate::field::field_types::{Field, RichField};
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
 use crate::hash::merkle_tree::MerkleTree;
@@ -20,7 +20,7 @@ use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transp
 pub const SALT_SIZE: usize = 2;
 
 /// Represents a batch FRI based commitment to a list of polynomials.
-pub struct PolynomialBatchCommitment<F: Field> {
+pub struct PolynomialBatchCommitment<F: RichField> {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
     pub merkle_tree: MerkleTree<F>,
     pub degree_log: usize,
@@ -28,7 +28,7 @@ pub struct PolynomialBatchCommitment<F: Field> {
     pub blinding: bool,
 }
 
-impl<F: Field> PolynomialBatchCommitment<F> {
+impl<F: RichField> PolynomialBatchCommitment<F> {
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
     pub(crate) fn from_values(
         values: Vec<PolynomialValues<F>>,
@@ -36,6 +36,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         blinding: bool,
         cap_height: usize,
         timing: &mut TimingTree,
+        fft_root_table: Option<&FftRootTable<F>>,
     ) -> Self {
         let coeffs = timed!(
             timing,
@@ -43,7 +44,14 @@ impl<F: Field> PolynomialBatchCommitment<F> {
             values.par_iter().map(|v| v.ifft()).collect::<Vec<_>>()
         );
 
-        Self::from_coeffs(coeffs, rate_bits, blinding, cap_height, timing)
+        Self::from_coeffs(
+            coeffs,
+            rate_bits,
+            blinding,
+            cap_height,
+            timing,
+            fft_root_table,
+        )
     }
 
     /// Creates a list polynomial commitment for the polynomials `polynomials`.
@@ -53,12 +61,13 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         blinding: bool,
         cap_height: usize,
         timing: &mut TimingTree,
+        fft_root_table: Option<&FftRootTable<F>>,
     ) -> Self {
         let degree = polynomials[0].len();
         let lde_values = timed!(
             timing,
             "FFT + blinding",
-            Self::lde_values(&polynomials, rate_bits, blinding)
+            Self::lde_values(&polynomials, rate_bits, blinding, fft_root_table)
         );
 
         let mut leaves = timed!(timing, "transpose LDEs", transpose(&lde_values));
@@ -82,6 +91,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         polynomials: &[PolynomialCoeffs<F>],
         rate_bits: usize,
         blinding: bool,
+        fft_root_table: Option<&FftRootTable<F>>,
     ) -> Vec<Vec<F>> {
         let degree = polynomials[0].len();
 
@@ -93,12 +103,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degrees inconsistent");
                 p.lde(rate_bits)
-                    .coset_fft_with_options(
-                        F::coset_shift(),
-                        DEFAULT_STRATEGY,
-                        Some(rate_bits),
-                        None,
-                    )
+                    .coset_fft_with_options(F::coset_shift(), Some(rate_bits), fft_root_table)
                     .values
             })
             .chain(
@@ -125,7 +130,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         timing: &mut TimingTree,
     ) -> (FriProof<F, D>, OpeningSet<F, D>)
     where
-        F: Extendable<D>,
+        F: RichField + Extendable<D>,
     {
         let config = &common_data.config;
         assert!(D > 1, "Not implemented for D=1.");
@@ -133,7 +138,7 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         let g = F::Extension::primitive_root_of_unity(degree_log);
         for p in &[zeta, g * zeta] {
             assert_ne!(
-                p.exp(1 << degree_log as u64),
+                p.exp_u64(1 << degree_log as u64),
                 F::Extension::ONE,
                 "Opening point is in the subgroup."
             );
@@ -243,129 +248,5 @@ impl<F: Field> PolynomialBatchCommitment<F> {
         };
 
         quotient.padded(quotient.degree_plus_one().next_power_of_two())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use anyhow::Result;
-
-    use super::*;
-    use crate::fri::verifier::verify_fri_proof;
-    use crate::fri::FriConfig;
-    use crate::hash::hash_types::HashOut;
-    use crate::plonk::circuit_data::CircuitConfig;
-
-    fn gen_random_test_case<F: Field + Extendable<D>, const D: usize>(
-        k: usize,
-        degree_log: usize,
-    ) -> Vec<PolynomialValues<F>> {
-        let degree = 1 << degree_log;
-
-        (0..k)
-            .map(|_| PolynomialValues::new(F::rand_vec(degree)))
-            .collect()
-    }
-
-    fn gen_random_point<F: Field + Extendable<D>, const D: usize>(
-        degree_log: usize,
-    ) -> F::Extension {
-        let degree = 1 << degree_log;
-
-        let mut point = F::Extension::rand();
-        while point.exp(degree as u64).is_one() {
-            point = F::Extension::rand();
-        }
-
-        point
-    }
-
-    fn check_batch_polynomial_commitment<F: Field + Extendable<D>, const D: usize>() -> Result<()> {
-        let ks = [10, 2, 10, 8];
-        let degree_bits = 11;
-        let fri_config = FriConfig {
-            proof_of_work_bits: 2,
-            reduction_arity_bits: vec![2, 3, 1, 2],
-            num_query_rounds: 3,
-        };
-
-        // We only care about `fri_config, num_constants`, and `num_routed_wires` here.
-        let common_data = CommonCircuitData {
-            config: CircuitConfig {
-                fri_config,
-                num_routed_wires: 6,
-                ..CircuitConfig::large_config()
-            },
-            degree_bits,
-            gates: vec![],
-            quotient_degree_factor: 0,
-            num_gate_constraints: 0,
-            num_constants: 4,
-            k_is: vec![F::ONE; 6],
-            num_partial_products: (0, 0),
-            circuit_digest: HashOut::from_partial(vec![]),
-        };
-
-        let commitments = (0..4)
-            .map(|i| {
-                PolynomialBatchCommitment::<F>::from_values(
-                    gen_random_test_case(ks[i], degree_bits),
-                    common_data.config.rate_bits,
-                    common_data.config.zero_knowledge && PlonkPolynomials::polynomials(i).blinding,
-                    common_data.config.cap_height,
-                    &mut TimingTree::default(),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        let zeta = gen_random_point::<F, D>(degree_bits);
-        let (proof, os) = PolynomialBatchCommitment::open_plonk::<D>(
-            &[
-                &commitments[0],
-                &commitments[1],
-                &commitments[2],
-                &commitments[3],
-            ],
-            zeta,
-            &mut Challenger::new(),
-            &common_data,
-            &mut TimingTree::default(),
-        );
-
-        let merkle_caps = &[
-            commitments[0].merkle_tree.cap.clone(),
-            commitments[1].merkle_tree.cap.clone(),
-            commitments[2].merkle_tree.cap.clone(),
-            commitments[3].merkle_tree.cap.clone(),
-        ];
-
-        verify_fri_proof(
-            &os,
-            zeta,
-            merkle_caps,
-            &proof,
-            &mut Challenger::new(),
-            &common_data,
-        )
-    }
-
-    mod quadratic {
-        use super::*;
-        use crate::field::crandall_field::CrandallField;
-
-        #[test]
-        fn test_batch_polynomial_commitment() -> Result<()> {
-            check_batch_polynomial_commitment::<CrandallField, 2>()
-        }
-    }
-
-    mod quartic {
-        use super::*;
-        use crate::field::crandall_field::CrandallField;
-
-        #[test]
-        fn test_batch_polynomial_commitment() -> Result<()> {
-            check_batch_polynomial_commitment::<CrandallField, 4>()
-        }
     }
 }
