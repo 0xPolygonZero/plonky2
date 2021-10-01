@@ -87,7 +87,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
 
     pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         let mut buffer = Buffer::new(Vec::new());
-        buffer.write_proof_with_public_inputs(&self)?;
+        buffer.write_proof_with_public_inputs(self)?;
         Ok(buffer.bytes())
     }
 
@@ -168,7 +168,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
 
     pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         let mut buffer = Buffer::new(Vec::new());
-        buffer.write_compressed_proof_with_public_inputs(&self)?;
+        buffer.write_compressed_proof_with_public_inputs(self)?;
         Ok(buffer.bytes())
     }
 

@@ -1,21 +1,18 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::fmt;
 use std::io::Cursor;
-use std::io::{Error, ErrorKind, Read, Result, Write};
+use std::io::{Read, Result, Write};
 use std::iter::FromIterator;
 
-use crate::field::crandall_field::CrandallField;
-use crate::field::extension_field::quartic::QuarticExtension;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::field_types::{PrimeField, RichField};
 use crate::fri::proof::{
     CompressedFriProof, CompressedFriQueryRounds, FriInitialTreeProof, FriProof, FriQueryRound,
     FriQueryStep,
 };
 use crate::hash::hash_types::HashOut;
 use crate::hash::merkle_proofs::MerkleProof;
-use crate::hash::merkle_tree::{MerkleCap, MerkleTree};
+use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, OpeningSet, Proof, ProofWithPublicInputs,
@@ -119,9 +116,9 @@ impl Buffer {
         Ok(())
     }
     fn read_field_vec<F: PrimeField>(&mut self, length: usize) -> Result<Vec<F>> {
-        Ok((0..length)
+        (0..length)
             .map(|_| self.read_field())
-            .collect::<Result<Vec<_>>>()?)
+            .collect::<Result<Vec<_>>>()
     }
 
     fn write_field_ext_vec<F: Extendable<D>, const D: usize>(
@@ -137,9 +134,9 @@ impl Buffer {
         &mut self,
         length: usize,
     ) -> Result<Vec<F::Extension>> {
-        Ok((0..length)
+        (0..length)
             .map(|_| self.read_field_ext::<F, D>())
-            .collect::<Result<Vec<_>>>()?)
+            .collect::<Result<Vec<_>>>()
     }
 
     fn write_opening_set<F: Extendable<D>, const D: usize>(
@@ -187,7 +184,7 @@ impl Buffer {
             length
                 .try_into()
                 .expect("Merkle proof length must fit in u8."),
-        );
+        )?;
         for &h in &p.siblings {
             self.write_hash(h)?;
         }
@@ -278,7 +275,7 @@ impl Buffer {
         config: &CircuitConfig,
     ) -> Result<Vec<FriQueryRound<F, D>>> {
         let mut fqrs = Vec::with_capacity(config.fri_config.num_query_rounds);
-        for i in 0..config.fri_config.num_query_rounds {
+        for _ in 0..config.fri_config.num_query_rounds {
             let initial_trees_proof = self.read_fri_initial_proof(common_data, config)?;
             let steps = config
                 .fri_config
@@ -413,7 +410,7 @@ impl Buffer {
             .map(|_| self.read_u32().map(|i| i as usize))
             .collect::<Result<Vec<_>>>()?;
         let mut indices = original_indices.clone();
-        indices.sort();
+        indices.sort_unstable();
         indices.dedup();
         let mut pairs = Vec::new();
         for &i in &indices {
