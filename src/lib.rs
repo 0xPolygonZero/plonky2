@@ -1,3 +1,4 @@
+#![feature(asm)]
 #![feature(destructuring_assignment)]
 #![feature(generic_const_exprs)]
 #![feature(specialization)]
