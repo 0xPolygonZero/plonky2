@@ -2,7 +2,7 @@ use core::arch::x86_64::*;
 
 use crate::field::field_types::Field;
 use crate::field::goldilocks_field::GoldilocksField;
-use crate::hash::poseidon::{ALL_ROUND_CONSTANTS, HALF_N_FULL_ROUNDS, N_PARTIAL_ROUNDS, Poseidon};
+use crate::hash::poseidon::{Poseidon, ALL_ROUND_CONSTANTS, HALF_N_FULL_ROUNDS, N_PARTIAL_ROUNDS};
 
 const WIDTH: usize = 12;
 
@@ -52,9 +52,15 @@ unsafe fn const_layer(
 }
 
 macro_rules! map3 {
-    ($f:ident::<$l:literal>, $v:ident) => { ($f::<$l>($v.0), $f::<$l>($v.1), $f::<$l>($v.2)) };
-    ($f:ident, $v0:ident, $v1:ident) => { ($f($v0.0, $v1.0), $f($v0.1, $v1.1), $f($v0.2, $v1.2)) };
-    ($f:ident, $v0:ident, rep $v1:ident) => { ($f($v0.0, $v1), $f($v0.1, $v1), $f($v0.2, $v1)) };
+    ($f:ident::<$l:literal>, $v:ident) => {
+        ($f::<$l>($v.0), $f::<$l>($v.1), $f::<$l>($v.2))
+    };
+    ($f:ident, $v0:ident, $v1:ident) => {
+        ($f($v0.0, $v1.0), $f($v0.1, $v1.1), $f($v0.2, $v1.2))
+    };
+    ($f:ident, $v0:ident, rep $v1:ident) => {
+        ($f($v0.0, $v1), $f($v0.1, $v1), $f($v0.2, $v1))
+    };
 }
 
 #[inline(always)]
@@ -127,9 +133,7 @@ unsafe fn reduce3(
 }
 
 #[inline(always)]
-unsafe fn sbox_layer_full(
-    state: (__m256i, __m256i, __m256i)
-) -> (__m256i, __m256i, __m256i) {
+unsafe fn sbox_layer_full(state: (__m256i, __m256i, __m256i)) -> (__m256i, __m256i, __m256i) {
     let state2_unreduced = square3(state);
     let state2 = reduce3(state2_unreduced);
     let state4_unreduced = square3(state2);
@@ -143,7 +147,7 @@ unsafe fn sbox_layer_full(
 
 #[inline(always)]
 unsafe fn mds_layer_full_s(
-    (state0, state1, state2): (__m256i, __m256i, __m256i)
+    (state0, state1, state2): (__m256i, __m256i, __m256i),
 ) -> (__m256i, __m256i, __m256i) {
     let (state0_s, state1_s, state2_s): (__m256i, __m256i, __m256i);
     // TODO: Would it be faster to save the input to memory and do unaligned
@@ -445,7 +449,7 @@ unsafe fn mds_layer_full_s(
 
 #[inline(always)]
 unsafe fn sbox_mds_layers_partial_s(
-    (state0, state1, state2): (__m256i, __m256i, __m256i)
+    (state0, state1, state2): (__m256i, __m256i, __m256i),
 ) -> (__m256i, __m256i, __m256i) {
     // Extract the low quadword
     let state0ab: __m128i = _mm256_castsi256_si128(state0);
@@ -801,8 +805,10 @@ unsafe fn half_full_rounds_s(
     mut state_s: (__m256i, __m256i, __m256i),
     start_round: usize,
 ) -> (__m256i, __m256i, __m256i) {
-    let base = (&ALL_ROUND_CONSTANTS[
-        WIDTH * start_round..WIDTH * start_round + WIDTH * HALF_N_FULL_ROUNDS]).as_ptr().cast::<GoldilocksField>();
+    let base = (&ALL_ROUND_CONSTANTS
+        [WIDTH * start_round..WIDTH * start_round + WIDTH * HALF_N_FULL_ROUNDS])
+        .as_ptr()
+        .cast::<GoldilocksField>();
 
     for i in 0..HALF_N_FULL_ROUNDS {
         state_s = full_round_s(state_s, (base, i * WIDTH * 8));
@@ -815,8 +821,10 @@ unsafe fn all_partial_rounds_s(
     mut state_s: (__m256i, __m256i, __m256i),
     start_round: usize,
 ) -> (__m256i, __m256i, __m256i) {
-    let base = (&ALL_ROUND_CONSTANTS[
-        WIDTH * start_round..WIDTH * start_round + WIDTH * N_PARTIAL_ROUNDS]).as_ptr().cast::<GoldilocksField>();
+    let base = (&ALL_ROUND_CONSTANTS
+        [WIDTH * start_round..WIDTH * start_round + WIDTH * N_PARTIAL_ROUNDS])
+        .as_ptr()
+        .cast::<GoldilocksField>();
 
     for i in 0..N_PARTIAL_ROUNDS {
         state_s = partial_round_s(state_s, (base, i * WIDTH * 8));
