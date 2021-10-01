@@ -540,14 +540,3 @@ impl Buffer {
         })
     }
 }
-
-#[test]
-fn yo() {
-    type F = CrandallField;
-    type FF = QuarticExtension<F>;
-    let mut buffer = Buffer::new(Vec::new());
-    let x = FF::rand();
-    buffer.write_field_ext::<F, 4>(x).unwrap();
-    let mut buffer = Buffer::new(buffer.0.into_inner());
-    let y: FF = buffer.read_field_ext::<F, 4>().unwrap();
-}
