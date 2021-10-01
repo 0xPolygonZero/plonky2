@@ -510,6 +510,7 @@ mod tests {
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
+    use crate::util::serialization::Buffer;
 
     #[test]
     fn test_mul_many() -> Result<()> {
@@ -583,7 +584,7 @@ mod tests {
         let config = CircuitConfig::large_config();
 
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
 
         let x = FF::rand_vec(4);
         let y = FF::rand_vec(4);
@@ -601,6 +602,13 @@ mod tests {
 
         let data = builder.build();
         let proof = data.prove(pw)?;
+
+        let mut buffer = Buffer::new(Vec::new());
+        buffer.write_proof(&proof.proof).unwrap();
+        dbg!(buffer.len());
+        let mut buffer = Buffer::new(buffer.bytes());
+        let oproof = buffer.read_proof(&data.common, &config).unwrap();
+        assert_eq!(proof.proof, oproof);
 
         verify(proof, &data.verifier_only, &data.common)
     }
