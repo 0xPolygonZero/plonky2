@@ -482,6 +482,10 @@ mod tests {
         let recursive_proof = data.prove(pw)?;
         let now = std::time::Instant::now();
         let compressed_recursive_proof = recursive_proof.clone().compress(&data.common)?;
+        let decompressed_compressed_proof = compressed_recursive_proof
+            .clone()
+            .decompress(&data.common)?;
+        assert_eq!(recursive_proof, decompressed_compressed_proof);
         info!("{:.4} to compress proof", now.elapsed().as_secs_f64());
         let proof_bytes = serde_cbor::to_vec(&recursive_proof).unwrap();
         info!("Proof length: {} bytes", proof_bytes.len());
