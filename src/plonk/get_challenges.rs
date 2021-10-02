@@ -1,6 +1,5 @@
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
-use crate::fri::proof::FriProof;
 use crate::hash::hashing::hash_n_to_1;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
