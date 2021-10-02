@@ -13,7 +13,7 @@ use crate::fri::proof::{
 use crate::hash::hash_types::HashOut;
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::hash::merkle_tree::MerkleCap;
-use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
+use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, OpeningSet, Proof, ProofWithPublicInputs,
 };
@@ -154,8 +154,8 @@ impl Buffer {
     fn read_opening_set<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-        config: &CircuitConfig,
     ) -> Result<OpeningSet<F, D>> {
+        let config = &common_data.config;
         let constants = self.read_field_ext_vec::<F, D>(common_data.num_constants)?;
         let plonk_sigmas = self.read_field_ext_vec::<F, D>(config.num_routed_wires)?;
         let wires = self.read_field_ext_vec::<F, D>(config.num_wires)?;
@@ -212,8 +212,8 @@ impl Buffer {
     fn read_fri_initial_proof<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-        config: &CircuitConfig,
     ) -> Result<FriInitialTreeProof<F>> {
+        let config = &common_data.config;
         let mut evals_proofs = Vec::with_capacity(4);
 
         let constants_sigmas_v =
@@ -272,11 +272,11 @@ impl Buffer {
     fn read_fri_query_rounds<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-        config: &CircuitConfig,
     ) -> Result<Vec<FriQueryRound<F, D>>> {
+        let config = &common_data.config;
         let mut fqrs = Vec::with_capacity(config.fri_config.num_query_rounds);
         for _ in 0..config.fri_config.num_query_rounds {
-            let initial_trees_proof = self.read_fri_initial_proof(common_data, config)?;
+            let initial_trees_proof = self.read_fri_initial_proof(common_data)?;
             let steps = config
                 .fri_config
                 .reduction_arity_bits
@@ -305,16 +305,14 @@ impl Buffer {
     fn read_fri_proof<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-        config: &CircuitConfig,
     ) -> Result<FriProof<F, D>> {
+        let config = &common_data.config;
         let commit_phase_merkle_caps = (0..config.fri_config.reduction_arity_bits.len())
             .map(|_| self.read_merkle_cap(config.cap_height))
             .collect::<Result<Vec<_>>>()?;
-        let query_round_proofs = self.read_fri_query_rounds(common_data, config)?;
-        let final_poly = PolynomialCoeffs::new(self.read_field_ext_vec::<F, D>(
-            1 << (common_data.degree_bits
-                - config.fri_config.reduction_arity_bits.iter().sum::<usize>()),
-        )?);
+        let query_round_proofs = self.read_fri_query_rounds(common_data)?;
+        let final_poly =
+            PolynomialCoeffs::new(self.read_field_ext_vec::<F, D>(common_data.final_poly_len())?);
         let pow_witness = self.read_field()?;
         Ok(FriProof {
             commit_phase_merkle_caps,
@@ -337,13 +335,13 @@ impl Buffer {
     pub fn read_proof<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-        config: &CircuitConfig,
     ) -> Result<Proof<F, D>> {
+        let config = &common_data.config;
         let wires_cap = self.read_merkle_cap(config.cap_height)?;
         let plonk_zs_partial_products_cap = self.read_merkle_cap(config.cap_height)?;
         let quotient_polys_cap = self.read_merkle_cap(config.cap_height)?;
-        let openings = self.read_opening_set(common_data, config)?;
-        let opening_proof = self.read_fri_proof(common_data, config)?;
+        let openings = self.read_opening_set(common_data)?;
+        let opening_proof = self.read_fri_proof(common_data)?;
 
         Ok(Proof {
             wires_cap,
@@ -368,10 +366,11 @@ impl Buffer {
     pub fn read_proof_with_public_inputs<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-        config: &CircuitConfig,
     ) -> Result<ProofWithPublicInputs<F, D>> {
-        let proof = self.read_proof(common_data, config)?;
-        let public_inputs = self.read_field_vec(self.len() - self.0.position() as usize)?;
+        let proof = self.read_proof(common_data)?;
+        let public_inputs = self.read_field_vec(
+            (self.len() - self.0.position() as usize) / std::mem::size_of::<u64>(),
+        )?;
 
         Ok(ProofWithPublicInputs {
             proof,
@@ -404,8 +403,8 @@ impl Buffer {
     fn read_compressed_fri_query_rounds<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-        config: &CircuitConfig,
     ) -> Result<CompressedFriQueryRounds<F, D>> {
+        let config = &common_data.config;
         let original_indices = (0..config.fri_config.num_query_rounds)
             .map(|_| self.read_u32().map(|i| i as usize))
             .collect::<Result<Vec<_>>>()?;
@@ -414,7 +413,7 @@ impl Buffer {
         indices.dedup();
         let mut pairs = Vec::new();
         for &i in &indices {
-            pairs.push((i, self.read_fri_initial_proof(common_data, config)?));
+            pairs.push((i, self.read_fri_initial_proof(common_data)?));
         }
         let initial_trees_proofs = HashMap::from_iter(pairs);
 
@@ -457,16 +456,14 @@ impl Buffer {
     fn read_compressed_fri_proof<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-        config: &CircuitConfig,
     ) -> Result<CompressedFriProof<F, D>> {
+        let config = &common_data.config;
         let commit_phase_merkle_caps = (0..config.fri_config.reduction_arity_bits.len())
             .map(|_| self.read_merkle_cap(config.cap_height))
             .collect::<Result<Vec<_>>>()?;
-        let query_round_proofs = self.read_compressed_fri_query_rounds(common_data, config)?;
-        let final_poly = PolynomialCoeffs::new(self.read_field_ext_vec::<F, D>(
-            1 << (common_data.degree_bits
-                - config.fri_config.reduction_arity_bits.iter().sum::<usize>()),
-        )?);
+        let query_round_proofs = self.read_compressed_fri_query_rounds(common_data)?;
+        let final_poly =
+            PolynomialCoeffs::new(self.read_field_ext_vec::<F, D>(common_data.final_poly_len())?);
         let pow_witness = self.read_field()?;
         Ok(CompressedFriProof {
             commit_phase_merkle_caps,
@@ -489,13 +486,13 @@ impl Buffer {
     pub fn read_compressed_proof<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-        config: &CircuitConfig,
     ) -> Result<CompressedProof<F, D>> {
+        let config = &common_data.config;
         let wires_cap = self.read_merkle_cap(config.cap_height)?;
         let plonk_zs_partial_products_cap = self.read_merkle_cap(config.cap_height)?;
         let quotient_polys_cap = self.read_merkle_cap(config.cap_height)?;
-        let openings = self.read_opening_set(common_data, config)?;
-        let opening_proof = self.read_compressed_fri_proof(common_data, config)?;
+        let openings = self.read_opening_set(common_data)?;
+        let opening_proof = self.read_compressed_fri_proof(common_data)?;
 
         Ok(CompressedProof {
             wires_cap,
@@ -526,9 +523,8 @@ impl Buffer {
     >(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
-        config: &CircuitConfig,
     ) -> Result<CompressedProofWithPublicInputs<F, D>> {
-        let proof = self.read_compressed_proof(common_data, config)?;
+        let proof = self.read_compressed_proof(common_data)?;
         let public_inputs = self.read_field_vec(self.len() - self.0.position() as usize)?;
 
         Ok(CompressedProofWithPublicInputs {

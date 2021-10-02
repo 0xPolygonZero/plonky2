@@ -486,8 +486,7 @@ mod tests {
         let recursive_proof = data.prove(pw)?;
         let proof_bytes = recursive_proof.to_bytes()?;
         info!("Proof length: {} bytes", proof_bytes.len());
-        let proof_from_bytes =
-            ProofWithPublicInputs::from_bytes(proof_bytes, &data.common, &config)?;
+        let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, &data.common)?;
         assert_eq!(recursive_proof, proof_from_bytes);
         let now = std::time::Instant::now();
         let compressed_recursive_proof = recursive_proof.clone().compress(&data.common)?;
@@ -497,11 +496,8 @@ mod tests {
             "Compressed proof length: {} bytes",
             compressed_proof_bytes.len()
         );
-        let compressed_proof_from_bytes = CompressedProofWithPublicInputs::from_bytes(
-            compressed_proof_bytes,
-            &data.common,
-            &config,
-        )?;
+        let compressed_proof_from_bytes =
+            CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, &data.common)?;
         assert_eq!(compressed_recursive_proof, compressed_proof_from_bytes);
         verify(recursive_proof, &data.verifier_only, &data.common)
     }

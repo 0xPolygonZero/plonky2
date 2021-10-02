@@ -64,14 +64,14 @@ pub(crate) fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
     let config = &common_data.config;
-    let total_arities = config.fri_config.reduction_arity_bits.iter().sum::<usize>();
+    let total_arities = config.fri_config.total_arities();
     ensure!(
-        common_data.degree_bits == log2_strict(proof.final_poly.len()) + total_arities,
+        common_data.final_poly_len() == proof.final_poly.len(),
         "Final polynomial has wrong degree."
     );
 
     // Size of the LDE domain.
-    let n = proof.final_poly.len() << (total_arities + config.rate_bits);
+    let n = 1 << (common_data.degree_bits + config.rate_bits);
 
     // Check PoW.
     fri_verify_proof_of_work(challenges.fri_pow_response, &config.fri_config)?;
