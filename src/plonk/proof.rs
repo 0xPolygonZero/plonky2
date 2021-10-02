@@ -283,7 +283,8 @@ mod tests {
         type F = CrandallField;
         const D: usize = 4;
 
-        let config = CircuitConfig::large_config();
+        let mut config = CircuitConfig::large_config();
+        config.fri_config.num_query_rounds = 50;
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
