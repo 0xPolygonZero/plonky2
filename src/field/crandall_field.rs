@@ -168,6 +168,11 @@ impl Field for CrandallField {
 
     #[allow(clippy::many_single_char_names)]
     fn try_inverse(&self) -> Option<Self> {
+        // The algorithm below is the "plus-minus-inversion" method
+        // with an "almost Montgomery inverse" flair. See Handbook of
+        // Elliptic and Hyperelliptic Cryptography, Algorithms 11.6
+        // and 11.12.
+
         let mut f = self.0;
         let mut g = Self::ORDER;
         // NB: These two are very rarely such that their absolute
@@ -176,47 +181,36 @@ impl Field for CrandallField {
         let mut c = 1i64 as i128;
         let mut d = 0i64 as i128;
 
-        // normal invariants:
-        // - f = c*y (mod p)
-        // - g = d*y (mod p)
-
         if f == 0 {
             return None;
-        } else if f == 1 {
-            return Some(*self);
         }
 
         let mut k = f.trailing_zeros();
         f >>= k;
 
-        /*
         if f < g {
             (f, g) = (g, f);
             (c, d) = (d, c);
         }
-
-        let mut cy = false;
         if f & 3 == g & 3 {
-            // f = g (mod 4)
+            // f - g = 0 (mod 4)
             f -= g;
             c -= d;
-        } else {
-            // NB: This addition overflows (requiring the
-            // adjustment in the 'if cy' statement below) only
-            // rarely, and even then only in the first or second
-            // iteration.
-            //f += g
-            (f, cy) = f.overflowing_add(g);
-            c += d;
-        }
 
-        let kk = f.trailing_zeros();
-        f >>= kk;
-        if cy {
-            f |= 1u64 << (64 - kk);
+            // kk >= 2
+            let kk = f.trailing_zeros();
+            f >>= kk;
+            d <<= kk;
+            k += kk;
+        } else {
+            // f + g = 0 (mod 4)
+            c += d;
+            f = (f >> 2) + (g >> 2) + 1u64;
+            let kk = f.trailing_zeros();
+            f >>= kk;
+            d <<= kk + 2;
+            k += kk + 2;
         }
-        d <<= kk;
-        k += kk;
 
         if f == 1 {
             if c < 0 {
@@ -229,38 +223,44 @@ impl Field for CrandallField {
             (f, g) = (g, f);
             (c, d) = (d, c);
         }
-
-        let mut cy = false;
         if f & 3 == g & 3 {
-            // f = g (mod 4)
+            // f - g = 0 (mod 4)
             f -= g;
             c -= d;
+
+            // kk >= 2
+            let kk = f.trailing_zeros();
+            f >>= kk;
+            d <<= kk;
+            k += kk;
         } else {
-            // NB: This addition overflows (requiring the
-            // adjustment in the 'if cy' statement below) only
-            // rarely, and even then only in the first or second
-            // iteration.
-            //f += g
-            (f, cy) = f.overflowing_add(g);
+            // f + g = 0 (mod 4)
             c += d;
+            f = (f >> 2) + (g >> 2) + 1u64;
+            let kk = f.trailing_zeros();
+            f >>= kk;
+            d <<= kk + 2;
+            k += kk + 2;
         }
 
-        let kk = f.trailing_zeros();
-        f >>= kk;
-        if cy {
-            f |= 1u64 << (64 - kk);
-        }
-        d <<= kk;
-        k += kk;
 
-        if f == 1 {
-            if c < 0 {
-                c += Self::ORDER as i128;
-            }
-            return Some(Self(c as u64) * Self(BINARY_INVERSES[k as usize]));
-        }
-        */
+        //println!("\n\ninput = {}", self.0);
         loop {
+            /*
+            let f_bits = crate::util::bits_u64(f);
+            let g_bits = crate::util::bits_u64(g);
+            let c_bits = c.unsigned_abs().next_power_of_two().trailing_zeros() as usize;
+            let d_bits = d.unsigned_abs().next_power_of_two().trailing_zeros() as usize;
+
+            if self.0 == 2147483642u64 {
+                println!("{:2}  {:2}  {}{:3}  {}{:3}  {:3}",
+                         f_bits, g_bits,
+                         if c < 0 { "-" } else { "+" }, c_bits,
+                         if c < 0 { "-" } else { "+" }, d_bits,
+                         k);
+            }
+            */
+
             if f == 1 {
                 break;
             }
@@ -269,24 +269,19 @@ impl Field for CrandallField {
                 (f, g) = (g, f);
                 (c, d) = (d, c);
             }
-
-            let mut cy = false;
             if f & 3 == g & 3 {
-                // f = g (mod 4)
+                // f - g = 0 (mod 4)
                 f -= g;
                 c -= d;
             } else {
-                //f += g;
-                (f, cy) = f.overflowing_add(g);
+                // f + g = 0 (mod 4)
+                f += g;
                 c += d;
             }
 
+            // kk >= 2
             let kk = f.trailing_zeros();
             f >>= kk;
-            if cy {
-                debug_assert!(kk > 0);
-                f |= 1u64 << (64 - kk);
-            }
             d <<= kk;
             k += kk;
         }
@@ -295,12 +290,11 @@ impl Field for CrandallField {
         while c < 0 {
             c += Self::ORDER as i128;
         }
+
         // TODO: c can be greater than ORDER; document maximum number
         // of iterations (it's at least 1).
-        let mut cnt = 0;
         while c >= Self::ORDER as i128 {
             c -= Self::ORDER as i128;
-            cnt += 1;
         }
 
         Some(Self(c as u64) * Self(BINARY_INVERSES[k as usize]))
