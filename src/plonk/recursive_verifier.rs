@@ -142,7 +142,6 @@ mod tests {
     };
     use crate::plonk::verifier::verify;
     use crate::util::log2_strict;
-    use crate::util::serialization::Buffer;
 
     // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
     fn get_fri_query_round<F: RichField + Extendable<D>, const D: usize>(
