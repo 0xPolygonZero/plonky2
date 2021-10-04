@@ -525,7 +525,9 @@ impl Buffer {
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<CompressedProofWithPublicInputs<F, D>> {
         let proof = self.read_compressed_proof(common_data)?;
-        let public_inputs = self.read_field_vec(self.len() - self.0.position() as usize)?;
+        let public_inputs = self.read_field_vec(
+            (self.len() - self.0.position() as usize) / std::mem::size_of::<u64>(),
+        )?;
 
         Ok(CompressedProofWithPublicInputs {
             proof,

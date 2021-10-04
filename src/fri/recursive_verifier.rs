@@ -88,7 +88,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         // Size of the LDE domain.
-        let n = 1 << (common_data.degree_bits + config.rate_bits);
+        let n = common_data.lde_size();
 
         challenger.observe_opening_set(os);
 
