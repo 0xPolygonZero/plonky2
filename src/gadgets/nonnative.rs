@@ -1,3 +1,4 @@
+use num::bigint::BigUint;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
@@ -14,7 +15,7 @@ use crate::util::bimap::bimap_from_lists;
 
 pub struct NonNativeTarget {
     /// The modulus of the field F' being represented.
-    modulus: BigUInt,
+    modulus: BigUint,
     /// These F elements are assumed to contain 32-bit values.
     limbs: Vec<U32Target>,
 }
@@ -26,14 +27,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         debug_assert!(b.modulus == modulus);
         debug_assert!(b.limbs.len() == num_limbs);
 
-        let mut combined_limbs = self.add_virtual_targets(num_limbs + 1);
-        let mut carry = self.zero();
+        let mut combined_limbs = self.add_virtual_u32_targets(num_limbs + 1);
+        let mut carry = self.zero_u32();
         for i in 0..num_limbs {
-            
+            let (new_limb, carry) = self.add_three_u32(carry, a.limbs[i], b.limbs[i]);
+            combined_limbs[i] = new_limb;
+        }
+        combined_limbs[num_limbs] = carry;
+        
+        NonNativeTarget {
+            modulus,
+            limbs: combined_limbs,
         }
     }
 
-    pub fn reduce_add_result(&mut self, limbs: Vec<Target>, modulus: BigUInt) -> Vec<Target> {
+    pub fn reduce_add_result(&mut self, limbs: Vec<Target>, modulus: BigUint) -> Vec<Target> {
         todo!()
     }
 
@@ -46,8 +54,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut combined_limbs = self.add_virtual_targets(2 * num_limbs - 1);
         for i in 0..num_limbs {
             for j in 0..num_limbs {
-                let sum = builder.add(a.limbs[i], b.limbs[j]);
-                combined_limbs[i + j] = builder.add(combined_limbs[i + j], sum);
+                let sum = self.add(a.limbs[i], b.limbs[j]);
+                combined_limbs[i + j] = self.add(combined_limbs[i + j], sum);
             }
         }
 
