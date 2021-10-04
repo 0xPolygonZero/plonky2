@@ -67,6 +67,8 @@ fn min_size_arity_bits_helper(
     num_queries: usize,
     prefix: Vec<usize>,
 ) -> (Vec<usize>, usize) {
+    // 2^4 is the largest arity we see in optimal reduction sequences in practice. For 2^5 to occur
+    // in an optimal sequence, we would need a really massive polynomial.
     const MAX_ARITY_BITS: usize = 4;
 
     let sum_of_arities: usize = prefix.iter().sum();
@@ -74,9 +76,18 @@ fn min_size_arity_bits_helper(
     assert!(current_layer_bits >= rate_bits);
 
     let mut best_arity_bits = prefix.clone();
-    let mut best_size = fri_proof_size(degree_bits, rate_bits, num_queries, &prefix);
+    let mut best_size = relative_proof_size(degree_bits, rate_bits, num_queries, &prefix);
 
-    for next_arity_bits in 1..MAX_ARITY_BITS.min(current_layer_bits - rate_bits) {
+    // The largest next_arity_bits to search. Note that any optimal arity sequence will be
+    // monotonically non-increasing, as a larger arity will shrink more Merkle proofs if it occurs
+    // earlier in the sequence.
+    let max_arity_bits = prefix
+        .last()
+        .copied()
+        .unwrap_or(MAX_ARITY_BITS)
+        .min(current_layer_bits - rate_bits);
+
+    for next_arity_bits in 1..=max_arity_bits {
         let mut extended_prefix = prefix.clone();
         extended_prefix.push(next_arity_bits);
 
@@ -91,9 +102,10 @@ fn min_size_arity_bits_helper(
     (best_arity_bits, best_size)
 }
 
-/// Compute the approximate size of a FRI proof with the given reduction arities. The result is
-/// measured in field elements.
-fn fri_proof_size(
+/// Compute the approximate size of a FRI proof with the given reduction arities. Note that this
+/// ignores initial evaluations, which aren't affected by arities, and some other minor
+/// contributions. The result is measured in field elements.
+fn relative_proof_size(
     degree_bits: usize,
     rate_bits: usize,
     num_queries: usize,
