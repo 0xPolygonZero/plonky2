@@ -26,8 +26,9 @@ impl FriReductionStrategy {
         match self {
             &FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
                 let mut result = Vec::new();
-                while degree_bits > final_poly_bits {
+                while result.is_empty() || degree_bits > final_poly_bits {
                     result.push(arity_bits);
+                    assert!(degree_bits >= arity_bits);
                     degree_bits -= arity_bits;
                 }
                 result.shrink_to_fit();
@@ -43,8 +44,9 @@ impl FriReductionStrategy {
 
 fn min_size_arity_bits(degree_bits: usize, rate_bits: usize, num_queries: usize) -> Vec<usize> {
     let start = Instant::now();
-    let (arity_bits, fri_proof_size) =
+    let (mut arity_bits, fri_proof_size) =
         min_size_arity_bits_helper(degree_bits, rate_bits, num_queries, vec![]);
+    arity_bits.shrink_to_fit();
 
     debug!(
         "min_size_arity_bits took {:.3}s",

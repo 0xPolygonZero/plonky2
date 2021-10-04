@@ -4,6 +4,7 @@ use log::info;
 use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::RichField;
+use plonky2::fri::reduction_strategies::FriReductionStrategy;
 use plonky2::fri::FriConfig;
 use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::iop::witness::PartialWitness;
@@ -31,7 +32,7 @@ fn bench_prove<F: RichField + Extendable<D>, const D: usize>() -> Result<()> {
         cap_height: 1,
         fri_config: FriConfig {
             proof_of_work_bits: 15,
-            reduction_arity_bits: vec![2, 2, 2, 2, 2, 2],
+            reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
             num_query_rounds: 35,
         },
     };
