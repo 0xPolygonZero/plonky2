@@ -1,6 +1,7 @@
-use num::bigint::BigUint;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
+
+use num::bigint::BigUint;
 
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
@@ -34,7 +35,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             combined_limbs[i] = new_limb;
         }
         combined_limbs[num_limbs] = carry;
-        
+
         NonNativeTarget {
             modulus,
             limbs: combined_limbs,

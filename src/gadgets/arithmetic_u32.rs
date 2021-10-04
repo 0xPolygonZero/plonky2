@@ -19,7 +19,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn add_virtual_u32_targets(&self, n: usize) -> Vec<U32Target> {
-        self.add_virtual_targets(n).iter().cloned().map(U32Target).collect()
+        self.add_virtual_targets(n)
+            .iter()
+            .cloned()
+            .map(U32Target)
+            .collect()
     }
 
     pub fn zero_u32(&self) -> U32Target {
@@ -43,18 +47,45 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 };
                 let gate_index = self.add_gate(gate.clone(), vec![]);
                 (gate_index, 0)
-            },
+            }
             Some((gate_index, copy)) => (gate_index, copy),
         };
 
         let output_low = self.add_virtual_u32_target();
         let output_high = self.add_virtual_u32_target();
 
-        self.connect(Target::wire(gate_index, U32ArithmeticGate::<F, D>::wire_ith_multiplicand_0(copy)), x.0);
-        self.connect(Target::wire(gate_index, U32ArithmeticGate::<F, D>::wire_ith_multiplicand_1(copy)), y.0);
-        self.connect(Target::wire(gate_index, U32ArithmeticGate::<F, D>::wire_ith_addend(copy)), z.0);
-        self.connect(Target::wire(gate_index, U32ArithmeticGate::<F, D>::wire_ith_output_low_half(copy)), output_low.0);
-        self.connect(Target::wire(gate_index, U32ArithmeticGate::<F, D>::wire_ith_output_high_half(copy)), output_high.0);
+        self.connect(
+            Target::wire(
+                gate_index,
+                U32ArithmeticGate::<F, D>::wire_ith_multiplicand_0(copy),
+            ),
+            x.0,
+        );
+        self.connect(
+            Target::wire(
+                gate_index,
+                U32ArithmeticGate::<F, D>::wire_ith_multiplicand_1(copy),
+            ),
+            y.0,
+        );
+        self.connect(
+            Target::wire(gate_index, U32ArithmeticGate::<F, D>::wire_ith_addend(copy)),
+            z.0,
+        );
+        self.connect(
+            Target::wire(
+                gate_index,
+                U32ArithmeticGate::<F, D>::wire_ith_output_low_half(copy),
+            ),
+            output_low.0,
+        );
+        self.connect(
+            Target::wire(
+                gate_index,
+                U32ArithmeticGate::<F, D>::wire_ith_output_high_half(copy),
+            ),
+            output_high.0,
+        );
 
         self.current_u32_arithmetic_gate = Some((gate_index, 0));
 
@@ -65,7 +96,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.add_mul_u32(a, self.one_u32(), b)
     }
 
-    pub fn add_three_u32(&mut self, a: U32Target, b: U32Target, c: U32Target) -> (U32Target, U32Target) {
+    pub fn add_three_u32(
+        &mut self,
+        a: U32Target,
+        b: U32Target,
+        c: U32Target,
+    ) -> (U32Target, U32Target) {
         let (init_low, carry1) = self.add_u32(a, b);
         let (final_low, carry2) = self.add_u32(c, init_low);
         let (combined_carry, _zero) = self.add_u32(carry1, carry2);
