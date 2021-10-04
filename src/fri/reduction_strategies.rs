@@ -26,7 +26,7 @@ impl FriReductionStrategy {
         match self {
             &FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
                 let mut result = Vec::new();
-                while result.is_empty() || degree_bits > final_poly_bits {
+                while degree_bits > final_poly_bits {
                     result.push(arity_bits);
                     assert!(degree_bits >= arity_bits);
                     degree_bits -= arity_bits;
