@@ -36,9 +36,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
         combined_limbs[num_limbs] = carry;
 
+        let reduced_limbs = self.reduce_add_result(combined_limbs, modulus);
         NonNativeTarget {
             modulus,
-            limbs: combined_limbs,
+            limbs: reduced_limbs,
         }
     }
 
@@ -60,7 +61,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             }
         }
 
-        let reduced_limbs = self.reduce(combined_limbs, modulus);
+        let reduced_limbs = self.reduce_mul_result(combined_limbs, modulus);
 
         NonNativeTarget {
             modulus,
@@ -68,7 +69,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn reduce_mul_result(&mut self, limbs: Vec<Target>, modulus: BigUInt) -> Vec<Target> {
+    pub fn reduce_mul_result(&mut self, limbs: Vec<Target>, modulus: BigUint) -> Vec<Target> {
         todo!()
     }
 }
