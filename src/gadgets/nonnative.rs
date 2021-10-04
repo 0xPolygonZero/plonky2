@@ -43,7 +43,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn reduce_add_result(&mut self, limbs: Vec<Target>, modulus: BigUint) -> Vec<Target> {
+    pub fn reduce_add_result(&mut self, limbs: Vec<U32Target>, modulus: BigUint) -> Vec<U32Target> {
         todo!()
     }
 
@@ -56,7 +56,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut combined_limbs = self.add_virtual_targets(2 * num_limbs - 1);
         for i in 0..num_limbs {
             for j in 0..num_limbs {
-                let sum = self.add(a.limbs[i], b.limbs[j]);
+                let sum = self.add_u32(a.limbs[i], b.limbs[j]);
                 combined_limbs[i + j] = self.add(combined_limbs[i + j], sum);
             }
         }
@@ -69,7 +69,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn reduce_mul_result(&mut self, limbs: Vec<Target>, modulus: BigUint) -> Vec<Target> {
+    pub fn reduce_mul_result(&mut self, limbs: Vec<U32Target>, modulus: BigUint) -> Vec<U32Target> {
         todo!()
     }
 }

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
-use crate::gates::arithmetic_u32::U32ArithmeticGate;
+use crate::gates::arithmetic_u32::{NUM_U32_ARITHMETIC_OPS, U32ArithmeticGate};
 use crate::gates::switch::SwitchGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
@@ -34,7 +34,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         U32Target(self.one())
     }
 
-    pub fn add_mul_u32(
+    // Returns x * y + z.
+    pub fn mul_add_u32(
         &mut self,
         x: U32Target,
         y: U32Target,
@@ -45,7 +46,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 let gate = U32ArithmeticGate {
                     _phantom: PhantomData,
                 };
-                let gate_index = self.add_gate(gate.clone(), vec![]);
+                let gate_index = self.add_gate(gate, vec![]);
                 (gate_index, 0)
             }
             Some((gate_index, copy)) => (gate_index, copy),
@@ -87,13 +88,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             output_high.0,
         );
 
-        self.current_u32_arithmetic_gate = Some((gate_index, 0));
+        if copy == NUM_U32_ARITHMETIC_OPS - 1 {
+            let gate = U32ArithmeticGate {
+                _phantom: PhantomData,
+            };
+            let gate_index = self.add_gate(gate, vec![]);
+            self.current_u32_arithmetic_gate = Some((gate_index, 0));
+        } else {
+            self.current_u32_arithmetic_gate = Some((gate_index, copy + 1));
+        }
 
         (output_low, output_high)
     }
 
     pub fn add_u32(&mut self, a: U32Target, b: U32Target) -> (U32Target, U32Target) {
-        self.add_mul_u32(a, self.one_u32(), b)
+        self.mul_add_u32(a, self.one_u32(), b)
     }
 
     pub fn add_three_u32(
@@ -109,6 +118,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn mul_u32(&mut self, a: U32Target, b: U32Target) -> (U32Target, U32Target) {
-        self.add_mul_u32(a, b, self.zero_u32())
+        self.mul_add_u32(a, b, self.zero_u32())
     }
 }
