@@ -11,7 +11,6 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-// TODO: Move to be next to native `permute`?
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn permute<const W: usize>(&mut self, inputs: [Target; W]) -> [Target; W]
     where
