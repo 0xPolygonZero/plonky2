@@ -308,7 +308,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         })
         .take(num_limbs)
         .collect();
-        let output_limbs_F: Vec<_> = output_limbs_u64
+        let output_limbs_f: Vec<_> = output_limbs_u64
             .iter()
             .cloned()
             .map(F::from_canonical_u64)
@@ -318,7 +318,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             let wire = local_wire(U32ArithmeticGate::<F, D>::wire_ith_output_jth_limb(
                 self.i, j,
             ));
-            out_buffer.set_wire(wire, output_limbs_F[j]);
+            out_buffer.set_wire(wire, output_limbs_f[j]);
         }
     }
 }
@@ -385,7 +385,7 @@ mod tests {
                     output_limbs.push(output % limb_base);
                     output /= limb_base;
                 }
-                let mut output_limbs_F: Vec<_> = output_limbs
+                let mut output_limbs_f: Vec<_> = output_limbs
                     .iter()
                     .cloned()
                     .map(F::from_canonical_u64)
@@ -396,7 +396,7 @@ mod tests {
                 v0.push(F::from_canonical_u64(a));
                 v0.push(F::from_canonical_u64(output_low));
                 v0.push(F::from_canonical_u64(output_high));
-                v1.append(&mut output_limbs_F);
+                v1.append(&mut output_limbs_f);
             }
 
             v0.iter()
