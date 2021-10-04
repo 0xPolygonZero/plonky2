@@ -277,8 +277,8 @@ impl Buffer {
         let mut fqrs = Vec::with_capacity(config.fri_config.num_query_rounds);
         for _ in 0..config.fri_config.num_query_rounds {
             let initial_trees_proof = self.read_fri_initial_proof(common_data)?;
-            let steps = config
-                .fri_config
+            let steps = common_data
+                .fri_params
                 .reduction_arity_bits
                 .iter()
                 .map(|&ar| self.read_fri_query_step(1 << ar))
@@ -307,7 +307,7 @@ impl Buffer {
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<FriProof<F, D>> {
         let config = &common_data.config;
-        let commit_phase_merkle_caps = (0..config.fri_config.reduction_arity_bits.len())
+        let commit_phase_merkle_caps = (0..common_data.fri_params.reduction_arity_bits.len())
             .map(|_| self.read_merkle_cap(config.cap_height))
             .collect::<Result<Vec<_>>>()?;
         let query_round_proofs = self.read_fri_query_rounds(common_data)?;
@@ -417,8 +417,8 @@ impl Buffer {
         }
         let initial_trees_proofs = HashMap::from_iter(pairs);
 
-        let mut steps = Vec::with_capacity(config.fri_config.reduction_arity_bits.len());
-        for &a in &config.fri_config.reduction_arity_bits {
+        let mut steps = Vec::with_capacity(common_data.fri_params.reduction_arity_bits.len());
+        for &a in &common_data.fri_params.reduction_arity_bits {
             indices.iter_mut().for_each(|x| {
                 *x >>= a;
             });
@@ -458,7 +458,7 @@ impl Buffer {
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<CompressedFriProof<F, D>> {
         let config = &common_data.config;
-        let commit_phase_merkle_caps = (0..config.fri_config.reduction_arity_bits.len())
+        let commit_phase_merkle_caps = (0..common_data.fri_params.reduction_arity_bits.len())
             .map(|_| self.read_merkle_cap(config.cap_height))
             .collect::<Result<Vec<_>>>()?;
         let query_round_proofs = self.read_compressed_fri_query_rounds(common_data)?;
