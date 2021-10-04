@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use itertools::izip;
 use serde::{Deserialize, Serialize};
@@ -264,17 +264,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
             })
             .collect::<Vec<_>>();
 
-        let mut seen_indices = vec![HashSet::new(); num_reductions + 1];
         for mut index in indices.iter().copied() {
             let mut initial_trees_proof = query_round_proofs.initial_trees_proofs[&index].clone();
-            if !seen_indices[0].insert(index) {
-                initial_trees_proof
-                    .evals_proofs
-                    .iter_mut()
-                    .for_each(|(_, p)| {
-                        p.siblings = vec![];
-                    });
-            }
             for (i, (leaves_data, proof)) in
                 initial_trees_proof.evals_proofs.into_iter().enumerate()
             {
@@ -285,9 +276,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
             for i in 0..num_reductions {
                 index >>= reduction_arity_bits[i];
                 let mut query_step = query_round_proofs.steps[i][&index].clone();
-                if !seen_indices[1 + i].insert(index) {
-                    query_step.merkle_proof.siblings = vec![];
-                }
                 steps_indices[i].push(index);
                 steps_evals[i].push(flatten(&query_step.evals));
                 steps_proofs[i].push(query_step.merkle_proof);
