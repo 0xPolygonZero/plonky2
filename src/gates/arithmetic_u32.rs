@@ -208,7 +208,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
     fn generators(
         &self,
         gate_index: usize,
-        local_constants: &[F],
+        _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         (0..NUM_U32_ARITHMETIC_OPS)
             .map(|i| {
@@ -328,7 +328,7 @@ mod tests {
     use std::marker::PhantomData;
 
     use anyhow::Result;
-    use itertools::{izip, unfold};
+    
     use rand::Rng;
 
     use crate::field::crandall_field::CrandallField;
@@ -381,7 +381,7 @@ mod tests {
                 let output_high = output >> 32;
 
                 let mut output_limbs = Vec::with_capacity(num_limbs);
-                for i in 0..num_limbs {
+                for _i in 0..num_limbs {
                     output_limbs.push(output % limb_base);
                     output /= limb_base;
                 }
