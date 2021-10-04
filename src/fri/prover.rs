@@ -8,7 +8,7 @@ use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_1;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
-use crate::plonk::circuit_data::CircuitConfig;
+use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::reduce_with_powers;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::timed;
@@ -23,7 +23,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, const D: usize>(
     // Evaluation of the polynomial on the large domain.
     lde_polynomial_values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
-    config: &CircuitConfig,
+    common_data: &CommonCircuitData<F, D>,
     timing: &mut TimingTree,
 ) -> FriProof<F, D> {
     let n = lde_polynomial_values.values.len();
@@ -37,7 +37,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, const D: usize>(
             lde_polynomial_coeffs,
             lde_polynomial_values,
             challenger,
-            config,
+            common_data,
         )
     );
 
@@ -46,17 +46,12 @@ pub fn fri_proof<F: RichField + Extendable<D>, const D: usize>(
     let pow_witness = timed!(
         timing,
         "find for proof-of-work witness",
-        fri_proof_of_work(current_hash, &config.fri_config)
+        fri_proof_of_work(current_hash, &common_data.config.fri_config)
     );
 
     // Query phase
-    let query_round_proofs = fri_prover_query_rounds(
-        initial_merkle_trees,
-        &trees,
-        challenger,
-        n,
-        &config.fri_config,
-    );
+    let query_round_proofs =
+        fri_prover_query_rounds(initial_merkle_trees, &trees, challenger, n, common_data);
 
     FriProof {
         commit_phase_merkle_caps: trees.iter().map(|t| t.cap.clone()).collect(),
@@ -70,14 +65,15 @@ fn fri_committed_trees<F: RichField + Extendable<D>, const D: usize>(
     mut coeffs: PolynomialCoeffs<F::Extension>,
     mut values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F>,
-    config: &CircuitConfig,
+    common_data: &CommonCircuitData<F, D>,
 ) -> (Vec<MerkleTree<F>>, PolynomialCoeffs<F::Extension>) {
+    let config = &common_data.config;
     let mut trees = Vec::new();
 
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
-    let num_reductions = config.fri_config.reduction_arity_bits.len();
+    let num_reductions = common_data.fri_params.reduction_arity_bits.len();
     for i in 0..num_reductions {
-        let arity = 1 << config.fri_config.reduction_arity_bits[i];
+        let arity = 1 << common_data.fri_params.reduction_arity_bits[i];
 
         reverse_index_bits_in_place(&mut values.values);
         let chunked_values = values
@@ -136,10 +132,10 @@ fn fri_prover_query_rounds<F: RichField + Extendable<D>, const D: usize>(
     trees: &[MerkleTree<F>],
     challenger: &mut Challenger<F>,
     n: usize,
-    config: &FriConfig,
+    common_data: &CommonCircuitData<F, D>,
 ) -> Vec<FriQueryRound<F, D>> {
-    (0..config.num_query_rounds)
-        .map(|_| fri_prover_query_round(initial_merkle_trees, trees, challenger, n, config))
+    (0..common_data.config.fri_config.num_query_rounds)
+        .map(|_| fri_prover_query_round(initial_merkle_trees, trees, challenger, n, common_data))
         .collect()
 }
 
@@ -148,7 +144,7 @@ fn fri_prover_query_round<F: RichField + Extendable<D>, const D: usize>(
     trees: &[MerkleTree<F>],
     challenger: &mut Challenger<F>,
     n: usize,
-    config: &FriConfig,
+    common_data: &CommonCircuitData<F, D>,
 ) -> FriQueryRound<F, D> {
     let mut query_steps = Vec::new();
     let x = challenger.get_challenge();
@@ -158,7 +154,7 @@ fn fri_prover_query_round<F: RichField + Extendable<D>, const D: usize>(
         .map(|t| (t.get(x_index).to_vec(), t.prove(x_index)))
         .collect::<Vec<_>>();
     for (i, tree) in trees.iter().enumerate() {
-        let arity_bits = config.reduction_arity_bits[i];
+        let arity_bits = common_data.fri_params.reduction_arity_bits[i];
         let evals = unflatten(tree.get(x_index >> arity_bits));
         let merkle_proof = tree.prove(x_index >> arity_bits);
 

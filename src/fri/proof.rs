@@ -139,7 +139,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
             ..
         } = self;
         let cap_height = common_data.config.cap_height;
-        let reduction_arity_bits = &common_data.config.fri_config.reduction_arity_bits;
+        let reduction_arity_bits = &common_data.fri_params.reduction_arity_bits;
         let num_reductions = reduction_arity_bits.len();
         let num_initial_trees = query_round_proofs[0].initial_trees_proof.evals_proofs.len();
 
@@ -241,7 +241,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
             ..
         } = self;
         let cap_height = common_data.config.cap_height;
-        let reduction_arity_bits = &common_data.config.fri_config.reduction_arity_bits;
+        let reduction_arity_bits = &common_data.fri_params.reduction_arity_bits;
         let num_reductions = reduction_arity_bits.len();
         let num_initial_trees = query_round_proofs
             .initial_trees_proofs

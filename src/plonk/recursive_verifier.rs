@@ -127,10 +127,12 @@ mod tests {
     use log::info;
 
     use super::*;
+    use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::fri::proof::{
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
     };
+    use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::fri::FriConfig;
     use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
     use crate::hash::merkle_proofs::MerkleProofTarget;
@@ -372,9 +374,9 @@ mod tests {
             zero_knowledge: false,
             cap_height: 2,
             fri_config: FriConfig {
-                proof_of_work_bits: 1,
-                reduction_arity_bits: vec![2, 2, 2, 2, 2, 2],
-                num_query_rounds: 40,
+                proof_of_work_bits: 15,
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
+                num_query_rounds: 27,
             },
         };
         let (proof_with_pis, vd, cd) = {
@@ -428,17 +430,15 @@ mod tests {
             cap_height: 3,
             fri_config: FriConfig {
                 proof_of_work_bits: 15,
-                reduction_arity_bits: vec![3, 3, 3],
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
                 num_query_rounds: 27,
             },
         };
         let (proof_with_pis, vd, cd) = {
             let (proof_with_pis, vd, cd) = {
                 let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-                let _two = builder.two();
-                let mut _two = builder.hash_n_to_hash(vec![_two], true).elements[0];
-                for _ in 0..10000 {
-                    _two = builder.mul(_two, _two);
+                for i in 0..8_000 {
+                    builder.constant(F::from_canonical_u64(i));
                 }
                 let data = builder.build();
                 (

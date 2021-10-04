@@ -81,7 +81,7 @@ pub(crate) fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
         "Number of query rounds does not match config."
     );
     ensure!(
-        !config.fri_config.reduction_arity_bits.is_empty(),
+        !common_data.fri_params.reduction_arity_bits.is_empty(),
         "Number of reductions should be non-zero."
     );
 
@@ -225,7 +225,6 @@ fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
     round_proof: &FriQueryRound<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
-    let config = &common_data.config.fri_config;
     fri_verify_initial_proof(
         x_index,
         &round_proof.initial_trees_proof,
@@ -247,7 +246,12 @@ fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
         common_data,
     );
 
-    for (i, &arity_bits) in config.reduction_arity_bits.iter().enumerate() {
+    for (i, &arity_bits) in common_data
+        .fri_params
+        .reduction_arity_bits
+        .iter()
+        .enumerate()
+    {
         let arity = 1 << arity_bits;
         let evals = &round_proof.steps[i].evals;
 

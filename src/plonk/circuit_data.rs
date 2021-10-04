@@ -7,7 +7,8 @@ use crate::field::extension_field::Extendable;
 use crate::field::fft::FftRootTable;
 use crate::field::field_types::{Field, RichField};
 use crate::fri::commitment::PolynomialBatchCommitment;
-use crate::fri::FriConfig;
+use crate::fri::reduction_strategies::FriReductionStrategy;
+use crate::fri::{FriConfig, FriParams};
 use crate::gates::gate::PrefixedGate;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
@@ -47,7 +48,7 @@ impl Default for CircuitConfig {
             cap_height: 1,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
-                reduction_arity_bits: vec![1, 1, 1, 1],
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
                 num_query_rounds: 1,
             },
         }
@@ -71,7 +72,7 @@ impl CircuitConfig {
             cap_height: 1,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
-                reduction_arity_bits: vec![1],
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
                 num_query_rounds: 1,
             },
         }
@@ -84,7 +85,7 @@ impl CircuitConfig {
             cap_height: 1,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
-                reduction_arity_bits: vec![1, 1, 1, 1],
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
                 num_query_rounds: 1,
             },
             ..Self::large_config()
@@ -175,6 +176,8 @@ pub(crate) struct VerifierOnlyCircuitData<F: Field> {
 pub struct CommonCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
+    pub(crate) fri_params: FriParams,
+
     pub(crate) degree_bits: usize,
 
     /// The types of gates used in this circuit, along with their prefixes.
@@ -254,7 +257,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     pub fn final_poly_len(&self) -> usize {
-        1 << (self.degree_bits - self.config.fri_config.total_arities())
+        1 << (self.degree_bits - self.fri_params.total_arities())
     }
 }
 
