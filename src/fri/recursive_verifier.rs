@@ -81,15 +81,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data: &CommonCircuitData<F, D>,
     ) {
         let config = &common_data.config;
-        let total_arities = config.fri_config.reduction_arity_bits.iter().sum::<usize>();
         debug_assert_eq!(
-            common_data.degree_bits,
-            log2_strict(proof.final_poly.len()) + total_arities,
+            common_data.final_poly_len(),
+            proof.final_poly.len(),
             "Final polynomial has wrong degree."
         );
 
         // Size of the LDE domain.
-        let n = proof.final_poly.len() << (total_arities + config.rate_bits);
+        let n = common_data.lde_size();
 
         challenger.observe_opening_set(os);
 

@@ -17,3 +17,9 @@ pub struct FriConfig {
     /// Number of query rounds to perform.
     pub num_query_rounds: usize,
 }
+
+impl FriConfig {
+    pub(crate) fn total_arities(&self) -> usize {
+        self.reduction_arity_bits.iter().sum()
+    }
+}

@@ -63,7 +63,6 @@ pub fn fri_proof<F: RichField + Extendable<D>, const D: usize>(
         query_round_proofs,
         final_poly: final_coeffs,
         pow_witness,
-        is_compressed: false,
     }
 }
 
