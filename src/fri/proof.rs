@@ -265,7 +265,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
             .collect::<Vec<_>>();
 
         for mut index in indices.iter().copied() {
-            let mut initial_trees_proof = query_round_proofs.initial_trees_proofs[&index].clone();
+            let initial_trees_proof = query_round_proofs.initial_trees_proofs[&index].clone();
             for (i, (leaves_data, proof)) in
                 initial_trees_proof.evals_proofs.into_iter().enumerate()
             {
@@ -275,7 +275,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
             }
             for i in 0..num_reductions {
                 index >>= reduction_arity_bits[i];
-                let mut query_step = query_round_proofs.steps[i][&index].clone();
+                let query_step = query_round_proofs.steps[i][&index].clone();
                 steps_indices[i].push(index);
                 steps_evals[i].push(flatten(&query_step.evals));
                 steps_proofs[i].push(query_step.merkle_proof);
