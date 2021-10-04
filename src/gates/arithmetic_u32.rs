@@ -328,7 +328,6 @@ mod tests {
     use std::marker::PhantomData;
 
     use anyhow::Result;
-    
     use rand::Rng;
 
     use crate::field::crandall_field::CrandallField;

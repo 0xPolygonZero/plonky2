@@ -127,7 +127,6 @@ mod tests {
     use log::info;
 
     use super::*;
-    
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::fri::proof::{
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
