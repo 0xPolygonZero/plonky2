@@ -121,10 +121,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             proof.query_round_proofs.len(),
             "Number of query rounds does not match config."
         );
-        debug_assert!(
-            !common_data.fri_params.reduction_arity_bits.is_empty(),
-            "Number of reductions should be non-zero."
-        );
 
         let precomputed_reduced_evals = with_context!(
             self,

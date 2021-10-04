@@ -80,10 +80,6 @@ pub(crate) fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
         config.fri_config.num_query_rounds == proof.query_round_proofs.len(),
         "Number of query rounds does not match config."
     );
-    ensure!(
-        !common_data.fri_params.reduction_arity_bits.is_empty(),
-        "Number of reductions should be non-zero."
-    );
 
     let precomputed_reduced_evals =
         PrecomputedReducedEvals::from_os_and_alpha(os, challenges.fri_alpha);
