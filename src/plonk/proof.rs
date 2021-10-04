@@ -11,6 +11,7 @@ use crate::hash::hashing::hash_n_to_hash;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::plonk::circuit_data::CommonCircuitData;
+use crate::util::serialization::Buffer;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
@@ -83,6 +84,21 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
     pub(crate) fn get_public_inputs_hash(&self) -> HashOut<F> {
         hash_n_to_hash(self.public_inputs.clone(), true)
     }
+
+    pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        let mut buffer = Buffer::new(Vec::new());
+        buffer.write_proof_with_public_inputs(self)?;
+        Ok(buffer.bytes())
+    }
+
+    pub fn from_bytes(
+        bytes: Vec<u8>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> anyhow::Result<Self> {
+        let mut buffer = Buffer::new(bytes);
+        let proof = buffer.read_proof_with_public_inputs(common_data)?;
+        Ok(proof)
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
@@ -147,6 +163,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
 
     pub(crate) fn get_public_inputs_hash(&self) -> HashOut<F> {
         hash_n_to_hash(self.public_inputs.clone(), true)
+    }
+
+    pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        let mut buffer = Buffer::new(Vec::new());
+        buffer.write_compressed_proof_with_public_inputs(self)?;
+        Ok(buffer.bytes())
+    }
+
+    pub fn from_bytes(
+        bytes: Vec<u8>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> anyhow::Result<Self> {
+        let mut buffer = Buffer::new(bytes);
+        let proof = buffer.read_compressed_proof_with_public_inputs(common_data)?;
+        Ok(proof)
     }
 }
 

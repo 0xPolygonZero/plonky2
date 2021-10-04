@@ -579,12 +579,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         info!("Degree after blinding & padding: {}", degree);
         let degree_bits = log2_strict(degree);
         assert!(
-            self.config
-                .fri_config
-                .reduction_arity_bits
-                .iter()
-                .sum::<usize>()
-                <= degree_bits,
+            self.config.fri_config.total_arities() <= degree_bits,
             "FRI total reduction arity is too large."
         );
 

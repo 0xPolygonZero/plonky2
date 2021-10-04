@@ -83,6 +83,8 @@ pub struct FriQueryRoundTarget<const D: usize> {
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
 pub struct CompressedFriQueryRounds<F: Extendable<D>, const D: usize> {
+    /// Query indices.
+    pub indices: Vec<usize>,
     /// Map from initial indices `i` to the `FriInitialProof` for the `i`th leaf.
     pub initial_trees_proofs: HashMap<usize, FriInitialTreeProof<F>>,
     /// For each FRI query step, a map from indices `i` to the `FriQueryStep` for the `i`th leaf.
@@ -182,6 +184,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
             .collect::<Vec<_>>();
 
         let mut compressed_query_proofs = CompressedFriQueryRounds {
+            indices: indices.to_vec(),
             initial_trees_proofs: HashMap::new(),
             steps: vec![HashMap::new(); num_reductions],
         };

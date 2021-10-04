@@ -252,6 +252,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     pub fn partial_products_range(&self) -> RangeFrom<usize> {
         self.config.num_challenges..
     }
+
+    pub fn final_poly_len(&self) -> usize {
+        1 << (self.degree_bits - self.config.fri_config.total_arities())
+    }
 }
 
 /// The `Target` version of `VerifierCircuitData`, for use inside recursive circuits. Note that this
