@@ -127,7 +127,6 @@ mod tests {
     use log::info;
 
     use super::*;
-    use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::fri::proof::{
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
@@ -137,11 +136,11 @@ mod tests {
     use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
     use crate::hash::merkle_proofs::MerkleProofTarget;
     use crate::iop::witness::{PartialWitness, Witness};
+    use crate::plonk::circuit_data::VerifierOnlyCircuitData;
     use crate::plonk::proof::{
         CompressedProofWithPublicInputs, OpeningSetTarget, Proof, ProofTarget,
         ProofWithPublicInputs,
     };
-    use crate::plonk::verifier::verify;
     use crate::util::log2_strict;
 
     // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
@@ -362,145 +361,144 @@ mod tests {
     #[test]
     #[ignore]
     fn test_recursive_verifier() -> Result<()> {
-        env_logger::init();
+        init_logger();
         type F = GoldilocksField;
         const D: usize = 4;
-        let config = CircuitConfig {
-            num_wires: 143,
-            num_routed_wires: 33,
-            security_bits: 128,
-            rate_bits: 3,
-            num_challenges: 3,
-            zero_knowledge: false,
-            cap_height: 2,
-            fri_config: FriConfig {
-                proof_of_work_bits: 15,
-                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
-                num_query_rounds: 27,
-            },
-        };
-        let (proof_with_pis, vd, cd) = {
-            let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-            let _two = builder.two();
-            let _two = builder.hash_n_to_hash(vec![_two], true).elements[0];
-            for _ in 0..10000 {
-                let _two = builder.mul(_two, _two);
-            }
-            let data = builder.build();
-            (
-                data.prove(PartialWitness::new())?,
-                data.verifier_only,
-                data.common,
-            )
-        };
-        verify(proof_with_pis.clone(), &vd, &cd)?;
+        let config = CircuitConfig::standard_recursion_config();
 
-        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        let mut pw = PartialWitness::new();
-        let pt = proof_to_proof_target(&proof_with_pis, &mut builder);
-        set_proof_target(&proof_with_pis, &pt, &mut pw);
+        let (proof, vd, cd) = dummy_proof::<F, D>(&config, 8_000)?;
+        recursive_proof(proof, vd, cd, &config, &config, true)?;
 
-        let inner_data = VerifierCircuitTarget {
-            constants_sigmas_cap: builder.add_virtual_cap(config.cap_height),
-        };
-        pw.set_cap_target(&inner_data.constants_sigmas_cap, &vd.constants_sigmas_cap);
-
-        builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
-
-        builder.print_gate_counts(0);
-        let data = builder.build();
-        let recursive_proof = data.prove(pw)?;
-
-        verify(recursive_proof, &data.verifier_only, &data.common)
+        Ok(())
     }
 
     #[test]
     #[ignore]
     fn test_recursive_recursive_verifier() -> Result<()> {
-        env_logger::init();
+        init_logger();
         type F = GoldilocksField;
         const D: usize = 4;
-        let config = CircuitConfig {
-            num_wires: 143,
-            num_routed_wires: 64,
-            security_bits: 128,
-            rate_bits: 3,
-            num_challenges: 3,
-            zero_knowledge: false,
-            cap_height: 3,
-            fri_config: FriConfig {
-                proof_of_work_bits: 15,
-                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
-                num_query_rounds: 27,
-            },
-        };
-        let (proof_with_pis, vd, cd) = {
-            let (proof_with_pis, vd, cd) = {
-                let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-                for i in 0..8_000 {
-                    builder.constant(F::from_canonical_u64(i));
-                }
-                let data = builder.build();
-                (
-                    data.prove(PartialWitness::new())?,
-                    data.verifier_only,
-                    data.common,
-                )
-            };
-            verify(proof_with_pis.clone(), &vd, &cd)?;
 
-            let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-            let mut pw = PartialWitness::new();
-            let pt = proof_to_proof_target(&proof_with_pis, &mut builder);
-            set_proof_target(&proof_with_pis, &pt, &mut pw);
+        let config = CircuitConfig::standard_recursion_config();
 
-            let inner_data = VerifierCircuitTarget {
-                constants_sigmas_cap: builder.add_virtual_cap(config.cap_height),
-            };
-            pw.set_cap_target(&inner_data.constants_sigmas_cap, &vd.constants_sigmas_cap);
+        let (proof, vd, cd) = dummy_proof::<F, D>(&config, 8_000)?;
+        let (proof, vd, cd) = recursive_proof(proof, vd, cd, &config, &config, false)?;
+        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, true)?;
 
-            builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
-
-            let data = builder.build();
-            let recursive_proof = data.prove(pw)?;
-            (recursive_proof, data.verifier_only, data.common)
-        };
-
-        verify(proof_with_pis.clone(), &vd, &cd)?;
-        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        let mut pw = PartialWitness::new();
-        let pt = proof_to_proof_target(&proof_with_pis, &mut builder);
-        set_proof_target(&proof_with_pis, &pt, &mut pw);
-
-        let inner_data = VerifierCircuitTarget {
-            constants_sigmas_cap: builder.add_virtual_cap(config.cap_height),
-        };
-        pw.set_cap_target(&inner_data.constants_sigmas_cap, &vd.constants_sigmas_cap);
-
-        builder.add_recursive_verifier(pt, &config, &inner_data, &cd);
-
-        builder.print_gate_counts(0);
-        let data = builder.build();
-        let recursive_proof = data.prove(pw)?;
-        let proof_bytes = recursive_proof.to_bytes()?;
+        let proof_bytes = proof.to_bytes()?;
         info!("Proof length: {} bytes", proof_bytes.len());
-        let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, &data.common)?;
-        assert_eq!(recursive_proof, proof_from_bytes);
+        let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, &cd)?;
+        assert_eq!(proof, proof_from_bytes);
         let now = std::time::Instant::now();
-        let compressed_recursive_proof = recursive_proof.clone().compress(&data.common)?;
-        let decompressed_compressed_proof = compressed_recursive_proof
-            .clone()
-            .decompress(&data.common)?;
-        assert_eq!(recursive_proof, decompressed_compressed_proof);
+        let compressed_proof = proof.clone().compress(&cd)?;
+        let decompressed_compressed_proof = compressed_proof.clone().decompress(&cd)?;
+        assert_eq!(proof, decompressed_compressed_proof);
         info!("{:.4} to compress proof", now.elapsed().as_secs_f64());
-        let compressed_proof_bytes = compressed_recursive_proof.to_bytes()?;
+        let compressed_proof_bytes = compressed_proof.to_bytes()?;
         info!(
             "Compressed proof length: {} bytes",
             compressed_proof_bytes.len()
         );
         let compressed_proof_from_bytes =
-            CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, &data.common)?;
-        assert_eq!(compressed_recursive_proof, compressed_proof_from_bytes);
-        verify(recursive_proof, &data.verifier_only, &data.common)
+            CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, &cd)?;
+        assert_eq!(compressed_proof, compressed_proof_from_bytes);
+
+        Ok(())
+    }
+
+    /// Creates a chain of recursive proofs where the last proof is made as small as reasonably
+    /// possible, using a high rate, high PoW bits, etc.
+    #[test]
+    #[ignore]
+    fn test_size_optimized_recursion() -> Result<()> {
+        init_logger();
+        type F = GoldilocksField;
+        const D: usize = 4;
+
+        let normal_config = CircuitConfig::standard_recursion_config();
+        let final_config = CircuitConfig {
+            rate_bits: 7,
+            fri_config: FriConfig {
+                proof_of_work_bits: 23,
+                reduction_strategy: FriReductionStrategy::MinSize,
+                num_query_rounds: 11,
+            },
+            ..normal_config
+        };
+
+        let (proof, vd, cd) = dummy_proof::<F, D>(&normal_config, 8_000)?;
+        let (proof, vd, cd) =
+            recursive_proof(proof, vd, cd, &normal_config, &normal_config, false)?;
+        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &normal_config, &final_config, true)?;
+
+        let compressed_proof_bytes = proof.compress(&cd)?.to_bytes()?;
+        info!(
+            "Compressed proof length: {} bytes",
+            compressed_proof_bytes.len()
+        );
+
+        Ok(())
+    }
+
+    fn dummy_proof<F: RichField + Extendable<D>, const D: usize>(
+        config: &CircuitConfig,
+        num_dummy_gates: u64,
+    ) -> Result<(
+        ProofWithPublicInputs<F, D>,
+        VerifierOnlyCircuitData<F>,
+        CommonCircuitData<F, D>,
+    )> {
+        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+        for i in 0..num_dummy_gates {
+            builder.constant(F::from_canonical_u64(i));
+        }
+
+        let data = builder.build();
+        let proof = data.prove(PartialWitness::new())?;
+        data.verify(proof.clone())?;
+
+        Ok((proof, data.verifier_only, data.common))
+    }
+
+    fn recursive_proof<F: RichField + Extendable<D>, const D: usize>(
+        inner_proof: ProofWithPublicInputs<F, D>,
+        inner_vd: VerifierOnlyCircuitData<F>,
+        inner_cd: CommonCircuitData<F, D>,
+        inner_config: &CircuitConfig,
+        config: &CircuitConfig,
+        print_gate_counts: bool,
+    ) -> Result<(
+        ProofWithPublicInputs<F, D>,
+        VerifierOnlyCircuitData<F>,
+        CommonCircuitData<F, D>,
+    )> {
+        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+        let mut pw = PartialWitness::new();
+        let pt = proof_to_proof_target(&inner_proof, &mut builder);
+        set_proof_target(&inner_proof, &pt, &mut pw);
+
+        let inner_data = VerifierCircuitTarget {
+            constants_sigmas_cap: builder.add_virtual_cap(inner_config.cap_height),
+        };
+        pw.set_cap_target(
+            &inner_data.constants_sigmas_cap,
+            &inner_vd.constants_sigmas_cap,
+        );
+
+        builder.add_recursive_verifier(pt, &inner_config, &inner_data, &inner_cd);
+
+        if print_gate_counts {
+            builder.print_gate_counts(0);
+        }
+
+        let data = builder.build();
+        let proof = data.prove(pw)?;
+        data.verify(proof.clone())?;
+
+        Ok((proof, data.verifier_only, data.common))
+    }
+
+    fn init_logger() {
+        let _ = env_logger::builder().is_test(true).try_init();
     }
 }

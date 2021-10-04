@@ -45,7 +45,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, const D: usize>(
     let current_hash = challenger.get_hash();
     let pow_witness = timed!(
         timing,
-        "find for proof-of-work witness",
+        "find proof-of-work witness",
         fri_proof_of_work(current_hash, &common_data.config.fri_config)
     );
 
