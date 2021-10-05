@@ -60,6 +60,24 @@ impl CircuitConfig {
         self.num_wires - self.num_routed_wires
     }
 
+    /// A typical recursion config, without zero-knowledge, targeting ~100 bit security.
+    pub(crate) fn standard_recursion_config() -> Self {
+        Self {
+            num_wires: 143,
+            num_routed_wires: 64,
+            security_bits: 128,
+            rate_bits: 3,
+            num_challenges: 3,
+            zero_knowledge: false,
+            cap_height: 3,
+            fri_config: FriConfig {
+                proof_of_work_bits: 16,
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
+                num_query_rounds: 28,
+            },
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn large_config() -> Self {
         Self {
