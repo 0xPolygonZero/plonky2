@@ -16,7 +16,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         if num_bits == 0 {
             return Vec::new();
         }
-        let bits_per_gate = self.config.num_routed_wires - BaseSumGate::<2>::START_LIMBS;
+        let bits_per_gate = 63.min(self.config.num_routed_wires - BaseSumGate::<2>::START_LIMBS);
         let k = ceil_div_usize(num_bits, bits_per_gate);
         let gates = (0..k)
             .map(|_| self.add_gate(BaseSumGate::<2>::new(bits_per_gate), vec![]))

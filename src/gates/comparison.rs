@@ -23,6 +23,7 @@ pub struct ComparisonGate<F: PrimeField + Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> ComparisonGate<F, D> {
     pub fn new(num_bits: usize, num_chunks: usize) -> Self {
+        debug_assert!(num_bits < 64);
         Self {
             num_bits,
             num_chunks,
