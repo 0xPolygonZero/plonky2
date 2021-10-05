@@ -5,14 +5,19 @@ use log::debug;
 /// A method for deciding what arity to use at each reduction layer.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum FriReductionStrategy {
+    /// Specifies the exact sequence of arities (expressed in bits) to use.
+    Fixed(Vec<usize>),
+
     /// `ConstantArityBits(arity_bits, final_poly_bits)` applies reductions of arity `2^arity_bits`
     /// until the polynomial degree is `2^final_poly_bits` or less. This tends to work well in the
     /// recursive setting, as it avoids needing multiple configurations of gates used in FRI
     /// verification, such as `InterpolationGate`.
     ConstantArityBits(usize, usize),
 
-    /// Optimize for size.
-    MinSize,
+    /// `MinSize(opt_max_arity_bits)` searches for an optimal sequence of reduction arities, with an
+    /// optional max `arity_bits`. If this proof will have recursive proofs on top of it, a max
+    /// `arity_bits` of 3 is recommended.
+    MinSize(Option<usize>),
 }
 
 impl FriReductionStrategy {
@@ -24,28 +29,39 @@ impl FriReductionStrategy {
         num_queries: usize,
     ) -> Vec<usize> {
         match self {
-            &FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
+            FriReductionStrategy::Fixed(reduction_arity_bits) => reduction_arity_bits.to_vec(),
+
+            FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
                 let mut result = Vec::new();
-                while degree_bits > final_poly_bits {
-                    result.push(arity_bits);
-                    assert!(degree_bits >= arity_bits);
-                    degree_bits -= arity_bits;
+                while degree_bits > *final_poly_bits {
+                    result.push(*arity_bits);
+                    assert!(degree_bits >= *arity_bits);
+                    degree_bits -= *arity_bits;
                 }
                 result.shrink_to_fit();
                 result
             }
 
-            &FriReductionStrategy::MinSize => {
-                min_size_arity_bits(degree_bits, rate_bits, num_queries)
+            FriReductionStrategy::MinSize(opt_max_arity_bits) => {
+                min_size_arity_bits(degree_bits, rate_bits, num_queries, *opt_max_arity_bits)
             }
         }
     }
 }
 
-fn min_size_arity_bits(degree_bits: usize, rate_bits: usize, num_queries: usize) -> Vec<usize> {
+fn min_size_arity_bits(
+    degree_bits: usize,
+    rate_bits: usize,
+    num_queries: usize,
+    opt_max_arity_bits: Option<usize>,
+) -> Vec<usize> {
+    // 2^4 is the largest arity we see in optimal reduction sequences in practice. For 2^5 to occur
+    // in an optimal sequence, we would need a really massive polynomial.
+    let max_arity_bits = opt_max_arity_bits.unwrap_or(4);
+
     let start = Instant::now();
     let (mut arity_bits, fri_proof_size) =
-        min_size_arity_bits_helper(degree_bits, rate_bits, num_queries, vec![]);
+        min_size_arity_bits_helper(degree_bits, rate_bits, num_queries, max_arity_bits, vec![]);
     arity_bits.shrink_to_fit();
 
     debug!(
@@ -65,12 +81,9 @@ fn min_size_arity_bits_helper(
     degree_bits: usize,
     rate_bits: usize,
     num_queries: usize,
+    global_max_arity_bits: usize,
     prefix: Vec<usize>,
 ) -> (Vec<usize>, usize) {
-    // 2^4 is the largest arity we see in optimal reduction sequences in practice. For 2^5 to occur
-    // in an optimal sequence, we would need a really massive polynomial.
-    const MAX_ARITY_BITS: usize = 4;
-
     let sum_of_arities: usize = prefix.iter().sum();
     let current_layer_bits = degree_bits + rate_bits - sum_of_arities;
     assert!(current_layer_bits >= rate_bits);
@@ -84,15 +97,20 @@ fn min_size_arity_bits_helper(
     let max_arity_bits = prefix
         .last()
         .copied()
-        .unwrap_or(MAX_ARITY_BITS)
+        .unwrap_or(global_max_arity_bits)
         .min(current_layer_bits - rate_bits);
 
     for next_arity_bits in 1..=max_arity_bits {
         let mut extended_prefix = prefix.clone();
         extended_prefix.push(next_arity_bits);
 
-        let (arity_bits, size) =
-            min_size_arity_bits_helper(degree_bits, rate_bits, num_queries, extended_prefix);
+        let (arity_bits, size) = min_size_arity_bits_helper(
+            degree_bits,
+            rate_bits,
+            num_queries,
+            max_arity_bits,
+            extended_prefix,
+        );
         if size < best_size {
             best_arity_bits = arity_bits;
             best_size = size;
