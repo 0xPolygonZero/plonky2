@@ -367,7 +367,8 @@ mod tests {
         let config = CircuitConfig::standard_recursion_config();
 
         let (proof, vd, cd) = dummy_proof::<F, D>(&config, 8_000)?;
-        recursive_proof(proof, vd, cd, &config, &config, true)?;
+        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, true)?;
+        test_serialization(&proof, &cd)?;
 
         Ok(())
     }
@@ -385,23 +386,7 @@ mod tests {
         let (proof, vd, cd) = recursive_proof(proof, vd, cd, &config, &config, false)?;
         let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, true)?;
 
-        let proof_bytes = proof.to_bytes()?;
-        info!("Proof length: {} bytes", proof_bytes.len());
-        let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, &cd)?;
-        assert_eq!(proof, proof_from_bytes);
-        let now = std::time::Instant::now();
-        let compressed_proof = proof.clone().compress(&cd)?;
-        let decompressed_compressed_proof = compressed_proof.clone().decompress(&cd)?;
-        assert_eq!(proof, decompressed_compressed_proof);
-        info!("{:.4} to compress proof", now.elapsed().as_secs_f64());
-        let compressed_proof_bytes = compressed_proof.to_bytes()?;
-        info!(
-            "Compressed proof length: {} bytes",
-            compressed_proof_bytes.len()
-        );
-        let compressed_proof_from_bytes =
-            CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, &cd)?;
-        assert_eq!(compressed_proof, compressed_proof_from_bytes);
+        test_serialization(&proof, &cd)?;
 
         Ok(())
     }
@@ -431,11 +416,7 @@ mod tests {
             recursive_proof(proof, vd, cd, &normal_config, &normal_config, false)?;
         let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &normal_config, &final_config, true)?;
 
-        let compressed_proof_bytes = proof.compress(&cd)?.to_bytes()?;
-        info!(
-            "Compressed proof length: {} bytes",
-            compressed_proof_bytes.len()
-        );
+        test_serialization(&proof, &cd)?;
 
         Ok(())
     }
@@ -496,6 +477,34 @@ mod tests {
         data.verify(proof.clone())?;
 
         Ok((proof, data.verifier_only, data.common))
+    }
+
+    /// Test serialization and print some size info.
+    fn test_serialization<F: RichField + Extendable<D>, const D: usize>(
+        proof: &ProofWithPublicInputs<F, D>,
+        cd: &CommonCircuitData<F, D>,
+    ) -> Result<()> {
+        let proof_bytes = proof.to_bytes()?;
+        info!("Proof length: {} bytes", proof_bytes.len());
+        let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, &cd)?;
+        assert_eq!(proof, &proof_from_bytes);
+
+        let now = std::time::Instant::now();
+        let compressed_proof = proof.clone().compress(&cd)?;
+        let decompressed_compressed_proof = compressed_proof.clone().decompress(&cd)?;
+        info!("{:.4}s to compress proof", now.elapsed().as_secs_f64());
+        assert_eq!(proof, &decompressed_compressed_proof);
+
+        let compressed_proof_bytes = compressed_proof.to_bytes()?;
+        info!(
+            "Compressed proof length: {} bytes",
+            compressed_proof_bytes.len()
+        );
+        let compressed_proof_from_bytes =
+            CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, &cd)?;
+        assert_eq!(compressed_proof, compressed_proof_from_bytes);
+
+        Ok(())
     }
 
     fn init_logger() {
