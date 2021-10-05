@@ -5,7 +5,7 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::util::ceil_div_usize;
+use crate::util::{bits_u64, ceil_div_usize};
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given integer into a list of wires, where each one represents a
@@ -16,7 +16,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         if num_bits == 0 {
             return Vec::new();
         }
-        let bits_per_gate = 63.min(self.config.num_routed_wires - BaseSumGate::<2>::START_LIMBS);
+        let bits_per_gate = (bits_u64(F::ORDER) - 1)
+            .min(self.config.num_routed_wires - BaseSumGate::<2>::START_LIMBS);
         let k = ceil_div_usize(num_bits, bits_per_gate);
         let gates = (0..k)
             .map(|_| self.add_gate(BaseSumGate::<2>::new(bits_per_gate), vec![]))
