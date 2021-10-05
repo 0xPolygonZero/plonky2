@@ -239,7 +239,7 @@ mod tests {
         let gates = vec![
             GateRef::new(NoopGate),
             GateRef::new(ConstantGate),
-            GateRef::new(ArithmeticExtensionGate),
+            GateRef::new(ArithmeticExtensionGate { num_ops: 4 }),
             GateRef::new(BaseSumGate::<4>::new(4)),
             GateRef::new(GMiMCGate::<F, D, 12>::new()),
             GateRef::new(InterpolationGate::new(4)),
