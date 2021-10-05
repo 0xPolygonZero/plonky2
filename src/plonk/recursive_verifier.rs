@@ -405,7 +405,7 @@ mod tests {
             rate_bits: 7,
             fri_config: FriConfig {
                 proof_of_work_bits: 23,
-                reduction_strategy: FriReductionStrategy::MinSize,
+                reduction_strategy: FriReductionStrategy::MinSize(None),
                 num_query_rounds: 11,
             },
             ..normal_config
