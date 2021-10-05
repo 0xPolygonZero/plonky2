@@ -5,6 +5,9 @@ use log::debug;
 /// A method for deciding what arity to use at each reduction layer.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum FriReductionStrategy {
+    /// Specifies the exact sequence of arities (expressed in bits) to use.
+    Fixed(Vec<usize>),
+
     /// `ConstantArityBits(arity_bits, final_poly_bits)` applies reductions of arity `2^arity_bits`
     /// until the polynomial degree is `2^final_poly_bits` or less. This tends to work well in the
     /// recursive setting, as it avoids needing multiple configurations of gates used in FRI
@@ -26,6 +29,8 @@ impl FriReductionStrategy {
         num_queries: usize,
     ) -> Vec<usize> {
         match self {
+            &FriReductionStrategy::Fixed(reduction_arity_bits) => reduction_arity_bits,
+
             &FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
                 let mut result = Vec::new();
                 while degree_bits > final_poly_bits {
