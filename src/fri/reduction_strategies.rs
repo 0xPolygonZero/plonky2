@@ -29,21 +29,21 @@ impl FriReductionStrategy {
         num_queries: usize,
     ) -> Vec<usize> {
         match self {
-            &FriReductionStrategy::Fixed(reduction_arity_bits) => reduction_arity_bits,
+            FriReductionStrategy::Fixed(reduction_arity_bits) => reduction_arity_bits.to_vec(),
 
-            &FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
+            FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
                 let mut result = Vec::new();
-                while degree_bits > final_poly_bits {
-                    result.push(arity_bits);
-                    assert!(degree_bits >= arity_bits);
-                    degree_bits -= arity_bits;
+                while degree_bits > *final_poly_bits {
+                    result.push(*arity_bits);
+                    assert!(degree_bits >= *arity_bits);
+                    degree_bits -= *arity_bits;
                 }
                 result.shrink_to_fit();
                 result
             }
 
-            &FriReductionStrategy::MinSize(opt_max_arity_bits) => {
-                min_size_arity_bits(degree_bits, rate_bits, num_queries, opt_max_arity_bits)
+            FriReductionStrategy::MinSize(opt_max_arity_bits) => {
+                min_size_arity_bits(degree_bits, rate_bits, num_queries, *opt_max_arity_bits)
             }
         }
     }
