@@ -7,15 +7,13 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use itertools::Itertools;
 use num::bigint::BigUint;
-use num::{Integer, One, Zero};
+use num::{Integer, One};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::Field;
 use crate::field::goldilocks_field::GoldilocksField;
 
-/// EPSILON = 9 * 2**28 - 1
-const EPSILON: u64 = 2415919103;
 
 /// A field designed for use with the Crandall reduction algorithm.
 ///
@@ -247,11 +245,4 @@ impl DivAssign for Secp256K1Base {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::test_field_arithmetic;
-
-    test_field_arithmetic!(crate::field::secp256k1::Secp256K1Base);
 }
