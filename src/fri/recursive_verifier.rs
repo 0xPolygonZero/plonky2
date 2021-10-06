@@ -3,6 +3,9 @@ use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::fri::proof::{FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget};
 use crate::fri::FriConfig;
+use crate::gates::gate::Gate;
+use crate::gates::interpolation::InterpolationGate;
+use crate::gates::random_access::RandomAccessGate;
 use crate::hash::hash_types::MerkleCapTarget;
 use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::target::{BoolTarget, Target};
@@ -53,6 +56,35 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.interpolate(&points, beta)
     }
 
+    /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
+    /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
+    /// helpful errors.
+    fn check_config(&self, arity: usize) {
+        let random_access = RandomAccessGate::<F, D>::new(arity);
+        let interpolation_gate = InterpolationGate::<F, D>::new(arity);
+
+        let min_wires = random_access
+            .num_wires()
+            .max(interpolation_gate.num_wires());
+        let min_routed_wires = random_access
+            .num_routed_wires()
+            .max(interpolation_gate.num_routed_wires());
+
+        assert!(
+            self.config.num_wires >= min_wires,
+            "To efficiently perform FRI checks with an arity of {}, at least {} wires are needed. Consider reducing arity.",
+            arity,
+            min_wires
+        );
+
+        assert!(
+            self.config.num_routed_wires >= min_routed_wires,
+            "To efficiently perform FRI checks with an arity of {}, at least {} routed wires are needed. Consider reducing arity.",
+            arity,
+            min_routed_wires
+        );
+    }
+
     fn fri_verify_proof_of_work(
         &mut self,
         proof: &FriProofTarget<D>,
@@ -81,6 +113,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data: &CommonCircuitData<F, D>,
     ) {
         let config = &common_data.config;
+
+        if let Some(max_arity) = common_data.fri_params.max_arity() {
+            self.check_config(max_arity);
+        }
+
         debug_assert_eq!(
             common_data.final_poly_len(),
             proof.final_poly.len(),

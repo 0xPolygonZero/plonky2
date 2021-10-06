@@ -45,6 +45,10 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
         (self.vec_size + 1) * D + 1
     }
 
+    pub(crate) fn num_routed_wires(&self) -> usize {
+        self.start_of_intermediate_wires()
+    }
+
     /// An intermediate wire for a dummy variable used to show equality.
     /// The prover sets this to 1/(x-y) if x != y, or to an arbitrary value if
     /// x == y.
