@@ -38,7 +38,11 @@ fn biguint_from_array(arr: [u64; 4]) -> BigUint {
 
 impl Secp256K1Base {
     fn to_canonical_biguint(&self) -> BigUint {
-        biguint_from_array(self.0).mod_floor(&Self::order())
+        let mut result = biguint_from_array(self.0);
+        if result > Self::order() {
+            result -= Self::order();
+        }
+        result
     }
 
     fn from_biguint(val: BigUint) -> Self {
@@ -162,7 +166,6 @@ impl Add for Secp256K1Base {
     type Output = Self;
 
     #[inline]
-
     fn add(self, rhs: Self) -> Self {
         let mut result = self.to_canonical_biguint() + rhs.to_canonical_biguint();
         if result >= Self::order() {
