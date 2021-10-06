@@ -27,17 +27,6 @@ const EPSILON: u64 = 2415919103;
 pub struct Secp256K1Base(pub [u32; 8]);
 
 impl Secp256K1Base {
-    const ORDER_BIGUINT: BigUint = BigUint::from_slice(&[
-        0xFFFFFC2F,
-        0xFFFFFFFE,
-        0xFFFFFFFF,
-        0xFFFFFFFF,
-        0xFFFFFFFF,
-        0xFFFFFFFF,
-        0xFFFFFFFF,
-        0xFFFFFFFF,
-    ]);
-
     fn to_canonical_biguint(&self) -> BigUint {
         BigUint::from_slice(&self.0).mod_floor(&Self::ORDER_BIGUINT)
     }
@@ -83,20 +72,39 @@ impl Field for Secp256K1Base {
     // TODO: fix
     type PrimeField = GoldilocksField;
 
-    const ZERO: Self = Self::from_biguint(BigUint::zero());
-    const ONE: Self = Self::from_biguint(BigUint::one());
-    const TWO: Self = Self::from_biguint(BigUint::one() + BigUint::one());
-    const NEG_ONE: Self = Self::from_biguint(Self::ORDER_BIGUINT - BigUint::one());
+    const ZERO: Self = Self([0; 8]);
+    const ONE: Self = Self([1, 0, 0, 0, 0, 0, 0, 0]);
+    const TWO: Self = Self([2, 0, 0, 0, 0, 0, 0, 0]);
+    const NEG_ONE: Self = Self([
+        0xFFFFFC2E,
+        0xFFFFFFFE,
+        0xFFFFFFFF,
+        0xFFFFFFFF,
+        0xFFFFFFFF,
+        0xFFFFFFFF,
+        0xFFFFFFFF,
+        0xFFFFFFFF,
+    ]);
 
     // TODO: fix
     const CHARACTERISTIC: u64 = 0;
     const TWO_ADICITY: usize = 1;
 
-    const MULTIPLICATIVE_GROUP_GENERATOR: Self = todo!();//Self(5);
+    // Sage: `g = GF(p).multiplicative_generator()`
+    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0, 0, 0, 0, 0]);
     const POWER_OF_TWO_GENERATOR: Self = todo!();//Self(10281950781551402419);
 
     fn order() -> BigUint {
-        Self::ORDER_BIGUINT
+        BigUint::from_slice(&[
+            0xFFFFFC2F,
+            0xFFFFFFFE,
+            0xFFFFFFFF,
+            0xFFFFFFFF,
+            0xFFFFFFFF,
+            0xFFFFFFFF,
+            0xFFFFFFFF,
+            0xFFFFFFFF,
+        ])
     }
 
     fn try_inverse(&self) -> Option<Self> {
@@ -105,7 +113,7 @@ impl Field for Secp256K1Base {
         }
 
         // Fermat's Little Theorem
-        Some(self.exp_biguint(&(Self::ORDER_BIGUINT - BigUint::one() - BigUint::one())))
+        Some(self.exp_biguint(&(Self::order() - BigUint::one() - BigUint::one())))
     }
 
     #[inline]
@@ -145,7 +153,7 @@ impl Field for Secp256K1Base {
         let mut array = [0u32; 8];
         rng.fill(&mut array);
         let mut rand_biguint = BigUint::from_slice(&array);
-        while rand_biguint > Self::ORDER_BIGUINT {
+        while rand_biguint > Self::order() {
             rng.fill(&mut array);
             rand_biguint = BigUint::from_slice(&array);
         }
@@ -161,7 +169,7 @@ impl Neg for Secp256K1Base {
         if self.is_zero() {
             Self::ZERO
         } else {
-            Self::from_biguint(Self::ORDER_BIGUINT - self.to_canonical_biguint())
+            Self::from_biguint(Self::order() - self.to_canonical_biguint())
         }
     }
 }
@@ -173,8 +181,8 @@ impl Add for Secp256K1Base {
 
     fn add(self, rhs: Self) -> Self {
         let mut result = self.to_canonical_biguint() + rhs.to_canonical_biguint();
-        if result > Self::ORDER_BIGUINT {
-            result -= Self::ORDER_BIGUINT;
+        if result > Self::order() {
+            result -= Self::order();
         }
         Self::from_biguint(result)
     }
@@ -199,7 +207,7 @@ impl Sub for Secp256K1Base {
     #[inline]
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: Self) -> Self {
-        Self::from_biguint(self.to_canonical_biguint() + Self::ORDER_BIGUINT - rhs.to_canonical_biguint())
+        Self::from_biguint(self.to_canonical_biguint() + Self::order() - rhs.to_canonical_biguint())
     }
 }
 
