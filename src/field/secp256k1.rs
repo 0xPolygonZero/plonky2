@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::field::field_types::Field;
 use crate::field::goldilocks_field::GoldilocksField;
 
-/// A field designed for use with the Crandall reduction algorithm.
+/// The base field of the secp256k1 elliptic curve.
 ///
 /// Its order is
 /// ```ignore
