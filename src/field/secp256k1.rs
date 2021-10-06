@@ -46,9 +46,9 @@ impl Secp256K1Base {
             val.to_u64_digits()
                 .into_iter()
                 .pad_using(4, |_| 0)
-                .collect::<Vec<_>>()[..4]
+                .collect::<Vec<_>>()[..]
                 .try_into()
-                .expect("error converting to u64 array; should never happen"),
+                .expect("error converting to u64 array"),
         )
     }
 }
@@ -69,9 +69,7 @@ impl Eq for Secp256K1Base {}
 
 impl Hash for Secp256K1Base {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.to_canonical_biguint()
-            .iter_u64_digits()
-            .for_each(|digit| state.write_u64(digit))
+        self.to_canonical_biguint().hash(state)
     }
 }
 
@@ -108,7 +106,7 @@ impl Field for Secp256K1Base {
     // Sage: `g = GF(p).multiplicative_generator()`
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0]);
 
-    // Sage: `g_2 = g^((p - 1) / 2^32)`
+    // Sage: `g_2 = g^((p - 1) / 2)`
     const POWER_OF_TWO_GENERATOR: Self = Self::NEG_ONE;
 
     fn order() -> BigUint {
