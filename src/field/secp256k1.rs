@@ -28,7 +28,7 @@ pub struct Secp256K1Base(pub [u32; 8]);
 
 impl Secp256K1Base {
     fn to_canonical_biguint(&self) -> BigUint {
-        BigUint::from_slice(&self.0).mod_floor(&Self::ORDER_BIGUINT)
+        BigUint::from_slice(&self.0).mod_floor(&Self::order())
     }
 
     fn from_biguint(val: BigUint) -> Self {
@@ -96,7 +96,9 @@ impl Field for Secp256K1Base {
 
     // Sage: `g = GF(p).multiplicative_generator()`
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0, 0, 0, 0, 0]);
-    const POWER_OF_TWO_GENERATOR: Self = todo!(); //Self(10281950781551402419);
+
+    // Sage: `g_2 = g^((p - 1) / 2^32)`
+    const POWER_OF_TWO_GENERATOR: Self = Self::NEG_ONE;
 
     fn order() -> BigUint {
         BigUint::from_slice(&[
@@ -213,8 +215,7 @@ impl Mul for Secp256K1Base {
     #[inline]
     fn mul(self, rhs: Self) -> Self {
         Self::from_biguint(
-            (self.to_canonical_biguint() * rhs.to_canonical_biguint())
-                .mod_floor(&Self::ORDER_BIGUINT),
+            (self.to_canonical_biguint() * rhs.to_canonical_biguint()).mod_floor(&Self::order()),
         )
     }
 }
