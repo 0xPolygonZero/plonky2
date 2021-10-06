@@ -14,6 +14,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         claimed_element: ExtensionTarget<D>,
         v: Vec<ExtensionTarget<D>>,
     ) {
+        debug_assert!(!v.is_empty());
+        if v.len() == 1 {
+            return self.connect_extension(claimed_element, v[0]);
+        }
         let gate = RandomAccessGate::new(v.len());
         let gate_index = self.add_gate(gate.clone(), vec![]);
 
@@ -42,6 +46,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         mut v: Vec<ExtensionTarget<D>>,
         min_length: usize,
     ) {
+        debug_assert!(!v.is_empty());
+        if v.len() == 1 {
+            return self.connect_extension(claimed_element, v[0]);
+        }
         let zero = self.zero_extension();
         if v.len() < min_length {
             v.resize(8, zero);
