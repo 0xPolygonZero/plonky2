@@ -14,7 +14,6 @@ use serde::{Deserialize, Serialize};
 use crate::field::field_types::Field;
 use crate::field::goldilocks_field::GoldilocksField;
 
-
 /// A field designed for use with the Crandall reduction algorithm.
 ///
 /// Its order is
@@ -22,22 +21,35 @@ use crate::field::goldilocks_field::GoldilocksField;
 /// P = 2**256 - 2**32 - 2**9 - 2**8 - 2**7 - 2**6 - 2**4 - 1
 /// ```
 #[derive(Copy, Clone, Serialize, Deserialize)]
-pub struct Secp256K1Base(pub [u32; 8]);
+pub struct Secp256K1Base(pub [u64; 4]);
+
+fn biguint_from_array(arr: [u64; 4]) -> BigUint {
+    BigUint::from_slice(&[
+        arr[0] as u32,
+        (arr[0] >> 32) as u32,
+        arr[1] as u32,
+        (arr[1] >> 32) as u32,
+        arr[2] as u32,
+        (arr[2] >> 32) as u32,
+        arr[3] as u32,
+        (arr[3] >> 32) as u32,
+    ])
+}
 
 impl Secp256K1Base {
     fn to_canonical_biguint(&self) -> BigUint {
-        BigUint::from_slice(&self.0).mod_floor(&Self::order())
+        biguint_from_array(self.0).mod_floor(&Self::order())
     }
 
     fn from_biguint(val: BigUint) -> Self {
         Self(
-            val.to_u32_digits()
+            val.to_u64_digits()
                 .iter()
                 .cloned()
-                .pad_using(8, |_| 0)
-                .collect::<Vec<_>>()[..8]
+                .pad_using(4, |_| 0)
+                .collect::<Vec<_>>()[..4]
                 .try_into()
-                .expect("error converting to u32 array; should never happen"),
+                .expect("error converting to u64 array; should never happen"),
         )
     }
 }
@@ -80,12 +92,14 @@ impl Field for Secp256K1Base {
     // TODO: fix
     type PrimeField = GoldilocksField;
 
-    const ZERO: Self = Self([0; 8]);
-    const ONE: Self = Self([1, 0, 0, 0, 0, 0, 0, 0]);
-    const TWO: Self = Self([2, 0, 0, 0, 0, 0, 0, 0]);
+    const ZERO: Self = Self([0; 4]);
+    const ONE: Self = Self([1, 0, 0, 0]);
+    const TWO: Self = Self([2, 0, 0, 0]);
     const NEG_ONE: Self = Self([
-        0xFFFFFC2E, 0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
-        0xFFFFFFFF,
+        0xFFFFFFFEFFFFFC2E,
+        0xFFFFFFFFFFFFFFFF,
+        0xFFFFFFFFFFFFFFFF,
+        0xFFFFFFFFFFFFFFFF,
     ]);
 
     // TODO: fix
@@ -93,7 +107,7 @@ impl Field for Secp256K1Base {
     const TWO_ADICITY: usize = 1;
 
     // Sage: `g = GF(p).multiplicative_generator()`
-    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0, 0, 0, 0, 0]);
+    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0]);
 
     // Sage: `g_2 = g^((p - 1) / 2^32)`
     const POWER_OF_TWO_GENERATOR: Self = Self::NEG_ONE;
@@ -116,35 +130,26 @@ impl Field for Secp256K1Base {
 
     #[inline]
     fn from_canonical_u64(n: u64) -> Self {
-        Self([n as u32, (n >> 32) as u32, 0, 0, 0, 0, 0, 0])
+        Self([n, 0, 0, 0])
     }
 
     #[inline]
     fn from_noncanonical_u128(n: u128) -> Self {
-        Self([
-            n as u32,
-            (n >> 32) as u32,
-            (n >> 64) as u32,
-            (n >> 96) as u32,
-            0,
-            0,
-            0,
-            0,
-        ])
+        Self([n as u64, (n >> 64) as u64, 0, 0])
     }
 
     #[inline]
     fn from_noncanonical_u96(n: (u64, u32)) -> Self {
-        Self([n.0 as u32, (n.0 >> 32) as u32, n.1, 0, 0, 0, 0, 0])
+        Self([n.0, n.1 as u64, 0, 0])
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
-        let mut array = [0u32; 8];
+        let mut array = [0u64; 4];
         rng.fill(&mut array);
-        let mut rand_biguint = BigUint::from_slice(&array);
+        let mut rand_biguint = biguint_from_array(array);
         while rand_biguint > Self::order() {
             rng.fill(&mut array);
-            rand_biguint = BigUint::from_slice(&array);
+            rand_biguint = biguint_from_array(array);
         }
         Self(array)
     }
