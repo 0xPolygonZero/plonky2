@@ -1,6 +1,3 @@
-use itertools::Itertools;
-use num::bigint::BigUint;
-use num::{Integer, One, Zero};
 use std::convert::TryInto;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
@@ -8,6 +5,9 @@ use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use itertools::Itertools;
+use num::bigint::BigUint;
+use num::{Integer, One, Zero};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +32,15 @@ impl Secp256K1Base {
     }
 
     fn from_biguint(val: BigUint) -> Self {
-        Self(val.to_u32_digits().iter().cloned().pad_using(8, |_| 0).collect::<Vec<_>>()[..8].try_into().expect("error converting to u32 array; should never happen"))
+        Self(
+            val.to_u32_digits()
+                .iter()
+                .cloned()
+                .pad_using(8, |_| 0)
+                .collect::<Vec<_>>()[..8]
+                .try_into()
+                .expect("error converting to u32 array; should never happen"),
+        )
     }
 }
 
@@ -52,7 +60,9 @@ impl Eq for Secp256K1Base {}
 
 impl Hash for Secp256K1Base {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.to_canonical_biguint().iter_u64_digits().for_each(|digit| state.write_u64(digit))
+        self.to_canonical_biguint()
+            .iter_u64_digits()
+            .for_each(|digit| state.write_u64(digit))
     }
 }
 
@@ -76,13 +86,7 @@ impl Field for Secp256K1Base {
     const ONE: Self = Self([1, 0, 0, 0, 0, 0, 0, 0]);
     const TWO: Self = Self([2, 0, 0, 0, 0, 0, 0, 0]);
     const NEG_ONE: Self = Self([
-        0xFFFFFC2E,
-        0xFFFFFFFE,
-        0xFFFFFFFF,
-        0xFFFFFFFF,
-        0xFFFFFFFF,
-        0xFFFFFFFF,
-        0xFFFFFFFF,
+        0xFFFFFC2E, 0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
         0xFFFFFFFF,
     ]);
 
@@ -92,17 +96,11 @@ impl Field for Secp256K1Base {
 
     // Sage: `g = GF(p).multiplicative_generator()`
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0, 0, 0, 0, 0]);
-    const POWER_OF_TWO_GENERATOR: Self = todo!();//Self(10281950781551402419);
+    const POWER_OF_TWO_GENERATOR: Self = todo!(); //Self(10281950781551402419);
 
     fn order() -> BigUint {
         BigUint::from_slice(&[
-            0xFFFFFC2F,
-            0xFFFFFFFE,
-            0xFFFFFFFF,
-            0xFFFFFFFF,
-            0xFFFFFFFF,
-            0xFFFFFFFF,
-            0xFFFFFFFF,
+            0xFFFFFC2F, 0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
             0xFFFFFFFF,
         ])
     }
@@ -137,16 +135,7 @@ impl Field for Secp256K1Base {
 
     #[inline]
     fn from_noncanonical_u96(n: (u64, u32)) -> Self {
-        Self([
-            n.0 as u32,
-            (n.0 >> 32) as u32,
-            n.1,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ])
+        Self([n.0 as u32, (n.0 >> 32) as u32, n.1, 0, 0, 0, 0, 0])
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
@@ -223,7 +212,10 @@ impl Mul for Secp256K1Base {
 
     #[inline]
     fn mul(self, rhs: Self) -> Self {
-        Self::from_biguint((self.to_canonical_biguint() * rhs.to_canonical_biguint()).mod_floor(&Self::ORDER_BIGUINT))
+        Self::from_biguint(
+            (self.to_canonical_biguint() * rhs.to_canonical_biguint())
+                .mod_floor(&Self::ORDER_BIGUINT),
+        )
     }
 }
 
