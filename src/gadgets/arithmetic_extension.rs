@@ -4,7 +4,7 @@ use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTar
 use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
 use crate::field::field_types::{Field, RichField};
-use crate::gates::arithmetic::{ArithmeticExtensionGate, NUM_ARITHMETIC_OPS};
+use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -21,12 +21,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .get(&(const_0, const_1))
             .copied()
             .unwrap_or_else(|| {
-                let gate = self.add_gate(ArithmeticExtensionGate, vec![const_0, const_1]);
+                let gate = self.add_gate(
+                    ArithmeticExtensionGate::new_from_config(&self.config),
+                    vec![const_0, const_1],
+                );
                 (gate, 0)
             });
 
         // Update `free_arithmetic` with new values.
-        if i < NUM_ARITHMETIC_OPS - 1 {
+        if i < ArithmeticExtensionGate::<D>::num_ops(&self.config) - 1 {
             self.free_arithmetic
                 .insert((const_0, const_1), (gate, i + 1));
         } else {

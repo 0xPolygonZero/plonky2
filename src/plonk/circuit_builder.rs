@@ -12,7 +12,7 @@ use crate::field::fft::fft_root_table;
 use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::FriParams;
-use crate::gates::arithmetic::{ArithmeticExtensionGate, NUM_ARITHMETIC_OPS};
+use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
@@ -509,7 +509,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let zero = self.zero_extension();
         let remaining_arithmetic_gates = self.free_arithmetic.values().copied().collect::<Vec<_>>();
         for (gate, i) in remaining_arithmetic_gates {
-            for j in i..NUM_ARITHMETIC_OPS {
+            for j in i..ArithmeticExtensionGate::<D>::num_ops(&self.config) {
                 let wires_multiplicand_0 = ExtensionTarget::from_range(
                     gate,
                     ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(j),
