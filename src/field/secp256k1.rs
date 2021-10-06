@@ -6,7 +6,7 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use itertools::Itertools;
-use num::bigint::BigUint;
+use num::bigint::{BigUint, RandBigInt};
 use num::{Integer, One};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -141,14 +141,7 @@ impl Field for Secp256K1Base {
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
-        let mut array = [0u64; 4];
-        rng.fill(&mut array);
-        let mut rand_biguint = biguint_from_array(array);
-        while rand_biguint > Self::order() {
-            rng.fill(&mut array);
-            rand_biguint = biguint_from_array(array);
-        }
-        Self(array)
+        Self::from_biguint(rng.gen_biguint_below(&Self::order()))
     }
 }
 
@@ -172,7 +165,7 @@ impl Add for Secp256K1Base {
 
     fn add(self, rhs: Self) -> Self {
         let mut result = self.to_canonical_biguint() + rhs.to_canonical_biguint();
-        if result > Self::order() {
+        if result >= Self::order() {
             result -= Self::order();
         }
         Self::from_biguint(result)
@@ -198,7 +191,7 @@ impl Sub for Secp256K1Base {
     #[inline]
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: Self) -> Self {
-        Self::from_biguint(self.to_canonical_biguint() + Self::order() - rhs.to_canonical_biguint())
+        self + -rhs
     }
 }
 
