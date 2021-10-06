@@ -24,7 +24,8 @@ macro_rules! test_field_arithmetic {
 
             #[test]
             fn primitive_root_order() {
-                for n_power in 0..8 {
+                let max_power = 8.min(<$field>::TWO_ADICITY);
+                for n_power in 0..max_power {
                     let root = <$field>::primitive_root_of_unity(n_power);
                     let order = <$field>::generator_order(root);
                     assert_eq!(order, 1 << n_power, "2^{}'th primitive root", n_power);
