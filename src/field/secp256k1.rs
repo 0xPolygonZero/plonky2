@@ -44,8 +44,7 @@ impl Secp256K1Base {
     fn from_biguint(val: BigUint) -> Self {
         Self(
             val.to_u64_digits()
-                .iter()
-                .cloned()
+                .into_iter()
                 .pad_using(4, |_| 0)
                 .collect::<Vec<_>>()[..4]
                 .try_into()
