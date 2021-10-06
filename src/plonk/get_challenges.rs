@@ -1,11 +1,13 @@
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
+use crate::field::field_types::{Field, RichField};
+use crate::fri::verifier::compute_evaluation;
 use crate::hash::hashing::hash_n_to_1;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::proof::{
     CompressedProofWithPublicInputs, ProofChallenges, ProofWithPublicInputs,
 };
+use crate::util::reverse_bits;
 
 impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
     pub(crate) fn fri_query_indices(
@@ -83,6 +85,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
             fri_betas,
             fri_pow_response,
             fri_query_indices,
+            fri_query_inferred_elements: None,
         })
     }
 }
@@ -154,6 +157,31 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
             .map(|_| challenger.get_challenge().to_canonical_u64() as usize % lde_size)
             .collect();
 
+        let mut fri_query_inferred_elements = Vec::new();
+        let log_n = common_data.degree_bits + common_data.config.rate_bits;
+        for query_round in 0..common_data.config.fri_config.num_query_rounds {
+            let mut query_round_inferred_elements = Vec::new();
+            let mut x_index = fri_query_indices[query_round];
+            let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
+                * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
+            let evals = &self.proof.opening_proof..steps[query_round].evals;
+            for &arity_bits in &common_data.config.fri_config.reduction_strategy {
+                let arity = 1 << arity_bits;
+                let x_index_within_coset = x_index & (arity - 1);
+                let elmt = compute_evaluation(
+                    subgroup_x,
+                    x_index_within_coset,
+                    arity_bits,
+                    evals,
+                    challenges.fri_betas[i],
+                );
+                query_round_inferred_elements.push(elmt);
+                subgroup_x = subgroup_x.exp_power_of_2(arity_bits);
+                x_index >>= arity_bits;
+            }
+            fri_query_inferred_elements.push(query_round_inferred_elements);
+        }
+
         Ok(ProofChallenges {
             plonk_betas,
             plonk_gammas,
@@ -163,6 +191,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
             fri_betas,
             fri_pow_response,
             fri_query_indices,
+            fri_query_inferred_elements: Some(fri_query_inferred_elements),
         })
     }
 }
