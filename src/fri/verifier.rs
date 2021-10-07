@@ -15,7 +15,7 @@ use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
 /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
 /// and P' is the FRI reduced polynomial.
-fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
+pub(crate) fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     x: F,
     x_index_within_coset: usize,
     arity_bits: usize,
@@ -83,10 +83,11 @@ pub(crate) fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
 
     let precomputed_reduced_evals =
         PrecomputedReducedEvals::from_os_and_alpha(os, challenges.fri_alpha);
-    for (&x_index, round_proof) in challenges
+    for (round, (&x_index, round_proof)) in challenges
         .fri_query_indices
         .iter()
         .zip(&proof.query_round_proofs)
+        .enumerate()
     {
         fri_verifier_query_round(
             challenges,
@@ -95,6 +96,7 @@ pub(crate) fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
             &proof,
             x_index,
             n,
+            round,
             round_proof,
             common_data,
         )?;
@@ -218,6 +220,7 @@ fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
     proof: &FriProof<F, D>,
     mut x_index: usize,
     n: usize,
+    round: usize,
     round_proof: &FriQueryRound<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
@@ -259,13 +262,18 @@ fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
         ensure!(evals[x_index_within_coset] == old_eval);
 
         // Infer P(y) from {P(x)}_{x^arity=y}.
-        old_eval = compute_evaluation(
-            subgroup_x,
-            x_index_within_coset,
-            arity_bits,
-            evals,
-            challenges.fri_betas[i],
-        );
+        old_eval = if let Some(v) = &challenges.fri_query_inferred_elements {
+            dbg!("yo");
+            v[round][i]
+        } else {
+            compute_evaluation(
+                subgroup_x,
+                x_index_within_coset,
+                arity_bits,
+                evals,
+                challenges.fri_betas[i],
+            )
+        };
 
         verify_merkle_proof(
             flatten(evals),

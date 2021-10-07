@@ -138,7 +138,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
                 challenger.observe_cap(cap);
                 challenger.get_extension_challenge()
             })
-            .collect();
+            .collect::<Vec<_>>();
 
         challenger.observe_extension_elements(&self.proof.opening_proof.final_poly.coeffs);
 
@@ -155,7 +155,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
 
         let fri_query_indices = (0..num_fri_queries)
             .map(|_| challenger.get_challenge().to_canonical_u64() as usize % lde_size)
-            .collect();
+            .collect::<Vec<_>>();
 
         let mut fri_query_inferred_elements = Vec::new();
         let log_n = common_data.degree_bits + common_data.config.rate_bits;
@@ -164,16 +164,23 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
             let mut x_index = fri_query_indices[query_round];
             let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
                 * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
-            let evals = &self.proof.opening_proof..steps[query_round].evals;
-            for &arity_bits in &common_data.config.fri_config.reduction_strategy {
+            for (i, &arity_bits) in common_data
+                .fri_params
+                .reduction_arity_bits
+                .iter()
+                .enumerate()
+            {
                 let arity = 1 << arity_bits;
+                let evals = &self.proof.opening_proof.query_round_proofs.steps[i]
+                    [&(x_index >> arity_bits)]
+                    .evals;
                 let x_index_within_coset = x_index & (arity - 1);
                 let elmt = compute_evaluation(
                     subgroup_x,
                     x_index_within_coset,
                     arity_bits,
                     evals,
-                    challenges.fri_betas[i],
+                    fri_betas[i],
                 );
                 query_round_inferred_elements.push(elmt);
                 subgroup_x = subgroup_x.exp_power_of_2(arity_bits);
