@@ -74,7 +74,7 @@ pub(crate) fn decompress_merkle_proofs<F: RichField>(
         .iter()
         .map(|p| p.siblings.iter())
         .collect::<Vec<_>>();
-    // Fill the `seen` map from the bottom of the tree to the top.
+    // Fill the `seen` map from the bottom of the tree to the cap.
     for depth in 0..height - cap_height {
         for (&i, p) in leaves_indices.iter().zip(siblings.iter_mut()) {
             let index = (i + num_leaves) >> depth;
@@ -93,14 +93,13 @@ pub(crate) fn decompress_merkle_proofs<F: RichField>(
         }
     }
     // For every index, go up the tree by querying `seen` to get node values.
-    for (&i, p) in leaves_indices.iter().zip(compressed_proofs) {
+    for &i in leaves_indices {
         let mut decompressed_proof = MerkleProof {
             siblings: Vec::new(),
         };
         let mut index = i + num_leaves;
         for _ in 0..height - cap_height {
             let sibling_index = index ^ 1;
-            // dbg!(index, sibling_index);
             let h = seen[&sibling_index];
             decompressed_proof.siblings.push(h);
             index >>= 1;
@@ -125,7 +124,7 @@ mod tests {
     fn test_path_compression() {
         type F = CrandallField;
         let h = 10;
-        let cap_height = 0;
+        let cap_height = 3;
         let vs = (0..1 << h).map(|_| vec![F::rand()]).collect::<Vec<_>>();
         let mt = MerkleTree::new(vs.clone(), cap_height);
 
