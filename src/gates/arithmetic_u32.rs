@@ -309,8 +309,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         .take(num_limbs)
         .collect();
         let output_limbs_f: Vec<_> = output_limbs_u64
-            .iter()
-            .cloned()
+            .into_iter()
             .map(F::from_canonical_u64)
             .collect();
 
@@ -385,8 +384,7 @@ mod tests {
                     output /= limb_base;
                 }
                 let mut output_limbs_f: Vec<_> = output_limbs
-                    .iter()
-                    .cloned()
+                    .into_iter()
                     .map(F::from_canonical_u64)
                     .collect();
 
