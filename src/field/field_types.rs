@@ -145,15 +145,12 @@ pub trait Field:
             let inverse_2_pow_adicity: Self =
                 Self::from_canonical_u64(p - ((p - 1) >> Self::PrimeField::TWO_ADICITY));
 
-            let mut res = Self::ONE;
-            let mut e = exp;
+            let mut res = inverse_2_pow_adicity;
+            let mut e = exp - Self::PrimeField::TWO_ADICITY;
 
-            loop {
+            while e > Self::PrimeField::TWO_ADICITY  {
                 res *= inverse_2_pow_adicity;
                 e -= Self::PrimeField::TWO_ADICITY;
-                if e <= Self::PrimeField::TWO_ADICITY {
-                    break;
-                }
             }
             res * Self::from_canonical_u64(p - ((p - 1) >> e))
         } else {
