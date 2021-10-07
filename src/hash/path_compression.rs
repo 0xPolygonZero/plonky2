@@ -22,7 +22,9 @@ pub(crate) fn compress_merkle_proofs<F: Field>(
     let mut known = vec![false; 2 * num_leaves];
     for &i in indices {
         // The leaves are known.
-        known[i + num_leaves] = true;
+        for j in 0..(height - cap_height) {
+            known[(i + num_leaves) >> j] = true;
+        }
     }
     // For each proof collect all the unknown proof elements.
     for (&i, p) in indices.iter().zip(proofs) {
@@ -66,31 +68,41 @@ pub(crate) fn decompress_merkle_proofs<F: RichField>(
         // Observe the leaves.
         seen.insert(i + num_leaves, hash_or_noop(v.to_vec()));
     }
-    // For every index, go up the tree by querying `seen` to get node values, or if they are unknown
-    // get them from the compressed proof.
-    for (&i, p) in leaves_indices.iter().zip(compressed_proofs) {
-        let mut compressed_siblings = p.siblings.into_iter();
-        let mut decompressed_proof = MerkleProof {
-            siblings: Vec::new(),
-        };
-        let mut index = i + num_leaves;
-        let mut current_digest = seen[&index];
-        for _ in 0..height - cap_height {
+    let mut proofs = compressed_proofs
+        .iter()
+        .map(|p| p.siblings.iter())
+        .collect::<Vec<_>>();
+    for depth in 0..height - cap_height {
+        for (&i, p) in leaves_indices.iter().zip(proofs.iter_mut()) {
+            let index = (i + num_leaves) >> depth;
             let sibling_index = index ^ 1;
-            // Get the value of the sibling node by querying it or getting it from the proof.
+            // dbg!(i, depth, index, sibling_index);
             let h = *seen
                 .entry(sibling_index)
-                .or_insert_with(|| compressed_siblings.next().unwrap());
-            decompressed_proof.siblings.push(h);
-            // Update the current digest to the value of the parent.
-            current_digest = if index.is_even() {
+                .or_insert_with(|| *p.next().unwrap());
+            seen.insert(sibling_index, h);
+            let current_digest = seen[&index];
+            let current_digest = if index.is_even() {
                 compress(current_digest, h)
             } else {
                 compress(h, current_digest)
             };
-            // Observe the parent.
+            seen.insert(index >> 1, current_digest);
+        }
+    }
+    // For every index, go up the tree by querying `seen` to get node values, or if they are unknown
+    // get them from the compressed proof.
+    for (&i, p) in leaves_indices.iter().zip(compressed_proofs) {
+        let mut decompressed_proof = MerkleProof {
+            siblings: Vec::new(),
+        };
+        let mut index = i + num_leaves;
+        for _ in 0..height - cap_height {
+            let sibling_index = index ^ 1;
+            // dbg!(index, sibling_index);
+            let h = seen[&sibling_index];
+            decompressed_proof.siblings.push(h);
             index >>= 1;
-            seen.insert(index, current_digest);
         }
 
         decompressed_proofs.push(decompressed_proof);
@@ -111,17 +123,29 @@ mod tests {
     #[test]
     fn test_path_compression() {
         type F = CrandallField;
-        let h = 10;
-        let cap_height = 3;
+        let h = 5;
+        let cap_height = 0;
         let vs = (0..1 << h).map(|_| vec![F::rand()]).collect::<Vec<_>>();
         let mt = MerkleTree::new(vs.clone(), cap_height);
 
         let mut rng = thread_rng();
         let k = rng.gen_range(1..=1 << h);
+        let k = 8;
         let indices = (0..k).map(|_| rng.gen_range(0..1 << h)).collect::<Vec<_>>();
+        let indices = [14, 8, 15, 2, 20, 3, 7, 30];
         let proofs = indices.iter().map(|&i| mt.prove(i)).collect::<Vec<_>>();
 
         let compressed_proofs = compress_merkle_proofs(cap_height, &indices, &proofs);
+        // for p in &compressed_proofs {
+        //     dbg!(&p.siblings.len());
+        // }
+        // println!(
+        //     "{}",
+        //     compressed_proofs
+        //         .iter()
+        //         .map(|p| p.siblings.len())
+        //         .sum::<usize>()
+        // );
         let decompressed_proofs = decompress_merkle_proofs(
             &indices.iter().map(|&i| vs[i].clone()).collect::<Vec<_>>(),
             &indices,
