@@ -134,13 +134,9 @@ macro_rules! test_prime_field_arithmetic {
 
                 for x in inputs {
                     if x != 0 {
-                        let y = x;
                         let x = <$field>::from_canonical_u64(x);
                         let inv = x.inverse();
-                        if x * inv != one {
-                            println!("inverse of {} is wrong, got {}", y, inv);
-                        }
-                        //assert_eq!(x * inv, one);
+                        assert_eq!(x * inv, one);
                     }
                 }
             }
