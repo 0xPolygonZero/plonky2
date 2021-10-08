@@ -84,8 +84,9 @@ impl Field for GoldilocksField {
         Self::ORDER.into()
     }
 
+    #[inline(always)]
     fn try_inverse(&self) -> Option<Self> {
-        try_inverse_u64(self.0, Self::ORDER).map(|inv| Self(inv))
+        try_inverse_u64::<Self>(self.0)
     }
 
     #[inline]
