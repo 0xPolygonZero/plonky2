@@ -21,8 +21,10 @@ pub(crate) fn compress_merkle_proofs<F: Field>(
     // children at indices `2i` and `2i +1` its parent at index `floor(i ∕ 2)`.
     let mut known = vec![false; 2 * num_leaves];
     for &i in indices {
-        // The leaves are known.
-        known[i + num_leaves] = true;
+        // The path from a leaf to the cap is known.
+        for j in 0..(height - cap_height) {
+            known[(i + num_leaves) >> j] = true;
+        }
     }
     // For each proof collect all the unknown proof elements.
     for (&i, p) in indices.iter().zip(proofs) {
@@ -66,31 +68,40 @@ pub(crate) fn decompress_merkle_proofs<F: RichField>(
         // Observe the leaves.
         seen.insert(i + num_leaves, hash_or_noop(v.to_vec()));
     }
-    // For every index, go up the tree by querying `seen` to get node values, or if they are unknown
-    // get them from the compressed proof.
-    for (&i, p) in leaves_indices.iter().zip(compressed_proofs) {
-        let mut compressed_siblings = p.siblings.into_iter();
+
+    // Iterators over the siblings.
+    let mut siblings = compressed_proofs
+        .iter()
+        .map(|p| p.siblings.iter())
+        .collect::<Vec<_>>();
+    // Fill the `seen` map from the bottom of the tree to the cap.
+    for layer_height in 0..height - cap_height {
+        for (&i, p) in leaves_indices.iter().zip(siblings.iter_mut()) {
+            let index = (i + num_leaves) >> layer_height;
+            let current_hash = seen[&index];
+            let sibling_index = index ^ 1;
+            let sibling_hash = *seen
+                .entry(sibling_index)
+                .or_insert_with(|| *p.next().unwrap());
+            let parent_hash = if index.is_even() {
+                compress(current_hash, sibling_hash)
+            } else {
+                compress(sibling_hash, current_hash)
+            };
+            seen.insert(index >> 1, parent_hash);
+        }
+    }
+    // For every index, go up the tree by querying `seen` to get node values.
+    for &i in leaves_indices {
         let mut decompressed_proof = MerkleProof {
             siblings: Vec::new(),
         };
         let mut index = i + num_leaves;
-        let mut current_digest = seen[&index];
         for _ in 0..height - cap_height {
             let sibling_index = index ^ 1;
-            // Get the value of the sibling node by querying it or getting it from the proof.
-            let h = *seen
-                .entry(sibling_index)
-                .or_insert_with(|| compressed_siblings.next().unwrap());
+            let h = seen[&sibling_index];
             decompressed_proof.siblings.push(h);
-            // Update the current digest to the value of the parent.
-            current_digest = if index.is_even() {
-                compress(current_digest, h)
-            } else {
-                compress(h, current_digest)
-            };
-            // Observe the parent.
             index >>= 1;
-            seen.insert(index, current_digest);
         }
 
         decompressed_proofs.push(decompressed_proof);
