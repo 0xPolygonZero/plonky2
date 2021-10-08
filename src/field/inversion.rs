@@ -1,5 +1,8 @@
 use crate::field::field_types::PrimeField;
 
+/// This is a 'safe' iteration for the modular inversion algorithm. It
+/// is safe in the sense that it will produce the right answer even
+/// when f + g >= 2^64.
 #[inline(always)]
 fn safe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mut u32) {
     if f < g {
@@ -27,6 +30,9 @@ fn safe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mut 
     }
 }
 
+/// This is an 'unsafe' iteration for the modular inversion
+/// algorithm. It is unsafe in the sense that it might produce the
+/// wrong answer if f + g >= 2^64.
 #[inline(always)]
 fn unsafe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mut u32) {
     if *f < *g {
@@ -50,14 +56,14 @@ fn unsafe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mu
     *k += kk;
 }
 
-/// Try to invert an element in a prime field with the given modulus.
-#[allow(clippy::many_single_char_names)] // The names are from the paper.
+/// Try to invert an element in a prime field.
+///
+/// The algorithm below is the "plus-minus-inversion" method
+/// with an "almost Montgomery inverse" flair. See Handbook of
+/// Elliptic and Hyperelliptic Cryptography, Algorithms 11.6
+/// and 11.12.
+#[allow(clippy::many_single_char_names)]
 pub(crate) fn try_inverse_u64<F: PrimeField>(x: u64) -> Option<F> {
-    // The algorithm below is the "plus-minus-inversion" method
-    // with an "almost Montgomery inverse" flair. See Handbook of
-    // Elliptic and Hyperelliptic Cryptography, Algorithms 11.6
-    // and 11.12.
-
     let mut f = x;
     let mut g = F::ORDER;
     // NB: These two are very rarely such that their absolute
