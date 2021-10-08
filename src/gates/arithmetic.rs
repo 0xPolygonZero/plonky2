@@ -9,16 +9,29 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-
-/// Number of arithmetic operations performed by an arithmetic gate.
-pub const NUM_ARITHMETIC_OPS: usize = 4;
 
 /// A gate which can a linear combination `c0*x*y+c1*z` twice with the same `x`.
 #[derive(Debug)]
-pub struct ArithmeticExtensionGate<const D: usize>;
+pub struct ArithmeticExtensionGate<const D: usize> {
+    /// Number of arithmetic operations performed by an arithmetic gate.
+    pub num_ops: usize,
+}
 
 impl<const D: usize> ArithmeticExtensionGate<D> {
+    pub fn new_from_config(config: &CircuitConfig) -> Self {
+        Self {
+            num_ops: Self::num_ops(config),
+        }
+    }
+
+    /// Determine the maximum number of operations that can fit in one gate for the given config.
+    pub(crate) fn num_ops(config: &CircuitConfig) -> usize {
+        let wires_per_op = 4 * D;
+        config.num_routed_wires / wires_per_op
+    }
+
     pub fn wires_ith_multiplicand_0(i: usize) -> Range<usize> {
         4 * D * i..4 * D * i + D
     }
@@ -43,7 +56,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
         let const_1 = vars.local_constants[1];
 
         let mut constraints = Vec::new();
-        for i in 0..NUM_ARITHMETIC_OPS {
+        for i in 0..self.num_ops {
             let multiplicand_0 = vars.get_local_ext_algebra(Self::wires_ith_multiplicand_0(i));
             let multiplicand_1 = vars.get_local_ext_algebra(Self::wires_ith_multiplicand_1(i));
             let addend = vars.get_local_ext_algebra(Self::wires_ith_addend(i));
@@ -62,7 +75,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
         let const_1 = vars.local_constants[1];
 
         let mut constraints = Vec::new();
-        for i in 0..NUM_ARITHMETIC_OPS {
+        for i in 0..self.num_ops {
             let multiplicand_0 = vars.get_local_ext(Self::wires_ith_multiplicand_0(i));
             let multiplicand_1 = vars.get_local_ext(Self::wires_ith_multiplicand_1(i));
             let addend = vars.get_local_ext(Self::wires_ith_addend(i));
@@ -85,7 +98,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
         let const_1 = vars.local_constants[1];
 
         let mut constraints = Vec::new();
-        for i in 0..NUM_ARITHMETIC_OPS {
+        for i in 0..self.num_ops {
             let multiplicand_0 = vars.get_local_ext_algebra(Self::wires_ith_multiplicand_0(i));
             let multiplicand_1 = vars.get_local_ext_algebra(Self::wires_ith_multiplicand_1(i));
             let addend = vars.get_local_ext_algebra(Self::wires_ith_addend(i));
@@ -109,7 +122,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
         gate_index: usize,
         local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        (0..NUM_ARITHMETIC_OPS)
+        (0..self.num_ops)
             .map(|i| {
                 let g: Box<dyn WitnessGenerator<F>> = Box::new(
                     ArithmeticExtensionGenerator {
@@ -126,7 +139,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
     }
 
     fn num_wires(&self) -> usize {
-        NUM_ARITHMETIC_OPS * 4 * D
+        self.num_ops * 4 * D
     }
 
     fn num_constants(&self) -> usize {
@@ -138,7 +151,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
     }
 
     fn num_constraints(&self) -> usize {
-        NUM_ARITHMETIC_OPS * D
+        self.num_ops * D
     }
 }
 
@@ -196,13 +209,17 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::gates::arithmetic::ArithmeticExtensionGate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
+    use crate::plonk::circuit_data::CircuitConfig;
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(ArithmeticExtensionGate)
+        let gate = ArithmeticExtensionGate::new_from_config(&CircuitConfig::large_config());
+        test_low_degree::<CrandallField, _, 4>(gate);
     }
+
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(ArithmeticExtensionGate)
+        let gate = ArithmeticExtensionGate::new_from_config(&CircuitConfig::large_config());
+        test_eval_fns::<CrandallField, _, 4>(gate)
     }
 }

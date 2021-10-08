@@ -3,6 +3,9 @@ use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::fri::proof::{FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget};
 use crate::fri::FriConfig;
+use crate::gates::gate::Gate;
+use crate::gates::interpolation::InterpolationGate;
+use crate::gates::random_access::RandomAccessGate;
 use crate::hash::hash_types::MerkleCapTarget;
 use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::target::{BoolTarget, Target};
@@ -53,6 +56,35 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.interpolate(&points, beta)
     }
 
+    /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
+    /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
+    /// helpful errors.
+    fn check_config(&self, arity: usize) {
+        let random_access = RandomAccessGate::<F, D>::new(arity);
+        let interpolation_gate = InterpolationGate::<F, D>::new(arity);
+
+        let min_wires = random_access
+            .num_wires()
+            .max(interpolation_gate.num_wires());
+        let min_routed_wires = random_access
+            .num_routed_wires()
+            .max(interpolation_gate.num_routed_wires());
+
+        assert!(
+            self.config.num_wires >= min_wires,
+            "To efficiently perform FRI checks with an arity of {}, at least {} wires are needed. Consider reducing arity.",
+            arity,
+            min_wires
+        );
+
+        assert!(
+            self.config.num_routed_wires >= min_routed_wires,
+            "To efficiently perform FRI checks with an arity of {}, at least {} routed wires are needed. Consider reducing arity.",
+            arity,
+            min_routed_wires
+        );
+    }
+
     fn fri_verify_proof_of_work(
         &mut self,
         proof: &FriProofTarget<D>,
@@ -81,15 +113,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data: &CommonCircuitData<F, D>,
     ) {
         let config = &common_data.config;
-        let total_arities = config.fri_config.reduction_arity_bits.iter().sum::<usize>();
+
+        if let Some(max_arity) = common_data.fri_params.max_arity() {
+            self.check_config(max_arity);
+        }
+
         debug_assert_eq!(
-            common_data.degree_bits,
-            log2_strict(proof.final_poly.len()) + total_arities,
+            common_data.final_poly_len(),
+            proof.final_poly.len(),
             "Final polynomial has wrong degree."
         );
 
         // Size of the LDE domain.
-        let n = proof.final_poly.len() << (total_arities + config.rate_bits);
+        let n = common_data.lde_size();
 
         challenger.observe_opening_set(os);
 
@@ -121,10 +157,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             config.fri_config.num_query_rounds,
             proof.query_round_proofs.len(),
             "Number of query rounds does not match config."
-        );
-        debug_assert!(
-            !config.fri_config.reduction_arity_bits.is_empty(),
-            "Number of reductions should be non-zero."
         );
 
         let precomputed_reduced_evals = with_context!(
@@ -326,7 +358,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         );
 
-        for (i, &arity_bits) in config.fri_config.reduction_arity_bits.iter().enumerate() {
+        for (i, &arity_bits) in common_data
+            .fri_params
+            .reduction_arity_bits
+            .iter()
+            .enumerate()
+        {
             let evals = &round_proof.steps[i].evals;
 
             // Split x_index into the index of the coset x is in, and the index of x within that coset.
@@ -377,7 +414,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // to the one sent by the prover.
         let eval = with_context!(
             self,
-            "evaluate final polynomial",
+            &format!(
+                "evaluate final polynomial of length {}",
+                proof.final_poly.len()
+            ),
             proof.final_poly.eval_scalar(self, subgroup_x)
         );
         self.connect_extension(eval, old_eval);

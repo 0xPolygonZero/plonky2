@@ -11,7 +11,7 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use crate::util::ceil_div_usize;
+use crate::util::{bits_u64, ceil_div_usize};
 
 /// A gate for checking that one value is less than or equal to another.
 #[derive(Clone, Debug)]
@@ -23,6 +23,7 @@ pub struct ComparisonGate<F: PrimeField + Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> ComparisonGate<F, D> {
     pub fn new(num_bits: usize, num_chunks: usize) -> Self {
+        debug_assert!(num_bits < bits_u64(F::ORDER));
         Self {
             num_bits,
             num_chunks,

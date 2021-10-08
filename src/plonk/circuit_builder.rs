@@ -11,7 +11,8 @@ use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::fft::fft_root_table;
 use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
-use crate::gates::arithmetic::{ArithmeticExtensionGate, NUM_ARITHMETIC_OPS};
+use crate::fri::FriParams;
+use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
@@ -320,15 +321,27 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         })
     }
 
+    fn fri_params(&self, degree_bits_estimate: usize) -> FriParams {
+        let fri_config = &self.config.fri_config;
+        let reduction_arity_bits = fri_config.reduction_strategy.reduction_arity_bits(
+            degree_bits_estimate,
+            self.config.rate_bits,
+            fri_config.num_query_rounds,
+        );
+        FriParams {
+            reduction_arity_bits,
+        }
+    }
+
     /// The number of polynomial values that will be revealed per opening, both for the "regular"
     /// polynomials and for the Z polynomials. Because calculating these values involves a recursive
     /// dependence (the amount of blinding depends on the degree, which depends on the blinding),
     /// this function takes in an estimate of the degree.
     fn num_blinding_gates(&self, degree_estimate: usize) -> (usize, usize) {
+        let degree_bits_estimate = log2_strict(degree_estimate);
         let fri_queries = self.config.fri_config.num_query_rounds;
         let arities: Vec<usize> = self
-            .config
-            .fri_config
+            .fri_params(degree_bits_estimate)
             .reduction_arity_bits
             .iter()
             .map(|x| 1 << x)
@@ -496,7 +509,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let zero = self.zero_extension();
         let remaining_arithmetic_gates = self.free_arithmetic.values().copied().collect::<Vec<_>>();
         for (gate, i) in remaining_arithmetic_gates {
-            for j in i..NUM_ARITHMETIC_OPS {
+            for j in i..ArithmeticExtensionGate::<D>::num_ops(&self.config) {
                 let wires_multiplicand_0 = ExtensionTarget::from_range(
                     gate,
                     ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(j),
@@ -578,14 +591,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let degree = self.gate_instances.len();
         info!("Degree after blinding & padding: {}", degree);
         let degree_bits = log2_strict(degree);
+        let fri_params = self.fri_params(degree_bits);
         assert!(
-            self.config
-                .fri_config
-                .reduction_arity_bits
-                .iter()
-                .sum::<usize>()
-                <= degree_bits,
-            "FRI total reduction arity is too large."
+            fri_params.total_arities() <= degree_bits,
+            "FRI total reduction arity is too large.",
         );
 
         let gates = self.gates.iter().cloned().collect();
@@ -678,6 +687,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let common = CommonCircuitData {
             config: self.config,
+            fri_params,
             degree_bits,
             gates: prefixed_gates,
             quotient_degree_factor,

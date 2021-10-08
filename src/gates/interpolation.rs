@@ -81,6 +81,12 @@ impl<F: RichField + Extendable<D>, const D: usize> InterpolationGate<F, D> {
         self.start_evaluation_value() + D
     }
 
+    /// The number of routed wires required in the typical usage of this gate, where the points to
+    /// interpolate, the evaluation point, and the corresponding value are all routed.
+    pub(crate) fn num_routed_wires(&self) -> usize {
+        self.start_coeffs()
+    }
+
     /// Wire indices of the interpolant's `i`th coefficient.
     pub fn wires_coeff(&self, i: usize) -> Range<usize> {
         debug_assert!(i < self.num_points);

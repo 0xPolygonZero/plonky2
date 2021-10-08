@@ -7,7 +7,8 @@ use crate::field::extension_field::Extendable;
 use crate::field::fft::FftRootTable;
 use crate::field::field_types::{Field, RichField};
 use crate::fri::commitment::PolynomialBatchCommitment;
-use crate::fri::FriConfig;
+use crate::fri::reduction_strategies::FriReductionStrategy;
+use crate::fri::{FriConfig, FriParams};
 use crate::gates::gate::PrefixedGate;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
@@ -47,7 +48,7 @@ impl Default for CircuitConfig {
             cap_height: 1,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
-                reduction_arity_bits: vec![1, 1, 1, 1],
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
                 num_query_rounds: 1,
             },
         }
@@ -57,6 +58,24 @@ impl Default for CircuitConfig {
 impl CircuitConfig {
     pub fn num_advice_wires(&self) -> usize {
         self.num_wires - self.num_routed_wires
+    }
+
+    /// A typical recursion config, without zero-knowledge, targeting ~100 bit security.
+    pub(crate) fn standard_recursion_config() -> Self {
+        Self {
+            num_wires: 143,
+            num_routed_wires: 64,
+            security_bits: 128,
+            rate_bits: 3,
+            num_challenges: 3,
+            zero_knowledge: false,
+            cap_height: 3,
+            fri_config: FriConfig {
+                proof_of_work_bits: 16,
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
+                num_query_rounds: 28,
+            },
+        }
     }
 
     #[cfg(test)]
@@ -71,7 +90,7 @@ impl CircuitConfig {
             cap_height: 1,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
-                reduction_arity_bits: vec![1],
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
                 num_query_rounds: 1,
             },
         }
@@ -84,7 +103,7 @@ impl CircuitConfig {
             cap_height: 1,
             fri_config: FriConfig {
                 proof_of_work_bits: 1,
-                reduction_arity_bits: vec![1, 1, 1, 1],
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
                 num_query_rounds: 1,
             },
             ..Self::large_config()
@@ -175,6 +194,8 @@ pub(crate) struct VerifierOnlyCircuitData<F: Field> {
 pub struct CommonCircuitData<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
+    pub(crate) fri_params: FriParams,
+
     pub(crate) degree_bits: usize,
 
     /// The types of gates used in this circuit, along with their prefixes.
@@ -251,6 +272,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     /// Range of the partial products polynomials in the `zs_partial_products_commitment`.
     pub fn partial_products_range(&self) -> RangeFrom<usize> {
         self.config.num_challenges..
+    }
+
+    pub fn final_poly_len(&self) -> usize {
+        1 << (self.degree_bits - self.fri_params.total_arities())
     }
 }
 
