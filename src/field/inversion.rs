@@ -123,7 +123,9 @@ pub(crate) fn try_inverse_u64<F: PrimeField>(x: u64) -> Option<F> {
     // Precomputing the binary inverses rather than using inverse_2exp
     // saves ~5ns on my machine.
     let res = F::from_canonical_u64(c as u64) * F::inverse_2exp(k as usize);
-    debug_assert!(F::from_canonical_u64(x) * res == F::ONE,
-                  "bug in try_inverse_u64");
+    debug_assert!(
+        F::from_canonical_u64(x) * res == F::ONE,
+        "bug in try_inverse_u64"
+    );
     Some(res)
 }

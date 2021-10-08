@@ -2,8 +2,8 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use plonky2::field::crandall_field::CrandallField;
-use plonky2::field::field_types::Field;
 use plonky2::field::extension_field::quartic::QuarticExtension;
+use plonky2::field::field_types::Field;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use tynm::type_name;
 

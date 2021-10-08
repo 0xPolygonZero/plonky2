@@ -148,7 +148,7 @@ pub trait Field:
             let mut res = inverse_2_pow_adicity;
             let mut e = exp - Self::PrimeField::TWO_ADICITY;
 
-            while e > Self::PrimeField::TWO_ADICITY  {
+            while e > Self::PrimeField::TWO_ADICITY {
                 res *= inverse_2_pow_adicity;
                 e -= Self::PrimeField::TWO_ADICITY;
             }
