@@ -148,6 +148,56 @@ const BINARY_INVERSES: [u64; 257] = [ 1, 9223372035646816257,
 17904051491349566071, 18175397781321599292, 9087698890660799646,
 4543849445330399823, 11495296758312016168, 5747648379156008084];
 
+#[inline(always)]
+fn safe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mut u32) {
+    if f < g {
+        (*f, *g) = (*g, *f);
+        (*c, *d) = (*d, *c);
+    }
+    if *f & 3 == *g & 3 {
+        // f - g = 0 (mod 4)
+        *f -= *g;
+        *c -= *d;
+
+        // kk >= 2 because f is now 0 (mod 4).
+        let kk = f.trailing_zeros();
+        *f >>= kk;
+        *d <<= kk;
+        *k += kk;
+    } else {
+        // f + g = 0 (mod 4)
+        *f = (*f >> 2) + (*g >> 2) + 1u64;
+        *c += *d;
+        let kk = f.trailing_zeros();
+        *f >>= kk;
+        *d <<= kk + 2;
+        *k += kk + 2;
+    }
+}
+
+#[inline(always)]
+fn unsafe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mut u32) {
+    if *f < *g {
+        (*f, *g) = (*g, *f);
+        (*c, *d) = (*d, *c);
+    }
+    if *f & 3 == *g & 3 {
+        // f - g = 0 (mod 4)
+        *f -= *g;
+        *c -= *d;
+    } else {
+        // f + g = 0 (mod 4)
+        *f += *g;
+        *c += *d;
+    }
+
+    // kk >= 2 because f is now 0 (mod 4).
+    let kk = f.trailing_zeros();
+    *f >>= kk;
+    *d <<= kk;
+    *k += kk;
+}
+
 impl Field for CrandallField {
     type PrimeField = Self;
 
@@ -177,113 +227,45 @@ impl Field for CrandallField {
         let mut g = Self::ORDER;
         // NB: These two are very rarely such that their absolute
         // value exceeds (p-1)/2; we are paying the price of i128 for
-        // the whole calculation, just for the times they do though.
-        let mut c = 1i64 as i128;
-        let mut d = 0i64 as i128;
+        // the whole calculation, just for the times they do
+        // though. Measurements suggest a further 10% time saving if c
+        // and d could be replaced with i64's.
+        let mut c = 1i128;
+        let mut d = 0i128;
 
         if f == 0 {
             return None;
         }
 
+        // f and g must always be odd.
         let mut k = f.trailing_zeros();
         f >>= k;
-
-        if f < g {
-            (f, g) = (g, f);
-            (c, d) = (d, c);
+        if f == 1 {
+            return Some(Self(BINARY_INVERSES[k as usize]));
         }
-        if f & 3 == g & 3 {
-            // f - g = 0 (mod 4)
-            f -= g;
-            c -= d;
 
-            // kk >= 2
-            let kk = f.trailing_zeros();
-            f >>= kk;
-            d <<= kk;
-            k += kk;
-        } else {
-            // f + g = 0 (mod 4)
-            c += d;
-            f = (f >> 2) + (g >> 2) + 1u64;
-            let kk = f.trailing_zeros();
-            f >>= kk;
-            d <<= kk + 2;
-            k += kk + 2;
-        }
+        // The first two iterations are unrolled. This is to handle
+        // the case where f and g are both large and f+g can
+        // overflow. log2(max{f,g}) goes down by at least one each
+        // iteration though, so after two iterations we can be sure
+        // that f+g won't overflow.
+
+        // Iteration 1:
+        safe_iteration(&mut f, &mut g, &mut c, &mut d, &mut k);
 
         if f == 1 {
-            if c < 0 {
-                c += Self::ORDER as i128;
-            }
-            return Some(Self(c as u64) * Self(BINARY_INVERSES[k as usize]));
+            // After one iteration, either c == -1 or c == 1. But
+            // can't have c == 1 unless self == 2^k which was already
+            // handled above. Hence c == -1 and result is p - 2^-k
+            debug_assert!(c == -1, "bug in try_inverse");
+            return Some(Self(Self::ORDER - BINARY_INVERSES[k as usize]));
         }
 
-        if f < g {
-            (f, g) = (g, f);
-            (c, d) = (d, c);
-        }
-        if f & 3 == g & 3 {
-            // f - g = 0 (mod 4)
-            f -= g;
-            c -= d;
+        // Iteration 2:
+        safe_iteration(&mut f, &mut g, &mut c, &mut d, &mut k);
 
-            // kk >= 2
-            let kk = f.trailing_zeros();
-            f >>= kk;
-            d <<= kk;
-            k += kk;
-        } else {
-            // f + g = 0 (mod 4)
-            c += d;
-            f = (f >> 2) + (g >> 2) + 1u64;
-            let kk = f.trailing_zeros();
-            f >>= kk;
-            d <<= kk + 2;
-            k += kk + 2;
-        }
-
-
-        //println!("\n\ninput = {}", self.0);
-        loop {
-            /*
-            let f_bits = crate::util::bits_u64(f);
-            let g_bits = crate::util::bits_u64(g);
-            let c_bits = c.unsigned_abs().next_power_of_two().trailing_zeros() as usize;
-            let d_bits = d.unsigned_abs().next_power_of_two().trailing_zeros() as usize;
-
-            if self.0 == 2147483642u64 {
-                println!("{:2}  {:2}  {}{:3}  {}{:3}  {:3}",
-                         f_bits, g_bits,
-                         if c < 0 { "-" } else { "+" }, c_bits,
-                         if c < 0 { "-" } else { "+" }, d_bits,
-                         k);
-            }
-            */
-
-            if f == 1 {
-                break;
-            }
-
-            if f < g {
-                (f, g) = (g, f);
-                (c, d) = (d, c);
-            }
-            if f & 3 == g & 3 {
-                // f - g = 0 (mod 4)
-                f -= g;
-                c -= d;
-            } else {
-                // f + g = 0 (mod 4)
-                f += g;
-                c += d;
-            }
-
-            // kk >= 2
-            let kk = f.trailing_zeros();
-            f >>= kk;
-            d <<= kk;
-            k += kk;
+        while f != 1 {
+            unsafe_iteration(&mut f, &mut g, &mut c, &mut d, &mut k);
         }
 
         // TODO: document maximum number of iterations (it's at least 2)
@@ -297,7 +279,11 @@ impl Field for CrandallField {
             c -= Self::ORDER as i128;
         }
 
-        Some(Self(c as u64) * Self(BINARY_INVERSES[k as usize]))
+        // Precomputing the binary inverses saves 5ns.
+        let res = Self(c as u64) * Self(BINARY_INVERSES[k as usize]);
+        //let res = Self(c as u64) * Self::inverse_2exp(k as usize);
+        debug_assert!(*self * res == Self::ONE, "bug in try_inverse");
+        Some(res)
     }
 
     #[inline]
