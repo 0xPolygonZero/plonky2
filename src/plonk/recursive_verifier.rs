@@ -508,9 +508,6 @@ mod tests {
     }
 
     fn init_logger() {
-        let _ = env_logger::builder()
-            .format_timestamp(None)
-            .is_test(true)
-            .try_init();
+        let _ = env_logger::builder().format_timestamp(None).try_init();
     }
 }
