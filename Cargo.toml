@@ -39,6 +39,10 @@ name = "ffts"
 harness = false
 
 [[bench]]
+name = "hashing"
+harness = false
+
+[[bench]]
 name = "transpose"
 harness = false
 
