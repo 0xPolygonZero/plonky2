@@ -127,25 +127,34 @@ pub trait Field:
     /// Compute the inverse of 2^exp in this field.
     #[inline]
     fn inverse_2exp(exp: usize) -> Self {
+        // The inverse of 2^exp is p-(p-1)/2^exp when char(F) = p and
+        // exp is at most the t=TWO_ADICITY of the prime field. When
+        // exp exceeds t, we repeatedly multiply by 2^-t and reduce
+        // exp until it's in the right range.
+
         let p = Self::CHARACTERISTIC;
 
-        if exp <= Self::PrimeField::TWO_ADICITY {
-            // The inverse of 2^exp is p-(p-1)/2^exp when char(F) = p and exp is
-            // at most the TWO_ADICITY of the prime field.
-            //
-            // NB: PrimeFields fit in 64 bits => TWO_ADICITY < 64 =>
-            // exp < 64 => this shift amount is legal.
-            Self::from_canonical_u64(p - ((p - 1) >> exp))
-        } else {
-            // In the general case we compute 1/2 = (p+1)/2 and then exponentiate
-            // by exp to get 1/2^exp. Costs about log_2(exp) operations.
-            let half = Self::from_canonical_u64((p + 1) >> 1);
-            half.exp_u64(exp as u64)
+        // NB: The only reason this is split into two cases is to save
+        // the multiplication (and possible calculation of
+        // inverse_2_pow_adicity) in the usual case that exp <=
+        // TWO_ADICITY. Can remove the branch and simplify if that
+        // saving isn't worth it.
 
-            // TODO: Faster to combine several high powers of 1/2 using multiple
-            // applications of the trick above. E.g. if the 2-adicity is v, then
-            // compute 1/2^(v^2 + v + 13) with 1/2^((v + 1) * v + 13), etc.
-            // (using the v-adic expansion of m). Costs about log_v(exp) operations.
+        if exp > Self::PrimeField::TWO_ADICITY {
+            // NB: This should be a compile-time constant
+            let inverse_2_pow_adicity: Self =
+                Self::from_canonical_u64(p - ((p - 1) >> Self::PrimeField::TWO_ADICITY));
+
+            let mut res = inverse_2_pow_adicity;
+            let mut e = exp - Self::PrimeField::TWO_ADICITY;
+
+            while e > Self::PrimeField::TWO_ADICITY {
+                res *= inverse_2_pow_adicity;
+                e -= Self::PrimeField::TWO_ADICITY;
+            }
+            res * Self::from_canonical_u64(p - ((p - 1) >> e))
+        } else {
+            Self::from_canonical_u64(p - ((p - 1) >> exp))
         }
     }
 

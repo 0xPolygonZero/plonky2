@@ -125,14 +125,31 @@ macro_rules! test_prime_field_arithmetic {
             fn inversion() {
                 let zero = <$field>::ZERO;
                 let one = <$field>::ONE;
-                let order = <$field>::ORDER;
+                let modulus = <$field>::ORDER;
 
                 assert_eq!(zero.try_inverse(), None);
 
-                for x in [1, 2, 3, order - 3, order - 2, order - 1] {
-                    let x = <$field>::from_canonical_u64(x);
-                    let inv = x.inverse();
-                    assert_eq!(x * inv, one);
+                let inputs = crate::field::prime_field_testing::test_inputs(modulus);
+
+                for x in inputs {
+                    if x != 0 {
+                        let x = <$field>::from_canonical_u64(x);
+                        let inv = x.inverse();
+                        assert_eq!(x * inv, one);
+                    }
+                }
+            }
+
+            #[test]
+            fn inverse_2exp() {
+                type F = $field;
+
+                let v = <F as Field>::PrimeField::TWO_ADICITY;
+
+                for e in [0, 1, 2, 3, 4, v - 2, v - 1, v, v + 1, v + 2, 123 * v] {
+                    let x = F::TWO.exp_u64(e as u64);
+                    let y = F::inverse_2exp(e);
+                    assert_eq!(x * y, F::ONE);
                 }
             }
 

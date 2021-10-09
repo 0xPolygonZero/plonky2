@@ -79,8 +79,9 @@ impl Field for CrandallField {
         Self::ORDER.into()
     }
 
+    #[inline(always)]
     fn try_inverse(&self) -> Option<Self> {
-        try_inverse_u64(self.0, Self::ORDER).map(|inv| Self(inv))
+        try_inverse_u64(self)
     }
 
     #[inline]

@@ -93,6 +93,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     bench_field::<CrandallField>(c);
     bench_field::<GoldilocksField>(c);
     bench_field::<QuarticExtension<CrandallField>>(c);
+    bench_field::<QuarticExtension<GoldilocksField>>(c);
 }
 
 criterion_group!(benches, criterion_benchmark);

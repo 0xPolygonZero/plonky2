@@ -81,20 +81,6 @@ macro_rules! test_field_arithmetic {
                 assert_eq!(base.exp_biguint(&pow), base.exp_biguint(&big_pow));
                 assert_ne!(base.exp_biguint(&pow), base.exp_biguint(&big_pow_wrong));
             }
-
-            #[test]
-            fn inverse_2exp() {
-                // Just check consistency with try_inverse()
-                type F = $field;
-
-                let v = <F as Field>::PrimeField::TWO_ADICITY;
-
-                for e in [0, 1, 2, 3, 4, v - 2, v - 1, v, v + 1, v + 2, 123 * v] {
-                    let x = F::TWO.exp_u64(e as u64).inverse();
-                    let y = F::inverse_2exp(e);
-                    assert_eq!(x, y);
-                }
-            }
         }
     };
 }
