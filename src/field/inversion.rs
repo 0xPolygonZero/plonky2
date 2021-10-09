@@ -6,8 +6,8 @@ use crate::field::field_types::PrimeField;
 #[inline(always)]
 fn safe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mut u32) {
     if f < g {
-        (*f, *g) = (*g, *f);
-        (*c, *d) = (*d, *c);
+        std::mem::swap(f, g);
+        std::mem::swap(c, d);
     }
     if *f & 3 == *g & 3 {
         // f - g = 0 (mod 4)
@@ -34,10 +34,10 @@ fn safe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mut 
 /// algorithm. It is unsafe in the sense that it might produce the
 /// wrong answer if f + g >= 2^64.
 #[inline(always)]
-fn unsafe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mut u32) {
+unsafe fn unsafe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mut u32) {
     if *f < *g {
-        (*f, *g) = (*g, *f);
-        (*c, *d) = (*d, *c);
+        std::mem::swap(f, g);
+        std::mem::swap(c, d);
     }
     if *f & 3 == *g & 3 {
         // f - g = 0 (mod 4)
@@ -63,8 +63,8 @@ fn unsafe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128, k: &mu
 /// Elliptic and Hyperelliptic Cryptography, Algorithms 11.6
 /// and 11.12.
 #[allow(clippy::many_single_char_names)]
-pub(crate) fn try_inverse_u64<F: PrimeField>(x: u64) -> Option<F> {
-    let mut f = x;
+pub(crate) fn try_inverse_u64<F: PrimeField>(x: &F) -> Option<F> {
+    let mut f = x.to_noncanonical_u64();
     let mut g = F::ORDER;
     // NB: These two are very rarely such that their absolute
     // value exceeds (p-1)/2; we are paying the price of i128 for
@@ -108,7 +108,9 @@ pub(crate) fn try_inverse_u64<F: PrimeField>(x: u64) -> Option<F> {
 
     // Remaining iterations:
     while f != 1 {
-        unsafe_iteration(&mut f, &mut g, &mut c, &mut d, &mut k);
+        unsafe {
+            unsafe_iteration(&mut f, &mut g, &mut c, &mut d, &mut k);
+        }
     }
 
     // The following two loops adjust c so it's in the canonical range
@@ -129,9 +131,6 @@ pub(crate) fn try_inverse_u64<F: PrimeField>(x: u64) -> Option<F> {
     // Precomputing the binary inverses rather than using inverse_2exp
     // saves ~5ns on my machine.
     let res = F::from_canonical_u64(c as u64) * F::inverse_2exp(k as usize);
-    debug_assert!(
-        F::from_canonical_u64(x) * res == F::ONE,
-        "bug in try_inverse_u64"
-    );
+    debug_assert!(*x * res == F::ONE, "bug in try_inverse_u64");
     Some(res)
 }

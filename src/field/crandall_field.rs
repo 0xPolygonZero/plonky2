@@ -81,7 +81,7 @@ impl Field for CrandallField {
 
     #[inline(always)]
     fn try_inverse(&self) -> Option<Self> {
-        try_inverse_u64::<Self>(self.0)
+        try_inverse_u64(self)
     }
 
     #[inline]
