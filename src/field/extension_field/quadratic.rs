@@ -21,6 +21,7 @@ impl<F: Extendable<2>> Default for QuadraticExtension<F> {
 
 impl<F: Extendable<2>> OEF<2> for QuadraticExtension<F> {
     const W: F = F::W;
+    const DTH_ROOT: F = F::DTH_ROOT;
 }
 
 impl<F: Extendable<2>> Frobenius<2> for QuadraticExtension<F> {}

@@ -322,6 +322,9 @@ impl Extendable<2> for CrandallField {
     // `R.<x> = GF(p)[]; assert (x^2 - 3).is_irreducible()`.
     const W: Self = Self(3);
 
+    // DTH_ROOT = W^((ORDER - 1)/2)
+    const DTH_ROOT: Self = Self(18446744071293632512);
+
     const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 2] =
         [Self(6483724566312148654), Self(12194665049945415126)];
 
@@ -332,6 +335,9 @@ impl Extendable<4> for CrandallField {
     type Extension = QuarticExtension<Self>;
 
     const W: Self = Self(3);
+
+    // DTH_ROOT = W^((ORDER - 1)/4)
+    const DTH_ROOT: Self = Self(6183774639018825925);
 
     const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 4] = [
         Self(12476589904174392631),

@@ -22,6 +22,7 @@ impl<F: Extendable<4>> Default for QuarticExtension<F> {
 
 impl<F: Extendable<4>> OEF<4> for QuarticExtension<F> {
     const W: F = F::W;
+    const DTH_ROOT: F = F::DTH_ROOT;
 }
 
 impl<F: Extendable<4>> Frobenius<4> for QuarticExtension<F> {}

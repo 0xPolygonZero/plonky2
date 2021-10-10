@@ -14,10 +14,16 @@ pub mod target;
 pub trait OEF<const D: usize>: FieldExtension<D> {
     // Element W of BaseField, such that `X^d - W` is irreducible over BaseField.
     const W: Self::BaseField;
+
+    // Element of BaseField such that DTH_ROOT^D == 1. Implementors
+    // should set this to W^((p - 1)/D), where W is as above and p is
+    // the order of the BaseField.
+    const DTH_ROOT: Self::BaseField;
 }
 
 impl<F: Field> OEF<1> for F {
     const W: Self::BaseField = F::ZERO;
+    const DTH_ROOT: Self::BaseField = F::ZERO;
 }
 
 pub trait Frobenius<const D: usize>: OEF<D> {
@@ -26,16 +32,26 @@ pub trait Frobenius<const D: usize>: OEF<D> {
         self.repeated_frobenius(1)
     }
 
-    /// Repeated Frobenius automorphisms: x -> x^(p^k).
+    /// Repeated Frobenius automorphisms: x -> x^(p^count).
+    ///
+    /// Follows precomputation suggestion in Section 11.3.3 of the
+    /// Handbook of Elliptic and Hyperelliptic Curve Cryptography.
     fn repeated_frobenius(&self, count: usize) -> Self {
         if count == 0 {
             return *self;
         } else if count >= D {
+            // x |-> x^(p^D) is the identity, so x^(p^count) ==
+            // x^(p^(count % D))
             return self.repeated_frobenius(count % D);
         }
         let arr = self.to_basefield_array();
-        let k = (Self::BaseField::order() - 1u32) / (D as u64);
-        let z0 = Self::W.exp_biguint(&(k * count as u64));
+
+        // z0 = DTH_ROOT^count = W^(k * count) where k = floor((p^D-1)/D)
+        let mut z0 = Self::DTH_ROOT;
+        for _ in 1..count {
+            z0 *= Self::DTH_ROOT;
+        }
+
         let mut res = [Self::BaseField::ZERO; D];
         for (i, z) in z0.powers().take(D).enumerate() {
             res[i] = arr[i] * z;
@@ -50,6 +66,8 @@ pub trait Extendable<const D: usize>: PrimeField + Sized {
 
     const W: Self;
 
+    const DTH_ROOT: Self;
+
     const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; D];
 
     /// Chosen so that when raised to the power `1<<(Self::TWO_ADICITY-Self::BaseField::TWO_ADICITY)`,
@@ -61,6 +79,7 @@ pub trait Extendable<const D: usize>: PrimeField + Sized {
 impl<F: PrimeField + Frobenius<1> + FieldExtension<1, BaseField = F>> Extendable<1> for F {
     type Extension = F;
     const W: Self = F::ZERO;
+    const DTH_ROOT: Self = F::ZERO;
     const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 1] = [F::MULTIPLICATIVE_GROUP_GENERATOR];
     const EXT_POWER_OF_TWO_GENERATOR: [Self; 1] = [F::POWER_OF_TWO_GENERATOR];
 }
