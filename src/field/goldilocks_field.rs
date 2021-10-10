@@ -224,6 +224,9 @@ impl Extendable<2> for GoldilocksField {
     // `R.<x> = GF(p)[]; assert (x^2 - 7).is_irreducible()`.
     const W: Self = Self(7);
 
+    // DTH_ROOT = W^((ORDER - 1)/2)
+    const DTH_ROOT: Self = Self(18446744069414584320);
+
     const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 2] =
         [Self(18081566051660590251), Self(16121475356294670766)];
 
@@ -234,6 +237,9 @@ impl Extendable<4> for GoldilocksField {
     type Extension = QuarticExtension<Self>;
 
     const W: Self = Self(7);
+
+    // DTH_ROOT = W^((ORDER - 1)/4)
+    const DTH_ROOT: Self = Self(281474976710656);
 
     const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 4] = [
         Self(5024755240244648895),
