@@ -221,8 +221,11 @@ pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> 
 
     pub fri_pow_response: F,
 
+    // Indices at which the oracle is queried in FRI.
     pub fri_query_indices: Vec<usize>,
 
+    // Coset element that can be inferred in the FRI reduction step.
+    // Is typically set to None iff the challenges are computed from a non-compressed proof.
     pub fri_query_inferred_elements: Option<Vec<F::Extension>>,
 }
 
