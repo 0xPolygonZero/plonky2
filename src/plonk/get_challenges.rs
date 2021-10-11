@@ -1,6 +1,8 @@
+use std::collections::HashSet;
+
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
-use crate::fri::verifier::compute_evaluation;
+use crate::fri::verifier::{compute_evaluation, fri_combine_initial, PrecomputedReducedEvals};
 use crate::hash::hashing::hash_n_to_1;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
@@ -157,36 +159,55 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
             .map(|_| challenger.get_challenge().to_canonical_u64() as usize % lde_size)
             .collect::<Vec<_>>();
 
+        let mut seen_indices_by_depth =
+            vec![HashSet::new(); common_data.fri_params.reduction_arity_bits.len()];
+        let precomputed_reduced_evals =
+            PrecomputedReducedEvals::from_os_and_alpha(&self.proof.openings, fri_alpha);
         let mut fri_query_inferred_elements = Vec::new();
         let log_n = common_data.degree_bits + common_data.config.rate_bits;
         for query_round in 0..common_data.config.fri_config.num_query_rounds {
-            let mut query_round_inferred_elements = Vec::new();
             let mut x_index = fri_query_indices[query_round];
             let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
                 * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
+            let mut old_eval = fri_combine_initial(
+                &self
+                    .proof
+                    .opening_proof
+                    .query_round_proofs
+                    .initial_trees_proofs[&x_index],
+                fri_alpha,
+                plonk_zeta,
+                subgroup_x,
+                precomputed_reduced_evals,
+                common_data,
+            );
             for (i, &arity_bits) in common_data
                 .fri_params
                 .reduction_arity_bits
                 .iter()
                 .enumerate()
             {
+                if !seen_indices_by_depth[i].insert(x_index >> arity_bits) {
+                    break;
+                }
+                fri_query_inferred_elements.push(old_eval);
                 let arity = 1 << arity_bits;
-                let evals = &self.proof.opening_proof.query_round_proofs.steps[i]
+                let mut evals = self.proof.opening_proof.query_round_proofs.steps[i]
                     [&(x_index >> arity_bits)]
-                    .evals;
+                    .evals
+                    .clone();
                 let x_index_within_coset = x_index & (arity - 1);
-                let elmt = compute_evaluation(
+                evals.insert(x_index_within_coset, old_eval);
+                old_eval = compute_evaluation(
                     subgroup_x,
                     x_index_within_coset,
                     arity_bits,
-                    evals,
+                    &evals,
                     fri_betas[i],
                 );
-                query_round_inferred_elements.push(elmt);
                 subgroup_x = subgroup_x.exp_power_of_2(arity_bits);
                 x_index >>= arity_bits;
             }
-            fri_query_inferred_elements.push(query_round_inferred_elements);
         }
 
         Ok(ProofChallenges {

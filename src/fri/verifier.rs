@@ -120,14 +120,14 @@ fn fri_verify_initial_proof<F: RichField>(
 /// Holds the reduced (by `alpha`) evaluations at `zeta` for the polynomial opened just at
 /// zeta, for `Z` at zeta and for `Z` at `g*zeta`.
 #[derive(Copy, Clone, Debug)]
-struct PrecomputedReducedEvals<F: Extendable<D>, const D: usize> {
+pub(crate) struct PrecomputedReducedEvals<F: Extendable<D>, const D: usize> {
     pub single: F::Extension,
     pub zs: F::Extension,
     pub zs_right: F::Extension,
 }
 
 impl<F: Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D> {
-    fn from_os_and_alpha(os: &OpeningSet<F, D>, alpha: F::Extension) -> Self {
+    pub(crate) fn from_os_and_alpha(os: &OpeningSet<F, D>, alpha: F::Extension) -> Self {
         let mut alpha = ReducingFactor::new(alpha);
         let single = alpha.reduce(
             os.constants
@@ -148,7 +148,7 @@ impl<F: Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D> {
     }
 }
 
-fn fri_combine_initial<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn fri_combine_initial<F: RichField + Extendable<D>, const D: usize>(
     proof: &FriInitialTreeProof<F>,
     alpha: F::Extension,
     zeta: F::Extension,
@@ -159,10 +159,10 @@ fn fri_combine_initial<F: RichField + Extendable<D>, const D: usize>(
     let config = &common_data.config;
     assert!(D > 1, "Not implemented for D=1.");
     let degree_log = common_data.degree_bits;
-    debug_assert_eq!(
-        degree_log,
-        common_data.config.cap_height + proof.evals_proofs[0].1.siblings.len() - config.rate_bits
-    );
+    // debug_assert_eq!(
+    //     degree_log,
+    //     common_data.config.cap_height + proof.evals_proofs[0].1.siblings.len() - config.rate_bits
+    // );
     let subgroup_x = F::Extension::from_basefield(subgroup_x);
     let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;
@@ -262,18 +262,13 @@ fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
         ensure!(evals[x_index_within_coset] == old_eval);
 
         // Infer P(y) from {P(x)}_{x^arity=y}.
-        old_eval = if let Some(v) = &challenges.fri_query_inferred_elements {
-            dbg!("yo");
-            v[round][i]
-        } else {
-            compute_evaluation(
-                subgroup_x,
-                x_index_within_coset,
-                arity_bits,
-                evals,
-                challenges.fri_betas[i],
-            )
-        };
+        old_eval = compute_evaluation(
+            subgroup_x,
+            x_index_within_coset,
+            arity_bits,
+            evals,
+            challenges.fri_betas[i],
+        );
 
         verify_merkle_proof(
             flatten(evals),

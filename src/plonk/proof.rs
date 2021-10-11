@@ -224,7 +224,7 @@ pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> 
 
     pub fri_query_indices: Vec<usize>,
 
-    pub fri_query_inferred_elements: Option<Vec<Vec<F::Extension>>>,
+    pub fri_query_inferred_elements: Option<Vec<F::Extension>>,
 }
 
 pub struct ProofWithPublicInputsTarget<const D: usize> {
@@ -307,7 +307,7 @@ mod tests {
         const D: usize = 4;
 
         let mut config = CircuitConfig::large_config();
-        config.fri_config.reduction_strategy = FriReductionStrategy::Fixed(vec![1]);
+        config.fri_config.reduction_strategy = FriReductionStrategy::Fixed(vec![2, 1]);
         config.fri_config.num_query_rounds = 50;
 
         let pw = PartialWitness::new();
@@ -324,10 +324,23 @@ mod tests {
         builder.connect(zt, comp_zt);
         let data = builder.build();
         let proof = data.prove(pw)?;
+        verify(proof.clone(), &data.verifier_only, &data.common)?;
 
         // Verify that `decompress ∘ compress = identity`.
         let compressed_proof = proof.clone().compress(&data.common)?;
         let decompressed_compressed_proof = compressed_proof.clone().decompress(&data.common)?;
+        for i in 0..proof.proof.opening_proof.query_round_proofs.len() {
+            let qrp = proof.proof.opening_proof.query_round_proofs[i].clone();
+            let dqrp = decompressed_compressed_proof
+                .proof
+                .opening_proof
+                .query_round_proofs[i]
+                .clone();
+            for j in 0..qrp.steps.len() {
+                dbg!(&qrp.steps[j].evals);
+                dbg!(&dqrp.steps[j].evals);
+            }
+        }
         assert_eq!(proof, decompressed_compressed_proof);
 
         verify(proof, &data.verifier_only, &data.common)?;

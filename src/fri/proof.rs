@@ -249,8 +249,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
             fri_query_inferred_elements,
             ..
         } = challenges;
-        let fri_query_inferred_elements = if let Some(v) = fri_query_inferred_elements {
-            v
+        let mut fri_query_inferred_elements = if let Some(v) = fri_query_inferred_elements {
+            v.iter().copied()
         } else {
             panic!()
         };
@@ -281,6 +281,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
             })
             .collect::<Vec<_>>();
 
+        let mut evals_by_depth = vec![
+            HashMap::<usize, Vec<_>>::new();
+            common_data.fri_params.reduction_arity_bits.len()
+        ];
         for (round, mut index) in indices.iter().copied().enumerate() {
             let initial_trees_proof = query_round_proofs.initial_trees_proofs[&index].clone();
             for (i, (leaves_data, proof)) in
@@ -298,7 +302,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
                     merkle_proof,
                 } = query_round_proofs.steps[i][&index].clone();
                 steps_indices[i].push(index);
-                evals.insert(index_within_coset, fri_query_inferred_elements[round][i]);
+                if let Some(v) = evals_by_depth[i].get(&index) {
+                    evals = v.to_vec();
+                } else {
+                    evals.insert(
+                        index_within_coset,
+                        fri_query_inferred_elements.next().unwrap(),
+                    );
+                    evals_by_depth[i].insert(index, evals.clone());
+                }
                 steps_evals[i].push(flatten(&evals));
                 steps_proofs[i].push(merkle_proof);
             }
