@@ -168,7 +168,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<()> {
         let challenges = self.get_challenges(common_data)?;
-        dbg!(&challenges.fri_query_inferred_elements);
         let compressed_proof = self.proof.decompress(&challenges, common_data);
         verify_with_challenges(
             ProofWithPublicInputs {
@@ -329,18 +328,6 @@ mod tests {
         // Verify that `decompress ∘ compress = identity`.
         let compressed_proof = proof.clone().compress(&data.common)?;
         let decompressed_compressed_proof = compressed_proof.clone().decompress(&data.common)?;
-        for i in 0..proof.proof.opening_proof.query_round_proofs.len() {
-            let qrp = proof.proof.opening_proof.query_round_proofs[i].clone();
-            let dqrp = decompressed_compressed_proof
-                .proof
-                .opening_proof
-                .query_round_proofs[i]
-                .clone();
-            for j in 0..qrp.steps.len() {
-                dbg!(&qrp.steps[j].evals);
-                dbg!(&dqrp.steps[j].evals);
-            }
-        }
         assert_eq!(proof, decompressed_compressed_proof);
 
         verify(proof, &data.verifier_only, &data.common)?;

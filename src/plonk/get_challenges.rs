@@ -152,12 +152,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
             .map(|_| challenger.get_challenge().to_canonical_u64() as usize % lde_size)
             .collect::<Vec<_>>();
 
+        let mut fri_query_inferred_elements = Vec::new();
+        // Holds the indices that have already been seen at each reduction depth.
         let mut seen_indices_by_depth =
             vec![HashSet::new(); common_data.fri_params.reduction_arity_bits.len()];
         let precomputed_reduced_evals =
             PrecomputedReducedEvals::from_os_and_alpha(&self.proof.openings, fri_alpha);
-        let mut fri_query_inferred_elements = Vec::new();
         let log_n = common_data.degree_bits + common_data.config.rate_bits;
+        // Simulate the proof verification and add collect the inferred elements.
+        // The content of the loop is basically the same as the ` fri_verifier_query_round` function.
         for &(mut x_index) in &fri_query_indices {
             let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
                 * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
@@ -180,6 +183,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
                 .enumerate()
             {
                 if !seen_indices_by_depth[i].insert(x_index >> arity_bits) {
+                    // If this index has already been seen, we can skip the rest of the reductions.
                     break;
                 }
                 fri_query_inferred_elements.push(old_eval);

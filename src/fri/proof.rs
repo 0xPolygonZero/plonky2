@@ -169,6 +169,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
                 index >>= reduction_arity_bits[i];
                 steps_indices[i].push(index);
                 let mut evals = query_step.evals;
+                // Remove the element that can be inferred.
                 evals.remove(index_within_coset);
                 steps_evals[i].push(evals);
                 steps_proofs[i].push(query_step.merkle_proof);
@@ -252,7 +253,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
         let mut fri_query_inferred_elements = if let Some(v) = fri_query_inferred_elements {
             v.iter().copied()
         } else {
-            panic!()
+            panic!("Proof challenges must be computed with `CompressedProofWithPublicInputs::get_challenges()`.")
         };
         let cap_height = common_data.config.cap_height;
         let reduction_arity_bits = &common_data.fri_params.reduction_arity_bits;
@@ -281,6 +282,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
             })
             .collect::<Vec<_>>();
 
+        // Holds the `evals` vectors that have already been reconstructed at each reduction depth.
         let mut evals_by_depth = vec![
             HashMap::<usize, Vec<_>>::new();
             common_data.fri_params.reduction_arity_bits.len()
@@ -303,8 +305,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
                 } = query_round_proofs.steps[i][&index].clone();
                 steps_indices[i].push(index);
                 if let Some(v) = evals_by_depth[i].get(&index) {
+                    // If this index has already been seen, get `evals` from the `HashMap`.
                     evals = v.to_vec();
                 } else {
+                    // Otherwise insert the next inferred element.
                     evals.insert(
                         index_within_coset,
                         fri_query_inferred_elements.next().unwrap(),

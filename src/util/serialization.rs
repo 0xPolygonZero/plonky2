@@ -242,7 +242,6 @@ impl Buffer {
         &mut self,
         fqs: &FriQueryStep<F, D>,
     ) -> Result<()> {
-        dbg!(self.0.position());
         self.write_field_ext_vec::<F, D>(&fqs.evals)?;
         self.write_merkle_proof(&fqs.merkle_proof)
     }
@@ -251,7 +250,6 @@ impl Buffer {
         arity: usize,
         compressed: bool,
     ) -> Result<FriQueryStep<F, D>> {
-        dbg!(self.0.position());
         let evals = self.read_field_ext_vec::<F, D>(arity - if compressed { 1 } else { 0 })?;
         let merkle_proof = self.read_merkle_proof()?;
         Ok(FriQueryStep {
