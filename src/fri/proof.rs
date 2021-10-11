@@ -285,7 +285,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
             HashMap::<usize, Vec<_>>::new();
             common_data.fri_params.reduction_arity_bits.len()
         ];
-        for (round, mut index) in indices.iter().copied().enumerate() {
+        for &(mut index) in indices {
             let initial_trees_proof = query_round_proofs.initial_trees_proofs[&index].clone();
             for (i, (leaves_data, proof)) in
                 initial_trees_proof.evals_proofs.into_iter().enumerate()

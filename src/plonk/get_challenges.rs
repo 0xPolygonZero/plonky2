@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::RichField;
 use crate::fri::verifier::{compute_evaluation, fri_combine_initial, PrecomputedReducedEvals};
 use crate::hash::hashing::hash_n_to_1;
 use crate::iop::challenger::Challenger;
@@ -93,13 +93,6 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInputs<F, D> {
-    pub(crate) fn fri_query_indices(
-        &self,
-        common_data: &CommonCircuitData<F, D>,
-    ) -> anyhow::Result<Vec<usize>> {
-        Ok(self.get_challenges(common_data)?.fri_query_indices)
-    }
-
     pub(crate) fn get_challenges(
         &self,
         common_data: &CommonCircuitData<F, D>,
@@ -165,8 +158,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
             PrecomputedReducedEvals::from_os_and_alpha(&self.proof.openings, fri_alpha);
         let mut fri_query_inferred_elements = Vec::new();
         let log_n = common_data.degree_bits + common_data.config.rate_bits;
-        for query_round in 0..common_data.config.fri_config.num_query_rounds {
-            let mut x_index = fri_query_indices[query_round];
+        for &(mut x_index) in &fri_query_indices {
             let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
                 * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
             let mut old_eval = fri_combine_initial(

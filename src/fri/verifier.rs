@@ -83,20 +83,18 @@ pub(crate) fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
 
     let precomputed_reduced_evals =
         PrecomputedReducedEvals::from_os_and_alpha(os, challenges.fri_alpha);
-    for (round, (&x_index, round_proof)) in challenges
+    for (&x_index, round_proof) in challenges
         .fri_query_indices
         .iter()
         .zip(&proof.query_round_proofs)
-        .enumerate()
     {
         fri_verifier_query_round(
             challenges,
             precomputed_reduced_evals,
             initial_merkle_caps,
-            &proof,
+            proof,
             x_index,
             n,
-            round,
             round_proof,
             common_data,
         )?;
@@ -220,7 +218,6 @@ fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
     proof: &FriProof<F, D>,
     mut x_index: usize,
     n: usize,
-    round: usize,
     round_proof: &FriQueryRound<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
