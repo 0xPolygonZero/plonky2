@@ -1,4 +1,5 @@
 use core::arch::x86_64::*;
+use std::mem::size_of;
 
 use crate::field::field_types::Field;
 use crate::field::goldilocks_field::GoldilocksField;
@@ -6,13 +7,54 @@ use crate::hash::poseidon::{Poseidon, ALL_ROUND_CONSTANTS, HALF_N_FULL_ROUNDS, N
 
 const WIDTH: usize = 12;
 
-static EXPS: [usize; 12] = [0, 10, 16, 3, 12, 8, 1, 5, 3, 0, 1, 0];
+// This is the top row of the MDS matrix. Concretely, it's the MDS exps vector at the following
+// indices: [0, 11, ..., 1].
+static TOP_ROW_EXPS: [usize; 12] = [0, 10, 16, 3, 12, 8, 1, 5, 3, 0, 1, 0];
+
+// Preliminary notes:
+// 1. AVX does not support addition with carry but 128-bit (2-word) addition can be easily
+//    emulated. The method recognizes that for a + b overflowed iff (a + b) < a:
+//        i. res_lo = a_lo + b_lo
+//       ii. carry_mask = res_lo < a_lo
+//      iii. res_hi = a_hi + b_hi - carry_mask
+//    Notice that carry_mask is subtracted, not added. This is because AVX comparison instructions
+//    return -1 (all bits 1) for true and 0 for false.
+//
+// 2. AVX does not have unsigned 64-bit comparisons. Those can be emulated with signed comparisons
+//    by recognizing that a <u b iff a + (1 << 63) <s b + (1 << 63), where the addition wraps around
+//    and the comparisons are unsigned and signed respectively. The shift function adds/subtracts
+//    1 << 63 to enable this trick.
+//      Example: addition with carry.
+//        i. a_lo_s = shift(a_lo)
+//       ii. res_lo_s = a_lo_s + b_lo
+//      iii. carry_mask = res_lo_s <s a_lo_s
+//       iv. res_lo = shift(res_lo_s)
+//        v. res_hi = a_hi + b_hi - carry_mask
+//    The suffix _s denotes a value that has been shifted by 1 << 63. The result of addition is
+//    shifted if exactly one of the operands is shifted, as is the case on line ii. Line iii.
+//    performs a signed comparison res_lo_s <s a_lo_s on shifted values to emulate unsigned
+//    comparison res_lo <u a_lo on unshifted values. Finally, line iv. reverses the shift so the
+//    result can be returned.
+//      When performing a chain of calculations, we can often save instructions by letting the shift
+//    propagate through and only undoing it when necessary. For example, to compute the addition of
+//    three two-word (128-bit) numbers we can do:
+//        i. a_lo_s = shift(a_lo)
+//       ii. tmp_lo_s = a_lo_s + b_lo
+//      iii. tmp_carry_mask = tmp_lo_s <s a_lo_s
+//       iv. tmp_hi = a_hi + b_hi - tmp_carry_mask
+//        v. res_lo_s = tmp_lo_s + c_lo
+//       vi. res_carry_mask = res_lo_s <s tmp_lo_s
+//      vii. res_lo = shift(res_lo_s)
+//     viii. res_hi = tmp_hi + c_hi - res_carry_mask
+//    Notice that the above 3-value addition still only requires two calls to shift, just like our
+//    2-value addition.
 
 #[inline(always)]
 unsafe fn const_layer(
     (state0_s, state1_s, state2_s): (__m256i, __m256i, __m256i),
     (base, index): (*const GoldilocksField, usize),
 ) -> (__m256i, __m256i, __m256i) {
+    // TODO: We can make this entire layer effectively free by folding it into MDS multiplication.
     let (state0, state1, state2): (__m256i, __m256i, __m256i);
     let sign_bit = _mm256_set1_epi64x(i64::MIN);
     asm!(
@@ -146,10 +188,87 @@ unsafe fn sbox_layer_full(state: (__m256i, __m256i, __m256i)) -> (__m256i, __m25
 }
 
 #[inline(always)]
-unsafe fn mds_layer_full_s(
-    (state0, state1, state2): (__m256i, __m256i, __m256i),
+unsafe fn mds_layer_reduce_s(
+    lo_s: (__m256i, __m256i, __m256i),
+    hi: (__m256i, __m256i, __m256i),
 ) -> (__m256i, __m256i, __m256i) {
-    let (state0_s, state1_s, state2_s): (__m256i, __m256i, __m256i);
+    // This is done in assembly because, frankly, it's cleaner than intrinsics. We also don't have
+    // to worry about whether the compiler is doing weird things. This entire routine needs proper
+    // pipelining so there's no point rewriting this, only to have to rewrite it again.
+    let res0_s: __m256i;
+    let res1_s: __m256i;
+    let res2_s: __m256i;
+    let epsilon = _mm256_set1_epi64x(0xffffffff);
+    asm!(
+        // The high results are in ymm3, ymm4, ymm5.
+        // The low results (shifted by 2**63) are in ymm0, ymm1, ymm2
+
+        // We want to do: ymm0 := ymm0 + (ymm3 * 2**32) in modulo P.
+        // This can be computed by ymm0 + (ymm3 << 32) + (ymm3 >> 32) * EPSILON,
+        // where the additions must correct for over/underflow.
+
+        // First, do ymm0 + (ymm3 << 32)  (first chain)
+        "vpsllq   ymm6, ymm3, 32",
+        "vpsllq   ymm7, ymm4, 32",
+        "vpsllq   ymm8, ymm5, 32",
+        "vpaddq   ymm6, ymm6, ymm0",
+        "vpaddq   ymm7, ymm7, ymm1",
+        "vpaddq   ymm8, ymm8, ymm2",
+        "vpcmpgtd ymm0, ymm0, ymm6",
+        "vpcmpgtd ymm1, ymm1, ymm7",
+        "vpcmpgtd ymm2, ymm2, ymm8",
+
+        // Now we interleave the chains so this gets a bit uglier.
+        // Form ymm3 := (ymm3 >> 32) * EPSILON  (second chain)
+        "vpsrlq ymm9,  ymm3, 32",
+        "vpsrlq ymm10, ymm4, 32",
+        "vpsrlq ymm11, ymm5, 32",
+        // (first chain again)
+        "vpsrlq ymm0, ymm0, 32",
+        "vpsrlq ymm1, ymm1, 32",
+        "vpsrlq ymm2, ymm2, 32",
+        // (second chain again)
+        "vpandn ymm3, ymm14, ymm3",
+        "vpandn ymm4, ymm14, ymm4",
+        "vpandn ymm5, ymm14, ymm5",
+        "vpsubq ymm3, ymm3, ymm9",
+        "vpsubq ymm4, ymm4, ymm10",
+        "vpsubq ymm5, ymm5, ymm11",
+        // (first chain again)
+        "vpaddq ymm0, ymm6, ymm0",
+        "vpaddq ymm1, ymm7, ymm1",
+        "vpaddq ymm2, ymm8, ymm2",
+
+        // Merge two chains (second addition)
+        "vpaddq   ymm3, ymm0, ymm3",
+        "vpaddq   ymm4, ymm1, ymm4",
+        "vpaddq   ymm5, ymm2, ymm5",
+        "vpcmpgtd ymm0, ymm0, ymm3",
+        "vpcmpgtd ymm1, ymm1, ymm4",
+        "vpcmpgtd ymm2, ymm2, ymm5",
+        "vpsrlq   ymm6, ymm0, 32",
+        "vpsrlq   ymm7, ymm1, 32",
+        "vpsrlq   ymm8, ymm2, 32",
+        "vpaddq   ymm0, ymm6, ymm3",
+        "vpaddq   ymm1, ymm7, ymm4",
+        "vpaddq   ymm2, ymm8, ymm5",
+        inout("ymm0") lo_s.0 => res0_s,
+        inout("ymm1") lo_s.1 => res1_s,
+        inout("ymm2") lo_s.2 => res2_s,
+        inout("ymm3") hi.0 => _,
+        inout("ymm4") hi.1 => _,
+        inout("ymm5") hi.2 => _,
+        out("ymm6") _, out("ymm7") _, out("ymm8") _, out("ymm9") _, out("ymm10") _, out("ymm11") _,
+        in("ymm14") epsilon,
+        options(pure, nomem, preserves_flags, nostack),
+    );
+    (res0_s, res1_s, res2_s)
+}
+
+#[inline(always)]
+unsafe fn mds_layer_multiply_s(
+    state: (__m256i, __m256i, __m256i),
+) -> ((__m256i, __m256i, __m256i), (__m256i, __m256i, __m256i)) {
     // TODO: Would it be faster to save the input to memory and do unaligned
     //   loads instead of swizzling? It would reduce pressure on port 5 but it
     //   would also have high latency (no store forwarding).
@@ -189,7 +308,8 @@ unsafe fn mds_layer_full_s(
     //   ymm5[0:2] += ymm7[2:4]
     //   ymm5[2:4] += ymm8[0:2]
     // Thus, the final result resides in ymm3, ymm4, ymm5.
-
+    let (unreduced_lo0_s, unreduced_lo1_s, unreduced_lo2_s): (__m256i, __m256i, __m256i);
+    let (unreduced_hi0, unreduced_hi1, unreduced_hi2): (__m256i, __m256i, __m256i);
     let sign_bit = _mm256_set1_epi64x(i64::MIN);
     let epsilon = _mm256_set1_epi64x(0xffffffff);
     asm!(
@@ -201,6 +321,13 @@ unsafe fn mds_layer_full_s(
         "mov eax, 1",
 
         // Fall through for MDS matrix multiplication on low 32 bits
+
+        // This is a GCC _local label_. For details, see
+        // https://doc.rust-lang.org/beta/unstable-book/library-features/asm.html#labels
+        // In short, the assembler makes sure to assign a unique name to replace `2:` with a unique
+        // name, so the label does not clash with any compiler-generated label. `2:` can appear
+        // multiple times; to disambiguate, we must refer to it as `2b` or `2f`, specifying the
+        // direction as _backward_ or _forward_.
         "2:",
         // NB: This block is run twice: once on the low 32 bits and once for the
         // high 32 bits. The 32-bit -> 64-bit matrix multiplication is responsible
@@ -229,7 +356,7 @@ unsafe fn mds_layer_full_s(
         //         result[r] = reduce(res[r]);
         //     }
         //
-        // Notice that that in the lower version, all iterations of the inner loop
+        // Notice that in the lower version, all iterations of the inner loop
         // shift by the same amount. In vector, we perform multiple iterations of
         // the loop at once, and vector shifts are cheaper when all elements are
         // shifted by the same amount.
@@ -313,7 +440,7 @@ unsafe fn mds_layer_full_s(
         "vpaddq ymm7,  ymm7, ymm13",
         // mds[8 - 10] = 16
         "vpsllq ymm13, ymm11, 16",
-        "vpaddq ymm8, ymm8, ymm13",
+        "vpaddq ymm8,  ymm8, ymm13",
 
         // ymm9 := [ymm11[1], ymm11[2], ymm11[3], ymm9[0]]
         "vperm2i128 ymm13, ymm11, ymm9, 0x21",
@@ -334,7 +461,7 @@ unsafe fn mds_layer_full_s(
         "vpaddq ymm7,  ymm7, ymm13",
         // mds[5 - 10] = 8
         "vpsllq ymm13, ymm10, 8",
-        "vpaddq ymm8, ymm8, ymm13",
+        "vpaddq ymm8,  ymm8, ymm13",
 
         // mds[9 - 0] = 3
         "vpsllq ymm13, ymm9, 3",
@@ -351,19 +478,20 @@ unsafe fn mds_layer_full_s(
         "vpaddq ymm7,  ymm7, ymm9",
         // mds[9 - 10] = 10
         "vpsllq ymm13, ymm9, 10",
-        "vpaddq ymm8, ymm8, ymm13",
+        "vpaddq ymm8,  ymm8, ymm13",
 
         // Rotate ymm6-ymm8 and add to the corresponding elements of ymm3-ymm5
-        "vperm2i128 ymm13,    ymm8, ymm6, 0x21",
-        "vpaddq     ymm3, ymm3, ymm13",
-        "vperm2i128 ymm13,    ymm6, ymm7, 0x21",
-        "vpaddq     ymm4, ymm4, ymm13",
-        "vperm2i128 ymm13,    ymm7, ymm8, 0x21",
-        "vpaddq     ymm5, ymm5, ymm13",
+        "vperm2i128 ymm13, ymm8, ymm6, 0x21",
+        "vpaddq     ymm3,  ymm3, ymm13",
+        "vperm2i128 ymm13, ymm6, ymm7, 0x21",
+        "vpaddq     ymm4,  ymm4, ymm13",
+        "vperm2i128 ymm13, ymm7, ymm8, 0x21",
+        "vpaddq     ymm5,  ymm5, ymm13",
 
         // If this is the first time we have run 2: (low 32 bits) then continue.
         // If second time (high 32 bits), then jump to 3:.
         "dec eax",
+        // Jump to the _local label_ (see above) `3:`. `f` for _forward_ specifies the direction.
         "jnz 3f",
 
         // Extract high 32 bits
@@ -379,87 +507,45 @@ unsafe fn mds_layer_full_s(
         "vpxor ymm2, ymm15, ymm5",
 
         // MDS matrix multiplication, again. This time on high 32 bits.
+        // Jump to the _local label_ (see above) `2:`. `b` for _backward_ specifies the direction.
         "jmp 2b",
 
+        // `3:` is a _local label_ (see above).
         "3:",
         // Just done the MDS matrix multiplication on high 32 bits.
         // The high results are in ymm3, ymm4, ymm5.
         // The low results (shifted by 2**63) are in ymm0, ymm1, ymm2
-
-        // We want to do: ymm0 := ymm0 + (ymm3 * 2**32) in modulo P.
-        // This can be computed by ymm0 + (ymm3 << 32) + (ymm3 >> 32) * EPSILON,
-        // where the additions must correct for over/underflow.
-
-        // First, do ymm0 + (ymm3 << 32)  (first chain)
-        "vpsllq ymm6, ymm3, 32",
-        "vpsllq ymm7, ymm4, 32",
-        "vpsllq ymm8, ymm5, 32",
-        "vpaddq ymm6, ymm6, ymm0",
-        "vpaddq ymm7, ymm7, ymm1",
-        "vpaddq ymm8, ymm8, ymm2",
-        "vpcmpgtd ymm0, ymm0, ymm6",
-        "vpcmpgtd ymm1, ymm1, ymm7",
-        "vpcmpgtd ymm2, ymm2, ymm8",
-
-        // Now we interleave the chains so this gets a bit uglier.
-        // Form ymm3 := (ymm3 >> 32) * EPSILON  (second chain)
-        "vpsrlq ymm9, ymm3, 32",
-        "vpsrlq ymm10, ymm4, 32",
-        "vpsrlq ymm11, ymm5, 32",
-        // (first chain again)
-        "vpsrlq ymm0, ymm0, 32",
-        "vpsrlq ymm1, ymm1, 32",
-        "vpsrlq ymm2, ymm2, 32",
-        // (second chain again)
-        "vpandn ymm3, ymm14, ymm3",
-        "vpandn ymm4, ymm14, ymm4",
-        "vpandn ymm5, ymm14, ymm5",
-        "vpsubq ymm3, ymm3, ymm9",
-        "vpsubq ymm4, ymm4, ymm10",
-        "vpsubq ymm5, ymm5, ymm11",
-        // (first chain again)
-        "vpaddq ymm0, ymm6, ymm0",
-        "vpaddq ymm1, ymm7, ymm1",
-        "vpaddq ymm2, ymm8, ymm2",
-
-        // Merge two chains (second addition)
-        "vpaddq ymm3, ymm0, ymm3",
-        "vpaddq ymm4, ymm1, ymm4",
-        "vpaddq ymm5, ymm2, ymm5",
-        "vpcmpgtd ymm0, ymm0, ymm3",
-        "vpcmpgtd ymm1, ymm1, ymm4",
-        "vpcmpgtd ymm2, ymm2, ymm5",
-        "vpsrlq ymm6, ymm0, 32",
-        "vpsrlq ymm7, ymm1, 32",
-        "vpsrlq ymm8, ymm2, 32",
-        "vpaddq ymm0, ymm6, ymm3",
-        "vpaddq ymm1, ymm7, ymm4",
-        "vpaddq ymm2, ymm8, ymm5",
-        inout("ymm0") state0 => state0_s,
-        inout("ymm1") state1 => state1_s,
-        inout("ymm2") state2 => state2_s,
-        out("ymm3") _, out("ymm4") _,  out("ymm5") _, out("ymm6") _,out("ymm7") _, out("ymm8") _,
-        out("ymm9") _, out("ymm10") _, out("ymm11") _, out("ymm12") _, out("ymm13") _,
+        inout("ymm0") state.0 => unreduced_lo0_s,
+        inout("ymm1") state.1 => unreduced_lo1_s,
+        inout("ymm2") state.2 => unreduced_lo2_s,
+        out("ymm3") unreduced_hi0,
+        out("ymm4") unreduced_hi1,
+        out("ymm5") unreduced_hi2,
+        out("ymm6") _,out("ymm7") _, out("ymm8") _, out("ymm9") _,
+        out("ymm10") _, out("ymm11") _, out("ymm12") _, out("ymm13") _,
         in("ymm14") epsilon, in("ymm15") sign_bit,
         out("rax") _,
         options(pure, nomem, nostack),
     );
-    (state0_s, state1_s, state2_s)
+    (
+        (unreduced_lo0_s, unreduced_lo1_s, unreduced_lo2_s),
+        (unreduced_hi0, unreduced_hi1, unreduced_hi2),
+    )
 }
 
 #[inline(always)]
-unsafe fn sbox_mds_layers_partial_s(
-    (state0, state1, state2): (__m256i, __m256i, __m256i),
-) -> (__m256i, __m256i, __m256i) {
-    // Extract the low quadword
-    let state0ab: __m128i = _mm256_castsi256_si128(state0);
-    let mut state0a = _mm_cvtsi128_si64(state0ab);
+unsafe fn mds_layer_full_s(state: (__m256i, __m256i, __m256i)) -> (__m256i, __m256i, __m256i) {
+    let (unreduced_lo_s, unreduced_hi) = mds_layer_multiply_s(state);
+    mds_layer_reduce_s(unreduced_lo_s, unreduced_hi)
+}
 
-    // Zero the low quadword
-    let zero = _mm256_setzero_si256();
-    let state0bcd = _mm256_blend_epi32::<0x3>(state0, zero);
-
-    // Scalar exponentiation
+/// Compute x ** 7
+#[inline(always)]
+unsafe fn sbox_partial(mut x: u64) -> u64 {
+    // This is done in assembly to fix LLVM's poor treatment of wraparound addition/subtraction
+    // and to ensure that multiplication by EPSILON is done with bitshifts, leaving port 1 for
+    // vector operations.
+    // TODO: Interleave with MDS multiplication.
     asm!(
         "mov r9, rdx",
 
@@ -520,7 +606,7 @@ unsafe fn sbox_mds_layers_partial_s(
         "add rdx, rax",
         "sbb eax, eax",
         "add rdx, rax",
-        inout("rdx") state0a,
+        inout("rdx") x,
         out("rax") _,
         out("r8") _,
         out("r9") _,
@@ -530,164 +616,30 @@ unsafe fn sbox_mds_layers_partial_s(
         in("r15") 32,
         options(pure, nomem, nostack),
     );
+    x
+}
 
-    let (state0_s, state1_s, state2_s): (__m256i, __m256i, __m256i);
-    let sign_bit = _mm256_set1_epi64x(i64::MIN);
+#[inline(always)]
+unsafe fn sbox_mds_layers_partial_s(
+    (state0, state1, state2): (__m256i, __m256i, __m256i),
+) -> (__m256i, __m256i, __m256i) {
+    // Extract the low quadword
+    let state0ab: __m128i = _mm256_castsi256_si128(state0);
+    let mut state0a = _mm_cvtsi128_si64(state0ab) as u64;
+
+    // Zero the low quadword
+    let zero = _mm256_setzero_si256();
+    let state0bcd = _mm256_blend_epi32::<0x3>(state0, zero);
+
+    // Scalar exponentiation
+    state0a = sbox_partial(state0a);
+
     let epsilon = _mm256_set1_epi64x(0xffffffff);
+    let (
+        (mut unreduced_lo0_s, mut unreduced_lo1_s, mut unreduced_lo2_s),
+        (mut unreduced_hi0, mut unreduced_hi1, mut unreduced_hi2),
+    ) = mds_layer_multiply_s((state0bcd, state1, state2));
     asm!(
-        // Extract low 32 bits of the word
-        "vpand ymm9,  ymm14, ymm0",
-        "vpand ymm10, ymm14, ymm1",
-        "vpand ymm11, ymm14, ymm2",
-
-        "mov eax, 1",
-
-        // Fall through for MDS matrix multiplication on low 32 bits
-        "2:",
-        // 32-bit -> 64-bit MDS matrix multiplication. See full version for more info.
-        // NB: This block is run twice: once on the low 32 bits and once for the high 32 bits.
-
-        // mds[0 - 0] = 0 not done; would be a move from in0 to ymm3
-        // ymm3 not set
-        // mds[0 - 4] = 12
-        "vpsllq ymm4, ymm9, 12",
-        // mds[0 - 8] = 3
-        "vpsllq ymm5, ymm9, 3",
-        // mds[0 - 2] = 16
-        "vpsllq ymm6, ymm9, 16",
-        // mds[0 - 6] = mds[0 - 10] = 1
-        "vpaddq ymm7, ymm9, ymm9",
-        // ymm8 not written
-        // ymm3 and ymm8 have not been written to, because those would be unnecessary
-        // copies. Implicitly, ymm3 := in0 and ymm8 := ymm7.
-
-        // ymm12 := [ymm9[1], ymm9[2], ymm9[3], ymm10[0]]
-        "vperm2i128 ymm13, ymm9, ymm10, 0x21",
-        "vshufpd    ymm12, ymm9, ymm13, 0x5",
-
-        // ymm3 and ymm8 are not read because they have not been written to
-        // earlier. Instead, the "current value" of ymm3 is read from ymm9 and the
-        // "current value" of ymm8 is read from ymm7.
-        // mds[4 - 0] = 3
-        "vpsllq ymm13, ymm10, 3",
-        "vpaddq ymm3,  ymm9, ymm13",
-        // mds[4 - 4] = 0
-        "vpaddq ymm4,  ymm4, ymm10",
-        // mds[4 - 8] = 12
-        "vpsllq ymm13, ymm10, 12",
-        "vpaddq ymm5,  ymm5, ymm13",
-        // mds[4 - 2] = mds[4 - 10] = 1
-        "vpaddq ymm13, ymm10, ymm10",
-        "vpaddq ymm6,  ymm6, ymm13",
-        "vpaddq ymm8,  ymm7, ymm13",
-        // mds[4 - 6] = 16
-        "vpsllq ymm13, ymm10, 16",
-        "vpaddq ymm7,  ymm7, ymm13",
-
-        // mds[1 - 0] = 0
-        "vpaddq ymm3,  ymm3, ymm12",
-        // mds[1 - 4] = 3
-        "vpsllq ymm13, ymm12, 3",
-        "vpaddq ymm4,  ymm4, ymm13",
-        // mds[1 - 8] = 5
-        "vpsllq ymm13, ymm12, 5",
-        "vpaddq ymm5,  ymm5, ymm13",
-        // mds[1 - 2] = 10
-        "vpsllq ymm13, ymm12, 10",
-        "vpaddq ymm6,  ymm6, ymm13",
-        // mds[1 - 6] = 8
-        "vpsllq ymm13, ymm12, 8",
-        "vpaddq ymm7,  ymm7, ymm13",
-        // mds[1 - 10] = 0
-        "vpaddq ymm8, ymm8, ymm12",
-
-        // ymm10 := [ymm10[1], ymm10[2], ymm10[3], ymm11[0]]
-        "vperm2i128 ymm13, ymm10, ymm11, 0x21",
-        "vshufpd    ymm10, ymm10, ymm13, 0x5",
-
-        // mds[8 - 0] = 12
-        "vpsllq ymm13, ymm11, 12",
-        "vpaddq ymm3,  ymm3, ymm13",
-        // mds[8 - 4] = 3
-        "vpsllq ymm13, ymm11, 3",
-        "vpaddq ymm4,  ymm4, ymm13",
-        // mds[8 - 8] = 0
-        "vpaddq ymm5,  ymm5, ymm11",
-        // mds[8 - 2] = mds[8 - 6] = 1
-        "vpaddq ymm13, ymm11, ymm11",
-        "vpaddq ymm6,  ymm6, ymm13",
-        "vpaddq ymm7,  ymm7, ymm13",
-        // mds[8 - 10] = 16
-        "vpsllq ymm13, ymm11, 16",
-        "vpaddq ymm8, ymm8, ymm13",
-
-        // ymm9 := [ymm11[1], ymm11[2], ymm11[3], ymm9[0]]
-        "vperm2i128 ymm13, ymm11, ymm9, 0x21",
-        "vshufpd    ymm9,  ymm11, ymm13, 0x5",
-
-        // mds[5 - 0] = 5
-        "vpsllq ymm13, ymm10, 5",
-        "vpaddq ymm3,  ymm3, ymm13",
-        // mds[5 - 4] = 0
-        "vpaddq ymm4,  ymm4, ymm10",
-        // mds[5 - 8] = 3
-        "vpsllq ymm13, ymm10, 3",
-        "vpaddq ymm5,  ymm5, ymm13",
-        // mds[5 - 2] = 0
-        "vpaddq ymm6,  ymm6, ymm10",
-        // mds[5 - 6] = 10
-        "vpsllq ymm13, ymm10, 10",
-        "vpaddq ymm7,  ymm7, ymm13",
-        // mds[5 - 10] = 8
-        "vpsllq ymm13, ymm10, 8",
-        "vpaddq ymm8, ymm8, ymm13",
-
-        // mds[9 - 0] = 3
-        "vpsllq ymm13, ymm9, 3",
-        "vpaddq ymm3,  ymm3, ymm13",
-        // mds[9 - 4] = 5
-        "vpsllq ymm13, ymm9, 5",
-        "vpaddq ymm4,  ymm4, ymm13",
-        // mds[9 - 8] = 0
-        "vpaddq ymm5,  ymm5, ymm9",
-        // mds[9 - 2] = 8
-        "vpsllq ymm13, ymm9, 8",
-        "vpaddq ymm6,  ymm6, ymm13",
-        // mds[9 - 6] = 0
-        "vpaddq ymm7,  ymm7, ymm9",
-        // mds[9 - 10] = 10
-        "vpsllq ymm13, ymm9, 10",
-        "vpaddq ymm8, ymm8, ymm13",
-
-        // Rotate ymm6-ymm8 and add to the corresponding elements of ymm3-ymm5
-        "vperm2i128 ymm13,    ymm8, ymm6, 0x21",
-        "vpaddq     ymm3, ymm3, ymm13",
-        "vperm2i128 ymm13,    ymm6, ymm7, 0x21",
-        "vpaddq     ymm4, ymm4, ymm13",
-        "vperm2i128 ymm13,    ymm7, ymm8, 0x21",
-        "vpaddq     ymm5, ymm5, ymm13",
-
-        // If this is the first time we have run 2: (low 32 bits) then continue.
-        // If second time (high 32 bits), then jump to 3:.
-        "dec eax",
-        "jnz 3f",
-
-        // Extract high 32 bits
-        "vpsrlq ymm9,  ymm0, 32",
-        "vpsrlq ymm10, ymm1, 32",
-        "vpsrlq ymm11, ymm2, 32",
-
-        // Need to move the low result from ymm3-ymm5 to ymm0-13 so it is not
-        // overwritten. Save three instructions by combining the move with xor ymm15,
-        // which would otherwise be done in 3:.
-        "vpxor ymm0, ymm15, ymm3",
-        "vpxor ymm1, ymm15, ymm4",
-        "vpxor ymm2, ymm15, ymm5",
-
-        // MDS matrix multiplication, again. This time on high 32 bits.
-        "jmp 2b",
-
-        "3:",
         // Just done the MDS matrix multiplication on high 32 bits.
         // The high results are in ymm3, ymm4, ymm5.
         // The low results (shifted by 2**63) are in ymm0, ymm1, ymm2
@@ -721,62 +673,25 @@ unsafe fn sbox_mds_layers_partial_s(
         "vpaddq  ymm0, ymm6, ymm0",
         "vpaddq  ymm1, ymm7, ymm1",
         "vpaddq  ymm2, ymm8, ymm2",
-
-        // We want to do: ymm0 := ymm0 + (ymm3 * 2**32) in modulo P.
-        // This can be computed by ymm0 + (ymm3 << 32) + (ymm3 >> 32) * EPSILON,
-        // where the additions must correct for over/underflow.
-
-        // See full version for explanation of below.
-        "vpsllq ymm6, ymm3, 32",
-        "vpsllq ymm7, ymm4, 32",
-        "vpsllq ymm8, ymm5, 32",
-        "vpaddq ymm6, ymm6, ymm0",
-        "vpaddq ymm7, ymm7, ymm1",
-        "vpaddq ymm8, ymm8, ymm2",
-        "vpcmpgtd ymm0, ymm0, ymm6",
-        "vpcmpgtd ymm1, ymm1, ymm7",
-        "vpcmpgtd ymm2, ymm2, ymm8",
-        "vpsrlq ymm9, ymm3, 32",
-        "vpsrlq ymm10, ymm4, 32",
-        "vpsrlq ymm11, ymm5, 32",
-        "vpsrlq ymm0, ymm0, 32",
-        "vpsrlq ymm1, ymm1, 32",
-        "vpsrlq ymm2, ymm2, 32",
-        "vpandn ymm3, ymm14, ymm3",
-        "vpandn ymm4, ymm14, ymm4",
-        "vpandn ymm5, ymm14, ymm5",
-        "vpsubq ymm3, ymm3, ymm9",
-        "vpsubq ymm4, ymm4, ymm10",
-        "vpsubq ymm5, ymm5, ymm11",
-        "vpaddq ymm0, ymm6, ymm0",
-        "vpaddq ymm1, ymm7, ymm1",
-        "vpaddq ymm2, ymm8, ymm2",
-        "vpaddq ymm3, ymm0, ymm3",
-        "vpaddq ymm4, ymm1, ymm4",
-        "vpaddq ymm5, ymm2, ymm5",
-        "vpcmpgtd ymm0, ymm0, ymm3",
-        "vpcmpgtd ymm1, ymm1, ymm4",
-        "vpcmpgtd ymm2, ymm2, ymm5",
-        "vpsrlq ymm6, ymm0, 32",
-        "vpsrlq ymm7, ymm1, 32",
-        "vpsrlq ymm8, ymm2, 32",
-        "vpaddq ymm0, ymm6, ymm3",
-        "vpaddq ymm1, ymm7, ymm4",
-        "vpaddq ymm2, ymm8, ymm5",
+        // Reduction required.
 
         state0a = in(reg) state0a,
-        mds_matrix = sym EXPS,
-        inout("ymm0") state0bcd => state0_s,
-        inout("ymm1") state1 => state1_s,
-        inout("ymm2") state2 => state2_s,
-        out("ymm3") _, out("ymm4") _,  out("ymm5") _, out("ymm6") _,out("ymm7") _, out("ymm8") _,
-        out("ymm9") _, out("ymm10") _, out("ymm11") _, out("ymm12") _, out("ymm13") _,
-        in("ymm14") epsilon, in("ymm15") sign_bit,
-        out("rax") _,
-        options(pure, nomem, nostack),
+        mds_matrix = sym TOP_ROW_EXPS,
+        inout("ymm0") unreduced_lo0_s,
+        inout("ymm1") unreduced_lo1_s,
+        inout("ymm2") unreduced_lo2_s,
+        inout("ymm3") unreduced_hi0,
+        inout("ymm4") unreduced_hi1,
+        inout("ymm5") unreduced_hi2,
+        out("ymm6") _,out("ymm7") _, out("ymm8") _, out("ymm9") _,
+        out("ymm10") _, out("ymm11") _, out("ymm12") _, out("ymm13") _,
+        in("ymm14") epsilon,
+        options(pure, nomem, preserves_flags, nostack),
     );
-
-    (state0_s, state1_s, state2_s)
+    mds_layer_reduce_s(
+        (unreduced_lo0_s, unreduced_lo1_s, unreduced_lo2_s),
+        (unreduced_hi0, unreduced_hi1, unreduced_hi2),
+    )
 }
 
 #[inline(always)]
@@ -811,7 +726,7 @@ unsafe fn half_full_rounds_s(
         .cast::<GoldilocksField>();
 
     for i in 0..HALF_N_FULL_ROUNDS {
-        state_s = full_round_s(state_s, (base, i * WIDTH * 8));
+        state_s = full_round_s(state_s, (base, i * WIDTH * size_of::<u64>()));
     }
     state_s
 }
@@ -827,7 +742,7 @@ unsafe fn all_partial_rounds_s(
         .cast::<GoldilocksField>();
 
     for i in 0..N_PARTIAL_ROUNDS {
-        state_s = partial_round_s(state_s, (base, i * WIDTH * 8));
+        state_s = partial_round_s(state_s, (base, i * WIDTH * size_of::<u64>()));
     }
     state_s
 }
