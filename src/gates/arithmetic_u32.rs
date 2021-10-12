@@ -23,6 +23,12 @@ pub struct U32ArithmeticGate<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
+    pub fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+
     pub fn wire_ith_multiplicand_0(i: usize) -> usize {
         debug_assert!(i < NUM_U32_ARITHMETIC_OPS);
         5 * i

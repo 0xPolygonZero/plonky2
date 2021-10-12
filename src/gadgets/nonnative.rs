@@ -21,7 +21,7 @@ pub struct ForeignFieldTarget<FF: Field> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn order_u32_limbs<FF: Field>(&self) -> Vec<U32Target> {
+    pub fn order_u32_limbs<FF: Field>(&mut self) -> Vec<U32Target> {
         let modulus = FF::order();
         let limbs = modulus.to_u32_digits();
         limbs.iter().map(|&limb| self.constant_u32(F::from_canonical_u32(limb))).collect()
@@ -35,7 +35,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut combined_limbs = self.add_virtual_u32_targets(num_limbs + 1);
         let mut carry = self.zero_u32();
         for i in 0..num_limbs {
-            let (new_limb, carry) = self.add_three_u32(carry, a.limbs[i], b.limbs[i]);
+            let (new_limb, carry) = self.add_three_u32(carry.clone(), a.limbs[i].clone(), b.limbs[i].clone());
             combined_limbs[i] = new_limb;
         }
         combined_limbs[num_limbs] = carry;
@@ -48,8 +48,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn reduce_add_result<FF: Field>(&mut self, limbs: Vec<U32Target>) -> Vec<U32Target> {
-        let modulus = FF::order();
-
         todo!()
     }
 
@@ -57,11 +55,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_limbs = a.limbs.len();
         debug_assert!(b.limbs.len() == num_limbs);
 
-        let mut combined_limbs = self.add_virtual_targets(2 * num_limbs - 1);
+        /*let mut combined_limbs = self.add_virtual_u32_targets(2 * num_limbs - 1);
         for i in 0..num_limbs {
             for j in 0..num_limbs {
                 let sum = self.add_u32(a.limbs[i], b.limbs[j]);
-                combined_limbs[i + j] = self.add(combined_limbs[i + j], sum);
+                combined_limbs[i + j] = self.add_u32(combined_limbs[i + j], sum);
             }
         }
 
@@ -70,7 +68,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         ForeignFieldTarget {
             limbs: reduced_limbs,
             _phantom: PhantomData,
-        }
+        }*/
+        todo!()
     }
 
     pub fn reduce_mul_result<FF: Field>(&mut self, limbs: Vec<U32Target>) -> Vec<U32Target> {

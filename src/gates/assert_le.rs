@@ -15,13 +15,13 @@ use crate::util::{bits_u64, ceil_div_usize};
 
 /// A gate for checking that one value is less than or equal to another.
 #[derive(Clone, Debug)]
-pub struct ComparisonGate<F: PrimeField + Extendable<D>, const D: usize> {
+pub struct AssertLessThanGate<F: PrimeField + Extendable<D>, const D: usize> {
     pub(crate) num_bits: usize,
     pub(crate) num_chunks: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> ComparisonGate<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> AssertLessThanGate<F, D> {
     pub fn new(num_bits: usize, num_chunks: usize) -> Self {
         debug_assert!(num_bits < bits_u64(F::ORDER));
         Self {
@@ -43,46 +43,37 @@ impl<F: RichField + Extendable<D>, const D: usize> ComparisonGate<F, D> {
         1
     }
 
-    pub fn wire_result_bool(&self) -> usize {
-        2
-    }
-
     pub fn wire_most_significant_diff(&self) -> usize {
-        3
+        2
     }
 
     pub fn wire_first_chunk_val(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        4 + chunk
+        3 + chunk
     }
 
     pub fn wire_second_chunk_val(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        4 + self.num_chunks + chunk
+        3 + self.num_chunks + chunk
     }
 
     pub fn wire_equality_dummy(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        4 + 2 * self.num_chunks + chunk
+        3 + 2 * self.num_chunks + chunk
     }
 
     pub fn wire_chunks_equal(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        4 + 3 * self.num_chunks + chunk
+        3 + 3 * self.num_chunks + chunk
     }
 
     pub fn wire_intermediate_value(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        4 + 4 * self.num_chunks + chunk
-    }
-
-    /// The `bit_index`th bit of 2^n - 1 + most_significant_diff.
-    pub fn wire_most_significant_diff_bit(&self, bit_index: usize) -> usize {
-        4 + 5 * self.num_chunks + bit_index
+        3 + 4 * self.num_chunks + chunk
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThanGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -146,19 +137,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
         constraints.push(most_significant_diff - most_significant_diff_so_far);
 
-        let most_significant_diff_bits: Vec<F::Extension> = (0..self.chunk_bits() + 1)
-            .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
-            .collect();
-        let bits_combined = reduce_with_powers(
-            &most_significant_diff_bits,
-            F::Extension::TWO,
-        );
-        let two_n_minus_1 = F::Extension::from_canonical_u64(1 << self.chunk_bits()) - F::Extension::ONE;
-        constraints.push((two_n_minus_1 + most_significant_diff) - bits_combined);
-
-        // Iff first < second, the top (n + 1st) bit of (2^n - 1 + most_significant_diff) will be 1.
-        let result_bool = vars.local_wires[self.wire_result_bool()];
-        constraints.push(result_bool - most_significant_diff_bits[self.chunk_bits()]);
+        // Range check `most_significant_diff` to be less than `chunk_size`.
+        let product = (0..chunk_size)
+            .map(|x| most_significant_diff - F::Extension::from_canonical_usize(x))
+            .product();
+        constraints.push(product);
 
         constraints
     }
@@ -222,19 +205,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
         constraints.push(most_significant_diff - most_significant_diff_so_far);
 
-        let most_significant_diff_bits: Vec<F> = (0..self.chunk_bits() + 1)
-            .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
-            .collect();
-        let bits_combined = reduce_with_powers(
-            &most_significant_diff_bits,
-            F::TWO,
-        );
-        let two_n_minus_1 = F::from_canonical_u64(1 << self.chunk_bits()) - F::ONE;
-        constraints.push((two_n_minus_1 + most_significant_diff) - bits_combined);
-
-        // Iff first < second, the top (n + 1st) bit of (2^n - 1 + most_significant_diff) will be 1.
-        let result_bool = vars.local_wires[self.wire_result_bool()];
-        constraints.push(result_bool - most_significant_diff_bits[self.chunk_bits()]);
+        // Range check `most_significant_diff` to be less than `chunk_size`.
+        let product = (0..chunk_size)
+            .map(|x| most_significant_diff - F::from_canonical_usize(x))
+            .product();
+        constraints.push(product);
 
         constraints
     }
@@ -257,11 +232,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             .map(|i| vars.local_wires[self.wire_second_chunk_val(i)])
             .collect();
 
-            let chunk_base = builder.constant(F::from_canonical_usize(1 << self.chunk_bits()));
-            let first_chunks_combined =
-                reduce_with_powers_ext_recursive(builder, &first_chunks, chunk_base);
-            let second_chunks_combined =
-                reduce_with_powers_ext_recursive(builder, &second_chunks, chunk_base);
+        let chunk_base = builder.constant(F::from_canonical_usize(1 << self.chunk_bits()));
+        let first_chunks_combined =
+            reduce_with_powers_ext_recursive(builder, &first_chunks, chunk_base);
+        let second_chunks_combined =
+            reduce_with_powers_ext_recursive(builder, &second_chunks, chunk_base);
 
         constraints.push(builder.sub_extension(first_chunks_combined, first_input));
         constraints.push(builder.sub_extension(second_chunks_combined, second_input));
@@ -310,22 +285,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         constraints
             .push(builder.sub_extension(most_significant_diff, most_significant_diff_so_far));
 
-        let most_significant_diff_bits: Vec<ExtensionTarget<D>> = (0..self.chunk_bits() + 1)
-            .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
-            .collect();
-        let two = builder.two();
-        let bits_combined = reduce_with_powers_ext_recursive(
-            builder,
-            &most_significant_diff_bits,
-            two,
-        );
-        let two_n_minus_1 = builder.constant_extension(F::Extension::from_canonical_u64(1 << self.chunk_bits()) - F::Extension::ONE);
-        let sum = builder.add_extension(two_n_minus_1, most_significant_diff);
-        constraints.push(builder.sub_extension(sum, bits_combined));
-
-        // Iff first < second, the top (n + 1st) bit of (2^n - 1 + most_significant_diff) will be 1.
-        let result_bool = vars.local_wires[self.wire_result_bool()];
-        constraints.push(builder.sub_extension(result_bool, most_significant_diff_bits[self.chunk_bits()]));
+        // Range check `most_significant_diff` to be less than `chunk_size`.
+        let mut product = builder.one_extension();
+        for x in 0..chunk_size {
+            let x_f = builder.constant_extension(F::Extension::from_canonical_usize(x));
+            let diff = builder.sub_extension(most_significant_diff, x_f);
+            product = builder.mul_extension(product, diff);
+        }
+        constraints.push(product);
 
         constraints
     }
@@ -335,7 +302,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         gate_index: usize,
         _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = ComparisonGenerator::<F, D> {
+        let gen = AssertLessThanGenerator::<F, D> {
             gate_index,
             gate: self.clone(),
         };
@@ -343,7 +310,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
     }
 
     fn num_wires(&self) -> usize {
-        4 + 5 * self.num_chunks + (self.chunk_bits() + 1)
+        self.wire_intermediate_value(self.num_chunks - 1) + 1
     }
 
     fn num_constants(&self) -> usize {
@@ -355,18 +322,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
     }
 
     fn num_constraints(&self) -> usize {
-        5 + 5 * self.num_chunks
+        4 + 5 * self.num_chunks
     }
 }
 
 #[derive(Debug)]
-struct ComparisonGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct AssertLessThanGenerator<F: RichField + Extendable<D>, const D: usize> {
     gate_index: usize,
-    gate: ComparisonGate<F, D>,
+    gate: AssertLessThanGate<F, D>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for ComparisonGenerator<F, D>
+    for AssertLessThanGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
@@ -391,7 +358,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let first_input_u64 = first_input.to_canonical_u64();
         let second_input_u64 = second_input.to_canonical_u64();
 
-        let result = F::from_canonical_usize((first_input_u64 < second_input_u64) as usize);
+        debug_assert!(first_input_u64 < second_input_u64);
 
         let chunk_size = 1 << self.gate.chunk_bits();
         let first_input_chunks: Vec<F> = (0..self.gate.num_chunks)
@@ -430,19 +397,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         }
         let most_significant_diff = most_significant_diff_so_far;
 
-        let two_n_plus_msd = ((1 << self.gate.chunk_bits()) - 1) as u64 + most_significant_diff.to_canonical_u64();
-        let msd_bits: Vec<F> = (0..self.gate.chunk_bits() + 1)
-            .scan(two_n_plus_msd, |acc, _| {
-                let tmp = *acc % 2;
-                *acc /= 2;
-                Some(F::from_canonical_u64(tmp))
-            })
-            .collect();
-
-        out_buffer.set_wire(
-            local_wire(self.gate.wire_result_bool()),
-            result,
-        );
         out_buffer.set_wire(
             local_wire(self.gate.wire_most_significant_diff()),
             most_significant_diff,
@@ -466,12 +420,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
                 intermediate_values[i],
             );
         }
-        for i in 0..self.gate.chunk_bits() + 1 {
-            out_buffer.set_wire(
-            local_wire(self.gate.wire_most_significant_diff_bit(i)),
-                msd_bits[i],
-            );
-        }
     }
 }
 
@@ -482,10 +430,10 @@ mod tests {
     use anyhow::Result;
     use rand::Rng;
 
+    use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::{Field, PrimeField};
-    use crate::field::goldilocks_field::GoldilocksField;
-    use crate::gates::comparison::ComparisonGate;
+    use crate::gates::assert_le::AssertLessThanGate;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
@@ -493,11 +441,11 @@ mod tests {
 
     #[test]
     fn wire_indices() {
-        type CG = ComparisonGate<GoldilocksField, 4>;
+        type AG = AssertLessThanGate<CrandallField, 4>;
         let num_bits = 40;
         let num_chunks = 5;
 
-        let gate = CG {
+        let gate = AG {
             num_bits,
             num_chunks,
             _phantom: PhantomData,
@@ -505,20 +453,17 @@ mod tests {
 
         assert_eq!(gate.wire_first_input(), 0);
         assert_eq!(gate.wire_second_input(), 1);
-        assert_eq!(gate.wire_result_bool(), 2);
-        assert_eq!(gate.wire_most_significant_diff(), 3);
-        assert_eq!(gate.wire_first_chunk_val(0), 4);
-        assert_eq!(gate.wire_first_chunk_val(4), 8);
-        assert_eq!(gate.wire_second_chunk_val(0), 9);
-        assert_eq!(gate.wire_second_chunk_val(4), 13);
-        assert_eq!(gate.wire_equality_dummy(0), 14);
-        assert_eq!(gate.wire_equality_dummy(4), 18);
-        assert_eq!(gate.wire_chunks_equal(0), 19);
-        assert_eq!(gate.wire_chunks_equal(4), 23);
-        assert_eq!(gate.wire_intermediate_value(0), 24);
-        assert_eq!(gate.wire_intermediate_value(4), 28);
-        assert_eq!(gate.wire_most_significant_diff_bit(0), 29);
-        assert_eq!(gate.wire_most_significant_diff_bit(8), 37);
+        assert_eq!(gate.wire_most_significant_diff(), 2);
+        assert_eq!(gate.wire_first_chunk_val(0), 3);
+        assert_eq!(gate.wire_first_chunk_val(4), 7);
+        assert_eq!(gate.wire_second_chunk_val(0), 8);
+        assert_eq!(gate.wire_second_chunk_val(4), 12);
+        assert_eq!(gate.wire_equality_dummy(0), 13);
+        assert_eq!(gate.wire_equality_dummy(4), 17);
+        assert_eq!(gate.wire_chunks_equal(0), 18);
+        assert_eq!(gate.wire_chunks_equal(4), 22);
+        assert_eq!(gate.wire_intermediate_value(0), 23);
+        assert_eq!(gate.wire_intermediate_value(4), 27);
     }
 
     #[test]
@@ -526,7 +471,7 @@ mod tests {
         let num_bits = 40;
         let num_chunks = 5;
 
-        test_low_degree::<GoldilocksField, _, 4>(ComparisonGate::<_, 4>::new(num_bits, num_chunks))
+        test_low_degree::<CrandallField, _, 4>(AssertLessThanGate::<_, 4>::new(num_bits, num_chunks))
     }
 
     #[test]
@@ -534,27 +479,25 @@ mod tests {
         let num_bits = 40;
         let num_chunks = 5;
 
-        test_eval_fns::<GoldilocksField, _, 4>(ComparisonGate::<_, 4>::new(num_bits, num_chunks))
+        test_eval_fns::<CrandallField, _, 4>(AssertLessThanGate::<_, 4>::new(num_bits, num_chunks))
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
+        type F = CrandallField;
+        type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
         let num_bits = 40;
         let num_chunks = 5;
         let chunk_bits = num_bits / num_chunks;
 
-        // Returns the local wires for a comparison gate given the two inputs.
+        // Returns the local wires for an AssertLessThanGate given the two inputs.
         let get_wires = |first_input: F, second_input: F| -> Vec<FF> {
             let mut v = Vec::new();
 
             let first_input_u64 = first_input.to_canonical_u64();
             let second_input_u64 = second_input.to_canonical_u64();
-
-            let result_bool = F::from_bool(first_input_u64 < second_input_u64);
 
             let chunk_size = 1 << chunk_bits;
             let mut first_input_chunks: Vec<F> = (0..num_chunks)
@@ -593,25 +536,14 @@ mod tests {
             }
             let most_significant_diff = most_significant_diff_so_far;
 
-            let two_n_min_1_plus_msd = ((1 << chunk_bits) - 1) as u64 + most_significant_diff.to_canonical_u64();
-            let mut msd_bits: Vec<F> = (0..chunk_bits + 1)
-                .scan(two_n_min_1_plus_msd, |acc, _| {
-                    let tmp = *acc % 2;
-                    *acc /= 2;
-                    Some(F::from_canonical_u64(tmp))
-                })
-                .collect();
-
             v.push(first_input);
             v.push(second_input);
-            v.push(result_bool);
             v.push(most_significant_diff);
             v.append(&mut first_input_chunks);
             v.append(&mut second_input_chunks);
             v.append(&mut equality_dummies);
             v.append(&mut chunks_equal);
             v.append(&mut intermediate_values);
-            v.append(&mut msd_bits);
 
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         };
@@ -630,7 +562,7 @@ mod tests {
         let first_input = F::from_canonical_u64(first_input_u64);
         let second_input = F::from_canonical_u64(second_input_u64);
 
-        let less_than_gate = ComparisonGate::<F, D> {
+        let less_than_gate = AssertLessThanGate::<F, D> {
             num_bits,
             num_chunks,
             _phantom: PhantomData,
@@ -648,7 +580,7 @@ mod tests {
             "Gate constraints are not satisfied."
         );
 
-        let equal_gate = ComparisonGate::<F, D> {
+        let equal_gate = AssertLessThanGate::<F, D> {
             num_bits,
             num_chunks,
             _phantom: PhantomData,

@@ -6,25 +6,26 @@ use crate::gates::arithmetic_u32::{U32ArithmeticGate, NUM_U32_ARITHMETIC_OPS};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
+#[derive(Clone)]
 pub struct U32Target(pub Target);
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn add_virtual_u32_target(&self) -> U32Target {
+    pub fn add_virtual_u32_target(&mut self) -> U32Target {
         U32Target(self.add_virtual_target())
     }
 
-    pub fn add_virtual_u32_targets(&self, n: usize) -> Vec<U32Target> {
+    pub fn add_virtual_u32_targets(&mut self, n: usize) -> Vec<U32Target> {
         self.add_virtual_targets(n)
             .into_iter()
             .map(U32Target)
             .collect()
     }
 
-    pub fn zero_u32(&self) -> U32Target {
+    pub fn zero_u32(&mut self) -> U32Target {
         U32Target(self.zero())
     }
 
-    pub fn one_u32(&self) -> U32Target {
+    pub fn one_u32(&mut self) -> U32Target {
         U32Target(self.one())
     }
 
@@ -37,9 +38,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> (U32Target, U32Target) {
         let (gate_index, copy) = match self.current_u32_arithmetic_gate {
             None => {
-                let gate = U32ArithmeticGate {
-                    _phantom: PhantomData,
-                };
+                let gate = U32ArithmeticGate::new();
                 let gate_index = self.add_gate(gate, vec![]);
                 (gate_index, 0)
             }
@@ -84,7 +83,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn add_u32(&mut self, a: U32Target, b: U32Target) -> (U32Target, U32Target) {
-        self.mul_add_u32(a, self.one_u32(), b)
+        let one = self.one_u32();
+        self.mul_add_u32(a, one, b)
     }
 
     pub fn add_three_u32(
@@ -100,6 +100,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn mul_u32(&mut self, a: U32Target, b: U32Target) -> (U32Target, U32Target) {
-        self.mul_add_u32(a, b, self.zero_u32())
+        let zero = self.zero_u32();
+        self.mul_add_u32(a, b, zero)
     }
 }

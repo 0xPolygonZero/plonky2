@@ -4,6 +4,7 @@ pub mod arithmetic_u32;
 pub mod hash;
 pub mod insert;
 pub mod interpolation;
+pub mod multiple_comparison;
 pub mod nonnative;
 pub mod permutation;
 pub mod polynomial;
