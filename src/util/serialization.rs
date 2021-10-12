@@ -248,8 +248,9 @@ impl Buffer {
     fn read_fri_query_step<F: Extendable<D>, const D: usize>(
         &mut self,
         arity: usize,
+        compressed: bool,
     ) -> Result<FriQueryStep<F, D>> {
-        let evals = self.read_field_ext_vec::<F, D>(arity)?;
+        let evals = self.read_field_ext_vec::<F, D>(arity - if compressed { 1 } else { 0 })?;
         let merkle_proof = self.read_merkle_proof()?;
         Ok(FriQueryStep {
             evals,
@@ -281,7 +282,7 @@ impl Buffer {
                 .fri_params
                 .reduction_arity_bits
                 .iter()
-                .map(|&ar| self.read_fri_query_step(1 << ar))
+                .map(|&ar| self.read_fri_query_step(1 << ar, false))
                 .collect::<Result<_>>()?;
             fqrs.push(FriQueryRound {
                 initial_trees_proof,
@@ -424,7 +425,7 @@ impl Buffer {
             });
             indices.dedup();
             let query_steps = (0..indices.len())
-                .map(|_| self.read_fri_query_step(1 << a))
+                .map(|_| self.read_fri_query_step(1 << a, true))
                 .collect::<Result<Vec<_>>>()?;
             steps.push(
                 indices

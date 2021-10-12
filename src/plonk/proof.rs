@@ -10,7 +10,8 @@ use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
-use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
+use crate::plonk::verifier::verify_with_challenges;
 use crate::util::serialization::Buffer;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
@@ -118,9 +119,10 @@ pub struct CompressedProof<F: Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> CompressedProof<F, D> {
     /// Decompress the proof.
-    pub fn decompress(
+    pub(crate) fn decompress(
         self,
-        indices: &[usize],
+        challenges: &ProofChallenges<F, D>,
+        fri_inferred_elements: FriInferredElements<F, D>,
         common_data: &CommonCircuitData<F, D>,
     ) -> Proof<F, D> {
         let CompressedProof {
@@ -136,7 +138,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProof<F, D> {
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
             openings,
-            opening_proof: opening_proof.decompress(indices, common_data),
+            opening_proof: opening_proof.decompress(
+                &challenges,
+                fri_inferred_elements,
+                common_data,
+            ),
         }
     }
 }
@@ -153,12 +159,36 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
         self,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, D>> {
-        let indices = self.fri_query_indices(common_data)?;
-        let compressed_proof = self.proof.decompress(&indices, common_data);
+        let challenges = self.get_challenges(common_data)?;
+        let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
+        let compressed_proof =
+            self.proof
+                .decompress(&challenges, fri_inferred_elements, common_data);
         Ok(ProofWithPublicInputs {
             public_inputs: self.public_inputs,
             proof: compressed_proof,
         })
+    }
+
+    pub(crate) fn verify(
+        self,
+        verifier_data: &VerifierOnlyCircuitData<F>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> anyhow::Result<()> {
+        let challenges = self.get_challenges(common_data)?;
+        let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
+        let compressed_proof =
+            self.proof
+                .decompress(&challenges, fri_inferred_elements, common_data);
+        verify_with_challenges(
+            ProofWithPublicInputs {
+                public_inputs: self.public_inputs,
+                proof: compressed_proof,
+            },
+            challenges,
+            verifier_data,
+            common_data,
+        )
     }
 
     pub(crate) fn get_public_inputs_hash(&self) -> HashOut<F> {
@@ -202,8 +232,14 @@ pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> 
 
     pub fri_pow_response: F,
 
+    // Indices at which the oracle is queried in FRI.
     pub fri_query_indices: Vec<usize>,
 }
+
+/// Coset element that can be inferred in the FRI reduction step.
+pub(crate) struct FriInferredElements<F: RichField + Extendable<D>, const D: usize>(
+    pub Vec<F::Extension>,
+);
 
 pub struct ProofWithPublicInputsTarget<const D: usize> {
     pub proof: ProofTarget<D>,
@@ -273,6 +309,7 @@ mod tests {
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
+    use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
@@ -284,6 +321,7 @@ mod tests {
         const D: usize = 4;
 
         let mut config = CircuitConfig::large_config();
+        config.fri_config.reduction_strategy = FriReductionStrategy::Fixed(vec![2, 1]);
         config.fri_config.num_query_rounds = 50;
 
         let pw = PartialWitness::new();
@@ -300,12 +338,14 @@ mod tests {
         builder.connect(zt, comp_zt);
         let data = builder.build();
         let proof = data.prove(pw)?;
+        verify(proof.clone(), &data.verifier_only, &data.common)?;
 
         // Verify that `decompress ∘ compress = identity`.
         let compressed_proof = proof.clone().compress(&data.common)?;
-        let decompressed_compressed_proof = compressed_proof.decompress(&data.common)?;
+        let decompressed_compressed_proof = compressed_proof.clone().decompress(&data.common)?;
         assert_eq!(proof, decompressed_compressed_proof);
 
-        verify(proof, &data.verifier_only, &data.common)
+        verify(proof, &data.verifier_only, &data.common)?;
+        compressed_proof.verify(&data.verifier_only, &data.common)
     }
 }

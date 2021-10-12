@@ -14,6 +14,7 @@ use crate::hash::path_compression::{compress_merkle_proofs, decompress_merkle_pr
 use crate::iop::target::Target;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::PolynomialsIndexBlinding;
+use crate::plonk::proof::{FriInferredElements, ProofChallenges};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
@@ -164,9 +165,13 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
                 initial_trees_proofs[i].push(proof);
             }
             for (i, query_step) in steps.into_iter().enumerate() {
+                let index_within_coset = index & ((1 << reduction_arity_bits[i]) - 1);
                 index >>= reduction_arity_bits[i];
                 steps_indices[i].push(index);
-                steps_evals[i].push(query_step.evals);
+                let mut evals = query_step.evals;
+                // Remove the element that can be inferred.
+                evals.remove(index_within_coset);
+                steps_evals[i].push(evals);
                 steps_proofs[i].push(query_step.merkle_proof);
             }
         }
@@ -228,9 +233,10 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
 
 impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
     /// Decompress all the Merkle paths in the FRI proof and reinsert duplicate indices.
-    pub fn decompress(
+    pub(crate) fn decompress(
         self,
-        indices: &[usize],
+        challenges: &ProofChallenges<F, D>,
+        fri_inferred_elements: FriInferredElements<F, D>,
         common_data: &CommonCircuitData<F, D>,
     ) -> FriProof<F, D> {
         let CompressedFriProof {
@@ -240,6 +246,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
             pow_witness,
             ..
         } = self;
+        let ProofChallenges {
+            fri_query_indices: indices,
+            ..
+        } = challenges;
+        let mut fri_inferred_elements = fri_inferred_elements.0.into_iter();
         let cap_height = common_data.config.cap_height;
         let reduction_arity_bits = &common_data.fri_params.reduction_arity_bits;
         let num_reductions = reduction_arity_bits.len();
@@ -267,7 +278,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
             })
             .collect::<Vec<_>>();
 
-        for mut index in indices.iter().copied() {
+        // Holds the `evals` vectors that have already been reconstructed at each reduction depth.
+        let mut evals_by_depth = vec![
+            HashMap::<usize, Vec<_>>::new();
+            common_data.fri_params.reduction_arity_bits.len()
+        ];
+        for &(mut index) in indices {
             let initial_trees_proof = query_round_proofs.initial_trees_proofs[&index].clone();
             for (i, (leaves_data, proof)) in
                 initial_trees_proof.evals_proofs.into_iter().enumerate()
@@ -277,11 +293,23 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
                 initial_trees_proofs[i].push(proof);
             }
             for i in 0..num_reductions {
+                let index_within_coset = index & ((1 << reduction_arity_bits[i]) - 1);
                 index >>= reduction_arity_bits[i];
-                let query_step = query_round_proofs.steps[i][&index].clone();
+                let FriQueryStep {
+                    mut evals,
+                    merkle_proof,
+                } = query_round_proofs.steps[i][&index].clone();
                 steps_indices[i].push(index);
-                steps_evals[i].push(flatten(&query_step.evals));
-                steps_proofs[i].push(query_step.merkle_proof);
+                if let Some(v) = evals_by_depth[i].get(&index) {
+                    // If this index has already been seen, get `evals` from the `HashMap`.
+                    evals = v.to_vec();
+                } else {
+                    // Otherwise insert the next inferred element.
+                    evals.insert(index_within_coset, fri_inferred_elements.next().unwrap());
+                    evals_by_depth[i].insert(index, evals.clone());
+                }
+                steps_evals[i].push(flatten(&evals));
+                steps_proofs[i].push(merkle_proof);
             }
         }
 

@@ -15,7 +15,7 @@ use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
 /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
 /// and P' is the FRI reduced polynomial.
-fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
+pub(crate) fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     x: F,
     x_index_within_coset: usize,
     arity_bits: usize,
@@ -92,7 +92,7 @@ pub(crate) fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
             challenges,
             precomputed_reduced_evals,
             initial_merkle_caps,
-            &proof,
+            proof,
             x_index,
             n,
             round_proof,
@@ -118,14 +118,14 @@ fn fri_verify_initial_proof<F: RichField>(
 /// Holds the reduced (by `alpha`) evaluations at `zeta` for the polynomial opened just at
 /// zeta, for `Z` at zeta and for `Z` at `g*zeta`.
 #[derive(Copy, Clone, Debug)]
-struct PrecomputedReducedEvals<F: Extendable<D>, const D: usize> {
+pub(crate) struct PrecomputedReducedEvals<F: Extendable<D>, const D: usize> {
     pub single: F::Extension,
     pub zs: F::Extension,
     pub zs_right: F::Extension,
 }
 
 impl<F: Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D> {
-    fn from_os_and_alpha(os: &OpeningSet<F, D>, alpha: F::Extension) -> Self {
+    pub(crate) fn from_os_and_alpha(os: &OpeningSet<F, D>, alpha: F::Extension) -> Self {
         let mut alpha = ReducingFactor::new(alpha);
         let single = alpha.reduce(
             os.constants
@@ -146,7 +146,7 @@ impl<F: Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D> {
     }
 }
 
-fn fri_combine_initial<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn fri_combine_initial<F: RichField + Extendable<D>, const D: usize>(
     proof: &FriInitialTreeProof<F>,
     alpha: F::Extension,
     zeta: F::Extension,
@@ -157,10 +157,6 @@ fn fri_combine_initial<F: RichField + Extendable<D>, const D: usize>(
     let config = &common_data.config;
     assert!(D > 1, "Not implemented for D=1.");
     let degree_log = common_data.degree_bits;
-    debug_assert_eq!(
-        degree_log,
-        common_data.config.cap_height + proof.evals_proofs[0].1.siblings.len() - config.rate_bits
-    );
     let subgroup_x = F::Extension::from_basefield(subgroup_x);
     let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;

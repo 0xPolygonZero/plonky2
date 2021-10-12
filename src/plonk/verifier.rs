@@ -5,7 +5,7 @@ use crate::field::field_types::{Field, RichField};
 use crate::fri::verifier::verify_fri_proof;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::plonk::plonk_common::reduce_with_powers;
-use crate::plonk::proof::ProofWithPublicInputs;
+use crate::plonk::proof::{ProofChallenges, ProofWithPublicInputs};
 use crate::plonk::vanishing_poly::eval_vanishing_poly;
 use crate::plonk::vars::EvaluationVars;
 
@@ -14,9 +14,17 @@ pub(crate) fn verify<F: RichField + Extendable<D>, const D: usize>(
     verifier_data: &VerifierOnlyCircuitData<F>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
-    let public_inputs_hash = &proof_with_pis.get_public_inputs_hash();
-
     let challenges = proof_with_pis.get_challenges(common_data)?;
+    verify_with_challenges(proof_with_pis, challenges, verifier_data, common_data)
+}
+
+pub(crate) fn verify_with_challenges<F: RichField + Extendable<D>, const D: usize>(
+    proof_with_pis: ProofWithPublicInputs<F, D>,
+    challenges: ProofChallenges<F, D>,
+    verifier_data: &VerifierOnlyCircuitData<F>,
+    common_data: &CommonCircuitData<F, D>,
+) -> Result<()> {
+    let public_inputs_hash = &proof_with_pis.get_public_inputs_hash();
 
     let ProofWithPublicInputs { proof, .. } = proof_with_pis;
 
