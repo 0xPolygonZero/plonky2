@@ -286,7 +286,7 @@ unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
 #[cfg(not(target_arch = "x86_64"))]
 unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
     let (res_wrapped, carry) = x.overflowing_add(y);
-    res_wrapped.wrapping_add(EPSILON * (borrow as u64))
+    res_wrapped.wrapping_add(EPSILON * (carry as u64))
 }
 
 /// Fast subtraction modulo ORDER for x86-64.
