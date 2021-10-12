@@ -122,6 +122,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProof<F, D> {
     pub(crate) fn decompress(
         self,
         challenges: &ProofChallenges<F, D>,
+        fri_inferred_elements: FriInferredElements<F, D>,
         common_data: &CommonCircuitData<F, D>,
     ) -> Proof<F, D> {
         let CompressedProof {
@@ -137,7 +138,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProof<F, D> {
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
             openings,
-            opening_proof: opening_proof.decompress(challenges, common_data),
+            opening_proof: opening_proof.decompress(
+                &challenges,
+                fri_inferred_elements,
+                common_data,
+            ),
         }
     }
 }
@@ -155,7 +160,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, D>> {
         let challenges = self.get_challenges(common_data)?;
-        let compressed_proof = self.proof.decompress(&challenges, common_data);
+        let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
+        let compressed_proof =
+            self.proof
+                .decompress(&challenges, fri_inferred_elements, common_data);
         Ok(ProofWithPublicInputs {
             public_inputs: self.public_inputs,
             proof: compressed_proof,
@@ -168,7 +176,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<()> {
         let challenges = self.get_challenges(common_data)?;
-        let compressed_proof = self.proof.decompress(&challenges, common_data);
+        let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
+        let compressed_proof =
+            self.proof
+                .decompress(&challenges, fri_inferred_elements, common_data);
         verify_with_challenges(
             ProofWithPublicInputs {
                 public_inputs: self.public_inputs,
@@ -223,11 +234,12 @@ pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> 
 
     // Indices at which the oracle is queried in FRI.
     pub fri_query_indices: Vec<usize>,
-
-    // Coset element that can be inferred in the FRI reduction step.
-    // Is typically set to None iff the challenges are computed from a non-compressed proof.
-    pub fri_query_inferred_elements: Option<Vec<F::Extension>>,
 }
+
+/// Coset element that can be inferred in the FRI reduction step.
+pub(crate) struct FriInferredElements<F: RichField + Extendable<D>, const D: usize>(
+    pub Vec<F::Extension>,
+);
 
 pub struct ProofWithPublicInputsTarget<const D: usize> {
     pub proof: ProofTarget<D>,

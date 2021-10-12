@@ -7,7 +7,7 @@ use crate::hash::hashing::hash_n_to_1;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::proof::{
-    CompressedProofWithPublicInputs, ProofChallenges, ProofWithPublicInputs,
+    CompressedProofWithPublicInputs, FriInferredElements, ProofChallenges, ProofWithPublicInputs,
 };
 use crate::util::reverse_bits;
 
@@ -87,7 +87,6 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
             fri_betas,
             fri_pow_response,
             fri_query_indices,
-            fri_query_inferred_elements: None,
         })
     }
 }
@@ -152,16 +151,39 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
             .map(|_| challenger.get_challenge().to_canonical_u64() as usize % lde_size)
             .collect::<Vec<_>>();
 
-        let mut fri_query_inferred_elements = Vec::new();
+        Ok(ProofChallenges {
+            plonk_betas,
+            plonk_gammas,
+            plonk_alphas,
+            plonk_zeta,
+            fri_alpha,
+            fri_betas,
+            fri_pow_response,
+            fri_query_indices,
+        })
+    }
+    pub(crate) fn get_inferred_elements(
+        &self,
+        challenges: &ProofChallenges<F, D>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> FriInferredElements<F, D> {
+        let ProofChallenges {
+            plonk_zeta,
+            fri_alpha,
+            fri_betas,
+            fri_query_indices,
+            ..
+        } = challenges;
+        let mut fri_inferred_elements = Vec::new();
         // Holds the indices that have already been seen at each reduction depth.
         let mut seen_indices_by_depth =
             vec![HashSet::new(); common_data.fri_params.reduction_arity_bits.len()];
         let precomputed_reduced_evals =
-            PrecomputedReducedEvals::from_os_and_alpha(&self.proof.openings, fri_alpha);
+            PrecomputedReducedEvals::from_os_and_alpha(&self.proof.openings, *fri_alpha);
         let log_n = common_data.degree_bits + common_data.config.rate_bits;
         // Simulate the proof verification and collect the inferred elements.
         // The content of the loop is basically the same as the `fri_verifier_query_round` function.
-        for &(mut x_index) in &fri_query_indices {
+        for &(mut x_index) in fri_query_indices {
             let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
                 * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
             let mut old_eval = fri_combine_initial(
@@ -170,8 +192,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
                     .opening_proof
                     .query_round_proofs
                     .initial_trees_proofs[&x_index],
-                fri_alpha,
-                plonk_zeta,
+                *fri_alpha,
+                *plonk_zeta,
                 subgroup_x,
                 precomputed_reduced_evals,
                 common_data,
@@ -186,7 +208,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
                     // If this index has already been seen, we can skip the rest of the reductions.
                     break;
                 }
-                fri_query_inferred_elements.push(old_eval);
+                fri_inferred_elements.push(old_eval);
                 let arity = 1 << arity_bits;
                 let mut evals = self.proof.opening_proof.query_round_proofs.steps[i]
                     [&(x_index >> arity_bits)]
@@ -205,17 +227,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
                 x_index >>= arity_bits;
             }
         }
-
-        Ok(ProofChallenges {
-            plonk_betas,
-            plonk_gammas,
-            plonk_alphas,
-            plonk_zeta,
-            fri_alpha,
-            fri_betas,
-            fri_pow_response,
-            fri_query_indices,
-            fri_query_inferred_elements: Some(fri_query_inferred_elements),
-        })
+        FriInferredElements(fri_inferred_elements)
     }
 }

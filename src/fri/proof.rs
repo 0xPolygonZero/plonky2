@@ -14,7 +14,7 @@ use crate::hash::path_compression::{compress_merkle_proofs, decompress_merkle_pr
 use crate::iop::target::Target;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::PolynomialsIndexBlinding;
-use crate::plonk::proof::ProofChallenges;
+use crate::plonk::proof::{FriInferredElements, ProofChallenges};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
@@ -236,6 +236,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
     pub(crate) fn decompress(
         self,
         challenges: &ProofChallenges<F, D>,
+        fri_inferred_elements: FriInferredElements<F, D>,
         common_data: &CommonCircuitData<F, D>,
     ) -> FriProof<F, D> {
         let CompressedFriProof {
@@ -247,14 +248,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
         } = self;
         let ProofChallenges {
             fri_query_indices: indices,
-            fri_query_inferred_elements,
             ..
         } = challenges;
-        let mut fri_query_inferred_elements = if let Some(v) = fri_query_inferred_elements {
-            v.iter().copied()
-        } else {
-            panic!("Proof challenges must be computed with `CompressedProofWithPublicInputs::get_challenges()`.")
-        };
+        let mut fri_inferred_elements = fri_inferred_elements.0.into_iter();
         let cap_height = common_data.config.cap_height;
         let reduction_arity_bits = &common_data.fri_params.reduction_arity_bits;
         let num_reductions = reduction_arity_bits.len();
@@ -309,10 +305,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
                     evals = v.to_vec();
                 } else {
                     // Otherwise insert the next inferred element.
-                    evals.insert(
-                        index_within_coset,
-                        fri_query_inferred_elements.next().unwrap(),
-                    );
+                    evals.insert(index_within_coset, fri_inferred_elements.next().unwrap());
                     evals_by_depth[i].insert(index, evals.clone());
                 }
                 steps_evals[i].push(flatten(&evals));
