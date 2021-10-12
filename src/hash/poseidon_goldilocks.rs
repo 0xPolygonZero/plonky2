@@ -354,7 +354,7 @@ impl Poseidon<12> for GoldilocksField {
     #[inline]
     fn poseidon_naive(input: [Self; 12]) -> [Self; 12] {
         unsafe {
-            crate::hash::arch::poseidon_avx2::poseidon(&input)
+            crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::poseidon(&input)
         }
     }
 }
