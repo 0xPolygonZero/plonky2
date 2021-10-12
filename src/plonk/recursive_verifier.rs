@@ -403,6 +403,7 @@ mod tests {
         let normal_config = CircuitConfig::standard_recursion_config();
         let final_config = CircuitConfig {
             rate_bits: 7,
+            cap_height: 0,
             fri_config: FriConfig {
                 proof_of_work_bits: 23,
                 reduction_strategy: FriReductionStrategy::MinSize(None),
