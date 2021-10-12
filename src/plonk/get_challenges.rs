@@ -210,8 +210,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
                 }
                 fri_inferred_elements.push(old_eval);
                 let arity = 1 << arity_bits;
-                let mut evals = self.proof.opening_proof.query_round_proofs.steps[i]
-                    [&(x_index >> arity_bits)]
+                let coset_index = x_index >> arity_bits;
+                let mut evals = self.proof.opening_proof.query_round_proofs.steps[i][&coset_index]
                     .evals
                     .clone();
                 let x_index_within_coset = x_index & (arity - 1);
