@@ -204,13 +204,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
                 .iter()
                 .enumerate()
             {
-                if !seen_indices_by_depth[i].insert(x_index >> arity_bits) {
+                let coset_index = x_index >> arity_bits;
+                if !seen_indices_by_depth[i].insert(coset_index) {
                     // If this index has already been seen, we can skip the rest of the reductions.
                     break;
                 }
                 fri_inferred_elements.push(old_eval);
                 let arity = 1 << arity_bits;
-                let coset_index = x_index >> arity_bits;
                 let mut evals = self.proof.opening_proof.query_round_proofs.steps[i][&coset_index]
                     .evals
                     .clone();
@@ -224,7 +224,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
                     fri_betas[i],
                 );
                 subgroup_x = subgroup_x.exp_power_of_2(arity_bits);
-                x_index >>= arity_bits;
+                x_index = coset_index;
             }
         }
         FriInferredElements(fri_inferred_elements)
