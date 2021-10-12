@@ -471,7 +471,9 @@ mod tests {
         let num_bits = 40;
         let num_chunks = 5;
 
-        test_low_degree::<CrandallField, _, 4>(AssertLessThanGate::<_, 4>::new(num_bits, num_chunks))
+        test_low_degree::<CrandallField, _, 4>(AssertLessThanGate::<_, 4>::new(
+            num_bits, num_chunks,
+        ))
     }
 
     #[test]

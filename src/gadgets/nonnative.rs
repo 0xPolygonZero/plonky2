@@ -13,7 +13,7 @@ use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bimap::bimap_from_lists;
- 
+
 pub struct ForeignFieldTarget<FF: Field> {
     /// These F elements are assumed to contain 32-bit values.
     limbs: Vec<U32Target>,
@@ -24,18 +24,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn order_u32_limbs<FF: Field>(&mut self) -> Vec<U32Target> {
         let modulus = FF::order();
         let limbs = modulus.to_u32_digits();
-        limbs.iter().map(|&limb| self.constant_u32(F::from_canonical_u32(limb))).collect()
+        limbs
+            .iter()
+            .map(|&limb| self.constant_u32(F::from_canonical_u32(limb)))
+            .collect()
     }
 
     // Add two `ForeignFieldTarget`s, which we assume are both normalized.
-    pub fn add_nonnative<FF: Field>(&mut self, a: ForeignFieldTarget<FF>, b: ForeignFieldTarget<FF>) -> ForeignFieldTarget<FF> {
+    pub fn add_nonnative<FF: Field>(
+        &mut self,
+        a: ForeignFieldTarget<FF>,
+        b: ForeignFieldTarget<FF>,
+    ) -> ForeignFieldTarget<FF> {
         let num_limbs = a.limbs.len();
         debug_assert!(b.limbs.len() == num_limbs);
 
         let mut combined_limbs = self.add_virtual_u32_targets(num_limbs + 1);
         let mut carry = self.zero_u32();
         for i in 0..num_limbs {
-            let (new_limb, carry) = self.add_three_u32(carry.clone(), a.limbs[i].clone(), b.limbs[i].clone());
+            let (new_limb, carry) =
+                self.add_three_u32(carry.clone(), a.limbs[i].clone(), b.limbs[i].clone());
             combined_limbs[i] = new_limb;
         }
         combined_limbs[num_limbs] = carry;
@@ -51,7 +59,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         todo!()
     }
 
-    pub fn mul_nonnative<FF: Field>(&mut self, a: ForeignFieldTarget<FF>, b: ForeignFieldTarget<FF>) -> ForeignFieldTarget<FF> {
+    pub fn mul_nonnative<FF: Field>(
+        &mut self,
+        a: ForeignFieldTarget<FF>,
+        b: ForeignFieldTarget<FF>,
+    ) -> ForeignFieldTarget<FF> {
         let num_limbs = a.limbs.len();
         debug_assert!(b.limbs.len() == num_limbs);
 

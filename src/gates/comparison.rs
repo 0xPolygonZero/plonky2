@@ -149,11 +149,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let most_significant_diff_bits: Vec<F::Extension> = (0..self.chunk_bits() + 1)
             .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
             .collect();
-        let bits_combined = reduce_with_powers(
-            &most_significant_diff_bits,
-            F::Extension::TWO,
-        );
-        let two_n_minus_1 = F::Extension::from_canonical_u64(1 << self.chunk_bits()) - F::Extension::ONE;
+        let bits_combined = reduce_with_powers(&most_significant_diff_bits, F::Extension::TWO);
+        let two_n_minus_1 =
+            F::Extension::from_canonical_u64(1 << self.chunk_bits()) - F::Extension::ONE;
         constraints.push((two_n_minus_1 + most_significant_diff) - bits_combined);
 
         // Iff first < second, the top (n + 1st) bit of (2^n - 1 + most_significant_diff) will be 1.
@@ -225,10 +223,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let most_significant_diff_bits: Vec<F> = (0..self.chunk_bits() + 1)
             .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
             .collect();
-        let bits_combined = reduce_with_powers(
-            &most_significant_diff_bits,
-            F::TWO,
-        );
+        let bits_combined = reduce_with_powers(&most_significant_diff_bits, F::TWO);
         let two_n_minus_1 = F::from_canonical_u64(1 << self.chunk_bits()) - F::ONE;
         constraints.push((two_n_minus_1 + most_significant_diff) - bits_combined);
 
@@ -257,11 +252,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             .map(|i| vars.local_wires[self.wire_second_chunk_val(i)])
             .collect();
 
-            let chunk_base = builder.constant(F::from_canonical_usize(1 << self.chunk_bits()));
-            let first_chunks_combined =
-                reduce_with_powers_ext_recursive(builder, &first_chunks, chunk_base);
-            let second_chunks_combined =
-                reduce_with_powers_ext_recursive(builder, &second_chunks, chunk_base);
+        let chunk_base = builder.constant(F::from_canonical_usize(1 << self.chunk_bits()));
+        let first_chunks_combined =
+            reduce_with_powers_ext_recursive(builder, &first_chunks, chunk_base);
+        let second_chunks_combined =
+            reduce_with_powers_ext_recursive(builder, &second_chunks, chunk_base);
 
         constraints.push(builder.sub_extension(first_chunks_combined, first_input));
         constraints.push(builder.sub_extension(second_chunks_combined, second_input));
@@ -314,18 +309,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
             .collect();
         let two = builder.two();
-        let bits_combined = reduce_with_powers_ext_recursive(
-            builder,
-            &most_significant_diff_bits,
-            two,
+        let bits_combined =
+            reduce_with_powers_ext_recursive(builder, &most_significant_diff_bits, two);
+        let two_n_minus_1 = builder.constant_extension(
+            F::Extension::from_canonical_u64(1 << self.chunk_bits()) - F::Extension::ONE,
         );
-        let two_n_minus_1 = builder.constant_extension(F::Extension::from_canonical_u64(1 << self.chunk_bits()) - F::Extension::ONE);
         let sum = builder.add_extension(two_n_minus_1, most_significant_diff);
         constraints.push(builder.sub_extension(sum, bits_combined));
 
         // Iff first < second, the top (n + 1st) bit of (2^n - 1 + most_significant_diff) will be 1.
         let result_bool = vars.local_wires[self.wire_result_bool()];
-        constraints.push(builder.sub_extension(result_bool, most_significant_diff_bits[self.chunk_bits()]));
+        constraints.push(
+            builder.sub_extension(result_bool, most_significant_diff_bits[self.chunk_bits()]),
+        );
 
         constraints
     }
@@ -430,7 +426,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         }
         let most_significant_diff = most_significant_diff_so_far;
 
-        let two_n_plus_msd = ((1 << self.gate.chunk_bits()) - 1) as u64 + most_significant_diff.to_canonical_u64();
+        let two_n_plus_msd =
+            ((1 << self.gate.chunk_bits()) - 1) as u64 + most_significant_diff.to_canonical_u64();
         let msd_bits: Vec<F> = (0..self.gate.chunk_bits() + 1)
             .scan(two_n_plus_msd, |acc, _| {
                 let tmp = *acc % 2;
@@ -439,10 +436,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             })
             .collect();
 
-        out_buffer.set_wire(
-            local_wire(self.gate.wire_result_bool()),
-            result,
-        );
+        out_buffer.set_wire(local_wire(self.gate.wire_result_bool()), result);
         out_buffer.set_wire(
             local_wire(self.gate.wire_most_significant_diff()),
             most_significant_diff,
@@ -468,7 +462,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         }
         for i in 0..self.gate.chunk_bits() + 1 {
             out_buffer.set_wire(
-            local_wire(self.gate.wire_most_significant_diff_bit(i)),
+                local_wire(self.gate.wire_most_significant_diff_bit(i)),
                 msd_bits[i],
             );
         }
@@ -593,7 +587,8 @@ mod tests {
             }
             let most_significant_diff = most_significant_diff_so_far;
 
-            let two_n_min_1_plus_msd = ((1 << chunk_bits) - 1) as u64 + most_significant_diff.to_canonical_u64();
+            let two_n_min_1_plus_msd =
+                ((1 << chunk_bits) - 1) as u64 + most_significant_diff.to_canonical_u64();
             let mut msd_bits: Vec<F> = (0..chunk_bits + 1)
                 .scan(two_n_min_1_plus_msd, |acc, _| {
                     let tmp = *acc % 2;
