@@ -254,31 +254,11 @@ impl Extendable<4> for GoldilocksField {
 
 impl RichField for GoldilocksField {}
 
-/// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
-/// field order and `2^64`.
-#[inline]
-#[cfg(not(target_arch = "x86_64"))]
-fn reduce128(x: u128) -> GoldilocksField {
-    let (x_lo, x_hi) = split(x); // This is a no-op
-    let x_hi_hi = x_hi >> 32;
-    let x_hi_lo = x_hi & EPSILON;
-
-    let (mut t0, borrow) = x_lo.overflowing_sub(x_hi_hi);
-    t0 = t0.wrapping_sub(EPSILON * (borrow as u64));
-
-    let t1 = x_hi_lo * EPSILON;
-
-    let (mut t2, carry) = t1.overflowing_add(t0);
-    t2 = t2.wrapping_add(EPSILON * (carry as u64));
-    GoldilocksField(t2)
-}
-
-/// Tricky, fast addition modulo ORDER for x86-64.
+/// Fast addition modulo ORDER for x86-64.
 /// This function is marked unsafe for the following reasons:
 ///   - It is only correct if x + y < 2**64 + ORDER = 0x1ffffffff00000001.
-///   - It is only provided for x86-64.
-///   - It is only faster in some circumstances. In particular, it overwrites both inputs in the
-///     registers, so its use is not recommended when either input will be used again.
+///   - It is only faster in some circumstances. In particular, on x86 it overwrites both inputs in
+///     the registers, so its use is not recommended when either input will be used again.
 #[inline(always)]
 #[cfg(target_arch = "x86_64")]
 unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
@@ -302,12 +282,18 @@ unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
     res_wrapped.wrapping_add(adjustment) // Add EPSILON == subtract ORDER.
 }
 
-/// Tricky, fast subtraction modulo ORDER for x86-64.
+#[inline(always)]
+#[cfg(not(target_arch = "x86_64"))]
+unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
+    let (res_wrapped, carry) = x.overflowing_add(y);
+    res_wrapped.wrapping_add(EPSILON * (borrow as u64))
+}
+
+/// Fast subtraction modulo ORDER for x86-64.
 /// This function is marked unsafe for the following reasons:
 ///   - It is only correct if x - y >= -ORDER.
-///   - It is only provided for x86-64.
-///   - It is only faster in some circumstances. In particular, it overwrites both inputs in the
-///     registers, so its use is not recommended when either input will be used again.
+///   - It is only faster in some circumstances. In particular, on x86 it overwrites both inputs in
+///     the registers, so its use is not recommended when either input will be used again.
 #[inline(always)]
 #[cfg(target_arch = "x86_64")]
 unsafe fn sub_with_wraparound(x: u64, y: u64) -> u64 {
@@ -323,8 +309,16 @@ unsafe fn sub_with_wraparound(x: u64, y: u64) -> u64 {
     res_wrapped.wrapping_sub(adjustment) // Subtract EPSILON == add ORDER.
 }
 
+#[inline(always)]
+#[cfg(not(target_arch = "x86_64"))]
+unsafe fn sub_with_wraparound(x: u64, y: u64) -> u64 {
+    let (res_wrapped, borrow) = x.overflowing_sub(y);
+    res_wrapped.wrapping_sub(EPSILON * (borrow as u64))
+}
+
+/// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
+/// field order and `2^64`.
 #[inline]
-#[cfg(target_arch = "x86_64")]
 fn reduce128(x: u128) -> GoldilocksField {
     let (x_lo, x_hi) = split(x); // This is a no-op
     let x_hi_hi = x_hi >> 32;
