@@ -149,6 +149,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let most_significant_diff_bits: Vec<F::Extension> = (0..self.chunk_bits() + 1)
             .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
             .collect();
+
+        // Range-check the bits.
+        for i in 0..most_significant_diff_bits.len() {
+            constraints.push(
+                most_significant_diff_bits[i] * (F::Extension::ONE - most_significant_diff_bits[i]),
+            );
+        }
+
         let bits_combined = reduce_with_powers(&most_significant_diff_bits, F::Extension::TWO);
         let two_n_minus_1 =
             F::Extension::from_canonical_u64(1 << self.chunk_bits()) - F::Extension::ONE;
@@ -223,6 +231,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let most_significant_diff_bits: Vec<F> = (0..self.chunk_bits() + 1)
             .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
             .collect();
+
+        // Range-check the bits.
+        for i in 0..most_significant_diff_bits.len() {
+            constraints
+                .push(most_significant_diff_bits[i] * (F::ONE - most_significant_diff_bits[i]));
+        }
+
         let bits_combined = reduce_with_powers(&most_significant_diff_bits, F::TWO);
         let two_n_minus_1 = F::from_canonical_u64(1 << self.chunk_bits()) - F::ONE;
         constraints.push((two_n_minus_1 + most_significant_diff) - bits_combined);
@@ -308,6 +323,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let most_significant_diff_bits: Vec<ExtensionTarget<D>> = (0..self.chunk_bits() + 1)
             .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
             .collect();
+
+        // Range-check the bits.
+        for i in 0..most_significant_diff_bits.len() {
+            let this_bit = most_significant_diff_bits[i];
+            let inverse = builder.sub_extension(one, this_bit);
+            constraints.push(builder.mul_extension(this_bit, inverse));
+        }
+
         let two = builder.two();
         let bits_combined =
             reduce_with_powers_ext_recursive(builder, &most_significant_diff_bits, two);
@@ -351,7 +374,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
     }
 
     fn num_constraints(&self) -> usize {
-        5 + 5 * self.num_chunks
+        6 + 5 * self.num_chunks + self.chunk_bits()
     }
 }
 
