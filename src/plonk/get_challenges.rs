@@ -99,6 +99,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
         Ok(self.get_challenges(common_data)?.fri_query_indices)
     }
 
+    /// Computes all Fiat-Shamir challenges used in the Plonk proof.
     pub(crate) fn get_challenges(
         &self,
         common_data: &CommonCircuitData<F, D>,
@@ -132,6 +133,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInputs<F, D> {
+    /// Computes all Fiat-Shamir challenges used in the Plonk proof.
     pub(crate) fn get_challenges(
         &self,
         common_data: &CommonCircuitData<F, D>,
@@ -163,6 +165,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
         )
     }
 
+    /// Computes all coset elements that can be inferred in the FRI reduction steps.
     pub(crate) fn get_inferred_elements(
         &self,
         challenges: &ProofChallenges<F, D>,

@@ -236,7 +236,7 @@ pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> 
     pub fri_query_indices: Vec<usize>,
 }
 
-/// Coset element that can be inferred in the FRI reduction step.
+/// Coset elements that can be inferred in the FRI reduction steps.
 pub(crate) struct FriInferredElements<F: RichField + Extendable<D>, const D: usize>(
     pub Vec<F::Extension>,
 );
