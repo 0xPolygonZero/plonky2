@@ -45,6 +45,10 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     // not met, some platform-specific implementation of constant_layer may return incorrect
     // results.
     //
+    // WARNING: The AVX2 Goldilocks specialization relies on all round constants being in
+    // 0..0xfffeeac900011537. If these constants are randomly regenerated, there is a ~.6% chance
+    // that this condition will no longer hold.
+    //
     // WARNING: If these are changed in any way, then all the
     // implementations of Poseidon must be regenerated. See comments
     // in `poseidon_goldilocks.rs` and `poseidon_crandall.rs` for

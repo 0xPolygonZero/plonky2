@@ -6,6 +6,9 @@ use crate::field::field_types::Field;
 use crate::field::goldilocks_field::GoldilocksField;
 use crate::hash::poseidon::{ALL_ROUND_CONSTANTS, HALF_N_FULL_ROUNDS, N_PARTIAL_ROUNDS, N_ROUNDS};
 
+// WARNING: This code contains tricks that work for the current MDS matrix and round constants, but
+// are not guaranteed to work if those are changed.
+
 const WIDTH: usize = 12;
 
 const fn make_fused_round_constants() -> [u64; WIDTH * N_ROUNDS] {
@@ -316,6 +319,9 @@ unsafe fn mds_multiply_and_add_round_const_s(
     //   ymm5[0:2] += ymm7[2:4]
     //   ymm5[2:4] += ymm8[0:2]
     // Thus, the final result resides in ymm3, ymm4, ymm5.
+
+    // WARNING: This code assumes that sum(1 << exp for exp in MDS_EXPS) * 0xffffffff fits in a
+    // u64. If this guarantee ceases to hold, then it will no longer be correct.
     let (unreduced_lo0_s, unreduced_lo1_s, unreduced_lo2_s): (__m256i, __m256i, __m256i);
     let (unreduced_hi0, unreduced_hi1, unreduced_hi2): (__m256i, __m256i, __m256i);
     let epsilon = _mm256_set1_epi64x(0xffffffff);
@@ -510,6 +516,11 @@ unsafe fn mds_multiply_and_add_round_const_s(
         // overwritten. Save three instructions by combining the move with the constant layer,
         // which would otherwise be done in 3:. The round constants include the shift by 2**63, so
         // the resulting ymm0,1,2 are also shifted by 2**63.
+        // It is safe to add the round constants here without checking for overflow. The values in
+        // ymm3,4,5 are guaranteed to be <= 0x11536fffeeac9. All round constants are < 2**64
+        // - 0x11536fffeeac9.
+        // WARNING: If this guarantee ceases to hold due to a change in the MDS matrix or round
+        // constants, then this code will no longer be correct.
         "vpaddq ymm0, ymm3, [{base} + {index}]",
         "vpaddq ymm1, ymm4, [{base} + {index} + 32]",
         "vpaddq ymm2, ymm5, [{base} + {index} + 64]",
@@ -751,9 +762,11 @@ unsafe fn all_partial_rounds(
 
 #[inline]
 pub unsafe fn poseidon(state: &[GoldilocksField; 12]) -> [GoldilocksField; 12] {
-    let state = (_mm256_loadu_si256((&state[0..4]).as_ptr().cast::<__m256i>()),
-                 _mm256_loadu_si256((&state[4..8]).as_ptr().cast::<__m256i>()),
-                 _mm256_loadu_si256((&state[8..12]).as_ptr().cast::<__m256i>()));
+    let state = (
+        _mm256_loadu_si256((&state[0..4]).as_ptr().cast::<__m256i>()),
+        _mm256_loadu_si256((&state[4..8]).as_ptr().cast::<__m256i>()),
+        _mm256_loadu_si256((&state[8..12]).as_ptr().cast::<__m256i>()),
+    );
 
     // The first constant layer must be done explicitly. The remaining constant layers are fused
     // with the preceeding MDS layer.
