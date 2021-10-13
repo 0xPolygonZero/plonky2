@@ -145,46 +145,6 @@ impl Poseidon<8> for CrandallField {
         [0x3f3fd62d28872386, 0x2be97f5416341131, 0xaaee943e6eccf7b8, 0x9b7a25991a49b57f,
          0x61e9415bfc0d135a, 0xdc5d5c2cec372bd8, 0x3fc702a71c42c8df, ],
     ];
-
-    #[cfg(all(target_arch="x86_64", target_feature="avx2"))]
-    #[inline(always)]
-    fn constant_layer(state: &mut [Self; 8], round_ctr: usize) {
-        use std::convert::TryInto;
-        use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
-
-        // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
-        unsafe { crate::hash::arch::x86_64::poseidon_crandall_avx2::poseidon_const::<2>(state,
-            ALL_ROUND_CONSTANTS[8 * round_ctr..8 * round_ctr + 8].try_into().unwrap()); }
-    }
-
-    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
-    #[inline(always)]
-    fn constant_layer(state: &mut [Self; 8], round_ctr: usize) {
-        use std::convert::TryInto;
-        use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
-
-        // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
-        unsafe { crate::hash::arch::aarch64::poseidon_crandall_neon::poseidon_const::<4>(state,
-            ALL_ROUND_CONSTANTS[8 * round_ctr..8 * round_ctr + 8].try_into().unwrap()); }
-    }
-
-    #[cfg(all(target_arch="x86_64", target_feature="avx2"))]
-    #[inline(always)]
-    fn mds_layer(state_: &[CrandallField; 8]) -> [CrandallField; 8] {
-        crate::hash::arch::x86_64::poseidon_crandall_avx2::poseidon8_mds(*state_)
-    }
-
-    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
-    #[inline]
-    fn mds_layer(state_: &[CrandallField; 8]) -> [CrandallField; 8] {
-        crate::hash::arch::aarch64::poseidon_crandall_neon::poseidon8_mds(*state_)
-    }
-
-    #[cfg(all(target_arch="x86_64", target_feature="avx2"))]
-    #[inline(always)]
-    fn sbox_layer(state: &mut [Self; 8]) {
-        crate::hash::arch::x86_64::poseidon_crandall_avx2::poseidon_sbox::<2>(state);
-    }
 }
 
 #[rustfmt::skip]
@@ -390,46 +350,6 @@ impl Poseidon<12> for CrandallField {
          0xda5e708c57dfe9f9, 0x2d506a5bb5b7480c, 0xf2bfc6a0100f3c6d, 0x029914d117a17af3,
          0xf2bc5f8a1eb47c5f, 0xeb159cc540fb5e78, 0x8a041eb885fb24f5, ],
     ];
-
-    #[cfg(all(target_arch="x86_64", target_feature="avx2"))]
-    #[inline(always)]
-    fn constant_layer(state: &mut [Self; 12], round_ctr: usize) {
-        use std::convert::TryInto;
-        use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
-
-        // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
-        unsafe { crate::hash::arch::x86_64::poseidon_crandall_avx2::poseidon_const::<3>(
-            state, ALL_ROUND_CONSTANTS[12 * round_ctr..12 * round_ctr + 12].try_into().unwrap()); }
-    }
-
-    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
-    #[inline(always)]
-    fn constant_layer(state: &mut [Self; 12], round_ctr: usize) {
-        use std::convert::TryInto;
-        use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
-
-        // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
-        unsafe { crate::hash::arch::aarch64::poseidon_crandall_neon::poseidon_const::<6>(state,
-            ALL_ROUND_CONSTANTS[12 * round_ctr..12 * round_ctr + 12].try_into().unwrap()); }
-    }
-
-    #[cfg(all(target_arch="x86_64", target_feature="avx2"))]
-    #[inline(always)]
-    fn mds_layer(state_: &[CrandallField; 12]) -> [CrandallField; 12] {
-        crate::hash::arch::x86_64::poseidon_crandall_avx2::poseidon12_mds(*state_)
-    }
-
-    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
-    #[inline]
-    fn mds_layer(state_: &[CrandallField; 12]) -> [CrandallField; 12] {
-        crate::hash::arch::aarch64::poseidon_crandall_neon::poseidon12_mds(*state_)
-    }
-
-    #[cfg(all(target_arch="x86_64", target_feature="avx2"))]
-    #[inline(always)]
-    fn sbox_layer(state: &mut [Self; 12]) {
-        crate::hash::arch::x86_64::poseidon_crandall_avx2::poseidon_sbox::<3>(state);
-    }
 }
 
 #[cfg(test)]
