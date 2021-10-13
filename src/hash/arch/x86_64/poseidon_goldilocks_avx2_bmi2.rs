@@ -3,7 +3,7 @@ use std::mem::size_of;
 
 use crate::field::field_types::Field;
 use crate::field::goldilocks_field::GoldilocksField;
-use crate::hash::poseidon::{Poseidon, ALL_ROUND_CONSTANTS, HALF_N_FULL_ROUNDS, N_PARTIAL_ROUNDS};
+use crate::hash::poseidon::{ALL_ROUND_CONSTANTS, HALF_N_FULL_ROUNDS, N_PARTIAL_ROUNDS};
 
 const WIDTH: usize = 12;
 
