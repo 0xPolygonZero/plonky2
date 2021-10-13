@@ -2,14 +2,94 @@ use std::collections::HashSet;
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
+use crate::fri::proof::{CompressedFriProof, FriProof};
 use crate::fri::verifier::{compute_evaluation, fri_combine_initial, PrecomputedReducedEvals};
+use crate::hash::hash_types::HashOut;
 use crate::hash::hashing::hash_n_to_1;
+use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::proof::{
-    CompressedProofWithPublicInputs, FriInferredElements, ProofChallenges, ProofWithPublicInputs,
+    CompressedProof, CompressedProofWithPublicInputs, FriInferredElements, OpeningSet, Proof,
+    ProofChallenges, ProofWithPublicInputs,
 };
+use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::util::reverse_bits;
+
+fn get_challenges<F: RichField + Extendable<D>, const D: usize>(
+    public_inputs_hash: HashOut<F>,
+    wires_cap: &MerkleCap<F>,
+    plonk_zs_partial_products_cap: &MerkleCap<F>,
+    quotient_polys_cap: &MerkleCap<F>,
+    openings: &OpeningSet<F, D>,
+    commit_phase_merkle_caps: &[MerkleCap<F>],
+    final_poly: &PolynomialCoeffs<F::Extension>,
+    pow_witness: F,
+    common_data: &CommonCircuitData<F, D>,
+) -> anyhow::Result<ProofChallenges<F, D>> {
+    let config = &common_data.config;
+    let num_challenges = config.num_challenges;
+    let num_fri_queries = config.fri_config.num_query_rounds;
+    let lde_size = common_data.lde_size();
+
+    let mut challenger = Challenger::new();
+
+    // Observe the instance.
+    challenger.observe_hash(&common_data.circuit_digest);
+    challenger.observe_hash(&public_inputs_hash);
+
+    challenger.observe_cap(wires_cap);
+    let plonk_betas = challenger.get_n_challenges(num_challenges);
+    let plonk_gammas = challenger.get_n_challenges(num_challenges);
+
+    challenger.observe_cap(plonk_zs_partial_products_cap);
+    let plonk_alphas = challenger.get_n_challenges(num_challenges);
+
+    challenger.observe_cap(quotient_polys_cap);
+    let plonk_zeta = challenger.get_extension_challenge();
+
+    challenger.observe_opening_set(openings);
+
+    // Scaling factor to combine polynomials.
+    let fri_alpha = challenger.get_extension_challenge();
+
+    // Recover the random betas used in the FRI reductions.
+    let fri_betas = commit_phase_merkle_caps
+        .iter()
+        .map(|cap| {
+            challenger.observe_cap(cap);
+            challenger.get_extension_challenge()
+        })
+        .collect();
+
+    challenger.observe_extension_elements(&final_poly.coeffs);
+
+    let fri_pow_response = hash_n_to_1(
+        challenger
+            .get_hash()
+            .elements
+            .iter()
+            .copied()
+            .chain(Some(pow_witness))
+            .collect(),
+        false,
+    );
+
+    let fri_query_indices = (0..num_fri_queries)
+        .map(|_| challenger.get_challenge().to_canonical_u64() as usize % lde_size)
+        .collect();
+
+    Ok(ProofChallenges {
+        plonk_betas,
+        plonk_gammas,
+        plonk_alphas,
+        plonk_zeta,
+        fri_alpha,
+        fri_betas,
+        fri_pow_response,
+        fri_query_indices,
+    })
+}
 
 impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
     pub(crate) fn fri_query_indices(
@@ -19,149 +99,73 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
         Ok(self.get_challenges(common_data)?.fri_query_indices)
     }
 
+    /// Computes all Fiat-Shamir challenges used in the Plonk proof.
     pub(crate) fn get_challenges(
         &self,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<ProofChallenges<F, D>> {
-        let config = &common_data.config;
-        let num_challenges = config.num_challenges;
-        let num_fri_queries = config.fri_config.num_query_rounds;
-        let lde_size = common_data.lde_size();
+        let Proof {
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            opening_proof:
+                FriProof {
+                    commit_phase_merkle_caps,
+                    final_poly,
+                    pow_witness,
+                    ..
+                },
+        } = &self.proof;
 
-        let mut challenger = Challenger::new();
-
-        // Observe the instance.
-        challenger.observe_hash(&common_data.circuit_digest);
-        challenger.observe_hash(&self.get_public_inputs_hash());
-
-        challenger.observe_cap(&self.proof.wires_cap);
-        let plonk_betas = challenger.get_n_challenges(num_challenges);
-        let plonk_gammas = challenger.get_n_challenges(num_challenges);
-
-        challenger.observe_cap(&self.proof.plonk_zs_partial_products_cap);
-        let plonk_alphas = challenger.get_n_challenges(num_challenges);
-
-        challenger.observe_cap(&self.proof.quotient_polys_cap);
-        let plonk_zeta = challenger.get_extension_challenge();
-
-        challenger.observe_opening_set(&self.proof.openings);
-
-        // Scaling factor to combine polynomials.
-        let fri_alpha = challenger.get_extension_challenge();
-
-        // Recover the random betas used in the FRI reductions.
-        let fri_betas = self
-            .proof
-            .opening_proof
-            .commit_phase_merkle_caps
-            .iter()
-            .map(|cap| {
-                challenger.observe_cap(cap);
-                challenger.get_extension_challenge()
-            })
-            .collect();
-
-        challenger.observe_extension_elements(&self.proof.opening_proof.final_poly.coeffs);
-
-        let fri_pow_response = hash_n_to_1(
-            challenger
-                .get_hash()
-                .elements
-                .iter()
-                .copied()
-                .chain(Some(self.proof.opening_proof.pow_witness))
-                .collect(),
-            false,
-        );
-
-        let fri_query_indices = (0..num_fri_queries)
-            .map(|_| challenger.get_challenge().to_canonical_u64() as usize % lde_size)
-            .collect();
-
-        Ok(ProofChallenges {
-            plonk_betas,
-            plonk_gammas,
-            plonk_alphas,
-            plonk_zeta,
-            fri_alpha,
-            fri_betas,
-            fri_pow_response,
-            fri_query_indices,
-        })
+        get_challenges(
+            self.get_public_inputs_hash(),
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            commit_phase_merkle_caps,
+            final_poly,
+            *pow_witness,
+            common_data,
+        )
     }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInputs<F, D> {
+    /// Computes all Fiat-Shamir challenges used in the Plonk proof.
     pub(crate) fn get_challenges(
         &self,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<ProofChallenges<F, D>> {
-        let config = &common_data.config;
-        let num_challenges = config.num_challenges;
-        let num_fri_queries = config.fri_config.num_query_rounds;
-        let lde_size = common_data.lde_size();
+        let CompressedProof {
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            opening_proof:
+                CompressedFriProof {
+                    commit_phase_merkle_caps,
+                    final_poly,
+                    pow_witness,
+                    ..
+                },
+        } = &self.proof;
 
-        let mut challenger = Challenger::new();
-
-        // Observe the instance.
-        challenger.observe_hash(&common_data.circuit_digest);
-        challenger.observe_hash(&self.get_public_inputs_hash());
-
-        challenger.observe_cap(&self.proof.wires_cap);
-        let plonk_betas = challenger.get_n_challenges(num_challenges);
-        let plonk_gammas = challenger.get_n_challenges(num_challenges);
-
-        challenger.observe_cap(&self.proof.plonk_zs_partial_products_cap);
-        let plonk_alphas = challenger.get_n_challenges(num_challenges);
-
-        challenger.observe_cap(&self.proof.quotient_polys_cap);
-        let plonk_zeta = challenger.get_extension_challenge();
-
-        challenger.observe_opening_set(&self.proof.openings);
-
-        // Scaling factor to combine polynomials.
-        let fri_alpha = challenger.get_extension_challenge();
-
-        // Recover the random betas used in the FRI reductions.
-        let fri_betas = self
-            .proof
-            .opening_proof
-            .commit_phase_merkle_caps
-            .iter()
-            .map(|cap| {
-                challenger.observe_cap(cap);
-                challenger.get_extension_challenge()
-            })
-            .collect::<Vec<_>>();
-
-        challenger.observe_extension_elements(&self.proof.opening_proof.final_poly.coeffs);
-
-        let fri_pow_response = hash_n_to_1(
-            challenger
-                .get_hash()
-                .elements
-                .iter()
-                .copied()
-                .chain(Some(self.proof.opening_proof.pow_witness))
-                .collect(),
-            false,
-        );
-
-        let fri_query_indices = (0..num_fri_queries)
-            .map(|_| challenger.get_challenge().to_canonical_u64() as usize % lde_size)
-            .collect::<Vec<_>>();
-
-        Ok(ProofChallenges {
-            plonk_betas,
-            plonk_gammas,
-            plonk_alphas,
-            plonk_zeta,
-            fri_alpha,
-            fri_betas,
-            fri_pow_response,
-            fri_query_indices,
-        })
+        get_challenges(
+            self.get_public_inputs_hash(),
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            commit_phase_merkle_caps,
+            final_poly,
+            *pow_witness,
+            common_data,
+        )
     }
+
+    /// Computes all coset elements that can be inferred in the FRI reduction steps.
     pub(crate) fn get_inferred_elements(
         &self,
         challenges: &ProofChallenges<F, D>,
