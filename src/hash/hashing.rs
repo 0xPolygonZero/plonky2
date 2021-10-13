@@ -141,6 +141,6 @@ pub fn hash_n_to_1<F: RichField>(inputs: Vec<F>, pad: bool) -> F {
 pub(crate) fn permute<F: RichField>(inputs: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
     match HASH_FAMILY {
         HashFamily::GMiMC => F::gmimc_permute(inputs),
-        HashFamily::Poseidon => F::poseidon_naive(inputs),
+        HashFamily::Poseidon => F::poseidon(inputs),
     }
 }
