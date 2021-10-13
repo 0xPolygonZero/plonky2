@@ -81,7 +81,7 @@ where
 }
 
 #[inline(always)]
-pub fn crandall_poseidon8_mds_neon(state: [CrandallField; 8]) -> [CrandallField; 8] {
+pub fn poseidon8_mds(state: [CrandallField; 8]) -> [CrandallField; 8] {
     unsafe {
         let mut res = [(vmovq_n_u64(0), vmovq_n_u64(0)); 4];
 
@@ -171,7 +171,7 @@ where
 }
 
 #[inline(always)]
-pub fn crandall_poseidon12_mds_neon(state: [CrandallField; 12]) -> [CrandallField; 12] {
+pub fn poseidon12_mds(state: [CrandallField; 12]) -> [CrandallField; 12] {
     unsafe {
         let mut res = [(vmovq_n_u64(0), vmovq_n_u64(0)); 6];
 
@@ -235,7 +235,7 @@ unsafe fn mul_add_32_32_64(x: uint32x2_t, y: uint32x2_t, z: uint64x2_t) -> uint6
 /// 0..CrandallField::ORDER; when this is not true it may return garbage. It's marked unsafe for
 /// this reason.
 #[inline(always)]
-pub unsafe fn crandall_poseidon_const_neon<const PACKED_WIDTH: usize>(
+pub unsafe fn poseidon_const<const PACKED_WIDTH: usize>(
     state: &mut [CrandallField; 2 * PACKED_WIDTH],
     round_constants: [u64; 2 * PACKED_WIDTH],
 ) {
