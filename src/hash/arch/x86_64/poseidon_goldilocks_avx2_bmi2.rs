@@ -11,6 +11,11 @@ use crate::hash::poseidon::{ALL_ROUND_CONSTANTS, HALF_N_FULL_ROUNDS, N_PARTIAL_R
 
 const WIDTH: usize = 12;
 
+// These tranformed round constants are used where the constant layer is fused with the preceeding
+// MDS layer. The FUSED_ROUND_CONSTANTS for round i are the ALL_ROUND_CONSTANTS for round i + 1.
+// The FUSED_ROUND_CONSTANTS for the very last round are 0, as it is not followed by a constant
+// layer. On top of that, all FUSED_ROUND_CONSTANTS are shifted by 2 ** 63 to save a few XORs per
+// round.
 const fn make_fused_round_constants() -> [u64; WIDTH * N_ROUNDS] {
     let mut res = [0x8000000000000000u64; WIDTH * N_ROUNDS];
     let mut i: usize = WIDTH;
