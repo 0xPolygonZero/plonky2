@@ -17,7 +17,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 pub(crate) const HALF_N_FULL_ROUNDS: usize = 4;
 pub(crate) const N_FULL_ROUNDS_TOTAL: usize = 2 * HALF_N_FULL_ROUNDS;
 pub(crate) const N_PARTIAL_ROUNDS: usize = 22;
-const N_ROUNDS: usize = N_FULL_ROUNDS_TOTAL + N_PARTIAL_ROUNDS;
+pub(crate) const N_ROUNDS: usize = N_FULL_ROUNDS_TOTAL + N_PARTIAL_ROUNDS;
 const MAX_WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :)
 
 #[inline(always)]
