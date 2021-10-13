@@ -71,7 +71,7 @@ where
 }
 
 #[inline(always)]
-pub fn crandall_poseidon8_mds_avx2(state: [CrandallField; 8]) -> [CrandallField; 8] {
+pub fn poseidon8_mds(state: [CrandallField; 8]) -> [CrandallField; 8] {
     unsafe {
         let mut res_s = [(_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)); 2];
 
@@ -148,7 +148,7 @@ where
 }
 
 #[inline(always)]
-pub fn crandall_poseidon12_mds_avx2(state: [CrandallField; 12]) -> [CrandallField; 12] {
+pub fn poseidon12_mds(state: [CrandallField; 12]) -> [CrandallField; 12] {
     unsafe {
         let mut res_s = [(_mm256_setzero_si256(), _mm256_set1_epi64x(SIGN_BIT as i64)); 3];
 
@@ -209,7 +209,7 @@ unsafe fn add_no_canonicalize_64_64s(x: __m256i, y_s: __m256i) -> __m256i {
 /// 0..CrandallField::ORDER; when this is not true it may return garbage. It's marked unsafe for
 /// this reason.
 #[inline(always)]
-pub unsafe fn crandall_poseidon_const_avx2<const PACKED_WIDTH: usize>(
+pub unsafe fn poseidon_const<const PACKED_WIDTH: usize>(
     state: &mut [CrandallField; 4 * PACKED_WIDTH],
     round_constants: [u64; 4 * PACKED_WIDTH],
 ) {
@@ -222,9 +222,7 @@ pub unsafe fn crandall_poseidon_const_avx2<const PACKED_WIDTH: usize>(
 }
 
 #[inline(always)]
-pub fn crandall_poseidon_sbox_avx2<const PACKED_WIDTH: usize>(
-    state: &mut [CrandallField; 4 * PACKED_WIDTH],
-) {
+pub fn poseidon_sbox<const PACKED_WIDTH: usize>(state: &mut [CrandallField; 4 * PACKED_WIDTH]) {
     // This function is manually interleaved to maximize instruction-level parallelism.
 
     let packed_state = PackedCrandallAVX2::pack_slice_mut(state);

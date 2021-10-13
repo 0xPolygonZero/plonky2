@@ -146,44 +146,44 @@ impl Poseidon<8> for CrandallField {
          0x61e9415bfc0d135a, 0xdc5d5c2cec372bd8, 0x3fc702a71c42c8df, ],
     ];
 
-    #[cfg(target_feature="avx2")]
+    #[cfg(all(target_arch="x86_64", target_feature="avx2"))]
     #[inline(always)]
     fn constant_layer(state: &mut [Self; 8], round_ctr: usize) {
         use std::convert::TryInto;
         use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
 
         // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
-        unsafe { crate::hash::poseidon_avx2::crandall_poseidon_const_avx2::<2>(state,
+        unsafe { crate::hash::arch::x86_64::poseidon_crandall_avx2::poseidon_const::<2>(state,
             ALL_ROUND_CONSTANTS[8 * round_ctr..8 * round_ctr + 8].try_into().unwrap()); }
     }
 
-    #[cfg(target_feature="neon")]
+    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
     #[inline(always)]
     fn constant_layer(state: &mut [Self; 8], round_ctr: usize) {
         use std::convert::TryInto;
         use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
 
         // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
-        unsafe { crate::hash::poseidon_neon::crandall_poseidon_const_neon::<4>(state,
+        unsafe { crate::hash::arch::aarch64::poseidon_crandall_neon::poseidon_const::<4>(state,
             ALL_ROUND_CONSTANTS[8 * round_ctr..8 * round_ctr + 8].try_into().unwrap()); }
     }
 
-    #[cfg(target_feature="avx2")]
+    #[cfg(all(target_arch="x86_64", target_feature="avx2"))]
     #[inline(always)]
     fn mds_layer(state_: &[CrandallField; 8]) -> [CrandallField; 8] {
-        crate::hash::poseidon_avx2::crandall_poseidon8_mds_avx2(*state_)
+        crate::hash::arch::x86_64::poseidon_crandall_avx2::poseidon8_mds(*state_)
     }
 
-    #[cfg(target_feature="neon")]
+    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
     #[inline]
     fn mds_layer(state_: &[CrandallField; 8]) -> [CrandallField; 8] {
-        crate::hash::poseidon_neon::crandall_poseidon8_mds_neon(*state_)
+        crate::hash::arch::aarch64::poseidon_crandall_neon::poseidon8_mds(*state_)
     }
 
-    #[cfg(target_feature="avx2")]
+    #[cfg(all(target_arch="x86_64", target_feature="avx2"))]
     #[inline(always)]
     fn sbox_layer(state: &mut [Self; 8]) {
-        crate::hash::poseidon_avx2::crandall_poseidon_sbox_avx2::<2>(state);
+        crate::hash::arch::x86_64::poseidon_crandall_avx2::poseidon_sbox::<2>(state);
     }
 }
 
@@ -391,44 +391,44 @@ impl Poseidon<12> for CrandallField {
          0xf2bc5f8a1eb47c5f, 0xeb159cc540fb5e78, 0x8a041eb885fb24f5, ],
     ];
 
-    #[cfg(target_feature="avx2")]
+    #[cfg(all(target_arch="x86_64", target_feature="avx2"))]
     #[inline(always)]
     fn constant_layer(state: &mut [Self; 12], round_ctr: usize) {
         use std::convert::TryInto;
         use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
 
         // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
-        unsafe { crate::hash::poseidon_avx2::crandall_poseidon_const_avx2::<3>(state,
-            ALL_ROUND_CONSTANTS[12 * round_ctr..12 * round_ctr + 12].try_into().unwrap()); }
+        unsafe { crate::hash::arch::x86_64::poseidon_crandall_avx2::poseidon_const::<3>(
+            state, ALL_ROUND_CONSTANTS[12 * round_ctr..12 * round_ctr + 12].try_into().unwrap()); }
     }
 
-    #[cfg(target_feature="neon")]
+    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
     #[inline(always)]
     fn constant_layer(state: &mut [Self; 12], round_ctr: usize) {
         use std::convert::TryInto;
         use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
 
         // This assumes that every element of ALL_ROUND_CONSTANTS is in 0..CrandallField::ORDER.
-        unsafe { crate::hash::poseidon_neon::crandall_poseidon_const_neon::<6>(state,
+        unsafe { crate::hash::arch::aarch64::poseidon_crandall_neon::poseidon_const::<6>(state,
             ALL_ROUND_CONSTANTS[12 * round_ctr..12 * round_ctr + 12].try_into().unwrap()); }
     }
 
-    #[cfg(target_feature="avx2")]
+    #[cfg(all(target_arch="x86_64", target_feature="avx2"))]
     #[inline(always)]
     fn mds_layer(state_: &[CrandallField; 12]) -> [CrandallField; 12] {
-        crate::hash::poseidon_avx2::crandall_poseidon12_mds_avx2(*state_)
+        crate::hash::arch::x86_64::poseidon_crandall_avx2::poseidon12_mds(*state_)
     }
 
-    #[cfg(target_feature="neon")]
+    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
     #[inline]
     fn mds_layer(state_: &[CrandallField; 12]) -> [CrandallField; 12] {
-        crate::hash::poseidon_neon::crandall_poseidon12_mds_neon(*state_)
+        crate::hash::arch::aarch64::poseidon_crandall_neon::poseidon12_mds(*state_)
     }
 
-    #[cfg(target_feature="avx2")]
+    #[cfg(all(target_arch="x86_64", target_feature="avx2"))]
     #[inline(always)]
     fn sbox_layer(state: &mut [Self; 12]) {
-        crate::hash::poseidon_avx2::crandall_poseidon_sbox_avx2::<3>(state);
+        crate::hash::arch::x86_64::poseidon_crandall_avx2::poseidon_sbox::<3>(state);
     }
 }
 
