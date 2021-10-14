@@ -30,7 +30,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    // Add two `ForeignFieldTarget`s, which we assume are both normalized.
+    // Add two `ForeignFieldTarget`s.
     pub fn add_nonnative<FF: Field>(
         &mut self,
         a: ForeignFieldTarget<FF>,
@@ -42,8 +42,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut combined_limbs = self.add_virtual_u32_targets(num_limbs + 1);
         let mut carry = self.zero_u32();
         for i in 0..num_limbs {
-            let (new_limb, carry) =
+            let (new_limb, new_carry) =
                 self.add_three_u32(carry.clone(), a.limbs[i].clone(), b.limbs[i].clone());
+            carry = new_carry;
             combined_limbs[i] = new_limb;
         }
         combined_limbs[num_limbs] = carry;
@@ -55,9 +56,59 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// Reduces the result of a non-native addition.
     pub fn reduce_add_result<FF: Field>(&mut self, limbs: Vec<U32Target>) -> Vec<U32Target> {
-        todo!()
+        let num_limbs = limbs.len();
+
+        let mut modulus_limbs = self.order_u32_limbs::<FF>();
+        modulus_limbs.append(self.zero_u32());
+
+        let needs_reduce = self.list_le(modulus, limbs);
+
+        let mut to_subtract = vec![];
+        for i in 0..num_limbs {
+            let (low, _high) = self.mul_u32(modulus_limbs[i], needs_reduce);
+            to_subtract.append(low);
+        }
+
+        let mut reduced_limbs = vec![];
+
+        let mut borrow = self.zero_u32();
+        for i in 0..num_limbs {
+            let (result, new_borrow) = self.sub_u32(limbs[i], to_subtract[i], borrow);
+            reduced_limbs[i] = result;
+            borrow = new_borrow;
+        }
+        // Borrow should be zero here.
+
+        reduced_limbs
     }
+
+    // Subtract two `ForeignFieldTarget`s. We assume that the first is larger than the second.
+    pub fn sub_nonnative<FF: Field>(
+        &mut self,
+        a: ForeignFieldTarget<FF>,
+        b: ForeignFieldTarget<FF>,
+    ) -> ForeignFieldTarget<FF> {
+        let num_limbs = a.limbs.len();
+        debug_assert!(b.limbs.len() == num_limbs);
+
+        let mut result_limbs = vec![];
+
+        let mut borrow = self.zero_u32();
+        for i in 0..num_limbs {
+            let (result, new_borrow) = self.sub_u32(a.limbs[i], b.limbs[i], borrow);
+            reduced_limbs[i] = result;
+            borrow = new_borrow;
+        }
+        // Borrow should be zero here.
+
+        ForeignFieldTarget {
+            limbs: result_limbs,
+            _phantom: PhantomData,
+        }
+    }
+
 
     pub fn mul_nonnative<FF: Field>(
         &mut self,
