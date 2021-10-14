@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::gates::arithmetic_u32::{U32ArithmeticGate, NUM_U32_ARITHMETIC_OPS};
+use crate::gates::subtraction_u32::U32SubtractionGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -91,7 +92,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_add_u32(a, b, zero)
     }
 
-    // Returns x * y + z.
+    // Returns x - y - borrow, as a pair (result, borrow), where borrow is 0 or 1 depending on whether borrowing from the next digit is required (iff y + borrow > x).
     pub fn sub_u32(
         &mut self,
         x: U32Target,
@@ -103,31 +104,34 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect(
             Target::wire(
                 gate_index,
-                U32ArithmeticGate::<F, D>::wire_ith_multiplicand_0(copy),
+                U32SubtractionGate::<F, D>::wire_ith_input_x(copy),
             ),
             x.0,
         );
         self.connect(
             Target::wire(
                 gate_index,
-                U32ArithmeticGate::<F, D>::wire_ith_multiplicand_1(copy),
+                U32SubtractionGate::<F, D>::wire_ith_input_y(copy),
             ),
             y.0,
         );
         self.connect(
-            Target::wire(gate_index, U32ArithmeticGate::<F, D>::wire_ith_addend(copy)),
-            z.0,
+            Target::wire(
+                gate_index,
+                U32SubtractionGate::<F, D>::wire_ith_input_borrow(copy),
+            ),
+            borrow.0,
         );
 
-        let output_low = U32Target(Target::wire(
+        let output_result = U32Target(Target::wire(
             gate_index,
-            U32ArithmeticGate::<F, D>::wire_ith_output_low_half(copy),
+            U32SubtractionGate::<F, D>::wire_ith_output_result(copy),
         ));
-        let output_high = U32Target(Target::wire(
+        let output_borrow = U32Target(Target::wire(
             gate_index,
-            U32ArithmeticGate::<F, D>::wire_ith_output_high_half(copy),
+            U32SubtractionGate::<F, D>::wire_ith_output_borrow(copy),
         ));
 
-        (output_low, output_high)
+        (output_result, output_borrow)
     }
 }
