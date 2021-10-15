@@ -549,7 +549,7 @@ where
     }
 
     #[inline]
-    fn partial_rounds_fast(state: &mut [Self; WIDTH], round_ctr: &mut usize) {
+    fn partial_rounds(state: &mut [Self; WIDTH], round_ctr: &mut usize) {
         Self::partial_first_constant_layer(state);
         *state = Self::mds_partial_layer_init(state);
 
@@ -564,7 +564,21 @@ where
     }
 
     #[inline]
-    fn partial_rounds(state: &mut [Self; WIDTH], round_ctr: &mut usize) {
+    fn poseidon(input: [Self; WIDTH]) -> [Self; WIDTH] {
+        let mut state = input;
+        let mut round_ctr = 0;
+
+        Self::full_rounds(&mut state, &mut round_ctr);
+        Self::partial_rounds(&mut state, &mut round_ctr);
+        Self::full_rounds(&mut state, &mut round_ctr);
+        debug_assert_eq!(round_ctr, N_ROUNDS);
+
+        state
+    }
+
+    // For testing only, to ensure that various tricks are correct.
+    #[inline]
+    fn partial_rounds_naive(state: &mut [Self; WIDTH], round_ctr: &mut usize) {
         for _ in 0..N_PARTIAL_ROUNDS {
             Self::constant_layer(state, *round_ctr);
             state[0] = Self::sbox_monomial(state[0]);
@@ -574,25 +588,12 @@ where
     }
 
     #[inline]
-    fn poseidon(input: [Self; WIDTH]) -> [Self; WIDTH] {
-        let mut state = input;
-        let mut round_ctr = 0;
-
-        Self::full_rounds(&mut state, &mut round_ctr);
-        Self::partial_rounds_fast(&mut state, &mut round_ctr);
-        Self::full_rounds(&mut state, &mut round_ctr);
-        debug_assert_eq!(round_ctr, N_ROUNDS);
-
-        state
-    }
-
-    #[inline]
     fn poseidon_naive(input: [Self; WIDTH]) -> [Self; WIDTH] {
         let mut state = input;
         let mut round_ctr = 0;
 
         Self::full_rounds(&mut state, &mut round_ctr);
-        Self::partial_rounds(&mut state, &mut round_ctr);
+        Self::partial_rounds_naive(&mut state, &mut round_ctr);
         Self::full_rounds(&mut state, &mut round_ctr);
         debug_assert_eq!(round_ctr, N_ROUNDS);
 
