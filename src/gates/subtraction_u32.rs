@@ -13,7 +13,7 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-/// Number of arithmetic operations performed by an arithmetic gate.
+/// Maximum number of subtractions operations performed by a single gate.
 pub const NUM_U32_SUBTRACTION_OPS: usize = 3;
 
 /// A gate to perform a subtraction .
@@ -28,7 +28,7 @@ impl<F: RichField + Extendable<D>, const D: usize> U32SubtractionGate<F, D> {
             _phantom: PhantomData,
         }
     }
-    
+
     pub fn wire_ith_input_x(i: usize) -> usize {
         debug_assert!(i < NUM_U32_SUBTRACTION_OPS);
         5 * i
@@ -168,7 +168,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32Subtraction
 
             // Range-check output_result to be at most 32 bits.
             let mut combined_limbs = builder.zero_extension();
-            let limb_base = builder.constant_extension(F::Extension::from_canonical_u64(1u64 << Self::limb_bits()));
+            let limb_base = builder
+                .constant_extension(F::Extension::from_canonical_u64(1u64 << Self::limb_bits()));
             for j in (0..Self::num_limbs()).rev() {
                 let this_limb = vars.local_wires[Self::wire_ith_output_jth_limb(i, j)];
                 let max_limb = 1 << Self::limb_bits();
@@ -245,15 +246,15 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let local_target = |input| Target::wire(self.gate_index, input);
 
         let mut deps = Vec::with_capacity(3);
-        deps.push(local_target(
-            U32SubtractionGate::<F, D>::wire_ith_input_x(self.i),
-        ));
-        deps.push(local_target(
-            U32SubtractionGate::<F, D>::wire_ith_input_y(self.i),
-        ));
-        deps.push(local_target(U32SubtractionGate::<F, D>::wire_ith_input_borrow(
+        deps.push(local_target(U32SubtractionGate::<F, D>::wire_ith_input_x(
             self.i,
         )));
+        deps.push(local_target(U32SubtractionGate::<F, D>::wire_ith_input_y(
+            self.i,
+        )));
+        deps.push(local_target(
+            U32SubtractionGate::<F, D>::wire_ith_input_borrow(self.i),
+        ));
         deps
     }
 
@@ -265,11 +266,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         let get_local_wire = |input| witness.get_wire(local_wire(input));
 
-        let input_x =
-            get_local_wire(U32SubtractionGate::<F, D>::wire_ith_input_x(self.i));
-        let input_y =
-            get_local_wire(U32SubtractionGate::<F, D>::wire_ith_input_y(self.i));
-        let input_borrow = get_local_wire(U32SubtractionGate::<F, D>::wire_ith_input_borrow(self.i));
+        let input_x = get_local_wire(U32SubtractionGate::<F, D>::wire_ith_input_x(self.i));
+        let input_y = get_local_wire(U32SubtractionGate::<F, D>::wire_ith_input_y(self.i));
+        let input_borrow =
+            get_local_wire(U32SubtractionGate::<F, D>::wire_ith_input_borrow(self.i));
 
         let result_initial = input_x - input_y - input_borrow;
         let result_initial_u64 = result_initial.to_canonical_u64();
@@ -281,7 +281,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         let base = F::from_canonical_u64(1 << 32u64);
         let output_result = result_initial + base * output_borrow;
-        
+
         let output_result_wire =
             local_wire(U32SubtractionGate::<F, D>::wire_ith_output_result(self.i));
         let output_borrow_wire =
@@ -295,12 +295,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let num_limbs = U32SubtractionGate::<F, D>::num_limbs();
         let limb_base = 1 << U32SubtractionGate::<F, D>::limb_bits();
         let output_limbs: Vec<_> = (0..num_limbs)
-        .scan(output_result_u64, |acc, _| {
-            let tmp = *acc % limb_base;
-            *acc /= limb_base;
-            Some(F::from_canonical_u64(tmp))
-        })
-        .collect();
+            .scan(output_result_u64, |acc, _| {
+                let tmp = *acc % limb_base;
+                *acc /= limb_base;
+                Some(F::from_canonical_u64(tmp))
+            })
+            .collect();
 
         for j in 0..num_limbs {
             let wire = local_wire(U32SubtractionGate::<F, D>::wire_ith_output_jth_limb(
@@ -321,9 +321,9 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::{Field, PrimeField};
-    use crate::gates::subtraction_u32::{U32SubtractionGate, NUM_U32_SUBTRACTION_OPS};
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
+    use crate::gates::subtraction_u32::{U32SubtractionGate, NUM_U32_SUBTRACTION_OPS};
     use crate::hash::hash_types::HashOut;
     use crate::plonk::vars::EvaluationVars;
 
@@ -347,11 +347,7 @@ mod tests {
         type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
-        fn get_wires(
-            inputs_x: Vec<u64>,
-            inputs_y: Vec<u64>,
-            borrows: Vec<u64>,
-        ) -> Vec<FF> {
+        fn get_wires(inputs_x: Vec<u64>, inputs_y: Vec<u64>, borrows: Vec<u64>) -> Vec<FF> {
             let mut v0 = Vec::new();
             let mut v1 = Vec::new();
 
@@ -377,12 +373,12 @@ mod tests {
                 let output_result_u64 = output_result.to_canonical_u64();
 
                 let mut output_limbs: Vec<_> = (0..num_limbs)
-                .scan(output_result_u64, |acc, _| {
-                    let tmp = *acc % limb_base;
-                    *acc /= limb_base;
-                    Some(F::from_canonical_u64(tmp))
-                })
-                .collect();
+                    .scan(output_result_u64, |acc, _| {
+                        let tmp = *acc % limb_base;
+                        *acc /= limb_base;
+                        Some(F::from_canonical_u64(tmp))
+                    })
+                    .collect();
 
                 v0.push(input_x);
                 v0.push(input_y);

@@ -1,8 +1,6 @@
-use std::marker::PhantomData;
-
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
-use crate::gates::arithmetic_u32::{U32ArithmeticGate, NUM_U32_ARITHMETIC_OPS};
+use crate::gates::arithmetic_u32::U32ArithmeticGate;
 use crate::gates::subtraction_u32::U32SubtractionGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;

@@ -1,19 +1,13 @@
-use std::marker::PhantomData;
-
-use itertools::izip;
-
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::RichField;
 use crate::gates::comparison::ComparisonGate;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
-use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::ceil_div_usize;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Returns true if a is less than or equal to b, considered as limbs of a large value.
-    pub fn compare_lists(&mut self, a: Vec<Target>, b: Vec<Target>, num_bits: usize) -> BoolTarget {
+    pub fn list_le(&mut self, a: Vec<Target>, b: Vec<Target>, num_bits: usize) -> BoolTarget {
         assert_eq!(
             a.len(),
             b.len(),
@@ -22,7 +16,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let n = a.len();
 
         let chunk_size = 4;
-        let num_chunks = ceil_div_usize(num_bits, 4);
+        let num_chunks = ceil_div_usize(num_bits, chunk_size);
 
         let one = self.one();
         let mut result = self.one();

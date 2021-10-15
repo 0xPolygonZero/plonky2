@@ -73,8 +73,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let chunk_size = a1.len();
 
-        let (gate, gate_index, mut next_copy) =
-            self.find_switch_gate(chunk_size);
+        let (gate, gate_index, mut next_copy) = self.find_switch_gate(chunk_size);
 
         let num_copies = gate.num_copies;
 
