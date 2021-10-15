@@ -7,7 +7,7 @@ use crate::gates::subtraction_u32::U32SubtractionGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct U32Target(pub Target);
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -85,6 +85,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let (final_low, carry2) = self.add_u32(c, init_low);
         let (combined_carry, _zero) = self.add_u32(carry1, carry2);
         (final_low, combined_carry)
+    }
+
+    pub fn add_many_u32(&mut self, to_add: Vec<U32Target>) -> (U32Target, U32Target) {
+        match to_add.len() {
+            0 => (self.zero_u32(), self.zero_u32()),
+            1 => (to_add[0], self.zero_u32()),
+            2 => self.add_u32(to_add[0], to_add[1]),
+            3 => self.add_three_u32(to_add[0], to_add[1], to_add[2]),
+            _ => {
+                let (mut low, mut carry) = self.add_u32(to_add[0], to_add[1]);
+                for i in 2..to_add.len() {
+                    let (new_low, new_carry) = self.add_u32(to_add[i], low);
+                    let (combined_carry, _zero) = self.add_u32(carry, new_carry);
+                    low = new_low;
+                    carry = combined_carry;
+                }
+                (low, carry)
+            }
+        }
     }
 
     pub fn mul_u32(&mut self, a: U32Target, b: U32Target) -> (U32Target, U32Target) {
