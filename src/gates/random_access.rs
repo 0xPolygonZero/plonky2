@@ -13,7 +13,7 @@ use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for checking that a particular element of a list matches a given value.
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub(crate) struct RandomAccessGate<F: RichField + Extendable<D>, const D: usize> {
     pub vec_size: usize,
     pub num_copies: usize,
@@ -191,11 +191,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         gate_index: usize,
         _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = RandomAccessGenerator::<F, D> {
-            gate_index,
-            gate: self.clone(),
-        };
-        vec![Box::new(gen.adapter())]
+        (0..self.num_copies)
+            .map(|copy| {
+                let g: Box<dyn WitnessGenerator<F>> = Box::new(
+                    RandomAccessGenerator {
+                        gate_index,
+                        gate: *self,
+                        copy,
+                    }
+                    .adapter(),
+                );
+                g
+            })
+            .collect::<Vec<_>>()
     }
 
     fn num_wires(&self) -> usize {
@@ -219,6 +227,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
 struct RandomAccessGenerator<F: RichField + Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: RandomAccessGate<F, D>,
+    copy: usize,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
@@ -228,12 +237,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let local_target = |input| Target::wire(self.gate_index, input);
 
         let mut deps = Vec::new();
-        for copy in 0..self.gate.num_copies {
-            deps.push(local_target(self.gate.wire_access_index(copy)));
-            deps.push(local_target(self.gate.wire_claimed_element(copy)));
-            for i in 0..self.gate.vec_size {
-                deps.push(local_target(self.gate.wire_list_item(i, copy)));
-            }
+        deps.push(local_target(self.gate.wire_access_index(self.copy)));
+        deps.push(local_target(self.gate.wire_claimed_element(self.copy)));
+        for i in 0..self.gate.vec_size {
+            deps.push(local_target(self.gate.wire_list_item(i, self.copy)));
         }
         deps
     }
@@ -248,34 +255,31 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         // Compute the new vector and the values for equality_dummy and index_matches
         let vec_size = self.gate.vec_size;
-        for copy in 0..self.gate.num_copies {
-            let access_index_f = get_local_wire(self.gate.wire_access_index(copy));
+        let access_index_f = get_local_wire(self.gate.wire_access_index(self.copy));
 
-            let access_index = access_index_f.to_canonical_u64() as usize;
-            debug_assert!(
-                access_index < vec_size,
-                "Access index {} is larger than the vector size {}",
-                access_index,
-                vec_size
-            );
+        let access_index = access_index_f.to_canonical_u64() as usize;
+        debug_assert!(
+            access_index < vec_size,
+            "Access index {} is larger than the vector size {}",
+            access_index,
+            vec_size
+        );
 
-            for i in 0..vec_size {
-                let equality_dummy_wire =
-                    local_wire(self.gate.wire_equality_dummy_for_index(i, copy));
-                let index_matches_wire =
-                    local_wire(self.gate.wire_index_matches_for_index(i, copy));
+        for i in 0..vec_size {
+            let equality_dummy_wire =
+                local_wire(self.gate.wire_equality_dummy_for_index(i, self.copy));
+            let index_matches_wire =
+                local_wire(self.gate.wire_index_matches_for_index(i, self.copy));
 
-                if i == access_index {
-                    out_buffer.set_wire(equality_dummy_wire, F::ONE);
-                    out_buffer.set_wire(index_matches_wire, F::ONE);
-                } else {
-                    out_buffer.set_wire(
-                        equality_dummy_wire,
-                        (F::from_canonical_usize(i) - F::from_canonical_usize(access_index))
-                            .inverse(),
-                    );
-                    out_buffer.set_wire(index_matches_wire, F::ZERO);
-                }
+            if i == access_index {
+                out_buffer.set_wire(equality_dummy_wire, F::ONE);
+                out_buffer.set_wire(index_matches_wire, F::ONE);
+            } else {
+                out_buffer.set_wire(
+                    equality_dummy_wire,
+                    (F::from_canonical_usize(i) - F::from_canonical_usize(access_index)).inverse(),
+                );
+                out_buffer.set_wire(index_matches_wire, F::ZERO);
             }
         }
     }
