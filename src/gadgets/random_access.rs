@@ -6,27 +6,60 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    /// Finds the last available random access gate with the given `vec_size` or add one if there aren't any.
+    /// Returns `(g,i)` such that there is a random access gate with the given `vec_size` at index
+    /// `g` and the gate's `i`-th random access is available.
+    fn find_random_acces_gate(&mut self, vec_size: usize) -> (usize, usize) {
+        let (gate, i) = self
+            .free_random_access
+            .get(&vec_size)
+            .copied()
+            .unwrap_or_else(|| {
+                let gate = self.add_gate(
+                    RandomAccessGate::new_from_config(&self.config, vec_size),
+                    vec![],
+                );
+                (gate, 0)
+            });
+
+        // Update `free_random_access` with new values.
+        if i < RandomAccessGate::<F, D>::max_num_copies(
+            self.config.num_routed_wires,
+            self.config.num_wires,
+            vec_size,
+        ) - 1
+        {
+            self.free_random_access.insert(vec_size, (gate, i + 1));
+        } else {
+            self.free_random_access.remove(&vec_size);
+        }
+
+        (gate, i)
+    }
     /// Checks that an `ExtensionTarget` matches a vector at a non-deterministic index.
     /// Note: `access_index` is not range-checked.
     pub fn random_access(&mut self, access_index: Target, claimed_element: Target, v: Vec<Target>) {
-        debug_assert!(!v.is_empty());
-        if v.len() == 1 {
+        let vec_size = v.len();
+        debug_assert!(vec_size > 0);
+        if vec_size == 1 {
             return self.connect(claimed_element, v[0]);
         }
-        let gate = RandomAccessGate::new(1, v.len());
-        let gate_index = self.add_gate(gate.clone(), vec![]);
+        let (gate_index, copy) = self.find_random_acces_gate(vec_size);
+        let dummy_gate = RandomAccessGate::<F, D>::new_from_config(&self.config, vec_size);
 
-        let copy = 0;
         v.iter().enumerate().for_each(|(i, &val)| {
-            self.connect(val, Target::wire(gate_index, gate.wire_list_item(i, copy)));
+            self.connect(
+                val,
+                Target::wire(gate_index, dummy_gate.wire_list_item(i, copy)),
+            );
         });
         self.connect(
             access_index,
-            Target::wire(gate_index, gate.wire_access_index(copy)),
+            Target::wire(gate_index, dummy_gate.wire_access_index(copy)),
         );
         self.connect(
             claimed_element,
-            Target::wire(gate_index, gate.wire_claimed_element(copy)),
+            Target::wire(gate_index, dummy_gate.wire_claimed_element(copy)),
         );
     }
 
@@ -38,49 +71,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         claimed_element: ExtensionTarget<D>,
         v: Vec<ExtensionTarget<D>>,
     ) {
-        debug_assert!(!v.is_empty());
-        if v.len() == 1 {
-            return self.connect_extension(claimed_element, v[0]);
-        }
-        let gate = RandomAccessGate::new(D, v.len());
-        let gate_index = self.add_gate(gate.clone(), vec![]);
-
-        for copy in 0..D {
-            v.iter().enumerate().for_each(|(i, &val)| {
-                self.connect(
-                    val.0[copy],
-                    Target::wire(gate_index, gate.wire_list_item(i, copy)),
-                );
-            });
-            self.connect(
+        for i in 0..D {
+            self.random_access(
                 access_index,
-                Target::wire(gate_index, gate.wire_access_index(copy)),
-            );
-            self.connect(
-                claimed_element.0[copy],
-                Target::wire(gate_index, gate.wire_claimed_element(copy)),
+                claimed_element.0[i],
+                v.iter().map(|et| et.0[i]).collect(),
             );
         }
-    }
-
-    /// Like `random_access`, but first pads `v` to a given minimum length. This can help to avoid
-    /// having multiple `RandomAccessGate`s with different sizes.
-    pub fn random_access_padded(
-        &mut self,
-        access_index: Target,
-        claimed_element: ExtensionTarget<D>,
-        mut v: Vec<ExtensionTarget<D>>,
-        min_length: usize,
-    ) {
-        debug_assert!(!v.is_empty());
-        if v.len() == 1 {
-            return self.connect_extension(claimed_element, v[0]);
-        }
-        let zero = self.zero_extension();
-        if v.len() < min_length {
-            v.resize(8, zero);
-        }
-        self.random_access_extension(access_index, claimed_element, v);
     }
 }
 

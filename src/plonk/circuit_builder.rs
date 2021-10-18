@@ -73,6 +73,10 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// these constants with gate index `g` and already using `i` arithmetic operations.
     pub(crate) free_arithmetic: HashMap<(F, F), (usize, usize)>,
 
+    /// A map `(c0, c1) -> (g, i)` from constants `vec_size` to an available arithmetic gate using
+    /// these constants with gate index `g` and already using `i` random accesses.
+    pub(crate) free_random_access: HashMap<usize, (usize, usize)>,
+
     // `current_switch_gates[chunk_size - 1]` contains None if we have no switch gates with the value
     // chunk_size, and contains `(g, i, c)`, if the gate `g`, at index `i`, already contains `c` copies
     // of switches
@@ -94,6 +98,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_to_targets: HashMap::new(),
             targets_to_constants: HashMap::new(),
             free_arithmetic: HashMap::new(),
+            free_random_access: HashMap::new(),
             current_switch_gates: Vec::new(),
         }
     }

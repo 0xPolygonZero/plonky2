@@ -374,12 +374,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let x_index_within_coset = self.le_sum(x_index_within_coset_bits.iter());
 
             // Check consistency with our old evaluation from the previous round.
-            self.random_access_padded(
-                x_index_within_coset,
-                old_eval,
-                evals.clone(),
-                1 << config.cap_height,
-            );
+            self.random_access_extension(x_index_within_coset, old_eval, evals.clone());
 
             // Infer P(y) from {P(x)}_{x^arity=y}.
             old_eval = with_context!(

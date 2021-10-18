@@ -31,12 +31,16 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
     }
 
     pub fn new_from_config(config: &CircuitConfig, vec_size: usize) -> Self {
-        let num_copies = Self::max_num_copies(config.num_routed_wires, vec_size);
+        let num_copies = Self::max_num_copies(config.num_routed_wires, config.num_wires, vec_size);
         Self::new(num_copies, vec_size)
     }
 
-    pub fn max_num_copies(num_routed_wires: usize, vec_size: usize) -> usize {
-        num_routed_wires / (2 + vec_size)
+    pub fn max_num_copies(num_routed_wires: usize, num_wires: usize, vec_size: usize) -> usize {
+        // Need `(2 + vec_size) * num_copies` routed wires
+        (num_routed_wires / (2 + vec_size)).min(
+            // Need `(2 + 4*vec_size) * num_copies` wires
+            num_wires / (2 + 4 * vec_size),
+        )
     }
 
     pub fn wire_access_index(&self, copy: usize) -> usize {
@@ -79,7 +83,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
         debug_assert!(copy < self.num_copies);
         self.start_of_intermediate_wires()
             + self.vec_size * self.num_copies
-            + copy * self.vec_size
+            + self.vec_size * copy
             + i
     }
 }
