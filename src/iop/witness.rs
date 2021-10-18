@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 
-use num::BigUint;
+use num::{BigUint, FromPrimitive, Zero};
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
@@ -57,22 +57,10 @@ pub trait Witness<F: Field> {
         panic!("not a bool")
     }
 
-    fn get_u32_target(&self, target: U32Target) -> F {
-        let result = self.get_target(target.0);
-        debug_assert!(result.to_canonical_u64() < 1 << 32u64);
-        result
-    }
-
     fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {
         HashOut {
             elements: self.get_targets(&ht.elements).try_into().unwrap(),
         }
-    }
-
-    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint {
-        let mut result = BigUint::zero();
-        for (i, &limb) in target
-        result
     }
 
     fn get_wire(&self, wire: Wire) -> F {

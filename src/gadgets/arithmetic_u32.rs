@@ -36,6 +36,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_zero(x.0)
     }
 
+    fn get_u32_target(&self, target: U32Target) -> F {
+        let result = self.get_target(target.0);
+        debug_assert!(result.to_canonical_u64() < 1 << 32u64);
+        result
+    }
+
     // Returns x * y + z.
     pub fn mul_add_u32(
         &mut self,

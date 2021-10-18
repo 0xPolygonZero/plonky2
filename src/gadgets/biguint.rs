@@ -41,7 +41,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn pad_biguints(&mut self, a: BigUintTarget, b: BigUintTarget) -> (BigUintTarget, BigUintTarget) {
+    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint {
+        let mut result = BigUint::zero();
+        let base = BigUint::from_u64(1 << 32u64);
+        for &limb in target.limbs.iter().rev() {
+            let limb_value = self.get_target(limb.0);
+            result += BigUint::from_u64(limb_value.to_canonical_u64());
+            result *= base;
+        }
+        result
+    }
+
+    fn pad_biguints(
+        &mut self,
+        a: BigUintTarget,
+        b: BigUintTarget,
+    ) -> (BigUintTarget, BigUintTarget) {
         if a.num_limbs() > b.num_limbs() {
             let mut padded_b_limbs = b.limbs.clone();
             padded_b_limbs.extend(self.add_virtual_u32_targets(a.num_limbs() - b.num_limbs()));
@@ -69,11 +84,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget {
-        let limbs = (0..num_limbs).map(|_| self.add_virtual_u32_target()).collect();
+        let limbs = (0..num_limbs)
+            .map(|_| self.add_virtual_u32_target())
+            .collect();
 
-        BigUintTarget {
-            limbs,
-        }
+        BigUintTarget { limbs }
     }
 
     // Add two `BigUintTarget`s.
@@ -144,7 +159,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn div_rem_biguint(&mut self, a: BigUintTarget, b: BigUintTarget) -> (BigUintTarget, BigUintTarget) {
+    pub fn div_rem_biguint(
+        &mut self,
+        a: BigUintTarget,
+        b: BigUintTarget,
+    ) -> (BigUintTarget, BigUintTarget) {
         let num_limbs = a.limbs.len();
         let div = self.add_virtual_biguint_target(num_limbs);
         let rem = self.add_virtual_biguint_target(num_limbs);
@@ -159,11 +178,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let div_b = self.mul_biguint(div, b);
         let div_b_plus_rem = self.add_biguint(div_b, rem);
-        self.connect_biguint(x, div_b_plus_rem);
+        self.connect_biguint(a, div_b_plus_rem);
 
-        let 
-
-        self.assert_one()
+        let cmp_rem_b = self.cmp_biguint(rem, b);
+        self.assert_one(cmp_rem_b.target);
 
         (div, rem)
     }
@@ -182,10 +200,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for BigUintDivRemGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        self.a.limbs.iter().map(|&l| l.0).chain(self.b.limbs.iter().map(|&l| l.0)).collect()
+        self.a
+            .limbs
+            .iter()
+            .map(|&l| l.0)
+            .chain(self.b.limbs.iter().map(|&l| l.0))
+            .collect()
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        
-    }
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {}
 }
