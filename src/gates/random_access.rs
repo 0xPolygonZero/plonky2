@@ -1,8 +1,7 @@
 use std::marker::PhantomData;
-use std::ops::Range;
 
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -10,39 +9,57 @@ use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for checking that a particular element of a list matches a given value.
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub(crate) struct RandomAccessGate<F: RichField + Extendable<D>, const D: usize> {
     pub vec_size: usize,
+    pub num_copies: usize,
     _phantom: PhantomData<F>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
-    pub fn new(vec_size: usize) -> Self {
+    pub fn new(num_copies: usize, vec_size: usize) -> Self {
         Self {
             vec_size,
+            num_copies,
             _phantom: PhantomData,
         }
     }
 
-    pub fn wire_access_index(&self) -> usize {
-        0
+    pub fn new_from_config(config: &CircuitConfig, vec_size: usize) -> Self {
+        let num_copies = Self::max_num_copies(config.num_routed_wires, config.num_wires, vec_size);
+        Self::new(num_copies, vec_size)
     }
 
-    pub fn wires_claimed_element(&self) -> Range<usize> {
-        1..D + 1
+    pub fn max_num_copies(num_routed_wires: usize, num_wires: usize, vec_size: usize) -> usize {
+        // Need `(2 + vec_size) * num_copies` routed wires
+        (num_routed_wires / (2 + vec_size)).min(
+            // Need `(2 + 3*vec_size) * num_copies` wires
+            num_wires / (2 + 3 * vec_size),
+        )
     }
 
-    pub fn wires_list_item(&self, i: usize) -> Range<usize> {
+    pub fn wire_access_index(&self, copy: usize) -> usize {
+        debug_assert!(copy < self.num_copies);
+        (2 + self.vec_size) * copy
+    }
+
+    pub fn wire_claimed_element(&self, copy: usize) -> usize {
+        debug_assert!(copy < self.num_copies);
+        (2 + self.vec_size) * copy + 1
+    }
+
+    pub fn wire_list_item(&self, i: usize, copy: usize) -> usize {
         debug_assert!(i < self.vec_size);
-        let start = (i + 1) * D + 1;
-        start..start + D
+        debug_assert!(copy < self.num_copies);
+        (2 + self.vec_size) * copy + 2 + i
     }
 
     fn start_of_intermediate_wires(&self) -> usize {
-        (self.vec_size + 1) * D + 1
+        (2 + self.vec_size) * self.num_copies
     }
 
     pub(crate) fn num_routed_wires(&self) -> usize {
@@ -52,16 +69,21 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
     /// An intermediate wire for a dummy variable used to show equality.
     /// The prover sets this to 1/(x-y) if x != y, or to an arbitrary value if
     /// x == y.
-    pub fn wire_equality_dummy_for_index(&self, i: usize) -> usize {
+    pub fn wire_equality_dummy_for_index(&self, i: usize, copy: usize) -> usize {
         debug_assert!(i < self.vec_size);
-        self.start_of_intermediate_wires() + i
+        debug_assert!(copy < self.num_copies);
+        self.start_of_intermediate_wires() + copy * self.vec_size + i
     }
 
     /// An intermediate wire for the "index_matches" variable (1 if the current index is the index at
     /// which to compare, 0 otherwise).
-    pub fn wire_index_matches_for_index(&self, i: usize) -> usize {
+    pub fn wire_index_matches_for_index(&self, i: usize, copy: usize) -> usize {
         debug_assert!(i < self.vec_size);
-        self.start_of_intermediate_wires() + self.vec_size + i
+        debug_assert!(copy < self.num_copies);
+        self.start_of_intermediate_wires()
+            + self.vec_size * self.num_copies
+            + self.vec_size * copy
+            + i
     }
 }
 
@@ -71,53 +93,54 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
-        let access_index = vars.local_wires[self.wire_access_index()];
-        let list_items = (0..self.vec_size)
-            .map(|i| vars.get_local_ext_algebra(self.wires_list_item(i)))
-            .collect::<Vec<_>>();
-        let claimed_element = vars.get_local_ext_algebra(self.wires_claimed_element());
-
         let mut constraints = Vec::with_capacity(self.num_constraints());
-        for i in 0..self.vec_size {
-            let cur_index = F::Extension::from_canonical_usize(i);
-            let difference = cur_index - access_index;
-            let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_index(i)];
-            let index_matches = vars.local_wires[self.wire_index_matches_for_index(i)];
 
-            // The two index equality constraints.
-            constraints.push(difference * equality_dummy - (F::Extension::ONE - index_matches));
-            constraints.push(index_matches * difference);
-            // Value equality constraint.
-            constraints.extend(
-                ((list_items[i] - claimed_element).scalar_mul(index_matches)).to_basefield_array(),
-            );
+        for copy in 0..self.num_copies {
+            let access_index = vars.local_wires[self.wire_access_index(copy)];
+            let list_items = (0..self.vec_size)
+                .map(|i| vars.local_wires[self.wire_list_item(i, copy)])
+                .collect::<Vec<_>>();
+            let claimed_element = vars.local_wires[self.wire_claimed_element(copy)];
+
+            for i in 0..self.vec_size {
+                let cur_index = F::Extension::from_canonical_usize(i);
+                let difference = cur_index - access_index;
+                let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_index(i, copy)];
+                let index_matches = vars.local_wires[self.wire_index_matches_for_index(i, copy)];
+
+                // The two index equality constraints.
+                constraints.push(difference * equality_dummy - (F::Extension::ONE - index_matches));
+                constraints.push(index_matches * difference);
+                // Value equality constraint.
+                constraints.push((list_items[i] - claimed_element) * index_matches);
+            }
         }
 
         constraints
     }
 
     fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let access_index = vars.local_wires[self.wire_access_index()];
-        let list_items = (0..self.vec_size)
-            .map(|i| vars.get_local_ext(self.wires_list_item(i)))
-            .collect::<Vec<_>>();
-        let claimed_element = vars.get_local_ext(self.wires_claimed_element());
-
         let mut constraints = Vec::with_capacity(self.num_constraints());
-        for i in 0..self.vec_size {
-            let cur_index = F::from_canonical_usize(i);
-            let difference = cur_index - access_index;
-            let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_index(i)];
-            let index_matches = vars.local_wires[self.wire_index_matches_for_index(i)];
 
-            // The two equality constraints.
-            constraints.push(difference * equality_dummy - (F::ONE - index_matches));
-            constraints.push(index_matches * difference);
+        for copy in 0..self.num_copies {
+            let access_index = vars.local_wires[self.wire_access_index(copy)];
+            let list_items = (0..self.vec_size)
+                .map(|i| vars.local_wires[self.wire_list_item(i, copy)])
+                .collect::<Vec<_>>();
+            let claimed_element = vars.local_wires[self.wire_claimed_element(copy)];
 
-            // Value equality constraint.
-            constraints.extend(
-                ((list_items[i] - claimed_element).scalar_mul(index_matches)).to_basefield_array(),
-            );
+            for i in 0..self.vec_size {
+                let cur_index = F::from_canonical_usize(i);
+                let difference = cur_index - access_index;
+                let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_index(i, copy)];
+                let index_matches = vars.local_wires[self.wire_index_matches_for_index(i, copy)];
+
+                // The two index equality constraints.
+                constraints.push(difference * equality_dummy - (F::ONE - index_matches));
+                constraints.push(index_matches * difference);
+                // Value equality constraint.
+                constraints.push((list_items[i] - claimed_element) * index_matches);
+            }
         }
 
         constraints
@@ -128,35 +151,36 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        let access_index = vars.local_wires[self.wire_access_index()];
-        let list_items = (0..self.vec_size)
-            .map(|i| vars.get_local_ext_algebra(self.wires_list_item(i)))
-            .collect::<Vec<_>>();
-        let claimed_element = vars.get_local_ext_algebra(self.wires_claimed_element());
-
         let mut constraints = Vec::with_capacity(self.num_constraints());
-        for i in 0..self.vec_size {
-            let cur_index_ext = F::Extension::from_canonical_usize(i);
-            let cur_index = builder.constant_extension(cur_index_ext);
 
-            let difference = builder.sub_extension(cur_index, access_index);
-            let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_index(i)];
-            let index_matches = vars.local_wires[self.wire_index_matches_for_index(i)];
+        for copy in 0..self.num_copies {
+            let access_index = vars.local_wires[self.wire_access_index(copy)];
+            let list_items = (0..self.vec_size)
+                .map(|i| vars.local_wires[self.wire_list_item(i, copy)])
+                .collect::<Vec<_>>();
+            let claimed_element = vars.local_wires[self.wire_claimed_element(copy)];
 
-            // The two equality constraints.
-            let one = builder.one_extension();
-            let not_index_matches = builder.sub_extension(one, index_matches);
-            let first_equality_constraint =
-                builder.mul_sub_extension(difference, equality_dummy, not_index_matches);
-            constraints.push(first_equality_constraint);
+            for i in 0..self.vec_size {
+                let cur_index_ext = F::Extension::from_canonical_usize(i);
+                let cur_index = builder.constant_extension(cur_index_ext);
+                let difference = builder.sub_extension(cur_index, access_index);
+                let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_index(i, copy)];
+                let index_matches = vars.local_wires[self.wire_index_matches_for_index(i, copy)];
 
-            let second_equality_constraint = builder.mul_extension(index_matches, difference);
-            constraints.push(second_equality_constraint);
+                let one = builder.one_extension();
+                let not_index_matches = builder.sub_extension(one, index_matches);
+                let first_equality_constraint =
+                    builder.mul_sub_extension(difference, equality_dummy, not_index_matches);
+                constraints.push(first_equality_constraint);
 
-            // Output constraint.
-            let diff = builder.sub_ext_algebra(list_items[i], claimed_element);
-            let conditional_diff = builder.scalar_mul_ext_algebra(index_matches, diff);
-            constraints.extend(conditional_diff.to_ext_target_array());
+                let second_equality_constraint = builder.mul_extension(index_matches, difference);
+                constraints.push(second_equality_constraint);
+
+                // Output constraint.
+                let diff = builder.sub_extension(list_items[i], claimed_element);
+                let conditional_diff = builder.mul_extension(index_matches, diff);
+                constraints.push(conditional_diff);
+            }
         }
 
         constraints
@@ -167,15 +191,23 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         gate_index: usize,
         _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = RandomAccessGenerator::<F, D> {
-            gate_index,
-            gate: self.clone(),
-        };
-        vec![Box::new(gen.adapter())]
+        (0..self.num_copies)
+            .map(|copy| {
+                let g: Box<dyn WitnessGenerator<F>> = Box::new(
+                    RandomAccessGenerator {
+                        gate_index,
+                        gate: *self,
+                        copy,
+                    }
+                    .adapter(),
+                );
+                g
+            })
+            .collect::<Vec<_>>()
     }
 
     fn num_wires(&self) -> usize {
-        self.wire_index_matches_for_index(self.vec_size - 1) + 1
+        self.wire_index_matches_for_index(self.vec_size - 1, self.num_copies - 1) + 1
     }
 
     fn num_constants(&self) -> usize {
@@ -187,7 +219,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
     }
 
     fn num_constraints(&self) -> usize {
-        self.vec_size * (2 + D)
+        3 * self.num_copies * self.vec_size
     }
 }
 
@@ -195,6 +227,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
 struct RandomAccessGenerator<F: RichField + Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: RandomAccessGate<F, D>,
+    copy: usize,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
@@ -203,13 +236,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
-        let local_targets = |inputs: Range<usize>| inputs.map(local_target);
-
         let mut deps = Vec::new();
-        deps.push(local_target(self.gate.wire_access_index()));
-        deps.extend(local_targets(self.gate.wires_claimed_element()));
+        deps.push(local_target(self.gate.wire_access_index(self.copy)));
+        deps.push(local_target(self.gate.wire_claimed_element(self.copy)));
         for i in 0..self.gate.vec_size {
-            deps.extend(local_targets(self.gate.wires_list_item(i)));
+            deps.push(local_target(self.gate.wire_list_item(i, self.copy)));
         }
         deps
     }
@@ -224,7 +255,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         // Compute the new vector and the values for equality_dummy and index_matches
         let vec_size = self.gate.vec_size;
-        let access_index_f = get_local_wire(self.gate.wire_access_index());
+        let access_index_f = get_local_wire(self.gate.wire_access_index(self.copy));
 
         let access_index = access_index_f.to_canonical_u64() as usize;
         debug_assert!(
@@ -235,8 +266,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         );
 
         for i in 0..vec_size {
-            let equality_dummy_wire = local_wire(self.gate.wire_equality_dummy_for_index(i));
-            let index_matches_wire = local_wire(self.gate.wire_index_matches_for_index(i));
+            let equality_dummy_wire =
+                local_wire(self.gate.wire_equality_dummy_for_index(i, self.copy));
+            let index_matches_wire =
+                local_wire(self.gate.wire_index_matches_for_index(i, self.copy));
 
             if i == access_index {
                 out_buffer.set_wire(equality_dummy_wire, F::ONE);
@@ -257,6 +290,7 @@ mod tests {
     use std::marker::PhantomData;
 
     use anyhow::Result;
+    use rand::{thread_rng, Rng};
 
     use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
@@ -268,30 +302,13 @@ mod tests {
     use crate::plonk::vars::EvaluationVars;
 
     #[test]
-    fn wire_indices() {
-        let gate = RandomAccessGate::<CrandallField, 4> {
-            vec_size: 3,
-            _phantom: PhantomData,
-        };
-
-        assert_eq!(gate.wire_access_index(), 0);
-        assert_eq!(gate.wires_claimed_element(), 1..5);
-        assert_eq!(gate.wires_list_item(0), 5..9);
-        assert_eq!(gate.wires_list_item(2), 13..17);
-        assert_eq!(gate.wire_equality_dummy_for_index(0), 17);
-        assert_eq!(gate.wire_equality_dummy_for_index(2), 19);
-        assert_eq!(gate.wire_index_matches_for_index(0), 20);
-        assert_eq!(gate.wire_index_matches_for_index(2), 22);
-    }
-
-    #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(RandomAccessGate::new(4));
+        test_low_degree::<CrandallField, _, 4>(RandomAccessGate::new(4, 4));
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(RandomAccessGate::new(4))
+        test_eval_fns::<CrandallField, _, 4>(RandomAccessGate::new(4, 4))
     }
 
     #[test]
@@ -300,56 +317,74 @@ mod tests {
         type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
-        /// Returns the local wires for a random access gate given the vector, element to compare,
-        /// and index.
-        fn get_wires(list: Vec<FF>, access_index: usize, claimed_element: FF) -> Vec<FF> {
-            let vec_size = list.len();
+        /// Returns the local wires for a random access gate given the vectors, elements to compare,
+        /// and indices.
+        fn get_wires(
+            lists: Vec<Vec<F>>,
+            access_indices: Vec<usize>,
+            claimed_elements: Vec<F>,
+        ) -> Vec<FF> {
+            let num_copies = lists.len();
+            let vec_size = lists[0].len();
 
             let mut v = Vec::new();
-            v.push(F::from_canonical_usize(access_index));
-            v.extend(claimed_element.0);
-            for j in 0..vec_size {
-                v.extend(list[j].0);
-            }
-
             let mut equality_dummy_vals = Vec::new();
             let mut index_matches_vals = Vec::new();
-            for i in 0..vec_size {
-                if i == access_index {
-                    equality_dummy_vals.push(F::ONE);
-                    index_matches_vals.push(F::ONE);
-                } else {
-                    equality_dummy_vals.push(
-                        (F::from_canonical_usize(i) - F::from_canonical_usize(access_index))
-                            .inverse(),
-                    );
-                    index_matches_vals.push(F::ZERO);
+            for copy in 0..num_copies {
+                let access_index = access_indices[copy];
+                v.push(F::from_canonical_usize(access_index));
+                v.push(claimed_elements[copy]);
+                for j in 0..vec_size {
+                    v.push(lists[copy][j]);
+                }
+
+                for i in 0..vec_size {
+                    if i == access_index {
+                        equality_dummy_vals.push(F::ONE);
+                        index_matches_vals.push(F::ONE);
+                    } else {
+                        equality_dummy_vals.push(
+                            (F::from_canonical_usize(i) - F::from_canonical_usize(access_index))
+                                .inverse(),
+                        );
+                        index_matches_vals.push(F::ZERO);
+                    }
                 }
             }
-
             v.extend(equality_dummy_vals);
             v.extend(index_matches_vals);
 
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         }
 
-        let list = vec![FF::rand(); 3];
-        let access_index = 1;
+        let vec_size = 3;
+        let num_copies = 4;
+        let lists = (0..num_copies)
+            .map(|_| F::rand_vec(vec_size))
+            .collect::<Vec<_>>();
+        let access_indices = (0..num_copies)
+            .map(|_| thread_rng().gen_range(0..vec_size))
+            .collect::<Vec<_>>();
         let gate = RandomAccessGate::<F, D> {
-            vec_size: 3,
+            vec_size,
+            num_copies,
             _phantom: PhantomData,
         };
 
-        let good_claimed_element = list[access_index];
+        let good_claimed_elements = lists
+            .iter()
+            .zip(&access_indices)
+            .map(|(l, &i)| l[i])
+            .collect();
         let good_vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires(list.clone(), access_index, good_claimed_element),
+            local_wires: &get_wires(lists.clone(), access_indices.clone(), good_claimed_elements),
             public_inputs_hash: &HashOut::rand(),
         };
-        let bad_claimed_element = FF::rand();
+        let bad_claimed_elements = F::rand_vec(4);
         let bad_vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires(list, access_index, bad_claimed_element),
+            local_wires: &get_wires(lists, access_indices, bad_claimed_elements),
             public_inputs_hash: &HashOut::rand(),
         };
 
@@ -359,7 +394,7 @@ mod tests {
         );
         assert!(
             !gate.eval_unfiltered(bad_vars).iter().all(|x| x.is_zero()),
-            "Gate constraints are satisfied but shouold not be."
+            "Gate constraints are satisfied but should not be."
         );
     }
 }

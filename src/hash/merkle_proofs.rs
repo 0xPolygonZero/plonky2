@@ -3,7 +3,6 @@ use std::convert::TryInto;
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
@@ -55,7 +54,6 @@ pub(crate) fn verify_merkle_proof<F: RichField>(
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
     /// given cap. The index is given by it's little-endian bits.
-    /// Note: Works only for D=4.
     pub(crate) fn verify_merkle_proof(
         &mut self,
         leaf_data: Vec<Target>,
@@ -75,21 +73,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let index = self.le_sum(leaf_index_bits[proof.siblings.len()..].to_vec().into_iter());
-        let state_ext = state.elements[..].try_into().expect("requires D = 4");
-        let state_ext = ExtensionTarget(state_ext);
-        let cap_ext = merkle_cap
-            .0
-            .iter()
-            .map(|h| {
-                let tmp = h.elements[..].try_into().expect("requires D = 4");
-                ExtensionTarget(tmp)
-            })
-            .collect();
-        self.random_access(index, state_ext, cap_ext);
+
+        for i in 0..4 {
+            self.random_access(
+                index,
+                state.elements[i],
+                merkle_cap.0.iter().map(|h| h.elements[i]).collect(),
+            );
+        }
     }
 
-    /// Same a `verify_merkle_proof` but with the final "cap index" as extra parameter.
-    /// Note: Works only for D=4.
+    /// Same as `verify_merkle_proof` but with the final "cap index" as extra parameter.
     pub(crate) fn verify_merkle_proof_with_cap_index(
         &mut self,
         leaf_data: Vec<Target>,
@@ -112,17 +106,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             };
         }
 
-        let state_ext = state.elements[..].try_into().expect("requires D = 4");
-        let state_ext = ExtensionTarget(state_ext);
-        let cap_ext = merkle_cap
-            .0
-            .iter()
-            .map(|h| {
-                let tmp = h.elements[..].try_into().expect("requires D = 4");
-                ExtensionTarget(tmp)
-            })
-            .collect();
-        self.random_access(cap_index, state_ext, cap_ext);
+        for i in 0..4 {
+            self.random_access(
+                cap_index,
+                state.elements[i],
+                merkle_cap.0.iter().map(|h| h.elements[i]).collect(),
+            );
+        }
     }
 
     pub fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {

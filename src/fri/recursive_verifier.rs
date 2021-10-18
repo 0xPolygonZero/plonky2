@@ -59,9 +59,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
     /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
     /// helpful errors.
-    fn check_config(&self, arity: usize) {
-        let random_access = RandomAccessGate::<F, D>::new(arity);
-        let interpolation_gate = InterpolationGate::<F, D>::new(arity);
+    fn check_config(&self, max_fri_arity: usize) {
+        let random_access = RandomAccessGate::<F, D>::new_from_config(
+            &self.config,
+            max_fri_arity.max(1 << self.config.cap_height),
+        );
+        let interpolation_gate = InterpolationGate::<F, D>::new(max_fri_arity);
 
         let min_wires = random_access
             .num_wires()
@@ -73,14 +76,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         assert!(
             self.config.num_wires >= min_wires,
             "To efficiently perform FRI checks with an arity of {}, at least {} wires are needed. Consider reducing arity.",
-            arity,
+            max_fri_arity,
             min_wires
         );
 
         assert!(
             self.config.num_routed_wires >= min_routed_wires,
             "To efficiently perform FRI checks with an arity of {}, at least {} routed wires are needed. Consider reducing arity.",
-            arity,
+            max_fri_arity,
             min_routed_wires
         );
     }
@@ -372,12 +375,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let x_index_within_coset = self.le_sum(x_index_within_coset_bits.iter());
 
             // Check consistency with our old evaluation from the previous round.
-            self.random_access_padded(
-                x_index_within_coset,
-                old_eval,
-                evals.clone(),
-                1 << config.cap_height,
-            );
+            self.random_access_extension(x_index_within_coset, old_eval, evals.clone());
 
             // Infer P(y) from {P(x)}_{x^arity=y}.
             old_eval = with_context!(
