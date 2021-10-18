@@ -3,7 +3,6 @@ use std::convert::TryInto;
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};

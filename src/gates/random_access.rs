@@ -1,8 +1,7 @@
 use std::marker::PhantomData;
-use std::ops::Range;
 
 use crate::field::extension_field::target::ExtensionTarget;
-use crate::field::extension_field::{Extendable, FieldExtension};
+use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -113,7 +112,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
                 constraints.push(difference * equality_dummy - (F::Extension::ONE - index_matches));
                 constraints.push(index_matches * difference);
                 // Value equality constraint.
-                constraints.push(((list_items[i] - claimed_element) * index_matches));
+                constraints.push((list_items[i] - claimed_element) * index_matches);
             }
         }
 
@@ -140,7 +139,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
                 constraints.push(difference * equality_dummy - (F::ONE - index_matches));
                 constraints.push(index_matches * difference);
                 // Value equality constraint.
-                constraints.push(((list_items[i] - claimed_element) * index_matches));
+                constraints.push((list_items[i] - claimed_element) * index_matches);
             }
         }
 
