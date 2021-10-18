@@ -60,15 +60,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
     /// helpful errors.
     fn check_config(&self, arity: usize) {
-        let random_access = RandomAccessGate::<F, D>::new(arity);
+        // let random_access = RandomAccessGate::<F, D>::new(arity);
         let interpolation_gate = InterpolationGate::<F, D>::new(arity);
 
-        let min_wires = random_access
-            .num_wires()
-            .max(interpolation_gate.num_wires());
-        let min_routed_wires = random_access
-            .num_routed_wires()
-            .max(interpolation_gate.num_routed_wires());
+        // let min_wires = random_access
+        //     .num_wires()
+        //     .max(interpolation_gate.num_wires());
+        let min_wires = interpolation_gate.num_wires();
+        // let min_routed_wires = random_access
+        //     .num_routed_wires()
+        //     .max(interpolation_gate.num_routed_wires());
+        let min_routed_wires = interpolation_gate.num_routed_wires();
 
         assert!(
             self.config.num_wires >= min_wires,

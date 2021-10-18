@@ -8,7 +8,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Checks that a `Target` matches a vector at a non-deterministic index.
     /// Note: `index` is not range-checked.
-    pub fn random_access(
+    pub fn random_access_extension(
         &mut self,
         access_index: Target,
         claimed_element: ExtensionTarget<D>,
@@ -18,23 +18,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         if v.len() == 1 {
             return self.connect_extension(claimed_element, v[0]);
         }
-        let gate = RandomAccessGate::new(v.len());
+        let gate = RandomAccessGate::new(D, v.len());
         let gate_index = self.add_gate(gate.clone(), vec![]);
 
-        v.iter().enumerate().for_each(|(i, &val)| {
-            self.connect_extension(
-                val,
-                ExtensionTarget::from_range(gate_index, gate.wires_list_item(i)),
+        for copy in 0..D {
+            v.iter().enumerate().for_each(|(i, &val)| {
+                self.connect(
+                    val.0[copy],
+                    Target::wire(gate_index, gate.wire_list_item(i, copy)),
+                );
+            });
+            self.connect(
+                access_index,
+                Target::wire(gate_index, gate.wire_access_index(copy)),
             );
-        });
-        self.connect(
-            access_index,
-            Target::wire(gate_index, gate.wire_access_index()),
-        );
-        self.connect_extension(
-            claimed_element,
-            ExtensionTarget::from_range(gate_index, gate.wires_claimed_element()),
-        );
+            self.connect(
+                claimed_element.0[copy],
+                Target::wire(gate_index, gate.wire_claimed_element(copy)),
+            );
+        }
     }
 
     /// Like `random_access`, but first pads `v` to a given minimum length. This can help to avoid
@@ -54,7 +56,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         if v.len() < min_length {
             v.resize(8, zero);
         }
-        self.random_access(access_index, claimed_element, v);
+        self.random_access_extension(access_index, claimed_element, v);
     }
 }
 
@@ -83,7 +85,7 @@ mod tests {
         for i in 0..len {
             let it = builder.constant(F::from_canonical_usize(i));
             let elem = builder.constant_extension(vec[i]);
-            builder.random_access(it, elem, v.clone());
+            builder.random_access_extension(it, elem, v.clone());
         }
 
         let data = builder.build();

@@ -85,7 +85,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 ExtensionTarget(tmp)
             })
             .collect();
-        self.random_access(index, state_ext, cap_ext);
+        self.random_access_extension(index, state_ext, cap_ext);
     }
 
     /// Same a `verify_merkle_proof` but with the final "cap index" as extra parameter.
@@ -122,7 +122,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 ExtensionTarget(tmp)
             })
             .collect();
-        self.random_access(cap_index, state_ext, cap_ext);
+        self.random_access_extension(cap_index, state_ext, cap_ext);
     }
 
     pub fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
