@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::ops::Neg;
 
-use num::BigUint;
+use num::{BigUint, Zero};
 
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
@@ -27,7 +27,7 @@ impl BigUintTarget {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    fn connect_biguint(&self, lhs: BigUintTarget, rhs: BigUintTarget) {
+    fn connect_biguint(&mut self, lhs: BigUintTarget, rhs: BigUintTarget) {
         let min_limbs = lhs.num_limbs().min(rhs.num_limbs());
         for i in 0..min_limbs {
             self.connect_u32(lhs.get_limb(i), rhs.get_limb(i));
@@ -39,17 +39,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         for i in min_limbs..rhs.num_limbs() {
             self.assert_zero_u32(rhs.get_limb(i));
         }
-    }
-
-    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint {
-        let mut result = BigUint::zero();
-        let base = BigUint::from_u64(1 << 32u64);
-        for &limb in target.limbs.iter().rev() {
-            let limb_value = self.get_target(limb.0);
-            result += BigUint::from_u64(limb_value.to_canonical_u64());
-            result *= base;
-        }
-        result
     }
 
     fn pad_biguints(
@@ -75,10 +64,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     fn cmp_biguint(&mut self, a: BigUintTarget, b: BigUintTarget) -> BoolTarget {
-        let (padded_a, padded_b) = self.pad_biguints(a, b);
+        let (padded_a, padded_b) = self.pad_biguints(a.clone(), b.clone());
 
-        let a_vec = a.limbs.iter().map(|&x| x.0).collect();
-        let b_vec = b.limbs.iter().map(|&x| x.0).collect();
+        let a_vec = padded_a.limbs.iter().map(|&x| x.0).collect();
+        let b_vec = padded_b.limbs.iter().map(|&x| x.0).collect();
 
         self.list_le(a_vec, b_vec, 32)
     }
@@ -176,11 +165,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             _phantom: PhantomData,
         });
 
-        let div_b = self.mul_biguint(div, b);
-        let div_b_plus_rem = self.add_biguint(div_b, rem);
+        let div_b = self.mul_biguint(div.clone(), b.clone());
+        let div_b_plus_rem = self.add_biguint(div_b, rem.clone());
         self.connect_biguint(a, div_b_plus_rem);
 
-        let cmp_rem_b = self.cmp_biguint(rem, b);
+        let cmp_rem_b = self.cmp_biguint(rem.clone(), b);
         self.assert_one(cmp_rem_b.target);
 
         (div, rem)
