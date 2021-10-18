@@ -212,7 +212,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
     }
 
     fn num_constraints(&self) -> usize {
-        self.num_copies * self.vec_size * 3
+        3 * self.num_copies * self.vec_size
     }
 }
 

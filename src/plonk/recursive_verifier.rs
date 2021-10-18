@@ -398,7 +398,7 @@ mod tests {
     fn test_size_optimized_recursion() -> Result<()> {
         init_logger();
         type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
 
         let normal_config = CircuitConfig::standard_recursion_config();
         let final_config = CircuitConfig {

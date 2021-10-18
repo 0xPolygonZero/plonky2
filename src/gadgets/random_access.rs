@@ -9,7 +9,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Finds the last available random access gate with the given `vec_size` or add one if there aren't any.
     /// Returns `(g,i)` such that there is a random access gate with the given `vec_size` at index
     /// `g` and the gate's `i`-th random access is available.
-    fn find_random_acces_gate(&mut self, vec_size: usize) -> (usize, usize) {
+    fn find_random_access_gate(&mut self, vec_size: usize) -> (usize, usize) {
         let (gate, i) = self
             .free_random_access
             .get(&vec_size)
@@ -36,7 +36,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         (gate, i)
     }
-    /// Checks that an `ExtensionTarget` matches a vector at a non-deterministic index.
+    /// Checks that a `Target` matches a vector at a non-deterministic index.
     /// Note: `access_index` is not range-checked.
     pub fn random_access(&mut self, access_index: Target, claimed_element: Target, v: Vec<Target>) {
         let vec_size = v.len();
@@ -44,7 +44,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         if vec_size == 1 {
             return self.connect(claimed_element, v[0]);
         }
-        let (gate_index, copy) = self.find_random_acces_gate(vec_size);
+        let (gate_index, copy) = self.find_random_access_gate(vec_size);
         let dummy_gate = RandomAccessGate::<F, D>::new_from_config(&self.config, vec_size);
 
         v.iter().enumerate().for_each(|(i, &val)| {

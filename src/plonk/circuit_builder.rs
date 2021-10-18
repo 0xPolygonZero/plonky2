@@ -18,6 +18,7 @@ use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
+use crate::gates::random_access::RandomAccessGate;
 use crate::gates::switch::SwitchGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
@@ -535,6 +536,27 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// Fill the remaining unused random access operations with zeros, so that all
+    /// `RandomAccessGenerator`s are run.
+    fn fill_random_access_gates(&mut self) {
+        let zero = self.zero();
+        let remaining_random_access_gates = self
+            .free_random_access
+            .clone()
+            .into_iter()
+            .collect::<Vec<_>>();
+        for (vec_size, (_, i)) in remaining_random_access_gates {
+            let max_copies = RandomAccessGate::<F, D>::max_num_copies(
+                self.config.num_routed_wires,
+                self.config.num_wires,
+                vec_size,
+            );
+            for _ in i..max_copies {
+                self.random_access(zero, zero, vec![zero; vec_size]);
+            }
+        }
+    }
+
     /// Fill the remaining unused switch gates with dummy values, so that all
     /// `SwitchGenerator` are run.
     fn fill_switch_gates(&mut self) {
@@ -574,6 +596,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let start = Instant::now();
 
         self.fill_arithmetic_gates();
+        self.fill_random_access_gates();
         self.fill_switch_gates();
 
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
