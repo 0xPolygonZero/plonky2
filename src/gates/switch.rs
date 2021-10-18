@@ -31,7 +31,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SwitchGate<F, D> {
         }
     }
 
-    pub fn new_from_config(config: CircuitConfig, chunk_size: usize) -> Self {
+    pub fn new_from_config(config: &CircuitConfig, chunk_size: usize) -> Self {
         let num_copies = Self::max_num_copies(config.num_routed_wires, chunk_size);
         Self::new(num_copies, chunk_size)
     }
@@ -352,7 +352,7 @@ mod tests {
     #[test]
     fn low_degree() {
         test_low_degree::<CrandallField, _, 4>(SwitchGate::<_, 4>::new_from_config(
-            CircuitConfig::large_config(),
+            &CircuitConfig::large_config(),
             3,
         ));
     }
@@ -360,7 +360,7 @@ mod tests {
     #[test]
     fn eval_fns() -> Result<()> {
         test_eval_fns::<CrandallField, _, 4>(SwitchGate::<_, 4>::new_from_config(
-            CircuitConfig::large_config(),
+            &CircuitConfig::large_config(),
             3,
         ))
     }

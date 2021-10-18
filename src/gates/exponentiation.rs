@@ -27,7 +27,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ExponentiationGate<F, D> {
         }
     }
 
-    pub fn new_from_config(config: CircuitConfig) -> Self {
+    pub fn new_from_config(config: &CircuitConfig) -> Self {
         let num_power_bits = Self::max_power_bits(config.num_wires, config.num_routed_wires);
         Self::new(num_power_bits)
     }
@@ -302,13 +302,13 @@ mod tests {
             ..CircuitConfig::large_config()
         };
 
-        test_low_degree::<CrandallField, _, 4>(ExponentiationGate::new_from_config(config));
+        test_low_degree::<CrandallField, _, 4>(ExponentiationGate::new_from_config(&config));
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
         test_eval_fns::<CrandallField, _, 4>(ExponentiationGate::new_from_config(
-            CircuitConfig::large_config(),
+            &CircuitConfig::large_config(),
         ))
     }
 
