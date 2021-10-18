@@ -298,23 +298,6 @@ mod tests {
     use crate::hash::hash_types::HashOut;
     use crate::plonk::vars::EvaluationVars;
 
-    // #[test]
-    // fn wire_indices() {
-    //     let gate = RandomAccessGate::<CrandallField, 4> {
-    //         vec_size: 3,
-    //         _phantom: PhantomData,
-    //     };
-    //
-    //     assert_eq!(gate.wire_access_index(), 0);
-    //     assert_eq!(gate.wires_claimed_element(), 1..5);
-    //     assert_eq!(gate.wires_list_item(0), 5..9);
-    //     assert_eq!(gate.wires_list_item(2), 13..17);
-    //     assert_eq!(gate.wire_equality_dummy_for_index(0), 17);
-    //     assert_eq!(gate.wire_equality_dummy_for_index(2), 19);
-    //     assert_eq!(gate.wire_index_matches_for_index(0), 20);
-    //     assert_eq!(gate.wire_index_matches_for_index(2), 22);
-    // }
-
     #[test]
     fn low_degree() {
         test_low_degree::<CrandallField, _, 4>(RandomAccessGate::new(4, 4));
@@ -331,8 +314,8 @@ mod tests {
         type FF = QuarticExtension<CrandallField>;
         const D: usize = 4;
 
-        /// Returns the local wires for a random access gate given the vector, element to compare,
-        /// and index.
+        /// Returns the local wires for a random access gate given the vectors, elements to compare,
+        /// and indices.
         fn get_wires(
             lists: Vec<Vec<F>>,
             access_indices: Vec<usize>,
@@ -367,16 +350,21 @@ mod tests {
             }
             v.extend(equality_dummy_vals);
             v.extend(index_matches_vals);
+
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         }
 
-        let lists = (0..4).map(|_| F::rand_vec(3)).collect::<Vec<_>>();
-        let access_indices = (0..4)
-            .map(|_| thread_rng().gen_range(0..3))
+        let vec_size = 3;
+        let num_copies = 4;
+        let lists = (0..num_copies)
+            .map(|_| F::rand_vec(vec_size))
+            .collect::<Vec<_>>();
+        let access_indices = (0..num_copies)
+            .map(|_| thread_rng().gen_range(0..vec_size))
             .collect::<Vec<_>>();
         let gate = RandomAccessGate::<F, D> {
-            vec_size: 3,
-            num_copies: 4,
+            vec_size,
+            num_copies,
             _phantom: PhantomData,
         };
 

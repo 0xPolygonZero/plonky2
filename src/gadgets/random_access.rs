@@ -36,6 +36,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         (gate, i)
     }
+
     /// Checks that a `Target` matches a vector at a non-deterministic index.
     /// Note: `access_index` is not range-checked.
     pub fn random_access(&mut self, access_index: Target, claimed_element: Target, v: Vec<Target>) {
