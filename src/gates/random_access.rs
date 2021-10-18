@@ -37,8 +37,8 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
     pub fn max_num_copies(num_routed_wires: usize, num_wires: usize, vec_size: usize) -> usize {
         // Need `(2 + vec_size) * num_copies` routed wires
         (num_routed_wires / (2 + vec_size)).min(
-            // Need `(2 + 4*vec_size) * num_copies` wires
-            num_wires / (2 + 4 * vec_size),
+            // Need `(2 + 3*vec_size) * num_copies` wires
+            num_wires / (2 + 3 * vec_size),
         )
     }
 

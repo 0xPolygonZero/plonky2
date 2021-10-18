@@ -540,12 +540,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// `RandomAccessGenerator`s are run.
     fn fill_random_access_gates(&mut self) {
         let zero = self.zero();
-        let remaining_random_access_gates = self
-            .free_random_access
-            .clone()
-            .into_iter()
-            .collect::<Vec<_>>();
-        for (vec_size, (_, i)) in remaining_random_access_gates {
+        for (vec_size, (_, i)) in self.free_random_access.clone() {
             let max_copies = RandomAccessGate::<F, D>::max_num_copies(
                 self.config.num_routed_wires,
                 self.config.num_wires,
