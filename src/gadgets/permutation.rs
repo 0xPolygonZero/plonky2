@@ -81,7 +81,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let (gate, gate_index, mut next_copy) =
             match self.current_switch_gates[chunk_size - 1].clone() {
                 None => {
-                    let gate = SwitchGate::<F, D>::new_from_config(self.config.clone(), chunk_size);
+                    let gate = SwitchGate::<F, D>::new_from_config(&self.config, chunk_size);
                     let gate_index = self.add_gate(gate.clone(), vec![]);
                     (gate, gate_index, 0)
                 }
