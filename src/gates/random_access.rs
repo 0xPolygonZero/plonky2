@@ -10,21 +10,33 @@ use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for checking that a particular element of a list matches a given value.
 #[derive(Clone, Debug)]
 pub(crate) struct RandomAccessGate<F: RichField + Extendable<D>, const D: usize> {
     pub vec_size: usize,
+    pub num_copies: usize,
     _phantom: PhantomData<F>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
-    pub fn new(vec_size: usize) -> Self {
+    pub fn new(num_copies: usize, vec_size: usize) -> Self {
         Self {
             vec_size,
+            num_copies,
             _phantom: PhantomData,
         }
+    }
+
+    pub fn new_from_config(config: CircuitConfig, vec_size: usize) -> Self {
+        let num_copies = Self::max_num_copies(config.num_routed_wires, chunk_size);
+        Self::new(num_copies, chunk_size)
+    }
+
+    pub fn max_num_copies(num_routed_wires: usize, vec_size: usize) -> usize {
+        num_routed_wires / (2 + vec_size)
     }
 
     pub fn wire_access_index(&self) -> usize {
