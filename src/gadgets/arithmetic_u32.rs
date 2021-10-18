@@ -5,7 +5,7 @@ use crate::gates::subtraction_u32::U32SubtractionGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct U32Target(pub Target);
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -26,6 +26,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn one_u32(&mut self) -> U32Target {
         U32Target(self.one())
+    }
+
+    pub fn connect_u32(&mut self, x: U32Target, y: U32Target) {
+        self.connect(x.0, y.0)
+    }
+
+    pub fn assert_zero_u32(&self, x: U32Target) {
+        self.assert_zero(x.0)
     }
 
     // Returns x * y + z.

@@ -1,17 +1,81 @@
 use std::marker::PhantomData;
+use std::ops::Neg;
 
 use num::BigUint;
 
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
 use crate::gadgets::arithmetic_u32::U32Target;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator};
+use crate::iop::target::{BoolTarget, Target};
+use crate::iop::witness::PartitionWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
+#[derive(Clone, Debug)]
 pub struct BigUintTarget {
-    limbs: Vec<U32Target>,
+    pub limbs: Vec<U32Target>,
+}
+
+impl BigUintTarget {
+    pub fn num_limbs(&self) -> usize {
+        self.limbs.len()
+    }
+
+    pub fn get_limb(&self, i: usize) -> U32Target {
+        self.limbs[i]
+    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    fn connect_biguint(&self, lhs: BigUintTarget, rhs: BigUintTarget) {
+        let min_limbs = lhs.num_limbs().min(rhs.num_limbs());
+        for i in 0..min_limbs {
+            self.connect_u32(lhs.get_limb(i), rhs.get_limb(i));
+        }
+
+        for i in min_limbs..lhs.num_limbs() {
+            self.assert_zero_u32(lhs.get_limb(i));
+        }
+        for i in min_limbs..rhs.num_limbs() {
+            self.assert_zero_u32(rhs.get_limb(i));
+        }
+    }
+
+    fn pad_biguints(&mut self, a: BigUintTarget, b: BigUintTarget) -> (BigUintTarget, BigUintTarget) {
+        if a.num_limbs() > b.num_limbs() {
+            let mut padded_b_limbs = b.limbs.clone();
+            padded_b_limbs.extend(self.add_virtual_u32_targets(a.num_limbs() - b.num_limbs()));
+            let padded_b = BigUintTarget {
+                limbs: padded_b_limbs,
+            };
+            (a, padded_b)
+        } else {
+            let mut padded_a_limbs = a.limbs.clone();
+            padded_a_limbs.extend(self.add_virtual_u32_targets(b.num_limbs() - a.num_limbs()));
+            let padded_a = BigUintTarget {
+                limbs: padded_a_limbs,
+            };
+            (padded_a, b)
+        }
+    }
+
+    fn cmp_biguint(&mut self, a: BigUintTarget, b: BigUintTarget) -> BoolTarget {
+        let (padded_a, padded_b) = self.pad_biguints(a, b);
+
+        let a_vec = a.limbs.iter().map(|&x| x.0).collect();
+        let b_vec = b.limbs.iter().map(|&x| x.0).collect();
+
+        self.list_le(a_vec, b_vec, 32)
+    }
+
+    fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget {
+        let limbs = (0..num_limbs).map(|_| self.add_virtual_u32_target()).collect();
+
+        BigUintTarget {
+            limbs,
+        }
+    }
+
     // Add two `BigUintTarget`s.
     pub fn add_biguint(&mut self, a: BigUintTarget, b: BigUintTarget) -> BigUintTarget {
         let num_limbs = a.limbs.len();
@@ -78,5 +142,50 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         BigUintTarget {
             limbs: combined_limbs,
         }
+    }
+
+    pub fn div_rem_biguint(&mut self, a: BigUintTarget, b: BigUintTarget) -> (BigUintTarget, BigUintTarget) {
+        let num_limbs = a.limbs.len();
+        let div = self.add_virtual_biguint_target(num_limbs);
+        let rem = self.add_virtual_biguint_target(num_limbs);
+
+        self.add_simple_generator(BigUintDivRemGenerator::<F, D> {
+            a: a.clone(),
+            b: b.clone(),
+            div: div.clone(),
+            rem: rem.clone(),
+            _phantom: PhantomData,
+        });
+
+        let div_b = self.mul_biguint(div, b);
+        let div_b_plus_rem = self.add_biguint(div_b, rem);
+        self.connect_biguint(x, div_b_plus_rem);
+
+        let 
+
+        self.assert_one()
+
+        (div, rem)
+    }
+}
+
+#[derive(Debug)]
+struct BigUintDivRemGenerator<F: RichField + Extendable<D>, const D: usize> {
+    a: BigUintTarget,
+    b: BigUintTarget,
+    div: BigUintTarget,
+    rem: BigUintTarget,
+    _phantom: PhantomData<F>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for BigUintDivRemGenerator<F, D>
+{
+    fn dependencies(&self) -> Vec<Target> {
+        self.a.limbs.iter().map(|&l| l.0).chain(self.b.limbs.iter().map(|&l| l.0)).collect()
+    }
+
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        
     }
 }

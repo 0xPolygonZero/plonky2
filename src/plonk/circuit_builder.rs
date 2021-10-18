@@ -246,6 +246,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect(x, zero);
     }
 
+    pub fn assert_one(&mut self, x: Target) {
+        let one = self.one();
+        self.connect(x, one);
+    }
+
     pub fn add_generators(&mut self, generators: Vec<Box<dyn WitnessGenerator<F>>>) {
         self.generators.extend(generators);
     }

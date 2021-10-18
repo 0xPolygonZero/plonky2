@@ -1,9 +1,13 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 
+use num::BigUint;
+
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, PrimeField};
+use crate::gadgets::arithmetic_u32::U32Target;
+use crate::gadgets::biguint::BigUintTarget;
 use crate::hash::hash_types::HashOutTarget;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
@@ -53,10 +57,22 @@ pub trait Witness<F: Field> {
         panic!("not a bool")
     }
 
+    fn get_u32_target(&self, target: U32Target) -> F {
+        let result = self.get_target(target.0);
+        debug_assert!(result.to_canonical_u64() < 1 << 32u64);
+        result
+    }
+
     fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {
         HashOut {
             elements: self.get_targets(&ht.elements).try_into().unwrap(),
         }
+    }
+
+    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint {
+        let mut result = BigUint::zero();
+        for (i, &limb) in target
+        result
     }
 
     fn get_wire(&self, wire: Wire) -> F {

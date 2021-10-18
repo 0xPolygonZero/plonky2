@@ -1,21 +1,12 @@
-use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
-use num::bigint::BigUint;
 
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
 use crate::gadgets::arithmetic_u32::U32Target;
-use crate::gates::arithmetic_u32::U32ArithmeticGate;
-use crate::gates::switch::SwitchGate;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator};
-use crate::iop::target::Target;
-use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::util::bimap::bimap_from_lists;
 
 pub struct ForeignFieldTarget<FF: Field> {
-    /// These F elements are assumed to contain 32-bit values.
     limbs: Vec<U32Target>,
     _phantom: PhantomData<FF>,
 }
@@ -28,6 +19,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .iter()
             .map(|&limb| self.constant_u32(F::from_canonical_u32(limb)))
             .collect()
+    }
+
+    fn power_of_2_mod_order<FF: Field>(&mut self, i: usize) -> Vec<U32Target> {
+
+    }
+
+    pub fn powers_of_2_mod_order<FF: Field>(&mut self, max: usize) -> Vec<Vec<U32Target>> {
+        for i in 0..max {
+
+        }
     }
 
     // Add two `ForeignFieldTarget`s.
@@ -63,7 +64,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut modulus_limbs = self.order_u32_limbs::<FF>();
         modulus_limbs.append(self.zero_u32());
 
-        let needs_reduce = self.list_le(modulus, limbs);
+        let needs_reduce = self.list_le(modulus_limbs, limbs);
 
         let mut to_subtract = vec![];
         for i in 0..num_limbs {
@@ -98,7 +99,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut borrow = self.zero_u32();
         for i in 0..num_limbs {
             let (result, new_borrow) = self.sub_u32(a.limbs[i], b.limbs[i], borrow);
-            reduced_limbs[i] = result;
+            result_limbs[i] = result;
             borrow = new_borrow;
         }
         // Borrow should be zero here.
@@ -147,6 +148,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn reduce_mul_result<FF: Field>(&mut self, limbs: Vec<U32Target>) -> Vec<U32Target> {
+
         todo!()
     }
 }

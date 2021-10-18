@@ -11,7 +11,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         assert_eq!(
             a.len(),
             b.len(),
-            "Permutation must have same number of inputs and outputs"
+            "Comparison must be between same number of inputs and outputs"
         );
         let n = a.len();
 
