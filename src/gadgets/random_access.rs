@@ -6,8 +6,32 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Checks that a `Target` matches a vector at a non-deterministic index.
-    /// Note: `index` is not range-checked.
+    /// Checks that an `ExtensionTarget` matches a vector at a non-deterministic index.
+    /// Note: `access_index` is not range-checked.
+    pub fn random_access(&mut self, access_index: Target, claimed_element: Target, v: Vec<Target>) {
+        debug_assert!(!v.is_empty());
+        if v.len() == 1 {
+            return self.connect(claimed_element, v[0]);
+        }
+        let gate = RandomAccessGate::new(1, v.len());
+        let gate_index = self.add_gate(gate.clone(), vec![]);
+
+        let copy = 0;
+        v.iter().enumerate().for_each(|(i, &val)| {
+            self.connect(val, Target::wire(gate_index, gate.wire_list_item(i, copy)));
+        });
+        self.connect(
+            access_index,
+            Target::wire(gate_index, gate.wire_access_index(copy)),
+        );
+        self.connect(
+            claimed_element,
+            Target::wire(gate_index, gate.wire_claimed_element(copy)),
+        );
+    }
+
+    /// Checks that an `ExtensionTarget` matches a vector at a non-deterministic index.
+    /// Note: `access_index` is not range-checked.
     pub fn random_access_extension(
         &mut self,
         access_index: Target,

@@ -106,7 +106,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
                 let index_matches = vars.local_wires[self.wire_index_matches_for_index(i, copy)];
 
                 // The two index equality constraints.
-                dbg!(difference, equality_dummy, index_matches);
                 constraints.push(difference * equality_dummy - (F::Extension::ONE - index_matches));
                 constraints.push(index_matches * difference);
                 // Value equality constraint.
@@ -382,7 +381,6 @@ mod tests {
             .zip(&access_indices)
             .map(|(l, &i)| l[i])
             .collect();
-        dbg!(&lists, &access_indices, &good_claimed_elements);
         let good_vars = EvaluationVars {
             local_constants: &[],
             local_wires: &get_wires(lists.clone(), access_indices.clone(), good_claimed_elements),
@@ -395,7 +393,6 @@ mod tests {
             public_inputs_hash: &HashOut::rand(),
         };
 
-        dbg!(gate.eval_unfiltered(good_vars));
         assert!(
             gate.eval_unfiltered(good_vars).iter().all(|x| x.is_zero()),
             "Gate constraints are not satisfied."

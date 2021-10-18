@@ -75,17 +75,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let index = self.le_sum(leaf_index_bits[proof.siblings.len()..].to_vec().into_iter());
-        let state_ext = state.elements[..].try_into().expect("requires D = 4");
-        let state_ext = ExtensionTarget(state_ext);
-        let cap_ext = merkle_cap
-            .0
-            .iter()
-            .map(|h| {
-                let tmp = h.elements[..].try_into().expect("requires D = 4");
-                ExtensionTarget(tmp)
-            })
-            .collect();
-        self.random_access_extension(index, state_ext, cap_ext);
     }
 
     /// Same a `verify_merkle_proof` but with the final "cap index" as extra parameter.
@@ -112,17 +101,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             };
         }
 
-        let state_ext = state.elements[..].try_into().expect("requires D = 4");
-        let state_ext = ExtensionTarget(state_ext);
-        let cap_ext = merkle_cap
-            .0
-            .iter()
-            .map(|h| {
-                let tmp = h.elements[..].try_into().expect("requires D = 4");
-                ExtensionTarget(tmp)
-            })
-            .collect();
-        self.random_access_extension(cap_index, state_ext, cap_ext);
+        for i in 0..4 {
+            self.random_access(
+                cap_index,
+                state.elements[i],
+                merkle_cap.0.iter().map(|h| h.elements[i]).collect(),
+            );
+        }
     }
 
     pub fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
