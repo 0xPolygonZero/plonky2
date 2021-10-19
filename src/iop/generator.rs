@@ -1,9 +1,13 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use num::BigUint;
+
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::{Field, RichField};
+use crate::gadgets::arithmetic_u32::U32Target;
+use crate::gadgets::biguint::BigUintTarget;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -148,6 +152,17 @@ impl<F: Field> GeneratedValues<F> {
 
     pub fn set_target(&mut self, target: Target, value: F) {
         self.target_values.push((target, value))
+    }
+
+    fn set_u32_target(&mut self, target: U32Target, value: u32) {
+        self.set_target(target.0, F::from_canonical_u32(value))
+    }
+
+    pub fn set_biguint_target(&mut self, target: BigUintTarget, value: BigUint) {
+        let limbs = value.to_u32_digits();
+        for i in 0..target.num_limbs() {
+            self.set_u32_target(target.get_limb(i), limbs[i]);
+        }
     }
 
     pub fn set_hash_target(&mut self, ht: HashOutTarget, value: HashOut<F>) {

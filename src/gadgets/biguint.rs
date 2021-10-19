@@ -1,14 +1,13 @@
 use std::marker::PhantomData;
-use std::ops::Neg;
 
-use num::{BigUint, Zero};
+use num::Integer;
 
+use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
-use crate::field::{extension_field::Extendable, field_types::Field};
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
-use crate::iop::witness::PartitionWitness;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 #[derive(Clone, Debug)]
@@ -197,5 +196,18 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             .collect()
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {}
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        let a = witness.get_biguint_target(self.a.clone());
+        let b = witness.get_biguint_target(self.b.clone());
+        let (div, rem) = a.div_rem(&b);
+
+        out_buffer.set_biguint_target(self.div.clone(), div);
+        out_buffer.set_biguint_target(self.rem.clone(), rem);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_biguint_add() {}
 }

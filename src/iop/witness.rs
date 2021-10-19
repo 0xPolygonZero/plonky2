@@ -57,6 +57,19 @@ pub trait Witness<F: Field> {
         panic!("not a bool")
     }
 
+    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint {
+        let mut result = BigUint::zero();
+
+        let limb_base = BigUint::from_u64(1 << 32u64).unwrap();
+        for i in (0..target.num_limbs()).rev() {
+            let limb = target.get_limb(i);
+            result *= &limb_base;
+            result += self.get_target(limb.0).to_biguint();
+        }
+
+        result
+    }
+
     fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {
         HashOut {
             elements: self.get_targets(&ht.elements).try_into().unwrap(),
