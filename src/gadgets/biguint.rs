@@ -368,4 +368,28 @@ mod tests {
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }
+
+    #[test]
+    fn test_biguint_sub() -> Result<()> {
+        let x_value = BigUint::from_u128(33333333333333333333333333333333333333).unwrap();
+        let y_value = BigUint::from_u128(22222222222222222222222222222222222222).unwrap();
+        let expected_z_value = &x_value - &y_value;
+
+        type F = CrandallField;
+        let config = CircuitConfig::large_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+
+        let x = builder.constant_biguint(x_value);
+        let y = builder.constant_biguint(y_value);
+        let z = builder.sub_biguint(x, y);
+        let expected_z = builder.constant_biguint(expected_z_value);
+
+        builder.connect_biguint(z, expected_z);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
 }
