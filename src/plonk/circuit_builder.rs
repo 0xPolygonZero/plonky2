@@ -9,9 +9,9 @@ use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::fft::fft_root_table;
-use crate::field::field_types::RichField;
+use crate::field::field_types::{Field, RichField};
 use crate::fri::commitment::PolynomialBatchCommitment;
-use crate::fri::FriParams;
+use crate::fri::{FriConfig, FriParams};
 use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
@@ -86,7 +86,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn new(config: CircuitConfig) -> Self {
-        CircuitBuilder {
+        let builder = CircuitBuilder {
             config,
             gates: HashSet::new(),
             gate_instances: Vec::new(),
@@ -101,7 +101,32 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             free_arithmetic: HashMap::new(),
             free_random_access: HashMap::new(),
             current_switch_gates: Vec::new(),
-        }
+        };
+        builder.check_config();
+        builder
+    }
+
+    fn check_config(&self) {
+        let &CircuitConfig {
+            security_bits,
+            rate_bits,
+            fri_config:
+                FriConfig {
+                    proof_of_work_bits,
+                    num_query_rounds,
+                    ..
+                },
+            ..
+        } = &self.config;
+
+        // Conjectured FRI security; see the ethSTARK paper.
+        let fri_field_bits = F::Extension::order().bits() as usize;
+        let fri_query_security_bits = num_query_rounds * rate_bits + proof_of_work_bits as usize;
+        let fri_security_bits = fri_field_bits.min(fri_query_security_bits);
+        assert!(
+            fri_security_bits >= security_bits,
+            "FRI params fall short of target security"
+        );
     }
 
     pub fn num_gates(&self) -> usize {
