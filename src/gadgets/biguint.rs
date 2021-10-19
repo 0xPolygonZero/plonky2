@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use num::Integer;
+use num::{BigUint, Integer};
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
@@ -26,6 +26,18 @@ impl BigUintTarget {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    fn constant_biguint(&mut self, value: BigUint) -> BigUintTarget {
+        let limb_values = value.to_u32_digits();
+        let mut limbs = Vec::new();
+        for i in 0..limb_values.len() {
+            limbs.push(U32Target(
+                self.constant(F::from_canonical_u32(limb_values[i])),
+            ));
+        }
+
+        BigUintTarget { limbs }
+    }
+
     fn connect_biguint(&mut self, lhs: BigUintTarget, rhs: BigUintTarget) {
         let min_limbs = lhs.num_limbs().min(rhs.num_limbs());
         for i in 0..min_limbs {
@@ -208,6 +220,36 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+    use num::{BigUint, FromPrimitive};
+
+    use crate::{
+        field::crandall_field::CrandallField,
+        iop::witness::PartialWitness,
+        plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, verifier::verify},
+    };
+
     #[test]
-    fn test_biguint_add() {}
+    fn test_biguint_add() -> Result<()> {
+        let x_value = BigUint::from_u128(22222222222222222222222222222222222222).unwrap();
+        let y_value = BigUint::from_u128(33333333333333333333333333333333333333).unwrap();
+        let expected_z_value = &x_value + &y_value;
+
+        type F = CrandallField;
+        let config = CircuitConfig::large_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+
+        let x = builder.constant_biguint(x_value);
+        let y = builder.constant_biguint(y_value);
+        let z = builder.add_biguint(x, y);
+        let expected_z = builder.constant_biguint(expected_z_value);
+
+        builder.connect_biguint(z, expected_z);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
 }

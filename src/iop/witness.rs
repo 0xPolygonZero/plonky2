@@ -5,8 +5,7 @@ use num::{BigUint, FromPrimitive, Zero};
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, PrimeField};
-use crate::gadgets::arithmetic_u32::U32Target;
+use crate::field::field_types::Field;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::hash::hash_types::HashOutTarget;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
