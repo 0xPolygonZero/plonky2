@@ -38,20 +38,7 @@ pub struct CircuitConfig {
 
 impl Default for CircuitConfig {
     fn default() -> Self {
-        CircuitConfig {
-            num_wires: 4,
-            num_routed_wires: 4,
-            security_bits: 128,
-            rate_bits: 3,
-            num_challenges: 3,
-            zero_knowledge: true,
-            cap_height: 1,
-            fri_config: FriConfig {
-                proof_of_work_bits: 1,
-                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
-                num_query_rounds: 1,
-            },
-        }
+        CircuitConfig::standard_recursion_config()
     }
 }
 
@@ -64,10 +51,10 @@ impl CircuitConfig {
     pub(crate) fn standard_recursion_config() -> Self {
         Self {
             num_wires: 143,
-            num_routed_wires: 64,
-            security_bits: 128,
+            num_routed_wires: 28,
+            security_bits: 100,
             rate_bits: 3,
-            num_challenges: 3,
+            num_challenges: 2,
             zero_knowledge: false,
             cap_height: 3,
             fri_config: FriConfig {
@@ -83,7 +70,7 @@ impl CircuitConfig {
         Self {
             num_wires: 143,
             num_routed_wires: 64,
-            security_bits: 128,
+            security_bits: 4,
             rate_bits: 3,
             num_challenges: 3,
             zero_knowledge: false,
