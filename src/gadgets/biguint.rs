@@ -104,7 +104,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             carry = new_carry;
             combined_limbs.push(new_limb);
         }
-        combined_limbs[num_limbs] = carry;
+        combined_limbs.push(carry);
 
         BigUintTarget {
             limbs: combined_limbs,
