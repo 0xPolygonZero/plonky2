@@ -415,8 +415,6 @@ where
         state: &[ExtensionTarget<D>; WIDTH],
         r: usize,
     ) -> [ExtensionTarget<D>; WIDTH] {
-        let zero = builder.zero_extension();
-
         let s0 = state[0];
         let mut d =
             builder.mul_const_extension(F::from_canonical_u64(1 << Self::MDS_MATRIX_EXPS[0]), s0);
@@ -425,7 +423,7 @@ where
             d = builder.mul_const_add_extension(t, state[i], d);
         }
 
-        let mut result = [zero; WIDTH];
+        let mut result = [builder.zero_extension(); WIDTH];
         result[0] = d;
         for i in 1..WIDTH {
             let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
