@@ -195,6 +195,124 @@ pub(crate) fn eval_vanishing_poly_base<F: RichField + Extendable<D>, const D: us
     plonk_common::reduce_with_powers_multi(&vanishing_terms, alphas)
 }
 
+pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const D: usize>(
+    common_data: &CommonCircuitData<F, D>,
+    indices_batch: &[usize],
+    xs_batch: &[F],
+    vars_batch: &[EvaluationVarsBase<F>],
+    local_zs_batch: &[&[F]],
+    next_zs_batch: &[&[F]],
+    partial_products_batch: &[&[F]],
+    s_sigmas_batch: &[&[F]],
+    betas: &[F],
+    gammas: &[F],
+    alphas: &[F],
+    z_h_on_coset: &ZeroPolyOnCoset<F>,
+) -> Vec<Vec<F>> {
+    let n = indices_batch.len();
+    assert!(xs_batch.len() == n);
+    assert!(vars_batch.len() == n);
+    assert!(local_zs_batch.len() == n);
+    assert!(next_zs_batch.len() == n);
+    assert!(partial_products_batch.len() == n);
+    assert!(s_sigmas_batch.len() == n);
+
+    let max_degree = common_data.quotient_degree_factor;
+    let (num_prods, final_num_prod) = common_data.num_partial_products;
+
+    let constraint_terms_batch = evaluate_gate_constraints_base_batch(
+        &common_data.gates, common_data.num_gate_constraints, vars_batch);
+    debug_assert!(constraint_terms_batch.len() == n);
+
+    let num_challenges = common_data.config.num_challenges;
+    let num_routed_wires = common_data.config.num_routed_wires;
+
+
+    let mut res_batch: Vec<Vec<F>> = Vec::with_capacity(n);
+    for i in 0..n {
+        // The L_1(x) (Z(x) - 1) vanishing terms.
+        let mut vanishing_z_1_terms = Vec::with_capacity(num_challenges);
+        // The terms checking the partial products.
+        let mut vanishing_partial_products_terms = Vec::new();
+        // The Z(x) f'(x) - g'(x) Z(g x) terms.
+        let mut vanishing_v_shift_terms = Vec::with_capacity(num_challenges);
+
+        let mut numerator_values = Vec::with_capacity(num_routed_wires);
+        let mut denominator_values = Vec::with_capacity(num_routed_wires);
+        let mut quotient_values = Vec::with_capacity(num_routed_wires);
+
+        let index = indices_batch[i];
+        let x = xs_batch[i];
+        let vars = vars_batch[i];
+        let local_zs = local_zs_batch[i];
+        let next_zs = next_zs_batch[i];
+        let partial_products = partial_products_batch[i];
+        let s_sigmas = s_sigmas_batch[i];
+
+        let constraint_terms = &constraint_terms_batch[i];
+
+        let l1_x = z_h_on_coset.eval_l1(index, x);
+        for i in 0..num_challenges {
+            let z_x = local_zs[i];
+            let z_gz = next_zs[i];
+            vanishing_z_1_terms.push(l1_x * (z_x - F::ONE));
+
+            numerator_values.extend((0..num_routed_wires).map(|j| {
+                let wire_value = vars.local_wires[j];
+                let k_i = common_data.k_is[j];
+                let s_id = k_i * x;
+                wire_value + betas[i] * s_id + gammas[i]
+            }));
+            denominator_values.extend((0..num_routed_wires).map(|j| {
+                let wire_value = vars.local_wires[j];
+                let s_sigma = s_sigmas[j];
+                wire_value + betas[i] * s_sigma + gammas[i]
+            }));
+            let denominator_inverses = F::batch_multiplicative_inverse(&denominator_values);
+            quotient_values
+                .extend((0..num_routed_wires).map(|j| numerator_values[j] * denominator_inverses[j]));
+
+            // The partial products considered for this iteration of `i`.
+            let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
+            // Check the numerator partial products.
+            let mut partial_product_check =
+                check_partial_products(&quotient_values, current_partial_products, max_degree);
+            // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
+            // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
+            denominator_values
+                .chunks(max_degree)
+                .zip(partial_product_check.iter_mut())
+                .for_each(|(d, q)| {
+                    *q *= d.iter().copied().product();
+                });
+            vanishing_partial_products_terms.extend(partial_product_check);
+
+            // The quotient final product is the product of the last `final_num_prod` elements.
+            let quotient: F = current_partial_products[num_prods - final_num_prod..]
+                .iter()
+                .copied()
+                .product();
+            vanishing_v_shift_terms.push(quotient * z_x - z_gz);
+
+            numerator_values.clear();
+            denominator_values.clear();
+            quotient_values.clear();
+        }
+
+        let vanishing_terms = [
+            vanishing_z_1_terms,
+            vanishing_partial_products_terms,
+            vanishing_v_shift_terms,
+            constraint_terms.clone(),
+        ]
+        .concat();
+
+        let res = plonk_common::reduce_with_powers_multi(&vanishing_terms, alphas);
+        res_batch.push(res);
+    }
+    res_batch
+}
+
 /// Evaluates all gate constraints.
 ///
 /// `num_gate_constraints` is the largest number of constraints imposed by any gate. It is not
@@ -236,6 +354,24 @@ pub fn evaluate_gate_constraints_base<F: RichField + Extendable<D>, const D: usi
         }
     }
     constraints
+}
+
+pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const D: usize>(
+    gates: &[PrefixedGate<F, D>],
+    num_gate_constraints: usize,
+    vars_batch: &[EvaluationVarsBase<F>],
+) -> Vec<Vec<F>> {
+    let mut constraints_batch = vec![vec![F::ZERO; num_gate_constraints]; vars_batch.len()];
+    for gate in gates {
+        let gate_constraints_batch = gate.gate.0.eval_filtered_base_batch(vars_batch, &gate.prefix);
+        for (constraints, gate_constraints) in constraints_batch.iter_mut().zip(gate_constraints_batch.iter()) {
+            debug_assert!(gate_constraints.len() <= constraints.len(), "num_constraints() gave too low of a number");
+            for (constraint, &gate_constraint) in constraints.iter_mut().zip(gate_constraints.iter()) {
+                *constraint += gate_constraint;
+            }
+        }
+    }
+    constraints_batch
 }
 
 pub fn evaluate_gate_constraints_recursively<F: RichField + Extendable<D>, const D: usize>(
