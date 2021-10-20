@@ -34,17 +34,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         bits.drain(num_bits..);
 
         let zero = self.zero();
-        let one = self.one();
         let mut acc = zero;
         for &gate in gates.iter().rev() {
             let sum = Target::wire(gate, BaseSumGate::<2>::WIRE_SUM);
-            acc = self.arithmetic(
-                F::from_canonical_usize(1 << bits_per_gate),
-                acc,
-                one,
-                F::ONE,
-                sum,
-            );
+            acc = self.mul_const_add(F::from_canonical_usize(1 << bits_per_gate), acc, sum);
         }
         self.connect(acc, integer);
 
