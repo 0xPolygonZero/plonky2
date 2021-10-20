@@ -93,14 +93,23 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     // Add two `BigUintTarget`s.
     pub fn add_biguint(&mut self, a: BigUintTarget, b: BigUintTarget) -> BigUintTarget {
-        let num_limbs = a.limbs.len();
-        debug_assert!(b.limbs.len() == num_limbs);
+        let num_limbs = a.num_limbs().max(b.num_limbs());
 
         let mut combined_limbs = vec![];
         let mut carry = self.zero_u32();
         for i in 0..num_limbs {
-            let (new_limb, new_carry) =
-                self.add_three_u32(carry.clone(), a.limbs[i].clone(), b.limbs[i].clone());
+            let a_limb = if i < a.num_limbs() {
+                a.limbs[i].clone()
+            } else {
+                self.zero_u32()
+            };
+            let b_limb = if i < b.num_limbs() {
+                b.limbs[i].clone()
+            } else {
+                self.zero_u32()
+            };
+
+            let (new_limb, new_carry) = self.add_three_u32(carry.clone(), a_limb, b_limb);
             carry = new_carry;
             combined_limbs.push(new_limb);
         }
@@ -221,7 +230,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use num::{BigUint, FromPrimitive};
+    use num::{BigUint, FromPrimitive, Integer};
 
     use crate::{
         field::crandall_field::CrandallField,
@@ -294,6 +303,56 @@ mod tests {
         let expected_z = builder.constant_biguint(expected_z_value);
 
         builder.connect_biguint(z, expected_z);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_biguint_cmp() -> Result<()> {
+        let x_value = BigUint::from_u128(33333333333333333333333333333333333333).unwrap();
+        let y_value = BigUint::from_u128(22222222222222222222222222222222222222).unwrap();
+
+        type F = CrandallField;
+        let config = CircuitConfig::large_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+
+        let x = builder.constant_biguint(x_value);
+        let y = builder.constant_biguint(y_value);
+        let cmp = builder.cmp_biguint(x, y);
+        let expected_cmp = builder.constant_bool(true);
+
+        builder.connect(cmp.target, expected_cmp.target);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_biguint_div_rem() -> Result<()> {
+        let x_value = BigUint::from_u128(456456456456456456456456456456456456).unwrap();
+        let y_value = BigUint::from_u128(123123123123123123123123123123123123).unwrap();
+        let (expected_div_value, expected_rem_value) = x_value.div_rem(&y_value);
+
+        type F = CrandallField;
+        let config = CircuitConfig::large_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+
+        let x = builder.constant_biguint(x_value);
+        let y = builder.constant_biguint(y_value);
+        let (div, rem) = builder.div_rem_biguint(x, y);
+
+        let expected_div = builder.constant_biguint(expected_div_value);
+        let expected_rem = builder.constant_biguint(expected_rem_value);
+
+        //builder.connect_biguint(div, expected_div);
+        //builder.connect_biguint(rem, expected_rem);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();

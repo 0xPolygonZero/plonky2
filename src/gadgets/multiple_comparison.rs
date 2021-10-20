@@ -15,8 +15,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         let n = a.len();
 
-        let chunk_size = 4;
-        let num_chunks = ceil_div_usize(num_bits, chunk_size);
+        let chunk_bits = 2;
+        let num_chunks = ceil_div_usize(num_bits, chunk_bits);
 
         let one = self.one();
         let mut result = self.one();
