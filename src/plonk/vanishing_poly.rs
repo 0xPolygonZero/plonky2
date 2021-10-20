@@ -319,7 +319,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
     for i in 0..common_data.config.num_challenges {
         let z_x = local_zs[i];
         let z_gz = next_zs[i];
-        vanishing_z_1_terms.push(builder.arithmetic_extension(F::ONE, F::NEG_ONE, l1_x, z_x, l1_x));
+        vanishing_z_1_terms.push(builder.mul_sub_extension(l1_x, z_x, l1_x));
 
         let numerator_values = (0..common_data.config.num_routed_wires)
             .map(|j| {
