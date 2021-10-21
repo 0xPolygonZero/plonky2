@@ -1,6 +1,5 @@
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
-use crate::gates::base_sum::BaseSumGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -9,9 +8,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Checks that `x < 2^n_log` using a `BaseSumGate`.
     pub fn range_check(&mut self, x: Target, n_log: usize) {
-        let gate = self.add_gate(BaseSumGate::<2>::new(n_log), vec![]);
-        let sum = Target::wire(gate, BaseSumGate::<2>::WIRE_SUM);
-        self.connect(x, sum);
+        self.split_le(x, n_log);
     }
 
     /// Returns the first `num_low_bits` little-endian bits of `x`.
