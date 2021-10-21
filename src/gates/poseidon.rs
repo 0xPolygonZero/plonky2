@@ -227,10 +227,8 @@ where
         let sbox_in = vars.local_wires[Self::wire_partial_sbox(poseidon::N_PARTIAL_ROUNDS - 1)];
         constraints.push(state[0] - sbox_in);
         state[0] = <F as Poseidon<WIDTH>>::sbox_monomial(sbox_in);
-        state = <F as Poseidon<WIDTH>>::mds_partial_layer_fast(
-            &state,
-            poseidon::N_PARTIAL_ROUNDS - 1,
-        );
+        state =
+            <F as Poseidon<WIDTH>>::mds_partial_layer_fast(&state, poseidon::N_PARTIAL_ROUNDS - 1);
         round_ctr += poseidon::N_PARTIAL_ROUNDS;
 
         // Second set of full rounds.
