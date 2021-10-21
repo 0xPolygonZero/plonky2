@@ -24,16 +24,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Returns `(a,b)` such that `x = a + 2^n_log * b` with `a < 2^n_log`.
     /// `x` is assumed to be range-checked for having `num_bits` bits.
     pub fn split_low_high(&mut self, x: Target, n_log: usize, num_bits: usize) -> (Target, Target) {
-        let low_gate = self.add_gate(BaseSumGate::<2>::new(n_log), vec![]);
-        let high_gate = self.add_gate(BaseSumGate::<2>::new(num_bits - n_log), vec![]);
-        let low = Target::wire(low_gate, BaseSumGate::<2>::WIRE_SUM);
-        let high = Target::wire(high_gate, BaseSumGate::<2>::WIRE_SUM);
+        let low = self.add_virtual_target();
+        let high = self.add_virtual_target();
+
         self.add_simple_generator(LowHighGenerator {
             integer: x,
             n_log,
             low,
             high,
         });
+
+        self.range_check(low, n_log);
+        self.range_check(high, num_bits - n_log);
 
         let pow2 = self.constant(F::from_canonical_u64(1 << n_log));
         let comp_x = self.mul_add(high, pow2, low);
