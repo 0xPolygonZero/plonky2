@@ -258,7 +258,6 @@ where
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        let one = builder.one_extension();
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         // Assert that `swap` is binary.
@@ -305,12 +304,9 @@ where
             let sbox_in = vars.local_wires[Self::wire_partial_sbox(r)];
             constraints.push(builder.sub_extension(state[0], sbox_in));
             state[0] = <F as Poseidon<WIDTH>>::sbox_monomial_recursive(builder, sbox_in);
-            state[0] = builder.arithmetic_extension(
-                F::from_canonical_u64(<F as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_CONSTANTS[r]),
-                F::ONE,
-                one,
-                one,
+            state[0] = builder.add_const_extension(
                 state[0],
+                F::from_canonical_u64(<F as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_CONSTANTS[r]),
             );
             state = <F as Poseidon<WIDTH>>::mds_partial_layer_fast_recursive(builder, &state, r);
         }
