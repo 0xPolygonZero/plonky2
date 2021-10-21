@@ -258,7 +258,6 @@ mod tests {
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
-
         verify(proof, &data.verifier_only, &data.common)
     }
 
@@ -282,7 +281,6 @@ mod tests {
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
-
         verify(proof, &data.verifier_only, &data.common)
     }
 
@@ -306,7 +304,6 @@ mod tests {
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
-
         verify(proof, &data.verifier_only, &data.common)
     }
 
@@ -329,7 +326,6 @@ mod tests {
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
-
         verify(proof, &data.verifier_only, &data.common)
     }
 
@@ -356,7 +352,6 @@ mod tests {
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
-
         verify(proof, &data.verifier_only, &data.common)
     }
 }

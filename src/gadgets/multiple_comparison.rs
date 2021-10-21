@@ -53,3 +53,48 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         BoolTarget::new_unsafe(result)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+    use rand::Rng;
+
+    use crate::field::crandall_field::CrandallField;
+    use crate::field::field_types::Field;
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::verifier::verify;
+
+    fn test_list_le(size: usize) -> Result<()> {
+        type F = CrandallField;
+        let config = CircuitConfig::large_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+
+        let mut rng = rand::thread_rng();
+
+        let lst1: Vec<F> = (0..size)
+            .map(|_| F::from_canonical_u32(rng.gen()))
+            .collect();
+        let lst2: Vec<F> = (0..size)
+            .map(|_| F::from_canonical_u32(rng.gen()))
+            .collect();
+        let a = lst1.iter().map(|&x| builder.constant(x)).collect();
+        let b = lst2.iter().map(|&x| builder.constant(x)).collect();
+
+        let result = builder.list_le(a, b, 32);
+
+        let expected_result = builder.constant_bool(true);
+        builder.connect(result.target, expected_result.target);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_multiple_comparison_trivial() -> Result<()> {
+        test_list_le(1)
+    }
+}
