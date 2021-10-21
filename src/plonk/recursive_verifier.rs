@@ -141,8 +141,8 @@ mod tests {
         CompressedProofWithPublicInputs, OpeningSetTarget, Proof, ProofTarget,
         ProofWithPublicInputs,
     };
-    use crate::util::log2_strict;
     use crate::plonk::prover::prove;
+    use crate::util::log2_strict;
     use crate::util::timing::TimingTree;
 
     // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
@@ -417,7 +417,8 @@ mod tests {
         let (proof, vd, cd) = dummy_proof::<F, D>(&normal_config, 8_000)?;
         let (proof, vd, cd) =
             recursive_proof(proof, vd, cd, &normal_config, &normal_config, false, false)?;
-        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &normal_config, &final_config, true, true)?;
+        let (proof, _vd, cd) =
+            recursive_proof(proof, vd, cd, &normal_config, &final_config, true, true)?;
 
         test_serialization(&proof, &cd)?;
 

@@ -108,7 +108,12 @@ pub struct CircuitData<F: RichField + Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitData<F, D> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, D>> {
-        prove(&self.prover_only, &self.common, inputs, &mut TimingTree::default())
+        prove(
+            &self.prover_only,
+            &self.common,
+            inputs,
+            &mut TimingTree::default(),
+        )
     }
 
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, D>) -> Result<()> {
@@ -130,7 +135,12 @@ pub struct ProverCircuitData<F: RichField + Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> ProverCircuitData<F, D> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, D>> {
-        prove(&self.prover_only, &self.common, inputs, &mut TimingTree::default())
+        prove(
+            &self.prover_only,
+            &self.common,
+            inputs,
+            &mut TimingTree::default(),
+        )
     }
 }
 
