@@ -1,7 +1,9 @@
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::Extendable;
-use crate::target::Target;
+use crate::field::field_types::RichField;
+use crate::iop::target::Target;
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::util::reducing::ReducingFactorTarget;
 
 pub struct PolynomialCoeffsExtTarget<const D: usize>(pub Vec<ExtensionTarget<D>>);
 
@@ -10,30 +12,23 @@ impl<const D: usize> PolynomialCoeffsExtTarget<D> {
         self.0.len()
     }
 
-    pub fn eval_scalar<F: Extendable<D>>(
+    pub fn eval_scalar<F: RichField + Extendable<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         point: Target,
     ) -> ExtensionTarget<D> {
-        let mut acc = builder.zero_extension();
-        for &c in self.0.iter().rev() {
-            let tmp = builder.scalar_mul_ext(point, acc);
-            acc = builder.add_extension(tmp, c);
-        }
-        acc
+        let point = builder.convert_to_ext(point);
+        let mut point = ReducingFactorTarget::new(point);
+        point.reduce(&self.0, builder)
     }
 
-    pub fn eval<F: Extendable<D>>(
+    pub fn eval<F: RichField + Extendable<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         point: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let mut acc = builder.zero_extension();
-        for &c in self.0.iter().rev() {
-            let tmp = builder.mul_extension(point, acc);
-            acc = builder.add_extension(tmp, c);
-        }
-        acc
+        let mut point = ReducingFactorTarget::new(point);
+        point.reduce(&self.0, builder)
     }
 }
 
@@ -46,12 +41,11 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
         point: ExtensionTarget<D>,
     ) -> ExtensionAlgebraTarget<D>
     where
-        F: Extendable<D>,
+        F: RichField + Extendable<D>,
     {
         let mut acc = builder.zero_ext_algebra();
         for &c in self.0.iter().rev() {
-            let tmp = builder.scalar_mul_ext_algebra(point, acc);
-            acc = builder.add_ext_algebra(tmp, c);
+            acc = builder.scalar_mul_add_ext_algebra(point, acc, c);
         }
         acc
     }
@@ -62,12 +56,11 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
         point: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D>
     where
-        F: Extendable<D>,
+        F: RichField + Extendable<D>,
     {
         let mut acc = builder.zero_ext_algebra();
         for &c in self.0.iter().rev() {
-            let tmp = builder.mul_ext_algebra(point, acc);
-            acc = builder.add_ext_algebra(tmp, c);
+            acc = builder.mul_add_ext_algebra(point, acc, c);
         }
         acc
     }

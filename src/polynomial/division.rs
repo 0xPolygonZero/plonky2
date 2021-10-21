@@ -1,12 +1,12 @@
 use crate::field::fft::{fft, ifft};
-use crate::field::field::Field;
+use crate::field::field_types::Field;
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::util::{log2_ceil, log2_strict};
 
 impl<F: Field> PolynomialCoeffs<F> {
     /// Polynomial division.
     /// Returns `(q, r)`, the quotient and remainder of the polynomial division of `a` by `b`.
-    pub(crate) fn div_rem(&self, b: &Self) -> (Self, Self) {
+    pub fn div_rem(&self, b: &Self) -> (Self, Self) {
         let (a_degree_plug_1, b_degree_plus_1) = (self.degree_plus_one(), b.degree_plus_one());
         if a_degree_plug_1 == 0 {
             (Self::zero(1), Self::empty())
@@ -88,10 +88,10 @@ impl<F: Field> PolynomialCoeffs<F> {
 
         let root = F::primitive_root_of_unity(log2_strict(a.len()));
         // Equals to the evaluation of `a` on `{g.w^i}`.
-        let mut a_eval = fft(a);
+        let mut a_eval = fft(&a);
         // Compute the denominators `1/(g^n.w^(n*i) - 1)` using batch inversion.
-        let denominator_g = g.exp(n as u64);
-        let root_n = root.exp(n as u64);
+        let denominator_g = g.exp_u64(n as u64);
+        let root_n = root.exp_u64(n as u64);
         let mut root_pow = F::ONE;
         let denominators = (0..a_eval.len())
             .map(|i| {
@@ -112,7 +112,7 @@ impl<F: Field> PolynomialCoeffs<F> {
                 *x *= d;
             });
         // `p` is the interpolating polynomial of `a_eval` on `{w^i}`.
-        let mut p = ifft(a_eval);
+        let mut p = ifft(&a_eval);
         // We need to scale it by `g^(-i)` to get the interpolating polynomial of `a_eval` on `{g.w^i}`,
         // a.k.a `a/Z_H`.
         let g_inv = g.inverse();
@@ -185,8 +185,8 @@ mod tests {
     use std::time::Instant;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::field::Field;
+    use crate::field::extension_field::quartic::QuarticExtension;
+    use crate::field::field_types::Field;
     use crate::polynomial::polynomial::PolynomialCoeffs;
 
     #[test]
@@ -201,8 +201,6 @@ mod tests {
     fn division_by_z_h() {
         type F = CrandallField;
         let zero = F::ZERO;
-        let one = F::ONE;
-        let two = F::TWO;
         let three = F::from_canonical_u64(3);
         let four = F::from_canonical_u64(4);
         let five = F::from_canonical_u64(5);
@@ -222,14 +220,14 @@ mod tests {
     #[test]
     #[ignore]
     fn test_division_by_linear() {
-        type F = QuarticCrandallField;
+        type F = QuarticExtension<CrandallField>;
         let n = 1_000_000;
         let poly = PolynomialCoeffs::new(F::rand_vec(n));
         let z = F::rand();
         let ev = poly.eval(z);
 
         let timer = Instant::now();
-        let (quotient, ev2) = poly.div_rem(&PolynomialCoeffs::new(vec![-z, F::ONE]));
+        let (_quotient, ev2) = poly.div_rem(&PolynomialCoeffs::new(vec![-z, F::ONE]));
         println!("{:.3}s for usual", timer.elapsed().as_secs_f32());
         assert_eq!(ev2.trimmed().coeffs, vec![ev]);
 
@@ -247,7 +245,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_division_by_quadratic() {
-        type F = QuarticCrandallField;
+        type F = QuarticExtension<CrandallField>;
         let n = 1_000_000;
         let poly = PolynomialCoeffs::new(F::rand_vec(n));
         let quad = PolynomialCoeffs::new(F::rand_vec(2));

@@ -4,99 +4,18 @@ use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use num::Integer;
+use num::bigint::BigUint;
+use rand::Rng;
+use serde::{Deserialize, Serialize};
 
-use crate::field::extension_field::quadratic::QuadraticCrandallField;
-use crate::field::extension_field::quartic::QuarticCrandallField;
+use crate::field::extension_field::quadratic::QuadraticExtension;
+use crate::field::extension_field::quartic::QuarticExtension;
 use crate::field::extension_field::{Extendable, Frobenius};
-use crate::field::field::Field;
+use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::inversion::try_inverse_u64;
 
 /// EPSILON = 9 * 2**28 - 1
 const EPSILON: u64 = 2415919103;
-
-/// A precomputed 8*8 Cauchy matrix, generated with `Field::mds_8`.
-const CAUCHY_MDS_8: [[CrandallField; 8]; 8] = [
-    [
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-        CrandallField(3074457345215605419),
-        CrandallField(11068046442776179508),
-        CrandallField(13835058053470224385),
-        CrandallField(6148914690431210838),
-        CrandallField(9223372035646816257),
-        CrandallField(1),
-    ],
-    [
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-        CrandallField(3074457345215605419),
-        CrandallField(11068046442776179508),
-        CrandallField(13835058053470224385),
-        CrandallField(6148914690431210838),
-        CrandallField(9223372035646816257),
-    ],
-    [
-        CrandallField(5534023221388089754),
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-        CrandallField(3074457345215605419),
-        CrandallField(11068046442776179508),
-        CrandallField(13835058053470224385),
-        CrandallField(6148914690431210838),
-    ],
-    [
-        CrandallField(16769767337539665921),
-        CrandallField(5534023221388089754),
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-        CrandallField(3074457345215605419),
-        CrandallField(11068046442776179508),
-        CrandallField(13835058053470224385),
-    ],
-    [
-        CrandallField(10760600708254618966),
-        CrandallField(16769767337539665921),
-        CrandallField(5534023221388089754),
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-        CrandallField(3074457345215605419),
-        CrandallField(11068046442776179508),
-    ],
-    [
-        CrandallField(5675921252705733081),
-        CrandallField(10760600708254618966),
-        CrandallField(16769767337539665921),
-        CrandallField(5534023221388089754),
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-        CrandallField(3074457345215605419),
-    ],
-    [
-        CrandallField(1317624576520973751),
-        CrandallField(5675921252705733081),
-        CrandallField(10760600708254618966),
-        CrandallField(16769767337539665921),
-        CrandallField(5534023221388089754),
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-        CrandallField(2635249153041947502),
-    ],
-    [
-        CrandallField(15987178195121148178),
-        CrandallField(1317624576520973751),
-        CrandallField(5675921252705733081),
-        CrandallField(10760600708254618966),
-        CrandallField(16769767337539665921),
-        CrandallField(5534023221388089754),
-        CrandallField(2049638230143736946),
-        CrandallField(16140901062381928449),
-    ],
-];
 
 /// A field designed for use with the Crandall reduction algorithm.
 ///
@@ -106,8 +25,15 @@ const CAUCHY_MDS_8: [[CrandallField; 8]; 8] = [
 ///   = 2**64 - 9 * 2**28 + 1
 ///   = 2**28 * (2**36 - 9) + 1
 /// ```
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
+#[repr(transparent)] // Must be compatible with PackedCrandallAVX2
 pub struct CrandallField(pub u64);
+
+impl Default for CrandallField {
+    fn default() -> Self {
+        Self::ZERO
+    }
+}
 
 impl PartialEq for CrandallField {
     fn eq(&self, other: &Self) -> bool {
@@ -143,99 +69,38 @@ impl Field for CrandallField {
     const TWO: Self = Self(2);
     const NEG_ONE: Self = Self(Self::ORDER - 1);
 
-    const ORDER: u64 = 18446744071293632513;
-    const TWO_ADICITY: usize = 28;
     const CHARACTERISTIC: u64 = Self::ORDER;
+    const TWO_ADICITY: usize = 28;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(5);
     const POWER_OF_TWO_GENERATOR: Self = Self(10281950781551402419);
 
-    #[inline]
-    fn square(&self) -> Self {
-        *self * *self
+    fn order() -> BigUint {
+        Self::ORDER.into()
     }
 
-    #[inline]
-    fn cube(&self) -> Self {
-        *self * *self * *self
-    }
-
-    #[allow(clippy::many_single_char_names)] // The names are from the paper.
+    #[inline(always)]
     fn try_inverse(&self) -> Option<Self> {
-        if self.is_zero() {
-            return None;
-        }
-
-        // Based on Algorithm 16 of "Efficient Software-Implementation of Finite Fields with
-        // Applications to Cryptography".
-
-        let p = Self::ORDER;
-        let mut u = self.to_canonical_u64();
-        let mut v = p;
-        let mut b = 1u64;
-        let mut c = 0u64;
-
-        while u != 1 && v != 1 {
-            while u.is_even() {
-                u /= 2;
-                if b.is_even() {
-                    b /= 2;
-                } else {
-                    // b = (b + p)/2, avoiding overflow
-                    b = (b / 2) + (p / 2) + 1;
-                }
-            }
-
-            while v.is_even() {
-                v /= 2;
-                if c.is_even() {
-                    c /= 2;
-                } else {
-                    // c = (c + p)/2, avoiding overflow
-                    c = (c / 2) + (p / 2) + 1;
-                }
-            }
-
-            if u >= v {
-                u -= v;
-                // b -= c
-                let (mut diff, under) = b.overflowing_sub(c);
-                if under {
-                    diff = diff.overflowing_add(p).0;
-                }
-                b = diff;
-            } else {
-                v -= u;
-                // c -= b
-                let (mut diff, under) = c.overflowing_sub(b);
-                if under {
-                    diff = diff.overflowing_add(p).0;
-                }
-                c = diff;
-            }
-        }
-
-        let inverse = Self(if u == 1 { b } else { c });
-
-        // Should change to debug_assert_eq; using assert_eq as an extra precaution for now until
-        // we're more confident the impl is correct.
-        assert_eq!(*self * inverse, Self::ONE);
-        Some(inverse)
-    }
-
-    #[inline]
-    fn to_canonical_u64(&self) -> u64 {
-        let mut c = self.0;
-        // We only need one condition subtraction, since 2 * ORDER would not fit in a u64.
-        if c >= Self::ORDER {
-            c -= Self::ORDER;
-        }
-        c
+        try_inverse_u64(self)
     }
 
     #[inline]
     fn from_canonical_u64(n: u64) -> Self {
         Self(n)
+    }
+
+    #[inline]
+    fn from_noncanonical_u128(n: u128) -> Self {
+        reduce128(n)
+    }
+
+    #[inline]
+    fn from_noncanonical_u96(n: (u64, u32)) -> Self {
+        reduce96(n)
+    }
+
+    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+        Self::from_canonical_u64(rng.gen_range(0..Self::ORDER))
     }
 
     fn cube_root(&self) -> Self {
@@ -315,15 +180,44 @@ impl Field for CrandallField {
         x74
     }
 
-    fn mds_8(vec: [Self; 8]) -> [Self; 8] {
-        let mut result = [Self::ZERO; 8];
-        for r in 0..8 {
-            for c in 0..8 {
-                let entry = CAUCHY_MDS_8[r][c];
-                result[r] += entry * vec[c];
-            }
+    #[inline]
+    fn multiply_accumulate(&self, x: Self, y: Self) -> Self {
+        // u64 + u64 * u64 cannot overflow.
+        reduce128((self.0 as u128) + (x.0 as u128) * (y.0 as u128))
+    }
+}
+
+impl PrimeField for CrandallField {
+    const ORDER: u64 = 18446744071293632513;
+
+    #[inline]
+    fn to_canonical_u64(&self) -> u64 {
+        let mut c = self.0;
+        // We only need one condition subtraction, since 2 * ORDER would not fit in a u64.
+        if c >= Self::ORDER {
+            c -= Self::ORDER;
         }
-        result
+        c
+    }
+
+    #[inline]
+    fn to_noncanonical_u64(&self) -> u64 {
+        self.0
+    }
+
+    #[inline]
+    fn from_noncanonical_u64(n: u64) -> Self {
+        Self(n)
+    }
+
+    #[inline]
+    /// Faster addition for when we know that rhs <= ORDER. If this is the case, then the
+    /// .to_canonical_u64() that addition usually performs is unnecessary. Omitting it saves three
+    /// instructions. This function is marked unsafe because it may yield incorrect results if the
+    /// condition is not satisfied.
+    unsafe fn add_canonical_u64(&self, rhs: u64) -> Self {
+        let (sum, over) = self.0.overflowing_add(rhs);
+        Self(sum.wrapping_sub((over as u64) * Self::ORDER))
     }
 }
 
@@ -346,12 +240,14 @@ impl Add for CrandallField {
     #[inline]
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, rhs: Self) -> Self {
-        let (sum, over) = self.0.overflowing_add(rhs.0);
-        Self(sum.overflowing_sub((over as u64) * Self::ORDER).0)
+        let rhs_canonical = rhs.to_canonical_u64();
+        // rhs_canonical is definitely canonical, so below is safe.
+        unsafe { self.add_canonical_u64(rhs_canonical) }
     }
 }
 
 impl AddAssign for CrandallField {
+    #[inline]
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
@@ -370,7 +266,7 @@ impl Sub for CrandallField {
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: Self) -> Self {
         let (diff, under) = self.0.overflowing_sub(rhs.to_canonical_u64());
-        Self(diff.overflowing_add((under as u64) * Self::ORDER).0)
+        Self(diff.wrapping_add((under as u64) * Self::ORDER))
     }
 }
 
@@ -398,8 +294,9 @@ impl MulAssign for CrandallField {
 }
 
 impl Product for CrandallField {
+    #[inline]
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.fold(Self::ONE, |acc, x| acc * x)
+        iter.reduce(|acc, x| acc * x).unwrap_or(Self::ONE)
     }
 }
 
@@ -419,12 +316,41 @@ impl DivAssign for CrandallField {
 }
 
 impl Extendable<2> for CrandallField {
-    type Extension = QuadraticCrandallField;
+    type Extension = QuadraticExtension<Self>;
+
+    // Verifiable in Sage with
+    // `R.<x> = GF(p)[]; assert (x^2 - 3).is_irreducible()`.
+    const W: Self = Self(3);
+
+    // DTH_ROOT = W^((ORDER - 1)/2)
+    const DTH_ROOT: Self = Self(18446744071293632512);
+
+    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 2] =
+        [Self(6483724566312148654), Self(12194665049945415126)];
+
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 2] = [Self(0), Self(14420468973723774561)];
 }
 
 impl Extendable<4> for CrandallField {
-    type Extension = QuarticCrandallField;
+    type Extension = QuarticExtension<Self>;
+
+    const W: Self = Self(3);
+
+    // DTH_ROOT = W^((ORDER - 1)/4)
+    const DTH_ROOT: Self = Self(6183774639018825925);
+
+    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 4] = [
+        Self(12476589904174392631),
+        Self(896937834427772243),
+        Self(7795248119019507390),
+        Self(9005769437373554825),
+    ];
+
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 4] =
+        [Self(0), Self(0), Self(0), Self(15170983443234254033)];
 }
+
+impl RichField for CrandallField {}
 
 /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
 /// field order and `2^64`.
@@ -437,9 +363,22 @@ fn reduce128(x: u128) -> CrandallField {
     // product will fit in 64 bits.
     let (lo_1, hi_1) = split(x);
     let (lo_2, hi_2) = split((EPSILON as u128) * (hi_1 as u128) + (lo_1 as u128));
-    let lo_3 = hi_2 * EPSILON;
+    reduce96((lo_2, hi_2 as u32)) // hi_2 will always fit in a u32.
+}
 
-    CrandallField(lo_2) + CrandallField(lo_3)
+/// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
+/// field order and `2^64`.
+#[inline]
+fn reduce96((x_lo, x_hi): (u64, u32)) -> CrandallField {
+    // This is Crandall's algorithm. See reduce128.
+    let t = (x_hi as u64) * EPSILON;
+
+    unsafe {
+        // This is safe to do because x_lo + t < 2^64 + Self::ORDER. Notice that x_hi <= 2^32 - 1.
+        // Then t = x_hi * EPSILON <= (2^32 - 1) * EPSILON < Self::ORDER.
+        // Use of standard addition here would make multiplication 20% more expensive.
+        CrandallField(x_lo).add_canonical_u64(t)
+    }
 }
 
 #[inline]
@@ -451,7 +390,8 @@ impl Frobenius<1> for CrandallField {}
 
 #[cfg(test)]
 mod tests {
-    use crate::test_arithmetic;
+    use crate::{test_field_arithmetic, test_prime_field_arithmetic};
 
-    test_arithmetic!(crate::field::crandall_field::CrandallField);
+    test_prime_field_arithmetic!(crate::field::crandall_field::CrandallField);
+    test_field_arithmetic!(crate::field::crandall_field::CrandallField);
 }

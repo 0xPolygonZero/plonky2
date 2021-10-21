@@ -1,47 +1,52 @@
 use std::ops::Range;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::gates::gate::{Gate, GateRef};
-use crate::generator::{SimpleGenerator, WitnessGenerator};
-use crate::target::Target;
-use crate::vars::{EvaluationTargets, EvaluationVars};
-use crate::witness::PartialWitness;
+use crate::field::extension_field::FieldExtension;
+use crate::field::field_types::RichField;
+use crate::gates::gate::Gate;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::target::Target;
+use crate::iop::witness::{PartitionWitness, Witness};
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CircuitConfig;
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate which can a linear combination `c0*x*y+c1*z` twice with the same `x`.
 #[derive(Debug)]
-pub struct ArithmeticExtensionGate<const D: usize>;
+pub struct ArithmeticExtensionGate<const D: usize> {
+    /// Number of arithmetic operations performed by an arithmetic gate.
+    pub num_ops: usize,
+}
 
 impl<const D: usize> ArithmeticExtensionGate<D> {
-    pub fn new<F: Extendable<D>>() -> GateRef<F, D> {
-        GateRef::new(ArithmeticExtensionGate)
+    pub fn new_from_config(config: &CircuitConfig) -> Self {
+        Self {
+            num_ops: Self::num_ops(config),
+        }
     }
 
-    pub fn wires_fixed_multiplicand() -> Range<usize> {
-        0..D
+    /// Determine the maximum number of operations that can fit in one gate for the given config.
+    pub(crate) fn num_ops(config: &CircuitConfig) -> usize {
+        let wires_per_op = 4 * D;
+        config.num_routed_wires / wires_per_op
     }
-    pub fn wires_multiplicand_0() -> Range<usize> {
-        D..2 * D
+
+    pub fn wires_ith_multiplicand_0(i: usize) -> Range<usize> {
+        4 * D * i..4 * D * i + D
     }
-    pub fn wires_addend_0() -> Range<usize> {
-        2 * D..3 * D
+    pub fn wires_ith_multiplicand_1(i: usize) -> Range<usize> {
+        4 * D * i + D..4 * D * i + 2 * D
     }
-    pub fn wires_multiplicand_1() -> Range<usize> {
-        3 * D..4 * D
+    pub fn wires_ith_addend(i: usize) -> Range<usize> {
+        4 * D * i + 2 * D..4 * D * i + 3 * D
     }
-    pub fn wires_addend_1() -> Range<usize> {
-        4 * D..5 * D
-    }
-    pub fn wires_output_0() -> Range<usize> {
-        5 * D..6 * D
-    }
-    pub fn wires_output_1() -> Range<usize> {
-        6 * D..7 * D
+    pub fn wires_ith_output(i: usize) -> Range<usize> {
+        4 * D * i + 3 * D..4 * D * i + 4 * D
     }
 }
 
-impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D> {
+impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
@@ -50,21 +55,37 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
         let const_0 = vars.local_constants[0];
         let const_1 = vars.local_constants[1];
 
-        let fixed_multiplicand = vars.get_local_ext_algebra(Self::wires_fixed_multiplicand());
-        let multiplicand_0 = vars.get_local_ext_algebra(Self::wires_multiplicand_0());
-        let addend_0 = vars.get_local_ext_algebra(Self::wires_addend_0());
-        let multiplicand_1 = vars.get_local_ext_algebra(Self::wires_multiplicand_1());
-        let addend_1 = vars.get_local_ext_algebra(Self::wires_addend_1());
-        let output_0 = vars.get_local_ext_algebra(Self::wires_output_0());
-        let output_1 = vars.get_local_ext_algebra(Self::wires_output_1());
+        let mut constraints = Vec::new();
+        for i in 0..self.num_ops {
+            let multiplicand_0 = vars.get_local_ext_algebra(Self::wires_ith_multiplicand_0(i));
+            let multiplicand_1 = vars.get_local_ext_algebra(Self::wires_ith_multiplicand_1(i));
+            let addend = vars.get_local_ext_algebra(Self::wires_ith_addend(i));
+            let output = vars.get_local_ext_algebra(Self::wires_ith_output(i));
+            let computed_output =
+                (multiplicand_0 * multiplicand_1).scalar_mul(const_0) + addend.scalar_mul(const_1);
 
-        let computed_output_0 =
-            fixed_multiplicand * multiplicand_0 * const_0.into() + addend_0 * const_1.into();
-        let computed_output_1 =
-            fixed_multiplicand * multiplicand_1 * const_0.into() + addend_1 * const_1.into();
+            constraints.extend((output - computed_output).to_basefield_array());
+        }
 
-        let mut constraints = (output_0 - computed_output_0).to_basefield_array().to_vec();
-        constraints.extend((output_1 - computed_output_1).to_basefield_array());
+        constraints
+    }
+
+    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+        let const_0 = vars.local_constants[0];
+        let const_1 = vars.local_constants[1];
+
+        let mut constraints = Vec::new();
+        for i in 0..self.num_ops {
+            let multiplicand_0 = vars.get_local_ext(Self::wires_ith_multiplicand_0(i));
+            let multiplicand_1 = vars.get_local_ext(Self::wires_ith_multiplicand_1(i));
+            let addend = vars.get_local_ext(Self::wires_ith_addend(i));
+            let output = vars.get_local_ext(Self::wires_ith_output(i));
+            let computed_output =
+                (multiplicand_0 * multiplicand_1).scalar_mul(const_0) + addend.scalar_mul(const_1);
+
+            constraints.extend((output - computed_output).to_basefield_array());
+        }
+
         constraints
     }
 
@@ -76,28 +97,23 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
         let const_0 = vars.local_constants[0];
         let const_1 = vars.local_constants[1];
 
-        let fixed_multiplicand = vars.get_local_ext_algebra(Self::wires_fixed_multiplicand());
-        let multiplicand_0 = vars.get_local_ext_algebra(Self::wires_multiplicand_0());
-        let addend_0 = vars.get_local_ext_algebra(Self::wires_addend_0());
-        let multiplicand_1 = vars.get_local_ext_algebra(Self::wires_multiplicand_1());
-        let addend_1 = vars.get_local_ext_algebra(Self::wires_addend_1());
-        let output_0 = vars.get_local_ext_algebra(Self::wires_output_0());
-        let output_1 = vars.get_local_ext_algebra(Self::wires_output_1());
+        let mut constraints = Vec::new();
+        for i in 0..self.num_ops {
+            let multiplicand_0 = vars.get_local_ext_algebra(Self::wires_ith_multiplicand_0(i));
+            let multiplicand_1 = vars.get_local_ext_algebra(Self::wires_ith_multiplicand_1(i));
+            let addend = vars.get_local_ext_algebra(Self::wires_ith_addend(i));
+            let output = vars.get_local_ext_algebra(Self::wires_ith_output(i));
+            let computed_output = {
+                let mul = builder.mul_ext_algebra(multiplicand_0, multiplicand_1);
+                let scaled_mul = builder.scalar_mul_ext_algebra(const_0, mul);
+                let scaled_addend = builder.scalar_mul_ext_algebra(const_1, addend);
+                builder.add_ext_algebra(scaled_mul, scaled_addend)
+            };
 
-        let computed_output_0 = builder.mul_ext_algebra(fixed_multiplicand, multiplicand_0);
-        let computed_output_0 = builder.scalar_mul_ext_algebra(const_0, computed_output_0);
-        let scaled_addend_0 = builder.scalar_mul_ext_algebra(const_1, addend_0);
-        let computed_output_0 = builder.add_ext_algebra(computed_output_0, scaled_addend_0);
+            let diff = builder.sub_ext_algebra(output, computed_output);
+            constraints.extend(diff.to_ext_target_array());
+        }
 
-        let computed_output_1 = builder.mul_ext_algebra(fixed_multiplicand, multiplicand_1);
-        let computed_output_1 = builder.scalar_mul_ext_algebra(const_0, computed_output_1);
-        let scaled_addend_1 = builder.scalar_mul_ext_algebra(const_1, addend_1);
-        let computed_output_1 = builder.add_ext_algebra(computed_output_1, scaled_addend_1);
-
-        let diff_0 = builder.sub_ext_algebra(output_0, computed_output_0);
-        let diff_1 = builder.sub_ext_algebra(output_1, computed_output_1);
-        let mut constraints = diff_0.to_ext_target_array().to_vec();
-        constraints.extend(diff_1.to_ext_target_array());
         constraints
     }
 
@@ -106,21 +122,24 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
         gate_index: usize,
         local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen0 = ArithmeticExtensionGenerator0 {
-            gate_index,
-            const_0: local_constants[0],
-            const_1: local_constants[1],
-        };
-        let gen1 = ArithmeticExtensionGenerator1 {
-            gate_index,
-            const_0: local_constants[0],
-            const_1: local_constants[1],
-        };
-        vec![Box::new(gen0), Box::new(gen1)]
+        (0..self.num_ops)
+            .map(|i| {
+                let g: Box<dyn WitnessGenerator<F>> = Box::new(
+                    ArithmeticExtensionGenerator {
+                        gate_index,
+                        const_0: local_constants[0],
+                        const_1: local_constants[1],
+                        i,
+                    }
+                    .adapter(),
+                );
+                g
+            })
+            .collect::<Vec<_>>()
     }
 
     fn num_wires(&self) -> usize {
-        7 * D
+        self.num_ops * 4 * D
     }
 
     fn num_constants(&self) -> usize {
@@ -132,96 +151,75 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D>
     }
 
     fn num_constraints(&self) -> usize {
-        2 * D
+        self.num_ops * D
     }
 }
 
-struct ArithmeticExtensionGenerator0<F: Extendable<D>, const D: usize> {
+#[derive(Clone, Debug)]
+struct ArithmeticExtensionGenerator<F: RichField + Extendable<D>, const D: usize> {
     gate_index: usize,
     const_0: F,
     const_1: F,
+    i: usize,
 }
 
-struct ArithmeticExtensionGenerator1<F: Extendable<D>, const D: usize> {
-    gate_index: usize,
-    const_0: F,
-    const_1: F,
-}
-
-impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensionGenerator0<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for ArithmeticExtensionGenerator<F, D>
+{
     fn dependencies(&self) -> Vec<Target> {
-        ArithmeticExtensionGate::<D>::wires_fixed_multiplicand()
-            .chain(ArithmeticExtensionGate::<D>::wires_multiplicand_0())
-            .chain(ArithmeticExtensionGate::<D>::wires_addend_0())
+        ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(self.i)
+            .chain(ArithmeticExtensionGate::<D>::wires_ith_multiplicand_1(
+                self.i,
+            ))
+            .chain(ArithmeticExtensionGate::<D>::wires_ith_addend(self.i))
             .map(|i| Target::wire(self.gate_index, i))
             .collect()
     }
 
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let extract_extension = |range: Range<usize>| -> F::Extension {
             let t = ExtensionTarget::from_range(self.gate_index, range);
             witness.get_extension_target(t)
         };
 
-        let fixed_multiplicand =
-            extract_extension(ArithmeticExtensionGate::<D>::wires_fixed_multiplicand());
-        let multiplicand_0 =
-            extract_extension(ArithmeticExtensionGate::<D>::wires_multiplicand_0());
-        let addend_0 = extract_extension(ArithmeticExtensionGate::<D>::wires_addend_0());
+        let multiplicand_0 = extract_extension(
+            ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(self.i),
+        );
+        let multiplicand_1 = extract_extension(
+            ArithmeticExtensionGate::<D>::wires_ith_multiplicand_1(self.i),
+        );
+        let addend = extract_extension(ArithmeticExtensionGate::<D>::wires_ith_addend(self.i));
 
-        let output_target_0 = ExtensionTarget::from_range(
+        let output_target = ExtensionTarget::from_range(
             self.gate_index,
-            ArithmeticExtensionGate::<D>::wires_output_0(),
+            ArithmeticExtensionGate::<D>::wires_ith_output(self.i),
         );
 
-        let computed_output_0 = fixed_multiplicand * multiplicand_0 * self.const_0.into()
-            + addend_0 * self.const_1.into();
+        let computed_output = (multiplicand_0 * multiplicand_1).scalar_mul(self.const_0)
+            + addend.scalar_mul(self.const_1);
 
-        PartialWitness::singleton_extension_target(output_target_0, computed_output_0)
-    }
-}
-
-impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensionGenerator1<F, D> {
-    fn dependencies(&self) -> Vec<Target> {
-        ArithmeticExtensionGate::<D>::wires_fixed_multiplicand()
-            .chain(ArithmeticExtensionGate::<D>::wires_multiplicand_1())
-            .chain(ArithmeticExtensionGate::<D>::wires_addend_1())
-            .map(|i| Target::wire(self.gate_index, i))
-            .collect()
-    }
-
-    fn run_once(&self, witness: &PartialWitness<F>) -> PartialWitness<F> {
-        let extract_extension = |range: Range<usize>| -> F::Extension {
-            let t = ExtensionTarget::from_range(self.gate_index, range);
-            witness.get_extension_target(t)
-        };
-
-        let fixed_multiplicand =
-            extract_extension(ArithmeticExtensionGate::<D>::wires_fixed_multiplicand());
-        let multiplicand_1 =
-            extract_extension(ArithmeticExtensionGate::<D>::wires_multiplicand_1());
-        let addend_1 = extract_extension(ArithmeticExtensionGate::<D>::wires_addend_1());
-
-        let output_target_1 = ExtensionTarget::from_range(
-            self.gate_index,
-            ArithmeticExtensionGate::<D>::wires_output_1(),
-        );
-
-        let computed_output_1 = fixed_multiplicand * multiplicand_1 * self.const_0.into()
-            + addend_1 * self.const_1.into();
-
-        PartialWitness::singleton_extension_target(output_target_1, computed_output_1)
+        out_buffer.set_extension_target(output_target, computed_output)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
+
     use crate::field::crandall_field::CrandallField;
     use crate::gates::arithmetic::ArithmeticExtensionGate;
-    use crate::gates::gate_testing::test_low_degree;
+    use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
+    use crate::plonk::circuit_data::CircuitConfig;
 
     #[test]
     fn low_degree() {
-        test_low_degree(ArithmeticExtensionGate::<4>::new::<CrandallField>())
+        let gate = ArithmeticExtensionGate::new_from_config(&CircuitConfig::large_config());
+        test_low_degree::<CrandallField, _, 4>(gate);
+    }
+
+    #[test]
+    fn eval_fns() -> Result<()> {
+        let gate = ArithmeticExtensionGate::new_from_config(&CircuitConfig::large_config());
+        test_eval_fns::<CrandallField, _, 4>(gate)
     }
 }

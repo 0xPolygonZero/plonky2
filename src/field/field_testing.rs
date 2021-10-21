@@ -1,245 +1,15 @@
-use crate::field::field::Field;
-use crate::util::{bits_u64, ceil_div_usize};
-
-/// Generates a series of non-negative integers less than
-/// `modulus` which cover a range of values and which will
-/// generate lots of carries, especially at `word_bits` word
-/// boundaries.
-pub fn test_inputs(modulus: u64, word_bits: usize) -> Vec<u64> {
-    assert!(word_bits == 32 || word_bits == 64);
-    let modwords = ceil_div_usize(bits_u64(modulus), word_bits);
-    // Start with basic set close to zero: 0 .. 10
-    const BIGGEST_SMALL: u32 = 10;
-    let smalls: Vec<_> = (0..BIGGEST_SMALL).map(u64::from).collect();
-    // ... and close to MAX: MAX - x
-    let word_max = (1u64 << word_bits) - 1;
-    let bigs = smalls.iter().map(|x| &word_max - x).collect();
-    let one_words = [smalls, bigs].concat();
-    // For each of the one word inputs above, create a new one at word i.
-    // TODO: Create all possible `modwords` combinations of those
-    let multiple_words = (1..modwords)
-        .flat_map(|i| {
-            one_words
-                .iter()
-                .map(|x| x << (word_bits * i))
-                .collect::<Vec<u64>>()
-        })
-        .collect();
-    let basic_inputs: Vec<u64> = [one_words, multiple_words].concat();
-
-    // Biggest value that will fit in `modwords` words
-    // Inputs 'difference from' maximum value
-    let diff_max = basic_inputs
-        .iter()
-        .map(|&x| u64::MAX - x)
-        .filter(|&x| x < modulus)
-        .collect();
-    // Inputs 'difference from' modulus value
-    let diff_mod = basic_inputs
-        .iter()
-        .filter(|&&x| x < modulus && x != 0)
-        .map(|&x| modulus - x)
-        .collect();
-    let basics = basic_inputs
-        .into_iter()
-        .filter(|&x| x < modulus)
-        .collect::<Vec<u64>>();
-    [basics, diff_max, diff_mod].concat()
-
-    // // There should be a nicer way to express the code above; something
-    // // like this (and removing collect() calls from diff_max and diff_mod):
-    // basic_inputs.into_iter()
-    //     .chain(diff_max)
-    //     .chain(diff_mod)
-    //     .filter(|x| x < &modulus)
-    //     .collect()
-}
-
-/// Apply the unary functions `op` and `expected_op`
-/// coordinate-wise to the inputs from `test_inputs(modulus,
-/// word_bits)` and panic if the two resulting vectors differ.
-pub fn run_unaryop_test_cases<F, UnaryOp, ExpectedOp>(
-    modulus: u64,
-    word_bits: usize,
-    op: UnaryOp,
-    expected_op: ExpectedOp,
-) where
-    F: Field,
-    UnaryOp: Fn(F) -> F,
-    ExpectedOp: Fn(u64) -> u64,
-{
-    let inputs = test_inputs(modulus, word_bits);
-    let expected: Vec<_> = inputs.iter().map(|&x| expected_op(x)).collect();
-    let output: Vec<_> = inputs
-        .iter()
-        .map(|&x| op(F::from_canonical_u64(x)).to_canonical_u64())
-        .collect();
-    // Compare expected outputs with actual outputs
-    for i in 0..inputs.len() {
-        assert_eq!(
-            output[i], expected[i],
-            "Expected {}, got {} for input {}",
-            expected[i], output[i], inputs[i]
-        );
-    }
-}
-
-/// Apply the binary functions `op` and `expected_op` to each pair
-/// in `zip(inputs, rotate_right(inputs, i))` where `inputs` is
-/// `test_inputs(modulus, word_bits)` and `i` ranges from 0 to
-/// `inputs.len()`.  Panic if the two functions ever give
-/// different answers.
-pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(
-    modulus: u64,
-    word_bits: usize,
-    op: BinaryOp,
-    expected_op: ExpectedOp,
-) where
-    F: Field,
-    BinaryOp: Fn(F, F) -> F,
-    ExpectedOp: Fn(u64, u64) -> u64,
-{
-    let inputs = test_inputs(modulus, word_bits);
-
-    for i in 0..inputs.len() {
-        // Iterator over inputs rotated right by i places. Since
-        // cycle().skip(i) rotates left by i, we need to rotate by
-        // n_input_elts - i.
-        let shifted_inputs: Vec<_> = inputs
-            .iter()
-            .cycle()
-            .skip(inputs.len() - i)
-            .take(inputs.len())
-            .collect();
-
-        // Calculate pointwise operations
-        let expected: Vec<_> = inputs
-            .iter()
-            .zip(shifted_inputs.clone())
-            .map(|(x, y)| expected_op(x.clone(), y.clone()))
-            .collect();
-
-        let output: Vec<_> = inputs
-            .iter()
-            .zip(shifted_inputs.clone())
-            .map(|(&x, &y)| {
-                op(F::from_canonical_u64(x), F::from_canonical_u64(y)).to_canonical_u64()
-            })
-            .collect();
-
-        // Compare expected outputs with actual outputs
-        for i in 0..inputs.len() {
-            assert_eq!(
-                output[i], expected[i],
-                "On inputs {} . {}, expected {} but got {}",
-                inputs[i], shifted_inputs[i], expected[i], output[i]
-            );
-        }
-    }
-}
+use crate::field::extension_field::Extendable;
+use crate::field::extension_field::Frobenius;
+use crate::field::field_types::Field;
 
 #[macro_export]
-macro_rules! test_arithmetic {
+macro_rules! test_field_arithmetic {
     ($field:ty) => {
-        mod arithmetic {
-            use std::ops::{Add, Mul, Neg, Sub};
+        mod field_arithmetic {
+            use num::bigint::BigUint;
+            use rand::Rng;
 
-            use crate::field::field::Field;
-
-            // Can be 32 or 64; doesn't have to be computer's actual word
-            // bits. Choosing 32 gives more tests...
-            const WORD_BITS: usize = 32;
-
-            #[test]
-            fn arithmetic_addition() {
-                let modulus = <$field>::ORDER;
-                crate::field::field_testing::run_binaryop_test_cases(
-                    modulus,
-                    WORD_BITS,
-                    <$field>::add,
-                    |x, y| {
-                        let (z, over) = x.overflowing_add(y);
-                        if over {
-                            z.overflowing_sub(modulus).0
-                        } else if z >= modulus {
-                            z - modulus
-                        } else {
-                            z
-                        }
-                    },
-                )
-            }
-
-            #[test]
-            fn arithmetic_subtraction() {
-                let modulus = <$field>::ORDER;
-                crate::field::field_testing::run_binaryop_test_cases(
-                    modulus,
-                    WORD_BITS,
-                    <$field>::sub,
-                    |x, y| {
-                        if x >= y {
-                            x - y
-                        } else {
-                            &modulus - y + x
-                        }
-                    },
-                )
-            }
-
-            #[test]
-            fn arithmetic_negation() {
-                let modulus = <$field>::ORDER;
-                crate::field::field_testing::run_unaryop_test_cases(
-                    modulus,
-                    WORD_BITS,
-                    <$field>::neg,
-                    |x| {
-                        if x == 0 {
-                            0
-                        } else {
-                            modulus - x
-                        }
-                    },
-                )
-            }
-
-            #[test]
-            fn arithmetic_multiplication() {
-                let modulus = <$field>::ORDER;
-                crate::field::field_testing::run_binaryop_test_cases(
-                    modulus,
-                    WORD_BITS,
-                    <$field>::mul,
-                    |x, y| ((x as u128) * (y as u128) % (modulus as u128)) as u64,
-                )
-            }
-
-            #[test]
-            fn arithmetic_square() {
-                let modulus = <$field>::ORDER;
-                crate::field::field_testing::run_unaryop_test_cases(
-                    modulus,
-                    WORD_BITS,
-                    |x: $field| x.square(),
-                    |x| ((x as u128) * (x as u128) % (modulus as u128)) as u64,
-                )
-            }
-
-            #[test]
-            fn inversion() {
-                let zero = <$field>::ZERO;
-                let one = <$field>::ONE;
-                let order = <$field>::ORDER;
-
-                assert_eq!(zero.try_inverse(), None);
-
-                for &x in &[1, 2, 3, order - 3, order - 2, order - 1] {
-                    let x = <$field>::from_canonical_u64(x);
-                    let inv = x.inverse();
-                    assert_eq!(x * inv, one);
-                }
-            }
+            use crate::field::field_types::Field;
 
             #[test]
             fn batch_inversion() {
@@ -254,7 +24,8 @@ macro_rules! test_arithmetic {
 
             #[test]
             fn primitive_root_order() {
-                for n_power in 0..8 {
+                let max_power = 8.min(<$field>::TWO_ADICITY);
+                for n_power in 0..max_power {
                     let root = <$field>::primitive_root_of_unity(n_power);
                     let order = <$field>::generator_order(root);
                     assert_eq!(order, 1 << n_power, "2^{}'th primitive root", n_power);
@@ -263,71 +34,140 @@ macro_rules! test_arithmetic {
 
             #[test]
             fn negation() {
-                let zero = <$field>::ZERO;
-                let order = <$field>::ORDER;
+                type F = $field;
 
-                for &i in &[0, 1, 2, order - 2, order - 1] {
-                    let i_f = <$field>::from_canonical_u64(i);
-                    assert_eq!(i_f + -i_f, zero);
+                for x in [F::ZERO, F::ONE, F::TWO, F::NEG_ONE] {
+                    assert_eq!(x + -x, F::ZERO);
                 }
-            }
-
-            #[test]
-            fn bits() {
-                assert_eq!(<$field>::ZERO.bits(), 0);
-                assert_eq!(<$field>::ONE.bits(), 1);
-                assert_eq!(<$field>::TWO.bits(), 2);
-                assert_eq!(<$field>::from_canonical_u64(3).bits(), 2);
-                assert_eq!(<$field>::from_canonical_u64(4).bits(), 3);
-                assert_eq!(<$field>::from_canonical_u64(5).bits(), 3);
             }
 
             #[test]
             fn exponentiation() {
                 type F = $field;
 
-                assert_eq!(F::ZERO.exp_u32(0), <F>::ONE);
-                assert_eq!(F::ONE.exp_u32(0), <F>::ONE);
-                assert_eq!(F::TWO.exp_u32(0), <F>::ONE);
+                assert_eq!(F::ZERO.exp_u64(0), <F>::ONE);
+                assert_eq!(F::ONE.exp_u64(0), <F>::ONE);
+                assert_eq!(F::TWO.exp_u64(0), <F>::ONE);
 
-                assert_eq!(F::ZERO.exp_u32(1), <F>::ZERO);
-                assert_eq!(F::ONE.exp_u32(1), <F>::ONE);
-                assert_eq!(F::TWO.exp_u32(1), <F>::TWO);
+                assert_eq!(F::ZERO.exp_u64(1), <F>::ZERO);
+                assert_eq!(F::ONE.exp_u64(1), <F>::ONE);
+                assert_eq!(F::TWO.exp_u64(1), <F>::TWO);
 
-                assert_eq!(F::ZERO.kth_root_u32(1), <F>::ZERO);
-                assert_eq!(F::ONE.kth_root_u32(1), <F>::ONE);
-                assert_eq!(F::TWO.kth_root_u32(1), <F>::TWO);
+                assert_eq!(F::ZERO.kth_root_u64(1), <F>::ZERO);
+                assert_eq!(F::ONE.kth_root_u64(1), <F>::ONE);
+                assert_eq!(F::TWO.kth_root_u64(1), <F>::TWO);
 
                 for power in 1..10 {
-                    if F::is_monomial_permutation(power) {
+                    if F::is_monomial_permutation_u64(power) {
                         let x = F::rand();
-                        assert_eq!(x.exp(power).kth_root(power), x);
+                        assert_eq!(x.exp_u64(power).kth_root_u64(power), x);
                     }
                 }
             }
 
             #[test]
-            fn subtraction() {
+            fn exponentiation_large() {
                 type F = $field;
 
-                let (a, b) = (F::from_canonical_u64((F::ORDER + 1) / 2), F::TWO);
-                let x = a * b;
-                assert_eq!(x, F::ONE);
-                assert_eq!(F::ZERO - x, F::NEG_ONE);
+                let mut rng = rand::thread_rng();
+
+                let base = F::rand();
+                let pow = BigUint::from(rng.gen::<u64>());
+                let cycles = rng.gen::<u32>();
+                let mul_group_order = F::order() - 1u32;
+                let big_pow = &pow + &mul_group_order * cycles;
+                let big_pow_wrong = &pow + &mul_group_order * cycles + 1u32;
+
+                assert_eq!(base.exp_biguint(&pow), base.exp_biguint(&big_pow));
+                assert_ne!(base.exp_biguint(&pow), base.exp_biguint(&big_pow_wrong));
             }
+        }
+    };
+}
 
+pub(crate) fn test_add_neg_sub_mul<BF: Extendable<D>, const D: usize>() {
+    let x = BF::Extension::rand();
+    let y = BF::Extension::rand();
+    let z = BF::Extension::rand();
+    assert_eq!(x + (-x), BF::Extension::ZERO);
+    assert_eq!(-x, BF::Extension::ZERO - x);
+    assert_eq!(x + x, x * BF::Extension::TWO);
+    assert_eq!(x * (-x), -x.square());
+    assert_eq!(x + y, y + x);
+    assert_eq!(x * y, y * x);
+    assert_eq!(x * (y * z), (x * y) * z);
+    assert_eq!(x - (y + z), (x - y) - z);
+    assert_eq!((x + y) - z, x + (y - z));
+    assert_eq!(x * (y + z), x * y + x * z);
+}
+
+pub(crate) fn test_inv_div<BF: Extendable<D>, const D: usize>() {
+    let x = BF::Extension::rand();
+    let y = BF::Extension::rand();
+    let z = BF::Extension::rand();
+    assert_eq!(x * x.inverse(), BF::Extension::ONE);
+    assert_eq!(x.inverse() * x, BF::Extension::ONE);
+    assert_eq!(x.square().inverse(), x.inverse().square());
+    assert_eq!((x / y) * y, x);
+    assert_eq!(x / (y * z), (x / y) / z);
+    assert_eq!((x * y) / z, x * (y / z));
+}
+
+pub(crate) fn test_frobenius<BF: Extendable<D>, const D: usize>() {
+    let x = BF::Extension::rand();
+    assert_eq!(x.exp_biguint(&BF::order()), x.frobenius());
+    for count in 2..D {
+        assert_eq!(
+            x.repeated_frobenius(count),
+            (0..count).fold(x, |acc, _| acc.frobenius())
+        );
+    }
+}
+
+pub(crate) fn test_field_order<BF: Extendable<D>, const D: usize>() {
+    let x = BF::Extension::rand();
+    assert_eq!(
+        x.exp_biguint(&(BF::Extension::order() - 1u8)),
+        BF::Extension::ONE
+    );
+}
+
+pub(crate) fn test_power_of_two_gen<BF: Extendable<D>, const D: usize>() {
+    assert_eq!(
+        BF::Extension::MULTIPLICATIVE_GROUP_GENERATOR
+            .exp_biguint(&(BF::Extension::order() >> BF::Extension::TWO_ADICITY)),
+        BF::Extension::POWER_OF_TWO_GENERATOR,
+    );
+    assert_eq!(
+        BF::Extension::POWER_OF_TWO_GENERATOR
+            .exp_u64(1 << (BF::Extension::TWO_ADICITY - BF::TWO_ADICITY)),
+        BF::POWER_OF_TWO_GENERATOR.into()
+    );
+}
+
+#[macro_export]
+macro_rules! test_field_extension {
+    ($field:ty, $d:expr) => {
+        mod field_extension {
             #[test]
-            fn inverse_2exp() {
-                // Just check consistency with try_inverse()
-                type F = $field;
-
-                let v = <F as Field>::PrimeField::TWO_ADICITY;
-
-                for e in [0, 1, 2, 3, 4, v - 2, v - 1, v, v + 1, v + 2, 123 * v] {
-                    let x = F::TWO.exp(e as u64).inverse();
-                    let y = F::inverse_2exp(e);
-                    assert_eq!(x, y);
-                }
+            fn test_add_neg_sub_mul() {
+                crate::field::field_testing::test_add_neg_sub_mul::<$field, $d>();
+            }
+            #[test]
+            fn test_inv_div() {
+                crate::field::field_testing::test_inv_div::<$field, $d>();
+            }
+            #[test]
+            fn test_frobenius() {
+                crate::field::field_testing::test_frobenius::<$field, $d>();
+            }
+            #[test]
+            fn test_field_order() {
+                crate::field::field_testing::test_field_order::<$field, $d>();
+            }
+            #[test]
+            fn test_power_of_two_gen() {
+                crate::field::field_testing::test_power_of_two_gen::<$field, $d>();
             }
         }
     };

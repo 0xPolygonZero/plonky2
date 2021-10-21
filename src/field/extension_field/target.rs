@@ -1,14 +1,14 @@
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
 
-use crate::circuit_builder::CircuitBuilder;
 use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::{Extendable, FieldExtension, OEF};
-use crate::field::field::Field;
-use crate::target::Target;
+use crate::field::field_types::{Field, RichField};
+use crate::iop::target::Target;
+use crate::plonk::circuit_builder::CircuitBuilder;
 
 /// `Target`s representing an element of an extension field.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct ExtensionTarget<const D: usize>(pub [Target; D]);
 
 impl<const D: usize> ExtensionTarget<D> {
@@ -16,11 +16,14 @@ impl<const D: usize> ExtensionTarget<D> {
         self.0
     }
 
-    pub fn frobenius<F: Extendable<D>>(&self, builder: &mut CircuitBuilder<F, D>) -> Self {
+    pub fn frobenius<F: RichField + Extendable<D>>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
         self.repeated_frobenius(1, builder)
     }
 
-    pub fn repeated_frobenius<F: Extendable<D>>(
+    pub fn repeated_frobenius<F: RichField + Extendable<D>>(
         &self,
         count: usize,
         builder: &mut CircuitBuilder<F, D>,
@@ -31,8 +34,8 @@ impl<const D: usize> ExtensionTarget<D> {
             return self.repeated_frobenius(count % D, builder);
         }
         let arr = self.to_target_array();
-        let k = (F::ORDER - 1) / (D as u64);
-        let z0 = F::W.exp(k * count as u64);
+        let k = (F::order() - 1u32) / (D as u64);
+        let z0 = F::Extension::W.exp_biguint(&(k * count as u64));
         let zs = z0
             .powers()
             .take(D)
@@ -71,7 +74,7 @@ impl<const D: usize> ExtensionAlgebraTarget<D> {
     }
 }
 
-impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn constant_extension(&mut self, c: F::Extension) -> ExtensionTarget<D> {
         let c_parts = c.to_basefield_array();
         let mut parts = [self.zero(); D];
@@ -105,6 +108,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.constant_extension(F::Extension::TWO)
     }
 
+    pub fn neg_one_extension(&mut self) -> ExtensionTarget<D> {
+        self.constant_extension(F::Extension::NEG_ONE)
+    }
+
     pub fn zero_ext_algebra(&mut self) -> ExtensionAlgebraTarget<D> {
         self.constant_ext_algebra(ExtensionAlgebra::ZERO)
     }
@@ -114,6 +121,13 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut arr = [zero; D];
         arr[0] = t;
         ExtensionTarget(arr)
+    }
+
+    pub fn convert_to_ext_algebra(&mut self, et: ExtensionTarget<D>) -> ExtensionAlgebraTarget<D> {
+        let zero = self.zero_extension();
+        let mut arr = [zero; D];
+        arr[0] = et;
+        ExtensionAlgebraTarget(arr)
     }
 }
 

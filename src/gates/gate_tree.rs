@@ -1,6 +1,7 @@
 use log::info;
 
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::RichField;
 use crate::gates::gate::GateRef;
 
 /// A binary tree where leaves hold some type `T` and other nodes are empty.
@@ -50,7 +51,7 @@ impl<T: Clone> Tree<T> {
     }
 }
 
-impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
+impl<F: RichField + Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
     /// The binary gate tree influences the degree `D` of the constraint polynomial and the number `C`
     /// of constant wires in the circuit. We want to construct a tree minimizing both values. To do so
     /// we iterate over possible values of `(D, C)` and try to construct a tree with these values.
@@ -64,9 +65,9 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
         gates.sort_unstable_by_key(|g| (-(g.0.degree() as isize), -(g.0.num_constants() as isize)));
 
         for max_degree_bits in 1..10 {
-            // The constraint polynomials are padded to the next power in `compute_vanishig_polys`.
-            // So we can restrict our search space by setting `max_degree` to a power of 2.
-            let max_degree = 1 << max_degree_bits;
+            // The quotient polynomials are padded to the next power of 2 in `compute_quotient_polys`.
+            // So we can restrict our search space by setting `max_degree` to 1 + a power of 2.
+            let max_degree = (1 << max_degree_bits) + 1;
             for max_constants in 1..100 {
                 if let Some(mut best_tree) = Self::find_tree(&gates, max_degree, max_constants) {
                     let mut best_num_constants = best_tree.num_constants();
@@ -74,7 +75,7 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
                     // Iterate backwards from `max_degree` to try to find a tree with a lower degree
                     // but the same number of constants.
                     'optdegree: for degree in (0..max_degree).rev() {
-                        if let Some(mut tree) = Self::find_tree(&gates, degree, max_constants) {
+                        if let Some(tree) = Self::find_tree(&gates, degree, max_constants) {
                             let num_constants = tree.num_constants();
                             if num_constants > best_num_constants {
                                 break 'optdegree;
@@ -200,7 +201,7 @@ impl<F: Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
     }
 
     /// Returns the tree's maximum filtered constraint degree.
-    fn max_filtered_degree(&self) -> usize {
+    pub fn max_filtered_degree(&self) -> usize {
         self.traversal()
             .into_iter()
             .map(|(g, p)| g.0.degree() + p.len())
@@ -228,7 +229,6 @@ mod tests {
     use crate::gates::gmimc::GMiMCGate;
     use crate::gates::interpolation::InterpolationGate;
     use crate::gates::noop::NoopGate;
-    use crate::hash::GMIMC_ROUNDS;
 
     #[test]
     fn test_prefix_generation() {
@@ -237,14 +237,13 @@ mod tests {
         const D: usize = 4;
 
         let gates = vec![
-            NoopGate::get::<F, D>(),
-            ConstantGate::get(),
-            ArithmeticExtensionGate::new(),
-            BaseSumGate::<4>::new(4),
-            GMiMCGate::<F, D, GMIMC_ROUNDS>::with_automatic_constants(),
-            InterpolationGate::new(4),
+            GateRef::new(NoopGate),
+            GateRef::new(ConstantGate),
+            GateRef::new(ArithmeticExtensionGate { num_ops: 4 }),
+            GateRef::new(BaseSumGate::<4>::new(4)),
+            GateRef::new(GMiMCGate::<F, D, 12>::new()),
+            GateRef::new(InterpolationGate::new(4)),
         ];
-        let len = gates.len();
 
         let (tree, _, _) = Tree::from_gates(gates.clone());
         let mut gates_with_prefix = tree.traversal();
@@ -277,7 +276,7 @@ mod tests {
             "Total degree is larger than 8."
         );
 
-        gates_with_prefix.sort_unstable_by_key(|(g, p)| p.len());
+        gates_with_prefix.sort_unstable_by_key(|(_g, p)| p.len());
         for i in 0..gates_with_prefix.len() {
             for j in i + 1..gates_with_prefix.len() {
                 assert_ne!(

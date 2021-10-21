@@ -1,96 +1,76 @@
 use std::fmt::{Debug, Display, Formatter};
-use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use num::bigint::BigUint;
+use num::traits::Pow;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
-use crate::field::crandall_field::CrandallField;
-use crate::field::extension_field::{FieldExtension, Frobenius, OEF};
-use crate::field::field::Field;
+use crate::field::extension_field::{Extendable, FieldExtension, Frobenius, OEF};
+use crate::field::field_types::Field;
 
-/// A quartic extension of `CrandallField`.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct QuarticCrandallField(pub(crate) [CrandallField; 4]);
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(bound = "")]
+pub struct QuarticExtension<F: Extendable<4>>(pub(crate) [F; 4]);
 
-impl OEF<4> for QuarticCrandallField {
-    // Verifiable in Sage with
-    //     R.<x> = GF(p)[]
-    //     assert (x^4 - 3).is_irreducible()
-    const W: CrandallField = CrandallField(3);
+impl<F: Extendable<4>> Default for QuarticExtension<F> {
+    fn default() -> Self {
+        Self::ZERO
+    }
 }
 
-impl Frobenius<4> for QuarticCrandallField {}
+impl<F: Extendable<4>> OEF<4> for QuarticExtension<F> {
+    const W: F = F::W;
+    const DTH_ROOT: F = F::DTH_ROOT;
+}
 
-impl FieldExtension<4> for QuarticCrandallField {
-    type BaseField = CrandallField;
+impl<F: Extendable<4>> Frobenius<4> for QuarticExtension<F> {}
 
-    fn to_basefield_array(&self) -> [Self::BaseField; 4] {
+impl<F: Extendable<4>> FieldExtension<4> for QuarticExtension<F> {
+    type BaseField = F;
+
+    fn to_basefield_array(&self) -> [F; 4] {
         self.0
     }
 
-    fn from_basefield_array(arr: [Self::BaseField; 4]) -> Self {
+    fn from_basefield_array(arr: [F; 4]) -> Self {
         Self(arr)
     }
 
-    fn from_basefield(x: Self::BaseField) -> Self {
+    fn from_basefield(x: F) -> Self {
         x.into()
     }
 }
 
-impl From<<Self as FieldExtension<4>>::BaseField> for QuarticCrandallField {
-    fn from(x: <Self as FieldExtension<4>>::BaseField) -> Self {
-        Self([
-            x,
-            <Self as FieldExtension<4>>::BaseField::ZERO,
-            <Self as FieldExtension<4>>::BaseField::ZERO,
-            <Self as FieldExtension<4>>::BaseField::ZERO,
-        ])
+impl<F: Extendable<4>> From<F> for QuarticExtension<F> {
+    fn from(x: F) -> Self {
+        Self([x, F::ZERO, F::ZERO, F::ZERO])
     }
 }
 
-impl Field for QuarticCrandallField {
-    type PrimeField = CrandallField;
+impl<F: Extendable<4>> Field for QuarticExtension<F> {
+    type PrimeField = F;
 
-    const ZERO: Self = Self([CrandallField::ZERO; 4]);
-    const ONE: Self = Self([
-        CrandallField::ONE,
-        CrandallField::ZERO,
-        CrandallField::ZERO,
-        CrandallField::ZERO,
-    ]);
-    const TWO: Self = Self([
-        CrandallField::TWO,
-        CrandallField::ZERO,
-        CrandallField::ZERO,
-        CrandallField::ZERO,
-    ]);
-    const NEG_ONE: Self = Self([
-        CrandallField::NEG_ONE,
-        CrandallField::ZERO,
-        CrandallField::ZERO,
-        CrandallField::ZERO,
-    ]);
+    const ZERO: Self = Self([F::ZERO; 4]);
+    const ONE: Self = Self([F::ONE, F::ZERO, F::ZERO, F::ZERO]);
+    const TWO: Self = Self([F::TWO, F::ZERO, F::ZERO, F::ZERO]);
+    const NEG_ONE: Self = Self([F::NEG_ONE, F::ZERO, F::ZERO, F::ZERO]);
 
-    const CHARACTERISTIC: u64 = CrandallField::ORDER;
-    // Does not fit in 64-bits.
-    const ORDER: u64 = 0;
-    const TWO_ADICITY: usize = 30;
-    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([
-        CrandallField(12476589904174392631),
-        CrandallField(896937834427772243),
-        CrandallField(7795248119019507390),
-        CrandallField(9005769437373554825),
-    ]);
-    // Chosen so that when raised to the power `1<<(Self::TWO_ADICITY-Self::BaseField::TWO_ADICITY)`,
-    // we get `Self::BaseField::POWER_OF_TWO_GENERATOR`. This makes `primitive_root_of_unity` coherent
-    // with the base field which implies that the FFT commutes with field inclusion.
-    const POWER_OF_TWO_GENERATOR: Self = Self([
-        CrandallField::ZERO,
-        CrandallField::ZERO,
-        CrandallField::ZERO,
-        CrandallField(15170983443234254033),
-    ]);
+    const CHARACTERISTIC: u64 = F::ORDER;
+
+    // `p^4 - 1 = (p - 1)(p + 1)(p^2 + 1)`. The `p - 1` term has a two-adicity of `F::TWO_ADICITY`.
+    // As long as `F::TWO_ADICITY >= 2`, `p` can be written as `4n + 1`, so `p + 1` can be written as
+    // `2(2n + 1)`, which has a 2-adicity of 1. A similar argument can show that `p^2 + 1` also has
+    // a 2-adicity of 1.
+    const TWO_ADICITY: usize = F::TWO_ADICITY + 2;
+
+    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
+    const POWER_OF_TWO_GENERATOR: Self = Self(F::EXT_POWER_OF_TWO_GENERATOR);
+
+    fn order() -> BigUint {
+        F::order().pow(4u32)
+    }
 
     #[inline]
     fn square(&self) -> Self {
@@ -118,28 +98,31 @@ impl Field for QuarticCrandallField {
         let a_pow_r = a_pow_r_minus_1 * *self;
         debug_assert!(FieldExtension::<4>::is_in_basefield(&a_pow_r));
 
-        Some(a_pow_r_minus_1 * a_pow_r.0[0].inverse().into())
-    }
-
-    fn to_canonical_u64(&self) -> u64 {
-        self.0[0].to_canonical_u64()
+        Some(FieldExtension::<4>::scalar_mul(
+            &a_pow_r_minus_1,
+            a_pow_r.0[0].inverse(),
+        ))
     }
 
     fn from_canonical_u64(n: u64) -> Self {
-        <Self as FieldExtension<4>>::BaseField::from_canonical_u64(n).into()
+        F::from_canonical_u64(n).into()
+    }
+
+    fn from_noncanonical_u128(n: u128) -> Self {
+        F::from_noncanonical_u128(n).into()
     }
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
-        Self([
-            <Self as FieldExtension<4>>::BaseField::rand_from_rng(rng),
-            <Self as FieldExtension<4>>::BaseField::rand_from_rng(rng),
-            <Self as FieldExtension<4>>::BaseField::rand_from_rng(rng),
-            <Self as FieldExtension<4>>::BaseField::rand_from_rng(rng),
+        Self::from_basefield_array([
+            F::rand_from_rng(rng),
+            F::rand_from_rng(rng),
+            F::rand_from_rng(rng),
+            F::rand_from_rng(rng),
         ])
     }
 }
 
-impl Display for QuarticCrandallField {
+impl<F: Extendable<4>> Display for QuarticExtension<F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -149,13 +132,13 @@ impl Display for QuarticCrandallField {
     }
 }
 
-impl Debug for QuarticCrandallField {
+impl<F: Extendable<4>> Debug for QuarticExtension<F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl Neg for QuarticCrandallField {
+impl<F: Extendable<4>> Neg for QuarticExtension<F> {
     type Output = Self;
 
     #[inline]
@@ -164,7 +147,7 @@ impl Neg for QuarticCrandallField {
     }
 }
 
-impl Add for QuarticCrandallField {
+impl<F: Extendable<4>> Add for QuarticExtension<F> {
     type Output = Self;
 
     #[inline]
@@ -178,19 +161,19 @@ impl Add for QuarticCrandallField {
     }
 }
 
-impl AddAssign for QuarticCrandallField {
+impl<F: Extendable<4>> AddAssign for QuarticExtension<F> {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
 
-impl Sum for QuarticCrandallField {
+impl<F: Extendable<4>> Sum for QuarticExtension<F> {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::ZERO, |acc, x| acc + x)
     }
 }
 
-impl Sub for QuarticCrandallField {
+impl<F: Extendable<4>> Sub for QuarticExtension<F> {
     type Output = Self;
 
     #[inline]
@@ -204,14 +187,14 @@ impl Sub for QuarticCrandallField {
     }
 }
 
-impl SubAssign for QuarticCrandallField {
+impl<F: Extendable<4>> SubAssign for QuarticExtension<F> {
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
 }
 
-impl Mul for QuarticCrandallField {
+impl<F: Extendable<4>> Mul for QuarticExtension<F> {
     type Output = Self;
 
     #[inline]
@@ -228,20 +211,20 @@ impl Mul for QuarticCrandallField {
     }
 }
 
-impl MulAssign for QuarticCrandallField {
+impl<F: Extendable<4>> MulAssign for QuarticExtension<F> {
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
 
-impl Product for QuarticCrandallField {
+impl<F: Extendable<4>> Product for QuarticExtension<F> {
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::ONE, |acc, x| acc * x)
     }
 }
 
-impl Div for QuarticCrandallField {
+impl<F: Extendable<4>> Div for QuarticExtension<F> {
     type Output = Self;
 
     #[allow(clippy::suspicious_arithmetic_impl)]
@@ -250,7 +233,7 @@ impl Div for QuarticCrandallField {
     }
 }
 
-impl DivAssign for QuarticCrandallField {
+impl<F: Extendable<4>> DivAssign for QuarticExtension<F> {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
@@ -258,104 +241,25 @@ impl DivAssign for QuarticCrandallField {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::extension_field::quartic::QuarticCrandallField;
-    use crate::field::extension_field::{FieldExtension, Frobenius, OEF};
-    use crate::field::field::Field;
+    mod crandall {
+        use crate::{test_field_arithmetic, test_field_extension};
 
-    fn exp_naive<F: Field>(x: F, power: u128) -> F {
-        let mut current = x;
-        let mut product = F::ONE;
-
-        for j in 0..128 {
-            if (power >> j & 1) != 0 {
-                product *= current;
-            }
-            current = current.square();
-        }
-        product
-    }
-
-    #[test]
-    fn test_add_neg_sub_mul() {
-        type F = QuarticCrandallField;
-        let x = F::rand();
-        let y = F::rand();
-        let z = F::rand();
-        assert_eq!(x + (-x), F::ZERO);
-        assert_eq!(-x, F::ZERO - x);
-        assert_eq!(x + x, x * <F as FieldExtension<4>>::BaseField::TWO.into());
-        assert_eq!(x * (-x), -x.square());
-        assert_eq!(x + y, y + x);
-        assert_eq!(x * y, y * x);
-        assert_eq!(x * (y * z), (x * y) * z);
-        assert_eq!(x - (y + z), (x - y) - z);
-        assert_eq!((x + y) - z, x + (y - z));
-        assert_eq!(x * (y + z), x * y + x * z);
-    }
-
-    #[test]
-    fn test_inv_div() {
-        type F = QuarticCrandallField;
-        let x = F::rand();
-        let y = F::rand();
-        let z = F::rand();
-        assert_eq!(x * x.inverse(), F::ONE);
-        assert_eq!(x.inverse() * x, F::ONE);
-        assert_eq!(x.square().inverse(), x.inverse().square());
-        assert_eq!((x / y) * y, x);
-        assert_eq!(x / (y * z), (x / y) / z);
-        assert_eq!((x * y) / z, x * (y / z));
-    }
-
-    #[test]
-    fn test_frobenius() {
-        type F = QuarticCrandallField;
-        const D: usize = 4;
-        let x = F::rand();
-        assert_eq!(
-            exp_naive(x, <F as FieldExtension<D>>::BaseField::ORDER as u128),
-            x.frobenius()
-        );
-        for count in 2..D {
-            assert_eq!(
-                x.repeated_frobenius(count),
-                (0..count).fold(x, |acc, _| acc.frobenius())
-            );
-        }
-    }
-
-    #[test]
-    fn test_field_order() {
-        // F::ORDER = 340282366831806780677557380898690695168 * 340282366831806780677557380898690695170 + 1
-        type F = QuarticCrandallField;
-        let x = F::rand();
-        assert_eq!(
-            exp_naive(
-                exp_naive(x, 340282366831806780677557380898690695168),
-                340282366831806780677557380898690695170
-            ),
-            F::ONE
+        test_field_extension!(crate::field::crandall_field::CrandallField, 4);
+        test_field_arithmetic!(
+            crate::field::extension_field::quartic::QuarticExtension<
+                crate::field::crandall_field::CrandallField,
+            >
         );
     }
 
-    #[test]
-    fn test_power_of_two_gen() {
-        type F = QuarticCrandallField;
-        // F::ORDER = 2^30 * 1090552343587053358839971118999869 * 98885475095492590491252558464653635 + 1
-        assert_eq!(
-            exp_naive(
-                exp_naive(
-                    F::MULTIPLICATIVE_GROUP_GENERATOR,
-                    1090552343587053358839971118999869
-                ),
-                98885475095492590491252558464653635
-            ),
-            F::POWER_OF_TWO_GENERATOR
-        );
-        assert_eq!(
-            F::POWER_OF_TWO_GENERATOR
-                .exp(1 << (F::TWO_ADICITY - <F as FieldExtension<4>>::BaseField::TWO_ADICITY)),
-            <F as FieldExtension<4>>::BaseField::POWER_OF_TWO_GENERATOR.into()
+    mod goldilocks {
+        use crate::{test_field_arithmetic, test_field_extension};
+
+        test_field_extension!(crate::field::goldilocks_field::GoldilocksField, 4);
+        test_field_arithmetic!(
+            crate::field::extension_field::quartic::QuarticExtension<
+                crate::field::goldilocks_field::GoldilocksField,
+            >
         );
     }
 }
