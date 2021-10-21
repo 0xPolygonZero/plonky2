@@ -17,7 +17,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 pub(crate) const HALF_N_FULL_ROUNDS: usize = 4;
 pub(crate) const N_FULL_ROUNDS_TOTAL: usize = 2 * HALF_N_FULL_ROUNDS;
 pub(crate) const N_PARTIAL_ROUNDS: usize = 22;
-const N_ROUNDS: usize = N_FULL_ROUNDS_TOTAL + N_PARTIAL_ROUNDS;
+pub(crate) const N_ROUNDS: usize = N_FULL_ROUNDS_TOTAL + N_PARTIAL_ROUNDS;
 const MAX_WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :)
 
 #[inline(always)]
@@ -44,6 +44,10 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     // WARNING: These must be in 0..CrandallField::ORDER (i.e. canonical form). If this condition is
     // not met, some platform-specific implementation of constant_layer may return incorrect
     // results.
+    //
+    // WARNING: The AVX2 Goldilocks specialization relies on all round constants being in
+    // 0..0xfffeeac900011537. If these constants are randomly regenerated, there is a ~.6% chance
+    // that this condition will no longer hold.
     //
     // WARNING: If these are changed in any way, then all the
     // implementations of Poseidon must be regenerated. See comments
