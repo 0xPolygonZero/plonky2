@@ -27,9 +27,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn arithmetic(
         &mut self,
         const_0: F,
+        const_1: F,
         multiplicand_0: Target,
         multiplicand_1: Target,
-        const_1: F,
         addend: Target,
     ) -> Target {
         let multiplicand_0_ext = self.convert_to_ext(multiplicand_0);
@@ -48,13 +48,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Computes `x * y + z`.
     pub fn mul_add(&mut self, x: Target, y: Target, z: Target) -> Target {
-        self.arithmetic(F::ONE, x, y, F::ONE, z)
+        self.arithmetic(F::ONE, F::ONE, x, y, z)
     }
 
     /// Computes `x + C`.
     pub fn add_const(&mut self, x: Target, c: F) -> Target {
         let one = self.one();
-        self.arithmetic(F::ONE, one, x, c, one)
+        self.arithmetic(F::ONE, c, one, x, one)
     }
 
     /// Computes `C * x`.
@@ -66,19 +66,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes `C * x + y`.
     pub fn mul_const_add(&mut self, c: F, x: Target, y: Target) -> Target {
         let one = self.one();
-        self.arithmetic(c, x, one, F::ONE, y)
+        self.arithmetic(c, F::ONE, x, one, y)
     }
 
     /// Computes `x * y - z`.
     pub fn mul_sub(&mut self, x: Target, y: Target, z: Target) -> Target {
-        self.arithmetic(F::ONE, x, y, F::NEG_ONE, z)
+        self.arithmetic(F::ONE, F::NEG_ONE, x, y, z)
     }
 
     /// Computes `x + y`.
     pub fn add(&mut self, x: Target, y: Target) -> Target {
         let one = self.one();
         // x + y = 1 * x * 1 + 1 * y
-        self.arithmetic(F::ONE, x, one, F::ONE, y)
+        self.arithmetic(F::ONE, F::ONE, x, one, y)
     }
 
     /// Add `n` `Target`s.
@@ -95,13 +95,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn sub(&mut self, x: Target, y: Target) -> Target {
         let one = self.one();
         // x - y = 1 * x * 1 + (-1) * y
-        self.arithmetic(F::ONE, x, one, F::NEG_ONE, y)
+        self.arithmetic(F::ONE, F::NEG_ONE, x, one, y)
     }
 
     /// Computes `x * y`.
     pub fn mul(&mut self, x: Target, y: Target) -> Target {
         // x * y = 1 * x * y + 0 * x
-        self.arithmetic(F::ONE, x, y, F::ZERO, x)
+        self.arithmetic(F::ONE, F::ZERO, x, y, x)
     }
 
     /// Multiply `n` `Target`s.
