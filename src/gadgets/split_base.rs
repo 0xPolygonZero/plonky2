@@ -13,7 +13,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// base-B limb of the element, with little-endian ordering.
     pub fn split_le_base<const B: usize>(&mut self, x: Target, num_limbs: usize) -> Vec<Target> {
         let gate_type = BaseSumGate::<B>::new(num_limbs);
-        let gate = self.add_gate(gate_type.clone(), vec![]);
+        let gate = self.add_gate(gate_type, vec![]);
         let sum = Target::wire(gate, BaseSumGate::<B>::WIRE_SUM);
         self.connect(x, sum);
 

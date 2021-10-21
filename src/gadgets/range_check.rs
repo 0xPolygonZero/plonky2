@@ -1,6 +1,5 @@
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
-use crate::gates::base_sum::BaseSumGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
