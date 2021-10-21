@@ -311,7 +311,7 @@ fn compute_z<F: RichField + Extendable<D>, const D: usize>(
     plonk_z_points.into()
 }
 
-const BATCH_SIZE: usize = 1;
+const BATCH_SIZE: usize = 32;
 
 fn compute_quotient_polys<'a, F: RichField + Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,

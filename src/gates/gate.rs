@@ -68,10 +68,11 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     fn eval_filtered_base(&self, mut vars: EvaluationVarsBase<F>, prefix: &[bool]) -> Vec<F> {
         let filter = compute_filter(prefix, vars.local_constants);
         vars.remove_prefix(prefix);
-        self.eval_unfiltered_base(vars)
-            .into_iter()
-            .map(|c| c * filter)
-            .collect()
+        let mut res = self.eval_unfiltered_base(vars);
+        res.iter_mut().for_each(|c| {
+            *c *= filter;
+        });
+        res
     }
 
     fn eval_filtered_base_batch(
