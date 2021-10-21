@@ -14,7 +14,7 @@ use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::plonk_common::ZeroPolyOnCoset;
 use crate::plonk::proof::{Proof, ProofWithPublicInputs};
-use crate::plonk::vanishing_poly::{eval_vanishing_poly_base, eval_vanishing_poly_base_batch};
+use crate::plonk::vanishing_poly::eval_vanishing_poly_base_batch;
 use crate::plonk::vars::EvaluationVarsBase;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::timed;

@@ -101,100 +101,7 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
     plonk_common::reduce_with_powers_multi(&vanishing_terms, alphas)
 }
 
-/// Like `eval_vanishing_poly`, but specialized for base field points.
-pub(crate) fn eval_vanishing_poly_base<F: RichField + Extendable<D>, const D: usize>(
-    common_data: &CommonCircuitData<F, D>,
-    index: usize,
-    x: F,
-    vars: EvaluationVarsBase<F>,
-    local_zs: &[F],
-    next_zs: &[F],
-    partial_products: &[F],
-    s_sigmas: &[F],
-    betas: &[F],
-    gammas: &[F],
-    alphas: &[F],
-    z_h_on_coset: &ZeroPolyOnCoset<F>,
-) -> Vec<F> {
-    let max_degree = common_data.quotient_degree_factor;
-    let (num_prods, final_num_prod) = common_data.num_partial_products;
-
-    let constraint_terms =
-        evaluate_gate_constraints_base(&common_data.gates, common_data.num_gate_constraints, vars);
-
-    let num_challenges = common_data.config.num_challenges;
-    let num_routed_wires = common_data.config.num_routed_wires;
-
-    // The L_1(x) (Z(x) - 1) vanishing terms.
-    let mut vanishing_z_1_terms = Vec::with_capacity(num_challenges);
-    // The terms checking the partial products.
-    let mut vanishing_partial_products_terms = Vec::new();
-    // The Z(x) f'(x) - g'(x) Z(g x) terms.
-    let mut vanishing_v_shift_terms = Vec::with_capacity(num_challenges);
-
-    let l1_x = z_h_on_coset.eval_l1(index, x);
-
-    let mut numerator_values = Vec::with_capacity(num_routed_wires);
-    let mut denominator_values = Vec::with_capacity(num_routed_wires);
-    let mut quotient_values = Vec::with_capacity(num_routed_wires);
-    for i in 0..num_challenges {
-        let z_x = local_zs[i];
-        let z_gz = next_zs[i];
-        vanishing_z_1_terms.push(l1_x * (z_x - F::ONE));
-
-        numerator_values.extend((0..num_routed_wires).map(|j| {
-            let wire_value = vars.local_wires[j];
-            let k_i = common_data.k_is[j];
-            let s_id = k_i * x;
-            wire_value + betas[i] * s_id + gammas[i]
-        }));
-        denominator_values.extend((0..num_routed_wires).map(|j| {
-            let wire_value = vars.local_wires[j];
-            let s_sigma = s_sigmas[j];
-            wire_value + betas[i] * s_sigma + gammas[i]
-        }));
-        let denominator_inverses = F::batch_multiplicative_inverse(&denominator_values);
-        quotient_values
-            .extend((0..num_routed_wires).map(|j| numerator_values[j] * denominator_inverses[j]));
-
-        // The partial products considered for this iteration of `i`.
-        let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
-        // Check the numerator partial products.
-        let mut partial_product_check =
-            check_partial_products(&quotient_values, current_partial_products, max_degree);
-        // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
-        // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
-        denominator_values
-            .chunks(max_degree)
-            .zip(partial_product_check.iter_mut())
-            .for_each(|(d, q)| {
-                *q *= d.iter().copied().product();
-            });
-        vanishing_partial_products_terms.extend(partial_product_check);
-
-        // The quotient final product is the product of the last `final_num_prod` elements.
-        let quotient: F = current_partial_products[num_prods - final_num_prod..]
-            .iter()
-            .copied()
-            .product();
-        vanishing_v_shift_terms.push(quotient * z_x - z_gz);
-
-        numerator_values.clear();
-        denominator_values.clear();
-        quotient_values.clear();
-    }
-
-    let vanishing_terms = [
-        vanishing_z_1_terms,
-        vanishing_partial_products_terms,
-        vanishing_v_shift_terms,
-        constraint_terms,
-    ]
-    .concat();
-
-    plonk_common::reduce_with_powers_multi(&vanishing_terms, alphas)
-}
-
+/// Like `eval_vanishing_poly`, but specialized for base field points. Batched.
 pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     indices_batch: &[usize],
@@ -331,25 +238,6 @@ pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
     let mut constraints = vec![F::Extension::ZERO; num_gate_constraints];
     for gate in gates {
         let gate_constraints = gate.gate.0.eval_filtered(vars, &gate.prefix);
-        for (i, c) in gate_constraints.into_iter().enumerate() {
-            debug_assert!(
-                i < num_gate_constraints,
-                "num_constraints() gave too low of a number"
-            );
-            constraints[i] += c;
-        }
-    }
-    constraints
-}
-
-pub fn evaluate_gate_constraints_base<F: RichField + Extendable<D>, const D: usize>(
-    gates: &[PrefixedGate<F, D>],
-    num_gate_constraints: usize,
-    vars: EvaluationVarsBase<F>,
-) -> Vec<F> {
-    let mut constraints = vec![F::ZERO; num_gate_constraints];
-    for gate in gates {
-        let gate_constraints = gate.gate.0.eval_filtered_base(vars, &gate.prefix);
         for (i, c) in gate_constraints.into_iter().enumerate() {
             debug_assert!(
                 i < num_gate_constraints,
