@@ -131,7 +131,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
 
     let constraint_terms_batch =
         evaluate_gate_constraints_base_batch(&common_data.gates, num_gate_constraints, vars_batch);
-    debug_assert!(constraint_terms_batch.len() == n);
+    debug_assert!(constraint_terms_batch.len() == n * num_gate_constraints);
 
     let num_challenges = common_data.config.num_challenges;
     let num_routed_wires = common_data.config.num_routed_wires;
