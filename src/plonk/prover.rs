@@ -26,8 +26,8 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
+    timing: &mut TimingTree,
 ) -> Result<ProofWithPublicInputs<F, D>> {
-    let mut timing = TimingTree::new("prove", Level::Debug);
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
@@ -73,7 +73,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::WIRES.blinding,
             config.cap_height,
-            &mut timing,
+            timing,
             prover_data.fft_root_table.as_ref(),
         )
     );
@@ -119,7 +119,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding,
             config.cap_height,
-            &mut timing,
+            timing,
             prover_data.fft_root_table.as_ref(),
         )
     );
@@ -169,7 +169,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
             config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding,
             config.cap_height,
-            &mut timing,
+            timing,
             prover_data.fft_root_table.as_ref(),
         )
     );
@@ -191,11 +191,9 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
             zeta,
             &mut challenger,
             common_data,
-            &mut timing,
+            timing,
         )
     );
-
-    timing.print();
 
     let proof = Proof {
         wires_cap: wires_commitment.merkle_tree.cap,
