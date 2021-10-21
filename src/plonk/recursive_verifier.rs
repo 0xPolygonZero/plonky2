@@ -124,7 +124,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use log::info;
+    use log::{info, Level};
 
     use super::*;
     use crate::field::goldilocks_field::GoldilocksField;
@@ -142,6 +142,8 @@ mod tests {
         ProofWithPublicInputs,
     };
     use crate::util::log2_strict;
+    use crate::plonk::prover::prove;
+    use crate::util::timing::TimingTree;
 
     // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
     fn get_fri_query_round<F: RichField + Extendable<D>, const D: usize>(
@@ -367,7 +369,7 @@ mod tests {
         let config = CircuitConfig::standard_recursion_config();
 
         let (proof, vd, cd) = dummy_proof::<F, D>(&config, 8_000)?;
-        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, true)?;
+        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, true, true)?;
         test_serialization(&proof, &cd)?;
 
         Ok(())
@@ -383,8 +385,8 @@ mod tests {
         let config = CircuitConfig::standard_recursion_config();
 
         let (proof, vd, cd) = dummy_proof::<F, D>(&config, 8_000)?;
-        let (proof, vd, cd) = recursive_proof(proof, vd, cd, &config, &config, false)?;
-        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, true)?;
+        let (proof, vd, cd) = recursive_proof(proof, vd, cd, &config, &config, false, false)?;
+        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, true, true)?;
 
         test_serialization(&proof, &cd)?;
 
@@ -414,8 +416,8 @@ mod tests {
 
         let (proof, vd, cd) = dummy_proof::<F, D>(&normal_config, 8_000)?;
         let (proof, vd, cd) =
-            recursive_proof(proof, vd, cd, &normal_config, &normal_config, false)?;
-        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &normal_config, &final_config, true)?;
+            recursive_proof(proof, vd, cd, &normal_config, &normal_config, false, false)?;
+        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &normal_config, &final_config, true, true)?;
 
         test_serialization(&proof, &cd)?;
 
@@ -449,6 +451,7 @@ mod tests {
         inner_config: &CircuitConfig,
         config: &CircuitConfig,
         print_gate_counts: bool,
+        print_timing: bool,
     ) -> Result<(
         ProofWithPublicInputs<F, D>,
         VerifierOnlyCircuitData<F>,
@@ -474,7 +477,13 @@ mod tests {
         }
 
         let data = builder.build();
-        let proof = data.prove(pw)?;
+
+        let mut timing = TimingTree::new("prove", Level::Debug);
+        let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
+        if print_timing {
+            timing.print();
+        }
+
         data.verify(proof.clone())?;
 
         Ok((proof, data.verifier_only, data.common))

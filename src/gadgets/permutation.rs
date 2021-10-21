@@ -413,7 +413,7 @@ mod tests {
         builder.assert_permutation(a, b);
 
         let data = builder.build();
-        let proof = data.prove(pw).unwrap();
+        let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
@@ -442,7 +442,7 @@ mod tests {
         builder.assert_permutation(a, b);
 
         let data = builder.build();
-        let proof = data.prove(pw).unwrap();
+        let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
@@ -470,7 +470,7 @@ mod tests {
         builder.assert_permutation(a, b);
 
         let data = builder.build();
-        data.prove(pw).unwrap();
+        data.prove(pw)?;
 
         Ok(())
     }
