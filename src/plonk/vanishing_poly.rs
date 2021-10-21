@@ -222,8 +222,8 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
 
     let num_gate_constraints = common_data.num_gate_constraints;
 
-    let constraint_terms_batch = evaluate_gate_constraints_base_batch(
-        &common_data.gates, num_gate_constraints, vars_batch);
+    let constraint_terms_batch =
+        evaluate_gate_constraints_base_batch(&common_data.gates, num_gate_constraints, vars_batch);
     debug_assert!(constraint_terms_batch.len() == n);
 
     let num_challenges = common_data.config.num_challenges;
@@ -250,7 +250,8 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
         let partial_products = partial_products_batch[i];
         let s_sigmas = s_sigmas_batch[i];
 
-        let constraint_terms = &constraint_terms_batch[i * num_gate_constraints..(i + 1) * num_gate_constraints];
+        let constraint_terms =
+            &constraint_terms_batch[i * num_gate_constraints..(i + 1) * num_gate_constraints];
 
         let l1_x = z_h_on_coset.eval_l1(index, x);
         for i in 0..num_challenges {
@@ -270,8 +271,9 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
                 wire_value + betas[i] * s_sigma + gammas[i]
             }));
             let denominator_inverses = F::batch_multiplicative_inverse(&denominator_values);
-            quotient_values
-                .extend((0..num_routed_wires).map(|j| numerator_values[j] * denominator_inverses[j]));
+            quotient_values.extend(
+                (0..num_routed_wires).map(|j| numerator_values[j] * denominator_inverses[j]),
+            );
 
             // The partial products considered for this iteration of `i`.
             let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
@@ -300,7 +302,12 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
             quotient_values.clear();
         }
 
-        let vanishing_terms = constraint_terms.iter().rev().chain(vanishing_v_shift_terms.iter().rev()).chain(vanishing_partial_products_terms.iter().rev()).chain(vanishing_z_1_terms.iter().rev());
+        let vanishing_terms = constraint_terms
+            .iter()
+            .rev()
+            .chain(vanishing_v_shift_terms.iter().rev())
+            .chain(vanishing_partial_products_terms.iter().rev())
+            .chain(vanishing_z_1_terms.iter().rev());
         let res = plonk_common::reduce_with_powers_multi_rev(vanishing_terms, alphas);
         res_batch.push(res);
 
@@ -361,10 +368,21 @@ pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const 
 ) -> Vec<F> {
     let mut constraints_batch = vec![F::ZERO; num_gate_constraints * vars_batch.len()];
     for gate in gates {
-        let gate_constraints_batch = gate.gate.0.eval_filtered_base_batch(vars_batch, &gate.prefix);
-        for (constraints, gate_constraints) in constraints_batch.chunks_exact_mut(num_gate_constraints).zip(gate_constraints_batch.iter()) {
-            debug_assert!(gate_constraints.len() <= constraints.len(), "num_constraints() gave too low of a number");
-            for (constraint, &gate_constraint) in constraints.iter_mut().zip(gate_constraints.iter()) {
+        let gate_constraints_batch = gate
+            .gate
+            .0
+            .eval_filtered_base_batch(vars_batch, &gate.prefix);
+        for (constraints, gate_constraints) in constraints_batch
+            .chunks_exact_mut(num_gate_constraints)
+            .zip(gate_constraints_batch.iter())
+        {
+            debug_assert!(
+                gate_constraints.len() <= constraints.len(),
+                "num_constraints() gave too low of a number"
+            );
+            for (constraint, &gate_constraint) in
+                constraints.iter_mut().zip(gate_constraints.iter())
+            {
                 *constraint += gate_constraint;
             }
         }

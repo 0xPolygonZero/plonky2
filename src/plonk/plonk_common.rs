@@ -156,14 +156,19 @@ pub(crate) fn reduce_with_powers_multi<F: Field>(terms: &[F], alphas: &[F]) -> V
 }
 
 /// Like reduce_with_powers_multi, but the terms are reversed.
-pub(crate) fn reduce_with_powers_multi_rev<'a, F: Field, T: IntoIterator<Item = &'a F>>(terms: T, alphas: &[F]) -> Vec<F> {
+pub(crate) fn reduce_with_powers_multi_rev<'a, F: Field, T: IntoIterator<Item = &'a F>>(
+    terms: T,
+    alphas: &[F],
+) -> Vec<F> {
     let mut cumul = vec![F::ZERO; alphas.len()];
     for &term in terms {
-        cumul.iter_mut().zip(alphas).for_each(|(c, &alpha)| *c = *c * alpha + term);
+        cumul
+            .iter_mut()
+            .zip(alphas)
+            .for_each(|(c, &alpha)| *c = *c * alpha + term);
     }
     cumul
 }
-
 
 pub(crate) fn reduce_with_powers<F: Field>(terms: &[F], alpha: F) -> F {
     let mut sum = F::ZERO;

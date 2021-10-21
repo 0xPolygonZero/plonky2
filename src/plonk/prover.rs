@@ -353,7 +353,8 @@ fn compute_quotient_polys<'a, F: RichField + Extendable<D>, const D: usize>(
         .into_par_iter()
         .enumerate()
         .map(|(batch_i, xs_batch)| {
-            let indices_batch: Vec<usize> = (BATCH_SIZE * batch_i..BATCH_SIZE * batch_i + xs_batch.len()).collect();
+            let indices_batch: Vec<usize> =
+                (BATCH_SIZE * batch_i..BATCH_SIZE * batch_i + xs_batch.len()).collect();
 
             let mut shifted_xs_batch = Vec::with_capacity(xs_batch.len());
             let mut vars_batch = Vec::with_capacity(xs_batch.len());
@@ -365,7 +366,8 @@ fn compute_quotient_polys<'a, F: RichField + Extendable<D>, const D: usize>(
             for (&i, &x) in indices_batch.iter().zip(xs_batch) {
                 let shifted_x = F::coset_shift() * x;
                 let i_next = (i + next_step) % lde_size;
-                let local_constants_sigmas = get_at_index(&prover_data.constants_sigmas_commitment, i);
+                let local_constants_sigmas =
+                    get_at_index(&prover_data.constants_sigmas_commitment, i);
                 let local_constants = &local_constants_sigmas[common_data.constants_range()];
                 let s_sigmas = &local_constants_sigmas[common_data.sigmas_range()];
                 let local_wires = get_at_index(wires_commitment, i);
@@ -373,7 +375,8 @@ fn compute_quotient_polys<'a, F: RichField + Extendable<D>, const D: usize>(
                 let local_zs = &local_zs_partial_products[common_data.zs_range()];
                 let next_zs =
                     &get_at_index(zs_partial_products_commitment, i_next)[common_data.zs_range()];
-                let partial_products = &local_zs_partial_products[common_data.partial_products_range()];
+                let partial_products =
+                    &local_zs_partial_products[common_data.partial_products_range()];
 
                 debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
                 debug_assert_eq!(local_zs.len(), num_challenges);
@@ -406,7 +409,8 @@ fn compute_quotient_polys<'a, F: RichField + Extendable<D>, const D: usize>(
                 &z_h_on_coset,
             );
 
-            for (&i, quotient_values) in indices_batch.iter().zip(quotient_values_batch.iter_mut()) {
+            for (&i, quotient_values) in indices_batch.iter().zip(quotient_values_batch.iter_mut())
+            {
                 let denominator_inv = z_h_on_coset.eval_inverse(i);
                 quotient_values
                     .iter_mut()

@@ -80,7 +80,10 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         vars_batch: &[EvaluationVarsBase<F>],
         prefix: &[bool],
     ) -> Vec<Vec<F>> {
-        vars_batch.iter().map(|&vars| self.eval_filtered_base(vars, prefix)).collect()
+        vars_batch
+            .iter()
+            .map(|&vars| self.eval_filtered_base(vars, prefix))
+            .collect()
     }
 
     fn eval_filtered_recursively(
