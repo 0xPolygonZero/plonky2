@@ -74,14 +74,20 @@ mod tests {
 
         let mut rng = rand::thread_rng();
 
-        let lst1: Vec<F> = (0..size)
-            .map(|_| F::from_canonical_u32(rng.gen()))
+        let lst1: Vec<u32> = (0..size)
+            .map(|_| rng.gen())
             .collect();
-        let lst2: Vec<F> = (0..size)
-            .map(|_| F::from_canonical_u32(rng.gen()))
+        let lst2: Vec<u32> = (0..size)
+            .map(|i| {
+                let mut res = rng.gen();
+                while res < lst1[i] {
+                    res = rng.gen();
+                }
+                res
+            })
             .collect();
-        let a = lst1.iter().map(|&x| builder.constant(x)).collect();
-        let b = lst2.iter().map(|&x| builder.constant(x)).collect();
+        let a = lst1.iter().map(|&x| builder.constant(F::from_canonical_u32(x))).collect();
+        let b = lst2.iter().map(|&x| builder.constant(F::from_canonical_u32(x))).collect();
 
         let result = builder.list_le(a, b, 32);
 
