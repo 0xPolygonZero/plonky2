@@ -202,14 +202,14 @@ where
 
         // First set of full rounds.
         for r in 0..poseidon::HALF_N_FULL_ROUNDS {
-            <F as Poseidon<WIDTH>>::constant_layer_field(&mut state, round_ctr);
+            <F as Poseidon<WIDTH>>::constant_layer(&mut state, round_ctr);
             for i in 0..WIDTH {
                 let sbox_in = vars.local_wires[Self::wire_full_sbox_0(r, i)];
                 constraints.push(state[i] - sbox_in);
                 state[i] = sbox_in;
             }
-            <F as Poseidon<WIDTH>>::sbox_layer_field(&mut state);
-            state = <F as Poseidon<WIDTH>>::mds_layer_field(&state);
+            <F as Poseidon<WIDTH>>::sbox_layer(&mut state);
+            state = <F as Poseidon<WIDTH>>::mds_layer(&state);
             round_ctr += 1;
         }
 
@@ -222,27 +222,25 @@ where
             state[0] = <F as Poseidon<WIDTH>>::sbox_monomial(sbox_in);
             state[0] +=
                 F::from_canonical_u64(<F as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_CONSTANTS[r]);
-            state = <F as Poseidon<WIDTH>>::mds_partial_layer_fast_field(&state, r);
+            state = <F as Poseidon<WIDTH>>::mds_partial_layer_fast(&state, r);
         }
         let sbox_in = vars.local_wires[Self::wire_partial_sbox(poseidon::N_PARTIAL_ROUNDS - 1)];
         constraints.push(state[0] - sbox_in);
         state[0] = <F as Poseidon<WIDTH>>::sbox_monomial(sbox_in);
-        state = <F as Poseidon<WIDTH>>::mds_partial_layer_fast_field(
-            &state,
-            poseidon::N_PARTIAL_ROUNDS - 1,
-        );
+        state =
+            <F as Poseidon<WIDTH>>::mds_partial_layer_fast(&state, poseidon::N_PARTIAL_ROUNDS - 1);
         round_ctr += poseidon::N_PARTIAL_ROUNDS;
 
         // Second set of full rounds.
         for r in 0..poseidon::HALF_N_FULL_ROUNDS {
-            <F as Poseidon<WIDTH>>::constant_layer_field(&mut state, round_ctr);
+            <F as Poseidon<WIDTH>>::constant_layer(&mut state, round_ctr);
             for i in 0..WIDTH {
                 let sbox_in = vars.local_wires[Self::wire_full_sbox_1(r, i)];
                 constraints.push(state[i] - sbox_in);
                 state[i] = sbox_in;
             }
-            <F as Poseidon<WIDTH>>::sbox_layer_field(&mut state);
-            state = <F as Poseidon<WIDTH>>::mds_layer_field(&state);
+            <F as Poseidon<WIDTH>>::sbox_layer(&mut state);
+            state = <F as Poseidon<WIDTH>>::mds_layer(&state);
             round_ctr += 1;
         }
 
