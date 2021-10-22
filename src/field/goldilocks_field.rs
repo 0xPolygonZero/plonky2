@@ -13,6 +13,7 @@ use crate::field::extension_field::quartic::QuarticExtension;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::field::inversion::try_inverse_u64;
+use crate::util::assume;
 
 const EPSILON: u64 = (1 << 32) - 1;
 
@@ -280,6 +281,8 @@ unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
         inlateout(reg) y => adjustment,
         options(pure, nomem, nostack),
     );
+    assume(x != 0 || (res_wrapped == y && adjustment == 0));
+    assume(y != 0 || (res_wrapped == x && adjustment == 0));
     res_wrapped.wrapping_add(adjustment) // Add EPSILON == subtract ORDER.
 }
 
@@ -307,6 +310,7 @@ unsafe fn sub_with_wraparound(x: u64, y: u64) -> u64 {
         inlateout(reg) y => adjustment,
         options(pure, nomem, nostack),
     );
+    assume(y != 0 || (res_wrapped == x && adjustment == 0));
     res_wrapped.wrapping_sub(adjustment) // Subtract EPSILON == add ORDER.
 }
 
