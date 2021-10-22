@@ -170,6 +170,7 @@ impl Add for GoldilocksField {
 }
 
 impl AddAssign for GoldilocksField {
+    #[inline]
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
