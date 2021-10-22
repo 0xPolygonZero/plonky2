@@ -117,12 +117,12 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
     z_h_on_coset: &ZeroPolyOnCoset<F>,
 ) -> Vec<Vec<F>> {
     let n = indices_batch.len();
-    assert!(xs_batch.len() == n);
-    assert!(vars_batch.len() == n);
-    assert!(local_zs_batch.len() == n);
-    assert!(next_zs_batch.len() == n);
-    assert!(partial_products_batch.len() == n);
-    assert!(s_sigmas_batch.len() == n);
+    assert_eq!(xs_batch.len(), n);
+    assert_eq!(vars_batch.len(), n);
+    assert_eq!(local_zs_batch.len(), n);
+    assert_eq!(next_zs_batch.len(), n);
+    assert_eq!(partial_products_batch.len(), n);
+    assert_eq!(s_sigmas_batch.len(), n);
 
     let max_degree = common_data.quotient_degree_factor;
     let (num_prods, final_num_prod) = common_data.num_partial_products;

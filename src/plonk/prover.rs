@@ -418,8 +418,8 @@ fn compute_quotient_polys<'a, F: RichField + Extendable<D>, const D: usize>(
             }
             quotient_values_batch
         })
-        .collect::<Vec<Vec<Vec<F>>>>()
-        .concat();
+        .flatten()
+        .collect();
 
     transpose(&quotient_values)
         .into_par_iter()
