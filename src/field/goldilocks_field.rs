@@ -93,6 +93,7 @@ impl Field for GoldilocksField {
 
     #[inline]
     fn from_canonical_u64(n: u64) -> Self {
+        debug_assert!(n < Self::ORDER);
         Self(n)
     }
 
