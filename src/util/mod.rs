@@ -1,3 +1,5 @@
+use core::hint::unreachable_unchecked;
+
 use crate::field::field_types::Field;
 use crate::polynomial::polynomial::PolynomialValues;
 
@@ -193,6 +195,14 @@ pub(crate) fn reverse_bits(n: usize, num_bits: usize) -> usize {
     n.reverse_bits()
         .overflowing_shr(usize::BITS - num_bits as u32)
         .0
+}
+
+#[inline(always)]
+pub(crate) unsafe fn assume(p: bool) {
+    debug_assert!(p);
+    if !p {
+        unreachable_unchecked();
+    }
 }
 
 #[cfg(test)]
