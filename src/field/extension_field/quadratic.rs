@@ -70,7 +70,7 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
         F::order() * F::order()
     }
 
-    #[inline]
+    #[inline(always)]
     fn square(&self) -> Self {
         // Specialising mul reduces the computation of c1 from 2 muls
         // and one add to one mul and a shift

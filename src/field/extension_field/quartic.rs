@@ -72,7 +72,7 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
         F::order().pow(4u32)
     }
 
-    #[inline]
+    #[inline(always)]
     fn square(&self) -> Self {
         let Self([a0, a1, a2, a3]) = *self;
         let w = <Self as OEF<4>>::W;
