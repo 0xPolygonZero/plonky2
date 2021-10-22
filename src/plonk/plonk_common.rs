@@ -165,7 +165,7 @@ pub(crate) fn reduce_with_powers_multi_rev<'a, F: Field, T: IntoIterator<Item = 
         cumul
             .iter_mut()
             .zip(alphas)
-            .for_each(|(c, &alpha)| *c = term.multiply_accumulate(*c, alpha) );
+            .for_each(|(c, &alpha)| *c = term.multiply_accumulate(*c, alpha));
     }
     cumul
 }
