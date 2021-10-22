@@ -74,12 +74,16 @@ pub trait Field:
         *self == Self::ONE
     }
 
+    fn double(&self) -> Self {
+        *self + *self
+    }
+
     fn square(&self) -> Self {
         *self * *self
     }
 
     fn cube(&self) -> Self {
-        *self * *self * *self
+        self.square() * *self
     }
 
     /// Compute the multiplicative inverse of this field element.
