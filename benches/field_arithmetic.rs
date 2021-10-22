@@ -34,6 +34,32 @@ pub(crate) fn bench_field<F: Field>(c: &mut Criterion) {
         )
     });
 
+    c.bench_function(&format!("sqr-throughput<{}>", type_name::<F>()), |b| {
+        b.iter_batched(
+            || (F::rand(), F::rand(), F::rand(), F::rand()),
+            |(mut x, mut y, mut z, mut w)| {
+                for _ in 0..25 {
+                    (x, y, z, w) = (x.square(), y.square(), z.square(), w.square());
+                }
+                (x, y, z, w)
+            },
+            BatchSize::SmallInput,
+        )
+    });
+
+    c.bench_function(&format!("sqr-latency<{}>", type_name::<F>()), |b| {
+        b.iter_batched(
+            || F::rand(),
+            |mut x| {
+                for _ in 0..100 {
+                    x = x.square();
+                }
+                x
+            },
+            BatchSize::SmallInput,
+        )
+    });
+
     c.bench_function(&format!("add-throughput<{}>", type_name::<F>()), |b| {
         b.iter_batched(
             || {
