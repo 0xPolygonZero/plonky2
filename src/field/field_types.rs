@@ -62,26 +62,32 @@ pub trait Field:
 
     fn order() -> BigUint;
 
+    #[inline]
     fn is_zero(&self) -> bool {
         *self == Self::ZERO
     }
 
+    #[inline]
     fn is_nonzero(&self) -> bool {
         *self != Self::ZERO
     }
 
+    #[inline]
     fn is_one(&self) -> bool {
         *self == Self::ONE
     }
 
+    #[inline]
     fn double(&self) -> Self {
         *self + *self
     }
 
+    #[inline]
     fn square(&self) -> Self {
         *self * *self
     }
 
+    #[inline]
     fn cube(&self) -> Self {
         self.square() * *self
     }
@@ -340,6 +346,16 @@ pub trait PrimeField: Field {
 
     fn from_noncanonical_u64(n: u64) -> Self;
 
+    #[inline]
+    fn add_one(&self) -> Self {
+        unsafe { self.add_canonical_u64(1) }
+    }
+
+    #[inline]
+    fn sub_one(&self) -> Self {
+        unsafe { self.sub_canonical_u64(1) }
+    }
+
     /// Equivalent to *self + Self::from_canonical_u64(rhs), but may be cheaper. The caller must
     /// ensure that 0 <= rhs < Self::ORDER. The function may return incorrect results if this
     /// precondition is not met. It is marked unsafe for this reason.
@@ -347,6 +363,15 @@ pub trait PrimeField: Field {
     unsafe fn add_canonical_u64(&self, rhs: u64) -> Self {
         // Default implementation.
         *self + Self::from_canonical_u64(rhs)
+    }
+
+    /// Equivalent to *self - Self::from_canonical_u64(rhs), but may be cheaper. The caller must
+    /// ensure that 0 <= rhs < Self::ORDER. The function may return incorrect results if this
+    /// precondition is not met. It is marked unsafe for this reason.
+    #[inline]
+    unsafe fn sub_canonical_u64(&self, rhs: u64) -> Self {
+        // Default implementation.
+        *self - Self::from_canonical_u64(rhs)
     }
 }
 

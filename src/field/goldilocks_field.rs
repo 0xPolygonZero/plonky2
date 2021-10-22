@@ -103,6 +103,12 @@ impl Field for GoldilocksField {
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self::from_canonical_u64(rng.gen_range(0..Self::ORDER))
     }
+
+    #[inline]
+    fn multiply_accumulate(&self, x: Self, y: Self) -> Self {
+        // u64 + u64 * u64 cannot overflow.
+        reduce128((self.0 as u128) + (x.0 as u128) * (y.0 as u128))
+    }
 }
 
 impl PrimeField for GoldilocksField {
@@ -125,6 +131,16 @@ impl PrimeField for GoldilocksField {
     #[inline]
     fn from_noncanonical_u64(n: u64) -> Self {
         Self(n)
+    }
+
+    #[inline]
+    unsafe fn add_canonical_u64(&self, rhs: u64) -> Self {
+        Self(add_with_wraparound(self.0, rhs))
+    }
+
+    #[inline]
+    unsafe fn sub_canonical_u64(&self, rhs: u64) -> Self {
+        Self(sub_with_wraparound(self.0, rhs))
     }
 }
 

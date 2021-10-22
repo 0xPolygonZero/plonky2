@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::gates::gate::Gate;
 use crate::hash::poseidon;
 use crate::hash::poseidon::Poseidon;
@@ -180,7 +180,7 @@ where
 
         // Assert that `swap` is binary.
         let swap = vars.local_wires[Self::WIRE_SWAP];
-        constraints.push(swap * (swap - F::ONE));
+        constraints.push(swap * swap.sub_one());
 
         let mut state = Vec::with_capacity(WIDTH);
         for i in 0..4 {
