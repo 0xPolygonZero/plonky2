@@ -75,11 +75,11 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
     #[inline]
     fn square(&self) -> Self {
         let Self([a0, a1, a2, a3]) = *self;
-        let W = <Self as OEF<4>>::W;
+        let w = <Self as OEF<4>>::W;
 
-        let c0 = a0.square() + W * (a1 * a3.double() + a2.square());
-        let c1 = (a0 * a1 + W * a2 * a3).double();
-        let c2 = a0 * a2.double() + a1.square() + W * a3.square();
+        let c0 = a0.square() + w * (a1 * a3.double() + a2.square());
+        let c1 = (a0 * a1 + w * a2 * a3).double();
+        let c2 = a0 * a2.double() + a1.square() + w * a3.square();
         let c3 = (a0 * a3 + a1 * a2).double();
 
         Self([c0, c1, c2, c3])

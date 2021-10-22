@@ -73,7 +73,7 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
     #[inline]
     fn square(&self) -> Self {
         // Specialising mul reduces the computation of c1 from 2 muls
-        // and an add to one mul and a shift
+        // and one add to one mul and a shift
 
         let Self([a0, a1]) = *self;
 
