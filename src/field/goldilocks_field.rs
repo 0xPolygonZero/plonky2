@@ -13,7 +13,6 @@ use crate::field::extension_field::quartic::QuarticExtension;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::field::inversion::try_inverse_u64;
-use crate::util::assume;
 
 const EPSILON: u64 = (1 << 32) - 1;
 
@@ -284,6 +283,8 @@ impl RichField for GoldilocksField {}
 #[inline(always)]
 #[cfg(target_arch = "x86_64")]
 unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
+    use crate::util::assume;
+
     let res_wrapped: u64;
     let adjustment: u64;
     asm!(
@@ -321,6 +322,8 @@ unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
 #[inline(always)]
 #[cfg(target_arch = "x86_64")]
 unsafe fn sub_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
+    use crate::util::assume;
+
     let res_wrapped: u64;
     let adjustment: u64;
     asm!(
