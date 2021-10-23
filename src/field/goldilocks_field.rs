@@ -136,12 +136,14 @@ impl PrimeField for GoldilocksField {
 
     #[inline]
     unsafe fn add_canonical_u64(&self, rhs: u64) -> Self {
-        Self(add_with_wraparound(self.0, rhs))
+        let (res_wrapped, carry) = self.0.overflowing_add(rhs);
+        Self(res_wrapped.wrapping_add(EPSILON * (carry as u64)))
     }
 
     #[inline]
     unsafe fn sub_canonical_u64(&self, rhs: u64) -> Self {
-        Self(sub_with_wraparound(self.0, rhs))
+        let (res_wrapped, borrow) = self.0.overflowing_sub(rhs);
+        Self(res_wrapped.wrapping_sub(EPSILON * (borrow as u64)))
     }
 }
 
@@ -281,7 +283,7 @@ impl RichField for GoldilocksField {}
 ///     the registers, so its use is not recommended when either input will be used again.
 #[inline(always)]
 #[cfg(target_arch = "x86_64")]
-unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
+unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
     let res_wrapped: u64;
     let adjustment: u64;
     asm!(
@@ -306,7 +308,7 @@ unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
 
 #[inline(always)]
 #[cfg(not(target_arch = "x86_64"))]
-unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
+unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
     let (res_wrapped, carry) = x.overflowing_add(y);
     res_wrapped.wrapping_add(EPSILON * (carry as u64))
 }
@@ -318,12 +320,12 @@ unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
 ///     the registers, so its use is not recommended when either input will be used again.
 #[inline(always)]
 #[cfg(target_arch = "x86_64")]
-unsafe fn sub_with_wraparound(x: u64, y: u64) -> u64 {
+unsafe fn sub_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
     let res_wrapped: u64;
     let adjustment: u64;
     asm!(
         "sub {0}, {1}",
-        "sbb {1:e}, {1:e}", // See add_with_wraparound.
+        "sbb {1:e}, {1:e}", // See add_no_canonicalize_trashing_input.
         inlateout(reg) x => res_wrapped,
         inlateout(reg) y => adjustment,
         options(pure, nomem, nostack),
@@ -334,7 +336,7 @@ unsafe fn sub_with_wraparound(x: u64, y: u64) -> u64 {
 
 #[inline(always)]
 #[cfg(not(target_arch = "x86_64"))]
-unsafe fn sub_with_wraparound(x: u64, y: u64) -> u64 {
+unsafe fn sub_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
     let (res_wrapped, borrow) = x.overflowing_sub(y);
     res_wrapped.wrapping_sub(EPSILON * (borrow as u64))
 }
@@ -347,9 +349,9 @@ fn reduce128(x: u128) -> GoldilocksField {
     let x_hi_hi = x_hi >> 32;
     let x_hi_lo = x_hi & EPSILON;
 
-    let t0 = unsafe { sub_with_wraparound(x_lo, x_hi_hi) };
+    let t0 = unsafe { sub_no_canonicalize_trashing_input(x_lo, x_hi_hi) };
     let t1 = x_hi_lo * EPSILON;
-    let t2 = unsafe { add_with_wraparound(t0, t1) };
+    let t2 = unsafe { add_no_canonicalize_trashing_input(t0, t1) };
     GoldilocksField(t2)
 }
 
