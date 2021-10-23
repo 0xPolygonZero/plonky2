@@ -68,7 +68,7 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> fo
 
         let constraints_iter = limbs.iter().map(|&limb| {
             (0..B)
-                .map(|i| limb - F::from_canonical_usize(i))
+                .map(|i| unsafe { limb.sub_canonical_u64(i as u64) })
                 .product::<F>()
         });
         constraints.extend(constraints_iter);

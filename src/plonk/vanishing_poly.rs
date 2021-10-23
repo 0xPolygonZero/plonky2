@@ -1,6 +1,6 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::gates::gate::PrefixedGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -140,7 +140,7 @@ pub(crate) fn eval_vanishing_poly_base<F: RichField + Extendable<D>, const D: us
     for i in 0..num_challenges {
         let z_x = local_zs[i];
         let z_gz = next_zs[i];
-        vanishing_z_1_terms.push(l1_x * (z_x - F::ONE));
+        vanishing_z_1_terms.push(l1_x * z_x.sub_one());
 
         numerator_values.extend((0..num_routed_wires).map(|j| {
             let wire_value = vars.local_wires[j];

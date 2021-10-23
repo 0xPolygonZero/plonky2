@@ -118,7 +118,7 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
 
         // Assert that `swap` is binary.
         let swap = vars.local_wires[Self::WIRE_SWAP];
-        constraints.push(swap * (swap - F::ONE));
+        constraints.push(swap * swap.sub_one());
 
         let mut state = Vec::with_capacity(12);
         for i in 0..4 {

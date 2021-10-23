@@ -13,7 +13,6 @@ use crate::field::extension_field::quartic::QuarticExtension;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::field::inversion::try_inverse_u64;
-use crate::util::assume;
 
 const EPSILON: u64 = (1 << 32) - 1;
 
@@ -93,6 +92,7 @@ impl Field for GoldilocksField {
 
     #[inline]
     fn from_canonical_u64(n: u64) -> Self {
+        debug_assert!(n < Self::ORDER);
         Self(n)
     }
 
@@ -102,6 +102,12 @@ impl Field for GoldilocksField {
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self::from_canonical_u64(rng.gen_range(0..Self::ORDER))
+    }
+
+    #[inline]
+    fn multiply_accumulate(&self, x: Self, y: Self) -> Self {
+        // u64 + u64 * u64 cannot overflow.
+        reduce128((self.0 as u128) + (x.0 as u128) * (y.0 as u128))
     }
 }
 
@@ -125,6 +131,18 @@ impl PrimeField for GoldilocksField {
     #[inline]
     fn from_noncanonical_u64(n: u64) -> Self {
         Self(n)
+    }
+
+    #[inline]
+    unsafe fn add_canonical_u64(&self, rhs: u64) -> Self {
+        let (res_wrapped, carry) = self.0.overflowing_add(rhs);
+        Self(res_wrapped.wrapping_add(EPSILON * (carry as u64)))
+    }
+
+    #[inline]
+    unsafe fn sub_canonical_u64(&self, rhs: u64) -> Self {
+        let (res_wrapped, borrow) = self.0.overflowing_sub(rhs);
+        Self(res_wrapped.wrapping_sub(EPSILON * (borrow as u64)))
     }
 }
 
@@ -153,6 +171,7 @@ impl Add for GoldilocksField {
 }
 
 impl AddAssign for GoldilocksField {
+    #[inline]
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
@@ -263,7 +282,9 @@ impl RichField for GoldilocksField {}
 ///     the registers, so its use is not recommended when either input will be used again.
 #[inline(always)]
 #[cfg(target_arch = "x86_64")]
-unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
+unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
+    use crate::util::assume;
+
     let res_wrapped: u64;
     let adjustment: u64;
     asm!(
@@ -288,7 +309,7 @@ unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
 
 #[inline(always)]
 #[cfg(not(target_arch = "x86_64"))]
-unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
+unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
     let (res_wrapped, carry) = x.overflowing_add(y);
     res_wrapped.wrapping_add(EPSILON * (carry as u64))
 }
@@ -300,12 +321,14 @@ unsafe fn add_with_wraparound(x: u64, y: u64) -> u64 {
 ///     the registers, so its use is not recommended when either input will be used again.
 #[inline(always)]
 #[cfg(target_arch = "x86_64")]
-unsafe fn sub_with_wraparound(x: u64, y: u64) -> u64 {
+unsafe fn sub_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
+    use crate::util::assume;
+
     let res_wrapped: u64;
     let adjustment: u64;
     asm!(
         "sub {0}, {1}",
-        "sbb {1:e}, {1:e}", // See add_with_wraparound.
+        "sbb {1:e}, {1:e}", // See add_no_canonicalize_trashing_input.
         inlateout(reg) x => res_wrapped,
         inlateout(reg) y => adjustment,
         options(pure, nomem, nostack),
@@ -316,7 +339,7 @@ unsafe fn sub_with_wraparound(x: u64, y: u64) -> u64 {
 
 #[inline(always)]
 #[cfg(not(target_arch = "x86_64"))]
-unsafe fn sub_with_wraparound(x: u64, y: u64) -> u64 {
+unsafe fn sub_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
     let (res_wrapped, borrow) = x.overflowing_sub(y);
     res_wrapped.wrapping_sub(EPSILON * (borrow as u64))
 }
@@ -329,9 +352,9 @@ fn reduce128(x: u128) -> GoldilocksField {
     let x_hi_hi = x_hi >> 32;
     let x_hi_lo = x_hi & EPSILON;
 
-    let t0 = unsafe { sub_with_wraparound(x_lo, x_hi_hi) };
+    let t0 = unsafe { sub_no_canonicalize_trashing_input(x_lo, x_hi_hi) };
     let t1 = x_hi_lo * EPSILON;
-    let t2 = unsafe { add_with_wraparound(t0, t1) };
+    let t2 = unsafe { add_no_canonicalize_trashing_input(t0, t1) };
     GoldilocksField(t2)
 }
 
