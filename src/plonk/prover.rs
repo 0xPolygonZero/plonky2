@@ -14,7 +14,7 @@ use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::plonk_common::ZeroPolyOnCoset;
 use crate::plonk::proof::{Proof, ProofWithPublicInputs};
-use crate::plonk::vanishing_poly::eval_vanishing_poly_base;
+use crate::plonk::vanishing_poly::eval_vanishing_poly_base_batch;
 use crate::plonk::vars::EvaluationVarsBase;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::timed;
@@ -309,6 +309,8 @@ fn compute_z<F: RichField + Extendable<D>, const D: usize>(
     plonk_z_points.into()
 }
 
+const BATCH_SIZE: usize = 32;
+
 fn compute_quotient_polys<'a, F: RichField + Extendable<D>, const D: usize>(
     common_data: &CommonCircuitData<F, D>,
     prover_data: &'a ProverOnlyCircuitData<F, D>,
@@ -344,50 +346,77 @@ fn compute_quotient_polys<'a, F: RichField + Extendable<D>, const D: usize>(
 
     let z_h_on_coset = ZeroPolyOnCoset::new(common_data.degree_bits, max_degree_bits);
 
-    let quotient_values: Vec<Vec<F>> = points
-        .into_par_iter()
+    let points_batches = points.par_chunks(BATCH_SIZE);
+    let quotient_values: Vec<Vec<F>> = points_batches
         .enumerate()
-        .map(|(i, x)| {
-            let shifted_x = F::coset_shift() * x;
-            let i_next = (i + next_step) % lde_size;
-            let local_constants_sigmas = get_at_index(&prover_data.constants_sigmas_commitment, i);
-            let local_constants = &local_constants_sigmas[common_data.constants_range()];
-            let s_sigmas = &local_constants_sigmas[common_data.sigmas_range()];
-            let local_wires = get_at_index(wires_commitment, i);
-            let local_zs_partial_products = get_at_index(zs_partial_products_commitment, i);
-            let local_zs = &local_zs_partial_products[common_data.zs_range()];
-            let next_zs =
-                &get_at_index(zs_partial_products_commitment, i_next)[common_data.zs_range()];
-            let partial_products = &local_zs_partial_products[common_data.partial_products_range()];
+        .map(|(batch_i, xs_batch)| {
+            assert_eq!(xs_batch.len(), BATCH_SIZE);
+            let indices_batch: Vec<usize> =
+                (BATCH_SIZE * batch_i..BATCH_SIZE * (batch_i + 1)).collect();
 
-            debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
-            debug_assert_eq!(local_zs.len(), num_challenges);
+            let mut shifted_xs_batch = Vec::with_capacity(xs_batch.len());
+            let mut vars_batch = Vec::with_capacity(xs_batch.len());
+            let mut local_zs_batch = Vec::with_capacity(xs_batch.len());
+            let mut next_zs_batch = Vec::with_capacity(xs_batch.len());
+            let mut partial_products_batch = Vec::with_capacity(xs_batch.len());
+            let mut s_sigmas_batch = Vec::with_capacity(xs_batch.len());
 
-            let vars = EvaluationVarsBase {
-                local_constants,
-                local_wires,
-                public_inputs_hash,
-            };
-            let mut quotient_values = eval_vanishing_poly_base(
+            for (&i, &x) in indices_batch.iter().zip(xs_batch) {
+                let shifted_x = F::coset_shift() * x;
+                let i_next = (i + next_step) % lde_size;
+                let local_constants_sigmas =
+                    get_at_index(&prover_data.constants_sigmas_commitment, i);
+                let local_constants = &local_constants_sigmas[common_data.constants_range()];
+                let s_sigmas = &local_constants_sigmas[common_data.sigmas_range()];
+                let local_wires = get_at_index(wires_commitment, i);
+                let local_zs_partial_products = get_at_index(zs_partial_products_commitment, i);
+                let local_zs = &local_zs_partial_products[common_data.zs_range()];
+                let next_zs =
+                    &get_at_index(zs_partial_products_commitment, i_next)[common_data.zs_range()];
+                let partial_products =
+                    &local_zs_partial_products[common_data.partial_products_range()];
+
+                debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
+                debug_assert_eq!(local_zs.len(), num_challenges);
+
+                let vars = EvaluationVarsBase {
+                    local_constants,
+                    local_wires,
+                    public_inputs_hash,
+                };
+
+                shifted_xs_batch.push(shifted_x);
+                vars_batch.push(vars);
+                local_zs_batch.push(local_zs);
+                next_zs_batch.push(next_zs);
+                partial_products_batch.push(partial_products);
+                s_sigmas_batch.push(s_sigmas);
+            }
+            let mut quotient_values_batch = eval_vanishing_poly_base_batch(
                 common_data,
-                i,
-                shifted_x,
-                vars,
-                local_zs,
-                next_zs,
-                partial_products,
-                s_sigmas,
+                &indices_batch,
+                &shifted_xs_batch,
+                &vars_batch,
+                &local_zs_batch,
+                &next_zs_batch,
+                &partial_products_batch,
+                &s_sigmas_batch,
                 betas,
                 gammas,
                 alphas,
                 &z_h_on_coset,
             );
-            let denominator_inv = z_h_on_coset.eval_inverse(i);
-            quotient_values
-                .iter_mut()
-                .for_each(|v| *v *= denominator_inv);
-            quotient_values
+
+            for (&i, quotient_values) in indices_batch.iter().zip(quotient_values_batch.iter_mut())
+            {
+                let denominator_inv = z_h_on_coset.eval_inverse(i);
+                quotient_values
+                    .iter_mut()
+                    .for_each(|v| *v *= denominator_inv);
+            }
+            quotient_values_batch
         })
+        .flatten()
         .collect();
 
     transpose(&quotient_values)

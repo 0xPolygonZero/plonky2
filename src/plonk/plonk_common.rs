@@ -147,12 +147,25 @@ pub(crate) fn eval_l_1_recursively<F: RichField + Extendable<D>, const D: usize>
     builder.div_extension(eval_zero_poly, denominator)
 }
 
-/// For each alpha in alphas, compute a reduction of the given terms using powers of alpha.
-pub(crate) fn reduce_with_powers_multi<F: Field>(terms: &[F], alphas: &[F]) -> Vec<F> {
-    alphas
-        .iter()
-        .map(|&alpha| reduce_with_powers(terms, alpha))
-        .collect()
+/// For each alpha in alphas, compute a reduction of the given terms using powers of alpha. T can
+/// be any type convertible to a double-ended iterator.
+pub(crate) fn reduce_with_powers_multi<
+    'a,
+    F: Field,
+    I: DoubleEndedIterator<Item = &'a F>,
+    T: IntoIterator<IntoIter = I>,
+>(
+    terms: T,
+    alphas: &[F],
+) -> Vec<F> {
+    let mut cumul = vec![F::ZERO; alphas.len()];
+    for &term in terms.into_iter().rev() {
+        cumul
+            .iter_mut()
+            .zip(alphas)
+            .for_each(|(c, &alpha)| *c = term.multiply_accumulate(*c, alpha));
+    }
+    cumul
 }
 
 pub(crate) fn reduce_with_powers<F: Field>(terms: &[F], alpha: F) -> F {
