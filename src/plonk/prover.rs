@@ -348,13 +348,13 @@ fn compute_quotient_polys<'a, F: RichField + Extendable<D>, const D: usize>(
 
     let z_h_on_coset = ZeroPolyOnCoset::new(common_data.degree_bits, max_degree_bits);
 
-    let points_batches: Vec<&[F]> = points.chunks(BATCH_SIZE).collect();
+    let points_batches = points.par_chunks(BATCH_SIZE);
     let quotient_values: Vec<Vec<F>> = points_batches
-        .into_par_iter()
         .enumerate()
         .map(|(batch_i, xs_batch)| {
+            assert_eq!(xs_batch.len(), BATCH_SIZE);
             let indices_batch: Vec<usize> =
-                (BATCH_SIZE * batch_i..BATCH_SIZE * batch_i + xs_batch.len()).collect();
+                (BATCH_SIZE * batch_i..BATCH_SIZE * (batch_i + 1)).collect();
 
             let mut shifted_xs_batch = Vec::with_capacity(xs_batch.len());
             let mut vars_batch = Vec::with_capacity(xs_batch.len());

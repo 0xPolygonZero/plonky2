@@ -148,17 +148,17 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
     let mut vanishing_v_shift_terms = Vec::with_capacity(num_challenges);
 
     let mut res_batch: Vec<Vec<F>> = Vec::with_capacity(n);
-    for i in 0..n {
-        let index = indices_batch[i];
-        let x = xs_batch[i];
-        let vars = vars_batch[i];
-        let local_zs = local_zs_batch[i];
-        let next_zs = next_zs_batch[i];
-        let partial_products = partial_products_batch[i];
-        let s_sigmas = s_sigmas_batch[i];
+    for k in 0..n {
+        let index = indices_batch[k];
+        let x = xs_batch[k];
+        let vars = vars_batch[k];
+        let local_zs = local_zs_batch[k];
+        let next_zs = next_zs_batch[k];
+        let partial_products = partial_products_batch[k];
+        let s_sigmas = s_sigmas_batch[k];
 
         let constraint_terms =
-            &constraint_terms_batch[i * num_gate_constraints..(i + 1) * num_gate_constraints];
+            &constraint_terms_batch[k * num_gate_constraints..(k + 1) * num_gate_constraints];
 
         let l1_x = z_h_on_coset.eval_l1(index, x);
         for i in 0..num_challenges {
@@ -209,13 +209,12 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
             quotient_values.clear();
         }
 
-        let vanishing_terms = constraint_terms
+        let vanishing_terms = vanishing_z_1_terms
             .iter()
-            .rev()
-            .chain(vanishing_v_shift_terms.iter().rev())
-            .chain(vanishing_partial_products_terms.iter().rev())
-            .chain(vanishing_z_1_terms.iter().rev());
-        let res = plonk_common::reduce_with_powers_multi_rev(vanishing_terms, alphas);
+            .chain(vanishing_partial_products_terms.iter())
+            .chain(vanishing_v_shift_terms.iter())
+            .chain(constraint_terms);
+        let res = plonk_common::reduce_with_powers_multi(vanishing_terms, alphas);
         res_batch.push(res);
 
         vanishing_z_1_terms.clear();
@@ -249,6 +248,11 @@ pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
     constraints
 }
 
+/// Evaluate all gate constraints in the base field.
+///
+/// Returns a vector of num_gate_constraints * vars_batch.len() field elements. The constraints
+/// corresponding to vars_batch[i] are found in
+/// result[num_gate_constraints * i..num_gate_constraints * (i + 1)].
 pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const D: usize>(
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
