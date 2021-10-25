@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::TryInto;
 use std::time::Instant;
 
-use log::{info, Level};
+use log::{debug, info, Level};
 
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
@@ -605,9 +605,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn print_gate_counts(&self, min_delta: usize) {
+        // Print gate counts for each context.
         self.context_log
             .filter(self.num_gates(), min_delta)
             .print(self.num_gates());
+
+        // Print total count of each gate type.
+        debug!("Total gate counts:");
+        for gate in self.gates.iter().cloned() {
+            let count = self
+                .gate_instances
+                .iter()
+                .filter(|inst| inst.gate_ref == gate)
+                .count();
+            debug!("- {} instances of {}", count, gate.0.id());
+        }
     }
 
     /// Builds a "full circuit", with both prover and verifier data.

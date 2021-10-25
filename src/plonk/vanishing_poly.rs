@@ -1,6 +1,6 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::gates::gate::PrefixedGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -164,7 +164,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
         for i in 0..num_challenges {
             let z_x = local_zs[i];
             let z_gz = next_zs[i];
-            vanishing_z_1_terms.push(l1_x * (z_x - F::ONE));
+            vanishing_z_1_terms.push(l1_x * z_x.sub_one());
 
             numerator_values.extend((0..num_routed_wires).map(|j| {
                 let wire_value = vars.local_wires[j];
@@ -363,7 +363,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
     for i in 0..common_data.config.num_challenges {
         let z_x = local_zs[i];
         let z_gz = next_zs[i];
-        vanishing_z_1_terms.push(builder.arithmetic_extension(F::ONE, F::NEG_ONE, l1_x, z_x, l1_x));
+        vanishing_z_1_terms.push(builder.mul_sub_extension(l1_x, z_x, l1_x));
 
         let numerator_values = (0..common_data.config.num_routed_wires)
             .map(|j| {

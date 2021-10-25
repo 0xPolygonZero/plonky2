@@ -5,7 +5,7 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::util::{bits_u64, ceil_div_usize};
+use crate::util::ceil_div_usize;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given integer into a list of wires, where each one represents a
@@ -16,42 +16,36 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         if num_bits == 0 {
             return Vec::new();
         }
-        let bits_per_gate = (bits_u64(F::ORDER) - 1)
-            .min(self.config.num_routed_wires - BaseSumGate::<2>::START_LIMBS);
-        let k = ceil_div_usize(num_bits, bits_per_gate);
+        let gate_type = BaseSumGate::<2>::new_from_config::<F>(&self.config);
+        let k = ceil_div_usize(num_bits, gate_type.num_limbs);
         let gates = (0..k)
-            .map(|_| self.add_gate(BaseSumGate::<2>::new(bits_per_gate), vec![]))
+            .map(|_| self.add_gate(gate_type, vec![]))
             .collect::<Vec<_>>();
 
         let mut bits = Vec::with_capacity(num_bits);
         for &gate in &gates {
             let start_limbs = BaseSumGate::<2>::START_LIMBS;
-            for limb_input in start_limbs..start_limbs + bits_per_gate {
+            for limb_input in start_limbs..start_limbs + gate_type.num_limbs {
                 // `new_unsafe` is safe here because BaseSumGate::<2> forces it to be in `{0, 1}`.
                 bits.push(BoolTarget::new_unsafe(Target::wire(gate, limb_input)));
             }
         }
-        bits.drain(num_bits..);
+        for b in bits.drain(num_bits..) {
+            self.assert_zero(b.target);
+        }
 
         let zero = self.zero();
-        let one = self.one();
         let mut acc = zero;
         for &gate in gates.iter().rev() {
             let sum = Target::wire(gate, BaseSumGate::<2>::WIRE_SUM);
-            acc = self.arithmetic(
-                F::from_canonical_usize(1 << bits_per_gate),
-                acc,
-                one,
-                F::ONE,
-                sum,
-            );
+            acc = self.mul_const_add(F::from_canonical_usize(1 << gate_type.num_limbs), acc, sum);
         }
         self.connect(acc, integer);
 
         self.add_simple_generator(WireSplitGenerator {
             integer,
             gates,
-            num_limbs: bits_per_gate,
+            num_limbs: gate_type.num_limbs,
         });
 
         bits

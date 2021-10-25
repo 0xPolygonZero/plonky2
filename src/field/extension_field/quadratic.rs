@@ -70,6 +70,19 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
         F::order() * F::order()
     }
 
+    #[inline(always)]
+    fn square(&self) -> Self {
+        // Specialising mul reduces the computation of c1 from 2 muls
+        // and one add to one mul and a shift
+
+        let Self([a0, a1]) = *self;
+
+        let c0 = a0.square() + <Self as OEF<2>>::W * a1.square();
+        let c1 = a0 * a1.double();
+
+        Self([c0, c1])
+    }
+
     // Algorithm 11.3.4 in Handbook of Elliptic and Hyperelliptic Curve Cryptography.
     fn try_inverse(&self) -> Option<Self> {
         if self.is_zero() {

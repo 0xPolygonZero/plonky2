@@ -86,6 +86,7 @@ impl Field for CrandallField {
 
     #[inline]
     fn from_canonical_u64(n: u64) -> Self {
+        debug_assert!(n < Self::ORDER);
         Self(n)
     }
 
@@ -218,6 +219,12 @@ impl PrimeField for CrandallField {
     unsafe fn add_canonical_u64(&self, rhs: u64) -> Self {
         let (sum, over) = self.0.overflowing_add(rhs);
         Self(sum.wrapping_sub((over as u64) * Self::ORDER))
+    }
+
+    #[inline]
+    unsafe fn sub_canonical_u64(&self, rhs: u64) -> Self {
+        let (sum, under) = self.0.overflowing_sub(rhs);
+        Self(sum.wrapping_add((under as u64) * Self::ORDER))
     }
 }
 

@@ -2,24 +2,31 @@ use std::ops::Range;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate which can decompose a number into base B little-endian limbs.
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct BaseSumGate<const B: usize> {
-    num_limbs: usize,
+    pub num_limbs: usize,
 }
 
 impl<const B: usize> BaseSumGate<B> {
     pub fn new(num_limbs: usize) -> Self {
         Self { num_limbs }
+    }
+
+    pub fn new_from_config<F: PrimeField>(config: &CircuitConfig) -> Self {
+        let num_limbs = ((F::ORDER as f64).log(B as f64).floor() as usize)
+            .min(config.num_routed_wires - Self::START_LIMBS);
+        Self::new(num_limbs)
     }
 
     pub const WIRE_SUM: usize = 0;
@@ -61,7 +68,7 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> fo
 
         let constraints_iter = limbs.iter().map(|&limb| {
             (0..B)
-                .map(|i| limb - F::from_canonical_usize(i))
+                .map(|i| unsafe { limb.sub_canonical_u64(i as u64) })
                 .product::<F>()
         });
         constraints.extend(constraints_iter);

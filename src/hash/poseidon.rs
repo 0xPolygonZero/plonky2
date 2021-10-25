@@ -17,7 +17,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 pub(crate) const HALF_N_FULL_ROUNDS: usize = 4;
 pub(crate) const N_FULL_ROUNDS_TOTAL: usize = 2 * HALF_N_FULL_ROUNDS;
 pub(crate) const N_PARTIAL_ROUNDS: usize = 22;
-const N_ROUNDS: usize = N_FULL_ROUNDS_TOTAL + N_PARTIAL_ROUNDS;
+pub(crate) const N_ROUNDS: usize = N_FULL_ROUNDS_TOTAL + N_PARTIAL_ROUNDS;
 const MAX_WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :)
 
 #[inline(always)]
@@ -44,6 +44,10 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     // WARNING: These must be in 0..CrandallField::ORDER (i.e. canonical form). If this condition is
     // not met, some platform-specific implementation of constant_layer may return incorrect
     // results.
+    //
+    // WARNING: The AVX2 Goldilocks specialization relies on all round constants being in
+    // 0..0xfffeeac900011537. If these constants are randomly regenerated, there is a ~.6% chance
+    // that this condition will no longer hold.
     //
     // WARNING: If these are changed in any way, then all the
     // implementations of Poseidon must be regenerated. See comments
@@ -206,15 +210,12 @@ where
         r: usize,
         v: &[ExtensionTarget<D>; WIDTH],
     ) -> ExtensionTarget<D> {
-        let one = builder.one_extension();
         debug_assert!(r < WIDTH);
         let mut res = builder.zero_extension();
 
         for i in 0..WIDTH {
-            res = builder.arithmetic_extension(
+            res = builder.mul_const_add_extension(
                 F::from_canonical_u64(1 << Self::MDS_MATRIX_EXPS[i]),
-                F::ONE,
-                one,
                 v[(i + r) % WIDTH],
                 res,
             );
@@ -292,14 +293,10 @@ where
         builder: &mut CircuitBuilder<F, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
     ) {
-        let one = builder.one_extension();
         for i in 0..WIDTH {
-            state[i] = builder.arithmetic_extension(
-                F::from_canonical_u64(Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]),
-                F::ONE,
-                one,
-                one,
+            state[i] = builder.add_const_extension(
                 state[i],
+                F::from_canonical_u64(Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]),
             );
         }
     }
@@ -341,7 +338,6 @@ where
         builder: &mut CircuitBuilder<F, D>,
         state: &[ExtensionTarget<D>; WIDTH],
     ) -> [ExtensionTarget<D>; WIDTH] {
-        let one = builder.one_extension();
         let mut result = [builder.zero_extension(); WIDTH];
 
         result[0] = state[0];
@@ -350,7 +346,7 @@ where
             for c in 1..WIDTH {
                 let t =
                     F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[r - 1][c - 1]);
-                result[c] = builder.arithmetic_extension(t, F::ONE, one, state[r], result[c]);
+                result[c] = builder.mul_const_add_extension(t, state[r], result[c]);
             }
         }
         result
@@ -423,27 +419,19 @@ where
         state: &[ExtensionTarget<D>; WIDTH],
         r: usize,
     ) -> [ExtensionTarget<D>; WIDTH] {
-        let zero = builder.zero_extension();
-        let one = builder.one_extension();
-
         let s0 = state[0];
-        let mut d = builder.arithmetic_extension(
-            F::from_canonical_u64(1 << Self::MDS_MATRIX_EXPS[0]),
-            F::ONE,
-            one,
-            s0,
-            zero,
-        );
+        let mut d =
+            builder.mul_const_extension(F::from_canonical_u64(1 << Self::MDS_MATRIX_EXPS[0]), s0);
         for i in 1..WIDTH {
             let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
-            d = builder.arithmetic_extension(t, F::ONE, one, state[i], d);
+            d = builder.mul_const_add_extension(t, state[i], d);
         }
 
-        let mut result = [zero; WIDTH];
+        let mut result = [builder.zero_extension(); WIDTH];
         result[0] = d;
         for i in 1..WIDTH {
             let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
-            result[i] = builder.arithmetic_extension(t, F::ONE, one, state[0], state[i]);
+            result[i] = builder.mul_const_add_extension(t, state[0], state[i]);
         }
         result
     }
@@ -478,14 +466,10 @@ where
         state: &mut [ExtensionTarget<D>; WIDTH],
         round_ctr: usize,
     ) {
-        let one = builder.one_extension();
         for i in 0..WIDTH {
-            state[i] = builder.arithmetic_extension(
-                F::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]),
-                F::ONE,
-                one,
-                one,
+            state[i] = builder.add_const_extension(
                 state[i],
+                F::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]),
             );
         }
     }
@@ -493,8 +477,8 @@ where
     #[inline(always)]
     fn sbox_monomial<F: FieldExtension<D, BaseField = Self>, const D: usize>(x: F) -> F {
         // x |--> x^7
-        let x2 = x * x;
-        let x4 = x2 * x2;
+        let x2 = x.square();
+        let x4 = x2.square();
         let x3 = x * x2;
         x3 * x4
     }
