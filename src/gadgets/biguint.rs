@@ -190,7 +190,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect_biguint(a, div_b_plus_rem);
 
         let cmp_rem_b = self.cmp_biguint(rem.clone(), b);
-        self.assert_zero(cmp_rem_b.target);
+        self.assert_one(cmp_rem_b.target);
 
         (div, rem)
     }
