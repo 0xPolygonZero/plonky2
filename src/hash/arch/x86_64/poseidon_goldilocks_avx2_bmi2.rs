@@ -348,284 +348,91 @@ unsafe fn mds_layer_reduce(
     (res0, res1, res2)
 }
 
+/// Given a vector of quadwords, represent it as two vectors of double-precision floats, usable in
+/// MDS multiplication (as input to fused multiply-add).
+///
+/// More precisely, let x = 0xKLMNOPQRSTUVWXYZ. We return lo = 0x4230STUVWXYZ0000 and
+/// hi = 0x4230KLMNOPQR0000. They encode the integer 0x10STUVWXYZ (resp. 0x10KLMNOPQR), in
+/// floating-point: sign (1 bit) of 0, exponent (11 bits) of 0x423, and a significand (52 bits) of
+/// 0x0STUVWXYZ0000 (resp. 0x0KLMNOPQR0000).
+///
+/// Note therefore that this function does not strictly convert each doubleword to a
+/// double-precision float. The resulting float is the lo/hi doubleword plus 0x1000000000.
+#[inline(always)]
+unsafe fn convert_to_floatish(x: __m256i) -> (__m256d, __m256d) {
+    // The exponent of 0x423 is fairly arbitrary. The resulting float is an encoding of
+    // 0x10STUVWXYZ * 2 ** n, where n depends on the exponent, and 0x423 sets n = 0. But other
+    // values, except 0 (which is denormal) and really large values (which will cause overflow
+    // later on), would also work.
+
+    // The shift by 0x1000000000 makes our life easier in two ways. Firstly, we don't have to worry
+    // about finding the exponent when converting to floating point: it's a constant value.
+    // Secondly the exponent of the MDS multiplication result is also guaranteed to be constant, so
+    // we don't have to decode it. By linearity of matrix multiplication, the appropriate multiple
+    // of 0x1000000000 can simply be subtracted from the result.
+
+    // The gap of 4 zeros at the start of the significand is not arbitrary. It ensures that the
+    // least significant bit of the MDS multiplication result (decoded as a uint64) corresponds to
+    // 1 (in floating-point). In other words, we can convert from floating-point to integer just by
+    // subtracting the floating-point exponent (a constant) and a multiple of 0x1000000000 (another
+    // constant).
+
+    let consts = _mm256_set1_epi32(0x00004230); // consts == 0x0000423000004230
+    // lo doubleword from x, hi doubleword from consts: lo_unshifted == 0x00004230STUVWXYZ
+    let lo_unshifted = _mm256_blend_epi32::<0xaa>(x, consts);
+    // lo doubleword from const, hi doubleword from x: hi_unshifted == 0xKLMNOPQR00004230
+    let hi_unshifted = _mm256_blend_epi32::<0x55>(x, consts);
+    // Shift quadword left by 16: lo == 0x4230STUVWXYZ0000
+    let lo = _mm256_slli_epi64::<16>(lo_unshifted);
+    // Hack: rotate each 16-byte block (2 quadwords) right by 2 bytes (16 bits).
+    let hi = _mm256_alignr_epi8::<2>(hi_unshifted, hi_unshifted); // hi == 0x4230KLMNOPQR0000
+    (_mm256_castsi256_pd(lo), _mm256_castsi256_pd(hi)) // Bit-casts are a no-op in ASM
+}
+
+/// Convert lo MDS multiplication result from floating-point, add round constants, and shift by
+/// 2 ** 63.
+///
+/// Written to complement convert_to_floatish. This routine cancels out the shift by 0x1000000000
+/// added there.
+///
+/// post_mds_round_constants is a vector of round constants transformed in a very particular way:
+/// the round constant C_ri must be a in canonical form. post_mds_round_constants is set to
+/// C_ri + 0x3cceac9000000000 (with wraparound).
+#[inline(always)]
+unsafe fn convert_from_floatish_lo_and_add_round_constants_s(
+    x: __m256d,
+    post_mds_round_constants: [u64; 4],
+) -> __mm256i {
+    // Explanation of the magic constant: 0x3cceac9000000000 = -E - M + S, where E =
+    // 0x4330000000000000 subtracts the exponent (leaving only the significand), M =
+    // 0x0001537000000000 cancels the shift by 0x1000000000 (note that M = 0x1000000000 *
+    // sum(1 << i for i in MDS_EXPS)), and S = 0x8000000000000000 shifts by 2**63.
+    let round_consts = _mm256_loadu_si256(post_mds_round_constants.as_ptr().cast::<__m256i>());
+    let xi = _mm256_castpd_si256(x); // Bit-cast (free).
+    _mm256_add_epi64(xi, round_consts)
+}
+
+/// Convert hi MDS multiplication result from floating-point.
+///
+/// Written to complement convert_to_floatish. This routine cancels out the shift by 0x1000000000
+/// added there.
+#[inline(always)]
+unsafe fn convert_from_floatish_hi(x: __m256d) -> __m256i {
+    // Sum of:
+    //   1. 0x4330000000000000, which subtracts the exponent, and
+    //   2. 0x0001537000000000 = 0x1000000000 * sum(1 << i for i in MDS_EXPS), which cancels the
+    //      shift by 0x1000000000.
+    let magic_const = _mm256_set1_epi64x(0x4331537000000000);
+    let xi = _mm256_castpd_si256(x); // Bit-cast (free).
+    _mm256_sub_epi64(xi, magic_const)
+}
+
 #[inline(always)]
 unsafe fn mds_multiply_and_add_round_const_s(
     state: (__m256i, __m256i, __m256i),
     (base, index): (*const u64, usize),
 ) -> ((__m256i, __m256i, __m256i), (__m256i, __m256i, __m256i)) {
-    // TODO: Would it be faster to save the input to memory and do unaligned
-    //   loads instead of swizzling? It would reduce pressure on port 5 but it
-    //   would also have high latency (no store forwarding).
-    // TODO: Would it be faster to store the lo and hi inputs and outputs on one
-    //   vector? I.e., we currently operate on [lo(s[0]), lo(s[1]), lo(s[2]),
-    //   lo(s[3])] and [hi(s[0]), hi(s[1]), hi(s[2]), hi(s[3])] separately. Using
-    //   [lo(s[0]), lo(s[1]), hi(s[0]), hi(s[1])] and [lo(s[2]), lo(s[3]),
-    //   hi(s[2]), hi(s[3])] would save us a few swizzles but would also need more
-    //   registers.
-    // TODO: Plain-vanilla matrix-vector multiplication might also work. We take
-    //   one element of the input (a scalar), multiply a column by it, and
-    //   accumulate. It would require shifts by amounts loaded from memory, but
-    //   would eliminate all swizzles. The downside is that we can no longer
-    //   special-case MDS == 0 and MDS == 1, so we end up with more shifts.
-    // TODO: Building on the above: FMA? It has high latency (4 cycles) but we
-    //   have enough operands to mask it. The main annoyance will be conversion
-    //   to/from floating-point.
-    // TODO: Try taking the complex Fourier transform and doing the convolution
-    //   with elementwise Fourier multiplication. Alternatively, try a Fourier
-    //   transform modulo Q, such that the prime field fits the result without
-    //   wraparound (i.e. Q > 0x1_1536_fffe_eac9) and has fast multiplication/-
-    //   reduction.
 
-    // At the end of the matrix-vector multiplication r = Ms,
-    // - ymm3 holds r[0:4]
-    // - ymm4 holds r[4:8]
-    // - ymm5 holds r[8:12]
-    // - ymm6 holds r[2:6]
-    // - ymm7 holds r[6:10]
-    // - ymm8 holds concat(r[10:12], r[0:2])
-    // Note that there are duplicates. E.g. r[0] is represented by ymm3[0] and
-    // ymm8[2]. To obtain the final result, we must sum the duplicate entries:
-    //   ymm3[0:2] += ymm8[2:4]
-    //   ymm3[2:4] += ymm6[0:2]
-    //   ymm4[0:2] += ymm6[2:4]
-    //   ymm4[2:4] += ymm7[0:2]
-    //   ymm5[0:2] += ymm7[2:4]
-    //   ymm5[2:4] += ymm8[0:2]
-    // Thus, the final result resides in ymm3, ymm4, ymm5.
-
-    // WARNING: This code assumes that sum(1 << exp for exp in MDS_EXPS) * 0xffffffff fits in a
-    // u64. If this guarantee ceases to hold, then it will no longer be correct.
-    let (unreduced_lo0_s, unreduced_lo1_s, unreduced_lo2_s): (__m256i, __m256i, __m256i);
-    let (unreduced_hi0, unreduced_hi1, unreduced_hi2): (__m256i, __m256i, __m256i);
-    let epsilon = _mm256_set1_epi64x(0xffffffff);
-    asm!(
-        // Extract low 32 bits of the word
-        "vpand ymm9,  ymm14, ymm0",
-        "vpand ymm10, ymm14, ymm1",
-        "vpand ymm11, ymm14, ymm2",
-
-        "mov eax, 1",
-
-        // Fall through for MDS matrix multiplication on low 32 bits
-
-        // This is a GCC _local label_. For details, see
-        // https://doc.rust-lang.org/beta/unstable-book/library-features/asm.html#labels
-        // In short, the assembler makes sure to assign a unique name to replace `2:` with a unique
-        // name, so the label does not clash with any compiler-generated label. `2:` can appear
-        // multiple times; to disambiguate, we must refer to it as `2b` or `2f`, specifying the
-        // direction as _backward_ or _forward_.
-        "2:",
-        // NB: This block is run twice: once on the low 32 bits and once for the
-        // high 32 bits. The 32-bit -> 64-bit matrix multiplication is responsible
-        // for the majority of the instructions in this routine. By reusing them,
-        // we decrease the burden on instruction caches by over one third.
-
-        // 32-bit -> 64-bit MDS matrix multiplication
-        // The scalar loop goes:
-        //     for r in 0..WIDTH {
-        //         let mut res = 0u128;
-        //         for i in 0..WIDTH {
-        //             res += (state[(i + r) % WIDTH] as u128) << MDS_MATRIX_EXPS[i];
-        //         }
-        //         result[r] = reduce(res);
-        //     }
-        //
-        // Here, we swap the loops. Equivalent to:
-        //     let mut res = [0u128; WIDTH];
-        //     for i in 0..WIDTH {
-        //         let mds_matrix_exp = MDS_MATRIX_EXPS[i];
-        //         for r in 0..WIDTH {
-        //             res[r] += (state[(i + r) % WIDTH] as u128) << mds_matrix_exp;
-        //         }
-        //     }
-        //     for r in 0..WIDTH {
-        //         result[r] = reduce(res[r]);
-        //     }
-        //
-        // Notice that in the lower version, all iterations of the inner loop
-        // shift by the same amount. In vector, we perform multiple iterations of
-        // the loop at once, and vector shifts are cheaper when all elements are
-        // shifted by the same amount.
-        //
-        // We use a trick to avoid rotating the state vector many times. We
-        // have as input the state vector and the state vector rotated by one. We
-        // also have two accumulators: an unrotated one and one that's rotated by
-        // two. Rotations by three are achieved by matching an input rotated by
-        // one with an accumulator rotated by two. Rotations by four are free:
-        // they are done by using a different register.
-
-        // mds[0 - 0] = 0 not done; would be a move from in0 to ymm3
-        // ymm3 not set
-        // mds[0 - 4] = 12
-        "vpsllq ymm4, ymm9, 12",
-        // mds[0 - 8] = 3
-        "vpsllq ymm5, ymm9, 3",
-        // mds[0 - 2] = 16
-        "vpsllq ymm6, ymm9, 16",
-        // mds[0 - 6] = mds[0 - 10] = 1
-        "vpaddq ymm7, ymm9, ymm9",
-        // ymm8 not written
-        // ymm3 and ymm8 have not been written to, because those would be unnecessary
-        // copies. Implicitly, ymm3 := in0 and ymm8 := ymm7.
-
-        // ymm12 := [ymm9[1], ymm9[2], ymm9[3], ymm10[0]]
-        "vperm2i128 ymm13, ymm9, ymm10, 0x21",
-        "vshufpd    ymm12, ymm9, ymm13, 0x5",
-
-        // ymm3 and ymm8 are not read because they have not been written to
-        // earlier. Instead, the "current value" of ymm3 is read from ymm9 and the
-        // "current value" of ymm8 is read from ymm7.
-        // mds[4 - 0] = 3
-        "vpsllq ymm13, ymm10, 3",
-        "vpaddq ymm3,  ymm9, ymm13",
-        // mds[4 - 4] = 0
-        "vpaddq ymm4,  ymm4, ymm10",
-        // mds[4 - 8] = 12
-        "vpsllq ymm13, ymm10, 12",
-        "vpaddq ymm5,  ymm5, ymm13",
-        // mds[4 - 2] = mds[4 - 10] = 1
-        "vpaddq ymm13, ymm10, ymm10",
-        "vpaddq ymm6,  ymm6, ymm13",
-        "vpaddq ymm8,  ymm7, ymm13",
-        // mds[4 - 6] = 16
-        "vpsllq ymm13, ymm10, 16",
-        "vpaddq ymm7,  ymm7, ymm13",
-
-        // mds[1 - 0] = 0
-        "vpaddq ymm3,  ymm3, ymm12",
-        // mds[1 - 4] = 3
-        "vpsllq ymm13, ymm12, 3",
-        "vpaddq ymm4,  ymm4, ymm13",
-        // mds[1 - 8] = 5
-        "vpsllq ymm13, ymm12, 5",
-        "vpaddq ymm5,  ymm5, ymm13",
-        // mds[1 - 2] = 10
-        "vpsllq ymm13, ymm12, 10",
-        "vpaddq ymm6,  ymm6, ymm13",
-        // mds[1 - 6] = 8
-        "vpsllq ymm13, ymm12, 8",
-        "vpaddq ymm7,  ymm7, ymm13",
-        // mds[1 - 10] = 0
-        "vpaddq ymm8, ymm8, ymm12",
-
-        // ymm10 := [ymm10[1], ymm10[2], ymm10[3], ymm11[0]]
-        "vperm2i128 ymm13, ymm10, ymm11, 0x21",
-        "vshufpd    ymm10, ymm10, ymm13, 0x5",
-
-        // mds[8 - 0] = 12
-        "vpsllq ymm13, ymm11, 12",
-        "vpaddq ymm3,  ymm3, ymm13",
-        // mds[8 - 4] = 3
-        "vpsllq ymm13, ymm11, 3",
-        "vpaddq ymm4,  ymm4, ymm13",
-        // mds[8 - 8] = 0
-        "vpaddq ymm5,  ymm5, ymm11",
-        // mds[8 - 2] = mds[8 - 6] = 1
-        "vpaddq ymm13, ymm11, ymm11",
-        "vpaddq ymm6,  ymm6, ymm13",
-        "vpaddq ymm7,  ymm7, ymm13",
-        // mds[8 - 10] = 16
-        "vpsllq ymm13, ymm11, 16",
-        "vpaddq ymm8,  ymm8, ymm13",
-
-        // ymm9 := [ymm11[1], ymm11[2], ymm11[3], ymm9[0]]
-        "vperm2i128 ymm13, ymm11, ymm9, 0x21",
-        "vshufpd    ymm9,  ymm11, ymm13, 0x5",
-
-        // mds[5 - 0] = 5
-        "vpsllq ymm13, ymm10, 5",
-        "vpaddq ymm3,  ymm3, ymm13",
-        // mds[5 - 4] = 0
-        "vpaddq ymm4,  ymm4, ymm10",
-        // mds[5 - 8] = 3
-        "vpsllq ymm13, ymm10, 3",
-        "vpaddq ymm5,  ymm5, ymm13",
-        // mds[5 - 2] = 0
-        "vpaddq ymm6,  ymm6, ymm10",
-        // mds[5 - 6] = 10
-        "vpsllq ymm13, ymm10, 10",
-        "vpaddq ymm7,  ymm7, ymm13",
-        // mds[5 - 10] = 8
-        "vpsllq ymm13, ymm10, 8",
-        "vpaddq ymm8,  ymm8, ymm13",
-
-        // mds[9 - 0] = 3
-        "vpsllq ymm13, ymm9, 3",
-        "vpaddq ymm3,  ymm3, ymm13",
-        // mds[9 - 4] = 5
-        "vpsllq ymm13, ymm9, 5",
-        "vpaddq ymm4,  ymm4, ymm13",
-        // mds[9 - 8] = 0
-        "vpaddq ymm5,  ymm5, ymm9",
-        // mds[9 - 2] = 8
-        "vpsllq ymm13, ymm9, 8",
-        "vpaddq ymm6,  ymm6, ymm13",
-        // mds[9 - 6] = 0
-        "vpaddq ymm7,  ymm7, ymm9",
-        // mds[9 - 10] = 10
-        "vpsllq ymm13, ymm9, 10",
-        "vpaddq ymm8,  ymm8, ymm13",
-
-        // Rotate ymm6-ymm8 and add to the corresponding elements of ymm3-ymm5
-        "vperm2i128 ymm13, ymm8, ymm6, 0x21",
-        "vpaddq     ymm3,  ymm3, ymm13",
-        "vperm2i128 ymm13, ymm6, ymm7, 0x21",
-        "vpaddq     ymm4,  ymm4, ymm13",
-        "vperm2i128 ymm13, ymm7, ymm8, 0x21",
-        "vpaddq     ymm5,  ymm5, ymm13",
-
-        // If this is the first time we have run 2: (low 32 bits) then continue.
-        // If second time (high 32 bits), then jump to 3:.
-        "dec eax",
-        // Jump to the _local label_ (see above) `3:`. `f` for _forward_ specifies the direction.
-        "jnz 3f",
-
-        // Extract high 32 bits
-        "vpsrlq ymm9,  ymm0, 32",
-        "vpsrlq ymm10, ymm1, 32",
-        "vpsrlq ymm11, ymm2, 32",
-
-        // Need to move the low result from ymm3-ymm5 to ymm0-13 so it is not
-        // overwritten. Save three instructions by combining the move with the constant layer,
-        // which would otherwise be done in 3:. The round constants include the shift by 2**63, so
-        // the resulting ymm0,1,2 are also shifted by 2**63.
-        // It is safe to add the round constants here without checking for overflow. The values in
-        // ymm3,4,5 are guaranteed to be <= 0x11536fffeeac9. All round constants are < 2**64
-        // - 0x11536fffeeac9.
-        // WARNING: If this guarantee ceases to hold due to a change in the MDS matrix or round
-        // constants, then this code will no longer be correct.
-        "vpaddq ymm0, ymm3, [{base} + {index}]",
-        "vpaddq ymm1, ymm4, [{base} + {index} + 32]",
-        "vpaddq ymm2, ymm5, [{base} + {index} + 64]",
-
-        // MDS matrix multiplication, again. This time on high 32 bits.
-        // Jump to the _local label_ (see above) `2:`. `b` for _backward_ specifies the direction.
-        "jmp 2b",
-
-        // `3:` is a _local label_ (see above).
-        "3:",
-        // Just done the MDS matrix multiplication on high 32 bits.
-        // The high results are in ymm3, ymm4, ymm5.
-        // The low results (shifted by 2**63 and including the following constant layer) are in
-        // ymm0, ymm1, ymm2.
-        base = in(reg) base,
-        index = in(reg) index,
-        inout("ymm0") state.0 => unreduced_lo0_s,
-        inout("ymm1") state.1 => unreduced_lo1_s,
-        inout("ymm2") state.2 => unreduced_lo2_s,
-        out("ymm3") unreduced_hi0,
-        out("ymm4") unreduced_hi1,
-        out("ymm5") unreduced_hi2,
-        out("ymm6") _,out("ymm7") _, out("ymm8") _, out("ymm9") _,
-        out("ymm10") _, out("ymm11") _, out("ymm12") _, out("ymm13") _,
-        in("ymm14") epsilon,
-        out("rax") _,
-        options(pure, nomem, nostack),
-    );
-    (
-        (unreduced_lo0_s, unreduced_lo1_s, unreduced_lo2_s),
-        (unreduced_hi0, unreduced_hi1, unreduced_hi2),
-    )
 }
 
 #[inline(always)]
