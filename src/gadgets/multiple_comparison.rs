@@ -80,7 +80,7 @@ mod tests {
         let lst2: Vec<u32> = (0..size)
             .map(|i| {
                 let mut res = rng.gen();
-                while res < lst1[i] {
+                while res <= lst1[i] {
                     res = rng.gen();
                 }
                 res
@@ -102,5 +102,20 @@ mod tests {
     #[test]
     fn test_multiple_comparison_trivial() -> Result<()> {
         test_list_le(1)
+    }
+
+    #[test]
+    fn test_multiple_comparison_small() -> Result<()> {
+        test_list_le(3)
+    }
+
+    #[test]
+    fn test_multiple_comparison_medium() -> Result<()> {
+        test_list_le(6)
+    }
+
+    #[test]
+    fn test_multiple_comparison_large() -> Result<()> {
+        test_list_le(10)
     }
 }

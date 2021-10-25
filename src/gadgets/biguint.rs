@@ -190,7 +190,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect_biguint(a, div_b_plus_rem);
 
         let cmp_rem_b = self.cmp_biguint(rem.clone(), b);
-        self.assert_one(cmp_rem_b.target);
+        self.assert_zero(cmp_rem_b.target);
 
         (div, rem)
     }
@@ -232,11 +232,7 @@ mod tests {
     use anyhow::Result;
     use num::{BigUint, FromPrimitive, Integer};
 
-    use crate::{
-        field::crandall_field::CrandallField,
-        iop::witness::PartialWitness,
-        plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, verifier::verify},
-    };
+    use crate::{field::{crandall_field::CrandallField, field_types::PrimeField}, iop::witness::PartialWitness, plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, verifier::verify}};
 
     #[test]
     fn test_biguint_add() -> Result<()> {
@@ -320,7 +316,7 @@ mod tests {
         let x = builder.constant_biguint(x_value);
         let y = builder.constant_biguint(y_value);
         let cmp = builder.cmp_biguint(x, y);
-        let expected_cmp = builder.constant_bool(true);
+        let expected_cmp = builder.constant_bool(false);
 
         builder.connect(cmp.target, expected_cmp.target);
 
@@ -347,8 +343,8 @@ mod tests {
         let expected_div = builder.constant_biguint(expected_div_value);
         let expected_rem = builder.constant_biguint(expected_rem_value);
 
-        //builder.connect_biguint(div, expected_div);
-        //builder.connect_biguint(rem, expected_rem);
+        builder.connect_biguint(div, expected_div);
+        builder.connect_biguint(rem, expected_rem);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();

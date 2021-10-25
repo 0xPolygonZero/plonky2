@@ -119,10 +119,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
 
         for i in 0..self.num_chunks {
             // Range-check the chunks to be less than `chunk_size`.
-            let first_product = (0..chunk_size)
+            let first_product: F::Extension = (0..chunk_size)
                 .map(|x| first_chunks[i] - F::Extension::from_canonical_usize(x))
                 .product();
-            let second_product = (0..chunk_size)
+            let second_product: F::Extension = (0..chunk_size)
                 .map(|x| second_chunks[i] - F::Extension::from_canonical_usize(x))
                 .product();
             constraints.push(first_product);
@@ -200,10 +200,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
 
         for i in 0..self.num_chunks {
             // Range-check the chunks to be less than `chunk_size`.
-            let first_product = (0..chunk_size)
+            let first_product: F = (0..chunk_size)
                 .map(|x| first_chunks[i] - F::from_canonical_usize(x))
                 .product();
-            let second_product = (0..chunk_size)
+            let second_product: F = (0..chunk_size)
                 .map(|x| second_chunks[i] - F::from_canonical_usize(x))
                 .product();
             constraints.push(first_product);
@@ -447,15 +447,17 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         }
         let most_significant_diff = most_significant_diff_so_far;
 
-        let two_n_plus_msd =
-            (1 << self.gate.chunk_bits()) as u64 + most_significant_diff.to_canonical_u64();
-        let msd_bits: Vec<F> = (0..self.gate.chunk_bits() + 1)
+        let two_n = F::from_canonical_usize(1 << self.gate.chunk_bits());
+        let two_n_plus_msd = (two_n + most_significant_diff).to_canonical_u64();
+
+        let msd_bits_u64: Vec<u64> = (0..self.gate.chunk_bits() + 1)
             .scan(two_n_plus_msd, |acc, _| {
                 let tmp = *acc % 2;
                 *acc /= 2;
-                Some(F::from_canonical_u64(tmp))
+                Some(tmp)
             })
             .collect();
+        let msd_bits: Vec<F> = msd_bits_u64.iter().map(|x| F::from_canonical_u64(*x)).collect();
 
         out_buffer.set_wire(local_wire(self.gate.wire_result_bool()), result);
         out_buffer.set_wire(
