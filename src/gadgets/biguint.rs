@@ -232,7 +232,11 @@ mod tests {
     use anyhow::Result;
     use num::{BigUint, FromPrimitive, Integer};
 
-    use crate::{field::{crandall_field::CrandallField, field_types::PrimeField}, iop::witness::PartialWitness, plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, verifier::verify}};
+    use crate::{
+        field::{crandall_field::CrandallField, field_types::PrimeField},
+        iop::witness::PartialWitness,
+        plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, verifier::verify},
+    };
 
     #[test]
     fn test_biguint_add() -> Result<()> {

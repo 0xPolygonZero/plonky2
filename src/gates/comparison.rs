@@ -457,7 +457,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
                 Some(tmp)
             })
             .collect();
-        let msd_bits: Vec<F> = msd_bits_u64.iter().map(|x| F::from_canonical_u64(*x)).collect();
+        let msd_bits: Vec<F> = msd_bits_u64
+            .iter()
+            .map(|x| F::from_canonical_u64(*x))
+            .collect();
 
         out_buffer.set_wire(local_wire(self.gate.wire_result_bool()), result);
         out_buffer.set_wire(
