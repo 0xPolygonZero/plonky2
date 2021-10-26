@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
-use crate::gadgets::biguint::BigUintTarget;
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
 use crate::gadgets::arithmetic_u32::U32Target;
+use crate::gadgets::biguint::BigUintTarget;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 pub struct ForeignFieldTarget<FF: Field> {
@@ -66,10 +66,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Returns `x % |FF|` as a `ForeignFieldTarget`.
-    fn reduce<FF: Field>(
-        &mut self,
-        x: &BigUintTarget,
-    ) -> ForeignFieldTarget<FF> {
+    fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> ForeignFieldTarget<FF> {
         let modulus = FF::order();
         let order_target = self.constant_biguint(&modulus);
         let value = self.rem_biguint(x, &order_target);
