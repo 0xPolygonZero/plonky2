@@ -195,20 +195,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (div, rem)
     }
 
-    pub fn div_biguint(
-        &mut self,
-        a: BigUintTarget,
-        b: BigUintTarget,
-    ) -> BigUintTarget {
+    pub fn div_biguint(&mut self, a: BigUintTarget, b: BigUintTarget) -> BigUintTarget {
         let (div, _rem) = self.div_rem_biguint(a, b);
         div
     }
 
-    pub fn rem_biguint(
-        &mut self,
-        a: BigUintTarget,
-        b: BigUintTarget,
-    ) -> BigUintTarget {
+    pub fn rem_biguint(&mut self, a: BigUintTarget, b: BigUintTarget) -> BigUintTarget {
         let (_div, rem) = self.div_rem_biguint(a, b);
         rem
     }
