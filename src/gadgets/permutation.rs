@@ -35,7 +35,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.assert_permutation_2x2(a[0].clone(), a[1].clone(), b[0].clone(), b[1].clone())
             }
             // For larger lists, we recursively use two smaller permutation networks.
-            //_ => self.assert_permutation_recursive(a, b)
             _ => self.assert_permutation_recursive(a, b),
         }
     }

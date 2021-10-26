@@ -1,3 +1,4 @@
+use super::arithmetic_u32::U32Target;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::gates::comparison::ComparisonGate;
@@ -51,6 +52,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         BoolTarget::new_unsafe(result)
+    }
+
+    /// Helper function for comparing, specifically, lists of `U32Target`s.
+    pub fn list_le_u32(&mut self, a: Vec<U32Target>, b: Vec<U32Target>) -> BoolTarget {
+        let a_targets = a.iter().map(|&t| t.0).collect();
+        let b_targets = b.iter().map(|&t| t.0).collect();
+        self.list_le(a_targets, b_targets, 32)
     }
 }
 

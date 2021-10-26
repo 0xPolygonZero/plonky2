@@ -6,7 +6,7 @@ pub mod hash;
 pub mod insert;
 pub mod interpolation;
 pub mod multiple_comparison;
-//pub mod nonnative;
+pub mod nonnative;
 pub mod permutation;
 pub mod polynomial;
 pub mod random_access;

@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 
-
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
 use crate::gadgets::arithmetic_u32::U32Target;
@@ -19,16 +18,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .iter()
             .map(|&limb| self.constant_u32(F::from_canonical_u32(limb)))
             .collect()
-    }
-
-    fn power_of_2_mod_order<FF: Field>(&mut self, i: usize) -> Vec<U32Target> {
-
-    }
-
-    pub fn powers_of_2_mod_order<FF: Field>(&mut self, max: usize) -> Vec<Vec<U32Target>> {
-        for i in 0..max {
-
-        }
     }
 
     // Add two `ForeignFieldTarget`s.
@@ -62,14 +51,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_limbs = limbs.len();
 
         let mut modulus_limbs = self.order_u32_limbs::<FF>();
-        modulus_limbs.append(self.zero_u32());
+        modulus_limbs.push(self.zero_u32());
 
-        let needs_reduce = self.list_le(modulus_limbs, limbs);
+        let needs_reduce = self.list_le_u32(modulus_limbs, limbs);
 
         let mut to_subtract = vec![];
         for i in 0..num_limbs {
-            let (low, _high) = self.mul_u32(modulus_limbs[i], needs_reduce);
-            to_subtract.append(low);
+            let (low, _high) = self.mul_u32(modulus_limbs[i], U32Target(needs_reduce.target));
+            to_subtract.push(low);
         }
 
         let mut reduced_limbs = vec![];
@@ -110,7 +99,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-
     pub fn mul_nonnative<FF: Field>(
         &mut self,
         a: ForeignFieldTarget<FF>,
@@ -148,7 +136,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn reduce_mul_result<FF: Field>(&mut self, limbs: Vec<U32Target>) -> Vec<U32Target> {
-
         todo!()
     }
 }
