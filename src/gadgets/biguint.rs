@@ -26,7 +26,7 @@ impl BigUintTarget {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    fn constant_biguint(&mut self, value: BigUint) -> BigUintTarget {
+    fn constant_biguint(&mut self, value: &BigUint) -> BigUintTarget {
         let limb_values = value.to_u32_digits();
         let mut limbs = Vec::new();
         for i in 0..limb_values.len() {
@@ -193,6 +193,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_one(cmp_rem_b.target);
 
         (div, rem)
+    }
+
+    pub fn div_biguint(
+        &mut self,
+        a: BigUintTarget,
+        b: BigUintTarget,
+    ) -> BigUintTarget {
+        let (div, _rem) = self.div_rem_biguint(a, b);
+        div
+    }
+
+    pub fn rem_biguint(
+        &mut self,
+        a: BigUintTarget,
+        b: BigUintTarget,
+    ) -> BigUintTarget {
+        let (_div, rem) = self.div_rem_biguint(a, b);
+        rem
     }
 }
 
