@@ -1,3 +1,5 @@
+use core::hint::unreachable_unchecked;
+
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -165,8 +167,31 @@ impl Add for GoldilocksField {
     #[inline]
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, rhs: Self) -> Self {
-        let (sum, over) = self.0.overflowing_add(rhs.to_canonical_u64());
-        Self(sum.wrapping_sub((over as u64) * Self::ORDER))
+        // let (sum, over) = self.0.overflowing_add(rhs.0);
+        let sum: u64;
+        let adjustment: u64;
+        unsafe {
+            asm!(
+                "add {x}, {y}",
+                "sbb {y:e}, {y:e}",
+                x = inlateout(reg) self.0 => sum,
+                y = inlateout(reg) rhs.0 => adjustment,
+                options(pure, nomem, nostack),
+            );
+        }
+
+        let (mut sum, over) = sum.overflowing_add(adjustment);
+        if std::intrinsics::unlikely(over) {
+            if self.0 < Self::ORDER || rhs.0 < Self::ORDER {
+                unsafe { unreachable_unchecked() };
+            }
+            if adjustment != EPSILON {
+                unsafe { unreachable_unchecked() };
+            }
+            // unsafe { asm!("", options(nomem, nostack, preserves_flags)); }
+            sum = sum.wrapping_add(adjustment);
+        }
+        Self(sum)
     }
 }
 
