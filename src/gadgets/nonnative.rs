@@ -53,7 +53,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut modulus_limbs = self.order_u32_limbs::<FF>();
         modulus_limbs.push(self.zero_u32());
 
-        let needs_reduce = self.list_le_u32(modulus_limbs, limbs);
+        let needs_reduce = self.list_le_u32(modulus_limbs.clone(), limbs.clone());
 
         let mut to_subtract = vec![];
         for i in 0..num_limbs {
@@ -121,7 +121,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut carry = self.zero_u32();
         for i in 0..2 * num_limbs {
             to_add[i].push(carry);
-            let (new_result, new_carry) = self.add_many_u32(to_add[i]);
+            let (new_result, new_carry) = self.add_many_u32(to_add[i].clone());
             combined_limbs.push(new_result);
             carry = new_carry;
         }
