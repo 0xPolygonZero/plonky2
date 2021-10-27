@@ -150,4 +150,28 @@ mod tests {
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }
+
+    #[test]
+    fn test_nonnative_mul() -> Result<()> {
+        type FF = Secp256K1Base;
+        let x_ff = FF::rand();
+        let y_ff = FF::rand();
+        let product_ff = x_ff * y_ff;
+
+        type F = CrandallField;
+        let config = CircuitConfig::large_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+
+        let x = builder.constant_ff(x_ff);
+        let y = builder.constant_ff(y_ff);
+        let product = builder.mul_nonnative(&x, &y);
+
+        let product_expected = builder.constant_ff(product_ff);
+        builder.connect_ff_reduced(&product, &product_expected);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
+    }
 }
