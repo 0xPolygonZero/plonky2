@@ -59,14 +59,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> (BigUintTarget, BigUintTarget) {
         if a.num_limbs() > b.num_limbs() {
             let mut padded_b_limbs = b.limbs.clone();
-            padded_b_limbs.extend(self.add_virtual_u32_targets(a.num_limbs() - b.num_limbs()));
+            let to_extend = a.num_limbs() - b.num_limbs();
+            for i in 0..to_extend {
+                padded_b_limbs.push(self.zero_u32());
+            }
+
             let padded_b = BigUintTarget {
                 limbs: padded_b_limbs,
             };
             (a, padded_b)
         } else {
             let mut padded_a_limbs = a.limbs.clone();
-            padded_a_limbs.extend(self.add_virtual_u32_targets(b.num_limbs() - a.num_limbs()));
+            let to_extend = b.num_limbs() - a.num_limbs();
+            for i in 0..to_extend {
+                padded_a_limbs.push(self.zero_u32());
+            }
+
             let padded_a = BigUintTarget {
                 limbs: padded_a_limbs,
             };
