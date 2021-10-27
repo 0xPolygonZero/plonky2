@@ -18,7 +18,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Like `select_ext`, but accepts a condition input which does not necessarily have to be
     /// binary. In this case, it computes the arithmetic generalization of `if b { x } else { y }`,
-    /// i.e. `bx - (by-y)`, which can be computed with a single `ArithmeticExtensionGate`.
+    /// i.e. `bx - (by-y)`.
     pub fn select_ext_generalized(
         &mut self,
         b: ExtensionTarget<D>,
