@@ -152,6 +152,30 @@ mod tests {
     }
 
     #[test]
+    fn test_nonnative_sub() -> Result<()> {
+        type FF = Secp256K1Base;
+        let x_ff = FF::rand();
+        let y_ff = FF::rand();
+        let diff_ff = x_ff - y_ff;
+
+        type F = CrandallField;
+        let config = CircuitConfig::large_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+
+        let x = builder.constant_ff(x_ff);
+        let y = builder.constant_ff(y_ff);
+        let diff = builder.sub_nonnative(&x, &y);
+
+        let diff_expected = builder.constant_ff(diff_ff);
+        builder.connect_ff_reduced(&diff, &diff_expected);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
     fn test_nonnative_mul() -> Result<()> {
         type FF = Secp256K1Base;
         let x_ff = FF::rand();
