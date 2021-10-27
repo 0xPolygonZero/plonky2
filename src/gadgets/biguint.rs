@@ -52,7 +52,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn pad_biguints<'a>(
+    pub fn pad_biguints(
         &mut self,
         a: BigUintTarget,
         b: BigUintTarget,
@@ -141,12 +141,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn mul_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
-        let num_limbs = a.limbs.len();
-        debug_assert!(b.limbs.len() == num_limbs);
+        let total_limbs = a.limbs.len() + b.limbs.len();
 
-        let mut to_add = vec![vec![]; 2 * num_limbs];
-        for i in 0..num_limbs {
-            for j in 0..num_limbs {
+        let mut to_add = vec![vec![]; total_limbs];
+        for i in 0..a.limbs.len() {
+            for j in 0..b.limbs.len() {
                 let (product, carry) = self.mul_u32(a.limbs[i], b.limbs[j]);
                 to_add[i + j].push(product);
                 to_add[i + j + 1].push(carry);
@@ -155,7 +154,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut combined_limbs = vec![];
         let mut carry = self.zero_u32();
-        for i in 0..2 * num_limbs {
+        for i in 0..total_limbs {
             to_add[i].push(carry);
             let (new_result, new_carry) = self.add_many_u32(to_add[i].clone());
             combined_limbs.push(new_result);
@@ -243,7 +242,7 @@ mod tests {
     use num::{BigUint, FromPrimitive, Integer};
 
     use crate::{
-        field::{crandall_field::CrandallField, field_types::PrimeField},
+        field::crandall_field::CrandallField,
         iop::witness::PartialWitness,
         plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, verifier::verify},
     };
