@@ -337,6 +337,7 @@ mod tests {
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
 
     #[test]
@@ -348,16 +349,20 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(U32ArithmeticGate::<CrandallField, 4> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        test_eval_fns::<F, C, _, D>(U32ArithmeticGate::<F, D> {
             _phantom: PhantomData,
         })
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         fn get_wires(
             multiplicands_0: Vec<u64>,

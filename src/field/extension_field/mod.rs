@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 
-use crate::field::field_types::{Field, PrimeField};
+use crate::field::field_types::{Field, PrimeField, RichField};
 
 pub mod algebra;
 pub mod quadratic;
@@ -61,7 +61,7 @@ pub trait Frobenius<const D: usize>: OEF<D> {
     }
 }
 
-pub trait Extendable<const D: usize>: PrimeField + Sized {
+pub trait Extendable<const D: usize>: RichField + Sized {
     type Extension: Field + OEF<D, BaseField = Self> + Frobenius<D> + From<Self>;
 
     const W: Self;
@@ -76,7 +76,7 @@ pub trait Extendable<const D: usize>: PrimeField + Sized {
     const EXT_POWER_OF_TWO_GENERATOR: [Self; D];
 }
 
-impl<F: PrimeField + Frobenius<1> + FieldExtension<1, BaseField = F>> Extendable<1> for F {
+impl<F: RichField + Frobenius<1> + FieldExtension<1, BaseField = F>> Extendable<1> for F {
     type Extension = F;
     const W: Self = F::ZERO;
     const DTH_ROOT: Self = F::ZERO;

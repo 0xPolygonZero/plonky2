@@ -180,11 +180,14 @@ mod tests {
     use crate::field::field_types::{Field, PrimeField};
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     fn test_sorting(size: usize, address_bits: usize, timestamp_bits: usize) -> Result<()> {
-        type F = CrandallField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::large_config();
 
@@ -237,7 +240,7 @@ mod tests {
             pw.set_target(output_ops[i].value, input_ops_sorted[i].3);
         }
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
         verify(proof, &data.verifier_only, &data.common)

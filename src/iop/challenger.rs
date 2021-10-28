@@ -8,6 +8,7 @@ use crate::hash::hashing::{permute, SPONGE_RATE, SPONGE_WIDTH};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
 
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
@@ -94,9 +95,12 @@ impl<F: RichField> Challenger<F> {
         self.observe_elements(&hash.elements)
     }
 
-    pub fn observe_cap(&mut self, cap: &MerkleCap<F>) {
-        for hash in &cap.0 {
-            self.observe_elements(&hash.elements)
+    pub fn observe_cap<C: GenericConfig<D, F = F>, const D: usize>(
+        &mut self,
+        cap: &MerkleCap<C, D>,
+    ) {
+        for &hash in &cap.0 {
+            C::Hasher::observe_hash(hash, self);
         }
     }
 
@@ -333,6 +337,7 @@ mod tests {
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn no_duplicate_challenges() {
@@ -356,7 +361,9 @@ mod tests {
     /// Tests for consistency between `Challenger` and `RecursiveChallenger`.
     #[test]
     fn test_consistency() {
-        type F = CrandallField;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         // These are mostly arbitrary, but we want to test some rounds with enough inputs/outputs to
         // trigger multiple absorptions/squeezes.
@@ -377,7 +384,7 @@ mod tests {
         }
 
         let config = CircuitConfig::large_config();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
         let mut recursive_challenger = RecursiveChallenger::new(&mut builder);
         let mut recursive_outputs_per_round: Vec<Vec<Target>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
@@ -386,7 +393,7 @@ mod tests {
                 recursive_challenger.get_n_challenges(&mut builder, num_outputs_per_round[r]),
             );
         }
-        let circuit = builder.build();
+        let circuit = builder.build::<C>();
         let inputs = PartialWitness::new();
         let witness = generate_partial_witness(inputs, &circuit.prover_only, &circuit.common);
         let recursive_output_values_per_round: Vec<Vec<F>> = recursive_outputs_per_round

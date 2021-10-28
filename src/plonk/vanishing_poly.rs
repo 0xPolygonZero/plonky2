@@ -5,6 +5,7 @@ use crate::gates::gate::PrefixedGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common;
 use crate::plonk::plonk_common::{eval_l_1_recursively, ZeroPolyOnCoset};
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
@@ -15,8 +16,8 @@ use crate::with_context;
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
 /// linear combination of gate constraints, plus some other terms relating to the permutation
 /// argument. All such terms should vanish on `H`.
-pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
-    common_data: &CommonCircuitData<F, D>,
+pub(crate) fn eval_vanishing_poly<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    common_data: &CommonCircuitData<F, C, D>,
     x: F::Extension,
     vars: EvaluationVars<F, D>,
     local_zs: &[F::Extension],
@@ -102,8 +103,12 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
 }
 
 /// Like `eval_vanishing_poly`, but specialized for base field points. Batched.
-pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const D: usize>(
-    common_data: &CommonCircuitData<F, D>,
+pub(crate) fn eval_vanishing_poly_base_batch<
+    F: Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    common_data: &CommonCircuitData<F, C, D>,
     indices_batch: &[usize],
     xs_batch: &[F],
     vars_batch: &[EvaluationVarsBase<F>],
@@ -314,9 +319,13 @@ pub fn evaluate_gate_constraints_recursively<F: RichField + Extendable<D>, const
 ///
 /// Assumes `x != 1`; if `x` could be 1 then this is unsound. This is fine if `x` is a random
 /// variable drawn from a sufficiently large domain.
-pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_vanishing_poly_recursively<
+    F: Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     builder: &mut CircuitBuilder<F, D>,
-    common_data: &CommonCircuitData<F, D>,
+    common_data: &CommonCircuitData<F, C, D>,
     x: ExtensionTarget<D>,
     x_pow_deg: ExtensionTarget<D>,
     vars: EvaluationTargets<D>,

@@ -92,15 +92,18 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     fn test_random_access_given_len(len_log: usize) -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
         let len = 1 << len_log;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
         let vec = FF::rand_vec(len);
         let v: Vec<_> = vec.iter().map(|x| builder.constant_extension(*x)).collect();
 
@@ -110,7 +113,7 @@ mod tests {
             builder.random_access_extension(it, elem, v.clone());
         }
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)

@@ -391,11 +391,14 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     fn test_permutation_good(size: usize) -> Result<()> {
-        type F = CrandallField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::large_config();
 
@@ -412,15 +415,17 @@ mod tests {
 
         builder.assert_permutation(a, b);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
 
     fn test_permutation_duplicates(size: usize) -> Result<()> {
-        type F = CrandallField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::large_config();
 
@@ -441,15 +446,17 @@ mod tests {
 
         builder.assert_permutation(a, b);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
 
     fn test_permutation_bad(size: usize) -> Result<()> {
-        type F = CrandallField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::large_config();
 
@@ -469,7 +476,7 @@ mod tests {
 
         builder.assert_permutation(a, b);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         data.prove(pw)?;
 
         Ok(())

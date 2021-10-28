@@ -43,15 +43,18 @@ mod tests {
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     fn test_interpolate() -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let len = 4;
         let points = (0..len)
@@ -60,7 +63,7 @@ mod tests {
 
         let homogeneous_points = points
             .iter()
-            .map(|&(a, b)| (<FF as FieldExtension<4>>::from_basefield(a), b))
+            .map(|&(a, b)| (<FF as FieldExtension<2>>::from_basefield(a), b))
             .collect::<Vec<_>>();
 
         let true_interpolant = interpolant(&homogeneous_points);
@@ -79,7 +82,7 @@ mod tests {
         let true_eval_target = builder.constant_extension(true_eval);
         builder.connect_extension(eval, true_eval_target);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)

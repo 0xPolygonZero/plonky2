@@ -11,6 +11,7 @@ use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::proof::OpeningSetTarget;
 use crate::util::reducing::ReducingFactorTarget;
@@ -104,7 +105,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
-    pub fn verify_fri_proof(
+    pub fn verify_fri_proof<C: GenericConfig<D, F = F>>(
         &mut self,
         // Openings of the PLONK polynomials.
         os: &OpeningSetTarget<D>,
@@ -113,7 +114,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) {
         let config = &common_data.config;
 
@@ -232,14 +233,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn fri_combine_initial(
+    fn fri_combine_initial<C: GenericConfig<D, F = F>>(
         &mut self,
         proof: &FriInitialTreeProofTarget,
         alpha: ExtensionTarget<D>,
         subgroup_x: Target,
         vanish_zeta: ExtensionTarget<D>,
         precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
         let config = self.config.clone();
@@ -301,7 +302,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         sum
     }
 
-    fn fri_verifier_query_round(
+    fn fri_verifier_query_round<C: GenericConfig<D, F = F>>(
         &mut self,
         zeta: ExtensionTarget<D>,
         alpha: ExtensionTarget<D>,
@@ -312,7 +313,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         n: usize,
         betas: &[ExtensionTarget<D>],
         round_proof: &FriQueryRoundTarget<D>,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) {
         let config = &common_data.config;
         let n_log = log2_strict(n);

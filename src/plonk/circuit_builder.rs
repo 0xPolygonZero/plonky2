@@ -31,6 +31,7 @@ use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
+use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkPolynomials;
@@ -623,7 +624,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
-    pub fn build(mut self) -> CircuitData<F, D> {
+    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D> {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
         let start = Instant::now();
 
@@ -743,7 +744,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_cap.flatten(),
             vec![/* Add other circuit data here */],
         ];
-        let circuit_digest = hash_n_to_hash(circuit_digest_parts.concat(), false);
+        let circuit_digest = C::Hasher::hash(circuit_digest_parts.concat(), false);
 
         let common = CommonCircuitData {
             config: self.config,
@@ -768,7 +769,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
-    pub fn build_prover(self) -> ProverCircuitData<F, D> {
+    pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<F, C, D> {
         // TODO: Can skip parts of this.
         let CircuitData {
             prover_only,
@@ -782,7 +783,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
-    pub fn build_verifier(self) -> VerifierCircuitData<F, D> {
+    pub fn build_verifier<C: GenericConfig<D, F = F>>(self) -> VerifierCircuitData<F, C, D> {
         // TODO: Can skip parts of this.
         let CircuitData {
             verifier_only,

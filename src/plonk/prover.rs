@@ -11,6 +11,7 @@ use crate::iop::challenger::Challenger;
 use crate::iop::generator::generate_partial_witness;
 use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::plonk_common::ZeroPolyOnCoset;
 use crate::plonk::proof::{Proof, ProofWithPublicInputs};
@@ -22,12 +23,12 @@ use crate::util::partial_products::partial_products;
 use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, transpose};
 
-pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
-    prover_data: &ProverOnlyCircuitData<F, D>,
-    common_data: &CommonCircuitData<F, D>,
+pub(crate) fn prove<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    prover_data: &ProverOnlyCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, C, D>,
     inputs: PartialWitness<F>,
     timing: &mut TimingTree,
-) -> Result<ProofWithPublicInputs<F, D>> {
+) -> Result<ProofWithPublicInputs<F, C, D>> {
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
@@ -40,7 +41,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
     );
 
     let public_inputs = partition_witness.get_targets(&prover_data.public_inputs);
-    let public_inputs_hash = hash_n_to_hash(public_inputs.clone(), true);
+    let public_inputs_hash = C::InnerHasher::hash(public_inputs.clone(), true);
 
     if cfg!(debug_assertions) {
         // Display the marked targets for debugging purposes.
@@ -81,8 +82,8 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
     let mut challenger = Challenger::new();
 
     // Observe the instance.
-    challenger.observe_hash(&common_data.circuit_digest);
-    challenger.observe_hash(&public_inputs_hash);
+    C::Hasher::observe_hash(common_data.circuit_digest, &mut challenger);
+    C::InnerHasher::observe_hash(public_inputs_hash, &mut challenger);
 
     challenger.observe_cap(&wires_commitment.merkle_tree.cap);
     let betas = challenger.get_n_challenges(num_challenges);
@@ -209,12 +210,16 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
 }
 
 /// Compute the partial products used in the `Z` polynomials.
-fn all_wires_permutation_partial_products<F: RichField + Extendable<D>, const D: usize>(
+fn all_wires_permutation_partial_products<
+    F: Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     witness: &MatrixWitness<F>,
     betas: &[F],
     gammas: &[F],
-    prover_data: &ProverOnlyCircuitData<F, D>,
-    common_data: &CommonCircuitData<F, D>,
+    prover_data: &ProverOnlyCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, C, D>,
 ) -> Vec<Vec<PolynomialValues<F>>> {
     (0..common_data.config.num_challenges)
         .map(|i| {
@@ -232,12 +237,16 @@ fn all_wires_permutation_partial_products<F: RichField + Extendable<D>, const D:
 /// Compute the partial products used in the `Z` polynomial.
 /// Returns the polynomials interpolating `partial_products(f / g)`
 /// where `f, g` are the products in the definition of `Z`: `Z(g^i) = f / g`.
-fn wires_permutation_partial_products<F: RichField + Extendable<D>, const D: usize>(
+fn wires_permutation_partial_products<
+    F: Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     witness: &MatrixWitness<F>,
     beta: F,
     gamma: F,
-    prover_data: &ProverOnlyCircuitData<F, D>,
-    common_data: &CommonCircuitData<F, D>,
+    prover_data: &ProverOnlyCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, C, D>,
 ) -> Vec<PolynomialValues<F>> {
     let degree = common_data.quotient_degree_factor;
     let subgroup = &prover_data.subgroup;
@@ -286,9 +295,9 @@ fn wires_permutation_partial_products<F: RichField + Extendable<D>, const D: usi
         .collect()
 }
 
-fn compute_zs<F: RichField + Extendable<D>, const D: usize>(
+fn compute_zs<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     partial_products: &[Vec<PolynomialValues<F>>],
-    common_data: &CommonCircuitData<F, D>,
+    common_data: &CommonCircuitData<F, C, D>,
 ) -> Vec<PolynomialValues<F>> {
     (0..common_data.config.num_challenges)
         .map(|i| compute_z(&partial_products[i], common_data))
@@ -296,9 +305,9 @@ fn compute_zs<F: RichField + Extendable<D>, const D: usize>(
 }
 
 /// Compute the `Z` polynomial by reusing the computations done in `wires_permutation_partial_products`.
-fn compute_z<F: RichField + Extendable<D>, const D: usize>(
+fn compute_z<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     partial_products: &[PolynomialValues<F>],
-    common_data: &CommonCircuitData<F, D>,
+    common_data: &CommonCircuitData<F, C, D>,
 ) -> PolynomialValues<F> {
     let mut plonk_z_points = vec![F::ONE];
     for i in 1..common_data.degree() {
@@ -311,12 +320,12 @@ fn compute_z<F: RichField + Extendable<D>, const D: usize>(
 
 const BATCH_SIZE: usize = 32;
 
-fn compute_quotient_polys<'a, F: RichField + Extendable<D>, const D: usize>(
-    common_data: &CommonCircuitData<F, D>,
-    prover_data: &'a ProverOnlyCircuitData<F, D>,
-    public_inputs_hash: &HashOut<F>,
-    wires_commitment: &'a PolynomialBatchCommitment<F>,
-    zs_partial_products_commitment: &'a PolynomialBatchCommitment<F>,
+fn compute_quotient_polys<'a, F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    common_data: &CommonCircuitData<F, C, D>,
+    prover_data: &'a ProverOnlyCircuitData<F, C, D>,
+    public_inputs_hash: &<<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
+    wires_commitment: &'a PolynomialBatchCommitment<F, C, D>,
+    zs_partial_products_commitment: &'a PolynomialBatchCommitment<F, C, D>,
     betas: &[F],
     gammas: &[F],
     alphas: &[F],
@@ -340,7 +349,7 @@ fn compute_quotient_polys<'a, F: RichField + Extendable<D>, const D: usize>(
     let lde_size = points.len();
 
     // Retrieve the LDE values at index `i`.
-    let get_at_index = |comm: &'a PolynomialBatchCommitment<F>, i: usize| -> &'a [F] {
+    let get_at_index = |comm: &'a PolynomialBatchCommitment<F, C, D>, i: usize| -> &'a [F] {
         comm.get_lde_values(i * step)
     };
 

@@ -101,6 +101,7 @@ mod tests {
     use crate::field::crandall_field::CrandallField;
     use crate::gates::constant::ConstantGate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn low_degree() {
@@ -109,6 +110,9 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(ConstantGate)
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        test_eval_fns::<F, C, _, D>(ConstantGate)
     }
 }

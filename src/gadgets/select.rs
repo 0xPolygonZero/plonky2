@@ -47,15 +47,18 @@ mod tests {
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     fn test_select() -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
         let config = CircuitConfig::large_config();
         let mut pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let (x, y) = (FF::rand(), FF::rand());
         let xt = builder.add_virtual_extension_target();
@@ -72,7 +75,7 @@ mod tests {
         builder.connect_extension(should_be_x, xt);
         builder.connect_extension(should_be_y, yt);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)

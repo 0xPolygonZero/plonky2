@@ -11,22 +11,23 @@ use crate::hash::hashing::hash_n_to_hash;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
+use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::verifier::verify_with_challenges;
 use crate::util::serialization::Buffer;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct Proof<F: Extendable<D>, const D: usize> {
+pub struct Proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of wire values.
-    pub wires_cap: MerkleCap<F>,
+    pub wires_cap: MerkleCap<C, D>,
     /// Merkle cap of LDEs of Z, in the context of Plonk's permutation argument.
-    pub plonk_zs_partial_products_cap: MerkleCap<F>,
+    pub plonk_zs_partial_products_cap: MerkleCap<C, D>,
     /// Merkle cap of LDEs of the quotient polynomial components.
-    pub quotient_polys_cap: MerkleCap<F>,
+    pub quotient_polys_cap: MerkleCap<C, D>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A batch FRI argument for all openings.
-    pub opening_proof: FriProof<F, D>,
+    pub opening_proof: FriProof<F, C, D>,
 }
 
 pub struct ProofTarget<const D: usize> {
@@ -37,13 +38,13 @@ pub struct ProofTarget<const D: usize> {
     pub opening_proof: FriProofTarget<D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Proof<F, D> {
+impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> Proof<F, C, D> {
     /// Compress the proof.
     pub fn compress(
         self,
         indices: &[usize],
-        common_data: &CommonCircuitData<F, D>,
-    ) -> CompressedProof<F, D> {
+        common_data: &CommonCircuitData<F, C, D>,
+    ) -> CompressedProof<F, C, D> {
         let Proof {
             wires_cap,
             plonk_zs_partial_products_cap,
@@ -64,16 +65,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Proof<F, D> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct ProofWithPublicInputs<F: RichField + Extendable<D>, const D: usize> {
-    pub proof: Proof<F, D>,
+pub struct ProofWithPublicInputs<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+    pub proof: Proof<F, C, D>,
     pub public_inputs: Vec<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
+impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> ProofWithPublicInputs<F, C, D> {
     pub fn compress(
         self,
-        common_data: &CommonCircuitData<F, D>,
-    ) -> anyhow::Result<CompressedProofWithPublicInputs<F, D>> {
+        common_data: &CommonCircuitData<F, C, D>,
+    ) -> anyhow::Result<CompressedProofWithPublicInputs<F, C, D>> {
         let indices = self.fri_query_indices(common_data)?;
         let compressed_proof = self.proof.compress(&indices, common_data);
         Ok(CompressedProofWithPublicInputs {
@@ -82,8 +83,10 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
         })
     }
 
-    pub(crate) fn get_public_inputs_hash(&self) -> HashOut<F> {
-        hash_n_to_hash(self.public_inputs.clone(), true)
+    pub(crate) fn get_public_inputs_hash(
+        &self,
+    ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash {
+        C::InnerHasher::hash(self.public_inputs.clone(), true)
     }
 
     pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -94,7 +97,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
 
     pub fn from_bytes(
         bytes: Vec<u8>,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<Self> {
         let mut buffer = Buffer::new(bytes);
         let proof = buffer.read_proof_with_public_inputs(common_data)?;
@@ -104,27 +107,27 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct CompressedProof<F: Extendable<D>, const D: usize> {
+pub struct CompressedProof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of wire values.
-    pub wires_cap: MerkleCap<F>,
+    pub wires_cap: MerkleCap<C, D>,
     /// Merkle cap of LDEs of Z, in the context of Plonk's permutation argument.
-    pub plonk_zs_partial_products_cap: MerkleCap<F>,
+    pub plonk_zs_partial_products_cap: MerkleCap<C, D>,
     /// Merkle cap of LDEs of the quotient polynomial components.
-    pub quotient_polys_cap: MerkleCap<F>,
+    pub quotient_polys_cap: MerkleCap<C, D>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A compressed batch FRI argument for all openings.
-    pub opening_proof: CompressedFriProof<F, D>,
+    pub opening_proof: CompressedFriProof<F, C, D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CompressedProof<F, D> {
+impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> CompressedProof<F, C, D> {
     /// Decompress the proof.
     pub(crate) fn decompress(
         self,
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,
-        common_data: &CommonCircuitData<F, D>,
-    ) -> Proof<F, D> {
+        common_data: &CommonCircuitData<F, C, D>,
+    ) -> Proof<F, C, D> {
         let CompressedProof {
             wires_cap,
             plonk_zs_partial_products_cap,
@@ -149,16 +152,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProof<F, D> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct CompressedProofWithPublicInputs<F: RichField + Extendable<D>, const D: usize> {
-    pub proof: CompressedProof<F, D>,
+pub struct CompressedProofWithPublicInputs<
+    F: Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+> {
+    pub proof: CompressedProof<F, C, D>,
     pub public_inputs: Vec<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInputs<F, D> {
+impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    CompressedProofWithPublicInputs<F, C, D>
+{
     pub fn decompress(
         self,
-        common_data: &CommonCircuitData<F, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, D>> {
+        common_data: &CommonCircuitData<F, C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let challenges = self.get_challenges(common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let compressed_proof =
@@ -172,8 +181,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
 
     pub(crate) fn verify(
         self,
-        verifier_data: &VerifierOnlyCircuitData<F>,
-        common_data: &CommonCircuitData<F, D>,
+        verifier_data: &VerifierOnlyCircuitData<C, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<()> {
         let challenges = self.get_challenges(common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
@@ -191,8 +200,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
         )
     }
 
-    pub(crate) fn get_public_inputs_hash(&self) -> HashOut<F> {
-        hash_n_to_hash(self.public_inputs.clone(), true)
+    pub(crate) fn get_public_inputs_hash(
+        &self,
+    ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash {
+        C::InnerHasher::hash(self.public_inputs.clone(), true)
     }
 
     pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -203,7 +214,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
 
     pub fn from_bytes(
         bytes: Vec<u8>,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<Self> {
         let mut buffer = Buffer::new(bytes);
         let proof = buffer.read_compressed_proof_with_public_inputs(common_data)?;
@@ -258,17 +269,17 @@ pub struct OpeningSet<F: Extendable<D>, const D: usize> {
     pub quotient_polys: Vec<F::Extension>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
-    pub fn new(
+impl<F: Extendable<D>, const D: usize> OpeningSet<F, D> {
+    pub fn new<C: GenericConfig<D, F = F>>(
         z: F::Extension,
         g: F::Extension,
-        constants_sigmas_commitment: &PolynomialBatchCommitment<F>,
-        wires_commitment: &PolynomialBatchCommitment<F>,
-        zs_partial_products_commitment: &PolynomialBatchCommitment<F>,
-        quotient_polys_commitment: &PolynomialBatchCommitment<F>,
-        common_data: &CommonCircuitData<F, D>,
+        constants_sigmas_commitment: &PolynomialBatchCommitment<F, C, D>,
+        wires_commitment: &PolynomialBatchCommitment<F, C, D>,
+        zs_partial_products_commitment: &PolynomialBatchCommitment<F, C, D>,
+        quotient_polys_commitment: &PolynomialBatchCommitment<F, C, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) -> Self {
-        let eval_commitment = |z: F::Extension, c: &PolynomialBatchCommitment<F>| {
+        let eval_commitment = |z: F::Extension, c: &PolynomialBatchCommitment<F, C, D>| {
             c.polynomials
                 .par_iter()
                 .map(|p| p.to_extension().eval(z))
@@ -313,12 +324,15 @@ mod tests {
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     fn test_proof_compression() -> Result<()> {
-        type F = CrandallField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let mut config = CircuitConfig::large_config();
         config.fri_config.reduction_strategy = FriReductionStrategy::Fixed(vec![2, 1]);
@@ -336,7 +350,7 @@ mod tests {
         let zt = builder.constant(z);
         let comp_zt = builder.mul(xt, yt);
         builder.connect(zt, comp_zt);
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
         verify(proof.clone(), &data.verifier_only, &data.common)?;
 

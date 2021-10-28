@@ -535,13 +535,15 @@ mod tests {
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     fn test_mul_many() -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::large_config();
 
@@ -566,7 +568,7 @@ mod tests {
         builder.connect_extension(mul0, mul1);
         builder.connect_extension(mul1, mul2);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
@@ -574,9 +576,10 @@ mod tests {
 
     #[test]
     fn test_div_extension() -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::large_zk_config();
 
@@ -594,7 +597,7 @@ mod tests {
         builder.connect_extension(zt, comp_zt);
         builder.connect_extension(zt, comp_zt_unsafe);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
@@ -602,17 +605,18 @@ mod tests {
 
     #[test]
     fn test_mul_algebra() -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::large_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let x = FF::rand_vec(4);
-        let y = FF::rand_vec(4);
+        let x = FF::rand_vec(D);
+        let y = FF::rand_vec(D);
         let xa = ExtensionAlgebra(x.try_into().unwrap());
         let ya = ExtensionAlgebra(y.try_into().unwrap());
         let za = xa * ya;
@@ -625,7 +629,7 @@ mod tests {
             builder.connect_extension(zt.0[i], comp_zt.0[i]);
         }
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)

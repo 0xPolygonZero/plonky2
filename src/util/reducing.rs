@@ -185,12 +185,14 @@ mod tests {
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     fn test_reduce_gadget_base(n: usize) -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::large_config();
 
@@ -209,16 +211,17 @@ mod tests {
 
         builder.connect_extension(manual_reduce, circuit_reduce);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
 
     fn test_reduce_gadget(n: usize) -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::large_config();
 
@@ -240,7 +243,7 @@ mod tests {
 
         builder.connect_extension(manual_reduce, circuit_reduce);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)

@@ -13,6 +13,7 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::hash::path_compression::{compress_merkle_proofs, decompress_merkle_proofs};
 use crate::iop::target::Target;
 use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common::PolynomialsIndexBlinding;
 use crate::plonk::proof::{FriInferredElements, ProofChallenges};
 use crate::polynomial::polynomial::PolynomialCoeffs;
@@ -20,9 +21,9 @@ use crate::polynomial::polynomial::PolynomialCoeffs;
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct FriQueryStep<F: Extendable<D>, const D: usize> {
+pub struct FriQueryStep<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub evals: Vec<F::Extension>,
-    pub merkle_proof: MerkleProof<F>,
+    pub merkle_proof: MerkleProof<F, C, D>,
 }
 
 #[derive(Clone)]
@@ -35,11 +36,11 @@ pub struct FriQueryStepTarget<const D: usize> {
 /// before they are combined into a composition polynomial.
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct FriInitialTreeProof<F: Field> {
-    pub evals_proofs: Vec<(Vec<F>, MerkleProof<F>)>,
+pub struct FriInitialTreeProof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+    pub evals_proofs: Vec<(Vec<F>, MerkleProof<F, C, D>)>,
 }
 
-impl<F: Field> FriInitialTreeProof<F> {
+impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> FriInitialTreeProof<F, C, D> {
     pub(crate) fn unsalted_evals(
         &self,
         polynomials: PolynomialsIndexBlinding,
@@ -69,9 +70,9 @@ impl FriInitialTreeProofTarget {
 /// Proof for a FRI query round.
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct FriQueryRound<F: Extendable<D>, const D: usize> {
-    pub initial_trees_proof: FriInitialTreeProof<F>,
-    pub steps: Vec<FriQueryStep<F, D>>,
+pub struct FriQueryRound<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+    pub initial_trees_proof: FriInitialTreeProof<F, C, D>,
+    pub steps: Vec<FriQueryStep<F, C, D>>,
 }
 
 #[derive(Clone)]
@@ -83,22 +84,22 @@ pub struct FriQueryRoundTarget<const D: usize> {
 /// Compressed proof of the FRI query rounds.
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct CompressedFriQueryRounds<F: Extendable<D>, const D: usize> {
+pub struct CompressedFriQueryRounds<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Query indices.
     pub indices: Vec<usize>,
     /// Map from initial indices `i` to the `FriInitialProof` for the `i`th leaf.
-    pub initial_trees_proofs: HashMap<usize, FriInitialTreeProof<F>>,
+    pub initial_trees_proofs: HashMap<usize, FriInitialTreeProof<F, C, D>>,
     /// For each FRI query step, a map from indices `i` to the `FriQueryStep` for the `i`th leaf.
-    pub steps: Vec<HashMap<usize, FriQueryStep<F, D>>>,
+    pub steps: Vec<HashMap<usize, FriQueryStep<F, C, D>>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct FriProof<F: Extendable<D>, const D: usize> {
+pub struct FriProof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// A Merkle cap for each reduced polynomial in the commit phase.
-    pub commit_phase_merkle_caps: Vec<MerkleCap<F>>,
+    pub commit_phase_merkle_caps: Vec<MerkleCap<C, D>>,
     /// Query rounds proofs
-    pub query_round_proofs: Vec<FriQueryRound<F, D>>,
+    pub query_round_proofs: Vec<FriQueryRound<F, C, D>>,
     /// The final polynomial in coefficient form.
     pub final_poly: PolynomialCoeffs<F::Extension>,
     /// Witness showing that the prover did PoW.
@@ -114,24 +115,24 @@ pub struct FriProofTarget<const D: usize> {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct CompressedFriProof<F: Extendable<D>, const D: usize> {
+pub struct CompressedFriProof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// A Merkle cap for each reduced polynomial in the commit phase.
-    pub commit_phase_merkle_caps: Vec<MerkleCap<F>>,
+    pub commit_phase_merkle_caps: Vec<MerkleCap<C, D>>,
     /// Compressed query rounds proof.
-    pub query_round_proofs: CompressedFriQueryRounds<F, D>,
+    pub query_round_proofs: CompressedFriQueryRounds<F, C, D>,
     /// The final polynomial in coefficient form.
     pub final_poly: PolynomialCoeffs<F::Extension>,
     /// Witness showing that the prover did PoW.
     pub pow_witness: F,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
+impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> FriProof<F, C, D> {
     /// Compress all the Merkle paths in the FRI proof and remove duplicate indices.
     pub fn compress(
         self,
         indices: &[usize],
-        common_data: &CommonCircuitData<F, D>,
-    ) -> CompressedFriProof<F, D> {
+        common_data: &CommonCircuitData<F, C, D>,
+    ) -> CompressedFriProof<F, C, D> {
         let FriProof {
             commit_phase_merkle_caps,
             query_round_proofs,
@@ -231,14 +232,14 @@ impl<F: RichField + Extendable<D>, const D: usize> FriProof<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CompressedFriProof<F, D> {
+impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> CompressedFriProof<F, C, D> {
     /// Decompress all the Merkle paths in the FRI proof and reinsert duplicate indices.
     pub(crate) fn decompress(
         self,
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,
-        common_data: &CommonCircuitData<F, D>,
-    ) -> FriProof<F, D> {
+        common_data: &CommonCircuitData<F, C, D>,
+    ) -> FriProof<F, C, D> {
         let CompressedFriProof {
             commit_phase_merkle_caps,
             query_round_proofs,

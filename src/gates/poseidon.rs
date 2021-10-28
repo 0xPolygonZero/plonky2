@@ -499,10 +499,13 @@ mod tests {
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn generated_output() {
-        type F = CrandallField;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         const WIDTH: usize = 12;
 
         let config = CircuitConfig {
@@ -510,10 +513,10 @@ mod tests {
             ..CircuitConfig::large_config()
         };
         let mut builder = CircuitBuilder::new(config);
-        type Gate = PoseidonGate<F, 4, WIDTH>;
+        type Gate = PoseidonGate<F, D, WIDTH>;
         let gate = Gate::new();
         let gate_index = builder.add_gate(gate, vec![]);
-        let circuit = builder.build_prover();
+        let circuit = builder.build_prover::<C>();
 
         let permutation_inputs = (0..WIDTH).map(F::from_canonical_usize).collect::<Vec<_>>();
 
@@ -556,8 +559,10 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        type F = CrandallField;
-        let gate = PoseidonGate::<F, 4, SPONGE_WIDTH>::new();
-        test_eval_fns(gate)
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        let gate = PoseidonGate::<F, 2, SPONGE_WIDTH>::new();
+        test_eval_fns::<F, C, _, D>(gate)
     }
 }

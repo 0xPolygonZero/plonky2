@@ -274,6 +274,7 @@ mod tests {
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
     use crate::util::log2_ceil;
 
@@ -307,16 +308,20 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(ExponentiationGate::new_from_config(
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        test_eval_fns::<F, C, _, D>(ExponentiationGate::new_from_config(
             &CircuitConfig::large_config(),
         ))
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         /// Returns the local wires for an exponentiation gate given the base, power, and power bit
         /// values.

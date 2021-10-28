@@ -210,6 +210,7 @@ mod tests {
     use crate::gates::arithmetic::ArithmeticExtensionGate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn low_degree() {
@@ -219,7 +220,10 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let gate = ArithmeticExtensionGate::new_from_config(&CircuitConfig::large_config());
-        test_eval_fns::<CrandallField, _, 4>(gate)
+        test_eval_fns::<F, C, _, D>(gate)
     }
 }

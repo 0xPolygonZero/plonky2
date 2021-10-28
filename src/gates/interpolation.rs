@@ -302,6 +302,7 @@ mod tests {
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::interpolation::InterpolationGate;
     use crate::hash::hash_types::HashOut;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
     use crate::polynomial::polynomial::PolynomialCoeffs;
 
@@ -332,14 +333,18 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(InterpolationGate::new(4))
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        test_eval_fns::<F, C, _, D>(InterpolationGate::new(4))
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         /// Returns the local wires for an interpolation gate for given coeffs, points and eval point.
         fn get_wires(

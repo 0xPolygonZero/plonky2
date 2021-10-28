@@ -9,6 +9,7 @@ use crate::hash::hashing::hash_n_to_1;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, FriInferredElements, OpeningSet, Proof,
     ProofChallenges, ProofWithPublicInputs,
@@ -16,16 +17,16 @@ use crate::plonk::proof::{
 use crate::polynomial::polynomial::PolynomialCoeffs;
 use crate::util::reverse_bits;
 
-fn get_challenges<F: RichField + Extendable<D>, const D: usize>(
-    public_inputs_hash: HashOut<F>,
-    wires_cap: &MerkleCap<F>,
-    plonk_zs_partial_products_cap: &MerkleCap<F>,
-    quotient_polys_cap: &MerkleCap<F>,
+fn get_challenges<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
+    wires_cap: &MerkleCap<C, D>,
+    plonk_zs_partial_products_cap: &MerkleCap<C, D>,
+    quotient_polys_cap: &MerkleCap<C, D>,
     openings: &OpeningSet<F, D>,
-    commit_phase_merkle_caps: &[MerkleCap<F>],
+    commit_phase_merkle_caps: &[MerkleCap<C, D>],
     final_poly: &PolynomialCoeffs<F::Extension>,
     pow_witness: F,
-    common_data: &CommonCircuitData<F, D>,
+    common_data: &CommonCircuitData<F, C, D>,
 ) -> anyhow::Result<ProofChallenges<F, D>> {
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
@@ -35,8 +36,8 @@ fn get_challenges<F: RichField + Extendable<D>, const D: usize>(
     let mut challenger = Challenger::new();
 
     // Observe the instance.
-    challenger.observe_hash(&common_data.circuit_digest);
-    challenger.observe_hash(&public_inputs_hash);
+    C::Hasher::observe_hash(common_data.circuit_digest, &mut challenger);
+    C::InnerHasher::observe_hash(public_inputs_hash, &mut challenger);
 
     challenger.observe_cap(wires_cap);
     let plonk_betas = challenger.get_n_challenges(num_challenges);
@@ -64,7 +65,7 @@ fn get_challenges<F: RichField + Extendable<D>, const D: usize>(
 
     challenger.observe_extension_elements(&final_poly.coeffs);
 
-    let fri_pow_response = hash_n_to_1(
+    let fri_pow_response = C::InnerHasher::hash(
         challenger
             .get_hash()
             .elements
@@ -73,7 +74,8 @@ fn get_challenges<F: RichField + Extendable<D>, const D: usize>(
             .chain(Some(pow_witness))
             .collect(),
         false,
-    );
+    )
+    .elements[0];
 
     let fri_query_indices = (0..num_fri_queries)
         .map(|_| challenger.get_challenge().to_canonical_u64() as usize % lde_size)
@@ -91,10 +93,10 @@ fn get_challenges<F: RichField + Extendable<D>, const D: usize>(
     })
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
+impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> ProofWithPublicInputs<F, C, D> {
     pub(crate) fn fri_query_indices(
         &self,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<Vec<usize>> {
         Ok(self.get_challenges(common_data)?.fri_query_indices)
     }
@@ -102,7 +104,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
     /// Computes all Fiat-Shamir challenges used in the Plonk proof.
     pub(crate) fn get_challenges(
         &self,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<ProofChallenges<F, D>> {
         let Proof {
             wires_cap,
@@ -132,11 +134,13 @@ impl<F: RichField + Extendable<D>, const D: usize> ProofWithPublicInputs<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInputs<F, D> {
+impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    CompressedProofWithPublicInputs<F, C, D>
+{
     /// Computes all Fiat-Shamir challenges used in the Plonk proof.
     pub(crate) fn get_challenges(
         &self,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<ProofChallenges<F, D>> {
         let CompressedProof {
             wires_cap,
@@ -169,7 +173,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
     pub(crate) fn get_inferred_elements(
         &self,
         challenges: &ProofChallenges<F, D>,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) -> FriInferredElements<F, D> {
         let ProofChallenges {
             plonk_zeta,

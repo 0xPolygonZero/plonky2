@@ -10,6 +10,7 @@ use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::iop::witness::PartialWitness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
+use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
 fn main() -> Result<()> {
     // Set the default log filter. This can be overridden using the `RUST_LOG` environment variable,
@@ -18,10 +19,13 @@ fn main() -> Result<()> {
     // change this to info or warn later.
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    bench_prove::<CrandallField, 4>()
+    bench_prove()
 }
 
-fn bench_prove<F: RichField + Extendable<D>, const D: usize>() -> Result<()> {
+fn bench_prove() -> Result<()> {
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
     let config = CircuitConfig {
         num_wires: 126,
         num_routed_wires: 33,
@@ -52,7 +56,7 @@ fn bench_prove<F: RichField + Extendable<D>, const D: usize>() -> Result<()> {
     builder.add(zero, zero);
     builder.add_extension(zero_ext, zero_ext);
 
-    let circuit = builder.build();
+    let circuit = builder.build::<C>();
     let proof_with_pis = circuit.prove(inputs)?;
     let proof_bytes = serde_cbor::to_vec(&proof_with_pis).unwrap();
     info!("Proof length: {} bytes", proof_bytes.len());
