@@ -73,10 +73,9 @@ const fn mds_matrix_inf_norm() -> u64 {
 #[allow(dead_code)]
 const fn check_round_const_bounds_mds() -> bool {
     let max_mds_res = mds_matrix_inf_norm() * (u32::MAX as u64);
-    let max_permitted_round_const = u64::MAX - max_mds_res;
     let mut i = WIDTH; // First const layer is handled specially.
     while i < WIDTH * N_ROUNDS {
-        if ALL_ROUND_CONSTANTS[i] > max_permitted_round_const {
+        if ALL_ROUND_CONSTANTS[i].overflowing_add(max_mds_res).1 {
             return false;
         }
         i += 1;
