@@ -86,12 +86,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 /// A one-way compression function which takes two ~256 bit inputs and returns a ~256 bit output.
-pub fn compress<F: RichField>(x: HashOut<F>, y: HashOut<F>) -> HashOut<F> {
+pub fn compress<F: RichField, P: PlonkyPermutation<F>>(x: HashOut<F>, y: HashOut<F>) -> HashOut<F> {
     let mut perm_inputs = [F::ZERO; SPONGE_WIDTH];
     perm_inputs[..4].copy_from_slice(&x.elements);
     perm_inputs[4..8].copy_from_slice(&y.elements);
     HashOut {
-        elements: permute(perm_inputs)[..4].try_into().unwrap(),
+        elements: P::permute(perm_inputs)[..4].try_into().unwrap(),
     }
 }
 
@@ -160,11 +160,4 @@ pub fn hash_n_to_hash<F: RichField, P: PlonkyPermutation<F>>(
 
 pub fn hash_n_to_1<F: RichField, P: PlonkyPermutation<F>>(inputs: Vec<F>, pad: bool) -> F {
     hash_n_to_m::<F, P>(inputs, 1, pad)[0]
-}
-
-pub(crate) fn permute<F: RichField>(inputs: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
-    match HASH_FAMILY {
-        HashFamily::GMiMC => F::gmimc_permute(inputs),
-        HashFamily::Poseidon => F::poseidon(inputs),
-    }
 }

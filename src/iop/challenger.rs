@@ -4,11 +4,11 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
-use crate::hash::hashing::{permute, SPONGE_RATE, SPONGE_WIDTH};
+use crate::hash::hashing::{PlonkyPermutation, SPONGE_RATE, SPONGE_WIDTH};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
 
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
@@ -104,12 +104,15 @@ impl<F: RichField> Challenger<F> {
         }
     }
 
-    pub fn get_challenge(&mut self) -> F {
-        self.absorb_buffered_inputs();
+    pub fn get_challenge<C: GenericConfig<D, F = F>, const D: usize>(&mut self) -> F {
+        self.absorb_buffered_inputs::<C, D>();
 
         if self.output_buffer.is_empty() {
             // Evaluate the permutation to produce `r` new outputs.
-            self.sponge_state = permute(self.sponge_state);
+            self.sponge_state =
+                <<C as GenericConfig<D>>::InnerHasher as AlgebraicHasher<F>>::Permutation::permute(
+                    self.sponge_state,
+                );
             self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
         }
 
@@ -118,39 +121,49 @@ impl<F: RichField> Challenger<F> {
             .expect("Output buffer should be non-empty")
     }
 
-    pub fn get_n_challenges(&mut self, n: usize) -> Vec<F> {
-        (0..n).map(|_| self.get_challenge()).collect()
+    pub fn get_n_challenges<C: GenericConfig<D, F = F>, const D: usize>(
+        &mut self,
+        n: usize,
+    ) -> Vec<F> {
+        (0..n).map(|_| self.get_challenge::<C, D>()).collect()
     }
 
-    pub fn get_hash(&mut self) -> HashOut<F> {
+    pub fn get_hash<C: GenericConfig<D, F = F>, const D: usize>(&mut self) -> HashOut<F> {
         HashOut {
             elements: [
-                self.get_challenge(),
-                self.get_challenge(),
-                self.get_challenge(),
-                self.get_challenge(),
+                self.get_challenge::<C, D>(),
+                self.get_challenge::<C, D>(),
+                self.get_challenge::<C, D>(),
+                self.get_challenge::<C, D>(),
             ],
         }
     }
 
-    pub fn get_extension_challenge<const D: usize>(&mut self) -> F::Extension
+    pub fn get_extension_challenge<C: GenericConfig<D, F = F>, const D: usize>(
+        &mut self,
+    ) -> F::Extension
     where
         F: Extendable<D>,
     {
         let mut arr = [F::ZERO; D];
-        arr.copy_from_slice(&self.get_n_challenges(D));
+        arr.copy_from_slice(&self.get_n_challenges::<C, D>(D));
         F::Extension::from_basefield_array(arr)
     }
 
-    pub fn get_n_extension_challenges<const D: usize>(&mut self, n: usize) -> Vec<F::Extension>
+    pub fn get_n_extension_challenges<C: GenericConfig<D, F = F>, const D: usize>(
+        &mut self,
+        n: usize,
+    ) -> Vec<F::Extension>
     where
         F: Extendable<D>,
     {
-        (0..n).map(|_| self.get_extension_challenge()).collect()
+        (0..n)
+            .map(|_| self.get_extension_challenge::<C, D>())
+            .collect()
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
-    fn absorb_buffered_inputs(&mut self) {
+    fn absorb_buffered_inputs<C: GenericConfig<D, F = F>, const D: usize>(&mut self) {
         if self.input_buffer.is_empty() {
             return;
         }
@@ -164,7 +177,10 @@ impl<F: RichField> Challenger<F> {
             }
 
             // Apply the permutation.
-            self.sponge_state = permute(self.sponge_state);
+            self.sponge_state =
+                <<C as GenericConfig<D>>::InnerHasher as AlgebraicHasher<F>>::Permutation::permute(
+                    self.sponge_state,
+                );
         }
 
         self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
@@ -341,12 +357,14 @@ mod tests {
 
     #[test]
     fn no_duplicate_challenges() {
-        type F = CrandallField;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let mut challenger = Challenger::new();
         let mut challenges = Vec::new();
 
         for i in 1..10 {
-            challenges.extend(challenger.get_n_challenges(i));
+            challenges.extend(challenger.get_n_challenges::<C, D>(i));
             challenger.observe_element(F::rand());
         }
 
@@ -380,7 +398,7 @@ mod tests {
         let mut outputs_per_round: Vec<Vec<F>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
             challenger.observe_elements(inputs);
-            outputs_per_round.push(challenger.get_n_challenges(num_outputs_per_round[r]));
+            outputs_per_round.push(challenger.get_n_challenges::<C, D>(num_outputs_per_round[r]));
         }
 
         let config = CircuitConfig::large_config();

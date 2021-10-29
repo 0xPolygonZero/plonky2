@@ -43,7 +43,7 @@ pub fn fri_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     );
 
     // PoW phase
-    let current_hash = challenger.get_hash();
+    let current_hash = challenger.get_hash::<C, D>();
     let pow_witness = timed!(
         timing,
         "find proof-of-work witness",
@@ -87,7 +87,7 @@ fn fri_committed_trees<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: us
         challenger.observe_cap(&tree.cap);
         trees.push(tree);
 
-        let beta = challenger.get_extension_challenge();
+        let beta = challenger.get_extension_challenge::<C, D>();
         // P(x) = sum_{i<r} x^i * P_i(x^r) becomes sum_{i<r} beta^i * P_i(x).
         coeffs = PolynomialCoeffs::new(
             coeffs
@@ -152,7 +152,7 @@ fn fri_prover_query_round<F: Extendable<D>, C: GenericConfig<D, F = F>, const D:
     common_data: &CommonCircuitData<F, C, D>,
 ) -> FriQueryRound<F, C, D> {
     let mut query_steps = Vec::new();
-    let x = challenger.get_challenge();
+    let x = challenger.get_challenge::<C, D>();
     let mut x_index = x.to_canonical_u64() as usize % n;
     let initial_proof = initial_merkle_trees
         .iter()

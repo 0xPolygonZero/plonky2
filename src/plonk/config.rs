@@ -8,7 +8,7 @@ use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::RichField;
 use crate::field::goldilocks_field::GoldilocksField;
 use crate::hash::hash_types::HashOut;
-use crate::hash::hashing::{compress, hash_n_to_hash, PoseidonPermutation};
+use crate::hash::hashing::{compress, hash_n_to_hash, PlonkyPermutation, PoseidonPermutation};
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -45,7 +45,7 @@ impl<F: RichField> Hasher<F> for PoseidonHash {
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
-        compress(left, right)
+        compress::<F, <Self as AlgebraicHasher<F>>::Permutation>(left, right)
     }
 
     fn observe_hash(hash: Self::Hash, challenger: &mut Challenger<F>) {
@@ -53,9 +53,13 @@ impl<F: RichField> Hasher<F> for PoseidonHash {
     }
 }
 
-impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {}
+impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
+    type Permutation = PoseidonPermutation;
+}
 
-pub trait AlgebraicHasher<F: RichField>: Hasher<F, Hash = HashOut<F>> {}
+pub trait AlgebraicHasher<F: RichField>: Hasher<F, Hash = HashOut<F>> {
+    type Permutation: PlonkyPermutation<F>;
+}
 
 pub trait GenericConfig<const D: usize>:
     Debug + Clone + Sync + Sized + Send + Eq + PartialEq
