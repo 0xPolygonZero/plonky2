@@ -822,7 +822,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             ]);
         }
 
-        let (gate, gate_index, mut next_copy) =
+        let (gate, gate_index, next_copy) =
             match self.batched_gates.current_switch_gates[chunk_size - 1].clone() {
                 None => {
                     let gate = SwitchGate::<F, D>::new_from_config(self.config.clone(), chunk_size);
@@ -834,7 +834,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let num_copies = gate.num_copies;
 
-        if next_copy == num_copies {
+        if next_copy == num_copies - 1 {
             self.batched_gates.current_switch_gates[chunk_size - 1] = None;
         } else {
             self.batched_gates.current_switch_gates[chunk_size - 1] =
