@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -17,10 +18,12 @@ use crate::field::goldilocks_field::GoldilocksField;
 ///
 /// Its order is
 /// ```ignore
-/// P = 2**256 - 2**32 - 2**9 - 2**8 - 2**7 - 2**6 - 2**4 - 1
+/// P = 0xFFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFE BAAEDCE6 AF48A03B BFD25E8C D0364141
+///   = 115792089237316195423570985008687907852837564279074904382605163141518161494337
+///   = 2**256 - 432420386565659656852420866394968145599
 /// ```
 #[derive(Copy, Clone, Serialize, Deserialize)]
-pub struct Secp256K1Base(pub [u64; 4]);
+pub struct Secp256K1Scalar(pub [u64; 4]);
 
 fn biguint_from_array(arr: [u64; 4]) -> BigUint {
     BigUint::from_slice(&[
@@ -35,39 +38,39 @@ fn biguint_from_array(arr: [u64; 4]) -> BigUint {
     ])
 }
 
-impl Default for Secp256K1Base {
+impl Default for Secp256K1Scalar {
     fn default() -> Self {
         Self::ZERO
     }
 }
 
-impl PartialEq for Secp256K1Base {
+impl PartialEq for Secp256K1Scalar {
     fn eq(&self, other: &Self) -> bool {
         self.to_biguint() == other.to_biguint()
     }
 }
 
-impl Eq for Secp256K1Base {}
+impl Eq for Secp256K1Scalar {}
 
-impl Hash for Secp256K1Base {
+impl Hash for Secp256K1Scalar {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.to_biguint().hash(state)
     }
 }
 
-impl Display for Secp256K1Base {
+impl Display for Secp256K1Scalar {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.to_biguint(), f)
     }
 }
 
-impl Debug for Secp256K1Base {
+impl Debug for Secp256K1Scalar {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Debug::fmt(&self.to_biguint(), f)
     }
 }
 
-impl Field for Secp256K1Base {
+impl Field for Secp256K1Scalar {
     // TODO: fix
     type PrimeField = GoldilocksField;
 
@@ -75,28 +78,35 @@ impl Field for Secp256K1Base {
     const ONE: Self = Self([1, 0, 0, 0]);
     const TWO: Self = Self([2, 0, 0, 0]);
     const NEG_ONE: Self = Self([
-        0xFFFFFFFEFFFFFC2E,
-        0xFFFFFFFFFFFFFFFF,
-        0xFFFFFFFFFFFFFFFF,
-        0xFFFFFFFFFFFFFFFF,
+        0xBFD25E8CD0364140,
+        0xBAAEDCE6AF48A03B,
+        0xFFFFFFFFFFFFFC2F,
+        0xFFFFFFFFFFFFFFFF
     ]);
 
     // TODO: fix
     const CHARACTERISTIC: u64 = 0;
-    const TWO_ADICITY: usize = 1;
+
+    const TWO_ADICITY: usize = 6;
 
     // Sage: `g = GF(p).multiplicative_generator()`
-    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0]);
+    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([7, 0, 0, 0]);
 
-    // Sage: `g_2 = g^((p - 1) / 2)`
-    const POWER_OF_TWO_GENERATOR: Self = Self::NEG_ONE;
+    // Sage: `g_2 = power_mod(g, (p - 1) // 2^6), p)`
+    // 5480320495727936603795231718619559942670027629901634955707709633242980176626
+    const POWER_OF_TWO_GENERATOR: Self = Self([
+        0x992f4b5402b052f2,
+        0x98BDEAB680756045,
+        0xDF9879A3FBC483A8,
+        0xC1DC060E7A91986,
+    ]);
 
     const BITS: usize = 256;
 
     fn order() -> BigUint {
         BigUint::from_slice(&[
-            0xFFFFFC2F, 0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
-            0xFFFFFFFF,
+            0xD0364141, 0xBFD25E8C, 0xAF48A03B, 0xBAAEDCE6, 0xFFFFFC2F, 0xFFFFFFFF, 0xFFFFFFFF,
+            0xFFFFFFFF
         ])
     }
 
@@ -148,7 +158,7 @@ impl Field for Secp256K1Base {
     }
 }
 
-impl Neg for Secp256K1Base {
+impl Neg for Secp256K1Scalar {
     type Output = Self;
 
     #[inline]
@@ -161,7 +171,7 @@ impl Neg for Secp256K1Base {
     }
 }
 
-impl Add for Secp256K1Base {
+impl Add for Secp256K1Scalar {
     type Output = Self;
 
     #[inline]
@@ -174,20 +184,20 @@ impl Add for Secp256K1Base {
     }
 }
 
-impl AddAssign for Secp256K1Base {
+impl AddAssign for Secp256K1Scalar {
     #[inline]
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
 
-impl Sum for Secp256K1Base {
+impl Sum for Secp256K1Scalar {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::ZERO, |acc, x| acc + x)
     }
 }
 
-impl Sub for Secp256K1Base {
+impl Sub for Secp256K1Scalar {
     type Output = Self;
 
     #[inline]
@@ -197,14 +207,14 @@ impl Sub for Secp256K1Base {
     }
 }
 
-impl SubAssign for Secp256K1Base {
+impl SubAssign for Secp256K1Scalar {
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
 }
 
-impl Mul for Secp256K1Base {
+impl Mul for Secp256K1Scalar {
     type Output = Self;
 
     #[inline]
@@ -213,21 +223,21 @@ impl Mul for Secp256K1Base {
     }
 }
 
-impl MulAssign for Secp256K1Base {
+impl MulAssign for Secp256K1Scalar {
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
 
-impl Product for Secp256K1Base {
+impl Product for Secp256K1Scalar {
     #[inline]
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.reduce(|acc, x| acc * x).unwrap_or(Self::ONE)
     }
 }
 
-impl Div for Secp256K1Base {
+impl Div for Secp256K1Scalar {
     type Output = Self;
 
     #[allow(clippy::suspicious_arithmetic_impl)]
@@ -236,7 +246,7 @@ impl Div for Secp256K1Base {
     }
 }
 
-impl DivAssign for Secp256K1Base {
+impl DivAssign for Secp256K1Scalar {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
