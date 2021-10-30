@@ -217,6 +217,14 @@ impl Poseidon for GoldilocksField {
             crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::poseidon(&input)
         }
     }
+
+    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
+    #[inline]
+    fn poseidon(input: [Self; 12]) -> [Self; 12] {
+        unsafe {
+            crate::hash::arch::aarch64::poseidon_goldilocks_neon::poseidon(input)
+        }
+    }
 }
 
 #[cfg(test)]
