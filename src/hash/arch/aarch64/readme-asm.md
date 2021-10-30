@@ -1,5 +1,5 @@
 Partial rounds ASM
-=================
+==================
 
 The partial rounds are written in hand-rolled ASM. This was necessary to ensure proper pipelining. Indeed, the ASM shaves 40% off the execution time of the original vector intrinsics-based partial round.
 
@@ -9,7 +9,7 @@ The partial layer performs two operations:
 
 The S-box must be performed in scalar to minimize latency. The MDS matrix is done mostly in vector to maximize throughput. To take advantage of the otherwise idle scalar execution units, MDS matrix multiplication for result[0..2] is done in scalar. Clearly, this necessitates some data movement, as the input state must be available to both scalar and vector execution units.
 
-This task has plentiful opportunities for pipelining and parallelism. Most immediately, the S-box—with its long latency chain—can be performed simultaneously with most of the MDS matrix multiplication, with the permuted input only available right before the reduction. In addition, the MDS matrix multiplication can be scheduled in a way that interleaves different kinds of operations, making the latency of the reduction step.
+This task has plentiful opportunities for pipelining and parallelism. Most immediately, the S-box—with its long latency chain—can be performed simultaneously with most of the MDS matrix multiplication, with the permuted input only available right before the reduction. In addition, the MDS matrix multiplication can be scheduled in a way that interleaves different kinds of operations, masking the latency of the reduction step.
 
 There are three chains of ASM:
   1. the S-box,
@@ -470,7 +470,7 @@ The order in which the results are produced is:
 - state[8] and state[9]
 - state[10] and state[11]
 
-The order of the instructions in the assembly should be through of as a setting the relative priority of each instruction; because of CPU reordering, it does not correspond exactly to execution order in time. Ideally, we'd like the MDS matrix multiplication to happen in the following order:
+The order of the instructions in the assembly should be thought of as a setting the relative priority of each instruction; because of CPU reordering, it does not correspond exactly to execution order in time. Ideally, we'd like the MDS matrix multiplication to happen in the following order:
                          s[1]    s[2..4]    s[4..6]    s[6..8]   s[8..10]  s[10..12]       s[0]
          res[2..4]          1          2         4           7         11         16         21
          res[4..6]          3          5         8          12         17         22         26

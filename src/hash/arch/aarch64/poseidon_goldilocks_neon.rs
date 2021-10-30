@@ -470,68 +470,23 @@ unsafe fn mds_const_layers_full(
 
 // ======================================== PARTIAL ROUNDS =========================================
 
+#[rustfmt::skip]
 macro_rules! mds_reduce_asm {
     ($c0:literal, $c1:literal, $out:literal, $consts:literal) => {
         concat!(
             // Swizzle
-            "zip1.2d ",
-            $out,
-            ",",
-            $c0,
-            ",",
-            $c1,
-            "\n", // lo
-            "zip2.2d ",
-            $c0,
-            ",",
-            $c0,
-            ",",
-            $c1,
-            "\n", // hi
+            "zip1.2d ", $out, ",", $c0, ",", $c1, "\n", // lo
+            "zip2.2d ", $c0, ",", $c0, ",", $c1, "\n", // hi
+
             // Reduction from u96
-            "usra.2d ",
-            $c0,
-            ",",
-            $out,
-            ", #32\n",
-            "sli.2d ",
-            $out,
-            ",",
-            $c0,
-            ", #32\n",
+            "usra.2d ", $c0, ",", $out, ", #32\n", "sli.2d ", $out, ",", $c0, ", #32\n",
             // Extract high 32-bits.
-            "uzp2.4s ",
-            $c0,
-            ",",
-            $c0,
-            ",",
-            $c0,
-            "\n",
+            "uzp2.4s ", $c0, ",", $c0, ",", $c0, "\n",
             // Multiply by EPSILON and accumulate.
-            "mov.16b ",
-            $c1,
-            ",",
-            $out,
-            "\n",
-            "umlal.2d ",
-            $out,
-            ",",
-            $c0,
-            ", ",
-            $consts,
-            "[0]\n",
-            "cmhi.2d ",
-            $c1,
-            ",",
-            $c1,
-            ",",
-            $out,
-            "\n",
-            "usra.2d ",
-            $out,
-            ",",
-            $c1,
-            ", #32",
+            "mov.16b ", $c1, ",", $out, "\n",
+            "umlal.2d ", $out, ",", $c0, ", ", $consts, "[0]\n",
+            "cmhi.2d ", $c1, ",", $c1, ",", $out, "\n",
+            "usra.2d ", $out, ",", $c1, ", #32",
         )
     };
 }
@@ -860,8 +815,12 @@ unsafe fn partial_round(
         "fmov       {s10}, d26",
         "fmov.d     {s11}, v26[1]",
 
+        // Scalar inputs/outputs
+        // s0 is transformed by the S-box
         s0 = inout(reg) state_scalar[0] => res0,
+        // s1-s6 double as scratch in the MDS matrix multiplication
         s1 = inout(reg) state_scalar[1] => res1,
+        // s2-s11 are copied from the vector inputs/outputs
         s2 = inout(reg) state_scalar[2] => res2_scalar,
         s3 = inout(reg) state_scalar[3] => res3_scalar,
         s4 = inout(reg) state_scalar[4] => res4_scalar,
@@ -873,20 +832,29 @@ unsafe fn partial_round(
         s10 = inout(reg) state_scalar[10] => res10_scalar,
         s11 = inout(reg) state_scalar[11] => res11_scalar,
 
+        // Pointer to the round constants
         rc_ptr = in(reg) round_constants.as_ptr(),
 
+        // Scalar MDS multiplication accumulators
         lo1 = out(reg) _,
         hi1 = out(reg) _,
         lo0 = out(reg) _,
         hi0 = out(reg) _,
+
+        // Scalar scratch registers
+        // All are used in the scalar S-box
         t0 = out(reg) _,
         t1 = out(reg) _,
         t2 = out(reg) _,
+        // t3-t6 are used in the scalar MDS matrix multiplication
         t3 = out(reg) _,
         t4 = out(reg) _,
         t5 = out(reg) _,
         t6 = out(reg) _,
 
+        // Vector MDS multiplication accumulators
+        // v{n} and v1{n} are accumulators for res[n + 2] (we need two to mask latency)
+        // The low and high 64-bits are accumulators for the low and high results, respectively
         out("v0") _,
         out("v1") _,
         out("v2") _,
@@ -908,14 +876,19 @@ unsafe fn partial_round(
         out("v18") _,
         out("v19") _,
 
+        // Inputs into vector MDS matrix multiplication
+        // v20 and v21 are sbox(state0) and state1, respectively. They are copied from the scalar
+        // registers.
         out("v20") _,
         out("v21") _,
+        // v22, ..., v26 hold state[2,3], ..., state[10,11]
         inout("v22") state_vector[0] => res23,
         inout("v23") state_vector[1] => res45,
         inout("v24") state_vector[2] => res67,
         inout("v25") state_vector[3] => res89,
         inout("v26") state_vector[4] => res1011,
 
+        // Useful constants
         in("v30") mds_consts0,
         in("v31") mds_consts1,
 
