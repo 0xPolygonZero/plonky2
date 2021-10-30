@@ -56,24 +56,6 @@ unsafe fn add_with_wraparound(a: u64, b: u64) -> u64 {
     res.wrapping_add(adj) // adj is EPSILON if wraparound occured and 0 otherwise
 }
 
-/// Addition of a and (b << 32) modulo ORDER accounting for wraparound.
-#[inline(always)]
-unsafe fn add_with_wraparound_lsl32(a: u64, b: u64) -> u64 {
-    let res: u64;
-    let adj: u64;
-    asm!(
-        "adds  {res}, {a}, {b}, lsl #32",
-        // Set adj to 0xffffffff if addition overflowed and 0 otherwise.
-        "csetm {adj:w}, cs",
-        a = in(reg) a,
-        b = in(reg) b,
-        res = lateout(reg) res,
-        adj = lateout(reg) adj,
-        options(pure, nomem, nostack),
-    );
-    res.wrapping_add(adj) // adj is EPSILON if wraparound occured and 0 otherwise
-}
-
 /// Addition of a and (b >> 32) modulo ORDER accounting for wraparound.
 #[inline(always)]
 unsafe fn sub_with_wraparound_lsr32(a: u64, b: u64) -> u64 {
@@ -493,7 +475,7 @@ macro_rules! mds_reduce_asm {
 
 #[inline(always)]
 unsafe fn partial_round(
-    (mut state_scalar, state_vector): ([u64; WIDTH], [uint64x2_t; 5]),
+    (state_scalar, state_vector): ([u64; WIDTH], [uint64x2_t; 5]),
     round_constants: &[u64; WIDTH],
 ) -> ([u64; WIDTH], [uint64x2_t; 5]) {
     // see readme-asm.md
