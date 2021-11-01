@@ -81,24 +81,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_add_u32(a, one, b)
     }
 
-    pub fn add_three_u32(
-        &mut self,
-        a: U32Target,
-        b: U32Target,
-        c: U32Target,
-    ) -> (U32Target, U32Target) {
-        let (init_low, carry1) = self.add_u32(a, b);
-        let (final_low, carry2) = self.add_u32(c, init_low);
-        let (combined_carry, _zero) = self.add_u32(carry1, carry2);
-        (final_low, combined_carry)
-    }
-
-    pub fn add_many_u32(&mut self, to_add: Vec<U32Target>) -> (U32Target, U32Target) {
+    pub fn add_many_u32(&mut self, to_add: &[U32Target]) -> (U32Target, U32Target) {
         match to_add.len() {
             0 => (self.zero_u32(), self.zero_u32()),
             1 => (to_add[0], self.zero_u32()),
             2 => self.add_u32(to_add[0], to_add[1]),
-            3 => self.add_three_u32(to_add[0], to_add[1], to_add[2]),
             _ => {
                 let (mut low, mut carry) = self.add_u32(to_add[0], to_add[1]);
                 for i in 2..to_add.len() {

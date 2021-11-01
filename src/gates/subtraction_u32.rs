@@ -15,7 +15,7 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 pub const NUM_U32_SUBTRACTION_OPS: usize = 3;
 
 /// A gate to perform a subtraction on 32-bit limbs: given `x`, `y`, and `borrow`, it returns
-/// the result `x - y - borrow` and, if this underflows, a new `borrow`.
+/// the result `x - y - borrow` and, if this underflows, a new `borrow`. Inputs are not range-checked.
 #[derive(Clone, Debug)]
 pub struct U32SubtractionGate<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,

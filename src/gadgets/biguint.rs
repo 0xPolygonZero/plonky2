@@ -117,7 +117,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.zero_u32()
             };
 
-            let (new_limb, new_carry) = self.add_three_u32(carry.clone(), a_limb, b_limb);
+            let (new_limb, new_carry) = self.add_many_u32(&[carry.clone(), a_limb, b_limb]);
             carry = new_carry;
             combined_limbs.push(new_limb);
         }
@@ -164,7 +164,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut carry = self.zero_u32();
         for i in 0..total_limbs {
             to_add[i].push(carry);
-            let (new_result, new_carry) = self.add_many_u32(to_add[i].clone());
+            let (new_result, new_carry) = self.add_many_u32(&to_add[i].clone());
             combined_limbs.push(new_result);
             carry = new_carry;
         }
