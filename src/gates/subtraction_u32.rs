@@ -1,7 +1,5 @@
 use std::marker::PhantomData;
 
-use itertools::unfold;
-
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
@@ -16,7 +14,8 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 /// Maximum number of subtractions operations performed by a single gate.
 pub const NUM_U32_SUBTRACTION_OPS: usize = 3;
 
-/// A gate to perform a subtraction .
+/// A gate to perform a subtraction on 32-bit limbs: given `x`, `y`, and `borrow`, it returns
+/// the result `x - y - borrow` and, if this underflows, a new `borrow`.
 #[derive(Clone, Debug)]
 pub struct U32SubtractionGate<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
@@ -395,14 +394,14 @@ mod tests {
         }
 
         let mut rng = rand::thread_rng();
-        let inputs_x: Vec<_> = (0..NUM_U32_SUBTRACTION_OPS)
+        let inputs_x = (0..NUM_U32_SUBTRACTION_OPS)
             .map(|_| rng.gen::<u32>() as u64)
             .collect();
-        let inputs_y: Vec<_> = (0..NUM_U32_SUBTRACTION_OPS)
+        let inputs_y = (0..NUM_U32_SUBTRACTION_OPS)
             .map(|_| rng.gen::<u32>() as u64)
             .collect();
-        let borrows: Vec<_> = (0..NUM_U32_SUBTRACTION_OPS)
-            .map(|_| rng.gen::<u32>() as u64)
+        let borrows = (0..NUM_U32_SUBTRACTION_OPS)
+            .map(|_| (rng.gen::<u32>() % 2) as u64)
             .collect();
 
         let gate = U32SubtractionGate::<F, D> {
