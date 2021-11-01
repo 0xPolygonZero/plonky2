@@ -182,7 +182,7 @@ The ASM for the scalar MDS multiplication is
 
 The MDS multiplication is done separately on the low 32 bits and the high 32 bits of the input, and combined by linearity. Each input is split into the low part and the high part. There are separate accumulators for the low and high parts of the result `lo0`/`lo1`, for result[0] and result[1] respectively, and `hi0`/`hi1`.
 
-The pointer to the round constants is given in `rc_ptr.` Registers `s0`-`s11` constain the state vector at the start, and are later used as scratch. `t3`-`t6` are temporaries.
+The pointer to the round constants is given in `rc_ptr`. Registers `s0`-`s11` contain the state vector at the start, and are later used as scratch. `t3`-`t6` are temporaries.
 
 `s1` is assumed to be available first, as it is computed in scalar. `s2`-`s11` are used next. `s0` is assumed to be available last, as it must be transformed by the S-box.
 
@@ -484,7 +484,7 @@ The registers `v0`-`v19` are used for scratch. `v0` and `v10` are accumulators f
 
 The inputs for state[0] and state[1] are in the low 64 bits of `v20` and `v21`, respectively. The inputs and outputs for state[2..4], ..., state[10..12] are in `v22`, ..., `v26`, respectively.
 
-`v30` and `v31` contains the constants [EPSILON, 1, 1 << 3, 1 << 5], [1 << 8, 1 << 10, 1 << 12, 1 << 16]. EPSILON is used in the reduction. The remaining constants are MDS matrix elements (except 0) and are used to form the dot products.
+`v30` and `v31` contains the constants [EPSILON, 1 << 1, 1 << 3, 1 << 5], [1 << 8, 1 << 10, 1 << 12, 1 << 16]. EPSILON is used in the reduction. The remaining constants are MDS matrix elements (except 1, which is omitted) and are used to form the dot products.
 
 The instruction `umlal.2d v4, v20, v30[1]` can be read as:
 1. take the low 64 bits (`umlal2` for high 64 bits) of `v20` (state[0]),
