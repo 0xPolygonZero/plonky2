@@ -14,7 +14,7 @@ impl Curve for Secp256K1 {
     type ScalarField = Secp256K1Scalar;
 
     const A: Secp256K1Base = Secp256K1Base::ZERO;
-    const B: Secp256K1Base = Secp256K1Base::ONE;
+    const B: Secp256K1Base = Secp256K1Base([7, 0, 0, 0]);
     const GENERATOR_AFFINE: AffinePoint<Self> = AffinePoint {
         x: SECP256K1_GENERATOR_X,
         y: SECP256K1_GENERATOR_Y,
