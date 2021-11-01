@@ -189,7 +189,7 @@ pub(crate) struct ProverOnlyCircuitData<
 #[derive(Debug)]
 pub(crate) struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_cap: MerkleCap<C, D>,
+    pub(crate) constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
 }
 
 /// Circuit data required by both the prover and the verifier.

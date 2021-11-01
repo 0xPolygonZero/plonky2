@@ -12,20 +12,18 @@ use crate::plonk::config::{GenericConfig, Hasher};
 /// It can be used in place of the root to verify Merkle paths, which are `h` elements shorter.
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct MerkleCap<C: GenericConfig<D>, const D: usize>(
-    pub Vec<<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash>,
-);
+pub struct MerkleCap<F: RichField, H: Hasher<F>>(pub Vec<H::Hash>);
 
-impl<C: GenericConfig<D>, const D: usize> MerkleCap<C, D> {
+impl<F: RichField, H: Hasher<F>> MerkleCap<F, H> {
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
-    pub fn flatten(&self) -> Vec<C::F> {
+    pub fn flatten(&self) -> Vec<F> {
         self.0
             .iter()
             .flat_map(|&h| {
-                let felts: Vec<C::F> = h.into();
+                let felts: Vec<F> = h.into();
                 felts
             })
             .collect()
@@ -33,22 +31,22 @@ impl<C: GenericConfig<D>, const D: usize> MerkleCap<C, D> {
 }
 
 #[derive(Clone, Debug)]
-pub struct MerkleTree<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+pub struct MerkleTree<F: RichField, H: Hasher<F>> {
     /// The data in the leaves of the Merkle tree.
     pub leaves: Vec<Vec<F>>,
 
     /// The layers of hashes in the tree. The first layer is the one at the bottom.
-    pub layers: Vec<Vec<<<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash>>,
+    pub layers: Vec<Vec<H::Hash>>,
 
     /// The Merkle cap.
-    pub cap: MerkleCap<C, D>,
+    pub cap: MerkleCap<F, H>,
 }
 
-impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> MerkleTree<F, C, D> {
+impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
     pub fn new(leaves: Vec<Vec<F>>, cap_height: usize) -> Self {
         let mut layers = vec![leaves
             .par_iter()
-            .map(|l| C::Hasher::hash(l.clone(), false))
+            .map(|l| H::hash(l.clone(), false))
             .collect::<Vec<_>>()];
         while let Some(l) = layers.last() {
             if l.len() == 1 << cap_height {
@@ -56,7 +54,7 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> MerkleTree<F,
             }
             let next_layer = l
                 .par_chunks(2)
-                .map(|chunk| C::Hasher::two_to_one(chunk[0], chunk[1]))
+                .map(|chunk| H::two_to_one(chunk[0], chunk[1]))
                 .collect::<Vec<_>>();
             layers.push(next_layer);
         }
@@ -73,7 +71,7 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> MerkleTree<F,
     }
 
     /// Create a Merkle proof from a leaf index.
-    pub fn prove(&self, leaf_index: usize) -> MerkleProof<F, C, D> {
+    pub fn prove(&self, leaf_index: usize) -> MerkleProof<F, H> {
         MerkleProof {
             siblings: self
                 .layers

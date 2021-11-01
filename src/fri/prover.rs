@@ -18,12 +18,12 @@ use crate::util::timing::TimingTree;
 
 /// Builds a FRI proof.
 pub fn fri_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    initial_merkle_trees: &[&MerkleTree<F, C, D>],
+    initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
     // Coefficients of the polynomial on which the LDT is performed. Only the first `1/rate` coefficients are non-zero.
     lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
     // Evaluation of the polynomial on the large domain.
     lde_polynomial_values: PolynomialValues<F::Extension>,
-    challenger: &mut Challenger<F>,
+    challenger: &mut Challenger<F, C::InnerHasher>,
     common_data: &CommonCircuitData<F, C, D>,
     timing: &mut TimingTree,
 ) -> FriProof<F, C, D> {
@@ -65,9 +65,12 @@ pub fn fri_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
 fn fri_committed_trees<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     mut coeffs: PolynomialCoeffs<F::Extension>,
     mut values: PolynomialValues<F::Extension>,
-    challenger: &mut Challenger<F>,
+    challenger: &mut Challenger<F, C::InnerHasher>,
     common_data: &CommonCircuitData<F, C, D>,
-) -> (Vec<MerkleTree<F, C, D>>, PolynomialCoeffs<F::Extension>) {
+) -> (
+    Vec<MerkleTree<F, C::Hasher>>,
+    PolynomialCoeffs<F::Extension>,
+) {
     let config = &common_data.config;
     let mut trees = Vec::new();
 
@@ -133,9 +136,9 @@ fn fri_proof_of_work<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usiz
 }
 
 fn fri_prover_query_rounds<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    initial_merkle_trees: &[&MerkleTree<F, C, D>],
-    trees: &[MerkleTree<F, C, D>],
-    challenger: &mut Challenger<F>,
+    initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
+    trees: &[MerkleTree<F, C::Hasher>],
+    challenger: &mut Challenger<F, C::InnerHasher>,
     n: usize,
     common_data: &CommonCircuitData<F, C, D>,
 ) -> Vec<FriQueryRound<F, C, D>> {
@@ -145,9 +148,9 @@ fn fri_prover_query_rounds<F: Extendable<D>, C: GenericConfig<D, F = F>, const D
 }
 
 fn fri_prover_query_round<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    initial_merkle_trees: &[&MerkleTree<F, C, D>],
-    trees: &[MerkleTree<F, C, D>],
-    challenger: &mut Challenger<F>,
+    initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
+    trees: &[MerkleTree<F, C::Hasher>],
+    challenger: &mut Challenger<F, C::InnerHasher>,
     n: usize,
     common_data: &CommonCircuitData<F, C, D>,
 ) -> FriQueryRound<F, C, D> {

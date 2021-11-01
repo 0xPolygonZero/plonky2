@@ -10,13 +10,13 @@ use crate::hash::hashing::{compress, hash_or_noop, SPONGE_WIDTH};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct MerkleProof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+pub struct MerkleProof<F: RichField, H: Hasher<F>> {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.
-    pub siblings: Vec<<<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash>,
+    pub siblings: Vec<H::Hash>,
 }
 
 #[derive(Clone)]
@@ -30,8 +30,8 @@ pub struct MerkleProofTarget {
 pub(crate) fn verify_merkle_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     leaf_data: Vec<F>,
     leaf_index: usize,
-    merkle_cap: &MerkleCap<C, D>,
-    proof: &MerkleProof<F, C, D>,
+    merkle_cap: &MerkleCap<F, C::Hasher>,
+    proof: &MerkleProof<F, C::Hasher>,
 ) -> Result<()> {
     let mut index = leaf_index;
     let mut current_digest = C::Hasher::hash(leaf_data, false);
@@ -55,7 +55,7 @@ pub(crate) fn verify_merkle_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
     /// given cap. The index is given by it's little-endian bits.
-    pub(crate) fn verify_merkle_proof(
+    pub(crate) fn verify_merkle_proof<H: AlgebraicHasher<F>>(
         &mut self,
         leaf_data: Vec<Target>,
         leaf_index_bits: &[BoolTarget],
@@ -63,13 +63,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
-        let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
+        let mut state: HashOutTarget = self.hash_or_noop::<H>(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
             let mut perm_inputs = [zero; SPONGE_WIDTH];
             perm_inputs[..4].copy_from_slice(&state.elements);
             perm_inputs[4..8].copy_from_slice(&sibling.elements);
-            let outputs = self.permute_swapped(perm_inputs, bit);
+            let outputs = self.permute_swapped::<H>(perm_inputs, bit);
             state = HashOutTarget::from_vec(outputs[0..4].to_vec());
         }
 
@@ -85,7 +85,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Same as `verify_merkle_proof` but with the final "cap index" as extra parameter.
-    pub(crate) fn verify_merkle_proof_with_cap_index(
+    pub(crate) fn verify_merkle_proof_with_cap_index<H: AlgebraicHasher<F>>(
         &mut self,
         leaf_data: Vec<Target>,
         leaf_index_bits: &[BoolTarget],
@@ -94,13 +94,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
-        let mut state: HashOutTarget = self.hash_or_noop(leaf_data);
+        let mut state: HashOutTarget = self.hash_or_noop::<H>(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
             let mut perm_inputs = [zero; SPONGE_WIDTH];
             perm_inputs[..4].copy_from_slice(&state.elements);
             perm_inputs[4..8].copy_from_slice(&sibling.elements);
-            let perm_outs = self.permute_swapped(perm_inputs, bit);
+            let perm_outs = self.permute_swapped::<H>(perm_inputs, bit);
             let hash_outs = perm_outs[0..4].try_into().unwrap();
             state = HashOutTarget {
                 elements: hash_outs,

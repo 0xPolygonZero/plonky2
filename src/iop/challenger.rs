@@ -1,4 +1,5 @@
 use std::convert::TryInto;
+use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
@@ -13,10 +14,11 @@ use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
 
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
 #[derive(Clone)]
-pub struct Challenger<F: RichField> {
+pub struct Challenger<F: RichField, H: AlgebraicHasher<F>> {
     sponge_state: [F; SPONGE_WIDTH],
     input_buffer: Vec<F>,
     output_buffer: Vec<F>,
+    _phantom: PhantomData<H>,
 }
 
 /// Observes prover messages, and generates verifier challenges based on the transcript.
@@ -27,12 +29,13 @@ pub struct Challenger<F: RichField> {
 /// design, but it can be viewed as a duplex sponge whose inputs are sometimes zero (when we perform
 /// multiple squeezes) and whose outputs are sometimes ignored (when we perform multiple
 /// absorptions). Thus the security properties of a duplex sponge still apply to our design.
-impl<F: RichField> Challenger<F> {
-    pub fn new() -> Challenger<F> {
+impl<F: RichField, H: AlgebraicHasher<F>> Challenger<F, H> {
+    pub fn new() -> Challenger<F, H> {
         Challenger {
             sponge_state: [F::ZERO; SPONGE_WIDTH],
             input_buffer: Vec::new(),
             output_buffer: Vec::new(),
+            _phantom: Default::default(),
         }
     }
 
@@ -95,12 +98,9 @@ impl<F: RichField> Challenger<F> {
         self.observe_elements(&hash.elements)
     }
 
-    pub fn observe_cap<C: GenericConfig<D, F = F>, const D: usize>(
-        &mut self,
-        cap: &MerkleCap<C, D>,
-    ) {
+    pub fn observe_cap(&mut self, cap: &MerkleCap<F, H>) {
         for &hash in &cap.0 {
-            C::Hasher::observe_hash(hash, self);
+            H::observe_hash(hash, self);
         }
     }
 
@@ -189,7 +189,7 @@ impl<F: RichField> Challenger<F> {
     }
 }
 
-impl<F: RichField> Default for Challenger<F> {
+impl<F: RichField, H: AlgebraicHasher<F>> Default for Challenger<F, H> {
     fn default() -> Self {
         Self::new()
     }

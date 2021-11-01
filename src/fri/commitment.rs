@@ -23,7 +23,7 @@ pub const SALT_SIZE: usize = 2;
 /// Represents a batch FRI based commitment to a list of polynomials.
 pub struct PolynomialBatchCommitment<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
-    pub merkle_tree: MerkleTree<F, C, D>,
+    pub merkle_tree: MerkleTree<F, C::Hasher>,
     pub degree_log: usize,
     pub rate_bits: usize,
     pub blinding: bool,
@@ -128,7 +128,7 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub(crate) fn open_plonk(
         commitments: &[&Self; 4],
         zeta: F::Extension,
-        challenger: &mut Challenger<F>,
+        challenger: &mut Challenger<F, C::InnerHasher>,
         common_data: &CommonCircuitData<F, C, D>,
         timing: &mut TimingTree,
     ) -> (FriProof<F, C, D>, OpeningSet<F, D>) {

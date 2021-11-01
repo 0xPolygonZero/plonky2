@@ -19,11 +19,11 @@ use crate::util::serialization::Buffer;
 #[serde(bound = "")]
 pub struct Proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of wire values.
-    pub wires_cap: MerkleCap<C, D>,
+    pub wires_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of Z, in the context of Plonk's permutation argument.
-    pub plonk_zs_partial_products_cap: MerkleCap<C, D>,
+    pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of the quotient polynomial components.
-    pub quotient_polys_cap: MerkleCap<C, D>,
+    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A batch FRI argument for all openings.
@@ -109,11 +109,11 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> ProofWithPubl
 #[serde(bound = "")]
 pub struct CompressedProof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of wire values.
-    pub wires_cap: MerkleCap<C, D>,
+    pub wires_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of Z, in the context of Plonk's permutation argument.
-    pub plonk_zs_partial_products_cap: MerkleCap<C, D>,
+    pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of the quotient polynomial components.
-    pub quotient_polys_cap: MerkleCap<C, D>,
+    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A compressed batch FRI argument for all openings.

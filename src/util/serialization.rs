@@ -97,23 +97,23 @@ impl Buffer {
         Ok(<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash::from(buf.to_vec()))
     }
 
-    fn write_merkle_cap<C: GenericConfig<D>, const D: usize>(
+    fn write_merkle_cap<F: RichField, H: Hasher<F>>(
         &mut self,
-        cap: &MerkleCap<C, D>,
+        cap: &MerkleCap<F, H>,
     ) -> Result<()> {
         for &a in &cap.0 {
-            self.write_hash::<C, D>(a)?;
+            self.write_hash::<F, H>(a)?;
         }
         Ok(())
     }
-    fn read_merkle_cap<C: GenericConfig<D>, const D: usize>(
+    fn read_merkle_cap<F: RichField, H: Hasher<F>>(
         &mut self,
         cap_height: usize,
-    ) -> Result<MerkleCap<C, D>> {
+    ) -> Result<MerkleCap<F, H>> {
         let cap_length = 1 << cap_height;
         Ok(MerkleCap(
             (0..cap_length)
-                .map(|_| self.read_hash::<C, D>())
+                .map(|_| self.read_hash::<F, H>())
                 .collect::<Result<Vec<_>>>()?,
         ))
     }
@@ -187,9 +187,9 @@ impl Buffer {
         })
     }
 
-    fn write_merkle_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    fn write_merkle_proof<F: RichField, H: Hasher<F>>(
         &mut self,
-        p: &MerkleProof<F, C, D>,
+        p: &MerkleProof<F, H>,
     ) -> Result<()> {
         let length = p.siblings.len();
         self.write_u8(
@@ -198,17 +198,15 @@ impl Buffer {
                 .expect("Merkle proof length must fit in u8."),
         )?;
         for &h in &p.siblings {
-            self.write_hash::<C, D>(h)?;
+            self.write_hash::<F, H>(h)?;
         }
         Ok(())
     }
-    fn read_merkle_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-        &mut self,
-    ) -> Result<MerkleProof<F, C, D>> {
+    fn read_merkle_proof<F: RichField, H: Hasher<F>>(&mut self) -> Result<MerkleProof<F, H>> {
         let length = self.read_u8()?;
         Ok(MerkleProof {
             siblings: (0..length)
-                .map(|_| self.read_hash::<C, D>())
+                .map(|_| self.read_hash::<F, H>())
                 .collect::<Result<Vec<_>>>()?,
         })
     }

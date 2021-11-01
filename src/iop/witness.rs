@@ -9,7 +9,7 @@ use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
-use crate::plonk::config::{AlgebraicConfig, GenericConfig};
+use crate::plonk::config::{AlgebraicConfig, AlgebraicHasher, GenericConfig};
 
 /// A witness holds information on the values of targets in a circuit.
 pub trait Witness<F: Field> {
@@ -83,13 +83,11 @@ pub trait Witness<F: Field> {
             .for_each(|(&t, x)| self.set_target(t, x));
     }
 
-    fn set_cap_target<C: AlgebraicConfig<D, F = F>, const D: usize>(
+    fn set_cap_target<H: AlgebraicHasher<F>>(
         &mut self,
         ct: &MerkleCapTarget,
-        value: &MerkleCap<C, D>,
-    ) where
-        F: RichField,
-    {
+        value: &MerkleCap<F, H>,
+    ) {
         for (ht, h) in ct.0.iter().zip(&value.0) {
             self.set_hash_target(*ht, *h);
         }

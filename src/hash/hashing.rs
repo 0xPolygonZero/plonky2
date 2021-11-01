@@ -7,17 +7,18 @@ use crate::field::field_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::config::AlgebraicHasher;
 
 pub(crate) const SPONGE_RATE: usize = 8;
 pub(crate) const SPONGE_CAPACITY: usize = 4;
 pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 
-pub(crate) const HASH_FAMILY: HashFamily = HashFamily::Poseidon;
-
-pub(crate) enum HashFamily {
-    GMiMC,
-    Poseidon,
-}
+// pub(crate) const HASH_FAMILY: HashFamily = HashFamily::Poseidon;
+//
+// pub(crate) enum HashFamily {
+//     GMiMC,
+//     Poseidon,
+// }
 
 /// Hash the vector if necessary to reduce its length to ~256 bits. If it already fits, this is a
 /// no-op.
@@ -30,20 +31,24 @@ pub fn hash_or_noop<F: RichField, P: PlonkyPermutation<F>>(inputs: Vec<F>) -> Ha
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn hash_or_noop(&mut self, inputs: Vec<Target>) -> HashOutTarget {
+    pub fn hash_or_noop<H: AlgebraicHasher<F>>(&mut self, inputs: Vec<Target>) -> HashOutTarget {
         let zero = self.zero();
         if inputs.len() <= 4 {
             HashOutTarget::from_partial(inputs, zero)
         } else {
-            self.hash_n_to_hash(inputs, false)
+            self.hash_n_to_hash::<H>(inputs, false)
         }
     }
 
-    pub fn hash_n_to_hash(&mut self, inputs: Vec<Target>, pad: bool) -> HashOutTarget {
-        HashOutTarget::from_vec(self.hash_n_to_m(inputs, 4, pad))
+    pub fn hash_n_to_hash<H: AlgebraicHasher<F>>(
+        &mut self,
+        inputs: Vec<Target>,
+        pad: bool,
+    ) -> HashOutTarget {
+        HashOutTarget::from_vec(self.hash_n_to_m::<H>(inputs, 4, pad))
     }
 
-    pub fn hash_n_to_m(
+    pub fn hash_n_to_m<H: AlgebraicHasher<F>>(
         &mut self,
         mut inputs: Vec<Target>,
         num_outputs: usize,
@@ -68,7 +73,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             // where we would xor or add in the inputs. This is a well-known variant, though,
             // sometimes called "overwrite mode".
             state[..input_chunk.len()].copy_from_slice(input_chunk);
-            state = self.permute(state);
+            state = self.permute::<H>(state);
         }
 
         // Squeeze until we have the desired number of outputs.
@@ -80,7 +85,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     return outputs;
                 }
             }
-            state = self.permute(state);
+            state = self.permute::<H>(state);
         }
     }
 }

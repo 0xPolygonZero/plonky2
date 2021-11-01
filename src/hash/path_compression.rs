@@ -9,15 +9,11 @@ use crate::hash::merkle_proofs::MerkleProof;
 use crate::plonk::config::{GenericConfig, Hasher};
 
 /// Compress multiple Merkle proofs on the same tree by removing redundancy in the Merkle paths.
-pub(crate) fn compress_merkle_proofs<
-    F: Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
+pub(crate) fn compress_merkle_proofs<F: RichField, H: Hasher<F>>(
     cap_height: usize,
     indices: &[usize],
-    proofs: &[MerkleProof<F, C, D>],
-) -> Vec<MerkleProof<F, C, D>> {
+    proofs: &[MerkleProof<F, H>],
+) -> Vec<MerkleProof<F, H>> {
     assert!(!proofs.is_empty());
     let height = cap_height + proofs[0].siblings.len();
     let num_leaves = 1 << height;
@@ -57,17 +53,13 @@ pub(crate) fn compress_merkle_proofs<
 
 /// Decompress compressed Merkle proofs.
 /// Note: The data and indices must be in the same order as in `compress_merkle_proofs`.
-pub(crate) fn decompress_merkle_proofs<
-    F: Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
+pub(crate) fn decompress_merkle_proofs<F: RichField, H: Hasher<F>>(
     leaves_data: &[Vec<F>],
     leaves_indices: &[usize],
-    compressed_proofs: &[MerkleProof<F, C, D>],
+    compressed_proofs: &[MerkleProof<F, H>],
     height: usize,
     cap_height: usize,
-) -> Vec<MerkleProof<F, C, D>> {
+) -> Vec<MerkleProof<F, H>> {
     let num_leaves = 1 << height;
     let compressed_proofs = compressed_proofs.to_vec();
     let mut decompressed_proofs = Vec::with_capacity(compressed_proofs.len());
@@ -76,7 +68,7 @@ pub(crate) fn decompress_merkle_proofs<
 
     for (&i, v) in leaves_indices.iter().zip(leaves_data) {
         // Observe the leaves.
-        seen.insert(i + num_leaves, C::Hasher::hash(v.to_vec(), false));
+        seen.insert(i + num_leaves, H::hash(v.to_vec(), false));
     }
 
     // Iterators over the siblings.
@@ -94,9 +86,9 @@ pub(crate) fn decompress_merkle_proofs<
                 .entry(sibling_index)
                 .or_insert_with(|| *p.next().unwrap());
             let parent_hash = if index.is_even() {
-                C::Hasher::two_to_one(current_hash, sibling_hash)
+                H::two_to_one(current_hash, sibling_hash)
             } else {
-                C::Hasher::two_to_one(sibling_hash, current_hash)
+                H::two_to_one(sibling_hash, current_hash)
             };
             seen.insert(index >> 1, parent_hash);
         }

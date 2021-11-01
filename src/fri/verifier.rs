@@ -64,7 +64,7 @@ pub(crate) fn verify_fri_proof<
     // Openings of the PLONK polynomials.
     os: &OpeningSet<F, D>,
     challenges: &ProofChallenges<F, D>,
-    initial_merkle_caps: &[MerkleCap<C, D>],
+    initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
     proof: &FriProof<F, C, D>,
     common_data: &CommonCircuitData<F, C, D>,
 ) -> Result<()> {
@@ -111,7 +111,7 @@ pub(crate) fn verify_fri_proof<
 fn fri_verify_initial_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     x_index: usize,
     proof: &FriInitialTreeProof<F, C, D>,
-    initial_merkle_caps: &[MerkleCap<C, D>],
+    initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
 ) -> Result<()> {
     for ((evals, merkle_proof), cap) in proof.evals_proofs.iter().zip(initial_merkle_caps) {
         verify_merkle_proof::<F, C, D>(evals.clone(), x_index, cap, merkle_proof)?;
@@ -215,7 +215,7 @@ pub(crate) fn fri_combine_initial<F: Extendable<D>, C: GenericConfig<D, F = F>, 
 fn fri_verifier_query_round<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenges: &ProofChallenges<F, D>,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
-    initial_merkle_caps: &[MerkleCap<C, D>],
+    initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
     proof: &FriProof<F, C, D>,
     mut x_index: usize,
     n: usize,

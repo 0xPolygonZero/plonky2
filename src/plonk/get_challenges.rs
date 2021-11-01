@@ -19,11 +19,11 @@ use crate::util::reverse_bits;
 
 fn get_challenges<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
-    wires_cap: &MerkleCap<C, D>,
-    plonk_zs_partial_products_cap: &MerkleCap<C, D>,
-    quotient_polys_cap: &MerkleCap<C, D>,
+    wires_cap: &MerkleCap<F, C::Hasher>,
+    plonk_zs_partial_products_cap: &MerkleCap<F, C::Hasher>,
+    quotient_polys_cap: &MerkleCap<F, C::Hasher>,
     openings: &OpeningSet<F, D>,
-    commit_phase_merkle_caps: &[MerkleCap<C, D>],
+    commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
     final_poly: &PolynomialCoeffs<F::Extension>,
     pow_witness: F,
     common_data: &CommonCircuitData<F, C, D>,
