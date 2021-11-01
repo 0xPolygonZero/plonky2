@@ -1,10 +1,16 @@
 use std::arch::aarch64::*;
 use std::convert::TryInto;
 
+use static_assertions::const_assert;
 use unroll::unroll_for_loops;
 
+use crate::field::field_types::PrimeField;
 use crate::field::goldilocks_field::GoldilocksField;
-use crate::hash::poseidon::{ALL_ROUND_CONSTANTS, HALF_N_FULL_ROUNDS, N_PARTIAL_ROUNDS};
+use crate::hash::poseidon::{
+    Poseidon, ALL_ROUND_CONSTANTS, HALF_N_FULL_ROUNDS, N_PARTIAL_ROUNDS, N_ROUNDS,
+};
+
+// ========================================== CONSTANTS ===========================================
 
 const WIDTH: usize = 12;
 
@@ -34,6 +40,69 @@ const fn make_final_round_constants() -> [u64; WIDTH * HALF_N_FULL_ROUNDS] {
     res
 }
 const FINAL_ROUND_CONSTANTS: [u64; WIDTH * HALF_N_FULL_ROUNDS] = make_final_round_constants();
+
+// ===================================== COMPILE-TIME CHECKS ======================================
+
+/// The MDS matrix multiplication ASM is specific to the MDS matrix below. We want this file to
+/// fail to compile if it has been changed.
+#[allow(dead_code)]
+const fn check_mds_matrix() -> bool {
+    // Can't == two arrays in a const_assert! (:
+    let mut i = 0;
+    let wanted_matrix_exps = [0, 0, 1, 0, 3, 5, 1, 8, 12, 3, 16, 10];
+    while i < WIDTH {
+        if <GoldilocksField as Poseidon<12>>::MDS_MATRIX_EXPS[i] != wanted_matrix_exps[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+const_assert!(check_mds_matrix());
+
+/// The maximum amount by which the MDS matrix will multiply the input.
+/// i.e. max(MDS(state)) <= mds_matrix_inf_norm() * max(state).
+const fn mds_matrix_inf_norm() -> u64 {
+    let mut cumul = 0;
+    let mut i = 0;
+    while i < WIDTH {
+        cumul += 1 << <GoldilocksField as Poseidon<12>>::MDS_MATRIX_EXPS[i];
+        i += 1;
+    }
+    cumul
+}
+
+/// Ensure that adding round constants to the low result of the MDS multiplication can never
+/// overflow.
+#[allow(dead_code)]
+const fn check_round_const_bounds_mds() -> bool {
+    let max_mds_res = mds_matrix_inf_norm() * (u32::MAX as u64);
+    let mut i = WIDTH; // First const layer is handled specially.
+    while i < WIDTH * N_ROUNDS {
+        if ALL_ROUND_CONSTANTS[i].overflowing_add(max_mds_res).1 {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+const_assert!(check_round_const_bounds_mds());
+
+/// Ensure that the first WIDTH round constants are in canonical* form. This is required because
+/// the first constant layer does not handle double overflow.
+/// *: round_const == GoldilocksField::ORDER is safe.
+#[allow(dead_code)]
+const fn check_round_const_bounds_init() -> bool {
+    let mut i = 0;
+    while i < WIDTH {
+        if ALL_ROUND_CONSTANTS[i] > GoldilocksField::ORDER {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+const_assert!(check_round_const_bounds_init());
 
 // ====================================== SCALAR ARITHMETIC =======================================
 
