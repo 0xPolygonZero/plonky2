@@ -7,7 +7,7 @@ use crate::gadgets::biguint::BigUintTarget;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 pub struct ForeignFieldTarget<FF: Field> {
-    limbs: Vec<U32Target>,
+    value: BigUintTarget,
     _phantom: PhantomData<FF>,
 }
 
@@ -23,15 +23,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn biguint_to_ff<FF: Field>(&mut self, x: &BigUintTarget) -> ForeignFieldTarget<FF> {
         ForeignFieldTarget {
-            limbs: x.limbs.clone(),
+            value: x.clone(),
             _phantom: PhantomData,
         }
     }
 
     pub fn ff_to_biguint<FF: Field>(&mut self, x: &ForeignFieldTarget<FF>) -> BigUintTarget {
-        BigUintTarget {
-            limbs: x.limbs.clone(),
-        }
+        x.value.clone()
     }
 
     pub fn constant_ff<FF: Field>(&mut self, x: FF) -> ForeignFieldTarget<FF> {
@@ -45,18 +43,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         lhs: &ForeignFieldTarget<FF>,
         rhs: &ForeignFieldTarget<FF>,
     ) {
-        let min_limbs = lhs.limbs.len().min(rhs.limbs.len());
-
-        for i in 0..min_limbs {
-            self.connect_u32(lhs.limbs[i], rhs.limbs[i]);
-        }
-
-        for i in min_limbs..lhs.limbs.len() {
-            self.assert_zero_u32(lhs.limbs[i]);
-        }
-        for i in min_limbs..rhs.limbs.len() {
-            self.assert_zero_u32(rhs.limbs[i]);
-        }
+        self.connect_biguint(&lhs.value, &rhs.value);
     }
 
     // Add two `ForeignFieldTarget`s.
@@ -104,7 +91,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let value = self.rem_biguint(x, &order_target);
 
         ForeignFieldTarget {
-            limbs: value.limbs,
+            value,
             _phantom: PhantomData,
         }
     }
