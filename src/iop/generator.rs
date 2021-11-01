@@ -160,6 +160,8 @@ impl<F: Field> GeneratedValues<F> {
 
     pub fn set_biguint_target(&mut self, target: BigUintTarget, value: BigUint) {
         let mut limbs = value.to_u32_digits();
+        assert!(target.num_limbs() >= limbs.len());
+
         limbs.resize(target.num_limbs(), 0);
         for i in 0..target.num_limbs() {
             self.set_u32_target(target.get_limb(i), limbs[i]);

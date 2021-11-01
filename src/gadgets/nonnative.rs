@@ -155,7 +155,10 @@ mod tests {
     fn test_nonnative_sub() -> Result<()> {
         type FF = Secp256K1Base;
         let x_ff = FF::rand();
-        let y_ff = FF::rand();
+        let mut y_ff = FF::rand();
+        while y_ff.to_biguint() > x_ff.to_biguint() {
+            y_ff = FF::rand();
+        }
         let diff_ff = x_ff - y_ff;
 
         type F = CrandallField;
