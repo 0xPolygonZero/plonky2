@@ -358,6 +358,30 @@ impl Poseidon<12> for GoldilocksField {
         }
     }
 
+    #[cfg(all(target_arch="x86_64", target_feature="avx2", target_feature="bmi2"))]
+    #[inline(always)]
+    fn constant_layer(state: &mut [Self; 12], round_ctr: usize) {
+        unsafe {
+            crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::constant_layer(state, round_ctr);
+        }
+    }
+
+    #[cfg(all(target_arch="x86_64", target_feature="avx2", target_feature="bmi2"))]
+    #[inline(always)]
+    fn sbox_layer(state: &mut [Self; 12]) {
+        unsafe {
+            crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::sbox_layer(state);
+        }
+    }
+
+    #[cfg(all(target_arch="x86_64", target_feature="avx2", target_feature="bmi2"))]
+    #[inline(always)]
+    fn mds_layer(state: &[Self; 12]) -> [Self; 12] {
+        unsafe {
+            crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::mds_layer(state)
+        }
+    }
+
     #[cfg(all(target_arch="aarch64", target_feature="neon"))]
     #[inline]
     fn poseidon(input: [Self; 12]) -> [Self; 12] {
