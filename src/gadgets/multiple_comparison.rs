@@ -82,7 +82,9 @@ mod tests {
 
         let mut rng = rand::thread_rng();
 
-        let lst1: Vec<u64> = (0..size).map(|_| rng.gen_range(0..(1 << num_bits))).collect();
+        let lst1: Vec<u64> = (0..size)
+            .map(|_| rng.gen_range(0..(1 << num_bits)))
+            .collect();
         let lst2: Vec<u64> = (0..size)
             .map(|i| {
                 let mut res = rng.gen_range(0..(1 << num_bits));
