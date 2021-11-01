@@ -50,10 +50,10 @@ impl<F: RichField + Extendable<D>, const D: usize> U32SubtractionGate<F, D> {
         5 * i + 4
     }
 
-    // We have limbs ony for the first half of the output.
     pub fn limb_bits() -> usize {
         2
     }
+    // We have limbs for the 32 bits of `output_result`.
     pub fn num_limbs() -> usize {
         32 / Self::limb_bits()
     }

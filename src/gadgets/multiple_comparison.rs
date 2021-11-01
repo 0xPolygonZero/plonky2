@@ -74,7 +74,7 @@ mod tests {
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
 
-    fn test_list_le(size: usize) -> Result<()> {
+    fn test_list_le(size: usize, num_bits: usize) -> Result<()> {
         type F = CrandallField;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new();
@@ -82,26 +82,26 @@ mod tests {
 
         let mut rng = rand::thread_rng();
 
-        let lst1: Vec<u32> = (0..size).map(|_| rng.gen()).collect();
-        let lst2: Vec<u32> = (0..size)
+        let lst1: Vec<u64> = (0..size).map(|_| rng.gen_range(0..(1 << num_bits))).collect();
+        let lst2: Vec<u64> = (0..size)
             .map(|i| {
-                let mut res = rng.gen();
+                let mut res = rng.gen_range(0..(1 << num_bits));
                 while res <= lst1[i] {
-                    res = rng.gen();
+                    res = rng.gen_range(0..(1 << num_bits));
                 }
                 res
             })
             .collect();
         let a = lst1
             .iter()
-            .map(|&x| builder.constant(F::from_canonical_u32(x)))
+            .map(|&x| builder.constant(F::from_canonical_u64(x)))
             .collect();
         let b = lst2
             .iter()
-            .map(|&x| builder.constant(F::from_canonical_u32(x)))
+            .map(|&x| builder.constant(F::from_canonical_u64(x)))
             .collect();
 
-        let result = builder.list_le(a, b, 32);
+        let result = builder.list_le(a, b, num_bits);
 
         let expected_result = builder.constant_bool(true);
         builder.connect(result.target, expected_result.target);
@@ -112,22 +112,13 @@ mod tests {
     }
 
     #[test]
-    fn test_multiple_comparison_trivial() -> Result<()> {
-        test_list_le(1)
-    }
+    fn test_multiple_comparison() -> Result<()> {
+        for size in [1, 3, 6, 10] {
+            for num_bits in [20, 32, 40, 50] {
+                test_list_le(size, num_bits).unwrap();
+            }
+        }
 
-    #[test]
-    fn test_multiple_comparison_small() -> Result<()> {
-        test_list_le(3)
-    }
-
-    #[test]
-    fn test_multiple_comparison_medium() -> Result<()> {
-        test_list_le(6)
-    }
-
-    #[test]
-    fn test_multiple_comparison_large() -> Result<()> {
-        test_list_le(10)
+        Ok(())
     }
 }
