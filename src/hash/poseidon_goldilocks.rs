@@ -350,11 +350,11 @@ impl Poseidon<12> for GoldilocksField {
          0x2c3887c29246a985, 0x863ca0992eae09b0, 0xb8dee12bf8e622dc, ],
     ];
 
-    #[cfg(all(target_arch="x86_64", target_feature="avx2", target_feature="bmi2"))]
+    #[cfg(all(target_arch="x86_64", target_feature="avx2", target_feature="bmi2", target_feature="fma"))]
     #[inline]
     fn poseidon(input: [Self; 12]) -> [Self; 12] {
         unsafe {
-            crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::poseidon(&input)
+            crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2_fma::poseidon(&input)
         }
     }
 
