@@ -1071,10 +1071,7 @@ pub unsafe fn sbox_layer(state: &mut [GoldilocksField; WIDTH]) {
 pub unsafe fn mds_layer(state: &[GoldilocksField; WIDTH]) -> [GoldilocksField; WIDTH] {
     let state = unwrap_state(*state);
     // We want to do an MDS layer without the constant layer.
-    // The FINAL_ROUND_CONSTANTS for the last round are all 0.
-    let round_consts = FINAL_ROUND_CONSTANTS[WIDTH * (HALF_N_FULL_ROUNDS - 1)..]
-        .try_into()
-        .unwrap();
-    let state = mds_const_layers_full(state, round_consts);
+    let round_consts = [0u64; WIDTH];
+    let state = mds_const_layers_full(state, &round_consts);
     wrap_state(state)
 }
