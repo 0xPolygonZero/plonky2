@@ -314,7 +314,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         round_proof: &FriQueryRoundTarget<D>,
         common_data: &CommonCircuitData<F, D>,
     ) {
-        let config = &common_data.config;
         let n_log = log2_strict(n);
         // TODO: Do we need to range check `x_index` to a target smaller than `p`?
         let x_index = challenger.get_challenge(self);
