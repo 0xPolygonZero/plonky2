@@ -31,14 +31,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn connect_affine_point<C: Curve>(
         &mut self,
-        lhs: AffinePointTarget<C>,
-        rhs: AffinePointTarget<C>,
+        lhs: &AffinePointTarget<C>,
+        rhs: &AffinePointTarget<C>,
     ) {
         self.connect_nonnative(&lhs.x, &rhs.x);
         self.connect_nonnative(&lhs.y, &rhs.y);
     }
 
-    pub fn curve_assert_valid<C: Curve>(&mut self, p: AffinePointTarget<C>) {
+    pub fn curve_assert_valid<C: Curve>(&mut self, p: &AffinePointTarget<C>) {
         let a = self.constant_nonnative(C::A);
         let b = self.constant_nonnative(C::B);
 
@@ -52,9 +52,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect_nonnative(&y_squared, &rhs);
     }
 
-    pub fn curve_neg<C: Curve>(&mut self, p: AffinePointTarget<C>) -> AffinePointTarget<C> {
+    pub fn curve_neg<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C> {
         let neg_y = self.neg_nonnative(&p.y);
-        AffinePointTarget { x: p.x, y: neg_y }
+        AffinePointTarget {
+            x: p.x.clone(),
+            y: neg_y,
+        }
     }
 }
 
@@ -83,8 +86,10 @@ mod tests {
 
         let g = Secp256K1::GENERATOR_AFFINE;
         let g_target = builder.constant_affine_point(g);
+        let neg_g_target = builder.curve_neg(&g_target);
 
-        builder.curve_assert_valid(g_target);
+        builder.curve_assert_valid(&g_target);
+        builder.curve_assert_valid(&neg_g_target);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
@@ -109,9 +114,9 @@ mod tests {
             y: g.y + Secp256K1Base::ONE,
             zero: g.zero,
         };
-        let g_target = builder.constant_affine_point(not_g);
+        let not_g_target = builder.constant_affine_point(not_g);
 
-        builder.curve_assert_valid(g_target);
+        builder.curve_assert_valid(&not_g_target);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
