@@ -82,6 +82,9 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     // chunk_size, and contains `(g, i, c)`, if the gate `g`, at index `i`, already contains `c` copies
     // of switches
     pub(crate) current_switch_gates: Vec<Option<(SwitchGate<F, D>, usize, usize)>>,
+
+    /// An available `ConstantGate` instance, if any.
+    free_constant: Option<(usize, usize)>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -101,6 +104,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             free_arithmetic: HashMap::new(),
             free_random_access: HashMap::new(),
             current_switch_gates: Vec::new(),
+            free_constant: None,
         };
         builder.check_config();
         builder
@@ -194,7 +198,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         let index = self.gate_instances.len();
-        self.add_generators(gate_type.generators(index, &constants));
+
+        // Note that we can't immediately add this gate's generators, because the list of constants
+        // could be modified later, i.e. in the case of `ConstantGate`. We will add them later in
+        // `build` instead.
 
         // Register this gate type if we haven't seen it before.
         let gate_ref = GateRef::new(gate_type);
@@ -291,14 +298,34 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return target;
         }
 
-        let gate = self.add_gate(ConstantGate, vec![c]);
-        let target = Target::Wire(Wire {
-            gate,
-            input: ConstantGate::WIRE_OUTPUT,
-        });
+        let (gate, instance) = self.constant_gate_instance();
+        let target = Target::wire(gate, instance);
+        self.gate_instances[gate].constants[instance] = c;
+
         self.constants_to_targets.insert(c, target);
         self.targets_to_constants.insert(target, c);
+
         target
+    }
+
+    /// Returns the gate index and copy index of a free `ConstantGate` slot, potentially adding a
+    /// new `ConstantGate` if needed.
+    fn constant_gate_instance(&mut self) -> (usize, usize) {
+        if self.free_constant.is_none() {
+            let num_consts = self.config.constant_gate_size;
+            // We will fill this `ConstantGate` with zero constants initially.
+            // These will be overwritten by `constant` as the gate instances are filled.
+            let gate = self.add_gate(ConstantGate { num_consts }, vec![F::ZERO; num_consts]);
+            self.free_constant = Some((gate, 0));
+        }
+
+        let (gate, instance) = self.free_constant.unwrap();
+        if instance + 1 < self.config.constant_gate_size {
+            self.free_constant = Some((gate, instance + 1));
+        } else {
+            self.free_constant = None;
+        }
+        (gate, instance)
     }
 
     pub fn constants(&mut self, constants: &[F]) -> Vec<Target> {
@@ -695,6 +722,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let verifier_only = VerifierOnlyCircuitData {
             constants_sigmas_cap: constants_sigmas_cap.clone(),
         };
+
+        // Add gate generators.
+        self.add_generators(
+            self.gate_instances
+                .iter()
+                .enumerate()
+                .flat_map(|(index, gate)| gate.gate_ref.0.generators(index, &gate.constants))
+                .collect(),
+        );
 
         // Index generator indices by their watched targets.
         let mut generator_indices_by_watches = BTreeMap::new();

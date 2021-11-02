@@ -25,6 +25,7 @@ use crate::util::timing::TimingTree;
 pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
+    pub constant_gate_size: usize,
     pub security_bits: usize,
     pub rate_bits: usize,
     /// The number of challenge points to generate, for IOPs that have soundness errors of (roughly)
@@ -53,6 +54,7 @@ impl CircuitConfig {
         Self {
             num_wires: 143,
             num_routed_wires: 28,
+            constant_gate_size: 6,
             security_bits: 100,
             rate_bits: 3,
             num_challenges: 2,
@@ -71,6 +73,7 @@ impl CircuitConfig {
         Self {
             num_wires: 143,
             num_routed_wires: 64,
+            constant_gate_size: 6,
             security_bits: 4,
             rate_bits: 3,
             num_challenges: 3,

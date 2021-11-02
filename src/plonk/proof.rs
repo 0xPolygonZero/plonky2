@@ -333,7 +333,7 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
 
         let mut config = CircuitConfig::large_config();
-        config.fri_config.reduction_strategy = FriReductionStrategy::Fixed(vec![2, 1]);
+        config.fri_config.reduction_strategy = FriReductionStrategy::Fixed(vec![1, 1]);
         config.fri_config.num_query_rounds = 50;
 
         let pw = PartialWitness::new();

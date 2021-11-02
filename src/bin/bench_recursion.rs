@@ -29,6 +29,7 @@ fn bench_prove() -> Result<()> {
     let config = CircuitConfig {
         num_wires: 126,
         num_routed_wires: 33,
+        constant_gate_size: 6,
         security_bits: 128,
         rate_bits: 3,
         num_challenges: 3,
