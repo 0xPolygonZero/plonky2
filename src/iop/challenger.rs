@@ -94,13 +94,14 @@ impl<F: RichField, H: AlgebraicHasher<F>> Challenger<F, H> {
         }
     }
 
-    pub fn observe_hash(&mut self, hash: &HashOut<F>) {
-        self.observe_elements(&hash.elements)
+    pub fn observe_hash<OH: Hasher<F>>(&mut self, hash: OH::Hash) {
+        let felts: Vec<F> = hash.into();
+        self.observe_elements(&felts)
     }
 
-    pub fn observe_cap(&mut self, cap: &MerkleCap<F, H>) {
+    pub fn observe_cap<OH: Hasher<F>>(&mut self, cap: &MerkleCap<F, OH>) {
         for &hash in &cap.0 {
-            H::observe_hash(hash, self);
+            self.observe_hash::<OH>(hash);
         }
     }
 
@@ -196,16 +197,14 @@ impl<F: RichField, H: AlgebraicHasher<F>> Default for Challenger<F, H> {
 }
 
 /// A recursive version of `Challenger`.
-pub struct RecursiveChallenger {
+pub struct RecursiveChallenger<F: Extendable<D>, H: AlgebraicHasher<F>, const D: usize> {
     sponge_state: [Target; SPONGE_WIDTH],
     input_buffer: Vec<Target>,
     output_buffer: Vec<Target>,
 }
 
-impl RecursiveChallenger {
-    pub(crate) fn new<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+impl<F: Extendable<D>, H: AlgebraicHasher<F>, const D: usize> RecursiveChallenger<F, H, D> {
+    pub(crate) fn new(builder: &mut CircuitBuilder<F, D>) -> Self {
         let zero = builder.zero();
         RecursiveChallenger {
             sponge_state: [zero; SPONGE_WIDTH],
@@ -227,7 +226,7 @@ impl RecursiveChallenger {
         }
     }
 
-    pub fn observe_opening_set<const D: usize>(&mut self, os: &OpeningSetTarget<D>) {
+    pub fn observe_opening_set(&mut self, os: &OpeningSetTarget<D>) {
         let OpeningSetTarget {
             constants,
             plonk_sigmas,
@@ -260,25 +259,22 @@ impl RecursiveChallenger {
         }
     }
 
-    pub fn observe_extension_element<const D: usize>(&mut self, element: ExtensionTarget<D>) {
+    pub fn observe_extension_element(&mut self, element: ExtensionTarget<D>) {
         self.observe_elements(&element.0);
     }
 
-    pub fn observe_extension_elements<const D: usize>(&mut self, elements: &[ExtensionTarget<D>]) {
+    pub fn observe_extension_elements(&mut self, elements: &[ExtensionTarget<D>]) {
         for &element in elements {
             self.observe_extension_element(element);
         }
     }
 
-    pub(crate) fn get_challenge<F: RichField + Extendable<D>, const D: usize>(
-        &mut self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Target {
+    pub(crate) fn get_challenge(&mut self, builder: &mut CircuitBuilder<F, D>) -> Target {
         self.absorb_buffered_inputs(builder);
 
         if self.output_buffer.is_empty() {
             // Evaluate the permutation to produce `r` new outputs.
-            self.sponge_state = builder.permute(self.sponge_state);
+            self.sponge_state = builder.permute::<H>(self.sponge_state);
             self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();
         }
 
@@ -287,7 +283,7 @@ impl RecursiveChallenger {
             .expect("Output buffer should be non-empty")
     }
 
-    pub(crate) fn get_n_challenges<F: RichField + Extendable<D>, const D: usize>(
+    pub(crate) fn get_n_challenges(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         n: usize,
@@ -295,10 +291,7 @@ impl RecursiveChallenger {
         (0..n).map(|_| self.get_challenge(builder)).collect()
     }
 
-    pub fn get_hash<F: RichField + Extendable<D>, const D: usize>(
-        &mut self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> HashOutTarget {
+    pub fn get_hash(&mut self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         HashOutTarget {
             elements: [
                 self.get_challenge(builder),
@@ -309,7 +302,7 @@ impl RecursiveChallenger {
         }
     }
 
-    pub fn get_extension_challenge<F: RichField + Extendable<D>, const D: usize>(
+    pub fn get_extension_challenge(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D> {
@@ -317,10 +310,7 @@ impl RecursiveChallenger {
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.
-    fn absorb_buffered_inputs<F: RichField + Extendable<D>, const D: usize>(
-        &mut self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) {
+    fn absorb_buffered_inputs(&mut self, builder: &mut CircuitBuilder<F, D>) {
         if self.input_buffer.is_empty() {
             return;
         }
@@ -334,7 +324,7 @@ impl RecursiveChallenger {
             }
 
             // Apply the permutation.
-            self.sponge_state = builder.permute(self.sponge_state);
+            self.sponge_state = builder.permute::<H>(self.sponge_state);
         }
 
         self.output_buffer = self.sponge_state[0..SPONGE_RATE].to_vec();

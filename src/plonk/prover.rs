@@ -82,8 +82,8 @@ pub(crate) fn prove<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize
     let mut challenger = Challenger::new();
 
     // Observe the instance.
-    C::Hasher::observe_hash(common_data.circuit_digest, &mut challenger);
-    C::InnerHasher::observe_hash(public_inputs_hash, &mut challenger);
+    challenger.observe_hash::<C::Hasher>(common_data.circuit_digest);
+    challenger.observe_hash::<C::InnerHasher>(public_inputs_hash);
 
     challenger.observe_cap(&wires_commitment.merkle_tree.cap);
     let betas = challenger.get_n_challenges::<C, D>(num_challenges);

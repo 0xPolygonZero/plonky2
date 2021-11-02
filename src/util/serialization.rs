@@ -81,20 +81,15 @@ impl Buffer {
         ))
     }
 
-    fn write_hash<C: GenericConfig<D>, const D: usize>(
-        &mut self,
-        h: <<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
-    ) -> Result<()> {
+    fn write_hash<F: RichField, H: Hasher<F>>(&mut self, h: H::Hash) -> Result<()> {
         let bytes: Vec<u8> = h.into();
         self.0.write_all(&bytes)
     }
 
-    fn read_hash<C: GenericConfig<D>, const D: usize>(
-        &mut self,
-    ) -> Result<<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash> {
-        let mut buf = vec![0; C::Hasher::HASH_SIZE];
+    fn read_hash<F: RichField, H: Hasher<F>>(&mut self) -> Result<H::Hash> {
+        let mut buf = vec![0; H::HASH_SIZE];
         self.0.read_exact(&mut buf)?;
-        Ok(<<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash::from(buf.to_vec()))
+        Ok(H::Hash::from(buf.to_vec()))
     }
 
     fn write_merkle_cap<F: RichField, H: Hasher<F>>(

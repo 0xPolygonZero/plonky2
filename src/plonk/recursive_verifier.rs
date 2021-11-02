@@ -28,7 +28,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let num_challenges = inner_config.num_challenges;
 
-        let public_inputs_hash = &self.hash_n_to_hash(public_inputs, true);
+        let public_inputs_hash = &self.hash_n_to_hash::<C::InnerHasher>(public_inputs, true);
 
         let mut challenger = RecursiveChallenger::new(self);
 

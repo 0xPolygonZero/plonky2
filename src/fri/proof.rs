@@ -97,7 +97,7 @@ pub struct CompressedFriQueryRounds<F: Extendable<D>, C: GenericConfig<D, F = F>
 #[serde(bound = "")]
 pub struct FriProof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// A Merkle cap for each reduced polynomial in the commit phase.
-    pub commit_phase_merkle_caps: Vec<MerkleCap<C, C::Hasher>>,
+    pub commit_phase_merkle_caps: Vec<MerkleCap<F, C::Hasher>>,
     /// Query rounds proofs
     pub query_round_proofs: Vec<FriQueryRound<F, C, D>>,
     /// The final polynomial in coefficient form.
@@ -117,7 +117,7 @@ pub struct FriProofTarget<const D: usize> {
 #[serde(bound = "")]
 pub struct CompressedFriProof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// A Merkle cap for each reduced polynomial in the commit phase.
-    pub commit_phase_merkle_caps: Vec<MerkleCap<C, C::Hasher>>,
+    pub commit_phase_merkle_caps: Vec<MerkleCap<F, C::Hasher>>,
     /// Compressed query rounds proof.
     pub query_round_proofs: CompressedFriQueryRounds<F, C, D>,
     /// The final polynomial in coefficient form.

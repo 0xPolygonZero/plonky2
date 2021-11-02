@@ -49,7 +49,7 @@ fn bench_prove() -> Result<()> {
 
     let mut state = [zero; SPONGE_WIDTH];
     for _ in 0..10000 {
-        state = builder.permute(state);
+        state = builder.permute::<<C as GenericConfig<D>>::InnerHasher>(state);
     }
 
     // Random other gates.

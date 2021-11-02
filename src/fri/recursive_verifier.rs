@@ -92,7 +92,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn fri_verify_proof_of_work<H: AlgebraicHasher<F>>(
         &mut self,
         proof: &FriProofTarget<D>,
-        challenger: &mut RecursiveChallenger,
+        challenger: &mut RecursiveChallenger<F, H, D>,
         config: &FriConfig,
     ) {
         let mut inputs = challenger.get_hash(self).elements.to_vec();
@@ -113,7 +113,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         zeta: ExtensionTarget<D>,
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
-        challenger: &mut RecursiveChallenger,
+        challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
         common_data: &CommonCircuitData<F, C, D>,
     ) {
         let config = &common_data.config;
@@ -309,7 +309,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
-        challenger: &mut RecursiveChallenger,
+        challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
         n: usize,
         betas: &[ExtensionTarget<D>],
         round_proof: &FriQueryRoundTarget<D>,

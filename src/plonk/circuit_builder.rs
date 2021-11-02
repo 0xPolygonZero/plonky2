@@ -634,7 +634,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
         // those hash wires match the claimed public inputs.
-        let public_inputs_hash = self.hash_n_to_hash(self.public_inputs.clone(), true);
+        let public_inputs_hash =
+            self.hash_n_to_hash::<C::InnerHasher>(self.public_inputs.clone(), true);
         let pi_gate = self.add_gate(PublicInputGate, vec![]);
         for (&hash_part, wire) in public_inputs_hash
             .elements

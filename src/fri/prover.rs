@@ -85,7 +85,7 @@ fn fri_committed_trees<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: us
             .par_chunks(arity)
             .map(|chunk: &[F::Extension]| flatten(chunk))
             .collect();
-        let tree = MerkleTree::new(chunked_values, config.cap_height);
+        let tree = MerkleTree::<F, C::Hasher>::new(chunked_values, config.cap_height);
 
         challenger.observe_cap(&tree.cap);
         trees.push(tree);

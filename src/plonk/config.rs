@@ -1,5 +1,6 @@
 use std::convert::TryInto;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -19,7 +20,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 
 // const WIDTH: usize = 12;
 
-pub trait Hasher<F: RichField>: Sized {
+pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
     /// Size of `Hash` in bytes.
     const HASH_SIZE: usize;
     type Hash: From<Vec<u8>>
@@ -40,7 +41,7 @@ pub trait Hasher<F: RichField>: Sized {
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash;
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct PoseidonHash;
 impl<F: RichField> Hasher<F> for PoseidonHash {
     const HASH_SIZE: usize = 4 * 8;
@@ -66,30 +67,26 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
     where
         F: Extendable<D>,
     {
-        let gate_type = PoseidonGate::<F, D, WIDTH>::new();
+        let gate_type = PoseidonGate::<F, D>::new();
         let gate = builder.add_gate(gate_type, vec![]);
 
-        let swap_wire = PoseidonGate::<F, D, WIDTH>::WIRE_SWAP;
+        let swap_wire = PoseidonGate::<F, D>::WIRE_SWAP;
         let swap_wire = Target::wire(gate, swap_wire);
         builder.connect(swap.target, swap_wire);
 
         // Route input wires.
         for i in 0..WIDTH {
-            let in_wire = PoseidonGate::<F, D, WIDTH>::wire_input(i);
+            let in_wire = PoseidonGate::<F, D>::wire_input(i);
             let in_wire = Target::wire(gate, in_wire);
             builder.connect(inputs[i], in_wire);
         }
 
         // Collect output wires.
         (0..WIDTH)
-            .map(|i| Target::wire(gate, PoseidonGate::<F, D, WIDTH>::wire_output(i)))
+            .map(|i| Target::wire(gate, PoseidonGate::<F, D>::wire_output(i)))
             .collect::<Vec<_>>()
             .try_into()
             .unwrap()
-    }
-
-    fn observe_hash(hash: Self::Hash, challenger: &mut Challenger<F, Self>) {
-        challenger.observe_hash(&hash)
     }
 }
 
@@ -104,7 +101,6 @@ pub trait AlgebraicHasher<F: RichField>: Hasher<F, Hash = HashOut<F>> {
     ) -> [Target; WIDTH]
     where
         F: Extendable<D>;
-    fn observe_hash(hash: Self::Hash, challenger: &mut Challenger<F, Self>);
 }
 
 pub trait GenericConfig<const D: usize>:

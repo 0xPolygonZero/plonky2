@@ -87,7 +87,9 @@ pub trait Witness<F: Field> {
         &mut self,
         ct: &MerkleCapTarget,
         value: &MerkleCap<F, H>,
-    ) {
+    ) where
+        F: RichField,
+    {
         for (ht, h) in ct.0.iter().zip(&value.0) {
             self.set_hash_target(*ht, *h);
         }

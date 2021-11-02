@@ -145,11 +145,8 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     0x4543d9df72c4831d, 0xf172d73e69f20739, 0xdfd1c4ff1eb3d868, 0xbc8dfb62d26376f7,
 ];
 
-pub trait Poseidon<const WIDTH: usize>: PrimeField
-where
-    // magic to get const generic expressions to work
-    [(); WIDTH - 1]: ,
-{
+const WIDTH: usize = 12;
+pub trait Poseidon: PrimeField {
     // Total number of round constants required: width of the input
     // times number of rounds.
     const N_ROUND_CONSTANTS: usize = WIDTH * N_ROUNDS;
@@ -586,14 +583,12 @@ where
 }
 
 pub(crate) mod test_helpers {
-    use crate::field::field_types::Field;
+    use crate::field::field_types::{Field, WIDTH};
     use crate::hash::poseidon::Poseidon;
 
-    pub(crate) fn check_test_vectors<F: Field, const WIDTH: usize>(
-        test_vectors: Vec<([u64; WIDTH], [u64; WIDTH])>,
-    ) where
-        F: Poseidon<WIDTH>,
-        [(); WIDTH - 1]: ,
+    pub(crate) fn check_test_vectors<F: Field>(test_vectors: Vec<([u64; WIDTH], [u64; WIDTH])>)
+    where
+        F: Poseidon,
     {
         for (input_, expected_output_) in test_vectors.into_iter() {
             let mut input = [F::ZERO; WIDTH];
@@ -608,10 +603,9 @@ pub(crate) mod test_helpers {
         }
     }
 
-    pub(crate) fn check_consistency<F: Field, const WIDTH: usize>()
+    pub(crate) fn check_consistency<F: Field>()
     where
-        F: Poseidon<WIDTH>,
-        [(); WIDTH - 1]: ,
+        F: Poseidon,
     {
         let mut input = [F::ZERO; WIDTH];
         for i in 0..WIDTH {
