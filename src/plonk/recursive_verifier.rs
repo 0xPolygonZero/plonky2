@@ -365,7 +365,7 @@ mod tests {
     fn test_recursive_verifier() -> Result<()> {
         init_logger();
         type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
         let config = CircuitConfig::standard_recursion_config();
 
         let (proof, vd, cd) = dummy_proof::<F, D>(&config, 8_000)?;
