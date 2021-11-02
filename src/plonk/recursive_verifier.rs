@@ -402,29 +402,96 @@ mod tests {
         type F = GoldilocksField;
         const D: usize = 2;
 
-        let normal_config = CircuitConfig::standard_recursion_config();
-        let final_config = CircuitConfig {
+        let standard_config = CircuitConfig::standard_recursion_config();
+
+        // A dummy proof with degree 2^13.
+        let (proof, vd, cd) = dummy_proof::<F, D>(&standard_config, 8_000)?;
+        assert_eq!(cd.degree_bits, 13);
+
+        // A standard recursive proof with degree 2^13.
+        let (proof, vd, cd) = recursive_proof(
+            proof,
+            vd,
+            cd,
+            &standard_config,
+            &standard_config,
+            false,
+            false,
+        )?;
+        assert_eq!(cd.degree_bits, 13);
+
+        // A high-rate recursive proof with degree 2^13, designed to be verifiable with 2^12
+        // gates and 48 routed wires.
+        let high_rate_config = CircuitConfig {
+            rate_bits: 5,
+            fri_config: FriConfig {
+                proof_of_work_bits: 20,
+                num_query_rounds: 16,
+                ..standard_config.fri_config.clone()
+            },
+            ..standard_config
+        };
+        let (proof, vd, cd) = recursive_proof(
+            proof,
+            vd,
+            cd,
+            &standard_config,
+            &high_rate_config,
+            true,
+            true,
+        )?;
+        assert_eq!(cd.degree_bits, 13);
+
+        // A higher-rate recursive proof with degree 2^12, designed to be verifiable with 2^12
+        // gates and 28 routed wires.
+        let higher_rate_more_routing_config = CircuitConfig {
             rate_bits: 7,
-            cap_height: 0,
+            num_routed_wires: 48,
             fri_config: FriConfig {
                 proof_of_work_bits: 23,
-                reduction_strategy: FriReductionStrategy::MinSize(None),
                 num_query_rounds: 11,
+                ..standard_config.fri_config.clone()
             },
-            ..normal_config
+            ..high_rate_config.clone()
         };
+        let (proof, vd, cd) = recursive_proof(
+            proof,
+            vd,
+            cd,
+            &high_rate_config,
+            &higher_rate_more_routing_config,
+            true,
+            true,
+        )?;
+        assert_eq!(cd.degree_bits, 12);
 
-        let (proof, vd, cd) = dummy_proof::<F, D>(&normal_config, 8_000)?;
-        let (proof, vd, cd) =
-            recursive_proof(proof, vd, cd, &normal_config, &normal_config, false, false)?;
-        let (proof, _vd, cd) =
-            recursive_proof(proof, vd, cd, &normal_config, &final_config, true, true)?;
+        // A final proof of degree 2^12, optimized for size.
+        let final_config = CircuitConfig {
+            cap_height: 0,
+            num_routed_wires: 32,
+            fri_config: FriConfig {
+                reduction_strategy: FriReductionStrategy::MinSize(None),
+                ..higher_rate_more_routing_config.fri_config.clone()
+            },
+            ..higher_rate_more_routing_config
+        };
+        let (proof, _vd, cd) = recursive_proof(
+            proof,
+            vd,
+            cd,
+            &higher_rate_more_routing_config,
+            &final_config,
+            true,
+            true,
+        )?;
+        assert_eq!(cd.degree_bits, 12);
 
         test_serialization(&proof, &cd)?;
 
         Ok(())
     }
 
+    /// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
     fn dummy_proof<F: RichField + Extendable<D>, const D: usize>(
         config: &CircuitConfig,
         num_dummy_gates: u64,
@@ -434,12 +501,17 @@ mod tests {
         CommonCircuitData<F, D>,
     )> {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+        let input = builder.add_virtual_target();
         for i in 0..num_dummy_gates {
-            builder.constant(F::from_canonical_u64(i));
+            // Use unique constants to force a new `ArithmeticGate`.
+            let i_f = F::from_canonical_u64(i);
+            builder.arithmetic(i_f, i_f, input, input, input);
         }
 
         let data = builder.build();
-        let proof = data.prove(PartialWitness::new())?;
+        let mut inputs = PartialWitness::new();
+        inputs.set_target(input, F::ZERO);
+        let proof = data.prove(inputs)?;
         data.verify(proof.clone())?;
 
         Ok((proof, data.verifier_only, data.common))
