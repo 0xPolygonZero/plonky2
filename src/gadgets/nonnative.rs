@@ -1,8 +1,9 @@
 use std::marker::PhantomData;
 
+use num::{BigUint, One};
+
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
-use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -12,15 +13,6 @@ pub struct ForeignFieldTarget<FF: Field> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn order_u32_limbs<FF: Field>(&mut self) -> Vec<U32Target> {
-        let modulus = FF::order();
-        let limbs = modulus.to_u32_digits();
-        limbs
-            .iter()
-            .map(|&limb| self.constant_u32(F::from_canonical_u32(limb)))
-            .collect()
-    }
-
     pub fn biguint_to_ff<FF: Field>(&mut self, x: &BigUintTarget) -> ForeignFieldTarget<FF> {
         ForeignFieldTarget {
             value: x.clone(),
@@ -82,6 +74,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let result = self.mul_biguint(&a_biguint, &b_biguint);
 
         self.reduce(&result)
+    }
+
+    pub fn neg_nonnative<FF: Field>(
+        &mut self,
+        x: &ForeignFieldTarget<FF>,
+    ) -> ForeignFieldTarget<FF> {
+        let neg_one = FF::order() - BigUint::one();
+        let neg_one_target = self.constant_biguint(&neg_one);
+        let neg_one_ff = self.biguint_to_ff(&neg_one_target);
+
+        self.mul_nonnative(&neg_one_ff, x)
     }
 
     /// Returns `x % |FF|` as a `ForeignFieldTarget`.
@@ -183,6 +186,28 @@ mod tests {
 
         let product_expected = builder.constant_ff(product_ff);
         builder.connect_ff_reduced(&product, &product_expected);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_nonnative_neg() -> Result<()> {
+        type FF = Secp256K1Base;
+        let x_ff = FF::rand();
+        let neg_x_ff = -x_ff;
+
+        type F = CrandallField;
+        let config = CircuitConfig::large_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+
+        let x = builder.constant_ff(x_ff);
+        let neg_x = builder.neg_nonnative(&x);
+
+        let neg_x_expected = builder.constant_ff(neg_x_ff);
+        builder.connect_ff_reduced(&neg_x, &neg_x_expected);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();

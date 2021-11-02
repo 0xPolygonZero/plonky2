@@ -30,7 +30,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let limb_values = value.to_u32_digits();
         let limbs = limb_values
             .iter()
-            .map(|l| self.constant(F::from_canonical_u32(l)))
+            .map(|&l| U32Target(self.constant(F::from_canonical_u32(l))))
             .collect();
 
         BigUintTarget { limbs }
