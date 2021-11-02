@@ -3,8 +3,9 @@ use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
+use crate::gates::poseidon_mds::PoseidonMdsGate;
 use crate::hash::poseidon;
 use crate::hash::poseidon::Poseidon;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -14,7 +15,6 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-const WIDTH: usize = 12;
 /// Evaluates a full Poseidon permutation with 12 state elements.
 ///
 /// This also has some extra features to make it suitable for efficiently verifying Merkle proofs.
@@ -80,7 +80,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
 
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F, D> {
     fn id(&self) -> String {
-        format!("<WIDTH={}> {:?}", WIDTH, self)
+        format!("{:?}<WIDTH={}>", self, WIDTH)
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
@@ -238,6 +238,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
+        // The naive method is more efficient if we have enough routed wires for PoseidonMdsGate.
+        let naive =
+            builder.config.num_routed_wires >= PoseidonMdsGate::<F, D, WIDTH>::new().num_wires();
+
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         // Assert that `swap` is binary.
@@ -245,18 +249,23 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
         constraints.push(builder.mul_sub_extension(swap, swap, swap));
 
         let mut state = Vec::with_capacity(WIDTH);
+        // We need to compute both `if swap {b} else {a}` and `if swap {a} else {b}`.
+        // We will arithmetize them as
+        //     swap (b - a) + a
+        //     -swap (b - a) + b
+        // so that `b - a` can be used for both.
+        let mut state_first_4 = vec![];
+        let mut state_next_4 = vec![];
         for i in 0..4 {
             let a = vars.local_wires[i];
             let b = vars.local_wires[i + 4];
             let delta = builder.sub_extension(b, a);
-            state.push(builder.mul_add_extension(swap, delta, a));
+            state_first_4.push(builder.mul_add_extension(swap, delta, a));
+            state_next_4.push(builder.arithmetic_extension(F::NEG_ONE, F::ONE, swap, delta, b));
         }
-        for i in 0..4 {
-            let a = vars.local_wires[i + 4];
-            let b = vars.local_wires[i];
-            let delta = builder.sub_extension(b, a);
-            state.push(builder.mul_add_extension(swap, delta, a));
-        }
+
+        state.extend(state_first_4);
+        state.extend(state_next_4);
         for i in 8..WIDTH {
             state.push(vars.local_wires[i]);
         }
@@ -278,27 +287,39 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
         }
 
         // Partial rounds.
-        <F as Poseidon>::partial_first_constant_layer_recursive(builder, &mut state);
-        state = <F as Poseidon>::mds_partial_layer_init_recursive(builder, &mut state);
-        for r in 0..(poseidon::N_PARTIAL_ROUNDS - 1) {
-            let sbox_in = vars.local_wires[Self::wire_partial_sbox(r)];
+        if naive {
+            for r in 0..poseidon::N_PARTIAL_ROUNDS {
+                <F as Poseidon<WIDTH>>::constant_layer_recursive(builder, &mut state, round_ctr);
+                let sbox_in = vars.local_wires[Self::wire_partial_sbox(r)];
+                constraints.push(builder.sub_extension(state[0], sbox_in));
+                state[0] = <F as Poseidon<WIDTH>>::sbox_monomial_recursive(builder, sbox_in);
+                state = <F as Poseidon<WIDTH>>::mds_layer_recursive(builder, &state);
+                round_ctr += 1;
+            }
+        } else {
+            <F as Poseidon<WIDTH>>::partial_first_constant_layer_recursive(builder, &mut state);
+            state = <F as Poseidon<WIDTH>>::mds_partial_layer_init_recursive(builder, &mut state);
+            for r in 0..(poseidon::N_PARTIAL_ROUNDS - 1) {
+                let sbox_in = vars.local_wires[Self::wire_partial_sbox(r)];
+                constraints.push(builder.sub_extension(state[0], sbox_in));
+                state[0] = <F as Poseidon<WIDTH>>::sbox_monomial_recursive(builder, sbox_in);
+                state[0] = builder.add_const_extension(
+                    state[0],
+                    F::from_canonical_u64(<F as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_CONSTANTS[r]),
+                );
+                state =
+                    <F as Poseidon<WIDTH>>::mds_partial_layer_fast_recursive(builder, &state, r);
+            }
+            let sbox_in = vars.local_wires[Self::wire_partial_sbox(poseidon::N_PARTIAL_ROUNDS - 1)];
             constraints.push(builder.sub_extension(state[0], sbox_in));
-            state[0] = <F as Poseidon>::sbox_monomial_recursive(builder, sbox_in);
-            state[0] = builder.add_const_extension(
-                state[0],
-                F::from_canonical_u64(<F as Poseidon>::FAST_PARTIAL_ROUND_CONSTANTS[r]),
+            state[0] = <F as Poseidon<WIDTH>>::sbox_monomial_recursive(builder, sbox_in);
+            state = <F as Poseidon<WIDTH>>::mds_partial_layer_fast_recursive(
+                builder,
+                &state,
+                poseidon::N_PARTIAL_ROUNDS - 1,
             );
-            state = <F as Poseidon>::mds_partial_layer_fast_recursive(builder, &state, r);
+            round_ctr += poseidon::N_PARTIAL_ROUNDS;
         }
-        let sbox_in = vars.local_wires[Self::wire_partial_sbox(poseidon::N_PARTIAL_ROUNDS - 1)];
-        constraints.push(builder.sub_extension(state[0], sbox_in));
-        state[0] = <F as Poseidon>::sbox_monomial_recursive(builder, sbox_in);
-        state = <F as Poseidon>::mds_partial_layer_fast_recursive(
-            builder,
-            &state,
-            poseidon::N_PARTIAL_ROUNDS - 1,
-        );
-        round_ctr += poseidon::N_PARTIAL_ROUNDS;
 
         // Second set of full rounds.
         for r in 0..poseidon::HALF_N_FULL_ROUNDS {

@@ -1,11 +1,15 @@
 //! Implementation of the Poseidon hash function, as described in
 //! https://eprint.iacr.org/2019/458.pdf
 
+use std::convert::TryInto;
+
 use unroll::unroll_for_loops;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::{PrimeField, RichField};
+use crate::gates::gate::Gate;
+use crate::gates::poseidon_mds::PoseidonMdsGate;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 // The number of full rounds and partial rounds is given by the
@@ -202,17 +206,20 @@ pub trait Poseidon: PrimeField {
     }
 
     /// Recursive version of `mds_row_shf`.
-    fn mds_row_shf_recursive<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
+    fn mds_row_shf_recursive<const D: usize>(
+        builder: &mut CircuitBuilder<Self, D>,
         r: usize,
         v: &[ExtensionTarget<D>; WIDTH],
-    ) -> ExtensionTarget<D> {
+    ) -> ExtensionTarget<D>
+    where
+        Self: RichField + Extendable<D>,
+    {
         debug_assert!(r < WIDTH);
         let mut res = builder.zero_extension();
 
         for i in 0..WIDTH {
             res = builder.mul_const_add_extension(
-                F::from_canonical_u64(1 << Self::MDS_MATRIX_EXPS[i]),
+                Self::from_canonical_u64(1 << <Self as Poseidon<WIDTH>>::MDS_MATRIX_EXPS[i]),
                 v[(i + r) % WIDTH],
                 res,
             );
@@ -259,17 +266,38 @@ pub trait Poseidon: PrimeField {
     }
 
     /// Recursive version of `mds_layer`.
-    fn mds_layer_recursive<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
+    fn mds_layer_recursive<const D: usize>(
+        builder: &mut CircuitBuilder<Self, D>,
         state: &[ExtensionTarget<D>; WIDTH],
-    ) -> [ExtensionTarget<D>; WIDTH] {
-        let mut result = [builder.zero_extension(); WIDTH];
+    ) -> [ExtensionTarget<D>; WIDTH]
+    where
+        Self: RichField + Extendable<D>,
+    {
+        // If we have enough routed wires, we will use PoseidonMdsGate.
+        let mds_gate = PoseidonMdsGate::<Self, D, WIDTH>::new();
+        if builder.config.num_routed_wires >= mds_gate.num_wires() {
+            let index = builder.add_gate(mds_gate, vec![]);
+            for i in 0..WIDTH {
+                let input_wire = PoseidonMdsGate::<Self, D, WIDTH>::wires_input(i);
+                builder.connect_extension(state[i], ExtensionTarget::from_range(index, input_wire));
+            }
+            (0..WIDTH)
+                .map(|i| {
+                    let output_wire = PoseidonMdsGate::<Self, D, WIDTH>::wires_output(i);
+                    ExtensionTarget::from_range(index, output_wire)
+                })
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap()
+        } else {
+            let mut result = [builder.zero_extension(); WIDTH];
 
-        for r in 0..WIDTH {
-            result[r] = Self::mds_row_shf_recursive(builder, r, state);
+            for r in 0..WIDTH {
+                result[r] = Self::mds_row_shf_recursive(builder, r, state);
+            }
+
+            result
         }
-
-        result
     }
 
     #[inline(always)]
@@ -286,14 +314,18 @@ pub trait Poseidon: PrimeField {
     }
 
     /// Recursive version of `partial_first_constant_layer`.
-    fn partial_first_constant_layer_recursive<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
+    fn partial_first_constant_layer_recursive<const D: usize>(
+        builder: &mut CircuitBuilder<Self, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
-    ) {
+    ) where
+        Self: RichField + Extendable<D>,
+    {
         for i in 0..WIDTH {
             state[i] = builder.add_const_extension(
                 state[i],
-                F::from_canonical_u64(Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]),
+                Self::from_canonical_u64(
+                    <Self as Poseidon<WIDTH>>::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i],
+                ),
             );
         }
     }
@@ -331,18 +363,22 @@ pub trait Poseidon: PrimeField {
     }
 
     /// Recursive version of `mds_partial_layer_init`.
-    fn mds_partial_layer_init_recursive<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
+    fn mds_partial_layer_init_recursive<const D: usize>(
+        builder: &mut CircuitBuilder<Self, D>,
         state: &[ExtensionTarget<D>; WIDTH],
-    ) -> [ExtensionTarget<D>; WIDTH] {
+    ) -> [ExtensionTarget<D>; WIDTH]
+    where
+        Self: RichField + Extendable<D>,
+    {
         let mut result = [builder.zero_extension(); WIDTH];
 
         result[0] = state[0];
 
         for r in 1..WIDTH {
             for c in 1..WIDTH {
-                let t =
-                    F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[r - 1][c - 1]);
+                let t = Self::from_canonical_u64(
+                    <Self as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_INITIAL_MATRIX[r - 1][c - 1],
+                );
                 result[c] = builder.mul_const_add_extension(t, state[r], result[c]);
             }
         }
@@ -411,23 +447,32 @@ pub trait Poseidon: PrimeField {
     }
 
     /// Recursive version of `mds_partial_layer_fast`.
-    fn mds_partial_layer_fast_recursive<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
+    fn mds_partial_layer_fast_recursive<const D: usize>(
+        builder: &mut CircuitBuilder<Self, D>,
         state: &[ExtensionTarget<D>; WIDTH],
         r: usize,
-    ) -> [ExtensionTarget<D>; WIDTH] {
+    ) -> [ExtensionTarget<D>; WIDTH]
+    where
+        Self: RichField + Extendable<D>,
+    {
         let s0 = state[0];
-        let mut d =
-            builder.mul_const_extension(F::from_canonical_u64(1 << Self::MDS_MATRIX_EXPS[0]), s0);
+        let mut d = builder.mul_const_extension(
+            Self::from_canonical_u64(1 << <Self as Poseidon<WIDTH>>::MDS_MATRIX_EXPS[0]),
+            s0,
+        );
         for i in 1..WIDTH {
-            let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
+            let t = Self::from_canonical_u64(
+                <Self as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_W_HATS[r][i - 1],
+            );
             d = builder.mul_const_add_extension(t, state[i], d);
         }
 
         let mut result = [builder.zero_extension(); WIDTH];
         result[0] = d;
         for i in 1..WIDTH {
-            let t = F::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
+            let t = Self::from_canonical_u64(
+                <Self as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_VS[r][i - 1],
+            );
             result[i] = builder.mul_const_add_extension(t, state[0], state[i]);
         }
         result
@@ -458,15 +503,17 @@ pub trait Poseidon: PrimeField {
     }
 
     /// Recursive version of `constant_layer`.
-    fn constant_layer_recursive<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
+    fn constant_layer_recursive<const D: usize>(
+        builder: &mut CircuitBuilder<Self, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
         round_ctr: usize,
-    ) {
+    ) where
+        Self: RichField + Extendable<D>,
+    {
         for i in 0..WIDTH {
             state[i] = builder.add_const_extension(
                 state[i],
-                F::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]),
+                Self::from_canonical_u64(ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr]),
             );
         }
     }
@@ -481,10 +528,13 @@ pub trait Poseidon: PrimeField {
     }
 
     /// Recursive version of `sbox_monomial`.
-    fn sbox_monomial_recursive<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
+    fn sbox_monomial_recursive<const D: usize>(
+        builder: &mut CircuitBuilder<Self, D>,
         x: ExtensionTarget<D>,
-    ) -> ExtensionTarget<D> {
+    ) -> ExtensionTarget<D>
+    where
+        Self: RichField + Extendable<D>,
+    {
         // x |--> x^7
         builder.exp_u64_extension(x, 7)
     }
@@ -510,12 +560,14 @@ pub trait Poseidon: PrimeField {
     }
 
     /// Recursive version of `sbox_layer`.
-    fn sbox_layer_recursive<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
+    fn sbox_layer_recursive<const D: usize>(
+        builder: &mut CircuitBuilder<Self, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
-    ) {
+    ) where
+        Self: RichField + Extendable<D>,
+    {
         for i in 0..WIDTH {
-            state[i] = Self::sbox_monomial_recursive(builder, state[i]);
+            state[i] = <Self as Poseidon<WIDTH>>::sbox_monomial_recursive(builder, state[i]);
         }
     }
 

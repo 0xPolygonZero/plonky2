@@ -14,6 +14,7 @@ pub mod insertion;
 pub mod interpolation;
 pub mod noop;
 pub mod poseidon;
+pub(crate) mod poseidon_mds;
 pub(crate) mod public_input;
 pub mod random_access;
 pub mod reducing;
