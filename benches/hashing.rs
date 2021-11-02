@@ -6,7 +6,6 @@ use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::gmimc::GMiMC;
 use plonky2::hash::poseidon::Poseidon;
-
 use tynm::type_name;
 
 pub(crate) fn bench_gmimc<F: GMiMC<WIDTH>, const WIDTH: usize>(c: &mut Criterion) {

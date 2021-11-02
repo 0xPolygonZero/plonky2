@@ -1,5 +1,4 @@
 use anyhow::Result;
-
 use rayon::prelude::*;
 
 use crate::field::extension_field::Extendable;
