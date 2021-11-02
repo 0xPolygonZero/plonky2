@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
@@ -10,29 +12,38 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate which takes a single constant parameter and outputs that value.
-pub struct ConstantGate;
+#[derive(Copy, Clone, Debug)]
+pub struct ConstantGate {
+    pub(crate) num_consts: usize,
+}
 
 impl ConstantGate {
-    pub const CONST_INPUT: usize = 0;
+    pub fn consts_inputs(&self) -> Range<usize> {
+        0..self.num_consts
+    }
 
-    pub const WIRE_OUTPUT: usize = 0;
+    pub fn wires_outputs(&self) -> Range<usize> {
+        0..self.num_consts
+    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     fn id(&self) -> String {
-        "ConstantGate".into()
+        format!("{:?}", self)
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
-        let input = vars.local_constants[Self::CONST_INPUT];
-        let output = vars.local_wires[Self::WIRE_OUTPUT];
-        vec![output - input]
+        self.consts_inputs()
+            .zip(self.wires_outputs())
+            .map(|(con, out)| vars.local_constants[con] - vars.local_wires[out])
+            .collect()
     }
 
     fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let input = vars.local_constants[Self::CONST_INPUT];
-        let output = vars.local_wires[Self::WIRE_OUTPUT];
-        vec![output - input]
+        self.consts_inputs()
+            .zip(self.wires_outputs())
+            .map(|(con, out)| vars.local_constants[con] - vars.local_wires[out])
+            .collect()
     }
 
     fn eval_unfiltered_recursively(
@@ -40,9 +51,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        let input = vars.local_constants[Self::CONST_INPUT];
-        let output = vars.local_wires[Self::WIRE_OUTPUT];
-        vec![builder.sub_extension(output, input)]
+        self.consts_inputs()
+            .zip(self.wires_outputs())
+            .map(|(con, out)| {
+                builder.sub_extension(vars.local_constants[con], vars.local_wires[out])
+            })
+            .collect()
     }
 
     fn generators(
@@ -52,17 +66,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = ConstantGenerator {
             gate_index,
-            constant: local_constants[0],
+            gate: *self,
+            constants: local_constants[self.consts_inputs()].to_vec(),
         };
         vec![Box::new(gen.adapter())]
     }
 
     fn num_wires(&self) -> usize {
-        1
+        self.num_consts
     }
 
     fn num_constants(&self) -> usize {
-        1
+        self.num_consts
     }
 
     fn degree(&self) -> usize {
@@ -70,14 +85,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     }
 
     fn num_constraints(&self) -> usize {
-        1
+        self.num_consts
     }
 }
 
 #[derive(Debug)]
 struct ConstantGenerator<F: Field> {
     gate_index: usize,
-    constant: F,
+    gate: ConstantGate,
+    constants: Vec<F>,
 }
 
 impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
@@ -86,11 +102,13 @@ impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
     }
 
     fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let wire = Wire {
-            gate: self.gate_index,
-            input: ConstantGate::WIRE_OUTPUT,
-        };
-        out_buffer.set_target(Target::Wire(wire), self.constant);
+        for (con, out) in self.gate.consts_inputs().zip(self.gate.wires_outputs()) {
+            let wire = Wire {
+                gate: self.gate_index,
+                input: out,
+            };
+            out_buffer.set_wire(wire, self.constants[con]);
+        }
     }
 }
 
@@ -101,14 +119,19 @@ mod tests {
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::constant::ConstantGate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
+    use crate::plonk::circuit_data::CircuitConfig;
 
     #[test]
     fn low_degree() {
-        test_low_degree::<GoldilocksField, _, 4>(ConstantGate)
+        let num_consts = CircuitConfig::large_config().constant_gate_size;
+        let gate = ConstantGate { num_consts };
+        test_low_degree::<GoldilocksField, _, 2>(gate)
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(ConstantGate)
+        let num_consts = CircuitConfig::large_config().constant_gate_size;
+        let gate = ConstantGate { num_consts };
+        test_eval_fns::<GoldilocksField, _, 2>(gate)
     }
 }
