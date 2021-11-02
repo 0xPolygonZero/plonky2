@@ -412,10 +412,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut product = self.one_extension();
 
         for j in 0..bits_u64(exponent as u64) {
+            if j != 0 {
+                current = self.square_extension(current);
+            }
             if (exponent >> j & 1) != 0 {
                 product = self.mul_extension(product, current);
             }
-            current = self.square_extension(current);
         }
         product
     }
