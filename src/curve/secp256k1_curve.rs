@@ -67,15 +67,21 @@ mod tests {
 
     #[test]
     fn test_g1_multiplication() {
-        let lhs = Secp256K1Scalar::from_biguint(
-            BigUint::from_slice(&[1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888])
+        let lhs = Secp256K1Scalar::from_biguint(BigUint::from_slice(&[
+            1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888,
+        ]));
+        assert_eq!(
+            Secp256K1::convert(lhs) * Secp256K1::GENERATOR_PROJECTIVE,
+            mul_naive(lhs, Secp256K1::GENERATOR_PROJECTIVE)
         );
-        assert_eq!(Secp256K1::convert(lhs) * Secp256K1::GENERATOR_PROJECTIVE, mul_naive(lhs, Secp256K1::GENERATOR_PROJECTIVE));
     }
 
     /// A simple, somewhat inefficient implementation of multiplication which is used as a reference
     /// for correctness.
-    fn mul_naive(lhs: Secp256K1Scalar, rhs: ProjectivePoint<Secp256K1>) -> ProjectivePoint<Secp256K1> {
+    fn mul_naive(
+        lhs: Secp256K1Scalar,
+        rhs: ProjectivePoint<Secp256K1>,
+    ) -> ProjectivePoint<Secp256K1> {
         let mut g = rhs;
         let mut sum = ProjectivePoint::ZERO;
         for limb in lhs.to_biguint().to_u64_digits().iter() {
