@@ -249,6 +249,22 @@ impl Poseidon for GoldilocksField {
             crate::hash::arch::aarch64::poseidon_goldilocks_neon::poseidon(input)
         }
     }
+
+    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
+    #[inline(always)]
+    fn sbox_layer(state: &mut [Self; 12]) {
+        unsafe {
+            crate::hash::arch::aarch64::poseidon_goldilocks_neon::sbox_layer(state);
+        }
+    }
+
+    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
+    #[inline(always)]
+    fn mds_layer(state: &[Self; 12]) -> [Self; 12] {
+        unsafe {
+            crate::hash::arch::aarch64::poseidon_goldilocks_neon::mds_layer(state)
+        }
+    }
 }
 
 #[cfg(test)]

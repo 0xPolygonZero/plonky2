@@ -1006,8 +1006,8 @@ unsafe fn partial_rounds(
 }
 
 #[inline(always)]
-pub unsafe fn poseidon(state: [GoldilocksField; 12]) -> [GoldilocksField; 12] {
-    let state = [
+fn unwrap_state(state: [GoldilocksField; 12]) -> [u64; 12] {
+    [
         state[0].0,
         state[1].0,
         state[2].0,
@@ -1020,7 +1020,30 @@ pub unsafe fn poseidon(state: [GoldilocksField; 12]) -> [GoldilocksField; 12] {
         state[9].0,
         state[10].0,
         state[11].0,
-    ];
+    ]
+}
+
+#[inline(always)]
+fn wrap_state(state: [u64; 12]) -> [GoldilocksField; 12] {
+    [
+        GoldilocksField(state[0]),
+        GoldilocksField(state[1]),
+        GoldilocksField(state[2]),
+        GoldilocksField(state[3]),
+        GoldilocksField(state[4]),
+        GoldilocksField(state[5]),
+        GoldilocksField(state[6]),
+        GoldilocksField(state[7]),
+        GoldilocksField(state[8]),
+        GoldilocksField(state[9]),
+        GoldilocksField(state[10]),
+        GoldilocksField(state[11]),
+    ]
+}
+
+#[inline(always)]
+pub unsafe fn poseidon(state: [GoldilocksField; 12]) -> [GoldilocksField; 12] {
+    let state = unwrap_state(state);
     let state = const_layer_full(state, ALL_ROUND_CONSTANTS[0..WIDTH].try_into().unwrap());
     let state = full_rounds(
         state,
@@ -1036,18 +1059,19 @@ pub unsafe fn poseidon(state: [GoldilocksField; 12]) -> [GoldilocksField; 12] {
             .unwrap(),
     );
     let state = full_rounds(state, &FINAL_ROUND_CONSTANTS);
-    [
-        GoldilocksField(state[0]),
-        GoldilocksField(state[1]),
-        GoldilocksField(state[2]),
-        GoldilocksField(state[3]),
-        GoldilocksField(state[4]),
-        GoldilocksField(state[5]),
-        GoldilocksField(state[6]),
-        GoldilocksField(state[7]),
-        GoldilocksField(state[8]),
-        GoldilocksField(state[9]),
-        GoldilocksField(state[10]),
-        GoldilocksField(state[11]),
-    ]
+    wrap_state(state)
+}
+
+#[inline(always)]
+pub unsafe fn sbox_layer(state: &mut [GoldilocksField; WIDTH]) {
+    *state = wrap_state(sbox_layer_full(unwrap_state(*state)));
+}
+
+#[inline(always)]
+pub unsafe fn mds_layer(state: &[GoldilocksField; WIDTH]) -> [GoldilocksField; WIDTH] {
+    let state = unwrap_state(*state);
+    // We want to do an MDS layer without the constant layer.
+    let round_consts = [0u64; WIDTH];
+    let state = mds_const_layers_full(state, &round_consts);
+    wrap_state(state)
 }
