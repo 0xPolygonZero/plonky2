@@ -39,6 +39,8 @@ const SECP256K1_GENERATOR_Y: Secp256K1Base = Secp256K1Base([
 
 #[cfg(test)]
 mod tests {
+    use num::BigUint;
+
     use crate::curve::curve_types::{Curve, ProjectivePoint};
     use crate::curve::secp256k1_curve::Secp256K1;
     use crate::field::field_types::Field;
@@ -52,7 +54,7 @@ mod tests {
                 p.double(),
                 p.to_projective().double().to_affine());
         }
-    }
+    }*/
 
     #[test]
     fn test_naive_multiplication() {
@@ -65,7 +67,9 @@ mod tests {
 
     #[test]
     fn test_g1_multiplication() {
-        let lhs = Secp256K1Scalar::from_canonical([11111111, 22222222, 33333333, 44444444]);
+        let lhs = Secp256K1Scalar::from_biguint(
+            BigUint::from_slice(&[1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888])
+        );
         assert_eq!(Secp256K1::convert(lhs) * Secp256K1::GENERATOR_PROJECTIVE, mul_naive(lhs, Secp256K1::GENERATOR_PROJECTIVE));
     }
 
@@ -74,7 +78,7 @@ mod tests {
     fn mul_naive(lhs: Secp256K1Scalar, rhs: ProjectivePoint<Secp256K1>) -> ProjectivePoint<Secp256K1> {
         let mut g = rhs;
         let mut sum = ProjectivePoint::ZERO;
-        for limb in lhs.to_canonical().iter() {
+        for limb in lhs.to_biguint().to_u64_digits().iter() {
             for j in 0..64 {
                 if (limb >> j & 1u64) != 0u64 {
                     sum = sum + g;
@@ -83,5 +87,5 @@ mod tests {
             }
         }
         sum
-    }*/
+    }
 }
