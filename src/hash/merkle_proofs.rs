@@ -128,7 +128,7 @@ mod tests {
     use rand::{thread_rng, Rng};
 
     use super::*;
-    use crate::field::crandall_field::CrandallField;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::hash::merkle_tree::MerkleTree;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn test_recursive_merkle_proof() -> Result<()> {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let config = CircuitConfig::large_config();
         let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);

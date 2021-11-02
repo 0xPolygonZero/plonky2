@@ -324,9 +324,9 @@ mod tests {
 
     use anyhow::Result;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::insertion::InsertionGate;
@@ -335,7 +335,7 @@ mod tests {
 
     #[test]
     fn wire_indices() {
-        let gate = InsertionGate::<CrandallField, 4> {
+        let gate = InsertionGate::<GoldilocksField, 4> {
             vec_size: 3,
             _phantom: PhantomData,
         };
@@ -354,18 +354,18 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(InsertionGate::new(4));
+        test_low_degree::<GoldilocksField, _, 4>(InsertionGate::new(4));
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(InsertionGate::new(4))
+        test_eval_fns::<GoldilocksField, _, 4>(InsertionGate::new(4))
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
+        type F = GoldilocksField;
+        type FF = QuarticExtension<GoldilocksField>;
         const D: usize = 4;
 
         /// Returns the local wires for an insertion gate given the original vector, element to

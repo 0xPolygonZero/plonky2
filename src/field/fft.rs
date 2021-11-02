@@ -210,15 +210,15 @@ pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: &FftRootT
 
 #[cfg(test)]
 mod tests {
-    use crate::field::crandall_field::CrandallField;
     use crate::field::fft::{fft, fft_with_options, ifft};
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
     use crate::util::{log2_ceil, log2_strict};
 
     #[test]
     fn fft_and_ifft() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let degree = 200;
         let degree_padded = log2_ceil(degree);
         let mut coefficients = Vec::new();

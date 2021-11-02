@@ -77,14 +77,14 @@ pub fn interpolate2<F: Field>(points: [(F, F); 2], x: F) -> F {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::polynomial::polynomial::PolynomialCoeffs;
 
     #[test]
     fn interpolant_random() {
-        type F = CrandallField;
+        type F = GoldilocksField;
 
         for deg in 0..10 {
             let domain = F::rand_vec(deg);
@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     fn interpolant_random_roots_of_unity() {
-        type F = CrandallField;
+        type F = GoldilocksField;
 
         for deg_log in 0..4 {
             let deg = 1 << deg_log;
@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn interpolant_random_overspecified() {
-        type F = CrandallField;
+        type F = GoldilocksField;
 
         for deg in 0..10 {
             let points = deg + 5;
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_interpolate2() {
-        type F = QuarticExtension<CrandallField>;
+        type F = QuarticExtension<GoldilocksField>;
         let points = [(F::rand(), F::rand()), (F::rand(), F::rand())];
         let x = F::rand();
 

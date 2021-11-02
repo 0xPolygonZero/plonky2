@@ -387,14 +387,14 @@ mod tests {
     use rand::{seq::SliceRandom, thread_rng, Rng};
 
     use super::*;
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
 
     fn test_permutation_good(size: usize) -> Result<()> {
-        type F = CrandallField;
+        type F = GoldilocksField;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();
@@ -419,7 +419,7 @@ mod tests {
     }
 
     fn test_permutation_duplicates(size: usize) -> Result<()> {
-        type F = CrandallField;
+        type F = GoldilocksField;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();
@@ -448,7 +448,7 @@ mod tests {
     }
 
     fn test_permutation_bad(size: usize) -> Result<()> {
-        type F = CrandallField;
+        type F = GoldilocksField;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();

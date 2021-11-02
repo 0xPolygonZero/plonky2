@@ -1,19 +1,15 @@
 mod common;
-mod crandall;
 mod goldilocks;
 mod packed_prime_field;
 
 use packed_prime_field::PackedPrimeField;
 
-use crate::field::crandall_field::CrandallField;
 use crate::field::goldilocks_field::GoldilocksField;
 
-pub type PackedCrandallAVX2 = PackedPrimeField<CrandallField>;
 pub type PackedGoldilocksAVX2 = PackedPrimeField<GoldilocksField>;
 
 #[cfg(test)]
 mod tests {
-    use crate::field::crandall_field::CrandallField;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::packed_avx2::common::ReducibleAVX2;
     use crate::field::packed_avx2::packed_prime_field::PackedPrimeField;
@@ -199,35 +195,6 @@ mod tests {
             assert_eq!(x1.to_arr(), int1_a);
             assert_eq!(y1.to_arr(), int1_b);
         }
-    }
-
-    #[test]
-    fn test_add_crandall() {
-        test_add::<CrandallField>();
-    }
-    #[test]
-    fn test_mul_crandall() {
-        test_mul::<CrandallField>();
-    }
-    #[test]
-    fn test_square_crandall() {
-        test_square::<CrandallField>();
-    }
-    #[test]
-    fn test_neg_crandall() {
-        test_neg::<CrandallField>();
-    }
-    #[test]
-    fn test_sub_crandall() {
-        test_sub::<CrandallField>();
-    }
-    #[test]
-    fn test_interleave_is_involution_crandall() {
-        test_interleave_is_involution::<CrandallField>();
-    }
-    #[test]
-    fn test_interleave_crandall() {
-        test_interleave::<CrandallField>();
     }
 
     #[test]

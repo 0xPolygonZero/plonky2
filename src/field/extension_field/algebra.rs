@@ -172,10 +172,10 @@ impl<F: OEF<D>, const D: usize> PolynomialCoeffsAlgebra<F, D> {
 mod tests {
     use itertools::Itertools;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::algebra::ExtensionAlgebra;
     use crate::field::extension_field::{Extendable, FieldExtension};
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
 
     /// Tests that the multiplication on the extension algebra lifts that of the field extension.
     fn test_extension_algebra<F: Extendable<D>, const D: usize>() {
@@ -243,7 +243,7 @@ mod tests {
 
         #[test]
         fn test_algebra() {
-            test_extension_algebra::<CrandallField, 1>();
+            test_extension_algebra::<GoldilocksField, 1>();
         }
     }
 
@@ -252,7 +252,7 @@ mod tests {
 
         #[test]
         fn test_algebra() {
-            test_extension_algebra::<CrandallField, 2>();
+            test_extension_algebra::<GoldilocksField, 2>();
         }
     }
 
@@ -261,7 +261,7 @@ mod tests {
 
         #[test]
         fn test_algebra() {
-            test_extension_algebra::<CrandallField, 4>();
+            test_extension_algebra::<GoldilocksField, 4>();
         }
     }
 }

@@ -325,8 +325,8 @@ impl RecursiveChallenger {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::challenger::{Challenger, RecursiveChallenger};
     use crate::iop::generator::generate_partial_witness;
     use crate::iop::target::Target;
@@ -336,7 +336,7 @@ mod tests {
 
     #[test]
     fn no_duplicate_challenges() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let mut challenger = Challenger::new();
         let mut challenges = Vec::new();
 
@@ -356,7 +356,7 @@ mod tests {
     /// Tests for consistency between `Challenger` and `RecursiveChallenger`.
     #[test]
     fn test_consistency() {
-        type F = CrandallField;
+        type F = GoldilocksField;
 
         // These are mostly arbitrary, but we want to test some rounds with enough inputs/outputs to
         // trigger multiple absorptions/squeezes.
