@@ -190,7 +190,7 @@ mod tests {
         affine_summation_batch_inversion, affine_summation_pairwise,
     };
     use crate::curve::curve_types::{Curve, ProjectivePoint};
-    use crate::curve::secp256k1_curve::Secp256K1;
+    use crate::curve::secp256k1::Secp256K1;
 
     #[test]
     fn test_pairwise_affine_summation() {

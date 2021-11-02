@@ -11,7 +11,7 @@ pub mod permutation;
 pub mod polynomial;
 pub mod random_access;
 pub mod range_check;
-pub mod secp256k1;
+pub mod curve;
 pub mod select;
 pub mod sorting;
 pub mod split_base;

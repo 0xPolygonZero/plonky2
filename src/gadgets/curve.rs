@@ -51,6 +51,46 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         self.connect_nonnative(&y_squared, &rhs);
     }
+
+    pub fn curve_neg<C: Curve>(&mut self, p: AffinePointTarget<C>) {
+        let neg_y = self.neg_nonnative(p.y);
+        AffinePointTarget {
+            x: p.x,
+            y: neg_y,
+        }
+    }
 }
 
-mod tests {}
+mod tests {
+    use anyhow::Result;
+
+
+
+    #[test]
+    fn test_curve_gadget_is_valid() -> Result<()> {
+        type F = CrandallField;
+        const D: usize = 4;
+
+        let config = CircuitConfig::large_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let 
+
+        let lst: Vec<F> = (0..size * 2).map(|n| F::from_canonical_usize(n)).collect();
+        let a: Vec<Vec<Target>> = lst[..]
+            .chunks(2)
+            .map(|pair| vec![builder.constant(pair[0]), builder.constant(pair[1])])
+            .collect();
+        let mut b = a.clone();
+        b.shuffle(&mut thread_rng());
+
+        builder.assert_permutation(a, b);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+}

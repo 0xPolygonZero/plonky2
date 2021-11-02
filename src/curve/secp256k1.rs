@@ -42,7 +42,7 @@ mod tests {
     use num::BigUint;
 
     use crate::curve::curve_types::{Curve, ProjectivePoint};
-    use crate::curve::secp256k1_curve::Secp256K1;
+    use crate::curve::secp256k1::Secp256K1;
     use crate::field::field_types::Field;
     use crate::field::secp256k1_scalar::Secp256K1Scalar;
 
