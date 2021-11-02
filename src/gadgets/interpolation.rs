@@ -35,10 +35,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 mod tests {
     use anyhow::Result;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::extension_field::FieldExtension;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::interpolation::interpolant;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
@@ -47,8 +47,8 @@ mod tests {
 
     #[test]
     fn test_interpolate() -> Result<()> {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
+        type F = GoldilocksField;
+        type FF = QuarticExtension<GoldilocksField>;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);

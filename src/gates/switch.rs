@@ -312,9 +312,9 @@ mod tests {
 
     use anyhow::Result;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::switch::SwitchGate;
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn wire_indices() {
-        type SG = SwitchGate<CrandallField, 4>;
+        type SG = SwitchGate<GoldilocksField, 4>;
         let num_copies = 3;
         let chunk_size = 3;
 
@@ -351,7 +351,7 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(SwitchGate::<_, 4>::new_from_config(
+        test_low_degree::<GoldilocksField, _, 4>(SwitchGate::<_, 4>::new_from_config(
             &CircuitConfig::large_config(),
             3,
         ));
@@ -359,7 +359,7 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(SwitchGate::<_, 4>::new_from_config(
+        test_eval_fns::<GoldilocksField, _, 4>(SwitchGate::<_, 4>::new_from_config(
             &CircuitConfig::large_config(),
             3,
         ))
@@ -367,8 +367,8 @@ mod tests {
 
     #[test]
     fn test_gate_constraint() {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
+        type F = GoldilocksField;
+        type FF = QuarticExtension<GoldilocksField>;
         const D: usize = 4;
         const CHUNK_SIZE: usize = 4;
         let num_copies = 3;

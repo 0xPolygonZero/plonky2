@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::quadratic::QuadraticExtension;
 use crate::field::extension_field::quartic::QuarticExtension;
-use crate::field::extension_field::Extendable;
+use crate::field::extension_field::{Extendable, Frobenius};
 use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::field::inversion::try_inverse_u64;
 use crate::util::{assume, branch_hint};
@@ -393,6 +393,8 @@ fn reduce128(x: u128) -> GoldilocksField {
 fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
 }
+
+impl Frobenius<1> for GoldilocksField {}
 
 #[cfg(test)]
 mod tests {

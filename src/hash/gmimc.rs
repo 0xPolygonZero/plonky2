@@ -1,6 +1,5 @@
 use unroll::unroll_for_loops;
 
-use crate::field::crandall_field::CrandallField;
 use crate::field::field_types::Field;
 use crate::field::goldilocks_field::GoldilocksField;
 
@@ -50,7 +49,7 @@ where
 
 /// See `generate_constants` about how these were generated.
 #[rustfmt::skip]
-const CRANDALL_AND_GOLDILOCKS_ROUND_CONSTANTS: [u64; NUM_ROUNDS] = [
+const GOLDILOCKS_ROUND_CONSTANTS: [u64; NUM_ROUNDS] = [
     0xb585f767417ee042, 0x7746a55f77c10331, 0xb2fb0d321d356f7a, 0x0f6760a486f1621f,
     0xe10d6666b36abcdf, 0x8cae14cb455cc50b, 0xd438539cf2cee334, 0xef781c7d4c1fd8b4,
     0xcdc4a23a0aca4b1f, 0x277fa208d07b52e3, 0xe17653a300493d38, 0xc54302f27c287dc1,
@@ -79,25 +78,17 @@ const CRANDALL_AND_GOLDILOCKS_ROUND_CONSTANTS: [u64; NUM_ROUNDS] = [
     0x780f22441e8dbc04,
 ];
 
-impl GMiMC<8> for CrandallField {
-    const ROUND_CONSTANTS: [u64; NUM_ROUNDS] = CRANDALL_AND_GOLDILOCKS_ROUND_CONSTANTS;
-}
-
-impl GMiMC<12> for CrandallField {
-    const ROUND_CONSTANTS: [u64; NUM_ROUNDS] = CRANDALL_AND_GOLDILOCKS_ROUND_CONSTANTS;
-}
-
 impl GMiMC<8> for GoldilocksField {
-    const ROUND_CONSTANTS: [u64; NUM_ROUNDS] = CRANDALL_AND_GOLDILOCKS_ROUND_CONSTANTS;
+    const ROUND_CONSTANTS: [u64; NUM_ROUNDS] = GOLDILOCKS_ROUND_CONSTANTS;
 }
 
 impl GMiMC<12> for GoldilocksField {
-    const ROUND_CONSTANTS: [u64; NUM_ROUNDS] = CRANDALL_AND_GOLDILOCKS_ROUND_CONSTANTS;
+    const ROUND_CONSTANTS: [u64; NUM_ROUNDS] = GOLDILOCKS_ROUND_CONSTANTS;
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::field::crandall_field::CrandallField;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::hash::gmimc::GMiMC;
 
     fn check_consistency<F: GMiMC<WIDTH>, const WIDTH: usize>() {
@@ -109,6 +100,6 @@ mod tests {
 
     #[test]
     fn consistency() {
-        check_consistency::<CrandallField, 12>();
+        check_consistency::<GoldilocksField, 12>();
     }
 }

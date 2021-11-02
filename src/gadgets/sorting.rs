@@ -176,14 +176,14 @@ mod tests {
     use rand::{thread_rng, Rng};
 
     use super::*;
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::{Field, PrimeField};
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
 
     fn test_sorting(size: usize, address_bits: usize, timestamp_bits: usize) -> Result<()> {
-        type F = CrandallField;
+        type F = GoldilocksField;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();

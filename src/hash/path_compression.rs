@@ -115,13 +115,13 @@ mod tests {
     use rand::{thread_rng, Rng};
 
     use super::*;
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::hash::merkle_tree::MerkleTree;
 
     #[test]
     fn test_path_compression() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let h = 10;
         let cap_height = 3;
         let vs = (0..1 << h).map(|_| vec![F::rand()]).collect::<Vec<_>>();

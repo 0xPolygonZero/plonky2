@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::field_types::Field;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::polynomial::polynomial::PolynomialCoeffs;
 use tynm::type_name;
 
@@ -36,8 +36,8 @@ pub(crate) fn bench_ldes<F: Field>(c: &mut Criterion) {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    bench_ffts::<CrandallField>(c);
-    bench_ldes::<CrandallField>(c);
+    bench_ffts::<GoldilocksField>(c);
+    bench_ldes::<GoldilocksField>(c);
 }
 
 criterion_group!(benches, criterion_benchmark);

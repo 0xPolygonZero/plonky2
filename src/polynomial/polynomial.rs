@@ -388,11 +388,11 @@ mod tests {
     use rand::{thread_rng, Rng};
 
     use super::*;
-    use crate::field::crandall_field::CrandallField;
+    use crate::field::goldilocks_field::GoldilocksField;
 
     #[test]
     fn test_trimmed() {
-        type F = CrandallField;
+        type F = GoldilocksField;
 
         assert_eq!(
             PolynomialCoeffs::<F> { coeffs: vec![] }.trimmed(),
@@ -418,7 +418,7 @@ mod tests {
 
     #[test]
     fn test_coset_fft() {
-        type F = CrandallField;
+        type F = GoldilocksField;
 
         let k = 8;
         let n = 1 << k;
@@ -439,7 +439,7 @@ mod tests {
 
     #[test]
     fn test_coset_ifft() {
-        type F = CrandallField;
+        type F = GoldilocksField;
 
         let k = 8;
         let n = 1 << k;
@@ -460,7 +460,7 @@ mod tests {
 
     #[test]
     fn test_polynomial_multiplication() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let mut rng = thread_rng();
         let (a_deg, b_deg) = (rng.gen_range(1..10_000), rng.gen_range(1..10_000));
         let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
@@ -476,7 +476,7 @@ mod tests {
 
     #[test]
     fn test_inv_mod_xn() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let mut rng = thread_rng();
         let a_deg = rng.gen_range(1..1_000);
         let n = rng.gen_range(1..1_000);
@@ -498,7 +498,7 @@ mod tests {
 
     #[test]
     fn test_polynomial_long_division() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let mut rng = thread_rng();
         let (a_deg, b_deg) = (rng.gen_range(1..10_000), rng.gen_range(1..10_000));
         let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
@@ -512,7 +512,7 @@ mod tests {
 
     #[test]
     fn test_polynomial_division() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let mut rng = thread_rng();
         let (a_deg, b_deg) = (rng.gen_range(1..10_000), rng.gen_range(1..10_000));
         let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
@@ -526,7 +526,7 @@ mod tests {
 
     #[test]
     fn test_polynomial_division_by_constant() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let mut rng = thread_rng();
         let a_deg = rng.gen_range(1..10_000);
         let a = PolynomialCoeffs::new(F::rand_vec(a_deg));
@@ -540,7 +540,7 @@ mod tests {
 
     #[test]
     fn test_division_by_z_h() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let mut rng = thread_rng();
         let a_deg = rng.gen_range(1..10_000);
         let n = rng.gen_range(1..a_deg);
@@ -562,7 +562,7 @@ mod tests {
 
     #[test]
     fn divide_zero_poly_by_z_h() {
-        let zero_poly = PolynomialCoeffs::<CrandallField>::empty();
+        let zero_poly = PolynomialCoeffs::<GoldilocksField>::empty();
         zero_poly.divide_by_z_h(16);
     }
 
@@ -570,7 +570,7 @@ mod tests {
     // `(X^n - 1)/(X - a)
     #[test]
     fn test_division_linear() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let mut rng = thread_rng();
         let l = 14;
         let n = 1 << l;
@@ -594,7 +594,7 @@ mod tests {
 
     #[test]
     fn eq() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         assert_eq!(
             PolynomialCoeffs::<F>::new(vec![]),
             PolynomialCoeffs::new(vec![])

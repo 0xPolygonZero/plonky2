@@ -1,10 +1,10 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::field_types::Field;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::util::transpose;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    type F = CrandallField;
+    type F = GoldilocksField;
 
     // In practice, for the matrices we care about, each row is associated with a polynomial of
     // degree 2^13, and has been low-degree extended to a length of 2^16.

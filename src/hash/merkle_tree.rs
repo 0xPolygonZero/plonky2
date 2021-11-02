@@ -83,7 +83,7 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
-    use crate::field::crandall_field::CrandallField;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::hash::merkle_proofs::verify_merkle_proof;
 
     fn random_data<F: RichField>(n: usize, k: usize) -> Vec<Vec<F>> {
@@ -101,7 +101,7 @@ mod tests {
 
     #[test]
     fn test_merkle_trees() -> Result<()> {
-        type F = CrandallField;
+        type F = GoldilocksField;
 
         let log_n = 8;
         let n = 1 << log_n;

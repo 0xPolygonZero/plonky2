@@ -1,11 +1,11 @@
 use std::time::Instant;
 
-use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::field_types::Field;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::polynomial::polynomial::PolynomialValues;
 use rayon::prelude::*;
 
-type F = CrandallField;
+type F = GoldilocksField;
 
 // This is an estimate of how many LDEs the prover will compute. The biggest component, 86, comes
 // from wire polynomials which "store" the outputs of S-boxes in our Poseidon gate.

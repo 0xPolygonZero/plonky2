@@ -102,8 +102,8 @@ mod tests {
     use anyhow::Result;
     use rand::{thread_rng, Rng};
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn test_split_base() -> Result<()> {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_base_sum() -> Result<()> {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let config = CircuitConfig::large_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);

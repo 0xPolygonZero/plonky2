@@ -222,7 +222,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::field::crandall_field::CrandallField;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::arithmetic::ArithmeticExtensionGate;
     use crate::gates::base_sum::BaseSumGate;
     use crate::gates::constant::ConstantGate;
@@ -233,7 +233,7 @@ mod tests {
     #[test]
     fn test_prefix_generation() {
         env_logger::init();
-        type F = CrandallField;
+        type F = GoldilocksField;
         const D: usize = 4;
 
         let gates = vec![

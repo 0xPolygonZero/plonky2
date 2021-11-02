@@ -307,8 +307,8 @@ pub struct OpeningSetTarget<const D: usize> {
 mod tests {
     use anyhow::Result;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
@@ -317,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_proof_compression() -> Result<()> {
-        type F = CrandallField;
+        type F = GoldilocksField;
         const D: usize = 4;
 
         let mut config = CircuitConfig::large_config();

@@ -292,9 +292,9 @@ mod tests {
     use anyhow::Result;
     use rand::{thread_rng, Rng};
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::random_access::RandomAccessGate;
@@ -303,18 +303,18 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(RandomAccessGate::new(4, 4));
+        test_low_degree::<GoldilocksField, _, 4>(RandomAccessGate::new(4, 4));
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(RandomAccessGate::new(4, 4))
+        test_eval_fns::<GoldilocksField, _, 4>(RandomAccessGate::new(4, 4))
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
+        type F = GoldilocksField;
+        type FF = QuarticExtension<GoldilocksField>;
         const D: usize = 4;
 
         /// Returns the local wires for a random access gate given the vectors, elements to compare,

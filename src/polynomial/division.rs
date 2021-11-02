@@ -184,14 +184,14 @@ impl<F: Field> PolynomialCoeffs<F> {
 mod tests {
     use std::time::Instant;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::polynomial::polynomial::PolynomialCoeffs;
 
     #[test]
     fn zero_div_z_h() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let zero = PolynomialCoeffs::<F>::zero(16);
         let quotient = zero.divide_by_z_h(4);
         assert_eq!(quotient, zero);
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn division_by_z_h() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         let zero = F::ZERO;
         let three = F::from_canonical_u64(3);
         let four = F::from_canonical_u64(4);
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_division_by_linear() {
-        type F = QuarticExtension<CrandallField>;
+        type F = QuarticExtension<GoldilocksField>;
         let n = 1_000_000;
         let poly = PolynomialCoeffs::new(F::rand_vec(n));
         let z = F::rand();
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_division_by_quadratic() {
-        type F = QuarticExtension<CrandallField>;
+        type F = QuarticExtension<GoldilocksField>;
         let n = 1_000_000;
         let poly = PolynomialCoeffs::new(F::rand_vec(n));
         let quad = PolynomialCoeffs::new(F::rand_vec(2));

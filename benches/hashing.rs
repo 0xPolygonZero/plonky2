@@ -2,7 +2,6 @@
 #![feature(generic_const_exprs)]
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
-use plonky2::field::crandall_field::CrandallField;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::gmimc::GMiMC;
 use plonky2::hash::poseidon::Poseidon;
@@ -32,8 +31,6 @@ where
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    bench_gmimc::<CrandallField, 12>(c);
-    bench_poseidon::<CrandallField, 12>(c);
     bench_gmimc::<GoldilocksField, 12>(c);
     bench_poseidon::<GoldilocksField, 12>(c);
 }
