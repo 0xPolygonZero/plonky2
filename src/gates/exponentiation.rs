@@ -266,8 +266,8 @@ mod tests {
     use anyhow::Result;
     use rand::Rng;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::exponentiation::ExponentiationGate;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn wire_indices() {
-        let gate = ExponentiationGate::<CrandallField, 4> {
+        let gate = ExponentiationGate::<GoldilocksField, 4> {
             num_power_bits: 5,
             _phantom: PhantomData,
         };
@@ -302,7 +302,7 @@ mod tests {
             ..CircuitConfig::large_config()
         };
 
-        test_low_degree::<CrandallField, _, 4>(ExponentiationGate::new_from_config(&config));
+        test_low_degree::<GoldilocksField, _, 4>(ExponentiationGate::new_from_config(&config));
     }
 
     #[test]

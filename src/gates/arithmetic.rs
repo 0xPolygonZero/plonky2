@@ -206,7 +206,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 mod tests {
     use anyhow::Result;
 
-    use crate::field::crandall_field::CrandallField;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::arithmetic::ArithmeticExtensionGate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::plonk::circuit_data::CircuitConfig;
@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn low_degree() {
         let gate = ArithmeticExtensionGate::new_from_config(&CircuitConfig::large_config());
-        test_low_degree::<CrandallField, _, 4>(gate);
+        test_low_degree::<GoldilocksField, _, 4>(gate);
     }
 
     #[test]

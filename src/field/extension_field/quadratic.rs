@@ -215,17 +215,6 @@ impl<F: Extendable<2>> DivAssign for QuadraticExtension<F> {
 
 #[cfg(test)]
 mod tests {
-    mod crandall {
-        use crate::{test_field_arithmetic, test_field_extension};
-
-        test_field_extension!(crate::field::crandall_field::CrandallField, 2);
-        test_field_arithmetic!(
-            crate::field::extension_field::quadratic::QuadraticExtension<
-                crate::field::crandall_field::CrandallField,
-            >
-        );
-    }
-
     mod goldilocks {
         use crate::{test_field_arithmetic, test_field_extension};
 

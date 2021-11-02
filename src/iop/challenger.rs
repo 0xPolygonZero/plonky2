@@ -336,6 +336,7 @@ impl<F: Extendable<D>, H: AlgebraicHasher<F>, const D: usize> RecursiveChallenge
 #[cfg(test)]
 mod tests {
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::challenger::{Challenger, RecursiveChallenger};
     use crate::iop::generator::generate_partial_witness;
     use crate::iop::target::Target;

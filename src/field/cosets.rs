@@ -26,14 +26,14 @@ mod tests {
     use std::collections::HashSet;
 
     use crate::field::cosets::get_unique_coset_shifts;
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
 
     #[test]
     fn distinct_cosets() {
         // TODO: Switch to a smaller test field so that collision rejection is likely to occur.
 
-        type F = CrandallField;
+        type F = GoldilocksField;
         const SUBGROUP_BITS: usize = 5;
         const NUM_SHIFTS: usize = 50;
 

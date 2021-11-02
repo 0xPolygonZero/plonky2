@@ -292,8 +292,9 @@ mod tests {
     use anyhow::Result;
     use rand::{thread_rng, Rng};
 
-    use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::random_access::RandomAccessGate;
@@ -303,7 +304,7 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(RandomAccessGate::new(4, 4));
+        test_low_degree::<GoldilocksField, _, 4>(RandomAccessGate::new(4, 4));
     }
 
     #[test]

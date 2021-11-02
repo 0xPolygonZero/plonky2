@@ -477,8 +477,8 @@ mod tests {
 
     use anyhow::Result;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::poseidon::PoseidonGate;
     use crate::hash::hashing::SPONGE_WIDTH;
@@ -541,8 +541,8 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        type F = CrandallField;
-        let gate = PoseidonGate::<F, 4>::new();
+        type F = GoldilocksField;
+        let gate = PoseidonGate::<F, 4, SPONGE_WIDTH>::new();
         test_low_degree(gate)
     }
 

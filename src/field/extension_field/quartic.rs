@@ -241,17 +241,6 @@ impl<F: Extendable<4>> DivAssign for QuarticExtension<F> {
 
 #[cfg(test)]
 mod tests {
-    mod crandall {
-        use crate::{test_field_arithmetic, test_field_extension};
-
-        test_field_extension!(crate::field::crandall_field::CrandallField, 4);
-        test_field_arithmetic!(
-            crate::field::extension_field::quartic::QuarticExtension<
-                crate::field::crandall_field::CrandallField,
-            >
-        );
-    }
-
     mod goldilocks {
         use crate::{test_field_arithmetic, test_field_extension};
 

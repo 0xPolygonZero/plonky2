@@ -98,14 +98,14 @@ impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
 mod tests {
     use anyhow::Result;
 
-    use crate::field::crandall_field::CrandallField;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::constant::ConstantGate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(ConstantGate)
+        test_low_degree::<GoldilocksField, _, 4>(ConstantGate)
     }
 
     #[test]

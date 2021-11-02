@@ -332,8 +332,8 @@ mod tests {
 
     use anyhow::Result;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::gmimc::GMiMCGate;
     use crate::hash::gmimc::GMiMC;
@@ -353,7 +353,7 @@ mod tests {
 
         let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::new(config);
-        type Gate = GMiMCGate<F, 2, WIDTH>;
+        type Gate = GMiMCGate<F, D, WIDTH>;
         let gate = Gate::new();
         let gate_index = builder.add_gate(gate, vec![]);
         let circuit = builder.build_prover::<C>();
@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         const WIDTH: usize = 12;
         let gate = GMiMCGate::<F, 4, WIDTH>::new();
         test_low_degree(gate)

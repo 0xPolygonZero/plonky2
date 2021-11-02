@@ -57,14 +57,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::crandall_field::CrandallField;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::noop::NoopGate;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(NoopGate)
+        test_low_degree::<GoldilocksField, _, 4>(NoopGate)
     }
 
     #[test]
