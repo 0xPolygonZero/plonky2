@@ -1,5 +1,5 @@
 use anyhow::Result;
-use log::Level;
+
 use rayon::prelude::*;
 
 use crate::field::extension_field::Extendable;
