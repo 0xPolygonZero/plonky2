@@ -206,6 +206,7 @@ pub trait Field:
         subgroup.into_iter().map(|x| x * shift).collect()
     }
 
+    // TODO: move these to a new `PrimeField` trait (for all prime fields, not just 64-bit ones)
     fn from_biguint(n: BigUint) -> Self;
 
     fn to_biguint(&self) -> BigUint;

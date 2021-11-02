@@ -28,12 +28,10 @@ impl BigUintTarget {
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn constant_biguint(&mut self, value: &BigUint) -> BigUintTarget {
         let limb_values = value.to_u32_digits();
-        let mut limbs = Vec::new();
-        for i in 0..limb_values.len() {
-            limbs.push(U32Target(
-                self.constant(F::from_canonical_u32(limb_values[i])),
-            ));
-        }
+        let limbs = limb_values
+            .iter()
+            .map(|l| self.constant(F::from_canonical_u32(l)))
+            .collect();
 
         BigUintTarget { limbs }
     }

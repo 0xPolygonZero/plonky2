@@ -13,6 +13,8 @@ use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recu
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::util::{bits_u64, ceil_div_usize};
 
+// TODO: replace/merge this gate with `ComparisonGate`.
+
 /// A gate for checking that one value is less than or equal to another.
 #[derive(Clone, Debug)]
 pub struct AssertLessThanGate<F: PrimeField + Extendable<D>, const D: usize> {
