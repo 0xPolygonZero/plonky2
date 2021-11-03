@@ -3,7 +3,7 @@ use std::convert::TryInto;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
@@ -58,6 +58,38 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return result;
         }
 
+        // See if we've already computed the same operation.
+        let operation = ArithmeticOperation {
+            const_0,
+            const_1,
+            multiplicand_0,
+            multiplicand_1,
+            addend,
+        };
+        if let Some(&result) = self.arithmetic_results.get(&operation) {
+            return result;
+        }
+
+        // Otherwise, we must actually perform the operation using an ArithmeticExtensionGate slot.
+        let result = self.add_arithmetic_extension_operation(
+            const_0,
+            const_1,
+            multiplicand_0,
+            multiplicand_1,
+            addend,
+        );
+        self.arithmetic_results.insert(operation, result);
+        result
+    }
+
+    fn add_arithmetic_extension_operation(
+        &mut self,
+        const_0: F,
+        const_1: F,
+        multiplicand_0: ExtensionTarget<D>,
+        multiplicand_1: ExtensionTarget<D>,
+        addend: ExtensionTarget<D>,
+    ) -> ExtensionTarget<D> {
         let (gate, i) = self.find_arithmetic_gate(const_0, const_1);
         let wires_multiplicand_0 = ExtensionTarget::from_range(
             gate,
@@ -447,7 +479,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             quotient: inv,
         });
 
-        // Enforce that x times its purported inverse equals 1.
+        // Enforce that y times its purported inverse equals 1.
         let y_inv = self.mul_extension(y, inv);
         self.connect_extension(y_inv, one);
 
@@ -522,6 +554,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             current: self.one_extension(),
         }
     }
+}
+
+/// Represents an arithmetic operation in the circuit. Used to memoize results.
+#[derive(Eq, PartialEq, Hash)]
+pub(crate) struct ArithmeticOperation<F: PrimeField + Extendable<D>, const D: usize> {
+    const_0: F,
+    const_1: F,
+    multiplicand_0: ExtensionTarget<D>,
+    multiplicand_1: ExtensionTarget<D>,
+    addend: ExtensionTarget<D>,
 }
 
 #[cfg(test)]

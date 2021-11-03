@@ -258,7 +258,7 @@ where
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
         // The naive method is more efficient if we have enough routed wires for PoseidonMdsGate.
-        let naive =
+        let use_mds_gate =
             builder.config.num_routed_wires >= PoseidonMdsGate::<F, D, WIDTH>::new().num_wires();
 
         let mut constraints = Vec::with_capacity(self.num_constraints());
@@ -306,7 +306,7 @@ where
         }
 
         // Partial rounds.
-        if naive {
+        if use_mds_gate {
             for r in 0..poseidon::N_PARTIAL_ROUNDS {
                 <F as Poseidon<WIDTH>>::constant_layer_recursive(builder, &mut state, round_ctr);
                 let sbox_in = vars.local_wires[Self::wire_partial_sbox(r)];
