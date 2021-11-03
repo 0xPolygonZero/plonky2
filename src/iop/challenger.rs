@@ -376,7 +376,7 @@ mod tests {
             outputs_per_round.push(challenger.get_n_challenges(num_outputs_per_round[r]));
         }
 
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let mut recursive_challenger = RecursiveChallenger::new(&mut builder);
         let mut recursive_outputs_per_round: Vec<Vec<Target>> = Vec::new();

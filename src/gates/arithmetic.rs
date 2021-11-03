@@ -213,13 +213,15 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        let gate = ArithmeticExtensionGate::new_from_config(&CircuitConfig::large_config());
+        let gate =
+            ArithmeticExtensionGate::new_from_config(&CircuitConfig::standard_recursion_config());
         test_low_degree::<GoldilocksField, _, 4>(gate);
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        let gate = ArithmeticExtensionGate::new_from_config(&CircuitConfig::large_config());
+        let gate =
+            ArithmeticExtensionGate::new_from_config(&CircuitConfig::standard_recursion_config());
         test_eval_fns::<GoldilocksField, _, 4>(gate)
     }
 }

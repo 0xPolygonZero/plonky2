@@ -53,7 +53,7 @@ mod tests {
     fn test_select() -> Result<()> {
         type F = GoldilocksField;
         type FF = QuarticExtension<GoldilocksField>;
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
         let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 

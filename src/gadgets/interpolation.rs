@@ -49,7 +49,7 @@ mod tests {
     fn test_interpolate() -> Result<()> {
         type F = GoldilocksField;
         type FF = QuarticExtension<GoldilocksField>;
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 

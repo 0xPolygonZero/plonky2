@@ -98,7 +98,7 @@ mod tests {
         type F = GoldilocksField;
         type FF = QuarticExtension<GoldilocksField>;
         let len = 1 << len_log;
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let vec = FF::rand_vec(len);

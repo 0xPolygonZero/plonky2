@@ -352,7 +352,7 @@ mod tests {
     #[test]
     fn low_degree() {
         test_low_degree::<GoldilocksField, _, 4>(SwitchGate::<_, 4>::new_from_config(
-            &CircuitConfig::large_config(),
+            &CircuitConfig::standard_recursion_config(),
             3,
         ));
     }
@@ -360,7 +360,7 @@ mod tests {
     #[test]
     fn eval_fns() -> Result<()> {
         test_eval_fns::<GoldilocksField, _, 4>(SwitchGate::<_, 4>::new_from_config(
-            &CircuitConfig::large_config(),
+            &CircuitConfig::standard_recursion_config(),
             3,
         ))
     }

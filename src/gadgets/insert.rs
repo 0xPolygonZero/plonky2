@@ -43,7 +43,7 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
-    use crate::field::extension_field::quartic::QuarticExtension;
+    use crate::field::extension_field::quadratic::QuadraticExtension;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::PartialWitness;
@@ -62,11 +62,11 @@ mod tests {
 
     fn test_insert_given_len(len_log: usize) -> Result<()> {
         type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
+        type FF = QuadraticExtension<GoldilocksField>;
         let len = 1 << len_log;
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, 2>::new(config);
         let v = (0..len - 1)
             .map(|_| builder.constant_extension(FF::rand()))
             .collect::<Vec<_>>();

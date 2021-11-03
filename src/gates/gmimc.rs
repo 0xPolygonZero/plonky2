@@ -348,7 +348,7 @@ mod tests {
         type F = GoldilocksField;
         const WIDTH: usize = 12;
 
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::new(config);
         type Gate = GMiMCGate<F, 4, WIDTH>;
         let gate = Gate::new();

@@ -192,7 +192,7 @@ mod tests {
         type FF = QuarticExtension<GoldilocksField>;
         const D: usize = 4;
 
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -220,7 +220,7 @@ mod tests {
         type FF = QuarticExtension<GoldilocksField>;
         const D: usize = 4;
 
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
