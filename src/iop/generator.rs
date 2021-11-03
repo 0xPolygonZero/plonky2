@@ -87,7 +87,7 @@ pub(crate) fn generate_partial_witness<'a, F: RichField + Extendable<D>, const D
     assert_eq!(
         remaining_generators, 0,
         "{} generators weren't run",
-        remaining_generators
+        remaining_generators,
     );
 
     witness
