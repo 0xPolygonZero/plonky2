@@ -186,7 +186,7 @@ mod tests {
         type F = GoldilocksField;
         const D: usize = 4;
 
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
 
         let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);

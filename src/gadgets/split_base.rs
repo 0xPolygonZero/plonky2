@@ -112,7 +112,7 @@ mod tests {
     #[test]
     fn test_split_base() -> Result<()> {
         type F = GoldilocksField;
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
         let x = F::from_canonical_usize(0b110100000); // 416 = 1532 in base 6.
@@ -138,7 +138,7 @@ mod tests {
     #[test]
     fn test_base_sum() -> Result<()> {
         type F = GoldilocksField;
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 

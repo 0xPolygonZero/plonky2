@@ -529,7 +529,7 @@ mod tests {
 
         let config = CircuitConfig {
             num_wires: 143,
-            ..CircuitConfig::large_config()
+            ..CircuitConfig::standard_recursion_config()
         };
         let mut builder = CircuitBuilder::new(config);
         type Gate = PoseidonGate<F, 4, WIDTH>;

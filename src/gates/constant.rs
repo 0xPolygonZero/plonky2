@@ -123,14 +123,14 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        let num_consts = CircuitConfig::large_config().constant_gate_size;
+        let num_consts = CircuitConfig::standard_recursion_config().constant_gate_size;
         let gate = ConstantGate { num_consts };
         test_low_degree::<GoldilocksField, _, 2>(gate)
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        let num_consts = CircuitConfig::large_config().constant_gate_size;
+        let num_consts = CircuitConfig::standard_recursion_config().constant_gate_size;
         let gate = ConstantGate { num_consts };
         test_eval_fns::<GoldilocksField, _, 2>(gate)
     }
