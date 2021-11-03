@@ -353,7 +353,7 @@ mod tests {
     #[test]
     fn low_degree() {
         test_low_degree::<GoldilocksField, _, 4>(SwitchGate::<_, 4>::new_from_config(
-            &CircuitConfig::large_config(),
+            &CircuitConfig::standard_recursion_config(),
             3,
         ));
     }
@@ -364,7 +364,7 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         test_eval_fns::<F, C, _, D>(SwitchGate::<_, D>::new_from_config(
-            &CircuitConfig::large_config(),
+            &CircuitConfig::standard_recursion_config(),
             3,
         ))
     }

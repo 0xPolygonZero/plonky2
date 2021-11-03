@@ -43,7 +43,7 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
-    use crate::field::extension_field::quartic::QuarticExtension;
+    use crate::field::extension_field::quadratic::QuadraticExtension;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::PartialWitness;
@@ -67,7 +67,7 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         type FF = <C as GenericConfig<D>>::FE;
         let len = 1 << len_log;
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let v = (0..len - 1)

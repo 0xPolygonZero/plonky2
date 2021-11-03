@@ -546,7 +546,7 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         type FF = <C as GenericConfig<D>>::FE;
 
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
 
         let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -582,7 +582,7 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         type FF = <C as GenericConfig<D>>::FE;
 
-        let config = CircuitConfig::large_zk_config();
+        let config = CircuitConfig::standard_recursion_zk_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -611,7 +611,7 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         type FF = <C as GenericConfig<D>>::FE;
 
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);

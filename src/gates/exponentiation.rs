@@ -299,7 +299,7 @@ mod tests {
         let config = CircuitConfig {
             num_wires: 120,
             num_routed_wires: 30,
-            ..CircuitConfig::large_config()
+            ..CircuitConfig::standard_recursion_config()
         };
 
         test_low_degree::<GoldilocksField, _, 4>(ExponentiationGate::new_from_config(&config));
@@ -311,7 +311,7 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         test_eval_fns::<F, C, _, D>(ExponentiationGate::new_from_config(
-            &CircuitConfig::large_config(),
+            &CircuitConfig::standard_recursion_config(),
         ))
     }
 

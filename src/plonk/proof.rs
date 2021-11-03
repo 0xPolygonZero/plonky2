@@ -332,7 +332,7 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
-        let mut config = CircuitConfig::large_config();
+        let mut config = CircuitConfig::standard_recursion_config();
         config.fri_config.reduction_strategy = FriReductionStrategy::Fixed(vec![1, 1]);
         config.fri_config.num_query_rounds = 50;
 

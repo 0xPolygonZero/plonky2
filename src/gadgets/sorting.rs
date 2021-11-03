@@ -188,7 +188,7 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
 
         let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);

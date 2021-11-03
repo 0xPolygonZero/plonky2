@@ -351,7 +351,7 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         const WIDTH: usize = 12;
 
-        let config = CircuitConfig::large_config();
+        let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::new(config);
         type Gate = GMiMCGate<F, D, WIDTH>;
         let gate = Gate::new();

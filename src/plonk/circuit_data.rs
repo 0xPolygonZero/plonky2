@@ -68,36 +68,10 @@ impl CircuitConfig {
         }
     }
 
-    #[cfg(test)]
-    pub(crate) fn large_config() -> Self {
-        Self {
-            num_wires: 143,
-            num_routed_wires: 64,
-            constant_gate_size: 6,
-            security_bits: 4,
-            rate_bits: 3,
-            num_challenges: 3,
-            zero_knowledge: false,
-            cap_height: 1,
-            fri_config: FriConfig {
-                proof_of_work_bits: 1,
-                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
-                num_query_rounds: 1,
-            },
-        }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn large_zk_config() -> Self {
+    pub(crate) fn standard_recursion_zk_config() -> Self {
         CircuitConfig {
             zero_knowledge: true,
-            cap_height: 1,
-            fri_config: FriConfig {
-                proof_of_work_bits: 1,
-                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
-                num_query_rounds: 1,
-            },
-            ..Self::large_config()
+            ..Self::standard_recursion_config()
         }
     }
 }

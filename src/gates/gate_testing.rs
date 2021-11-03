@@ -131,7 +131,7 @@ pub(crate) fn test_eval_fns<
     let wires = F::Extension::rand_vec(gate.num_wires());
     let constants = F::Extension::rand_vec(gate.num_constants());
 
-    let config = CircuitConfig::large_config();
+    let config = CircuitConfig::standard_recursion_config();
     let mut pw = PartialWitness::new();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
