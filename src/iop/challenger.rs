@@ -350,7 +350,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        let mut challenger = Challenger::new();
+        let mut challenger = Challenger::<F, <C as GenericConfig<D>>::InnerHasher>::new();
         let mut challenges = Vec::new();
 
         for i in 1..10 {
@@ -384,7 +384,7 @@ mod tests {
             .map(|&n| F::rand_vec(n))
             .collect();
 
-        let mut challenger = Challenger::new();
+        let mut challenger = Challenger::<F, <C as GenericConfig<D>>::InnerHasher>::new();
         let mut outputs_per_round: Vec<Vec<F>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
             challenger.observe_elements(inputs);
@@ -393,7 +393,8 @@ mod tests {
 
         let config = CircuitConfig::large_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let mut recursive_challenger = RecursiveChallenger::new(&mut builder);
+        let mut recursive_challenger =
+            RecursiveChallenger::<F, <C as GenericConfig<D>>::InnerHasher, D>::new(&mut builder);
         let mut recursive_outputs_per_round: Vec<Vec<Target>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
             recursive_challenger.observe_elements(&builder.constants(inputs));

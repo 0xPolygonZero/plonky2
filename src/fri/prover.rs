@@ -26,7 +26,7 @@ pub fn fri_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenger: &mut Challenger<F, C::InnerHasher>,
     common_data: &CommonCircuitData<F, C, D>,
     timing: &mut TimingTree,
-) -> FriProof<F, C, D> {
+) -> FriProof<F, C::Hasher, D> {
     let n = lde_polynomial_values.values.len();
     assert_eq!(lde_polynomial_coeffs.coeffs.len(), n);
 
@@ -141,7 +141,7 @@ fn fri_prover_query_rounds<F: Extendable<D>, C: GenericConfig<D, F = F>, const D
     challenger: &mut Challenger<F, C::InnerHasher>,
     n: usize,
     common_data: &CommonCircuitData<F, C, D>,
-) -> Vec<FriQueryRound<F, C, D>> {
+) -> Vec<FriQueryRound<F, C::Hasher, D>> {
     (0..common_data.config.fri_config.num_query_rounds)
         .map(|_| fri_prover_query_round(initial_merkle_trees, trees, challenger, n, common_data))
         .collect()
@@ -153,7 +153,7 @@ fn fri_prover_query_round<F: Extendable<D>, C: GenericConfig<D, F = F>, const D:
     challenger: &mut Challenger<F, C::InnerHasher>,
     n: usize,
     common_data: &CommonCircuitData<F, C, D>,
-) -> FriQueryRound<F, C, D> {
+) -> FriQueryRound<F, C::Hasher, D> {
     let mut query_steps = Vec::new();
     let x = challenger.get_challenge::<C, D>();
     let mut x_index = x.to_canonical_u64() as usize % n;

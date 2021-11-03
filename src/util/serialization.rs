@@ -208,7 +208,7 @@ impl Buffer {
 
     fn write_fri_initial_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
-        fitp: &FriInitialTreeProof<F, C, D>,
+        fitp: &FriInitialTreeProof<F, C::Hasher>,
     ) -> Result<()> {
         for (v, p) in &fitp.evals_proofs {
             self.write_field_vec(v)?;
@@ -219,7 +219,7 @@ impl Buffer {
     fn read_fri_initial_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
-    ) -> Result<FriInitialTreeProof<F, C, D>> {
+    ) -> Result<FriInitialTreeProof<F, C::Hasher>> {
         let config = &common_data.config;
         let mut evals_proofs = Vec::with_capacity(4);
 
@@ -247,7 +247,7 @@ impl Buffer {
 
     fn write_fri_query_step<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
-        fqs: &FriQueryStep<F, C, D>,
+        fqs: &FriQueryStep<F, C::Hasher, D>,
     ) -> Result<()> {
         self.write_field_ext_vec::<F, D>(&fqs.evals)?;
         self.write_merkle_proof(&fqs.merkle_proof)
@@ -256,7 +256,7 @@ impl Buffer {
         &mut self,
         arity: usize,
         compressed: bool,
-    ) -> Result<FriQueryStep<F, C, D>> {
+    ) -> Result<FriQueryStep<F, C::Hasher, D>> {
         let evals = self.read_field_ext_vec::<F, D>(arity - if compressed { 1 } else { 0 })?;
         let merkle_proof = self.read_merkle_proof()?;
         Ok(FriQueryStep {
@@ -267,12 +267,12 @@ impl Buffer {
 
     fn write_fri_query_rounds<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
-        fqrs: &[FriQueryRound<F, C, D>],
+        fqrs: &[FriQueryRound<F, C::Hasher, D>],
     ) -> Result<()> {
         for fqr in fqrs {
-            self.write_fri_initial_proof(&fqr.initial_trees_proof)?;
+            self.write_fri_initial_proof::<F, C, D>(&fqr.initial_trees_proof)?;
             for fqs in &fqr.steps {
-                self.write_fri_query_step(fqs)?;
+                self.write_fri_query_step::<F, C, D>(fqs)?;
             }
         }
         Ok(())
@@ -280,7 +280,7 @@ impl Buffer {
     fn read_fri_query_rounds<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
-    ) -> Result<Vec<FriQueryRound<F, C, D>>> {
+    ) -> Result<Vec<FriQueryRound<F, C::Hasher, D>>> {
         let config = &common_data.config;
         let mut fqrs = Vec::with_capacity(config.fri_config.num_query_rounds);
         for _ in 0..config.fri_config.num_query_rounds {
@@ -289,7 +289,7 @@ impl Buffer {
                 .fri_params
                 .reduction_arity_bits
                 .iter()
-                .map(|&ar| self.read_fri_query_step(1 << ar, false))
+                .map(|&ar| self.read_fri_query_step::<F, C, D>(1 << ar, false))
                 .collect::<Result<_>>()?;
             fqrs.push(FriQueryRound {
                 initial_trees_proof,
@@ -301,19 +301,19 @@ impl Buffer {
 
     fn write_fri_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
-        fp: &FriProof<F, C, D>,
+        fp: &FriProof<F, C::Hasher, D>,
     ) -> Result<()> {
         for cap in &fp.commit_phase_merkle_caps {
             self.write_merkle_cap(cap)?;
         }
-        self.write_fri_query_rounds(&fp.query_round_proofs)?;
+        self.write_fri_query_rounds::<F, C, D>(&fp.query_round_proofs)?;
         self.write_field_ext_vec::<F, D>(&fp.final_poly.coeffs)?;
         self.write_field(fp.pow_witness)
     }
     fn read_fri_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
-    ) -> Result<FriProof<F, C, D>> {
+    ) -> Result<FriProof<F, C::Hasher, D>> {
         let config = &common_data.config;
         let commit_phase_merkle_caps = (0..common_data.fri_params.reduction_arity_bits.len())
             .map(|_| self.read_merkle_cap(config.cap_height))
@@ -338,7 +338,7 @@ impl Buffer {
         self.write_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
         self.write_merkle_cap(&proof.quotient_polys_cap)?;
         self.write_opening_set(&proof.openings)?;
-        self.write_fri_proof(&proof.opening_proof)
+        self.write_fri_proof::<F, C, D>(&proof.opening_proof)
     }
     pub fn read_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
@@ -400,7 +400,7 @@ impl Buffer {
         const D: usize,
     >(
         &mut self,
-        cfqrs: &CompressedFriQueryRounds<F, C, D>,
+        cfqrs: &CompressedFriQueryRounds<F, C::Hasher, D>,
     ) -> Result<()> {
         for &i in &cfqrs.indices {
             self.write_u32(i as u32)?;
@@ -409,13 +409,13 @@ impl Buffer {
         let mut initial_trees_proofs = cfqrs.initial_trees_proofs.iter().collect::<Vec<_>>();
         initial_trees_proofs.sort_by_key(|&x| x.0);
         for (_, itp) in initial_trees_proofs {
-            self.write_fri_initial_proof(itp)?;
+            self.write_fri_initial_proof::<F, C, D>(itp)?;
         }
         for h in &cfqrs.steps {
             let mut fri_query_steps = h.iter().collect::<Vec<_>>();
             fri_query_steps.sort_by_key(|&x| x.0);
             for (_, fqs) in fri_query_steps {
-                self.write_fri_query_step(fqs)?;
+                self.write_fri_query_step::<F, C, D>(fqs)?;
             }
         }
         Ok(())
@@ -427,7 +427,7 @@ impl Buffer {
     >(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
-    ) -> Result<CompressedFriQueryRounds<F, C, D>> {
+    ) -> Result<CompressedFriQueryRounds<F, C::Hasher, D>> {
         let config = &common_data.config;
         let original_indices = (0..config.fri_config.num_query_rounds)
             .map(|_| self.read_u32().map(|i| i as usize))
@@ -448,7 +448,7 @@ impl Buffer {
             });
             indices.dedup();
             let query_steps = (0..indices.len())
-                .map(|_| self.read_fri_query_step(1 << a, true))
+                .map(|_| self.read_fri_query_step::<F, C, D>(1 << a, true))
                 .collect::<Result<Vec<_>>>()?;
             steps.push(
                 indices
@@ -468,19 +468,19 @@ impl Buffer {
 
     fn write_compressed_fri_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
-        fp: &CompressedFriProof<F, C, D>,
+        fp: &CompressedFriProof<F, C::Hasher, D>,
     ) -> Result<()> {
         for cap in &fp.commit_phase_merkle_caps {
             self.write_merkle_cap(cap)?;
         }
-        self.write_compressed_fri_query_rounds(&fp.query_round_proofs)?;
+        self.write_compressed_fri_query_rounds::<F, C, D>(&fp.query_round_proofs)?;
         self.write_field_ext_vec::<F, D>(&fp.final_poly.coeffs)?;
         self.write_field(fp.pow_witness)
     }
     fn read_compressed_fri_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
-    ) -> Result<CompressedFriProof<F, C, D>> {
+    ) -> Result<CompressedFriProof<F, C::Hasher, D>> {
         let config = &common_data.config;
         let commit_phase_merkle_caps = (0..common_data.fri_params.reduction_arity_bits.len())
             .map(|_| self.read_merkle_cap(config.cap_height))
@@ -505,7 +505,7 @@ impl Buffer {
         self.write_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
         self.write_merkle_cap(&proof.quotient_polys_cap)?;
         self.write_opening_set(&proof.openings)?;
-        self.write_compressed_fri_proof(&proof.opening_proof)
+        self.write_compressed_fri_proof::<F, C, D>(&proof.opening_proof)
     }
     pub fn read_compressed_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,

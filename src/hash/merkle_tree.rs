@@ -103,7 +103,7 @@ mod tests {
         leaves: Vec<Vec<F>>,
         n: usize,
     ) -> Result<()> {
-        let tree = MerkleTree::<F, C, D>::new(leaves.clone(), 1);
+        let tree = MerkleTree::<F, C::Hasher>::new(leaves.clone(), 1);
         for i in 0..n {
             let proof = tree.prove(i);
             verify_merkle_proof(leaves[i].clone(), i, &tree.cap, &proof)?;

@@ -229,25 +229,25 @@ mod tests {
 
         let neg_one: u64 = F::NEG_ONE.to_canonical_u64();
 
-        #[rustfmt::skip]
-        let test_vectors8: Vec<([u64; 8], [u64; 8])> = vec![
-            ([0, 0, 0, 0, 0, 0, 0, 0, ],
-             [0x0751cebf68b361b0, 0x35d3c97c66539351, 0xd8658ef4a6240e92, 0x6781ebb9bbbb4e9f,
-              0x274e5747ffc945ab, 0xf145287440599e51, 0xb193e521a83175a1, 0xcc133eb594e53a80, ]),
-            ([0, 1, 2, 3, 4, 5, 6, 7, ],
-             [0x1183fb3b5cbb3c6c, 0xa4ac49f197402036, 0xd752a2f6b9f1e6a2, 0x508da1afbebd9538,
-              0xd32e183335ea3b8a, 0x79eb2ab985665a18, 0xa6a43cefcee4bfc2, 0x50521374c3cf82e1, ]),
-            ([neg_one, neg_one, neg_one, neg_one,
-              neg_one, neg_one, neg_one, neg_one, ],
-             [0x17c02c3f41202683, 0x26c7dcdc08616731, 0xb8b3ef710f9d7a22, 0x71700d868f4b5fc4,
-              0x1e55cebeb105081a, 0xbdc0566d7296c89a, 0xfff584fe30b62c67, 0x02ad66312a3d2d5b, ]),
-            ([0xb69ed321abbeffbb, 0xfb496d8c39b64e42, 0x274f1cfbb925c789, 0x9e846d2b9a56b834,
-              0xc7f297c0d48bc3b6, 0xb859ab1e45850a0a, 0x3244fe3bcb1244cb, 0xb98e1cfa647575de, ],
-             [0xa7369ab44b1aadd2, 0x884abb3db138372d, 0x9fc2e4ee64df8608, 0x12a205150a1dbe5a,
-              0x934ab794bd534b3c, 0xb39ef937e8caa038, 0x9e5fe73f4b03983c, 0x9539e39e93c28978, ]),
-        ];
-
-        check_test_vectors::<F, 8>(test_vectors8);
+        // #[rustfmt::skip]
+        // let test_vectors8: Vec<([u64; 8], [u64; 8])> = vec![
+        //     ([0, 0, 0, 0, 0, 0, 0, 0, ],
+        //      [0x0751cebf68b361b0, 0x35d3c97c66539351, 0xd8658ef4a6240e92, 0x6781ebb9bbbb4e9f,
+        //       0x274e5747ffc945ab, 0xf145287440599e51, 0xb193e521a83175a1, 0xcc133eb594e53a80, ]),
+        //     ([0, 1, 2, 3, 4, 5, 6, 7, ],
+        //      [0x1183fb3b5cbb3c6c, 0xa4ac49f197402036, 0xd752a2f6b9f1e6a2, 0x508da1afbebd9538,
+        //       0xd32e183335ea3b8a, 0x79eb2ab985665a18, 0xa6a43cefcee4bfc2, 0x50521374c3cf82e1, ]),
+        //     ([neg_one, neg_one, neg_one, neg_one,
+        //       neg_one, neg_one, neg_one, neg_one, ],
+        //      [0x17c02c3f41202683, 0x26c7dcdc08616731, 0xb8b3ef710f9d7a22, 0x71700d868f4b5fc4,
+        //       0x1e55cebeb105081a, 0xbdc0566d7296c89a, 0xfff584fe30b62c67, 0x02ad66312a3d2d5b, ]),
+        //     ([0xb69ed321abbeffbb, 0xfb496d8c39b64e42, 0x274f1cfbb925c789, 0x9e846d2b9a56b834,
+        //       0xc7f297c0d48bc3b6, 0xb859ab1e45850a0a, 0x3244fe3bcb1244cb, 0xb98e1cfa647575de, ],
+        //      [0xa7369ab44b1aadd2, 0x884abb3db138372d, 0x9fc2e4ee64df8608, 0x12a205150a1dbe5a,
+        //       0x934ab794bd534b3c, 0xb39ef937e8caa038, 0x9e5fe73f4b03983c, 0x9539e39e93c28978, ]),
+        // ];
+        //
+        // check_test_vectors::<F, 8>(test_vectors8);
 
         #[rustfmt::skip]
         let test_vectors12: Vec<([u64; 12], [u64; 12])> = vec![
@@ -273,12 +273,11 @@ mod tests {
               0x8c86ef4f325ff4ce, 0xce2fe2273aed3f7a, 0x3f67b6b298ae64a6, 0xaaf13b4630e53e41, ]),
         ];
 
-        check_test_vectors::<F, 12>(test_vectors12);
+        check_test_vectors::<F>(test_vectors12);
     }
 
     #[test]
     fn consistency() {
-        check_consistency::<F, 8>();
-        check_consistency::<F, 12>();
+        check_consistency::<F>();
     }
 }

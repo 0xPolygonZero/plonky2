@@ -131,7 +131,7 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         challenger: &mut Challenger<F, C::InnerHasher>,
         common_data: &CommonCircuitData<F, C, D>,
         timing: &mut TimingTree,
-    ) -> (FriProof<F, C, D>, OpeningSet<F, D>) {
+    ) -> (FriProof<F, C::Hasher, D>, OpeningSet<F, D>) {
         let config = &common_data.config;
         assert!(D > 1, "Not implemented for D=1.");
         let degree_log = commitments[0].degree_log;

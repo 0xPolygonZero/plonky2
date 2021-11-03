@@ -27,21 +27,21 @@ pub struct MerkleProofTarget {
 
 /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
 /// given cap.
-pub(crate) fn verify_merkle_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+pub(crate) fn verify_merkle_proof<F: RichField, H: Hasher<F>>(
     leaf_data: Vec<F>,
     leaf_index: usize,
-    merkle_cap: &MerkleCap<F, C::Hasher>,
-    proof: &MerkleProof<F, C::Hasher>,
+    merkle_cap: &MerkleCap<F, H>,
+    proof: &MerkleProof<F, H>,
 ) -> Result<()> {
     let mut index = leaf_index;
-    let mut current_digest = C::Hasher::hash(leaf_data, false);
+    let mut current_digest = H::hash(leaf_data, false);
     for &sibling_digest in proof.siblings.iter() {
         let bit = index & 1;
         index >>= 1;
         current_digest = if bit == 1 {
-            C::Hasher::two_to_one(sibling_digest, current_digest)
+            H::two_to_one(sibling_digest, current_digest)
         } else {
-            C::Hasher::two_to_one(current_digest, sibling_digest)
+            H::two_to_one(current_digest, sibling_digest)
         }
     }
     ensure!(
@@ -155,7 +155,7 @@ mod tests {
         let n = 1 << log_n;
         let cap_height = 1;
         let leaves = random_data::<F>(n, 7);
-        let tree = MerkleTree::<F, C, D>::new(leaves, cap_height);
+        let tree = MerkleTree::<F, <C as GenericConfig<D>>::Hasher>::new(leaves, cap_height);
         let i: usize = thread_rng().gen_range(0..n);
         let proof = tree.prove(i);
 
@@ -177,7 +177,9 @@ mod tests {
             pw.set_target(data[j], tree.leaves[i][j]);
         }
 
-        builder.verify_merkle_proof(data, &i_bits, &cap_t, &proof_t);
+        builder.verify_merkle_proof::<<C as GenericConfig<D>>::InnerHasher>(
+            data, &i_bits, &cap_t, &proof_t,
+        );
 
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;

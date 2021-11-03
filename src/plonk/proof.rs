@@ -27,7 +27,7 @@ pub struct Proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A batch FRI argument for all openings.
-    pub opening_proof: FriProof<F, C, D>,
+    pub opening_proof: FriProof<F, C::Hasher, D>,
 }
 
 pub struct ProofTarget<const D: usize> {
@@ -117,7 +117,7 @@ pub struct CompressedProof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A compressed batch FRI argument for all openings.
-    pub opening_proof: CompressedFriProof<F, C, D>,
+    pub opening_proof: CompressedFriProof<F, C::Hasher, D>,
 }
 
 impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> CompressedProof<F, C, D> {

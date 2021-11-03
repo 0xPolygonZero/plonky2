@@ -254,8 +254,6 @@ mod tests {
               0x37804ed8ca07fcd5, 0xe78ec2f213e28456, 0xecf67d2aacb4dbe3, 0xad14575187c496ca, ]),
         ];
 
-        check_test_vectors::<F, 8>(test_vectors8);
-
         #[rustfmt::skip]
         let test_vectors12: Vec<([u64; 12], [u64; 12])> = vec![
             ([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ],
@@ -280,12 +278,11 @@ mod tests {
               0x27eca78818ef9c27, 0xf08c93583c24dc47, 0x1c9e1552c07a9f73, 0x7659179192cfdc88, ]),
         ];
 
-        check_test_vectors::<F, 12>(test_vectors12);
+        check_test_vectors::<F>(test_vectors12);
     }
 
     #[test]
     fn consistency() {
-        check_consistency::<F, 8>();
-        check_consistency::<F, 12>();
+        check_consistency::<F>();
     }
 }
