@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 use keccak_hash::keccak;
 use serde::de::{DeserializeOwned, Error};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::field::extension_field::quadratic::QuadraticExtension;
 use crate::field::extension_field::{Extendable, FieldExtension};
@@ -141,50 +141,73 @@ impl AlgebraicConfig<2> for PoseidonGoldilocksConfig {
     type InnerHasher = PoseidonHash;
 }
 
-#[derive(Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize)]
-pub struct H256([u8; 32]);
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub struct BytesHash<const N: usize>([u8; N]);
+impl<const N: usize> Serialize for BytesHash<N> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        todo!()
+    }
+}
+impl<'de, const N: usize> Deserialize<'de> for BytesHash<N> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        todo!()
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct KeccakHash;
-impl<F: RichField> Hasher<F> for KeccakHash {
-    const HASH_SIZE: usize = 32;
-    type Hash = H256;
+pub struct KeccakHash<const N: usize>;
+impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
+    const HASH_SIZE: usize = N;
+    type Hash = BytesHash<N>;
 
     fn hash(input: Vec<F>, _pad: bool) -> Self::Hash {
         let mut buffer = Buffer::new(Vec::new());
         buffer.write_field_vec(&input).unwrap();
-        H256(keccak(buffer.bytes()).0)
+        let mut arr = [0; N];
+        arr.copy_from_slice(&keccak(buffer.bytes()).0[..N]);
+        BytesHash(arr)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
-        let mut v = [0; 32 * 2];
-        v[0..32].copy_from_slice(&left.0);
-        v[32..].copy_from_slice(&right.0);
-        H256(keccak(v).0)
+        let mut v = vec![0; N * 2];
+        v[0..N].copy_from_slice(&left.0);
+        v[N..].copy_from_slice(&right.0);
+        let mut arr = [0; N];
+        arr.copy_from_slice(&keccak(v).0[..N]);
+        BytesHash(arr)
     }
 }
 
-impl From<Vec<u8>> for H256 {
+impl<const N: usize> From<Vec<u8>> for BytesHash<N> {
     fn from(v: Vec<u8>) -> Self {
         Self(v.try_into().unwrap())
     }
 }
 
-impl Into<Vec<u8>> for H256 {
+impl<const N: usize> Into<Vec<u8>> for BytesHash<N> {
     fn into(self) -> Vec<u8> {
         self.0.to_vec()
     }
 }
-impl Into<u64> for H256 {
+impl<const N: usize> Into<u64> for BytesHash<N> {
     fn into(self) -> u64 {
         u64::from_le_bytes(self.0[..8].try_into().unwrap())
     }
 }
 
-impl<F: RichField> Into<Vec<F>> for H256 {
+impl<F: RichField, const N: usize> Into<Vec<F>> for BytesHash<N> {
     fn into(self) -> Vec<F> {
         let n = self.0.len();
-        let mut buffer = Buffer::new(self.0.to_vec());
-        buffer.read_field_vec(ceil_div_usize(n, 8)).unwrap()
+        let mut v = self.0.to_vec();
+        v.resize(ceil_div_usize(n, 8) * 8, 0);
+        let mut buffer = Buffer::new(v);
+        buffer.read_field_vec(buffer.len() / 8).unwrap()
     }
 }
 
@@ -193,6 +216,6 @@ pub struct KeccakGoldilocksConfig;
 impl GenericConfig<2> for KeccakGoldilocksConfig {
     type F = GoldilocksField;
     type FE = QuadraticExtension<Self::F>;
-    type Hasher = KeccakHash;
+    type Hasher = KeccakHash<25>;
     type InnerHasher = PoseidonHash;
 }
