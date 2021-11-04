@@ -1,6 +1,6 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::PrefixedGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -328,7 +328,6 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
     gammas: &[Target],
     alphas: &[Target],
 ) -> Vec<ExtensionTarget<D>> {
-    let one = builder.one_extension();
     let max_degree = common_data.quotient_degree_factor;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
 
@@ -356,36 +355,37 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
     let mut s_ids = Vec::new();
     for j in 0..common_data.config.num_routed_wires {
         let k = builder.constant(common_data.k_is[j]);
-        let k_ext = builder.convert_to_ext(k);
-        s_ids.push(builder.mul_extension(k_ext, x));
+        s_ids.push(builder.scalar_mul_ext(k, x));
     }
 
     for i in 0..common_data.config.num_challenges {
         let z_x = local_zs[i];
         let z_gz = next_zs[i];
+
+        // L_1(x) Z(x) = 0.
         vanishing_z_1_terms.push(builder.mul_sub_extension(l1_x, z_x, l1_x));
 
-        let numerator_values = (0..common_data.config.num_routed_wires)
-            .map(|j| {
-                let wire_value = vars.local_wires[j];
-                let beta_ext = builder.convert_to_ext(betas[i]);
-                let gamma_ext = builder.convert_to_ext(gammas[i]);
-                // `beta * s_id + wire_value + gamma`
-                builder.wide_arithmetic_extension(beta_ext, s_ids[j], one, wire_value, gamma_ext)
-            })
-            .collect::<Vec<_>>();
-        let denominator_values = (0..common_data.config.num_routed_wires)
-            .map(|j| {
-                let wire_value = vars.local_wires[j];
-                let beta_ext = builder.convert_to_ext(betas[i]);
-                let gamma_ext = builder.convert_to_ext(gammas[i]);
-                // `beta * s_sigma + wire_value + gamma`
-                builder.wide_arithmetic_extension(beta_ext, s_sigmas[j], one, wire_value, gamma_ext)
-            })
-            .collect::<Vec<_>>();
-        let quotient_values = (0..common_data.config.num_routed_wires)
-            .map(|j| builder.div_extension(numerator_values[j], denominator_values[j]))
-            .collect::<Vec<_>>();
+        let mut numerator_values = Vec::new();
+        let mut denominator_values = Vec::new();
+        let mut quotient_values = Vec::new();
+
+        for j in 0..common_data.config.num_routed_wires {
+            let wire_value = vars.local_wires[j];
+            let beta_ext = builder.convert_to_ext(betas[i]);
+            let gamma_ext = builder.convert_to_ext(gammas[i]);
+
+            // The numerator is `beta * s_id + wire_value + gamma`, and the denominator is
+            // `beta * s_sigma + wire_value + gamma`.
+            let wire_value_plus_gamma = builder.add_extension(wire_value, gamma_ext);
+            let numerator = builder.mul_add_extension(beta_ext, s_ids[j], wire_value_plus_gamma);
+            let denominator =
+                builder.mul_add_extension(beta_ext, s_sigmas[j], wire_value_plus_gamma);
+            let quotient = builder.div_extension(numerator, denominator);
+
+            numerator_values.push(numerator);
+            denominator_values.push(denominator);
+            quotient_values.push(quotient);
+        }
 
         // The partial products considered for this iteration of `i`.
         let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
