@@ -15,7 +15,6 @@ use crate::hash::gmimc::GMiMC;
 use crate::hash::poseidon::Poseidon;
 use crate::util::bits_u64;
 
-pub const WIDTH: usize = 12;
 /// A prime order field with the features we need to use it as a base field in our argument system.
 pub trait RichField: PrimeField + GMiMC<12> + Poseidon {}
 

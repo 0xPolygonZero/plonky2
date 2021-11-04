@@ -176,7 +176,6 @@ mod tests {
     use rand::{thread_rng, Rng};
 
     use super::*;
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::{Field, PrimeField};
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
@@ -187,7 +186,6 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::large_config();
 

@@ -1,11 +1,9 @@
 use rayon::prelude::*;
 
 use crate::field::extension_field::{flatten, unflatten, Extendable};
-use crate::field::field_types::RichField;
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::FriConfig;
 use crate::hash::hash_types::HashOut;
-use crate::hash::hashing::hash_n_to_1;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;

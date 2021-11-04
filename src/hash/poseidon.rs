@@ -583,20 +583,22 @@ pub trait Poseidon: PrimeField {
 }
 
 pub(crate) mod test_helpers {
-    use crate::field::field_types::{Field, WIDTH};
+    use crate::field::field_types::Field;
+    use crate::hash::hashing::SPONGE_WIDTH;
     use crate::hash::poseidon::Poseidon;
 
-    pub(crate) fn check_test_vectors<F: Field>(test_vectors: Vec<([u64; WIDTH], [u64; WIDTH])>)
-    where
+    pub(crate) fn check_test_vectors<F: Field>(
+        test_vectors: Vec<([u64; SPONGE_WIDTH], [u64; SPONGE_WIDTH])>,
+    ) where
         F: Poseidon,
     {
         for (input_, expected_output_) in test_vectors.into_iter() {
-            let mut input = [F::ZERO; WIDTH];
-            for i in 0..WIDTH {
+            let mut input = [F::ZERO; SPONGE_WIDTH];
+            for i in 0..SPONGE_WIDTH {
                 input[i] = F::from_canonical_u64(input_[i]);
             }
             let output = F::poseidon(input);
-            for i in 0..WIDTH {
+            for i in 0..SPONGE_WIDTH {
                 let ex_output = F::from_canonical_u64(expected_output_[i]);
                 assert_eq!(output[i], ex_output);
             }
@@ -607,13 +609,13 @@ pub(crate) mod test_helpers {
     where
         F: Poseidon,
     {
-        let mut input = [F::ZERO; WIDTH];
-        for i in 0..WIDTH {
+        let mut input = [F::ZERO; SPONGE_WIDTH];
+        for i in 0..SPONGE_WIDTH {
             input[i] = F::from_canonical_u64(i as u64);
         }
         let output = F::poseidon(input);
         let output_naive = F::poseidon_naive(input);
-        for i in 0..WIDTH {
+        for i in 0..SPONGE_WIDTH {
             assert_eq!(output[i], output_naive[i]);
         }
     }

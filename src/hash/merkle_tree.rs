@@ -1,12 +1,9 @@
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
-use crate::hash::hash_types::HashOut;
-use crate::hash::hashing::{compress, hash_or_noop};
+use crate::field::field_types::RichField;
 use crate::hash::merkle_proofs::MerkleProof;
-use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::config::Hasher;
 
 /// The Merkle cap of height `h` of a Merkle tree is the `h`-th layer (from the root) of the tree.
 /// It can be used in place of the root to verify Merkle paths, which are `h` elements shorter.
@@ -91,9 +88,9 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
-    use crate::field::crandall_field::CrandallField;
+    use crate::field::extension_field::Extendable;
     use crate::hash::merkle_proofs::verify_merkle_proof;
-    use crate::plonk::config::PoseidonGoldilocksConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     fn random_data<F: RichField>(n: usize, k: usize) -> Vec<Vec<F>> {
         (0..n).map(|_| F::rand_vec(k)).collect()

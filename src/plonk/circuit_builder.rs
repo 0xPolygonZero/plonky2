@@ -21,7 +21,6 @@ use crate::gates::public_input::PublicInputGate;
 use crate::gates::random_access::RandomAccessGate;
 use crate::gates::switch::SwitchGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
-use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::generator::{
     CopyGenerator, RandomValueGenerator, SimpleGenerator, WitnessGenerator,
 };

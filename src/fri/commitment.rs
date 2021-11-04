@@ -2,7 +2,7 @@ use rayon::prelude::*;
 
 use crate::field::extension_field::Extendable;
 use crate::field::fft::FftRootTable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
 use crate::hash::merkle_tree::MerkleTree;
@@ -216,7 +216,7 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             lde_final_poly,
             lde_final_values,
             challenger,
-            &common_data,
+            common_data,
             timing,
         );
 

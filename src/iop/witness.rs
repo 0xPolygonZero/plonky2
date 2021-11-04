@@ -9,7 +9,7 @@ use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
-use crate::plonk::config::{AlgebraicConfig, AlgebraicHasher, GenericConfig};
+use crate::plonk::config::AlgebraicHasher;
 
 /// A witness holds information on the values of targets in a circuit.
 pub trait Witness<F: Field> {

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;

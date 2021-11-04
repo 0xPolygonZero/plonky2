@@ -10,7 +10,6 @@ use crate::fri::proof::{
     CompressedFriProof, CompressedFriQueryRounds, FriInitialTreeProof, FriProof, FriQueryRound,
     FriQueryStep,
 };
-use crate::hash::hash_types::HashOut;
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::circuit_data::CommonCircuitData;

@@ -331,7 +331,6 @@ mod tests {
     use rand::Rng;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::gates::arithmetic_u32::{U32ArithmeticGate, NUM_U32_ARITHMETIC_OPS};
     use crate::gates::gate::Gate;

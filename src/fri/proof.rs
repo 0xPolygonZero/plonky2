@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{flatten, unflatten, Extendable};
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::RichField;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::hash::hash_types::MerkleCapTarget;
 use crate::hash::merkle_proofs::{MerkleProof, MerkleProofTarget};

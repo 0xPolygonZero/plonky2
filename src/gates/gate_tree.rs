@@ -222,7 +222,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::field::crandall_field::CrandallField;
     use crate::gates::arithmetic::ArithmeticExtensionGate;
     use crate::gates::base_sum::BaseSumGate;
     use crate::gates::constant::ConstantGate;
@@ -237,7 +236,6 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
 
         let gates = vec![
             GateRef::new(NoopGate),

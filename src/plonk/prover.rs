@@ -3,15 +3,12 @@ use log::Level;
 use rayon::prelude::*;
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
-use crate::hash::hash_types::HashOut;
-use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::challenger::Challenger;
 use crate::iop::generator::generate_partial_witness;
 use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
-use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::plonk_common::ZeroPolyOnCoset;
 use crate::plonk::proof::{Proof, ProofWithPublicInputs};

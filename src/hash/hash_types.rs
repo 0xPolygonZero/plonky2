@@ -73,24 +73,24 @@ impl<F: PrimeField> From<Vec<u8>> for HashOut<F> {
     }
 }
 
-impl<F: PrimeField> Into<Vec<u8>> for HashOut<F> {
-    fn into(self) -> Vec<u8> {
-        self.elements
+impl<F: PrimeField> From<HashOut<F>> for Vec<u8> {
+    fn from(h: HashOut<F>) -> Self {
+        h.elements
             .into_iter()
             .flat_map(|x| x.to_canonical_u64().to_le_bytes())
             .collect()
     }
 }
 
-impl<F: PrimeField> Into<Vec<F>> for HashOut<F> {
-    fn into(self) -> Vec<F> {
-        self.elements.to_vec()
+impl<F: PrimeField> From<HashOut<F>> for Vec<F> {
+    fn from(h: HashOut<F>) -> Self {
+        h.elements.to_vec()
     }
 }
 
-impl<F: PrimeField> Into<u64> for HashOut<F> {
-    fn into(self) -> u64 {
-        self.elements[0].to_canonical_u64()
+impl<F: PrimeField> From<HashOut<F>> for u64 {
+    fn from(h: HashOut<F>) -> Self {
+        h.elements[0].to_canonical_u64()
     }
 }
 

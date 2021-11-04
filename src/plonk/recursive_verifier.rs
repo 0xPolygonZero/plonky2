@@ -1,10 +1,9 @@
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
 use crate::hash::hash_types::HashOutTarget;
 use crate::iop::challenger::RecursiveChallenger;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
-use crate::plonk::config::{AlgebraicConfig, GenericConfig};
+use crate::plonk::config::AlgebraicConfig;
 use crate::plonk::proof::ProofWithPublicInputsTarget;
 use crate::plonk::vanishing_poly::eval_vanishing_poly_recursively;
 use crate::plonk::vars::EvaluationTargets;
@@ -128,7 +127,6 @@ mod tests {
     use log::{info, Level};
 
     use super::*;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::fri::proof::{
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
     };
@@ -138,7 +136,7 @@ mod tests {
     use crate::hash::merkle_proofs::MerkleProofTarget;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::VerifierOnlyCircuitData;
-    use crate::plonk::config::{KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::proof::{
         CompressedProofWithPublicInputs, OpeningSetTarget, Proof, ProofTarget,
         ProofWithPublicInputs,
@@ -369,7 +367,6 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
         let config = CircuitConfig::standard_recursion_config();
 
         let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 8_000)?;
@@ -388,7 +385,6 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type KC = KeccakGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -413,7 +409,6 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type KC = KeccakGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
 
         let normal_config = CircuitConfig::standard_recursion_config();
         let final_config = CircuitConfig {

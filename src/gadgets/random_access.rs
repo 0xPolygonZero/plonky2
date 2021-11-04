@@ -87,8 +87,6 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
-    use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;

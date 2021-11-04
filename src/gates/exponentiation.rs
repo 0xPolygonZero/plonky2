@@ -267,7 +267,6 @@ mod tests {
     use rand::Rng;
 
     use crate::field::crandall_field::CrandallField;
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::gates::exponentiation::ExponentiationGate;
     use crate::gates::gate::Gate;

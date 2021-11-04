@@ -5,12 +5,11 @@ use anyhow::Result;
 
 use crate::field::extension_field::Extendable;
 use crate::field::fft::FftRootTable;
-use crate::field::field_types::{Field, RichField};
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::reduction_strategies::FriReductionStrategy;
 use crate::fri::{FriConfig, FriParams};
 use crate::gates::gate::PrefixedGate;
-use crate::hash::hash_types::{HashOut, MerkleCapTarget};
+use crate::hash::hash_types::MerkleCapTarget;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;

@@ -335,7 +335,6 @@ impl<F: Extendable<D>, H: AlgebraicHasher<F>, const D: usize> RecursiveChallenge
 
 #[cfg(test)]
 mod tests {
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
     use crate::iop::challenger::{Challenger, RecursiveChallenger};
     use crate::iop::generator::generate_partial_witness;

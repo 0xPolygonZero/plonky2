@@ -6,8 +6,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::proof::{CompressedFriProof, FriProof, FriProofTarget};
-use crate::hash::hash_types::{HashOut, MerkleCapTarget};
-use crate::hash::hashing::hash_n_to_hash;
+use crate::hash::hash_types::MerkleCapTarget;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
@@ -318,7 +317,6 @@ pub struct OpeningSetTarget<const D: usize> {
 mod tests {
     use anyhow::Result;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::iop::witness::PartialWitness;
@@ -332,7 +330,6 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
 
         let mut config = CircuitConfig::large_config();
         config.fri_config.reduction_strategy = FriReductionStrategy::Fixed(vec![2, 1]);

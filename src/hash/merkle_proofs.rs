@@ -4,13 +4,13 @@ use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
-use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
-use crate::hash::hashing::{compress, hash_or_noop, SPONGE_WIDTH};
+use crate::field::field_types::RichField;
+use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
+use crate::hash::hashing::SPONGE_WIDTH;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use crate::plonk::config::{AlgebraicHasher, Hasher};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "")]
@@ -129,12 +129,12 @@ mod tests {
     use rand::{thread_rng, Rng};
 
     use super::*;
-    use crate::field::crandall_field::CrandallField;
+    use crate::field::field_types::Field;
     use crate::hash::merkle_tree::MerkleTree;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::PoseidonGoldilocksConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     fn random_data<F: Field>(n: usize, k: usize) -> Vec<Vec<F>> {
@@ -146,7 +146,6 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
         let config = CircuitConfig::large_config();
         let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);

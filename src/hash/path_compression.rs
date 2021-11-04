@@ -2,11 +2,9 @@ use std::collections::HashMap;
 
 use num::Integer;
 
-use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
-use crate::hash::hashing::{compress, hash_or_noop};
+use crate::field::field_types::RichField;
 use crate::hash::merkle_proofs::MerkleProof;
-use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::config::Hasher;
 
 /// Compress multiple Merkle proofs on the same tree by removing redundancy in the Merkle paths.
 pub(crate) fn compress_merkle_proofs<F: RichField, H: Hasher<F>>(
@@ -117,10 +115,9 @@ mod tests {
     use rand::{thread_rng, Rng};
 
     use super::*;
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
     use crate::hash::merkle_tree::MerkleTree;
-    use crate::plonk::config::PoseidonGoldilocksConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn test_path_compression() {
