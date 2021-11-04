@@ -535,7 +535,7 @@ mod tests {
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
@@ -606,7 +606,7 @@ mod tests {
     #[test]
     fn test_mul_algebra() -> Result<()> {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = KeccakGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         type FF = <C as GenericConfig<D>>::FE;
 

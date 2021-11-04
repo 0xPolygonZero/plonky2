@@ -113,13 +113,13 @@ impl Buffer {
         ))
     }
 
-    fn write_field_vec<F: PrimeField>(&mut self, v: &[F]) -> Result<()> {
+    pub fn write_field_vec<F: PrimeField>(&mut self, v: &[F]) -> Result<()> {
         for &a in v {
             self.write_field(a)?;
         }
         Ok(())
     }
-    fn read_field_vec<F: PrimeField>(&mut self, length: usize) -> Result<Vec<F>> {
+    pub fn read_field_vec<F: PrimeField>(&mut self, length: usize) -> Result<Vec<F>> {
         (0..length)
             .map(|_| self.read_field())
             .collect::<Result<Vec<_>>>()

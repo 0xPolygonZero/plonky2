@@ -138,7 +138,7 @@ mod tests {
     use crate::hash::merkle_proofs::MerkleProofTarget;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::VerifierOnlyCircuitData;
-    use crate::plonk::config::PoseidonGoldilocksConfig;
+    use crate::plonk::config::{KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::proof::{
         CompressedProofWithPublicInputs, OpeningSetTarget, Proof, ProofTarget,
         ProofWithPublicInputs,
@@ -373,7 +373,8 @@ mod tests {
         let config = CircuitConfig::standard_recursion_config();
 
         let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 8_000)?;
-        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, true, true)?;
+        let (proof, _vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, true, true)?;
         test_serialization(&proof, &cd)?;
 
         Ok(())
@@ -385,14 +386,17 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
+        type KC = KeccakGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::standard_recursion_config();
 
         let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 8_000)?;
-        let (proof, vd, cd) = recursive_proof(proof, vd, cd, &config, &config, false, false)?;
-        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, true, true)?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, false, false)?;
+        let (proof, _vd, cd) =
+            recursive_proof::<F, KC, C, D>(proof, vd, cd, &config, &config, true, true)?;
 
         test_serialization(&proof, &cd)?;
 
@@ -423,10 +427,24 @@ mod tests {
         };
 
         let (proof, vd, cd) = dummy_proof::<F, C, D>(&normal_config, 8_000)?;
-        let (proof, vd, cd) =
-            recursive_proof(proof, vd, cd, &normal_config, &normal_config, false, false)?;
-        let (proof, _vd, cd) =
-            recursive_proof(proof, vd, cd, &normal_config, &final_config, true, true)?;
+        let (proof, vd, cd) = recursive_proof::<F, C, C, D>(
+            proof,
+            vd,
+            cd,
+            &normal_config,
+            &normal_config,
+            false,
+            false,
+        )?;
+        let (proof, _vd, cd) = recursive_proof::<F, C, C, D>(
+            proof,
+            vd,
+            cd,
+            &normal_config,
+            &final_config,
+            true,
+            true,
+        )?;
 
         test_serialization(&proof, &cd)?;
 
@@ -453,10 +471,15 @@ mod tests {
         Ok((proof, data.verifier_only, data.common))
     }
 
-    fn recursive_proof<F: Extendable<D>, C: AlgebraicConfig<D, F = F>, const D: usize>(
-        inner_proof: ProofWithPublicInputs<F, C, D>,
-        inner_vd: VerifierOnlyCircuitData<C, D>,
-        inner_cd: CommonCircuitData<F, C, D>,
+    fn recursive_proof<
+        F: Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        InnerC: AlgebraicConfig<D, F = F>,
+        const D: usize,
+    >(
+        inner_proof: ProofWithPublicInputs<F, InnerC, D>,
+        inner_vd: VerifierOnlyCircuitData<InnerC, D>,
+        inner_cd: CommonCircuitData<F, InnerC, D>,
         inner_config: &CircuitConfig,
         config: &CircuitConfig,
         print_gate_counts: bool,
