@@ -71,26 +71,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         // Otherwise, we must actually perform the operation using an ArithmeticExtensionGate slot.
-        let result = self.add_arithmetic_extension_operation(
-            const_0,
-            const_1,
-            multiplicand_0,
-            multiplicand_1,
-            addend,
-        );
+        let result = self.add_arithmetic_extension_operation(operation);
         self.arithmetic_results.insert(operation, result);
         result
     }
 
     fn add_arithmetic_extension_operation(
         &mut self,
-        const_0: F,
-        const_1: F,
-        multiplicand_0: ExtensionTarget<D>,
-        multiplicand_1: ExtensionTarget<D>,
-        addend: ExtensionTarget<D>,
+        operation: ArithmeticOperation<F, D>,
     ) -> ExtensionTarget<D> {
-        let (gate, i) = self.find_arithmetic_gate(const_0, const_1);
+        let (gate, i) = self.find_arithmetic_gate(operation.const_0, operation.const_1);
         let wires_multiplicand_0 = ExtensionTarget::from_range(
             gate,
             ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(i),
@@ -102,9 +92,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let wires_addend =
             ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_addend(i));
 
-        self.connect_extension(multiplicand_0, wires_multiplicand_0);
-        self.connect_extension(multiplicand_1, wires_multiplicand_1);
-        self.connect_extension(addend, wires_addend);
+        self.connect_extension(operation.multiplicand_0, wires_multiplicand_0);
+        self.connect_extension(operation.multiplicand_1, wires_multiplicand_1);
+        self.connect_extension(operation.addend, wires_addend);
 
         ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_output(i))
     }
@@ -557,7 +547,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 /// Represents an arithmetic operation in the circuit. Used to memoize results.
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub(crate) struct ArithmeticOperation<F: PrimeField + Extendable<D>, const D: usize> {
     const_0: F,
     const_1: F,

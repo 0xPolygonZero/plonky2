@@ -328,7 +328,6 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
     gammas: &[Target],
     alphas: &[Target],
 ) -> Vec<ExtensionTarget<D>> {
-    let one = builder.one_extension();
     let max_degree = common_data.quotient_degree_factor;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
 
