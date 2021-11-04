@@ -411,6 +411,7 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
+        type KC = KeccakGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         type FF = <C as GenericConfig<D>>::FE;
 
@@ -436,7 +437,7 @@ mod tests {
             false,
             false,
         )?;
-        let (proof, _vd, cd) = recursive_proof::<F, C, C, D>(
+        let (proof, _vd, cd) = recursive_proof::<F, KC, C, D>(
             proof,
             vd,
             cd,
