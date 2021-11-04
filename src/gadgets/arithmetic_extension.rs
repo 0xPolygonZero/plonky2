@@ -3,7 +3,7 @@ use std::convert::TryInto;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
@@ -58,7 +58,29 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return result;
         }
 
-        let (gate, i) = self.find_arithmetic_gate(const_0, const_1);
+        // See if we've already computed the same operation.
+        let operation = ArithmeticOperation {
+            const_0,
+            const_1,
+            multiplicand_0,
+            multiplicand_1,
+            addend,
+        };
+        if let Some(&result) = self.arithmetic_results.get(&operation) {
+            return result;
+        }
+
+        // Otherwise, we must actually perform the operation using an ArithmeticExtensionGate slot.
+        let result = self.add_arithmetic_extension_operation(operation);
+        self.arithmetic_results.insert(operation, result);
+        result
+    }
+
+    fn add_arithmetic_extension_operation(
+        &mut self,
+        operation: ArithmeticOperation<F, D>,
+    ) -> ExtensionTarget<D> {
+        let (gate, i) = self.find_arithmetic_gate(operation.const_0, operation.const_1);
         let wires_multiplicand_0 = ExtensionTarget::from_range(
             gate,
             ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(i),
@@ -70,9 +92,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let wires_addend =
             ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_addend(i));
 
-        self.connect_extension(multiplicand_0, wires_multiplicand_0);
-        self.connect_extension(multiplicand_1, wires_multiplicand_1);
-        self.connect_extension(addend, wires_addend);
+        self.connect_extension(operation.multiplicand_0, wires_multiplicand_0);
+        self.connect_extension(operation.multiplicand_1, wires_multiplicand_1);
+        self.connect_extension(operation.addend, wires_addend);
 
         ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_output(i))
     }
@@ -447,7 +469,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             quotient: inv,
         });
 
-        // Enforce that x times its purported inverse equals 1.
+        // Enforce that y times its purported inverse equals 1.
         let y_inv = self.mul_extension(y, inv);
         self.connect_extension(y_inv, one);
 
@@ -522,6 +544,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             current: self.one_extension(),
         }
     }
+}
+
+/// Represents an arithmetic operation in the circuit. Used to memoize results.
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub(crate) struct ArithmeticOperation<F: PrimeField + Extendable<D>, const D: usize> {
+    const_0: F,
+    const_1: F,
+    multiplicand_0: ExtensionTarget<D>,
+    multiplicand_1: ExtensionTarget<D>,
+    addend: ExtensionTarget<D>,
 }
 
 #[cfg(test)]

@@ -106,8 +106,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
             let computed_output = {
                 let mul = builder.mul_ext_algebra(multiplicand_0, multiplicand_1);
                 let scaled_mul = builder.scalar_mul_ext_algebra(const_0, mul);
-                let scaled_addend = builder.scalar_mul_ext_algebra(const_1, addend);
-                builder.add_ext_algebra(scaled_mul, scaled_addend)
+                builder.scalar_mul_add_ext_algebra(const_1, addend, scaled_mul)
             };
 
             let diff = builder.sub_ext_algebra(output, computed_output);

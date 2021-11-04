@@ -12,6 +12,7 @@ use crate::field::fft::fft_root_table;
 use crate::field::field_types::{Field, RichField};
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::{FriConfig, FriParams};
+use crate::gadgets::arithmetic_extension::ArithmeticOperation;
 use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
@@ -70,6 +71,9 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     constants_to_targets: HashMap<F, Target>,
     targets_to_constants: HashMap<Target, F>,
 
+    /// Memoized results of `arithmetic_extension` calls.
+    pub(crate) arithmetic_results: HashMap<ArithmeticOperation<F, D>, ExtensionTarget<D>>,
+
     /// A map `(c0, c1) -> (g, i)` from constants `(c0,c1)` to an available arithmetic gate using
     /// these constants with gate index `g` and already using `i` arithmetic operations.
     pub(crate) free_arithmetic: HashMap<(F, F), (usize, usize)>,
@@ -100,6 +104,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             marked_targets: Vec::new(),
             generators: Vec::new(),
             constants_to_targets: HashMap::new(),
+            arithmetic_results: HashMap::new(),
             targets_to_constants: HashMap::new(),
             free_arithmetic: HashMap::new(),
             free_random_access: HashMap::new(),
