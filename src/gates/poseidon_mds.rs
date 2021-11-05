@@ -6,7 +6,7 @@ use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::FieldExtension;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
 use crate::hash::hashing::SPONGE_WIDTH;
 use crate::hash::poseidon::Poseidon;

@@ -210,7 +210,7 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         let fri_proof = fri_proof(
             &commitments
-                .iter()
+                .par_iter()
                 .map(|c| &c.merkle_tree)
                 .collect::<Vec<_>>(),
             lde_final_poly,

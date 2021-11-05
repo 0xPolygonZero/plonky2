@@ -9,7 +9,7 @@ use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::fft::fft_root_table;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::arithmetic_extension::ArithmeticOperation;

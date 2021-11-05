@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::proof::{CompressedFriProof, FriProof, FriProofTarget};
 use crate::hash::hash_types::MerkleCapTarget;

@@ -1,6 +1,5 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
 use crate::gates::interpolation::InterpolationGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;

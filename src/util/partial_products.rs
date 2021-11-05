@@ -3,7 +3,6 @@ use std::ops::Sub;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::ceil_div_usize;
 

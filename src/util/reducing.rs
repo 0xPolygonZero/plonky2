@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::gates::reducing::ReducingGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;

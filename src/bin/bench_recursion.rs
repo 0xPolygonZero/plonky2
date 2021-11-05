@@ -1,9 +1,6 @@
 use anyhow::Result;
 use env_logger::Env;
 use log::info;
-use plonky2::field::extension_field::Extendable;
-use plonky2::field::field_types::RichField;
-use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::fri::reduction_strategies::FriReductionStrategy;
 use plonky2::fri::FriConfig;
 use plonky2::hash::hashing::SPONGE_WIDTH;
