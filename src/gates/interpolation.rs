@@ -5,7 +5,7 @@ use std::ops::Range;
 use crate::field::extension_field::algebra::PolynomialCoeffsAlgebra;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::RichField;
 use crate::field::interpolation::interpolant;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::Gate;
@@ -105,10 +105,10 @@ impl<F: RichField + Extendable<D>, const D: usize> InterpolationGate<F, D> {
     }
 
     /// The domain of the points we're interpolating.
-    fn coset_ext(&self, shift: F::Extension) -> Vec<F::Extension> {
+    fn coset_ext(&self, shift: F::Extension) -> impl Iterator<Item = F::Extension> {
         let g = F::primitive_root_of_unity(self.subgroup_bits);
         let size = 1 << self.subgroup_bits;
-        F::Extension::cyclic_subgroup_coset_known_order(g.into(), shift, size)
+        g.powers().take(size).map(move |x| shift.scalar_mul(x))
     }
 
     /// The domain of the points we're interpolating.
@@ -122,8 +122,8 @@ impl<F: RichField + Extendable<D>, const D: usize> InterpolationGate<F, D> {
         g.powers()
             .take(size)
             .map(move |x| {
-                let subgroup_element = builder.constant_extension(x.into());
-                builder.mul_extension(shift, subgroup_element)
+                let subgroup_element = builder.constant(x.into());
+                builder.scalar_mul_ext(subgroup_element, shift)
             })
             .collect()
     }
@@ -143,8 +143,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
         let interpolant = PolynomialCoeffsAlgebra::new(coeffs);
 
         let coset = self.coset_ext(vars.local_wires[self.wire_shift()]);
-        for i in 0..self.num_points() {
-            let point = coset[i];
+        for (i, point) in coset.into_iter().enumerate() {
             let value = vars.get_local_ext_algebra(self.wires_value(i));
             let computed_value = interpolant.eval_base(point);
             constraints.extend(&(value - computed_value).to_basefield_array());
