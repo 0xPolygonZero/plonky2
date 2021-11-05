@@ -44,16 +44,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let coset_start = self.mul(start, x);
 
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
-        let points = g
-            .powers()
-            .map(|y| {
-                let yc = self.constant(y);
-                self.mul(coset_start, yc)
-            })
-            .zip(evals)
-            .collect::<Vec<_>>();
-
-        self.interpolate(&points, beta)
+        self.interpolate_coset(arity_bits, coset_start, &evals, beta)
     }
 
     /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
@@ -64,7 +55,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             &self.config,
             max_fri_arity.max(1 << self.config.cap_height),
         );
-        let interpolation_gate = InterpolationGate::<F, D>::new(max_fri_arity);
+        let interpolation_gate = InterpolationGate::<F, D>::new(log2_strict(max_fri_arity));
 
         let min_wires = random_access
             .num_wires()

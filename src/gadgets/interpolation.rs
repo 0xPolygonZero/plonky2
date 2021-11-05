@@ -6,17 +6,20 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Interpolate a list of point/evaluation pairs at a given point.
-    /// Returns the evaluation of the interpolated polynomial at `evaluation_point`.
-    pub fn interpolate(
+    /// Interpolates a polynomial, whose points are a coset of the multiplicative subgroup with the
+    /// given size, and whose values are given. Returns the evaluation of the interpolant at
+    /// `evaluation_point`.
+    pub fn interpolate_coset(
         &mut self,
-        interpolation_points: &[(Target, ExtensionTarget<D>)],
+        subgroup_bits: usize,
+        coset_shift: Target,
+        values: &[ExtensionTarget<D>],
         evaluation_point: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let gate = InterpolationGate::new(interpolation_points.len());
+        let gate = InterpolationGate::new(subgroup_bits);
         let gate_index = self.add_gate(gate.clone(), vec![]);
-        for (i, &(p, v)) in interpolation_points.iter().enumerate() {
-            self.connect(p, Target::wire(gate_index, gate.wire_point(i)));
+        self.connect(coset_shift, Target::wire(gate_index, gate.wire_shift()));
+        for (i, &v) in values.iter().enumerate() {
             self.connect_extension(
                 v,
                 ExtensionTarget::from_range(gate_index, gate.wires_value(i)),
@@ -53,14 +56,17 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
-        let len = 4;
-        let points = (0..len)
-            .map(|_| (F::rand(), FF::rand()))
-            .collect::<Vec<_>>();
+        let subgroup_bits = 2;
+        let len = 1 << subgroup_bits;
+        let coset_shift = F::rand();
+        let g = F::primitive_root_of_unity(subgroup_bits);
+        let points = F::cyclic_subgroup_coset_known_order(g, coset_shift, len);
+        let values = FF::rand_vec(len);
 
         let homogeneous_points = points
             .iter()
-            .map(|&(a, b)| (<FF as FieldExtension<4>>::from_basefield(a), b))
+            .zip(values.iter())
+            .map(|(&a, &b)| (<FF as FieldExtension<4>>::from_basefield(a), b))
             .collect::<Vec<_>>();
 
         let true_interpolant = interpolant(&homogeneous_points);
@@ -68,14 +74,16 @@ mod tests {
         let z = FF::rand();
         let true_eval = true_interpolant.eval(z);
 
-        let points_target = points
+        let coset_shift_target = builder.constant(coset_shift);
+
+        let value_targets = values
             .iter()
-            .map(|&(p, v)| (builder.constant(p), builder.constant_extension(v)))
+            .map(|&v| (builder.constant_extension(v)))
             .collect::<Vec<_>>();
 
         let zt = builder.constant_extension(z);
 
-        let eval = builder.interpolate(&points_target, zt);
+        let eval = builder.interpolate_coset(subgroup_bits, coset_shift_target, &value_targets, zt);
         let true_eval_target = builder.constant_extension(true_eval);
         builder.connect_extension(eval, true_eval_target);
 
