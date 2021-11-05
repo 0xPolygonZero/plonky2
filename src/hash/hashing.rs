@@ -13,13 +13,6 @@ pub(crate) const SPONGE_RATE: usize = 8;
 pub(crate) const SPONGE_CAPACITY: usize = 4;
 pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 
-// pub(crate) const HASH_FAMILY: HashFamily = HashFamily::Poseidon;
-//
-// pub(crate) enum HashFamily {
-//     GMiMC,
-//     Poseidon,
-// }
-
 /// Hash the vector if necessary to reduce its length to ~256 bits. If it already fits, this is a
 /// no-op.
 pub fn hash_or_noop<F: RichField, P: PlonkyPermutation<F>>(inputs: Vec<F>) -> HashOut<F> {

@@ -10,6 +10,7 @@ use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::gates::gate::Gate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
+use crate::hash::hashing::SPONGE_WIDTH;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 // The number of full rounds and partial rounds is given by the
@@ -144,7 +145,7 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     0x4543d9df72c4831d, 0xf172d73e69f20739, 0xdfd1c4ff1eb3d868, 0xbc8dfb62d26376f7,
 ];
 
-const WIDTH: usize = 12;
+const WIDTH: usize = SPONGE_WIDTH;
 pub trait Poseidon: PrimeField {
     // Total number of round constants required: width of the input
     // times number of rounds.
