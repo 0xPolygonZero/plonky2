@@ -179,6 +179,7 @@ mod tests {
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::base_sum::BaseSumGate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn low_degree() {
@@ -187,6 +188,9 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(BaseSumGate::<6>::new(11))
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        test_eval_fns::<F, C, _, D>(BaseSumGate::<6>::new(11))
     }
 }

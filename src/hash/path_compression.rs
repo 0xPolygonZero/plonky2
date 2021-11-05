@@ -2,16 +2,16 @@ use std::collections::HashMap;
 
 use num::Integer;
 
-use crate::field::field_types::{Field, RichField};
-use crate::hash::hashing::{compress, hash_or_noop};
+use crate::field::field_types::RichField;
 use crate::hash::merkle_proofs::MerkleProof;
+use crate::plonk::config::Hasher;
 
 /// Compress multiple Merkle proofs on the same tree by removing redundancy in the Merkle paths.
-pub(crate) fn compress_merkle_proofs<F: Field>(
+pub(crate) fn compress_merkle_proofs<F: RichField, H: Hasher<F>>(
     cap_height: usize,
     indices: &[usize],
-    proofs: &[MerkleProof<F>],
-) -> Vec<MerkleProof<F>> {
+    proofs: &[MerkleProof<F, H>],
+) -> Vec<MerkleProof<F, H>> {
     assert!(!proofs.is_empty());
     let height = cap_height + proofs[0].siblings.len();
     let num_leaves = 1 << height;
@@ -51,13 +51,13 @@ pub(crate) fn compress_merkle_proofs<F: Field>(
 
 /// Decompress compressed Merkle proofs.
 /// Note: The data and indices must be in the same order as in `compress_merkle_proofs`.
-pub(crate) fn decompress_merkle_proofs<F: RichField>(
+pub(crate) fn decompress_merkle_proofs<F: RichField, H: Hasher<F>>(
     leaves_data: &[Vec<F>],
     leaves_indices: &[usize],
-    compressed_proofs: &[MerkleProof<F>],
+    compressed_proofs: &[MerkleProof<F, H>],
     height: usize,
     cap_height: usize,
-) -> Vec<MerkleProof<F>> {
+) -> Vec<MerkleProof<F, H>> {
     let num_leaves = 1 << height;
     let compressed_proofs = compressed_proofs.to_vec();
     let mut decompressed_proofs = Vec::with_capacity(compressed_proofs.len());
@@ -66,7 +66,7 @@ pub(crate) fn decompress_merkle_proofs<F: RichField>(
 
     for (&i, v) in leaves_indices.iter().zip(leaves_data) {
         // Observe the leaves.
-        seen.insert(i + num_leaves, hash_or_noop(v.to_vec()));
+        seen.insert(i + num_leaves, H::hash(v.to_vec(), false));
     }
 
     // Iterators over the siblings.
@@ -84,9 +84,9 @@ pub(crate) fn decompress_merkle_proofs<F: RichField>(
                 .entry(sibling_index)
                 .or_insert_with(|| *p.next().unwrap());
             let parent_hash = if index.is_even() {
-                compress(current_hash, sibling_hash)
+                H::two_to_one(current_hash, sibling_hash)
             } else {
-                compress(sibling_hash, current_hash)
+                H::two_to_one(sibling_hash, current_hash)
             };
             seen.insert(index >> 1, parent_hash);
         }
@@ -118,14 +118,17 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::hash::merkle_tree::MerkleTree;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn test_path_compression() {
-        type F = GoldilocksField;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let h = 10;
         let cap_height = 3;
         let vs = (0..1 << h).map(|_| vec![F::rand()]).collect::<Vec<_>>();
-        let mt = MerkleTree::new(vs.clone(), cap_height);
+        let mt = MerkleTree::<F, <C as GenericConfig<D>>::Hasher>::new(vs.clone(), cap_height);
 
         let mut rng = thread_rng();
         let k = rng.gen_range(1..=1 << h);

@@ -1,14 +1,13 @@
 use rayon::prelude::*;
 
 use crate::field::extension_field::{flatten, unflatten, Extendable};
-use crate::field::field_types::RichField;
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::FriConfig;
 use crate::hash::hash_types::HashOut;
-use crate::hash::hashing::hash_n_to_1;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::reduce_with_powers;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::timed;
@@ -16,16 +15,16 @@ use crate::util::reverse_index_bits_in_place;
 use crate::util::timing::TimingTree;
 
 /// Builds a FRI proof.
-pub fn fri_proof<F: RichField + Extendable<D>, const D: usize>(
-    initial_merkle_trees: &[&MerkleTree<F>],
+pub fn fri_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
     // Coefficients of the polynomial on which the LDT is performed. Only the first `1/rate` coefficients are non-zero.
     lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
     // Evaluation of the polynomial on the large domain.
     lde_polynomial_values: PolynomialValues<F::Extension>,
-    challenger: &mut Challenger<F>,
-    common_data: &CommonCircuitData<F, D>,
+    challenger: &mut Challenger<F, C::InnerHasher>,
+    common_data: &CommonCircuitData<F, C, D>,
     timing: &mut TimingTree,
-) -> FriProof<F, D> {
+) -> FriProof<F, C::Hasher, D> {
     let n = lde_polynomial_values.values.len();
     assert_eq!(lde_polynomial_coeffs.coeffs.len(), n);
 
@@ -42,11 +41,11 @@ pub fn fri_proof<F: RichField + Extendable<D>, const D: usize>(
     );
 
     // PoW phase
-    let current_hash = challenger.get_hash();
+    let current_hash = challenger.get_hash::<C, D>();
     let pow_witness = timed!(
         timing,
         "find proof-of-work witness",
-        fri_proof_of_work(current_hash, &common_data.config.fri_config)
+        fri_proof_of_work::<F, C, D>(current_hash, &common_data.config.fri_config)
     );
 
     // Query phase
@@ -61,12 +60,15 @@ pub fn fri_proof<F: RichField + Extendable<D>, const D: usize>(
     }
 }
 
-fn fri_committed_trees<F: RichField + Extendable<D>, const D: usize>(
+fn fri_committed_trees<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     mut coeffs: PolynomialCoeffs<F::Extension>,
     mut values: PolynomialValues<F::Extension>,
-    challenger: &mut Challenger<F>,
-    common_data: &CommonCircuitData<F, D>,
-) -> (Vec<MerkleTree<F>>, PolynomialCoeffs<F::Extension>) {
+    challenger: &mut Challenger<F, C::InnerHasher>,
+    common_data: &CommonCircuitData<F, C, D>,
+) -> (
+    Vec<MerkleTree<F, C::Hasher>>,
+    PolynomialCoeffs<F::Extension>,
+) {
     let config = &common_data.config;
     let mut trees = Vec::new();
 
@@ -81,12 +83,12 @@ fn fri_committed_trees<F: RichField + Extendable<D>, const D: usize>(
             .par_chunks(arity)
             .map(|chunk: &[F::Extension]| flatten(chunk))
             .collect();
-        let tree = MerkleTree::new(chunked_values, config.cap_height);
+        let tree = MerkleTree::<F, C::Hasher>::new(chunked_values, config.cap_height);
 
         challenger.observe_cap(&tree.cap);
         trees.push(tree);
 
-        let beta = challenger.get_extension_challenge();
+        let beta = challenger.get_extension_challenge::<C, D>();
         // P(x) = sum_{i<r} x^i * P_i(x^r) becomes sum_{i<r} beta^i * P_i(x).
         coeffs = PolynomialCoeffs::new(
             coeffs
@@ -106,11 +108,14 @@ fn fri_committed_trees<F: RichField + Extendable<D>, const D: usize>(
     (trees, coeffs)
 }
 
-fn fri_proof_of_work<F: RichField>(current_hash: HashOut<F>, config: &FriConfig) -> F {
+fn fri_proof_of_work<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    current_hash: HashOut<F>,
+    config: &FriConfig,
+) -> F {
     (0..=F::NEG_ONE.to_canonical_u64())
         .into_par_iter()
         .find_any(|&i| {
-            hash_n_to_1(
+            C::InnerHasher::hash(
                 current_hash
                     .elements
                     .iter()
@@ -119,35 +124,36 @@ fn fri_proof_of_work<F: RichField>(current_hash: HashOut<F>, config: &FriConfig)
                     .collect(),
                 false,
             )
-            .to_canonical_u64()
-            .leading_zeros()
+            .elements[0]
+                .to_canonical_u64()
+                .leading_zeros()
                 >= config.proof_of_work_bits + (64 - F::order().bits()) as u32
         })
         .map(F::from_canonical_u64)
         .expect("Proof of work failed. This is highly unlikely!")
 }
 
-fn fri_prover_query_rounds<F: RichField + Extendable<D>, const D: usize>(
-    initial_merkle_trees: &[&MerkleTree<F>],
-    trees: &[MerkleTree<F>],
-    challenger: &mut Challenger<F>,
+fn fri_prover_query_rounds<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
+    trees: &[MerkleTree<F, C::Hasher>],
+    challenger: &mut Challenger<F, C::InnerHasher>,
     n: usize,
-    common_data: &CommonCircuitData<F, D>,
-) -> Vec<FriQueryRound<F, D>> {
+    common_data: &CommonCircuitData<F, C, D>,
+) -> Vec<FriQueryRound<F, C::Hasher, D>> {
     (0..common_data.config.fri_config.num_query_rounds)
         .map(|_| fri_prover_query_round(initial_merkle_trees, trees, challenger, n, common_data))
         .collect()
 }
 
-fn fri_prover_query_round<F: RichField + Extendable<D>, const D: usize>(
-    initial_merkle_trees: &[&MerkleTree<F>],
-    trees: &[MerkleTree<F>],
-    challenger: &mut Challenger<F>,
+fn fri_prover_query_round<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
+    trees: &[MerkleTree<F, C::Hasher>],
+    challenger: &mut Challenger<F, C::InnerHasher>,
     n: usize,
-    common_data: &CommonCircuitData<F, D>,
-) -> FriQueryRound<F, D> {
+    common_data: &CommonCircuitData<F, C, D>,
+) -> FriQueryRound<F, C::Hasher, D> {
     let mut query_steps = Vec::new();
-    let x = challenger.get_challenge();
+    let x = challenger.get_challenge::<C, D>();
     let mut x_index = x.to_canonical_u64() as usize % n;
     let initial_proof = initial_merkle_trees
         .iter()

@@ -3,19 +3,25 @@ use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartialWitness, PartitionWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
+use crate::plonk::config::GenericConfig;
 
 /// Given a `PartitionWitness` that has only inputs set, populates the rest of the witness using the
 /// given set of generators.
-pub(crate) fn generate_partial_witness<'a, F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn generate_partial_witness<
+    'a,
+    F: Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     inputs: PartialWitness<F>,
-    prover_data: &'a ProverOnlyCircuitData<F, D>,
-    common_data: &'a CommonCircuitData<F, D>,
+    prover_data: &'a ProverOnlyCircuitData<F, C, D>,
+    common_data: &'a CommonCircuitData<F, C, D>,
 ) -> PartitionWitness<'a, F> {
     let config = &common_data.config;
     let generators = &prover_data.generators;

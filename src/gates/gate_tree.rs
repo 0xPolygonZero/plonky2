@@ -229,12 +229,14 @@ mod tests {
     use crate::gates::gmimc::GMiMCGate;
     use crate::gates::interpolation::InterpolationGate;
     use crate::gates::noop::NoopGate;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn test_prefix_generation() {
         env_logger::init();
-        type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let gates = vec![
             GateRef::new(NoopGate),

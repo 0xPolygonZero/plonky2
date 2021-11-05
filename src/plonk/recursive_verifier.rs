@@ -1,23 +1,23 @@
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
 use crate::hash::hash_types::HashOutTarget;
 use crate::iop::challenger::RecursiveChallenger;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
+use crate::plonk::config::AlgebraicConfig;
 use crate::plonk::proof::ProofWithPublicInputsTarget;
 use crate::plonk::vanishing_poly::eval_vanishing_poly_recursively;
 use crate::plonk::vars::EvaluationTargets;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
-    pub fn add_recursive_verifier(
+    pub fn add_recursive_verifier<C: AlgebraicConfig<D, F = F>>(
         &mut self,
         proof_with_pis: ProofWithPublicInputsTarget<D>,
         inner_config: &CircuitConfig,
         inner_verifier_data: &VerifierCircuitTarget,
-        inner_common_data: &CommonCircuitData<F, D>,
+        inner_common_data: &CommonCircuitData<F, C, D>,
     ) {
         let ProofWithPublicInputsTarget {
             proof,
@@ -27,7 +27,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let num_challenges = inner_config.num_challenges;
 
-        let public_inputs_hash = &self.hash_n_to_hash(public_inputs, true);
+        let public_inputs_hash = &self.hash_n_to_hash::<C::InnerHasher>(public_inputs, true);
 
         let mut challenger = RecursiveChallenger::new(self);
 
@@ -127,7 +127,6 @@ mod tests {
     use log::{info, Level};
 
     use super::*;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::fri::proof::{
         FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
     };
@@ -137,6 +136,7 @@ mod tests {
     use crate::hash::merkle_proofs::MerkleProofTarget;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::VerifierOnlyCircuitData;
+    use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::proof::{
         CompressedProofWithPublicInputs, OpeningSetTarget, Proof, ProofTarget,
         ProofWithPublicInputs,
@@ -146,8 +146,8 @@ mod tests {
     use crate::util::timing::TimingTree;
 
     // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
-    fn get_fri_query_round<F: RichField + Extendable<D>, const D: usize>(
-        proof: &Proof<F, D>,
+    fn get_fri_query_round<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+        proof: &Proof<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> FriQueryRoundTarget<D> {
         let mut query_round = FriQueryRoundTarget {
@@ -179,8 +179,8 @@ mod tests {
     }
 
     // Construct a `ProofTarget` with the same dimensions as `proof`.
-    fn proof_to_proof_target<F: RichField + Extendable<D>, const D: usize>(
-        proof_with_pis: &ProofWithPublicInputs<F, D>,
+    fn proof_to_proof_target<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+        proof_with_pis: &ProofWithPublicInputs<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> ProofWithPublicInputsTarget<D> {
         let ProofWithPublicInputs {
@@ -240,8 +240,8 @@ mod tests {
     }
 
     // Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
-    fn set_proof_target<F: RichField + Extendable<D>, const D: usize>(
-        proof: &ProofWithPublicInputs<F, D>,
+    fn set_proof_target<F: Extendable<D>, C: AlgebraicConfig<D, F = F>, const D: usize>(
+        proof: &ProofWithPublicInputs<F, C, D>,
         pt: &ProofWithPublicInputsTarget<D>,
         pw: &mut PartialWitness<F>,
     ) {
@@ -364,12 +364,14 @@ mod tests {
     #[ignore]
     fn test_recursive_verifier() -> Result<()> {
         init_logger();
-        type F = GoldilocksField;
         const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
 
-        let (proof, vd, cd) = dummy_proof::<F, D>(&config, 8_000)?;
-        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, true, true)?;
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 8_000)?;
+        let (proof, _vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, true, true)?;
         test_serialization(&proof, &cd)?;
 
         Ok(())
@@ -379,14 +381,18 @@ mod tests {
     #[ignore]
     fn test_recursive_recursive_verifier() -> Result<()> {
         init_logger();
-        type F = GoldilocksField;
         const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type KC = KeccakGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
 
-        let (proof, vd, cd) = dummy_proof::<F, D>(&config, 8_000)?;
-        let (proof, vd, cd) = recursive_proof(proof, vd, cd, &config, &config, false, false)?;
-        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, true, true)?;
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 8_000)?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, false, false)?;
+        let (proof, _vd, cd) =
+            recursive_proof::<F, KC, C, D>(proof, vd, cd, &config, &config, true, true)?;
 
         test_serialization(&proof, &cd)?;
 
@@ -399,13 +405,15 @@ mod tests {
     #[ignore]
     fn test_size_optimized_recursion() -> Result<()> {
         init_logger();
-        type F = GoldilocksField;
         const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type KC = KeccakGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let standard_config = CircuitConfig::standard_recursion_config();
 
         // A dummy proof with degree 2^13.
-        let (proof, vd, cd) = dummy_proof::<F, D>(&standard_config, 8_000)?;
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&standard_config, 8_000)?;
         assert_eq!(cd.degree_bits, 13);
 
         // A standard recursive proof with degree 2^13.
@@ -431,7 +439,7 @@ mod tests {
             },
             ..standard_config
         };
-        let (proof, vd, cd) = recursive_proof(
+        let (proof, vd, cd) = recursive_proof::<F, C, C, D>(
             proof,
             vd,
             cd,
@@ -454,7 +462,7 @@ mod tests {
             },
             ..high_rate_config.clone()
         };
-        let (proof, vd, cd) = recursive_proof(
+        let (proof, vd, cd) = recursive_proof::<F, C, C, D>(
             proof,
             vd,
             cd,
@@ -475,7 +483,7 @@ mod tests {
             },
             ..higher_rate_more_routing_config
         };
-        let (proof, _vd, cd) = recursive_proof(
+        let (proof, _vd, cd) = recursive_proof::<F, KC, C, D>(
             proof,
             vd,
             cd,
@@ -492,13 +500,13 @@ mod tests {
     }
 
     /// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
-    fn dummy_proof<F: RichField + Extendable<D>, const D: usize>(
+    fn dummy_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         config: &CircuitConfig,
         num_dummy_gates: u64,
     ) -> Result<(
-        ProofWithPublicInputs<F, D>,
-        VerifierOnlyCircuitData<F>,
-        CommonCircuitData<F, D>,
+        ProofWithPublicInputs<F, C, D>,
+        VerifierOnlyCircuitData<C, D>,
+        CommonCircuitData<F, C, D>,
     )> {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let input = builder.add_virtual_target();
@@ -508,7 +516,7 @@ mod tests {
             builder.arithmetic(i_f, i_f, input, input, input);
         }
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let mut inputs = PartialWitness::new();
         inputs.set_target(input, F::ZERO);
         let proof = data.prove(inputs)?;
@@ -517,18 +525,23 @@ mod tests {
         Ok((proof, data.verifier_only, data.common))
     }
 
-    fn recursive_proof<F: RichField + Extendable<D>, const D: usize>(
-        inner_proof: ProofWithPublicInputs<F, D>,
-        inner_vd: VerifierOnlyCircuitData<F>,
-        inner_cd: CommonCircuitData<F, D>,
+    fn recursive_proof<
+        F: Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        InnerC: AlgebraicConfig<D, F = F>,
+        const D: usize,
+    >(
+        inner_proof: ProofWithPublicInputs<F, InnerC, D>,
+        inner_vd: VerifierOnlyCircuitData<InnerC, D>,
+        inner_cd: CommonCircuitData<F, InnerC, D>,
         inner_config: &CircuitConfig,
         config: &CircuitConfig,
         print_gate_counts: bool,
         print_timing: bool,
     ) -> Result<(
-        ProofWithPublicInputs<F, D>,
-        VerifierOnlyCircuitData<F>,
-        CommonCircuitData<F, D>,
+        ProofWithPublicInputs<F, C, D>,
+        VerifierOnlyCircuitData<C, D>,
+        CommonCircuitData<F, C, D>,
     )> {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
@@ -549,7 +562,7 @@ mod tests {
             builder.print_gate_counts(0);
         }
 
-        let data = builder.build();
+        let data = builder.build::<C>();
 
         let mut timing = TimingTree::new("prove", Level::Debug);
         let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
@@ -563,9 +576,9 @@ mod tests {
     }
 
     /// Test serialization and print some size info.
-    fn test_serialization<F: RichField + Extendable<D>, const D: usize>(
-        proof: &ProofWithPublicInputs<F, D>,
-        cd: &CommonCircuitData<F, D>,
+    fn test_serialization<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+        proof: &ProofWithPublicInputs<F, C, D>,
+        cd: &CommonCircuitData<F, C, D>,
     ) -> Result<()> {
         let proof_bytes = proof.to_bytes()?;
         info!("Proof length: {} bytes", proof_bytes.len());
