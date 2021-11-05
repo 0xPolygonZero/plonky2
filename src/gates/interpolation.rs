@@ -370,15 +370,15 @@ mod tests {
 
         /// Returns the local wires for an interpolation gate for given coeffs, points and eval point.
         fn get_wires(
-            num_points: usize,
+            gate: &InterpolationGate<F, D>,
+            shift: F,
             coeffs: PolynomialCoeffs<FF>,
-            points: Vec<F>,
             eval_point: FF,
         ) -> Vec<FF> {
-            let mut v = Vec::new();
-            v.extend_from_slice(&points);
-            for j in 0..num_points {
-                v.extend(coeffs.eval(points[j].into()).0);
+            let points = gate.coset(shift);
+            let mut v = vec![shift];
+            for x in points {
+                v.extend(coeffs.eval(x.into()).0);
             }
             v.extend(eval_point.0);
             v.extend(coeffs.eval(eval_point).0);
@@ -389,13 +389,13 @@ mod tests {
         }
 
         // Get a working row for InterpolationGate.
+        let shift = F::rand();
         let coeffs = PolynomialCoeffs::new(vec![FF::rand(), FF::rand()]);
-        let points = vec![F::rand(), F::rand()];
         let eval_point = FF::rand();
         let gate = InterpolationGate::<F, D>::new(1);
         let vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires(2, coeffs, points, eval_point),
+            local_wires: &get_wires(&gate, shift, coeffs, eval_point),
             public_inputs_hash: &HashOut::rand(),
         };
 
