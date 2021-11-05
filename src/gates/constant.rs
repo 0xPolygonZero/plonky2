@@ -27,7 +27,7 @@ impl ConstantGate {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     fn id(&self) -> String {
         format!("{:?}", self)
     }

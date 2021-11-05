@@ -18,11 +18,11 @@ pub const NUM_U32_ARITHMETIC_OPS: usize = 3;
 
 /// A gate to perform a basic mul-add on 32-bit values (we assume they are range-checked beforehand).
 #[derive(Debug)]
-pub struct U32ArithmeticGate<F: RichField + Extendable<D>, const D: usize> {
+pub struct U32ArithmeticGate<F: Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
+impl<F: Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
     pub fn wire_ith_multiplicand_0(i: usize) -> usize {
         debug_assert!(i < NUM_U32_ARITHMETIC_OPS);
         5 * i
@@ -59,7 +59,7 @@ impl<F: RichField + Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticGate<F, D> {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
@@ -243,15 +243,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
 }
 
 #[derive(Clone, Debug)]
-struct U32ArithmeticGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct U32ArithmeticGenerator<F: Extendable<D>, const D: usize> {
     gate_index: usize,
     i: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for U32ArithmeticGenerator<F, D>
-{
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for U32ArithmeticGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 

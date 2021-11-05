@@ -9,7 +9,7 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 /// A gate which does nothing.
 pub struct NoopGate;
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
     fn id(&self) -> String {
         "NoopGate".into()
     }

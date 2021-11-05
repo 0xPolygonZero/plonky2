@@ -61,7 +61,7 @@ pub fn check_partial_products<T: Product + Copy + Sub<Output = T>>(
     res
 }
 
-pub fn check_partial_products_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub fn check_partial_products_recursively<F: Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     v: &[ExtensionTarget<D>],
     partials: &[ExtensionTarget<D>],

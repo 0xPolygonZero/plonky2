@@ -15,12 +15,12 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for inserting a value into a list at a non-deterministic location.
 #[derive(Clone, Debug)]
-pub(crate) struct InsertionGate<F: RichField + Extendable<D>, const D: usize> {
+pub(crate) struct InsertionGate<F: Extendable<D>, const D: usize> {
     pub vec_size: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> InsertionGate<F, D> {
+impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
     pub fn new(vec_size: usize) -> Self {
         Self {
             vec_size,
@@ -70,7 +70,7 @@ impl<F: RichField + Extendable<D>, const D: usize> InsertionGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }

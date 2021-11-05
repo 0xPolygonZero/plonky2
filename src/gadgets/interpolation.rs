@@ -5,7 +5,7 @@ use crate::gates::interpolation::InterpolationGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Interpolate a list of point/evaluation pairs at a given point.
     /// Returns the evaluation of the interpolated polynomial at `evaluation_point`.
     pub fn interpolate(

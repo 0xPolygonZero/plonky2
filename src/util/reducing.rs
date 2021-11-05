@@ -100,7 +100,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: Extendable<D>,
     {
         let max_coeffs_len = ReducingGate::<D>::max_coeffs_len(
             builder.config.num_wires,
@@ -143,7 +143,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: Extendable<D>,
     {
         let l = terms.len();
         self.count += l as u64;
@@ -164,7 +164,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: Extendable<D>,
     {
         let exp = builder.exp_u64_extension(self.base, self.count);
         self.count = 0;

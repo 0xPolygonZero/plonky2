@@ -5,7 +5,7 @@ use crate::gates::random_access::RandomAccessGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Finds the last available random access gate with the given `vec_size` or add one if there aren't any.
     /// Returns `(g,i)` such that there is a random access gate with the given `vec_size` at index
     /// `g` and the gate's `i`-th random access is available.

@@ -234,7 +234,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<
 /// `num_gate_constraints` is the largest number of constraints imposed by any gate. It is not
 /// strictly necessary, but it helps performance by ensuring that we allocate a vector with exactly
 /// the capacity that we need.
-pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
+pub fn evaluate_gate_constraints<F: Extendable<D>, const D: usize>(
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
     vars: EvaluationVars<F, D>,
@@ -258,7 +258,7 @@ pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
 /// Returns a vector of num_gate_constraints * vars_batch.len() field elements. The constraints
 /// corresponding to vars_batch[i] are found in
 /// result[num_gate_constraints * i..num_gate_constraints * (i + 1)].
-pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const D: usize>(
+pub fn evaluate_gate_constraints_base_batch<F: Extendable<D>, const D: usize>(
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
     vars_batch: &[EvaluationVarsBase<F>],
@@ -287,7 +287,7 @@ pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const 
     constraints_batch
 }
 
-pub fn evaluate_gate_constraints_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub fn evaluate_gate_constraints_recursively<F: Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,

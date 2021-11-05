@@ -26,7 +26,7 @@ pub struct MemoryOpTarget {
     value: Target,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn assert_permutation_memory_ops(&mut self, a: &[MemoryOpTarget], b: &[MemoryOpTarget]) {
         let a_chunks: Vec<Vec<Target>> = a
             .iter()
@@ -116,15 +116,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 #[derive(Debug)]
-struct MemoryOpSortGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct MemoryOpSortGenerator<F: Extendable<D>, const D: usize> {
     input_ops: Vec<MemoryOpTarget>,
     output_ops: Vec<MemoryOpTarget>,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for MemoryOpSortGenerator<F, D>
-{
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for MemoryOpSortGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         self.input_ops
             .iter()

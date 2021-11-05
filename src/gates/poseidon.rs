@@ -22,11 +22,11 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 /// It has a flag which can be used to swap the first four inputs with the next four, for ordering
 /// sibling digests.
 #[derive(Debug)]
-pub struct PoseidonGate<F: RichField + Extendable<D>, const D: usize> {
+pub struct PoseidonGate<F: Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
+impl<F: Extendable<D>, const D: usize> PoseidonGate<F, D> {
     pub fn new() -> Self {
         PoseidonGate {
             _phantom: PhantomData,
@@ -82,7 +82,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F, D> {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<SPONGE_WIDTH={}>", self, SPONGE_WIDTH)
     }
@@ -375,7 +375,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
 }
 
 #[derive(Debug)]
-struct PoseidonGenerator<F: RichField + Extendable<D> + Poseidon, const D: usize> {
+struct PoseidonGenerator<F: Extendable<D> + Poseidon, const D: usize> {
     gate_index: usize,
     _phantom: PhantomData<F>,
 }

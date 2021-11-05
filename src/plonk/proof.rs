@@ -217,7 +217,7 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
-pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> {
+pub(crate) struct ProofChallenges<F: Extendable<D>, const D: usize> {
     // Random values used in Plonk's permutation argument.
     pub plonk_betas: Vec<F>,
 
@@ -243,9 +243,7 @@ pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> 
 }
 
 /// Coset elements that can be inferred in the FRI reduction steps.
-pub(crate) struct FriInferredElements<F: RichField + Extendable<D>, const D: usize>(
-    pub Vec<F::Extension>,
-);
+pub(crate) struct FriInferredElements<F: Extendable<D>, const D: usize>(pub Vec<F::Extension>);
 
 pub struct ProofWithPublicInputsTarget<const D: usize> {
     pub proof: ProofTarget<D>,

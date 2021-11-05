@@ -17,7 +17,7 @@ impl PublicInputGate {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PublicInputGate {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for PublicInputGate {
     fn id(&self) -> String {
         "PublicInputGate".into()
     }

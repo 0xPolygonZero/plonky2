@@ -19,17 +19,11 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 /// It has a flag which can be used to swap the first four inputs with the next four, for ordering
 /// sibling digests.
 #[derive(Debug)]
-pub struct GMiMCGate<
-    F: RichField + Extendable<D> + GMiMC<WIDTH>,
-    const D: usize,
-    const WIDTH: usize,
-> {
+pub struct GMiMCGate<F: Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize>
-    GMiMCGate<F, D, WIDTH>
-{
+impl<F: Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> GMiMCGate<F, D, WIDTH> {
     pub fn new() -> Self {
         GMiMCGate {
             _phantom: PhantomData,
@@ -61,7 +55,7 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
     }
 }
 
-impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> Gate<F, D>
+impl<F: Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> Gate<F, D>
     for GMiMCGate<F, D, WIDTH>
 {
     fn id(&self) -> String {
@@ -242,17 +236,13 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
 }
 
 #[derive(Debug)]
-struct GMiMCGenerator<
-    F: RichField + Extendable<D> + GMiMC<WIDTH>,
-    const D: usize,
-    const WIDTH: usize,
-> {
+struct GMiMCGenerator<F: Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> {
     gate_index: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize>
-    SimpleGenerator<F> for GMiMCGenerator<F, D, WIDTH>
+impl<F: Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> SimpleGenerator<F>
+    for GMiMCGenerator<F, D, WIDTH>
 {
     fn dependencies(&self) -> Vec<Target> {
         let mut dep_input_indices = Vec::with_capacity(WIDTH + 1);

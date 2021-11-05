@@ -12,7 +12,7 @@ impl<const D: usize> PolynomialCoeffsExtTarget<D> {
         self.0.len()
     }
 
-    pub fn eval_scalar<F: RichField + Extendable<D>>(
+    pub fn eval_scalar<F: Extendable<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         point: Target,
@@ -22,7 +22,7 @@ impl<const D: usize> PolynomialCoeffsExtTarget<D> {
         point.reduce(&self.0, builder)
     }
 
-    pub fn eval<F: RichField + Extendable<D>>(
+    pub fn eval<F: Extendable<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         point: ExtensionTarget<D>,
@@ -41,7 +41,7 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
         point: ExtensionTarget<D>,
     ) -> ExtensionAlgebraTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: Extendable<D>,
     {
         let mut acc = builder.zero_ext_algebra();
         for &c in self.0.iter().rev() {
@@ -56,7 +56,7 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
         point: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: Extendable<D>,
     {
         let mut acc = builder.zero_ext_algebra();
         for &c in self.0.iter().rev() {

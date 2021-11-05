@@ -16,13 +16,13 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for conditionally swapping input values based on a boolean.
 #[derive(Clone, Debug)]
-pub(crate) struct SwitchGate<F: RichField + Extendable<D>, const D: usize> {
+pub(crate) struct SwitchGate<F: Extendable<D>, const D: usize> {
     pub(crate) chunk_size: usize,
     pub(crate) num_copies: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SwitchGate<F, D> {
+impl<F: Extendable<D>, const D: usize> SwitchGate<F, D> {
     pub fn new(num_copies: usize, chunk_size: usize) -> Self {
         Self {
             chunk_size,
@@ -66,7 +66,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SwitchGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, D> {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -194,13 +194,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, 
 }
 
 #[derive(Debug)]
-struct SwitchGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct SwitchGenerator<F: Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: SwitchGate<F, D>,
     copy: usize,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
+impl<F: Extendable<D>, const D: usize> SwitchGenerator<F, D> {
     fn in_out_dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
@@ -287,7 +287,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> WitnessGenerator<F> for SwitchGenerator<F, D> {
+impl<F: Extendable<D>, const D: usize> WitnessGenerator<F> for SwitchGenerator<F, D> {
     fn watch_list(&self) -> Vec<Target> {
         self.in_out_dependencies()
             .union(self.in_switch_dependencies())

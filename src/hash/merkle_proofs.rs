@@ -52,7 +52,7 @@ pub(crate) fn verify_merkle_proof<F: RichField, H: Hasher<F>>(
     Ok(())
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
     /// given cap. The index is given by it's little-endian bits.
     pub(crate) fn verify_merkle_proof<H: AlgebraicHasher<F>>(
