@@ -140,11 +140,7 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> CompressedPro
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
             openings,
-            opening_proof: opening_proof.decompress(
-                &challenges,
-                fri_inferred_elements,
-                common_data,
-            ),
+            opening_proof: opening_proof.decompress(challenges, fri_inferred_elements, common_data),
         }
     }
 }
@@ -318,7 +314,6 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;

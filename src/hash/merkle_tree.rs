@@ -89,7 +89,6 @@ mod tests {
 
     use super::*;
     use crate::field::extension_field::Extendable;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::hash::merkle_proofs::verify_merkle_proof;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 

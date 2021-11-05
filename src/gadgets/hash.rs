@@ -1,14 +1,7 @@
-use std::convert::TryInto;
-
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
-use crate::gates::gmimc::GMiMCGate;
-use crate::gates::poseidon::PoseidonGate;
-use crate::hash::gmimc::GMiMC;
 use crate::hash::hashing::SPONGE_WIDTH;
-use crate::hash::poseidon::Poseidon;
 use crate::iop::target::{BoolTarget, Target};
-use crate::iop::wire::Wire;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::AlgebraicHasher;
 

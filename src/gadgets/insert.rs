@@ -43,9 +43,7 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
-    use crate::field::extension_field::quadratic::QuadraticExtension;
     use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};

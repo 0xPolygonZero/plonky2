@@ -177,7 +177,6 @@ mod tests {
 
     use super::*;
     use crate::field::field_types::{Field, PrimeField};
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};

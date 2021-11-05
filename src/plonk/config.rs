@@ -2,8 +2,7 @@ use std::convert::TryInto;
 use std::fmt::Debug;
 
 use keccak_hash::keccak;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::field::extension_field::quadratic::QuadraticExtension;
 use crate::field::extension_field::{Extendable, FieldExtension};
@@ -16,7 +15,6 @@ use crate::hash::hashing::{
 };
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::util::ceil_div_usize;
 use crate::util::serialization::Buffer;
 
 /// Trait for hash functions.
