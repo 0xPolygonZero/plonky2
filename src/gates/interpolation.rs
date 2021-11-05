@@ -17,48 +17,45 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 
-/// Evaluates the interpolant of some given elements from a field extension.
-///
-/// In particular, this gate takes as inputs `num_points` points, `num_points` values, and the point
-/// to evaluate the interpolant at. It computes the interpolant and outputs its evaluation at the
-/// given point.
+/// Interpolates a polynomial, whose points are a (base field) coset of the multiplicative subgroup
+/// with the given size, and whose values are extension field elements, given by input wires.
+/// Outputs the evaluation of the interpolant at a given (extension field) evaluation point.
 #[derive(Clone, Debug)]
 pub(crate) struct InterpolationGate<F: RichField + Extendable<D>, const D: usize> {
-    pub num_points: usize,
+    pub subgroup_bits: usize,
     _phantom: PhantomData<F>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> InterpolationGate<F, D> {
-    pub fn new(num_points: usize) -> Self {
+    pub fn new(subgroup_bits: usize) -> Self {
         Self {
-            num_points,
+            subgroup_bits,
             _phantom: PhantomData,
         }
     }
 
-    fn start_points(&self) -> usize {
+    fn num_points(&self) -> usize {
+        1 << self.subgroup_bits
+    }
+
+    /// Wire index of the coset shift.
+    pub fn wire_shift(&self) -> usize {
         0
     }
 
-    /// Wire indices of the `i`th interpolant point.
-    pub fn wire_point(&self, i: usize) -> usize {
-        debug_assert!(i < self.num_points);
-        self.start_points() + i
-    }
-
     fn start_values(&self) -> usize {
-        self.start_points() + self.num_points
+        1
     }
 
     /// Wire indices of the `i`th interpolant value.
     pub fn wires_value(&self, i: usize) -> Range<usize> {
-        debug_assert!(i < self.num_points);
+        debug_assert!(i < self.num_points());
         let start = self.start_values() + i * D;
         start..start + D
     }
 
     fn start_evaluation_point(&self) -> usize {
-        self.start_values() + self.num_points * D
+        self.start_values() + self.num_points() * D
     }
 
     /// Wire indices of the point to evaluate the interpolant at.
@@ -89,14 +86,46 @@ impl<F: RichField + Extendable<D>, const D: usize> InterpolationGate<F, D> {
 
     /// Wire indices of the interpolant's `i`th coefficient.
     pub fn wires_coeff(&self, i: usize) -> Range<usize> {
-        debug_assert!(i < self.num_points);
+        debug_assert!(i < self.num_points());
         let start = self.start_coeffs() + i * D;
         start..start + D
     }
 
     /// End of wire indices, exclusive.
     fn end(&self) -> usize {
-        self.start_coeffs() + self.num_points * D
+        self.start_coeffs() + self.num_points() * D
+    }
+
+    /// The domain of the points we're interpolating.
+    fn coset(&self, shift: F) -> impl Iterator<Item = F> {
+        let g = F::primitive_root_of_unity(self.subgroup_bits);
+        let size = 1 << self.subgroup_bits;
+        // Speed matters here, so we avoid `cyclic_subgroup_coset_known_order` which allocates.
+        g.powers().take(size).map(move |x| x * shift)
+    }
+
+    /// The domain of the points we're interpolating.
+    fn coset_ext(&self, shift: F::Extension) -> impl Iterator<Item = F::Extension> {
+        let g = F::primitive_root_of_unity(self.subgroup_bits);
+        let size = 1 << self.subgroup_bits;
+        g.powers().take(size).map(move |x| shift.scalar_mul(x))
+    }
+
+    /// The domain of the points we're interpolating.
+    fn coset_ext_recursive(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        shift: ExtensionTarget<D>,
+    ) -> Vec<ExtensionTarget<D>> {
+        let g = F::primitive_root_of_unity(self.subgroup_bits);
+        let size = 1 << self.subgroup_bits;
+        g.powers()
+            .take(size)
+            .map(move |x| {
+                let subgroup_element = builder.constant(x.into());
+                builder.scalar_mul_ext(subgroup_element, shift)
+            })
+            .collect()
     }
 }
 
@@ -108,13 +137,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
-        let coeffs = (0..self.num_points)
+        let coeffs = (0..self.num_points())
             .map(|i| vars.get_local_ext_algebra(self.wires_coeff(i)))
             .collect();
         let interpolant = PolynomialCoeffsAlgebra::new(coeffs);
 
-        for i in 0..self.num_points {
-            let point = vars.local_wires[self.wire_point(i)];
+        let coset = self.coset_ext(vars.local_wires[self.wire_shift()]);
+        for (i, point) in coset.into_iter().enumerate() {
             let value = vars.get_local_ext_algebra(self.wires_value(i));
             let computed_value = interpolant.eval_base(point);
             constraints.extend(&(value - computed_value).to_basefield_array());
@@ -131,13 +160,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
     fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
-        let coeffs = (0..self.num_points)
+        let coeffs = (0..self.num_points())
             .map(|i| vars.get_local_ext(self.wires_coeff(i)))
             .collect();
         let interpolant = PolynomialCoeffs::new(coeffs);
 
-        for i in 0..self.num_points {
-            let point = vars.local_wires[self.wire_point(i)];
+        let coset = self.coset(vars.local_wires[self.wire_shift()]);
+        for (i, point) in coset.into_iter().enumerate() {
             let value = vars.get_local_ext(self.wires_value(i));
             let computed_value = interpolant.eval_base(point);
             constraints.extend(&(value - computed_value).to_basefield_array());
@@ -158,13 +187,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
     ) -> Vec<ExtensionTarget<D>> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
-        let coeffs = (0..self.num_points)
+        let coeffs = (0..self.num_points())
             .map(|i| vars.get_local_ext_algebra(self.wires_coeff(i)))
             .collect();
         let interpolant = PolynomialCoeffsExtAlgebraTarget(coeffs);
 
-        for i in 0..self.num_points {
-            let point = vars.local_wires[self.wire_point(i)];
+        let coset = self.coset_ext_recursive(builder, vars.local_wires[self.wire_shift()]);
+        for (i, point) in coset.into_iter().enumerate() {
             let value = vars.get_local_ext_algebra(self.wires_value(i));
             let computed_value = interpolant.eval_scalar(builder, point);
             constraints.extend(
@@ -210,13 +239,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
     fn degree(&self) -> usize {
         // The highest power of x is `num_points - 1`, and then multiplication by the coefficient
         // adds 1.
-        self.num_points
+        self.num_points()
     }
 
     fn num_constraints(&self) -> usize {
         // num_points * D constraints to check for consistency between the coefficients and the
         // point-value pairs, plus D constraints for the evaluation value.
-        self.num_points * D + D
+        self.num_points() * D + D
     }
 }
 
@@ -240,18 +269,18 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         let local_targets = |inputs: Range<usize>| inputs.map(local_target);
 
-        let mut deps = Vec::new();
+        let num_points = self.gate.num_points();
+        let mut deps = Vec::with_capacity(1 + D + num_points * D);
+
+        deps.push(local_target(self.gate.wire_shift()));
         deps.extend(local_targets(self.gate.wires_evaluation_point()));
-        for i in 0..self.gate.num_points {
-            deps.push(local_target(self.gate.wire_point(i)));
+        for i in 0..num_points {
             deps.extend(local_targets(self.gate.wires_value(i)));
         }
         deps
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let n = self.gate.num_points;
-
         let local_wire = |input| Wire {
             gate: self.gate_index,
             input,
@@ -267,13 +296,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         };
 
         // Compute the interpolant.
-        let points = (0..n)
-            .map(|i| {
-                (
-                    F::Extension::from_basefield(get_local_wire(self.gate.wire_point(i))),
-                    get_local_ext(self.gate.wires_value(i)),
-                )
-            })
+        let points = self.gate.coset(get_local_wire(self.gate.wire_shift()));
+        let points = points
+            .into_iter()
+            .enumerate()
+            .map(|(i, point)| (point.into(), get_local_ext(self.gate.wires_value(i))))
             .collect::<Vec<_>>();
         let interpolant = interpolant(&points);
 
@@ -308,31 +335,30 @@ mod tests {
     #[test]
     fn wire_indices() {
         let gate = InterpolationGate::<GoldilocksField, 4> {
-            num_points: 2,
+            subgroup_bits: 1,
             _phantom: PhantomData,
         };
 
         // The exact indices aren't really important, but we want to make sure we don't have any
         // overlaps or gaps.
-        assert_eq!(gate.wire_point(0), 0);
-        assert_eq!(gate.wire_point(1), 1);
-        assert_eq!(gate.wires_value(0), 2..6);
-        assert_eq!(gate.wires_value(1), 6..10);
-        assert_eq!(gate.wires_evaluation_point(), 10..14);
-        assert_eq!(gate.wires_evaluation_value(), 14..18);
-        assert_eq!(gate.wires_coeff(0), 18..22);
-        assert_eq!(gate.wires_coeff(1), 22..26);
-        assert_eq!(gate.num_wires(), 26);
+        assert_eq!(gate.wire_shift(), 0);
+        assert_eq!(gate.wires_value(0), 1..5);
+        assert_eq!(gate.wires_value(1), 5..9);
+        assert_eq!(gate.wires_evaluation_point(), 9..13);
+        assert_eq!(gate.wires_evaluation_value(), 13..17);
+        assert_eq!(gate.wires_coeff(0), 17..21);
+        assert_eq!(gate.wires_coeff(1), 21..25);
+        assert_eq!(gate.num_wires(), 25);
     }
 
     #[test]
     fn low_degree() {
-        test_low_degree::<GoldilocksField, _, 4>(InterpolationGate::new(4));
+        test_low_degree::<GoldilocksField, _, 4>(InterpolationGate::new(2));
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(InterpolationGate::new(4))
+        test_eval_fns::<GoldilocksField, _, 4>(InterpolationGate::new(2))
     }
 
     #[test]
@@ -343,15 +369,15 @@ mod tests {
 
         /// Returns the local wires for an interpolation gate for given coeffs, points and eval point.
         fn get_wires(
-            num_points: usize,
+            gate: &InterpolationGate<F, D>,
+            shift: F,
             coeffs: PolynomialCoeffs<FF>,
-            points: Vec<F>,
             eval_point: FF,
         ) -> Vec<FF> {
-            let mut v = Vec::new();
-            v.extend_from_slice(&points);
-            for j in 0..num_points {
-                v.extend(coeffs.eval(points[j].into()).0);
+            let points = gate.coset(shift);
+            let mut v = vec![shift];
+            for x in points {
+                v.extend(coeffs.eval(x.into()).0);
             }
             v.extend(eval_point.0);
             v.extend(coeffs.eval(eval_point).0);
@@ -362,16 +388,13 @@ mod tests {
         }
 
         // Get a working row for InterpolationGate.
+        let shift = F::rand();
         let coeffs = PolynomialCoeffs::new(vec![FF::rand(), FF::rand()]);
-        let points = vec![F::rand(), F::rand()];
         let eval_point = FF::rand();
-        let gate = InterpolationGate::<F, D> {
-            num_points: 2,
-            _phantom: PhantomData,
-        };
+        let gate = InterpolationGate::<F, D>::new(1);
         let vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires(2, coeffs, points, eval_point),
+            local_wires: &get_wires(&gate, shift, coeffs, eval_point),
             public_inputs_hash: &HashOut::rand(),
         };
 

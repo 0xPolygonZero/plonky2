@@ -242,7 +242,7 @@ mod tests {
             GateRef::new(ArithmeticExtensionGate { num_ops: 4 }),
             GateRef::new(BaseSumGate::<4>::new(4)),
             GateRef::new(GMiMCGate::<F, D, 12>::new()),
-            GateRef::new(InterpolationGate::new(4)),
+            GateRef::new(InterpolationGate::new(2)),
         ];
 
         let (tree, _, _) = Tree::from_gates(gates.clone());
