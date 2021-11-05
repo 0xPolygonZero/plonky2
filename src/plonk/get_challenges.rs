@@ -37,26 +37,26 @@ fn get_challenges<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenger.observe_hash::<C::InnerHasher>(public_inputs_hash);
 
     challenger.observe_cap(wires_cap);
-    let plonk_betas = challenger.get_n_challenges::<C, D>(num_challenges);
-    let plonk_gammas = challenger.get_n_challenges::<C, D>(num_challenges);
+    let plonk_betas = challenger.get_n_challenges(num_challenges);
+    let plonk_gammas = challenger.get_n_challenges(num_challenges);
 
     challenger.observe_cap(plonk_zs_partial_products_cap);
-    let plonk_alphas = challenger.get_n_challenges::<C, D>(num_challenges);
+    let plonk_alphas = challenger.get_n_challenges(num_challenges);
 
     challenger.observe_cap(quotient_polys_cap);
-    let plonk_zeta = challenger.get_extension_challenge::<C, D>();
+    let plonk_zeta = challenger.get_extension_challenge::<D>();
 
     challenger.observe_opening_set(openings);
 
     // Scaling factor to combine polynomials.
-    let fri_alpha = challenger.get_extension_challenge::<C, D>();
+    let fri_alpha = challenger.get_extension_challenge::<D>();
 
     // Recover the random betas used in the FRI reductions.
     let fri_betas = commit_phase_merkle_caps
         .iter()
         .map(|cap| {
             challenger.observe_cap(cap);
-            challenger.get_extension_challenge::<C, D>()
+            challenger.get_extension_challenge::<D>()
         })
         .collect();
 
@@ -64,7 +64,7 @@ fn get_challenges<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
 
     let fri_pow_response = C::InnerHasher::hash(
         challenger
-            .get_hash::<C, D>()
+            .get_hash()
             .elements
             .iter()
             .copied()
@@ -75,7 +75,7 @@ fn get_challenges<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     .elements[0];
 
     let fri_query_indices = (0..num_fri_queries)
-        .map(|_| challenger.get_challenge::<C, D>().to_canonical_u64() as usize % lde_size)
+        .map(|_| challenger.get_challenge().to_canonical_u64() as usize % lde_size)
         .collect();
 
     Ok(ProofChallenges {

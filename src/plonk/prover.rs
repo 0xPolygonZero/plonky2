@@ -82,8 +82,8 @@ pub(crate) fn prove<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize
     challenger.observe_hash::<C::InnerHasher>(public_inputs_hash);
 
     challenger.observe_cap(&wires_commitment.merkle_tree.cap);
-    let betas = challenger.get_n_challenges::<C, D>(num_challenges);
-    let gammas = challenger.get_n_challenges::<C, D>(num_challenges);
+    let betas = challenger.get_n_challenges(num_challenges);
+    let gammas = challenger.get_n_challenges(num_challenges);
 
     assert!(
         common_data.quotient_degree_factor < common_data.config.num_routed_wires,
@@ -123,7 +123,7 @@ pub(crate) fn prove<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize
 
     challenger.observe_cap(&zs_partial_products_commitment.merkle_tree.cap);
 
-    let alphas = challenger.get_n_challenges::<C, D>(num_challenges);
+    let alphas = challenger.get_n_challenges(num_challenges);
 
     let quotient_polys = timed!(
         timing,
@@ -173,7 +173,7 @@ pub(crate) fn prove<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize
 
     challenger.observe_cap(&quotient_polys_commitment.merkle_tree.cap);
 
-    let zeta = challenger.get_extension_challenge::<C, D>();
+    let zeta = challenger.get_extension_challenge::<D>();
 
     let (opening_proof, openings) = timed!(
         timing,

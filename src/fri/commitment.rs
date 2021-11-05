@@ -159,7 +159,7 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         );
         challenger.observe_opening_set(&os);
 
-        let alpha = challenger.get_extension_challenge::<C, D>();
+        let alpha = challenger.get_extension_challenge::<D>();
         let mut alpha = ReducingFactor::new(alpha);
 
         // Final low-degree polynomial that goes into FRI.
