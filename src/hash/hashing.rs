@@ -93,6 +93,7 @@ pub fn compress<F: RichField, P: PlonkyPermutation<F>>(x: HashOut<F>, y: HashOut
     }
 }
 
+/// Permutation that can be used in the sponge construction for an algebraic hash.
 pub trait PlonkyPermutation<F: RichField> {
     fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH];
 }
