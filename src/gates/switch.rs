@@ -312,7 +312,6 @@ mod tests {
 
     use anyhow::Result;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate::Gate;

@@ -19,7 +19,7 @@ fn main() -> Result<()> {
     // change this to info or warn later.
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    bench_prove::<GoldilocksField, 4>()
+    bench_prove()
 }
 
 fn bench_prove() -> Result<()> {

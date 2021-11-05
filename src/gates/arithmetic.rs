@@ -223,9 +223,8 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        test_eval_fns::<F, C, _, D>(gate)
         let gate =
             ArithmeticExtensionGate::new_from_config(&CircuitConfig::standard_recursion_config());
-        test_eval_fns::<F, C, _, 4>(gate)
+        test_eval_fns::<F, C, _, D>(gate)
     }
 }
