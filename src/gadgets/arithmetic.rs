@@ -1,7 +1,8 @@
 use std::borrow::Borrow;
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
+use crate::field::field_types::{Field, RichField};
+use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gates::exponentiation::ExponentiationGate;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -115,7 +116,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Exponentiate `base` to the power of `2^power_log`.
     pub fn exp_power_of_2(&mut self, base: Target, power_log: usize) -> Target {
-        self.exp_u64(base, 1 << power_log)
+        if power_log > ArithmeticExtensionGate::<D>::new_from_config(&self.config).num_ops {
+            // Cheaper to just use `ExponentiateGate`.
+            return self.exp_u64(base, 1 << power_log);
+        }
+
+        let mut product = base;
+        for _ in 0..power_log {
+            product = self.square(product);
+        }
+        product
     }
 
     // TODO: Test
@@ -149,6 +159,39 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let exponent_bits = self.split_le(exponent, num_bits);
 
         self.exp_from_bits(base, exponent_bits.iter())
+    }
+
+    /// Like `exp_from_bits` but with a constant base.
+    pub fn exp_from_bits_const_base(
+        &mut self,
+        base: F,
+        exponent_bits: impl IntoIterator<Item = impl Borrow<BoolTarget>>,
+    ) -> Target {
+        let base_t = self.constant(base);
+        let exponent_bits: Vec<_> = exponent_bits.into_iter().map(|b| *b.borrow()).collect();
+
+        if exponent_bits.len() > ArithmeticExtensionGate::<D>::new_from_config(&self.config).num_ops
+        {
+            // Cheaper to just use `ExponentiateGate`.
+            return self.exp_from_bits(base_t, exponent_bits);
+        }
+
+        let mut product = self.one();
+        for (i, bit) in exponent_bits.iter().enumerate() {
+            let pow = 1 << i;
+            // If the bit is on, we multiply product by base^pow.
+            // We can arithmetize this as:
+            //     product *= 1 + bit (base^pow - 1)
+            //     product = (base^pow - 1) product bit + product
+            product = self.arithmetic(
+                base.exp_u64(pow as u64) - F::ONE,
+                F::ONE,
+                product,
+                bit.target,
+                product,
+            )
+        }
+        product
     }
 
     /// Exponentiate `base` to the power of a known `exponent`.
