@@ -86,18 +86,20 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             .collect()
     }
 
+    /// Adds this gate's filtered constraints into the `combined_gate_constraints` buffer.
     fn eval_filtered_recursively(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         mut vars: EvaluationTargets<D>,
         prefix: &[bool],
-    ) -> Vec<ExtensionTarget<D>> {
+        combined_gate_constraints: &mut Vec<ExtensionTarget<D>>,
+    ) {
         let filter = compute_filter_recursively(builder, prefix, vars.local_constants);
         vars.remove_prefix(prefix);
-        self.eval_unfiltered_recursively(builder, vars)
-            .into_iter()
-            .map(|c| builder.mul_extension(filter, c))
-            .collect()
+        let my_constraints = self.eval_unfiltered_recursively(builder, vars);
+        for (acc, c) in combined_gate_constraints.iter_mut().zip(my_constraints) {
+            *acc = builder.mul_add_extension(filter, c, *acc);
+        }
     }
 
     fn generators(
