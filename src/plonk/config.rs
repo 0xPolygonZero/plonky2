@@ -24,7 +24,6 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
     type Hash: From<Vec<u8>>
         + Into<Vec<u8>>
         + Into<Vec<F>>
-        + Into<u64>
         + Copy
         + Clone
         + Debug
