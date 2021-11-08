@@ -53,7 +53,7 @@ impl CircuitConfig {
     pub(crate) fn standard_recursion_config() -> Self {
         Self {
             num_wires: 143,
-            num_routed_wires: 28,
+            num_routed_wires: 25,
             constant_gate_size: 6,
             security_bits: 100,
             rate_bits: 3,

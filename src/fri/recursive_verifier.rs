@@ -34,27 +34,17 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let g = F::primitive_root_of_unity(arity_bits);
         let g_inv = g.exp_u64((arity as u64) - 1);
-        let g_inv_t = self.constant(g_inv);
 
         // The evaluation vector needs to be reordered first.
         let mut evals = evals.to_vec();
         reverse_index_bits_in_place(&mut evals);
         // Want `g^(arity - rev_x_index_within_coset)` as in the out-of-circuit version. Compute it
         // as `(g^-1)^rev_x_index_within_coset`.
-        let start = self.exp_from_bits(g_inv_t, x_index_within_coset_bits.iter().rev());
+        let start = self.exp_from_bits_const_base(g_inv, x_index_within_coset_bits.iter().rev());
         let coset_start = self.mul(start, x);
 
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
-        let points = g
-            .powers()
-            .map(|y| {
-                let yc = self.constant(y);
-                self.mul(coset_start, yc)
-            })
-            .zip(evals)
-            .collect::<Vec<_>>();
-
-        self.interpolate(&points, beta)
+        self.interpolate_coset(arity_bits, coset_start, &evals, beta)
     }
 
     /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
@@ -65,7 +55,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             &self.config,
             max_fri_arity.max(1 << self.config.cap_height),
         );
-        let interpolation_gate = InterpolationGate::<F, D>::new(max_fri_arity);
+        let interpolation_gate = InterpolationGate::<F, D>::new(log2_strict(max_fri_arity));
 
         let min_wires = random_access
             .num_wires()
@@ -335,9 +325,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
         let (mut subgroup_x, vanish_zeta) = with_context!(self, "compute x from its index", {
             let g = self.constant(F::coset_shift());
-            let phi = self.constant(F::primitive_root_of_unity(n_log));
-
-            let phi = self.exp_from_bits(phi, x_index_bits.iter().rev());
+            let phi = F::primitive_root_of_unity(n_log);
+            let phi = self.exp_from_bits_const_base(phi, x_index_bits.iter().rev());
             let g_ext = self.convert_to_ext(g);
             let phi_ext = self.convert_to_ext(phi);
             // `subgroup_x = g*phi, vanish_zeta = g*phi - zeta`

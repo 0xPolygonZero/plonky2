@@ -293,24 +293,20 @@ pub fn evaluate_gate_constraints_recursively<F: Extendable<D>, const D: usize>(
     num_gate_constraints: usize,
     vars: EvaluationTargets<D>,
 ) -> Vec<ExtensionTarget<D>> {
-    let mut all_gate_constraints = vec![vec![]; num_gate_constraints];
+    let mut all_gate_constraints = vec![builder.zero_extension(); num_gate_constraints];
     for gate in gates {
-        let gate_constraints = with_context!(
+        with_context!(
             builder,
             &format!("evaluate {} constraints", gate.gate.0.id()),
-            gate.gate
-                .0
-                .eval_filtered_recursively(builder, vars, &gate.prefix)
+            gate.gate.0.eval_filtered_recursively(
+                builder,
+                vars,
+                &gate.prefix,
+                &mut all_gate_constraints
+            )
         );
-        for (i, c) in gate_constraints.into_iter().enumerate() {
-            all_gate_constraints[i].push(c);
-        }
     }
-    let mut constraints = vec![builder.zero_extension(); num_gate_constraints];
-    for (i, v) in all_gate_constraints.into_iter().enumerate() {
-        constraints[i] = builder.add_many_extension(&v);
-    }
-    constraints
+    all_gate_constraints
 }
 
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
