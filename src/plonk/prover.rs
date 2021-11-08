@@ -268,8 +268,7 @@ fn wires_permutation_partial_products<F: RichField + Extendable<D>, const D: usi
             let quotient_partials = partial_products(&quotient_values, degree);
 
             // This is the final product for the quotient.
-            let quotient = quotient_partials
-                [common_data.num_partial_products.0 - common_data.num_partial_products.1..]
+            let quotient = quotient_partials[common_data.num_partial_products.1..]
                 .iter()
                 .copied()
                 .product();
