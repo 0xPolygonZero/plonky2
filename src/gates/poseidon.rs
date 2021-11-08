@@ -498,7 +498,6 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        const WIDTH: usize = 12;
 
         let config = CircuitConfig {
             num_wires: 143,
@@ -510,7 +509,9 @@ mod tests {
         let gate_index = builder.add_gate(gate, vec![]);
         let circuit = builder.build_prover::<C>();
 
-        let permutation_inputs = (0..WIDTH).map(F::from_canonical_usize).collect::<Vec<_>>();
+        let permutation_inputs = (0..SPONGE_WIDTH)
+            .map(F::from_canonical_usize)
+            .collect::<Vec<_>>();
 
         let mut inputs = PartialWitness::new();
         inputs.set_wire(
@@ -520,7 +521,7 @@ mod tests {
             },
             F::ZERO,
         );
-        for i in 0..WIDTH {
+        for i in 0..SPONGE_WIDTH {
             inputs.set_wire(
                 Wire {
                     gate: gate_index,
@@ -532,8 +533,9 @@ mod tests {
 
         let witness = generate_partial_witness(inputs, &circuit.prover_only, &circuit.common);
 
-        let expected_outputs: [F; WIDTH] = F::poseidon(permutation_inputs.try_into().unwrap());
-        for i in 0..WIDTH {
+        let expected_outputs: [F; SPONGE_WIDTH] =
+            F::poseidon(permutation_inputs.try_into().unwrap());
+        for i in 0..SPONGE_WIDTH {
             let out = witness.get_wire(Wire {
                 gate: 0,
                 input: Gate::wire_output(i),

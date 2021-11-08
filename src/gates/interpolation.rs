@@ -20,7 +20,7 @@ use crate::polynomial::polynomial::PolynomialCoeffs;
 /// with the given size, and whose values are extension field elements, given by input wires.
 /// Outputs the evaluation of the interpolant at a given (extension field) evaluation point.
 #[derive(Clone, Debug)]
-pub(crate) struct InterpolationGate<F: RichField + Extendable<D>, const D: usize> {
+pub(crate) struct InterpolationGate<F: Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,
     _phantom: PhantomData<F>,
 }
