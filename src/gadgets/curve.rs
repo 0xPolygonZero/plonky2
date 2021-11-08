@@ -88,12 +88,38 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         AffinePointTarget { x: x3, y: y3 }
     }
 
-    pub fn curve_add<C: Curve>(
+    pub fn curve_add_two_affine<C: Curve>(
         &mut self,
-        a: &AffinePointTarget<C>,
-        b: &AffinePointTarget<C>,
+        p1: &AffinePointTarget<C>,
+        p2: &AffinePointTarget<C>,
     ) -> AffinePointTarget<C> {
-        todo!()
+        let AffinePointTarget { x: x1, y: y1 } = p1;
+        let AffinePointTarget { x: x2, y: y2 } = p2;
+
+        let u = self.sub_nonnative(y2, y1);
+        let uu = self.mul_nonnative(&u, &u);
+        let v = self.sub_nonnative(x2, x1);
+        let vv = self.mul_nonnative(&v, &v);
+        let vvv = self.mul_nonnative(&v, &vv);
+        let r = self.mul_nonnative(&vv, x1);
+        let diff = self.sub_nonnative(&uu, &vvv);
+        let r2 = self.add_nonnative(&r, &r);
+        let a = self.sub_nonnative(&diff, &r2);
+        let x3 = self.mul_nonnative(&v, &a);
+
+        let r_a = self.sub_nonnative(&r, &a);
+        let y3_first = self.mul_nonnative(&u, &r_a);
+        let y3_second = self.mul_nonnative(&vvv, y1);
+        let y3 = self.sub_nonnative(&y3_first, &y3_second);
+
+        let z3_inv = self.inv_nonnative(&vvv);
+        let x3_norm = self.mul_nonnative(&x3, &z3_inv);
+        let y3_norm = self.mul_nonnative(&y3, &z3_inv);
+
+        AffinePointTarget {
+            x: x3_norm,
+            y: y3_norm,
+        }
     }
 }
 
