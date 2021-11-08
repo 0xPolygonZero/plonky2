@@ -19,13 +19,10 @@ fn main() -> Result<()> {
     // change this to info or warn later.
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    bench_prove()
+    bench_prove::<PoseidonGoldilocksConfig, 2>()
 }
 
-fn bench_prove() -> Result<()> {
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
+fn bench_prove<C: GenericConfig<D>, const D: usize>() -> Result<()> {
     let config = CircuitConfig {
         num_wires: 126,
         num_routed_wires: 33,
@@ -43,7 +40,7 @@ fn bench_prove() -> Result<()> {
     };
 
     let inputs = PartialWitness::new();
-    let mut builder = CircuitBuilder::<F, D>::new(config);
+    let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
     let zero = builder.zero();
     let zero_ext = builder.zero_extension();

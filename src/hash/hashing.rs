@@ -162,7 +162,3 @@ pub fn hash_n_to_hash<F: RichField, P: PlonkyPermutation<F>>(
 ) -> HashOut<F> {
     HashOut::from_vec(hash_n_to_m::<F, P>(inputs, 4, pad))
 }
-
-pub fn hash_n_to_1<F: RichField, P: PlonkyPermutation<F>>(inputs: Vec<F>, pad: bool) -> F {
-    hash_n_to_m::<F, P>(inputs, 1, pad)[0]
-}
