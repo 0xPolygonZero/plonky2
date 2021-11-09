@@ -27,7 +27,7 @@ pub fn partial_products<F: Field>(v: &[F], max_degree: usize) -> Vec<F> {
 }
 
 /// Returns a tuple `(a,b)`, where `a` is the length of the output of `partial_products()` on a
-/// vector of length `n`, and `b` is the number of elements needed to compute the final product.
+/// vector of length `n`, and `b` is the number of original elements consumed in `partial_products()`.
 pub fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
     debug_assert!(max_degree > 1);
     let chunk_size = max_degree;
@@ -84,38 +84,59 @@ pub fn check_partial_products_recursively<F: RichField + Extendable<D>, const D:
     res
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use num::Zero;
-//
-//     use super::*;
-//
-//     #[test]
-//     fn test_partial_products() {
-//         let v = vec![1, 2, 3, 4, 5, 6];
-//         let p = partial_products(&v, 2);
-//         assert_eq!(p, vec![2, 6, 24, 120]);
-//         let nums = num_partial_products(v.len(), 2);
-//         assert_eq!(p.len(), nums.0);
-//         assert!(check_partial_products(&v, &p, 2)
-//             .iter()
-//             .all(|x| x.is_zero()));
-//         assert_eq!(
-//             *p.last().unwrap() * v[nums.1..].iter().copied().product::<i32>(),
-//             v.into_iter().product::<i32>(),
-//         );
-//
-//         let v = vec![1, 2, 3, 4, 5, 6];
-//         let p = partial_products(&v, 3);
-//         assert_eq!(p, vec![6, 120]);
-//         let nums = num_partial_products(v.len(), 3);
-//         assert_eq!(p.len(), nums.0);
-//         assert!(check_partial_products(&v, &p, 3)
-//             .iter()
-//             .all(|x| x.is_zero()));
-//         assert_eq!(
-//             *p.last().unwrap() * v[nums.1..].iter().copied().product::<i32>(),
-//             v.into_iter().product::<i32>(),
-//         );
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use num::Zero;
+
+    use super::*;
+    use crate::field::goldilocks_field::GoldilocksField;
+
+    #[test]
+    fn test_partial_products() {
+        type F = GoldilocksField;
+        let v = [1, 2, 3, 4, 5, 6]
+            .into_iter()
+            .map(|&i| F::from_canonical_u64(i))
+            .collect::<Vec<_>>();
+        let p = partial_products(&v, 2);
+        assert_eq!(
+            p,
+            [2, 24, 720]
+                .into_iter()
+                .map(|&i| F::from_canonical_u64(i))
+                .collect::<Vec<_>>()
+        );
+
+        let nums = num_partial_products(v.len(), 2);
+        assert_eq!(p.len(), nums.0);
+        assert!(check_partial_products(&v, &p, 2)
+            .iter()
+            .all(|x| x.is_zero()));
+        assert_eq!(
+            *p.last().unwrap() * v[nums.1..].iter().copied().product::<F>(),
+            v.into_iter().product::<F>(),
+        );
+
+        let v = [1, 2, 3, 4, 5, 6]
+            .into_iter()
+            .map(|&i| F::from_canonical_u64(i))
+            .collect::<Vec<_>>();
+        let p = partial_products(&v, 3);
+        assert_eq!(
+            p,
+            [6, 720]
+                .into_iter()
+                .map(|&i| F::from_canonical_u64(i))
+                .collect::<Vec<_>>()
+        );
+        let nums = num_partial_products(v.len(), 3);
+        assert_eq!(p.len(), nums.0);
+        assert!(check_partial_products(&v, &p, 3)
+            .iter()
+            .all(|x| x.is_zero()));
+        assert_eq!(
+            *p.last().unwrap() * v[nums.1..].iter().copied().product::<F>(),
+            v.into_iter().product::<F>(),
+        );
+    }
+}
