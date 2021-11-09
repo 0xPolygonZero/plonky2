@@ -63,7 +63,6 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
             .map(|column| PolynomialValues::new(column.clone()))
             .collect()
     );
-    let wires = wires_values.iter().map(|v| v.values[0]).collect::<Vec<_>>();
 
     let wires_commitment = timed!(
         timing,
@@ -109,33 +108,6 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
     partial_products.iter_mut().for_each(|part| {
         part.remove(0);
     });
-    // let part = partial_products[0].clone();
-    // let v = part.iter().map(|v| v.values[0]).collect::<Vec<_>>();
-    // dbg!();
-    // let numerator_values = (0..common_data.config.num_routed_wires)
-    //     .map(|j| {
-    //         let wire_value = wires[j];
-    //         let k_i = common_data.k_is[j];
-    //         let s_id = k_i;
-    //         wire_value + s_id * betas[0] + gammas[0]
-    //     })
-    //     .collect::<Vec<_>>();
-    // let denominator_values = (0..common_data.config.num_routed_wires)
-    //     .map(|j| {
-    //         let wire_value = wires[j];
-    //         let s_sigma = s_sigmas[j];
-    //         wire_value + s_sigma * betas[0] + gammas[0]
-    //     })
-    //     .collect::<Vec<_>>();
-    // let quotient_values = (0..common_data.config.num_routed_wires)
-    //     .map(|j| numerator_values[j] / denominator_values[j])
-    //     .collect::<Vec<_>>();
-    //
-    // // // The partial products considered for this iteration of `i`.
-    // // let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
-    // // Check the quotient partial products.
-    // let mut partial_product_check = check_partial_products(&quotient_values, &v, quotient_degree);
-    // dbg!(partial_product_check);
 
     let zs_partial_products = [plonk_z_vecs, partial_products.concat()].concat();
     let zs_partial_products_commitment = timed!(
@@ -266,7 +238,7 @@ fn wires_permutation_partial_products<F: RichField + Extendable<D>, const D: usi
     prover_data: &ProverOnlyCircuitData<F, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Vec<PolynomialValues<F>> {
-    let degree = common_data.quotient_degree_factor - 1;
+    let degree = common_data.quotient_degree_factor;
     let subgroup = &prover_data.subgroup;
     let k_is = &common_data.k_is;
     let values = subgroup
@@ -294,11 +266,6 @@ fn wires_permutation_partial_products<F: RichField + Extendable<D>, const D: usi
                 .collect::<Vec<_>>();
 
             let quotient_partials = partial_products(&quotient_values, degree);
-            dbg!(check_partial_products(
-                &quotient_values,
-                &quotient_partials,
-                degree
-            ));
 
             // This is the final product for the quotient.
             let quotient = *quotient_partials.last().unwrap()

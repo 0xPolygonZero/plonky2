@@ -13,7 +13,7 @@ pub fn partial_products<F: Field>(v: &[F], max_degree: usize) -> Vec<F> {
     debug_assert!(max_degree > 1);
     let mut res = Vec::new();
     let mut acc = F::ONE;
-    let chunk_size = max_degree - 1;
+    let chunk_size = max_degree;
     let num_chunks = ceil_div_usize(v.len(), chunk_size) - 1;
     for i in 0..num_chunks {
         acc *= v[i * chunk_size..(i + 1) * chunk_size]
@@ -30,7 +30,7 @@ pub fn partial_products<F: Field>(v: &[F], max_degree: usize) -> Vec<F> {
 /// vector of length `n`, and `b` is the number of elements needed to compute the final product.
 pub fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
     debug_assert!(max_degree > 1);
-    let chunk_size = max_degree - 1;
+    let chunk_size = max_degree;
     let num_chunks = ceil_div_usize(n, chunk_size) - 1;
 
     (num_chunks, num_chunks * chunk_size)
@@ -43,7 +43,7 @@ pub fn check_partial_products<F: Field>(v: &[F], mut partials: &[F], max_degree:
     let mut partials = partials.iter();
     let mut res = Vec::new();
     let mut acc = F::ONE;
-    let chunk_size = max_degree - 1;
+    let chunk_size = max_degree;
     let num_chunks = ceil_div_usize(v.len(), chunk_size) - 1;
     for i in 0..num_chunks {
         acc *= v[i * chunk_size..(i + 1) * chunk_size]

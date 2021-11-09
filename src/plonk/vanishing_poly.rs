@@ -27,7 +27,7 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
     gammas: &[F],
     alphas: &[F],
 ) -> Vec<F::Extension> {
-    let max_degree = common_data.quotient_degree_factor - 1;
+    let max_degree = common_data.quotient_degree_factor;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
 
     let constraint_terms =
@@ -74,15 +74,9 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
         // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
         // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
         for (j, q) in partial_product_check.iter_mut().enumerate() {
-            let range = j * (max_degree - 1)..(j + 1) * (max_degree - 1);
+            let range = j * max_degree..(j + 1) * max_degree;
             *q *= denominator_values[range].iter().copied().product();
         }
-        // denominator_values
-        //     .chunks(max_degree)
-        //     .zip(partial_product_check.iter_mut())
-        //     .for_each(|(d, q)| {
-        //         *q *= d.iter().copied().product();
-        //     });
         vanishing_partial_products_terms.extend(partial_product_check);
 
         // The quotient final product is the product of the last `final_num_prod` elements.
@@ -131,7 +125,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
     assert_eq!(partial_products_batch.len(), n);
     assert_eq!(s_sigmas_batch.len(), n);
 
-    let max_degree = common_data.quotient_degree_factor - 1;
+    let max_degree = common_data.quotient_degree_factor;
     let (num_prods, final_num_prod) = common_data.num_partial_products;
 
     let num_gate_constraints = common_data.num_gate_constraints;
@@ -197,24 +191,14 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
             // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
             // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
             for (j, q) in partial_product_check.iter_mut().enumerate() {
-                let range = j * (max_degree - 1)..(j + 1) * (max_degree - 1);
+                let range = j * max_degree..(j + 1) * max_degree;
                 *q *= denominator_values[range].iter().copied().product();
             }
-            // denominator_values
-            //     .chunks(max_degree)
-            //     .zip(partial_product_check.iter_mut())
-            //     .for_each(|(d, q)| {
-            //         *q *= d.iter().copied().product();
-            //     });
             vanishing_partial_products_terms.extend(partial_product_check);
 
             // The quotient final product is the product of the last `final_num_prod` elements.
             let quotient: F = *current_partial_products.last().unwrap()
                 * quotient_values[final_num_prod..].iter().copied().product();
-            // let quotient: F = current_partial_products[num_prods - final_num_prod..]
-            //     .iter()
-            //     .copied()
-            //     .product();
             let mut wanted = quotient * z_x - z_gz;
             wanted *= denominator_values[final_num_prod..]
                 .iter()
