@@ -1,11 +1,7 @@
-use std::iter::Product;
-use std::ops::{MulAssign, Sub};
-
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::util::ceil_div_usize;
 
 /// Compute partial products of the original vector `v` such that all products consist of `max_degree`
 /// or less elements. This is done until we've computed the product `P` of all elements in the vector.
@@ -38,7 +34,7 @@ pub fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
 
 /// Checks that the partial products of `v` are coherent with those in `partials` by only computing
 /// products of size `max_degree` or less.
-pub fn check_partial_products<F: Field>(v: &[F], mut partials: &[F], max_degree: usize) -> Vec<F> {
+pub fn check_partial_products<F: Field>(v: &[F], partials: &[F], max_degree: usize) -> Vec<F> {
     debug_assert!(max_degree > 1);
     let mut partials = partials.iter();
     let mut res = Vec::new();
@@ -86,8 +82,6 @@ pub fn check_partial_products_recursively<F: RichField + Extendable<D>, const D:
 
 #[cfg(test)]
 mod tests {
-    use num::Zero;
-
     use super::*;
     use crate::field::goldilocks_field::GoldilocksField;
 

@@ -17,7 +17,7 @@ use crate::plonk::vanishing_poly::eval_vanishing_poly_base_batch;
 use crate::plonk::vars::EvaluationVarsBase;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::timed;
-use crate::util::partial_products::{check_partial_products, partial_products};
+use crate::util::partial_products::partial_products;
 use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, transpose};
 
