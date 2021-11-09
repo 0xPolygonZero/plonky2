@@ -777,7 +777,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .expect("No gates?");
 
         let num_partial_products =
-            num_partial_products(self.config.num_routed_wires, quotient_degree_factor);
+            num_partial_products(self.config.num_routed_wires, quotient_degree_factor - 1);
 
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
