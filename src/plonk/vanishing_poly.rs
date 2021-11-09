@@ -396,20 +396,39 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
         );
         // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
         // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
-        denominator_values
-            .chunks(max_degree)
-            .zip(partial_product_check.iter_mut())
-            .for_each(|(d, q)| {
-                let mut v = d.to_vec();
+        // denominator_values
+        //     .chunks(max_degree)
+        //     .zip(partial_product_check.iter_mut())
+        //     .for_each(|(d, q)| {
+        //         let mut v = d.to_vec();
+        //         v.push(*q);
+        //         *q = builder.mul_many_extension(&v);
+        //     });
+        for (j, q) in partial_product_check.iter_mut().enumerate() {
+            let range = j * max_degree..(j + 1) * max_degree;
+            *q = builder.mul_many_extension(&{
+                let mut v = denominator_values[range].to_vec();
                 v.push(*q);
-                *q = builder.mul_many_extension(&v);
+                v
             });
+        }
         vanishing_partial_products_terms.extend(partial_product_check);
 
         // The quotient final product is the product of the last `final_num_prod` elements.
-        let quotient =
-            builder.mul_many_extension(&current_partial_products[num_prods - final_num_prod..]);
-        vanishing_v_shift_terms.push(builder.mul_sub_extension(quotient, z_x, z_gz));
+        // let quotient =
+        //     builder.mul_many_extension(&current_partial_products[num_prods - final_num_prod..]);
+        let quotient = builder.mul_many_extension(&{
+            let mut v = quotient_values[final_num_prod..].to_vec();
+            v.push(*current_partial_products.last().unwrap());
+            v
+        });
+        let mut wanted = builder.mul_sub_extension(quotient, z_x, z_gz);
+        wanted = builder.mul_many_extension(&{
+            let mut v = denominator_values[final_num_prod..].to_vec();
+            v.push(wanted);
+            v
+        });
+        vanishing_v_shift_terms.push(wanted);
     }
 
     let vanishing_terms = [

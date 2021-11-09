@@ -14,7 +14,7 @@ pub fn partial_products<F: Field>(v: &[F], max_degree: usize) -> Vec<F> {
     let mut res = Vec::new();
     let mut acc = F::ONE;
     let chunk_size = max_degree;
-    let num_chunks = ceil_div_usize(v.len(), chunk_size) - 1;
+    let num_chunks = v.len() / chunk_size;
     for i in 0..num_chunks {
         acc *= v[i * chunk_size..(i + 1) * chunk_size]
             .iter()
@@ -31,7 +31,7 @@ pub fn partial_products<F: Field>(v: &[F], max_degree: usize) -> Vec<F> {
 pub fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
     debug_assert!(max_degree > 1);
     let chunk_size = max_degree;
-    let num_chunks = ceil_div_usize(n, chunk_size) - 1;
+    let num_chunks = n / chunk_size;
 
     (num_chunks, num_chunks * chunk_size)
 }
@@ -44,15 +44,15 @@ pub fn check_partial_products<F: Field>(v: &[F], mut partials: &[F], max_degree:
     let mut res = Vec::new();
     let mut acc = F::ONE;
     let chunk_size = max_degree;
-    let num_chunks = ceil_div_usize(v.len(), chunk_size) - 1;
+    let num_chunks = v.len() / chunk_size;
     for i in 0..num_chunks {
         acc *= v[i * chunk_size..(i + 1) * chunk_size]
             .iter()
             .copied()
             .product();
-        let bacc = *partials.next().unwrap();
-        res.push(acc - bacc);
-        acc = bacc;
+        let new_acc = *partials.next().unwrap();
+        res.push(acc - new_acc);
+        acc = new_acc;
     }
     debug_assert!(partials.next().is_none());
 
@@ -68,15 +68,16 @@ pub fn check_partial_products_recursively<F: RichField + Extendable<D>, const D:
     debug_assert!(max_degree > 1);
     let mut partials = partials.iter();
     let mut res = Vec::new();
-    let mut acc = v[0];
-    let chunk_size = max_degree - 1;
-    let num_chunks = ceil_div_usize(v.len() - 1, chunk_size) - 1;
+    let mut acc = builder.one_extension();
+    let chunk_size = max_degree;
+    let num_chunks = v.len() / chunk_size;
     for i in 0..num_chunks {
-        let mut chunk = v[1 + i * chunk_size..1 + (i + 1) * chunk_size].to_vec();
+        let mut chunk = v[i * chunk_size..(i + 1) * chunk_size].to_vec();
         chunk.push(acc);
         acc = builder.mul_many_extension(&chunk);
-
-        res.push(builder.sub_extension(acc, *partials.next().unwrap()));
+        let new_acc = *partials.next().unwrap();
+        res.push(builder.sub_extension(acc, new_acc));
+        acc = new_acc;
     }
     debug_assert!(partials.next().is_none());
 
