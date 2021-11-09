@@ -69,25 +69,25 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
         // The partial products considered for this iteration of `i`.
         let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
         // Check the quotient partial products.
-        let mut partial_product_check =
+        let mut partial_product_checks =
             check_partial_products(&quotient_values, current_partial_products, max_degree);
-        // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
-        // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
-        for (j, q) in partial_product_check.iter_mut().enumerate() {
+        // The partial products are products of quotients, so we multiply them by the product of the
+        // corresponding denominators to make sure they are polynomials.
+        for (j, partial_product_check) in partial_product_checks.iter_mut().enumerate() {
             let range = j * max_degree..(j + 1) * max_degree;
-            *q *= denominator_values[range].iter().copied().product();
+            *partial_product_check *= denominator_values[range].iter().copied().product();
         }
-        vanishing_partial_products_terms.extend(partial_product_check);
+        vanishing_partial_products_terms.extend(partial_product_checks);
 
-        // The quotient final product is the product of the last `final_num_prod` elements.
         let quotient: F::Extension = *current_partial_products.last().unwrap()
             * quotient_values[final_num_prod..].iter().copied().product();
-        let mut wanted = quotient * z_x - z_gz;
-        wanted *= denominator_values[final_num_prod..]
+        let mut v_shift_term = quotient * z_x - z_gz;
+        // Need to multiply by the denominators to make sure we get a polynomial.
+        v_shift_term *= denominator_values[final_num_prod..]
             .iter()
             .copied()
             .product();
-        vanishing_v_shift_terms.push(wanted);
+        vanishing_v_shift_terms.push(v_shift_term);
     }
 
     let vanishing_terms = [
@@ -186,25 +186,25 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
             // The partial products considered for this iteration of `i`.
             let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
             // Check the numerator partial products.
-            let mut partial_product_check =
+            let mut partial_product_checks =
                 check_partial_products(&quotient_values, current_partial_products, max_degree);
-            // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
-            // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
-            for (j, q) in partial_product_check.iter_mut().enumerate() {
+            // The partial products are products of quotients, so we multiply them by the product of the
+            // corresponding denominators to make sure they are polynomials.
+            for (j, partial_product_check) in partial_product_checks.iter_mut().enumerate() {
                 let range = j * max_degree..(j + 1) * max_degree;
-                *q *= denominator_values[range].iter().copied().product();
+                *partial_product_check *= denominator_values[range].iter().copied().product();
             }
-            vanishing_partial_products_terms.extend(partial_product_check);
+            vanishing_partial_products_terms.extend(partial_product_checks);
 
-            // The quotient final product is the product of the last `final_num_prod` elements.
             let quotient: F = *current_partial_products.last().unwrap()
                 * quotient_values[final_num_prod..].iter().copied().product();
-            let mut wanted = quotient * z_x - z_gz;
-            wanted *= denominator_values[final_num_prod..]
+            let mut v_shift_term = quotient * z_x - z_gz;
+            // Need to multiply by the denominators to make sure we get a polynomial.
+            v_shift_term *= denominator_values[final_num_prod..]
                 .iter()
                 .copied()
                 .product();
-            vanishing_v_shift_terms.push(wanted);
+            vanishing_v_shift_terms.push(v_shift_term);
 
             numerator_values.clear();
             denominator_values.clear();
@@ -388,47 +388,37 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
         // The partial products considered for this iteration of `i`.
         let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
         // Check the quotient partial products.
-        let mut partial_product_check = check_partial_products_recursively(
+        let mut partial_product_checks = check_partial_products_recursively(
             builder,
             &quotient_values,
             current_partial_products,
             max_degree,
         );
-        // The first checks are of the form `q - n/d` which is a rational function not a polynomial.
-        // We multiply them by `d` to get checks of the form `q*d - n` which low-degree polynomials.
-        // denominator_values
-        //     .chunks(max_degree)
-        //     .zip(partial_product_check.iter_mut())
-        //     .for_each(|(d, q)| {
-        //         let mut v = d.to_vec();
-        //         v.push(*q);
-        //         *q = builder.mul_many_extension(&v);
-        //     });
-        for (j, q) in partial_product_check.iter_mut().enumerate() {
+        // The partial products are products of quotients, so we multiply them by the product of the
+        // corresponding denominators to make sure they are polynomials.
+        for (j, partial_product_check) in partial_product_checks.iter_mut().enumerate() {
             let range = j * max_degree..(j + 1) * max_degree;
-            *q = builder.mul_many_extension(&{
+            *partial_product_check = builder.mul_many_extension(&{
                 let mut v = denominator_values[range].to_vec();
-                v.push(*q);
+                v.push(*partial_product_check);
                 v
             });
         }
-        vanishing_partial_products_terms.extend(partial_product_check);
+        vanishing_partial_products_terms.extend(partial_product_checks);
 
-        // The quotient final product is the product of the last `final_num_prod` elements.
-        // let quotient =
-        //     builder.mul_many_extension(&current_partial_products[num_prods - final_num_prod..]);
         let quotient = builder.mul_many_extension(&{
             let mut v = quotient_values[final_num_prod..].to_vec();
             v.push(*current_partial_products.last().unwrap());
             v
         });
-        let mut wanted = builder.mul_sub_extension(quotient, z_x, z_gz);
-        wanted = builder.mul_many_extension(&{
+        let mut v_shift_term = builder.mul_sub_extension(quotient, z_x, z_gz);
+        // Need to multiply by the denominators to make sure we get a polynomial.
+        v_shift_term = builder.mul_many_extension(&{
             let mut v = denominator_values[final_num_prod..].to_vec();
-            v.push(wanted);
+            v.push(v_shift_term);
             v
         });
-        vanishing_v_shift_terms.push(wanted);
+        vanishing_v_shift_terms.push(v_shift_term);
     }
 
     let vanishing_terms = [
