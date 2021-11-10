@@ -158,7 +158,7 @@ mod tests {
 
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
-    use crate::field::secp256k1::Secp256K1Base;
+    use crate::field::secp256k1_base::Secp256K1Base;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
@@ -267,8 +267,8 @@ mod tests {
         let x_ff = FF::rand();
         let inv_x_ff = x_ff.inverse();
 
-        type F = CrandallField;
-        let config = CircuitConfig::large_config();
+        type F = GoldilocksField;
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
