@@ -115,8 +115,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 mod tests {
     use anyhow::Result;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::secp256k1::Secp256K1Base;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
@@ -130,8 +130,8 @@ mod tests {
         let y_ff = FF::rand();
         let sum_ff = x_ff + y_ff;
 
-        type F = CrandallField;
-        let config = CircuitConfig::large_config();
+        type F = GoldilocksField;
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
@@ -157,8 +157,8 @@ mod tests {
         }
         let diff_ff = x_ff - y_ff;
 
-        type F = CrandallField;
-        let config = CircuitConfig::large_config();
+        type F = GoldilocksField;
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
@@ -181,8 +181,8 @@ mod tests {
         let y_ff = FF::rand();
         let product_ff = x_ff * y_ff;
 
-        type F = CrandallField;
-        let config = CircuitConfig::large_config();
+        type F = GoldilocksField;
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
@@ -204,8 +204,8 @@ mod tests {
         let x_ff = FF::rand();
         let neg_x_ff = -x_ff;
 
-        type F = CrandallField;
-        let config = CircuitConfig::large_config();
+        type F = GoldilocksField;
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 

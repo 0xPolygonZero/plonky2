@@ -317,9 +317,9 @@ mod tests {
     use anyhow::Result;
     use rand::Rng;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::{Field, PrimeField};
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::subtraction_u32::{U32SubtractionGate, NUM_U32_SUBTRACTION_OPS};
@@ -328,22 +328,22 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree::<CrandallField, _, 4>(U32SubtractionGate::<CrandallField, 4> {
+        test_low_degree::<GoldilocksField, _, 4>(U32SubtractionGate::<GoldilocksField, 4> {
             _phantom: PhantomData,
         })
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<CrandallField, _, 4>(U32SubtractionGate::<CrandallField, 4> {
+        test_eval_fns::<GoldilocksField, _, 4>(U32SubtractionGate::<GoldilocksField, 4> {
             _phantom: PhantomData,
         })
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = CrandallField;
-        type FF = QuarticExtension<CrandallField>;
+        type F = GoldilocksField;
+        type FF = QuarticExtension<GoldilocksField>;
         const D: usize = 4;
 
         fn get_wires(inputs_x: Vec<u64>, inputs_y: Vec<u64>, borrows: Vec<u64>) -> Vec<FF> {

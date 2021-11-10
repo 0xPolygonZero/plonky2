@@ -232,7 +232,7 @@ mod tests {
     use rand::Rng;
 
     use crate::{
-        field::crandall_field::CrandallField,
+        field::goldilocks_field::GoldilocksField,
         iop::witness::PartialWitness,
         plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, verifier::verify},
     };
@@ -245,8 +245,8 @@ mod tests {
         let y_value = BigUint::from_u128(rng.gen()).unwrap();
         let expected_z_value = &x_value + &y_value;
 
-        type F = CrandallField;
-        let config = CircuitConfig::large_config();
+        type F = GoldilocksField;
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
@@ -273,8 +273,8 @@ mod tests {
         }
         let expected_z_value = &x_value - &y_value;
 
-        type F = CrandallField;
-        let config = CircuitConfig::large_config();
+        type F = GoldilocksField;
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
@@ -298,8 +298,8 @@ mod tests {
         let y_value = BigUint::from_u128(rng.gen()).unwrap();
         let expected_z_value = &x_value * &y_value;
 
-        type F = CrandallField;
-        let config = CircuitConfig::large_config();
+        type F = GoldilocksField;
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
@@ -322,8 +322,8 @@ mod tests {
         let x_value = BigUint::from_u128(rng.gen()).unwrap();
         let y_value = BigUint::from_u128(rng.gen()).unwrap();
 
-        type F = CrandallField;
-        let config = CircuitConfig::large_config();
+        type F = GoldilocksField;
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
@@ -350,8 +350,8 @@ mod tests {
         }
         let (expected_div_value, expected_rem_value) = x_value.div_rem(&y_value);
 
-        type F = CrandallField;
-        let config = CircuitConfig::large_config();
+        type F = GoldilocksField;
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 

@@ -71,16 +71,16 @@ mod tests {
     use num::BigUint;
     use rand::Rng;
 
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
 
     fn test_list_le(size: usize, num_bits: usize) -> Result<()> {
-        type F = CrandallField;
-        let config = CircuitConfig::large_config();
+        type F = GoldilocksField;
+        let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
