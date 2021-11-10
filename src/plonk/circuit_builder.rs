@@ -537,76 +537,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         )
     }
 
-    /// Fill the remaining unused arithmetic operations with zeros, so that all
-    /// `ArithmeticExtensionGenerator` are run.
-    fn fill_arithmetic_gates(&mut self) {
-        let zero = self.zero_extension();
-        let remaining_arithmetic_gates = self.free_arithmetic.values().copied().collect::<Vec<_>>();
-        for (gate, i) in remaining_arithmetic_gates {
-            for j in i..ArithmeticExtensionGate::<D>::num_ops(&self.config) {
-                let wires_multiplicand_0 = ExtensionTarget::from_range(
-                    gate,
-                    ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(j),
-                );
-                let wires_multiplicand_1 = ExtensionTarget::from_range(
-                    gate,
-                    ArithmeticExtensionGate::<D>::wires_ith_multiplicand_1(j),
-                );
-                let wires_addend = ExtensionTarget::from_range(
-                    gate,
-                    ArithmeticExtensionGate::<D>::wires_ith_addend(j),
-                );
-
-                self.connect_extension(zero, wires_multiplicand_0);
-                self.connect_extension(zero, wires_multiplicand_1);
-                self.connect_extension(zero, wires_addend);
-            }
-        }
-    }
-
-    /// Fill the remaining unused random access operations with zeros, so that all
-    /// `RandomAccessGenerator`s are run.
-    fn fill_random_access_gates(&mut self) {
-        let zero = self.zero();
-        for (vec_size, (_, i)) in self.free_random_access.clone() {
-            let max_copies = RandomAccessGate::<F, D>::max_num_copies(
-                self.config.num_routed_wires,
-                self.config.num_wires,
-                vec_size,
-            );
-            for _ in i..max_copies {
-                self.random_access(zero, zero, vec![zero; vec_size]);
-            }
-        }
-    }
-
-    /// Fill the remaining unused switch gates with dummy values, so that all
-    /// `SwitchGenerator` are run.
-    fn fill_switch_gates(&mut self) {
-        let zero = self.zero();
-
-        for chunk_size in 1..=self.current_switch_gates.len() {
-            if let Some((gate, gate_index, mut copy)) =
-                self.current_switch_gates[chunk_size - 1].clone()
-            {
-                while copy < gate.num_copies {
-                    for element in 0..chunk_size {
-                        let wire_first_input =
-                            Target::wire(gate_index, gate.wire_first_input(copy, element));
-                        let wire_second_input =
-                            Target::wire(gate_index, gate.wire_second_input(copy, element));
-                        let wire_switch_bool =
-                            Target::wire(gate_index, gate.wire_switch_bool(copy));
-                        self.connect(zero, wire_first_input);
-                        self.connect(zero, wire_second_input);
-                        self.connect(zero, wire_switch_bool);
-                    }
-                    copy += 1;
-                }
-            }
-        }
-    }
-
     pub fn print_gate_counts(&self, min_delta: usize) {
         // Print gate counts for each context.
         self.context_log
@@ -845,7 +775,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Finds the last available arithmetic gate with the given constants or add one if there aren't any.
     /// Returns `(g,i)` such that there is an arithmetic gate with the given constants at index
     /// `g` and the gate's `i`-th operation is available.
-    pub fn find_arithmetic_gate(&mut self, const_0: F, const_1: F) -> (usize, usize) {
+    pub(crate) fn find_arithmetic_gate(&mut self, const_0: F, const_1: F) -> (usize, usize) {
         let (gate, i) = self
             .batched_gates
             .free_arithmetic
@@ -873,11 +803,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (gate, i)
     }
 
-    pub fn find_switch_gate(&mut self, chunk_size: usize) -> (SwitchGate<F, D>, usize, usize) {
+    pub(crate) fn find_switch_gate(
+        &mut self,
+        chunk_size: usize,
+    ) -> (SwitchGate<F, D>, usize, usize) {
         if self.batched_gates.current_switch_gates.len() < chunk_size {
             self.batched_gates.current_switch_gates.extend(vec![
                 None;
-                chunk_size - self.batched_gates.current_switch_gates.len()
+                chunk_size
+                    - self
+                        .batched_gates
+                        .current_switch_gates
+                        .len()
             ]);
         }
 
@@ -897,13 +834,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.batched_gates.current_switch_gates[chunk_size - 1] = None;
         } else {
             self.batched_gates.current_switch_gates[chunk_size - 1] =
-                Some((gate, gate_index, next_copy + 1));
+                Some((gate.clone(), gate_index, next_copy + 1));
         }
 
         (gate, gate_index, next_copy)
     }
 
-    pub fn find_u32_arithmetic_gate(&mut self) -> (usize, usize) {
+    pub(crate) fn find_u32_arithmetic_gate(&mut self) -> (usize, usize) {
         let (gate_index, copy) = match self.batched_gates.current_u32_arithmetic_gate {
             None => {
                 let gate = U32ArithmeticGate::new();
@@ -922,7 +859,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (gate_index, copy)
     }
 
-    pub fn find_u32_subtraction_gate(&mut self) -> (usize, usize) {
+    pub(crate) fn find_u32_subtraction_gate(&mut self) -> (usize, usize) {
         let (gate_index, copy) = match self.batched_gates.current_u32_subtraction_gate {
             None => {
                 let gate = U32SubtractionGate::new();
@@ -959,5 +896,110 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.free_constant = None;
         }
         (gate, instance)
+    }
+    
+    /// Fill the remaining unused arithmetic operations with zeros, so that all
+    /// `ArithmeticExtensionGenerator`s are run.
+    fn fill_arithmetic_gates(&mut self) {
+        let zero = self.zero_extension();
+        let remaining_arithmetic_gates = self
+            .batched_gates
+            .free_arithmetic
+            .values()
+            .copied()
+            .collect::<Vec<_>>();
+        for (gate, i) in remaining_arithmetic_gates {
+            for j in i..ArithmeticExtensionGate::<D>::num_ops(&self.config) {
+                let wires_multiplicand_0 = ExtensionTarget::from_range(
+                    gate,
+                    ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(j),
+                );
+                let wires_multiplicand_1 = ExtensionTarget::from_range(
+                    gate,
+                    ArithmeticExtensionGate::<D>::wires_ith_multiplicand_1(j),
+                );
+                let wires_addend = ExtensionTarget::from_range(
+                    gate,
+                    ArithmeticExtensionGate::<D>::wires_ith_addend(j),
+                );
+
+                self.connect_extension(zero, wires_multiplicand_0);
+                self.connect_extension(zero, wires_multiplicand_1);
+                self.connect_extension(zero, wires_addend);
+            }
+        }
+    }
+
+    /// Fill the remaining unused switch gates with dummy values, so that all
+    /// `SwitchGenerator`s are run.
+    fn fill_switch_gates(&mut self) {
+        let zero = self.zero();
+
+        for chunk_size in 1..=self.batched_gates.current_switch_gates.len() {
+            if let Some((gate, gate_index, mut copy)) =
+                self.batched_gates.current_switch_gates[chunk_size - 1].clone()
+            {
+                while copy < gate.num_copies {
+                    for element in 0..chunk_size {
+                        let wire_first_input =
+                            Target::wire(gate_index, gate.wire_first_input(copy, element));
+                        let wire_second_input =
+                            Target::wire(gate_index, gate.wire_second_input(copy, element));
+                        let wire_switch_bool =
+                            Target::wire(gate_index, gate.wire_switch_bool(copy));
+                        self.connect(zero, wire_first_input);
+                        self.connect(zero, wire_second_input);
+                        self.connect(zero, wire_switch_bool);
+                    }
+                    copy += 1;
+                }
+            }
+        }
+    }
+
+    /// Fill the remaining unused U32 arithmetic operations with zeros, so that all
+    /// `U32ArithmeticGenerator`s are run.
+    fn fill_u32_arithmetic_gates(&mut self) {
+        let zero = self.zero();
+        if let Some((gate_index, copy)) = self.batched_gates.current_u32_arithmetic_gate {
+            for i in copy..NUM_U32_ARITHMETIC_OPS {
+                let wire_multiplicand_0 = Target::wire(
+                    gate_index,
+                    U32ArithmeticGate::<F, D>::wire_ith_multiplicand_0(i),
+                );
+                let wire_multiplicand_1 = Target::wire(
+                    gate_index,
+                    U32ArithmeticGate::<F, D>::wire_ith_multiplicand_1(i),
+                );
+                let wire_addend =
+                    Target::wire(gate_index, U32ArithmeticGate::<F, D>::wire_ith_addend(i));
+
+                self.connect(zero, wire_multiplicand_0);
+                self.connect(zero, wire_multiplicand_1);
+                self.connect(zero, wire_addend);
+            }
+        }
+    }
+
+    /// Fill the remaining unused U32 subtraction operations with zeros, so that all
+    /// `U32SubtractionGenerator`s are run.
+    fn fill_u32_subtraction_gates(&mut self) {
+        let zero = self.zero();
+        if let Some((gate_index, copy)) = self.batched_gates.current_u32_subtraction_gate {
+            for i in copy..NUM_U32_ARITHMETIC_OPS {
+                let wire_input_x =
+                    Target::wire(gate_index, U32SubtractionGate::<F, D>::wire_ith_input_x(i));
+                let wire_input_y =
+                    Target::wire(gate_index, U32SubtractionGate::<F, D>::wire_ith_input_y(i));
+                let wire_input_borrow = Target::wire(
+                    gate_index,
+                    U32SubtractionGate::<F, D>::wire_ith_input_borrow(i),
+                );
+
+                self.connect(zero, wire_input_x);
+                self.connect(zero, wire_input_y);
+                self.connect(zero, wire_input_borrow);
+            }
+        }
     }
 }
