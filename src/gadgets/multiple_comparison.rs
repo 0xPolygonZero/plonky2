@@ -93,8 +93,18 @@ mod tests {
             .map(|_| rng.gen_range(0..(1 << num_bits)))
             .collect();
 
-        let a_biguint = BigUint::from_slice(&lst1.iter().flat_map(|&x| [x as u32, (x >> 32) as u32]).collect::<Vec<_>>());
-        let b_biguint = BigUint::from_slice(&lst2.iter().flat_map(|&x| [x as u32, (x >> 32) as u32]).collect::<Vec<_>>());
+        let a_biguint = BigUint::from_slice(
+            &lst1
+                .iter()
+                .flat_map(|&x| [x as u32, (x >> 32) as u32])
+                .collect::<Vec<_>>(),
+        );
+        let b_biguint = BigUint::from_slice(
+            &lst2
+                .iter()
+                .flat_map(|&x| [x as u32, (x >> 32) as u32])
+                .collect::<Vec<_>>(),
+        );
 
         let a = lst1
             .iter()
