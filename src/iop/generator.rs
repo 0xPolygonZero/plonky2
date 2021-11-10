@@ -8,7 +8,7 @@ use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::{Field, RichField};
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
-use crate::gadgets::nonnative::ForeignFieldTarget;
+use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -169,7 +169,7 @@ impl<F: Field> GeneratedValues<F> {
         }
     }
 
-    pub fn set_nonnative_target<FF: Field>(&mut self, target: ForeignFieldTarget<FF>, value: FF) {
+    pub fn set_nonnative_target<FF: Field>(&mut self, target: NonNativeTarget<FF>, value: FF) {
         self.set_biguint_target(target.value, value.to_biguint())
     }
 

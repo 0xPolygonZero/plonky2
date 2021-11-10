@@ -10,8 +10,9 @@ use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
+#[derive(Clone, Debug)]
 pub struct NonNativeTarget<FF: Field> {
-    value: BigUintTarget,
+    pub(crate) value: BigUintTarget,
     _phantom: PhantomData<FF>,
 }
 
@@ -107,8 +108,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inv
     }
 
-    /// Returns `x % |FF|` as a `ForeignFieldTarget`.
-    fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> ForeignFieldTarget<FF> {
+    /// Returns `x % |FF|` as a `NonNativeTarget`.
+    fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
         let modulus = FF::order();
         let order_target = self.constant_biguint(&modulus);
         let value = self.rem_biguint(x, &order_target);
@@ -131,8 +132,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 #[derive(Debug)]
 struct NonNativeInverseGenerator<F: RichField + Extendable<D>, const D: usize, FF: Field> {
-    x: ForeignFieldTarget<FF>,
-    inv: ForeignFieldTarget<FF>,
+    x: NonNativeTarget<FF>,
+    inv: NonNativeTarget<FF>,
     _phantom: PhantomData<F>,
 }
 

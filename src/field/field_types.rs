@@ -93,10 +93,6 @@ pub trait Field:
         self.square() * *self
     }
 
-    fn double(&self) -> Self {
-        *self * Self::TWO
-    }
-
     fn triple(&self) -> Self {
         *self * (Self::ONE + Self::TWO)
     }

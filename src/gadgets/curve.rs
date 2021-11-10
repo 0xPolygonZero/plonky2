@@ -1,18 +1,18 @@
 use crate::curve::curve_types::{AffinePoint, Curve};
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
-use crate::gadgets::nonnative::ForeignFieldTarget;
+use crate::gadgets::nonnative::NonNativeTarget;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 /// A Target representing an affine point on the curve `C`.
 #[derive(Clone, Debug)]
 pub struct AffinePointTarget<C: Curve> {
-    pub x: ForeignFieldTarget<C::BaseField>,
-    pub y: ForeignFieldTarget<C::BaseField>,
+    pub x: NonNativeTarget<C::BaseField>,
+    pub y: NonNativeTarget<C::BaseField>,
 }
 
 impl<C: Curve> AffinePointTarget<C> {
-    pub fn to_vec(&self) -> Vec<ForeignFieldTarget<C::BaseField>> {
+    pub fn to_vec(&self) -> Vec<NonNativeTarget<C::BaseField>> {
         vec![self.x.clone(), self.y.clone()]
     }
 }
@@ -130,8 +130,8 @@ mod tests {
 
     use crate::curve::curve_types::{AffinePoint, Curve};
     use crate::curve::secp256k1::Secp256K1;
-    use crate::field::crandall_field::CrandallField;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::secp256k1_base::Secp256K1Base;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_curve_point_is_valid() -> Result<()> {
-        type F = CrandallField;
+        type F = GoldilocksField;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();
@@ -164,7 +164,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_curve_point_is_not_valid() {
-        type F = CrandallField;
+        type F = GoldilocksField;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();
@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn test_curve_double() -> Result<()> {
-        type F = CrandallField;
+        type F = GoldilocksField;
         const D: usize = 4;
 
         let config = CircuitConfig::large_config();
