@@ -973,6 +973,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// Fill the remaining unused random access operations with zeros, so that all
+    /// `RandomAccessGenerator`s are run.
+    fn fill_random_access_gates(&mut self) {
+        let zero = self.zero();
+        for (vec_size, (_, i)) in self.batched_gates.free_random_access.clone() {
+            let max_copies = RandomAccessGate::<F, D>::max_num_copies(
+                self.config.num_routed_wires,
+                self.config.num_wires,
+                vec_size,
+            );
+            for _ in i..max_copies {
+                self.random_access(zero, zero, vec![zero; vec_size]);
+            }
+        }
+    }
+
     /// Fill the remaining unused switch gates with dummy values, so that all
     /// `SwitchGenerator`s are run.
     fn fill_switch_gates(&mut self) {
@@ -1048,6 +1064,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn fill_batched_gates(&mut self) {
         self.fill_arithmetic_gates();
+        self.fill_random_access_gates();
         self.fill_switch_gates();
         self.fill_u32_arithmetic_gates();
         self.fill_u32_subtraction_gates();
