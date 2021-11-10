@@ -61,7 +61,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             (a.clone(), padded_b)
         } else {
             let mut padded_a = a.clone();
-            let to_extend = b.num_limbs() - a.num_limbs();
             for _ in a.num_limbs()..b.num_limbs() {
                 padded_a.limbs.push(self.zero_u32());
             }
@@ -266,10 +265,10 @@ mod tests {
     fn test_biguint_sub() -> Result<()> {
         let mut rng = rand::thread_rng();
 
-        let x_value = BigUint::from_u128(rng.gen()).unwrap();
+        let mut x_value = BigUint::from_u128(rng.gen()).unwrap();
         let mut y_value = BigUint::from_u128(rng.gen()).unwrap();
-        while y_value > x_value {
-            y_value = BigUint::from_u128(rng.gen()).unwrap();
+        if y_value > x_value {
+            (x_value, y_value) = (y_value, x_value);
         }
         let expected_z_value = &x_value - &y_value;
 
@@ -343,10 +342,10 @@ mod tests {
     fn test_biguint_div_rem() -> Result<()> {
         let mut rng = rand::thread_rng();
 
-        let x_value = BigUint::from_u128(rng.gen()).unwrap();
+        let mut x_value = BigUint::from_u128(rng.gen()).unwrap();
         let mut y_value = BigUint::from_u128(rng.gen()).unwrap();
-        while y_value > x_value {
-            y_value = BigUint::from_u128(rng.gen()).unwrap();
+        if y_value > x_value {
+            (x_value, y_value) = (y_value, x_value);
         }
         let (expected_div_value, expected_rem_value) = x_value.div_rem(&y_value);
 

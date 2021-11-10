@@ -44,9 +44,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a: &ForeignFieldTarget<FF>,
         b: &ForeignFieldTarget<FF>,
     ) -> ForeignFieldTarget<FF> {
-        let a_biguint = self.nonnative_to_biguint(a);
-        let b_biguint = self.nonnative_to_biguint(b);
-        let result = self.add_biguint(&a_biguint, &b_biguint);
+        let result = self.add_biguint(&a.value, &b.value);
 
         self.reduce(&result)
     }
@@ -58,10 +56,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         b: &ForeignFieldTarget<FF>,
     ) -> ForeignFieldTarget<FF> {
         let order = self.constant_biguint(&FF::order());
-        let a_biguint = self.nonnative_to_biguint(a);
-        let a_plus_order = self.add_biguint(&order, &a_biguint);
-        let b_biguint = self.nonnative_to_biguint(b);
-        let result = self.sub_biguint(&a_plus_order, &b_biguint);
+        let a_plus_order = self.add_biguint(&order, &a.value);
+        let result = self.sub_biguint(&a_plus_order, &b.value);
 
         // TODO: reduce sub result with only one conditional addition?
         self.reduce(&result)
@@ -72,9 +68,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a: &ForeignFieldTarget<FF>,
         b: &ForeignFieldTarget<FF>,
     ) -> ForeignFieldTarget<FF> {
-        let a_biguint = self.nonnative_to_biguint(a);
-        let b_biguint = self.nonnative_to_biguint(b);
-        let result = self.mul_biguint(&a_biguint, &b_biguint);
+        let result = self.mul_biguint(&a.value, &b.value);
 
         self.reduce(&result)
     }
