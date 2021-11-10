@@ -34,12 +34,12 @@ pub fn check_partial_products<F: Field>(
     numerators: &[F],
     denominators: &[F],
     partials: &[F],
+    mut acc: F,
     max_degree: usize,
 ) -> Vec<F> {
     debug_assert!(max_degree > 1);
     let mut partials = partials.iter();
     let mut res = Vec::new();
-    let mut acc = F::ONE;
     let chunk_size = max_degree;
     for (nume_chunk, deno_chunk) in numerators
         .chunks_exact(chunk_size)
@@ -60,12 +60,12 @@ pub fn check_partial_products_recursively<F: RichField + Extendable<D>, const D:
     numerators: &[ExtensionTarget<D>],
     denominators: &[ExtensionTarget<D>],
     partials: &[ExtensionTarget<D>],
+    mut acc: ExtensionTarget<D>,
     max_degree: usize,
 ) -> Vec<ExtensionTarget<D>> {
     debug_assert!(max_degree > 1);
     let mut partials = partials.iter();
     let mut res = Vec::new();
-    let mut acc = builder.one_extension();
     let chunk_size = max_degree;
     for (nume_chunk, deno_chunk) in numerators
         .chunks_exact(chunk_size)
@@ -108,7 +108,7 @@ mod tests {
 
         let nums = num_partial_products(v.len(), 2);
         assert_eq!(p.len(), nums.0);
-        assert!(check_partial_products(&v, &denominators, &p, 2)
+        assert!(check_partial_products(&v, &denominators, &p, F::ONE, 2)
             .iter()
             .all(|x| x.is_zero()));
         assert_eq!(
@@ -130,7 +130,7 @@ mod tests {
         );
         let nums = num_partial_products(v.len(), 3);
         assert_eq!(p.len(), nums.0);
-        assert!(check_partial_products(&v, &denominators, &p, 3)
+        assert!(check_partial_products(&v, &denominators, &p, F::ONE, 3)
             .iter()
             .all(|x| x.is_zero()));
         assert_eq!(

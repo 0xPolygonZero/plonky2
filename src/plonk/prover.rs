@@ -100,7 +100,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
     let plonk_z_vecs = timed!(
         timing,
         "compute Z's",
-        compute_zs(&partial_products, common_data)
+        compute_zs(&mut partial_products, common_data)
     );
 
     // The first polynomial in `partial_products` represent the final product used in the
@@ -286,24 +286,26 @@ fn wires_permutation_partial_products<F: RichField + Extendable<D>, const D: usi
 }
 
 fn compute_zs<F: RichField + Extendable<D>, const D: usize>(
-    partial_products: &[Vec<PolynomialValues<F>>],
+    partial_products: &mut [Vec<PolynomialValues<F>>],
     common_data: &CommonCircuitData<F, D>,
 ) -> Vec<PolynomialValues<F>> {
     (0..common_data.config.num_challenges)
-        .map(|i| compute_z(&partial_products[i], common_data))
+        .map(|i| compute_z(&mut partial_products[i], common_data))
         .collect()
 }
 
 /// Compute the `Z` polynomial by reusing the computations done in `wires_permutation_partial_products`.
 fn compute_z<F: RichField + Extendable<D>, const D: usize>(
-    partial_products: &[PolynomialValues<F>],
+    partial_products: &mut [PolynomialValues<F>],
     common_data: &CommonCircuitData<F, D>,
 ) -> PolynomialValues<F> {
     let mut plonk_z_points = vec![F::ONE];
     for i in 1..common_data.degree() {
-        let quotient = partial_products[0].values[i - 1];
         let last = *plonk_z_points.last().unwrap();
-        plonk_z_points.push(last * quotient);
+        for q in partial_products.iter_mut() {
+            q.values[i - 1] *= last;
+        }
+        plonk_z_points.push(partial_products[0].values[i - 1]);
     }
     plonk_z_points.into()
 }

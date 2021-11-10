@@ -70,13 +70,13 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
             &numerator_values,
             &denominator_values,
             current_partial_products,
+            z_x,
             max_degree,
         );
         vanishing_partial_products_terms.extend(partial_product_checks);
 
         let v_shift_term = *current_partial_products.last().unwrap()
             * numerator_values[final_num_prod..].iter().copied().product()
-            * z_x
             - z_gz
                 * denominator_values[final_num_prod..]
                     .iter()
@@ -180,13 +180,13 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
                 &numerator_values,
                 &denominator_values,
                 current_partial_products,
+                z_x,
                 max_degree,
             );
             vanishing_partial_products_terms.extend(partial_product_checks);
 
             let v_shift_term = *current_partial_products.last().unwrap()
                 * numerator_values[final_num_prod..].iter().copied().product()
-                * z_x
                 - z_gz
                     * denominator_values[final_num_prod..]
                         .iter()
@@ -376,6 +376,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
             &numerator_values,
             &denominator_values,
             current_partial_products,
+            z_x,
             max_degree,
         );
         vanishing_partial_products_terms.extend(partial_product_checks);
@@ -390,7 +391,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
             v.push(z_gz);
             v
         });
-        let v_shift_term = builder.mul_sub_extension(nume_acc, z_x, z_gz_denominators);
+        let v_shift_term = builder.sub_extension(nume_acc, z_gz_denominators);
         vanishing_v_shift_terms.push(v_shift_term);
     }
 
