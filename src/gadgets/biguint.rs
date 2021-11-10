@@ -28,10 +28,7 @@ impl BigUintTarget {
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn constant_biguint(&mut self, value: &BigUint) -> BigUintTarget {
         let limb_values = value.to_u32_digits();
-        let limbs = limb_values
-            .iter()
-            .map(|&l| U32Target(self.constant(F::from_canonical_u32(l))))
-            .collect();
+        let limbs = limb_values.iter().map(|&l| self.constant_u32(l)).collect();
 
         BigUintTarget { limbs }
     }
@@ -56,26 +53,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         b: BigUintTarget,
     ) -> (BigUintTarget, BigUintTarget) {
         if a.num_limbs() > b.num_limbs() {
-            let mut padded_b_limbs = b.limbs.clone();
-            let to_extend = a.num_limbs() - b.num_limbs();
-            for i in 0..to_extend {
-                padded_b_limbs.push(self.zero_u32());
+            let mut padded_b = b.clone();
+            for _ in b.num_limbs()..a.num_limbs() {
+                padded_b.limbs.push(self.zero_u32());
             }
 
-            let padded_b = BigUintTarget {
-                limbs: padded_b_limbs,
-            };
             (a, padded_b)
         } else {
-            let mut padded_a_limbs = a.limbs.clone();
+            let mut padded_a = a.clone();
             let to_extend = b.num_limbs() - a.num_limbs();
-            for i in 0..to_extend {
-                padded_a_limbs.push(self.zero_u32());
+            for _ in a.num_limbs()..b.num_limbs() {
+                padded_a.limbs.push(self.zero_u32());
             }
 
-            let padded_a = BigUintTarget {
-                limbs: padded_a_limbs,
-            };
             (padded_a, b)
         }
     }
@@ -104,18 +94,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut combined_limbs = vec![];
         let mut carry = self.zero_u32();
         for i in 0..num_limbs {
-            let a_limb = if i < a.num_limbs() {
-                a.limbs[i].clone()
-            } else {
-                self.zero_u32()
-            };
-            let b_limb = if i < b.num_limbs() {
-                b.limbs[i].clone()
-            } else {
-                self.zero_u32()
-            };
+            let a_limb = (i < a.num_limbs())
+                .then(|| a.limbs[i])
+                .unwrap_or_else(|| self.zero_u32());
+            let b_limb = (i < b.num_limbs())
+                .then(|| b.limbs[i])
+                .unwrap_or_else(|| self.zero_u32());
 
-            let (new_limb, new_carry) = self.add_many_u32(&[carry.clone(), a_limb, b_limb]);
+            let (new_limb, new_carry) = self.add_many_u32(&[carry, a_limb, b_limb]);
             carry = new_carry;
             combined_limbs.push(new_limb);
         }
