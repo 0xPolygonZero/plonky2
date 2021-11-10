@@ -59,6 +59,8 @@ pub trait Field:
     /// Generator of a multiplicative subgroup of order `2^TWO_ADICITY`.
     const POWER_OF_TWO_GENERATOR: Self;
 
+    const BITS: usize;
+
     fn order() -> BigUint;
 
     #[inline]

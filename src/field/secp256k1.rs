@@ -91,6 +91,8 @@ impl Field for Secp256K1Base {
     // Sage: `g_2 = g^((p - 1) / 2)`
     const POWER_OF_TWO_GENERATOR: Self = Self::NEG_ONE;
 
+    const BITS: usize = 256;
+
     fn order() -> BigUint {
         BigUint::from_slice(&[
             0xFFFFFC2F, 0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,

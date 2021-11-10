@@ -1,9 +1,9 @@
+use std::fmt::Debug;
 use std::ops::Neg;
 
 use anyhow::Result;
 
 use crate::field::field_types::Field;
-use std::fmt::Debug;
 
 // To avoid implementation conflicts from associated types,
 // see https://github.com/rust-lang/rust/issues/20400
@@ -54,9 +54,10 @@ pub trait Curve: 'static + Sync + Sized + Copy + Debug {
         Ok(res)
     }*/
 
-    fn is_safe_curve() -> bool{
+    fn is_safe_curve() -> bool {
         // Added additional check to prevent using vulnerabilties in case a discriminant is equal to 0.
-        (Self::A.cube().double().double() + Self::B.square().triple().triple().triple()).is_nonzero()
+        (Self::A.cube().double().double() + Self::B.square().triple().triple().triple())
+            .is_nonzero()
     }
 }
 
@@ -101,11 +102,7 @@ impl<C: Curve> AffinePoint<C> {
     }
 
     pub fn double(&self) -> Self {
-        let AffinePoint {
-            x: x1,
-            y: y1,
-            zero,
-        } = *self;
+        let AffinePoint { x: x1, y: y1, zero } = *self;
 
         if zero {
             return AffinePoint::ZERO;
@@ -124,7 +121,6 @@ impl<C: Curve> AffinePoint<C> {
             zero: false,
         }
     }
-
 }
 
 impl<C: Curve> PartialEq for AffinePoint<C> {

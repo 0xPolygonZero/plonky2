@@ -1,14 +1,24 @@
 use std::ops::Add;
 
-use crate::field::field_types::Field;
 use crate::curve::curve_types::{AffinePoint, Curve, ProjectivePoint};
+use crate::field::field_types::Field;
 
 impl<C: Curve> Add<ProjectivePoint<C>> for ProjectivePoint<C> {
     type Output = ProjectivePoint<C>;
 
     fn add(self, rhs: ProjectivePoint<C>) -> Self::Output {
-        let ProjectivePoint { x: x1, y: y1, z: z1, zero: zero1 } = self;
-        let ProjectivePoint { x: x2, y: y2, z: z2, zero: zero2 } = rhs;
+        let ProjectivePoint {
+            x: x1,
+            y: y1,
+            z: z1,
+            zero: zero1,
+        } = self;
+        let ProjectivePoint {
+            x: x2,
+            y: y2,
+            z: z2,
+            zero: zero2,
+        } = rhs;
 
         if zero1 {
             return rhs;
@@ -52,8 +62,17 @@ impl<C: Curve> Add<AffinePoint<C>> for ProjectivePoint<C> {
     type Output = ProjectivePoint<C>;
 
     fn add(self, rhs: AffinePoint<C>) -> Self::Output {
-        let ProjectivePoint { x: x1, y: y1, z: z1, zero: zero1 } = self;
-        let AffinePoint { x: x2, y: y2, zero: zero2 } = rhs;
+        let ProjectivePoint {
+            x: x1,
+            y: y1,
+            z: z1,
+            zero: zero1,
+        } = self;
+        let AffinePoint {
+            x: x2,
+            y: y2,
+            zero: zero2,
+        } = rhs;
 
         if zero1 {
             return rhs.to_projective();
@@ -94,8 +113,16 @@ impl<C: Curve> Add<AffinePoint<C>> for AffinePoint<C> {
     type Output = ProjectivePoint<C>;
 
     fn add(self, rhs: AffinePoint<C>) -> Self::Output {
-        let AffinePoint { x: x1, y: y1, zero: zero1 } = self;
-        let AffinePoint { x: x2, y: y2, zero: zero2 } = rhs;
+        let AffinePoint {
+            x: x1,
+            y: y1,
+            zero: zero1,
+        } = self;
+        let AffinePoint {
+            x: x2,
+            y: y2,
+            zero: zero2,
+        } = rhs;
 
         if zero1 {
             return rhs.to_projective();
