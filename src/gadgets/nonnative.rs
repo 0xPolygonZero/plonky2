@@ -51,16 +51,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.reduce(&result)
     }
 
-    // Subtract two `ForeignFieldTarget`s. We assume that the first is larger than the second.
+    // Subtract two `ForeignFieldTarget`s.
     pub fn sub_nonnative<FF: Field>(
         &mut self,
         a: &ForeignFieldTarget<FF>,
         b: &ForeignFieldTarget<FF>,
     ) -> ForeignFieldTarget<FF> {
-        let a_biguint = self.ff_to_biguint(a);
-        let b_biguint = self.ff_to_biguint(b);
-        let result = self.sub_biguint(&a_biguint, &b_biguint);
+        let order = self.constant_biguint(&FF::order());
+        let a_biguint = self.nonnative_to_biguint(a);
+        let a_plus_order = self.add_biguint(&order, &a_biguint);
+        let b_biguint = self.nonnative_to_biguint(b);
+        let result = self.sub_biguint(&a_plus_order, &b_biguint);
 
+        // TODO: reduce sub result with only one conditional addition?
         self.reduce(&result)
     }
 
