@@ -1,6 +1,6 @@
 use crate::curve::curve_types::{AffinePoint, Curve};
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
+use crate::field::field_types::{Field, RichField};
 use crate::gadgets::nonnative::ForeignFieldTarget;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -60,7 +60,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn curve_double<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C> {
+    pub fn curve_double<C: Curve>(
+        &mut self,
+        p: &AffinePointTarget<C>,
+        p_orig: AffinePoint<C>,
+    ) -> AffinePointTarget<C> {
         let AffinePointTarget { x, y } = p;
         let double_y = self.add_nonnative(y, y);
         let inv_double_y = self.inv_nonnative(&double_y);
@@ -94,6 +98,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 mod tests {
+    use std::ops::Neg;
+
     use anyhow::Result;
 
     use crate::curve::curve_types::{AffinePoint, Curve};
@@ -167,14 +173,19 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let g = Secp256K1::GENERATOR_AFFINE;
+        let neg_g = g.neg();
         let g_target = builder.constant_affine_point(g);
         let neg_g_target = builder.curve_neg(&g_target);
 
-        let double_g = builder.curve_double(&g_target);
-        let double_neg_g = builder.curve_double(&neg_g_target);
+        let double_g = g.double();
+        let double_g_other_target = builder.constant_affine_point(double_g);
+        builder.curve_assert_valid(&double_g_other_target);
 
-        builder.curve_assert_valid(&double_g);
-        builder.curve_assert_valid(&double_neg_g);
+        let double_g_target = builder.curve_double(&g_target, g);
+        let double_neg_g_target = builder.curve_double(&neg_g_target, neg_g);
+
+        builder.curve_assert_valid(&double_g_target);
+        builder.curve_assert_valid(&double_neg_g_target);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();

@@ -81,6 +81,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         x: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF> {
+        // TODO: zero - x would be more efficient but doesn't seem to work?
         let neg_one = FF::order() - BigUint::one();
         let neg_one_target = self.constant_biguint(&neg_one);
         let neg_one_ff = self.biguint_to_nonnative(&neg_one_target);
@@ -90,11 +91,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn inv_nonnative<FF: Field>(
         &mut self,
-        x: &ForeignFieldTarget<FF>,
-    ) -> ForeignFieldTarget<FF> {
+        x: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF> {
         let num_limbs = x.value.num_limbs();
         let inv_biguint = self.add_virtual_biguint_target(num_limbs);
-        let inv = ForeignFieldTarget::<FF> {
+        let inv = NonNativeTarget::<FF> {
             value: inv_biguint,
             _phantom: PhantomData,
         };
@@ -107,7 +108,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let product = self.mul_nonnative(&x, &inv);
         let one = self.constant_nonnative(FF::ONE);
-        self.connect_nonnative_reduced(&product, &one);
+        self.connect_nonnative(&product, &one);
 
         inv
     }
@@ -259,6 +260,28 @@ mod tests {
 
         let neg_x_expected = builder.constant_nonnative(neg_x_ff);
         builder.connect_nonnative(&neg_x, &neg_x_expected);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_nonnative_inv() -> Result<()> {
+        type FF = Secp256K1Base;
+        let x_ff = FF::rand();
+        let inv_x_ff = x_ff.inverse();
+
+        type F = CrandallField;
+        let config = CircuitConfig::large_config();
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, 4>::new(config);
+
+        let x = builder.constant_nonnative(x_ff);
+        let inv_x = builder.inv_nonnative(&x);
+
+        let inv_x_expected = builder.constant_nonnative(inv_x_ff);
+        builder.connect_nonnative(&inv_x, &inv_x_expected);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
