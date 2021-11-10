@@ -87,6 +87,9 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     // of switches
     pub(crate) current_switch_gates: Vec<Option<(SwitchGate<F, D>, usize, usize)>>,
 
+    // The `U32ArithmeticGate` currently being filled (so new u32 arithmetic operations will be added to this gate before creating a new one)
+    pub(crate) current_u32_arithmetic_gate: Option<(usize, usize)>,
+
     /// An available `ConstantGate` instance, if any.
     free_constant: Option<(usize, usize)>,
 }
@@ -109,6 +112,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             free_arithmetic: HashMap::new(),
             free_random_access: HashMap::new(),
             current_switch_gates: Vec::new(),
+            current_u32_arithmetic_gate: None,
             free_constant: None,
         };
         builder.check_config();

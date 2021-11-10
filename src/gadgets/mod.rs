@@ -1,5 +1,6 @@
 pub mod arithmetic;
 pub mod arithmetic_extension;
+pub mod arithmetic_u32;
 pub mod hash;
 pub mod insert;
 pub mod interpolation;
