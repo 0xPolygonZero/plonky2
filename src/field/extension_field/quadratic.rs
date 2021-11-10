@@ -3,6 +3,7 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::bigint::BigUint;
+use num::Integer;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -97,6 +98,15 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
             &a_pow_r_minus_1,
             a_pow_r.0[0].inverse(),
         ))
+    }
+
+    fn from_biguint(n: BigUint) -> Self {
+        let (high, low) = n.div_rem(&F::order());
+        Self([F::from_biguint(low), F::from_biguint(high)])
+    }
+
+    fn to_biguint(&self) -> BigUint {
+        self.0[0].to_biguint() + F::order() * self.0[1].to_biguint()
     }
 
     fn from_canonical_u64(n: u64) -> Self {

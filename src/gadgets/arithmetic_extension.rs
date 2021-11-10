@@ -12,33 +12,6 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bits_u64;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Finds the last available arithmetic gate with the given constants or add one if there aren't any.
-    /// Returns `(g,i)` such that there is an arithmetic gate with the given constants at index
-    /// `g` and the gate's `i`-th operation is available.
-    fn find_arithmetic_gate(&mut self, const_0: F, const_1: F) -> (usize, usize) {
-        let (gate, i) = self
-            .free_arithmetic
-            .get(&(const_0, const_1))
-            .copied()
-            .unwrap_or_else(|| {
-                let gate = self.add_gate(
-                    ArithmeticExtensionGate::new_from_config(&self.config),
-                    vec![const_0, const_1],
-                );
-                (gate, 0)
-            });
-
-        // Update `free_arithmetic` with new values.
-        if i < ArithmeticExtensionGate::<D>::num_ops(&self.config) - 1 {
-            self.free_arithmetic
-                .insert((const_0, const_1), (gate, i + 1));
-        } else {
-            self.free_arithmetic.remove(&(const_0, const_1));
-        }
-
-        (gate, i)
-    }
-
     pub fn arithmetic_extension(
         &mut self,
         const_0: F,

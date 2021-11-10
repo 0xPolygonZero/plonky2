@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use num::BigUint;
+use num::{BigUint, Integer};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -89,6 +89,14 @@ impl Field for GoldilocksField {
     #[inline(always)]
     fn try_inverse(&self) -> Option<Self> {
         try_inverse_u64(self)
+    }
+
+    fn from_biguint(n: BigUint) -> Self {
+        Self(n.mod_floor(&Self::order()).to_u64_digits()[0])
+    }
+
+    fn to_biguint(&self) -> BigUint {
+        self.to_canonical_u64().into()
     }
 
     #[inline]

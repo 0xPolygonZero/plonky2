@@ -3,6 +3,7 @@
 
 pub mod arithmetic;
 pub mod arithmetic_u32;
+pub mod assert_le;
 pub mod base_sum;
 pub mod comparison;
 pub mod constant;
@@ -18,6 +19,7 @@ pub(crate) mod poseidon_mds;
 pub(crate) mod public_input;
 pub mod random_access;
 pub mod reducing;
+pub mod subtraction_u32;
 pub mod switch;
 
 #[cfg(test)]

@@ -35,7 +35,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.assert_permutation_2x2(a[0].clone(), a[1].clone(), b[0].clone(), b[1].clone())
             }
             // For larger lists, we recursively use two smaller permutation networks.
-            //_ => self.assert_permutation_recursive(a, b)
             _ => self.assert_permutation_recursive(a, b),
         }
     }
@@ -73,22 +72,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let chunk_size = a1.len();
 
-        if self.current_switch_gates.len() < chunk_size {
-            self.current_switch_gates
-                .extend(vec![None; chunk_size - self.current_switch_gates.len()]);
-        }
-
-        let (gate, gate_index, mut next_copy) =
-            match self.current_switch_gates[chunk_size - 1].clone() {
-                None => {
-                    let gate = SwitchGate::<F, D>::new_from_config(&self.config, chunk_size);
-                    let gate_index = self.add_gate(gate.clone(), vec![]);
-                    (gate, gate_index, 0)
-                }
-                Some((gate, idx, next_copy)) => (gate, idx, next_copy),
-            };
-
-        let num_copies = gate.num_copies;
+        let (gate, gate_index, next_copy) = self.find_switch_gate(chunk_size);
 
         let mut c = Vec::new();
         let mut d = Vec::new();
@@ -112,13 +96,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let switch = Target::wire(gate_index, gate.wire_switch_bool(next_copy));
-
-        next_copy += 1;
-        if next_copy == num_copies {
-            self.current_switch_gates[chunk_size - 1] = None;
-        } else {
-            self.current_switch_gates[chunk_size - 1] = Some((gate, gate_index, next_copy));
-        }
 
         (switch, c, d)
     }

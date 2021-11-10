@@ -4,7 +4,7 @@ use itertools::izip;
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
-use crate::gates::comparison::ComparisonGate;
+use crate::gates::assert_le::AssertLessThanGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -40,9 +40,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_permutation(a_chunks, b_chunks);
     }
 
-    /// Add a ComparisonGate to assert that `lhs` is less than `rhs`, where their values are at most `bits` bits.
+    /// Add an AssertLessThanGate to assert that `lhs` is less than `rhs`, where their values are at most `bits` bits.
     pub fn assert_le(&mut self, lhs: Target, rhs: Target, bits: usize, num_chunks: usize) {
-        let gate = ComparisonGate::new(bits, num_chunks);
+        let gate = AssertLessThanGate::new(bits, num_chunks);
         let gate_index = self.add_gate(gate.clone(), vec![]);
 
         self.connect(Target::wire(gate_index, gate.wire_first_input()), lhs);

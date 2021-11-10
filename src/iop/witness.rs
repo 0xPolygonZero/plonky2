@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 
+use num::{BigUint, FromPrimitive, Zero};
+
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::Field;
+use crate::gadgets::biguint::BigUintTarget;
 use crate::hash::hash_types::HashOutTarget;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
@@ -51,6 +54,19 @@ pub trait Witness<F: Field> {
             return true;
         }
         panic!("not a bool")
+    }
+
+    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint {
+        let mut result = BigUint::zero();
+
+        let limb_base = BigUint::from_u64(1 << 32u64).unwrap();
+        for i in (0..target.num_limbs()).rev() {
+            let limb = target.get_limb(i);
+            result *= &limb_base;
+            result += self.get_target(limb.0).to_biguint();
+        }
+
+        result
     }
 
     fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {
