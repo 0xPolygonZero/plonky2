@@ -155,4 +155,30 @@ mod tests {
 
         verify(proof, &data.verifier_only, &data.common).unwrap();
     }
+
+    #[test]
+    fn test_curve_double() -> Result<()> {
+        type F = CrandallField;
+        const D: usize = 4;
+
+        let config = CircuitConfig::large_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g = Secp256K1::GENERATOR_AFFINE;
+        let g_target = builder.constant_affine_point(g);
+        let neg_g_target = builder.curve_neg(&g_target);
+
+        let double_g = builder.curve_double(&g_target);
+        let double_neg_g = builder.curve_double(&neg_g_target);
+
+        builder.curve_assert_valid(&double_g);
+        builder.curve_assert_valid(&double_neg_g);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
 }

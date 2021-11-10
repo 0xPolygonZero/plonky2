@@ -110,8 +110,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     // Subtract two `BigUintTarget`s. We assume that the first is larger than the second.
     pub fn sub_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
-        let num_limbs = a.limbs.len();
         let (a, b) = self.pad_biguints(a, b);
+        let num_limbs = a.limbs.len();
 
         let mut result_limbs = vec![];
 
