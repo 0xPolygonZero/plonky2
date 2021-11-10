@@ -21,7 +21,7 @@ pub struct PoseidonMdsGate<
     const D: usize,
     const WIDTH: usize,
 > where
-    [(); WIDTH - 1]: ,
+    [(); WIDTH - 1]:,
 {
     _phantom: PhantomData<F>,
 }
@@ -29,7 +29,7 @@ pub struct PoseidonMdsGate<
 impl<F: RichField + Extendable<D> + Poseidon<WIDTH>, const D: usize, const WIDTH: usize>
     PoseidonMdsGate<F, D, WIDTH>
 where
-    [(); WIDTH - 1]: ,
+    [(); WIDTH - 1]:,
 {
     pub fn new() -> Self {
         PoseidonMdsGate {
@@ -116,7 +116,7 @@ where
 impl<F: RichField + Extendable<D> + Poseidon<WIDTH>, const D: usize, const WIDTH: usize> Gate<F, D>
     for PoseidonMdsGate<F, D, WIDTH>
 where
-    [(); WIDTH - 1]: ,
+    [(); WIDTH - 1]:,
 {
     fn id(&self) -> String {
         format!("{:?}<WIDTH={}>", self, WIDTH)
@@ -207,7 +207,7 @@ where
 #[derive(Clone, Debug)]
 struct PoseidonMdsGenerator<const D: usize, const WIDTH: usize>
 where
-    [(); WIDTH - 1]: ,
+    [(); WIDTH - 1]:,
 {
     gate_index: usize,
 }
@@ -215,7 +215,7 @@ where
 impl<F: RichField + Extendable<D> + Poseidon<WIDTH>, const D: usize, const WIDTH: usize>
     SimpleGenerator<F> for PoseidonMdsGenerator<D, WIDTH>
 where
-    [(); WIDTH - 1]: ,
+    [(); WIDTH - 1]:,
 {
     fn dependencies(&self) -> Vec<Target> {
         (0..WIDTH)

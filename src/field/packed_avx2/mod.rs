@@ -34,7 +34,7 @@ mod tests {
 
     fn test_add<F: ReducibleAVX2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]: ,
+        [(); PackedPrimeField::<F>::WIDTH]:,
     {
         let a_arr = test_vals_a::<F>();
         let b_arr = test_vals_b::<F>();
@@ -52,7 +52,7 @@ mod tests {
 
     fn test_mul<F: ReducibleAVX2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]: ,
+        [(); PackedPrimeField::<F>::WIDTH]:,
     {
         let a_arr = test_vals_a::<F>();
         let b_arr = test_vals_b::<F>();
@@ -70,7 +70,7 @@ mod tests {
 
     fn test_square<F: ReducibleAVX2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]: ,
+        [(); PackedPrimeField::<F>::WIDTH]:,
     {
         let a_arr = test_vals_a::<F>();
 
@@ -86,7 +86,7 @@ mod tests {
 
     fn test_neg<F: ReducibleAVX2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]: ,
+        [(); PackedPrimeField::<F>::WIDTH]:,
     {
         let a_arr = test_vals_a::<F>();
 
@@ -102,7 +102,7 @@ mod tests {
 
     fn test_sub<F: ReducibleAVX2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]: ,
+        [(); PackedPrimeField::<F>::WIDTH]:,
     {
         let a_arr = test_vals_a::<F>();
         let b_arr = test_vals_b::<F>();
@@ -120,7 +120,7 @@ mod tests {
 
     fn test_interleave_is_involution<F: ReducibleAVX2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]: ,
+        [(); PackedPrimeField::<F>::WIDTH]:,
     {
         let a_arr = test_vals_a::<F>();
         let b_arr = test_vals_b::<F>();
@@ -144,7 +144,7 @@ mod tests {
 
     fn test_interleave<F: ReducibleAVX2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]: ,
+        [(); PackedPrimeField::<F>::WIDTH]:,
     {
         let in_a: [F; 4] = [
             F::from_noncanonical_u64(00),
