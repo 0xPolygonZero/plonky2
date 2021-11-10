@@ -62,31 +62,26 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
                 wire_value + s_sigma.scalar_mul(betas[i]) + gammas[i].into()
             })
             .collect::<Vec<_>>();
-        let quotient_values = (0..common_data.config.num_routed_wires)
-            .map(|j| numerator_values[j] / denominator_values[j])
-            .collect::<Vec<_>>();
 
         // The partial products considered for this iteration of `i`.
         let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
         // Check the quotient partial products.
-        let mut partial_product_checks =
-            check_partial_products(&quotient_values, current_partial_products, max_degree);
-        // The partial products are products of quotients, so we multiply them by the product of the
-        // corresponding denominators to make sure they are polynomials.
-        for (j, partial_product_check) in partial_product_checks.iter_mut().enumerate() {
-            let range = j * max_degree..(j + 1) * max_degree;
-            *partial_product_check *= denominator_values[range].iter().copied().product();
-        }
+        let partial_product_checks = check_partial_products(
+            &numerator_values,
+            &denominator_values,
+            current_partial_products,
+            max_degree,
+        );
         vanishing_partial_products_terms.extend(partial_product_checks);
 
-        let quotient: F::Extension = *current_partial_products.last().unwrap()
-            * quotient_values[final_num_prod..].iter().copied().product();
-        let mut v_shift_term = quotient * z_x - z_gz;
-        // Need to multiply by the denominators to make sure we get a polynomial.
-        v_shift_term *= denominator_values[final_num_prod..]
-            .iter()
-            .copied()
-            .product();
+        let v_shift_term = *current_partial_products.last().unwrap()
+            * numerator_values[final_num_prod..].iter().copied().product()
+            * z_x
+            - z_gz
+                * denominator_values[final_num_prod..]
+                    .iter()
+                    .copied()
+                    .product();
         vanishing_v_shift_terms.push(v_shift_term);
     }
 
@@ -139,7 +134,6 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
 
     let mut numerator_values = Vec::with_capacity(num_routed_wires);
     let mut denominator_values = Vec::with_capacity(num_routed_wires);
-    let mut quotient_values = Vec::with_capacity(num_routed_wires);
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::with_capacity(num_challenges);
@@ -178,37 +172,30 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
                 let s_sigma = s_sigmas[j];
                 wire_value + betas[i] * s_sigma + gammas[i]
             }));
-            let denominator_inverses = F::batch_multiplicative_inverse(&denominator_values);
-            quotient_values.extend(
-                (0..num_routed_wires).map(|j| numerator_values[j] * denominator_inverses[j]),
-            );
 
             // The partial products considered for this iteration of `i`.
             let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
             // Check the numerator partial products.
-            let mut partial_product_checks =
-                check_partial_products(&quotient_values, current_partial_products, max_degree);
-            // The partial products are products of quotients, so we multiply them by the product of the
-            // corresponding denominators to make sure they are polynomials.
-            for (j, partial_product_check) in partial_product_checks.iter_mut().enumerate() {
-                let range = j * max_degree..(j + 1) * max_degree;
-                *partial_product_check *= denominator_values[range].iter().copied().product();
-            }
+            let partial_product_checks = check_partial_products(
+                &numerator_values,
+                &denominator_values,
+                current_partial_products,
+                max_degree,
+            );
             vanishing_partial_products_terms.extend(partial_product_checks);
 
-            let quotient: F = *current_partial_products.last().unwrap()
-                * quotient_values[final_num_prod..].iter().copied().product();
-            let mut v_shift_term = quotient * z_x - z_gz;
-            // Need to multiply by the denominators to make sure we get a polynomial.
-            v_shift_term *= denominator_values[final_num_prod..]
-                .iter()
-                .copied()
-                .product();
+            let v_shift_term = *current_partial_products.last().unwrap()
+                * numerator_values[final_num_prod..].iter().copied().product()
+                * z_x
+                - z_gz
+                    * denominator_values[final_num_prod..]
+                        .iter()
+                        .copied()
+                        .product();
             vanishing_v_shift_terms.push(v_shift_term);
 
             numerator_values.clear();
             denominator_values.clear();
-            quotient_values.clear();
         }
 
         let vanishing_terms = vanishing_z_1_terms
@@ -365,7 +352,6 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
 
         let mut numerator_values = Vec::new();
         let mut denominator_values = Vec::new();
-        let mut quotient_values = Vec::new();
 
         for j in 0..common_data.config.num_routed_wires {
             let wire_value = vars.local_wires[j];
@@ -378,46 +364,33 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
             let numerator = builder.mul_add_extension(beta_ext, s_ids[j], wire_value_plus_gamma);
             let denominator =
                 builder.mul_add_extension(beta_ext, s_sigmas[j], wire_value_plus_gamma);
-            let quotient = builder.div_extension(numerator, denominator);
-
             numerator_values.push(numerator);
             denominator_values.push(denominator);
-            quotient_values.push(quotient);
         }
 
         // The partial products considered for this iteration of `i`.
         let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
         // Check the quotient partial products.
-        let mut partial_product_checks = check_partial_products_recursively(
+        let partial_product_checks = check_partial_products_recursively(
             builder,
-            &quotient_values,
+            &numerator_values,
+            &denominator_values,
             current_partial_products,
             max_degree,
         );
-        // The partial products are products of quotients, so we multiply them by the product of the
-        // corresponding denominators to make sure they are polynomials.
-        for (j, partial_product_check) in partial_product_checks.iter_mut().enumerate() {
-            let range = j * max_degree..(j + 1) * max_degree;
-            *partial_product_check = builder.mul_many_extension(&{
-                let mut v = denominator_values[range].to_vec();
-                v.push(*partial_product_check);
-                v
-            });
-        }
         vanishing_partial_products_terms.extend(partial_product_checks);
 
-        let quotient = builder.mul_many_extension(&{
-            let mut v = quotient_values[final_num_prod..].to_vec();
+        let nume_acc = builder.mul_many_extension(&{
+            let mut v = numerator_values[final_num_prod..].to_vec();
             v.push(*current_partial_products.last().unwrap());
             v
         });
-        let mut v_shift_term = builder.mul_sub_extension(quotient, z_x, z_gz);
-        // Need to multiply by the denominators to make sure we get a polynomial.
-        v_shift_term = builder.mul_many_extension(&{
+        let z_gz_denominators = builder.mul_many_extension(&{
             let mut v = denominator_values[final_num_prod..].to_vec();
-            v.push(v_shift_term);
+            v.push(z_gz);
             v
         });
+        let v_shift_term = builder.mul_sub_extension(nume_acc, z_x, z_gz_denominators);
         vanishing_v_shift_terms.push(v_shift_term);
     }
 

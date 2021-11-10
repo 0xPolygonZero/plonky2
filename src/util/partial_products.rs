@@ -28,18 +28,26 @@ pub fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
     (num_chunks, num_chunks * chunk_size)
 }
 
-/// Checks that the partial products of `v` are coherent with those in `partials` by only computing
+/// Checks that the partial products of `numerators/denominators` are coherent with those in `partials` by only computing
 /// products of size `max_degree` or less.
-pub fn check_partial_products<F: Field>(v: &[F], partials: &[F], max_degree: usize) -> Vec<F> {
+pub fn check_partial_products<F: Field>(
+    numerators: &[F],
+    denominators: &[F],
+    partials: &[F],
+    max_degree: usize,
+) -> Vec<F> {
     debug_assert!(max_degree > 1);
     let mut partials = partials.iter();
     let mut res = Vec::new();
     let mut acc = F::ONE;
     let chunk_size = max_degree;
-    for chunk in v.chunks_exact(chunk_size) {
-        acc *= chunk.iter().copied().product();
-        let new_acc = *partials.next().unwrap();
-        res.push(acc - new_acc);
+    for (nume_chunk, deno_chunk) in numerators
+        .chunks_exact(chunk_size)
+        .zip(denominators.chunks_exact(chunk_size))
+    {
+        acc *= nume_chunk.iter().copied().product();
+        let mut new_acc = *partials.next().unwrap();
+        res.push(acc - new_acc * deno_chunk.iter().copied().product());
         acc = new_acc;
     }
     debug_assert!(partials.next().is_none());
@@ -49,7 +57,8 @@ pub fn check_partial_products<F: Field>(v: &[F], partials: &[F], max_degree: usi
 
 pub fn check_partial_products_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    v: &[ExtensionTarget<D>],
+    numerators: &[ExtensionTarget<D>],
+    denominators: &[ExtensionTarget<D>],
     partials: &[ExtensionTarget<D>],
     max_degree: usize,
 ) -> Vec<ExtensionTarget<D>> {
@@ -58,11 +67,16 @@ pub fn check_partial_products_recursively<F: RichField + Extendable<D>, const D:
     let mut res = Vec::new();
     let mut acc = builder.one_extension();
     let chunk_size = max_degree;
-    for chunk in v.chunks_exact(chunk_size) {
-        let chunk_product = builder.mul_many_extension(chunk);
+    for (nume_chunk, deno_chunk) in numerators
+        .chunks_exact(chunk_size)
+        .zip(denominators.chunks_exact(chunk_size))
+    {
+        let nume_product = builder.mul_many_extension(nume_chunk);
+        let deno_product = builder.mul_many_extension(deno_chunk);
         let new_acc = *partials.next().unwrap();
-        // Assert that new_acc = acc * chunk_product.
-        res.push(builder.mul_sub_extension(acc, chunk_product, new_acc));
+        let new_acc_deno = builder.mul_extension(new_acc, deno_product);
+        // Assert that new_acc*deno_product = acc * nume_product.
+        res.push(builder.mul_sub_extension(acc, nume_product, new_acc_deno));
         acc = new_acc;
     }
     debug_assert!(partials.next().is_none());
@@ -78,6 +92,7 @@ mod tests {
     #[test]
     fn test_partial_products() {
         type F = GoldilocksField;
+        let denominators = vec![F::ONE; 6];
         let v = [1, 2, 3, 4, 5, 6]
             .into_iter()
             .map(|&i| F::from_canonical_u64(i))
@@ -93,7 +108,7 @@ mod tests {
 
         let nums = num_partial_products(v.len(), 2);
         assert_eq!(p.len(), nums.0);
-        assert!(check_partial_products(&v, &p, 2)
+        assert!(check_partial_products(&v, &denominators, &p, 2)
             .iter()
             .all(|x| x.is_zero()));
         assert_eq!(
@@ -115,7 +130,7 @@ mod tests {
         );
         let nums = num_partial_products(v.len(), 3);
         assert_eq!(p.len(), nums.0);
-        assert!(check_partial_products(&v, &p, 3)
+        assert!(check_partial_products(&v, &denominators, &p, 3)
             .iter()
             .all(|x| x.is_zero()));
         assert_eq!(
