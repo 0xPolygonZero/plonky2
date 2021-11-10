@@ -13,19 +13,23 @@ use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bimap::bimap_from_lists;
-
-pub struct NonNativeTarget {
-    /// The modulus of the field F' being represented.
-    modulus: BigUint,
+ 
+pub struct ForeignFieldTarget<FF: Field> {
     /// These F elements are assumed to contain 32-bit values.
     limbs: Vec<U32Target>,
+    _phantom: PhantomData<FF>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn add_nonnative(&mut self, a: NonNativeTarget, b: NonNativeTarget) -> NonNativeTarget {
-        let modulus = a.modulus;
+    pub fn order_u32_limbs<FF: Field>(&self) -> Vec<U32Target> {
+        let modulus = FF::order();
+        let limbs = modulus.to_u32_digits();
+        limbs.iter().map(|&limb| self.constant_u32(F::from_canonical_u32(limb))).collect()
+    }
+
+    // Add two `ForeignFieldTarget`s, which we assume are both normalized.
+    pub fn add_nonnative<FF: Field>(&mut self, a: ForeignFieldTarget<FF>, b: ForeignFieldTarget<FF>) -> ForeignFieldTarget<FF> {
         let num_limbs = a.limbs.len();
-        debug_assert!(b.modulus == modulus);
         debug_assert!(b.limbs.len() == num_limbs);
 
         let mut combined_limbs = self.add_virtual_u32_targets(num_limbs + 1);
@@ -36,21 +40,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
         combined_limbs[num_limbs] = carry;
 
-        let reduced_limbs = self.reduce_add_result(combined_limbs, modulus);
-        NonNativeTarget {
-            modulus,
+        let reduced_limbs = self.reduce_add_result::<FF>(combined_limbs);
+        ForeignFieldTarget {
             limbs: reduced_limbs,
+            _phantom: PhantomData,
         }
     }
 
-    pub fn reduce_add_result(&mut self, limbs: Vec<U32Target>, modulus: BigUint) -> Vec<U32Target> {
+    pub fn reduce_add_result<FF: Field>(&mut self, limbs: Vec<U32Target>) -> Vec<U32Target> {
+        let modulus = FF::order();
+
         todo!()
     }
 
-    pub fn mul_nonnative(&mut self, a: NonNativeTarget, b: NonNativeTarget) -> NonNativeTarget {
-        let modulus = a.modulus;
+    pub fn mul_nonnative<FF: Field>(&mut self, a: ForeignFieldTarget<FF>, b: ForeignFieldTarget<FF>) -> ForeignFieldTarget<FF> {
         let num_limbs = a.limbs.len();
-        debug_assert!(b.modulus == modulus);
         debug_assert!(b.limbs.len() == num_limbs);
 
         let mut combined_limbs = self.add_virtual_targets(2 * num_limbs - 1);
@@ -61,15 +65,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             }
         }
 
-        let reduced_limbs = self.reduce_mul_result(combined_limbs, modulus);
+        let reduced_limbs = self.reduce_mul_result::<FF>(combined_limbs);
 
-        NonNativeTarget {
-            modulus,
+        ForeignFieldTarget {
             limbs: reduced_limbs,
+            _phantom: PhantomData,
         }
     }
 
-    pub fn reduce_mul_result(&mut self, limbs: Vec<U32Target>, modulus: BigUint) -> Vec<U32Target> {
+    pub fn reduce_mul_result<FF: Field>(&mut self, limbs: Vec<U32Target>) -> Vec<U32Target> {
         todo!()
     }
 }

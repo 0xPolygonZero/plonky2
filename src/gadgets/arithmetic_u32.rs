@@ -6,7 +6,7 @@ use crate::gates::arithmetic_u32::{U32ArithmeticGate, NUM_U32_ARITHMETIC_OPS};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-pub struct U32Target(Target);
+pub struct U32Target(pub Target);
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn add_virtual_u32_target(&self) -> U32Target {

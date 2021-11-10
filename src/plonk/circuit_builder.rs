@@ -13,6 +13,7 @@ use crate::field::field_types::{Field, RichField};
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::arithmetic_extension::ArithmeticOperation;
+use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
@@ -347,6 +348,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         } else {
             self._false()
         }
+    }
+
+    /// Returns a U32Target for the value `c`, which is assumed to be at most 32 bits.
+    pub fn constant_u32(&mut self, c: F) -> U32Target {
+        U32Target(self.constant(c))
     }
 
     /// If the given target is a constant (i.e. it was created by the `constant(F)` method), returns
