@@ -88,7 +88,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         AffinePointTarget { x: x3, y: y3 }
     }
 
-    pub fn curve_add_two_affine<C: Curve>(
+    pub fn curve_add<C: Curve>(
         &mut self,
         p1: &AffinePointTarget<C>,
         p2: &AffinePointTarget<C>,
