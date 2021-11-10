@@ -22,7 +22,7 @@ impl Curve for Secp256K1 {
     };
 }
 
-const SECP256K1_GENERATOR_X: Secp256K1Base = Secp256K1Base([ 
+const SECP256K1_GENERATOR_X: Secp256K1Base = Secp256K1Base([
     0x59F2815B16F81798,
     0x029BFCDB2DCE28D9,
     0x55A06295CE870B07,
@@ -39,10 +39,10 @@ const SECP256K1_GENERATOR_Y: Secp256K1Base = Secp256K1Base([
 
 #[cfg(test)]
 mod tests {
-    use crate::field::field_types::Field;
-    use crate::field::secp256k1_scalar::Secp256K1Scalar;
     use crate::curve::curve_types::{Curve, ProjectivePoint};
     use crate::curve::secp256k1_curve::Secp256K1;
+    use crate::field::field_types::Field;
+    use crate::field::secp256k1_scalar::Secp256K1Scalar;
 
     /*#[test]
     fn test_double_affine() {

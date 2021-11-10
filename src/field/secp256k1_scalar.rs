@@ -81,7 +81,7 @@ impl Field for Secp256K1Scalar {
         0xBFD25E8CD0364140,
         0xBAAEDCE6AF48A03B,
         0xFFFFFFFFFFFFFC2F,
-        0xFFFFFFFFFFFFFFFF
+        0xFFFFFFFFFFFFFFFF,
     ]);
 
     // TODO: fix
@@ -106,7 +106,7 @@ impl Field for Secp256K1Scalar {
     fn order() -> BigUint {
         BigUint::from_slice(&[
             0xD0364141, 0xBFD25E8C, 0xAF48A03B, 0xBAAEDCE6, 0xFFFFFC2F, 0xFFFFFFFF, 0xFFFFFFFF,
-            0xFFFFFFFF
+            0xFFFFFFFF,
         ])
     }
 
