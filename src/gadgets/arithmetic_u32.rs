@@ -36,14 +36,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         y: U32Target,
         z: U32Target,
     ) -> (U32Target, U32Target) {
-        let (gate_index, copy) = match self.current_u32_arithmetic_gate {
-            None => {
-                let gate = U32ArithmeticGate::new();
-                let gate_index = self.add_gate(gate, vec![]);
-                (gate_index, 0)
-            }
-            Some((gate_index, copy)) => (gate_index, copy),
-        };
+        let (gate_index, copy) = self.find_u32_arithmetic_gate();
 
         self.connect(
             Target::wire(
@@ -73,12 +66,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             U32ArithmeticGate::<F, D>::wire_ith_output_high_half(copy),
         ));
 
-        if copy == NUM_U32_ARITHMETIC_OPS - 1 {
-            self.current_u32_arithmetic_gate = None;
-        } else {
-            self.current_u32_arithmetic_gate = Some((gate_index, copy + 1));
-        }
-
         (output_low, output_high)
     }
 
@@ -102,5 +89,45 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn mul_u32(&mut self, a: U32Target, b: U32Target) -> (U32Target, U32Target) {
         let zero = self.zero_u32();
         self.mul_add_u32(a, b, zero)
+    }
+
+    // Returns x * y + z.
+    pub fn sub_u32(
+        &mut self,
+        x: U32Target,
+        y: U32Target,
+        borrow: U32Target,
+    ) -> (U32Target, U32Target) {
+        let (gate_index, copy) = self.find_u32_subtraction_gate();
+
+        self.connect(
+            Target::wire(
+                gate_index,
+                U32ArithmeticGate::<F, D>::wire_ith_multiplicand_0(copy),
+            ),
+            x.0,
+        );
+        self.connect(
+            Target::wire(
+                gate_index,
+                U32ArithmeticGate::<F, D>::wire_ith_multiplicand_1(copy),
+            ),
+            y.0,
+        );
+        self.connect(
+            Target::wire(gate_index, U32ArithmeticGate::<F, D>::wire_ith_addend(copy)),
+            z.0,
+        );
+
+        let output_low = U32Target(Target::wire(
+            gate_index,
+            U32ArithmeticGate::<F, D>::wire_ith_output_low_half(copy),
+        ));
+        let output_high = U32Target(Target::wire(
+            gate_index,
+            U32ArithmeticGate::<F, D>::wire_ith_output_high_half(copy),
+        ));
+
+        (output_low, output_high)
     }
 }
