@@ -5,6 +5,9 @@ use num::{BigUint, One};
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
 use crate::gadgets::biguint::BigUintTarget;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator};
+use crate::iop::target::Target;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 pub struct NonNativeTarget<FF: Field> {
@@ -46,6 +49,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> NonNativeTarget<FF> {
         let result = self.add_biguint(&a.value, &b.value);
 
+        // TODO: reduce add result with only one conditional subtraction
         self.reduce(&result)
     }
 
@@ -84,8 +88,32 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_nonnative(&neg_one_ff, x)
     }
 
-    /// Returns `x % |FF|` as a `NonNativeTarget`.
-    fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
+    pub fn inv_nonnative<FF: Field>(
+        &mut self,
+        x: &ForeignFieldTarget<FF>,
+    ) -> ForeignFieldTarget<FF> {
+        let num_limbs = x.value.num_limbs();
+        let inv_biguint = self.add_virtual_biguint_target(num_limbs);
+        let inv = ForeignFieldTarget::<FF> {
+            value: inv_biguint,
+            _phantom: PhantomData,
+        };
+
+        self.add_simple_generator(NonNativeInverseGenerator::<F, D, FF> {
+            x: x.clone(),
+            inv: inv.clone(),
+            _phantom: PhantomData,
+        });
+
+        let product = self.mul_nonnative(&x, &inv);
+        let one = self.constant_nonnative(FF::ONE);
+        self.connect_nonnative_reduced(&product, &one);
+
+        inv
+    }
+
+    /// Returns `x % |FF|` as a `ForeignFieldTarget`.
+    fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> ForeignFieldTarget<FF> {
         let modulus = FF::order();
         let order_target = self.constant_biguint(&modulus);
         let value = self.rem_biguint(x, &order_target);
@@ -103,6 +131,28 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> NonNativeTarget<FF> {
         let x_biguint = self.nonnative_to_biguint(x);
         self.reduce(&x_biguint)
+    }
+}
+
+#[derive(Debug)]
+struct NonNativeInverseGenerator<F: RichField + Extendable<D>, const D: usize, FF: Field> {
+    x: ForeignFieldTarget<FF>,
+    inv: ForeignFieldTarget<FF>,
+    _phantom: PhantomData<F>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize, FF: Field> SimpleGenerator<F>
+    for NonNativeInverseGenerator<F, D, FF>
+{
+    fn dependencies(&self) -> Vec<Target> {
+        self.x.value.limbs.iter().map(|&l| l.0).collect()
+    }
+
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        let x = witness.get_nonnative_target(self.x.clone());
+        let inv = x.inverse();
+
+        out_buffer.set_nonnative_target(self.inv.clone(), inv);
     }
 }
 

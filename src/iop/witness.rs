@@ -6,6 +6,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::Field;
 use crate::gadgets::biguint::BigUintTarget;
+use crate::gadgets::nonnative::ForeignFieldTarget;
 use crate::hash::hash_types::HashOutTarget;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
@@ -66,6 +67,11 @@ pub trait Witness<F: Field> {
         }
 
         result
+    }
+
+    fn get_nonnative_target<FF: Field>(&self, target: ForeignFieldTarget<FF>) -> FF {
+        let val = self.get_biguint_target(target.value);
+        FF::from_biguint(val)
     }
 
     fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {

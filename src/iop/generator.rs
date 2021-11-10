@@ -8,6 +8,7 @@ use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::{Field, RichField};
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
+use crate::gadgets::nonnative::ForeignFieldTarget;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -166,6 +167,10 @@ impl<F: Field> GeneratedValues<F> {
         for i in 0..target.num_limbs() {
             self.set_u32_target(target.get_limb(i), limbs[i]);
         }
+    }
+
+    pub fn set_nonnative_target<FF: Field>(&mut self, target: ForeignFieldTarget<FF>, value: FF) {
+        self.set_biguint_target(target.value, value.to_biguint())
     }
 
     pub fn set_hash_target(&mut self, ht: HashOutTarget, value: HashOut<F>) {

@@ -59,6 +59,38 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             y: neg_y,
         }
     }
+
+    pub fn curve_double<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C> {
+        let AffinePointTarget { x, y } = p;
+        let double_y = self.add_nonnative(y, y);
+        let inv_double_y = self.inv_nonnative(&double_y);
+        let x_squared = self.mul_nonnative(x, x);
+        let double_x_squared = self.add_nonnative(&x_squared, &x_squared);
+        let triple_x_squared = self.add_nonnative(&double_x_squared, &x_squared);
+
+        let a = self.constant_nonnative(C::A);
+        let triple_xx_a = self.add_nonnative(&triple_x_squared, &a);
+        let lambda = self.mul_nonnative(&triple_xx_a, &inv_double_y);
+        let lambda_squared = self.mul_nonnative(&lambda, &lambda);
+        let x_double = self.add_nonnative(x, x);
+
+        let x3 = self.sub_nonnative(&lambda_squared, &x_double);
+
+        let x_diff = self.sub_nonnative(x, &x3);
+        let lambda_x_diff = self.mul_nonnative(&lambda, &x_diff);
+
+        let y3 = self.sub_nonnative(&lambda_x_diff, y);
+
+        AffinePointTarget { x: x3, y: y3 }
+    }
+
+    pub fn curve_add<C: Curve>(
+        &mut self,
+        a: &AffinePointTarget<C>,
+        b: &AffinePointTarget<C>,
+    ) -> AffinePointTarget<C> {
+        todo!()
+    }
 }
 
 mod tests {
