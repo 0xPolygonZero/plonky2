@@ -57,10 +57,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         };
 
         if let (Some(a), Some(b)) = (first_term_const, z_const) {
-            let sum_u64 = (a + b).to_canonical_u64();
-            let (low_u64, high_u64) = (sum_u64 % (1u64 << 32), sum_u64 >> 32);
-            let low = F::from_canonical_u64(low_u64);
-            let high = F::from_canonical_u64(high_u64);
+            let sum = (a + b).to_canonical_u64();
+            let (low, high) = (sum as u32, (sum >> 32) as u32);
             return Some((self.constant_u32(low), self.constant_u32(high)));
         }
 

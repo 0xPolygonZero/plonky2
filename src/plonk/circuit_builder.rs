@@ -318,8 +318,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Returns a U32Target for the value `c`, which is assumed to be at most 32 bits.
-    pub fn constant_u32(&mut self, c: F) -> U32Target {
-        U32Target(self.constant(c))
+    pub fn constant_u32(&mut self, c: u32) -> U32Target {
+        U32Target(self.constant(F::from_canonical_u32(c)))
     }
 
     /// If the given target is a constant (i.e. it was created by the `constant(F)` method), returns
