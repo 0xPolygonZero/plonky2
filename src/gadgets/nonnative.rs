@@ -13,24 +13,24 @@ pub struct ForeignFieldTarget<FF: Field> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn biguint_to_ff<FF: Field>(&mut self, x: &BigUintTarget) -> ForeignFieldTarget<FF> {
+    pub fn biguint_to_nonnative<FF: Field>(&mut self, x: &BigUintTarget) -> ForeignFieldTarget<FF> {
         ForeignFieldTarget {
             value: x.clone(),
             _phantom: PhantomData,
         }
     }
 
-    pub fn ff_to_biguint<FF: Field>(&mut self, x: &ForeignFieldTarget<FF>) -> BigUintTarget {
+    pub fn nonnative_to_biguint<FF: Field>(&mut self, x: &ForeignFieldTarget<FF>) -> BigUintTarget {
         x.value.clone()
     }
 
-    pub fn constant_ff<FF: Field>(&mut self, x: FF) -> ForeignFieldTarget<FF> {
+    pub fn constant_nonnative<FF: Field>(&mut self, x: FF) -> ForeignFieldTarget<FF> {
         let x_biguint = self.constant_biguint(&x.to_biguint());
-        self.biguint_to_ff(&x_biguint)
+        self.biguint_to_nonnative(&x_biguint)
     }
 
     // Assert that two ForeignFieldTarget's, both assumed to be in reduced form, are equal.
-    pub fn connect_ff_reduced<FF: Field>(
+    pub fn connect_nonnative<FF: Field>(
         &mut self,
         lhs: &ForeignFieldTarget<FF>,
         rhs: &ForeignFieldTarget<FF>,
@@ -44,8 +44,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a: &ForeignFieldTarget<FF>,
         b: &ForeignFieldTarget<FF>,
     ) -> ForeignFieldTarget<FF> {
-        let a_biguint = self.ff_to_biguint(a);
-        let b_biguint = self.ff_to_biguint(b);
+        let a_biguint = self.nonnative_to_biguint(a);
+        let b_biguint = self.nonnative_to_biguint(b);
         let result = self.add_biguint(&a_biguint, &b_biguint);
 
         self.reduce(&result)
@@ -72,8 +72,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a: &ForeignFieldTarget<FF>,
         b: &ForeignFieldTarget<FF>,
     ) -> ForeignFieldTarget<FF> {
-        let a_biguint = self.ff_to_biguint(a);
-        let b_biguint = self.ff_to_biguint(b);
+        let a_biguint = self.nonnative_to_biguint(a);
+        let b_biguint = self.nonnative_to_biguint(b);
         let result = self.mul_biguint(&a_biguint, &b_biguint);
 
         self.reduce(&result)
@@ -85,7 +85,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> ForeignFieldTarget<FF> {
         let neg_one = FF::order() - BigUint::one();
         let neg_one_target = self.constant_biguint(&neg_one);
-        let neg_one_ff = self.biguint_to_ff(&neg_one_target);
+        let neg_one_ff = self.biguint_to_nonnative(&neg_one_target);
 
         self.mul_nonnative(&neg_one_ff, x)
     }
@@ -102,8 +102,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn reduce_ff<FF: Field>(&mut self, x: &ForeignFieldTarget<FF>) -> ForeignFieldTarget<FF> {
-        let x_biguint = self.ff_to_biguint(x);
+    fn reduce_nonnative<FF: Field>(&mut self, x: &ForeignFieldTarget<FF>) -> ForeignFieldTarget<FF> {
+        let x_biguint = self.nonnative_to_biguint(x);
         self.reduce(&x_biguint)
     }
 }
@@ -132,12 +132,12 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
-        let x = builder.constant_ff(x_ff);
-        let y = builder.constant_ff(y_ff);
+        let x = builder.constant_nonnative(x_ff);
+        let y = builder.constant_nonnative(y_ff);
         let sum = builder.add_nonnative(&x, &y);
 
-        let sum_expected = builder.constant_ff(sum_ff);
-        builder.connect_ff_reduced(&sum, &sum_expected);
+        let sum_expected = builder.constant_nonnative(sum_ff);
+        builder.connect_nonnative(&sum, &sum_expected);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
@@ -159,12 +159,12 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
-        let x = builder.constant_ff(x_ff);
-        let y = builder.constant_ff(y_ff);
+        let x = builder.constant_nonnative(x_ff);
+        let y = builder.constant_nonnative(y_ff);
         let diff = builder.sub_nonnative(&x, &y);
 
-        let diff_expected = builder.constant_ff(diff_ff);
-        builder.connect_ff_reduced(&diff, &diff_expected);
+        let diff_expected = builder.constant_nonnative(diff_ff);
+        builder.connect_nonnative(&diff, &diff_expected);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
@@ -183,12 +183,12 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
-        let x = builder.constant_ff(x_ff);
-        let y = builder.constant_ff(y_ff);
+        let x = builder.constant_nonnative(x_ff);
+        let y = builder.constant_nonnative(y_ff);
         let product = builder.mul_nonnative(&x, &y);
 
-        let product_expected = builder.constant_ff(product_ff);
-        builder.connect_ff_reduced(&product, &product_expected);
+        let product_expected = builder.constant_nonnative(product_ff);
+        builder.connect_nonnative(&product, &product_expected);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
@@ -206,11 +206,11 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
-        let x = builder.constant_ff(x_ff);
+        let x = builder.constant_nonnative(x_ff);
         let neg_x = builder.neg_nonnative(&x);
 
-        let neg_x_expected = builder.constant_ff(neg_x_ff);
-        builder.connect_ff_reduced(&neg_x, &neg_x_expected);
+        let neg_x_expected = builder.constant_nonnative(neg_x_ff);
+        builder.connect_nonnative(&neg_x, &neg_x_expected);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();

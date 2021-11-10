@@ -49,8 +49,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn pad_biguints(
         &mut self,
-        a: BigUintTarget,
-        b: BigUintTarget,
+        a: &BigUintTarget,
+        b: &BigUintTarget,
     ) -> (BigUintTarget, BigUintTarget) {
         if a.num_limbs() > b.num_limbs() {
             let mut padded_b = b.clone();
@@ -58,7 +58,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 padded_b.limbs.push(self.zero_u32());
             }
 
-            (a, padded_b)
+            (a.clone(), padded_b)
         } else {
             let mut padded_a = a.clone();
             let to_extend = b.num_limbs() - a.num_limbs();
@@ -66,15 +66,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 padded_a.limbs.push(self.zero_u32());
             }
 
-            (padded_a, b)
+            (padded_a, b.clone())
         }
     }
 
     pub fn cmp_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BoolTarget {
-        let (padded_a, padded_b) = self.pad_biguints(a.clone(), b.clone());
+        let (a, b) = self.pad_biguints(a, b);
 
-        let a_vec = padded_a.limbs.iter().map(|&x| x.0).collect();
-        let b_vec = padded_b.limbs.iter().map(|&x| x.0).collect();
+        let a_vec = a.limbs.iter().map(|&x| x.0).collect();
+        let b_vec = b.limbs.iter().map(|&x| x.0).collect();
 
         self.list_le(a_vec, b_vec, 32)
     }
@@ -115,7 +115,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     // Subtract two `BigUintTarget`s. We assume that the first is larger than the second.
     pub fn sub_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
         let num_limbs = a.limbs.len();
-        debug_assert!(b.limbs.len() == num_limbs);
+        let (a, b) = self.pad_biguints(a, b);
 
         let mut result_limbs = vec![];
 
