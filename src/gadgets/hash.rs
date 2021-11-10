@@ -15,7 +15,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn permute<const W: usize>(&mut self, inputs: [Target; W]) -> [Target; W]
     where
         F: GMiMC<W> + Poseidon<W>,
-        [(); W - 1]:,
+        [(); W - 1]: ,
     {
         // We don't want to swap any inputs, so set that wire to 0.
         let _false = self._false();
@@ -31,7 +31,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> [Target; W]
     where
         F: GMiMC<W> + Poseidon<W>,
-        [(); W - 1]:,
+        [(); W - 1]: ,
     {
         match HASH_FAMILY {
             HashFamily::GMiMC => self.gmimc_permute_swapped(inputs, swap),
@@ -88,7 +88,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> [Target; W]
     where
         F: Poseidon<W>,
-        [(); W - 1]:,
+        [(); W - 1]: ,
     {
         let gate_type = PoseidonGate::<F, D, W>::new();
         let gate = self.add_gate(gate_type, vec![]);
