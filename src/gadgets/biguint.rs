@@ -73,10 +73,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn cmp_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BoolTarget {
         let (a, b) = self.pad_biguints(a, b);
 
-        let a_vec = a.limbs.iter().map(|&x| x.0).collect();
-        let b_vec = b.limbs.iter().map(|&x| x.0).collect();
-
-        self.list_le(a_vec, b_vec, 32)
+        self.list_le_u32(a.limbs, b.limbs)
     }
 
     pub fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget {
@@ -213,8 +210,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         self.a
             .limbs
             .iter()
+            .chain(&self.b.limbs)
             .map(|&l| l.0)
-            .chain(self.b.limbs.iter().map(|&l| l.0))
             .collect()
     }
 

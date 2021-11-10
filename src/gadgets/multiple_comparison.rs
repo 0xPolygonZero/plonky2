@@ -7,7 +7,8 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::ceil_div_usize;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Returns true if a is less than or equal to b, considered as limbs of a large value.
+    /// Returns true if a is less than or equal to b, considered as base-`2^num_bits` limbs of a large value.
+    /// This range-checks its inputs.
     pub fn list_le(&mut self, a: Vec<Target>, b: Vec<Target>, num_bits: usize) -> BoolTarget {
         assert_eq!(
             a.len(),
@@ -20,7 +21,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_chunks = ceil_div_usize(num_bits, chunk_bits);
 
         let one = self.one();
-        let mut result = self.one();
+        let mut result = one;
         for i in 0..n {
             let a_le_b_gate = ComparisonGate::new(num_bits, num_chunks);
             let a_le_b_gate_index = self.add_gate(a_le_b_gate.clone(), vec![]);
@@ -51,6 +52,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             result = self.mul_add(these_limbs_equal, result, these_limbs_less_than);
         }
 
+        // `result` being boolean is an invariant, maintained because its new value is always
+        // `x * result + y`, where `x` and `y` are booleans that are not simultaneously true.
         BoolTarget::new_unsafe(result)
     }
 
@@ -65,6 +68,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use num::BigUint;
     use rand::Rng;
 
     use crate::field::crandall_field::CrandallField;
@@ -86,14 +90,12 @@ mod tests {
             .map(|_| rng.gen_range(0..(1 << num_bits)))
             .collect();
         let lst2: Vec<u64> = (0..size)
-            .map(|i| {
-                let mut res = rng.gen_range(0..(1 << num_bits));
-                while res <= lst1[i] {
-                    res = rng.gen_range(0..(1 << num_bits));
-                }
-                res
-            })
+            .map(|_| rng.gen_range(0..(1 << num_bits)))
             .collect();
+
+        let a_biguint = BigUint::from_slice(&lst1.iter().flat_map(|&x| [x as u32, (x >> 32) as u32]).collect::<Vec<_>>());
+        let b_biguint = BigUint::from_slice(&lst2.iter().flat_map(|&x| [x as u32, (x >> 32) as u32]).collect::<Vec<_>>());
+
         let a = lst1
             .iter()
             .map(|&x| builder.constant(F::from_canonical_u64(x)))
@@ -105,7 +107,7 @@ mod tests {
 
         let result = builder.list_le(a, b, num_bits);
 
-        let expected_result = builder.constant_bool(true);
+        let expected_result = builder.constant_bool(a_biguint <= b_biguint);
         builder.connect(result.target, expected_result.target);
 
         let data = builder.build();
