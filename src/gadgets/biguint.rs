@@ -229,6 +229,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 mod tests {
     use anyhow::Result;
     use num::{BigUint, FromPrimitive, Integer};
+    use rand::Rng;
 
     use crate::{
         field::crandall_field::CrandallField,
@@ -238,8 +239,10 @@ mod tests {
 
     #[test]
     fn test_biguint_add() -> Result<()> {
-        let x_value = BigUint::from_u128(22222222222222222222222222222222222222).unwrap();
-        let y_value = BigUint::from_u128(33333333333333333333333333333333333333).unwrap();
+        let mut rng = rand::thread_rng();
+
+        let x_value = BigUint::from_u128(rng.gen()).unwrap();
+        let y_value = BigUint::from_u128(rng.gen()).unwrap();
         let expected_z_value = &x_value + &y_value;
 
         type F = CrandallField;
@@ -261,8 +264,13 @@ mod tests {
 
     #[test]
     fn test_biguint_sub() -> Result<()> {
-        let x_value = BigUint::from_u128(33333333333333333333333333333333333333).unwrap();
-        let y_value = BigUint::from_u128(22222222222222222222222222222222222222).unwrap();
+        let mut rng = rand::thread_rng();
+
+        let x_value = BigUint::from_u128(rng.gen()).unwrap();
+        let mut y_value = BigUint::from_u128(rng.gen()).unwrap();
+        while y_value > x_value {
+            y_value = BigUint::from_u128(rng.gen()).unwrap();
+        }
         let expected_z_value = &x_value - &y_value;
 
         type F = CrandallField;
@@ -284,8 +292,10 @@ mod tests {
 
     #[test]
     fn test_biguint_mul() -> Result<()> {
-        let x_value = BigUint::from_u128(123123123123123123123123123123123123).unwrap();
-        let y_value = BigUint::from_u128(456456456456456456456456456456456456).unwrap();
+        let mut rng = rand::thread_rng();
+
+        let x_value = BigUint::from_u128(rng.gen()).unwrap();
+        let y_value = BigUint::from_u128(rng.gen()).unwrap();
         let expected_z_value = &x_value * &y_value;
 
         type F = CrandallField;
@@ -307,8 +317,10 @@ mod tests {
 
     #[test]
     fn test_biguint_cmp() -> Result<()> {
-        let x_value = BigUint::from_u128(33333333333333333333333333333333333333).unwrap();
-        let y_value = BigUint::from_u128(22222222222222222222222222222222222222).unwrap();
+        let mut rng = rand::thread_rng();
+
+        let x_value = BigUint::from_u128(rng.gen()).unwrap();
+        let y_value = BigUint::from_u128(rng.gen()).unwrap();
 
         type F = CrandallField;
         let config = CircuitConfig::large_config();
@@ -318,7 +330,7 @@ mod tests {
         let x = builder.constant_biguint(&x_value);
         let y = builder.constant_biguint(&y_value);
         let cmp = builder.cmp_biguint(&x, &y);
-        let expected_cmp = builder.constant_bool(false);
+        let expected_cmp = builder.constant_bool(x_value <= y_value);
 
         builder.connect(cmp.target, expected_cmp.target);
 
@@ -329,8 +341,13 @@ mod tests {
 
     #[test]
     fn test_biguint_div_rem() -> Result<()> {
-        let x_value = BigUint::from_u128(456456456456456456456456456456456456).unwrap();
-        let y_value = BigUint::from_u128(123123123123123123123123123123123123).unwrap();
+        let mut rng = rand::thread_rng();
+
+        let x_value = BigUint::from_u128(rng.gen()).unwrap();
+        let mut y_value = BigUint::from_u128(rng.gen()).unwrap();
+        while y_value > x_value {
+            y_value = BigUint::from_u128(rng.gen()).unwrap();
+        }
         let (expected_div_value, expected_rem_value) = x_value.div_rem(&y_value);
 
         type F = CrandallField;
