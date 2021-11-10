@@ -565,9 +565,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
         let start = Instant::now();
 
-        self.fill_arithmetic_gates();
-        self.fill_random_access_gates();
-        self.fill_switch_gates();
+        self.fill_batched_gates();
 
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
         // those hash wires match the claimed public inputs.
@@ -1006,5 +1004,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.connect(zero, wire_input_borrow);
             }
         }
+    }
+
+    fn fill_batched_gates(&mut self) {
+        self.fill_arithmetic_gates();
+        self.fill_switch_gates();
+        self.fill_u32_arithmetic_gates();
+        self.fill_u32_subtraction_gates();
     }
 }
