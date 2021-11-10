@@ -10,12 +10,8 @@ pub fn partial_products<F: Field>(v: &[F], max_degree: usize) -> Vec<F> {
     let mut res = Vec::new();
     let mut acc = F::ONE;
     let chunk_size = max_degree;
-    let num_chunks = v.len() / chunk_size;
-    for i in 0..num_chunks {
-        acc *= v[i * chunk_size..(i + 1) * chunk_size]
-            .iter()
-            .copied()
-            .product();
+    for chunk in v.chunks_exact(chunk_size) {
+        acc *= chunk.iter().copied().product();
         res.push(acc);
     }
 
@@ -40,12 +36,8 @@ pub fn check_partial_products<F: Field>(v: &[F], partials: &[F], max_degree: usi
     let mut res = Vec::new();
     let mut acc = F::ONE;
     let chunk_size = max_degree;
-    let num_chunks = v.len() / chunk_size;
-    for i in 0..num_chunks {
-        acc *= v[i * chunk_size..(i + 1) * chunk_size]
-            .iter()
-            .copied()
-            .product();
+    for chunk in v.chunks_exact(chunk_size) {
+        acc *= chunk.iter().copied().product();
         let new_acc = *partials.next().unwrap();
         res.push(acc - new_acc);
         acc = new_acc;
@@ -66,13 +58,11 @@ pub fn check_partial_products_recursively<F: RichField + Extendable<D>, const D:
     let mut res = Vec::new();
     let mut acc = builder.one_extension();
     let chunk_size = max_degree;
-    let num_chunks = v.len() / chunk_size;
-    for i in 0..num_chunks {
-        let mut chunk = v[i * chunk_size..(i + 1) * chunk_size].to_vec();
-        chunk.push(acc);
-        acc = builder.mul_many_extension(&chunk);
+    for chunk in v.chunks_exact(chunk_size) {
+        let chunk_product = builder.mul_many_extension(chunk);
         let new_acc = *partials.next().unwrap();
-        res.push(builder.sub_extension(acc, new_acc));
+        // Assert that new_acc = acc * chunk_product.
+        res.push(builder.mul_sub_extension(acc, chunk_product, new_acc));
         acc = new_acc;
     }
     debug_assert!(partials.next().is_none());
