@@ -15,14 +15,14 @@ use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::arithmetic_extension::ArithmeticOperation;
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gates::arithmetic::ArithmeticExtensionGate;
-use crate::gates::arithmetic_u32::{NUM_U32_ARITHMETIC_OPS, U32ArithmeticGate};
-use crate::gates::subtraction_u32::{NUM_U32_SUBTRACTION_OPS, U32SubtractionGate};
+use crate::gates::arithmetic_u32::{U32ArithmeticGate, NUM_U32_ARITHMETIC_OPS};
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
 use crate::gates::random_access::RandomAccessGate;
+use crate::gates::subtraction_u32::{U32SubtractionGate, NUM_U32_SUBTRACTION_OPS};
 use crate::gates::switch::SwitchGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
@@ -808,7 +808,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-/// 
+/// Various gate types can contain multiple copies in a single Gate. This helper struct lets a CircuitBuilder track such gates that are currently being "filled up."
 pub struct BatchedGates<F: RichField + Extendable<D>, const D: usize> {
     /// A map `(c0, c1) -> (g, i)` from constants `(c0,c1)` to an available arithmetic gate using
     /// these constants with gate index `g` and already using `i` arithmetic operations.
@@ -865,7 +865,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .free_arithmetic
                 .insert((const_0, const_1), (gate, i + 1));
         } else {
-            self.batched_gates.free_arithmetic.remove(&(const_0, const_1));
+            self.batched_gates
+                .free_arithmetic
+                .remove(&(const_0, const_1));
         }
 
         (gate, i)
@@ -873,12 +875,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn find_switch_gate(&mut self, chunk_size: usize) -> (SwitchGate<F, D>, usize, usize) {
         if self.batched_gates.current_switch_gates.len() < chunk_size {
-            self.batched_gates.current_switch_gates
-                .extend(vec![None; chunk_size - self.current_switch_gates.len()]);
+            self.batched_gates.current_switch_gates.extend(vec![
+                None;
+                chunk_size - self.batched_gates.current_switch_gates.len()
+            ]);
         }
 
         let (gate, gate_index, mut next_copy) =
-            match self.current_switch_gates[chunk_size - 1].clone() {
+            match self.batched_gates.current_switch_gates[chunk_size - 1].clone() {
                 None => {
                     let gate = SwitchGate::<F, D>::new_from_config(self.config.clone(), chunk_size);
                     let gate_index = self.add_gate(gate.clone(), vec![]);
@@ -886,13 +890,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 }
                 Some((gate, idx, next_copy)) => (gate, idx, next_copy),
             };
-        
+
         let num_copies = gate.num_copies;
-        
+
         if next_copy == num_copies {
             self.batched_gates.current_switch_gates[chunk_size - 1] = None;
         } else {
-            self.batched_gates.current_switch_gates[chunk_size - 1] = Some((gate, gate_index, next_copy + 1));
+            self.batched_gates.current_switch_gates[chunk_size - 1] =
+                Some((gate, gate_index, next_copy + 1));
         }
 
         (gate, gate_index, next_copy)
@@ -909,9 +914,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         };
 
         if copy == NUM_U32_ARITHMETIC_OPS - 1 {
-            self.current_u32_arithmetic_gate = None;
+            self.batched_gates.current_u32_arithmetic_gate = None;
         } else {
-            self.current_u32_arithmetic_gate = Some((gate_index, copy + 1));
+            self.batched_gates.current_u32_arithmetic_gate = Some((gate_index, copy + 1));
         }
 
         (gate_index, copy)
@@ -928,9 +933,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         };
 
         if copy == NUM_U32_SUBTRACTION_OPS - 1 {
-            self.current_u32_subtraction_gate = None;
+            self.batched_gates.current_u32_subtraction_gate = None;
         } else {
-            self.current_u32_subtraction_gate = Some((gate_index, copy + 1));
+            self.batched_gates.current_u32_subtraction_gate = Some((gate_index, copy + 1));
         }
 
         (gate_index, copy)
