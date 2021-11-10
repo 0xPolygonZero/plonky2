@@ -41,10 +41,23 @@ const SECP256K1_GENERATOR_Y: Secp256K1Base = Secp256K1Base([
 mod tests {
     use num::BigUint;
 
-    use crate::curve::curve_types::{Curve, ProjectivePoint};
+    use crate::curve::curve_types::{AffinePoint, Curve, ProjectivePoint};
     use crate::curve::secp256k1::Secp256K1;
     use crate::field::field_types::Field;
     use crate::field::secp256k1_scalar::Secp256K1Scalar;
+
+    #[test]
+    fn test_generator() {
+        let g = Secp256K1::GENERATOR_AFFINE;
+        assert!(g.is_valid());
+
+        let neg_g = AffinePoint::<Secp256K1> {
+            x: g.x,
+            y: -g.y,
+            zero: g.zero,
+        };
+        assert!(neg_g.is_valid());
+    }
 
     /*#[test]
     fn test_double_affine() {

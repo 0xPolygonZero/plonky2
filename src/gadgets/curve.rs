@@ -52,22 +52,27 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect_nonnative(&y_squared, &rhs);
     }
 
-    pub fn curve_neg<C: Curve>(&mut self, p: AffinePointTarget<C>) {
-        let neg_y = self.neg_nonnative(p.y);
-        AffinePointTarget {
-            x: p.x,
-            y: neg_y,
-        }
+    pub fn curve_neg<C: Curve>(&mut self, p: AffinePointTarget<C>) -> AffinePointTarget<C> {
+        let neg_y = self.neg_nonnative(&p.y);
+        AffinePointTarget { x: p.x, y: neg_y }
     }
 }
 
 mod tests {
     use anyhow::Result;
 
-
+    use crate::curve::curve_types::{AffinePoint, Curve};
+    use crate::curve::secp256k1::Secp256K1;
+    use crate::field::crandall_field::CrandallField;
+    use crate::field::field_types::Field;
+    use crate::field::secp256k1_base::Secp256K1Base;
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::verifier::verify;
 
     #[test]
-    fn test_curve_gadget_is_valid() -> Result<()> {
+    fn test_curve_point_is_valid() -> Result<()> {
         type F = CrandallField;
         const D: usize = 4;
 
@@ -76,21 +81,41 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let 
+        let g = Secp256K1::GENERATOR_AFFINE;
+        let g_target = builder.constant_affine_point(g);
 
-        let lst: Vec<F> = (0..size * 2).map(|n| F::from_canonical_usize(n)).collect();
-        let a: Vec<Vec<Target>> = lst[..]
-            .chunks(2)
-            .map(|pair| vec![builder.constant(pair[0]), builder.constant(pair[1])])
-            .collect();
-        let mut b = a.clone();
-        b.shuffle(&mut thread_rng());
-
-        builder.assert_permutation(a, b);
+        builder.curve_assert_valid(g_target);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
 
         verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_curve_point_is_not_valid() {
+        type F = CrandallField;
+        const D: usize = 4;
+
+        let config = CircuitConfig::large_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g = Secp256K1::GENERATOR_AFFINE;
+        let not_g = AffinePoint::<Secp256K1> {
+            x: g.x,
+            y: g.y + Secp256K1Base::ONE,
+            zero: g.zero,
+        };
+        let g_target = builder.constant_affine_point(not_g);
+
+        builder.curve_assert_valid(g_target);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common).unwrap();
     }
 }
