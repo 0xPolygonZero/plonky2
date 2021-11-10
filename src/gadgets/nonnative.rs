@@ -7,54 +7,54 @@ use crate::field::{extension_field::Extendable, field_types::Field};
 use crate::gadgets::biguint::BigUintTarget;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-pub struct ForeignFieldTarget<FF: Field> {
+pub struct NonNativeTarget<FF: Field> {
     value: BigUintTarget,
     _phantom: PhantomData<FF>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn biguint_to_nonnative<FF: Field>(&mut self, x: &BigUintTarget) -> ForeignFieldTarget<FF> {
-        ForeignFieldTarget {
+    pub fn biguint_to_nonnative<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
+        NonNativeTarget {
             value: x.clone(),
             _phantom: PhantomData,
         }
     }
 
-    pub fn nonnative_to_biguint<FF: Field>(&mut self, x: &ForeignFieldTarget<FF>) -> BigUintTarget {
+    pub fn nonnative_to_biguint<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> BigUintTarget {
         x.value.clone()
     }
 
-    pub fn constant_nonnative<FF: Field>(&mut self, x: FF) -> ForeignFieldTarget<FF> {
+    pub fn constant_nonnative<FF: Field>(&mut self, x: FF) -> NonNativeTarget<FF> {
         let x_biguint = self.constant_biguint(&x.to_biguint());
         self.biguint_to_nonnative(&x_biguint)
     }
 
-    // Assert that two ForeignFieldTarget's, both assumed to be in reduced form, are equal.
+    // Assert that two NonNativeTarget's, both assumed to be in reduced form, are equal.
     pub fn connect_nonnative<FF: Field>(
         &mut self,
-        lhs: &ForeignFieldTarget<FF>,
-        rhs: &ForeignFieldTarget<FF>,
+        lhs: &NonNativeTarget<FF>,
+        rhs: &NonNativeTarget<FF>,
     ) {
         self.connect_biguint(&lhs.value, &rhs.value);
     }
 
-    // Add two `ForeignFieldTarget`s.
+    // Add two `NonNativeTarget`s.
     pub fn add_nonnative<FF: Field>(
         &mut self,
-        a: &ForeignFieldTarget<FF>,
-        b: &ForeignFieldTarget<FF>,
-    ) -> ForeignFieldTarget<FF> {
+        a: &NonNativeTarget<FF>,
+        b: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF> {
         let result = self.add_biguint(&a.value, &b.value);
 
         self.reduce(&result)
     }
 
-    // Subtract two `ForeignFieldTarget`s.
+    // Subtract two `NonNativeTarget`s.
     pub fn sub_nonnative<FF: Field>(
         &mut self,
-        a: &ForeignFieldTarget<FF>,
-        b: &ForeignFieldTarget<FF>,
-    ) -> ForeignFieldTarget<FF> {
+        a: &NonNativeTarget<FF>,
+        b: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF> {
         let order = self.constant_biguint(&FF::order());
         let a_plus_order = self.add_biguint(&order, &a.value);
         let result = self.sub_biguint(&a_plus_order, &b.value);
@@ -65,9 +65,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn mul_nonnative<FF: Field>(
         &mut self,
-        a: &ForeignFieldTarget<FF>,
-        b: &ForeignFieldTarget<FF>,
-    ) -> ForeignFieldTarget<FF> {
+        a: &NonNativeTarget<FF>,
+        b: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF> {
         let result = self.mul_biguint(&a.value, &b.value);
 
         self.reduce(&result)
@@ -75,8 +75,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn neg_nonnative<FF: Field>(
         &mut self,
-        x: &ForeignFieldTarget<FF>,
-    ) -> ForeignFieldTarget<FF> {
+        x: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF> {
         let neg_one = FF::order() - BigUint::one();
         let neg_one_target = self.constant_biguint(&neg_one);
         let neg_one_ff = self.biguint_to_nonnative(&neg_one_target);
@@ -84,13 +84,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_nonnative(&neg_one_ff, x)
     }
 
-    /// Returns `x % |FF|` as a `ForeignFieldTarget`.
-    fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> ForeignFieldTarget<FF> {
+    /// Returns `x % |FF|` as a `NonNativeTarget`.
+    fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
         let modulus = FF::order();
         let order_target = self.constant_biguint(&modulus);
         let value = self.rem_biguint(x, &order_target);
 
-        ForeignFieldTarget {
+        NonNativeTarget {
             value,
             _phantom: PhantomData,
         }
@@ -99,8 +99,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     #[allow(dead_code)]
     fn reduce_nonnative<FF: Field>(
         &mut self,
-        x: &ForeignFieldTarget<FF>,
-    ) -> ForeignFieldTarget<FF> {
+        x: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF> {
         let x_biguint = self.nonnative_to_biguint(x);
         self.reduce(&x_biguint)
     }
