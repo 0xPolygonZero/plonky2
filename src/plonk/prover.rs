@@ -17,7 +17,7 @@ use crate::plonk::vanishing_poly::eval_vanishing_poly_base_batch;
 use crate::plonk::vars::EvaluationVarsBase;
 use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::timed;
-use crate::util::partial_products::partial_products;
+use crate::util::partial_products::{partial_products_and_z_gx, quotient_chunk_products};
 use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, transpose};
 
@@ -91,28 +91,21 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
         common_data.quotient_degree_factor < common_data.config.num_routed_wires,
         "When the number of routed wires is smaller that the degree, we should change the logic to avoid computing partial products."
     );
-    let mut partial_products = timed!(
+    let mut partial_products_and_zs = timed!(
         timing,
         "compute partial products",
         all_wires_permutation_partial_products(&witness, &betas, &gammas, prover_data, common_data)
     );
 
-    let plonk_z_vecs = timed!(
-        timing,
-        "compute Z's",
-        compute_zs(&mut partial_products, common_data)
-    );
+    // Z is expected at the front of our batch; see `zs_range` and `partial_products_range`.
+    let plonk_z_vecs = partial_products_and_zs.iter_mut()
+        .map(|partial_products_and_z| partial_products_and_z.pop().unwrap())
+        .collect();
+    let zs_partial_products = [plonk_z_vecs, partial_products_and_zs.concat()].concat();
 
-    // The first polynomial in `partial_products` represent the final product used in the
-    // computation of `Z`. It isn't needed anymore so we discard it.
-    partial_products.iter_mut().for_each(|part| {
-        part.remove(0);
-    });
-
-    let zs_partial_products = [plonk_z_vecs, partial_products.concat()].concat();
-    let zs_partial_products_commitment = timed!(
+    let partial_products_and_zs_commitment = timed!(
         timing,
-        "commit to Z's",
+        "commit to partial products and Z's",
         PolynomialBatchCommitment::from_values(
             zs_partial_products,
             config.rate_bits,
@@ -123,7 +116,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
         )
     );
 
-    challenger.observe_cap(&zs_partial_products_commitment.merkle_tree.cap);
+    challenger.observe_cap(&partial_products_and_zs_commitment.merkle_tree.cap);
 
     let alphas = challenger.get_n_challenges(num_challenges);
 
@@ -135,7 +128,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
             prover_data,
             &public_inputs_hash,
             &wires_commitment,
-            &zs_partial_products_commitment,
+            &partial_products_and_zs_commitment,
             &betas,
             &gammas,
             &alphas,
@@ -184,7 +177,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
             &[
                 &prover_data.constants_sigmas_commitment,
                 &wires_commitment,
-                &zs_partial_products_commitment,
+                &partial_products_and_zs_commitment,
                 &quotient_polys_commitment,
             ],
             zeta,
@@ -196,7 +189,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
 
     let proof = Proof {
         wires_cap: wires_commitment.merkle_tree.cap,
-        plonk_zs_partial_products_cap: zs_partial_products_commitment.merkle_tree.cap,
+        plonk_zs_partial_products_cap: partial_products_and_zs_commitment.merkle_tree.cap,
         quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
         openings,
         opening_proof,
@@ -217,7 +210,7 @@ fn all_wires_permutation_partial_products<F: RichField + Extendable<D>, const D:
 ) -> Vec<Vec<PolynomialValues<F>>> {
     (0..common_data.config.num_challenges)
         .map(|i| {
-            wires_permutation_partial_products(
+            wires_permutation_partial_products_and_zs(
                 witness,
                 betas[i],
                 gammas[i],
@@ -231,7 +224,7 @@ fn all_wires_permutation_partial_products<F: RichField + Extendable<D>, const D:
 /// Compute the partial products used in the `Z` polynomial.
 /// Returns the polynomials interpolating `partial_products(f / g)`
 /// where `f, g` are the products in the definition of `Z`: `Z(g^i) = f / g`.
-fn wires_permutation_partial_products<F: RichField + Extendable<D>, const D: usize>(
+fn wires_permutation_partial_products_and_zs<F: RichField + Extendable<D>, const D: usize>(
     witness: &MatrixWitness<F>,
     beta: F,
     gamma: F,
@@ -241,7 +234,7 @@ fn wires_permutation_partial_products<F: RichField + Extendable<D>, const D: usi
     let degree = common_data.quotient_degree_factor;
     let subgroup = &prover_data.subgroup;
     let k_is = &common_data.k_is;
-    let values = subgroup
+    let all_quotient_chunk_products = subgroup
         .par_iter()
         .enumerate()
         .map(|(i, &x)| {
@@ -265,49 +258,25 @@ fn wires_permutation_partial_products<F: RichField + Extendable<D>, const D: usi
                 .map(|(num, den_inv)| num * den_inv)
                 .collect::<Vec<_>>();
 
-            let quotient_partials = partial_products(&quotient_values, degree);
-
-            // This is the final product for the quotient.
-            let quotient = *quotient_partials.last().unwrap()
-                * quotient_values[common_data.num_partial_products.1..]
-                    .iter()
-                    .copied()
-                    .product();
-
-            // We add the quotient at the beginning of the vector to reuse them later in the computation of `Z`.
-            [vec![quotient], quotient_partials].concat()
+            quotient_chunk_products(&quotient_values, degree)
         })
         .collect::<Vec<_>>();
 
-    transpose(&values)
+    let mut z_x = F::ONE;
+    let mut all_partial_products_and_zs = Vec::new();
+    for quotient_chunk_products in all_quotient_chunk_products {
+        let mut partial_products_and_z_gx = partial_products_and_z_gx(z_x, &quotient_chunk_products);
+        // The last term is Z(gx), but we replace it with Z(x), otherwise Z would end up shifted.
+        let z_gx = partial_products_and_z_gx.pop().unwrap();
+        partial_products_and_z_gx.push(z_x);
+        z_x = z_gx;
+        all_partial_products_and_zs.push(partial_products_and_z_gx);
+    }
+
+    transpose(&all_partial_products_and_zs)
         .into_par_iter()
         .map(PolynomialValues::new)
         .collect()
-}
-
-fn compute_zs<F: RichField + Extendable<D>, const D: usize>(
-    partial_products: &mut [Vec<PolynomialValues<F>>],
-    common_data: &CommonCircuitData<F, D>,
-) -> Vec<PolynomialValues<F>> {
-    (0..common_data.config.num_challenges)
-        .map(|i| compute_z(&mut partial_products[i], common_data))
-        .collect()
-}
-
-/// Compute the `Z` polynomial by reusing the computations done in `wires_permutation_partial_products`.
-fn compute_z<F: RichField + Extendable<D>, const D: usize>(
-    partial_products: &mut [PolynomialValues<F>],
-    common_data: &CommonCircuitData<F, D>,
-) -> PolynomialValues<F> {
-    let mut plonk_z_points = vec![F::ONE];
-    for i in 1..common_data.degree() {
-        let last = *plonk_z_points.last().unwrap();
-        for q in partial_products.iter_mut() {
-            q.values[i - 1] *= last;
-        }
-        plonk_z_points.push(partial_products[0].values[i - 1]);
-    }
-    plonk_z_points.into()
 }
 
 const BATCH_SIZE: usize = 32;
