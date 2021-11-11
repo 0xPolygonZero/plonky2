@@ -75,13 +75,10 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
         );
         vanishing_partial_products_terms.extend(partial_product_checks);
 
-        let v_shift_term = *current_partial_products.last().unwrap()
-            * numerator_values[final_num_prod..].iter().copied().product()
-            - z_gz
-                * denominator_values[final_num_prod..]
-                    .iter()
-                    .copied()
-                    .product();
+        let final_nume_product = numerator_values[final_num_prod..].iter().copied().product();
+        let final_deno_product = denominator_values[final_num_prod..].iter().copied().product();
+        let last_partial = *current_partial_products.last().unwrap();
+        let v_shift_term = last_partial * final_nume_product - z_gz * final_deno_product;
         vanishing_v_shift_terms.push(v_shift_term);
     }
 
@@ -185,13 +182,10 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
             );
             vanishing_partial_products_terms.extend(partial_product_checks);
 
-            let v_shift_term = *current_partial_products.last().unwrap()
-                * numerator_values[final_num_prod..].iter().copied().product()
-                - z_gz
-                    * denominator_values[final_num_prod..]
-                        .iter()
-                        .copied()
-                        .product();
+            let final_nume_product = numerator_values[final_num_prod..].iter().copied().product();
+            let final_deno_product = denominator_values[final_num_prod..].iter().copied().product();
+            let last_partial = *current_partial_products.last().unwrap();
+            let v_shift_term = last_partial * final_nume_product - z_gz * final_deno_product;
             vanishing_v_shift_terms.push(v_shift_term);
 
             numerator_values.clear();
@@ -381,17 +375,11 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
         );
         vanishing_partial_products_terms.extend(partial_product_checks);
 
-        let nume_acc = builder.mul_many_extension(&{
-            let mut v = numerator_values[final_num_prod..].to_vec();
-            v.push(*current_partial_products.last().unwrap());
-            v
-        });
-        let z_gz_denominators = builder.mul_many_extension(&{
-            let mut v = denominator_values[final_num_prod..].to_vec();
-            v.push(z_gz);
-            v
-        });
-        let v_shift_term = builder.sub_extension(nume_acc, z_gz_denominators);
+        let final_nume_product = builder.mul_many_extension(&numerator_values[final_num_prod..]);
+        let final_deno_product = builder.mul_many_extension(&denominator_values[final_num_prod..]);
+        let z_gz_denominators = builder.mul_extension(z_gz, final_deno_product);
+        let last_partial = *current_partial_products.last().unwrap();
+        let v_shift_term = builder.mul_sub_extension(last_partial, final_nume_product, z_gz_denominators);
         vanishing_v_shift_terms.push(v_shift_term);
     }
 
