@@ -16,8 +16,8 @@ use crate::util::reducing::ReducingFactor;
 use crate::util::timing::TimingTree;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
 
-/// Two (~64 bit) field elements gives ~128 bit security.
-pub const SALT_SIZE: usize = 2;
+/// Four (~64 bit) field elements gives ~128 bit security.
+pub const SALT_SIZE: usize = 4;
 
 /// Represents a batch FRI based commitment to a list of polynomials.
 pub struct PolynomialBatchCommitment<F: RichField> {
