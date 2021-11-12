@@ -3,7 +3,6 @@ use std::marker::PhantomData;
 
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
-use crate::gates::switch::SwitchGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
