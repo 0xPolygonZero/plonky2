@@ -470,8 +470,8 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        let num_bits = 40;
-        let num_chunks = 5;
+        let num_bits = 20;
+        let num_chunks = 4;
 
         test_low_degree::<GoldilocksField, _, 4>(AssertLessThanGate::<_, 4>::new(
             num_bits, num_chunks,
@@ -480,8 +480,8 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        let num_bits = 40;
-        let num_chunks = 5;
+        let num_bits = 20;
+        let num_chunks = 4;
 
         test_eval_fns::<GoldilocksField, _, 4>(AssertLessThanGate::<_, 4>::new(
             num_bits, num_chunks,
