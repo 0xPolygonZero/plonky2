@@ -4,6 +4,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::gates::reducing::ReducingGate;
+use crate::gates::reducing_extension::ReducingExtGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::polynomial::polynomial::PolynomialCoeffs;
@@ -145,16 +146,52 @@ impl<const D: usize> ReducingFactorTarget<D> {
     where
         F: RichField + Extendable<D>,
     {
-        let l = terms.len();
-        self.count += l as u64;
-
-        let mut terms_vec = terms.to_vec();
-        let mut acc = builder.zero_extension();
-        terms_vec.reverse();
-
-        for x in terms_vec {
-            acc = builder.mul_add_extension(self.base, acc, x);
+        // let l = terms.len();
+        // self.count += l as u64;
+        //
+        // let mut terms_vec = terms.to_vec();
+        // let mut acc = builder.zero_extension();
+        // terms_vec.reverse();
+        //
+        // for x in terms_vec {
+        //     acc = builder.mul_add_extension(self.base, acc, x);
+        // }
+        // acc
+        let max_coeffs_len = ReducingExtGate::<D>::max_coeffs_len(
+            builder.config.num_wires,
+            builder.config.num_routed_wires,
+        );
+        self.count += terms.len() as u64;
+        let zero = builder.zero();
+        let zero_ext = builder.zero_extension();
+        let mut acc = zero_ext;
+        let mut reversed_terms = terms.to_vec();
+        while reversed_terms.len() % max_coeffs_len != 0 {
+            reversed_terms.push(zero_ext);
         }
+        reversed_terms.reverse();
+        for chunk in reversed_terms.chunks_exact(max_coeffs_len) {
+            let gate = ReducingExtGate::new(max_coeffs_len);
+            let gate_index = builder.add_gate(gate.clone(), Vec::new());
+
+            builder.connect_extension(
+                self.base,
+                ExtensionTarget::from_range(gate_index, ReducingExtGate::<D>::wires_alpha()),
+            );
+            builder.connect_extension(
+                acc,
+                ExtensionTarget::from_range(gate_index, ReducingExtGate::<D>::wires_old_acc()),
+            );
+            for (i, &t) in chunk.iter().enumerate() {
+                builder.connect_extension(
+                    t,
+                    ExtensionTarget::from_range(gate_index, ReducingExtGate::<D>::wires_coeff(i)),
+                );
+            }
+
+            acc = ExtensionTarget::from_range(gate_index, ReducingExtGate::<D>::wires_output());
+        }
+
         acc
     }
 
