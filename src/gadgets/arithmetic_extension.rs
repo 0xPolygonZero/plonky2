@@ -4,7 +4,7 @@ use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTar
 use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
 use crate::field::field_types::{Field, PrimeField, RichField};
-use crate::gates::arithmetic::ArithmeticExtensionGate;
+use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -32,7 +32,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         // See if we've already computed the same operation.
-        let operation = ArithmeticOperation {
+        let operation = ExtensionArithmeticOperation {
             const_0,
             const_1,
             multiplicand_0,
@@ -51,7 +51,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn add_arithmetic_extension_operation(
         &mut self,
-        operation: ArithmeticOperation<F, D>,
+        operation: ExtensionArithmeticOperation<F, D>,
     ) -> ExtensionTarget<D> {
         let (gate, i) = self.find_arithmetic_gate(operation.const_0, operation.const_1);
         let wires_multiplicand_0 = ExtensionTarget::from_range(
@@ -519,9 +519,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-/// Represents an arithmetic operation in the circuit. Used to memoize results.
+/// Represents an extension arithmetic operation in the circuit. Used to memoize results.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub(crate) struct ArithmeticOperation<F: PrimeField + Extendable<D>, const D: usize> {
+pub(crate) struct ExtensionArithmeticOperation<F: PrimeField + Extendable<D>, const D: usize> {
     const_0: F,
     const_1: F,
     multiplicand_0: ExtensionTarget<D>,
