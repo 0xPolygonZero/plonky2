@@ -285,17 +285,17 @@ pub struct OpeningSetTarget<const D: usize> {
 mod tests {
     use anyhow::Result;
 
+    use crate::field::extension_field::Extendable;
     use crate::field::field_types::Field;
+    use crate::field::field_types::RichField;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::verifier::verify;
     use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
-    use crate::field::field_types::RichField;
-    use crate::field::extension_field::Extendable;
-    use crate::plonk::proof::{ProofWithPublicInputs,CompressedProofWithPublicInputs};
+    use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
+    use crate::plonk::verifier::verify;
     use crate::plonk::verifier::verify_with_challenges;
 
     impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInputs<F, D> {
@@ -308,7 +308,7 @@ mod tests {
             let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
             let compressed_proof =
                 self.proof
-                .decompress(&challenges, fri_inferred_elements, common_data);
+                    .decompress(&challenges, fri_inferred_elements, common_data);
             verify_with_challenges(
                 ProofWithPublicInputs {
                     public_inputs: self.public_inputs,
