@@ -10,8 +10,7 @@ use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::Target;
-use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
-use crate::plonk::verifier::verify_with_challenges;
+use crate::plonk::circuit_data::CommonCircuitData;
 use crate::util::serialization::Buffer;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
@@ -170,27 +169,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
         })
     }
 
-    pub(crate) fn verify(
-        self,
-        verifier_data: &VerifierOnlyCircuitData<F>,
-        common_data: &CommonCircuitData<F, D>,
-    ) -> anyhow::Result<()> {
-        let challenges = self.get_challenges(common_data)?;
-        let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
-        let compressed_proof =
-            self.proof
-                .decompress(&challenges, fri_inferred_elements, common_data);
-        verify_with_challenges(
-            ProofWithPublicInputs {
-                public_inputs: self.public_inputs,
-                proof: compressed_proof,
-            },
-            challenges,
-            verifier_data,
-            common_data,
-        )
-    }
-
     pub(crate) fn get_public_inputs_hash(&self) -> HashOut<F> {
         hash_n_to_hash(self.public_inputs.clone(), true)
     }
@@ -314,6 +292,34 @@ mod tests {
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::verifier::verify;
+    use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
+    use crate::field::field_types::RichField;
+    use crate::field::extension_field::Extendable;
+    use crate::plonk::proof::{ProofWithPublicInputs,CompressedProofWithPublicInputs};
+    use crate::plonk::verifier::verify_with_challenges;
+
+    impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInputs<F, D> {
+        pub(crate) fn verify(
+            self,
+            verifier_data: &VerifierOnlyCircuitData<F>,
+            common_data: &CommonCircuitData<F, D>,
+        ) -> anyhow::Result<()> {
+            let challenges = self.get_challenges(common_data)?;
+            let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
+            let compressed_proof =
+                self.proof
+                .decompress(&challenges, fri_inferred_elements, common_data);
+            verify_with_challenges(
+                ProofWithPublicInputs {
+                    public_inputs: self.public_inputs,
+                    proof: compressed_proof,
+                },
+                challenges,
+                verifier_data,
+                common_data,
+            )
+        }
+    }
 
     #[test]
     fn test_proof_compression() -> Result<()> {
