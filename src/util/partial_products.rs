@@ -1,8 +1,9 @@
+use itertools::Itertools;
+
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use itertools::Itertools;
 
 pub(crate) fn quotient_chunk_products<F: Field>(
     quotient_values: &[F],
@@ -11,7 +12,8 @@ pub(crate) fn quotient_chunk_products<F: Field>(
     debug_assert!(max_degree > 1);
     assert!(quotient_values.len() > 0);
     let chunk_size = max_degree;
-    quotient_values.chunks(chunk_size)
+    quotient_values
+        .chunks(chunk_size)
         .map(|chunk| chunk.iter().copied().product())
         .collect()
 }

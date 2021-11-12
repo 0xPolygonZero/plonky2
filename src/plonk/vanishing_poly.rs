@@ -76,7 +76,10 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
         vanishing_partial_products_terms.extend(partial_product_checks);
 
         let final_nume_product = numerator_values[final_num_prod..].iter().copied().product();
-        let final_deno_product = denominator_values[final_num_prod..].iter().copied().product();
+        let final_deno_product = denominator_values[final_num_prod..]
+            .iter()
+            .copied()
+            .product();
         let last_partial = *current_partial_products.last().unwrap();
         let v_shift_term = last_partial * final_nume_product - z_gz * final_deno_product;
         vanishing_v_shift_terms.push(v_shift_term);
@@ -183,7 +186,10 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
             vanishing_partial_products_terms.extend(partial_product_checks);
 
             let final_nume_product = numerator_values[final_num_prod..].iter().copied().product();
-            let final_deno_product = denominator_values[final_num_prod..].iter().copied().product();
+            let final_deno_product = denominator_values[final_num_prod..]
+                .iter()
+                .copied()
+                .product();
             let last_partial = *current_partial_products.last().unwrap();
             let v_shift_term = last_partial * final_nume_product - z_gz * final_deno_product;
             vanishing_v_shift_terms.push(v_shift_term);
@@ -379,7 +385,8 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
         let final_deno_product = builder.mul_many_extension(&denominator_values[final_num_prod..]);
         let z_gz_denominators = builder.mul_extension(z_gz, final_deno_product);
         let last_partial = *current_partial_products.last().unwrap();
-        let v_shift_term = builder.mul_sub_extension(last_partial, final_nume_product, z_gz_denominators);
+        let v_shift_term =
+            builder.mul_sub_extension(last_partial, final_nume_product, z_gz_denominators);
         vanishing_v_shift_terms.push(v_shift_term);
     }
 

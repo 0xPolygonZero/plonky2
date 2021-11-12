@@ -1,3 +1,5 @@
+use std::mem::swap;
+
 use anyhow::Result;
 use rayon::prelude::*;
 
@@ -20,7 +22,6 @@ use crate::timed;
 use crate::util::partial_products::{partial_products_and_z_gx, quotient_chunk_products};
 use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, transpose};
-use std::mem::swap;
 
 pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, D>,
@@ -99,7 +100,8 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
     );
 
     // Z is expected at the front of our batch; see `zs_range` and `partial_products_range`.
-    let plonk_z_vecs = partial_products_and_zs.iter_mut()
+    let plonk_z_vecs = partial_products_and_zs
+        .iter_mut()
         .map(|partial_products_and_z| partial_products_and_z.pop().unwrap())
         .collect();
     let zs_partial_products = [plonk_z_vecs, partial_products_and_zs.concat()].concat();
@@ -267,7 +269,8 @@ fn wires_permutation_partial_products_and_zs<F: RichField + Extendable<D>, const
     let mut z_x = F::ONE;
     let mut all_partial_products_and_zs = Vec::new();
     for quotient_chunk_products in all_quotient_chunk_products {
-        let mut partial_products_and_z_gx = partial_products_and_z_gx(z_x, &quotient_chunk_products);
+        let mut partial_products_and_z_gx =
+            partial_products_and_z_gx(z_x, &quotient_chunk_products);
         // The last term is Z(gx), but we replace it with Z(x), otherwise Z would end up shifted.
         swap(&mut z_x, &mut partial_products_and_z_gx[num_prods]);
         all_partial_products_and_zs.push(partial_products_and_z_gx);
