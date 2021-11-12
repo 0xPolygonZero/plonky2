@@ -219,13 +219,17 @@ mod tests {
     #[test]
     fn fft_and_ifft() {
         type F = GoldilocksField;
-        let degree = 200;
-        let degree_padded = log2_ceil(degree);
-        let mut coefficients = Vec::new();
-        for i in 0..degree {
-            coefficients.push(F::from_canonical_usize(i * 1337 % 100));
-        }
-        let coefficients = PolynomialCoeffs::new_padded(coefficients);
+        let degree = 200usize;
+        let degree_padded = degree.next_power_of_two();
+
+        // Create a vector of coeffs; the first degree of them are
+        // "random", the last degree_padded-degree of them are zero.
+        let coeffs = (0..degree)
+            .map(|i| F::from_canonical_usize(i * 1337 % 100))
+            .chain(std::iter::repeat(F::ZERO).take(degree_padded - degree))
+            .collect::<Vec<_>>();
+        assert_eq!(coeffs.len(), degree_padded);
+        let coefficients = PolynomialCoeffs { coeffs };
 
         let points = fft(&coefficients);
         assert_eq!(points, evaluate_naive(&coefficients));

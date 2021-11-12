@@ -84,14 +84,6 @@ impl<F: Field> PolynomialCoeffs<F> {
         PolynomialCoeffs { coeffs }
     }
 
-    /// Create a new polynomial with its coefficient list padded to the next power of two.
-    pub(crate) fn new_padded(mut coeffs: Vec<F>) -> Self {
-        while !coeffs.len().is_power_of_two() {
-            coeffs.push(F::ZERO);
-        }
-        PolynomialCoeffs { coeffs }
-    }
-
     pub(crate) fn empty() -> Self {
         Self::new(Vec::new())
     }
