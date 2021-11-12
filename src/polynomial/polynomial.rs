@@ -522,34 +522,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_division_by_z_h() {
-        type F = GoldilocksField;
-        let mut rng = thread_rng();
-        let a_deg = rng.gen_range(1..10_000);
-        let n = rng.gen_range(1..a_deg);
-        let mut a = PolynomialCoeffs::new(F::rand_vec(a_deg));
-        a.trim();
-        let z_h = {
-            let mut z_h_vec = vec![F::ZERO; n + 1];
-            z_h_vec[n] = F::ONE;
-            z_h_vec[0] = F::NEG_ONE;
-            PolynomialCoeffs::new(z_h_vec)
-        };
-        let m = &a * &z_h;
-        let now = Instant::now();
-        let mut a_test = m.divide_by_z_h(n);
-        a_test.trim();
-        println!("Division time: {:?}", now.elapsed());
-        assert_eq!(a, a_test);
-    }
-
-    #[test]
-    fn divide_zero_poly_by_z_h() {
-        let zero_poly = PolynomialCoeffs::<GoldilocksField>::empty();
-        zero_poly.divide_by_z_h(16);
-    }
-
     // Test to see which polynomial division method is faster for divisions of the type
     // `(X^n - 1)/(X - a)
     #[test]
