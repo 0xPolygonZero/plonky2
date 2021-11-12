@@ -67,13 +67,6 @@ impl CircuitConfig {
             },
         }
     }
-
-    pub(crate) fn standard_recursion_zk_config() -> Self {
-        CircuitConfig {
-            zero_knowledge: true,
-            ..Self::standard_recursion_config()
-        }
-    }
 }
 
 /// Circuit data required by the prover or the verifier.
