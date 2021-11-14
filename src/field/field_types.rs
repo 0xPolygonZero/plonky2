@@ -345,6 +345,11 @@ pub trait Field:
 pub trait PrimeField: Field {
     const ORDER: u64;
 
+    /// The number of bits required to encode any field element.
+    fn bits() -> usize {
+        bits_u64(Self::NEG_ONE.to_canonical_u64())
+    }
+
     fn to_canonical_u64(&self) -> u64;
 
     fn to_noncanonical_u64(&self) -> u64;
