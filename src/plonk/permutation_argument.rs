@@ -45,15 +45,23 @@ impl Forest {
     }
 
     /// Path compression method, see https://en.wikipedia.org/wiki/Disjoint-set_data_structure#Finding_set_representatives.
-    pub fn find(&mut self, x_index: usize) -> usize {
-        let x_parent = self.parents[x_index];
-        if x_parent != x_index {
-            let root_index = self.find(x_parent);
-            self.parents[x_index] = root_index;
-            root_index
-        } else {
-            x_index
+    pub fn find(&mut self, mut x_index: usize) -> usize {
+        // Note: We avoid recursion here since the chains can be long, causing stack overflows.
+
+        // First, find the representative of the set containing `x_index`.
+        let mut representative = x_index;
+        while self.parents[representative] != representative {
+            representative = self.parents[representative];
         }
+
+        // Then, update each node in this chain to point directly to the representative.
+        while self.parents[x_index] != x_index {
+            let old_parent = self.parents[x_index];
+            self.parents[x_index] = representative;
+            x_index = old_parent;
+        }
+
+        representative
     }
 
     /// Merge two sets.
