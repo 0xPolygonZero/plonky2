@@ -215,7 +215,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Exponentiate `base` to the power of `2^power_log`.
     pub fn exp_power_of_2(&mut self, base: Target, power_log: usize) -> Target {
-        if power_log > ArithmeticGate::new_from_config(&self.config).num_ops {
+        if power_log > self.num_base_arithmetic_ops_per_gate() {
             // Cheaper to just use `ExponentiateGate`.
             return self.exp_u64(base, 1 << power_log);
         }
@@ -269,7 +269,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let base_t = self.constant(base);
         let exponent_bits: Vec<_> = exponent_bits.into_iter().map(|b| *b.borrow()).collect();
 
-        if exponent_bits.len() > ArithmeticGate::new_from_config(&self.config).num_ops {
+        if exponent_bits.len() > self.num_base_arithmetic_ops_per_gate() {
             // Cheaper to just use `ExponentiateGate`.
             return self.exp_from_bits(base_t, exponent_bits);
         }
