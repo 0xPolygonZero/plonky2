@@ -237,7 +237,7 @@ fn wires_permutation_partial_products_and_zs<F: RichField + Extendable<D>, const
     let degree = common_data.quotient_degree_factor;
     let subgroup = &prover_data.subgroup;
     let k_is = &common_data.k_is;
-    let (num_prods, final_num_prod) = common_data.num_partial_products;
+    let (num_prods, _final_num_prod) = common_data.num_partial_products;
     let all_quotient_chunk_products = subgroup
         .par_iter()
         .enumerate()
