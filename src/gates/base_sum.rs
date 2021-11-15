@@ -24,7 +24,7 @@ impl<const B: usize> BaseSumGate<B> {
     }
 
     pub fn new_from_config<F: PrimeField>(config: &CircuitConfig) -> Self {
-        let num_limbs = ((F::ORDER as f64).log(B as f64).floor() as usize)
+        let num_limbs = ((F::ORDER as f64).log(B as f64).ceil() as usize)
             .min(config.num_routed_wires - Self::START_LIMBS);
         Self::new(num_limbs)
     }
