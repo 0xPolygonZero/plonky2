@@ -28,7 +28,7 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
     alphas: &[F],
 ) -> Vec<F::Extension> {
     let max_degree = common_data.quotient_degree_factor;
-    let (num_prods, final_num_prod) = common_data.num_partial_products;
+    let (num_prods, _final_num_prod) = common_data.num_partial_products;
 
     let constraint_terms =
         evaluate_gate_constraints(&common_data.gates, common_data.num_gate_constraints, vars);
@@ -37,8 +37,6 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
     let mut vanishing_z_1_terms = Vec::new();
     // The terms checking the partial products.
     let mut vanishing_partial_products_terms = Vec::new();
-    // The Z(x) f'(x) - g'(x) Z(g x) terms.
-    let mut vanishing_v_shift_terms = Vec::new();
 
     let l1_x = plonk_common::eval_l_1(common_data.degree(), x);
 
@@ -71,24 +69,15 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
             &denominator_values,
             current_partial_products,
             z_x,
+            z_gz,
             max_degree,
         );
         vanishing_partial_products_terms.extend(partial_product_checks);
-
-        let final_nume_product = numerator_values[final_num_prod..].iter().copied().product();
-        let final_deno_product = denominator_values[final_num_prod..]
-            .iter()
-            .copied()
-            .product();
-        let last_partial = *current_partial_products.last().unwrap();
-        let v_shift_term = last_partial * final_nume_product - z_gz * final_deno_product;
-        vanishing_v_shift_terms.push(v_shift_term);
     }
 
     let vanishing_terms = [
         vanishing_z_1_terms,
         vanishing_partial_products_terms,
-        vanishing_v_shift_terms,
         constraint_terms,
     ]
     .concat();
@@ -121,7 +110,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
     assert_eq!(s_sigmas_batch.len(), n);
 
     let max_degree = common_data.quotient_degree_factor;
-    let (num_prods, final_num_prod) = common_data.num_partial_products;
+    let (num_prods, _final_num_prod) = common_data.num_partial_products;
 
     let num_gate_constraints = common_data.num_gate_constraints;
 
@@ -139,8 +128,6 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
     let mut vanishing_z_1_terms = Vec::with_capacity(num_challenges);
     // The terms checking the partial products.
     let mut vanishing_partial_products_terms = Vec::new();
-    // The Z(x) f'(x) - g'(x) Z(g x) terms.
-    let mut vanishing_v_shift_terms = Vec::with_capacity(num_challenges);
 
     let mut res_batch: Vec<Vec<F>> = Vec::with_capacity(n);
     for k in 0..n {
@@ -181,18 +168,10 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
                 &denominator_values,
                 current_partial_products,
                 z_x,
+                z_gz,
                 max_degree,
             );
             vanishing_partial_products_terms.extend(partial_product_checks);
-
-            let final_nume_product = numerator_values[final_num_prod..].iter().copied().product();
-            let final_deno_product = denominator_values[final_num_prod..]
-                .iter()
-                .copied()
-                .product();
-            let last_partial = *current_partial_products.last().unwrap();
-            let v_shift_term = last_partial * final_nume_product - z_gz * final_deno_product;
-            vanishing_v_shift_terms.push(v_shift_term);
 
             numerator_values.clear();
             denominator_values.clear();
@@ -201,14 +180,12 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
         let vanishing_terms = vanishing_z_1_terms
             .iter()
             .chain(vanishing_partial_products_terms.iter())
-            .chain(vanishing_v_shift_terms.iter())
             .chain(constraint_terms);
         let res = plonk_common::reduce_with_powers_multi(vanishing_terms, alphas);
         res_batch.push(res);
 
         vanishing_z_1_terms.clear();
         vanishing_partial_products_terms.clear();
-        vanishing_v_shift_terms.clear();
     }
     res_batch
 }
@@ -314,7 +291,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
     alphas: &[Target],
 ) -> Vec<ExtensionTarget<D>> {
     let max_degree = common_data.quotient_degree_factor;
-    let (num_prods, final_num_prod) = common_data.num_partial_products;
+    let (num_prods, _final_num_prod) = common_data.num_partial_products;
 
     let constraint_terms = with_context!(
         builder,
@@ -331,8 +308,6 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
     let mut vanishing_z_1_terms = Vec::new();
     // The terms checking the partial products.
     let mut vanishing_partial_products_terms = Vec::new();
-    // The Z(x) f'(x) - g'(x) Z(g x) terms.
-    let mut vanishing_v_shift_terms = Vec::new();
 
     let l1_x = eval_l_1_recursively(builder, common_data.degree(), x, x_pow_deg);
 
@@ -377,23 +352,15 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
             &denominator_values,
             current_partial_products,
             z_x,
+            z_gz,
             max_degree,
         );
         vanishing_partial_products_terms.extend(partial_product_checks);
-
-        let final_nume_product = builder.mul_many_extension(&numerator_values[final_num_prod..]);
-        let final_deno_product = builder.mul_many_extension(&denominator_values[final_num_prod..]);
-        let z_gz_denominators = builder.mul_extension(z_gz, final_deno_product);
-        let last_partial = *current_partial_products.last().unwrap();
-        let v_shift_term =
-            builder.mul_sub_extension(last_partial, final_nume_product, z_gz_denominators);
-        vanishing_v_shift_terms.push(v_shift_term);
     }
 
     let vanishing_terms = [
         vanishing_z_1_terms,
         vanishing_partial_products_terms,
-        vanishing_v_shift_terms,
         constraint_terms,
     ]
     .concat();

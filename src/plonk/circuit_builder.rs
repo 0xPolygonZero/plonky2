@@ -12,9 +12,11 @@ use crate::field::fft::fft_root_table;
 use crate::field::field_types::{Field, RichField};
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::{FriConfig, FriParams};
-use crate::gadgets::arithmetic_extension::ArithmeticOperation;
+use crate::gadgets::arithmetic::BaseArithmeticOperation;
+use crate::gadgets::arithmetic_extension::ExtensionArithmeticOperation;
 use crate::gadgets::arithmetic_u32::U32Target;
-use crate::gates::arithmetic::ArithmeticExtensionGate;
+use crate::gates::arithmetic_base::ArithmeticGate;
+use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::arithmetic_u32::{U32ArithmeticGate, NUM_U32_ARITHMETIC_OPS};
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
@@ -74,8 +76,11 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     constants_to_targets: HashMap<F, Target>,
     targets_to_constants: HashMap<Target, F>,
 
+    /// Memoized results of `arithmetic` calls.
+    pub(crate) base_arithmetic_results: HashMap<BaseArithmeticOperation<F>, Target>,
+
     /// Memoized results of `arithmetic_extension` calls.
-    pub(crate) arithmetic_results: HashMap<ArithmeticOperation<F, D>, ExtensionTarget<D>>,
+    pub(crate) arithmetic_results: HashMap<ExtensionArithmeticOperation<F, D>, ExtensionTarget<D>>,
 
     batched_gates: BatchedGates<F, D>,
 }
@@ -93,6 +98,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             marked_targets: Vec::new(),
             generators: Vec::new(),
             constants_to_targets: HashMap::new(),
+            base_arithmetic_results: HashMap::new(),
             arithmetic_results: HashMap::new(),
             targets_to_constants: HashMap::new(),
             batched_gates: BatchedGates::new(),
@@ -742,11 +748,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-/// Various gate types can contain multiple copies in a single Gate. This helper struct lets a CircuitBuilder track such gates that are currently being "filled up."
+/// Various gate types can contain multiple copies in a single Gate. This helper struct lets a
+/// CircuitBuilder track such gates that are currently being "filled up."
 pub struct BatchedGates<F: RichField + Extendable<D>, const D: usize> {
     /// A map `(c0, c1) -> (g, i)` from constants `(c0,c1)` to an available arithmetic gate using
     /// these constants with gate index `g` and already using `i` arithmetic operations.
     pub(crate) free_arithmetic: HashMap<(F, F), (usize, usize)>,
+    pub(crate) free_base_arithmetic: HashMap<(F, F), (usize, usize)>,
 
     /// A map `(c0, c1) -> (g, i)` from constants `vec_size` to an available arithmetic gate using
     /// these constants with gate index `g` and already using `i` random accesses.
@@ -771,6 +779,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BatchedGates<F, D> {
     pub fn new() -> Self {
         Self {
             free_arithmetic: HashMap::new(),
+            free_base_arithmetic: HashMap::new(),
             free_random_access: HashMap::new(),
             current_switch_gates: Vec::new(),
             current_u32_arithmetic_gate: None,
@@ -781,6 +790,37 @@ impl<F: RichField + Extendable<D>, const D: usize> BatchedGates<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    /// Finds the last available arithmetic gate with the given constants or add one if there aren't any.
+    /// Returns `(g,i)` such that there is an arithmetic gate with the given constants at index
+    /// `g` and the gate's `i`-th operation is available.
+    pub(crate) fn find_base_arithmetic_gate(&mut self, const_0: F, const_1: F) -> (usize, usize) {
+        let (gate, i) = self
+            .batched_gates
+            .free_base_arithmetic
+            .get(&(const_0, const_1))
+            .copied()
+            .unwrap_or_else(|| {
+                let gate = self.add_gate(
+                    ArithmeticGate::new_from_config(&self.config),
+                    vec![const_0, const_1],
+                );
+                (gate, 0)
+            });
+
+        // Update `free_arithmetic` with new values.
+        if i < ArithmeticGate::num_ops(&self.config) - 1 {
+            self.batched_gates
+                .free_base_arithmetic
+                .insert((const_0, const_1), (gate, i + 1));
+        } else {
+            self.batched_gates
+                .free_base_arithmetic
+                .remove(&(const_0, const_1));
+        }
+
+        (gate, i)
+    }
+
     /// Finds the last available arithmetic gate with the given constants or add one if there aren't any.
     /// Returns `(g,i)` such that there is an arithmetic gate with the given constants at index
     /// `g` and the gate's `i`-th operation is available.
@@ -942,35 +982,35 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Fill the remaining unused arithmetic operations with zeros, so that all
+    /// `ArithmeticGate` are run.
+    fn fill_base_arithmetic_gates(&mut self) {
+        let zero = self.zero();
+        for ((c0, c1), (_gate, i)) in self.batched_gates.free_base_arithmetic.clone() {
+            for _ in i..ArithmeticGate::num_ops(&self.config) {
+                // If we directly wire in zero, an optimization will skip doing anything and return
+                // zero. So we pass in a virtual target and connect it to zero afterward.
+                let dummy = self.add_virtual_target();
+                self.arithmetic(c0, c1, dummy, dummy, dummy);
+                self.connect(dummy, zero);
+            }
+        }
+        assert!(self.batched_gates.free_base_arithmetic.is_empty());
+    }
+
+    /// Fill the remaining unused arithmetic operations with zeros, so that all
     /// `ArithmeticExtensionGenerator`s are run.
     fn fill_arithmetic_gates(&mut self) {
         let zero = self.zero_extension();
-        let remaining_arithmetic_gates = self
-            .batched_gates
-            .free_arithmetic
-            .values()
-            .copied()
-            .collect::<Vec<_>>();
-        for (gate, i) in remaining_arithmetic_gates {
-            for j in i..ArithmeticExtensionGate::<D>::num_ops(&self.config) {
-                let wires_multiplicand_0 = ExtensionTarget::from_range(
-                    gate,
-                    ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(j),
-                );
-                let wires_multiplicand_1 = ExtensionTarget::from_range(
-                    gate,
-                    ArithmeticExtensionGate::<D>::wires_ith_multiplicand_1(j),
-                );
-                let wires_addend = ExtensionTarget::from_range(
-                    gate,
-                    ArithmeticExtensionGate::<D>::wires_ith_addend(j),
-                );
-
-                self.connect_extension(zero, wires_multiplicand_0);
-                self.connect_extension(zero, wires_multiplicand_1);
-                self.connect_extension(zero, wires_addend);
+        for ((c0, c1), (_gate, i)) in self.batched_gates.free_arithmetic.clone() {
+            for _ in i..ArithmeticExtensionGate::<D>::num_ops(&self.config) {
+                // If we directly wire in zero, an optimization will skip doing anything and return
+                // zero. So we pass in a virtual target and connect it to zero afterward.
+                let dummy = self.add_virtual_extension_target();
+                self.arithmetic_extension(c0, c1, dummy, dummy, dummy);
+                self.connect_extension(dummy, zero);
             }
         }
+        assert!(self.batched_gates.free_arithmetic.is_empty());
     }
 
     /// Fill the remaining unused random access operations with zeros, so that all
@@ -1064,6 +1104,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn fill_batched_gates(&mut self) {
         self.fill_arithmetic_gates();
+        self.fill_base_arithmetic_gates();
         self.fill_random_access_gates();
         self.fill_switch_gates();
         self.fill_u32_arithmetic_gates();

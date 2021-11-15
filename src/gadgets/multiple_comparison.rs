@@ -127,8 +127,8 @@ mod tests {
 
     #[test]
     fn test_multiple_comparison() -> Result<()> {
-        for size in [1, 3, 6, 10] {
-            for num_bits in [20, 32, 40, 50] {
+        for size in [1, 3, 6] {
+            for num_bits in [20, 32, 40, 44] {
                 test_list_le(size, num_bits).unwrap();
             }
         }

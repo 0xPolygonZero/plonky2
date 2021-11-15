@@ -26,6 +26,9 @@ pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
     pub constant_gate_size: usize,
+    /// Whether to use a dedicated gate for base field arithmetic, rather than using a single gate
+    /// for both base field and extension field arithmetic.
+    pub use_base_arithmetic_gate: bool,
     pub security_bits: usize,
     pub rate_bits: usize,
     /// The number of challenge points to generate, for IOPs that have soundness errors of (roughly)
@@ -52,9 +55,10 @@ impl CircuitConfig {
     /// A typical recursion config, without zero-knowledge, targeting ~100 bit security.
     pub(crate) fn standard_recursion_config() -> Self {
         Self {
-            num_wires: 143,
+            num_wires: 135,
             num_routed_wires: 25,
             constant_gate_size: 6,
+            use_base_arithmetic_gate: true,
             security_bits: 100,
             rate_bits: 3,
             num_challenges: 2,
