@@ -18,11 +18,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
         let gate_type = BaseSumGate::<2>::new_from_config::<F>(&self.config);
         let k = ceil_div_usize(num_bits, gate_type.num_limbs);
-        dbg!(num_bits, gate_type.num_limbs);
         let gates = (0..k)
             .map(|_| self.add_gate(gate_type, vec![]))
             .collect::<Vec<_>>();
-        dbg!(&gates);
 
         let mut bits = Vec::with_capacity(num_bits);
         for &gate in &gates {
@@ -36,10 +34,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.assert_zero(b.target);
         }
 
-        let zero = self.zero();
-        let mut gatesi = gates.iter().rev();
-        let mut acc = Target::wire(*gatesi.next().unwrap(), BaseSumGate::<2>::WIRE_SUM);
-        for &gate in gatesi {
+        let mut gates_iter = gates.iter().rev();
+        let mut acc = Target::wire(*gates_iter.next().unwrap(), BaseSumGate::<2>::WIRE_SUM);
+        for &gate in gates_iter {
             let sum = Target::wire(gate, BaseSumGate::<2>::WIRE_SUM);
             acc = self.mul_const_add(F::from_canonical_usize(1 << gate_type.num_limbs), acc, sum);
         }
@@ -97,55 +94,27 @@ impl<F: RichField> SimpleGenerator<F> for WireSplitGenerator {
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let mut integer_value = witness.get_target(self.integer).to_canonical_u64();
 
+        if self.gates.len() == 1 {
+            return out_buffer.set_target(
+                Target::wire(self.gates[0], BaseSumGate::<2>::WIRE_SUM),
+                F::from_canonical_u64(integer_value),
+            );
+        }
+
         for &gate in &self.gates {
             let sum = Target::wire(gate, BaseSumGate::<2>::WIRE_SUM);
             out_buffer.set_target(
                 sum,
-                F::from_canonical_u64(
-                    integer_value & ((1u128 << self.num_limbs as u128) - 1u128) as u64,
-                ),
+                F::from_canonical_u64(integer_value & ((1 << self.num_limbs) - 1) as u64),
             );
-            if self.gates.len() > 1 {
-                integer_value >>= self.num_limbs;
-            }
+            integer_value >>= self.num_limbs;
         }
 
-        // debug_assert_eq!(
-        //     integer_value,
-        //     0,
-        //     "Integer too large to fit in {} many `BaseSumGate`s",
-        //     self.gates.len()
-        // );
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::field::extension_field::quartic::QuarticExtension;
-    use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
-    use crate::iop::witness::PartialWitness;
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::verifier::verify;
-
-    #[test]
-    fn test_mul_algebra() {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
-
-        let config = CircuitConfig::standard_recursion_config();
-
-        let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, D>::new(config);
-
-        let x = builder.constant(F::from_canonical_u64(14743424468522423903));
-        let bits = builder.split_le(x, 64);
-
-        let data = builder.build();
-        let proof = data.prove(pw).unwrap();
-
-        verify(proof, &data.verifier_only, &data.common).unwrap();
+        debug_assert_eq!(
+            integer_value,
+            0,
+            "Integer too large to fit in {} many `BaseSumGate`s",
+            self.gates.len()
+        );
     }
 }
