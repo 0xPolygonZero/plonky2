@@ -379,6 +379,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// The number of (base field) `arithmetic` operations that can be performed in a single gate.
+    pub(crate) fn num_base_arithmetic_ops_per_gate(&self) -> usize {
+        if self.config.use_base_arithmetic_gate {
+            ArithmeticGate::new_from_config(&self.config).num_ops
+        } else {
+            self.num_ext_arithmetic_ops_per_gate()
+        }
+    }
+
+    /// The number of `arithmetic_extension` operations that can be performed in a single gate.
+    pub(crate) fn num_ext_arithmetic_ops_per_gate(&self) -> usize {
+        ArithmeticExtensionGate::<D>::new_from_config(&self.config).num_ops
+    }
+
     /// The number of polynomial values that will be revealed per opening, both for the "regular"
     /// polynomials and for the Z polynomials. Because calculating these values involves a recursive
     /// dependence (the amount of blinding depends on the degree, which depends on the blinding),
