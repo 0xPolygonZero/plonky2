@@ -13,11 +13,11 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// Computes `sum alpha^i c_i` for a vector `c_i` of `num_coeffs` elements of the extension field.
 #[derive(Debug, Clone)]
-pub struct ReducingExtGate<const D: usize> {
+pub struct ReducingExtensionGate<const D: usize> {
     pub num_coeffs: usize,
 }
 
-impl<const D: usize> ReducingExtGate<D> {
+impl<const D: usize> ReducingExtensionGate<D> {
     pub fn new(num_coeffs: usize) -> Self {
         Self { num_coeffs }
     }
@@ -51,7 +51,7 @@ impl<const D: usize> ReducingExtGate<D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingExtGate<D> {
+impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingExtensionGate<D> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
@@ -163,14 +163,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingExtGat
 #[derive(Debug)]
 struct ReducingGenerator<const D: usize> {
     gate_index: usize,
-    gate: ReducingExtGate<D>,
+    gate: ReducingExtensionGate<D>,
 }
 
 impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<D> {
     fn dependencies(&self) -> Vec<Target> {
-        ReducingExtGate::<D>::wires_alpha()
-            .chain(ReducingExtGate::<D>::wires_old_acc())
-            .chain((0..self.gate.num_coeffs).flat_map(|i| ReducingExtGate::<D>::wires_coeff(i)))
+        ReducingExtensionGate::<D>::wires_alpha()
+            .chain(ReducingExtensionGate::<D>::wires_old_acc())
+            .chain(
+                (0..self.gate.num_coeffs).flat_map(|i| ReducingExtensionGate::<D>::wires_coeff(i)),
+            )
             .map(|i| Target::wire(self.gate_index, i))
             .collect()
     }
@@ -181,16 +183,18 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<
             witness.get_extension_target(t)
         };
 
-        let alpha = extract_extension(ReducingExtGate::<D>::wires_alpha());
-        let old_acc = extract_extension(ReducingExtGate::<D>::wires_old_acc());
+        let alpha = extract_extension(ReducingExtensionGate::<D>::wires_alpha());
+        let old_acc = extract_extension(ReducingExtensionGate::<D>::wires_old_acc());
         let coeffs = (0..self.gate.num_coeffs)
-            .map(|i| extract_extension(ReducingExtGate::<D>::wires_coeff(i)))
+            .map(|i| extract_extension(ReducingExtensionGate::<D>::wires_coeff(i)))
             .collect::<Vec<_>>();
         let accs = (0..self.gate.num_coeffs)
             .map(|i| ExtensionTarget::from_range(self.gate_index, self.gate.wires_accs(i)))
             .collect::<Vec<_>>();
-        let output =
-            ExtensionTarget::from_range(self.gate_index, ReducingExtGate::<D>::wires_output());
+        let output = ExtensionTarget::from_range(
+            self.gate_index,
+            ReducingExtensionGate::<D>::wires_output(),
+        );
 
         let mut acc = old_acc;
         for i in 0..self.gate.num_coeffs {
@@ -208,15 +212,15 @@ mod tests {
 
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use crate::gates::reducing_extension::ReducingExtGate;
+    use crate::gates::reducing_extension::ReducingExtensionGate;
 
     #[test]
     fn low_degree() {
-        test_low_degree::<GoldilocksField, _, 4>(ReducingExtGate::new(22));
+        test_low_degree::<GoldilocksField, _, 4>(ReducingExtensionGate::new(22));
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(ReducingExtGate::new(22))
+        test_eval_fns::<GoldilocksField, _, 4>(ReducingExtensionGate::new(22))
     }
 }
