@@ -48,6 +48,10 @@ impl Default for CircuitConfig {
 }
 
 impl CircuitConfig {
+    pub fn rate(&self) -> f64 {
+        1.0 / ((1 << self.rate_bits) as f64)
+    }
+
     pub fn num_advice_wires(&self) -> usize {
         self.num_wires - self.num_routed_wires
     }

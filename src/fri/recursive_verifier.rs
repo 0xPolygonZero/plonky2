@@ -10,7 +10,7 @@ use crate::hash::hash_types::MerkleCapTarget;
 use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::proof::OpeningSetTarget;
 use crate::util::reducing::ReducingFactorTarget;
@@ -305,9 +305,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data: &CommonCircuitData<F, D>,
     ) {
         let n_log = log2_strict(n);
-        // TODO: Do we need to range check `x_index` to a target smaller than `p`?
+
+        // Note that this `low_bits` decomposition permits non-canonical binary encodings. Here we
+        // verify that this has a negligible impact on soundness error.
+        Self::assert_noncanonical_indices_ok(&common_data.config);
         let x_index = challenger.get_challenge(self);
-        let mut x_index_bits = self.low_bits(x_index, n_log, 64);
+        let mut x_index_bits = self.low_bits(x_index, n_log, F::bits());
+
         let cap_index =
             self.le_sum(x_index_bits[x_index_bits.len() - common_data.config.cap_height..].iter());
         with_context!(
@@ -407,6 +411,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             proof.final_poly.eval_scalar(self, subgroup_x)
         );
         self.connect_extension(eval, old_eval);
+    }
+
+    /// We decompose FRI query indices into bits without verifying that the decomposition given by
+    /// the prover is the canonical one. In particular, if `x_index < 2^field_bits - p`, then the
+    /// prover could supply the binary encoding of either `x_index` or `x_index + p`, since the are
+    /// congruent mod `p`. However, this only occurs with probability
+    ///     p_ambiguous = (2^field_bits - p) / p
+    /// which is small for the field that we use in practice.
+    ///
+    /// In particular, the soundness error of one FRI query is roughly the codeword rate, which
+    /// is much larger than this ambiguous-element probability given any reasonable parameters.
+    /// Thus ambiguous elements contribute a negligible amount to soundness error.
+    ///
+    /// Here we compare the probabilities as a sanity check, to verify the claim above.
+    fn assert_noncanonical_indices_ok(config: &CircuitConfig) {
+        let num_ambiguous_elems = u64::MAX - F::ORDER + 1;
+        let query_error = config.rate();
+        let p_ambiguous = (num_ambiguous_elems as f64) / (F::ORDER as f64);
+        assert!(p_ambiguous < query_error * 1e-5,
+                "A non-negligible portion of field elements are in the range that permits non-canonical encodings. Need to do more analysis or enforce canonical encodings.");
     }
 }
 
