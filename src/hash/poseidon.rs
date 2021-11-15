@@ -455,8 +455,9 @@ where
         );
         for i in 1..WIDTH {
             let t = <Self as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_W_HATS[r][i - 1];
-            let t = Self::from_canonical_u64(t);
-            d = builder.mul_const_add_extension(t, state[i], d);
+            let t = Self::Extension::from_canonical_u64(t);
+            let t = builder.constant_extension(t);
+            d = builder.mul_add_extension(t, state[i], d);
         }
 
         let mut result = [builder.zero_extension(); WIDTH];
