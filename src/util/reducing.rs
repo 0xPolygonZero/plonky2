@@ -330,4 +330,9 @@ mod tests {
     fn test_reduce_gadget_base_100() -> Result<()> {
         test_reduce_gadget_base(100)
     }
+
+    #[test]
+    fn test_reduce_gadget_100() -> Result<()> {
+        test_reduce_gadget(100)
+    }
 }

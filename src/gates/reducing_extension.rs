@@ -23,6 +23,8 @@ impl<const D: usize> ReducingExtensionGate<D> {
     }
 
     pub fn max_coeffs_len(num_wires: usize, num_routed_wires: usize) -> usize {
+        // `3*D` routed wires are used for the output, alpha and old accumulator.
+        // Need `num_coeffs*D` routed wires for coeffs, and `(num_coeffs-1)*D` wires for accumulators.
         ((num_routed_wires - 3 * D) / D).min((num_wires - 2 * D) / (D * 2))
     }
 
@@ -43,6 +45,7 @@ impl<const D: usize> ReducingExtensionGate<D> {
         Self::START_COEFFS + self.num_coeffs * D
     }
     fn wires_accs(&self, i: usize) -> Range<usize> {
+        debug_assert!(i < self.num_coeffs);
         if i == self.num_coeffs - 1 {
             // The last accumulator is the output.
             return Self::wires_output();
@@ -176,23 +179,19 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let extract_extension = |range: Range<usize>| -> F::Extension {
+        let local_extension = |range: Range<usize>| -> F::Extension {
             let t = ExtensionTarget::from_range(self.gate_index, range);
             witness.get_extension_target(t)
         };
 
-        let alpha = extract_extension(ReducingExtensionGate::<D>::wires_alpha());
-        let old_acc = extract_extension(ReducingExtensionGate::<D>::wires_old_acc());
+        let alpha = local_extension(ReducingExtensionGate::<D>::wires_alpha());
+        let old_acc = local_extension(ReducingExtensionGate::<D>::wires_old_acc());
         let coeffs = (0..self.gate.num_coeffs)
-            .map(|i| extract_extension(ReducingExtensionGate::<D>::wires_coeff(i)))
+            .map(|i| local_extension(ReducingExtensionGate::<D>::wires_coeff(i)))
             .collect::<Vec<_>>();
         let accs = (0..self.gate.num_coeffs)
             .map(|i| ExtensionTarget::from_range(self.gate_index, self.gate.wires_accs(i)))
             .collect::<Vec<_>>();
-        let output = ExtensionTarget::from_range(
-            self.gate_index,
-            ReducingExtensionGate::<D>::wires_output(),
-        );
 
         let mut acc = old_acc;
         for i in 0..self.gate.num_coeffs {
@@ -200,7 +199,6 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<
             out_buffer.set_extension_target(accs[i], computed_acc);
             acc = computed_acc;
         }
-        out_buffer.set_extension_target(output, acc);
     }
 }
 
