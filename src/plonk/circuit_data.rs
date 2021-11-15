@@ -60,18 +60,18 @@ impl CircuitConfig {
     pub(crate) fn standard_recursion_config() -> Self {
         Self {
             num_wires: 135,
-            num_routed_wires: 25,
-            constant_gate_size: 6,
+            num_routed_wires: 80,
+            constant_gate_size: 8,
             use_base_arithmetic_gate: true,
-            security_bits: 100,
+            security_bits: 93,
             rate_bits: 3,
             num_challenges: 2,
             zero_knowledge: false,
             cap_height: 3,
             fri_config: FriConfig {
-                proof_of_work_bits: 16,
+                proof_of_work_bits: 15,
                 reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
-                num_query_rounds: 28,
+                num_query_rounds: 26,
             },
         }
     }

@@ -134,6 +134,7 @@ mod tests {
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::fri::FriConfig;
     use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
+    use crate::gates::noop::NoopGate;
     use crate::hash::merkle_proofs::MerkleProofTarget;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::VerifierOnlyCircuitData;
@@ -368,8 +369,8 @@ mod tests {
         const D: usize = 2;
         let config = CircuitConfig::standard_recursion_config();
 
-        let (proof, vd, cd) = dummy_proof::<F, D>(&config, 8_000)?;
-        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, true, true)?;
+        let (proof, vd, cd) = dummy_proof::<F, D>(&config, 4_000)?;
+        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, None, true, true)?;
         test_serialization(&proof, &cd)?;
 
         Ok(())
@@ -384,9 +385,14 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
 
-        let (proof, vd, cd) = dummy_proof::<F, D>(&config, 8_000)?;
-        let (proof, vd, cd) = recursive_proof(proof, vd, cd, &config, &config, false, false)?;
-        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, true, true)?;
+        // Start with a degree 2^14 proof, then shrink it to 2^13, then to 2^12.
+        let (proof, vd, cd) = dummy_proof::<F, D>(&config, 16_000)?;
+        assert_eq!(cd.degree_bits, 14);
+        let (proof, vd, cd) =
+            recursive_proof(proof, vd, cd, &config, &config, Some(13), false, false)?;
+        assert_eq!(cd.degree_bits, 13);
+        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, None, true, true)?;
+        assert_eq!(cd.degree_bits, 12);
 
         test_serialization(&proof, &cd)?;
 
@@ -415,6 +421,7 @@ mod tests {
             cd,
             &standard_config,
             &standard_config,
+            None,
             false,
             false,
         )?;
@@ -437,6 +444,7 @@ mod tests {
             cd,
             &standard_config,
             &high_rate_config,
+            None,
             true,
             true,
         )?;
@@ -460,6 +468,7 @@ mod tests {
             cd,
             &high_rate_config,
             &higher_rate_more_routing_config,
+            None,
             true,
             true,
         )?;
@@ -481,6 +490,7 @@ mod tests {
             cd,
             &higher_rate_more_routing_config,
             &final_config,
+            None,
             true,
             true,
         )?;
@@ -501,16 +511,12 @@ mod tests {
         CommonCircuitData<F, D>,
     )> {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        let input = builder.add_virtual_target();
         for i in 0..num_dummy_gates {
-            // Use unique constants to force a new `ArithmeticGate`.
-            let i_f = F::from_canonical_u64(i);
-            builder.arithmetic(i_f, i_f, input, input, input);
+            builder.add_gate(NoopGate, vec![]);
         }
 
         let data = builder.build();
         let mut inputs = PartialWitness::new();
-        inputs.set_target(input, F::ZERO);
         let proof = data.prove(inputs)?;
         data.verify(proof.clone())?;
 
@@ -523,6 +529,7 @@ mod tests {
         inner_cd: CommonCircuitData<F, D>,
         inner_config: &CircuitConfig,
         config: &CircuitConfig,
+        min_degree_bits: Option<usize>,
         print_gate_counts: bool,
         print_timing: bool,
     ) -> Result<(
@@ -547,6 +554,16 @@ mod tests {
 
         if print_gate_counts {
             builder.print_gate_counts(0);
+        }
+
+        if let Some(min_degree_bits) = min_degree_bits {
+            // We don't want to pad all the way up to 2^min_degree_bits, as the builder will add a
+            // few special gates afterward. So just pad to 2^(min_degree_bits - 1) + 1. Then the
+            // builder will pad to the next power of two, 2^min_degree_bits.
+            let min_gates = (1 << (min_degree_bits - 1)) + 1;
+            for _ in builder.num_gates()..min_gates {
+                builder.add_gate(NoopGate, vec![]);
+            }
         }
 
         let data = builder.build();
