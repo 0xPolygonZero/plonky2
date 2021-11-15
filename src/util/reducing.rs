@@ -146,17 +146,6 @@ impl<const D: usize> ReducingFactorTarget<D> {
     where
         F: RichField + Extendable<D>,
     {
-        // let l = terms.len();
-        // self.count += l as u64;
-        //
-        // let mut terms_vec = terms.to_vec();
-        // let mut acc = builder.zero_extension();
-        // terms_vec.reverse();
-        //
-        // for x in terms_vec {
-        //     acc = builder.mul_add_extension(self.base, acc, x);
-        // }
-        // acc
         let max_coeffs_len = ReducingExtGate::<D>::max_coeffs_len(
             builder.config.num_wires,
             builder.config.num_routed_wires,
