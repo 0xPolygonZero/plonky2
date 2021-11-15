@@ -12,7 +12,8 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-/// A gate which can a linear combination `c0*x*y+c1*z` twice with the same `x`.
+/// A gate which can perform a weighted multiply-add, i.e. `result = c0 x y + c1 z`. If the config
+/// supports enough routed wires, it can support several such operations in one gate.
 #[derive(Debug)]
 pub struct ArithmeticExtensionGate<const D: usize> {
     /// Number of arithmetic operations performed by an arithmetic gate.
@@ -206,7 +207,7 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::goldilocks_field::GoldilocksField;
-    use crate::gates::arithmetic::ArithmeticExtensionGate;
+    use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::plonk::circuit_data::CircuitConfig;
 

@@ -26,6 +26,9 @@ pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
     pub constant_gate_size: usize,
+    /// Whether to use a dedicated gate for base field arithmetic, rather than using a single gate
+    /// for both base field and extension field arithmetic.
+    pub use_base_arithmetic_gate: bool,
     pub security_bits: usize,
     pub rate_bits: usize,
     /// The number of challenge points to generate, for IOPs that have soundness errors of (roughly)
@@ -52,9 +55,10 @@ impl CircuitConfig {
     /// A typical recursion config, without zero-knowledge, targeting ~100 bit security.
     pub(crate) fn standard_recursion_config() -> Self {
         Self {
-            num_wires: 143,
+            num_wires: 135,
             num_routed_wires: 25,
             constant_gate_size: 6,
+            use_base_arithmetic_gate: true,
             security_bits: 100,
             rate_bits: 3,
             num_challenges: 2,
@@ -183,8 +187,8 @@ pub struct CommonCircuitData<F: RichField + Extendable<D>, const D: usize> {
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
     pub(crate) k_is: Vec<F>,
 
-    /// The number of partial products needed to compute the `Z` polynomials and the number
-    /// of partial products needed to compute the final product.
+    /// The number of partial products needed to compute the `Z` polynomials and
+    /// the number of original elements consumed in `partial_products()`.
     pub(crate) num_partial_products: (usize, usize),
 
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
