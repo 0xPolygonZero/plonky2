@@ -105,10 +105,16 @@ impl<const D: usize> ReducingFactorTarget<D> {
         F: RichField + Extendable<D>,
     {
         let l = terms.len();
+
         // For small reductions, use an arithmetic gate.
         if l - 1 <= ArithmeticExtensionGate::<D>::new_from_config(&builder.config).num_ops {
-            return self.reduce_base_arithmetic(terms, builder);
+            let terms_ext = terms
+                .iter()
+                .map(|&t| builder.convert_to_ext(t))
+                .collect::<Vec<_>>();
+            return self.reduce_arithmetic(&terms_ext, builder);
         }
+
         let max_coeffs_len = ReducingGate::<D>::max_coeffs_len(
             builder.config.num_wires,
             builder.config.num_routed_wires,
@@ -144,25 +150,6 @@ impl<const D: usize> ReducingFactorTarget<D> {
         acc
     }
 
-    /// Reduces a vector of `Target`s using `ArithmeticGate`s.
-    fn reduce_base_arithmetic<F>(
-        &mut self,
-        terms: &[Target],
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> ExtensionTarget<D>
-    where
-        F: RichField + Extendable<D>,
-    {
-        self.count += terms.len() as u64;
-        terms
-            .iter()
-            .rev()
-            .fold(builder.zero_extension(), |acc, &t| {
-                let et = builder.convert_to_ext(t);
-                builder.mul_add_extension(self.base, acc, et)
-            })
-    }
-
     /// Reduces a vector of `ExtensionTarget`s using `ReducingExtensionGate`s.
     pub fn reduce<F>(
         &mut self,
@@ -173,10 +160,12 @@ impl<const D: usize> ReducingFactorTarget<D> {
         F: RichField + Extendable<D>,
     {
         let l = terms.len();
+
         // For small reductions, use an arithmetic gate.
         if l - 1 <= ArithmeticExtensionGate::<D>::new_from_config(&builder.config).num_ops {
             return self.reduce_arithmetic(terms, builder);
         }
+
         let max_coeffs_len = ReducingExtensionGate::<D>::max_coeffs_len(
             builder.config.num_wires,
             builder.config.num_routed_wires,
