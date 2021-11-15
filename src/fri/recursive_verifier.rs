@@ -49,12 +49,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
     /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
     /// helpful errors.
-    fn check_recursion_config(&self, max_fri_arity: usize) {
+    fn check_recursion_config(&self, max_fri_arity_bits: usize) {
         let random_access = RandomAccessGate::<F, D>::new_from_config(
             &self.config,
-            max_fri_arity.max(1 << self.config.cap_height),
+            max_fri_arity_bits.max(self.config.cap_height),
         );
-        let interpolation_gate = InterpolationGate::<F, D>::new(log2_strict(max_fri_arity));
+        let interpolation_gate = InterpolationGate::<F, D>::new(max_fri_arity_bits);
 
         let min_wires = random_access
             .num_wires()
@@ -65,15 +65,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         assert!(
             self.config.num_wires >= min_wires,
-            "To efficiently perform FRI checks with an arity of {}, at least {} wires are needed. Consider reducing arity.",
-            max_fri_arity,
+            "To efficiently perform FRI checks with an arity of 2^{}, at least {} wires are needed. Consider reducing arity.",
+            max_fri_arity_bits,
             min_wires
         );
 
         assert!(
             self.config.num_routed_wires >= min_routed_wires,
-            "To efficiently perform FRI checks with an arity of {}, at least {} routed wires are needed. Consider reducing arity.",
-            max_fri_arity,
+            "To efficiently perform FRI checks with an arity of 2^{}, at least {} routed wires are needed. Consider reducing arity.",
+            max_fri_arity_bits,
             min_routed_wires
         );
     }
@@ -107,8 +107,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) {
         let config = &common_data.config;
 
-        if let Some(max_arity) = common_data.fri_params.max_arity() {
-            self.check_recursion_config(max_arity);
+        if let Some(max_arity_bits) = common_data.fri_params.max_arity_bits() {
+            self.check_recursion_config(max_arity_bits);
         }
 
         debug_assert_eq!(
