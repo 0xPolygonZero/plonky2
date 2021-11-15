@@ -42,7 +42,7 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
 
     for i in 0..common_data.config.num_challenges {
         let z_x = local_zs[i];
-        let z_gz = next_zs[i];
+        let z_gx = next_zs[i];
         vanishing_z_1_terms.push(l1_x * (z_x - F::Extension::ONE));
 
         let numerator_values = (0..common_data.config.num_routed_wires)
@@ -69,7 +69,7 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
             &denominator_values,
             current_partial_products,
             z_x,
-            z_gz,
+            z_gx,
             max_degree,
         );
         vanishing_partial_products_terms.extend(partial_product_checks);
@@ -145,7 +145,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
         let l1_x = z_h_on_coset.eval_l1(index, x);
         for i in 0..num_challenges {
             let z_x = local_zs[i];
-            let z_gz = next_zs[i];
+            let z_gx = next_zs[i];
             vanishing_z_1_terms.push(l1_x * z_x.sub_one());
 
             numerator_values.extend((0..num_routed_wires).map(|j| {
@@ -168,7 +168,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
                 &denominator_values,
                 current_partial_products,
                 z_x,
-                z_gz,
+                z_gx,
                 max_degree,
             );
             vanishing_partial_products_terms.extend(partial_product_checks);
@@ -320,7 +320,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
 
     for i in 0..common_data.config.num_challenges {
         let z_x = local_zs[i];
-        let z_gz = next_zs[i];
+        let z_gx = next_zs[i];
 
         // L_1(x) Z(x) = 0.
         vanishing_z_1_terms.push(builder.mul_sub_extension(l1_x, z_x, l1_x));
@@ -352,7 +352,7 @@ pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, cons
             &denominator_values,
             current_partial_products,
             z_x,
-            z_gz,
+            z_gx,
             max_degree,
         );
         vanishing_partial_products_terms.extend(partial_product_checks);
