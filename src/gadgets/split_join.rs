@@ -94,7 +94,8 @@ impl<F: RichField> SimpleGenerator<F> for WireSplitGenerator {
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let mut integer_value = witness.get_target(self.integer).to_canonical_u64();
 
-        if self.gates.len() == 1 {
+        if self.num_limbs == 64 {
+            debug_assert!(self.gates.len() == 1);
             return out_buffer.set_target(
                 Target::wire(self.gates[0], BaseSumGate::<2>::WIRE_SUM),
                 F::from_canonical_u64(integer_value),
@@ -105,7 +106,7 @@ impl<F: RichField> SimpleGenerator<F> for WireSplitGenerator {
             let sum = Target::wire(gate, BaseSumGate::<2>::WIRE_SUM);
             out_buffer.set_target(
                 sum,
-                F::from_canonical_u64(integer_value & ((1 << self.num_limbs) - 1) as u64),
+                F::from_canonical_u64(integer_value & ((1u64 << self.num_limbs) - 1) as u64),
             );
             integer_value >>= self.num_limbs;
         }
