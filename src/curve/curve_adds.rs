@@ -11,19 +11,17 @@ impl<C: Curve> Add<ProjectivePoint<C>> for ProjectivePoint<C> {
             x: x1,
             y: y1,
             z: z1,
-            zero: zero1,
         } = self;
         let ProjectivePoint {
             x: x2,
             y: y2,
             z: z2,
-            zero: zero2,
         } = rhs;
 
-        if zero1 {
+        if z1 == C::BaseField::ZERO {
             return rhs;
         }
-        if zero2 {
+        if z2 == C::BaseField::ZERO {
             return self;
         }
 
@@ -66,7 +64,6 @@ impl<C: Curve> Add<AffinePoint<C>> for ProjectivePoint<C> {
             x: x1,
             y: y1,
             z: z1,
-            zero: zero1,
         } = self;
         let AffinePoint {
             x: x2,
@@ -74,7 +71,7 @@ impl<C: Curve> Add<AffinePoint<C>> for ProjectivePoint<C> {
             zero: zero2,
         } = rhs;
 
-        if zero1 {
+        if z1 == C::BaseField::ZERO {
             return rhs.to_projective();
         }
         if zero2 {

@@ -23,7 +23,6 @@ pub trait Curve: 'static + Sync + Sized + Copy + Debug {
         x: Self::GENERATOR_AFFINE.x,
         y: Self::GENERATOR_AFFINE.y,
         z: Self::BaseField::ONE,
-        zero: false,
     };
 
     fn convert(x: Self::ScalarField) -> CurveScalar<Self> {
@@ -89,12 +88,13 @@ impl<C: Curve> AffinePoint<C> {
 
     pub fn to_projective(&self) -> ProjectivePoint<C> {
         let Self { x, y, zero } = *self;
-        ProjectivePoint {
-            x,
-            y,
-            z: C::BaseField::ONE,
-            zero,
-        }
+        let z = if zero {
+            C::BaseField::ZERO
+        } else {
+            C::BaseField::ONE
+        };
+
+        ProjectivePoint { x, y, z }
     }
 
     pub fn batch_to_projective(affine_points: &[Self]) -> Vec<ProjectivePoint<C>> {
@@ -150,7 +150,6 @@ pub struct ProjectivePoint<C: Curve> {
     pub x: C::BaseField,
     pub y: C::BaseField,
     pub z: C::BaseField,
-    pub zero: bool,
 }
 
 impl<C: Curve> ProjectivePoint<C> {
@@ -158,16 +157,10 @@ impl<C: Curve> ProjectivePoint<C> {
         x: C::BaseField::ZERO,
         y: C::BaseField::ZERO,
         z: C::BaseField::ZERO,
-        zero: true,
     };
 
     pub fn nonzero(x: C::BaseField, y: C::BaseField, z: C::BaseField) -> Self {
-        let point = Self {
-            x,
-            y,
-            z,
-            zero: false,
-        };
+        let point = Self { x, y, z };
         debug_assert!(point.is_valid());
         point
     }
@@ -177,8 +170,8 @@ impl<C: Curve> ProjectivePoint<C> {
     }
 
     pub fn to_affine(&self) -> AffinePoint<C> {
-        let Self { x, y, z, zero } = *self;
-        if zero {
+        let Self { x, y, z } = *self;
+        if z == C::BaseField::ZERO {
             AffinePoint::ZERO
         } else {
             let z_inv = z.inverse();
@@ -193,8 +186,8 @@ impl<C: Curve> ProjectivePoint<C> {
 
         let mut result = Vec::with_capacity(n);
         for i in 0..n {
-            let Self { x, y, z: _, zero } = proj_points[i];
-            result.push(if zero {
+            let Self { x, y, z } = proj_points[i];
+            result.push(if z == C::BaseField::ZERO {
                 AffinePoint::ZERO
             } else {
                 let z_inv = z_invs[i];
@@ -205,8 +198,8 @@ impl<C: Curve> ProjectivePoint<C> {
     }
 
     pub fn double(&self) -> Self {
-        let Self { x, y, z, zero } = *self;
-        if zero {
+        let Self { x, y, z } = *self;
+        if z == C::BaseField::ZERO {
             return ProjectivePoint::ZERO;
         }
 
@@ -228,7 +221,6 @@ impl<C: Curve> ProjectivePoint<C> {
             x: x3,
             y: y3,
             z: z3,
-            zero: false,
         }
     }
 
@@ -245,7 +237,6 @@ impl<C: Curve> ProjectivePoint<C> {
             x: self.x,
             y: -self.y,
             z: self.z,
-            zero: self.zero,
         }
     }
 }
@@ -256,16 +247,14 @@ impl<C: Curve> PartialEq for ProjectivePoint<C> {
             x: x1,
             y: y1,
             z: z1,
-            zero: zero1,
         } = *self;
         let ProjectivePoint {
             x: x2,
             y: y2,
             z: z2,
-            zero: zero2,
         } = *other;
-        if zero1 || zero2 {
-            return zero1 == zero2;
+        if z1 == C::BaseField::ZERO || z2 == C::BaseField::ZERO {
+            return z1 == z2;
         }
 
         // We want to compare (x1/z1, y1/z1) == (x2/z2, y2/z2).
@@ -289,7 +278,7 @@ impl<C: Curve> Neg for ProjectivePoint<C> {
     type Output = ProjectivePoint<C>;
 
     fn neg(self) -> Self::Output {
-        let ProjectivePoint { x, y, z, zero } = self;
-        ProjectivePoint { x, y: -y, z, zero }
+        let ProjectivePoint { x, y, z } = self;
+        ProjectivePoint { x, y: -y, z }
     }
 }
