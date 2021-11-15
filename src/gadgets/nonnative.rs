@@ -96,6 +96,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    #[allow(dead_code)]
     fn reduce_nonnative<FF: Field>(
         &mut self,
         x: &ForeignFieldTarget<FF>,
