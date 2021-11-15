@@ -4,18 +4,20 @@ use crate::field::field_types::RichField;
 use crate::gates::random_access::RandomAccessGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::util::log2_strict;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Checks that a `Target` matches a vector at a non-deterministic index.
     /// Note: `access_index` is not range-checked.
     pub fn random_access(&mut self, access_index: Target, claimed_element: Target, v: Vec<Target>) {
         let vec_size = v.len();
+        let bits = log2_strict(vec_size);
         debug_assert!(vec_size > 0);
         if vec_size == 1 {
             return self.connect(claimed_element, v[0]);
         }
-        let (gate_index, copy) = self.find_random_access_gate(vec_size);
-        let dummy_gate = RandomAccessGate::<F, D>::new_from_config(&self.config, vec_size);
+        let (gate_index, copy) = self.find_random_access_gate(bits);
+        let dummy_gate = RandomAccessGate::<F, D>::new_from_config(&self.config, bits);
 
         v.iter().enumerate().for_each(|(i, &val)| {
             self.connect(

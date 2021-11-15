@@ -770,8 +770,8 @@ pub struct BatchedGates<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) free_arithmetic: HashMap<(F, F), (usize, usize)>,
     pub(crate) free_base_arithmetic: HashMap<(F, F), (usize, usize)>,
 
-    /// A map `(c0, c1) -> (g, i)` from constants `vec_size` to an available arithmetic gate using
-    /// these constants with gate index `g` and already using `i` random accesses.
+    /// A map `b -> (g, i)` from `b` bits to an available random access gate of that size with gate
+    /// index `g` and already using `i` random accesses.
     pub(crate) free_random_access: HashMap<usize, (usize, usize)>,
 
     /// `current_switch_gates[chunk_size - 1]` contains None if we have no switch gates with the value
@@ -869,32 +869,27 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Finds the last available random access gate with the given `vec_size` or add one if there aren't any.
     /// Returns `(g,i)` such that there is a random access gate with the given `vec_size` at index
     /// `g` and the gate's `i`-th random access is available.
-    pub(crate) fn find_random_access_gate(&mut self, vec_size: usize) -> (usize, usize) {
+    pub(crate) fn find_random_access_gate(&mut self, bits: usize) -> (usize, usize) {
         let (gate, i) = self
             .batched_gates
             .free_random_access
-            .get(&vec_size)
+            .get(&bits)
             .copied()
             .unwrap_or_else(|| {
                 let gate = self.add_gate(
-                    RandomAccessGate::new_from_config(&self.config, vec_size),
+                    RandomAccessGate::new_from_config(&self.config, bits),
                     vec![],
                 );
                 (gate, 0)
             });
 
         // Update `free_random_access` with new values.
-        if i < RandomAccessGate::<F, D>::max_num_copies(
-            self.config.num_routed_wires,
-            self.config.num_wires,
-            vec_size,
-        ) - 1
-        {
+        if i + 1 < RandomAccessGate::<F, D>::new_from_config(&self.config, bits).num_copies {
             self.batched_gates
                 .free_random_access
-                .insert(vec_size, (gate, i + 1));
+                .insert(bits, (gate, i + 1));
         } else {
-            self.batched_gates.free_random_access.remove(&vec_size);
+            self.batched_gates.free_random_access.remove(&bits);
         }
 
         (gate, i)
@@ -1031,14 +1026,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// `RandomAccessGenerator`s are run.
     fn fill_random_access_gates(&mut self) {
         let zero = self.zero();
-        for (vec_size, (_, i)) in self.batched_gates.free_random_access.clone() {
-            let max_copies = RandomAccessGate::<F, D>::max_num_copies(
-                self.config.num_routed_wires,
-                self.config.num_wires,
-                vec_size,
-            );
+        for (bits, (_, i)) in self.batched_gates.free_random_access.clone() {
+            let max_copies =
+                RandomAccessGate::<F, D>::new_from_config(&self.config, bits).num_copies;
             for _ in i..max_copies {
-                self.random_access(zero, zero, vec![zero; vec_size]);
+                self.random_access(zero, zero, vec![zero; 1 << bits]);
             }
         }
     }
