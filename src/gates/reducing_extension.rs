@@ -7,7 +7,7 @@ use crate::field::field_types::RichField;
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
-use crate::iop::witness::{PartialWitness, PartitionWitness, Witness};
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
@@ -170,9 +170,7 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<
     fn dependencies(&self) -> Vec<Target> {
         ReducingExtensionGate::<D>::wires_alpha()
             .chain(ReducingExtensionGate::<D>::wires_old_acc())
-            .chain(
-                (0..self.gate.num_coeffs).flat_map(|i| ReducingExtensionGate::<D>::wires_coeff(i)),
-            )
+            .chain((0..self.gate.num_coeffs).flat_map(ReducingExtensionGate::<D>::wires_coeff))
             .map(|i| Target::wire(self.gate_index, i))
             .collect()
     }
