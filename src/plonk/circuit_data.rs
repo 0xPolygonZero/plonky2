@@ -15,7 +15,7 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;
 use crate::iop::witness::PartialWitness;
-use crate::plonk::proof::ProofWithPublicInputs;
+use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
 use crate::util::marking::MarkedTargets;
@@ -57,7 +57,7 @@ impl CircuitConfig {
     }
 
     /// A typical recursion config, without zero-knowledge, targeting ~100 bit security.
-    pub(crate) fn standard_recursion_config() -> Self {
+    pub fn standard_recursion_config() -> Self {
         Self {
             num_wires: 135,
             num_routed_wires: 80,
@@ -76,7 +76,7 @@ impl CircuitConfig {
         }
     }
 
-    pub(crate) fn standard_recursion_zk_config() -> Self {
+    pub fn standard_recursion_zk_config() -> Self {
         CircuitConfig {
             zero_knowledge: true,
             ..Self::standard_recursion_config()
@@ -103,6 +103,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitData<F, D> {
 
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, D>) -> Result<()> {
         verify(proof_with_pis, &self.verifier_only, &self.common)
+    }
+
+    pub fn verify_compressed(
+        &self,
+        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, D>,
+    ) -> Result<()> {
+        compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 }
 
@@ -139,6 +146,13 @@ pub struct VerifierCircuitData<F: RichField + Extendable<D>, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> VerifierCircuitData<F, D> {
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, D>) -> Result<()> {
         verify(proof_with_pis, &self.verifier_only, &self.common)
+    }
+
+    pub fn verify_compressed(
+        &self,
+        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, D>,
+    ) -> Result<()> {
+        compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 }
 

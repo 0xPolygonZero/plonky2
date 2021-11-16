@@ -1,4 +1,7 @@
+#![allow(incomplete_features)]
+#![allow(const_evaluatable_unchecked)]
 #![feature(asm)]
+#![feature(asm_sym)]
 #![feature(destructuring_assignment)]
 #![feature(generic_const_exprs)]
 #![feature(specialization)]

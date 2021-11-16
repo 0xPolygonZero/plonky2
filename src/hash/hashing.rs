@@ -15,6 +15,7 @@ pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 pub(crate) const HASH_FAMILY: HashFamily = HashFamily::Poseidon;
 
 pub(crate) enum HashFamily {
+    #[allow(dead_code)]
     GMiMC,
     Poseidon,
 }

@@ -161,12 +161,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
     ) -> anyhow::Result<ProofWithPublicInputs<F, D>> {
         let challenges = self.get_challenges(common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
-        let compressed_proof =
+        let decompressed_proof =
             self.proof
                 .decompress(&challenges, fri_inferred_elements, common_data);
         Ok(ProofWithPublicInputs {
             public_inputs: self.public_inputs,
-            proof: compressed_proof,
+            proof: decompressed_proof,
         })
     }
 
@@ -177,13 +177,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProofWithPublicInpu
     ) -> anyhow::Result<()> {
         let challenges = self.get_challenges(common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
-        let compressed_proof =
+        let decompressed_proof =
             self.proof
                 .decompress(&challenges, fri_inferred_elements, common_data);
         verify_with_challenges(
             ProofWithPublicInputs {
                 public_inputs: self.public_inputs,
-                proof: compressed_proof,
+                proof: decompressed_proof,
             },
             challenges,
             verifier_data,
@@ -346,6 +346,6 @@ mod tests {
         assert_eq!(proof, decompressed_compressed_proof);
 
         verify(proof, &data.verifier_only, &data.common)?;
-        compressed_proof.verify(&data.verifier_only, &data.common)
+        data.verify_compressed(compressed_proof)
     }
 }

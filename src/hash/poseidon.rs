@@ -627,6 +627,7 @@ where
     }
 }
 
+#[cfg(test)]
 pub(crate) mod test_helpers {
     use crate::field::field_types::Field;
     use crate::hash::poseidon::Poseidon;
