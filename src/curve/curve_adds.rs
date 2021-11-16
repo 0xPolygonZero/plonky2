@@ -41,6 +41,7 @@ impl<C: Curve> Add<ProjectivePoint<C>> for ProjectivePoint<C> {
             }
         }
 
+        // From https://www.hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/add-1998-cmo-2
         let z1z2 = z1 * z2;
         let u = y2z1 - y1z2;
         let uu = u.square();
@@ -92,6 +93,7 @@ impl<C: Curve> Add<AffinePoint<C>> for ProjectivePoint<C> {
             }
         }
 
+        // From https://www.hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
         let u = y2z1 - y1;
         let uu = u.square();
         let v = x2z1 - x1;
@@ -138,6 +140,7 @@ impl<C: Curve> Add<AffinePoint<C>> for AffinePoint<C> {
             }
         }
 
+        // From https://www.hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/mmadd-1998-cmo
         let u = y2 - y1;
         let uu = u.square();
         let v = x2 - x1;

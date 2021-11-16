@@ -1,10 +1,11 @@
 use crate::curve::curve_types::{AffinePoint, Curve};
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::RichField;
 use crate::gadgets::nonnative::NonNativeTarget;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-/// A Target representing an affine point on the curve `C`.
+/// A Target representing an affine point on the curve `C`. We use incomplete arithmetic for efficiency,
+/// so we assume these points are not zero.
 #[derive(Clone, Debug)]
 pub struct AffinePointTarget<C: Curve> {
     pub x: NonNativeTarget<C::BaseField>,

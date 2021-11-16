@@ -88,7 +88,7 @@ impl Field for Secp256K1Base {
     // Sage: `g = GF(p).multiplicative_generator()`
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0]);
 
-    // Sage: `g_2 = power_mod(g, (p - 1) // 2), p)`
+    // Sage: `g_2 = g^((p - 1) / 2)`
     const POWER_OF_TWO_GENERATOR: Self = Self::NEG_ONE;
 
     const BITS: usize = 256;

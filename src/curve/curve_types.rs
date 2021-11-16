@@ -197,6 +197,7 @@ impl<C: Curve> ProjectivePoint<C> {
         result
     }
 
+    // From https://www.hyperelliptic.org/EFD/g1p/data/shortw/projective/doubling/dbl-2007-bl
     pub fn double(&self) -> Self {
         let Self { x, y, z } = *self;
         if z == C::BaseField::ZERO {

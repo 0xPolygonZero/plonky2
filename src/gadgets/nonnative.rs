@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use num::{BigUint, One};
+use num::{BigUint, One, Zero};
 
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
@@ -79,12 +79,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn neg_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
-        // TODO: zero - x would be more efficient but doesn't seem to work?
-        let neg_one = FF::order() - BigUint::one();
-        let neg_one_target = self.constant_biguint(&neg_one);
-        let neg_one_ff = self.biguint_to_nonnative(&neg_one_target);
+        let zero_target = self.constant_biguint(&BigUint::zero());
+        let zero_ff = self.biguint_to_nonnative(&zero_target);
 
-        self.mul_nonnative(&neg_one_ff, x)
+        self.sub_nonnative(&zero_ff, x)
     }
 
     pub fn inv_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
