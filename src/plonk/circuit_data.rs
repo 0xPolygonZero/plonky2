@@ -105,8 +105,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitData<F, D> {
         &self,
         compressed_proof_with_pis: CompressedProofWithPublicInputs<F, D>,
     ) -> Result<()> {
-        let proof_with_pis = compressed_proof_with_pis.decompress(&self.common)?;
-        self.verify(proof_with_pis)
+        compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 }
 
@@ -149,8 +148,7 @@ impl<F: RichField + Extendable<D>, const D: usize> VerifierCircuitData<F, D> {
         &self,
         compressed_proof_with_pis: CompressedProofWithPublicInputs<F, D>,
     ) -> Result<()> {
-        let proof_with_pis = compressed_proof_with_pis.decompress(&self.common)?;
-        self.verify(proof_with_pis)
+        compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 }
 
