@@ -15,7 +15,7 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;
 use crate::iop::witness::PartialWitness;
-use crate::plonk::proof::ProofWithPublicInputs;
+use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
 use crate::util::marking::MarkedTargets;
@@ -100,6 +100,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitData<F, D> {
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, D>) -> Result<()> {
         verify(proof_with_pis, &self.verifier_only, &self.common)
     }
+
+    pub fn verify_compressed(
+        &self,
+        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, D>
+    ) -> Result<()> {
+        let proof_with_pis = compressed_proof_with_pis.decompress(&self.common)?;
+        self.verify(proof_with_pis)
+    }
 }
 
 /// Circuit data required by the prover. This may be thought of as a proving key, although it
@@ -135,6 +143,14 @@ pub struct VerifierCircuitData<F: RichField + Extendable<D>, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> VerifierCircuitData<F, D> {
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, D>) -> Result<()> {
         verify(proof_with_pis, &self.verifier_only, &self.common)
+    }
+
+    pub fn verify_compressed(
+        &self,
+        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, D>
+    ) -> Result<()> {
+        let proof_with_pis = compressed_proof_with_pis.decompress(&self.common)?;
+        self.verify(proof_with_pis)
     }
 }
 
