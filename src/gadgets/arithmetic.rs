@@ -153,20 +153,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Computes `x + C`.
     pub fn add_const(&mut self, x: Target, c: F) -> Target {
-        let one = self.one();
-        self.arithmetic(F::ONE, c, one, x, one)
+        let c = self.constant(c);
+        self.add(x, c)
     }
 
     /// Computes `C * x`.
     pub fn mul_const(&mut self, c: F, x: Target) -> Target {
-        let zero = self.zero();
-        self.mul_const_add(c, x, zero)
+        let c = self.constant(c);
+        self.mul(c, x)
     }
 
     /// Computes `C * x + y`.
     pub fn mul_const_add(&mut self, c: F, x: Target, y: Target) -> Target {
-        let one = self.one();
-        self.arithmetic(c, F::ONE, x, one, y)
+        let c = self.constant(c);
+        self.mul_add(c, x, y)
     }
 
     /// Computes `x * y - z`.

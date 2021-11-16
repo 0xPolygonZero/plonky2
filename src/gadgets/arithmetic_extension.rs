@@ -294,14 +294,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Like `add_const`, but for `ExtensionTarget`s.
     pub fn add_const_extension(&mut self, x: ExtensionTarget<D>, c: F) -> ExtensionTarget<D> {
-        let one = self.one_extension();
-        self.arithmetic_extension(F::ONE, c, one, x, one)
+        let c = self.constant_extension(c.into());
+        self.add_extension(x, c)
     }
 
     /// Like `mul_const`, but for `ExtensionTarget`s.
     pub fn mul_const_extension(&mut self, c: F, x: ExtensionTarget<D>) -> ExtensionTarget<D> {
-        let zero = self.zero_extension();
-        self.mul_const_add_extension(c, x, zero)
+        let c = self.constant_extension(c.into());
+        self.mul_extension(c, x)
     }
 
     /// Like `mul_const_add`, but for `ExtensionTarget`s.
@@ -311,8 +311,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x: ExtensionTarget<D>,
         y: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let one = self.one_extension();
-        self.arithmetic_extension(c, F::ONE, x, one, y)
+        let c = self.constant_extension(c.into());
+        self.mul_add_extension(c, x, y)
     }
 
     /// Like `mul_add`, but for `ExtensionTarget`s.
