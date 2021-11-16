@@ -115,7 +115,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
+    pub fn connect_hashes(&mut self, x: HashOutTarget, y: HashOutTarget) {
         for i in 0..4 {
             self.connect(x.elements[i], y.elements[i]);
         }
