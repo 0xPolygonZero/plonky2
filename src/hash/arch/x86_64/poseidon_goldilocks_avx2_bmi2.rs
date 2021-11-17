@@ -1,5 +1,4 @@
 use core::arch::x86_64::*;
-use std::convert::TryInto;
 use std::mem::size_of;
 
 use static_assertions::const_assert;

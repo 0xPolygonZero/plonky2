@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::convert::TryInto;
 
 use num::{BigUint, FromPrimitive, Zero};
 

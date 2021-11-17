@@ -1,7 +1,5 @@
 //! Concrete instantiation of a hash function.
 
-use std::convert::TryInto;
-
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget};

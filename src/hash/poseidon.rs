@@ -1,8 +1,6 @@
 //! Implementation of the Poseidon hash function, as described in
 //! https://eprint.iacr.org/2019/458.pdf
 
-use std::convert::TryInto;
-
 use unroll::unroll_for_loops;
 
 use crate::field::extension_field::target::ExtensionTarget;

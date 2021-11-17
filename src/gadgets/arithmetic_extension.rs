@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
@@ -531,8 +529,6 @@ pub(crate) struct ExtensionArithmeticOperation<F: PrimeField + Extendable<D>, co
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
-
     use anyhow::Result;
 
     use crate::field::extension_field::algebra::ExtensionAlgebra;

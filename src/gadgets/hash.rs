@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::gates::gmimc::GMiMCGate;
