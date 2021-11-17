@@ -1,5 +1,4 @@
 use std::arch::aarch64::*;
-use std::convert::TryInto;
 
 use static_assertions::const_assert;
 use unroll::unroll_for_loops;

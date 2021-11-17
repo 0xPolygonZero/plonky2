@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
@@ -538,8 +537,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
-
     use anyhow::Result;
 
     use crate::field::field_types::Field;
