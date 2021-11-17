@@ -511,12 +511,12 @@ mod tests {
         CommonCircuitData<F, D>,
     )> {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        for i in 0..num_dummy_gates {
+        for _ in 0..num_dummy_gates {
             builder.add_gate(NoopGate, vec![]);
         }
 
         let data = builder.build();
-        let mut inputs = PartialWitness::new();
+        let inputs = PartialWitness::new();
         let proof = data.prove(inputs)?;
         data.verify(proof.clone())?;
 
