@@ -1,4 +1,4 @@
-use log::info;
+use log::debug;
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
@@ -86,7 +86,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
                             }
                         }
                     }
-                    info!(
+                    debug!(
                         "Found tree with max degree {} and {} constants wires in {:.4}s.",
                         best_degree,
                         best_num_constants,
@@ -221,6 +221,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
 
 #[cfg(test)]
 mod tests {
+    use log::info;
+
     use super::*;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::arithmetic_extension::ArithmeticExtensionGate;

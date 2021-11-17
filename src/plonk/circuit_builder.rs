@@ -622,7 +622,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             ..=1 << self.config.rate_bits)
             .min_by_key(|&q| num_partial_products(self.config.num_routed_wires, q).0 + q)
             .unwrap();
-        info!("Quotient degree factor set to: {}.", quotient_degree_factor);
+        debug!("Quotient degree factor set to: {}.", quotient_degree_factor);
         let prefixed_gates = PrefixedGate::from_tree(gate_tree);
 
         let subgroup = F::two_adic_subgroup(degree_bits);
@@ -725,7 +725,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             circuit_digest,
         };
 
-        info!("Building circuit took {}s", start.elapsed().as_secs_f32());
+        debug!("Building circuit took {}s", start.elapsed().as_secs_f32());
         CircuitData {
             prover_only,
             verifier_only,
