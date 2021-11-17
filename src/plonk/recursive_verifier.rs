@@ -410,11 +410,11 @@ mod tests {
 
         let standard_config = CircuitConfig::standard_recursion_config();
 
-        // A dummy proof with degree 2^13.
-        let (proof, vd, cd) = dummy_proof::<F, D>(&standard_config, 8_000)?;
-        assert_eq!(cd.degree_bits, 13);
+        // An initial dummy proof.
+        let (proof, vd, cd) = dummy_proof::<F, D>(&standard_config, 4_000)?;
+        assert_eq!(cd.degree_bits, 12);
 
-        // A standard recursive proof with degree 2^13.
+        // A standard recursive proof.
         let (proof, vd, cd) = recursive_proof(
             proof,
             vd,
@@ -425,15 +425,14 @@ mod tests {
             false,
             false,
         )?;
-        assert_eq!(cd.degree_bits, 13);
+        assert_eq!(cd.degree_bits, 12);
 
-        // A high-rate recursive proof with degree 2^13, designed to be verifiable with 2^12
-        // gates and 48 routed wires.
+        // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
         let high_rate_config = CircuitConfig {
-            rate_bits: 5,
+            rate_bits: 7,
             fri_config: FriConfig {
-                proof_of_work_bits: 20,
-                num_query_rounds: 16,
+                proof_of_work_bits: 16,
+                num_query_rounds: 11,
                 ..standard_config.fri_config.clone()
             },
             ..standard_config
@@ -448,47 +447,25 @@ mod tests {
             true,
             true,
         )?;
-        assert_eq!(cd.degree_bits, 13);
-
-        // A higher-rate recursive proof with degree 2^12, designed to be verifiable with 2^12
-        // gates and 28 routed wires.
-        let higher_rate_more_routing_config = CircuitConfig {
-            rate_bits: 7,
-            num_routed_wires: 48,
-            fri_config: FriConfig {
-                proof_of_work_bits: 23,
-                num_query_rounds: 11,
-                ..standard_config.fri_config.clone()
-            },
-            ..high_rate_config.clone()
-        };
-        let (proof, vd, cd) = recursive_proof(
-            proof,
-            vd,
-            cd,
-            &high_rate_config,
-            &higher_rate_more_routing_config,
-            None,
-            true,
-            true,
-        )?;
         assert_eq!(cd.degree_bits, 12);
 
-        // A final proof of degree 2^12, optimized for size.
+        // A final proof, optimized for size.
         let final_config = CircuitConfig {
             cap_height: 0,
-            num_routed_wires: 32,
+            rate_bits: 8,
+            num_routed_wires: 25,
             fri_config: FriConfig {
+                proof_of_work_bits: 21,
                 reduction_strategy: FriReductionStrategy::MinSize(None),
-                ..higher_rate_more_routing_config.fri_config.clone()
+                num_query_rounds: 9,
             },
-            ..higher_rate_more_routing_config
+            ..high_rate_config
         };
         let (proof, _vd, cd) = recursive_proof(
             proof,
             vd,
             cd,
-            &higher_rate_more_routing_config,
+            &high_rate_config,
             &final_config,
             None,
             true,
