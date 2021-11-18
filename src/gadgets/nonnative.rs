@@ -4,9 +4,10 @@ use num::{BigUint, One, Zero};
 
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
+use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
-use crate::iop::target::Target;
+use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -157,6 +158,38 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> NonNativeTarget<FF> {
         let x_biguint = self.nonnative_to_biguint(x);
         self.reduce(&x_biguint)
+    }
+
+    pub fn bool_to_nonnative<FF: Field>(&mut self, b: &BoolTarget) -> NonNativeTarget<FF> {
+        let limbs = vec![U32Target(b.target)];
+        let value = BigUintTarget { limbs };
+
+        NonNativeTarget {
+            value,
+            _phantom: PhantomData,
+        }
+    }
+
+    // Split a nonnative field element to bits.
+    pub fn split_nonnative_to_bits<FF: Field>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+    ) -> Vec<BoolTarget> {
+        let num_limbs = x.value.num_limbs();
+        let mut result = Vec::with_capacity(num_limbs * 32);
+
+        for i in 0..num_limbs {
+            let limb = x.value.get_limb(i);
+            let bit_targets = self.split_le_base::<2>(limb.0, 32);
+            let mut bits: Vec<_> = bit_targets
+                .iter()
+                .map(|&t| BoolTarget::new_unsafe(t))
+                .collect();
+
+            result.append(&mut bits);
+        }
+
+        result
     }
 }
 

@@ -201,18 +201,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let two = self.constant_nonnative(C::ScalarField::TWO);
         let num_bits = C::ScalarField::BITS;
 
+        let bits = self.split_nonnative_to_bits(&n);
+        let bits_as_base: Vec<NonNativeTarget<C::BaseField>> =
+            bits.iter().map(|b| self.bool_to_nonnative(b)).collect();
+
         // Result starts at p, which is later subtracted, because we don't support arithmetic with the zero point.
         let mut result = self.add_virtual_affine_point_target();
         self.connect_affine_point(p, &result);
         let mut two_i_times_p = self.add_virtual_affine_point_target();
         self.connect_affine_point(p, &two_i_times_p);
 
-        let mut cur_n = self.add_virtual_nonnative_target::<C::ScalarField>();
-        for _i in 0..num_bits {
-            let (bit_scalar, new_n) = self.div_rem_nonnative(&cur_n, &two);
-            let bit_biguint = self.nonnative_to_biguint(&bit_scalar);
-            let bit = self.biguint_to_nonnative::<C::BaseField>(&bit_biguint);
-            let not_bit = self.sub_nonnative(&one, &bit);
+        for bit in bits_as_base.iter() {
+            let not_bit = self.sub_nonnative(&one, bit);
 
             let result_plus_2_i_p = self.curve_add(&result, &two_i_times_p);
 
@@ -221,9 +221,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let result_plus_2_i_p_x = result_plus_2_i_p.x;
             let result_plus_2_i_p_y = result_plus_2_i_p.y;
 
-            let new_x_if_bit = self.mul_nonnative(&bit, &result_plus_2_i_p_x);
+            let new_x_if_bit = self.mul_nonnative(bit, &result_plus_2_i_p_x);
             let new_x_if_not_bit = self.mul_nonnative(&not_bit, &result_x);
-            let new_y_if_bit = self.mul_nonnative(&bit, &result_plus_2_i_p_y);
+            let new_y_if_bit = self.mul_nonnative(bit, &result_plus_2_i_p_y);
             let new_y_if_not_bit = self.mul_nonnative(&not_bit, &result_y);
 
             let new_x = self.add_nonnative(&new_x_if_bit, &new_x_if_not_bit);
@@ -232,7 +232,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             result = AffinePointTarget { x: new_x, y: new_y };
 
             two_i_times_p = self.curve_double(&two_i_times_p);
-            cur_n = new_n;
         }
 
         // Subtract off result's intial value of p.
@@ -244,15 +243,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 mod tests {
-    use std::ops::Neg;
+    use std::ops::{Mul, Neg};
 
     use anyhow::Result;
 
-    use crate::curve::curve_types::{AffinePoint, Curve};
+    use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
     use crate::curve::secp256k1::Secp256K1;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::secp256k1_base::Secp256K1Base;
+    use crate::field::secp256k1_scalar::Secp256K1Scalar;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
@@ -366,6 +366,36 @@ mod tests {
         builder.curve_assert_valid(&g_plus_2g_actual);
 
         builder.connect_affine_point(&g_plus_2g_expected, &g_plus_2g_actual);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_curve_mul() -> Result<()> {
+        type F = GoldilocksField;
+        const D: usize = 4;
+
+        let config = CircuitConfig::standard_recursion_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g = Secp256K1::GENERATOR_AFFINE;
+        let five = Secp256K1Scalar::from_canonical_usize(5);
+        let five_scalar = CurveScalar::<Secp256K1>(five);
+        let five_g = (five_scalar * g.to_projective()).to_affine();
+        let five_g_expected = builder.constant_affine_point(five_g);
+        builder.curve_assert_valid(&five_g_expected);
+
+        let g_target = builder.constant_affine_point(g);
+        let five_target = builder.constant_nonnative(five);
+        let five_g_actual = builder.curve_scalar_mul(&g_target, &five_target);
+        builder.curve_assert_valid(&five_g_actual);
+
+        builder.connect_affine_point(&five_g_expected, &five_g_actual);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
