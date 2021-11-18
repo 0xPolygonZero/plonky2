@@ -13,12 +13,15 @@ macro_rules! test_field_arithmetic {
 
             #[test]
             fn batch_inversion() {
-                let xs = (1..=3)
-                    .map(|i| <$field>::from_canonical_u64(i))
-                    .collect::<Vec<_>>();
-                let invs = <$field>::batch_multiplicative_inverse(&xs);
-                for (x, inv) in xs.into_iter().zip(invs) {
-                    assert_eq!(x * inv, <$field>::ONE);
+                for n in 0..20 {
+                    let xs = (1..=n as u64)
+                        .map(|i| <$field>::from_canonical_u64(i))
+                        .collect::<Vec<_>>();
+                    let invs = <$field>::batch_multiplicative_inverse(&xs);
+                    assert_eq!(invs.len(), n);
+                    for (x, inv) in xs.into_iter().zip(invs) {
+                        assert_eq!(x * inv, <$field>::ONE);
+                    }
                 }
             }
 
