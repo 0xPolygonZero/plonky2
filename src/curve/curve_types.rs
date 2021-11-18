@@ -1,8 +1,6 @@
 use std::fmt::Debug;
 use std::ops::Neg;
 
-use anyhow::Result;
-
 use crate::field::field_types::Field;
 
 // To avoid implementation conflicts from associated types,
@@ -28,30 +26,6 @@ pub trait Curve: 'static + Sync + Sized + Copy + Debug {
     fn convert(x: Self::ScalarField) -> CurveScalar<Self> {
         CurveScalar(x)
     }
-
-    /*fn try_convert_b2s(x: Self::BaseField) -> Result<Self::ScalarField> {
-        x.try_convert::<Self::ScalarField>()
-    }
-
-    fn try_convert_s2b(x: Self::ScalarField) -> Result<Self::BaseField> {
-        x.try_convert::<Self::BaseField>()
-    }
-
-    fn try_convert_s2b_slice(s: &[Self::ScalarField]) -> Result<Vec<Self::BaseField>> {
-        let mut res = Vec::with_capacity(s.len());
-        for &x in s {
-            res.push(Self::try_convert_s2b(x)?);
-        }
-        Ok(res)
-    }
-
-    fn try_convert_b2s_slice(s: &[Self::BaseField]) -> Result<Vec<Self::ScalarField>> {
-        let mut res = Vec::with_capacity(s.len());
-        for &x in s {
-            res.push(Self::try_convert_b2s(x)?);
-        }
-        Ok(res)
-    }*/
 
     fn is_safe_curve() -> bool {
         // Added additional check to prevent using vulnerabilties in case a discriminant is equal to 0.
@@ -155,7 +129,7 @@ pub struct ProjectivePoint<C: Curve> {
 impl<C: Curve> ProjectivePoint<C> {
     pub const ZERO: Self = Self {
         x: C::BaseField::ZERO,
-        y: C::BaseField::ZERO,
+        y: C::BaseField::ONE,
         z: C::BaseField::ZERO,
     };
 
@@ -166,7 +140,8 @@ impl<C: Curve> ProjectivePoint<C> {
     }
 
     pub fn is_valid(&self) -> bool {
-        self.to_affine().is_valid()
+        let Self { x, y, z } = *self;
+        z.is_zero() || y.square() * z == x.cube() + C::A * x * z.square() + C::B * z.cube()
     }
 
     pub fn to_affine(&self) -> AffinePoint<C> {

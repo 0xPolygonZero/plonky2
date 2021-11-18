@@ -1,6 +1,6 @@
 use crate::curve::curve_types::{AffinePoint, Curve};
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
+use crate::field::field_types::{Field, RichField};
 use crate::gadgets::nonnative::NonNativeTarget;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -16,6 +16,17 @@ impl<C: Curve> AffinePointTarget<C> {
     pub fn to_vec(&self) -> Vec<NonNativeTarget<C::BaseField>> {
         vec![self.x.clone(), self.y.clone()]
     }
+}
+
+const WINDOW_BITS: usize = 4;
+const BASE: usize = 1 << WINDOW_BITS;
+
+fn digits_per_scalar<C: Curve>() -> usize {
+    (C::ScalarField::BITS + WINDOW_BITS - 1) / WINDOW_BITS
+}
+
+pub struct MulPrecomputationTarget<C: Curve> {
+    powers: Vec<AffinePointTarget<C>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -37,6 +48,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) {
         self.connect_nonnative(&lhs.x, &rhs.x);
         self.connect_nonnative(&lhs.y, &rhs.y);
+    }
+
+    pub fn add_virtual_affine_point_target<C: Curve>(&mut self) -> AffinePointTarget<C> {
+        let x = self.add_virtual_nonnative_target();
+        let y = self.add_virtual_nonnative_target();
+
+        AffinePointTarget { x, y }
     }
 
     pub fn curve_assert_valid<C: Curve>(&mut self, p: &AffinePointTarget<C>) {
@@ -61,11 +79,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn curve_double<C: Curve>(
-        &mut self,
-        p: &AffinePointTarget<C>,
-        p_orig: AffinePoint<C>,
-    ) -> AffinePointTarget<C> {
+    pub fn curve_double<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C> {
         let AffinePointTarget { x, y } = p;
         let double_y = self.add_nonnative(y, y);
         let inv_double_y = self.inv_nonnative(&double_y);
@@ -89,6 +103,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         AffinePointTarget { x: x3, y: y3 }
     }
 
+    // Add two points, which are assumed to be non-equal.
     pub fn curve_add<C: Curve>(
         &mut self,
         p1: &AffinePointTarget<C>,
@@ -121,6 +136,110 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             x: x3_norm,
             y: y3_norm,
         }
+    }
+
+    pub fn mul_precompute<C: Curve>(
+        &mut self,
+        p: &AffinePointTarget<C>,
+    ) -> MulPrecomputationTarget<C> {
+        let num_digits = digits_per_scalar::<C>();
+
+        let mut powers = Vec::with_capacity(num_digits);
+        powers.push(p.clone());
+        for i in 1..num_digits {
+            let mut power_i = powers[i - 1].clone();
+            for _j in 0..WINDOW_BITS {
+                power_i = self.curve_double(&power_i);
+            }
+            powers.push(power_i);
+        }
+
+        MulPrecomputationTarget { powers }
+    }
+
+    /*fn to_digits<C: Curve>(&mut self, x: &NonNativeTarget<C::ScalarField>) -> Vec<NonNativeTarget<C::ScalarField>> {
+        debug_assert!(
+            64 % WINDOW_BITS == 0,
+            "For simplicity, only power-of-two window sizes are handled for now"
+        );
+
+        let base = self.constant_nonnative(C::ScalarField::from_canonical_u64(BASE as u64));
+
+        let num_digits = digits_per_scalar::<C>();
+        let mut digits = Vec::with_capacity(num_digits);
+
+        let (rest, limb) = self.div_rem_nonnative(&x, &base);
+        for _ in 0..num_digits {
+            digits.push(limb);
+
+            let (rest, limb) = self.div_rem_nonnative(&rest, &base);
+        }
+
+        digits
+    }
+
+    pub fn mul_with_precomputation<C: Curve>(
+        &mut self,
+        p: &AffinePointTarget<C>,
+        n: &NonNativeTarget<C::ScalarField>,
+        precomputation: MulPrecomputationTarget<C>,
+    ) -> AffinePointTarget<C> {
+        // Yao's method; see https://koclab.cs.ucsb.edu/teaching/ecc/eccPapers/Doche-ch09.pdf
+        let precomputed_powers = precomputation.powers;
+
+        let digits = self.to_digits(n);
+
+
+    }*/
+
+    pub fn curve_scalar_mul<C: Curve>(
+        &mut self,
+        p: &AffinePointTarget<C>,
+        n: &NonNativeTarget<C::ScalarField>,
+    ) -> AffinePointTarget<C> {
+        let one = self.constant_nonnative(C::BaseField::ONE);
+        let two = self.constant_nonnative(C::ScalarField::TWO);
+        let num_bits = C::ScalarField::BITS;
+
+        // Result starts at p, which is later subtracted, because we don't support arithmetic with the zero point.
+        let mut result = self.add_virtual_affine_point_target();
+        self.connect_affine_point(p, &result);
+        let mut two_i_times_p = self.add_virtual_affine_point_target();
+        self.connect_affine_point(p, &two_i_times_p);
+
+        let mut cur_n = self.add_virtual_nonnative_target::<C::ScalarField>();
+        for _i in 0..num_bits {
+            let (bit_scalar, new_n) = self.div_rem_nonnative(&cur_n, &two);
+            let bit_biguint = self.nonnative_to_biguint(&bit_scalar);
+            let bit = self.biguint_to_nonnative::<C::BaseField>(&bit_biguint);
+            let not_bit = self.sub_nonnative(&one, &bit);
+
+            let result_plus_2_i_p = self.curve_add(&result, &two_i_times_p);
+
+            let result_x = result.x;
+            let result_y = result.y;
+            let result_plus_2_i_p_x = result_plus_2_i_p.x;
+            let result_plus_2_i_p_y = result_plus_2_i_p.y;
+
+            let new_x_if_bit = self.mul_nonnative(&bit, &result_plus_2_i_p_x);
+            let new_x_if_not_bit = self.mul_nonnative(&not_bit, &result_x);
+            let new_y_if_bit = self.mul_nonnative(&bit, &result_plus_2_i_p_y);
+            let new_y_if_not_bit = self.mul_nonnative(&not_bit, &result_y);
+
+            let new_x = self.add_nonnative(&new_x_if_bit, &new_x_if_not_bit);
+            let new_y = self.add_nonnative(&new_y_if_bit, &new_y_if_not_bit);
+
+            result = AffinePointTarget { x: new_x, y: new_y };
+
+            two_i_times_p = self.curve_double(&two_i_times_p);
+            cur_n = new_n;
+        }
+
+        // Subtract off result's intial value of p.
+        let neg_p = self.curve_neg(&p);
+        result = self.curve_add(&result, &neg_p);
+
+        result
     }
 }
 
@@ -200,19 +319,53 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let g = Secp256K1::GENERATOR_AFFINE;
-        let neg_g = g.neg();
         let g_target = builder.constant_affine_point(g);
         let neg_g_target = builder.curve_neg(&g_target);
 
         let double_g = g.double();
-        let double_g_other_target = builder.constant_affine_point(double_g);
-        builder.curve_assert_valid(&double_g_other_target);
+        let double_g_expected = builder.constant_affine_point(double_g);
+        builder.curve_assert_valid(&double_g_expected);
 
-        let double_g_target = builder.curve_double(&g_target, g);
-        let double_neg_g_target = builder.curve_double(&neg_g_target, neg_g);
+        let double_neg_g = (-g).double();
+        let double_neg_g_expected = builder.constant_affine_point(double_neg_g);
+        builder.curve_assert_valid(&double_neg_g_expected);
 
-        builder.curve_assert_valid(&double_g_target);
-        builder.curve_assert_valid(&double_neg_g_target);
+        let double_g_actual = builder.curve_double(&g_target);
+        let double_neg_g_actual = builder.curve_double(&neg_g_target);
+        builder.curve_assert_valid(&double_g_actual);
+        builder.curve_assert_valid(&double_neg_g_actual);
+
+        builder.connect_affine_point(&double_g_expected, &double_g_actual);
+        builder.connect_affine_point(&double_neg_g_expected, &double_neg_g_actual);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_curve_add() -> Result<()> {
+        type F = GoldilocksField;
+        const D: usize = 4;
+
+        let config = CircuitConfig::standard_recursion_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g = Secp256K1::GENERATOR_AFFINE;
+        let double_g = g.double();
+        let g_plus_2g = (g + double_g).to_affine();
+        let g_plus_2g_expected = builder.constant_affine_point(g_plus_2g);
+        builder.curve_assert_valid(&g_plus_2g_expected);
+
+        let g_target = builder.constant_affine_point(g);
+        let double_g_target = builder.curve_double(&g_target);
+        let g_plus_2g_actual = builder.curve_add(&g_target, &double_g_target);
+        builder.curve_assert_valid(&g_plus_2g_actual);
+
+        builder.connect_affine_point(&g_plus_2g_expected, &g_plus_2g_actual);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();

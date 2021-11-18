@@ -1,6 +1,6 @@
 use std::ops::Mul;
 
-use crate::curve::curve_summation::affine_summation_batch_inversion;
+use crate::curve::curve_summation::affine_multisummation_batch_inversion;
 use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar, ProjectivePoint};
 use crate::field::field_types::Field;
 
@@ -48,6 +48,7 @@ impl<C: Curve> ProjectivePoint<C> {
 
         let mut y = ProjectivePoint::ZERO;
         let mut u = ProjectivePoint::ZERO;
+        let mut all_summands = Vec::new();
         for j in (1..BASE).rev() {
             let mut u_summands = Vec::new();
             for (i, &digit) in digits.iter().enumerate() {
@@ -55,7 +56,12 @@ impl<C: Curve> ProjectivePoint<C> {
                     u_summands.push(precomputed_powers[i]);
                 }
             }
-            u = u + affine_summation_batch_inversion(u_summands);
+            all_summands.push(u_summands);
+        }
+
+        let all_sums = affine_multisummation_batch_inversion(all_summands);
+        for i in 0..all_sums.len() {
+            u = u + all_sums[i];
             y = y + u;
         }
         y

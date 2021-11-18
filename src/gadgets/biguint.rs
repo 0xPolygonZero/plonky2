@@ -155,6 +155,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    // Returns x * y + z. This is no more efficient than mul-then-add; it's purely for convenience (only need to call one CircuitBuilder function).
+    pub fn mul_add_biguint(
+        &mut self,
+        x: &BigUintTarget,
+        y: &BigUintTarget,
+        z: &BigUintTarget,
+    ) -> BigUintTarget {
+        let prod = self.mul_biguint(x, y);
+        self.add_biguint(&prod, z)
+    }
+
     pub fn div_rem_biguint(
         &mut self,
         a: &BigUintTarget,

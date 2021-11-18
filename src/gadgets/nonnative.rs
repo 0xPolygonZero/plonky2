@@ -17,6 +17,14 @@ pub struct NonNativeTarget<FF: Field> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    fn num_nonnative_limbs<FF: Field>() -> usize {
+        let ff_size = FF::order();
+        let f_size = F::order();
+        let num_limbs = ((ff_size + f_size.clone() - BigUint::one()) / f_size).to_u32_digits()[0];
+
+        num_limbs as usize
+    }
+
     pub fn biguint_to_nonnative<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
         NonNativeTarget {
             value: x.clone(),
@@ -40,6 +48,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         rhs: &NonNativeTarget<FF>,
     ) {
         self.connect_biguint(&lhs.value, &rhs.value);
+    }
+
+    pub fn add_virtual_nonnative_target<FF: Field>(&mut self) -> NonNativeTarget<FF> {
+        let num_limbs = Self::num_nonnative_limbs::<FF>();
+        let value = self.add_virtual_biguint_target(num_limbs);
+
+        NonNativeTarget {
+            value,
+            _phantom: PhantomData,
+        }
     }
 
     // Add two `NonNativeTarget`s.
@@ -104,6 +122,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect_nonnative(&product, &one);
 
         inv
+    }
+
+    pub fn div_rem_nonnative<FF: Field>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+        y: &NonNativeTarget<FF>,
+    ) -> (NonNativeTarget<FF>, NonNativeTarget<FF>) {
+        let x_biguint = self.nonnative_to_biguint(x);
+        let y_biguint = self.nonnative_to_biguint(y);
+
+        let (div_biguint, rem_biguint) = self.div_rem_biguint(&x_biguint, &y_biguint);
+        let div = self.biguint_to_nonnative(&div_biguint);
+        let rem = self.biguint_to_nonnative(&rem_biguint);
+        (div, rem)
     }
 
     /// Returns `x % |FF|` as a `NonNativeTarget`.
