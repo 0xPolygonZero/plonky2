@@ -64,4 +64,24 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
         }
         acc
     }
+    pub fn eval_with_powers<F>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        powers: &[ExtensionAlgebraTarget<D>],
+    ) -> ExtensionAlgebraTarget<D>
+    where
+        F: RichField + Extendable<D>,
+    {
+        debug_assert_eq!(self.0.len(), powers.len() + 1);
+        let acc = self.0[0];
+        self.0[1..]
+            .iter()
+            .zip(powers)
+            .fold(acc, |acc, (&x, &c)| builder.mul_add_ext_algebra(c, x, acc))
+        // let mut acc = builder.zero_ext_algebra();
+        // for &c in self.0.iter().rev() {
+        //     acc = builder.mul_add_ext_algebra(point, acc, c);
+        // }
+        // acc
+    }
 }

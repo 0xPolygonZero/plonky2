@@ -9,7 +9,7 @@ use crate::field::field_types::{Field, RichField};
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::reduction_strategies::FriReductionStrategy;
 use crate::fri::{FriConfig, FriParams};
-use crate::gates::gate::PrefixedGate;
+use crate::gates::gate::{GateInstance, PrefixedGate};
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::WitnessGenerator;
@@ -67,10 +67,10 @@ impl CircuitConfig {
             rate_bits: 3,
             num_challenges: 2,
             zero_knowledge: false,
-            cap_height: 3,
+            cap_height: 4,
             fri_config: FriConfig {
                 proof_of_work_bits: 15,
-                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(4, 5),
                 num_query_rounds: 26,
             },
         }
@@ -177,6 +177,7 @@ pub(crate) struct ProverOnlyCircuitData<F: RichField + Extendable<D>, const D: u
     pub representative_map: Vec<usize>,
     /// Pre-computed roots for faster FFT.
     pub fft_root_table: Option<FftRootTable<F>>,
+    pub instances: Vec<GateInstance<F, D>>,
 }
 
 /// Circuit data required by the verifier, but not the prover.

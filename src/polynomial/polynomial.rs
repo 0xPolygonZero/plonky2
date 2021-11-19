@@ -120,6 +120,15 @@ impl<F: Field> PolynomialCoeffs<F> {
             .fold(F::ZERO, |acc, &c| acc * x + c)
     }
 
+    pub fn eval_with_powers(&self, powers: &[F]) -> F {
+        debug_assert_eq!(self.coeffs.len(), powers.len() + 1);
+        let acc = self.coeffs[0];
+        self.coeffs[1..]
+            .iter()
+            .zip(powers)
+            .fold(acc, |acc, (&x, &c)| acc + c * x)
+    }
+
     pub fn eval_base<const D: usize>(&self, x: F::BaseField) -> F
     where
         F: FieldExtension<D>,
@@ -128,6 +137,18 @@ impl<F: Field> PolynomialCoeffs<F> {
             .iter()
             .rev()
             .fold(F::ZERO, |acc, &c| acc.scalar_mul(x) + c)
+    }
+
+    pub fn eval_base_with_powers<const D: usize>(&self, powers: &[F::BaseField]) -> F
+    where
+        F: FieldExtension<D>,
+    {
+        debug_assert_eq!(self.coeffs.len(), powers.len() + 1);
+        let acc = self.coeffs[0];
+        self.coeffs[1..]
+            .iter()
+            .zip(powers)
+            .fold(acc, |acc, (&x, &c)| acc + x.scalar_mul(c))
     }
 
     pub fn lde_multiple(polys: Vec<&Self>, rate_bits: usize) -> Vec<Self> {

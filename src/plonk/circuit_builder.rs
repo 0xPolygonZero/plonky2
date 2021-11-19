@@ -687,6 +687,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             marked_targets: self.marked_targets,
             representative_map: forest.parents,
             fft_root_table: Some(fft_root_table),
+            instances: self.gate_instances,
         };
 
         // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we

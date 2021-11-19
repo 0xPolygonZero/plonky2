@@ -51,7 +51,9 @@ pub(crate) fn test_low_degree<F: RichField + Extendable<D>, G: Gate<F, D>, const
     );
 
     let expected_eval_degree = WITNESS_DEGREE * gate.degree();
+    dbg!(WITNESS_DEGREE, gate.degree());
 
+    dbg!(&constraint_eval_degrees);
     assert!(
         constraint_eval_degrees
             .iter()
@@ -151,6 +153,7 @@ pub(crate) fn test_eval_fns<F: RichField + Extendable<D>, G: Gate<F, D>, const D
     let evals_t = gate.eval_unfiltered_recursively(&mut builder, vars_t);
     pw.set_extension_targets(&evals_t, &evals);
 
+    dbg!(builder.num_gates());
     let data = builder.build();
     let proof = data.prove(pw)?;
     verify(proof, &data.verifier_only, &data.common)

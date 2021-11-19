@@ -1,10 +1,10 @@
 use std::marker::PhantomData;
 use std::ops::Range;
 
-use crate::field::extension_field::algebra::PolynomialCoeffsAlgebra;
+use crate::field::extension_field::algebra::{ExtensionAlgebra, PolynomialCoeffsAlgebra};
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::RichField;
+use crate::field::field_types::{Field, RichField};
 use crate::field::interpolation::interpolant;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::Gate;
@@ -90,9 +90,26 @@ impl<F: RichField + Extendable<D>, const D: usize> InterpolationGate<F, D> {
         start..start + D
     }
 
+    pub fn powers_init(&self, i: usize) -> usize {
+        debug_assert!(0 < i && i < self.num_points());
+        if i == 1 {
+            return self.wire_shift();
+        }
+        self.start_coeffs() + self.num_points() * D + i
+    }
+
+    pub fn powers_eval(&self, i: usize) -> Range<usize> {
+        debug_assert!(0 < i && i < self.num_points());
+        if i == 1 {
+            return self.wires_evaluation_point();
+        }
+        let start = self.start_coeffs() + self.num_points() * D + self.num_points() - 1 + i * D;
+        start..start + D
+    }
+
     /// End of wire indices, exclusive.
     fn end(&self) -> usize {
-        self.start_coeffs() + self.num_points() * D
+        self.powers_eval(self.num_points() - 1).end
     }
 
     /// The domain of the points we're interpolating.
@@ -138,19 +155,34 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
 
         let coeffs = (0..self.num_points())
             .map(|i| vars.get_local_ext_algebra(self.wires_coeff(i)))
-            .collect();
-        let interpolant = PolynomialCoeffsAlgebra::new(coeffs);
+            .collect::<Vec<_>>();
 
-        let coset = self.coset_ext(vars.local_wires[self.wire_shift()]);
-        for (i, point) in coset.into_iter().enumerate() {
+        let mut powers_init = (1..self.num_points())
+            .map(|i| vars.local_wires[self.powers_init(i)])
+            .collect::<Vec<_>>();
+        powers_init.insert(0, F::Extension::ONE);
+        let ocoeffs = coeffs
+            .iter()
+            .zip(powers_init)
+            .map(|(&c, p)| c.scalar_mul(p))
+            .collect::<Vec<_>>();
+        let interpolant = PolynomialCoeffsAlgebra::new(coeffs);
+        let ointerpolant = PolynomialCoeffsAlgebra::new(ocoeffs);
+
+        for (i, point) in F::Extension::two_adic_subgroup(self.subgroup_bits)
+            .into_iter()
+            .enumerate()
+        {
             let value = vars.get_local_ext_algebra(self.wires_value(i));
-            let computed_value = interpolant.eval_base(point);
+            let computed_value = ointerpolant.eval_base(point);
             constraints.extend(&(value - computed_value).to_basefield_array());
         }
 
-        let evaluation_point = vars.get_local_ext_algebra(self.wires_evaluation_point());
+        let mut evaluation_point_powers = (1..self.num_points())
+            .map(|i| vars.get_local_ext_algebra(self.powers_eval(i)))
+            .collect::<Vec<_>>();
         let evaluation_value = vars.get_local_ext_algebra(self.wires_evaluation_value());
-        let computed_evaluation_value = interpolant.eval(evaluation_point);
+        let computed_evaluation_value = interpolant.eval_with_powers(&evaluation_point_powers);
         constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
 
         constraints
@@ -161,19 +193,33 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
 
         let coeffs = (0..self.num_points())
             .map(|i| vars.get_local_ext(self.wires_coeff(i)))
-            .collect();
+            .collect::<Vec<_>>();
+        let mut powers_init = (1..self.num_points())
+            .map(|i| vars.local_wires[self.powers_init(i)])
+            .collect::<Vec<_>>();
+        powers_init.insert(0, F::ONE);
+        let ocoeffs = coeffs
+            .iter()
+            .zip(powers_init)
+            .map(|(&c, p)| c.scalar_mul(p))
+            .collect::<Vec<_>>();
         let interpolant = PolynomialCoeffs::new(coeffs);
+        let ointerpolant = PolynomialCoeffs::new(ocoeffs);
 
-        let coset = self.coset(vars.local_wires[self.wire_shift()]);
-        for (i, point) in coset.into_iter().enumerate() {
+        for (i, point) in F::two_adic_subgroup(self.subgroup_bits)
+            .into_iter()
+            .enumerate()
+        {
             let value = vars.get_local_ext(self.wires_value(i));
-            let computed_value = interpolant.eval_base(point);
+            let computed_value = ointerpolant.eval_base(point);
             constraints.extend(&(value - computed_value).to_basefield_array());
         }
 
-        let evaluation_point = vars.get_local_ext(self.wires_evaluation_point());
+        let evaluation_point_powers = (1..self.num_points())
+            .map(|i| vars.get_local_ext(self.powers_eval(i)))
+            .collect::<Vec<_>>();
         let evaluation_value = vars.get_local_ext(self.wires_evaluation_value());
-        let computed_evaluation_value = interpolant.eval(evaluation_point);
+        let computed_evaluation_value = interpolant.eval_with_powers(&evaluation_point_powers);
         constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
 
         constraints
@@ -188,13 +234,26 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
 
         let coeffs = (0..self.num_points())
             .map(|i| vars.get_local_ext_algebra(self.wires_coeff(i)))
-            .collect();
+            .collect::<Vec<_>>();
+        let mut powers_init = (1..self.num_points())
+            .map(|i| vars.local_wires[self.powers_init(i)])
+            .collect::<Vec<_>>();
+        powers_init.insert(0, builder.one_extension());
+        let ocoeffs = coeffs
+            .iter()
+            .zip(powers_init)
+            .map(|(&c, p)| builder.scalar_mul_ext_algebra(p, c))
+            .collect::<Vec<_>>();
         let interpolant = PolynomialCoeffsExtAlgebraTarget(coeffs);
+        let ointerpolant = PolynomialCoeffsExtAlgebraTarget(ocoeffs);
 
-        let coset = self.coset_ext_recursive(builder, vars.local_wires[self.wire_shift()]);
-        for (i, point) in coset.into_iter().enumerate() {
+        for (i, point) in F::Extension::two_adic_subgroup(self.subgroup_bits)
+            .into_iter()
+            .enumerate()
+        {
             let value = vars.get_local_ext_algebra(self.wires_value(i));
-            let computed_value = interpolant.eval_scalar(builder, point);
+            let point = builder.constant_extension(point);
+            let computed_value = ointerpolant.eval_scalar(builder, point);
             constraints.extend(
                 &builder
                     .sub_ext_algebra(value, computed_value)
@@ -202,9 +261,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
             );
         }
 
-        let evaluation_point = vars.get_local_ext_algebra(self.wires_evaluation_point());
+        let evaluation_point_powers = (1..self.num_points())
+            .map(|i| vars.get_local_ext_algebra(self.powers_eval(i)))
+            .collect::<Vec<_>>();
         let evaluation_value = vars.get_local_ext_algebra(self.wires_evaluation_value());
-        let computed_evaluation_value = interpolant.eval(builder, evaluation_point);
+        let computed_evaluation_value =
+            interpolant.eval_with_powers(builder, &evaluation_point_powers);
+        // let evaluation_point = vars.get_local_ext_algebra(self.wires_evaluation_point());
+        // let evaluation_value = vars.get_local_ext_algebra(self.wires_evaluation_value());
+        // let computed_evaluation_value = interpolant.eval(builder, evaluation_point);
         constraints.extend(
             &builder
                 .sub_ext_algebra(evaluation_value, computed_evaluation_value)
@@ -238,7 +303,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
     fn degree(&self) -> usize {
         // The highest power of x is `num_points - 1`, and then multiplication by the coefficient
         // adds 1.
-        self.num_points()
+        2
     }
 
     fn num_constraints(&self) -> usize {
@@ -357,7 +422,7 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(InterpolationGate::new(2))
+        test_eval_fns::<GoldilocksField, _, 4>(InterpolationGate::new(3))
     }
 
     #[test]

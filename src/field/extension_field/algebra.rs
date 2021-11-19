@@ -160,11 +160,29 @@ impl<F: OEF<D>, const D: usize> PolynomialCoeffsAlgebra<F, D> {
             .fold(ExtensionAlgebra::ZERO, |acc, &c| acc * x + c)
     }
 
+    pub fn eval_with_powers(&self, powers: &[ExtensionAlgebra<F, D>]) -> ExtensionAlgebra<F, D> {
+        debug_assert_eq!(self.coeffs.len(), powers.len() + 1);
+        let acc = self.coeffs[0];
+        self.coeffs[1..]
+            .iter()
+            .zip(powers)
+            .fold(acc, |acc, (&x, &c)| acc + c * x)
+    }
+
     pub fn eval_base(&self, x: F) -> ExtensionAlgebra<F, D> {
         self.coeffs
             .iter()
             .rev()
             .fold(ExtensionAlgebra::ZERO, |acc, &c| acc.scalar_mul(x) + c)
+    }
+
+    pub fn eval_base_with_powers(&self, powers: &[F]) -> ExtensionAlgebra<F, D> {
+        debug_assert_eq!(self.coeffs.len(), powers.len() + 1);
+        let acc = self.coeffs[0];
+        self.coeffs[1..]
+            .iter()
+            .zip(powers)
+            .fold(acc, |acc, (&x, &c)| acc + x.scalar_mul(c))
     }
 }
 
