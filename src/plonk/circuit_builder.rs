@@ -20,6 +20,7 @@ use crate::gates::arithmetic_u32::{U32ArithmeticGate, NUM_U32_ARITHMETIC_OPS};
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
+use crate::gates::multiplication_extension::MulExtensionGate;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
 use crate::gates::random_access::RandomAccessGate;
@@ -70,7 +71,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     marked_targets: Vec<MarkedTargets<D>>,
 
     /// Generators used to generate the witness.
-    generators: Vec<Box<dyn WitnessGenerator<F>>>,
+    pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
 
     constants_to_targets: HashMap<F, Target>,
     targets_to_constants: HashMap<Target, F>,
@@ -769,6 +770,8 @@ pub struct BatchedGates<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) free_arithmetic: HashMap<(F, F), (usize, usize)>,
     pub(crate) free_base_arithmetic: HashMap<(F, F), (usize, usize)>,
 
+    pub(crate) free_mul: HashMap<F, (usize, usize)>,
+
     /// A map `b -> (g, i)` from `b` bits to an available random access gate of that size with gate
     /// index `g` and already using `i` random accesses.
     pub(crate) free_random_access: HashMap<usize, (usize, usize)>,
@@ -793,6 +796,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BatchedGates<F, D> {
         Self {
             free_arithmetic: HashMap::new(),
             free_base_arithmetic: HashMap::new(),
+            free_mul: HashMap::new(),
             free_random_access: HashMap::new(),
             current_switch_gates: Vec::new(),
             current_u32_arithmetic_gate: None,
@@ -860,6 +864,33 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.batched_gates
                 .free_arithmetic
                 .remove(&(const_0, const_1));
+        }
+
+        (gate, i)
+    }
+
+    /// Finds the last available arithmetic gate with the given constants or add one if there aren't any.
+    /// Returns `(g,i)` such that there is an arithmetic gate with the given constants at index
+    /// `g` and the gate's `i`-th operation is available.
+    pub(crate) fn find_mul_gate(&mut self, const_0: F) -> (usize, usize) {
+        let (gate, i) = self
+            .batched_gates
+            .free_mul
+            .get(&const_0)
+            .copied()
+            .unwrap_or_else(|| {
+                let gate = self.add_gate(
+                    MulExtensionGate::new_from_config(&self.config),
+                    vec![const_0],
+                );
+                (gate, 0)
+            });
+
+        // Update `free_arithmetic` with new values.
+        if i < MulExtensionGate::<D>::num_ops(&self.config) - 1 {
+            self.batched_gates.free_mul.insert(const_0, (gate, i + 1));
+        } else {
+            self.batched_gates.free_mul.remove(&const_0);
         }
 
         (gate, i)
@@ -1021,6 +1052,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         assert!(self.batched_gates.free_arithmetic.is_empty());
     }
 
+    /// Fill the remaining unused arithmetic operations with zeros, so that all
+    /// `ArithmeticExtensionGenerator`s are run.
+    fn fill_mul_gates(&mut self) {
+        let zero = self.zero_extension();
+        for (c0, (_gate, i)) in self.batched_gates.free_mul.clone() {
+            for _ in i..MulExtensionGate::<D>::num_ops(&self.config) {
+                // If we directly wire in zero, an optimization will skip doing anything and return
+                // zero. So we pass in a virtual target and connect it to zero afterward.
+                let dummy = self.add_virtual_extension_target();
+                self.arithmetic_extension(c0, F::ZERO, dummy, dummy, zero);
+                self.connect_extension(dummy, zero);
+            }
+        }
+        assert!(self.batched_gates.free_mul.is_empty());
+    }
+
     /// Fill the remaining unused random access operations with zeros, so that all
     /// `RandomAccessGenerator`s are run.
     fn fill_random_access_gates(&mut self) {
@@ -1110,6 +1157,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn fill_batched_gates(&mut self) {
         self.fill_arithmetic_gates();
         self.fill_base_arithmetic_gates();
+        self.fill_mul_gates();
         self.fill_random_access_gates();
         self.fill_switch_gates();
         self.fill_u32_arithmetic_gates();

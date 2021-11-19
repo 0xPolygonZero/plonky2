@@ -3,6 +3,7 @@ use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
 use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
+use crate::gates::multiplication_extension::MulExtensionGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -41,8 +42,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return result;
         }
 
+        let result = if self.target_as_constant_ext(addend) == Some(F::Extension::ZERO) {
+            self.add_mul_extension_operation(operation)
+        } else {
+            self.add_arithmetic_extension_operation(operation)
+        };
         // Otherwise, we must actually perform the operation using an ArithmeticExtensionGate slot.
-        let result = self.add_arithmetic_extension_operation(operation);
         self.arithmetic_results.insert(operation, result);
         result
     }
@@ -68,6 +73,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect_extension(operation.addend, wires_addend);
 
         ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_output(i))
+    }
+
+    fn add_mul_extension_operation(
+        &mut self,
+        operation: ExtensionArithmeticOperation<F, D>,
+    ) -> ExtensionTarget<D> {
+        let (gate, i) = self.find_mul_gate(operation.const_0);
+        let wires_multiplicand_0 =
+            ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_ith_multiplicand_0(i));
+        let wires_multiplicand_1 =
+            ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_ith_multiplicand_1(i));
+
+        self.connect_extension(operation.multiplicand_0, wires_multiplicand_0);
+        self.connect_extension(operation.multiplicand_1, wires_multiplicand_1);
+
+        ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_ith_output(i))
     }
 
     /// Checks for special cases where the value of
@@ -556,7 +577,7 @@ mod tests {
         for (&v, &t) in vs.iter().zip(&ts) {
             pw.set_extension_target(t, v);
         }
-        let mul0 = builder.mul_many_extension(&ts);
+        // let mul0 = builder.mul_many_extension(&ts);
         let mul1 = {
             let mut acc = builder.one_extension();
             for &t in &ts {
@@ -566,7 +587,7 @@ mod tests {
         };
         let mul2 = builder.constant_extension(vs.into_iter().product());
 
-        builder.connect_extension(mul0, mul1);
+        // builder.connect_extension(mul0, mul1);
         builder.connect_extension(mul1, mul2);
 
         let data = builder.build();
@@ -627,6 +648,33 @@ mod tests {
         for i in 0..D {
             builder.connect_extension(zt.0[i], comp_zt.0[i]);
         }
+
+        let data = builder.build();
+        let proof = data.prove(pw)?;
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_mul_ext() -> Result<()> {
+        type F = GoldilocksField;
+        type FF = QuarticExtension<GoldilocksField>;
+        const D: usize = 4;
+
+        let config = CircuitConfig::standard_recursion_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let x = FF::rand();
+        let y = FF::rand();
+        let z = x * y;
+
+        let xt = builder.constant_extension(x);
+        let yt = builder.constant_extension(y);
+        let zt = builder.constant_extension(z);
+        let comp_zt = builder.mul_extension(xt, yt);
+        builder.connect_extension(zt, comp_zt);
 
         let data = builder.build();
         let proof = data.prove(pw)?;
