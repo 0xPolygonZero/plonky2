@@ -173,7 +173,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> (BigUintTarget, BigUintTarget) {
         let a_len = a.limbs.len();
         let b_len = b.limbs.len();
-        let div = self.add_virtual_biguint_target(a_len - b_len + 1);
+        let div_num_limbs = if b_len > a_len + 1 {
+            0
+        } else {
+            a_len - b_len + 1
+        };
+        let div = self.add_virtual_biguint_target(div_num_limbs);
         let rem = self.add_virtual_biguint_target(b_len);
 
         self.add_simple_generator(BigUintDivRemGenerator::<F, D> {
