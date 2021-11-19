@@ -45,8 +45,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let result = if self.target_as_constant_ext(addend) == Some(F::Extension::ZERO) {
+            // If the addend is zero, we use a multiplication gate.
             self.add_mul_extension_operation(operation)
         } else {
+            // Otherwise, we use an arithmetic gate.
             self.add_arithmetic_extension_operation(operation)
         };
         // Otherwise, we must actually perform the operation using an ArithmeticExtensionGate slot.
@@ -579,7 +581,7 @@ mod tests {
         for (&v, &t) in vs.iter().zip(&ts) {
             pw.set_extension_target(t, v);
         }
-        // let mul0 = builder.mul_many_extension(&ts);
+        let mul0 = builder.mul_many_extension(&ts);
         let mul1 = {
             let mut acc = builder.one_extension();
             for &t in &ts {
@@ -589,7 +591,7 @@ mod tests {
         };
         let mul2 = builder.constant_extension(vs.into_iter().product());
 
-        // builder.connect_extension(mul0, mul1);
+        builder.connect_extension(mul0, mul1);
         builder.connect_extension(mul1, mul2);
 
         let data = builder.build();

@@ -12,11 +12,11 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
-/// A gate which can perform a weighted multiply-add, i.e. `result = c0 x y + c1 z`. If the config
+/// A gate which can perform a weighted multiplication, i.e. `result = c0 x y`. If the config
 /// supports enough routed wires, it can support several such operations in one gate.
 #[derive(Debug)]
 pub struct MulExtensionGate<const D: usize> {
-    /// Number of arithmetic operations performed by an arithmetic gate.
+    /// Number of multiplications performed by the gate.
     pub num_ops: usize,
 }
 
