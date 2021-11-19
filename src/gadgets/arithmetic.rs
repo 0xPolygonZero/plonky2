@@ -1,5 +1,7 @@
 use std::borrow::Borrow;
 
+use itertools::Itertools;
+
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{PrimeField, RichField};
 use crate::gates::arithmetic_base::ArithmeticGate;
@@ -206,11 +208,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Multiply `n` `Target`s.
     pub fn mul_many(&mut self, terms: &[Target]) -> Target {
-        let mut product = self.one();
-        for &term in terms {
-            product = self.mul(product, term);
-        }
-        product
+        terms
+            .iter()
+            .copied()
+            .fold1(|acc, t| self.mul(acc, t))
+            .unwrap_or_else(|| self.one())
     }
 
     /// Exponentiate `base` to the power of `2^power_log`.

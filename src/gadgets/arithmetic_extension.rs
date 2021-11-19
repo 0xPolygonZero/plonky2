@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
@@ -294,11 +296,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Multiply `n` `ExtensionTarget`s.
     pub fn mul_many_extension(&mut self, terms: &[ExtensionTarget<D>]) -> ExtensionTarget<D> {
-        let mut product = self.one_extension();
-        for &term in terms {
-            product = self.mul_extension(product, term);
-        }
-        product
+        terms
+            .iter()
+            .copied()
+            .fold1(|acc, t| self.mul_extension(acc, t))
+            .unwrap_or_else(|| self.one_extension())
     }
 
     /// Like `mul_add`, but for `ExtensionTarget`s.
