@@ -206,11 +206,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Multiply `n` `Target`s.
     pub fn mul_many(&mut self, terms: &[Target]) -> Target {
-        let terms_ext = terms
-            .iter()
-            .map(|&t| self.convert_to_ext(t))
-            .collect::<Vec<_>>();
-        self.mul_many_extension(&terms_ext).to_target_array()[0]
+        let mut product = self.one();
+        for &term in terms {
+            product = self.mul(product, term);
+        }
+        product
     }
 
     /// Exponentiate `base` to the power of `2^power_log`.
