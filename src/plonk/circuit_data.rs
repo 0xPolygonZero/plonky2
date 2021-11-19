@@ -246,11 +246,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
         self.quotient_degree_factor * self.degree()
     }
 
-    pub fn total_constraints(&self) -> usize {
-        // 2 constraints for each Z check.
-        self.config.num_challenges * 2 + self.num_gate_constraints
-    }
-
     /// Range of the constants polynomials in the `constants_sigmas_commitment`.
     pub fn constants_range(&self) -> Range<usize> {
         0..self.num_constants
