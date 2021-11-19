@@ -77,10 +77,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.reduce(&result)
     }
 
-    pub fn neg_nonnative<FF: Field>(
-        &mut self,
-        x: &NonNativeTarget<FF>,
-    ) -> NonNativeTarget<FF> {
+    pub fn neg_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
         // TODO: zero - x would be more efficient but doesn't seem to work?
         let neg_one = FF::order() - BigUint::one();
         let neg_one_target = self.constant_biguint(&neg_one);
@@ -89,10 +86,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.mul_nonnative(&neg_one_ff, x)
     }
 
-    pub fn inv_nonnative<FF: Field>(
-        &mut self,
-        x: &NonNativeTarget<FF>,
-    ) -> NonNativeTarget<FF> {
+    pub fn inv_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
         let num_limbs = x.value.num_limbs();
         let inv_biguint = self.add_virtual_biguint_target(num_limbs);
         let inv = NonNativeTarget::<FF> {
