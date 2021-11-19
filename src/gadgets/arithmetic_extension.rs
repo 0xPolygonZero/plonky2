@@ -656,31 +656,4 @@ mod tests {
 
         verify(proof, &data.verifier_only, &data.common)
     }
-
-    #[test]
-    fn test_mul_ext() -> Result<()> {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
-
-        let config = CircuitConfig::standard_recursion_config();
-
-        let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, D>::new(config);
-
-        let x = FF::rand();
-        let y = FF::rand();
-        let z = x * y;
-
-        let xt = builder.constant_extension(x);
-        let yt = builder.constant_extension(y);
-        let zt = builder.constant_extension(z);
-        let comp_zt = builder.mul_extension(xt, yt);
-        builder.connect_extension(zt, comp_zt);
-
-        let data = builder.build();
-        let proof = data.prove(pw)?;
-
-        verify(proof, &data.verifier_only, &data.common)
-    }
 }
