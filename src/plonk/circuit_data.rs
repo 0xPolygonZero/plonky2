@@ -63,16 +63,29 @@ impl CircuitConfig {
             num_routed_wires: 80,
             constant_gate_size: 5,
             use_base_arithmetic_gate: true,
-            security_bits: 93,
+            security_bits: 100,
             rate_bits: 3,
             num_challenges: 2,
             zero_knowledge: false,
+            cap_height: 4,
+            fri_config: FriConfig {
+                proof_of_work_bits: 16,
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(4, 5),
+                num_query_rounds: 28,
+            },
+        }
+    }
+
+    pub fn size_optimized_recursion_config() -> Self {
+        Self {
+            security_bits: 93,
             cap_height: 3,
             fri_config: FriConfig {
-                proof_of_work_bits: 15,
                 reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
                 num_query_rounds: 26,
+                ..CircuitConfig::standard_recursion_config().fri_config
             },
+            ..CircuitConfig::standard_recursion_config()
         }
     }
 

@@ -14,6 +14,7 @@ pub mod gate_tree;
 pub mod gmimc;
 pub mod insertion;
 pub mod interpolation;
+pub mod low_degree_interpolation;
 pub mod multiplication_extension;
 pub mod noop;
 pub mod poseidon;

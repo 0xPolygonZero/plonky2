@@ -1,23 +1,93 @@
+use std::ops::Range;
+
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
-use crate::gates::interpolation::InterpolationGate;
+use crate::gates::gate::Gate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
+
+/// Trait for gates which interpolate a polynomial, whose points are a (base field) coset of the multiplicative subgroup
+/// with the given size, and whose values are extension field elements, given by input wires.
+/// Outputs the evaluation of the interpolant at a given (extension field) evaluation point.
+pub(crate) trait InterpolationGate<F: RichField + Extendable<D>, const D: usize>:
+    Gate<F, D> + Copy
+{
+    fn new(subgroup_bits: usize) -> Self;
+
+    fn num_points(&self) -> usize;
+
+    /// Wire index of the coset shift.
+    fn wire_shift(&self) -> usize {
+        0
+    }
+
+    fn start_values(&self) -> usize {
+        1
+    }
+
+    /// Wire indices of the `i`th interpolant value.
+    fn wires_value(&self, i: usize) -> Range<usize> {
+        debug_assert!(i < self.num_points());
+        let start = self.start_values() + i * D;
+        start..start + D
+    }
+
+    fn start_evaluation_point(&self) -> usize {
+        self.start_values() + self.num_points() * D
+    }
+
+    /// Wire indices of the point to evaluate the interpolant at.
+    fn wires_evaluation_point(&self) -> Range<usize> {
+        let start = self.start_evaluation_point();
+        start..start + D
+    }
+
+    fn start_evaluation_value(&self) -> usize {
+        self.start_evaluation_point() + D
+    }
+
+    /// Wire indices of the interpolated value.
+    fn wires_evaluation_value(&self) -> Range<usize> {
+        let start = self.start_evaluation_value();
+        start..start + D
+    }
+
+    fn start_coeffs(&self) -> usize {
+        self.start_evaluation_value() + D
+    }
+
+    /// The number of routed wires required in the typical usage of this gate, where the points to
+    /// interpolate, the evaluation point, and the corresponding value are all routed.
+    fn num_routed_wires(&self) -> usize {
+        self.start_coeffs()
+    }
+
+    /// Wire indices of the interpolant's `i`th coefficient.
+    fn wires_coeff(&self, i: usize) -> Range<usize> {
+        debug_assert!(i < self.num_points());
+        let start = self.start_coeffs() + i * D;
+        start..start + D
+    }
+
+    fn end_coeffs(&self) -> usize {
+        self.start_coeffs() + D * self.num_points()
+    }
+}
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Interpolates a polynomial, whose points are a coset of the multiplicative subgroup with the
     /// given size, and whose values are given. Returns the evaluation of the interpolant at
     /// `evaluation_point`.
-    pub fn interpolate_coset(
+    pub(crate) fn interpolate_coset<G: InterpolationGate<F, D>>(
         &mut self,
         subgroup_bits: usize,
         coset_shift: Target,
         values: &[ExtensionTarget<D>],
         evaluation_point: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let gate = InterpolationGate::new(subgroup_bits);
-        let gate_index = self.add_gate(gate.clone(), vec![]);
+        let gate = G::new(subgroup_bits);
+        let gate_index = self.add_gate(gate, vec![]);
         self.connect(coset_shift, Target::wire(gate_index, gate.wire_shift()));
         for (i, &v) in values.iter().enumerate() {
             self.connect_extension(
@@ -38,11 +108,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 mod tests {
     use anyhow::Result;
 
-    use crate::field::extension_field::quartic::QuarticExtension;
+    use crate::field::extension_field::quadratic::QuadraticExtension;
     use crate::field::extension_field::FieldExtension;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::interpolation::interpolant;
+    use crate::gates::interpolation::HighDegreeInterpolationGate;
+    use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
@@ -51,10 +123,11 @@ mod tests {
     #[test]
     fn test_interpolate() -> Result<()> {
         type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
+        const D: usize = 2;
+        type FF = QuadraticExtension<GoldilocksField>;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let subgroup_bits = 2;
         let len = 1 << subgroup_bits;
@@ -66,7 +139,7 @@ mod tests {
         let homogeneous_points = points
             .iter()
             .zip(values.iter())
-            .map(|(&a, &b)| (<FF as FieldExtension<4>>::from_basefield(a), b))
+            .map(|(&a, &b)| (<FF as FieldExtension<D>>::from_basefield(a), b))
             .collect::<Vec<_>>();
 
         let true_interpolant = interpolant(&homogeneous_points);
@@ -83,9 +156,21 @@ mod tests {
 
         let zt = builder.constant_extension(z);
 
-        let eval = builder.interpolate_coset(subgroup_bits, coset_shift_target, &value_targets, zt);
+        let eval_hd = builder.interpolate_coset::<HighDegreeInterpolationGate<F, D>>(
+            subgroup_bits,
+            coset_shift_target,
+            &value_targets,
+            zt,
+        );
+        let eval_ld = builder.interpolate_coset::<LowDegreeInterpolationGate<F, D>>(
+            subgroup_bits,
+            coset_shift_target,
+            &value_targets,
+            zt,
+        );
         let true_eval_target = builder.constant_extension(true_eval);
-        builder.connect_extension(eval, true_eval_target);
+        builder.connect_extension(eval_hd, true_eval_target);
+        builder.connect_extension(eval_ld, true_eval_target);
 
         let data = builder.build();
         let proof = data.prove(pw)?;

@@ -225,11 +225,12 @@ mod tests {
 
     use super::*;
     use crate::field::goldilocks_field::GoldilocksField;
+    use crate::gadgets::interpolation::InterpolationGate;
     use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
     use crate::gates::base_sum::BaseSumGate;
     use crate::gates::constant::ConstantGate;
     use crate::gates::gmimc::GMiMCGate;
-    use crate::gates::interpolation::InterpolationGate;
+    use crate::gates::interpolation::HighDegreeInterpolationGate;
     use crate::gates::noop::NoopGate;
 
     #[test]
@@ -244,7 +245,7 @@ mod tests {
             GateRef::new(ArithmeticExtensionGate { num_ops: 4 }),
             GateRef::new(BaseSumGate::<4>::new(4)),
             GateRef::new(GMiMCGate::<F, D, 12>::new()),
-            GateRef::new(InterpolationGate::new(2)),
+            GateRef::new(HighDegreeInterpolationGate::new(2)),
         ];
 
         let (tree, _, _) = Tree::from_gates(gates.clone());

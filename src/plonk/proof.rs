@@ -310,6 +310,7 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::fri::reduction_strategies::FriReductionStrategy;
+    use crate::gates::noop::NoopGate;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
@@ -336,6 +337,9 @@ mod tests {
         let zt = builder.constant(z);
         let comp_zt = builder.mul(xt, yt);
         builder.connect(zt, comp_zt);
+        for _ in 0..100 {
+            builder.add_gate(NoopGate, vec![]);
+        }
         let data = builder.build();
         let proof = data.prove(pw)?;
         verify(proof.clone(), &data.verifier_only, &data.common)?;
