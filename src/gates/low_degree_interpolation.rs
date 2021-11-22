@@ -1,11 +1,12 @@
 use std::marker::PhantomData;
 use std::ops::Range;
 
-use crate::field::extension_field::algebra::{ExtensionAlgebra, PolynomialCoeffsAlgebra};
+use crate::field::extension_field::algebra::PolynomialCoeffsAlgebra;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::{Field, RichField};
 use crate::field::interpolation::interpolant;
+use crate::gadgets::interpolation::InterpolationGate;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -19,81 +20,13 @@ use crate::polynomial::polynomial::PolynomialCoeffs;
 /// Interpolates a polynomial, whose points are a (base field) coset of the multiplicative subgroup
 /// with the given size, and whose values are extension field elements, given by input wires.
 /// Outputs the evaluation of the interpolant at a given (extension field) evaluation point.
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub(crate) struct LowDegreeInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,
     _phantom: PhantomData<F>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> LowDegreeInterpolationGate<F, D> {
-    pub fn new(subgroup_bits: usize) -> Self {
-        Self {
-            subgroup_bits,
-            _phantom: PhantomData,
-        }
-    }
-
-    fn num_points(&self) -> usize {
-        1 << self.subgroup_bits
-    }
-
-    /// Wire index of the coset shift.
-    pub fn wire_shift(&self) -> usize {
-        0
-    }
-
-    fn start_values(&self) -> usize {
-        1
-    }
-
-    /// Wire indices of the `i`th interpolant value.
-    pub fn wires_value(&self, i: usize) -> Range<usize> {
-        debug_assert!(i < self.num_points());
-        let start = self.start_values() + i * D;
-        start..start + D
-    }
-
-    fn start_evaluation_point(&self) -> usize {
-        self.start_values() + self.num_points() * D
-    }
-
-    /// Wire indices of the point to evaluate the interpolant at.
-    pub fn wires_evaluation_point(&self) -> Range<usize> {
-        let start = self.start_evaluation_point();
-        start..start + D
-    }
-
-    fn start_evaluation_value(&self) -> usize {
-        self.start_evaluation_point() + D
-    }
-
-    /// Wire indices of the interpolated value.
-    pub fn wires_evaluation_value(&self) -> Range<usize> {
-        let start = self.start_evaluation_value();
-        start..start + D
-    }
-
-    fn start_coeffs(&self) -> usize {
-        self.start_evaluation_value() + D
-    }
-
-    /// The number of routed wires required in the typical usage of this gate, where the points to
-    /// interpolate, the evaluation point, and the corresponding value are all routed.
-    pub(crate) fn num_routed_wires(&self) -> usize {
-        self.start_coeffs()
-    }
-
-    /// Wire indices of the interpolant's `i`th coefficient.
-    pub fn wires_coeff(&self, i: usize) -> Range<usize> {
-        debug_assert!(i < self.num_points());
-        let start = self.start_coeffs() + i * D;
-        start..start + D
-    }
-
-    fn end_coeffs(&self) -> usize {
-        self.start_coeffs() + D * self.num_points()
-    }
-
     pub fn powers_init(&self, i: usize) -> usize {
         debug_assert!(0 < i && i < self.num_points());
         if i == 1 {
@@ -123,29 +56,77 @@ impl<F: RichField + Extendable<D>, const D: usize> LowDegreeInterpolationGate<F,
         // Speed matters here, so we avoid `cyclic_subgroup_coset_known_order` which allocates.
         g.powers().take(size).map(move |x| x * shift)
     }
+}
 
-    /// The domain of the points we're interpolating.
-    fn coset_ext(&self, shift: F::Extension) -> impl Iterator<Item = F::Extension> {
-        let g = F::primitive_root_of_unity(self.subgroup_bits);
-        let size = 1 << self.subgroup_bits;
-        g.powers().take(size).map(move |x| shift.scalar_mul(x))
+impl<F: RichField + Extendable<D>, const D: usize> InterpolationGate<F, D>
+    for LowDegreeInterpolationGate<F, D>
+{
+    fn new(subgroup_bits: usize) -> Self {
+        Self {
+            subgroup_bits,
+            _phantom: PhantomData,
+        }
     }
 
-    /// The domain of the points we're interpolating.
-    fn coset_ext_recursive(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        shift: ExtensionTarget<D>,
-    ) -> Vec<ExtensionTarget<D>> {
-        let g = F::primitive_root_of_unity(self.subgroup_bits);
-        let size = 1 << self.subgroup_bits;
-        g.powers()
-            .take(size)
-            .map(move |x| {
-                let subgroup_element = builder.constant(x.into());
-                builder.scalar_mul_ext(subgroup_element, shift)
-            })
-            .collect()
+    fn num_points(&self) -> usize {
+        1 << self.subgroup_bits
+    }
+
+    /// Wire index of the coset shift.
+    fn wire_shift(&self) -> usize {
+        0
+    }
+
+    fn start_values(&self) -> usize {
+        1
+    }
+
+    /// Wire indices of the `i`th interpolant value.
+    fn wires_value(&self, i: usize) -> Range<usize> {
+        debug_assert!(i < self.num_points());
+        let start = self.start_values() + i * D;
+        start..start + D
+    }
+
+    fn start_evaluation_point(&self) -> usize {
+        self.start_values() + self.num_points() * D
+    }
+
+    /// Wire indices of the point to evaluate the interpolant at.
+    fn wires_evaluation_point(&self) -> Range<usize> {
+        let start = self.start_evaluation_point();
+        start..start + D
+    }
+
+    fn start_evaluation_value(&self) -> usize {
+        self.start_evaluation_point() + D
+    }
+
+    /// Wire indices of the interpolated value.
+    fn wires_evaluation_value(&self) -> Range<usize> {
+        let start = self.start_evaluation_value();
+        start..start + D
+    }
+
+    fn start_coeffs(&self) -> usize {
+        self.start_evaluation_value() + D
+    }
+
+    /// The number of routed wires required in the typical usage of this gate, where the points to
+    /// interpolate, the evaluation point, and the corresponding value are all routed.
+    fn num_routed_wires(&self) -> usize {
+        self.start_coeffs()
+    }
+
+    /// Wire indices of the interpolant's `i`th coefficient.
+    fn wires_coeff(&self, i: usize) -> Range<usize> {
+        debug_assert!(i < self.num_points());
+        let start = self.start_coeffs() + i * D;
+        start..start + D
+    }
+
+    fn end_coeffs(&self) -> usize {
+        self.start_coeffs() + D * self.num_points()
     }
 }
 
@@ -186,7 +167,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
             constraints.extend(&(value - computed_value).to_basefield_array());
         }
 
-        let mut evaluation_point_powers = (1..self.num_points())
+        let evaluation_point_powers = (1..self.num_points())
             .map(|i| vars.get_local_ext_algebra(self.powers_eval(i)))
             .collect::<Vec<_>>();
         let evaluation_point = evaluation_point_powers[0];
@@ -408,11 +389,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         let wire_shift = get_local_wire(self.gate.wire_shift());
 
-        for i in 2..self.gate.num_points() {
-            out_buffer.set_wire(
-                local_wire(self.gate.powers_init(i)),
-                wire_shift.exp_u64(i as u64),
-            );
+        for (i, power) in wire_shift
+            .powers()
+            .take(self.gate.num_points())
+            .enumerate()
+            .skip(2)
+        {
+            out_buffer.set_wire(local_wire(self.gate.powers_init(i)), power);
         }
 
         // Compute the interpolant.
@@ -452,6 +435,7 @@ mod tests {
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
+    use crate::gadgets::interpolation::InterpolationGate;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
