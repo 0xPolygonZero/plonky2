@@ -1,8 +1,11 @@
+use itertools::Itertools;
+
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
 use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
+use crate::gates::multiplication_extension::MulExtensionGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -41,13 +44,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return result;
         }
 
+        let result = if self.target_as_constant_ext(addend) == Some(F::Extension::ZERO) {
+            // If the addend is zero, we use a multiplication gate.
+            self.compute_mul_extension_operation(operation)
+        } else {
+            // Otherwise, we use an arithmetic gate.
+            self.compute_arithmetic_extension_operation(operation)
+        };
         // Otherwise, we must actually perform the operation using an ArithmeticExtensionGate slot.
-        let result = self.add_arithmetic_extension_operation(operation);
         self.arithmetic_results.insert(operation, result);
         result
     }
 
-    fn add_arithmetic_extension_operation(
+    fn compute_arithmetic_extension_operation(
         &mut self,
         operation: ExtensionArithmeticOperation<F, D>,
     ) -> ExtensionTarget<D> {
@@ -68,6 +77,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect_extension(operation.addend, wires_addend);
 
         ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_output(i))
+    }
+
+    fn compute_mul_extension_operation(
+        &mut self,
+        operation: ExtensionArithmeticOperation<F, D>,
+    ) -> ExtensionTarget<D> {
+        let (gate, i) = self.find_mul_gate(operation.const_0);
+        let wires_multiplicand_0 =
+            ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_ith_multiplicand_0(i));
+        let wires_multiplicand_1 =
+            ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_ith_multiplicand_1(i));
+
+        self.connect_extension(operation.multiplicand_0, wires_multiplicand_0);
+        self.connect_extension(operation.multiplicand_1, wires_multiplicand_1);
+
+        ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_ith_output(i))
     }
 
     /// Checks for special cases where the value of
@@ -273,11 +298,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Multiply `n` `ExtensionTarget`s.
     pub fn mul_many_extension(&mut self, terms: &[ExtensionTarget<D>]) -> ExtensionTarget<D> {
-        let mut product = self.one_extension();
-        for &term in terms {
-            product = self.mul_extension(product, term);
-        }
-        product
+        terms
+            .iter()
+            .copied()
+            .fold1(|acc, t| self.mul_extension(acc, t))
+            .unwrap_or_else(|| self.one_extension())
     }
 
     /// Like `mul_add`, but for `ExtensionTarget`s.
