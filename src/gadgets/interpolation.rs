@@ -106,7 +106,6 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::extension_field::quadratic::QuadraticExtension;
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::extension_field::FieldExtension;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
