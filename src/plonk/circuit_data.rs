@@ -63,15 +63,15 @@ impl CircuitConfig {
             num_routed_wires: 80,
             constant_gate_size: 5,
             use_base_arithmetic_gate: true,
-            security_bits: 96,
+            security_bits: 100,
             rate_bits: 3,
             num_challenges: 2,
             zero_knowledge: false,
             cap_height: 4,
             fri_config: FriConfig {
-                proof_of_work_bits: 15,
+                proof_of_work_bits: 16,
                 reduction_strategy: FriReductionStrategy::ConstantArityBits(4, 5),
-                num_query_rounds: 27,
+                num_query_rounds: 28,
             },
         }
     }
