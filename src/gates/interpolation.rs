@@ -359,8 +359,17 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             F::Extension::from_basefield_array(arr)
         };
 
+        let wire_shift = get_local_wire(self.gate.wire_shift());
+
+        for i in 2..self.gate.num_points() {
+            out_buffer.set_wire(
+                local_wire(self.gate.powers_init(i)),
+                wire_shift.exp_u64(i as u64),
+            );
+        }
+
         // Compute the interpolant.
-        let points = self.gate.coset(get_local_wire(self.gate.wire_shift()));
+        let points = self.gate.coset(wire_shift);
         let points = points
             .into_iter()
             .enumerate()
@@ -374,6 +383,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         }
 
         let evaluation_point = get_local_ext(self.gate.wires_evaluation_point());
+        for i in 2..self.gate.num_points() {
+            out_buffer.set_extension_target(
+                ExtensionTarget::from_range(self.gate_index, self.gate.powers_eval(i)),
+                evaluation_point.exp_u64(i as u64),
+            );
+        }
         let evaluation_value = interpolant.eval(evaluation_point);
         let evaluation_value_wires = self.gate.wires_evaluation_value().map(local_wire);
         out_buffer.set_ext_wires(evaluation_value_wires, evaluation_value);
