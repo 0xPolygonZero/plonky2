@@ -161,6 +161,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
             .map(|i| vars.local_wires[self.powers_init(i)])
             .collect::<Vec<_>>();
         powers_init.insert(0, F::Extension::ONE);
+        let wire_shift = powers_init[1];
+        for i in 2..self.num_points() {
+            constraints.push(powers_init[i - 1] * wire_shift - powers_init[i]);
+        }
         let ocoeffs = coeffs
             .iter()
             .zip(powers_init)
@@ -181,6 +185,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
         let mut evaluation_point_powers = (1..self.num_points())
             .map(|i| vars.get_local_ext_algebra(self.powers_eval(i)))
             .collect::<Vec<_>>();
+        let evaluation_point = evaluation_point_powers[0];
+        for i in 1..self.num_points() - 1 {
+            constraints.extend(
+                (evaluation_point_powers[i - 1] * evaluation_point - evaluation_point_powers[i])
+                    .to_basefield_array(),
+            );
+        }
         let evaluation_value = vars.get_local_ext_algebra(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval_with_powers(&evaluation_point_powers);
         constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
@@ -198,6 +209,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
             .map(|i| vars.local_wires[self.powers_init(i)])
             .collect::<Vec<_>>();
         powers_init.insert(0, F::ONE);
+        let wire_shift = powers_init[1];
+        for i in 2..self.num_points() {
+            constraints.push(powers_init[i - 1] * wire_shift - powers_init[i]);
+        }
         let ocoeffs = coeffs
             .iter()
             .zip(powers_init)
@@ -218,6 +233,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
         let evaluation_point_powers = (1..self.num_points())
             .map(|i| vars.get_local_ext(self.powers_eval(i)))
             .collect::<Vec<_>>();
+        let evaluation_point = evaluation_point_powers[0];
+        for i in 1..self.num_points() - 1 {
+            constraints.extend(
+                (evaluation_point_powers[i - 1] * evaluation_point - evaluation_point_powers[i])
+                    .to_basefield_array(),
+            );
+        }
         let evaluation_value = vars.get_local_ext(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval_with_powers(&evaluation_point_powers);
         constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
@@ -239,6 +261,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
             .map(|i| vars.local_wires[self.powers_init(i)])
             .collect::<Vec<_>>();
         powers_init.insert(0, builder.one_extension());
+        let wire_shift = powers_init[1];
+        for i in 2..self.num_points() {
+            constraints.push(builder.mul_sub_extension(
+                powers_init[i - 1],
+                wire_shift,
+                powers_init[i],
+            ));
+        }
         let ocoeffs = coeffs
             .iter()
             .zip(powers_init)
@@ -264,6 +294,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
         let evaluation_point_powers = (1..self.num_points())
             .map(|i| vars.get_local_ext_algebra(self.powers_eval(i)))
             .collect::<Vec<_>>();
+        let evaluation_point = evaluation_point_powers[0];
+        for i in 1..self.num_points() - 1 {
+            let neg_one_ext = builder.neg_one_extension();
+            let neg_new_power =
+                builder.scalar_mul_ext_algebra(neg_one_ext, evaluation_point_powers[i]);
+            let constraint = builder.mul_add_ext_algebra(
+                evaluation_point,
+                evaluation_point_powers[i - 1],
+                neg_new_power,
+            );
+            constraints.extend(constraint.to_ext_target_array());
+        }
         let evaluation_value = vars.get_local_ext_algebra(self.wires_evaluation_value());
         let computed_evaluation_value =
             interpolant.eval_with_powers(builder, &evaluation_point_powers);
@@ -307,9 +349,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InterpolationG
     }
 
     fn num_constraints(&self) -> usize {
-        // num_points * D constraints to check for consistency between the coefficients and the
-        // point-value pairs, plus D constraints for the evaluation value.
-        self.num_points() * D + D
+        // `num_points * D` constraints to check for consistency between the coefficients and the
+        // point-value pairs, plus `D` constraints for the evaluation value, plus `(D+1)*(num_points-2)`
+        // to check power constraints for evaluation point and wire shift.
+        self.num_points() * D + D + (D + 1) * (self.num_points() - 2)
     }
 }
 
