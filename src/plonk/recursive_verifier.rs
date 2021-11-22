@@ -408,7 +408,7 @@ mod tests {
         type F = GoldilocksField;
         const D: usize = 2;
 
-        let standard_config = CircuitConfig::standard_recursion_config();
+        let standard_config = CircuitConfig::size_optimized_recursion_config();
 
         // An initial dummy proof.
         let (proof, vd, cd) = dummy_proof::<F, D>(&standard_config, 4_000)?;
@@ -456,7 +456,7 @@ mod tests {
             num_routed_wires: 25,
             fri_config: FriConfig {
                 proof_of_work_bits: 21,
-                reduction_strategy: FriReductionStrategy::MinSize(None),
+                reduction_strategy: FriReductionStrategy::MinSize(Some(3)),
                 num_query_rounds: 9,
             },
             ..high_rate_config
