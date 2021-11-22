@@ -46,17 +46,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let result = if self.target_as_constant_ext(addend) == Some(F::Extension::ZERO) {
             // If the addend is zero, we use a multiplication gate.
-            self.add_mul_extension_operation(operation)
+            self.compute_mul_extension_operation(operation)
         } else {
             // Otherwise, we use an arithmetic gate.
-            self.add_arithmetic_extension_operation(operation)
+            self.compute_arithmetic_extension_operation(operation)
         };
         // Otherwise, we must actually perform the operation using an ArithmeticExtensionGate slot.
         self.arithmetic_results.insert(operation, result);
         result
     }
 
-    fn add_arithmetic_extension_operation(
+    fn compute_arithmetic_extension_operation(
         &mut self,
         operation: ExtensionArithmeticOperation<F, D>,
     ) -> ExtensionTarget<D> {
@@ -79,7 +79,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         ExtensionTarget::from_range(gate, ArithmeticExtensionGate::<D>::wires_ith_output(i))
     }
 
-    fn add_mul_extension_operation(
+    fn compute_mul_extension_operation(
         &mut self,
         operation: ExtensionArithmeticOperation<F, D>,
     ) -> ExtensionTarget<D> {
