@@ -46,7 +46,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let coset_start = self.mul(start, x);
 
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
-        if 1 << arity_bits > common_data.quotient_degree_factor {
+        // `HighDegreeInterpolationGate` has degree `arity`, so we use the low-degree gate if
+        // the arity is too large.
+        if arity > common_data.quotient_degree_factor {
             self.interpolate_coset::<LowDegreeInterpolationGate<F, D>>(
                 arity_bits,
                 coset_start,
@@ -66,19 +68,28 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
     /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
     /// helpful errors.
-    fn check_recursion_config(&self, max_fri_arity_bits: usize) {
+    fn check_recursion_config(
+        &self,
+        max_fri_arity_bits: usize,
+        common_data: &CommonCircuitData<F, D>,
+    ) {
         let random_access = RandomAccessGate::<F, D>::new_from_config(
             &self.config,
             max_fri_arity_bits.max(self.config.cap_height),
         );
-        let interpolation_gate = HighDegreeInterpolationGate::<F, D>::new(max_fri_arity_bits);
+        let (interpolation_wires, interpolation_routed_wires) =
+            if 1 << max_fri_arity_bits > common_data.quotient_degree_factor {
+                let gate = LowDegreeInterpolationGate::<F, D>::new(max_fri_arity_bits);
+                (gate.num_wires(), gate.num_routed_wires())
+            } else {
+                let gate = HighDegreeInterpolationGate::<F, D>::new(max_fri_arity_bits);
+                (gate.num_wires(), gate.num_routed_wires())
+            };
 
-        let min_wires = random_access
-            .num_wires()
-            .max(interpolation_gate.num_wires());
+        let min_wires = random_access.num_wires().max(interpolation_wires);
         let min_routed_wires = random_access
             .num_routed_wires()
-            .max(interpolation_gate.num_routed_wires());
+            .max(interpolation_routed_wires);
 
         assert!(
             self.config.num_wires >= min_wires,
@@ -125,7 +136,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let config = &common_data.config;
 
         if let Some(max_arity_bits) = common_data.fri_params.max_arity_bits() {
-            self.check_recursion_config(max_arity_bits);
+            self.check_recursion_config(max_arity_bits, common_data);
         }
 
         debug_assert_eq!(

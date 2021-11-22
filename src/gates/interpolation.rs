@@ -17,9 +17,8 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 
-/// Interpolates a polynomial, whose points are a (base field) coset of the multiplicative subgroup
-/// with the given size, and whose values are extension field elements, given by input wires.
-/// Outputs the evaluation of the interpolant at a given (extension field) evaluation point.
+/// Interpolation gate with constraints of degree at most `1<<subgroup_bits`.
+/// `eval_unfiltered_recursively` uses less gates than `LowDegreeInterpolationGate`.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct HighDegreeInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,

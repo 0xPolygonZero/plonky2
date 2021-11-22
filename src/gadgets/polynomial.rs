@@ -64,6 +64,8 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
         }
         acc
     }
+
+    /// Evaluate the polynomial at a point given its powers. The first power is the point itself, not 1.
     pub fn eval_with_powers<F>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -78,10 +80,5 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
             .iter()
             .zip(powers)
             .fold(acc, |acc, (&x, &c)| builder.mul_add_ext_algebra(c, x, acc))
-        // let mut acc = builder.zero_ext_algebra();
-        // for &c in self.0.iter().rev() {
-        //     acc = builder.mul_add_ext_algebra(point, acc, c);
-        // }
-        // acc
     }
 }

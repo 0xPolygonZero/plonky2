@@ -7,6 +7,9 @@ use crate::gates::gate::Gate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
+/// Trait for gates which interpolate a polynomial, whose points are a (base field) coset of the multiplicative subgroup
+/// with the given size, and whose values are extension field elements, given by input wires.
+/// Outputs the evaluation of the interpolant at a given (extension field) evaluation point.
 pub(crate) trait InterpolationGate<F: RichField + Extendable<D>, const D: usize>:
     Gate<F, D> + Copy
 {

@@ -17,9 +17,8 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::polynomial::polynomial::PolynomialCoeffs;
 
-/// Interpolates a polynomial, whose points are a (base field) coset of the multiplicative subgroup
-/// with the given size, and whose values are extension field elements, given by input wires.
-/// Outputs the evaluation of the interpolant at a given (extension field) evaluation point.
+/// Interpolation gate with constraints of degree 2.
+/// `eval_unfiltered_recursively` uses more gates than `HighDegreeInterpolationGate`.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct LowDegreeInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,
@@ -344,7 +343,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
     fn num_constraints(&self) -> usize {
         // `num_points * D` constraints to check for consistency between the coefficients and the
         // point-value pairs, plus `D` constraints for the evaluation value, plus `(D+1)*(num_points-2)`
-        // to check power constraints for evaluation point and wire shift.
+        // to check power constraints for evaluation point and shift.
         self.num_points() * D + D + (D + 1) * (self.num_points() - 2)
     }
 }

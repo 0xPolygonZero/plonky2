@@ -120,6 +120,7 @@ impl<F: Field> PolynomialCoeffs<F> {
             .fold(F::ZERO, |acc, &c| acc * x + c)
     }
 
+    /// Evaluate the polynomial at a point given its powers. The first power is the point itself, not 1.
     pub fn eval_with_powers(&self, powers: &[F]) -> F {
         debug_assert_eq!(self.coeffs.len(), powers.len() + 1);
         let acc = self.coeffs[0];
@@ -139,6 +140,7 @@ impl<F: Field> PolynomialCoeffs<F> {
             .fold(F::ZERO, |acc, &c| acc.scalar_mul(x) + c)
     }
 
+    /// Evaluate the polynomial at a point given its powers. The first power is the point itself, not 1.
     pub fn eval_base_with_powers<const D: usize>(&self, powers: &[F::BaseField]) -> F
     where
         F: FieldExtension<D>,

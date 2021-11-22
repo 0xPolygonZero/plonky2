@@ -66,17 +66,6 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
             .collect()
     );
 
-    // let rows = (0..degree)
-    //     .map(|i| wires_values.iter().map(|w| w.values[i]).collect::<Vec<_>>())
-    //     .collect::<Vec<_>>();
-    // for (i, r) in rows.iter().enumerate() {
-    //     let c = rows.iter().filter(|&x| x == r).count();
-    //     let s = prover_data.instances[i].gate_ref.0.id();
-    //     if c > 1 && !s.starts_with("Noop") {
-    //         println!("{} {} {}", prover_data.instances[i].gate_ref.0.id(), i, c);
-    //     }
-    // }
-
     let wires_commitment = timed!(
         timing,
         "compute wires commitment",
