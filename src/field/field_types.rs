@@ -174,7 +174,7 @@ pub trait Field:
 
         for i in (WIDTH..n).rev() {
             // buf[i - WIDTH] has not been written to by this loop, so it equals
-            // x[i % WIDTH] * x[i % WIDTH + WIDTH] + ... + x[i - WIDTH].
+            // x[i % WIDTH] * x[i % WIDTH + WIDTH] * ... * x[i - WIDTH].
             buf[i] = buf[i - WIDTH] * a_inv[i % WIDTH];
             // buf[i] now holds the inverse of x[i].
             a_inv[i % WIDTH] *= x[i];
