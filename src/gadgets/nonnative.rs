@@ -10,6 +10,7 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::util::ceil_div_usize;
 
 #[derive(Clone, Debug)]
 pub struct NonNativeTarget<FF: Field> {
@@ -19,11 +20,7 @@ pub struct NonNativeTarget<FF: Field> {
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn num_nonnative_limbs<FF: Field>() -> usize {
-        let ff_size = FF::order();
-        let f_size = F::order();
-        let num_limbs = ((ff_size + f_size.clone() - BigUint::one()) / f_size).to_u32_digits()[0];
-
-        num_limbs as usize
+        ceil_div_usize(FF::BITS, 32)
     }
 
     pub fn biguint_to_nonnative<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {

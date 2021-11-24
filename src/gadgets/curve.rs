@@ -1,4 +1,4 @@
-use crate::curve::curve_types::{AffinePoint, Curve};
+use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::gadgets::nonnative::NonNativeTarget;
@@ -157,41 +157,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         MulPrecomputationTarget { powers }
     }
 
-    /*fn to_digits<C: Curve>(&mut self, x: &NonNativeTarget<C::ScalarField>) -> Vec<NonNativeTarget<C::ScalarField>> {
-        debug_assert!(
-            64 % WINDOW_BITS == 0,
-            "For simplicity, only power-of-two window sizes are handled for now"
-        );
-
-        let base = self.constant_nonnative(C::ScalarField::from_canonical_u64(BASE as u64));
-
-        let num_digits = digits_per_scalar::<C>();
-        let mut digits = Vec::with_capacity(num_digits);
-
-        let (rest, limb) = self.div_rem_nonnative(&x, &base);
-        for _ in 0..num_digits {
-            digits.push(limb);
-
-            let (rest, limb) = self.div_rem_nonnative(&rest, &base);
-        }
-
-        digits
-    }
-
-    pub fn mul_with_precomputation<C: Curve>(
-        &mut self,
-        p: &AffinePointTarget<C>,
-        n: &NonNativeTarget<C::ScalarField>,
-        precomputation: MulPrecomputationTarget<C>,
-    ) -> AffinePointTarget<C> {
-        // Yao's method; see https://koclab.cs.ucsb.edu/teaching/ecc/eccPapers/Doche-ch09.pdf
-        let precomputed_powers = precomputation.powers;
-
-        let digits = self.to_digits(n);
-
-
-    }*/
-
     pub fn curve_scalar_mul<C: Curve>(
         &mut self,
         p: &AffinePointTarget<C>,
@@ -203,9 +168,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let bits_as_base: Vec<NonNativeTarget<C::BaseField>> =
             bits.iter().map(|b| self.bool_to_nonnative(b)).collect();
 
-        // Result starts at p, which is later subtracted, because we don't support arithmetic with the zero point.
+        let rando = (CurveScalar(C::ScalarField::rand()) * C::GENERATOR_PROJECTIVE).to_affine();
+        let randot = self.constant_affine_point(rando);
+        // Result starts at `rando`, which is later subtracted, because we don't support arithmetic with the zero point.
         let mut result = self.add_virtual_affine_point_target();
-        self.connect_affine_point(p, &result);
+        self.connect_affine_point(&randot, &result);
+
         let mut two_i_times_p = self.add_virtual_affine_point_target();
         self.connect_affine_point(p, &two_i_times_p);
 
@@ -232,9 +200,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             two_i_times_p = self.curve_double(&two_i_times_p);
         }
 
-        // Subtract off result's intial value of p.
-        let neg_p = self.curve_neg(&p);
-        result = self.curve_add(&result, &neg_p);
+        // Subtract off result's intial value of `rando`.
+        let neg_r = self.curve_neg(&randot);
+        result = self.curve_add(&result, &neg_r);
 
         result
     }
@@ -394,9 +362,9 @@ mod tests {
         let g_target = builder.constant_affine_point(g);
         let five_target = builder.constant_nonnative(five);
         let five_g_actual = builder.curve_scalar_mul(&g_target, &five_target);
-        /*builder.curve_assert_valid(&five_g_actual);
+        builder.curve_assert_valid(&five_g_actual);
 
-        builder.connect_affine_point(&five_g_expected, &five_g_actual);*/
+        builder.connect_affine_point(&five_g_expected, &five_g_actual);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
