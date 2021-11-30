@@ -5,14 +5,16 @@ use array_tool::vec::Union;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
+use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
+use crate::gates::simd_util::{EvaluationVarsBaseSimd, SimdGateBase};
 use crate::iop::generator::{GeneratedValues, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 
 /// A gate for conditionally swapping input values based on a boolean.
 #[derive(Clone, Debug)]
@@ -94,27 +96,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, 
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(self.num_constraints());
-
-        for c in 0..self.num_copies {
-            let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
-            let not_switch = F::ONE - switch_bool;
-
-            for e in 0..self.chunk_size {
-                let first_input = vars.local_wires[self.wire_first_input(c, e)];
-                let second_input = vars.local_wires[self.wire_second_input(c, e)];
-                let first_output = vars.local_wires[self.wire_first_output(c, e)];
-                let second_output = vars.local_wires[self.wire_second_output(c, e)];
-
-                constraints.push(switch_bool * (first_input - second_output));
-                constraints.push(switch_bool * (second_input - first_output));
-                constraints.push(not_switch * (first_input - first_output));
-                constraints.push(not_switch * (second_input - second_output));
-            }
-        }
-
-        constraints
+    fn eval_unfiltered_base_batch(&self, vars: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        self.eval_unfiltered_base_batch_simd(vars)
     }
 
     fn eval_unfiltered_recursively(
@@ -190,6 +173,31 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, 
 
     fn num_constraints(&self) -> usize {
         4 * self.num_copies * self.chunk_size
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> SimdGateBase<F, D> for SwitchGate<F, D> {
+    fn eval_unfiltered_base_simd<P: PackedField<FieldType = F>, Y: FnMut(P)>(
+        &self,
+        vars: EvaluationVarsBaseSimd<P>,
+        mut yield_constr: Y,
+    ) {
+        for c in 0..self.num_copies {
+            let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
+            let not_switch = P::one() - switch_bool;
+
+            for e in 0..self.chunk_size {
+                let first_input = vars.local_wires[self.wire_first_input(c, e)];
+                let second_input = vars.local_wires[self.wire_second_input(c, e)];
+                let first_output = vars.local_wires[self.wire_first_output(c, e)];
+                let second_output = vars.local_wires[self.wire_second_output(c, e)];
+
+                yield_constr(switch_bool * (first_input - second_output));
+                yield_constr(switch_bool * (second_input - first_output));
+                yield_constr(not_switch * (first_input - first_output));
+                yield_constr(not_switch * (second_input - second_output));
+            }
+        }
     }
 }
 

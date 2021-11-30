@@ -7,7 +7,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common;
 use crate::plonk::plonk_common::{eval_l_1_recursively, ZeroPolyOnCoset};
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 use crate::util::partial_products::{check_partial_products, check_partial_products_recursively};
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
@@ -91,7 +91,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
     common_data: &CommonCircuitData<F, D>,
     indices_batch: &[usize],
     xs_batch: &[F],
-    vars_batch: &[EvaluationVarsBase<F>],
+    vars_batch: EvaluationVarsBaseBatch<F>,
     local_zs_batch: &[&[F]],
     next_zs_batch: &[&[F]],
     partial_products_batch: &[&[F]],
@@ -103,7 +103,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
 ) -> Vec<Vec<F>> {
     let n = indices_batch.len();
     assert_eq!(xs_batch.len(), n);
-    assert_eq!(vars_batch.len(), n);
+    assert_eq!(vars_batch.batch_size, n);
     assert_eq!(local_zs_batch.len(), n);
     assert_eq!(next_zs_batch.len(), n);
     assert_eq!(partial_products_batch.len(), n);
@@ -130,10 +130,10 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
     let mut vanishing_partial_products_terms = Vec::new();
 
     let mut res_batch: Vec<Vec<F>> = Vec::with_capacity(n);
-    for k in 0..n {
+    for (k, vars_owned) in vars_batch.iter().enumerate() {
+        let vars = vars_owned.copyable();
         let index = indices_batch[k];
         let x = xs_batch[k];
-        let vars = vars_batch[k];
         let local_zs = local_zs_batch[k];
         let next_zs = next_zs_batch[k];
         let partial_products = partial_products_batch[k];
@@ -216,32 +216,28 @@ pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
 
 /// Evaluate all gate constraints in the base field.
 ///
-/// Returns a vector of num_gate_constraints * vars_batch.len() field elements. The constraints
+/// Returns a vector of num_gate_constraints * vars_batch.batch_size field elements. The constraints
 /// corresponding to vars_batch[i] are found in
 /// result[num_gate_constraints * i..num_gate_constraints * (i + 1)].
 pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const D: usize>(
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
-    vars_batch: &[EvaluationVarsBase<F>],
+    vars_batch: EvaluationVarsBaseBatch<F>,
 ) -> Vec<F> {
-    let mut constraints_batch = vec![F::ZERO; num_gate_constraints * vars_batch.len()];
+    let mut constraints_batch = vec![F::ZERO; num_gate_constraints * vars_batch.batch_size];
     for gate in gates {
         let gate_constraints_batch = gate
             .gate
             .0
             .eval_filtered_base_batch(vars_batch, &gate.prefix);
-        for (constraints, gate_constraints) in constraints_batch
-            .chunks_exact_mut(num_gate_constraints)
-            .zip(gate_constraints_batch.iter())
-        {
-            debug_assert!(
-                gate_constraints.len() <= constraints.len(),
-                "num_constraints() gave too low of a number"
-            );
-            for (constraint, &gate_constraint) in
-                constraints.iter_mut().zip(gate_constraints.iter())
-            {
-                *constraint += gate_constraint;
+        debug_assert!(
+            gate_constraints_batch.len() <= constraints_batch.len(),
+            "num_constraints() gave too low of a number"
+        );
+        for i in 0..vars_batch.batch_size {
+            for j in 0..gate.gate.0.num_constraints() {
+                constraints_batch[num_gate_constraints * i + j] +=
+                    gate_constraints_batch[j * vars_batch.batch_size + i];
             }
         }
     }

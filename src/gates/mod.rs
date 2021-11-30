@@ -21,6 +21,7 @@ pub(crate) mod public_input;
 pub mod random_access;
 pub mod reducing;
 pub mod reducing_extension;
+mod simd_util;
 pub mod subtraction_u32;
 pub mod switch;
 

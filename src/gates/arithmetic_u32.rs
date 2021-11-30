@@ -5,13 +5,15 @@ use itertools::unfold;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
+use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
+use crate::gates::simd_util::{EvaluationVarsBaseSimd, SimdGateBase};
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 
 /// Number of arithmetic operations performed by an arithmetic gate.
 pub const NUM_U32_ARITHMETIC_OPS: usize = 3;
@@ -112,46 +114,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(self.num_constraints());
-        for i in 0..NUM_U32_ARITHMETIC_OPS {
-            let multiplicand_0 = vars.local_wires[Self::wire_ith_multiplicand_0(i)];
-            let multiplicand_1 = vars.local_wires[Self::wire_ith_multiplicand_1(i)];
-            let addend = vars.local_wires[Self::wire_ith_addend(i)];
-
-            let computed_output = multiplicand_0 * multiplicand_1 + addend;
-
-            let output_low = vars.local_wires[Self::wire_ith_output_low_half(i)];
-            let output_high = vars.local_wires[Self::wire_ith_output_high_half(i)];
-
-            let base = F::from_canonical_u64(1 << 32u64);
-            let combined_output = output_high * base + output_low;
-
-            constraints.push(combined_output - computed_output);
-
-            let mut combined_low_limbs = F::ZERO;
-            let mut combined_high_limbs = F::ZERO;
-            let midpoint = Self::num_limbs() / 2;
-            let base = F::from_canonical_u64(1u64 << Self::limb_bits());
-            for j in (0..Self::num_limbs()).rev() {
-                let this_limb = vars.local_wires[Self::wire_ith_output_jth_limb(i, j)];
-                let max_limb = 1 << Self::limb_bits();
-                let product = (0..max_limb)
-                    .map(|x| this_limb - F::from_canonical_usize(x))
-                    .product();
-                constraints.push(product);
-
-                if j < midpoint {
-                    combined_low_limbs = base * combined_low_limbs + this_limb;
-                } else {
-                    combined_high_limbs = base * combined_high_limbs + this_limb;
-                }
-            }
-            constraints.push(combined_low_limbs - output_low);
-            constraints.push(combined_high_limbs - output_high);
-        }
-
-        constraints
+    fn eval_unfiltered_base_batch(&self, vars: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        self.eval_unfiltered_base_batch_simd(vars)
     }
 
     fn eval_unfiltered_recursively(
@@ -324,6 +288,51 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
                 self.i, j,
             ));
             out_buffer.set_wire(wire, output_limbs_f[j]);
+        }
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> SimdGateBase<F, D> for U32ArithmeticGate<F, D> {
+    fn eval_unfiltered_base_simd<P: PackedField<FieldType = F>, Y: FnMut(P)>(
+        &self,
+        vars: EvaluationVarsBaseSimd<P>,
+        mut yield_constr: Y,
+    ) {
+        for i in 0..NUM_U32_ARITHMETIC_OPS {
+            let multiplicand_0 = vars.local_wires[Self::wire_ith_multiplicand_0(i)];
+            let multiplicand_1 = vars.local_wires[Self::wire_ith_multiplicand_1(i)];
+            let addend = vars.local_wires[Self::wire_ith_addend(i)];
+
+            let computed_output = multiplicand_0 * multiplicand_1 + addend;
+
+            let output_low = vars.local_wires[Self::wire_ith_output_low_half(i)];
+            let output_high = vars.local_wires[Self::wire_ith_output_high_half(i)];
+
+            let base = F::from_canonical_u64(1 << 32u64);
+            let combined_output = output_high * base + output_low;
+
+            yield_constr(combined_output - computed_output);
+
+            let mut combined_low_limbs = P::zero();
+            let mut combined_high_limbs = P::zero();
+            let midpoint = Self::num_limbs() / 2;
+            let base = F::from_canonical_u64(1u64 << Self::limb_bits());
+            for j in (0..Self::num_limbs()).rev() {
+                let this_limb = vars.local_wires[Self::wire_ith_output_jth_limb(i, j)];
+                let max_limb = 1 << Self::limb_bits();
+                let product = (0..max_limb)
+                    .map(|x| this_limb - F::from_canonical_usize(x))
+                    .product();
+                yield_constr(product);
+
+                if j < midpoint {
+                    combined_low_limbs = combined_low_limbs * base + this_limb;
+                } else {
+                    combined_high_limbs = combined_high_limbs * base + this_limb;
+                }
+            }
+            yield_constr(combined_low_limbs - output_low);
+            yield_constr(combined_high_limbs - output_high);
         }
     }
 }

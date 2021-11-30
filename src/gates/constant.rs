@@ -3,13 +3,15 @@ use std::ops::Range;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
+use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
+use crate::gates::simd_util::{EvaluationVarsBaseSimd, SimdGateBase};
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::PartitionWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 
 /// A gate which takes a single constant parameter and outputs that value.
 #[derive(Copy, Clone, Debug)]
@@ -39,11 +41,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
             .collect()
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        self.consts_inputs()
-            .zip(self.wires_outputs())
-            .map(|(con, out)| vars.local_constants[con] - vars.local_wires[out])
-            .collect()
+    fn eval_unfiltered_base_batch(&self, vars: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        self.eval_unfiltered_base_batch_simd(vars)
     }
 
     fn eval_unfiltered_recursively(
@@ -86,6 +85,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
 
     fn num_constraints(&self) -> usize {
         self.num_consts
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> SimdGateBase<F, D> for ConstantGate {
+    fn eval_unfiltered_base_simd<P: PackedField<FieldType = F>, Y: FnMut(P)>(
+        &self,
+        vars: EvaluationVarsBaseSimd<P>,
+        yield_constr: Y,
+    ) {
+        self.consts_inputs()
+            .zip(self.wires_outputs())
+            .map(|(con, out)| vars.local_constants[con] - vars.local_wires[out])
+            .for_each(yield_constr);
     }
 }
 

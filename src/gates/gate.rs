@@ -8,7 +8,9 @@ use crate::field::field_types::{Field, RichField};
 use crate::gates::gate_tree::Tree;
 use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{
+    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
+};
 
 /// A custom gate.
 pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + Sync {
@@ -49,6 +51,17 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             .collect()
     }
 
+    fn eval_unfiltered_base_batch(&self, vars_base: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        let mut res = vec![F::ZERO; vars_base.batch_size * self.num_constraints()];
+        for (i, vars_base_one) in vars_base.iter().enumerate() {
+            let res_one = self.eval_unfiltered_base(vars_base_one.copyable());
+            for (j, &constraint) in res_one.iter().enumerate() {
+                res[j * vars_base.batch_size + i] = constraint;
+            }
+        }
+        res
+    }
+
     fn eval_unfiltered_recursively(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -64,26 +77,25 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             .collect()
     }
 
-    /// Like `eval_filtered`, but specialized for points in the base field.
-    fn eval_filtered_base(&self, mut vars: EvaluationVarsBase<F>, prefix: &[bool]) -> Vec<F> {
-        let filter = compute_filter(prefix, vars.local_constants);
-        vars.remove_prefix(prefix);
-        let mut res = self.eval_unfiltered_base(vars);
-        res.iter_mut().for_each(|c| {
-            *c *= filter;
-        });
-        res
-    }
-
+    /// The result is an array of length vars_batch.len() * self.num_constraints(). Constraint j for
+    /// point i is at index j * batch_size + i.
     fn eval_filtered_base_batch(
         &self,
-        vars_batch: &[EvaluationVarsBase<F>],
+        mut vars_batch: EvaluationVarsBaseBatch<F>,
         prefix: &[bool],
-    ) -> Vec<Vec<F>> {
-        vars_batch
+    ) -> Vec<F> {
+        let filters: Vec<_> = vars_batch
             .iter()
-            .map(|&vars| self.eval_filtered_base(vars, prefix))
-            .collect()
+            .map(|vars| compute_filter(prefix, vars.copyable().local_constants))
+            .collect();
+        vars_batch.remove_prefix(prefix);
+        let mut res_batch = self.eval_unfiltered_base_batch(vars_batch);
+        for res_chunk in res_batch.chunks_exact_mut(filters.len()) {
+            for (res, &filter) in res_chunk.iter_mut().zip(&filters[..]) {
+                *res *= filter;
+            }
+        }
+        res_batch
     }
 
     /// Adds this gate's filtered constraints into the `combined_gate_constraints` buffer.

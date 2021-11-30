@@ -1,13 +1,15 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
+use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
+use crate::gates::simd_util::{EvaluationVarsBaseSimd, SimdGateBase};
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 
 /// A gate which can perform a weighted multiply-add, i.e. `result = c0 x y + c1 z`. If the config
 /// supports enough routed wires, it can support several such operations in one gate.
@@ -67,22 +69,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticGate
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let const_0 = vars.local_constants[0];
-        let const_1 = vars.local_constants[1];
-
-        let mut constraints = Vec::new();
-        for i in 0..self.num_ops {
-            let multiplicand_0 = vars.local_wires[Self::wire_ith_multiplicand_0(i)];
-            let multiplicand_1 = vars.local_wires[Self::wire_ith_multiplicand_1(i)];
-            let addend = vars.local_wires[Self::wire_ith_addend(i)];
-            let output = vars.local_wires[Self::wire_ith_output(i)];
-            let computed_output = multiplicand_0 * multiplicand_1 * const_0 + addend * const_1;
-
-            constraints.push(output - computed_output);
-        }
-
-        constraints
+    fn eval_unfiltered_base_batch(&self, vars: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        self.eval_unfiltered_base_batch_simd(vars)
     }
 
     fn eval_unfiltered_recursively(
@@ -186,6 +174,27 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             multiplicand_0 * multiplicand_1 * self.const_0 + addend * self.const_1;
 
         out_buffer.set_target(output_target, computed_output)
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> SimdGateBase<F, D> for ArithmeticGate {
+    fn eval_unfiltered_base_simd<P: PackedField<FieldType = F>, Y: FnMut(P)>(
+        &self,
+        vars: EvaluationVarsBaseSimd<P>,
+        mut yield_constr: Y,
+    ) {
+        let const_0 = vars.local_constants[0];
+        let const_1 = vars.local_constants[1];
+
+        for i in 0..self.num_ops {
+            let multiplicand_0 = vars.local_wires[Self::wire_ith_multiplicand_0(i)];
+            let multiplicand_1 = vars.local_wires[Self::wire_ith_multiplicand_1(i)];
+            let addend = vars.local_wires[Self::wire_ith_addend(i)];
+            let output = vars.local_wires[Self::wire_ith_output(i)];
+            let computed_output = multiplicand_0 * multiplicand_1 * const_0 + addend * const_1;
+
+            yield_constr(output - computed_output);
+        }
     }
 }
 
