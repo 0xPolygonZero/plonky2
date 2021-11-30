@@ -261,17 +261,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
-        let mut deps = Vec::with_capacity(3);
-        deps.push(local_target(
-            U32ArithmeticGate::<F, D>::wire_ith_multiplicand_0(self.i),
-        ));
-        deps.push(local_target(
-            U32ArithmeticGate::<F, D>::wire_ith_multiplicand_1(self.i),
-        ));
-        deps.push(local_target(U32ArithmeticGate::<F, D>::wire_ith_addend(
-            self.i,
-        )));
-        deps
+        vec![
+            local_target(U32ArithmeticGate::<F, D>::wire_ith_multiplicand_0(self.i)),
+            local_target(U32ArithmeticGate::<F, D>::wire_ith_multiplicand_1(self.i)),
+            local_target(U32ArithmeticGate::<F, D>::wire_ith_addend(self.i)),
+        ]
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
@@ -307,23 +301,19 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         let num_limbs = U32ArithmeticGate::<F, D>::num_limbs();
         let limb_base = 1 << U32ArithmeticGate::<F, D>::limb_bits();
-        let output_limbs_u64: Vec<_> = unfold((), move |_| {
+        let output_limbs_u64 = unfold((), move |_| {
             let ret = output_u64 % limb_base;
             output_u64 /= limb_base;
             Some(ret)
         })
-        .take(num_limbs)
-        .collect();
-        let output_limbs_f: Vec<_> = output_limbs_u64
-            .into_iter()
-            .map(F::from_canonical_u64)
-            .collect();
+        .take(num_limbs);
+        let output_limbs_f = output_limbs_u64.map(F::from_canonical_u64);
 
-        for j in 0..num_limbs {
+        for (j, output_limb) in output_limbs_f.enumerate() {
             let wire = local_wire(U32ArithmeticGate::<F, D>::wire_ith_output_jth_limb(
                 self.i, j,
             ));
-            out_buffer.set_wire(wire, output_limbs_f[j]);
+            out_buffer.set_wire(wire, output_limb);
         }
     }
 }

@@ -38,12 +38,12 @@ fn fft_dispatch<F: Field>(
     zero_factor: Option<usize>,
     root_table: Option<&FftRootTable<F>>,
 ) -> Vec<F> {
-    let computed_root_table = if let Some(_) = root_table {
+    let computed_root_table = if root_table.is_some() {
         None
     } else {
         Some(fft_root_table(input.len()))
     };
-    let used_root_table = root_table.or(computed_root_table.as_ref()).unwrap();
+    let used_root_table = root_table.or_else(|| computed_root_table.as_ref()).unwrap();
 
     fft_classic(input, zero_factor.unwrap_or(0), used_root_table)
 }
@@ -122,8 +122,8 @@ fn fft_classic_simd<P: PackedField>(
 
             // Set omega to root_table[lg_half_m][0..half_m] but repeated.
             let mut omega_vec = P::zero().to_vec();
-            for j in 0..omega_vec.len() {
-                omega_vec[j] = root_table[lg_half_m][j % half_m];
+            for (j, omega) in omega_vec.iter_mut().enumerate() {
+                *omega = root_table[lg_half_m][j % half_m];
             }
             let omega = P::from_slice(&omega_vec[..]);
 
@@ -201,9 +201,9 @@ pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: &FftRootT
     if lg_n <= lg_packed_width {
         // Need the slice to be at least the width of two packed vectors for the vectorized version
         // to work. Do this tiny problem in scalar.
-        fft_classic_simd::<Singleton<F>>(&mut values[..], r, lg_n, &root_table);
+        fft_classic_simd::<Singleton<F>>(&mut values[..], r, lg_n, root_table);
     } else {
-        fft_classic_simd::<<F as Packable>::PackedType>(&mut values[..], r, lg_n, &root_table);
+        fft_classic_simd::<<F as Packable>::PackedType>(&mut values[..], r, lg_n, root_table);
     }
     values
 }
@@ -267,7 +267,7 @@ mod tests {
 
         let values = subgroup
             .into_iter()
-            .map(|x| evaluate_at_naive(&coefficients, x))
+            .map(|x| evaluate_at_naive(coefficients, x))
             .collect();
         PolynomialValues::new(values)
     }
@@ -276,8 +276,8 @@ mod tests {
         let mut sum = F::ZERO;
         let mut point_power = F::ONE;
         for &c in &coefficients.coeffs {
-            sum = sum + c * point_power;
-            point_power = point_power * point;
+            sum += c * point_power;
+            point_power *= point;
         }
         sum
     }

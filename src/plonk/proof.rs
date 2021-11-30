@@ -138,11 +138,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CompressedProof<F, D> {
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
             openings,
-            opening_proof: opening_proof.decompress(
-                &challenges,
-                fri_inferred_elements,
-                common_data,
-            ),
+            opening_proof: opening_proof.decompress(challenges, fri_inferred_elements, common_data),
         }
     }
 }

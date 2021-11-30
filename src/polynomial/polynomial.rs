@@ -441,7 +441,7 @@ mod tests {
         assert_eq!(coset_evals, naive_coset_evals);
 
         let ifft_coeffs = PolynomialValues::new(coset_evals).coset_ifft(shift);
-        assert_eq!(poly, ifft_coeffs.into());
+        assert_eq!(poly, ifft_coeffs);
     }
 
     #[test]

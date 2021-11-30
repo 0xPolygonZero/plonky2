@@ -72,7 +72,7 @@ impl<F: RichField + Extendable<D>, const D: usize> HighDegreeInterpolationGate<F
         g.powers()
             .take(size)
             .map(move |x| {
-                let subgroup_element = builder.constant(x.into());
+                let subgroup_element = builder.constant(x);
                 builder.scalar_mul_ext(subgroup_element, shift)
             })
             .collect()

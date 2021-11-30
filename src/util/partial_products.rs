@@ -13,7 +13,7 @@ pub(crate) fn quotient_chunk_products<F: Field>(
     max_degree: usize,
 ) -> Vec<F> {
     debug_assert!(max_degree > 1);
-    assert!(quotient_values.len() > 0);
+    assert!(!quotient_values.is_empty());
     let chunk_size = max_degree;
     quotient_values
         .chunks(chunk_size)
@@ -24,7 +24,7 @@ pub(crate) fn quotient_chunk_products<F: Field>(
 /// Compute partial products of the original vector `v` such that all products consist of `max_degree`
 /// or less elements. This is done until we've computed the product `P` of all elements in the vector.
 pub(crate) fn partial_products_and_z_gx<F: Field>(z_x: F, quotient_chunk_products: &[F]) -> Vec<F> {
-    assert!(quotient_chunk_products.len() > 0);
+    assert!(!quotient_chunk_products.is_empty());
     let mut res = Vec::new();
     let mut acc = z_x;
     for &quotient_chunk_product in quotient_chunk_products {

@@ -634,7 +634,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Precompute FFT roots.
         let max_fft_points =
-            1 << degree_bits + max(self.config.rate_bits, log2_ceil(quotient_degree_factor));
+            1 << (degree_bits + max(self.config.rate_bits, log2_ceil(quotient_degree_factor)));
         let fft_root_table = fft_root_table(max_fft_points);
 
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
@@ -669,7 +669,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 let watch_rep_index = forest.parents[watch_index];
                 generator_indices_by_watches
                     .entry(watch_rep_index)
-                    .or_insert(vec![])
+                    .or_insert_with(Vec::new)
                     .push(i);
             }
         }

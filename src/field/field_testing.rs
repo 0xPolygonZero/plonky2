@@ -1,3 +1,4 @@
+#![allow(clippy::eq_op)]
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::Frobenius;
 use crate::field::field_types::Field;

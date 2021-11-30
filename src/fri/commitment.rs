@@ -216,7 +216,7 @@ impl<F: RichField> PolynomialBatchCommitment<F> {
             lde_final_poly,
             lde_final_values,
             challenger,
-            &common_data,
+            common_data,
             timing,
         );
 

@@ -244,17 +244,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
-        let mut deps = Vec::with_capacity(3);
-        deps.push(local_target(U32SubtractionGate::<F, D>::wire_ith_input_x(
-            self.i,
-        )));
-        deps.push(local_target(U32SubtractionGate::<F, D>::wire_ith_input_y(
-            self.i,
-        )));
-        deps.push(local_target(
-            U32SubtractionGate::<F, D>::wire_ith_input_borrow(self.i),
-        ));
-        deps
+        vec![
+            local_target(U32SubtractionGate::<F, D>::wire_ith_input_x(self.i)),
+            local_target(U32SubtractionGate::<F, D>::wire_ith_input_y(self.i)),
+            local_target(U32SubtractionGate::<F, D>::wire_ith_input_borrow(self.i)),
+        ]
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
