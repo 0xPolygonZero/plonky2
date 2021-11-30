@@ -10,7 +10,7 @@ use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::proof::OpeningSet;
-use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::timed;
 use crate::util::reducing::ReducingFactor;
 use crate::util::timing::TimingTree;

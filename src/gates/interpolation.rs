@@ -15,7 +15,7 @@ use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::polynomial::PolynomialCoeffs;
 
 /// Interpolation gate with constraints of degree at most `1<<subgroup_bits`.
 /// `eval_unfiltered_recursively` uses less gates than `LowDegreeInterpolationGate`.
@@ -283,7 +283,7 @@ mod tests {
     use crate::gates::interpolation::HighDegreeInterpolationGate;
     use crate::hash::hash_types::HashOut;
     use crate::plonk::vars::EvaluationVars;
-    use crate::polynomial::polynomial::PolynomialCoeffs;
+    use crate::polynomial::PolynomialCoeffs;
 
     #[test]
     fn wire_indices() {

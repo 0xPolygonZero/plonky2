@@ -15,7 +15,7 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common::PolynomialsIndexBlinding;
 use crate::plonk::proof::{FriInferredElements, ProofChallenges};
-use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::polynomial::PolynomialCoeffs;
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]

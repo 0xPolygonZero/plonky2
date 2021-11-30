@@ -8,7 +8,7 @@ use crate::gates::reducing::ReducingGate;
 use crate::gates::reducing_extension::ReducingExtensionGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::polynomial::PolynomialCoeffs;
 
 /// When verifying the composition polynomial in FRI we have to compute sums of the form
 /// `(sum_0^k a^i * x_i)/d_0 + (sum_k^r a^i * y_i)/d_1`

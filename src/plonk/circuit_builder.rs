@@ -40,7 +40,7 @@ use crate::plonk::circuit_data::{
 use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkPolynomials;
-use crate::polynomial::polynomial::PolynomialValues;
+use crate::polynomial::PolynomialValues;
 use crate::util::context_tree::ContextTree;
 use crate::util::marking::{Markable, MarkedTargets};
 use crate::util::partial_products::num_partial_products;

@@ -6,7 +6,7 @@ use unroll::unroll_for_loops;
 use crate::field::field_types::Field;
 use crate::field::packable::Packable;
 use crate::field::packed_field::{PackedField, Singleton};
-use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_strict, reverse_index_bits};
 
 pub(crate) type FftRootTable<F> = Vec<Vec<F>>;
@@ -213,7 +213,7 @@ mod tests {
     use crate::field::fft::{fft, fft_with_options, ifft};
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
-    use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+    use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
     use crate::util::{log2_ceil, log2_strict};
 
     #[test]
