@@ -50,3 +50,10 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
+
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-features --all-targets -- -D warnings
+
