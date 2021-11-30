@@ -183,7 +183,7 @@ impl<C: Curve> ProjectivePoint<C> {
         let zz = z.square();
         let mut w = xx.triple();
         if C::A.is_nonzero() {
-            w = w + C::A * zz;
+            w += C::A * zz;
         }
         let s = y.double() * z;
         let r = y * s;

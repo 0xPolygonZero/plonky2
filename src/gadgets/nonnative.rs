@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use num::{BigUint, One, Zero};
+use num::{BigUint, Zero};
 
 use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
@@ -115,7 +115,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             _phantom: PhantomData,
         });
 
-        let product = self.mul_nonnative(&x, &inv);
+        let product = self.mul_nonnative(x, &inv);
         let one = self.constant_nonnative(FF::ONE);
         self.connect_nonnative(&product, &one);
 

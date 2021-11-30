@@ -152,7 +152,7 @@ pub fn affine_multisummation_batch_inversion<C: Curve>(
                     // This is the doubling case.
                     let mut numerator = x1.square().triple();
                     if C::A.is_nonzero() {
-                        numerator = numerator + C::A;
+                        numerator += C::A;
                     }
                     let quotient = numerator * inverse;
                     let x3 = quotient.square() - x1.double();

@@ -134,7 +134,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> AffinePointTarget<C> {
         let one = self.constant_nonnative(C::BaseField::ONE);
 
-        let bits = self.split_nonnative_to_bits(&n);
+        let bits = self.split_nonnative_to_bits(n);
         let bits_as_base: Vec<NonNativeTarget<C::BaseField>> =
             bits.iter().map(|b| self.bool_to_nonnative(b)).collect();
 
@@ -173,9 +173,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
+#[cfg(test)]
 mod tests {
-    use std::ops::{Mul, Neg};
-
     use anyhow::Result;
 
     use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};

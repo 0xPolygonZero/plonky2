@@ -1,7 +1,6 @@
 use std::ops::Mul;
 
-use crate::curve::curve_summation::affine_multisummation_batch_inversion;
-use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar, ProjectivePoint};
+use crate::curve::curve_types::{Curve, CurveScalar, ProjectivePoint};
 use crate::field::field_types::Field;
 
 const WINDOW_BITS: usize = 4;
