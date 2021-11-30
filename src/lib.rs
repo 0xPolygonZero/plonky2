@@ -3,7 +3,6 @@
 #![allow(clippy::new_without_default)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::len_without_is_empty)]
-#![allow(clippy::module_inception)]
 #![allow(clippy::needless_range_loop)]
 #![feature(asm)]
 #![feature(asm_sym)]
