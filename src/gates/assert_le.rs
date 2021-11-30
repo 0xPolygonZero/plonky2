@@ -340,10 +340,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
-        let mut deps = Vec::new();
-        deps.push(local_target(self.gate.wire_first_input()));
-        deps.push(local_target(self.gate.wire_second_input()));
-        deps
+        vec![
+            local_target(self.gate.wire_first_input()),
+            local_target(self.gate.wire_second_input()),
+        ]
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
@@ -555,7 +555,7 @@ mod tests {
         };
 
         let mut rng = rand::thread_rng();
-        let max: u64 = 1 << num_bits - 1;
+        let max: u64 = 1 << (num_bits - 1);
         let first_input_u64 = rng.gen_range(0..max);
         let second_input_u64 = {
             let mut val = rng.gen_range(0..max);

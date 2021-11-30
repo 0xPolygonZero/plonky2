@@ -527,7 +527,7 @@ mod tests {
             &inner_vd.constants_sigmas_cap,
         );
 
-        builder.add_recursive_verifier(pt, &inner_config, &inner_data, &inner_cd);
+        builder.add_recursive_verifier(pt, inner_config, &inner_data, &inner_cd);
 
         if print_gate_counts {
             builder.print_gate_counts(0);
@@ -563,12 +563,12 @@ mod tests {
     ) -> Result<()> {
         let proof_bytes = proof.to_bytes()?;
         info!("Proof length: {} bytes", proof_bytes.len());
-        let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, &cd)?;
+        let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;
         assert_eq!(proof, &proof_from_bytes);
 
         let now = std::time::Instant::now();
-        let compressed_proof = proof.clone().compress(&cd)?;
-        let decompressed_compressed_proof = compressed_proof.clone().decompress(&cd)?;
+        let compressed_proof = proof.clone().compress(cd)?;
+        let decompressed_compressed_proof = compressed_proof.clone().decompress(cd)?;
         info!("{:.4}s to compress proof", now.elapsed().as_secs_f64());
         assert_eq!(proof, &decompressed_compressed_proof);
 
@@ -578,7 +578,7 @@ mod tests {
             compressed_proof_bytes.len()
         );
         let compressed_proof_from_bytes =
-            CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, &cd)?;
+            CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, cd)?;
         assert_eq!(compressed_proof, compressed_proof_from_bytes);
 
         Ok(())

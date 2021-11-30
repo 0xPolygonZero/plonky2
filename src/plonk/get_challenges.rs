@@ -13,7 +13,7 @@ use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, FriInferredElements, OpeningSet, Proof,
     ProofChallenges, ProofWithPublicInputs,
 };
-use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::polynomial::PolynomialCoeffs;
 use crate::util::reverse_bits;
 
 fn get_challenges<F: RichField + Extendable<D>, const D: usize>(

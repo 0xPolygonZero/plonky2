@@ -263,8 +263,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
-        let mut deps = Vec::new();
-        deps.push(local_target(self.gate.wire_access_index(self.copy)));
+        let mut deps = vec![local_target(self.gate.wire_access_index(self.copy))];
         for i in 0..self.gate.vec_size() {
             deps.push(local_target(self.gate.wire_list_item(i, self.copy)));
         }

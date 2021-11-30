@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use crate::field::field_types::Field;
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
-use crate::polynomial::polynomial::PolynomialValues;
+use crate::polynomial::PolynomialValues;
 
 /// Disjoint Set Forest data-structure following https://en.wikipedia.org/wiki/Disjoint-set_data_structure.
 pub struct Forest {

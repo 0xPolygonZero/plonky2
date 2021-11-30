@@ -88,6 +88,7 @@ macro_rules! test_field_arithmetic {
     };
 }
 
+#[allow(clippy::eq_op)]
 pub(crate) fn test_add_neg_sub_mul<BF: Extendable<D>, const D: usize>() {
     let x = BF::Extension::rand();
     let y = BF::Extension::rand();

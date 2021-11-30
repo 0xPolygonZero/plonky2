@@ -110,9 +110,7 @@ pub fn hash_n_to_m<F: RichField>(mut inputs: Vec<F>, num_outputs: usize, pad: bo
 
     // Absorb all input chunks.
     for input_chunk in inputs.chunks(SPONGE_RATE) {
-        for i in 0..input_chunk.len() {
-            state[i] = input_chunk[i];
-        }
+        state[..input_chunk.len()].copy_from_slice(input_chunk);
         state = permute(state);
     }
 

@@ -151,10 +151,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             .collect();
 
         // Range-check the bits.
-        for i in 0..most_significant_diff_bits.len() {
-            constraints.push(
-                most_significant_diff_bits[i] * (F::Extension::ONE - most_significant_diff_bits[i]),
-            );
+        for &bit in &most_significant_diff_bits {
+            constraints.push(bit * (F::Extension::ONE - bit));
         }
 
         let bits_combined = reduce_with_powers(&most_significant_diff_bits, F::Extension::TWO);
@@ -232,9 +230,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             .collect();
 
         // Range-check the bits.
-        for i in 0..most_significant_diff_bits.len() {
-            constraints
-                .push(most_significant_diff_bits[i] * (F::ONE - most_significant_diff_bits[i]));
+        for &bit in &most_significant_diff_bits {
+            constraints.push(bit * (F::ONE - bit));
         }
 
         let bits_combined = reduce_with_powers(&most_significant_diff_bits, F::TWO);
@@ -324,8 +321,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             .collect();
 
         // Range-check the bits.
-        for i in 0..most_significant_diff_bits.len() {
-            let this_bit = most_significant_diff_bits[i];
+        for &this_bit in &most_significant_diff_bits {
             let inverse = builder.sub_extension(one, this_bit);
             constraints.push(builder.mul_extension(this_bit, inverse));
         }
@@ -388,10 +384,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
-        let mut deps = Vec::new();
-        deps.push(local_target(self.gate.wire_first_input()));
-        deps.push(local_target(self.gate.wire_second_input()));
-        deps
+        vec![
+            local_target(self.gate.wire_first_input()),
+            local_target(self.gate.wire_second_input()),
+        ]
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
@@ -638,7 +634,7 @@ mod tests {
         };
 
         let mut rng = rand::thread_rng();
-        let max: u64 = 1 << num_bits - 1;
+        let max: u64 = 1 << (num_bits - 1);
         let first_input_u64 = rng.gen_range(0..max);
         let second_input_u64 = {
             let mut val = rng.gen_range(0..max);

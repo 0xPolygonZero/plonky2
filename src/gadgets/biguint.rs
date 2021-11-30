@@ -142,9 +142,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut combined_limbs = vec![];
         let mut carry = self.zero_u32();
-        for i in 0..total_limbs {
-            to_add[i].push(carry);
-            let (new_result, new_carry) = self.add_many_u32(&to_add[i].clone());
+        for summands in &mut to_add {
+            summands.push(carry);
+            let (new_result, new_carry) = self.add_many_u32(summands);
             combined_limbs.push(new_result);
             carry = new_carry;
         }
@@ -172,9 +172,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             _phantom: PhantomData,
         });
 
-        let div_b = self.mul_biguint(&div, &b);
+        let div_b = self.mul_biguint(&div, b);
         let div_b_plus_rem = self.add_biguint(&div_b, &rem);
-        self.connect_biguint(&a, &div_b_plus_rem);
+        self.connect_biguint(a, &div_b_plus_rem);
 
         let cmp_rem_b = self.cmp_biguint(&rem, b);
         self.assert_one(cmp_rem_b.target);

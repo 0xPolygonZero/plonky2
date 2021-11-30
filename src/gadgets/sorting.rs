@@ -224,7 +224,7 @@ mod tests {
             izip!(is_write_vals, address_vals, timestamp_vals, value_vals)
                 .zip(combined_vals_u64)
                 .collect::<Vec<_>>();
-        input_ops_and_keys.sort_by_key(|(_, val)| val.clone());
+        input_ops_and_keys.sort_by_key(|(_, val)| *val);
         let input_ops_sorted: Vec<_> = input_ops_and_keys.iter().map(|(x, _)| x).collect();
 
         let output_ops =

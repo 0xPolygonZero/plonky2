@@ -378,7 +378,7 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let lst: Vec<F> = (0..size * 2).map(|n| F::from_canonical_usize(n)).collect();
+        let lst: Vec<F> = (0..size * 2).map(F::from_canonical_usize).collect();
         let a: Vec<Vec<Target>> = lst[..]
             .chunks(2)
             .map(|pair| vec![builder.constant(pair[0]), builder.constant(pair[1])])

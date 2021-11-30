@@ -407,7 +407,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     arity_bits,
                     evals,
                     betas[i],
-                    &common_data
+                    common_data
                 )
             );
 

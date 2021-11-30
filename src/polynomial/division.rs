@@ -1,5 +1,5 @@
 use crate::field::field_types::Field;
-use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::polynomial::PolynomialCoeffs;
 use crate::util::log2_ceil;
 
 impl<F: Field> PolynomialCoeffs<F> {
@@ -129,7 +129,7 @@ mod tests {
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
-    use crate::polynomial::polynomial::PolynomialCoeffs;
+    use crate::polynomial::PolynomialCoeffs;
 
     #[test]
     #[ignore]

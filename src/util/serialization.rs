@@ -15,7 +15,7 @@ use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, OpeningSet, Proof, ProofWithPublicInputs,
 };
-use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::polynomial::PolynomialCoeffs;
 
 #[derive(Debug)]
 pub struct Buffer(Cursor<Vec<u8>>);

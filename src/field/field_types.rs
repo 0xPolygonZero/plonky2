@@ -335,7 +335,7 @@ pub trait Field:
     }
 
     fn kth_root_u64(&self, k: u64) -> Self {
-        let p = Self::order().clone();
+        let p = Self::order();
         let p_minus_1 = &p - 1u32;
         debug_assert!(
             Self::is_monomial_permutation_u64(k),
@@ -422,6 +422,7 @@ pub trait PrimeField: Field {
         unsafe { self.sub_canonical_u64(1) }
     }
 
+    /// # Safety
     /// Equivalent to *self + Self::from_canonical_u64(rhs), but may be cheaper. The caller must
     /// ensure that 0 <= rhs < Self::ORDER. The function may return incorrect results if this
     /// precondition is not met. It is marked unsafe for this reason.
@@ -431,6 +432,7 @@ pub trait PrimeField: Field {
         *self + Self::from_canonical_u64(rhs)
     }
 
+    /// # Safety
     /// Equivalent to *self - Self::from_canonical_u64(rhs), but may be cheaper. The caller must
     /// ensure that 0 <= rhs < Self::ORDER. The function may return incorrect results if this
     /// precondition is not met. It is marked unsafe for this reason.
