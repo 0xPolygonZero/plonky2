@@ -16,23 +16,22 @@ fn digits_per_scalar<C: Curve>() -> usize {
 #[derive(Clone)]
 pub struct MultiplicationPrecomputation<C: Curve> {
     /// [(2^w)^i] g for each i < digits_per_scalar.
-    powers: Vec<AffinePoint<C>>,
+    powers: Vec<ProjectivePoint<C>>,
 }
 
 impl<C: Curve> ProjectivePoint<C> {
     pub fn mul_precompute(&self) -> MultiplicationPrecomputation<C> {
         let num_digits = digits_per_scalar::<C>();
-        let mut powers_proj = Vec::with_capacity(num_digits);
-        powers_proj.push(*self);
+        let mut powers = Vec::with_capacity(num_digits);
+        powers.push(*self);
         for i in 1..num_digits {
-            let mut power_i_proj = powers_proj[i - 1];
+            let mut power_i = powers[i - 1];
             for _j in 0..WINDOW_BITS {
-                power_i_proj = power_i_proj.double();
+                power_i = power_i.double();
             }
-            powers_proj.push(power_i_proj);
+            powers.push(power_i);
         }
 
-        let powers = ProjectivePoint::batch_to_affine(&powers_proj);
         MultiplicationPrecomputation { powers }
     }
 
@@ -59,7 +58,11 @@ impl<C: Curve> ProjectivePoint<C> {
             all_summands.push(u_summands);
         }
 
-        let all_sums = affine_multisummation_batch_inversion(all_summands);
+        let all_sums: Vec<ProjectivePoint<C>> = all_summands
+            .iter()
+            .cloned()
+            .map(|vec| vec.iter().fold(ProjectivePoint::ZERO, |a, &b| a + b))
+            .collect();
         for i in 0..all_sums.len() {
             u = u + all_sums[i];
             y = y + u;
