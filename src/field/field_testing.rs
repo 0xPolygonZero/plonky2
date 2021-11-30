@@ -84,6 +84,19 @@ macro_rules! test_field_arithmetic {
                 assert_eq!(base.exp_biguint(&pow), base.exp_biguint(&big_pow));
                 assert_ne!(base.exp_biguint(&pow), base.exp_biguint(&big_pow_wrong));
             }
+
+            #[test]
+            fn inverses() {
+                type F = $field;
+
+                let x = F::rand();
+                let x1 = x.inverse();
+                let x2 = x1.inverse();
+                let x3 = x2.inverse();
+
+                assert_eq!(x, x2);
+                assert_eq!(x1, x3);
+            }
         }
     };
 }

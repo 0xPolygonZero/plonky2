@@ -80,7 +80,7 @@ impl Field for Secp256K1Scalar {
     const NEG_ONE: Self = Self([
         0xBFD25E8CD0364140,
         0xBAAEDCE6AF48A03B,
-        0xFFFFFFFFFFFFFC2F,
+        0xFFFFFFFFFFFFFFFE,
         0xFFFFFFFFFFFFFFFF,
     ]);
 
@@ -105,7 +105,7 @@ impl Field for Secp256K1Scalar {
 
     fn order() -> BigUint {
         BigUint::from_slice(&[
-            0xD0364141, 0xBFD25E8C, 0xAF48A03B, 0xBAAEDCE6, 0xFFFFFC2F, 0xFFFFFFFF, 0xFFFFFFFF,
+            0xD0364141, 0xBFD25E8C, 0xAF48A03B, 0xBAAEDCE6, 0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF,
             0xFFFFFFFF,
         ])
     }
@@ -250,4 +250,11 @@ impl DivAssign for Secp256K1Scalar {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_field_arithmetic;
+
+    test_field_arithmetic!(crate::field::secp256k1_scalar::Secp256K1Scalar);
 }

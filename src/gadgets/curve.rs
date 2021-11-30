@@ -18,17 +18,6 @@ impl<C: Curve> AffinePointTarget<C> {
     }
 }
 
-const WINDOW_BITS: usize = 4;
-const BASE: usize = 1 << WINDOW_BITS;
-
-fn digits_per_scalar<C: Curve>() -> usize {
-    (C::ScalarField::BITS + WINDOW_BITS - 1) / WINDOW_BITS
-}
-
-pub struct MulPrecomputationTarget<C: Curve> {
-    powers: Vec<AffinePointTarget<C>>,
-}
-
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn constant_affine_point<C: Curve>(
         &mut self,
@@ -138,25 +127,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn mul_precompute<C: Curve>(
-        &mut self,
-        p: &AffinePointTarget<C>,
-    ) -> MulPrecomputationTarget<C> {
-        let num_digits = digits_per_scalar::<C>();
-
-        let mut powers = Vec::with_capacity(num_digits);
-        powers.push(p.clone());
-        for i in 1..num_digits {
-            let mut power_i = powers[i - 1].clone();
-            for _j in 0..WINDOW_BITS {
-                power_i = self.curve_double(&power_i);
-            }
-            powers.push(power_i);
-        }
-
-        MulPrecomputationTarget { powers }
-    }
-
     pub fn curve_scalar_mul<C: Curve>(
         &mut self,
         p: &AffinePointTarget<C>,
@@ -182,15 +152,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
             let result_plus_2_i_p = self.curve_add(&result, &two_i_times_p);
 
-            let result_x = result.x;
-            let result_y = result.y;
-            let result_plus_2_i_p_x = result_plus_2_i_p.x;
-            let result_plus_2_i_p_y = result_plus_2_i_p.y;
-
-            let new_x_if_bit = self.mul_nonnative(bit, &result_plus_2_i_p_x);
-            let new_x_if_not_bit = self.mul_nonnative(&not_bit, &result_x);
-            let new_y_if_bit = self.mul_nonnative(bit, &result_plus_2_i_p_y);
-            let new_y_if_not_bit = self.mul_nonnative(&not_bit, &result_y);
+            let new_x_if_bit = self.mul_nonnative(bit, &result_plus_2_i_p.x);
+            let new_x_if_not_bit = self.mul_nonnative(&not_bit, &result.x);
+            let new_y_if_bit = self.mul_nonnative(bit, &result_plus_2_i_p.y);
+            let new_y_if_not_bit = self.mul_nonnative(&not_bit, &result.y);
 
             let new_x = self.add_nonnative(&new_x_if_bit, &new_x_if_not_bit);
             let new_y = self.add_nonnative(&new_y_if_bit, &new_y_if_not_bit);
@@ -365,6 +330,34 @@ mod tests {
         builder.curve_assert_valid(&five_g_actual);
 
         builder.connect_affine_point(&five_g_expected, &five_g_actual);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_curve_random() -> Result<()> {
+        type F = GoldilocksField;
+        const D: usize = 4;
+
+        let config = CircuitConfig {
+            num_routed_wires: 33,
+            ..CircuitConfig::standard_recursion_config()
+        };
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let rando =
+            (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
+        let randot = builder.constant_affine_point(rando);
+
+        let two_target = builder.constant_nonnative(Secp256K1Scalar::TWO);
+        let randot_doubled = builder.curve_double(&randot);
+        let randot_times_two = builder.curve_scalar_mul(&randot, &two_target);
+        builder.connect_affine_point(&randot_doubled, &randot_times_two);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
