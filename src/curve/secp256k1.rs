@@ -57,16 +57,6 @@ mod tests {
         assert!(neg_g.is_valid());
     }
 
-    /*#[test]
-    fn test_double_affine() {
-        for i in 0..100 {
-            //let p = blake_hash_usize_to_curve::<Secp256K1>(i);
-            assert_eq!(
-                p.double(),
-                p.to_projective().double().to_affine());
-        }
-    }*/
-
     #[test]
     fn test_naive_multiplication() {
         let g = Secp256K1::GENERATOR_PROJECTIVE;
