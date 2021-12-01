@@ -5,7 +5,7 @@ use unroll::unroll_for_loops;
 
 use crate::field::field_types::Field;
 use crate::field::packable::Packable;
-use crate::field::packed_field::{PackedField, Singleton};
+use crate::field::packed_field::PackedField;
 use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_strict, reverse_index_bits};
 
@@ -201,7 +201,7 @@ pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: &FftRootT
     if lg_n <= lg_packed_width {
         // Need the slice to be at least the width of two packed vectors for the vectorized version
         // to work. Do this tiny problem in scalar.
-        fft_classic_simd::<Singleton<F>>(&mut values[..], r, lg_n, root_table);
+        fft_classic_simd::<F>(&mut values[..], r, lg_n, root_table);
     } else {
         fft_classic_simd::<<F as Packable>::PackedType>(&mut values[..], r, lg_n, root_table);
     }
