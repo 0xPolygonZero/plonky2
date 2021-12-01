@@ -3,9 +3,6 @@ use crate::field::field_types::Field;
 use crate::field::secp256k1_base::Secp256K1Base;
 use crate::field::secp256k1_scalar::Secp256K1Scalar;
 
-// Parameters taken from the implementation of Bls12-377 in Zexe found here:
-// https://github.com/scipr-lab/zexe/blob/master/algebra/src/curves/bls12_377/g1.rs
-
 #[derive(Debug, Copy, Clone)]
 pub struct Secp256K1;
 
