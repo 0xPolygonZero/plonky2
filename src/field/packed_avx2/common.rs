@@ -3,7 +3,20 @@ use core::arch::x86_64::*;
 use crate::field::field_types::PrimeField;
 
 pub trait ReducibleAVX2: PrimeField {
-    unsafe fn reduce128s_s(x_s: (__m256i, __m256i)) -> __m256i;
+    unsafe fn reduce128(x: (__m256i, __m256i)) -> __m256i;
+}
+
+const SIGN_BIT: u64 = 1 << 63;
+
+#[inline]
+unsafe fn sign_bit() -> __m256i {
+    _mm256_set1_epi64x(SIGN_BIT as i64)
+}
+
+/// Add 2^63 with overflow. Needed to emulate unsigned comparisons (see point 3. above).
+#[inline]
+pub unsafe fn shift(x: __m256i) -> __m256i {
+    _mm256_xor_si256(x, sign_bit())
 }
 
 #[inline]
