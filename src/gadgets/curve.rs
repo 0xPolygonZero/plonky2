@@ -304,6 +304,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_curve_mul() -> Result<()> {
         type F = GoldilocksField;
         const D: usize = 4;
@@ -337,6 +338,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_curve_random() -> Result<()> {
         type F = GoldilocksField;
         const D: usize = 4;
