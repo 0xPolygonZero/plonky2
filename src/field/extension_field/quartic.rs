@@ -69,6 +69,8 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
     const POWER_OF_TWO_GENERATOR: Self = Self(F::EXT_POWER_OF_TWO_GENERATOR);
 
+    const BITS: usize = F::BITS * 4;
+
     fn order() -> BigUint {
         F::order().pow(4u32)
     }

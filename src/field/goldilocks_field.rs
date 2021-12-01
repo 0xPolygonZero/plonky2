@@ -82,6 +82,8 @@ impl Field for GoldilocksField {
     // ```
     const POWER_OF_TWO_GENERATOR: Self = Self(1753635133440165772);
 
+    const BITS: usize = 64;
+
     fn order() -> BigUint {
         Self::ORDER.into()
     }

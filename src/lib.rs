@@ -11,6 +11,7 @@
 #![feature(specialization)]
 #![feature(stdsimd)]
 
+pub mod curve;
 pub mod field;
 pub mod fri;
 pub mod gadgets;

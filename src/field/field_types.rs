@@ -59,6 +59,8 @@ pub trait Field:
     /// Generator of a multiplicative subgroup of order `2^TWO_ADICITY`.
     const POWER_OF_TWO_GENERATOR: Self;
 
+    const BITS: usize;
+
     fn order() -> BigUint;
 
     #[inline]
@@ -89,6 +91,10 @@ pub trait Field:
     #[inline]
     fn cube(&self) -> Self {
         self.square() * *self
+    }
+
+    fn triple(&self) -> Self {
+        *self * (Self::ONE + Self::TWO)
     }
 
     /// Compute the multiplicative inverse of this field element.

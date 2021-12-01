@@ -91,6 +91,8 @@ impl Field for Secp256K1Base {
     // Sage: `g_2 = g^((p - 1) / 2)`
     const POWER_OF_TWO_GENERATOR: Self = Self::NEG_ONE;
 
+    const BITS: usize = 256;
+
     fn order() -> BigUint {
         BigUint::from_slice(&[
             0xFFFFFC2F, 0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
@@ -238,4 +240,11 @@ impl DivAssign for Secp256K1Base {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_field_arithmetic;
+
+    test_field_arithmetic!(crate::field::secp256k1_base::Secp256K1Base);
 }

@@ -67,6 +67,8 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
     const POWER_OF_TWO_GENERATOR: Self = Self(F::EXT_POWER_OF_TWO_GENERATOR);
 
+    const BITS: usize = F::BITS * 2;
+
     fn order() -> BigUint {
         F::order() * F::order()
     }

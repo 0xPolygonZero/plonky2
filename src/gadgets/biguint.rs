@@ -110,8 +110,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     // Subtract two `BigUintTarget`s. We assume that the first is larger than the second.
     pub fn sub_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
-        let num_limbs = a.limbs.len();
         let (a, b) = self.pad_biguints(a, b);
+        let num_limbs = a.limbs.len();
 
         let mut result_limbs = vec![];
 
@@ -155,14 +155,31 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    // Returns x * y + z. This is no more efficient than mul-then-add; it's purely for convenience (only need to call one CircuitBuilder function).
+    pub fn mul_add_biguint(
+        &mut self,
+        x: &BigUintTarget,
+        y: &BigUintTarget,
+        z: &BigUintTarget,
+    ) -> BigUintTarget {
+        let prod = self.mul_biguint(x, y);
+        self.add_biguint(&prod, z)
+    }
+
     pub fn div_rem_biguint(
         &mut self,
         a: &BigUintTarget,
         b: &BigUintTarget,
     ) -> (BigUintTarget, BigUintTarget) {
-        let num_limbs = a.limbs.len();
-        let div = self.add_virtual_biguint_target(num_limbs);
-        let rem = self.add_virtual_biguint_target(num_limbs);
+        let a_len = a.limbs.len();
+        let b_len = b.limbs.len();
+        let div_num_limbs = if b_len > a_len + 1 {
+            0
+        } else {
+            a_len - b_len + 1
+        };
+        let div = self.add_virtual_biguint_target(div_num_limbs);
+        let rem = self.add_virtual_biguint_target(b_len);
 
         self.add_simple_generator(BigUintDivRemGenerator::<F, D> {
             a: a.clone(),
