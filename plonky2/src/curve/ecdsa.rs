@@ -46,16 +46,11 @@ pub fn hash_to_bits<F: RichField>(x: F, num_bits: usize) -> Vec<bool> {
 
 pub fn sign_message<F: RichField, C: Curve>(msg: F, sk: ECDSASecretKey<C>) -> ECDSASignature<C> {
     let h = hash_to_scalar::<F, C>(msg, 32);
-    println!("SIGNING   h: {:?}", h);
 
     let k = C::ScalarField::rand();
     let rr = (CurveScalar(k) * C::GENERATOR_PROJECTIVE).to_affine();
     let r = base_to_scalar::<C>(rr.x);
     let s = k.inverse() * (h + r * sk.0);
-
-    println!("SIGNING            s: {:?}", s);
-    println!("SIGNING         s^-1: {:?}", s.inverse());
-    println!("SIGNING      s^-1^-1: {:?}", s.inverse().inverse());
 
     ECDSASignature { r, s }
 }
@@ -68,11 +63,8 @@ pub fn verify_message<F: RichField, C: Curve>(
     let ECDSASignature { r, s } = sig;
 
     let h = hash_to_scalar::<F, C>(msg, 32);
-    println!("VERIFYING h: {:?}", h);
 
     let c = s.inverse();
-
-    println!("VERIFYING c^-1: {:?}", c.inverse());
     let u1 = h * c;
     let u2 = r * c;
 
