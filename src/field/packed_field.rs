@@ -1,5 +1,4 @@
-use std::fmt;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
