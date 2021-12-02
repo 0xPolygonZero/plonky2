@@ -25,9 +25,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.split_le(hashed, num_bits)
     }
 
-    pub fn hash_to_scalar<C: Curve>(&mut self, x: Target, num_bits: usize) -> NonNativeTarget<C::ScalarField> {
+    pub fn hash_to_scalar<C: Curve>(
+        &mut self,
+        x: Target,
+        num_bits: usize,
+    ) -> NonNativeTarget<C::ScalarField> {
         let h_bits = self.hash_to_bits(x, num_bits);
-        
+
         let two = self.two();
         let mut rev_bits = h_bits.iter().rev();
         let mut sum = rev_bits.next().unwrap().target;
@@ -35,9 +39,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             sum = self.mul_add(two, sum, bit.target);
         }
         let limbs = vec![U32Target(sum)];
-        let value = BigUintTarget {
-            limbs,
-        };
+        let value = BigUintTarget { limbs };
 
         NonNativeTarget {
             value,
@@ -45,7 +47,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn verify_message<C: Curve>(&mut self, msg: Target, sig: ECDSASignatureTarget<C>, pk: ECDSAPublicKeyTarget<C>) {
+    pub fn verify_message<C: Curve>(
+        &mut self,
+        msg: Target,
+        sig: ECDSASignatureTarget<C>,
+        pk: ECDSAPublicKeyTarget<C>,
+    ) {
         let ECDSASignatureTarget { r, s } = sig;
 
         let h = self.hash_to_scalar::<C>(msg, 32);
@@ -72,7 +79,7 @@ mod tests {
     use anyhow::Result;
 
     use crate::curve::curve_types::{Curve, CurveScalar};
-    use crate::curve::ecdsa::{ECDSAPublicKey, ECDSASecretKey, ECDSASignature, sign_message};
+    use crate::curve::ecdsa::{sign_message, ECDSAPublicKey, ECDSASecretKey, ECDSASignature};
     use crate::curve::secp256k1::Secp256K1;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
@@ -96,7 +103,7 @@ mod tests {
 
         let msg = F::rand();
         let msg_target = builder.constant(msg);
-        
+
         let sk = ECDSASecretKey::<C>(Secp256K1Scalar::rand());
         let pk = ECDSAPublicKey((CurveScalar(sk.0) * C::GENERATOR_PROJECTIVE).to_affine());
 
