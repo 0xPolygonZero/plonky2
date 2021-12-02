@@ -24,7 +24,7 @@ use crate::gates::multiplication_extension::MulExtensionGate;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
 use crate::gates::random_access::RandomAccessGate;
-use crate::gates::subtraction_u32::{U32SubtractionGate, NUM_U32_SUBTRACTION_OPS};
+use crate::gates::subtraction_u32::U32SubtractionGate;
 use crate::gates::switch::SwitchGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::hash_n_to_hash;
@@ -984,14 +984,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub(crate) fn find_u32_subtraction_gate(&mut self) -> (usize, usize) {
         let (gate_index, copy) = match self.batched_gates.current_u32_subtraction_gate {
             None => {
-                let gate = U32SubtractionGate::new();
+                let gate = U32SubtractionGate::new_from_config(&self.config);
                 let gate_index = self.add_gate(gate, vec![]);
                 (gate_index, 0)
             }
             Some((gate_index, copy)) => (gate_index, copy),
         };
 
-        if copy == NUM_U32_SUBTRACTION_OPS - 1 {
+        if copy == U32SubtractionGate::<F, D>::num_ops(&self.config) - 1 {
             self.batched_gates.current_u32_subtraction_gate = None;
         } else {
             self.batched_gates.current_u32_subtraction_gate = Some((gate_index, copy + 1));
@@ -1124,21 +1124,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Fill the remaining unused U32 subtraction operations with zeros, so that all
     /// `U32SubtractionGenerator`s are run.
     fn fill_u32_subtraction_gates(&mut self) {
-        let zero = self.zero();
-        if let Some((gate_index, copy)) = self.batched_gates.current_u32_subtraction_gate {
-            for i in copy..NUM_U32_SUBTRACTION_OPS {
-                let wire_input_x =
-                    Target::wire(gate_index, U32SubtractionGate::<F, D>::wire_ith_input_x(i));
-                let wire_input_y =
-                    Target::wire(gate_index, U32SubtractionGate::<F, D>::wire_ith_input_y(i));
-                let wire_input_borrow = Target::wire(
-                    gate_index,
-                    U32SubtractionGate::<F, D>::wire_ith_input_borrow(i),
-                );
-
-                self.connect(zero, wire_input_x);
-                self.connect(zero, wire_input_y);
-                self.connect(zero, wire_input_borrow);
+        let zero = self.zero_u32();
+        if let Some((_gate_index, copy)) = self.batched_gates.current_u32_subtraction_gate {
+            for _i in copy..U32SubtractionGate::<F, D>::num_ops(&self.config) {
+                let dummy = self.add_virtual_u32_target();
+                self.sub_u32(dummy, dummy, dummy);
+                self.connect_u32(dummy, zero);
             }
         }
     }
