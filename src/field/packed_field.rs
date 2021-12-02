@@ -14,6 +14,7 @@ pub trait PackedField:
     + Debug
     + Default
     // TODO: Implementing Div sounds like a pain so it's a worry for later.
+    // + From<Self::PackedPrimeField>
     + Mul<Self, Output = Self>
     + Mul<Self::FieldType, Output = Self>
     + MulAssign<Self>
@@ -29,6 +30,7 @@ pub trait PackedField:
     + Sync
 {
     type FieldType: Field;
+    type PackedPrimeField: PackedField<FieldType=<Self::FieldType as Field>::PrimeField>;
 
     const LOG2_WIDTH: usize;
     const WIDTH: usize = 1 << Self::LOG2_WIDTH;
@@ -96,6 +98,7 @@ pub trait PackedField:
 
 impl<F: Field> PackedField for F {
     type FieldType = Self;
+    type PackedPrimeField = <Self as Field>::PrimeField;
 
     const LOG2_WIDTH: usize = 0;
 

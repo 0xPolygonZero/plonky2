@@ -4,6 +4,7 @@ pub mod algebra;
 pub mod quadratic;
 pub mod quartic;
 pub mod target;
+mod packed;
 
 /// Optimal extension field trait.
 /// A degree `d` field extension is optimal if there exists a base field element `W`,
