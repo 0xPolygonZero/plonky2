@@ -1,5 +1,3 @@
-use std::ops::Mul;
-
 use itertools::unfold;
 
 use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
@@ -11,8 +9,8 @@ pub struct ECDSASignature<C: Curve> {
     pub s: C::ScalarField,
 }
 
-pub struct ECDSASecretKey<C: Curve>(C::ScalarField);
-pub struct ECDSAPublicKey<C: Curve>(AffinePoint<C>);
+pub struct ECDSASecretKey<C: Curve>(pub C::ScalarField);
+pub struct ECDSAPublicKey<C: Curve>(pub AffinePoint<C>);
 
 pub fn base_to_scalar<C: Curve>(x: C::BaseField) -> C::ScalarField {
     C::ScalarField::from_biguint(x.to_biguint())
@@ -20,15 +18,6 @@ pub fn base_to_scalar<C: Curve>(x: C::BaseField) -> C::ScalarField {
 
 pub fn scalar_to_base<C: Curve>(x: C::ScalarField) -> C::BaseField {
     C::BaseField::from_biguint(x.to_biguint())
-}
-
-pub fn hash_to_scalar<F: RichField, C: Curve>(msg: F, num_bits: usize) -> C::ScalarField {
-    let h_bits = hash_to_bits(msg, num_bits);
-    let h_u32 = h_bits
-        .iter()
-        .zip(0..32)
-        .fold(0u32, |acc, (&bit, pow)| acc + (bit as u32) * (2 << pow));
-    C::ScalarField::from_canonical_u32(h_u32)
 }
 
 pub fn hash_to_bits<F: RichField>(x: F, num_bits: usize) -> Vec<bool> {
@@ -42,6 +31,15 @@ pub fn hash_to_bits<F: RichField>(x: F, num_bits: usize) -> Vec<bool> {
     })
     .take(num_bits)
     .collect()
+}
+
+pub fn hash_to_scalar<F: RichField, C: Curve>(x: F, num_bits: usize) -> C::ScalarField {
+    let h_bits = hash_to_bits(x, num_bits);
+    let h_u32 = h_bits
+        .iter()
+        .zip(0..32)
+        .fold(0u32, |acc, (&bit, pow)| acc + (bit as u32) * (2 << pow));
+    C::ScalarField::from_canonical_u32(h_u32)
 }
 
 pub fn sign_message<F: RichField, C: Curve>(msg: F, sk: ECDSASecretKey<C>) -> ECDSASignature<C> {
@@ -76,16 +74,14 @@ pub fn verify_message<F: RichField, C: Curve>(
     r == x
 }
 
+#[cfg(test)]
 mod tests {
-    use anyhow::Result;
-
     use crate::curve::curve_types::{Curve, CurveScalar};
     use crate::curve::ecdsa::{sign_message, verify_message, ECDSAPublicKey, ECDSASecretKey};
     use crate::curve::secp256k1::Secp256K1;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::secp256k1_scalar::Secp256K1Scalar;
-    use crate::plonk::circuit_data::CircuitConfig;
 
     #[test]
     fn test_ecdsa_native() {
