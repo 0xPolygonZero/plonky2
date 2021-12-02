@@ -16,7 +16,7 @@ use crate::gadgets::arithmetic_extension::ExtensionArithmeticOperation;
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
-use crate::gates::arithmetic_u32::{U32ArithmeticGate, NUM_U32_ARITHMETIC_OPS};
+use crate::gates::arithmetic_u32::U32ArithmeticGate;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
@@ -965,14 +965,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub(crate) fn find_u32_arithmetic_gate(&mut self) -> (usize, usize) {
         let (gate_index, copy) = match self.batched_gates.current_u32_arithmetic_gate {
             None => {
-                let gate = U32ArithmeticGate::new();
+                let gate = U32ArithmeticGate::new_from_config(&self.config);
                 let gate_index = self.add_gate(gate, vec![]);
                 (gate_index, 0)
             }
             Some((gate_index, copy)) => (gate_index, copy),
         };
 
-        if copy == NUM_U32_ARITHMETIC_OPS - 1 {
+        if copy == U32ArithmeticGate::<F, D>::num_ops(&self.config) - 1 {
             self.batched_gates.current_u32_arithmetic_gate = None;
         } else {
             self.batched_gates.current_u32_arithmetic_gate = Some((gate_index, copy + 1));
@@ -1111,23 +1111,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Fill the remaining unused U32 arithmetic operations with zeros, so that all
     /// `U32ArithmeticGenerator`s are run.
     fn fill_u32_arithmetic_gates(&mut self) {
-        let zero = self.zero();
-        if let Some((gate_index, copy)) = self.batched_gates.current_u32_arithmetic_gate {
-            for i in copy..NUM_U32_ARITHMETIC_OPS {
-                let wire_multiplicand_0 = Target::wire(
-                    gate_index,
-                    U32ArithmeticGate::<F, D>::wire_ith_multiplicand_0(i),
-                );
-                let wire_multiplicand_1 = Target::wire(
-                    gate_index,
-                    U32ArithmeticGate::<F, D>::wire_ith_multiplicand_1(i),
-                );
-                let wire_addend =
-                    Target::wire(gate_index, U32ArithmeticGate::<F, D>::wire_ith_addend(i));
-
-                self.connect(zero, wire_multiplicand_0);
-                self.connect(zero, wire_multiplicand_1);
-                self.connect(zero, wire_addend);
+        let zero = self.zero_u32();
+        if let Some((_gate_index, copy)) = self.batched_gates.current_u32_arithmetic_gate {
+            for _ in copy..U32ArithmeticGate::<F, D>::num_ops(&self.config) {
+                let dummy = self.add_virtual_u32_target();
+                self.mul_add_u32(dummy, dummy, dummy);
+                self.connect_u32(dummy, zero);
             }
         }
     }
@@ -1137,7 +1126,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn fill_u32_subtraction_gates(&mut self) {
         let zero = self.zero();
         if let Some((gate_index, copy)) = self.batched_gates.current_u32_subtraction_gate {
-            for i in copy..NUM_U32_ARITHMETIC_OPS {
+            for i in copy..NUM_U32_SUBTRACTION_OPS {
                 let wire_input_x =
                     Target::wire(gate_index, U32SubtractionGate::<F, D>::wire_ith_input_x(i));
                 let wire_input_y =

@@ -76,34 +76,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return result;
         }
 
+        let gate = U32ArithmeticGate::<F, D>::new_from_config(&self.config);
         let (gate_index, copy) = self.find_u32_arithmetic_gate();
 
         self.connect(
-            Target::wire(
-                gate_index,
-                U32ArithmeticGate::<F, D>::wire_ith_multiplicand_0(copy),
-            ),
+            Target::wire(gate_index, gate.wire_ith_multiplicand_0(copy)),
             x.0,
         );
         self.connect(
-            Target::wire(
-                gate_index,
-                U32ArithmeticGate::<F, D>::wire_ith_multiplicand_1(copy),
-            ),
+            Target::wire(gate_index, gate.wire_ith_multiplicand_1(copy)),
             y.0,
         );
-        self.connect(
-            Target::wire(gate_index, U32ArithmeticGate::<F, D>::wire_ith_addend(copy)),
-            z.0,
-        );
+        self.connect(Target::wire(gate_index, gate.wire_ith_addend(copy)), z.0);
 
         let output_low = U32Target(Target::wire(
             gate_index,
-            U32ArithmeticGate::<F, D>::wire_ith_output_low_half(copy),
+            gate.wire_ith_output_low_half(copy),
         ));
         let output_high = U32Target(Target::wire(
             gate_index,
-            U32ArithmeticGate::<F, D>::wire_ith_output_high_half(copy),
+            gate.wire_ith_output_high_half(copy),
         ));
 
         (output_low, output_high)
