@@ -184,7 +184,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Add `n` `Target`s.
-    // TODO: Can be made `D` times more efficient by using all wires of an `ArithmeticExtensionGate`.
     pub fn add_many(&mut self, terms: &[Target]) -> Target {
         let terms_ext = terms
             .iter()
