@@ -98,12 +98,12 @@ pub fn ifft_with_options<F: Field>(
 /// Generic FFT implementation that works with both scalar and packed inputs.
 #[unroll_for_loops]
 fn fft_classic_simd<P: PackedField>(
-    values: &mut [P::FieldType],
+    values: &mut [P::Field],
     r: usize,
     lg_n: usize,
-    root_table: &FftRootTable<P::FieldType>,
+    root_table: &FftRootTable<P::Field>,
 ) {
-    let lg_packed_width = P::LOG2_WIDTH; // 0 when P is a scalar.
+    let lg_packed_width = log2_strict(P::WIDTH); // 0 when P is a scalar.
     let packed_values = P::pack_slice_mut(values);
     let packed_n = packed_values.len();
     debug_assert!(packed_n == 1 << (lg_n - lg_packed_width));
@@ -121,11 +121,10 @@ fn fft_classic_simd<P: PackedField>(
             let half_m = 1 << lg_half_m;
 
             // Set omega to root_table[lg_half_m][0..half_m] but repeated.
-            let mut omega_vec = P::zero().to_vec();
-            for (j, omega) in omega_vec.iter_mut().enumerate() {
-                *omega = root_table[lg_half_m][j % half_m];
+            let mut omega = P::ZERO;
+            for (j, omega_j) in omega.as_slice_mut().iter_mut().enumerate() {
+                *omega_j = root_table[lg_half_m][j % half_m];
             }
-            let omega = P::from_slice(&omega_vec[..]);
 
             for k in (0..packed_n).step_by(2) {
                 // We have two vectors and want to do math on pairs of adjacent elements (or for
@@ -197,13 +196,13 @@ pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: &FftRootT
         }
     }
 
-    let lg_packed_width = <F as Packable>::PackedType::LOG2_WIDTH;
+    let lg_packed_width = log2_strict(<F as Packable>::Packing::WIDTH);
     if lg_n <= lg_packed_width {
         // Need the slice to be at least the width of two packed vectors for the vectorized version
         // to work. Do this tiny problem in scalar.
         fft_classic_simd::<F>(&mut values[..], r, lg_n, root_table);
     } else {
-        fft_classic_simd::<<F as Packable>::PackedType>(&mut values[..], r, lg_n, root_table);
+        fft_classic_simd::<<F as Packable>::Packing>(&mut values[..], r, lg_n, root_table);
     }
     values
 }
