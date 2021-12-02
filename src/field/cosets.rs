@@ -31,8 +31,6 @@ mod tests {
 
     #[test]
     fn distinct_cosets() {
-        // TODO: Switch to a smaller test field so that collision rejection is likely to occur.
-
         type F = GoldilocksField;
         const SUBGROUP_BITS: usize = 5;
         const NUM_SHIFTS: usize = 50;

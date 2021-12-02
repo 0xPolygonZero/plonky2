@@ -146,7 +146,6 @@ pub(crate) fn prove<F: RichField + Extendable<D>, const D: usize>(
             .into_par_iter()
             .flat_map(|mut quotient_poly| {
                 quotient_poly.trim();
-                // TODO: Return Result instead of panicking.
                 quotient_poly.pad(quotient_degree).expect(
                     "Quotient has failed, the vanishing polynomial is not divisible by `Z_H",
                 );
