@@ -2,7 +2,7 @@ use core::arch::x86_64::*;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::iter::{Product, Sum};
-use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::field::field_types::PrimeField;
 use crate::field::packed_avx2::common::{
@@ -56,7 +56,14 @@ impl<F: ReducibleAVX2> Add<F> for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
     fn add(self, rhs: F) -> Self {
-        self + Self::broadcast(rhs)
+        self + <F as Into<Self>>::into(rhs)
+    }
+}
+impl<F: ReducibleAVX2> Add<PackedPrimeField<F>> for <PackedPrimeField<F> as PackedField>::Field {
+    type Output = PackedPrimeField<F>;
+    #[inline]
+    fn add(self, rhs: Self::Output) -> Self::Output {
+        <Self as Into<Self::Output>>::into(self) + rhs
     }
 }
 impl<F: ReducibleAVX2> AddAssign<Self> for PackedPrimeField<F> {
@@ -82,7 +89,28 @@ impl<F: ReducibleAVX2> Debug for PackedPrimeField<F> {
 impl<F: ReducibleAVX2> Default for PackedPrimeField<F> {
     #[inline]
     fn default() -> Self {
-        Self::zero()
+        Self::ZERO
+    }
+}
+
+
+impl<F: ReducibleAVX2> Div<F> for PackedPrimeField<F> {
+    type Output = Self;
+    #[inline]
+    fn div(self, rhs: F) -> Self {
+        self * rhs.inverse()
+    }
+}
+impl<F: ReducibleAVX2> DivAssign<F> for PackedPrimeField<F> {
+    #[inline]
+    fn div_assign(&mut self, rhs: F) {
+        *self *= rhs.inverse();
+    }
+}
+
+impl<F: ReducibleAVX2> From<F> for PackedPrimeField<F> {
+    fn from(x: F) -> Self {
+        Self([x; 4])
     }
 }
 
@@ -97,7 +125,14 @@ impl<F: ReducibleAVX2> Mul<F> for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
     fn mul(self, rhs: F) -> Self {
-        self * Self::broadcast(rhs)
+        self * <F as Into<Self>>::into(rhs)
+    }
+}
+impl<F: ReducibleAVX2> Mul<PackedPrimeField<F>> for <PackedPrimeField<F> as PackedField>::Field {
+    type Output = PackedPrimeField<F>;
+    #[inline]
+    fn mul(self, rhs: PackedPrimeField<F>) -> Self::Output {
+        <Self as Into<Self::Output>>::into(self) * rhs
     }
 }
 impl<F: ReducibleAVX2> MulAssign<Self> for PackedPrimeField<F> {
@@ -124,48 +159,55 @@ impl<F: ReducibleAVX2> Neg for PackedPrimeField<F> {
 impl<F: ReducibleAVX2> Product for PackedPrimeField<F> {
     #[inline]
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.reduce(|x, y| x * y).unwrap_or(Self::one())
+        iter.reduce(|x, y| x * y).unwrap_or(Self::ONE)
     }
 }
 
-impl<F: ReducibleAVX2> PackedField for PackedPrimeField<F> {
-    const LOG2_WIDTH: usize = 2;
+unsafe impl<F: ReducibleAVX2> PackedField for PackedPrimeField<F> {
+    const WIDTH: usize = 4;
 
-    type FieldType = F;
+    type Field = F;
+    type PrimePackedField = PackedPrimeField<F>;
+
+    const ZERO: Self = Self([F::ZERO; 4]);
+    const ONE: Self = Self([F::ONE; 4]);
 
     #[inline]
-    fn broadcast(x: F) -> Self {
-        Self([x; 4])
-    }
-
-    #[inline]
-    fn from_arr(arr: [F; Self::WIDTH]) -> Self {
+    fn from_arr(arr: [Self::Field; Self::WIDTH]) -> Self {
         Self(arr)
     }
 
     #[inline]
-    fn to_arr(&self) -> [F; Self::WIDTH] {
+    fn as_arr(&self) -> [Self::Field; Self::WIDTH] {
         self.0
     }
 
     #[inline]
-    fn from_slice(slice: &[F]) -> Self {
-        assert!(slice.len() == 4);
-        Self([slice[0], slice[1], slice[2], slice[3]])
+    fn from_slice(slice: &[Self::Field]) -> &Self {
+        assert_eq!(slice.len(), Self::WIDTH);
+        unsafe { &*slice.as_ptr().cast() }
     }
-
     #[inline]
-    fn to_vec(&self) -> Vec<F> {
-        self.0.into()
+    fn from_slice_mut(slice: &mut [Self::Field]) -> &mut Self {
+        assert_eq!(slice.len(), Self::WIDTH);
+        unsafe { &mut *slice.as_mut_ptr().cast() }
+    }
+    #[inline]
+    fn as_slice(&self) -> &[Self::Field] {
+        &self.0[..]
+    }
+    #[inline]
+    fn as_slice_mut(&mut self) -> &mut [Self::Field] {
+        &mut self.0[..]
     }
 
     #[inline]
     fn interleave(&self, other: Self, r: usize) -> (Self, Self) {
         let (v0, v1) = (self.get(), other.get());
         let (res0, res1) = match r {
-            0 => unsafe { interleave0(v0, v1) },
             1 => unsafe { interleave1(v0, v1) },
-            2 => (v0, v1),
+            2 => unsafe { interleave2(v0, v1) },
+            4 => (v0, v1),
             _ => panic!("r cannot be more than LOG2_WIDTH"),
         };
         (Self::new(res0), Self::new(res1))
@@ -188,7 +230,14 @@ impl<F: ReducibleAVX2> Sub<F> for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
     fn sub(self, rhs: F) -> Self {
-        self - Self::broadcast(rhs)
+        self - <F as Into<Self>>::into(rhs)
+    }
+}
+impl<F: ReducibleAVX2> Sub<PackedPrimeField<F>> for <PackedPrimeField<F> as PackedField>::Field {
+    type Output = PackedPrimeField<F>;
+    #[inline]
+    fn sub(self, rhs: PackedPrimeField<F>) -> Self::Output {
+        <Self as Into<Self::Output>>::into(self) - rhs
     }
 }
 impl<F: ReducibleAVX2> SubAssign<Self> for PackedPrimeField<F> {
@@ -207,7 +256,7 @@ impl<F: ReducibleAVX2> SubAssign<F> for PackedPrimeField<F> {
 impl<F: ReducibleAVX2> Sum for PackedPrimeField<F> {
     #[inline]
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.reduce(|x, y| x + y).unwrap_or(Self::zero())
+        iter.reduce(|x, y| x + y).unwrap_or(Self::ZERO)
     }
 }
 
@@ -378,14 +427,14 @@ unsafe fn square<F: ReducibleAVX2>(x: __m256i) -> __m256i {
 }
 
 #[inline]
-unsafe fn interleave0(x: __m256i, y: __m256i) -> (__m256i, __m256i) {
+unsafe fn interleave1(x: __m256i, y: __m256i) -> (__m256i, __m256i) {
     let a = _mm256_unpacklo_epi64(x, y);
     let b = _mm256_unpackhi_epi64(x, y);
     (a, b)
 }
 
 #[inline]
-unsafe fn interleave1(x: __m256i, y: __m256i) -> (__m256i, __m256i) {
+unsafe fn interleave2(x: __m256i, y: __m256i) -> (__m256i, __m256i) {
     let y_lo = _mm256_castsi256_si128(y); // This has 0 cost.
 
     // 1 places y_lo in the high half of x; 0 would place it in the lower half.
