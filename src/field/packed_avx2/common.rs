@@ -13,7 +13,8 @@ unsafe fn sign_bit() -> __m256i {
     _mm256_set1_epi64x(SIGN_BIT as i64)
 }
 
-/// Add 2^63 with overflow. Needed to emulate unsigned comparisons (see point 3. above).
+/// Add 2^63 with overflow. Needed to emulate unsigned comparisons (see point 3. in
+/// packed_prime_field.rs).
 #[inline]
 pub unsafe fn shift(x: __m256i) -> __m256i {
     _mm256_xor_si256(x, sign_bit())

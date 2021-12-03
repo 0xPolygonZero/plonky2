@@ -322,13 +322,13 @@ unsafe fn mul64_64(x: __m256i, y: __m256i) -> (__m256i, __m256i) {
     // Extract high 32 bits of mul_ll and add to mul_hl. This cannot overflow.
     let mul_ll_hi = _mm256_srli_epi64::<32>(mul_ll);
     let t0 = _mm256_add_epi64(mul_hl, mul_ll_hi);
-    // Extract low 32 bits of t0 and and to mul_lh. Again, this cannot overflow.
-    // Also, extract high 32 bits of t0 and and to mul_hh.
+    // Extract low 32 bits of t0 and add to mul_lh. Again, this cannot overflow.
+    // Also, extract high 32 bits of t0 and add to mul_hh.
     let t0_lo = _mm256_and_si256(t0, _mm256_set1_epi64x(u32::MAX.into()));
     let t0_hi = _mm256_srli_epi64::<32>(t0);
     let t1 = _mm256_add_epi64(mul_lh, t0_lo);
     let t2 = _mm256_add_epi64(mul_hh, t0_hi);
-    // Lastly, extract the high 32 bits of t1 and and to t2.
+    // Lastly, extract the high 32 bits of t1 and add to t2.
     let t1_hi = _mm256_srli_epi64::<32>(t1);
     let res_hi = _mm256_add_epi64(t2, t1_hi);
 
