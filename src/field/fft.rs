@@ -130,9 +130,9 @@ fn fft_classic_simd<P: PackedField>(
                 // We have two vectors and want to do math on pairs of adjacent elements (or for
                 // lg_half_m > 0, pairs of adjacent blocks of elements). .interleave does the
                 // appropriate shuffling and is its own inverse.
-                let (u, v) = packed_values[k].interleave(packed_values[k + 1], lg_half_m);
+                let (u, v) = packed_values[k].interleave(packed_values[k + 1], half_m);
                 let t = omega * v;
-                (packed_values[k], packed_values[k + 1]) = (u + t).interleave(u - t, lg_half_m);
+                (packed_values[k], packed_values[k + 1]) = (u + t).interleave(u - t, half_m);
             }
         }
     }
