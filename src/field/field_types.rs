@@ -404,7 +404,7 @@ pub trait Field:
 }
 
 /// A finite field of prime order less than 2^64.
-pub trait PrimeField: Field {
+pub trait PrimeField: Field<PrimeField = Self> {
     const ORDER: u64;
 
     /// The number of bits required to encode any field element.
