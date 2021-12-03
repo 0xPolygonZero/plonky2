@@ -59,7 +59,7 @@ impl<F: ReducibleAvx2> Add<F> for Avx2PrimeField<F> {
         self + <F as Into<Self>>::into(rhs)
     }
 }
-impl<F: ReducibleAvx2> Add<Avx2PrimeField<F>> for <Avx2PrimeField<F> as PackedField>::Field {
+impl<F: ReducibleAvx2> Add<Avx2PrimeField<F>> for <Avx2PrimeField<F> as PackedField>::Scalar {
     type Output = Avx2PrimeField<F>;
     #[inline]
     fn add(self, rhs: Self::Output) -> Self::Output {
@@ -127,7 +127,7 @@ impl<F: ReducibleAvx2> Mul<F> for Avx2PrimeField<F> {
         self * <F as Into<Self>>::into(rhs)
     }
 }
-impl<F: ReducibleAvx2> Mul<Avx2PrimeField<F>> for <Avx2PrimeField<F> as PackedField>::Field {
+impl<F: ReducibleAvx2> Mul<Avx2PrimeField<F>> for <Avx2PrimeField<F> as PackedField>::Scalar {
     type Output = Avx2PrimeField<F>;
     #[inline]
     fn mul(self, rhs: Avx2PrimeField<F>) -> Self::Output {
@@ -172,42 +172,42 @@ unsafe impl<F: ReducibleAvx2> PackedField for Avx2PrimeField<F> {
     const ONE: Self = Self([F::ONE; 4]);
 
     #[inline]
-    fn from_arr(arr: [Self::Field; Self::WIDTH]) -> Self {
+    fn from_arr(arr: [Self::Scalar; Self::WIDTH]) -> Self {
         Self(arr)
     }
 
     #[inline]
-    fn as_arr(&self) -> [Self::Field; Self::WIDTH] {
+    fn as_arr(&self) -> [Self::Scalar; Self::WIDTH] {
         self.0
     }
 
     #[inline]
-    fn from_slice(slice: &[Self::Field]) -> &Self {
+    fn from_slice(slice: &[Self::Scalar]) -> &Self {
         assert_eq!(slice.len(), Self::WIDTH);
         unsafe { &*slice.as_ptr().cast() }
     }
     #[inline]
-    fn from_slice_mut(slice: &mut [Self::Field]) -> &mut Self {
+    fn from_slice_mut(slice: &mut [Self::Scalar]) -> &mut Self {
         assert_eq!(slice.len(), Self::WIDTH);
         unsafe { &mut *slice.as_mut_ptr().cast() }
     }
     #[inline]
-    fn as_slice(&self) -> &[Self::Field] {
+    fn as_slice(&self) -> &[Self::Scalar] {
         &self.0[..]
     }
     #[inline]
-    fn as_slice_mut(&mut self) -> &mut [Self::Field] {
+    fn as_slice_mut(&mut self) -> &mut [Self::Scalar] {
         &mut self.0[..]
     }
 
     #[inline]
-    fn interleave(&self, other: Self, r: usize) -> (Self, Self) {
+    fn interleave(&self, other: Self, block_len: usize) -> (Self, Self) {
         let (v0, v1) = (self.get(), other.get());
         let (res0, res1) = match r {
             1 => unsafe { interleave1(v0, v1) },
             2 => unsafe { interleave2(v0, v1) },
             4 => (v0, v1),
-            _ => panic!("r cannot be more than LOG2_WIDTH"),
+            _ => panic!("unsupported block_len"),
         };
         (Self::new(res0), Self::new(res1))
     }
@@ -232,7 +232,7 @@ impl<F: ReducibleAvx2> Sub<F> for Avx2PrimeField<F> {
         self - <F as Into<Self>>::into(rhs)
     }
 }
-impl<F: ReducibleAvx2> Sub<Avx2PrimeField<F>> for <Avx2PrimeField<F> as PackedField>::Field {
+impl<F: ReducibleAvx2> Sub<Avx2PrimeField<F>> for <Avx2PrimeField<F> as PackedField>::Scalar {
     type Output = Avx2PrimeField<F>;
     #[inline]
     fn sub(self, rhs: Avx2PrimeField<F>) -> Self::Output {

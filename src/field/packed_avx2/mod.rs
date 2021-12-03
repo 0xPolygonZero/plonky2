@@ -202,7 +202,7 @@ mod tests {
             assert_eq!(y2.as_arr(), int2_b);
         }
         {
-            let (x4, y4) = packed_a.interleave(packed_b, 1);
+            let (x4, y4) = packed_a.interleave(packed_b, 4);
             assert_eq!(x4.as_arr(), in_a);
             assert_eq!(y4.as_arr(), in_b);
         }
