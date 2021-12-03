@@ -5,6 +5,9 @@ use std::slice;
 
 use crate::field::field_types::Field;
 
+/// # Safety
+/// - WIDTH is assumed to be a power of 2.
+/// - If P implements PackedField then P must be castable to/from [P::Scalar; P::WIDTH] without UB.
 pub unsafe trait PackedField:
     'static
     + Add<Self, Output = Self>
