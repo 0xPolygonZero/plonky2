@@ -203,7 +203,7 @@ unsafe impl<F: ReducibleAvx2> PackedField for Avx2PrimeField<F> {
     #[inline]
     fn interleave(&self, other: Self, block_len: usize) -> (Self, Self) {
         let (v0, v1) = (self.get(), other.get());
-        let (res0, res1) = match r {
+        let (res0, res1) = match block_len {
             1 => unsafe { interleave1(v0, v1) },
             2 => unsafe { interleave2(v0, v1) },
             4 => (v0, v1),
