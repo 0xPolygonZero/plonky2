@@ -56,14 +56,14 @@ impl<F: ReducibleAvx2> Add<F> for Avx2PrimeField<F> {
     type Output = Self;
     #[inline]
     fn add(self, rhs: F) -> Self {
-        self + <F as Into<Self>>::into(rhs)
+        self + Self::from(rhs)
     }
 }
 impl<F: ReducibleAvx2> Add<Avx2PrimeField<F>> for <Avx2PrimeField<F> as PackedField>::Scalar {
     type Output = Avx2PrimeField<F>;
     #[inline]
     fn add(self, rhs: Self::Output) -> Self::Output {
-        <Self as Into<Self::Output>>::into(self) + rhs
+        Self::Output::from(self) + rhs
     }
 }
 impl<F: ReducibleAvx2> AddAssign<Self> for Avx2PrimeField<F> {
@@ -124,14 +124,14 @@ impl<F: ReducibleAvx2> Mul<F> for Avx2PrimeField<F> {
     type Output = Self;
     #[inline]
     fn mul(self, rhs: F) -> Self {
-        self * <F as Into<Self>>::into(rhs)
+        self * Self::from(rhs)
     }
 }
 impl<F: ReducibleAvx2> Mul<Avx2PrimeField<F>> for <Avx2PrimeField<F> as PackedField>::Scalar {
     type Output = Avx2PrimeField<F>;
     #[inline]
     fn mul(self, rhs: Avx2PrimeField<F>) -> Self::Output {
-        <Self as Into<Self::Output>>::into(self) * rhs
+        Self::Output::from(self) * rhs
     }
 }
 impl<F: ReducibleAvx2> MulAssign<Self> for Avx2PrimeField<F> {
@@ -229,14 +229,14 @@ impl<F: ReducibleAvx2> Sub<F> for Avx2PrimeField<F> {
     type Output = Self;
     #[inline]
     fn sub(self, rhs: F) -> Self {
-        self - <F as Into<Self>>::into(rhs)
+        self - Self::from(rhs)
     }
 }
 impl<F: ReducibleAvx2> Sub<Avx2PrimeField<F>> for <Avx2PrimeField<F> as PackedField>::Scalar {
     type Output = Avx2PrimeField<F>;
     #[inline]
     fn sub(self, rhs: Avx2PrimeField<F>) -> Self::Output {
-        <Self as Into<Self::Output>>::into(self) - rhs
+        Self::Output::from(self) - rhs
     }
 }
 impl<F: ReducibleAvx2> SubAssign<Self> for Avx2PrimeField<F> {
