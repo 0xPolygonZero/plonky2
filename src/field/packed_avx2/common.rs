@@ -2,7 +2,7 @@ use core::arch::x86_64::*;
 
 use crate::field::field_types::PrimeField;
 
-pub trait ReducibleAVX2: PrimeField {
+pub trait ReducibleAvx2: PrimeField {
     unsafe fn reduce128(x: (__m256i, __m256i)) -> __m256i;
 }
 
