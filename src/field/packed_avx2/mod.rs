@@ -203,8 +203,8 @@ mod tests {
         }
         {
             let (x4, y4) = packed_a.interleave(packed_b, 1);
-            assert_eq!(x4.as_arr(), packed_a);
-            assert_eq!(y4.as_arr(), packed_b);
+            assert_eq!(x4.as_arr(), in_a);
+            assert_eq!(y4.as_arr(), in_b);
         }
     }
 
