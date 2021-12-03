@@ -1,21 +1,21 @@
+mod avx2_prime_field;
 mod common;
 mod goldilocks;
-mod packed_prime_field;
 
-use packed_prime_field::PackedPrimeField;
+use avx2_prime_field::Avx2PrimeField;
 
 use crate::field::goldilocks_field::GoldilocksField;
 
-pub type PackedGoldilocksAVX2 = PackedPrimeField<GoldilocksField>;
+pub type PackedGoldilocksAvx2 = Avx2PrimeField<GoldilocksField>;
 
 #[cfg(test)]
 mod tests {
     use crate::field::goldilocks_field::GoldilocksField;
-    use crate::field::packed_avx2::common::ReducibleAVX2;
-    use crate::field::packed_avx2::packed_prime_field::PackedPrimeField;
+    use crate::field::packed_avx2::avx2_prime_field::Avx2PrimeField;
+    use crate::field::packed_avx2::common::ReducibleAvx2;
     use crate::field::packed_field::PackedField;
 
-    fn test_vals_a<F: ReducibleAVX2>() -> [F; 4] {
+    fn test_vals_a<F: ReducibleAvx2>() -> [F; 4] {
         [
             F::from_noncanonical_u64(14479013849828404771),
             F::from_noncanonical_u64(9087029921428221768),
@@ -23,7 +23,7 @@ mod tests {
             F::from_noncanonical_u64(5646033492608483824),
         ]
     }
-    fn test_vals_b<F: ReducibleAVX2>() -> [F; 4] {
+    fn test_vals_b<F: ReducibleAvx2>() -> [F; 4] {
         [
             F::from_noncanonical_u64(17891926589593242302),
             F::from_noncanonical_u64(11009798273260028228),
@@ -32,15 +32,15 @@ mod tests {
         ]
     }
 
-    fn test_add<F: ReducibleAVX2>()
+    fn test_add<F: ReducibleAvx2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]:,
+        [(); Avx2PrimeField::<F>::WIDTH]:,
     {
         let a_arr = test_vals_a::<F>();
         let b_arr = test_vals_b::<F>();
 
-        let packed_a = PackedPrimeField::<F>::from_arr(a_arr);
-        let packed_b = PackedPrimeField::<F>::from_arr(b_arr);
+        let packed_a = Avx2PrimeField::<F>::from_arr(a_arr);
+        let packed_b = Avx2PrimeField::<F>::from_arr(b_arr);
         let packed_res = packed_a + packed_b;
         let arr_res = packed_res.as_arr();
 
@@ -50,15 +50,15 @@ mod tests {
         }
     }
 
-    fn test_mul<F: ReducibleAVX2>()
+    fn test_mul<F: ReducibleAvx2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]:,
+        [(); Avx2PrimeField::<F>::WIDTH]:,
     {
         let a_arr = test_vals_a::<F>();
         let b_arr = test_vals_b::<F>();
 
-        let packed_a = PackedPrimeField::<F>::from_arr(a_arr);
-        let packed_b = PackedPrimeField::<F>::from_arr(b_arr);
+        let packed_a = Avx2PrimeField::<F>::from_arr(a_arr);
+        let packed_b = Avx2PrimeField::<F>::from_arr(b_arr);
         let packed_res = packed_a * packed_b;
         let arr_res = packed_res.as_arr();
 
@@ -68,13 +68,13 @@ mod tests {
         }
     }
 
-    fn test_square<F: ReducibleAVX2>()
+    fn test_square<F: ReducibleAvx2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]:,
+        [(); Avx2PrimeField::<F>::WIDTH]:,
     {
         let a_arr = test_vals_a::<F>();
 
-        let packed_a = PackedPrimeField::<F>::from_arr(a_arr);
+        let packed_a = Avx2PrimeField::<F>::from_arr(a_arr);
         let packed_res = packed_a.square();
         let arr_res = packed_res.as_arr();
 
@@ -84,13 +84,13 @@ mod tests {
         }
     }
 
-    fn test_neg<F: ReducibleAVX2>()
+    fn test_neg<F: ReducibleAvx2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]:,
+        [(); Avx2PrimeField::<F>::WIDTH]:,
     {
         let a_arr = test_vals_a::<F>();
 
-        let packed_a = PackedPrimeField::<F>::from_arr(a_arr);
+        let packed_a = Avx2PrimeField::<F>::from_arr(a_arr);
         let packed_res = -packed_a;
         let arr_res = packed_res.as_arr();
 
@@ -100,15 +100,15 @@ mod tests {
         }
     }
 
-    fn test_sub<F: ReducibleAVX2>()
+    fn test_sub<F: ReducibleAvx2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]:,
+        [(); Avx2PrimeField::<F>::WIDTH]:,
     {
         let a_arr = test_vals_a::<F>();
         let b_arr = test_vals_b::<F>();
 
-        let packed_a = PackedPrimeField::<F>::from_arr(a_arr);
-        let packed_b = PackedPrimeField::<F>::from_arr(b_arr);
+        let packed_a = Avx2PrimeField::<F>::from_arr(a_arr);
+        let packed_b = Avx2PrimeField::<F>::from_arr(b_arr);
         let packed_res = packed_a - packed_b;
         let arr_res = packed_res.as_arr();
 
@@ -118,15 +118,15 @@ mod tests {
         }
     }
 
-    fn test_interleave_is_involution<F: ReducibleAVX2>()
+    fn test_interleave_is_involution<F: ReducibleAvx2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]:,
+        [(); Avx2PrimeField::<F>::WIDTH]:,
     {
         let a_arr = test_vals_a::<F>();
         let b_arr = test_vals_b::<F>();
 
-        let packed_a = PackedPrimeField::<F>::from_arr(a_arr);
-        let packed_b = PackedPrimeField::<F>::from_arr(b_arr);
+        let packed_a = Avx2PrimeField::<F>::from_arr(a_arr);
+        let packed_b = Avx2PrimeField::<F>::from_arr(b_arr);
         {
             // Interleave, then deinterleave.
             let (x, y) = packed_a.interleave(packed_b, 1);
@@ -148,9 +148,9 @@ mod tests {
         }
     }
 
-    fn test_interleave<F: ReducibleAVX2>()
+    fn test_interleave<F: ReducibleAvx2>()
     where
-        [(); PackedPrimeField::<F>::WIDTH]:,
+        [(); Avx2PrimeField::<F>::WIDTH]:,
     {
         let in_a: [F; 4] = [
             F::from_noncanonical_u64(00),
@@ -189,8 +189,8 @@ mod tests {
             F::from_noncanonical_u64(13),
         ];
 
-        let packed_a = PackedPrimeField::<F>::from_arr(in_a);
-        let packed_b = PackedPrimeField::<F>::from_arr(in_b);
+        let packed_a = Avx2PrimeField::<F>::from_arr(in_a);
+        let packed_b = Avx2PrimeField::<F>::from_arr(in_b);
         {
             let (x1, y1) = packed_a.interleave(packed_b, 1);
             assert_eq!(x1.as_arr(), int1_a);

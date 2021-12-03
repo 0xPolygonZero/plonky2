@@ -98,10 +98,10 @@ pub fn ifft_with_options<F: Field>(
 /// Generic FFT implementation that works with both scalar and packed inputs.
 #[unroll_for_loops]
 fn fft_classic_simd<P: PackedField>(
-    values: &mut [P::Field],
+    values: &mut [P::Scalar],
     r: usize,
     lg_n: usize,
-    root_table: &FftRootTable<P::Field>,
+    root_table: &FftRootTable<P::Scalar>,
 ) {
     let lg_packed_width = log2_strict(P::WIDTH); // 0 when P is a scalar.
     let packed_values = P::pack_slice_mut(values);

@@ -6,16 +6,16 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use crate::field::field_types::PrimeField;
 use crate::field::packed_avx2::common::{
-    add_no_canonicalize_64_64s_s, epsilon, field_order, shift, ReducibleAVX2,
+    add_no_canonicalize_64_64s_s, epsilon, field_order, shift, ReducibleAvx2,
 };
 use crate::field::packed_field::PackedField;
 
-// PackedPrimeField wraps an array of four u64s, with the new and get methods to convert that
+// Avx2PrimeField wraps an array of four u64s, with the new and get methods to convert that
 // array to and from __m256i, which is the type we actually operate on. This indirection is a
-// terrible trick to change PackedPrimeField's alignment.
-//   We'd like to be able to cast slices of PrimeField to slices of PackedPrimeField. Rust
+// terrible trick to change Avx2PrimeField's alignment.
+//   We'd like to be able to cast slices of PrimeField to slices of Avx2PrimeField. Rust
 // aligns __m256i to 32 bytes but PrimeField has a lower alignment. That alignment extends to
-// PackedPrimeField and it appears that it cannot be lowered with #[repr(C, blah)]. It is
+// Avx2PrimeField and it appears that it cannot be lowered with #[repr(C, blah)]. It is
 // important for Rust not to assume 32-byte alignment, so we cannot wrap __m256i directly.
 //   There are two versions of vectorized load/store instructions on x86: aligned (vmovaps and
 // friends) and unaligned (vmovups etc.). The difference between them is that aligned loads and
@@ -23,12 +23,12 @@ use crate::field::packed_field::PackedField;
 // were faster, and although this is no longer the case, compilers prefer the aligned versions if
 // they know that the address is aligned. Using aligned instructions on unaligned addresses leads to
 // bugs that can be frustrating to diagnose. Hence, we can't have Rust assuming alignment, and
-// therefore PackedPrimeField wraps [F; 4] and not __m256i.
+// therefore Avx2PrimeField wraps [F; 4] and not __m256i.
 #[derive(Copy, Clone)]
 #[repr(transparent)]
-pub struct PackedPrimeField<F: ReducibleAVX2>(pub [F; 4]);
+pub struct Avx2PrimeField<F: ReducibleAvx2>(pub [F; 4]);
 
-impl<F: ReducibleAVX2> PackedPrimeField<F> {
+impl<F: ReducibleAvx2> Avx2PrimeField<F> {
     #[inline]
     fn new(x: __m256i) -> Self {
         let mut obj = Self([F::ZERO; 4]);
@@ -45,109 +45,109 @@ impl<F: ReducibleAVX2> PackedPrimeField<F> {
     }
 }
 
-impl<F: ReducibleAVX2> Add<Self> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> Add<Self> for Avx2PrimeField<F> {
     type Output = Self;
     #[inline]
     fn add(self, rhs: Self) -> Self {
         Self::new(unsafe { add::<F>(self.get(), rhs.get()) })
     }
 }
-impl<F: ReducibleAVX2> Add<F> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> Add<F> for Avx2PrimeField<F> {
     type Output = Self;
     #[inline]
     fn add(self, rhs: F) -> Self {
         self + <F as Into<Self>>::into(rhs)
     }
 }
-impl<F: ReducibleAVX2> Add<PackedPrimeField<F>> for <PackedPrimeField<F> as PackedField>::Field {
-    type Output = PackedPrimeField<F>;
+impl<F: ReducibleAvx2> Add<Avx2PrimeField<F>> for <Avx2PrimeField<F> as PackedField>::Field {
+    type Output = Avx2PrimeField<F>;
     #[inline]
     fn add(self, rhs: Self::Output) -> Self::Output {
         <Self as Into<Self::Output>>::into(self) + rhs
     }
 }
-impl<F: ReducibleAVX2> AddAssign<Self> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> AddAssign<Self> for Avx2PrimeField<F> {
     #[inline]
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
-impl<F: ReducibleAVX2> AddAssign<F> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> AddAssign<F> for Avx2PrimeField<F> {
     #[inline]
     fn add_assign(&mut self, rhs: F) {
         *self = *self + rhs;
     }
 }
 
-impl<F: ReducibleAVX2> Debug for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> Debug for Avx2PrimeField<F> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "({:?})", self.get())
     }
 }
 
-impl<F: ReducibleAVX2> Default for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> Default for Avx2PrimeField<F> {
     #[inline]
     fn default() -> Self {
         Self::ZERO
     }
 }
 
-impl<F: ReducibleAVX2> Div<F> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> Div<F> for Avx2PrimeField<F> {
     type Output = Self;
     #[inline]
     fn div(self, rhs: F) -> Self {
         self * rhs.inverse()
     }
 }
-impl<F: ReducibleAVX2> DivAssign<F> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> DivAssign<F> for Avx2PrimeField<F> {
     #[inline]
     fn div_assign(&mut self, rhs: F) {
         *self *= rhs.inverse();
     }
 }
 
-impl<F: ReducibleAVX2> From<F> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> From<F> for Avx2PrimeField<F> {
     fn from(x: F) -> Self {
         Self([x; 4])
     }
 }
 
-impl<F: ReducibleAVX2> Mul<Self> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> Mul<Self> for Avx2PrimeField<F> {
     type Output = Self;
     #[inline]
     fn mul(self, rhs: Self) -> Self {
         Self::new(unsafe { mul::<F>(self.get(), rhs.get()) })
     }
 }
-impl<F: ReducibleAVX2> Mul<F> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> Mul<F> for Avx2PrimeField<F> {
     type Output = Self;
     #[inline]
     fn mul(self, rhs: F) -> Self {
         self * <F as Into<Self>>::into(rhs)
     }
 }
-impl<F: ReducibleAVX2> Mul<PackedPrimeField<F>> for <PackedPrimeField<F> as PackedField>::Field {
-    type Output = PackedPrimeField<F>;
+impl<F: ReducibleAvx2> Mul<Avx2PrimeField<F>> for <Avx2PrimeField<F> as PackedField>::Field {
+    type Output = Avx2PrimeField<F>;
     #[inline]
-    fn mul(self, rhs: PackedPrimeField<F>) -> Self::Output {
+    fn mul(self, rhs: Avx2PrimeField<F>) -> Self::Output {
         <Self as Into<Self::Output>>::into(self) * rhs
     }
 }
-impl<F: ReducibleAVX2> MulAssign<Self> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> MulAssign<Self> for Avx2PrimeField<F> {
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
-impl<F: ReducibleAVX2> MulAssign<F> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> MulAssign<F> for Avx2PrimeField<F> {
     #[inline]
     fn mul_assign(&mut self, rhs: F) {
         *self = *self * rhs;
     }
 }
 
-impl<F: ReducibleAVX2> Neg for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> Neg for Avx2PrimeField<F> {
     type Output = Self;
     #[inline]
     fn neg(self) -> Self {
@@ -155,18 +155,18 @@ impl<F: ReducibleAVX2> Neg for PackedPrimeField<F> {
     }
 }
 
-impl<F: ReducibleAVX2> Product for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> Product for Avx2PrimeField<F> {
     #[inline]
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.reduce(|x, y| x * y).unwrap_or(Self::ONE)
     }
 }
 
-unsafe impl<F: ReducibleAVX2> PackedField for PackedPrimeField<F> {
+unsafe impl<F: ReducibleAvx2> PackedField for Avx2PrimeField<F> {
     const WIDTH: usize = 4;
 
-    type Field = F;
-    type PrimePackedField = PackedPrimeField<F>;
+    type Scalar = F;
+    type PackedPrimeField = Avx2PrimeField<F>;
 
     const ZERO: Self = Self([F::ZERO; 4]);
     const ONE: Self = Self([F::ONE; 4]);
@@ -218,41 +218,41 @@ unsafe impl<F: ReducibleAVX2> PackedField for PackedPrimeField<F> {
     }
 }
 
-impl<F: ReducibleAVX2> Sub<Self> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> Sub<Self> for Avx2PrimeField<F> {
     type Output = Self;
     #[inline]
     fn sub(self, rhs: Self) -> Self {
         Self::new(unsafe { sub::<F>(self.get(), rhs.get()) })
     }
 }
-impl<F: ReducibleAVX2> Sub<F> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> Sub<F> for Avx2PrimeField<F> {
     type Output = Self;
     #[inline]
     fn sub(self, rhs: F) -> Self {
         self - <F as Into<Self>>::into(rhs)
     }
 }
-impl<F: ReducibleAVX2> Sub<PackedPrimeField<F>> for <PackedPrimeField<F> as PackedField>::Field {
-    type Output = PackedPrimeField<F>;
+impl<F: ReducibleAvx2> Sub<Avx2PrimeField<F>> for <Avx2PrimeField<F> as PackedField>::Field {
+    type Output = Avx2PrimeField<F>;
     #[inline]
-    fn sub(self, rhs: PackedPrimeField<F>) -> Self::Output {
+    fn sub(self, rhs: Avx2PrimeField<F>) -> Self::Output {
         <Self as Into<Self::Output>>::into(self) - rhs
     }
 }
-impl<F: ReducibleAVX2> SubAssign<Self> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> SubAssign<Self> for Avx2PrimeField<F> {
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
 }
-impl<F: ReducibleAVX2> SubAssign<F> for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> SubAssign<F> for Avx2PrimeField<F> {
     #[inline]
     fn sub_assign(&mut self, rhs: F) {
         *self = *self - rhs;
     }
 }
 
-impl<F: ReducibleAVX2> Sum for PackedPrimeField<F> {
+impl<F: ReducibleAvx2> Sum for Avx2PrimeField<F> {
     #[inline]
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.reduce(|x, y| x + y).unwrap_or(Self::ZERO)
@@ -415,13 +415,13 @@ unsafe fn square64(x: __m256i) -> (__m256i, __m256i) {
 
 /// Multiply two integers modulo FIELD_ORDER.
 #[inline]
-unsafe fn mul<F: ReducibleAVX2>(x: __m256i, y: __m256i) -> __m256i {
+unsafe fn mul<F: ReducibleAvx2>(x: __m256i, y: __m256i) -> __m256i {
     F::reduce128(mul64_64(x, y))
 }
 
 /// Square an integer modulo FIELD_ORDER.
 #[inline]
-unsafe fn square<F: ReducibleAVX2>(x: __m256i) -> __m256i {
+unsafe fn square<F: ReducibleAvx2>(x: __m256i) -> __m256i {
     F::reduce128(square64(x))
 }
 

@@ -2,8 +2,8 @@ use core::arch::x86_64::*;
 
 use crate::field::field_types::PrimeField;
 
-pub trait ReducibleAVX2: PrimeField {
-    unsafe fn reduce128(x: (__m256i, __m256i)) -> __m256i;
+pub trait ReducibleAvx2: PrimeField {
+    unsafe fn reduce128s_s(x_s: (__m256i, __m256i)) -> __m256i;
 }
 
 const SIGN_BIT: u64 = 1 << 63;

@@ -5,7 +5,7 @@ use crate::field::packed_field::PackedField;
 /// PackedField for a particular Field (e.g. every Field is also a PackedField), but this is the
 /// recommended one. The recommended packing varies by target_arch and target_feature.
 pub trait Packable: Field {
-    type Packing: PackedField<Field = Self>;
+    type Packing: PackedField<Scalar = Self>;
 }
 
 impl<F: Field> Packable for F {
@@ -14,5 +14,5 @@ impl<F: Field> Packable for F {
 
 #[cfg(target_feature = "avx2")]
 impl Packable for crate::field::goldilocks_field::GoldilocksField {
-    type Packing = crate::field::packed_avx2::PackedGoldilocksAVX2;
+    type Packing = crate::field::packed_avx2::PackedGoldilocksAvx2;
 }

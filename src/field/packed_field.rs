@@ -8,35 +8,35 @@ use crate::field::field_types::Field;
 pub unsafe trait PackedField:
     'static
     + Add<Self, Output = Self>
-    + Add<Self::Field, Output = Self>
+    + Add<Self::Scalar, Output = Self>
     + AddAssign<Self>
-    + AddAssign<Self::Field>
+    + AddAssign<Self::Scalar>
     + Copy
     + Debug
     + Default
-    + From<Self::Field>
+    + From<Self::Scalar>
     // TODO: Implement packed / packed division
-    + Div<Self::Field, Output = Self>
+    + Div<Self::Scalar, Output = Self>
     + Mul<Self, Output = Self>
-    + Mul<Self::Field, Output = Self>
+    + Mul<Self::Scalar, Output = Self>
     + MulAssign<Self>
-    + MulAssign<Self::Field>
+    + MulAssign<Self::Scalar>
     + Neg<Output = Self>
     + Product
     + Send
     + Sub<Self, Output = Self>
-    + Sub<Self::Field, Output = Self>
+    + Sub<Self::Scalar, Output = Self>
     + SubAssign<Self>
-    + SubAssign<Self::Field>
+    + SubAssign<Self::Scalar>
     + Sum
     + Sync
 where
-    Self::Field: Add<Self, Output = Self>,
-    Self::Field: Mul<Self, Output = Self>,
-    Self::Field: Sub<Self, Output = Self>,
+    Self::Scalar: Add<Self, Output = Self>,
+    Self::Scalar: Mul<Self, Output = Self>,
+    Self::Scalar: Sub<Self, Output = Self>,
 {
-    type Field: Field;
-    type PrimePackedField: PackedField<Field = <Self::Field as Field>::PrimeField>;
+    type Scalar: Field;
+    type PackedPrimeField: PackedField<Scalar = <Self::Scalar as Field>::PrimeField>;
 
     const WIDTH: usize;
     const ZERO: Self;
@@ -46,13 +46,13 @@ where
         *self * *self
     }
 
-    fn from_arr(arr: [Self::Field; Self::WIDTH]) -> Self;
-    fn as_arr(&self) -> [Self::Field; Self::WIDTH];
+    fn from_arr(arr: [Self::Scalar; Self::WIDTH]) -> Self;
+    fn as_arr(&self) -> [Self::Scalar; Self::WIDTH];
 
-    fn from_slice(slice: &[Self::Field]) -> &Self;
-    fn from_slice_mut(slice: &mut [Self::Field]) -> &mut Self;
-    fn as_slice(&self) -> &[Self::Field];
-    fn as_slice_mut(&mut self) -> &mut [Self::Field];
+    fn from_slice(slice: &[Self::Scalar]) -> &Self;
+    fn from_slice_mut(slice: &mut [Self::Scalar]) -> &mut Self;
+    fn as_slice(&self) -> &[Self::Scalar];
+    fn as_slice_mut(&mut self) -> &mut [Self::Scalar];
 
     /// Take interpret two vectors as chunks of block_len elements. Unpack and interleave those
     /// chunks. This is best seen with an example. If we have:
@@ -73,7 +73,7 @@ where
     /// and it cannot be > WIDTH.
     fn interleave(&self, other: Self, block_len: usize) -> (Self, Self);
 
-    fn pack_slice(buf: &[Self::Field]) -> &[Self] {
+    fn pack_slice(buf: &[Self::Scalar]) -> &[Self] {
         assert!(
             buf.len() % Self::WIDTH == 0,
             "Slice length (got {}) must be a multiple of packed field width ({}).",
@@ -84,7 +84,7 @@ where
         let n = buf.len() / Self::WIDTH;
         unsafe { std::slice::from_raw_parts(buf_ptr, n) }
     }
-    fn pack_slice_mut(buf: &mut [Self::Field]) -> &mut [Self] {
+    fn pack_slice_mut(buf: &mut [Self::Scalar]) -> &mut [Self] {
         assert!(
             buf.len() % Self::WIDTH == 0,
             "Slice length (got {}) must be a multiple of packed field width ({}).",
@@ -98,8 +98,8 @@ where
 }
 
 unsafe impl<F: Field> PackedField for F {
-    type Field = Self;
-    type PrimePackedField = F::PrimeField;
+    type Scalar = Self;
+    type PackedPrimeField = F::PrimeField;
 
     const WIDTH: usize = 1;
     const ZERO: Self = <F as Field>::ZERO;
@@ -109,23 +109,23 @@ unsafe impl<F: Field> PackedField for F {
         <Self as Field>::square(self)
     }
 
-    fn from_arr(arr: [Self::Field; Self::WIDTH]) -> Self {
+    fn from_arr(arr: [Self::Scalar; Self::WIDTH]) -> Self {
         arr[0]
     }
-    fn as_arr(&self) -> [Self::Field; Self::WIDTH] {
+    fn as_arr(&self) -> [Self::Scalar; Self::WIDTH] {
         [*self]
     }
 
-    fn from_slice(slice: &[Self::Field]) -> &Self {
+    fn from_slice(slice: &[Self::Scalar]) -> &Self {
         &slice[0]
     }
-    fn from_slice_mut(slice: &mut [Self::Field]) -> &mut Self {
+    fn from_slice_mut(slice: &mut [Self::Scalar]) -> &mut Self {
         &mut slice[0]
     }
-    fn as_slice(&self) -> &[Self::Field] {
+    fn as_slice(&self) -> &[Self::Scalar] {
         slice::from_ref(self)
     }
-    fn as_slice_mut(&mut self) -> &mut [Self::Field] {
+    fn as_slice_mut(&mut self) -> &mut [Self::Scalar] {
         slice::from_mut(self)
     }
 
