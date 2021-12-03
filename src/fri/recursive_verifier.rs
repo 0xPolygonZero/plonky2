@@ -260,7 +260,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data: &CommonCircuitData<F, D>,
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
-        let config = self.config.clone();
+        let config = &common_data.config;
         let degree_log = common_data.degree_bits;
         debug_assert_eq!(
             degree_log,
