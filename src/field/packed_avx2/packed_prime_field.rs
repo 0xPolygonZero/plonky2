@@ -93,7 +93,6 @@ impl<F: ReducibleAVX2> Default for PackedPrimeField<F> {
     }
 }
 
-
 impl<F: ReducibleAVX2> Div<F> for PackedPrimeField<F> {
     type Output = Self;
     #[inline]
