@@ -408,7 +408,7 @@ mod tests {
         type F = GoldilocksField;
         const D: usize = 2;
 
-        let standard_config = CircuitConfig::size_optimized_recursion_config();
+        let standard_config = CircuitConfig::standard_recursion_config();
 
         // An initial dummy proof.
         let (proof, vd, cd) = dummy_proof::<F, D>(&standard_config, 4_000)?;
@@ -432,7 +432,7 @@ mod tests {
             rate_bits: 7,
             fri_config: FriConfig {
                 proof_of_work_bits: 16,
-                num_query_rounds: 11,
+                num_query_rounds: 12,
                 ..standard_config.fri_config.clone()
             },
             ..standard_config
@@ -453,11 +453,11 @@ mod tests {
         let final_config = CircuitConfig {
             cap_height: 0,
             rate_bits: 8,
-            num_routed_wires: 25,
+            num_routed_wires: 37,
             fri_config: FriConfig {
-                proof_of_work_bits: 21,
-                reduction_strategy: FriReductionStrategy::MinSize(Some(3)),
-                num_query_rounds: 9,
+                proof_of_work_bits: 20,
+                reduction_strategy: FriReductionStrategy::MinSize(None),
+                num_query_rounds: 10,
             },
             ..high_rate_config
         };
@@ -471,7 +471,7 @@ mod tests {
             true,
             true,
         )?;
-        assert_eq!(cd.degree_bits, 12);
+        assert_eq!(cd.degree_bits, 12, "final proof too large");
 
         test_serialization(&proof, &cd)?;
 
