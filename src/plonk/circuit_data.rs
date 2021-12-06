@@ -76,19 +76,6 @@ impl CircuitConfig {
         }
     }
 
-    pub fn size_optimized_recursion_config() -> Self {
-        Self {
-            security_bits: 93,
-            cap_height: 3,
-            fri_config: FriConfig {
-                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
-                num_query_rounds: 26,
-                ..CircuitConfig::standard_recursion_config().fri_config
-            },
-            ..CircuitConfig::standard_recursion_config()
-        }
-    }
-
     pub fn standard_recursion_zk_config() -> Self {
         CircuitConfig {
             zero_knowledge: true,
