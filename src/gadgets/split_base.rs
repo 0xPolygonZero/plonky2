@@ -146,14 +146,14 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
-        let n = thread_rng().gen_range(0..(1 << 10));
+        let n = thread_rng().gen_range(0..(1 << 30));
         let x = builder.constant(F::from_canonical_usize(n));
 
         let zero = builder._false();
         let one = builder._true();
 
         let y = builder.le_sum(
-            (0..10)
+            (0..30)
                 .scan(n, |acc, _| {
                     let tmp = *acc % 2;
                     *acc /= 2;

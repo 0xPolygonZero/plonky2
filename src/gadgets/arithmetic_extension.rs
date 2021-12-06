@@ -558,6 +558,7 @@ mod tests {
 
     use crate::field::extension_field::algebra::ExtensionAlgebra;
     use crate::field::extension_field::quartic::QuarticExtension;
+    use crate::field::extension_field::target::ExtensionAlgebraTarget;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::{PartialWitness, Witness};
@@ -618,9 +619,7 @@ mod tests {
         let yt = builder.constant_extension(y);
         let zt = builder.constant_extension(z);
         let comp_zt = builder.div_extension(xt, yt);
-        let comp_zt_unsafe = builder.div_extension(xt, yt);
         builder.connect_extension(zt, comp_zt);
-        builder.connect_extension(zt, comp_zt_unsafe);
 
         let data = builder.build();
         let proof = data.prove(pw)?;
@@ -636,21 +635,27 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
 
-        let pw = PartialWitness::new();
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let x = FF::rand_vec(4);
-        let y = FF::rand_vec(4);
-        let xa = ExtensionAlgebra(x.try_into().unwrap());
-        let ya = ExtensionAlgebra(y.try_into().unwrap());
-        let za = xa * ya;
-
-        let xt = builder.constant_ext_algebra(xa);
-        let yt = builder.constant_ext_algebra(ya);
-        let zt = builder.constant_ext_algebra(za);
+        let xt =
+            ExtensionAlgebraTarget(builder.add_virtual_extension_targets(D).try_into().unwrap());
+        let yt =
+            ExtensionAlgebraTarget(builder.add_virtual_extension_targets(D).try_into().unwrap());
+        let zt =
+            ExtensionAlgebraTarget(builder.add_virtual_extension_targets(D).try_into().unwrap());
         let comp_zt = builder.mul_ext_algebra(xt, yt);
         for i in 0..D {
             builder.connect_extension(zt.0[i], comp_zt.0[i]);
+        }
+
+        let x = ExtensionAlgebra::<FF, D>(FF::rand_vec(D).try_into().unwrap());
+        let y = ExtensionAlgebra::<FF, D>(FF::rand_vec(D).try_into().unwrap());
+        let z = x * y;
+        for i in 0..D {
+            pw.set_extension_target(xt.0[i], x.0[i]);
+            pw.set_extension_target(yt.0[i], y.0[i]);
+            pw.set_extension_target(zt.0[i], z.0[i]);
         }
 
         let data = builder.build();
