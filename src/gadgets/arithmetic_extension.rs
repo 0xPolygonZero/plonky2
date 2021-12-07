@@ -649,8 +649,8 @@ mod tests {
             builder.connect_extension(zt.0[i], comp_zt.0[i]);
         }
 
-        let x = ExtensionAlgebra::<FF, D>(FF::rand_vec(D).try_into().unwrap());
-        let y = ExtensionAlgebra::<FF, D>(FF::rand_vec(D).try_into().unwrap());
+        let x = ExtensionAlgebra::<FF, D>(FF::rand_arr());
+        let y = ExtensionAlgebra::<FF, D>(FF::rand_arr());
         let z = x * y;
         for i in 0..D {
             pw.set_extension_target(xt.0[i], x.0[i]);
