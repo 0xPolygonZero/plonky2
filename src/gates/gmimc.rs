@@ -4,6 +4,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::gmimc;
 use crate::hash::gmimc::GMiMC;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -113,12 +114,14 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(self.num_constraints());
-
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         // Assert that `swap` is binary.
         let swap = vars.local_wires[Self::WIRE_SWAP];
-        constraints.push(swap * swap.sub_one());
+        yield_constr.one(swap * swap.sub_one());
 
         let mut state = Vec::with_capacity(12);
         for i in 0..4 {
@@ -144,7 +147,7 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
             let constant = F::from_canonical_u64(<F as GMiMC<WIDTH>>::ROUND_CONSTANTS[r]);
             let cubing_input = state[active] + addition_buffer + constant;
             let cubing_input_wire = vars.local_wires[Self::wire_cubing_input(r)];
-            constraints.push(cubing_input - cubing_input_wire);
+            yield_constr.one(cubing_input - cubing_input_wire);
             let f = cubing_input_wire.cube();
             addition_buffer += f;
             state[active] -= f;
@@ -152,10 +155,8 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
 
         for i in 0..WIDTH {
             state[i] += addition_buffer;
-            constraints.push(state[i] - vars.local_wires[Self::wire_output(i)]);
+            yield_constr.one(state[i] - vars.local_wires[Self::wire_output(i)]);
         }
-
-        constraints
     }
 
     fn eval_unfiltered_recursively(

@@ -16,7 +16,7 @@ use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::plonk_common::ZeroPolyOnCoset;
 use crate::plonk::proof::{Proof, ProofWithPublicInputs};
 use crate::plonk::vanishing_poly::eval_vanishing_poly_base_batch;
-use crate::plonk::vars::EvaluationVarsBase;
+use crate::plonk::vars::EvaluationVarsBaseBatch;
 use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::timed;
 use crate::util::partial_products::{partial_products_and_z_gx, quotient_chunk_products};
@@ -327,11 +327,13 @@ fn compute_quotient_polys<'a, F: RichField + Extendable<D>, const D: usize>(
                 (BATCH_SIZE * batch_i..BATCH_SIZE * (batch_i + 1)).collect();
 
             let mut shifted_xs_batch = Vec::with_capacity(xs_batch.len());
-            let mut vars_batch = Vec::with_capacity(xs_batch.len());
             let mut local_zs_batch = Vec::with_capacity(xs_batch.len());
             let mut next_zs_batch = Vec::with_capacity(xs_batch.len());
             let mut partial_products_batch = Vec::with_capacity(xs_batch.len());
             let mut s_sigmas_batch = Vec::with_capacity(xs_batch.len());
+
+            let mut local_constants_batch_refs = Vec::with_capacity(xs_batch.len());
+            let mut local_wires_batch_refs = Vec::with_capacity(xs_batch.len());
 
             for (&i, &x) in indices_batch.iter().zip(xs_batch) {
                 let shifted_x = F::coset_shift() * x;
@@ -351,24 +353,45 @@ fn compute_quotient_polys<'a, F: RichField + Extendable<D>, const D: usize>(
                 debug_assert_eq!(local_wires.len(), common_data.config.num_wires);
                 debug_assert_eq!(local_zs.len(), num_challenges);
 
-                let vars = EvaluationVarsBase {
-                    local_constants,
-                    local_wires,
-                    public_inputs_hash,
-                };
+                local_constants_batch_refs.push(local_constants);
+                local_wires_batch_refs.push(local_wires);
 
                 shifted_xs_batch.push(shifted_x);
-                vars_batch.push(vars);
                 local_zs_batch.push(local_zs);
                 next_zs_batch.push(next_zs);
                 partial_products_batch.push(partial_products);
                 s_sigmas_batch.push(s_sigmas);
             }
+
+            // NB (JN): I'm not sure how (in)efficient the below is. It needs measuring.
+            let mut local_constants_batch =
+                vec![F::ZERO; xs_batch.len() * local_constants_batch_refs[0].len()];
+            for (i, constants) in local_constants_batch_refs.iter().enumerate() {
+                for (j, &constant) in constants.iter().enumerate() {
+                    local_constants_batch[i + j * xs_batch.len()] = constant;
+                }
+            }
+
+            let mut local_wires_batch =
+                vec![F::ZERO; xs_batch.len() * local_wires_batch_refs[0].len()];
+            for (i, wires) in local_wires_batch_refs.iter().enumerate() {
+                for (j, &wire) in wires.iter().enumerate() {
+                    local_wires_batch[i + j * xs_batch.len()] = wire;
+                }
+            }
+
+            let vars_batch = EvaluationVarsBaseBatch::new(
+                xs_batch.len(),
+                &local_constants_batch,
+                &local_wires_batch,
+                public_inputs_hash,
+            );
+
             let mut quotient_values_batch = eval_vanishing_poly_base_batch(
                 common_data,
                 &indices_batch,
                 &shifted_xs_batch,
-                &vars_batch,
+                vars_batch,
                 &local_zs_batch,
                 &next_zs_batch,
                 &partial_products_batch,

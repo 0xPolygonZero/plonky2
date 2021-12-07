@@ -1,3 +1,4 @@
+pub(crate) mod batch_util;
 pub(crate) mod cosets;
 pub mod extension_field;
 pub mod fft;

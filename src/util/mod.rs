@@ -10,6 +10,7 @@ pub(crate) mod marking;
 pub(crate) mod partial_products;
 pub mod reducing;
 pub mod serialization;
+pub(crate) mod strided_view;
 pub(crate) mod timing;
 
 pub(crate) fn bits_u64(n: u64) -> usize {
