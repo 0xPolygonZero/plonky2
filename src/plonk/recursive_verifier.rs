@@ -145,6 +145,7 @@ mod tests {
     use crate::plonk::prover::prove;
     use crate::util::log2_strict;
     use crate::util::timing::TimingTree;
+    use std::time::Instant;
 
     // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
     fn get_fri_query_round<F: RichField + Extendable<D>, const D: usize>(
@@ -546,14 +547,12 @@ mod tests {
         let data = builder.build();
 
         let mut timing = TimingTree::new("prove", Level::Debug);
-        let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
-        if print_timing {
-            timing.print();
+        loop {
+            let pw = pw.clone();
+            let start = Instant::now();
+            let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
+            info!("Generated recursive proof in {}s", start.elapsed().as_secs_f32());
         }
-
-        data.verify(proof.clone())?;
-
-        Ok((proof, data.verifier_only, data.common))
     }
 
     /// Test serialization and print some size info.

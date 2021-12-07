@@ -600,13 +600,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.connect(hash_part, Target::wire(pi_gate, wire))
         }
 
-        info!(
+        debug!(
             "Degree before blinding & padding: {}",
             self.gate_instances.len()
         );
         self.blind_and_pad();
         let degree = self.gate_instances.len();
-        info!("Degree after blinding & padding: {}", degree);
+        debug!("Degree after blinding & padding: {}", degree);
         let degree_bits = log2_strict(degree);
         let fri_params = self.fri_params(degree_bits);
         assert!(
