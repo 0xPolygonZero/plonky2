@@ -1,5 +1,3 @@
-use itertools::Itertools;
-
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
@@ -301,7 +299,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         terms
             .iter()
             .copied()
-            .fold1(|acc, t| self.mul_extension(acc, t))
+            .reduce(|acc, t| self.mul_extension(acc, t))
             .unwrap_or_else(|| self.one_extension())
     }
 
