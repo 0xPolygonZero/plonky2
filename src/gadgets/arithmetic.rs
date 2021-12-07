@@ -1,7 +1,5 @@
 use std::borrow::Borrow;
 
-use itertools::Itertools;
-
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{PrimeField, RichField};
 use crate::gates::arithmetic_base::ArithmeticGate;
@@ -206,7 +204,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         terms
             .iter()
             .copied()
-            .fold1(|acc, t| self.mul(acc, t))
+            .reduce(|acc, t| self.mul(acc, t))
             .unwrap_or_else(|| self.one())
     }
 

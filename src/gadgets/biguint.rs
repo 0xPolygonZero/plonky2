@@ -247,6 +247,7 @@ mod tests {
     use num::{BigUint, FromPrimitive, Integer};
     use rand::Rng;
 
+    use crate::iop::witness::Witness;
     use crate::{
         field::goldilocks_field::GoldilocksField,
         iop::witness::PartialWitness,
@@ -263,15 +264,18 @@ mod tests {
 
         type F = GoldilocksField;
         let config = CircuitConfig::standard_recursion_config();
-        let pw = PartialWitness::new();
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
-        let x = builder.constant_biguint(&x_value);
-        let y = builder.constant_biguint(&y_value);
+        let x = builder.add_virtual_biguint_target(x_value.to_u32_digits().len());
+        let y = builder.add_virtual_biguint_target(y_value.to_u32_digits().len());
         let z = builder.add_biguint(&x, &y);
-        let expected_z = builder.constant_biguint(&expected_z_value);
-
+        let expected_z = builder.add_virtual_biguint_target(expected_z_value.to_u32_digits().len());
         builder.connect_biguint(&z, &expected_z);
+
+        pw.set_biguint_target(&x, &x_value);
+        pw.set_biguint_target(&y, &y_value);
+        pw.set_biguint_target(&expected_z, &expected_z_value);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
@@ -316,15 +320,18 @@ mod tests {
 
         type F = GoldilocksField;
         let config = CircuitConfig::standard_recursion_config();
-        let pw = PartialWitness::new();
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
-        let x = builder.constant_biguint(&x_value);
-        let y = builder.constant_biguint(&y_value);
+        let x = builder.add_virtual_biguint_target(x_value.to_u32_digits().len());
+        let y = builder.add_virtual_biguint_target(y_value.to_u32_digits().len());
         let z = builder.mul_biguint(&x, &y);
-        let expected_z = builder.constant_biguint(&expected_z_value);
-
+        let expected_z = builder.add_virtual_biguint_target(expected_z_value.to_u32_digits().len());
         builder.connect_biguint(&z, &expected_z);
+
+        pw.set_biguint_target(&x, &x_value);
+        pw.set_biguint_target(&y, &y_value);
+        pw.set_biguint_target(&expected_z, &expected_z_value);
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
