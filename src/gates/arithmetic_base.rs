@@ -2,6 +2,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -67,11 +68,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticGate
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         let const_0 = vars.local_constants[0];
         let const_1 = vars.local_constants[1];
 
-        let mut constraints = Vec::new();
         for i in 0..self.num_ops {
             let multiplicand_0 = vars.local_wires[Self::wire_ith_multiplicand_0(i)];
             let multiplicand_1 = vars.local_wires[Self::wire_ith_multiplicand_1(i)];
@@ -79,10 +83,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticGate
             let output = vars.local_wires[Self::wire_ith_output(i)];
             let computed_output = multiplicand_0 * multiplicand_1 * const_0 + addend * const_1;
 
-            constraints.push(output - computed_output);
+            yield_constr.one(output - computed_output);
         }
-
-        constraints
     }
 
     fn eval_unfiltered_recursively(

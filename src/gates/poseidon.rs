@@ -5,6 +5,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::poseidon;
 use crate::hash::poseidon::Poseidon;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -196,19 +197,21 @@ where
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(self.num_constraints());
-
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         // Assert that `swap` is binary.
         let swap = vars.local_wires[Self::WIRE_SWAP];
-        constraints.push(swap * swap.sub_one());
+        yield_constr.one(swap * swap.sub_one());
 
         // Assert that each delta wire is set properly: `delta_i = swap * (rhs - lhs)`.
         for i in 0..4 {
             let input_lhs = vars.local_wires[Self::wire_input(i)];
             let input_rhs = vars.local_wires[Self::wire_input(i + 4)];
             let delta_i = vars.local_wires[Self::wire_delta(i)];
-            constraints.push(swap * (input_rhs - input_lhs) - delta_i);
+            yield_constr.one(swap * (input_rhs - input_lhs) - delta_i);
         }
 
         // Compute the possibly-swapped input layer.
@@ -232,7 +235,7 @@ where
             if r != 0 {
                 for i in 0..WIDTH {
                     let sbox_in = vars.local_wires[Self::wire_full_sbox_0(r, i)];
-                    constraints.push(state[i] - sbox_in);
+                    yield_constr.one(state[i] - sbox_in);
                     state[i] = sbox_in;
                 }
             }
@@ -246,14 +249,14 @@ where
         state = <F as Poseidon<WIDTH>>::mds_partial_layer_init(&state);
         for r in 0..(poseidon::N_PARTIAL_ROUNDS - 1) {
             let sbox_in = vars.local_wires[Self::wire_partial_sbox(r)];
-            constraints.push(state[0] - sbox_in);
+            yield_constr.one(state[0] - sbox_in);
             state[0] = <F as Poseidon<WIDTH>>::sbox_monomial(sbox_in);
             state[0] +=
                 F::from_canonical_u64(<F as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_CONSTANTS[r]);
             state = <F as Poseidon<WIDTH>>::mds_partial_layer_fast(&state, r);
         }
         let sbox_in = vars.local_wires[Self::wire_partial_sbox(poseidon::N_PARTIAL_ROUNDS - 1)];
-        constraints.push(state[0] - sbox_in);
+        yield_constr.one(state[0] - sbox_in);
         state[0] = <F as Poseidon<WIDTH>>::sbox_monomial(sbox_in);
         state =
             <F as Poseidon<WIDTH>>::mds_partial_layer_fast(&state, poseidon::N_PARTIAL_ROUNDS - 1);
@@ -264,7 +267,7 @@ where
             <F as Poseidon<WIDTH>>::constant_layer(&mut state, round_ctr);
             for i in 0..WIDTH {
                 let sbox_in = vars.local_wires[Self::wire_full_sbox_1(r, i)];
-                constraints.push(state[i] - sbox_in);
+                yield_constr.one(state[i] - sbox_in);
                 state[i] = sbox_in;
             }
             <F as Poseidon<WIDTH>>::sbox_layer(&mut state);
@@ -273,10 +276,8 @@ where
         }
 
         for i in 0..WIDTH {
-            constraints.push(state[i] - vars.local_wires[Self::wire_output(i)]);
+            yield_constr.one(state[i] - vars.local_wires[Self::wire_output(i)]);
         }
-
-        constraints
     }
 
     fn eval_unfiltered_recursively(

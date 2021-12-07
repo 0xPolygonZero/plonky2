@@ -9,6 +9,7 @@ use crate::field::interpolation::interpolant;
 use crate::gadgets::interpolation::InterpolationGate;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -130,9 +131,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(self.num_constraints());
-
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         let coeffs = (0..self.num_points())
             .map(|i| vars.get_local_ext(self.wires_coeff(i)))
             .collect::<Vec<_>>();
@@ -142,7 +145,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
             .collect::<Vec<_>>();
         let shift = powers_shift[0];
         for i in 1..self.num_points() - 1 {
-            constraints.push(powers_shift[i - 1] * shift - powers_shift[i]);
+            yield_constr.one(powers_shift[i - 1] * shift - powers_shift[i]);
         }
         powers_shift.insert(0, F::ONE);
         // `altered_coeffs[i] = c_i * shift^i`, where `c_i` is the original coefficient.
@@ -161,7 +164,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
         {
             let value = vars.get_local_ext(self.wires_value(i));
             let computed_value = altered_interpolant.eval_base(point);
-            constraints.extend(&(value - computed_value).to_basefield_array());
+            yield_constr.many((value - computed_value).to_basefield_array());
         }
 
         let evaluation_point_powers = (1..self.num_points())
@@ -169,16 +172,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
             .collect::<Vec<_>>();
         let evaluation_point = evaluation_point_powers[0];
         for i in 1..self.num_points() - 1 {
-            constraints.extend(
+            yield_constr.many(
                 (evaluation_point_powers[i - 1] * evaluation_point - evaluation_point_powers[i])
                     .to_basefield_array(),
             );
         }
         let evaluation_value = vars.get_local_ext(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval_with_powers(&evaluation_point_powers);
-        constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
-
-        constraints
+        yield_constr.many((evaluation_value - computed_evaluation_value).to_basefield_array());
     }
 
     fn eval_unfiltered_recursively(

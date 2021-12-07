@@ -5,6 +5,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::extension_field::FieldExtension;
 use crate::field::field_types::RichField;
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -82,7 +83,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingExtens
             .collect()
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         let alpha = vars.get_local_ext(Self::wires_alpha());
         let old_acc = vars.get_local_ext(Self::wires_old_acc());
         let coeffs = (0..self.num_coeffs)
@@ -92,14 +97,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingExtens
             .map(|i| vars.get_local_ext(self.wires_accs(i)))
             .collect::<Vec<_>>();
 
-        let mut constraints = Vec::with_capacity(<Self as Gate<F, D>>::num_constraints(self));
         let mut acc = old_acc;
         for i in 0..self.num_coeffs {
-            constraints.extend((acc * alpha + coeffs[i] - accs[i]).to_basefield_array());
+            yield_constr.many((acc * alpha + coeffs[i] - accs[i]).to_basefield_array());
             acc = accs[i];
         }
-
-        constraints
     }
 
     fn eval_unfiltered_recursively(

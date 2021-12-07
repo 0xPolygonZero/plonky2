@@ -7,7 +7,7 @@ use crate::hash::hash_types::HashOut;
 use crate::iop::witness::{PartialWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 use crate::plonk::verifier::verify;
 use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_ceil, transpose};
@@ -100,19 +100,18 @@ pub(crate) fn test_eval_fns<F: RichField + Extendable<D>, G: Gate<F, D>, const D
         .collect::<Vec<_>>();
     let public_inputs_hash = HashOut::rand();
 
-    let vars_base = EvaluationVarsBase {
-        local_constants: &constants_base,
-        local_wires: &wires_base,
-        public_inputs_hash: &public_inputs_hash,
-    };
+    // Batch of 1.
+    let vars_base_batch =
+        EvaluationVarsBaseBatch::new(1, &constants_base, &wires_base, &public_inputs_hash);
     let vars = EvaluationVars {
         local_constants: &constants,
         local_wires: &wires,
         public_inputs_hash: &public_inputs_hash,
     };
 
-    let evals_base = gate.eval_unfiltered_base(vars_base);
+    let evals_base = gate.eval_unfiltered_base_batch(vars_base_batch);
     let evals = gate.eval_unfiltered(vars);
+    // This works because we have a batch of 1.
     ensure!(
         evals
             == evals_base

@@ -1,3 +1,4 @@
+use crate::field::batch_util::batch_add_inplace;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::{Field, RichField};
@@ -7,9 +8,10 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::plonk_common;
 use crate::plonk::plonk_common::{eval_l_1_recursively, ZeroPolyOnCoset};
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 use crate::util::partial_products::{check_partial_products, check_partial_products_recursively};
 use crate::util::reducing::ReducingFactorTarget;
+use crate::util::strided_view::PackedStridedView;
 use crate::with_context;
 
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
@@ -91,7 +93,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
     common_data: &CommonCircuitData<F, D>,
     indices_batch: &[usize],
     xs_batch: &[F],
-    vars_batch: &[EvaluationVarsBase<F>],
+    vars_batch: EvaluationVarsBaseBatch<F>,
     local_zs_batch: &[&[F]],
     next_zs_batch: &[&[F]],
     partial_products_batch: &[&[F]],
@@ -133,14 +135,13 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
     for k in 0..n {
         let index = indices_batch[k];
         let x = xs_batch[k];
-        let vars = vars_batch[k];
+        let vars = vars_batch.view(k);
         let local_zs = local_zs_batch[k];
         let next_zs = next_zs_batch[k];
         let partial_products = partial_products_batch[k];
         let s_sigmas = s_sigmas_batch[k];
 
-        let constraint_terms =
-            &constraint_terms_batch[k * num_gate_constraints..(k + 1) * num_gate_constraints];
+        let constraint_terms = PackedStridedView::new(&constraint_terms_batch, n, k);
 
         let l1_x = z_h_on_coset.eval_l1(index, x);
         for i in 0..num_challenges {
@@ -216,13 +217,13 @@ pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
 
 /// Evaluate all gate constraints in the base field.
 ///
-/// Returns a vector of num_gate_constraints * vars_batch.len() field elements. The constraints
-/// corresponding to vars_batch[i] are found in
-/// result[num_gate_constraints * i..num_gate_constraints * (i + 1)].
+/// Returns a vector of `num_gate_constraints * vars_batch.len()` field elements. The constraints
+/// corresponding to `vars_batch[i]` are found in `result[i], result[vars_batch.len() + i],
+/// result[2 * vars_batch.len() + i], ...`.
 pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const D: usize>(
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
-    vars_batch: &[EvaluationVarsBase<F>],
+    vars_batch: EvaluationVarsBaseBatch<F>,
 ) -> Vec<F> {
     let mut constraints_batch = vec![F::ZERO; num_gate_constraints * vars_batch.len()];
     for gate in gates {
@@ -230,20 +231,15 @@ pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const 
             .gate
             .0
             .eval_filtered_base_batch(vars_batch, &gate.prefix);
-        for (constraints, gate_constraints) in constraints_batch
-            .chunks_exact_mut(num_gate_constraints)
-            .zip(gate_constraints_batch.iter())
-        {
-            debug_assert!(
-                gate_constraints.len() <= constraints.len(),
-                "num_constraints() gave too low of a number"
-            );
-            for (constraint, &gate_constraint) in
-                constraints.iter_mut().zip(gate_constraints.iter())
-            {
-                *constraint += gate_constraint;
-            }
-        }
+        debug_assert!(
+            gate_constraints_batch.len() <= constraints_batch.len(),
+            "num_constraints() gave too low of a number"
+        );
+        // below adds all constraints for all points
+        batch_add_inplace(
+            &mut constraints_batch[..gate_constraints_batch.len()],
+            &gate_constraints_batch,
+        );
     }
     constraints_batch
 }
