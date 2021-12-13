@@ -68,9 +68,6 @@ impl Debug for Secp256K1Base {
 }
 
 impl Field for Secp256K1Base {
-    // TODO: fix
-    type PrimeField = GoldilocksField;
-
     const ZERO: Self = Self([0; 4]);
     const ONE: Self = Self([1, 0, 0, 0]);
     const TWO: Self = Self([2, 0, 0, 0]);
@@ -84,6 +81,7 @@ impl Field for Secp256K1Base {
     // TODO: fix
     const CHARACTERISTIC: u64 = 0;
     const TWO_ADICITY: usize = 1;
+    const CHARACTERISTIC_TWO_ADICITY: usize = Self::TWO_ADICITY;
 
     // Sage: `g = GF(p).multiplicative_generator()`
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0]);

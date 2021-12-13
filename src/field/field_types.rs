@@ -42,8 +42,6 @@ pub trait Field:
     + Serialize
     + DeserializeOwned
 {
-    type PrimeField: PrimeField;
-
     const ZERO: Self;
     const ONE: Self;
     const TWO: Self;
@@ -53,6 +51,9 @@ pub trait Field:
 
     /// The 2-adicity of this field's multiplicative group.
     const TWO_ADICITY: usize;
+
+    /// The 2-adicity of this field's multiplicative group.
+    const CHARACTERISTIC_TWO_ADICITY: usize;
 
     /// Generator of the entire multiplicative group, i.e. all non-zero elements.
     const MULTIPLICATIVE_GROUP_GENERATOR: Self;
@@ -212,17 +213,17 @@ pub trait Field:
         // TWO_ADICITY. Can remove the branch and simplify if that
         // saving isn't worth it.
 
-        if exp > Self::PrimeField::TWO_ADICITY {
+        if exp > Self::CHARACTERISTIC_TWO_ADICITY {
             // NB: This should be a compile-time constant
             let inverse_2_pow_adicity: Self =
-                Self::from_canonical_u64(p - ((p - 1) >> Self::PrimeField::TWO_ADICITY));
+                Self::from_canonical_u64(p - ((p - 1) >> Self::CHARACTERISTIC_TWO_ADICITY));
 
             let mut res = inverse_2_pow_adicity;
-            let mut e = exp - Self::PrimeField::TWO_ADICITY;
+            let mut e = exp - Self::CHARACTERISTIC_TWO_ADICITY;
 
-            while e > Self::PrimeField::TWO_ADICITY {
+            while e > Self::CHARACTERISTIC_TWO_ADICITY {
                 res *= inverse_2_pow_adicity;
-                e -= Self::PrimeField::TWO_ADICITY;
+                e -= Self::CHARACTERISTIC_TWO_ADICITY;
             }
             res * Self::from_canonical_u64(p - ((p - 1) >> e))
         } else {
@@ -404,7 +405,7 @@ pub trait Field:
 }
 
 /// A finite field of prime order less than 2^64.
-pub trait PrimeField: Field<PrimeField = Self> {
+pub trait PrimeField: Field {
     const ORDER: u64;
 
     /// The number of bits required to encode any field element.
@@ -446,6 +447,15 @@ pub trait PrimeField: Field<PrimeField = Self> {
     unsafe fn sub_canonical_u64(&self, rhs: u64) -> Self {
         // Default implementation.
         *self - Self::from_canonical_u64(rhs)
+    }
+}
+
+pub trait SmallCharacteristicField: Field {
+    const SMALLCHAR: u64;
+
+    #[inline]
+    fn inverse_2exp(exp: usize) -> Self {
+        todo!()
     }
 }
 

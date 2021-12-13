@@ -50,8 +50,6 @@ impl<F: Extendable<2>> From<F> for QuadraticExtension<F> {
 }
 
 impl<F: Extendable<2>> Field for QuadraticExtension<F> {
-    type PrimeField = F;
-
     const ZERO: Self = Self([F::ZERO; 2]);
     const ONE: Self = Self([F::ONE, F::ZERO]);
     const TWO: Self = Self([F::TWO, F::ZERO]);
@@ -63,6 +61,7 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
     // long as `F::TWO_ADICITY >= 2`, `p` can be written as `4n + 1`, so `p + 1` can be written as
     // `2(2n + 1)`, which has a 2-adicity of 1.
     const TWO_ADICITY: usize = F::TWO_ADICITY + 1;
+    const CHARACTERISTIC_TWO_ADICITY: usize = F::CHARACTERISTIC_TWO_ADICITY;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
     const POWER_OF_TWO_GENERATOR: Self = Self(F::EXT_POWER_OF_TWO_GENERATOR);
