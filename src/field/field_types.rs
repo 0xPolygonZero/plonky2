@@ -59,6 +59,7 @@ pub trait Field:
     /// Generator of a multiplicative subgroup of order `2^TWO_ADICITY`.
     const POWER_OF_TWO_GENERATOR: Self;
 
+    /// The bit length of the field order.
     const BITS: usize;
 
     fn order() -> BigUint;
@@ -406,11 +407,6 @@ pub trait Field:
 /// A finite field of prime order less than 2^64.
 pub trait PrimeField: Field<PrimeField = Self> {
     const ORDER: u64;
-
-    /// The number of bits required to encode any field element.
-    fn bits() -> usize {
-        bits_u64(Self::NEG_ONE.to_canonical_u64())
-    }
 
     fn to_canonical_u64(&self) -> u64;
 
