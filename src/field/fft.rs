@@ -43,7 +43,7 @@ fn fft_dispatch<F: Field>(
     } else {
         Some(fft_root_table(input.len()))
     };
-    let used_root_table = root_table.or_else(|| computed_root_table.as_ref()).unwrap();
+    let used_root_table = root_table.or(computed_root_table.as_ref()).unwrap();
 
     fft_classic(input, zero_factor.unwrap_or(0), used_root_table)
 }

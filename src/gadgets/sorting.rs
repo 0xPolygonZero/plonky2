@@ -128,8 +128,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         self.input_ops
             .iter()
-            .map(|op| vec![op.is_write.target, op.address, op.timestamp, op.value])
-            .flatten()
+            .flat_map(|op| vec![op.is_write.target, op.address, op.timestamp, op.value])
             .collect()
     }
 
