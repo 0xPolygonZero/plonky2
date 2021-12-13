@@ -4,7 +4,7 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::bigint::BigUint;
-use num::{Integer, One, Zero};
+use num::{Integer, One, ToPrimitive, Zero};
 use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -42,14 +42,12 @@ pub trait Field:
     + Serialize
     + DeserializeOwned
 {
-    type PrimeField: PrimeField;
+    type PrimeField: Field;
 
     const ZERO: Self;
     const ONE: Self;
     const TWO: Self;
     const NEG_ONE: Self;
-
-    const CHARACTERISTIC: u64;
 
     /// The 2-adicity of this field's multiplicative group.
     const TWO_ADICITY: usize;
@@ -204,29 +202,32 @@ pub trait Field:
         // exp exceeds t, we repeatedly multiply by 2^-t and reduce
         // exp until it's in the right range.
 
-        let p = Self::CHARACTERISTIC;
+        let p = Self::order();
+        if let Some(p) = p.to_u64() {
+            // NB: The only reason this is split into two cases is to save
+            // the multiplication (and possible calculation of
+            // inverse_2_pow_adicity) in the usual case that exp <=
+            // TWO_ADICITY. Can remove the branch and simplify if that
+            // saving isn't worth it.
 
-        // NB: The only reason this is split into two cases is to save
-        // the multiplication (and possible calculation of
-        // inverse_2_pow_adicity) in the usual case that exp <=
-        // TWO_ADICITY. Can remove the branch and simplify if that
-        // saving isn't worth it.
+            if exp > Self::PrimeField::TWO_ADICITY {
+                // NB: This should be a compile-time constant
+                let inverse_2_pow_adicity: Self =
+                    Self::from_canonical_u64(p - ((p - 1) >> Self::PrimeField::TWO_ADICITY));
 
-        if exp > Self::PrimeField::TWO_ADICITY {
-            // NB: This should be a compile-time constant
-            let inverse_2_pow_adicity: Self =
-                Self::from_canonical_u64(p - ((p - 1) >> Self::PrimeField::TWO_ADICITY));
+                let mut res = inverse_2_pow_adicity;
+                let mut e = exp - Self::PrimeField::TWO_ADICITY;
 
-            let mut res = inverse_2_pow_adicity;
-            let mut e = exp - Self::PrimeField::TWO_ADICITY;
-
-            while e > Self::PrimeField::TWO_ADICITY {
-                res *= inverse_2_pow_adicity;
-                e -= Self::PrimeField::TWO_ADICITY;
+                while e > Self::PrimeField::TWO_ADICITY {
+                    res *= inverse_2_pow_adicity;
+                    e -= Self::PrimeField::TWO_ADICITY;
+                }
+                res * Self::from_canonical_u64(p - ((p - 1) >> e))
+            } else {
+                Self::from_canonical_u64(p - ((p - 1) >> exp))
             }
-            res * Self::from_canonical_u64(p - ((p - 1) >> e))
         } else {
-            Self::from_canonical_u64(p - ((p - 1) >> exp))
+            Self::TWO.inverse().exp_u64(exp as u64)
         }
     }
 
@@ -404,6 +405,7 @@ pub trait Field:
 }
 
 /// A finite field of prime order less than 2^64.
+// TODO: Split into `PrimeField` and `Field64`.
 pub trait PrimeField: Field<PrimeField = Self> {
     const ORDER: u64;
 

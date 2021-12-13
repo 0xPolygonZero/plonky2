@@ -12,7 +12,6 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::field::field_types::Field;
-use crate::field::goldilocks_field::GoldilocksField;
 
 /// The base field of the secp256k1 elliptic curve.
 ///
@@ -71,8 +70,7 @@ impl Debug for Secp256K1Scalar {
 }
 
 impl Field for Secp256K1Scalar {
-    // TODO: fix
-    type PrimeField = GoldilocksField;
+    type PrimeField = Self;
 
     const ZERO: Self = Self([0; 4]);
     const ONE: Self = Self([1, 0, 0, 0]);
@@ -83,9 +81,6 @@ impl Field for Secp256K1Scalar {
         0xFFFFFFFFFFFFFFFE,
         0xFFFFFFFFFFFFFFFF,
     ]);
-
-    // TODO: fix
-    const CHARACTERISTIC: u64 = 0;
 
     const TWO_ADICITY: usize = 6;
 
