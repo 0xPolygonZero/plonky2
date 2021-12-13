@@ -12,7 +12,6 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::field::field_types::Field;
-use crate::field::goldilocks_field::GoldilocksField;
 
 /// The base field of the secp256k1 elliptic curve.
 ///
@@ -81,11 +80,8 @@ impl Field for Secp256K1Scalar {
         0xFFFFFFFFFFFFFFFF,
     ]);
 
-    // TODO: fix
-    const CHARACTERISTIC: u64 = 0;
-
     const TWO_ADICITY: usize = 6;
-    const CHARACTERISTIC_TWO_ADICITY: usize = 6;
+    const CHARACTERISTIC_WITH_TWO_ADICITY: Option<(u64, usize)> = None;
 
     // Sage: `g = GF(p).multiplicative_generator()`
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([7, 0, 0, 0]);

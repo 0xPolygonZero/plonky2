@@ -55,13 +55,12 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
     const TWO: Self = Self([F::TWO, F::ZERO]);
     const NEG_ONE: Self = Self([F::NEG_ONE, F::ZERO]);
 
-    const CHARACTERISTIC: u64 = F::CHARACTERISTIC;
-
     // `p^2 - 1 = (p - 1)(p + 1)`. The `p - 1` term has a two-adicity of `F::TWO_ADICITY`. As
     // long as `F::TWO_ADICITY >= 2`, `p` can be written as `4n + 1`, so `p + 1` can be written as
     // `2(2n + 1)`, which has a 2-adicity of 1.
     const TWO_ADICITY: usize = F::TWO_ADICITY + 1;
-    const CHARACTERISTIC_TWO_ADICITY: usize = F::CHARACTERISTIC_TWO_ADICITY;
+    const CHARACTERISTIC_WITH_TWO_ADICITY: Option<(u64, usize)> =
+        F::CHARACTERISTIC_WITH_TWO_ADICITY;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
     const POWER_OF_TWO_GENERATOR: Self = Self(F::EXT_POWER_OF_TWO_GENERATOR);

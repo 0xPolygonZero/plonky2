@@ -47,13 +47,12 @@ pub trait Field:
     const TWO: Self;
     const NEG_ONE: Self;
 
-    const CHARACTERISTIC: u64;
-
     /// The 2-adicity of this field's multiplicative group.
     const TWO_ADICITY: usize;
 
-    /// The 2-adicity of this field's multiplicative group.
-    const CHARACTERISTIC_TWO_ADICITY: usize;
+    /// The field's characteristic and it's 2-adicity.
+    /// Set to `None` when the characteristic doesn't fit in a u64.
+    const CHARACTERISTIC_WITH_TWO_ADICITY: Option<(u64, usize)>;
 
     /// Generator of the entire multiplicative group, i.e. all non-zero elements.
     const MULTIPLICATIVE_GROUP_GENERATOR: Self;
@@ -205,29 +204,32 @@ pub trait Field:
         // exp exceeds t, we repeatedly multiply by 2^-t and reduce
         // exp until it's in the right range.
 
-        let p = Self::CHARACTERISTIC;
+        if let Some((p, two_adicity)) = Self::CHARACTERISTIC_WITH_TWO_ADICITY {
+            // NB: The only reason this is split into two cases is to save
+            // the multiplication (and possible calculation of
+            // inverse_2_pow_adicity) in the usual case that exp <=
+            // TWO_ADICITY. Can remove the branch and simplify if that
+            // saving isn't worth it.
 
-        // NB: The only reason this is split into two cases is to save
-        // the multiplication (and possible calculation of
-        // inverse_2_pow_adicity) in the usual case that exp <=
-        // TWO_ADICITY. Can remove the branch and simplify if that
-        // saving isn't worth it.
+            if exp > two_adicity {
+                // NB: This should be a compile-time constant
+                let inverse_2_pow_adicity: Self =
+                    Self::from_canonical_u64(p - ((p - 1) >> two_adicity));
 
-        if exp > Self::CHARACTERISTIC_TWO_ADICITY {
-            // NB: This should be a compile-time constant
-            let inverse_2_pow_adicity: Self =
-                Self::from_canonical_u64(p - ((p - 1) >> Self::CHARACTERISTIC_TWO_ADICITY));
+                let mut res = inverse_2_pow_adicity;
+                let mut e = exp - two_adicity;
 
-            let mut res = inverse_2_pow_adicity;
-            let mut e = exp - Self::CHARACTERISTIC_TWO_ADICITY;
-
-            while e > Self::CHARACTERISTIC_TWO_ADICITY {
-                res *= inverse_2_pow_adicity;
-                e -= Self::CHARACTERISTIC_TWO_ADICITY;
+                while e > two_adicity {
+                    res *= inverse_2_pow_adicity;
+                    e -= two_adicity;
+                }
+                res * Self::from_canonical_u64(p - ((p - 1) >> e))
+            } else {
+                Self::from_canonical_u64(p - ((p - 1) >> exp))
             }
-            res * Self::from_canonical_u64(p - ((p - 1) >> e))
         } else {
-            Self::from_canonical_u64(p - ((p - 1) >> exp))
+            dbg!("yo");
+            Self::TWO.inverse().exp_u64(exp as u64)
         }
     }
 
@@ -447,15 +449,6 @@ pub trait PrimeField: Field {
     unsafe fn sub_canonical_u64(&self, rhs: u64) -> Self {
         // Default implementation.
         *self - Self::from_canonical_u64(rhs)
-    }
-}
-
-pub trait SmallCharacteristicField: Field {
-    const SMALLCHAR: u64;
-
-    #[inline]
-    fn inverse_2exp(exp: usize) -> Self {
-        todo!()
     }
 }
 
