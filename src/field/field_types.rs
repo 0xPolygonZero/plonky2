@@ -228,7 +228,6 @@ pub trait Field:
                 Self::from_canonical_u64(p - ((p - 1) >> exp))
             }
         } else {
-            dbg!("yo");
             Self::TWO.inverse().exp_u64(exp as u64)
         }
     }
