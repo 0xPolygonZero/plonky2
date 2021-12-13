@@ -338,7 +338,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // verify that this has a negligible impact on soundness error.
         Self::assert_noncanonical_indices_ok(&common_data.config);
         let x_index = challenger.get_challenge(self);
-        let mut x_index_bits = self.low_bits(x_index, n_log, F::bits());
+        let mut x_index_bits = self.low_bits(x_index, n_log, F::BITS);
 
         let cap_index =
             self.le_sum(x_index_bits[x_index_bits.len() - common_data.config.cap_height..].iter());
