@@ -59,8 +59,7 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
     // long as `F::TWO_ADICITY >= 2`, `p` can be written as `4n + 1`, so `p + 1` can be written as
     // `2(2n + 1)`, which has a 2-adicity of 1.
     const TWO_ADICITY: usize = F::TWO_ADICITY + 1;
-    const CHARACTERISTIC_WITH_TWO_ADICITY: Option<(u64, usize)> =
-        F::CHARACTERISTIC_WITH_TWO_ADICITY;
+    const CHARACTERISTIC_TWO_ADICITY: usize = F::CHARACTERISTIC_TWO_ADICITY;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
     const POWER_OF_TWO_GENERATOR: Self = Self(F::EXT_POWER_OF_TWO_GENERATOR);
@@ -69,6 +68,9 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
 
     fn order() -> BigUint {
         F::order() * F::order()
+    }
+    fn characteristic() -> BigUint {
+        F::characteristic()
     }
 
     #[inline(always)]

@@ -68,8 +68,7 @@ impl Field for GoldilocksField {
     const NEG_ONE: Self = Self(Self::ORDER - 1);
 
     const TWO_ADICITY: usize = 32;
-    const CHARACTERISTIC_WITH_TWO_ADICITY: Option<(u64, usize)> =
-        Some((Self::ORDER, Self::TWO_ADICITY));
+    const CHARACTERISTIC_TWO_ADICITY: usize = Self::TWO_ADICITY;
 
     // Sage: `g = GF(p).multiplicative_generator()`
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(7);
@@ -85,6 +84,9 @@ impl Field for GoldilocksField {
 
     fn order() -> BigUint {
         Self::ORDER.into()
+    }
+    fn characteristic() -> BigUint {
+        Self::order()
     }
 
     #[inline(always)]

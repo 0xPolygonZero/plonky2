@@ -78,7 +78,7 @@ impl Field for Secp256K1Base {
     ]);
 
     const TWO_ADICITY: usize = 1;
-    const CHARACTERISTIC_WITH_TWO_ADICITY: Option<(u64, usize)> = None;
+    const CHARACTERISTIC_TWO_ADICITY: usize = Self::TWO_ADICITY;
 
     // Sage: `g = GF(p).multiplicative_generator()`
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0]);
@@ -93,6 +93,9 @@ impl Field for Secp256K1Base {
             0xFFFFFC2F, 0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
             0xFFFFFFFF,
         ])
+    }
+    fn characteristic() -> BigUint {
+        Self::order()
     }
 
     fn try_inverse(&self) -> Option<Self> {

@@ -61,8 +61,7 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
     // `2(2n + 1)`, which has a 2-adicity of 1. A similar argument can show that `p^2 + 1` also has
     // a 2-adicity of 1.
     const TWO_ADICITY: usize = F::TWO_ADICITY + 2;
-    const CHARACTERISTIC_WITH_TWO_ADICITY: Option<(u64, usize)> =
-        F::CHARACTERISTIC_WITH_TWO_ADICITY;
+    const CHARACTERISTIC_TWO_ADICITY: usize = F::CHARACTERISTIC_TWO_ADICITY;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
     const POWER_OF_TWO_GENERATOR: Self = Self(F::EXT_POWER_OF_TWO_GENERATOR);
@@ -71,6 +70,9 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
 
     fn order() -> BigUint {
         F::order().pow(4u32)
+    }
+    fn characteristic() -> BigUint {
+        F::characteristic()
     }
 
     #[inline(always)]
