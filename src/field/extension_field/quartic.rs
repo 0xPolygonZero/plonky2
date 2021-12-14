@@ -51,20 +51,17 @@ impl<F: Extendable<4>> From<F> for QuarticExtension<F> {
 }
 
 impl<F: Extendable<4>> Field for QuarticExtension<F> {
-    type PrimeField = F;
-
     const ZERO: Self = Self([F::ZERO; 4]);
     const ONE: Self = Self([F::ONE, F::ZERO, F::ZERO, F::ZERO]);
     const TWO: Self = Self([F::TWO, F::ZERO, F::ZERO, F::ZERO]);
     const NEG_ONE: Self = Self([F::NEG_ONE, F::ZERO, F::ZERO, F::ZERO]);
-
-    const CHARACTERISTIC: u64 = F::ORDER;
 
     // `p^4 - 1 = (p - 1)(p + 1)(p^2 + 1)`. The `p - 1` term has a two-adicity of `F::TWO_ADICITY`.
     // As long as `F::TWO_ADICITY >= 2`, `p` can be written as `4n + 1`, so `p + 1` can be written as
     // `2(2n + 1)`, which has a 2-adicity of 1. A similar argument can show that `p^2 + 1` also has
     // a 2-adicity of 1.
     const TWO_ADICITY: usize = F::TWO_ADICITY + 2;
+    const CHARACTERISTIC_TWO_ADICITY: usize = F::CHARACTERISTIC_TWO_ADICITY;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
     const POWER_OF_TWO_GENERATOR: Self = Self(F::EXT_POWER_OF_TWO_GENERATOR);
@@ -73,6 +70,9 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
 
     fn order() -> BigUint {
         F::order().pow(4u32)
+    }
+    fn characteristic() -> BigUint {
+        F::characteristic()
     }
 
     #[inline(always)]

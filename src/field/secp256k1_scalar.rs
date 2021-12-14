@@ -12,7 +12,6 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::field::field_types::Field;
-use crate::field::goldilocks_field::GoldilocksField;
 
 /// The base field of the secp256k1 elliptic curve.
 ///
@@ -71,9 +70,6 @@ impl Debug for Secp256K1Scalar {
 }
 
 impl Field for Secp256K1Scalar {
-    // TODO: fix
-    type PrimeField = GoldilocksField;
-
     const ZERO: Self = Self([0; 4]);
     const ONE: Self = Self([1, 0, 0, 0]);
     const TWO: Self = Self([2, 0, 0, 0]);
@@ -84,10 +80,8 @@ impl Field for Secp256K1Scalar {
         0xFFFFFFFFFFFFFFFF,
     ]);
 
-    // TODO: fix
-    const CHARACTERISTIC: u64 = 0;
-
     const TWO_ADICITY: usize = 6;
+    const CHARACTERISTIC_TWO_ADICITY: usize = Self::TWO_ADICITY;
 
     // Sage: `g = GF(p).multiplicative_generator()`
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([7, 0, 0, 0]);
@@ -108,6 +102,9 @@ impl Field for Secp256K1Scalar {
             0xD0364141, 0xBFD25E8C, 0xAF48A03B, 0xBAAEDCE6, 0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF,
             0xFFFFFFFF,
         ])
+    }
+    fn characteristic() -> BigUint {
+        Self::order()
     }
 
     fn try_inverse(&self) -> Option<Self> {

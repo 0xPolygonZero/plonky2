@@ -39,7 +39,6 @@ where
     Self::Scalar: Sub<Self, Output = Self>,
 {
     type Scalar: Field;
-    type PackedPrimeField: PackedField<Scalar = <Self::Scalar as Field>::PrimeField>;
 
     const WIDTH: usize;
     const ZERO: Self;
@@ -102,7 +101,6 @@ where
 
 unsafe impl<F: Field> PackedField for F {
     type Scalar = Self;
-    type PackedPrimeField = F::PrimeField;
 
     const WIDTH: usize = 1;
     const ZERO: Self = <F as Field>::ZERO;
