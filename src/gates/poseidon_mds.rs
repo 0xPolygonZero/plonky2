@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::ops::Range;
 
@@ -8,7 +7,6 @@ use crate::field::extension_field::Extendable;
 use crate::field::extension_field::FieldExtension;
 use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
-use crate::hash::hashing::SPONGE_WIDTH;
 use crate::hash::poseidon::Poseidon;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -17,11 +15,21 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 #[derive(Debug)]
-pub struct PoseidonMdsGate<F: RichField + Extendable<D> + Poseidon, const D: usize> {
+pub struct PoseidonMdsGate<
+    F: RichField + Extendable<D> + Poseidon<WIDTH>,
+    const D: usize,
+    const WIDTH: usize,
+> where
+    [(); WIDTH - 1]:,
+{
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F, D> {
+impl<F: RichField + Extendable<D> + Poseidon<WIDTH>, const D: usize, const WIDTH: usize>
+    PoseidonMdsGate<F, D, WIDTH>
+where
+    [(); WIDTH - 1]:,
+{
     pub fn new() -> Self {
         PoseidonMdsGate {
             _phantom: PhantomData,
@@ -29,13 +37,13 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
     }
 
     pub fn wires_input(i: usize) -> Range<usize> {
-        assert!(i < SPONGE_WIDTH);
+        assert!(i < WIDTH);
         i * D..(i + 1) * D
     }
 
     pub fn wires_output(i: usize) -> Range<usize> {
-        assert!(i < SPONGE_WIDTH);
-        (SPONGE_WIDTH + i) * D..(SPONGE_WIDTH + i + 1) * D
+        assert!(i < WIDTH);
+        (WIDTH + i) * D..(WIDTH + i + 1) * D
     }
 
     // Following are methods analogous to ones in `Poseidon`, but for extension algebras.
@@ -43,14 +51,15 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
     /// Same as `mds_row_shf` for an extension algebra of `F`.
     fn mds_row_shf_algebra(
         r: usize,
-        v: &[ExtensionAlgebra<F::Extension, D>; SPONGE_WIDTH],
+        v: &[ExtensionAlgebra<F::Extension, D>; WIDTH],
     ) -> ExtensionAlgebra<F::Extension, D> {
-        debug_assert!(r < SPONGE_WIDTH);
+        debug_assert!(r < WIDTH);
         let mut res = ExtensionAlgebra::ZERO;
 
-        for i in 0..SPONGE_WIDTH {
-            let coeff = F::Extension::from_canonical_u64(1 << <F as Poseidon>::MDS_MATRIX_EXPS[i]);
-            res += v[(i + r) % SPONGE_WIDTH].scalar_mul(coeff);
+        for i in 0..WIDTH {
+            let coeff =
+                F::Extension::from_canonical_u64(1 << <F as Poseidon<WIDTH>>::MDS_MATRIX_EXPS[i]);
+            res += v[(i + r) % WIDTH].scalar_mul(coeff);
         }
 
         res
@@ -60,16 +69,16 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
     fn mds_row_shf_algebra_recursive(
         builder: &mut CircuitBuilder<F, D>,
         r: usize,
-        v: &[ExtensionAlgebraTarget<D>; SPONGE_WIDTH],
+        v: &[ExtensionAlgebraTarget<D>; WIDTH],
     ) -> ExtensionAlgebraTarget<D> {
-        debug_assert!(r < SPONGE_WIDTH);
+        debug_assert!(r < WIDTH);
         let mut res = builder.zero_ext_algebra();
 
-        for i in 0..SPONGE_WIDTH {
+        for i in 0..WIDTH {
             let coeff = builder.constant_extension(F::Extension::from_canonical_u64(
-                1 << <F as Poseidon>::MDS_MATRIX_EXPS[i],
+                1 << <F as Poseidon<WIDTH>>::MDS_MATRIX_EXPS[i],
             ));
-            res = builder.scalar_mul_add_ext_algebra(coeff, v[(i + r) % SPONGE_WIDTH], res);
+            res = builder.scalar_mul_add_ext_algebra(coeff, v[(i + r) % WIDTH], res);
         }
 
         res
@@ -77,11 +86,11 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
 
     /// Same as `mds_layer` for an extension algebra of `F`.
     fn mds_layer_algebra(
-        state: &[ExtensionAlgebra<F::Extension, D>; SPONGE_WIDTH],
-    ) -> [ExtensionAlgebra<F::Extension, D>; SPONGE_WIDTH] {
-        let mut result = [ExtensionAlgebra::ZERO; SPONGE_WIDTH];
+        state: &[ExtensionAlgebra<F::Extension, D>; WIDTH],
+    ) -> [ExtensionAlgebra<F::Extension, D>; WIDTH] {
+        let mut result = [ExtensionAlgebra::ZERO; WIDTH];
 
-        for r in 0..SPONGE_WIDTH {
+        for r in 0..WIDTH {
             result[r] = Self::mds_row_shf_algebra(r, state);
         }
 
@@ -91,11 +100,11 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
     /// Same as `mds_layer_recursive` for an extension algebra of `F`.
     fn mds_layer_algebra_recursive(
         builder: &mut CircuitBuilder<F, D>,
-        state: &[ExtensionAlgebraTarget<D>; SPONGE_WIDTH],
-    ) -> [ExtensionAlgebraTarget<D>; SPONGE_WIDTH] {
-        let mut result = [builder.zero_ext_algebra(); SPONGE_WIDTH];
+        state: &[ExtensionAlgebraTarget<D>; WIDTH],
+    ) -> [ExtensionAlgebraTarget<D>; WIDTH] {
+        let mut result = [builder.zero_ext_algebra(); WIDTH];
 
-        for r in 0..SPONGE_WIDTH {
+        for r in 0..WIDTH {
             result[r] = Self::mds_row_shf_algebra_recursive(builder, r, state);
         }
 
@@ -103,13 +112,17 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
     }
 }
 
-impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for PoseidonMdsGate<F, D> {
+impl<F: RichField + Extendable<D> + Poseidon<WIDTH>, const D: usize, const WIDTH: usize> Gate<F, D>
+    for PoseidonMdsGate<F, D, WIDTH>
+where
+    [(); WIDTH - 1]:,
+{
     fn id(&self) -> String {
-        format!("{:?}<WIDTH={}>", self, SPONGE_WIDTH)
+        format!("{:?}<WIDTH={}>", self, WIDTH)
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
-        let inputs: [_; SPONGE_WIDTH] = (0..SPONGE_WIDTH)
+        let inputs: [_; WIDTH] = (0..WIDTH)
             .map(|i| vars.get_local_ext_algebra(Self::wires_input(i)))
             .collect::<Vec<_>>()
             .try_into()
@@ -117,7 +130,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
 
         let computed_outputs = Self::mds_layer_algebra(&inputs);
 
-        (0..SPONGE_WIDTH)
+        (0..WIDTH)
             .map(|i| vars.get_local_ext_algebra(Self::wires_output(i)))
             .zip(computed_outputs)
             .flat_map(|(out, computed_out)| (out - computed_out).to_basefield_array())
@@ -125,7 +138,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
     }
 
     fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let inputs: [_; SPONGE_WIDTH] = (0..SPONGE_WIDTH)
+        let inputs: [_; WIDTH] = (0..WIDTH)
             .map(|i| vars.get_local_ext(Self::wires_input(i)))
             .collect::<Vec<_>>()
             .try_into()
@@ -133,7 +146,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
 
         let computed_outputs = F::mds_layer_field(&inputs);
 
-        (0..SPONGE_WIDTH)
+        (0..WIDTH)
             .map(|i| vars.get_local_ext(Self::wires_output(i)))
             .zip(computed_outputs)
             .flat_map(|(out, computed_out)| (out - computed_out).to_basefield_array())
@@ -145,7 +158,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        let inputs: [_; SPONGE_WIDTH] = (0..SPONGE_WIDTH)
+        let inputs: [_; WIDTH] = (0..WIDTH)
             .map(|i| vars.get_local_ext_algebra(Self::wires_input(i)))
             .collect::<Vec<_>>()
             .try_into()
@@ -153,7 +166,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
 
         let computed_outputs = Self::mds_layer_algebra_recursive(builder, &inputs);
 
-        (0..SPONGE_WIDTH)
+        (0..WIDTH)
             .map(|i| vars.get_local_ext_algebra(Self::wires_output(i)))
             .zip(computed_outputs)
             .flat_map(|(out, computed_out)| {
@@ -169,12 +182,12 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
         gate_index: usize,
         _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = PoseidonMdsGenerator::<D> { gate_index };
+        let gen = PoseidonMdsGenerator::<D, WIDTH> { gate_index };
         vec![Box::new(gen.adapter())]
     }
 
     fn num_wires(&self) -> usize {
-        2 * D * SPONGE_WIDTH
+        2 * D * WIDTH
     }
 
     fn num_constants(&self) -> usize {
@@ -186,22 +199,30 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
     }
 
     fn num_constraints(&self) -> usize {
-        SPONGE_WIDTH * D
+        WIDTH * D
     }
 }
 
 #[derive(Clone, Debug)]
-struct PoseidonMdsGenerator<const D: usize> {
+struct PoseidonMdsGenerator<const D: usize, const WIDTH: usize>
+where
+    [(); WIDTH - 1]:,
+{
     gate_index: usize,
 }
 
-impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
-    for PoseidonMdsGenerator<D>
+impl<F: RichField + Extendable<D> + Poseidon<WIDTH>, const D: usize, const WIDTH: usize>
+    SimpleGenerator<F> for PoseidonMdsGenerator<D, WIDTH>
+where
+    [(); WIDTH - 1]:,
 {
     fn dependencies(&self) -> Vec<Target> {
-        (0..SPONGE_WIDTH)
+        (0..WIDTH)
             .flat_map(|i| {
-                Target::wires_from_range(self.gate_index, PoseidonMdsGate::<F, D>::wires_input(i))
+                Target::wires_from_range(
+                    self.gate_index,
+                    PoseidonMdsGate::<F, D, WIDTH>::wires_input(i),
+                )
             })
             .collect()
     }
@@ -212,8 +233,8 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
         let get_local_ext =
             |wire_range| witness.get_extension_target(get_local_get_target(wire_range));
 
-        let inputs: [_; SPONGE_WIDTH] = (0..SPONGE_WIDTH)
-            .map(|i| get_local_ext(PoseidonMdsGate::<F, D>::wires_input(i)))
+        let inputs: [_; WIDTH] = (0..WIDTH)
+            .map(|i| get_local_ext(PoseidonMdsGate::<F, D, WIDTH>::wires_input(i)))
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
@@ -222,7 +243,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
 
         for (i, &out) in outputs.iter().enumerate() {
             out_buffer.set_extension_target(
-                get_local_get_target(PoseidonMdsGate::<F, D>::wires_output(i)),
+                get_local_get_target(PoseidonMdsGate::<F, D, WIDTH>::wires_output(i)),
                 out,
             );
         }
@@ -235,21 +256,18 @@ mod tests {
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::poseidon_mds::PoseidonMdsGate;
     use crate::hash::hashing::SPONGE_WIDTH;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn low_degree() {
         type F = GoldilocksField;
-        let gate = PoseidonMdsGate::<F, 4>::new();
+        let gate = PoseidonMdsGate::<F, 4, SPONGE_WIDTH>::new();
         test_low_degree(gate)
     }
 
     #[test]
     fn eval_fns() -> anyhow::Result<()> {
-        const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-        let gate = PoseidonMdsGate::<F, D>::new();
-        test_eval_fns::<F, C, _, D>(gate)
+        type F = GoldilocksField;
+        let gate = PoseidonMdsGate::<F, 4, SPONGE_WIDTH>::new();
+        test_eval_fns(gate)
     }
 }

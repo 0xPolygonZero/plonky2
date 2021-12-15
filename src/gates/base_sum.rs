@@ -24,8 +24,7 @@ impl<const B: usize> BaseSumGate<B> {
     }
 
     pub fn new_from_config<F: PrimeField>(config: &CircuitConfig) -> Self {
-        let num_limbs = ((F::ORDER as f64).log(B as f64).floor() as usize)
-            .min(config.num_routed_wires - Self::START_LIMBS);
+        let num_limbs = F::BITS.min(config.num_routed_wires - Self::START_LIMBS);
         Self::new(num_limbs)
     }
 
@@ -188,6 +187,7 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
+        test_eval_fns::<GoldilocksField, _, 4>(BaseSumGate::<6>::new(11))
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

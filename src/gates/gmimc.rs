@@ -328,8 +328,6 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
-
     use anyhow::Result;
 
     use crate::field::field_types::Field;
@@ -346,6 +344,7 @@ mod tests {
 
     #[test]
     fn generated_output() {
+        type F = GoldilocksField;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -401,6 +400,7 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
+        type F = GoldilocksField;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

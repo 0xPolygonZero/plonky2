@@ -62,6 +62,8 @@ mod tests {
     }
 
     fn test_insert_given_len(len_log: usize) -> Result<()> {
+        type F = GoldilocksField;
+        type FF = QuadraticExtension<GoldilocksField>;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -69,6 +71,7 @@ mod tests {
         let len = 1 << len_log;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, 2>::new(config);
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let v = (0..len - 1)
             .map(|_| builder.constant_extension(FF::rand()))

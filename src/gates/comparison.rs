@@ -43,33 +43,42 @@ impl<F: RichField + Extendable<D>, const D: usize> ComparisonGate<F, D> {
         1
     }
 
-    pub fn wire_most_significant_diff(&self) -> usize {
+    pub fn wire_result_bool(&self) -> usize {
         2
+    }
+
+    pub fn wire_most_significant_diff(&self) -> usize {
+        3
     }
 
     pub fn wire_first_chunk_val(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        3 + chunk
+        4 + chunk
     }
 
     pub fn wire_second_chunk_val(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        3 + self.num_chunks + chunk
+        4 + self.num_chunks + chunk
     }
 
     pub fn wire_equality_dummy(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        3 + 2 * self.num_chunks + chunk
+        4 + 2 * self.num_chunks + chunk
     }
 
     pub fn wire_chunks_equal(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        3 + 3 * self.num_chunks + chunk
+        4 + 3 * self.num_chunks + chunk
     }
 
     pub fn wire_intermediate_value(&self, chunk: usize) -> usize {
         debug_assert!(chunk < self.num_chunks);
-        3 + 4 * self.num_chunks + chunk
+        4 + 4 * self.num_chunks + chunk
+    }
+
+    /// The `bit_index`th bit of 2^n - 1 + most_significant_diff.
+    pub fn wire_most_significant_diff_bit(&self, bit_index: usize) -> usize {
+        4 + 5 * self.num_chunks + bit_index
     }
 }
 
@@ -110,10 +119,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
 
         for i in 0..self.num_chunks {
             // Range-check the chunks to be less than `chunk_size`.
-            let first_product = (0..chunk_size)
+            let first_product: F::Extension = (0..chunk_size)
                 .map(|x| first_chunks[i] - F::Extension::from_canonical_usize(x))
                 .product();
-            let second_product = (0..chunk_size)
+            let second_product: F::Extension = (0..chunk_size)
                 .map(|x| second_chunks[i] - F::Extension::from_canonical_usize(x))
                 .product();
             constraints.push(first_product);
@@ -137,11 +146,22 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
         constraints.push(most_significant_diff - most_significant_diff_so_far);
 
-        // Range check `most_significant_diff` to be less than `chunk_size`.
-        let product = (0..chunk_size)
-            .map(|x| most_significant_diff - F::Extension::from_canonical_usize(x))
-            .product();
-        constraints.push(product);
+        let most_significant_diff_bits: Vec<F::Extension> = (0..self.chunk_bits() + 1)
+            .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
+            .collect();
+
+        // Range-check the bits.
+        for &bit in &most_significant_diff_bits {
+            constraints.push(bit * (F::Extension::ONE - bit));
+        }
+
+        let bits_combined = reduce_with_powers(&most_significant_diff_bits, F::Extension::TWO);
+        let two_n = F::Extension::from_canonical_u64(1 << self.chunk_bits());
+        constraints.push((two_n + most_significant_diff) - bits_combined);
+
+        // Iff first <= second, the top (n + 1st) bit of (2^n + most_significant_diff) will be 1.
+        let result_bool = vars.local_wires[self.wire_result_bool()];
+        constraints.push(result_bool - most_significant_diff_bits[self.chunk_bits()]);
 
         constraints
     }
@@ -178,10 +198,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
 
         for i in 0..self.num_chunks {
             // Range-check the chunks to be less than `chunk_size`.
-            let first_product = (0..chunk_size)
+            let first_product: F = (0..chunk_size)
                 .map(|x| first_chunks[i] - F::from_canonical_usize(x))
                 .product();
-            let second_product = (0..chunk_size)
+            let second_product: F = (0..chunk_size)
                 .map(|x| second_chunks[i] - F::from_canonical_usize(x))
                 .product();
             constraints.push(first_product);
@@ -205,11 +225,22 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
         constraints.push(most_significant_diff - most_significant_diff_so_far);
 
-        // Range check `most_significant_diff` to be less than `chunk_size`.
-        let product = (0..chunk_size)
-            .map(|x| most_significant_diff - F::from_canonical_usize(x))
-            .product();
-        constraints.push(product);
+        let most_significant_diff_bits: Vec<F> = (0..self.chunk_bits() + 1)
+            .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
+            .collect();
+
+        // Range-check the bits.
+        for &bit in &most_significant_diff_bits {
+            constraints.push(bit * (F::ONE - bit));
+        }
+
+        let bits_combined = reduce_with_powers(&most_significant_diff_bits, F::TWO);
+        let two_n = F::from_canonical_u64(1 << self.chunk_bits());
+        constraints.push((two_n + most_significant_diff) - bits_combined);
+
+        // Iff first <= second, the top (n + 1st) bit of (2^n - 1 + most_significant_diff) will be 1.
+        let result_bool = vars.local_wires[self.wire_result_bool()];
+        constraints.push(result_bool - most_significant_diff_bits[self.chunk_bits()]);
 
         constraints
     }
@@ -285,14 +316,29 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         constraints
             .push(builder.sub_extension(most_significant_diff, most_significant_diff_so_far));
 
-        // Range check `most_significant_diff` to be less than `chunk_size`.
-        let mut product = builder.one_extension();
-        for x in 0..chunk_size {
-            let x_f = builder.constant_extension(F::Extension::from_canonical_usize(x));
-            let diff = builder.sub_extension(most_significant_diff, x_f);
-            product = builder.mul_extension(product, diff);
+        let most_significant_diff_bits: Vec<ExtensionTarget<D>> = (0..self.chunk_bits() + 1)
+            .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
+            .collect();
+
+        // Range-check the bits.
+        for &this_bit in &most_significant_diff_bits {
+            let inverse = builder.sub_extension(one, this_bit);
+            constraints.push(builder.mul_extension(this_bit, inverse));
         }
-        constraints.push(product);
+
+        let two = builder.two();
+        let bits_combined =
+            reduce_with_powers_ext_recursive(builder, &most_significant_diff_bits, two);
+        let two_n =
+            builder.constant_extension(F::Extension::from_canonical_u64(1 << self.chunk_bits()));
+        let sum = builder.add_extension(two_n, most_significant_diff);
+        constraints.push(builder.sub_extension(sum, bits_combined));
+
+        // Iff first <= second, the top (n + 1st) bit of (2^n + most_significant_diff) will be 1.
+        let result_bool = vars.local_wires[self.wire_result_bool()];
+        constraints.push(
+            builder.sub_extension(result_bool, most_significant_diff_bits[self.chunk_bits()]),
+        );
 
         constraints
     }
@@ -310,7 +356,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
     }
 
     fn num_wires(&self) -> usize {
-        self.wire_intermediate_value(self.num_chunks - 1) + 1
+        4 + 5 * self.num_chunks + (self.chunk_bits() + 1)
     }
 
     fn num_constants(&self) -> usize {
@@ -322,7 +368,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
     }
 
     fn num_constraints(&self) -> usize {
-        4 + 5 * self.num_chunks
+        6 + 5 * self.num_chunks + self.chunk_bits()
     }
 }
 
@@ -338,10 +384,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
-        let mut deps = Vec::new();
-        deps.push(local_target(self.gate.wire_first_input()));
-        deps.push(local_target(self.gate.wire_second_input()));
-        deps
+        vec![
+            local_target(self.gate.wire_first_input()),
+            local_target(self.gate.wire_second_input()),
+        ]
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
@@ -358,7 +404,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let first_input_u64 = first_input.to_canonical_u64();
         let second_input_u64 = second_input.to_canonical_u64();
 
-        debug_assert!(first_input_u64 < second_input_u64);
+        let result = F::from_canonical_usize((first_input_u64 <= second_input_u64) as usize);
 
         let chunk_size = 1 << self.gate.chunk_bits();
         let first_input_chunks: Vec<F> = (0..self.gate.num_chunks)
@@ -397,6 +443,22 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         }
         let most_significant_diff = most_significant_diff_so_far;
 
+        let two_n = F::from_canonical_usize(1 << self.gate.chunk_bits());
+        let two_n_plus_msd = (two_n + most_significant_diff).to_canonical_u64();
+
+        let msd_bits_u64: Vec<u64> = (0..self.gate.chunk_bits() + 1)
+            .scan(two_n_plus_msd, |acc, _| {
+                let tmp = *acc % 2;
+                *acc /= 2;
+                Some(tmp)
+            })
+            .collect();
+        let msd_bits: Vec<F> = msd_bits_u64
+            .iter()
+            .map(|x| F::from_canonical_u64(*x))
+            .collect();
+
+        out_buffer.set_wire(local_wire(self.gate.wire_result_bool()), result);
         out_buffer.set_wire(
             local_wire(self.gate.wire_most_significant_diff()),
             most_significant_diff,
@@ -420,6 +482,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
                 intermediate_values[i],
             );
         }
+        for i in 0..self.gate.chunk_bits() + 1 {
+            out_buffer.set_wire(
+                local_wire(self.gate.wire_most_significant_diff_bit(i)),
+                msd_bits[i],
+            );
+        }
     }
 }
 
@@ -430,6 +498,7 @@ mod tests {
     use anyhow::Result;
     use rand::Rng;
 
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::{Field, PrimeField};
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::comparison::ComparisonGate;
@@ -453,17 +522,20 @@ mod tests {
 
         assert_eq!(gate.wire_first_input(), 0);
         assert_eq!(gate.wire_second_input(), 1);
-        assert_eq!(gate.wire_most_significant_diff(), 2);
-        assert_eq!(gate.wire_first_chunk_val(0), 3);
-        assert_eq!(gate.wire_first_chunk_val(4), 7);
-        assert_eq!(gate.wire_second_chunk_val(0), 8);
-        assert_eq!(gate.wire_second_chunk_val(4), 12);
-        assert_eq!(gate.wire_equality_dummy(0), 13);
-        assert_eq!(gate.wire_equality_dummy(4), 17);
-        assert_eq!(gate.wire_chunks_equal(0), 18);
-        assert_eq!(gate.wire_chunks_equal(4), 22);
-        assert_eq!(gate.wire_intermediate_value(0), 23);
-        assert_eq!(gate.wire_intermediate_value(4), 27);
+        assert_eq!(gate.wire_result_bool(), 2);
+        assert_eq!(gate.wire_most_significant_diff(), 3);
+        assert_eq!(gate.wire_first_chunk_val(0), 4);
+        assert_eq!(gate.wire_first_chunk_val(4), 8);
+        assert_eq!(gate.wire_second_chunk_val(0), 9);
+        assert_eq!(gate.wire_second_chunk_val(4), 13);
+        assert_eq!(gate.wire_equality_dummy(0), 14);
+        assert_eq!(gate.wire_equality_dummy(4), 18);
+        assert_eq!(gate.wire_chunks_equal(0), 19);
+        assert_eq!(gate.wire_chunks_equal(4), 23);
+        assert_eq!(gate.wire_intermediate_value(0), 24);
+        assert_eq!(gate.wire_intermediate_value(4), 28);
+        assert_eq!(gate.wire_most_significant_diff_bit(0), 29);
+        assert_eq!(gate.wire_most_significant_diff_bit(8), 37);
     }
 
     #[test]
@@ -482,11 +554,15 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
+        test_eval_fns::<GoldilocksField, _, 4>(ComparisonGate::<_, 4>::new(num_bits, num_chunks))
         test_eval_fns::<F, C, _, D>(ComparisonGate::<_, 2>::new(num_bits, num_chunks))
     }
 
     #[test]
     fn test_gate_constraint() {
+        type F = GoldilocksField;
+        type FF = QuarticExtension<GoldilocksField>;
+        const D: usize = 4;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -502,6 +578,8 @@ mod tests {
 
             let first_input_u64 = first_input.to_canonical_u64();
             let second_input_u64 = second_input.to_canonical_u64();
+
+            let result_bool = F::from_bool(first_input_u64 <= second_input_u64);
 
             let chunk_size = 1 << chunk_bits;
             let mut first_input_chunks: Vec<F> = (0..num_chunks)
@@ -540,20 +618,32 @@ mod tests {
             }
             let most_significant_diff = most_significant_diff_so_far;
 
+            let two_n_plus_msd =
+                (1 << chunk_bits) as u64 + most_significant_diff.to_canonical_u64();
+            let mut msd_bits: Vec<F> = (0..chunk_bits + 1)
+                .scan(two_n_plus_msd, |acc, _| {
+                    let tmp = *acc % 2;
+                    *acc /= 2;
+                    Some(F::from_canonical_u64(tmp))
+                })
+                .collect();
+
             v.push(first_input);
             v.push(second_input);
+            v.push(result_bool);
             v.push(most_significant_diff);
             v.append(&mut first_input_chunks);
             v.append(&mut second_input_chunks);
             v.append(&mut equality_dummies);
             v.append(&mut chunks_equal);
             v.append(&mut intermediate_values);
+            v.append(&mut msd_bits);
 
             v.iter().map(|&x| x.into()).collect::<Vec<_>>()
         };
 
         let mut rng = rand::thread_rng();
-        let max: u64 = 1 << num_bits - 1;
+        let max: u64 = 1 << (num_bits - 1);
         let first_input_u64 = rng.gen_range(0..max);
         let second_input_u64 = {
             let mut val = rng.gen_range(0..max);

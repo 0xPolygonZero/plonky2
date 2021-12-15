@@ -4,7 +4,7 @@ use itertools::izip;
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
-use crate::gates::comparison::ComparisonGate;
+use crate::gates::assert_le::AssertLessThanGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -40,9 +40,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_permutation(a_chunks, b_chunks);
     }
 
-    /// Add a ComparisonGate to assert that `lhs` is less than `rhs`, where their values are at most `bits` bits.
+    /// Add an AssertLessThanGate to assert that `lhs` is less than `rhs`, where their values are at most `bits` bits.
     pub fn assert_le(&mut self, lhs: Target, rhs: Target, bits: usize, num_chunks: usize) {
-        let gate = ComparisonGate::new(bits, num_chunks);
+        let gate = AssertLessThanGate::new(bits, num_chunks);
         let gate_index = self.add_gate(gate.clone(), vec![]);
 
         self.connect(Target::wire(gate_index, gate.wire_first_input()), lhs);
@@ -128,8 +128,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         self.input_ops
             .iter()
-            .map(|op| vec![op.is_write.target, op.address, op.timestamp, op.value])
-            .flatten()
+            .flat_map(|op| vec![op.is_write.target, op.address, op.timestamp, op.value])
             .collect()
     }
 
@@ -226,7 +225,7 @@ mod tests {
             izip!(is_write_vals, address_vals, timestamp_vals, value_vals)
                 .zip(combined_vals_u64)
                 .collect::<Vec<_>>();
-        input_ops_and_keys.sort_by_key(|(_, val)| val.clone());
+        input_ops_and_keys.sort_by_key(|(_, val)| *val);
         let input_ops_sorted: Vec<_> = input_ops_and_keys.iter().map(|(x, _)| x).collect();
 
         let output_ops =

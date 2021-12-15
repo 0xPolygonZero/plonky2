@@ -20,6 +20,7 @@ fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     bench_prove::<PoseidonGoldilocksConfig, 2>()
+    bench_prove::<GoldilocksField, 4>()
 }
 
 fn bench_prove<C: GenericConfig<D>, const D: usize>() -> Result<()> {
@@ -27,6 +28,7 @@ fn bench_prove<C: GenericConfig<D>, const D: usize>() -> Result<()> {
         num_wires: 126,
         num_routed_wires: 33,
         constant_gate_size: 6,
+        use_base_arithmetic_gate: false,
         security_bits: 128,
         rate_bits: 3,
         num_challenges: 3,

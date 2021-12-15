@@ -92,7 +92,7 @@ impl TimingTree {
 
     fn duration(&self) -> Duration {
         self.exit_time
-            .unwrap_or(Instant::now())
+            .unwrap_or_else(Instant::now)
             .duration_since(self.enter_time)
     }
 

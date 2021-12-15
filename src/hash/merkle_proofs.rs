@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
@@ -55,6 +53,7 @@ pub(crate) fn verify_merkle_proof<F: RichField, H: Hasher<F>>(
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
     /// given cap. The index is given by it's little-endian bits.
+    #[cfg(test)]
     pub(crate) fn verify_merkle_proof<H: AlgebraicHasher<F>>(
         &mut self,
         leaf_data: Vec<Target>,
@@ -116,7 +115,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
+    pub fn connect_hashes(&mut self, x: HashOutTarget, y: HashOutTarget) {
         for i in 0..4 {
             self.connect(x.elements[i], y.elements[i]);
         }
@@ -131,6 +130,7 @@ mod tests {
     use super::*;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::hash::merkle_tree::MerkleTree;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
@@ -144,6 +144,8 @@ mod tests {
 
     #[test]
     fn test_recursive_merkle_proof() -> Result<()> {
+        type F = GoldilocksField;
+        let config = CircuitConfig::standard_recursion_config();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

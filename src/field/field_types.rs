@@ -1,11 +1,10 @@
-use std::convert::TryInto;
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::bigint::BigUint;
-use num::{Integer, One, Zero};
+use num::{Integer, One, ToPrimitive, Zero};
 use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -43,24 +42,28 @@ pub trait Field:
     + Serialize
     + DeserializeOwned
 {
-    type PrimeField: PrimeField;
-
     const ZERO: Self;
     const ONE: Self;
     const TWO: Self;
     const NEG_ONE: Self;
 
-    const CHARACTERISTIC: u64;
-
     /// The 2-adicity of this field's multiplicative group.
     const TWO_ADICITY: usize;
+
+    /// The field's characteristic and it's 2-adicity.
+    /// Set to `None` when the characteristic doesn't fit in a u64.
+    const CHARACTERISTIC_TWO_ADICITY: usize;
 
     /// Generator of the entire multiplicative group, i.e. all non-zero elements.
     const MULTIPLICATIVE_GROUP_GENERATOR: Self;
     /// Generator of a multiplicative subgroup of order `2^TWO_ADICITY`.
     const POWER_OF_TWO_GENERATOR: Self;
 
+    /// The bit length of the field order.
+    const BITS: usize;
+
     fn order() -> BigUint;
+    fn characteristic() -> BigUint;
 
     #[inline]
     fn is_zero(&self) -> bool {
@@ -92,6 +95,10 @@ pub trait Field:
         self.square() * *self
     }
 
+    fn triple(&self) -> Self {
+        *self * (Self::ONE + Self::TWO)
+    }
+
     /// Compute the multiplicative inverse of this field element.
     fn try_inverse(&self) -> Option<Self>;
 
@@ -103,34 +110,91 @@ pub trait Field:
         // This is Montgomery's trick. At a high level, we invert the product of the given field
         // elements, then derive the individual inverses from that via multiplication.
 
+        // The usual Montgomery trick involves calculating an array of cumulative products,
+        // resulting in a long dependency chain. To increase instruction-level parallelism, we
+        // compute WIDTH separate cumulative product arrays that only meet at the end.
+
+        // Higher WIDTH increases instruction-level parallelism, but too high a value will cause us
+        // to run out of registers.
+        const WIDTH: usize = 4;
+        // JN note: WIDTH is 4. The code is specialized to this value and will need
+        // modification if it is changed. I tried to make it more generic, but Rust's const
+        // generics are not yet good enough.
+
+        // Handle special cases. Paradoxically, below is repetitive but concise.
+        // The branches should be very predictable.
         let n = x.len();
         if n == 0 {
             return Vec::new();
-        }
-        if n == 1 {
+        } else if n == 1 {
             return vec![x[0].inverse()];
+        } else if n == 2 {
+            let x01 = x[0] * x[1];
+            let x01inv = x01.inverse();
+            return vec![x01inv * x[1], x01inv * x[0]];
+        } else if n == 3 {
+            let x01 = x[0] * x[1];
+            let x012 = x01 * x[2];
+            let x012inv = x012.inverse();
+            let x01inv = x012inv * x[2];
+            return vec![x01inv * x[1], x01inv * x[0], x012inv * x01];
         }
+        debug_assert!(n >= WIDTH);
 
-        // Fill buf with cumulative product of x.
-        let mut buf = Vec::with_capacity(n);
-        let mut cumul_prod = x[0];
-        buf.push(cumul_prod);
-        for i in 1..n {
-            cumul_prod *= x[i];
-            buf.push(cumul_prod);
+        // Buf is reused for a few things to save allocations.
+        // Fill buf with cumulative product of x, only taking every 4th value. Concretely, buf will
+        // be [
+        //   x[0], x[1], x[2], x[3],
+        //   x[0] * x[4], x[1] * x[5], x[2] * x[6], x[3] * x[7],
+        //   x[0] * x[4] * x[8], x[1] * x[5] * x[9], x[2] * x[6] * x[10], x[3] * x[7] * x[11],
+        //   ...
+        // ].
+        // If n is not a multiple of WIDTH, the result is truncated from the end. For example,
+        // for n == 5, we get [x[0], x[1], x[2], x[3], x[0] * x[4]].
+        let mut buf: Vec<Self> = Vec::with_capacity(n);
+        // cumul_prod holds the last WIDTH elements of buf. This is redundant, but it's how we
+        // convince LLVM to keep the values in the registers.
+        let mut cumul_prod: [Self; WIDTH] = x[..WIDTH].try_into().unwrap();
+        buf.extend(cumul_prod);
+        for (i, &xi) in x[WIDTH..].iter().enumerate() {
+            cumul_prod[i % WIDTH] *= xi;
+            buf.push(cumul_prod[i % WIDTH]);
         }
+        debug_assert_eq!(buf.len(), n);
 
-        // At this stage buf contains the the cumulative product of x. We reuse the buffer for
-        // efficiency. At the end of the loop, it is filled with inverses of x.
-        let mut a_inv = cumul_prod.inverse();
-        buf[n - 1] = buf[n - 2] * a_inv;
-        for i in (1..n - 1).rev() {
-            a_inv = x[i + 1] * a_inv;
-            // buf[i - 1] has not been written to by this loop, so it equals x[0] * ... x[n - 1].
-            buf[i] = buf[i - 1] * a_inv;
+        let mut a_inv = {
+            // This is where the four dependency chains meet.
+            // Take the last four elements of buf and invert them all.
+            let c01 = cumul_prod[0] * cumul_prod[1];
+            let c23 = cumul_prod[2] * cumul_prod[3];
+            let c0123 = c01 * c23;
+            let c0123inv = c0123.inverse();
+            let c01inv = c0123inv * c23;
+            let c23inv = c0123inv * c01;
+            [
+                c01inv * cumul_prod[1],
+                c01inv * cumul_prod[0],
+                c23inv * cumul_prod[3],
+                c23inv * cumul_prod[2],
+            ]
+        };
+
+        for i in (WIDTH..n).rev() {
+            // buf[i - WIDTH] has not been written to by this loop, so it equals
+            // x[i % WIDTH] * x[i % WIDTH + WIDTH] * ... * x[i - WIDTH].
+            buf[i] = buf[i - WIDTH] * a_inv[i % WIDTH];
             // buf[i] now holds the inverse of x[i].
+            a_inv[i % WIDTH] *= x[i];
         }
-        buf[0] = x[1] * a_inv;
+        for i in (0..WIDTH).rev() {
+            buf[i] = a_inv[i];
+        }
+
+        for (&bi, &xi) in buf.iter().zip(x) {
+            // Sanity check only.
+            debug_assert_eq!(bi * xi, Self::ONE);
+        }
+
         buf
     }
 
@@ -142,29 +206,31 @@ pub trait Field:
         // exp exceeds t, we repeatedly multiply by 2^-t and reduce
         // exp until it's in the right range.
 
-        let p = Self::CHARACTERISTIC;
+        if let Some(p) = Self::characteristic().to_u64() {
+            // NB: The only reason this is split into two cases is to save
+            // the multiplication (and possible calculation of
+            // inverse_2_pow_adicity) in the usual case that exp <=
+            // TWO_ADICITY. Can remove the branch and simplify if that
+            // saving isn't worth it.
 
-        // NB: The only reason this is split into two cases is to save
-        // the multiplication (and possible calculation of
-        // inverse_2_pow_adicity) in the usual case that exp <=
-        // TWO_ADICITY. Can remove the branch and simplify if that
-        // saving isn't worth it.
+            if exp > Self::CHARACTERISTIC_TWO_ADICITY {
+                // NB: This should be a compile-time constant
+                let inverse_2_pow_adicity: Self =
+                    Self::from_canonical_u64(p - ((p - 1) >> Self::CHARACTERISTIC_TWO_ADICITY));
 
-        if exp > Self::PrimeField::TWO_ADICITY {
-            // NB: This should be a compile-time constant
-            let inverse_2_pow_adicity: Self =
-                Self::from_canonical_u64(p - ((p - 1) >> Self::PrimeField::TWO_ADICITY));
+                let mut res = inverse_2_pow_adicity;
+                let mut e = exp - Self::CHARACTERISTIC_TWO_ADICITY;
 
-            let mut res = inverse_2_pow_adicity;
-            let mut e = exp - Self::PrimeField::TWO_ADICITY;
-
-            while e > Self::PrimeField::TWO_ADICITY {
-                res *= inverse_2_pow_adicity;
-                e -= Self::PrimeField::TWO_ADICITY;
+                while e > Self::CHARACTERISTIC_TWO_ADICITY {
+                    res *= inverse_2_pow_adicity;
+                    e -= Self::CHARACTERISTIC_TWO_ADICITY;
+                }
+                res * Self::from_canonical_u64(p - ((p - 1) >> e))
+            } else {
+                Self::from_canonical_u64(p - ((p - 1) >> exp))
             }
-            res * Self::from_canonical_u64(p - ((p - 1) >> e))
         } else {
-            Self::from_canonical_u64(p - ((p - 1) >> exp))
+            Self::TWO.inverse().exp_u64(exp as u64)
         }
     }
 
@@ -205,6 +271,11 @@ pub trait Field:
         let subgroup = Self::cyclic_subgroup_known_order(generator, order);
         subgroup.into_iter().map(|x| x * shift).collect()
     }
+
+    // TODO: move these to a new `PrimeField` trait (for all prime fields, not just 64-bit ones)
+    fn from_biguint(n: BigUint) -> Self;
+
+    fn to_biguint(&self) -> BigUint;
 
     fn from_canonical_u64(n: u64) -> Self;
 
@@ -274,7 +345,7 @@ pub trait Field:
     }
 
     fn kth_root_u64(&self, k: u64) -> Self {
-        let p = Self::order().clone();
+        let p = Self::order();
         let p_minus_1 = &p - 1u32;
         debug_assert!(
             Self::is_monomial_permutation_u64(k),
@@ -356,6 +427,7 @@ pub trait PrimeField: Field {
         unsafe { self.sub_canonical_u64(1) }
     }
 
+    /// # Safety
     /// Equivalent to *self + Self::from_canonical_u64(rhs), but may be cheaper. The caller must
     /// ensure that 0 <= rhs < Self::ORDER. The function may return incorrect results if this
     /// precondition is not met. It is marked unsafe for this reason.
@@ -365,6 +437,7 @@ pub trait PrimeField: Field {
         *self + Self::from_canonical_u64(rhs)
     }
 
+    /// # Safety
     /// Equivalent to *self - Self::from_canonical_u64(rhs), but may be cheaper. The caller must
     /// ensure that 0 <= rhs < Self::ORDER. The function may return incorrect results if this
     /// precondition is not met. It is marked unsafe for this reason.

@@ -133,6 +133,7 @@ mod tests {
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::fri::FriConfig;
     use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
+    use crate::gates::noop::NoopGate;
     use crate::hash::merkle_proofs::MerkleProofTarget;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::VerifierOnlyCircuitData;
@@ -388,11 +389,14 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
 
-        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 8_000)?;
+        // Start with a degree 2^14 proof, then shrink it to 2^13, then to 2^12.
+        let (proof, vd, cd) = dummy_proof::<F, D>(&config, 16_000)?;
+        assert_eq!(cd.degree_bits, 14);
         let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, false, false)?;
-        let (proof, _vd, cd) =
-            recursive_proof::<F, KC, C, D>(proof, vd, cd, &config, &config, true, true)?;
+            recursive_proof(proof, vd, cd, &config, &config, Some(13), false, false)?;
+        assert_eq!(cd.degree_bits, 13);
+        let (proof, _vd, cd) = recursive_proof(proof, vd, cd, &config, &config, None, true, true)?;
+        assert_eq!(cd.degree_bits, 12);
 
         test_serialization(&proof, &cd)?;
 
@@ -428,71 +432,70 @@ mod tests {
         )?;
         assert_eq!(cd.degree_bits, 13);
 
-        // A high-rate recursive proof with degree 2^13, designed to be verifiable with 2^12
-        // gates and 48 routed wires.
+        let standard_config = CircuitConfig::standard_recursion_config();
+
+        // An initial dummy proof.
+        let (proof, vd, cd) = dummy_proof::<F, D>(&standard_config, 4_000)?;
+        assert_eq!(cd.degree_bits, 12);
+
+        // A standard recursive proof.
+        let (proof, vd, cd) = recursive_proof(
+            proof,
+            vd,
+            cd,
+            &standard_config,
+            &standard_config,
+            None,
+            false,
+            false,
+        )?;
+        assert_eq!(cd.degree_bits, 12);
+
+        // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
         let high_rate_config = CircuitConfig {
-            rate_bits: 5,
+            rate_bits: 7,
             fri_config: FriConfig {
-                proof_of_work_bits: 20,
-                num_query_rounds: 16,
+                proof_of_work_bits: 16,
+                num_query_rounds: 12,
                 ..standard_config.fri_config.clone()
             },
             ..standard_config
         };
-        let (proof, vd, cd) = recursive_proof::<F, C, C, D>(
+        let (proof, vd, cd) = recursive_proof(
             proof,
             vd,
             cd,
             &standard_config,
             &high_rate_config,
+            None,
             true,
             true,
         )?;
-        assert_eq!(cd.degree_bits, 13);
+        assert_eq!(cd.degree_bits, 12);
 
-        // A higher-rate recursive proof with degree 2^12, designed to be verifiable with 2^12
-        // gates and 28 routed wires.
-        let higher_rate_more_routing_config = CircuitConfig {
-            rate_bits: 7,
-            num_routed_wires: 48,
+        // A final proof, optimized for size.
+        let final_config = CircuitConfig {
+            cap_height: 0,
+            rate_bits: 8,
+            num_routed_wires: 37,
             fri_config: FriConfig {
-                proof_of_work_bits: 23,
-                num_query_rounds: 11,
-                ..standard_config.fri_config.clone()
+                proof_of_work_bits: 20,
+                reduction_strategy: FriReductionStrategy::MinSize(None),
+                num_query_rounds: 10,
             },
-            ..high_rate_config.clone()
+            ..high_rate_config
         };
-        let (proof, vd, cd) = recursive_proof::<F, C, C, D>(
+        let (proof, _vd, cd) = recursive_proof(
             proof,
             vd,
             cd,
             &high_rate_config,
-            &higher_rate_more_routing_config,
-            true,
-            true,
-        )?;
-        assert_eq!(cd.degree_bits, 12);
-
-        // A final proof of degree 2^12, optimized for size.
-        let final_config = CircuitConfig {
-            cap_height: 0,
-            num_routed_wires: 32,
-            fri_config: FriConfig {
-                reduction_strategy: FriReductionStrategy::MinSize(None),
-                ..higher_rate_more_routing_config.fri_config.clone()
-            },
-            ..higher_rate_more_routing_config
-        };
-        let (proof, _vd, cd) = recursive_proof::<F, KC, C, D>(
-            proof,
-            vd,
-            cd,
-            &higher_rate_more_routing_config,
             &final_config,
+            None,
             true,
             true,
         )?;
-        assert_eq!(cd.degree_bits, 12);
+        assert_eq!(cd.degree_bits, 12, "final proof too large");
 
         test_serialization(&proof, &cd)?;
 
@@ -500,7 +503,7 @@ mod tests {
     }
 
     /// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
-    fn dummy_proof<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    fn dummy_proof<F: RichField + Extendable<D>, const D: usize>(
         config: &CircuitConfig,
         num_dummy_gates: u64,
     ) -> Result<(
@@ -509,16 +512,12 @@ mod tests {
         CommonCircuitData<F, C, D>,
     )> {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        let input = builder.add_virtual_target();
-        for i in 0..num_dummy_gates {
-            // Use unique constants to force a new `ArithmeticGate`.
-            let i_f = F::from_canonical_u64(i);
-            builder.arithmetic(i_f, i_f, input, input, input);
+        for _ in 0..num_dummy_gates {
+            builder.add_gate(NoopGate, vec![]);
         }
 
-        let data = builder.build::<C>();
-        let mut inputs = PartialWitness::new();
-        inputs.set_target(input, F::ZERO);
+        let data = builder.build();
+        let inputs = PartialWitness::new();
         let proof = data.prove(inputs)?;
         data.verify(proof.clone())?;
 
@@ -536,6 +535,7 @@ mod tests {
         inner_cd: CommonCircuitData<F, InnerC, D>,
         inner_config: &CircuitConfig,
         config: &CircuitConfig,
+        min_degree_bits: Option<usize>,
         print_gate_counts: bool,
         print_timing: bool,
     ) -> Result<(
@@ -556,13 +556,23 @@ mod tests {
             &inner_vd.constants_sigmas_cap,
         );
 
-        builder.add_recursive_verifier(pt, &inner_config, &inner_data, &inner_cd);
+        builder.add_recursive_verifier(pt, inner_config, &inner_data, &inner_cd);
 
         if print_gate_counts {
             builder.print_gate_counts(0);
         }
 
-        let data = builder.build::<C>();
+        if let Some(min_degree_bits) = min_degree_bits {
+            // We don't want to pad all the way up to 2^min_degree_bits, as the builder will add a
+            // few special gates afterward. So just pad to 2^(min_degree_bits - 1) + 1. Then the
+            // builder will pad to the next power of two, 2^min_degree_bits.
+            let min_gates = (1 << (min_degree_bits - 1)) + 1;
+            for _ in builder.num_gates()..min_gates {
+                builder.add_gate(NoopGate, vec![]);
+            }
+        }
+
+        let data = builder.build();
 
         let mut timing = TimingTree::new("prove", Level::Debug);
         let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
@@ -582,12 +592,12 @@ mod tests {
     ) -> Result<()> {
         let proof_bytes = proof.to_bytes()?;
         info!("Proof length: {} bytes", proof_bytes.len());
-        let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, &cd)?;
+        let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;
         assert_eq!(proof, &proof_from_bytes);
 
         let now = std::time::Instant::now();
-        let compressed_proof = proof.clone().compress(&cd)?;
-        let decompressed_compressed_proof = compressed_proof.clone().decompress(&cd)?;
+        let compressed_proof = proof.clone().compress(cd)?;
+        let decompressed_compressed_proof = compressed_proof.clone().decompress(cd)?;
         info!("{:.4}s to compress proof", now.elapsed().as_secs_f64());
         assert_eq!(proof, &decompressed_compressed_proof);
 
@@ -597,7 +607,7 @@ mod tests {
             compressed_proof_bytes.len()
         );
         let compressed_proof_from_bytes =
-            CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, &cd)?;
+            CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, cd)?;
         assert_eq!(compressed_proof, compressed_proof_from_bytes);
 
         Ok(())

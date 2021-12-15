@@ -1,4 +1,3 @@
-use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
 
 use crate::field::extension_field::algebra::ExtensionAlgebra;
@@ -36,6 +35,7 @@ impl<const D: usize> ExtensionTarget<D> {
         let arr = self.to_target_array();
         let k = (F::order() - 1u32) / (D as u64);
         let z0 = F::Extension::W.exp_biguint(&(k * count as u64));
+        #[allow(clippy::needless_collect)]
         let zs = z0
             .powers()
             .take(D)

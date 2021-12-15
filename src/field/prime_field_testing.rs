@@ -24,7 +24,7 @@ where
     ExpectedOp: Fn(u64) -> u64,
 {
     let inputs = test_inputs(F::ORDER);
-    let expected: Vec<_> = inputs.iter().map(|x| expected_op(x.clone())).collect();
+    let expected: Vec<_> = inputs.iter().map(|&x| expected_op(x)).collect();
     let output: Vec<_> = inputs
         .iter()
         .cloned()
@@ -144,7 +144,7 @@ macro_rules! test_prime_field_arithmetic {
             fn inverse_2exp() {
                 type F = $field;
 
-                let v = <F as Field>::PrimeField::TWO_ADICITY;
+                let v = <F as Field>::TWO_ADICITY;
 
                 for e in [0, 1, 2, 3, 4, v - 2, v - 1, v, v + 1, v + 2, 123 * v] {
                     let x = F::TWO.exp_u64(e as u64);

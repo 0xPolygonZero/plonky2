@@ -1,6 +1,6 @@
 use crate::field::fft::ifft;
 use crate::field::field_types::Field;
-use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::log2_ceil;
 
 /// Computes the unique degree < n interpolant of an arbitrary list of n (point, value) pairs.
@@ -79,6 +79,8 @@ mod tests {
     use super::*;
     use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
+    use crate::field::goldilocks_field::GoldilocksField;
+    use crate::polynomial::PolynomialCoeffs;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::polynomial::polynomial::PolynomialCoeffs;
 

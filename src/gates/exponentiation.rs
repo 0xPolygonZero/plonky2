@@ -266,6 +266,7 @@ mod tests {
     use anyhow::Result;
     use rand::Rng;
 
+    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::exponentiation::ExponentiationGate;
@@ -307,6 +308,8 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
+        test_eval_fns::<GoldilocksField, _, 4>(ExponentiationGate::new_from_config(
+            &CircuitConfig::standard_recursion_config(),
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -317,6 +320,9 @@ mod tests {
 
     #[test]
     fn test_gate_constraint() {
+        type F = GoldilocksField;
+        type FF = QuarticExtension<GoldilocksField>;
+        const D: usize = 4;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -339,9 +345,8 @@ mod tests {
                 .map(|b| F::from_canonical_u64(*b))
                 .collect();
 
-            let mut v = Vec::new();
-            v.push(base);
-            v.extend(power_bits_f.clone());
+            let mut v = vec![base];
+            v.extend(power_bits_f);
 
             let mut intermediate_values = Vec::new();
             let mut current_intermediate_value = F::ONE;

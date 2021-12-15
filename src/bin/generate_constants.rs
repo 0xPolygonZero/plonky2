@@ -1,5 +1,8 @@
 //! Generates random constants using ChaCha20, seeded with zero.
 
+#![allow(clippy::needless_range_loop)]
+
+use plonky2::field::field_types::PrimeField;
 use plonky2::field::field_types::PrimeField;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use rand::{Rng, SeedableRng};

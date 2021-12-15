@@ -4,6 +4,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use num::bigint::BigUint;
 use num::traits::Pow;
+use num::Integer;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -50,26 +51,28 @@ impl<F: Extendable<4>> From<F> for QuarticExtension<F> {
 }
 
 impl<F: Extendable<4>> Field for QuarticExtension<F> {
-    type PrimeField = F;
-
     const ZERO: Self = Self([F::ZERO; 4]);
     const ONE: Self = Self([F::ONE, F::ZERO, F::ZERO, F::ZERO]);
     const TWO: Self = Self([F::TWO, F::ZERO, F::ZERO, F::ZERO]);
     const NEG_ONE: Self = Self([F::NEG_ONE, F::ZERO, F::ZERO, F::ZERO]);
-
-    const CHARACTERISTIC: u64 = F::ORDER;
 
     // `p^4 - 1 = (p - 1)(p + 1)(p^2 + 1)`. The `p - 1` term has a two-adicity of `F::TWO_ADICITY`.
     // As long as `F::TWO_ADICITY >= 2`, `p` can be written as `4n + 1`, so `p + 1` can be written as
     // `2(2n + 1)`, which has a 2-adicity of 1. A similar argument can show that `p^2 + 1` also has
     // a 2-adicity of 1.
     const TWO_ADICITY: usize = F::TWO_ADICITY + 2;
+    const CHARACTERISTIC_TWO_ADICITY: usize = F::CHARACTERISTIC_TWO_ADICITY;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
     const POWER_OF_TWO_GENERATOR: Self = Self(F::EXT_POWER_OF_TWO_GENERATOR);
 
+    const BITS: usize = F::BITS * 4;
+
     fn order() -> BigUint {
         F::order().pow(4u32)
+    }
+    fn characteristic() -> BigUint {
+        F::characteristic()
     }
 
     #[inline(always)]
@@ -102,6 +105,26 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
             &a_pow_r_minus_1,
             a_pow_r.0[0].inverse(),
         ))
+    }
+
+    fn from_biguint(n: BigUint) -> Self {
+        let (rest, first) = n.div_rem(&F::order());
+        let (rest, second) = rest.div_rem(&F::order());
+        let (rest, third) = rest.div_rem(&F::order());
+        Self([
+            F::from_biguint(first),
+            F::from_biguint(second),
+            F::from_biguint(third),
+            F::from_biguint(rest),
+        ])
+    }
+
+    fn to_biguint(&self) -> BigUint {
+        let mut result = self.0[3].to_biguint();
+        result = result * F::order() + self.0[2].to_biguint();
+        result = result * F::order() + self.0[1].to_biguint();
+        result = result * F::order() + self.0[0].to_biguint();
+        result
     }
 
     fn from_canonical_u64(n: u64) -> Self {

@@ -1,5 +1,7 @@
 use std::borrow::Borrow;
 
+use itertools::Itertools;
+
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::gates::base_sum::BaseSumGate;
@@ -27,23 +29,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Takes an iterator of bits `(b_i)` and returns `sum b_i * 2^i`, i.e.,
     /// the number with little-endian bit representation given by `bits`.
-    pub(crate) fn le_sum(
-        &mut self,
-        bits: impl ExactSizeIterator<Item = impl Borrow<BoolTarget>> + Clone,
-    ) -> Target {
+    pub(crate) fn le_sum(&mut self, bits: impl Iterator<Item = impl Borrow<BoolTarget>>) -> Target {
+        let bits = bits.map(|b| *b.borrow()).collect_vec();
         let num_bits = bits.len();
         if num_bits == 0 {
             return self.zero();
-        } else if num_bits == 1 {
-            let mut bits = bits;
-            return bits.next().unwrap().borrow().target;
-        } else if num_bits == 2 {
-            let two = self.two();
-            let mut bits = bits;
-            let b0 = bits.next().unwrap().borrow().target;
-            let b1 = bits.next().unwrap().borrow().target;
-            return self.mul_add(two, b1, b0);
         }
+
+        // Check if it's cheaper to just do this with arithmetic operations.
+        let arithmetic_ops = num_bits - 1;
+        if arithmetic_ops <= self.num_base_arithmetic_ops_per_gate() {
+            let two = self.two();
+            let mut rev_bits = bits.iter().rev();
+            let mut sum = rev_bits.next().unwrap().target;
+            for &bit in rev_bits {
+                sum = self.mul_add(two, sum, bit.target);
+            }
+            return sum;
+        }
+
         debug_assert!(
             BaseSumGate::<2>::START_LIMBS + num_bits <= self.config.num_routed_wires,
             "Not enough routed wires."
@@ -51,10 +55,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let gate_type = BaseSumGate::<2>::new_from_config::<F>(&self.config);
         let gate_index = self.add_gate(gate_type, vec![]);
         for (limb, wire) in bits
-            .clone()
+            .iter()
             .zip(BaseSumGate::<2>::START_LIMBS..BaseSumGate::<2>::START_LIMBS + num_bits)
         {
-            self.connect(limb.borrow().target, Target::wire(gate_index, wire));
+            self.connect(limb.target, Target::wire(gate_index, wire));
         }
         for l in gate_type.limbs().skip(num_bits) {
             self.assert_zero(Target::wire(gate_index, l));
@@ -62,7 +66,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         self.add_simple_generator(BaseSumGenerator::<2> {
             gate_index,
-            limbs: bits.map(|l| *l.borrow()).collect(),
+            limbs: bits,
         });
 
         Target::wire(gate_index, BaseSumGate::<2>::WIRE_SUM)
@@ -147,14 +151,14 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let n = thread_rng().gen_range(0..(1 << 10));
+        let n = thread_rng().gen_range(0..(1 << 30));
         let x = builder.constant(F::from_canonical_usize(n));
 
         let zero = builder._false();
         let one = builder._true();
 
         let y = builder.le_sum(
-            (0..10)
+            (0..30)
                 .scan(n, |acc, _| {
                     let tmp = *acc % 2;
                     *acc /= 2;

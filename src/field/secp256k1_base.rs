@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -12,7 +11,6 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::field::field_types::Field;
-use crate::field::goldilocks_field::GoldilocksField;
 
 /// The base field of the secp256k1 elliptic curve.
 ///
@@ -36,8 +34,80 @@ fn biguint_from_array(arr: [u64; 4]) -> BigUint {
     ])
 }
 
-impl Secp256K1Base {
-    fn to_canonical_biguint(&self) -> BigUint {
+impl Default for Secp256K1Base {
+    fn default() -> Self {
+        Self::ZERO
+    }
+}
+
+impl PartialEq for Secp256K1Base {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_biguint() == other.to_biguint()
+    }
+}
+
+impl Eq for Secp256K1Base {}
+
+impl Hash for Secp256K1Base {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.to_biguint().hash(state)
+    }
+}
+
+impl Display for Secp256K1Base {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.to_biguint(), f)
+    }
+}
+
+impl Debug for Secp256K1Base {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Debug::fmt(&self.to_biguint(), f)
+    }
+}
+
+impl Field for Secp256K1Base {
+    const ZERO: Self = Self([0; 4]);
+    const ONE: Self = Self([1, 0, 0, 0]);
+    const TWO: Self = Self([2, 0, 0, 0]);
+    const NEG_ONE: Self = Self([
+        0xFFFFFFFEFFFFFC2E,
+        0xFFFFFFFFFFFFFFFF,
+        0xFFFFFFFFFFFFFFFF,
+        0xFFFFFFFFFFFFFFFF,
+    ]);
+
+    const TWO_ADICITY: usize = 1;
+    const CHARACTERISTIC_TWO_ADICITY: usize = Self::TWO_ADICITY;
+
+    // Sage: `g = GF(p).multiplicative_generator()`
+    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0]);
+
+    // Sage: `g_2 = g^((p - 1) / 2)`
+    const POWER_OF_TWO_GENERATOR: Self = Self::NEG_ONE;
+
+    const BITS: usize = 256;
+
+    fn order() -> BigUint {
+        BigUint::from_slice(&[
+            0xFFFFFC2F, 0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
+            0xFFFFFFFF,
+        ])
+    }
+    fn characteristic() -> BigUint {
+        Self::order()
+    }
+
+    fn try_inverse(&self) -> Option<Self> {
+        if self.is_zero() {
+            return None;
+        }
+
+        // Fermat's Little Theorem
+        Some(self.exp_biguint(&(Self::order() - BigUint::one() - BigUint::one())))
+    }
+
+    fn to_biguint(&self) -> BigUint {
         let mut result = biguint_from_array(self.0);
         if result >= Self::order() {
             result -= Self::order();
@@ -54,79 +124,6 @@ impl Secp256K1Base {
                 .try_into()
                 .expect("error converting to u64 array"),
         )
-    }
-}
-
-impl Default for Secp256K1Base {
-    fn default() -> Self {
-        Self::ZERO
-    }
-}
-
-impl PartialEq for Secp256K1Base {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_canonical_biguint() == other.to_canonical_biguint()
-    }
-}
-
-impl Eq for Secp256K1Base {}
-
-impl Hash for Secp256K1Base {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.to_canonical_biguint().hash(state)
-    }
-}
-
-impl Display for Secp256K1Base {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.to_canonical_biguint(), f)
-    }
-}
-
-impl Debug for Secp256K1Base {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Debug::fmt(&self.to_canonical_biguint(), f)
-    }
-}
-
-impl Field for Secp256K1Base {
-    // TODO: fix
-    type PrimeField = GoldilocksField;
-
-    const ZERO: Self = Self([0; 4]);
-    const ONE: Self = Self([1, 0, 0, 0]);
-    const TWO: Self = Self([2, 0, 0, 0]);
-    const NEG_ONE: Self = Self([
-        0xFFFFFFFEFFFFFC2E,
-        0xFFFFFFFFFFFFFFFF,
-        0xFFFFFFFFFFFFFFFF,
-        0xFFFFFFFFFFFFFFFF,
-    ]);
-
-    // TODO: fix
-    const CHARACTERISTIC: u64 = 0;
-    const TWO_ADICITY: usize = 1;
-
-    // Sage: `g = GF(p).multiplicative_generator()`
-    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0]);
-
-    // Sage: `g_2 = g^((p - 1) / 2)`
-    const POWER_OF_TWO_GENERATOR: Self = Self::NEG_ONE;
-
-    fn order() -> BigUint {
-        BigUint::from_slice(&[
-            0xFFFFFC2F, 0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,
-            0xFFFFFFFF,
-        ])
-    }
-
-    fn try_inverse(&self) -> Option<Self> {
-        if self.is_zero() {
-            return None;
-        }
-
-        // Fermat's Little Theorem
-        Some(self.exp_biguint(&(Self::order() - BigUint::one() - BigUint::one())))
     }
 
     #[inline]
@@ -157,7 +154,7 @@ impl Neg for Secp256K1Base {
         if self.is_zero() {
             Self::ZERO
         } else {
-            Self::from_biguint(Self::order() - self.to_canonical_biguint())
+            Self::from_biguint(Self::order() - self.to_biguint())
         }
     }
 }
@@ -167,7 +164,7 @@ impl Add for Secp256K1Base {
 
     #[inline]
     fn add(self, rhs: Self) -> Self {
-        let mut result = self.to_canonical_biguint() + rhs.to_canonical_biguint();
+        let mut result = self.to_biguint() + rhs.to_biguint();
         if result >= Self::order() {
             result -= Self::order();
         }
@@ -210,9 +207,7 @@ impl Mul for Secp256K1Base {
 
     #[inline]
     fn mul(self, rhs: Self) -> Self {
-        Self::from_biguint(
-            (self.to_canonical_biguint() * rhs.to_canonical_biguint()).mod_floor(&Self::order()),
-        )
+        Self::from_biguint((self.to_biguint() * rhs.to_biguint()).mod_floor(&Self::order()))
     }
 }
 
@@ -243,4 +238,11 @@ impl DivAssign for Secp256K1Base {
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_field_arithmetic;
+
+    test_field_arithmetic!(crate::field::secp256k1_base::Secp256K1Base);
 }

@@ -13,12 +13,15 @@ macro_rules! test_field_arithmetic {
 
             #[test]
             fn batch_inversion() {
-                let xs = (1..=3)
-                    .map(|i| <$field>::from_canonical_u64(i))
-                    .collect::<Vec<_>>();
-                let invs = <$field>::batch_multiplicative_inverse(&xs);
-                for (x, inv) in xs.into_iter().zip(invs) {
-                    assert_eq!(x * inv, <$field>::ONE);
+                for n in 0..20 {
+                    let xs = (1..=n as u64)
+                        .map(|i| <$field>::from_canonical_u64(i))
+                        .collect::<Vec<_>>();
+                    let invs = <$field>::batch_multiplicative_inverse(&xs);
+                    assert_eq!(invs.len(), n);
+                    for (x, inv) in xs.into_iter().zip(invs) {
+                        assert_eq!(x * inv, <$field>::ONE);
+                    }
                 }
             }
 
@@ -81,10 +84,24 @@ macro_rules! test_field_arithmetic {
                 assert_eq!(base.exp_biguint(&pow), base.exp_biguint(&big_pow));
                 assert_ne!(base.exp_biguint(&pow), base.exp_biguint(&big_pow_wrong));
             }
+
+            #[test]
+            fn inverses() {
+                type F = $field;
+
+                let x = F::rand();
+                let x1 = x.inverse();
+                let x2 = x1.inverse();
+                let x3 = x2.inverse();
+
+                assert_eq!(x, x2);
+                assert_eq!(x1, x3);
+            }
         }
     };
 }
 
+#[allow(clippy::eq_op)]
 pub(crate) fn test_add_neg_sub_mul<BF: Extendable<D>, const D: usize>() {
     let x = BF::Extension::rand();
     let y = BF::Extension::rand();

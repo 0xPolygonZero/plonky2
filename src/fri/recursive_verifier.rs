@@ -3,13 +3,16 @@ use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::fri::proof::{FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget};
 use crate::fri::FriConfig;
+use crate::gadgets::interpolation::InterpolationGate;
 use crate::gates::gate::Gate;
-use crate::gates::interpolation::InterpolationGate;
+use crate::gates::interpolation::HighDegreeInterpolationGate;
+use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
 use crate::gates::random_access::RandomAccessGate;
 use crate::hash::hash_types::MerkleCapTarget;
 use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::{AlgebraicConfig, AlgebraicHasher, GenericConfig};
 use crate::plonk::plonk_common::PlonkPolynomials;
@@ -28,63 +31,79 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         arity_bits: usize,
         evals: &[ExtensionTarget<D>],
         beta: ExtensionTarget<D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> ExtensionTarget<D> {
         let arity = 1 << arity_bits;
         debug_assert_eq!(evals.len(), arity);
 
         let g = F::primitive_root_of_unity(arity_bits);
         let g_inv = g.exp_u64((arity as u64) - 1);
-        let g_inv_t = self.constant(g_inv);
 
         // The evaluation vector needs to be reordered first.
         let mut evals = evals.to_vec();
         reverse_index_bits_in_place(&mut evals);
         // Want `g^(arity - rev_x_index_within_coset)` as in the out-of-circuit version. Compute it
         // as `(g^-1)^rev_x_index_within_coset`.
-        let start = self.exp_from_bits(g_inv_t, x_index_within_coset_bits.iter().rev());
+        let start = self.exp_from_bits_const_base(g_inv, x_index_within_coset_bits.iter().rev());
         let coset_start = self.mul(start, x);
 
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
-        let points = g
-            .powers()
-            .map(|y| {
-                let yc = self.constant(y);
-                self.mul(coset_start, yc)
-            })
-            .zip(evals)
-            .collect::<Vec<_>>();
-
-        self.interpolate(&points, beta)
+        // `HighDegreeInterpolationGate` has degree `arity`, so we use the low-degree gate if
+        // the arity is too large.
+        if arity > common_data.quotient_degree_factor {
+            self.interpolate_coset::<LowDegreeInterpolationGate<F, D>>(
+                arity_bits,
+                coset_start,
+                &evals,
+                beta,
+            )
+        } else {
+            self.interpolate_coset::<HighDegreeInterpolationGate<F, D>>(
+                arity_bits,
+                coset_start,
+                &evals,
+                beta,
+            )
+        }
     }
 
     /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
     /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
     /// helpful errors.
-    fn check_recursion_config(&self, max_fri_arity: usize) {
+    fn check_recursion_config(
+        &self,
+        max_fri_arity_bits: usize,
+        common_data: &CommonCircuitData<F, D>,
+    ) {
         let random_access = RandomAccessGate::<F, D>::new_from_config(
             &self.config,
-            max_fri_arity.max(1 << self.config.cap_height),
+            max_fri_arity_bits.max(self.config.cap_height),
         );
-        let interpolation_gate = InterpolationGate::<F, D>::new(max_fri_arity);
+        let (interpolation_wires, interpolation_routed_wires) =
+            if 1 << max_fri_arity_bits > common_data.quotient_degree_factor {
+                let gate = LowDegreeInterpolationGate::<F, D>::new(max_fri_arity_bits);
+                (gate.num_wires(), gate.num_routed_wires())
+            } else {
+                let gate = HighDegreeInterpolationGate::<F, D>::new(max_fri_arity_bits);
+                (gate.num_wires(), gate.num_routed_wires())
+            };
 
-        let min_wires = random_access
-            .num_wires()
-            .max(interpolation_gate.num_wires());
+        let min_wires = random_access.num_wires().max(interpolation_wires);
         let min_routed_wires = random_access
             .num_routed_wires()
-            .max(interpolation_gate.num_routed_wires());
+            .max(interpolation_routed_wires);
 
         assert!(
             self.config.num_wires >= min_wires,
-            "To efficiently perform FRI checks with an arity of {}, at least {} wires are needed. Consider reducing arity.",
-            max_fri_arity,
+            "To efficiently perform FRI checks with an arity of 2^{}, at least {} wires are needed. Consider reducing arity.",
+            max_fri_arity_bits,
             min_wires
         );
 
         assert!(
             self.config.num_routed_wires >= min_routed_wires,
-            "To efficiently perform FRI checks with an arity of {}, at least {} routed wires are needed. Consider reducing arity.",
-            max_fri_arity,
+            "To efficiently perform FRI checks with an arity of 2^{}, at least {} routed wires are needed. Consider reducing arity.",
+            max_fri_arity_bits,
             min_routed_wires
         );
     }
@@ -118,8 +137,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) {
         let config = &common_data.config;
 
-        if let Some(max_arity) = common_data.fri_params.max_arity() {
-            self.check_recursion_config(max_arity);
+        if let Some(max_arity_bits) = common_data.fri_params.max_arity_bits() {
+            self.check_recursion_config(max_arity_bits, common_data);
         }
 
         debug_assert_eq!(
@@ -243,7 +262,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data: &CommonCircuitData<F, C, D>,
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
-        let config = self.config.clone();
+        let config = &common_data.config;
         let degree_log = common_data.degree_bits;
         debug_assert_eq!(
             degree_log,
@@ -316,9 +335,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         common_data: &CommonCircuitData<F, C, D>,
     ) {
         let n_log = log2_strict(n);
-        // TODO: Do we need to range check `x_index` to a target smaller than `p`?
+
+        // Note that this `low_bits` decomposition permits non-canonical binary encodings. Here we
+        // verify that this has a negligible impact on soundness error.
+        Self::assert_noncanonical_indices_ok(&common_data.config);
         let x_index = challenger.get_challenge(self);
-        let mut x_index_bits = self.low_bits(x_index, n_log, 64);
+        let mut x_index_bits = self.low_bits(x_index, n_log, F::BITS);
+
         let cap_index =
             self.le_sum(x_index_bits[x_index_bits.len() - common_data.config.cap_height..].iter());
         with_context!(
@@ -335,9 +358,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
         let (mut subgroup_x, vanish_zeta) = with_context!(self, "compute x from its index", {
             let g = self.constant(F::coset_shift());
-            let phi = self.constant(F::primitive_root_of_unity(n_log));
-
-            let phi = self.exp_from_bits(phi, x_index_bits.iter().rev());
+            let phi = F::primitive_root_of_unity(n_log);
+            let phi = self.exp_from_bits_const_base(phi, x_index_bits.iter().rev());
             let g_ext = self.convert_to_ext(g);
             let phi_ext = self.convert_to_ext(phi);
             // `subgroup_x = g*phi, vanish_zeta = g*phi - zeta`
@@ -387,6 +409,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     arity_bits,
                     evals,
                     betas[i],
+                    common_data
                 )
             );
 
@@ -419,6 +442,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             proof.final_poly.eval_scalar(self, subgroup_x)
         );
         self.connect_extension(eval, old_eval);
+    }
+
+    /// We decompose FRI query indices into bits without verifying that the decomposition given by
+    /// the prover is the canonical one. In particular, if `x_index < 2^field_bits - p`, then the
+    /// prover could supply the binary encoding of either `x_index` or `x_index + p`, since the are
+    /// congruent mod `p`. However, this only occurs with probability
+    ///     p_ambiguous = (2^field_bits - p) / p
+    /// which is small for the field that we use in practice.
+    ///
+    /// In particular, the soundness error of one FRI query is roughly the codeword rate, which
+    /// is much larger than this ambiguous-element probability given any reasonable parameters.
+    /// Thus ambiguous elements contribute a negligible amount to soundness error.
+    ///
+    /// Here we compare the probabilities as a sanity check, to verify the claim above.
+    fn assert_noncanonical_indices_ok(config: &CircuitConfig) {
+        let num_ambiguous_elems = u64::MAX - F::ORDER + 1;
+        let query_error = config.rate();
+        let p_ambiguous = (num_ambiguous_elems as f64) / (F::ORDER as f64);
+        assert!(p_ambiguous < query_error * 1e-5,
+                "A non-negligible portion of field elements are in the range that permits non-canonical encodings. Need to do more analysis or enforce canonical encodings.");
     }
 }
 

@@ -90,6 +90,7 @@ mod tests {
     use super::*;
     use crate::field::extension_field::Extendable;
     use crate::field::goldilocks_field::GoldilocksField;
+    use crate::field::goldilocks_field::GoldilocksField;
     use crate::hash::merkle_proofs::verify_merkle_proof;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
@@ -114,6 +115,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
+        type F = GoldilocksField;
 
         let log_n = 8;
         let n = 1 << log_n;

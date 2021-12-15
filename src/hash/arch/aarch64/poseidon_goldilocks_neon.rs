@@ -1,5 +1,6 @@
+#![allow(clippy::assertions_on_constants)]
+
 use std::arch::aarch64::*;
-use std::convert::TryInto;
 
 use static_assertions::const_assert;
 use unroll::unroll_for_loops;
@@ -172,9 +173,7 @@ unsafe fn multiply(x: u64, y: u64) -> u64 {
     let xy_hi_lo_mul_epsilon = mul_epsilon(xy_hi);
 
     // add_with_wraparound is safe, as xy_hi_lo_mul_epsilon <= 0xfffffffe00000001 <= ORDER.
-    let res1 = add_with_wraparound(res0, xy_hi_lo_mul_epsilon);
-
-    res1
+    add_with_wraparound(res0, xy_hi_lo_mul_epsilon)
 }
 
 // ==================================== STANDALONE CONST LAYER =====================================
@@ -267,9 +266,7 @@ unsafe fn mds_reduce(
     // Multiply by EPSILON and accumulate.
     let res_unadj = vmlal_laneq_u32::<0>(res_lo, res_hi_hi, mds_consts0);
     let res_adj = vcgtq_u64(res_lo, res_unadj);
-    let res = vsraq_n_u64::<32>(res_unadj, res_adj);
-
-    res
+    vsraq_n_u64::<32>(res_unadj, res_adj)
 }
 
 #[inline(always)]
@@ -969,8 +966,7 @@ unsafe fn partial_round(
 #[inline(always)]
 unsafe fn full_round(state: [u64; 12], round_constants: &[u64; WIDTH]) -> [u64; 12] {
     let state = sbox_layer_full(state);
-    let state = mds_const_layers_full(state, round_constants);
-    state
+    mds_const_layers_full(state, round_constants)
 }
 
 #[inline]

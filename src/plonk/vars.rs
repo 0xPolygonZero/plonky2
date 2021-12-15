@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::ops::Range;
 
 use crate::field::extension_field::algebra::ExtensionAlgebra;

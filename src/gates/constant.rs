@@ -131,6 +131,9 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
+        let num_consts = CircuitConfig::standard_recursion_config().constant_gate_size;
+        let gate = ConstantGate { num_consts };
+        test_eval_fns::<GoldilocksField, _, 2>(gate)
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

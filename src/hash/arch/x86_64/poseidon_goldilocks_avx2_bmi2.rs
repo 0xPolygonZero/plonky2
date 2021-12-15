@@ -1,5 +1,4 @@
 use core::arch::x86_64::*;
-use std::convert::TryInto;
 use std::mem::size_of;
 
 use static_assertions::const_assert;
@@ -47,7 +46,7 @@ const fn check_mds_matrix() -> bool {
     let mut i = 0;
     let wanted_matrix_exps = [0, 0, 1, 0, 3, 5, 1, 8, 12, 3, 16, 10];
     while i < WIDTH {
-        if <GoldilocksField as Poseidon>::MDS_MATRIX_EXPS[i] != wanted_matrix_exps[i] {
+        if <GoldilocksField as Poseidon<12>>::MDS_MATRIX_EXPS[i] != wanted_matrix_exps[i] {
             return false;
         }
         i += 1;
@@ -62,7 +61,7 @@ const fn mds_matrix_inf_norm() -> u64 {
     let mut cumul = 0;
     let mut i = 0;
     while i < WIDTH {
-        cumul += 1 << <GoldilocksField as Poseidon>::MDS_MATRIX_EXPS[i];
+        cumul += 1 << <GoldilocksField as Poseidon<12>>::MDS_MATRIX_EXPS[i];
         i += 1;
     }
     cumul

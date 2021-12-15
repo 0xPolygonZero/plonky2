@@ -140,11 +140,7 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> CompressedPro
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
             openings,
-            opening_proof: opening_proof.decompress(
-                &challenges,
-                fri_inferred_elements,
-                common_data,
-            ),
+            opening_proof: opening_proof.decompress(challenges, fri_inferred_elements, common_data),
         }
     }
 }
@@ -169,12 +165,12 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let challenges = self.get_challenges(common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
-        let compressed_proof =
+        let decompressed_proof =
             self.proof
                 .decompress(&challenges, fri_inferred_elements, common_data);
         Ok(ProofWithPublicInputs {
             public_inputs: self.public_inputs,
-            proof: compressed_proof,
+            proof: decompressed_proof,
         })
     }
 
@@ -185,13 +181,13 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ) -> anyhow::Result<()> {
         let challenges = self.get_challenges(common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
-        let compressed_proof =
+        let decompressed_proof =
             self.proof
                 .decompress(&challenges, fri_inferred_elements, common_data);
         verify_with_challenges(
             ProofWithPublicInputs {
                 public_inputs: self.public_inputs,
-                proof: compressed_proof,
+                proof: decompressed_proof,
             },
             challenges,
             verifier_data,
@@ -320,6 +316,7 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::fri::reduction_strategies::FriReductionStrategy;
+    use crate::gates::noop::NoopGate;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
@@ -348,6 +345,9 @@ mod tests {
         let zt = builder.constant(z);
         let comp_zt = builder.mul(xt, yt);
         builder.connect(zt, comp_zt);
+        for _ in 0..100 {
+            builder.add_gate(NoopGate, vec![]);
+        }
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
         verify(proof.clone(), &data.verifier_only, &data.common)?;
@@ -358,6 +358,6 @@ mod tests {
         assert_eq!(proof, decompressed_compressed_proof);
 
         verify(proof, &data.verifier_only, &data.common)?;
-        compressed_proof.verify(&data.verifier_only, &data.common)
+        data.verify_compressed(compressed_proof)
     }
 }
