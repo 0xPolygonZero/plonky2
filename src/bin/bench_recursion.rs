@@ -20,7 +20,6 @@ fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     bench_prove::<PoseidonGoldilocksConfig, 2>()
-    bench_prove::<GoldilocksField, 4>()
 }
 
 fn bench_prove<C: GenericConfig<D>, const D: usize>() -> Result<()> {

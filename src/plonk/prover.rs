@@ -287,29 +287,6 @@ fn wires_permutation_partial_products_and_zs<
         .collect()
 }
 
-fn compute_zs<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    partial_products: &[Vec<PolynomialValues<F>>],
-    common_data: &CommonCircuitData<F, C, D>,
-) -> Vec<PolynomialValues<F>> {
-    (0..common_data.config.num_challenges)
-        .map(|i| compute_z(&partial_products[i], common_data))
-        .collect()
-}
-
-/// Compute the `Z` polynomial by reusing the computations done in `wires_permutation_partial_products`.
-fn compute_z<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    partial_products: &[PolynomialValues<F>],
-    common_data: &CommonCircuitData<F, C, D>,
-) -> PolynomialValues<F> {
-    let mut plonk_z_points = vec![F::ONE];
-    for i in 1..common_data.degree() {
-        let quotient = partial_products[0].values[i - 1];
-        let last = *plonk_z_points.last().unwrap();
-        plonk_z_points.push(last * quotient);
-    }
-    plonk_z_points.into()
-}
-
 const BATCH_SIZE: usize = 32;
 
 fn compute_quotient_polys<'a, F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(

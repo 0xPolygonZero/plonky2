@@ -124,10 +124,6 @@ mod tests {
 
     #[test]
     fn test_interpolate() -> Result<()> {
-        type F = GoldilocksField;
-        const D: usize = 2;
-        type FF = QuadraticExtension<GoldilocksField>;
-        let config = CircuitConfig::standard_recursion_config();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -147,7 +143,6 @@ mod tests {
             .iter()
             .zip(values.iter())
             .map(|(&a, &b)| (<FF as FieldExtension<D>>::from_basefield(a), b))
-            .map(|&(a, b)| (<FF as FieldExtension<2>>::from_basefield(a), b))
             .collect::<Vec<_>>();
 
         let true_interpolant = interpolant(&homogeneous_points);

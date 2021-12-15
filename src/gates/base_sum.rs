@@ -187,7 +187,6 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(BaseSumGate::<6>::new(11))
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

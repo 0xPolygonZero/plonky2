@@ -308,8 +308,6 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(ExponentiationGate::new_from_config(
-            &CircuitConfig::standard_recursion_config(),
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -320,9 +318,6 @@ mod tests {
 
     #[test]
     fn test_gate_constraint() {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

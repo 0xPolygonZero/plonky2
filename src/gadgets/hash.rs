@@ -11,11 +11,6 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::AlgebraicHasher;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn permute<const W: usize>(&mut self, inputs: [Target; W]) -> [Target; W]
-    where
-        F: GMiMC<W> + Poseidon<W>,
-        [(); W - 1]:,
-    {
     pub fn permute<H: AlgebraicHasher<F>>(
         &mut self,
         inputs: [Target; SPONGE_WIDTH],
@@ -27,24 +22,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Conditionally swap two chunks of the inputs (useful in verifying Merkle proofs), then apply
     /// a cryptographic permutation.
-    pub(crate) fn permute_swapped<const W: usize>(
-        &mut self,
-        inputs: [Target; W],
-        swap: BoolTarget,
-    ) -> [Target; W]
-    where
-        F: GMiMC<W> + Poseidon<W>,
-        [(); W - 1]:,
-    {
-        match HASH_FAMILY {
-            HashFamily::GMiMC => self.gmimc_permute_swapped(inputs, swap),
-            HashFamily::Poseidon => self.poseidon_permute_swapped(inputs, swap),
-        }
-    }
-
-    /// Conditionally swap two chunks of the inputs (useful in verifying Merkle proofs), then apply
-    /// the GMiMC permutation.
-    pub(crate) fn gmimc_permute_swapped<const W: usize>(
     pub(crate) fn permute_swapped<H: AlgebraicHasher<F>>(
         &mut self,
         inputs: [Target; SPONGE_WIDTH],

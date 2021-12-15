@@ -392,6 +392,7 @@ mod tests {
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
     use crate::hash::hash_types::HashOut;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
     use crate::polynomial::PolynomialCoeffs;
 
@@ -402,7 +403,10 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(LowDegreeInterpolationGate::new(4))
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        test_eval_fns::<F, C, _, D>(LowDegreeInterpolationGate::new(4))
     }
 
     #[test]

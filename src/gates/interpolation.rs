@@ -278,7 +278,6 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gadgets::interpolation::InterpolationGate;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::interpolation::HighDegreeInterpolationGate;
@@ -291,8 +290,6 @@ mod tests {
     fn wire_indices() {
         let gate = HighDegreeInterpolationGate::<GoldilocksField, 4> {
             subgroup_bits: 1,
-        let gate = InterpolationGate::<GoldilocksField, 4> {
-            num_points: 2,
             _phantom: PhantomData,
         };
 
@@ -311,23 +308,18 @@ mod tests {
     #[test]
     fn low_degree() {
         test_low_degree::<GoldilocksField, _, 4>(HighDegreeInterpolationGate::new(2));
-        test_low_degree::<GoldilocksField, _, 4>(InterpolationGate::new(4));
     }
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(HighDegreeInterpolationGate::new(2))
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        test_eval_fns::<F, C, _, D>(InterpolationGate::new(4))
+        test_eval_fns::<F, C, _, D>(HighDegreeInterpolationGate::new(2))
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

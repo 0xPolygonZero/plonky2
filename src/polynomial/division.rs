@@ -130,36 +130,6 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::polynomial::PolynomialCoeffs;
-    use crate::field::goldilocks_field::GoldilocksField;
-    use crate::polynomial::polynomial::PolynomialCoeffs;
-
-    #[test]
-    fn zero_div_z_h() {
-        type F = GoldilocksField;
-        let zero = PolynomialCoeffs::<F>::zero(16);
-        let quotient = zero.divide_by_z_h(4);
-        assert_eq!(quotient, zero);
-    }
-
-    #[test]
-    fn division_by_z_h() {
-        type F = GoldilocksField;
-        let zero = F::ZERO;
-        let three = F::from_canonical_u64(3);
-        let four = F::from_canonical_u64(4);
-        let five = F::from_canonical_u64(5);
-        let six = F::from_canonical_u64(6);
-
-        // a(x) = Z_4(x) q(x), where
-        // a(x) = 3 x^7 + 4 x^6 + 5 x^5 + 6 x^4 - 3 x^3 - 4 x^2 - 5 x - 6
-        // Z_4(x) = x^4 - 1
-        // q(x) = 3 x^3 + 4 x^2 + 5 x + 6
-        let a = PolynomialCoeffs::new(vec![-six, -five, -four, -three, six, five, four, three]);
-        let q = PolynomialCoeffs::new(vec![six, five, four, three, zero, zero, zero, zero]);
-
-        let computed_q = a.divide_by_z_h(4);
-        assert_eq!(computed_q, q);
-    }
 
     #[test]
     #[ignore]

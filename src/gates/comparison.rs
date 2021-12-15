@@ -554,15 +554,11 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
-        test_eval_fns::<GoldilocksField, _, 4>(ComparisonGate::<_, 4>::new(num_bits, num_chunks))
         test_eval_fns::<F, C, _, D>(ComparisonGate::<_, 2>::new(num_bits, num_chunks))
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

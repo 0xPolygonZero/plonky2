@@ -9,7 +9,6 @@ use crate::field::field_types::{Field, RichField};
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
-use crate::field::field_types::Field;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;

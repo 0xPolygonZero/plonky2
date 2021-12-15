@@ -1,9 +1,9 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use plonky2::field::field_types::Field;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::polynomial::PolynomialCoeffs;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::polynomial::polynomial::PolynomialCoeffs;
+use plonky2::polynomial::PolynomialCoeffs;
 use tynm::type_name;
 
 pub(crate) fn bench_ffts<F: Field>(c: &mut Criterion) {

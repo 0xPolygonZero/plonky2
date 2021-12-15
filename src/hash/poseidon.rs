@@ -366,7 +366,7 @@ pub trait Poseidon: PrimeField {
 
         for r in 1..WIDTH {
             for c in 1..WIDTH {
-                let t = <Self as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_INITIAL_MATRIX[r - 1][c - 1];
+                let t = <Self as Poseidon>::FAST_PARTIAL_ROUND_INITIAL_MATRIX[r - 1][c - 1];
                 let t = Self::Extension::from_canonical_u64(t);
                 let t = builder.constant_extension(t);
                 result[c] = builder.mul_add_extension(t, state[r], result[c]);
@@ -447,11 +447,11 @@ pub trait Poseidon: PrimeField {
     {
         let s0 = state[0];
         let mut d = builder.mul_const_extension(
-            Self::from_canonical_u64(1 << <Self as Poseidon<WIDTH>>::MDS_MATRIX_EXPS[0]),
+            Self::from_canonical_u64(1 << <Self as Poseidon>::MDS_MATRIX_EXPS[0]),
             s0,
         );
         for i in 1..WIDTH {
-            let t = <Self as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_W_HATS[r][i - 1];
+            let t = <Self as Poseidon>::FAST_PARTIAL_ROUND_W_HATS[r][i - 1];
             let t = Self::Extension::from_canonical_u64(t);
             let t = builder.constant_extension(t);
             d = builder.mul_add_extension(t, state[i], d);
@@ -460,7 +460,7 @@ pub trait Poseidon: PrimeField {
         let mut result = [builder.zero_extension(); WIDTH];
         result[0] = d;
         for i in 1..WIDTH {
-            let t = <Self as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_VS[r][i - 1];
+            let t = <Self as Poseidon>::FAST_PARTIAL_ROUND_VS[r][i - 1];
             let t = Self::Extension::from_canonical_u64(t);
             let t = builder.constant_extension(t);
             result[i] = builder.mul_add_extension(t, state[0], state[i]);
@@ -557,7 +557,7 @@ pub trait Poseidon: PrimeField {
         Self: RichField + Extendable<D>,
     {
         for i in 0..WIDTH {
-            state[i] = <Self as Poseidon<WIDTH>>::sbox_monomial_recursive(builder, state[i]);
+            state[i] = <Self as Poseidon>::sbox_monomial_recursive(builder, state[i]);
         }
     }
 

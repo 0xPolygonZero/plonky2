@@ -11,8 +11,6 @@ use crate::field::fft::fft_root_table;
 use crate::field::field_types::{Field, RichField};
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::{FriConfig, FriParams};
-use crate::gadgets::arithmetic_extension::ArithmeticOperation;
-use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::gadgets::arithmetic::BaseArithmeticOperation;
 use crate::gadgets::arithmetic_extension::ExtensionArithmeticOperation;
 use crate::gadgets::arithmetic_u32::U32Target;
@@ -50,7 +48,7 @@ use crate::util::partial_products::num_partial_products;
 use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 
-pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
+pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
     /// The types of gates used in this circuit.

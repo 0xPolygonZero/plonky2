@@ -213,8 +213,6 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
-    use crate::field::goldilocks_field::GoldilocksField;
-    use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
     use crate::util::{log2_ceil, log2_strict};
 
     #[test]
@@ -231,14 +229,15 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(coeffs.len(), degree_padded);
         let coefficients = PolynomialCoeffs { coeffs };
-        type F = GoldilocksField;
         let degree = 200;
         let degree_padded = log2_ceil(degree);
         let mut coefficients = Vec::new();
         for i in 0..degree {
             coefficients.push(F::from_canonical_usize(i * 1337 % 100));
         }
-        let coefficients = PolynomialCoeffs::new_padded(coefficients);
+        let coefficients = PolynomialCoeffs {
+            coeffs: coefficients,
+        };
 
         let points = fft(&coefficients);
         assert_eq!(points, evaluate_naive(&coefficients));

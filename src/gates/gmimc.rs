@@ -344,7 +344,6 @@ mod tests {
 
     #[test]
     fn generated_output() {
-        type F = GoldilocksField;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -400,7 +399,6 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        type F = GoldilocksField;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

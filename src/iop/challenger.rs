@@ -351,8 +351,6 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         let mut challenger = Challenger::<F, <C as GenericConfig<D>>::InnerHasher>::new();
-        type F = GoldilocksField;
-        let mut challenger = Challenger::new();
         let mut challenges = Vec::new();
 
         for i in 1..10 {
@@ -374,7 +372,6 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type F = GoldilocksField;
 
         // These are mostly arbitrary, but we want to test some rounds with enough inputs/outputs to
         // trigger multiple absorptions/squeezes.
@@ -399,8 +396,9 @@ mod tests {
         let mut recursive_challenger =
             RecursiveChallenger::<F, <C as GenericConfig<D>>::InnerHasher, D>::new(&mut builder);
         let config = CircuitConfig::standard_recursion_config();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
-        let mut recursive_challenger = RecursiveChallenger::new(&mut builder);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let mut recursive_challenger =
+            RecursiveChallenger::<F, <C as GenericConfig<D>>::InnerHasher, D>::new(&mut builder);
         let mut recursive_outputs_per_round: Vec<Vec<Target>> = Vec::new();
         for (r, inputs) in inputs_per_round.iter().enumerate() {
             recursive_challenger.observe_elements(&builder.constants(inputs));

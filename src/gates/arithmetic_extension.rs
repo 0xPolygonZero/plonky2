@@ -221,9 +221,6 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        let gate =
-            ArithmeticExtensionGate::new_from_config(&CircuitConfig::standard_recursion_config());
-        test_eval_fns::<GoldilocksField, _, 4>(gate)
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

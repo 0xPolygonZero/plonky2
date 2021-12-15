@@ -4,8 +4,6 @@ use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTar
 use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
 use crate::field::field_types::{Field, PrimeField, RichField};
-use crate::gates::arithmetic::ArithmeticExtensionGate;
-use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::multiplication_extension::MulExtensionGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
@@ -571,9 +569,6 @@ mod tests {
 
     #[test]
     fn test_mul_many() -> Result<()> {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -610,9 +605,6 @@ mod tests {
 
     #[test]
     fn test_div_extension() -> Result<()> {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -640,9 +632,6 @@ mod tests {
 
     #[test]
     fn test_mul_algebra() -> Result<()> {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
         const D: usize = 2;
         type C = KeccakGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -673,7 +662,7 @@ mod tests {
             pw.set_extension_target(zt.0[i], z.0[i]);
         }
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)

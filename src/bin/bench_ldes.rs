@@ -3,8 +3,6 @@ use std::time::Instant;
 use plonky2::field::field_types::Field;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::polynomial::PolynomialValues;
-use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::polynomial::polynomial::PolynomialValues;
 use rayon::prelude::*;
 
 type F = GoldilocksField;

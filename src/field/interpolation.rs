@@ -81,8 +81,6 @@ mod tests {
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::polynomial::PolynomialCoeffs;
-    use crate::field::goldilocks_field::GoldilocksField;
-    use crate::polynomial::polynomial::PolynomialCoeffs;
 
     #[test]
     fn interpolant_random() {
