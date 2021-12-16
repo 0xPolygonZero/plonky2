@@ -33,12 +33,8 @@ pub unsafe trait PackedField:
     + SubAssign<Self::Scalar>
     + Sum
     + Sync
-where
-    Self::Scalar: Add<Self, Output = Self>,
-    Self::Scalar: Mul<Self, Output = Self>,
-    Self::Scalar: Sub<Self, Output = Self>,
 {
-    type Scalar: Field;
+    type Scalar: Field + Add<Self, Output = Self> + Mul<Self, Output = Self> + Sub<Self, Output = Self>;
 
     const WIDTH: usize;
     const ZERO: Self;

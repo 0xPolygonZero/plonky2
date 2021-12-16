@@ -4,6 +4,7 @@ use crate::field::extension_field::algebra::ExtensionAlgebra;
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::Field;
+use crate::field::packed_field::PackedField;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::util::strided_view::PackedStridedView;
 
@@ -31,6 +32,16 @@ pub struct EvaluationVarsBase<'a, F: Field> {
     pub(crate) local_constants: PackedStridedView<'a, F>,
     pub(crate) local_wires: PackedStridedView<'a, F>,
     pub(crate) public_inputs_hash: &'a HashOut<F>,
+}
+
+/// Like EvaluationVarsBase, but packed.
+#[derive(Debug, Copy, Clone)]
+pub struct EvaluationVarsBasePacked<'a, P: PackedField> {
+    // It's a separate struct because EvaluationVarsBase implements get_local_ext and we do not yet
+    // have packed extension fields.
+    pub(crate) local_constants: PackedStridedView<'a, P>,
+    pub(crate) local_wires: PackedStridedView<'a, P>,
+    pub(crate) public_inputs_hash: &'a HashOut<P::Scalar>,
 }
 
 impl<'a, F: Extendable<D>, const D: usize> EvaluationVars<'a, F, D> {
@@ -88,6 +99,19 @@ impl<'a, F: Field> EvaluationVarsBaseBatch<'a, F> {
     pub fn iter(&self) -> EvaluationVarsBaseBatchIter<'a, F> {
         EvaluationVarsBaseBatchIter::new(*self)
     }
+
+    pub fn pack<P: PackedField<Scalar = F>>(
+        &self,
+    ) -> (
+        EvaluationVarsBaseBatchIterPacked<'a, P>,
+        EvaluationVarsBaseBatchIterPacked<'a, F>,
+    ) {
+        let n_leftovers = self.len() % P::WIDTH;
+        (
+            EvaluationVarsBaseBatchIterPacked::new_with_start(*self, 0),
+            EvaluationVarsBaseBatchIterPacked::new_with_start(*self, self.len() - n_leftovers),
+        )
+    }
 }
 
 impl<'a, F: Field> EvaluationVarsBase<'a, F> {
@@ -123,6 +147,59 @@ impl<'a, F: Field> Iterator for EvaluationVarsBaseBatchIter<'a, F> {
         } else {
             None
         }
+    }
+}
+
+/// Iterator of packed views (EvaluationVarsBasePacked) into a EvaluationVarsBaseBatch.
+pub struct EvaluationVarsBaseBatchIterPacked<'a, P: PackedField> {
+    i: usize,
+    vars_batch: EvaluationVarsBaseBatch<'a, P::Scalar>,
+}
+
+impl<'a, P: PackedField> EvaluationVarsBaseBatchIterPacked<'a, P> {
+    pub fn new_with_start(
+        vars_batch: EvaluationVarsBaseBatch<'a, P::Scalar>,
+        start: usize,
+    ) -> Self {
+        assert!(start <= vars_batch.len());
+        EvaluationVarsBaseBatchIterPacked {
+            i: start,
+            vars_batch,
+        }
+    }
+}
+
+impl<'a, P: PackedField> Iterator for EvaluationVarsBaseBatchIterPacked<'a, P> {
+    type Item = EvaluationVarsBasePacked<'a, P>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.i + P::WIDTH <= self.vars_batch.len() {
+            let local_constants = PackedStridedView::new(
+                self.vars_batch.local_constants,
+                self.vars_batch.len(),
+                self.i,
+            );
+            let local_wires =
+                PackedStridedView::new(self.vars_batch.local_wires, self.vars_batch.len(), self.i);
+            let res = EvaluationVarsBasePacked {
+                local_constants,
+                local_wires,
+                public_inputs_hash: self.vars_batch.public_inputs_hash,
+            };
+            self.i += P::WIDTH;
+            Some(res)
+        } else {
+            None
+        }
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.len();
+        (len, Some(len))
+    }
+}
+
+impl<'a, P: PackedField> ExactSizeIterator for EvaluationVarsBaseBatchIterPacked<'a, P> {
+    fn len(&self) -> usize {
+        (self.vars_batch.len() - self.i) / P::WIDTH
     }
 }
 

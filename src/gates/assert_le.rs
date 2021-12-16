@@ -1,9 +1,13 @@
+// JNTODO
+
 use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
+use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -11,7 +15,10 @@ use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{
+    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
+    EvaluationVarsBasePacked,
+};
 use crate::util::{bits_u64, ceil_div_usize};
 
 // TODO: replace/merge this gate with `ComparisonGate`.
@@ -109,7 +116,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
 
         let chunk_size = 1 << self.chunk_bits();
 
-        let mut most_significant_diff_so_far = F::Extension::ZERO;
+        let mut most_significant_diff_so_far = <F::Extension as Field>::ZERO;
 
         for i in 0..self.num_chunks {
             // Range-check the chunks to be less than `chunk_size`.
@@ -127,14 +134,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
             let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
 
             // Two constraints to assert that `chunks_equal` is valid.
-            constraints.push(difference * equality_dummy - (F::Extension::ONE - chunks_equal));
+            constraints
+                .push(difference * equality_dummy - (<F::Extension as Field>::ONE - chunks_equal));
             constraints.push(chunks_equal * difference);
 
             // Update `most_significant_diff_so_far`.
             let intermediate_value = vars.local_wires[self.wire_intermediate_value(i)];
             constraints.push(intermediate_value - chunks_equal * most_significant_diff_so_far);
             most_significant_diff_so_far =
-                intermediate_value + (F::Extension::ONE - chunks_equal) * difference;
+                intermediate_value + (<F::Extension as Field>::ONE - chunks_equal) * difference;
         }
 
         let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
@@ -151,70 +159,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
 
     fn eval_unfiltered_base_one(
         &self,
-        vars: EvaluationVarsBase<F>,
-        mut yield_constr: StridedConstraintConsumer<F>,
+        _vars: EvaluationVarsBase<F>,
+        _yield_constr: StridedConstraintConsumer<F>,
     ) {
-        let first_input = vars.local_wires[self.wire_first_input()];
-        let second_input = vars.local_wires[self.wire_second_input()];
+        panic!("use eval_unfiltered_base_packed instead");
+    }
 
-        // Get chunks and assert that they match
-        let first_chunks: Vec<F> = (0..self.num_chunks)
-            .map(|i| vars.local_wires[self.wire_first_chunk_val(i)])
-            .collect();
-        let second_chunks: Vec<F> = (0..self.num_chunks)
-            .map(|i| vars.local_wires[self.wire_second_chunk_val(i)])
-            .collect();
-
-        let first_chunks_combined = reduce_with_powers(
-            &first_chunks,
-            F::from_canonical_usize(1 << self.chunk_bits()),
-        );
-        let second_chunks_combined = reduce_with_powers(
-            &second_chunks,
-            F::from_canonical_usize(1 << self.chunk_bits()),
-        );
-
-        yield_constr.one(first_chunks_combined - first_input);
-        yield_constr.one(second_chunks_combined - second_input);
-
-        let chunk_size = 1 << self.chunk_bits();
-
-        let mut most_significant_diff_so_far = F::ZERO;
-
-        for i in 0..self.num_chunks {
-            // Range-check the chunks to be less than `chunk_size`.
-            let first_product = (0..chunk_size)
-                .map(|x| first_chunks[i] - F::from_canonical_usize(x))
-                .product();
-            let second_product = (0..chunk_size)
-                .map(|x| second_chunks[i] - F::from_canonical_usize(x))
-                .product();
-            yield_constr.one(first_product);
-            yield_constr.one(second_product);
-
-            let difference = second_chunks[i] - first_chunks[i];
-            let equality_dummy = vars.local_wires[self.wire_equality_dummy(i)];
-            let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
-
-            // Two constraints to assert that `chunks_equal` is valid.
-            yield_constr.one(difference * equality_dummy - (F::ONE - chunks_equal));
-            yield_constr.one(chunks_equal * difference);
-
-            // Update `most_significant_diff_so_far`.
-            let intermediate_value = vars.local_wires[self.wire_intermediate_value(i)];
-            yield_constr.one(intermediate_value - chunks_equal * most_significant_diff_so_far);
-            most_significant_diff_so_far =
-                intermediate_value + (F::ONE - chunks_equal) * difference;
-        }
-
-        let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
-        yield_constr.one(most_significant_diff - most_significant_diff_so_far);
-
-        // Range check `most_significant_diff` to be less than `chunk_size`.
-        let product = (0..chunk_size)
-            .map(|x| most_significant_diff - F::from_canonical_usize(x))
-            .product();
-        yield_constr.one(product);
+    fn eval_unfiltered_base_batch(&self, vars_base: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        self.eval_unfiltered_base_batch_packed(vars_base)
     }
 
     fn eval_unfiltered_recursively(
@@ -326,6 +278,78 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
 
     fn num_constraints(&self) -> usize {
         4 + 5 * self.num_chunks
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
+    for AssertLessThanGate<F, D>
+{
+    fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
+        &self,
+        vars: EvaluationVarsBasePacked<P>,
+        mut yield_constr: StridedConstraintConsumer<P>,
+    ) {
+        let first_input = vars.local_wires[self.wire_first_input()];
+        let second_input = vars.local_wires[self.wire_second_input()];
+
+        // Get chunks and assert that they match
+        let first_chunks: Vec<_> = (0..self.num_chunks)
+            .map(|i| vars.local_wires[self.wire_first_chunk_val(i)])
+            .collect();
+        let second_chunks: Vec<_> = (0..self.num_chunks)
+            .map(|i| vars.local_wires[self.wire_second_chunk_val(i)])
+            .collect();
+
+        let first_chunks_combined = reduce_with_powers(
+            &first_chunks,
+            F::from_canonical_usize(1 << self.chunk_bits()),
+        );
+        let second_chunks_combined = reduce_with_powers(
+            &second_chunks,
+            F::from_canonical_usize(1 << self.chunk_bits()),
+        );
+
+        yield_constr.one(first_chunks_combined - first_input);
+        yield_constr.one(second_chunks_combined - second_input);
+
+        let chunk_size = 1 << self.chunk_bits();
+
+        let mut most_significant_diff_so_far = P::ZERO;
+
+        for i in 0..self.num_chunks {
+            // Range-check the chunks to be less than `chunk_size`.
+            let first_product = (0..chunk_size)
+                .map(|x| first_chunks[i] - F::from_canonical_usize(x))
+                .product();
+            let second_product = (0..chunk_size)
+                .map(|x| second_chunks[i] - F::from_canonical_usize(x))
+                .product();
+            yield_constr.one(first_product);
+            yield_constr.one(second_product);
+
+            let difference = second_chunks[i] - first_chunks[i];
+            let equality_dummy = vars.local_wires[self.wire_equality_dummy(i)];
+            let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
+
+            // Two constraints to assert that `chunks_equal` is valid.
+            yield_constr.one(difference * equality_dummy - (P::ONE - chunks_equal));
+            yield_constr.one(chunks_equal * difference);
+
+            // Update `most_significant_diff_so_far`.
+            let intermediate_value = vars.local_wires[self.wire_intermediate_value(i)];
+            yield_constr.one(intermediate_value - chunks_equal * most_significant_diff_so_far);
+            most_significant_diff_so_far =
+                intermediate_value + (P::ONE - chunks_equal) * difference;
+        }
+
+        let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
+        yield_constr.one(most_significant_diff - most_significant_diff_so_far);
+
+        // Range check `most_significant_diff` to be less than `chunk_size`.
+        let product = (0..chunk_size)
+            .map(|x| most_significant_diff - F::from_canonical_usize(x))
+            .product();
+        yield_constr.one(product);
     }
 }
 

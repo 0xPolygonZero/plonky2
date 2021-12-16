@@ -5,7 +5,9 @@ use itertools::unfold;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
+use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
+use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -13,7 +15,10 @@ use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{
+    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
+    EvaluationVarsBasePacked,
+};
 
 /// A gate to perform a basic mul-add on 32-bit values (we assume they are range-checked beforehand).
 #[derive(Copy, Clone, Debug)]
@@ -94,8 +99,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
 
             constraints.push(combined_output - computed_output);
 
-            let mut combined_low_limbs = F::Extension::ZERO;
-            let mut combined_high_limbs = F::Extension::ZERO;
+            let mut combined_low_limbs = <F::Extension as Field>::ZERO;
+            let mut combined_high_limbs = <F::Extension as Field>::ZERO;
             let midpoint = Self::num_limbs() / 2;
             let base = F::Extension::from_canonical_u64(1u64 << Self::limb_bits());
             for j in (0..Self::num_limbs()).rev() {
@@ -121,45 +126,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
 
     fn eval_unfiltered_base_one(
         &self,
-        vars: EvaluationVarsBase<F>,
-        mut yield_constr: StridedConstraintConsumer<F>,
+        _vars: EvaluationVarsBase<F>,
+        _yield_constr: StridedConstraintConsumer<F>,
     ) {
-        for i in 0..self.num_ops {
-            let multiplicand_0 = vars.local_wires[self.wire_ith_multiplicand_0(i)];
-            let multiplicand_1 = vars.local_wires[self.wire_ith_multiplicand_1(i)];
-            let addend = vars.local_wires[self.wire_ith_addend(i)];
+        panic!("use eval_unfiltered_base_packed instead");
+    }
 
-            let computed_output = multiplicand_0 * multiplicand_1 + addend;
-
-            let output_low = vars.local_wires[self.wire_ith_output_low_half(i)];
-            let output_high = vars.local_wires[self.wire_ith_output_high_half(i)];
-
-            let base = F::from_canonical_u64(1 << 32u64);
-            let combined_output = output_high * base + output_low;
-
-            yield_constr.one(combined_output - computed_output);
-
-            let mut combined_low_limbs = F::ZERO;
-            let mut combined_high_limbs = F::ZERO;
-            let midpoint = Self::num_limbs() / 2;
-            let base = F::from_canonical_u64(1u64 << Self::limb_bits());
-            for j in (0..Self::num_limbs()).rev() {
-                let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
-                let max_limb = 1 << Self::limb_bits();
-                let product = (0..max_limb)
-                    .map(|x| this_limb - F::from_canonical_usize(x))
-                    .product();
-                yield_constr.one(product);
-
-                if j < midpoint {
-                    combined_low_limbs = base * combined_low_limbs + this_limb;
-                } else {
-                    combined_high_limbs = base * combined_high_limbs + this_limb;
-                }
-            }
-            yield_constr.one(combined_low_limbs - output_low);
-            yield_constr.one(combined_high_limbs - output_high);
-        }
+    fn eval_unfiltered_base_batch(&self, vars_base: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        self.eval_unfiltered_base_batch_packed(vars_base)
     }
 
     fn eval_unfiltered_recursively(
@@ -254,6 +228,53 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
 
     fn num_constraints(&self) -> usize {
         self.num_ops * (3 + Self::num_limbs())
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
+    for U32ArithmeticGate<F, D>
+{
+    fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
+        &self,
+        vars: EvaluationVarsBasePacked<P>,
+        mut yield_constr: StridedConstraintConsumer<P>,
+    ) {
+        for i in 0..self.num_ops {
+            let multiplicand_0 = vars.local_wires[self.wire_ith_multiplicand_0(i)];
+            let multiplicand_1 = vars.local_wires[self.wire_ith_multiplicand_1(i)];
+            let addend = vars.local_wires[self.wire_ith_addend(i)];
+
+            let computed_output = multiplicand_0 * multiplicand_1 + addend;
+
+            let output_low = vars.local_wires[self.wire_ith_output_low_half(i)];
+            let output_high = vars.local_wires[self.wire_ith_output_high_half(i)];
+
+            let base = F::from_canonical_u64(1 << 32u64);
+            let combined_output = output_high * base + output_low;
+
+            yield_constr.one(combined_output - computed_output);
+
+            let mut combined_low_limbs = P::ZERO;
+            let mut combined_high_limbs = P::ZERO;
+            let midpoint = Self::num_limbs() / 2;
+            let base = F::from_canonical_u64(1u64 << Self::limb_bits());
+            for j in (0..Self::num_limbs()).rev() {
+                let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
+                let max_limb = 1 << Self::limb_bits();
+                let product = (0..max_limb)
+                    .map(|x| this_limb - F::from_canonical_usize(x))
+                    .product();
+                yield_constr.one(product);
+
+                if j < midpoint {
+                    combined_low_limbs = combined_low_limbs * base + this_limb;
+                } else {
+                    combined_high_limbs = combined_high_limbs * base + this_limb;
+                }
+            }
+            yield_constr.one(combined_low_limbs - output_low);
+            yield_constr.one(combined_high_limbs - output_high);
+        }
     }
 }
 

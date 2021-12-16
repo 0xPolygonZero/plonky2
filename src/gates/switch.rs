@@ -5,7 +5,9 @@ use array_tool::vec::Union;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
+use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
+use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, WitnessGenerator};
 use crate::iop::target::Target;
@@ -13,7 +15,10 @@ use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{
+    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
+    EvaluationVarsBasePacked,
+};
 
 /// A gate for conditionally swapping input values based on a boolean.
 #[derive(Clone, Debug)]
@@ -77,7 +82,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, 
 
         for c in 0..self.num_copies {
             let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
-            let not_switch = F::Extension::ONE - switch_bool;
+            let not_switch = <F::Extension as Field>::ONE - switch_bool;
 
             for e in 0..self.chunk_size {
                 let first_input = vars.local_wires[self.wire_first_input(c, e)];
@@ -97,25 +102,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, 
 
     fn eval_unfiltered_base_one(
         &self,
-        vars: EvaluationVarsBase<F>,
-        mut yield_constr: StridedConstraintConsumer<F>,
+        _vars: EvaluationVarsBase<F>,
+        _yield_constr: StridedConstraintConsumer<F>,
     ) {
-        for c in 0..self.num_copies {
-            let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
-            let not_switch = F::ONE - switch_bool;
+        panic!("use eval_unfiltered_base_packed instead");
+    }
 
-            for e in 0..self.chunk_size {
-                let first_input = vars.local_wires[self.wire_first_input(c, e)];
-                let second_input = vars.local_wires[self.wire_second_input(c, e)];
-                let first_output = vars.local_wires[self.wire_first_output(c, e)];
-                let second_output = vars.local_wires[self.wire_second_output(c, e)];
-
-                yield_constr.one(switch_bool * (first_input - second_output));
-                yield_constr.one(switch_bool * (second_input - first_output));
-                yield_constr.one(not_switch * (first_input - first_output));
-                yield_constr.one(not_switch * (second_input - second_output));
-            }
-        }
+    fn eval_unfiltered_base_batch(&self, vars_base: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        self.eval_unfiltered_base_batch_packed(vars_base)
     }
 
     fn eval_unfiltered_recursively(
@@ -191,6 +185,31 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, 
 
     fn num_constraints(&self) -> usize {
         4 * self.num_copies * self.chunk_size
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for SwitchGate<F, D> {
+    fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
+        &self,
+        vars: EvaluationVarsBasePacked<P>,
+        mut yield_constr: StridedConstraintConsumer<P>,
+    ) {
+        for c in 0..self.num_copies {
+            let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
+            let not_switch = P::ONE - switch_bool;
+
+            for e in 0..self.chunk_size {
+                let first_input = vars.local_wires[self.wire_first_input(c, e)];
+                let second_input = vars.local_wires[self.wire_second_input(c, e)];
+                let first_output = vars.local_wires[self.wire_first_output(c, e)];
+                let second_output = vars.local_wires[self.wire_second_output(c, e)];
+
+                yield_constr.one(switch_bool * (first_input - second_output));
+                yield_constr.one(switch_bool * (second_input - first_output));
+                yield_constr.one(not_switch * (first_input - first_output));
+                yield_constr.one(not_switch * (second_input - second_output));
+            }
+        }
     }
 }
 

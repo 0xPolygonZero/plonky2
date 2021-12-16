@@ -3,7 +3,9 @@ use std::marker::PhantomData;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
+use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
+use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -11,7 +13,10 @@ use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{
+    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
+    EvaluationVarsBasePacked,
+};
 
 /// A gate for raising a value to a power.
 #[derive(Clone, Debug)]
@@ -81,15 +86,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
 
         for i in 0..self.num_power_bits {
             let prev_intermediate_value = if i == 0 {
-                F::Extension::ONE
+                <F::Extension as Field>::ONE
             } else {
-                intermediate_values[i - 1].square()
+                <F::Extension as Field>::square(&intermediate_values[i - 1])
             };
 
             // power_bits is in LE order, but we accumulate in BE order.
             let cur_bit = power_bits[self.num_power_bits - i - 1];
 
-            let not_cur_bit = F::Extension::ONE - cur_bit;
+            let not_cur_bit = <F::Extension as Field>::ONE - cur_bit;
             let computed_intermediate_value =
                 prev_intermediate_value * (cur_bit * base + not_cur_bit);
             constraints.push(computed_intermediate_value - intermediate_values[i]);
@@ -102,37 +107,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
 
     fn eval_unfiltered_base_one(
         &self,
-        vars: EvaluationVarsBase<F>,
-        mut yield_constr: StridedConstraintConsumer<F>,
+        _vars: EvaluationVarsBase<F>,
+        _yield_constr: StridedConstraintConsumer<F>,
     ) {
-        let base = vars.local_wires[self.wire_base()];
+        panic!("use eval_unfiltered_base_packed instead");
+    }
 
-        let power_bits: Vec<_> = (0..self.num_power_bits)
-            .map(|i| vars.local_wires[self.wire_power_bit(i)])
-            .collect();
-        let intermediate_values: Vec<_> = (0..self.num_power_bits)
-            .map(|i| vars.local_wires[self.wire_intermediate_value(i)])
-            .collect();
-
-        let output = vars.local_wires[self.wire_output()];
-
-        for i in 0..self.num_power_bits {
-            let prev_intermediate_value = if i == 0 {
-                F::ONE
-            } else {
-                intermediate_values[i - 1].square()
-            };
-
-            // power_bits is in LE order, but we accumulate in BE order.
-            let cur_bit = power_bits[self.num_power_bits - i - 1];
-
-            let not_cur_bit = F::ONE - cur_bit;
-            let computed_intermediate_value =
-                prev_intermediate_value * (cur_bit * base + not_cur_bit);
-            yield_constr.one(computed_intermediate_value - intermediate_values[i]);
-        }
-
-        yield_constr.one(output - intermediate_values[self.num_power_bits - 1]);
+    fn eval_unfiltered_base_batch(&self, vars_base: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        self.eval_unfiltered_base_batch_packed(vars_base)
     }
 
     fn eval_unfiltered_recursively(
@@ -202,6 +184,45 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
 
     fn num_constraints(&self) -> usize {
         self.num_power_bits + 1
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
+    for ExponentiationGate<F, D>
+{
+    fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
+        &self,
+        vars: EvaluationVarsBasePacked<P>,
+        mut yield_constr: StridedConstraintConsumer<P>,
+    ) {
+        let base = vars.local_wires[self.wire_base()];
+
+        let power_bits: Vec<_> = (0..self.num_power_bits)
+            .map(|i| vars.local_wires[self.wire_power_bit(i)])
+            .collect();
+        let intermediate_values: Vec<_> = (0..self.num_power_bits)
+            .map(|i| vars.local_wires[self.wire_intermediate_value(i)])
+            .collect();
+
+        let output = vars.local_wires[self.wire_output()];
+
+        for i in 0..self.num_power_bits {
+            let prev_intermediate_value = if i == 0 {
+                P::ONE
+            } else {
+                intermediate_values[i - 1].square()
+            };
+
+            // power_bits is in LE order, but we accumulate in BE order.
+            let cur_bit = power_bits[self.num_power_bits - i - 1];
+
+            let not_cur_bit = P::ONE - cur_bit;
+            let computed_intermediate_value =
+                prev_intermediate_value * (cur_bit * base + not_cur_bit);
+            yield_constr.one(computed_intermediate_value - intermediate_values[i]);
+        }
+
+        yield_constr.one(output - intermediate_values[self.num_power_bits - 1]);
     }
 }
 

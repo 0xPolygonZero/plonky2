@@ -3,7 +3,9 @@ use std::marker::PhantomData;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
+use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
+use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::gmimc;
 use crate::hash::gmimc::GMiMC;
@@ -12,7 +14,10 @@ use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{
+    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
+    EvaluationVarsBasePacked,
+};
 
 /// Evaluates a full GMiMC permutation with 12 state elements.
 ///
@@ -74,7 +79,7 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
 
         // Assert that `swap` is binary.
         let swap = vars.local_wires[Self::WIRE_SWAP];
-        constraints.push(swap * (swap - F::Extension::ONE));
+        constraints.push(swap * (swap - <F::Extension as Field>::ONE));
 
         let mut state = Vec::with_capacity(12);
         for i in 0..4 {
@@ -93,7 +98,7 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
 
         // Value that is implicitly added to each element.
         // See https://affine.group/2020/02/starkware-challenge
-        let mut addition_buffer = F::Extension::ZERO;
+        let mut addition_buffer = <F::Extension as Field>::ZERO;
 
         for r in 0..gmimc::NUM_ROUNDS {
             let active = r % WIDTH;
@@ -116,47 +121,14 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
 
     fn eval_unfiltered_base_one(
         &self,
-        vars: EvaluationVarsBase<F>,
-        mut yield_constr: StridedConstraintConsumer<F>,
+        _vars: EvaluationVarsBase<F>,
+        _yield_constr: StridedConstraintConsumer<F>,
     ) {
-        // Assert that `swap` is binary.
-        let swap = vars.local_wires[Self::WIRE_SWAP];
-        yield_constr.one(swap * swap.sub_one());
+        panic!("use eval_unfiltered_base_packed instead");
+    }
 
-        let mut state = Vec::with_capacity(12);
-        for i in 0..4 {
-            let a = vars.local_wires[i];
-            let b = vars.local_wires[i + 4];
-            state.push(a + swap * (b - a));
-        }
-        for i in 0..4 {
-            let a = vars.local_wires[i + 4];
-            let b = vars.local_wires[i];
-            state.push(a + swap * (b - a));
-        }
-        for i in 8..12 {
-            state.push(vars.local_wires[i]);
-        }
-
-        // Value that is implicitly added to each element.
-        // See https://affine.group/2020/02/starkware-challenge
-        let mut addition_buffer = F::ZERO;
-
-        for r in 0..gmimc::NUM_ROUNDS {
-            let active = r % WIDTH;
-            let constant = F::from_canonical_u64(<F as GMiMC<WIDTH>>::ROUND_CONSTANTS[r]);
-            let cubing_input = state[active] + addition_buffer + constant;
-            let cubing_input_wire = vars.local_wires[Self::wire_cubing_input(r)];
-            yield_constr.one(cubing_input - cubing_input_wire);
-            let f = cubing_input_wire.cube();
-            addition_buffer += f;
-            state[active] -= f;
-        }
-
-        for i in 0..WIDTH {
-            state[i] += addition_buffer;
-            yield_constr.one(state[i] - vars.local_wires[Self::wire_output(i)]);
-        }
+    fn eval_unfiltered_base_batch(&self, vars_base: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        self.eval_unfiltered_base_batch_packed(vars_base)
     }
 
     fn eval_unfiltered_recursively(
@@ -239,6 +211,55 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
 
     fn num_constraints(&self) -> usize {
         gmimc::NUM_ROUNDS + WIDTH + 1
+    }
+}
+
+impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize>
+    PackedEvaluableBase<F, D> for GMiMCGate<F, D, WIDTH>
+{
+    fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
+        &self,
+        vars: EvaluationVarsBasePacked<P>,
+        mut yield_constr: StridedConstraintConsumer<P>,
+    ) {
+        // Assert that `swap` is binary.
+        let swap = vars.local_wires[Self::WIRE_SWAP];
+        yield_constr.one(swap * (swap - F::ONE));
+
+        let mut state = Vec::with_capacity(12);
+        for i in 0..4 {
+            let a = vars.local_wires[i];
+            let b = vars.local_wires[i + 4];
+            state.push(a + swap * (b - a));
+        }
+        for i in 0..4 {
+            let a = vars.local_wires[i + 4];
+            let b = vars.local_wires[i];
+            state.push(a + swap * (b - a));
+        }
+        for i in 8..12 {
+            state.push(vars.local_wires[i]);
+        }
+
+        // Value that is implicitly added to each element.
+        // See https://affine.group/2020/02/starkware-challenge
+        let mut addition_buffer = P::ZERO;
+
+        for r in 0..gmimc::NUM_ROUNDS {
+            let active = r % WIDTH;
+            let constant = F::from_canonical_u64(<F as GMiMC<WIDTH>>::ROUND_CONSTANTS[r]);
+            let cubing_input = state[active] + addition_buffer + constant;
+            let cubing_input_wire = vars.local_wires[Self::wire_cubing_input(r)];
+            yield_constr.one(cubing_input - cubing_input_wire);
+            let f = cubing_input_wire.square() * cubing_input_wire;
+            addition_buffer += f;
+            state[active] -= f;
+        }
+
+        for i in 0..WIDTH {
+            state[i] += addition_buffer;
+            yield_constr.one(state[i] - vars.local_wires[Self::wire_output(i)]);
+        }
     }
 }
 
