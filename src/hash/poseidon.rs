@@ -1,8 +1,6 @@
 //! Implementation of the Poseidon hash function, as described in
 //! https://eprint.iacr.org/2019/458.pdf
 
-use std::convert::TryInto;
-
 use unroll::unroll_for_loops;
 
 use crate::field::extension_field::target::ExtensionTarget;
@@ -452,9 +450,10 @@ pub trait Poseidon: PrimeField {
             s0,
         );
         for i in 1..WIDTH {
-            let t = <Self as Poseidon>::FAST_PARTIAL_ROUND_W_HATS[r][i - 1];
-            let t = Self::from_canonical_u64(t);
-            d = builder.mul_const_add_extension(t, state[i], d);
+            let t = <Self as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_W_HATS[r][i - 1];
+            let t = Self::Extension::from_canonical_u64(t);
+            let t = builder.constant_extension(t);
+            d = builder.mul_add_extension(t, state[i], d);
         }
 
         let mut result = [builder.zero_extension(); WIDTH];
@@ -624,6 +623,7 @@ pub trait Poseidon: PrimeField {
     }
 }
 
+#[cfg(test)]
 pub(crate) mod test_helpers {
     use crate::field::field_types::Field;
     use crate::hash::hashing::SPONGE_WIDTH;

@@ -1,9 +1,14 @@
 use std::collections::HashMap;
-use std::convert::TryInto;
+
+use num::{BigUint, FromPrimitive, Zero};
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
+use crate::gadgets::arithmetic_u32::U32Target;
+use crate::gadgets::biguint::BigUintTarget;
+use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::HashOutTarget;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
@@ -52,6 +57,24 @@ pub trait Witness<F: Field> {
             return true;
         }
         panic!("not a bool")
+    }
+
+    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint {
+        let mut result = BigUint::zero();
+
+        let limb_base = BigUint::from_u64(1 << 32u64).unwrap();
+        for i in (0..target.num_limbs()).rev() {
+            let limb = target.get_limb(i);
+            result *= &limb_base;
+            result += self.get_target(limb.0).to_biguint();
+        }
+
+        result
+    }
+
+    fn get_nonnative_target<FF: Field>(&self, target: NonNativeTarget<FF>) -> FF {
+        let val = self.get_biguint_target(target.value);
+        FF::from_biguint(val)
     }
 
     fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {
@@ -120,6 +143,16 @@ pub trait Witness<F: Field> {
 
     fn set_bool_target(&mut self, target: BoolTarget, value: bool) {
         self.set_target(target.target, F::from_bool(value))
+    }
+
+    fn set_u32_target(&mut self, target: U32Target, value: u32) {
+        self.set_target(target.0, F::from_canonical_u32(value))
+    }
+
+    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) {
+        for (&lt, &l) in target.limbs.iter().zip(&value.to_u32_digits()) {
+            self.set_u32_target(lt, l);
+        }
     }
 
     fn set_wire(&mut self, wire: Wire, value: F) {

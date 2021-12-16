@@ -1,7 +1,7 @@
+use crate::field::extension_field::target::ExtensionTarget;
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
-use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};

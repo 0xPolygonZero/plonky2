@@ -16,6 +16,7 @@ use crate::iop::target::Target;
 use crate::iop::witness::PartialWitness;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::proof::ProofWithPublicInputs;
+use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
 use crate::util::marking::MarkedTargets;
@@ -26,6 +27,9 @@ pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
     pub constant_gate_size: usize,
+    /// Whether to use a dedicated gate for base field arithmetic, rather than using a single gate
+    /// for both base field and extension field arithmetic.
+    pub use_base_arithmetic_gate: bool,
     pub security_bits: usize,
     pub rate_bits: usize,
     /// The number of challenge points to generate, for IOPs that have soundness errors of (roughly)
@@ -45,30 +49,35 @@ impl Default for CircuitConfig {
 }
 
 impl CircuitConfig {
+    pub fn rate(&self) -> f64 {
+        1.0 / ((1 << self.rate_bits) as f64)
+    }
+
     pub fn num_advice_wires(&self) -> usize {
         self.num_wires - self.num_routed_wires
     }
 
     /// A typical recursion config, without zero-knowledge, targeting ~100 bit security.
-    pub(crate) fn standard_recursion_config() -> Self {
+    pub fn standard_recursion_config() -> Self {
         Self {
-            num_wires: 143,
-            num_routed_wires: 25,
-            constant_gate_size: 6,
+            num_wires: 135,
+            num_routed_wires: 80,
+            constant_gate_size: 5,
+            use_base_arithmetic_gate: true,
             security_bits: 100,
             rate_bits: 3,
             num_challenges: 2,
             zero_knowledge: false,
-            cap_height: 3,
+            cap_height: 4,
             fri_config: FriConfig {
                 proof_of_work_bits: 16,
-                reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(4, 5),
                 num_query_rounds: 28,
             },
         }
     }
 
-    pub(crate) fn standard_recursion_zk_config() -> Self {
+    pub fn standard_recursion_zk_config() -> Self {
         CircuitConfig {
             zero_knowledge: true,
             ..Self::standard_recursion_config()
@@ -95,6 +104,13 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> CircuitData<F
 
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
         verify(proof_with_pis, &self.verifier_only, &self.common)
+    }
+
+    pub fn verify_compressed(
+        &self,
+        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, D>,
+    ) -> Result<()> {
+        compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 }
 
@@ -131,6 +147,13 @@ pub struct VerifierCircuitData<F: Extendable<D>, C: GenericConfig<D, F = F>, con
 impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> VerifierCircuitData<F, C, D> {
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
         verify(proof_with_pis, &self.verifier_only, &self.common)
+    }
+
+    pub fn verify_compressed(
+        &self,
+        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, D>,
+    ) -> Result<()> {
+        compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 }
 
@@ -194,8 +217,8 @@ pub struct CommonCircuitData<F: Extendable<D>, C: GenericConfig<D, F = F>, const
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
     pub(crate) k_is: Vec<F>,
 
-    /// The number of partial products needed to compute the `Z` polynomials and the number
-    /// of partial products needed to compute the final product.
+    /// The number of partial products needed to compute the `Z` polynomials and
+    /// the number of original elements consumed in `partial_products()`.
     pub(crate) num_partial_products: (usize, usize),
 
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
@@ -226,11 +249,6 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> CommonCircuit
 
     pub fn quotient_degree(&self) -> usize {
         self.quotient_degree_factor * self.degree()
-    }
-
-    pub fn total_constraints(&self) -> usize {
-        // 2 constraints for each Z check.
-        self.config.num_challenges * 2 + self.num_gate_constraints
     }
 
     /// Range of the constants polynomials in the `constants_sigmas_commitment`.

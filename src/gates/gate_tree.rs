@@ -1,4 +1,4 @@
-use log::info;
+use log::debug;
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
@@ -86,7 +86,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
                             }
                         }
                     }
-                    info!(
+                    debug!(
                         "Found tree with max degree {} and {} constants wires in {:.4}s.",
                         best_degree,
                         best_num_constants,
@@ -221,12 +221,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
 
 #[cfg(test)]
 mod tests {
+    use log::info;
+
     use super::*;
+    use crate::field::goldilocks_field::GoldilocksField;
+    use crate::gadgets::interpolation::InterpolationGate;
+    use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
     use crate::gates::arithmetic::ArithmeticExtensionGate;
     use crate::gates::base_sum::BaseSumGate;
     use crate::gates::constant::ConstantGate;
     use crate::gates::gmimc::GMiMCGate;
-    use crate::gates::interpolation::InterpolationGate;
+    use crate::gates::interpolation::HighDegreeInterpolationGate;
     use crate::gates::noop::NoopGate;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
@@ -243,7 +248,7 @@ mod tests {
             GateRef::new(ArithmeticExtensionGate { num_ops: 4 }),
             GateRef::new(BaseSumGate::<4>::new(4)),
             GateRef::new(GMiMCGate::<F, D, 12>::new()),
-            GateRef::new(InterpolationGate::new(2)),
+            GateRef::new(HighDegreeInterpolationGate::new(2)),
         ];
 
         let (tree, _, _) = Tree::from_gates(gates.clone());

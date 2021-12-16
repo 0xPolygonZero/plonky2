@@ -337,9 +337,8 @@ mod tests {
                 .map(|b| F::from_canonical_u64(*b))
                 .collect();
 
-            let mut v = Vec::new();
-            v.push(base);
-            v.extend(power_bits_f.clone());
+            let mut v = vec![base];
+            v.extend(power_bits_f);
 
             let mut intermediate_values = Vec::new();
             let mut current_intermediate_value = F::ONE;

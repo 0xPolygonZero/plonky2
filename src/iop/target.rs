@@ -41,6 +41,7 @@ impl Target {
 
 /// A `Target` which has already been constrained such that it can only be 0 or 1.
 #[derive(Copy, Clone, Debug)]
+#[allow(clippy::manual_non_exhaustive)]
 pub struct BoolTarget {
     pub target: Target,
     /// This private field is here to force all instantiations to go through `new_unsafe`.

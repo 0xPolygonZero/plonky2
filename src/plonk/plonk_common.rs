@@ -42,17 +42,6 @@ impl PlonkPolynomials {
         index: 3,
         blinding: true,
     };
-
-    #[cfg(test)]
-    pub fn polynomials(i: usize) -> PolynomialsIndexBlinding {
-        match i {
-            0 => Self::CONSTANTS_SIGMAS,
-            1 => Self::WIRES,
-            2 => Self::ZS_PARTIAL_PRODUCTS,
-            3 => Self::QUOTIENT,
-            _ => panic!("There are only 4 sets of polynomials in Plonk."),
-        }
-    }
 }
 
 /// Evaluate the polynomial which vanishes on any multiplicative subgroup of a given order `n`.

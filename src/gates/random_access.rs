@@ -1,5 +1,7 @@
 use std::marker::PhantomData;
 
+use itertools::Itertools;
+
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
@@ -14,76 +16,65 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for checking that a particular element of a list matches a given value.
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct RandomAccessGate<F: Extendable<D>, const D: usize> {
-    pub vec_size: usize,
+pub(crate) struct RandomAccessGate<F:  Extendable<D>, const D: usize> {
+    pub bits: usize,
     pub num_copies: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Extendable<D>, const D: usize> RandomAccessGate<F, D> {
-    pub fn new(num_copies: usize, vec_size: usize) -> Self {
+impl<F:  Extendable<D>, const D: usize> RandomAccessGate<F, D> {
+    fn new(num_copies: usize, bits: usize) -> Self {
         Self {
-            vec_size,
+            bits,
             num_copies,
             _phantom: PhantomData,
         }
     }
 
-    pub fn new_from_config(config: &CircuitConfig, vec_size: usize) -> Self {
-        let num_copies = Self::max_num_copies(config.num_routed_wires, config.num_wires, vec_size);
-        Self::new(num_copies, vec_size)
+    pub fn new_from_config(config: &CircuitConfig, bits: usize) -> Self {
+        let vec_size = 1 << bits;
+        // Need `(2 + vec_size) * num_copies` routed wires
+        let max_copies = (config.num_routed_wires / (2 + vec_size)).min(
+            // Need `(2 + vec_size + bits) * num_copies` wires
+            config.num_wires / (2 + vec_size + bits),
+        );
+        Self::new(max_copies, bits)
     }
 
-    pub fn max_num_copies(num_routed_wires: usize, num_wires: usize, vec_size: usize) -> usize {
-        // Need `(2 + vec_size) * num_copies` routed wires
-        (num_routed_wires / (2 + vec_size)).min(
-            // Need `(2 + 3*vec_size) * num_copies` wires
-            num_wires / (2 + 3 * vec_size),
-        )
+    fn vec_size(&self) -> usize {
+        1 << self.bits
     }
 
     pub fn wire_access_index(&self, copy: usize) -> usize {
         debug_assert!(copy < self.num_copies);
-        (2 + self.vec_size) * copy
+        (2 + self.vec_size()) * copy
     }
 
     pub fn wire_claimed_element(&self, copy: usize) -> usize {
         debug_assert!(copy < self.num_copies);
-        (2 + self.vec_size) * copy + 1
+        (2 + self.vec_size()) * copy + 1
     }
 
     pub fn wire_list_item(&self, i: usize, copy: usize) -> usize {
-        debug_assert!(i < self.vec_size);
+        debug_assert!(i < self.vec_size());
         debug_assert!(copy < self.num_copies);
-        (2 + self.vec_size) * copy + 2 + i
+        (2 + self.vec_size()) * copy + 2 + i
     }
 
     fn start_of_intermediate_wires(&self) -> usize {
-        (2 + self.vec_size) * self.num_copies
+        (2 + self.vec_size()) * self.num_copies
     }
 
     pub(crate) fn num_routed_wires(&self) -> usize {
         self.start_of_intermediate_wires()
     }
 
-    /// An intermediate wire for a dummy variable used to show equality.
-    /// The prover sets this to 1/(x-y) if x != y, or to an arbitrary value if
-    /// x == y.
-    pub fn wire_equality_dummy_for_index(&self, i: usize, copy: usize) -> usize {
-        debug_assert!(i < self.vec_size);
+    /// An intermediate wire where the prover gives the (purported) binary decomposition of the
+    /// index.
+    pub fn wire_bit(&self, i: usize, copy: usize) -> usize {
+        debug_assert!(i < self.bits);
         debug_assert!(copy < self.num_copies);
-        self.start_of_intermediate_wires() + copy * self.vec_size + i
-    }
-
-    /// An intermediate wire for the "index_matches" variable (1 if the current index is the index at
-    /// which to compare, 0 otherwise).
-    pub fn wire_index_matches_for_index(&self, i: usize, copy: usize) -> usize {
-        debug_assert!(i < self.vec_size);
-        debug_assert!(copy < self.num_copies);
-        self.start_of_intermediate_wires()
-            + self.vec_size * self.num_copies
-            + self.vec_size * copy
-            + i
+        self.start_of_intermediate_wires() + copy * self.bits + i
     }
 }
 
@@ -97,23 +88,38 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
 
         for copy in 0..self.num_copies {
             let access_index = vars.local_wires[self.wire_access_index(copy)];
-            let list_items = (0..self.vec_size)
+            let mut list_items = (0..self.vec_size())
                 .map(|i| vars.local_wires[self.wire_list_item(i, copy)])
                 .collect::<Vec<_>>();
             let claimed_element = vars.local_wires[self.wire_claimed_element(copy)];
+            let bits = (0..self.bits)
+                .map(|i| vars.local_wires[self.wire_bit(i, copy)])
+                .collect::<Vec<_>>();
 
-            for i in 0..self.vec_size {
-                let cur_index = F::Extension::from_canonical_usize(i);
-                let difference = cur_index - access_index;
-                let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_index(i, copy)];
-                let index_matches = vars.local_wires[self.wire_index_matches_for_index(i, copy)];
-
-                // The two index equality constraints.
-                constraints.push(difference * equality_dummy - (F::Extension::ONE - index_matches));
-                constraints.push(index_matches * difference);
-                // Value equality constraint.
-                constraints.push((list_items[i] - claimed_element) * index_matches);
+            // Assert that each bit wire value is indeed boolean.
+            for &b in &bits {
+                constraints.push(b * (b - F::Extension::ONE));
             }
+
+            // Assert that the binary decomposition was correct.
+            let reconstructed_index = bits
+                .iter()
+                .rev()
+                .fold(F::Extension::ZERO, |acc, &b| acc.double() + b);
+            constraints.push(reconstructed_index - access_index);
+
+            // Repeatedly fold the list, selecting the left or right item from each pair based on
+            // the corresponding bit.
+            for b in bits {
+                list_items = list_items
+                    .iter()
+                    .tuples()
+                    .map(|(&x, &y)| x + b * (y - x))
+                    .collect()
+            }
+
+            debug_assert_eq!(list_items.len(), 1);
+            constraints.push(list_items[0] - claimed_element);
         }
 
         constraints
@@ -124,23 +130,35 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
 
         for copy in 0..self.num_copies {
             let access_index = vars.local_wires[self.wire_access_index(copy)];
-            let list_items = (0..self.vec_size)
+            let mut list_items = (0..self.vec_size())
                 .map(|i| vars.local_wires[self.wire_list_item(i, copy)])
                 .collect::<Vec<_>>();
             let claimed_element = vars.local_wires[self.wire_claimed_element(copy)];
+            let bits = (0..self.bits)
+                .map(|i| vars.local_wires[self.wire_bit(i, copy)])
+                .collect::<Vec<_>>();
 
-            for i in 0..self.vec_size {
-                let cur_index = F::from_canonical_usize(i);
-                let difference = cur_index - access_index;
-                let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_index(i, copy)];
-                let index_matches = vars.local_wires[self.wire_index_matches_for_index(i, copy)];
-
-                // The two index equality constraints.
-                constraints.push(difference * equality_dummy - (F::ONE - index_matches));
-                constraints.push(index_matches * difference);
-                // Value equality constraint.
-                constraints.push((list_items[i] - claimed_element) * index_matches);
+            // Assert that each bit wire value is indeed boolean.
+            for &b in &bits {
+                constraints.push(b * (b - F::ONE));
             }
+
+            // Assert that the binary decomposition was correct.
+            let reconstructed_index = bits.iter().rev().fold(F::ZERO, |acc, &b| acc.double() + b);
+            constraints.push(reconstructed_index - access_index);
+
+            // Repeatedly fold the list, selecting the left or right item from each pair based on
+            // the corresponding bit.
+            for b in bits {
+                list_items = list_items
+                    .iter()
+                    .tuples()
+                    .map(|(&x, &y)| x + b * (y - x))
+                    .collect()
+            }
+
+            debug_assert_eq!(list_items.len(), 1);
+            constraints.push(list_items[0] - claimed_element);
         }
 
         constraints
@@ -151,36 +169,44 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
+        let zero = builder.zero_extension();
+        let two = builder.two_extension();
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         for copy in 0..self.num_copies {
             let access_index = vars.local_wires[self.wire_access_index(copy)];
-            let list_items = (0..self.vec_size)
+            let mut list_items = (0..self.vec_size())
                 .map(|i| vars.local_wires[self.wire_list_item(i, copy)])
                 .collect::<Vec<_>>();
             let claimed_element = vars.local_wires[self.wire_claimed_element(copy)];
+            let bits = (0..self.bits)
+                .map(|i| vars.local_wires[self.wire_bit(i, copy)])
+                .collect::<Vec<_>>();
 
-            for i in 0..self.vec_size {
-                let cur_index_ext = F::Extension::from_canonical_usize(i);
-                let cur_index = builder.constant_extension(cur_index_ext);
-                let difference = builder.sub_extension(cur_index, access_index);
-                let equality_dummy = vars.local_wires[self.wire_equality_dummy_for_index(i, copy)];
-                let index_matches = vars.local_wires[self.wire_index_matches_for_index(i, copy)];
-
-                let one = builder.one_extension();
-                let not_index_matches = builder.sub_extension(one, index_matches);
-                let first_equality_constraint =
-                    builder.mul_sub_extension(difference, equality_dummy, not_index_matches);
-                constraints.push(first_equality_constraint);
-
-                let second_equality_constraint = builder.mul_extension(index_matches, difference);
-                constraints.push(second_equality_constraint);
-
-                // Output constraint.
-                let diff = builder.sub_extension(list_items[i], claimed_element);
-                let conditional_diff = builder.mul_extension(index_matches, diff);
-                constraints.push(conditional_diff);
+            // Assert that each bit wire value is indeed boolean.
+            for &b in &bits {
+                constraints.push(builder.mul_sub_extension(b, b, b));
             }
+
+            // Assert that the binary decomposition was correct.
+            let reconstructed_index = bits
+                .iter()
+                .rev()
+                .fold(zero, |acc, &b| builder.mul_add_extension(acc, two, b));
+            constraints.push(builder.sub_extension(reconstructed_index, access_index));
+
+            // Repeatedly fold the list, selecting the left or right item from each pair based on
+            // the corresponding bit.
+            for b in bits {
+                list_items = list_items
+                    .iter()
+                    .tuples()
+                    .map(|(&x, &y)| builder.select_ext_generalized(b, y, x))
+                    .collect()
+            }
+
+            debug_assert_eq!(list_items.len(), 1);
+            constraints.push(builder.sub_extension(list_items[0], claimed_element));
         }
 
         constraints
@@ -207,7 +233,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
     }
 
     fn num_wires(&self) -> usize {
-        self.wire_index_matches_for_index(self.vec_size - 1, self.num_copies - 1) + 1
+        self.wire_bit(self.bits - 1, self.num_copies - 1) + 1
     }
 
     fn num_constants(&self) -> usize {
@@ -215,11 +241,12 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
     }
 
     fn degree(&self) -> usize {
-        2
+        self.bits + 1
     }
 
     fn num_constraints(&self) -> usize {
-        3 * self.num_copies * self.vec_size
+        let constraints_per_copy = self.bits + 2;
+        self.num_copies * constraints_per_copy
     }
 }
 
@@ -234,10 +261,8 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
-        let mut deps = Vec::new();
-        deps.push(local_target(self.gate.wire_access_index(self.copy)));
-        deps.push(local_target(self.gate.wire_claimed_element(self.copy)));
-        for i in 0..self.gate.vec_size {
+        let mut deps = vec![local_target(self.gate.wire_access_index(self.copy))];
+        for i in 0..self.gate.vec_size() {
             deps.push(local_target(self.gate.wire_list_item(i, self.copy)));
         }
         deps
@@ -250,11 +275,12 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
         };
 
         let get_local_wire = |input| witness.get_wire(local_wire(input));
+        let mut set_local_wire = |input, value| out_buffer.set_wire(local_wire(input), value);
 
-        // Compute the new vector and the values for equality_dummy and index_matches
-        let vec_size = self.gate.vec_size;
-        let access_index_f = get_local_wire(self.gate.wire_access_index(self.copy));
+        let copy = self.copy;
+        let vec_size = self.gate.vec_size();
 
+        let access_index_f = get_local_wire(self.gate.wire_access_index(copy));
         let access_index = access_index_f.to_canonical_u64() as usize;
         debug_assert!(
             access_index < vec_size,
@@ -263,22 +289,14 @@ impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenera
             vec_size
         );
 
-        for i in 0..vec_size {
-            let equality_dummy_wire =
-                local_wire(self.gate.wire_equality_dummy_for_index(i, self.copy));
-            let index_matches_wire =
-                local_wire(self.gate.wire_index_matches_for_index(i, self.copy));
+        set_local_wire(
+            self.gate.wire_claimed_element(copy),
+            get_local_wire(self.gate.wire_list_item(access_index, copy)),
+        );
 
-            if i == access_index {
-                out_buffer.set_wire(equality_dummy_wire, F::ONE);
-                out_buffer.set_wire(index_matches_wire, F::ONE);
-            } else {
-                out_buffer.set_wire(
-                    equality_dummy_wire,
-                    (F::from_canonical_usize(i) - F::from_canonical_usize(access_index)).inverse(),
-                );
-                out_buffer.set_wire(index_matches_wire, F::ZERO);
-            }
+        for i in 0..self.gate.bits {
+            let bit = F::from_bool(((access_index >> i) & 1) != 0);
+            set_local_wire(self.gate.wire_bit(i, copy), bit);
         }
     }
 }
@@ -322,6 +340,7 @@ mod tests {
         /// Returns the local wires for a random access gate given the vectors, elements to compare,
         /// and indices.
         fn get_wires(
+            bits: usize,
             lists: Vec<Vec<F>>,
             access_indices: Vec<usize>,
             claimed_elements: Vec<F>,
@@ -330,8 +349,7 @@ mod tests {
             let vec_size = lists[0].len();
 
             let mut v = Vec::new();
-            let mut equality_dummy_vals = Vec::new();
-            let mut index_matches_vals = Vec::new();
+            let mut bit_vals = Vec::new();
             for copy in 0..num_copies {
                 let access_index = access_indices[copy];
                 v.push(F::from_canonical_usize(access_index));
@@ -340,26 +358,17 @@ mod tests {
                     v.push(lists[copy][j]);
                 }
 
-                for i in 0..vec_size {
-                    if i == access_index {
-                        equality_dummy_vals.push(F::ONE);
-                        index_matches_vals.push(F::ONE);
-                    } else {
-                        equality_dummy_vals.push(
-                            (F::from_canonical_usize(i) - F::from_canonical_usize(access_index))
-                                .inverse(),
-                        );
-                        index_matches_vals.push(F::ZERO);
-                    }
+                for i in 0..bits {
+                    bit_vals.push(F::from_bool(((access_index >> i) & 1) != 0));
                 }
             }
-            v.extend(equality_dummy_vals);
-            v.extend(index_matches_vals);
+            v.extend(bit_vals);
 
-            v.iter().map(|&x| x.into()).collect::<Vec<_>>()
+            v.iter().map(|&x| x.into()).collect()
         }
 
-        let vec_size = 3;
+        let bits = 3;
+        let vec_size = 1 << bits;
         let num_copies = 4;
         let lists = (0..num_copies)
             .map(|_| F::rand_vec(vec_size))
@@ -368,7 +377,7 @@ mod tests {
             .map(|_| thread_rng().gen_range(0..vec_size))
             .collect::<Vec<_>>();
         let gate = RandomAccessGate::<F, D> {
-            vec_size,
+            bits,
             num_copies,
             _phantom: PhantomData,
         };
@@ -380,13 +389,18 @@ mod tests {
             .collect();
         let good_vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires(lists.clone(), access_indices.clone(), good_claimed_elements),
+            local_wires: &get_wires(
+                bits,
+                lists.clone(),
+                access_indices.clone(),
+                good_claimed_elements,
+            ),
             public_inputs_hash: &HashOut::rand(),
         };
         let bad_claimed_elements = F::rand_vec(4);
         let bad_vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires(lists, access_indices, bad_claimed_elements),
+            local_wires: &get_wires(bits, lists, access_indices, bad_claimed_elements),
             public_inputs_hash: &HashOut::rand(),
         };
 

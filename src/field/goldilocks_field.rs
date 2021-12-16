@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use num::BigUint;
+use num::{BigUint, Integer};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -62,15 +62,13 @@ impl Debug for GoldilocksField {
 }
 
 impl Field for GoldilocksField {
-    type PrimeField = Self;
-
     const ZERO: Self = Self(0);
     const ONE: Self = Self(1);
     const TWO: Self = Self(2);
     const NEG_ONE: Self = Self(Self::ORDER - 1);
-    const CHARACTERISTIC: u64 = Self::ORDER;
 
     const TWO_ADICITY: usize = 32;
+    const CHARACTERISTIC_TWO_ADICITY: usize = Self::TWO_ADICITY;
 
     // Sage: `g = GF(p).multiplicative_generator()`
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(7);
@@ -82,13 +80,26 @@ impl Field for GoldilocksField {
     // ```
     const POWER_OF_TWO_GENERATOR: Self = Self(1753635133440165772);
 
+    const BITS: usize = 64;
+
     fn order() -> BigUint {
         Self::ORDER.into()
+    }
+    fn characteristic() -> BigUint {
+        Self::order()
     }
 
     #[inline(always)]
     fn try_inverse(&self) -> Option<Self> {
         try_inverse_u64(self)
+    }
+
+    fn from_biguint(n: BigUint) -> Self {
+        Self(n.mod_floor(&Self::order()).to_u64_digits()[0])
+    }
+
+    fn to_biguint(&self) -> BigUint {
+        self.to_canonical_u64().into()
     }
 
     #[inline]
@@ -312,6 +323,7 @@ impl RichField for GoldilocksField {}
 #[inline(always)]
 #[cfg(target_arch = "x86_64")]
 unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
+    use std::arch::asm;
     let res_wrapped: u64;
     let adjustment: u64;
     asm!(
@@ -352,6 +364,7 @@ unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
 #[inline(always)]
 #[cfg(target_arch = "x86_64")]
 unsafe fn sub_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
+    use std::arch::asm;
     let res_wrapped: u64;
     let adjustment: u64;
     asm!(

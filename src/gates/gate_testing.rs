@@ -10,7 +10,7 @@ use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::config::GenericConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::plonk::verifier::verify;
-use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_ceil, transpose};
 
 const WITNESS_SIZE: usize = 1 << 5;

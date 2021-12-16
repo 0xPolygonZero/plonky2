@@ -1,5 +1,3 @@
-#![feature(destructuring_assignment)]
-
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use plonky2::field::extension_field::quartic::QuarticExtension;
 use plonky2::field::field_types::Field;
@@ -112,6 +110,66 @@ pub(crate) fn bench_field<F: Field>(c: &mut Criterion) {
     c.bench_function(&format!("try_inverse<{}>", type_name::<F>()), |b| {
         b.iter_batched(|| F::rand(), |x| x.try_inverse(), BatchSize::SmallInput)
     });
+
+    c.bench_function(
+        &format!("batch_multiplicative_inverse-tiny<{}>", type_name::<F>()),
+        |b| {
+            b.iter_batched(
+                || (0..2).into_iter().map(|_| F::rand()).collect::<Vec<_>>(),
+                |x| F::batch_multiplicative_inverse(&x),
+                BatchSize::SmallInput,
+            )
+        },
+    );
+
+    c.bench_function(
+        &format!("batch_multiplicative_inverse-small<{}>", type_name::<F>()),
+        |b| {
+            b.iter_batched(
+                || (0..4).into_iter().map(|_| F::rand()).collect::<Vec<_>>(),
+                |x| F::batch_multiplicative_inverse(&x),
+                BatchSize::SmallInput,
+            )
+        },
+    );
+
+    c.bench_function(
+        &format!("batch_multiplicative_inverse-medium<{}>", type_name::<F>()),
+        |b| {
+            b.iter_batched(
+                || (0..16).into_iter().map(|_| F::rand()).collect::<Vec<_>>(),
+                |x| F::batch_multiplicative_inverse(&x),
+                BatchSize::SmallInput,
+            )
+        },
+    );
+
+    c.bench_function(
+        &format!("batch_multiplicative_inverse-large<{}>", type_name::<F>()),
+        |b| {
+            b.iter_batched(
+                || (0..256).into_iter().map(|_| F::rand()).collect::<Vec<_>>(),
+                |x| F::batch_multiplicative_inverse(&x),
+                BatchSize::LargeInput,
+            )
+        },
+    );
+
+    c.bench_function(
+        &format!("batch_multiplicative_inverse-huge<{}>", type_name::<F>()),
+        |b| {
+            b.iter_batched(
+                || {
+                    (0..65536)
+                        .into_iter()
+                        .map(|_| F::rand())
+                        .collect::<Vec<_>>()
+                },
+                |x| F::batch_multiplicative_inverse(&x),
+                BatchSize::LargeInput,
+            )
+        },
+    );
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

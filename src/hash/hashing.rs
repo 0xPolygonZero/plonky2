@@ -1,7 +1,5 @@
 //! Concrete instantiation of a hash function.
 
-use std::convert::TryInto;
-
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
@@ -131,10 +129,8 @@ pub fn hash_n_to_m<F: RichField, P: PlonkyPermutation<F>>(
 
     // Absorb all input chunks.
     for input_chunk in inputs.chunks(SPONGE_RATE) {
-        for i in 0..input_chunk.len() {
-            state[i] = input_chunk[i];
-        }
-        state = P::permute(state);
+        state[..input_chunk.len()].copy_from_slice(input_chunk);
+        state = permute(state);
     }
 
     // Squeeze until we have the desired number of outputs.

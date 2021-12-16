@@ -36,8 +36,4 @@ impl FriParams {
     pub(crate) fn max_arity_bits(&self) -> Option<usize> {
         self.reduction_arity_bits.iter().copied().max()
     }
-
-    pub(crate) fn max_arity(&self) -> Option<usize> {
-        self.max_arity_bits().map(|bits| 1 << bits)
-    }
 }

@@ -1,4 +1,3 @@
-#![feature(destructuring_assignment)]
 #![feature(generic_const_exprs)]
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
@@ -19,7 +18,7 @@ pub(crate) fn bench_gmimc<F: GMiMC<WIDTH>, const WIDTH: usize>(c: &mut Criterion
 
 pub(crate) fn bench_poseidon<F: Poseidon<WIDTH>, const WIDTH: usize>(c: &mut Criterion)
 where
-    [(); WIDTH - 1]: ,
+    [(); WIDTH - 1]:,
 {
     c.bench_function(&format!("poseidon<{}, {}>", type_name::<F>(), WIDTH), |b| {
         b.iter_batched(

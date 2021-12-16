@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
 use crate::field::{extension_field::Extendable, field_types::Field};
-use crate::gates::switch::SwitchGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -34,7 +33,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.assert_permutation_2x2(a[0].clone(), a[1].clone(), b[0].clone(), b[1].clone())
             }
             // For larger lists, we recursively use two smaller permutation networks.
-            //_ => self.assert_permutation_recursive(a, b)
             _ => self.assert_permutation_recursive(a, b),
         }
     }
@@ -72,22 +70,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let chunk_size = a1.len();
 
-        if self.current_switch_gates.len() < chunk_size {
-            self.current_switch_gates
-                .extend(vec![None; chunk_size - self.current_switch_gates.len()]);
-        }
-
-        let (gate, gate_index, mut next_copy) =
-            match self.current_switch_gates[chunk_size - 1].clone() {
-                None => {
-                    let gate = SwitchGate::<F, D>::new_from_config(&self.config, chunk_size);
-                    let gate_index = self.add_gate(gate.clone(), vec![]);
-                    (gate, gate_index, 0)
-                }
-                Some((gate, idx, next_copy)) => (gate, idx, next_copy),
-            };
-
-        let num_copies = gate.num_copies;
+        let (gate, gate_index, next_copy) = self.find_switch_gate(chunk_size);
 
         let mut c = Vec::new();
         let mut d = Vec::new();
@@ -111,13 +94,6 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let switch = Target::wire(gate_index, gate.wire_switch_bool(next_copy));
-
-        next_copy += 1;
-        if next_copy == num_copies {
-            self.current_switch_gates[chunk_size - 1] = None;
-        } else {
-            self.current_switch_gates[chunk_size - 1] = Some((gate, gate_index, next_copy));
-        }
 
         (switch, c, d)
     }
@@ -402,7 +378,7 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let lst: Vec<F> = (0..size * 2).map(|n| F::from_canonical_usize(n)).collect();
+        let lst: Vec<F> = (0..size * 2).map(F::from_canonical_usize).collect();
         let a: Vec<Vec<Target>> = lst[..]
             .chunks(2)
             .map(|pair| vec![builder.constant(pair[0]), builder.constant(pair[1])])

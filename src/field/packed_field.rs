@@ -1,77 +1,81 @@
-use std::fmt;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::iter::{Product, Sum};
-use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::slice;
 
 use crate::field::field_types::Field;
 
-pub trait PackedField:
+/// # Safety
+/// - WIDTH is assumed to be a power of 2.
+/// - If P implements PackedField then P must be castable to/from [P::Scalar; P::WIDTH] without UB.
+pub unsafe trait PackedField:
     'static
     + Add<Self, Output = Self>
-    + Add<Self::FieldType, Output = Self>
+    + Add<Self::Scalar, Output = Self>
     + AddAssign<Self>
-    + AddAssign<Self::FieldType>
+    + AddAssign<Self::Scalar>
     + Copy
     + Debug
     + Default
-    // TODO: Implementing Div sounds like a pain so it's a worry for later.
+    + From<Self::Scalar>
+    // TODO: Implement packed / packed division
+    + Div<Self::Scalar, Output = Self>
     + Mul<Self, Output = Self>
-    + Mul<Self::FieldType, Output = Self>
+    + Mul<Self::Scalar, Output = Self>
     + MulAssign<Self>
-    + MulAssign<Self::FieldType>
+    + MulAssign<Self::Scalar>
     + Neg<Output = Self>
     + Product
     + Send
     + Sub<Self, Output = Self>
-    + Sub<Self::FieldType, Output = Self>
+    + Sub<Self::Scalar, Output = Self>
     + SubAssign<Self>
-    + SubAssign<Self::FieldType>
+    + SubAssign<Self::Scalar>
     + Sum
     + Sync
+where
+    Self::Scalar: Add<Self, Output = Self>,
+    Self::Scalar: Mul<Self, Output = Self>,
+    Self::Scalar: Sub<Self, Output = Self>,
 {
-    type FieldType: Field;
+    type Scalar: Field;
 
-    const LOG2_WIDTH: usize;
-    const WIDTH: usize = 1 << Self::LOG2_WIDTH;
+    const WIDTH: usize;
+    const ZERO: Self;
+    const ONE: Self;
 
     fn square(&self) -> Self {
         *self * *self
     }
 
-    fn zero() -> Self {
-        Self::broadcast(Self::FieldType::ZERO)
-    }
-    fn one() -> Self {
-        Self::broadcast(Self::FieldType::ONE)
-    }
+    fn from_arr(arr: [Self::Scalar; Self::WIDTH]) -> Self;
+    fn as_arr(&self) -> [Self::Scalar; Self::WIDTH];
 
-    fn broadcast(x: Self::FieldType) -> Self;
+    fn from_slice(slice: &[Self::Scalar]) -> &Self;
+    fn from_slice_mut(slice: &mut [Self::Scalar]) -> &mut Self;
+    fn as_slice(&self) -> &[Self::Scalar];
+    fn as_slice_mut(&mut self) -> &mut [Self::Scalar];
 
-    fn from_arr(arr: [Self::FieldType; Self::WIDTH]) -> Self;
-    fn to_arr(&self) -> [Self::FieldType; Self::WIDTH];
-
-    fn from_slice(slice: &[Self::FieldType]) -> Self;
-    fn to_vec(&self) -> Vec<Self::FieldType>;
-
-    /// Take interpret two vectors as chunks of (1 << r) elements. Unpack and interleave those
+    /// Take interpret two vectors as chunks of block_len elements. Unpack and interleave those
     /// chunks. This is best seen with an example. If we have:
     ///     A = [x0, y0, x1, y1],
     ///     B = [x2, y2, x3, y3],
     /// then
-    ///     interleave(A, B, 0) = ([x0, x2, x1, x3], [y0, y2, y1, y3]).
+    ///     interleave(A, B, 1) = ([x0, x2, x1, x3], [y0, y2, y1, y3]).
     /// Pairs that were adjacent in the input are at corresponding positions in the output.
-    ///   r lets us set the size of chunks we're interleaving. If we set r = 1, then for
+    ///   r lets us set the size of chunks we're interleaving. If we set block_len = 2, then for
     ///     A = [x0, x1, y0, y1],
     ///     B = [x2, x3, y2, y3],
     /// we obtain
-    ///     interleave(A, B, r) = ([x0, x1, x2, x3], [y0, y1, y2, y3]).
+    ///     interleave(A, B, block_len) = ([x0, x1, x2, x3], [y0, y1, y2, y3]).
     ///   We can also think about this as stacking the vectors, dividing them into 2x2 matrices, and
     /// transposing those matrices.
-    ///   When r = LOG2_WIDTH, this operation is a no-op. Values of r > LOG2_WIDTH are not
-    /// permitted.
-    fn interleave(&self, other: Self, r: usize) -> (Self, Self);
+    ///   When block_len = WIDTH, this operation is a no-op. block_len must divide WIDTH. Since
+    /// WIDTH is specified to be a power of 2, block_len must also be a power of 2. It cannot be 0
+    /// and it cannot be > WIDTH.
+    fn interleave(&self, other: Self, block_len: usize) -> (Self, Self);
 
-    fn pack_slice(buf: &[Self::FieldType]) -> &[Self] {
+    fn pack_slice(buf: &[Self::Scalar]) -> &[Self] {
         assert!(
             buf.len() % Self::WIDTH == 0,
             "Slice length (got {}) must be a multiple of packed field width ({}).",
@@ -82,7 +86,7 @@ pub trait PackedField:
         let n = buf.len() / Self::WIDTH;
         unsafe { std::slice::from_raw_parts(buf_ptr, n) }
     }
-    fn pack_slice_mut(buf: &mut [Self::FieldType]) -> &mut [Self] {
+    fn pack_slice_mut(buf: &mut [Self::Scalar]) -> &mut [Self] {
         assert!(
             buf.len() % Self::WIDTH == 0,
             "Slice length (got {}) must be a multiple of packed field width ({}).",
@@ -95,143 +99,41 @@ pub trait PackedField:
     }
 }
 
-#[derive(Copy, Clone)]
-#[repr(transparent)]
-pub struct Singleton<F: Field>(pub F);
+unsafe impl<F: Field> PackedField for F {
+    type Scalar = Self;
 
-impl<F: Field> Add<Self> for Singleton<F> {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self {
-        Self(self.0 + rhs.0)
-    }
-}
-impl<F: Field> Add<F> for Singleton<F> {
-    type Output = Self;
-    fn add(self, rhs: F) -> Self {
-        self + Self::broadcast(rhs)
-    }
-}
-impl<F: Field> AddAssign<Self> for Singleton<F> {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
-    }
-}
-impl<F: Field> AddAssign<F> for Singleton<F> {
-    fn add_assign(&mut self, rhs: F) {
-        *self = *self + rhs;
-    }
-}
-
-impl<F: Field> Debug for Singleton<F> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "({:?})", self.0)
-    }
-}
-
-impl<F: Field> Default for Singleton<F> {
-    fn default() -> Self {
-        Self::zero()
-    }
-}
-
-impl<F: Field> Mul<Self> for Singleton<F> {
-    type Output = Self;
-    fn mul(self, rhs: Self) -> Self {
-        Self(self.0 * rhs.0)
-    }
-}
-impl<F: Field> Mul<F> for Singleton<F> {
-    type Output = Self;
-    fn mul(self, rhs: F) -> Self {
-        self * Self::broadcast(rhs)
-    }
-}
-impl<F: Field> MulAssign<Self> for Singleton<F> {
-    fn mul_assign(&mut self, rhs: Self) {
-        *self = *self * rhs;
-    }
-}
-impl<F: Field> MulAssign<F> for Singleton<F> {
-    fn mul_assign(&mut self, rhs: F) {
-        *self = *self * rhs;
-    }
-}
-
-impl<F: Field> Neg for Singleton<F> {
-    type Output = Self;
-    fn neg(self) -> Self {
-        Self(-self.0)
-    }
-}
-
-impl<F: Field> Product for Singleton<F> {
-    fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
-        Self(iter.map(|x| x.0).product())
-    }
-}
-
-impl<F: Field> PackedField for Singleton<F> {
-    const LOG2_WIDTH: usize = 0;
-    type FieldType = F;
-
-    fn broadcast(x: F) -> Self {
-        Self(x)
-    }
-
-    fn from_arr(arr: [Self::FieldType; Self::WIDTH]) -> Self {
-        Self(arr[0])
-    }
-
-    fn to_arr(&self) -> [Self::FieldType; Self::WIDTH] {
-        [self.0]
-    }
-
-    fn from_slice(slice: &[Self::FieldType]) -> Self {
-        assert!(slice.len() == 1);
-        Self(slice[0])
-    }
-
-    fn to_vec(&self) -> Vec<Self::FieldType> {
-        vec![self.0]
-    }
-
-    fn interleave(&self, other: Self, r: usize) -> (Self, Self) {
-        match r {
-            0 => (*self, other), // This is a no-op whenever r == LOG2_WIDTH.
-            _ => panic!("r cannot be more than LOG2_WIDTH"),
-        }
-    }
+    const WIDTH: usize = 1;
+    const ZERO: Self = <F as Field>::ZERO;
+    const ONE: Self = <F as Field>::ONE;
 
     fn square(&self) -> Self {
-        Self(self.0.square())
+        <Self as Field>::square(self)
     }
-}
 
-impl<F: Field> Sub<Self> for Singleton<F> {
-    type Output = Self;
-    fn sub(self, rhs: Self) -> Self {
-        Self(self.0 - rhs.0)
+    fn from_arr(arr: [Self::Scalar; Self::WIDTH]) -> Self {
+        arr[0]
     }
-}
-impl<F: Field> Sub<F> for Singleton<F> {
-    type Output = Self;
-    fn sub(self, rhs: F) -> Self {
-        self - Self::broadcast(rhs)
+    fn as_arr(&self) -> [Self::Scalar; Self::WIDTH] {
+        [*self]
     }
-}
-impl<F: Field> SubAssign<Self> for Singleton<F> {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = *self - rhs;
-    }
-}
-impl<F: Field> SubAssign<F> for Singleton<F> {
-    fn sub_assign(&mut self, rhs: F) {
-        *self = *self - rhs;
-    }
-}
 
-impl<F: Field> Sum for Singleton<F> {
-    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        Self(iter.map(|x| x.0).sum())
+    fn from_slice(slice: &[Self::Scalar]) -> &Self {
+        &slice[0]
+    }
+    fn from_slice_mut(slice: &mut [Self::Scalar]) -> &mut Self {
+        &mut slice[0]
+    }
+    fn as_slice(&self) -> &[Self::Scalar] {
+        slice::from_ref(self)
+    }
+    fn as_slice_mut(&mut self) -> &mut [Self::Scalar] {
+        slice::from_mut(self)
+    }
+
+    fn interleave(&self, other: Self, block_len: usize) -> (Self, Self) {
+        match block_len {
+            1 => (*self, other),
+            _ => panic!("unsupported block length"),
+        }
     }
 }

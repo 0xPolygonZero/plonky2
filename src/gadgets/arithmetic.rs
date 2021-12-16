@@ -2,6 +2,8 @@ use std::borrow::Borrow;
 
 use crate::field::extension_field::Extendable;
 use crate::gates::arithmetic::ArithmeticExtensionGate;
+use crate::field::field_types::{PrimeField, RichField};
+use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::exponentiation::ExponentiationGate;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -32,18 +34,117 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         multiplicand_1: Target,
         addend: Target,
     ) -> Target {
-        let multiplicand_0_ext = self.convert_to_ext(multiplicand_0);
-        let multiplicand_1_ext = self.convert_to_ext(multiplicand_1);
-        let addend_ext = self.convert_to_ext(addend);
+        // If we're not configured to use the base arithmetic gate, just call arithmetic_extension.
+        if !self.config.use_base_arithmetic_gate {
+            let multiplicand_0_ext = self.convert_to_ext(multiplicand_0);
+            let multiplicand_1_ext = self.convert_to_ext(multiplicand_1);
+            let addend_ext = self.convert_to_ext(addend);
 
-        self.arithmetic_extension(
+            return self
+                .arithmetic_extension(
+                    const_0,
+                    const_1,
+                    multiplicand_0_ext,
+                    multiplicand_1_ext,
+                    addend_ext,
+                )
+                .0[0];
+        }
+
+        // See if we can determine the result without adding an `ArithmeticGate`.
+        if let Some(result) =
+            self.arithmetic_special_cases(const_0, const_1, multiplicand_0, multiplicand_1, addend)
+        {
+            return result;
+        }
+
+        // See if we've already computed the same operation.
+        let operation = BaseArithmeticOperation {
             const_0,
             const_1,
-            multiplicand_0_ext,
-            multiplicand_1_ext,
-            addend_ext,
-        )
-        .0[0]
+            multiplicand_0,
+            multiplicand_1,
+            addend,
+        };
+        if let Some(&result) = self.base_arithmetic_results.get(&operation) {
+            return result;
+        }
+
+        // Otherwise, we must actually perform the operation using an ArithmeticExtensionGate slot.
+        let result = self.add_base_arithmetic_operation(operation);
+        self.base_arithmetic_results.insert(operation, result);
+        result
+    }
+
+    fn add_base_arithmetic_operation(&mut self, operation: BaseArithmeticOperation<F>) -> Target {
+        let (gate, i) = self.find_base_arithmetic_gate(operation.const_0, operation.const_1);
+        let wires_multiplicand_0 = Target::wire(gate, ArithmeticGate::wire_ith_multiplicand_0(i));
+        let wires_multiplicand_1 = Target::wire(gate, ArithmeticGate::wire_ith_multiplicand_1(i));
+        let wires_addend = Target::wire(gate, ArithmeticGate::wire_ith_addend(i));
+
+        self.connect(operation.multiplicand_0, wires_multiplicand_0);
+        self.connect(operation.multiplicand_1, wires_multiplicand_1);
+        self.connect(operation.addend, wires_addend);
+
+        Target::wire(gate, ArithmeticGate::wire_ith_output(i))
+    }
+
+    /// Checks for special cases where the value of
+    /// `const_0 * multiplicand_0 * multiplicand_1 + const_1 * addend`
+    /// can be determined without adding an `ArithmeticGate`.
+    fn arithmetic_special_cases(
+        &mut self,
+        const_0: F,
+        const_1: F,
+        multiplicand_0: Target,
+        multiplicand_1: Target,
+        addend: Target,
+    ) -> Option<Target> {
+        let zero = self.zero();
+
+        let mul_0_const = self.target_as_constant(multiplicand_0);
+        let mul_1_const = self.target_as_constant(multiplicand_1);
+        let addend_const = self.target_as_constant(addend);
+
+        let first_term_zero =
+            const_0 == F::ZERO || multiplicand_0 == zero || multiplicand_1 == zero;
+        let second_term_zero = const_1 == F::ZERO || addend == zero;
+
+        // If both terms are constant, return their (constant) sum.
+        let first_term_const = if first_term_zero {
+            Some(F::ZERO)
+        } else if let (Some(x), Some(y)) = (mul_0_const, mul_1_const) {
+            Some(x * y * const_0)
+        } else {
+            None
+        };
+        let second_term_const = if second_term_zero {
+            Some(F::ZERO)
+        } else {
+            addend_const.map(|x| x * const_1)
+        };
+        if let (Some(x), Some(y)) = (first_term_const, second_term_const) {
+            return Some(self.constant(x + y));
+        }
+
+        if first_term_zero && const_1.is_one() {
+            return Some(addend);
+        }
+
+        if second_term_zero {
+            if let Some(x) = mul_0_const {
+                if (x * const_0).is_one() {
+                    return Some(multiplicand_1);
+                }
+            }
+            if let Some(x) = mul_1_const {
+                if (x * const_0).is_one() {
+                    return Some(multiplicand_0);
+                }
+            }
+        }
+
+        None
     }
 
     /// Computes `x * y + z`.
@@ -53,20 +154,20 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Computes `x + C`.
     pub fn add_const(&mut self, x: Target, c: F) -> Target {
-        let one = self.one();
-        self.arithmetic(F::ONE, c, one, x, one)
+        let c = self.constant(c);
+        self.add(x, c)
     }
 
     /// Computes `C * x`.
     pub fn mul_const(&mut self, c: F, x: Target) -> Target {
-        let zero = self.zero();
-        self.mul_const_add(c, x, zero)
+        let c = self.constant(c);
+        self.mul(c, x)
     }
 
     /// Computes `C * x + y`.
     pub fn mul_const_add(&mut self, c: F, x: Target, y: Target) -> Target {
-        let one = self.one();
-        self.arithmetic(c, F::ONE, x, one, y)
+        let c = self.constant(c);
+        self.mul_add(c, x, y)
     }
 
     /// Computes `x * y - z`.
@@ -82,13 +183,8 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Add `n` `Target`s.
-    // TODO: Can be made `D` times more efficient by using all wires of an `ArithmeticExtensionGate`.
     pub fn add_many(&mut self, terms: &[Target]) -> Target {
-        let terms_ext = terms
-            .iter()
-            .map(|&t| self.convert_to_ext(t))
-            .collect::<Vec<_>>();
-        self.add_many_extension(&terms_ext).to_target_array()[0]
+        terms.iter().fold(self.zero(), |acc, &t| self.add(acc, t))
     }
 
     /// Computes `x - y`.
@@ -106,16 +202,16 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Multiply `n` `Target`s.
     pub fn mul_many(&mut self, terms: &[Target]) -> Target {
-        let terms_ext = terms
+        terms
             .iter()
-            .map(|&t| self.convert_to_ext(t))
-            .collect::<Vec<_>>();
-        self.mul_many_extension(&terms_ext).to_target_array()[0]
+            .copied()
+            .reduce(|acc, t| self.mul(acc, t))
+            .unwrap_or_else(|| self.one())
     }
 
     /// Exponentiate `base` to the power of `2^power_log`.
     pub fn exp_power_of_2(&mut self, base: Target, power_log: usize) -> Target {
-        if power_log > ArithmeticExtensionGate::<D>::new_from_config(&self.config).num_ops {
+        if power_log > self.num_base_arithmetic_ops_per_gate() {
             // Cheaper to just use `ExponentiateGate`.
             return self.exp_u64(base, 1 << power_log);
         }
@@ -169,8 +265,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let base_t = self.constant(base);
         let exponent_bits: Vec<_> = exponent_bits.into_iter().map(|b| *b.borrow()).collect();
 
-        if exponent_bits.len() > ArithmeticExtensionGate::<D>::new_from_config(&self.config).num_ops
-        {
+        if exponent_bits.len() > self.num_base_arithmetic_ops_per_gate() {
             // Cheaper to just use `ExponentiateGate`.
             return self.exp_from_bits(base_t, exponent_bits);
         }
@@ -219,4 +314,14 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let x_ext = self.convert_to_ext(x);
         self.inverse_extension(x_ext).0[0]
     }
+}
+
+/// Represents a base arithmetic operation in the circuit. Used to memoize results.
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub(crate) struct BaseArithmeticOperation<F: PrimeField> {
+    const_0: F,
+    const_1: F,
+    multiplicand_0: Target,
+    multiplicand_1: Target,
+    addend: Target,
 }

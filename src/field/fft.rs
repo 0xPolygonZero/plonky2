@@ -5,8 +5,8 @@ use unroll::unroll_for_loops;
 
 use crate::field::field_types::Field;
 use crate::field::packable::Packable;
-use crate::field::packed_field::{PackedField, Singleton};
-use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::field::packed_field::PackedField;
+use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::util::{log2_strict, reverse_index_bits};
 
 pub(crate) type FftRootTable<F> = Vec<Vec<F>>;
@@ -38,7 +38,7 @@ fn fft_dispatch<F: Field>(
     zero_factor: Option<usize>,
     root_table: Option<&FftRootTable<F>>,
 ) -> Vec<F> {
-    let computed_root_table = if let Some(_) = root_table {
+    let computed_root_table = if root_table.is_some() {
         None
     } else {
         Some(fft_root_table(input.len()))
@@ -98,12 +98,12 @@ pub fn ifft_with_options<F: Field>(
 /// Generic FFT implementation that works with both scalar and packed inputs.
 #[unroll_for_loops]
 fn fft_classic_simd<P: PackedField>(
-    values: &mut [P::FieldType],
+    values: &mut [P::Scalar],
     r: usize,
     lg_n: usize,
-    root_table: &FftRootTable<P::FieldType>,
+    root_table: &FftRootTable<P::Scalar>,
 ) {
-    let lg_packed_width = P::LOG2_WIDTH; // 0 when P is a scalar.
+    let lg_packed_width = log2_strict(P::WIDTH); // 0 when P is a scalar.
     let packed_values = P::pack_slice_mut(values);
     let packed_n = packed_values.len();
     debug_assert!(packed_n == 1 << (lg_n - lg_packed_width));
@@ -121,19 +121,18 @@ fn fft_classic_simd<P: PackedField>(
             let half_m = 1 << lg_half_m;
 
             // Set omega to root_table[lg_half_m][0..half_m] but repeated.
-            let mut omega_vec = P::zero().to_vec();
-            for j in 0..omega_vec.len() {
-                omega_vec[j] = root_table[lg_half_m][j % half_m];
+            let mut omega = P::ZERO;
+            for (j, omega_j) in omega.as_slice_mut().iter_mut().enumerate() {
+                *omega_j = root_table[lg_half_m][j % half_m];
             }
-            let omega = P::from_slice(&omega_vec[..]);
 
             for k in (0..packed_n).step_by(2) {
                 // We have two vectors and want to do math on pairs of adjacent elements (or for
                 // lg_half_m > 0, pairs of adjacent blocks of elements). .interleave does the
                 // appropriate shuffling and is its own inverse.
-                let (u, v) = packed_values[k].interleave(packed_values[k + 1], lg_half_m);
+                let (u, v) = packed_values[k].interleave(packed_values[k + 1], half_m);
                 let t = omega * v;
-                (packed_values[k], packed_values[k + 1]) = (u + t).interleave(u - t, lg_half_m);
+                (packed_values[k], packed_values[k + 1]) = (u + t).interleave(u - t, half_m);
             }
         }
     }
@@ -197,13 +196,13 @@ pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: &FftRootT
         }
     }
 
-    let lg_packed_width = <F as Packable>::PackedType::LOG2_WIDTH;
+    let lg_packed_width = log2_strict(<F as Packable>::Packing::WIDTH);
     if lg_n <= lg_packed_width {
         // Need the slice to be at least the width of two packed vectors for the vectorized version
         // to work. Do this tiny problem in scalar.
-        fft_classic_simd::<Singleton<F>>(&mut values[..], r, lg_n, &root_table);
+        fft_classic_simd::<F>(&mut values[..], r, lg_n, root_table);
     } else {
-        fft_classic_simd::<<F as Packable>::PackedType>(&mut values[..], r, lg_n, &root_table);
+        fft_classic_simd::<<F as Packable>::Packing>(&mut values[..], r, lg_n, root_table);
     }
     values
 }
@@ -213,19 +212,23 @@ mod tests {
     use crate::field::fft::{fft, fft_with_options, ifft};
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
-    use crate::polynomial::polynomial::{PolynomialCoeffs, PolynomialValues};
+    use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
     use crate::util::{log2_ceil, log2_strict};
 
     #[test]
     fn fft_and_ifft() {
         type F = GoldilocksField;
-        let degree = 200;
-        let degree_padded = log2_ceil(degree);
-        let mut coefficients = Vec::new();
-        for i in 0..degree {
-            coefficients.push(F::from_canonical_usize(i * 1337 % 100));
-        }
-        let coefficients = PolynomialCoeffs::new_padded(coefficients);
+        let degree = 200usize;
+        let degree_padded = degree.next_power_of_two();
+
+        // Create a vector of coeffs; the first degree of them are
+        // "random", the last degree_padded-degree of them are zero.
+        let coeffs = (0..degree)
+            .map(|i| F::from_canonical_usize(i * 1337 % 100))
+            .chain(std::iter::repeat(F::ZERO).take(degree_padded - degree))
+            .collect::<Vec<_>>();
+        assert_eq!(coeffs.len(), degree_padded);
+        let coefficients = PolynomialCoeffs { coeffs };
 
         let points = fft(&coefficients);
         assert_eq!(points, evaluate_naive(&coefficients));
@@ -263,7 +266,7 @@ mod tests {
 
         let values = subgroup
             .into_iter()
-            .map(|x| evaluate_at_naive(&coefficients, x))
+            .map(|x| evaluate_at_naive(coefficients, x))
             .collect();
         PolynomialValues::new(values)
     }
@@ -272,8 +275,8 @@ mod tests {
         let mut sum = F::ZERO;
         let mut point_power = F::ONE;
         for &c in &coefficients.coeffs {
-            sum = sum + c * point_power;
-            point_power = point_power * point;
+            sum += c * point_power;
+            point_power *= point;
         }
         sum
     }

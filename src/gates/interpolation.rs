@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::ops::Range;
 
@@ -6,6 +5,7 @@ use crate::field::extension_field::algebra::PolynomialCoeffsAlgebra;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::interpolation::interpolant;
+use crate::gadgets::interpolation::InterpolationGate;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::Gate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -14,19 +14,20 @@ use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::polynomial::PolynomialCoeffs;
 
-/// Interpolates a polynomial, whose points are a (base field) coset of the multiplicative subgroup
-/// with the given size, and whose values are extension field elements, given by input wires.
-/// Outputs the evaluation of the interpolant at a given (extension field) evaluation point.
-#[derive(Clone, Debug)]
-pub(crate) struct InterpolationGate<F: Extendable<D>, const D: usize> {
+/// Interpolation gate with constraints of degree at most `1<<subgroup_bits`.
+/// `eval_unfiltered_recursively` uses less gates than `LowDegreeInterpolationGate`.
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct HighDegreeInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D> {
-    pub fn new(subgroup_bits: usize) -> Self {
+impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D>
+    for HighDegreeInterpolationGate<F, D>
+{
+    fn new(subgroup_bits: usize) -> Self {
         Self {
             subgroup_bits,
             _phantom: PhantomData,
@@ -36,60 +37,9 @@ impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D> {
     fn num_points(&self) -> usize {
         1 << self.subgroup_bits
     }
+}
 
-    /// Wire index of the coset shift.
-    pub fn wire_shift(&self) -> usize {
-        0
-    }
-
-    fn start_values(&self) -> usize {
-        1
-    }
-
-    /// Wire indices of the `i`th interpolant value.
-    pub fn wires_value(&self, i: usize) -> Range<usize> {
-        debug_assert!(i < self.num_points());
-        let start = self.start_values() + i * D;
-        start..start + D
-    }
-
-    fn start_evaluation_point(&self) -> usize {
-        self.start_values() + self.num_points() * D
-    }
-
-    /// Wire indices of the point to evaluate the interpolant at.
-    pub fn wires_evaluation_point(&self) -> Range<usize> {
-        let start = self.start_evaluation_point();
-        start..start + D
-    }
-
-    fn start_evaluation_value(&self) -> usize {
-        self.start_evaluation_point() + D
-    }
-
-    /// Wire indices of the interpolated value.
-    pub fn wires_evaluation_value(&self) -> Range<usize> {
-        let start = self.start_evaluation_value();
-        start..start + D
-    }
-
-    fn start_coeffs(&self) -> usize {
-        self.start_evaluation_value() + D
-    }
-
-    /// The number of routed wires required in the typical usage of this gate, where the points to
-    /// interpolate, the evaluation point, and the corresponding value are all routed.
-    pub(crate) fn num_routed_wires(&self) -> usize {
-        self.start_coeffs()
-    }
-
-    /// Wire indices of the interpolant's `i`th coefficient.
-    pub fn wires_coeff(&self, i: usize) -> Range<usize> {
-        debug_assert!(i < self.num_points());
-        let start = self.start_coeffs() + i * D;
-        start..start + D
-    }
-
+impl<F: RichField + Extendable<D>, const D: usize> HighDegreeInterpolationGate<F, D> {
     /// End of wire indices, exclusive.
     fn end(&self) -> usize {
         self.start_coeffs() + self.num_points() * D
@@ -121,14 +71,16 @@ impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D> {
         g.powers()
             .take(size)
             .map(move |x| {
-                let subgroup_element = builder.constant(x.into());
+                let subgroup_element = builder.constant(x);
                 builder.scalar_mul_ext(subgroup_element, shift)
             })
             .collect()
     }
 }
 
-impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
+impl<F:  Extendable<D>, const D: usize> Gate<F, D>
+    for HighDegreeInterpolationGate<F, D>
+{
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -221,7 +173,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = InterpolationGenerator::<F, D> {
             gate_index,
-            gate: self.clone(),
+            gate: *self,
             _phantom: PhantomData,
         };
         vec![Box::new(gen.adapter())]
@@ -251,7 +203,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InterpolationGate<F, D> {
 #[derive(Debug)]
 struct InterpolationGenerator<F: Extendable<D>, const D: usize> {
     gate_index: usize,
-    gate: InterpolationGate<F, D>,
+    gate: HighDegreeInterpolationGate<F, D>,
     _phantom: PhantomData<F>,
 }
 
@@ -321,17 +273,18 @@ mod tests {
 
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
+    use crate::gadgets::interpolation::InterpolationGate;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use crate::gates::interpolation::InterpolationGate;
+    use crate::gates::interpolation::HighDegreeInterpolationGate;
     use crate::hash::hash_types::HashOut;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
-    use crate::polynomial::polynomial::PolynomialCoeffs;
+    use crate::polynomial::PolynomialCoeffs;
 
     #[test]
     fn wire_indices() {
-        let gate = InterpolationGate::<GoldilocksField, 4> {
+        let gate = HighDegreeInterpolationGate::<GoldilocksField, 4> {
             subgroup_bits: 1,
             _phantom: PhantomData,
         };
@@ -350,7 +303,7 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree::<GoldilocksField, _, 4>(InterpolationGate::new(2));
+        test_low_degree::<GoldilocksField, _, 4>(HighDegreeInterpolationGate::new(2));
     }
 
     #[test]
@@ -358,7 +311,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        test_eval_fns::<F, C, _, D>(InterpolationGate::new(2))
+        test_eval_fns::<F, C, _, D>(HighDegreeInterpolationGate::new(2))
     }
 
     #[test]
@@ -370,7 +323,7 @@ mod tests {
 
         /// Returns the local wires for an interpolation gate for given coeffs, points and eval point.
         fn get_wires(
-            gate: &InterpolationGate<F, D>,
+            gate: &HighDegreeInterpolationGate<F, D>,
             shift: F,
             coeffs: PolynomialCoeffs<FF>,
             eval_point: FF,
@@ -392,7 +345,7 @@ mod tests {
         let shift = F::rand();
         let coeffs = PolynomialCoeffs::new(vec![FF::rand(), FF::rand()]);
         let eval_point = FF::rand();
-        let gate = InterpolationGate::<F, D>::new(1);
+        let gate = HighDegreeInterpolationGate::<F, D>::new(1);
         let vars = EvaluationVars {
             local_constants: &[],
             local_wires: &get_wires(&gate, shift, coeffs, eval_point),

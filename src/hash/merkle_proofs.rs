@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
 
@@ -55,6 +53,7 @@ pub(crate) fn verify_merkle_proof<F: RichField, H: Hasher<F>>(
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
     /// given cap. The index is given by it's little-endian bits.
+    #[cfg(test)]
     pub(crate) fn verify_merkle_proof<H: AlgebraicHasher<F>>(
         &mut self,
         leaf_data: Vec<Target>,
@@ -94,7 +93,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
-        let mut state: HashOutTarget = self.hash_or_noop::<H>(leaf_data);
+        let mut state:HashOutTarget = self.hash_or_noop(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
             let mut perm_inputs = [zero; SPONGE_WIDTH];
@@ -116,7 +115,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn assert_hashes_equal(&mut self, x: HashOutTarget, y: HashOutTarget) {
+    pub fn connect_hashes(&mut self, x: HashOutTarget, y: HashOutTarget) {
         for i in 0..4 {
             self.connect(x.elements[i], y.elements[i]);
         }

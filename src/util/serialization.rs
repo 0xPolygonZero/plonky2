@@ -1,8 +1,6 @@
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::io::Cursor;
 use std::io::{Read, Result, Write};
-use std::iter::FromIterator;
 
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::{PrimeField, RichField};
@@ -17,7 +15,7 @@ use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, OpeningSet, Proof, ProofWithPublicInputs,
 };
-use crate::polynomial::polynomial::PolynomialCoeffs;
+use crate::polynomial::PolynomialCoeffs;
 
 #[derive(Debug)]
 pub struct Buffer(Cursor<Vec<u8>>);

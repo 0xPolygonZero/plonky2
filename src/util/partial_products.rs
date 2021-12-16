@@ -1,123 +1,148 @@
-use std::iter::Product;
-use std::ops::Sub;
+use std::iter;
+
+use itertools::Itertools;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
+use crate::field::field_types::{Field, RichField};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::ceil_div_usize;
 
+pub(crate) fn quotient_chunk_products<F: Field>(
+    quotient_values: &[F],
+    max_degree: usize,
+) -> Vec<F> {
+    debug_assert!(max_degree > 1);
+    assert!(!quotient_values.is_empty());
+    let chunk_size = max_degree;
+    quotient_values
+        .chunks(chunk_size)
+        .map(|chunk| chunk.iter().copied().product())
+        .collect()
+}
+
 /// Compute partial products of the original vector `v` such that all products consist of `max_degree`
 /// or less elements. This is done until we've computed the product `P` of all elements in the vector.
-pub fn partial_products<T: Product + Copy>(v: &[T], max_degree: usize) -> Vec<T> {
+pub(crate) fn partial_products_and_z_gx<F: Field>(z_x: F, quotient_chunk_products: &[F]) -> Vec<F> {
+    assert!(!quotient_chunk_products.is_empty());
     let mut res = Vec::new();
-    let mut remainder = v.to_vec();
-    while remainder.len() > max_degree {
-        let new_partials = remainder
-            .chunks(max_degree)
-            // TODO: can filter out chunks of length 1.
-            .map(|chunk| chunk.iter().copied().product())
-            .collect::<Vec<_>>();
-        res.extend_from_slice(&new_partials);
-        remainder = new_partials;
+    let mut acc = z_x;
+    for &quotient_chunk_product in quotient_chunk_products {
+        acc *= quotient_chunk_product;
+        res.push(acc);
     }
-
     res
 }
 
 /// Returns a tuple `(a,b)`, where `a` is the length of the output of `partial_products()` on a
-/// vector of length `n`, and `b` is the number of elements needed to compute the final product.
-pub fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
+/// vector of length `n`, and `b` is the number of original elements consumed in `partial_products()`.
+pub(crate) fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
     debug_assert!(max_degree > 1);
-    let mut res = 0;
-    let mut remainder = n;
-    while remainder > max_degree {
-        let new_partials_len = ceil_div_usize(remainder, max_degree);
-        res += new_partials_len;
-        remainder = new_partials_len;
-    }
-
-    (res, remainder)
+    let chunk_size = max_degree;
+    // We'll split the product into `ceil_div_usize(n, chunk_size)` chunks, but the last chunk will
+    // be associated with Z(gx) itself. Thus we subtract one to get the chunks associated with
+    // partial products.
+    let num_chunks = ceil_div_usize(n, chunk_size) - 1;
+    (num_chunks, num_chunks * chunk_size)
 }
 
-/// Checks that the partial products of `v` are coherent with those in `partials` by only computing
-/// products of size `max_degree` or less.
-pub fn check_partial_products<T: Product + Copy + Sub<Output = T>>(
-    v: &[T],
-    mut partials: &[T],
+/// Checks the relationship between each pair of partial product accumulators. In particular, this
+/// sequence of accumulators starts with `Z(x)`, then contains each partial product polynomials
+/// `p_i(x)`, and finally `Z(g x)`. See the partial products section of the Plonky2 paper.
+pub(crate) fn check_partial_products<F: Field>(
+    numerators: &[F],
+    denominators: &[F],
+    partials: &[F],
+    z_x: F,
+    z_gx: F,
     max_degree: usize,
-) -> Vec<T> {
-    let mut res = Vec::new();
-    let mut remainder = v;
-    while remainder.len() > max_degree {
-        let products = remainder
-            .chunks(max_degree)
-            .map(|chunk| chunk.iter().copied().product::<T>());
-        let products_len = products.len();
-        res.extend(products.zip(partials).map(|(a, &b)| a - b));
-        (remainder, partials) = partials.split_at(products_len);
-    }
-
-    res
+) -> Vec<F> {
+    debug_assert!(max_degree > 1);
+    let product_accs = iter::once(&z_x)
+        .chain(partials.iter())
+        .chain(iter::once(&z_gx));
+    let chunk_size = max_degree;
+    numerators
+        .chunks(chunk_size)
+        .zip_eq(denominators.chunks(chunk_size))
+        .zip_eq(product_accs.tuple_windows())
+        .map(|((nume_chunk, deno_chunk), (&prev_acc, &next_acc))| {
+            let num_chunk_product = nume_chunk.iter().copied().product();
+            let den_chunk_product = deno_chunk.iter().copied().product();
+            // Assert that next_acc * deno_product = prev_acc * nume_product.
+            prev_acc * num_chunk_product - next_acc * den_chunk_product
+        })
+        .collect()
 }
 
-pub fn check_partial_products_recursively<F: Extendable<D>, const D: usize>(
+/// Checks the relationship between each pair of partial product accumulators. In particular, this
+/// sequence of accumulators starts with `Z(x)`, then contains each partial product polynomials
+/// `p_i(x)`, and finally `Z(g x)`. See the partial products section of the Plonky2 paper.
+pub(crate) fn check_partial_products_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    v: &[ExtensionTarget<D>],
+    numerators: &[ExtensionTarget<D>],
+    denominators: &[ExtensionTarget<D>],
     partials: &[ExtensionTarget<D>],
+    z_x: ExtensionTarget<D>,
+    z_gx: ExtensionTarget<D>,
     max_degree: usize,
 ) -> Vec<ExtensionTarget<D>> {
-    let mut res = Vec::new();
-    let mut remainder = v.to_vec();
-    let mut partials = partials.to_vec();
-    while remainder.len() > max_degree {
-        let products = remainder
-            .chunks(max_degree)
-            .map(|chunk| builder.mul_many_extension(chunk))
-            .collect::<Vec<_>>();
-        res.extend(
-            products
-                .iter()
-                .zip(&partials)
-                .map(|(&a, &b)| builder.sub_extension(a, b)),
-        );
-        remainder = partials.drain(..products.len()).collect();
-    }
-
-    res
+    debug_assert!(max_degree > 1);
+    let product_accs = iter::once(&z_x)
+        .chain(partials.iter())
+        .chain(iter::once(&z_gx));
+    let chunk_size = max_degree;
+    numerators
+        .chunks(chunk_size)
+        .zip_eq(denominators.chunks(chunk_size))
+        .zip_eq(product_accs.tuple_windows())
+        .map(|((nume_chunk, deno_chunk), (&prev_acc, &next_acc))| {
+            let nume_product = builder.mul_many_extension(nume_chunk);
+            let deno_product = builder.mul_many_extension(deno_chunk);
+            let next_acc_deno = builder.mul_extension(next_acc, deno_product);
+            // Assert that next_acc * deno_product = prev_acc * nume_product.
+            builder.mul_sub_extension(prev_acc, nume_product, next_acc_deno)
+        })
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use num::Zero;
-
     use super::*;
+    use crate::field::goldilocks_field::GoldilocksField;
 
     #[test]
     fn test_partial_products() {
-        let v = vec![1, 2, 3, 4, 5, 6];
-        let p = partial_products(&v, 2);
-        assert_eq!(p, vec![2, 12, 30, 24, 30]);
-        let nums = num_partial_products(v.len(), 2);
-        assert_eq!(p.len(), nums.0);
-        assert!(check_partial_products(&v, &p, 2)
-            .iter()
-            .all(|x| x.is_zero()));
-        assert_eq!(
-            v.into_iter().product::<i32>(),
-            p[p.len() - nums.1..].iter().copied().product(),
-        );
+        type F = GoldilocksField;
+        let denominators = vec![F::ONE; 6];
+        let z_x = F::ONE;
+        let v = field_vec(&[1, 2, 3, 4, 5, 6]);
+        let z_gx = F::from_canonical_u64(720);
+        let quotient_chunks_prods = quotient_chunk_products(&v, 2);
+        assert_eq!(quotient_chunks_prods, field_vec(&[2, 12, 30]));
+        let pps_and_z_gx = partial_products_and_z_gx(z_x, &quotient_chunks_prods);
+        let pps = &pps_and_z_gx[..pps_and_z_gx.len() - 1];
+        assert_eq!(pps_and_z_gx, field_vec(&[2, 24, 720]));
 
-        let v = vec![1, 2, 3, 4, 5, 6];
-        let p = partial_products(&v, 3);
-        assert_eq!(p, vec![6, 120]);
-        let nums = num_partial_products(v.len(), 3);
-        assert_eq!(p.len(), nums.0);
-        assert!(check_partial_products(&v, &p, 3)
+        let nums = num_partial_products(v.len(), 2);
+        assert_eq!(pps.len(), nums.0);
+        assert!(check_partial_products(&v, &denominators, pps, z_x, z_gx, 2)
             .iter()
             .all(|x| x.is_zero()));
-        assert_eq!(
-            v.into_iter().product::<i32>(),
-            p[p.len() - nums.1..].iter().copied().product(),
-        );
+
+        let quotient_chunks_prods = quotient_chunk_products(&v, 3);
+        assert_eq!(quotient_chunks_prods, field_vec(&[6, 120]));
+        let pps_and_z_gx = partial_products_and_z_gx(z_x, &quotient_chunks_prods);
+        let pps = &pps_and_z_gx[..pps_and_z_gx.len() - 1];
+        assert_eq!(pps_and_z_gx, field_vec(&[6, 720]));
+        let nums = num_partial_products(v.len(), 3);
+        assert_eq!(pps.len(), nums.0);
+        assert!(check_partial_products(&v, &denominators, pps, z_x, z_gx, 3)
+            .iter()
+            .all(|x| x.is_zero()));
+    }
+
+    fn field_vec<F: Field>(xs: &[usize]) -> Vec<F> {
+        xs.iter().map(|&x| F::from_canonical_usize(x)).collect()
     }
 }

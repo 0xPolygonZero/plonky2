@@ -3,6 +3,7 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use num::bigint::BigUint;
+use num::Integer;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -49,25 +50,27 @@ impl<F: Extendable<2>> From<F> for QuadraticExtension<F> {
 }
 
 impl<F: Extendable<2>> Field for QuadraticExtension<F> {
-    type PrimeField = F;
-
     const ZERO: Self = Self([F::ZERO; 2]);
     const ONE: Self = Self([F::ONE, F::ZERO]);
     const TWO: Self = Self([F::TWO, F::ZERO]);
     const NEG_ONE: Self = Self([F::NEG_ONE, F::ZERO]);
 
-    const CHARACTERISTIC: u64 = F::CHARACTERISTIC;
-
     // `p^2 - 1 = (p - 1)(p + 1)`. The `p - 1` term has a two-adicity of `F::TWO_ADICITY`. As
     // long as `F::TWO_ADICITY >= 2`, `p` can be written as `4n + 1`, so `p + 1` can be written as
     // `2(2n + 1)`, which has a 2-adicity of 1.
     const TWO_ADICITY: usize = F::TWO_ADICITY + 1;
+    const CHARACTERISTIC_TWO_ADICITY: usize = F::CHARACTERISTIC_TWO_ADICITY;
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(F::EXT_MULTIPLICATIVE_GROUP_GENERATOR);
     const POWER_OF_TWO_GENERATOR: Self = Self(F::EXT_POWER_OF_TWO_GENERATOR);
 
+    const BITS: usize = F::BITS * 2;
+
     fn order() -> BigUint {
         F::order() * F::order()
+    }
+    fn characteristic() -> BigUint {
+        F::characteristic()
     }
 
     #[inline(always)]
@@ -97,6 +100,15 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
             &a_pow_r_minus_1,
             a_pow_r.0[0].inverse(),
         ))
+    }
+
+    fn from_biguint(n: BigUint) -> Self {
+        let (high, low) = n.div_rem(&F::order());
+        Self([F::from_biguint(low), F::from_biguint(high)])
+    }
+
+    fn to_biguint(&self) -> BigUint {
+        self.0[0].to_biguint() + F::order() * self.0[1].to_biguint()
     }
 
     fn from_canonical_u64(n: u64) -> Self {

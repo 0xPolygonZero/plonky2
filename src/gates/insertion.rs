@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::ops::Range;
 
@@ -252,8 +251,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Insert
 
         let local_targets = |inputs: Range<usize>| inputs.map(local_target);
 
-        let mut deps = Vec::new();
-        deps.push(local_target(self.gate.wires_insertion_index()));
+        let mut deps = vec![local_target(self.gate.wires_insertion_index())];
         deps.extend(local_targets(self.gate.wires_element_to_insert()));
         for i in 0..self.gate.vec_size {
             deps.extend(local_targets(self.gate.wires_original_list_item(i)));
@@ -292,7 +290,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Insert
             vec_size
         );
 
-        let mut new_vec = orig_vec.clone();
+        let mut new_vec = orig_vec;
         new_vec.insert(insertion_index, to_insert);
 
         let mut equality_dummy_vals = Vec::new();
@@ -377,14 +375,13 @@ mod tests {
         fn get_wires(orig_vec: Vec<FF>, insertion_index: usize, element_to_insert: FF) -> Vec<FF> {
             let vec_size = orig_vec.len();
 
-            let mut v = Vec::new();
-            v.push(F::from_canonical_usize(insertion_index));
+            let mut v = vec![F::from_canonical_usize(insertion_index)];
             v.extend(element_to_insert.0);
             for j in 0..vec_size {
                 v.extend(orig_vec[j].0);
             }
 
-            let mut new_vec = orig_vec.clone();
+            let mut new_vec = orig_vec;
             new_vec.insert(insertion_index, element_to_insert);
             let mut equality_dummy_vals = Vec::new();
             for i in 0..=vec_size {
