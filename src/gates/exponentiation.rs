@@ -4,6 +4,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -99,7 +100,11 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         let base = vars.local_wires[self.wire_base()];
 
         let power_bits: Vec<_> = (0..self.num_power_bits)
@@ -110,8 +115,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
             .collect();
 
         let output = vars.local_wires[self.wire_output()];
-
-        let mut constraints = Vec::with_capacity(self.num_constraints());
 
         for i in 0..self.num_power_bits {
             let prev_intermediate_value = if i == 0 {
@@ -126,12 +129,10 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ExponentiationGate<F, D> {
             let not_cur_bit = F::ONE - cur_bit;
             let computed_intermediate_value =
                 prev_intermediate_value * (cur_bit * base + not_cur_bit);
-            constraints.push(computed_intermediate_value - intermediate_values[i]);
+            yield_constr.one(computed_intermediate_value - intermediate_values[i]);
         }
 
-        constraints.push(output - intermediate_values[self.num_power_bits - 1]);
-
-        constraints
+        yield_constr.one(output - intermediate_values[self.num_power_bits - 1]);
     }
 
     fn eval_unfiltered_recursively(

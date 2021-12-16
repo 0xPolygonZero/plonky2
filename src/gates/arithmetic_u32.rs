@@ -6,6 +6,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -118,8 +119,11 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticGate<F, D> {
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(self.num_constraints());
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         for i in 0..self.num_ops {
             let multiplicand_0 = vars.local_wires[self.wire_ith_multiplicand_0(i)];
             let multiplicand_1 = vars.local_wires[self.wire_ith_multiplicand_1(i)];
@@ -133,7 +137,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticGate<F, D> {
             let base = F::from_canonical_u64(1 << 32u64);
             let combined_output = output_high * base + output_low;
 
-            constraints.push(combined_output - computed_output);
+            yield_constr.one(combined_output - computed_output);
 
             let mut combined_low_limbs = F::ZERO;
             let mut combined_high_limbs = F::ZERO;
@@ -145,7 +149,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticGate<F, D> {
                 let product = (0..max_limb)
                     .map(|x| this_limb - F::from_canonical_usize(x))
                     .product();
-                constraints.push(product);
+                yield_constr.one(product);
 
                 if j < midpoint {
                     combined_low_limbs = base * combined_low_limbs + this_limb;
@@ -153,11 +157,9 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticGate<F, D> {
                     combined_high_limbs = base * combined_high_limbs + this_limb;
                 }
             }
-            constraints.push(combined_low_limbs - output_low);
-            constraints.push(combined_high_limbs - output_high);
+            yield_constr.one(combined_low_limbs - output_low);
+            yield_constr.one(combined_high_limbs - output_high);
         }
-
-        constraints
     }
 
     fn eval_unfiltered_recursively(

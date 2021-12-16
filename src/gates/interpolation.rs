@@ -8,6 +8,7 @@ use crate::field::interpolation::interpolant;
 use crate::gadgets::interpolation::InterpolationGate;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -106,9 +107,11 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for HighDegreeInterpolationGat
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(self.num_constraints());
-
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         let coeffs = (0..self.num_points())
             .map(|i| vars.get_local_ext(self.wires_coeff(i)))
             .collect();
@@ -118,15 +121,13 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for HighDegreeInterpolationGat
         for (i, point) in coset.into_iter().enumerate() {
             let value = vars.get_local_ext(self.wires_value(i));
             let computed_value = interpolant.eval_base(point);
-            constraints.extend(&(value - computed_value).to_basefield_array());
+            yield_constr.many((value - computed_value).to_basefield_array());
         }
 
         let evaluation_point = vars.get_local_ext(self.wires_evaluation_point());
         let evaluation_value = vars.get_local_ext(self.wires_evaluation_value());
         let computed_evaluation_value = interpolant.eval(evaluation_point);
-        constraints.extend(&(evaluation_value - computed_evaluation_value).to_basefield_array());
-
-        constraints
+        yield_constr.many((evaluation_value - computed_evaluation_value).to_basefield_array());
     }
 
     fn eval_unfiltered_recursively(

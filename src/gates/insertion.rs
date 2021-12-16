@@ -5,6 +5,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -112,7 +113,11 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         let insertion_index = vars.local_wires[self.wires_insertion_index()];
         let list_items = (0..self.vec_size)
             .map(|i| vars.get_local_ext(self.wires_original_list_item(i)))
@@ -122,7 +127,6 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             .collect::<Vec<_>>();
         let element_to_insert = vars.get_local_ext(self.wires_element_to_insert());
 
-        let mut constraints = Vec::with_capacity(self.num_constraints());
         let mut already_inserted = F::ZERO;
         for r in 0..=self.vec_size {
             let cur_index = F::from_canonical_usize(r);
@@ -131,8 +135,8 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             let insert_here = vars.local_wires[self.wire_insert_here_for_round_r(r)];
 
             // The two equality constraints.
-            constraints.push(difference * equality_dummy - (F::ONE - insert_here));
-            constraints.push(insert_here * difference);
+            yield_constr.one(difference * equality_dummy - (F::ONE - insert_here));
+            yield_constr.one(insert_here * difference);
 
             let mut new_item = element_to_insert.scalar_mul(insert_here);
             if r > 0 {
@@ -144,10 +148,8 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
             }
 
             // Output constraint.
-            constraints.extend((new_item - output_list_items[r]).to_basefield_array());
+            yield_constr.many((new_item - output_list_items[r]).to_basefield_array());
         }
-
-        constraints
     }
 
     fn eval_unfiltered_recursively(

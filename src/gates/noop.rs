@@ -3,7 +3,7 @@ use crate::field::extension_field::Extendable;
 use crate::gates::gate::Gate;
 use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 
 /// A gate which does nothing.
 pub struct NoopGate;
@@ -17,7 +17,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
         Vec::new()
     }
 
-    fn eval_unfiltered_base(&self, _vars: EvaluationVarsBase<F>) -> Vec<F> {
+    fn eval_unfiltered_base_batch(&self, _vars: EvaluationVarsBaseBatch<F>) -> Vec<F> {
         Vec::new()
     }
 

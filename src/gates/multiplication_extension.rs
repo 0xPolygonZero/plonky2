@@ -5,6 +5,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::extension_field::FieldExtension;
 use crate::field::field_types::RichField;
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -65,20 +66,21 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for MulExtensionGa
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         let const_0 = vars.local_constants[0];
 
-        let mut constraints = Vec::new();
         for i in 0..self.num_ops {
             let multiplicand_0 = vars.get_local_ext(Self::wires_ith_multiplicand_0(i));
             let multiplicand_1 = vars.get_local_ext(Self::wires_ith_multiplicand_1(i));
             let output = vars.get_local_ext(Self::wires_ith_output(i));
             let computed_output = (multiplicand_0 * multiplicand_1).scalar_mul(const_0);
 
-            constraints.extend((output - computed_output).to_basefield_array());
+            yield_constr.many((output - computed_output).to_basefield_array());
         }
-
-        constraints
     }
 
     fn eval_unfiltered_recursively(

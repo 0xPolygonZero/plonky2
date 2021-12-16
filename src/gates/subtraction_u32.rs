@@ -4,6 +4,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -113,8 +114,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32Subtraction
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(self.num_constraints());
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         for i in 0..self.num_ops {
             let input_x = vars.local_wires[self.wire_ith_input_x(i)];
             let input_y = vars.local_wires[self.wire_ith_input_y(i)];
@@ -126,7 +130,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32Subtraction
             let output_result = vars.local_wires[self.wire_ith_output_result(i)];
             let output_borrow = vars.local_wires[self.wire_ith_output_borrow(i)];
 
-            constraints.push(output_result - (result_initial + base * output_borrow));
+            yield_constr.one(output_result - (result_initial + base * output_borrow));
 
             // Range-check output_result to be at most 32 bits.
             let mut combined_limbs = F::ZERO;
@@ -137,17 +141,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32Subtraction
                 let product = (0..max_limb)
                     .map(|x| this_limb - F::from_canonical_usize(x))
                     .product();
-                constraints.push(product);
+                yield_constr.one(product);
 
                 combined_limbs = limb_base * combined_limbs + this_limb;
             }
-            constraints.push(combined_limbs - output_result);
+            yield_constr.one(combined_limbs - output_result);
 
             // Range-check output_borrow to be one bit.
-            constraints.push(output_borrow * (F::ONE - output_borrow));
+            yield_constr.one(output_borrow * (F::ONE - output_borrow));
         }
-
-        constraints
     }
 
     fn eval_unfiltered_recursively(

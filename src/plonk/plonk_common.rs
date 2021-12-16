@@ -157,9 +157,15 @@ pub(crate) fn reduce_with_powers_multi<
     cumul
 }
 
-pub(crate) fn reduce_with_powers<F: Field>(terms: &[F], alpha: F) -> F {
+pub(crate) fn reduce_with_powers<'a, F: Field, T: IntoIterator<Item = &'a F>>(
+    terms: T,
+    alpha: F,
+) -> F
+where
+    T::IntoIter: DoubleEndedIterator,
+{
     let mut sum = F::ZERO;
-    for &term in terms.iter().rev() {
+    for &term in terms.into_iter().rev() {
         sum = sum * alpha + term;
     }
     sum

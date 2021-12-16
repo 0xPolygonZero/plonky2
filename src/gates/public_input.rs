@@ -3,6 +3,7 @@ use std::ops::Range;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
@@ -28,11 +29,16 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for PublicInputGate {
             .collect()
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        Self::wires_public_inputs_hash()
-            .zip(vars.public_inputs_hash.elements)
-            .map(|(wire, hash_part)| vars.local_wires[wire] - hash_part)
-            .collect()
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
+        yield_constr.many(
+            Self::wires_public_inputs_hash()
+                .zip(vars.public_inputs_hash.elements)
+                .map(|(wire, hash_part)| vars.local_wires[wire] - hash_part),
+        )
     }
 
     fn eval_unfiltered_recursively(

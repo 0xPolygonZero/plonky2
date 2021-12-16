@@ -25,6 +25,7 @@ pub mod reducing;
 pub mod reducing_extension;
 pub mod subtraction_u32;
 pub mod switch;
+mod util;
 
 #[cfg(test)]
 mod gate_testing;

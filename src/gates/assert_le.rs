@@ -4,6 +4,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -148,9 +149,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(self.num_constraints());
-
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         let first_input = vars.local_wires[self.wire_first_input()];
         let second_input = vars.local_wires[self.wire_second_input()];
 
@@ -171,8 +174,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
             F::from_canonical_usize(1 << self.chunk_bits()),
         );
 
-        constraints.push(first_chunks_combined - first_input);
-        constraints.push(second_chunks_combined - second_input);
+        yield_constr.one(first_chunks_combined - first_input);
+        yield_constr.one(second_chunks_combined - second_input);
 
         let chunk_size = 1 << self.chunk_bits();
 
@@ -186,34 +189,32 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
             let second_product = (0..chunk_size)
                 .map(|x| second_chunks[i] - F::from_canonical_usize(x))
                 .product();
-            constraints.push(first_product);
-            constraints.push(second_product);
+            yield_constr.one(first_product);
+            yield_constr.one(second_product);
 
             let difference = second_chunks[i] - first_chunks[i];
             let equality_dummy = vars.local_wires[self.wire_equality_dummy(i)];
             let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
 
             // Two constraints to assert that `chunks_equal` is valid.
-            constraints.push(difference * equality_dummy - (F::ONE - chunks_equal));
-            constraints.push(chunks_equal * difference);
+            yield_constr.one(difference * equality_dummy - (F::ONE - chunks_equal));
+            yield_constr.one(chunks_equal * difference);
 
             // Update `most_significant_diff_so_far`.
             let intermediate_value = vars.local_wires[self.wire_intermediate_value(i)];
-            constraints.push(intermediate_value - chunks_equal * most_significant_diff_so_far);
+            yield_constr.one(intermediate_value - chunks_equal * most_significant_diff_so_far);
             most_significant_diff_so_far =
                 intermediate_value + (F::ONE - chunks_equal) * difference;
         }
 
         let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
-        constraints.push(most_significant_diff - most_significant_diff_so_far);
+        yield_constr.one(most_significant_diff - most_significant_diff_so_far);
 
         // Range check `most_significant_diff` to be less than `chunk_size`.
         let product = (0..chunk_size)
             .map(|x| most_significant_diff - F::from_canonical_usize(x))
             .product();
-        constraints.push(product);
-
-        constraints
+        yield_constr.one(product);
     }
 
     fn eval_unfiltered_recursively(

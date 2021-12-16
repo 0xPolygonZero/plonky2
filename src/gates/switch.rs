@@ -6,6 +6,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -94,9 +95,11 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, D> {
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(self.num_constraints());
-
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         for c in 0..self.num_copies {
             let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
             let not_switch = F::ONE - switch_bool;
@@ -107,14 +110,12 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, D> {
                 let first_output = vars.local_wires[self.wire_first_output(c, e)];
                 let second_output = vars.local_wires[self.wire_second_output(c, e)];
 
-                constraints.push(switch_bool * (first_input - second_output));
-                constraints.push(switch_bool * (second_input - first_output));
-                constraints.push(not_switch * (first_input - first_output));
-                constraints.push(not_switch * (second_input - second_output));
+                yield_constr.one(switch_bool * (first_input - second_output));
+                yield_constr.one(switch_bool * (second_input - first_output));
+                yield_constr.one(not_switch * (first_input - first_output));
+                yield_constr.one(not_switch * (second_input - second_output));
             }
         }
-
-        constraints
     }
 
     fn eval_unfiltered_recursively(

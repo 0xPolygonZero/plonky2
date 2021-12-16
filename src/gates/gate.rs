@@ -2,13 +2,17 @@ use std::fmt::{Debug, Error, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
+use crate::field::batch_util::batch_multiply_inplace;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::{Field, RichField};
 use crate::gates::gate_tree::Tree;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{
+    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
+};
 
 /// A custom gate.
 pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
@@ -18,9 +22,19 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
 
     /// Like `eval_unfiltered`, but specialized for points in the base field.
     ///
+    ///
+    /// `eval_unfiltered_base_batch` calls this method by default. If `eval_unfiltered_base_batch`
+    /// is overridden, then `eval_unfiltered_base_one` is not necessary.
+    ///
     /// By default, this just calls `eval_unfiltered`, which treats the point as an extension field
     /// element. This isn't very efficient.
-    fn eval_unfiltered_base(&self, vars_base: EvaluationVarsBase<F>) -> Vec<F> {
+    fn eval_unfiltered_base_one(
+        &self,
+        vars_base: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
+        // Note that this method uses `yield_constr` instead of returning its constraints.
+        // `yield_constr` abstracts out the underlying memory layout.
         let local_constants = &vars_base
             .local_constants
             .iter()
@@ -40,13 +54,21 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
         let values = self.eval_unfiltered(vars);
 
         // Each value should be in the base field, i.e. only the degree-zero part should be nonzero.
-        values
-            .into_iter()
-            .map(|value| {
-                debug_assert!(F::Extension::is_in_basefield(&value));
-                value.to_basefield_array()[0]
-            })
-            .collect()
+        values.into_iter().for_each(|value| {
+            debug_assert!(F::Extension::is_in_basefield(&value));
+            yield_constr.one(value.to_basefield_array()[0])
+        })
+    }
+
+    fn eval_unfiltered_base_batch(&self, vars_base: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        let mut res = vec![F::ZERO; vars_base.len() * self.num_constraints()];
+        for (i, vars_base_one) in vars_base.iter().enumerate() {
+            self.eval_unfiltered_base_one(
+                vars_base_one,
+                StridedConstraintConsumer::new(&mut res, vars_base.len(), i),
+            );
+        }
+        res
     }
 
     fn eval_unfiltered_recursively(
@@ -64,26 +86,23 @@ pub trait Gate<F: Extendable<D>, const D: usize>: 'static + Send + Sync {
             .collect()
     }
 
-    /// Like `eval_filtered`, but specialized for points in the base field.
-    fn eval_filtered_base(&self, mut vars: EvaluationVarsBase<F>, prefix: &[bool]) -> Vec<F> {
-        let filter = compute_filter(prefix, vars.local_constants);
-        vars.remove_prefix(prefix);
-        let mut res = self.eval_unfiltered_base(vars);
-        res.iter_mut().for_each(|c| {
-            *c *= filter;
-        });
-        res
-    }
-
+    /// The result is an array of length `vars_batch.len() * self.num_constraints()`. Constraint `j`
+    /// for point `i` is at index `j * batch_size + i`.
     fn eval_filtered_base_batch(
         &self,
-        vars_batch: &[EvaluationVarsBase<F>],
+        mut vars_batch: EvaluationVarsBaseBatch<F>,
         prefix: &[bool],
-    ) -> Vec<Vec<F>> {
-        vars_batch
+    ) -> Vec<F> {
+        let filters: Vec<_> = vars_batch
             .iter()
-            .map(|&vars| self.eval_filtered_base(vars, prefix))
-            .collect()
+            .map(|vars| compute_filter(prefix, vars.local_constants))
+            .collect();
+        vars_batch.remove_prefix(prefix);
+        let mut res_batch = self.eval_unfiltered_base_batch(vars_batch);
+        for res_chunk in res_batch.chunks_exact_mut(filters.len()) {
+            batch_multiply_inplace(res_chunk, &filters);
+        }
+        res_batch
     }
 
     /// Adds this gate's filtered constraints into the `combined_gate_constraints` buffer.
@@ -174,17 +193,11 @@ impl<F: RichField + Extendable<D>, const D: usize> PrefixedGate<F, D> {
 
 /// A gate's filter is computed as `prod b_i*c_i + (1-b_i)*(1-c_i)`, with `(b_i)` the prefix and
 /// `(c_i)` the local constants, which is one if the prefix of `constants` matches `prefix`.
-fn compute_filter<K: Field>(prefix: &[bool], constants: &[K]) -> K {
+fn compute_filter<'a, K: Field, T: IntoIterator<Item = &'a K>>(prefix: &[bool], constants: T) -> K {
     prefix
         .iter()
-        .enumerate()
-        .map(|(i, &b)| {
-            if b {
-                constants[i]
-            } else {
-                K::ONE - constants[i]
-            }
-        })
+        .zip(constants)
+        .map(|(&b, &c)| if b { c } else { K::ONE - c })
         .product()
 }
 

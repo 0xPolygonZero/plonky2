@@ -4,6 +4,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -57,22 +58,23 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         let sum = vars.local_wires[Self::WIRE_SUM];
-        let limbs = &vars.local_wires[self.limbs()];
+        let limbs = vars.local_wires.view(self.limbs());
         let computed_sum = reduce_with_powers(limbs, F::from_canonical_usize(B));
 
-        let mut constraints = Vec::with_capacity(limbs.len() + 1);
-        constraints.push(computed_sum - sum);
+        yield_constr.one(computed_sum - sum);
 
         let constraints_iter = limbs.iter().map(|&limb| {
             (0..B)
                 .map(|i| unsafe { limb.sub_canonical_u64(i as u64) })
                 .product::<F>()
         });
-        constraints.extend(constraints_iter);
-
-        constraints
+        yield_constr.many(constraints_iter);
     }
 
     fn eval_unfiltered_recursively(

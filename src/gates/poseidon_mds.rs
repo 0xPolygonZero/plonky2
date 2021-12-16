@@ -7,6 +7,7 @@ use crate::field::extension_field::Extendable;
 use crate::field::extension_field::FieldExtension;
 use crate::field::field_types::{Field, RichField};
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hashing::SPONGE_WIDTH;
 use crate::hash::poseidon::Poseidon;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -123,7 +124,11 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
             .collect()
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         let inputs: [_; SPONGE_WIDTH] = (0..SPONGE_WIDTH)
             .map(|i| vars.get_local_ext(Self::wires_input(i)))
             .collect::<Vec<_>>()
@@ -132,11 +137,12 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
 
         let computed_outputs = F::mds_layer_field(&inputs);
 
-        (0..SPONGE_WIDTH)
-            .map(|i| vars.get_local_ext(Self::wires_output(i)))
-            .zip(computed_outputs)
-            .flat_map(|(out, computed_out)| (out - computed_out).to_basefield_array())
-            .collect()
+        yield_constr.many(
+            (0..SPONGE_WIDTH)
+                .map(|i| vars.get_local_ext(Self::wires_output(i)))
+                .zip(computed_outputs)
+                .flat_map(|(out, computed_out)| (out - computed_out).to_basefield_array()),
+        )
     }
 
     fn eval_unfiltered_recursively(

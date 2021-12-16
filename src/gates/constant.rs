@@ -4,6 +4,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -39,11 +40,16 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
             .collect()
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        self.consts_inputs()
-            .zip(self.wires_outputs())
-            .map(|(con, out)| vars.local_constants[con] - vars.local_wires[out])
-            .collect()
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
+        yield_constr.many(
+            self.consts_inputs()
+                .zip(self.wires_outputs())
+                .map(|(con, out)| vars.local_constants[con] - vars.local_wires[out]),
+        );
     }
 
     fn eval_unfiltered_recursively(

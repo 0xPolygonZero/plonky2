@@ -6,6 +6,7 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -125,9 +126,11 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(self.num_constraints());
-
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         for copy in 0..self.num_copies {
             let access_index = vars.local_wires[self.wire_access_index(copy)];
             let mut list_items = (0..self.vec_size())
@@ -140,12 +143,12 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
 
             // Assert that each bit wire value is indeed boolean.
             for &b in &bits {
-                constraints.push(b * (b - F::ONE));
+                yield_constr.one(b * (b - F::ONE));
             }
 
             // Assert that the binary decomposition was correct.
             let reconstructed_index = bits.iter().rev().fold(F::ZERO, |acc, &b| acc.double() + b);
-            constraints.push(reconstructed_index - access_index);
+            yield_constr.one(reconstructed_index - access_index);
 
             // Repeatedly fold the list, selecting the left or right item from each pair based on
             // the corresponding bit.
@@ -158,10 +161,8 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
             }
 
             debug_assert_eq!(list_items.len(), 1);
-            constraints.push(list_items[0] - claimed_element);
+            yield_constr.one(list_items[0] - claimed_element);
         }
-
-        constraints
     }
 
     fn eval_unfiltered_recursively(
