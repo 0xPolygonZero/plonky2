@@ -3,7 +3,9 @@ use std::marker::PhantomData;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
+use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -11,7 +13,10 @@ use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{
+    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
+    EvaluationVarsBasePacked,
+};
 use crate::util::{bits_u64, ceil_div_usize};
 
 /// A gate for checking that one value is less than or equal to another.
@@ -116,7 +121,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
 
         let chunk_size = 1 << self.chunk_bits();
 
-        let mut most_significant_diff_so_far = F::Extension::ZERO;
+        let mut most_significant_diff_so_far = <F::Extension as Field>::ZERO;
 
         for i in 0..self.num_chunks {
             // Range-check the chunks to be less than `chunk_size`.
@@ -134,14 +139,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
             let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
 
             // Two constraints to assert that `chunks_equal` is valid.
-            constraints.push(difference * equality_dummy - (F::Extension::ONE - chunks_equal));
+            constraints
+                .push(difference * equality_dummy - (<F::Extension as Field>::ONE - chunks_equal));
             constraints.push(chunks_equal * difference);
 
             // Update `most_significant_diff_so_far`.
             let intermediate_value = vars.local_wires[self.wire_intermediate_value(i)];
             constraints.push(intermediate_value - chunks_equal * most_significant_diff_so_far);
             most_significant_diff_so_far =
-                intermediate_value + (F::Extension::ONE - chunks_equal) * difference;
+                intermediate_value + (<F::Extension as Field>::ONE - chunks_equal) * difference;
         }
 
         let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
@@ -153,7 +159,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
 
         // Range-check the bits.
         for &bit in &most_significant_diff_bits {
-            constraints.push(bit * (F::Extension::ONE - bit));
+            constraints.push(bit * (<F::Extension as Field>::ONE - bit));
         }
 
         let bits_combined = reduce_with_powers(&most_significant_diff_bits, F::Extension::TWO);
@@ -169,81 +175,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
 
     fn eval_unfiltered_base_one(
         &self,
-        vars: EvaluationVarsBase<F>,
-        mut yield_constr: StridedConstraintConsumer<F>,
+        _vars: EvaluationVarsBase<F>,
+        _yield_constr: StridedConstraintConsumer<F>,
     ) {
-        let first_input = vars.local_wires[self.wire_first_input()];
-        let second_input = vars.local_wires[self.wire_second_input()];
+        panic!("use eval_unfiltered_base_packed instead");
+    }
 
-        // Get chunks and assert that they match
-        let first_chunks: Vec<F> = (0..self.num_chunks)
-            .map(|i| vars.local_wires[self.wire_first_chunk_val(i)])
-            .collect();
-        let second_chunks: Vec<F> = (0..self.num_chunks)
-            .map(|i| vars.local_wires[self.wire_second_chunk_val(i)])
-            .collect();
-
-        let first_chunks_combined = reduce_with_powers(
-            &first_chunks,
-            F::from_canonical_usize(1 << self.chunk_bits()),
-        );
-        let second_chunks_combined = reduce_with_powers(
-            &second_chunks,
-            F::from_canonical_usize(1 << self.chunk_bits()),
-        );
-
-        yield_constr.one(first_chunks_combined - first_input);
-        yield_constr.one(second_chunks_combined - second_input);
-
-        let chunk_size = 1 << self.chunk_bits();
-
-        let mut most_significant_diff_so_far = F::ZERO;
-
-        for i in 0..self.num_chunks {
-            // Range-check the chunks to be less than `chunk_size`.
-            let first_product: F = (0..chunk_size)
-                .map(|x| first_chunks[i] - F::from_canonical_usize(x))
-                .product();
-            let second_product: F = (0..chunk_size)
-                .map(|x| second_chunks[i] - F::from_canonical_usize(x))
-                .product();
-            yield_constr.one(first_product);
-            yield_constr.one(second_product);
-
-            let difference = second_chunks[i] - first_chunks[i];
-            let equality_dummy = vars.local_wires[self.wire_equality_dummy(i)];
-            let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
-
-            // Two constraints to assert that `chunks_equal` is valid.
-            yield_constr.one(difference * equality_dummy - (F::ONE - chunks_equal));
-            yield_constr.one(chunks_equal * difference);
-
-            // Update `most_significant_diff_so_far`.
-            let intermediate_value = vars.local_wires[self.wire_intermediate_value(i)];
-            yield_constr.one(intermediate_value - chunks_equal * most_significant_diff_so_far);
-            most_significant_diff_so_far =
-                intermediate_value + (F::ONE - chunks_equal) * difference;
-        }
-
-        let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
-        yield_constr.one(most_significant_diff - most_significant_diff_so_far);
-
-        let most_significant_diff_bits: Vec<F> = (0..self.chunk_bits() + 1)
-            .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
-            .collect();
-
-        // Range-check the bits.
-        for &bit in &most_significant_diff_bits {
-            yield_constr.one(bit * (F::ONE - bit));
-        }
-
-        let bits_combined = reduce_with_powers(&most_significant_diff_bits, F::TWO);
-        let two_n = F::from_canonical_u64(1 << self.chunk_bits());
-        yield_constr.one((two_n + most_significant_diff) - bits_combined);
-
-        // Iff first <= second, the top (n + 1st) bit of (2^n - 1 + most_significant_diff) will be 1.
-        let result_bool = vars.local_wires[self.wire_result_bool()];
-        yield_constr.one(result_bool - most_significant_diff_bits[self.chunk_bits()]);
+    fn eval_unfiltered_base_batch(&self, vars_base: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        self.eval_unfiltered_base_batch_packed(vars_base)
     }
 
     fn eval_unfiltered_recursively(
@@ -370,6 +309,89 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
 
     fn num_constraints(&self) -> usize {
         6 + 5 * self.num_chunks + self.chunk_bits()
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
+    for ComparisonGate<F, D>
+{
+    fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
+        &self,
+        vars: EvaluationVarsBasePacked<P>,
+        mut yield_constr: StridedConstraintConsumer<P>,
+    ) {
+        let first_input = vars.local_wires[self.wire_first_input()];
+        let second_input = vars.local_wires[self.wire_second_input()];
+
+        // Get chunks and assert that they match
+        let first_chunks: Vec<_> = (0..self.num_chunks)
+            .map(|i| vars.local_wires[self.wire_first_chunk_val(i)])
+            .collect();
+        let second_chunks: Vec<_> = (0..self.num_chunks)
+            .map(|i| vars.local_wires[self.wire_second_chunk_val(i)])
+            .collect();
+
+        let first_chunks_combined = reduce_with_powers(
+            &first_chunks,
+            F::from_canonical_usize(1 << self.chunk_bits()),
+        );
+        let second_chunks_combined = reduce_with_powers(
+            &second_chunks,
+            F::from_canonical_usize(1 << self.chunk_bits()),
+        );
+
+        yield_constr.one(first_chunks_combined - first_input);
+        yield_constr.one(second_chunks_combined - second_input);
+
+        let chunk_size = 1 << self.chunk_bits();
+
+        let mut most_significant_diff_so_far = P::ZERO;
+
+        for i in 0..self.num_chunks {
+            // Range-check the chunks to be less than `chunk_size`.
+            let first_product: P = (0..chunk_size)
+                .map(|x| first_chunks[i] - F::from_canonical_usize(x))
+                .product();
+            let second_product: P = (0..chunk_size)
+                .map(|x| second_chunks[i] - F::from_canonical_usize(x))
+                .product();
+            yield_constr.one(first_product);
+            yield_constr.one(second_product);
+
+            let difference = second_chunks[i] - first_chunks[i];
+            let equality_dummy = vars.local_wires[self.wire_equality_dummy(i)];
+            let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
+
+            // Two constraints to assert that `chunks_equal` is valid.
+            yield_constr.one(difference * equality_dummy - (P::ONE - chunks_equal));
+            yield_constr.one(chunks_equal * difference);
+
+            // Update `most_significant_diff_so_far`.
+            let intermediate_value = vars.local_wires[self.wire_intermediate_value(i)];
+            yield_constr.one(intermediate_value - chunks_equal * most_significant_diff_so_far);
+            most_significant_diff_so_far =
+                intermediate_value + (P::ONE - chunks_equal) * difference;
+        }
+
+        let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
+        yield_constr.one(most_significant_diff - most_significant_diff_so_far);
+
+        let most_significant_diff_bits: Vec<_> = (0..self.chunk_bits() + 1)
+            .map(|i| vars.local_wires[self.wire_most_significant_diff_bit(i)])
+            .collect();
+
+        // Range-check the bits.
+        for &bit in &most_significant_diff_bits {
+            yield_constr.one(bit * (P::ONE - bit));
+        }
+
+        let bits_combined = reduce_with_powers(&most_significant_diff_bits, F::TWO);
+        let two_n = F::from_canonical_u64(1 << self.chunk_bits());
+        yield_constr.one((most_significant_diff + two_n) - bits_combined);
+
+        // Iff first <= second, the top (n + 1st) bit of (2^n - 1 + most_significant_diff) will be 1.
+        let result_bool = vars.local_wires[self.wire_result_bool()];
+        yield_constr.one(result_bool - most_significant_diff_bits[self.chunk_bits()]);
     }
 }
 
