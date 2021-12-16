@@ -1,4 +1,3 @@
-#![feature(destructuring_assignment)]
 #![feature(generic_const_exprs)]
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};

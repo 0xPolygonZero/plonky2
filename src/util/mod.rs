@@ -1,4 +1,5 @@
-use core::hint::unreachable_unchecked;
+use std::arch::asm;
+use std::hint::unreachable_unchecked;
 
 use crate::field::field_types::Field;
 use crate::polynomial::PolynomialValues;

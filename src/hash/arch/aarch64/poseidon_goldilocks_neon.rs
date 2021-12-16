@@ -1,6 +1,7 @@
 #![allow(clippy::assertions_on_constants)]
 
 use std::arch::aarch64::*;
+use std::arch::asm;
 
 use static_assertions::const_assert;
 use unroll::unroll_for_loops;

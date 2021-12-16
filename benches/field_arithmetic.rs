@@ -1,5 +1,3 @@
-#![feature(destructuring_assignment)]
-
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use plonky2::field::extension_field::quartic::QuarticExtension;
 use plonky2::field::field_types::Field;
