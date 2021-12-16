@@ -156,7 +156,7 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
 //     }
 // }
 
-/// Keccak hash function.
+/// Keccak-256 hash function.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct KeccakHash<const N: usize>;
 impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
@@ -167,7 +167,8 @@ impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
         let mut buffer = Buffer::new(Vec::new());
         buffer.write_field_vec(&input).unwrap();
         let mut arr = [0; N];
-        arr.copy_from_slice(&keccak(buffer.bytes()).0[..N]);
+        let hash_bytes = keccak(buffer.bytes()).0;
+        arr.copy_from_slice(&hash_bytes[..N]);
         BytesHash(arr)
     }
 
@@ -187,7 +188,7 @@ pub trait GenericConfig<const D: usize>:
 {
     /// Main field.
     type F: RichField + Extendable<D, Extension = Self::FE>;
-    /// Field extension of degree 4 of the main field.
+    /// Field extension of degree D of the main field.
     type FE: FieldExtension<D, BaseField = Self::F>;
     /// Hash function used for building Merkle trees.
     type Hasher: Hasher<Self::F>;
