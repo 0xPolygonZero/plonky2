@@ -71,7 +71,7 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
         powers: &[ExtensionAlgebraTarget<D>],
     ) -> ExtensionAlgebraTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: Extendable<D>,
     {
         debug_assert_eq!(self.0.len(), powers.len() + 1);
         let acc = self.0[0];

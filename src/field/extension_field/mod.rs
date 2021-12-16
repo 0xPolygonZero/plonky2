@@ -1,4 +1,3 @@
-use crate::field::field_types::{Field, PrimeField};
 use std::convert::TryInto;
 
 use crate::field::field_types::{Field, RichField};

@@ -197,6 +197,7 @@ mod tests {
     use crate::gates::arithmetic_base::ArithmeticGate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn low_degree() {
@@ -206,7 +207,10 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let gate = ArithmeticGate::new_from_config(&CircuitConfig::standard_recursion_config());
-        test_eval_fns::<GoldilocksField, _, 4>(gate)
+        test_eval_fns::<GoldilocksField, C, _, D>(gate)
     }
 }

@@ -4,7 +4,6 @@ use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::gates::gate::Gate;
-use crate::gates::interpolation::InterpolationGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -113,6 +112,8 @@ mod tests {
     use crate::field::extension_field::FieldExtension;
     use crate::field::field_types::Field;
     use crate::field::interpolation::interpolant;
+    use crate::gates::interpolation::HighDegreeInterpolationGate;
+    use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;

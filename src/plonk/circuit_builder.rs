@@ -765,7 +765,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 /// Various gate types can contain multiple copies in a single Gate. This helper struct lets a
 /// CircuitBuilder track such gates that are currently being "filled up."
-pub struct BatchedGates<F: RichField + Extendable<D>, const D: usize> {
+pub struct BatchedGates<F: Extendable<D>, const D: usize> {
     /// A map `(c0, c1) -> (g, i)` from constants `(c0,c1)` to an available arithmetic gate using
     /// these constants with gate index `g` and already using `i` arithmetic operations.
     pub(crate) free_arithmetic: HashMap<(F, F), (usize, usize)>,
@@ -792,7 +792,7 @@ pub struct BatchedGates<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) free_constant: Option<(usize, usize)>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> BatchedGates<F, D> {
+impl<F: Extendable<D>, const D: usize> BatchedGates<F, D> {
     pub fn new() -> Self {
         Self {
             free_arithmetic: HashMap::new(),
@@ -807,7 +807,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BatchedGates<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Finds the last available arithmetic gate with the given constants or add one if there aren't any.
     /// Returns `(g,i)` such that there is an arithmetic gate with the given constants at index
     /// `g` and the gate's `i`-th operation is available.

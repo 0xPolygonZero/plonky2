@@ -227,7 +227,6 @@ mod tests {
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gadgets::interpolation::InterpolationGate;
     use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
-    use crate::gates::arithmetic::ArithmeticExtensionGate;
     use crate::gates::base_sum::BaseSumGate;
     use crate::gates::constant::ConstantGate;
     use crate::gates::gmimc::GMiMCGate;

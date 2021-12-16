@@ -13,7 +13,6 @@ use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
-use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::{AlgebraicConfig, AlgebraicHasher, GenericConfig};
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::proof::OpeningSetTarget;
@@ -24,14 +23,14 @@ use crate::with_context;
 impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
     /// and P' is the FRI reduced polynomial.
-    fn compute_evaluation(
+    fn compute_evaluation<C: GenericConfig<D, F = F>>(
         &mut self,
         x: Target,
         x_index_within_coset_bits: &[BoolTarget],
         arity_bits: usize,
         evals: &[ExtensionTarget<D>],
         beta: ExtensionTarget<D>,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) -> ExtensionTarget<D> {
         let arity = 1 << arity_bits;
         debug_assert_eq!(evals.len(), arity);
@@ -70,10 +69,10 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
     /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
     /// helpful errors.
-    fn check_recursion_config(
+    fn check_recursion_config<C: GenericConfig<D, F = F>>(
         &self,
         max_fri_arity_bits: usize,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) {
         let random_access = RandomAccessGate::<F, D>::new_from_config(
             &self.config,

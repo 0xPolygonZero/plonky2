@@ -2,9 +2,8 @@ use std::borrow::Borrow;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
-use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::field::field_types::Field;
+use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::reducing::ReducingGate;
 use crate::gates::reducing_extension::ReducingExtensionGate;
 use crate::iop::target::Target;
@@ -218,7 +217,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: Extendable<D>,
     {
         self.count += terms.len() as u64;
         terms

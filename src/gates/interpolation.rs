@@ -19,7 +19,7 @@ use crate::polynomial::PolynomialCoeffs;
 /// Interpolation gate with constraints of degree at most `1<<subgroup_bits`.
 /// `eval_unfiltered_recursively` uses less gates than `LowDegreeInterpolationGate`.
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct HighDegreeInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
+pub(crate) struct HighDegreeInterpolationGate<F: Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,
     _phantom: PhantomData<F>,
 }
@@ -39,7 +39,7 @@ impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D>
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> HighDegreeInterpolationGate<F, D> {
+impl<F: Extendable<D>, const D: usize> HighDegreeInterpolationGate<F, D> {
     /// End of wire indices, exclusive.
     fn end(&self) -> usize {
         self.start_coeffs() + self.num_points() * D
@@ -78,9 +78,7 @@ impl<F: RichField + Extendable<D>, const D: usize> HighDegreeInterpolationGate<F
     }
 }
 
-impl<F:  Extendable<D>, const D: usize> Gate<F, D>
-    for HighDegreeInterpolationGate<F, D>
-{
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for HighDegreeInterpolationGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }

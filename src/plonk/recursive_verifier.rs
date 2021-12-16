@@ -370,8 +370,9 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
 
-        let (proof, vd, cd) = dummy_proof::<F,C, D>(&config, 4_000)?;
-        let (proof, _vd, cd) = recursive_proof::<F,C,C,D>(proof, vd, cd, &config, &config, None, true, true)?;
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 4_000)?;
+        let (proof, _vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, None, true, true)?;
         test_serialization(&proof, &cd)?;
 
         Ok(())
@@ -389,12 +390,13 @@ mod tests {
         let config = CircuitConfig::standard_recursion_config();
 
         // Start with a degree 2^14 proof, then shrink it to 2^13, then to 2^12.
-        let (proof, vd, cd) = dummy_proof::<F,C, D>(&config, 16_000)?;
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 16_000)?;
         assert_eq!(cd.degree_bits, 14);
         let (proof, vd, cd) =
-            recursive_proof::<F,C,C,D>(proof, vd, cd, &config, &config, Some(13), false, false)?;
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, Some(13), false, false)?;
         assert_eq!(cd.degree_bits, 13);
-        let (proof, _vd, cd) = recursive_proof::<F,KC,C,D>(proof, vd, cd, &config, &config, None, true, true)?;
+        let (proof, _vd, cd) =
+            recursive_proof::<F, KC, C, D>(proof, vd, cd, &config, &config, None, true, true)?;
         assert_eq!(cd.degree_bits, 12);
 
         test_serialization(&proof, &cd)?;
@@ -416,7 +418,7 @@ mod tests {
         let standard_config = CircuitConfig::standard_recursion_config();
 
         // An initial dummy proof.
-        let (proof, vd, cd) = dummy_proof::<F,C, D>(&standard_config, 4_000)?;
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&standard_config, 4_000)?;
         assert_eq!(cd.degree_bits, 12);
 
         // A standard recursive proof.

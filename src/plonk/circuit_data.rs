@@ -15,7 +15,6 @@ use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;
 use crate::iop::witness::PartialWitness;
 use crate::plonk::config::{GenericConfig, Hasher};
-use crate::plonk::proof::ProofWithPublicInputs;
 use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
@@ -108,7 +107,7 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> CircuitData<F
 
     pub fn verify_compressed(
         &self,
-        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, D>,
+        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
     ) -> Result<()> {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
@@ -151,7 +150,7 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> VerifierCircu
 
     pub fn verify_compressed(
         &self,
-        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, D>,
+        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
     ) -> Result<()> {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }

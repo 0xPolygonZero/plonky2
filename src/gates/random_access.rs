@@ -16,13 +16,13 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for checking that a particular element of a list matches a given value.
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct RandomAccessGate<F:  Extendable<D>, const D: usize> {
+pub(crate) struct RandomAccessGate<F: Extendable<D>, const D: usize> {
     pub bits: usize,
     pub num_copies: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F:  Extendable<D>, const D: usize> RandomAccessGate<F, D> {
+impl<F: Extendable<D>, const D: usize> RandomAccessGate<F, D> {
     fn new(num_copies: usize, bits: usize) -> Self {
         Self {
             bits,

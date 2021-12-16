@@ -1,7 +1,6 @@
 use std::borrow::Borrow;
 
 use crate::field::extension_field::Extendable;
-use crate::gates::arithmetic::ArithmeticExtensionGate;
 use crate::field::field_types::{PrimeField, RichField};
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::exponentiation::ExponentiationGate;
