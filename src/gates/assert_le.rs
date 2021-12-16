@@ -1,5 +1,3 @@
-// JNTODO
-
 use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
