@@ -221,6 +221,6 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        test_eval_fns::<GoldilocksField, C, _, D>(ReducingExtensionGate::new(22))
+        test_eval_fns::<F, C, _, D>(ReducingExtensionGate::new(22))
     }
 }

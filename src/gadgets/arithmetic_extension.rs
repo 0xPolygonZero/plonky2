@@ -1,7 +1,7 @@
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
-use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::field_types::{Field, PrimeField};
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::multiplication_extension::MulExtensionGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
@@ -553,7 +553,6 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::extension_field::algebra::ExtensionAlgebra;
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::extension_field::target::ExtensionAlgebraTarget;
     use crate::field::field_types::Field;
     use crate::iop::witness::{PartialWitness, Witness};

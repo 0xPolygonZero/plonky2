@@ -224,7 +224,6 @@ mod tests {
     use log::info;
 
     use super::*;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gadgets::interpolation::InterpolationGate;
     use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
     use crate::gates::base_sum::BaseSumGate;

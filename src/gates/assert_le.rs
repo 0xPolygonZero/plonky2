@@ -488,9 +488,7 @@ mod tests {
         let num_bits = 20;
         let num_chunks = 4;
 
-        test_eval_fns::<GoldilocksField, C, _, D>(AssertLessThanGate::<_, D>::new(
-            num_bits, num_chunks,
-        ))
+        test_eval_fns::<F, C, _, D>(AssertLessThanGate::<_, D>::new(num_bits, num_chunks))
     }
 
     #[test]

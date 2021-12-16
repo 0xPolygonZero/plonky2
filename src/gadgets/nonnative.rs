@@ -214,7 +214,6 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::secp256k1_base::Secp256K1Base;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;

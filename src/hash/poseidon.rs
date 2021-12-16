@@ -174,7 +174,6 @@ pub trait Poseidon: PrimeField {
         let mut res = 0u128;
 
         // This is a hacky way of fully unrolling the loop.
-        assert!(WIDTH <= 12);
         for i in 0..12 {
             if i < WIDTH {
                 res += (v[(i + r) % WIDTH] as u128) << Self::MDS_MATRIX_EXPS[i];
@@ -230,7 +229,6 @@ pub trait Poseidon: PrimeField {
         }
 
         // This is a hacky way of fully unrolling the loop.
-        assert!(WIDTH <= 12);
         for r in 0..12 {
             if r < WIDTH {
                 let sum = Self::mds_row_shf(r, &state);
@@ -296,7 +294,6 @@ pub trait Poseidon: PrimeField {
     fn partial_first_constant_layer<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         state: &mut [F; WIDTH],
     ) {
-        assert!(WIDTH <= 12);
         for i in 0..12 {
             if i < WIDTH {
                 state[i] += F::from_canonical_u64(Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]);
@@ -331,10 +328,8 @@ pub trait Poseidon: PrimeField {
         // c = 0
         result[0] = state[0];
 
-        assert!(WIDTH <= 12);
         for r in 1..12 {
             if r < WIDTH {
-                assert!(WIDTH <= 12);
                 for c in 1..12 {
                     if c < WIDTH {
                         // NB: FAST_PARTIAL_ROUND_INITIAL_MATRIX is stored in
@@ -388,7 +383,6 @@ pub trait Poseidon: PrimeField {
         // Set d = [M_00 | w^] dot [state]
 
         let mut d_sum = (0u128, 0u32); // u160 accumulator
-        assert!(WIDTH <= 12);
         for i in 1..12 {
             if i < WIDTH {
                 let t = Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1] as u128;
@@ -403,7 +397,6 @@ pub trait Poseidon: PrimeField {
         // result = [d] concat [state[0] * v + state[shift up by 1]]
         let mut result = [Self::ZERO; WIDTH];
         result[0] = d;
-        assert!(WIDTH <= 12);
         for i in 1..12 {
             if i < WIDTH {
                 let t = Self::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
@@ -470,7 +463,6 @@ pub trait Poseidon: PrimeField {
     #[inline(always)]
     #[unroll_for_loops]
     fn constant_layer(state: &mut [Self; WIDTH], round_ctr: usize) {
-        assert!(WIDTH <= 12);
         for i in 0..12 {
             if i < WIDTH {
                 let round_constant = ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr];
@@ -531,7 +523,6 @@ pub trait Poseidon: PrimeField {
     #[inline(always)]
     #[unroll_for_loops]
     fn sbox_layer(state: &mut [Self; WIDTH]) {
-        assert!(WIDTH <= 12);
         for i in 0..12 {
             if i < WIDTH {
                 state[i] = Self::sbox_monomial(state[i]);

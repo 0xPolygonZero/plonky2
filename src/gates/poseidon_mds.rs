@@ -230,10 +230,8 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
 
 #[cfg(test)]
 mod tests {
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::poseidon_mds::PoseidonMdsGate;
-    use crate::hash::hashing::SPONGE_WIDTH;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]

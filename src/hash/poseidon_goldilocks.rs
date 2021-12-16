@@ -285,7 +285,7 @@ mod tests {
         let neg_one: u64 = F::NEG_ONE.to_canonical_u64();
 
         #[rustfmt::skip]
-        let test_vectors8: Vec<([u64; 8], [u64; 8])> = vec![
+        let _test_vectors8: Vec<([u64; 8], [u64; 8])> = vec![
             ([0, 0, 0, 0, 0, 0, 0, 0, ],
              [0x649eec3229475d06, 0x72afe85b8b600222, 0x816d0a50ddd39228, 0x5083133a721a187c,
               0xbb69bd7d90c490a6, 0xea1d33a65d0a3287, 0xb4d27542d2fba3bc, 0xf9756d565d90c20a, ]),

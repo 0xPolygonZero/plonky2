@@ -108,7 +108,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 mod tests {
     use anyhow::Result;
 
-    use crate::field::extension_field::quadratic::QuadraticExtension;
     use crate::field::extension_field::FieldExtension;
     use crate::field::field_types::Field;
     use crate::field::interpolation::interpolant;

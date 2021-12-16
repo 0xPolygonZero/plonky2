@@ -337,7 +337,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        test_eval_fns::<GoldilocksField, C, _, D>(U32SubtractionGate::<GoldilocksField, D> {
+        test_eval_fns::<F, C, _, D>(U32SubtractionGate::<GoldilocksField, D> {
             num_ops: 3,
             _phantom: PhantomData,
         })

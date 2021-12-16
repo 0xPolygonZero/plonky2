@@ -2,6 +2,7 @@
 #![allow(const_evaluatable_unchecked)]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::needless_range_loop)]
 #![feature(asm_sym)]

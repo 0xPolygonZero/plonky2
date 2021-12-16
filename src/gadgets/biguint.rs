@@ -250,7 +250,6 @@ mod tests {
     use crate::iop::witness::Witness;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::{
-        field::goldilocks_field::GoldilocksField,
         iop::witness::PartialWitness,
         plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, verifier::verify},
     };
@@ -260,7 +259,6 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
         let mut rng = rand::thread_rng();
 
         let x_value = BigUint::from_u128(rng.gen()).unwrap();
@@ -291,7 +289,6 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
         let mut rng = rand::thread_rng();
 
         let mut x_value = BigUint::from_u128(rng.gen()).unwrap();
@@ -322,7 +319,6 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
         let mut rng = rand::thread_rng();
 
         let x_value = BigUint::from_u128(rng.gen()).unwrap();
@@ -353,7 +349,6 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
         let mut rng = rand::thread_rng();
 
         let x_value = BigUint::from_u128(rng.gen()).unwrap();
@@ -380,7 +375,6 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type FF = <C as GenericConfig<D>>::FE;
         let mut rng = rand::thread_rng();
 
         let mut x_value = BigUint::from_u128(rng.gen()).unwrap();
