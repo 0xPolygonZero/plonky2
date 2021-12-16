@@ -564,6 +564,7 @@ mod tests {
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::circuit_testing::check_constraints;
     use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
@@ -597,10 +598,11 @@ mod tests {
         builder.connect_extension(mul0, mul1);
         builder.connect_extension(mul1, mul2);
 
-        let data = builder.build::<C>();
-        let proof = data.prove(pw)?;
-
-        verify(proof, &data.verifier_only, &data.common)
+        check_constraints::<F, C, D>(builder, pw)
+        // let data = builder.build::<C>();
+        // let proof = data.prove(pw)?;
+        //
+        // verify(proof, &data.verifier_only, &data.common)
     }
 
     #[test]

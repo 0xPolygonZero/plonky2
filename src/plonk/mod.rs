@@ -1,5 +1,6 @@
 pub mod circuit_builder;
 pub mod circuit_data;
+pub mod circuit_testing;
 pub mod config;
 pub(crate) mod copy_constraint;
 mod get_challenges;

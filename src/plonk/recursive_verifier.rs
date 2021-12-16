@@ -418,8 +418,8 @@ mod tests {
         let standard_config = CircuitConfig::standard_recursion_config();
 
         // A dummy proof with degree 2^13.
-        let (proof, vd, cd) = dummy_proof::<F, C, D>(&standard_config, 8_000)?;
-        assert_eq!(cd.degree_bits, 13);
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&standard_config, 4_000)?;
+        assert_eq!(cd.degree_bits, 12);
 
         // A standard recursive proof with degree 2^13.
         let (proof, vd, cd) = recursive_proof::<F, C, C, D>(
@@ -432,7 +432,7 @@ mod tests {
             false,
             false,
         )?;
-        assert_eq!(cd.degree_bits, 13);
+        assert_eq!(cd.degree_bits, 12);
 
         let standard_config = CircuitConfig::standard_recursion_config();
 

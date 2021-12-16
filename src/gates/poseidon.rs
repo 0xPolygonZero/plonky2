@@ -560,9 +560,9 @@ mod tests {
         let gate_index = builder.add_gate(gate, vec![]);
         let circuit = builder.build_prover::<C>();
 
-        let permutation_inputs = (0..SPONGE_WIDTH)
-            .map(F::from_canonical_usize)
-            .collect::<Vec<_>>();
+        let permutation_inputs = [vec![F::ZERO], vec![F::ONE; 10], vec![F::ZERO]].concat();
+        // .map(F::from_canonical_usize)
+        // .collect::<Vec<_>>();
 
         let mut inputs = PartialWitness::new();
         inputs.set_wire(

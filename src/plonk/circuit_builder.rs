@@ -52,16 +52,16 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
     /// The types of gates used in this circuit.
-    gates: HashSet<GateRef<F, D>>,
+    pub(crate) gates: HashSet<GateRef<F, D>>,
 
     /// The concrete placement of each gate.
     pub(crate) gate_instances: Vec<GateInstance<F, D>>,
 
     /// Targets to be made public.
-    public_inputs: Vec<Target>,
+    pub(crate) public_inputs: Vec<Target>,
 
     /// The next available index for a `VirtualTarget`.
-    virtual_target_index: usize,
+    pub(crate) virtual_target_index: usize,
 
     copy_constraints: Vec<CopyConstraint>,
 
@@ -69,10 +69,10 @@ pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     context_log: ContextTree,
 
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
-    marked_targets: Vec<MarkedTargets<D>>,
+    pub(crate) marked_targets: Vec<MarkedTargets<D>>,
 
     /// Generators used to generate the witness.
-    generators: Vec<Box<dyn WitnessGenerator<F>>>,
+    pub(crate) generators: Vec<Box<dyn WitnessGenerator<F>>>,
 
     constants_to_targets: HashMap<F, Target>,
     targets_to_constants: HashMap<Target, F>,
@@ -368,7 +368,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         })
     }
 
-    fn fri_params(&self, degree_bits_estimate: usize) -> FriParams {
+    pub(crate) fn fri_params(&self, degree_bits_estimate: usize) -> FriParams {
         let fri_config = &self.config.fri_config;
         let reduction_arity_bits = fri_config.reduction_strategy.reduction_arity_bits(
             degree_bits_estimate,
@@ -443,7 +443,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn blind_and_pad(&mut self) {
+    pub(crate) fn blind_and_pad(&mut self) {
         if self.config.zero_knowledge {
             self.blind();
         }
@@ -502,7 +502,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn constant_polys(
+    pub(crate) fn constant_polys(
         &self,
         gates: &[PrefixedGate<F, D>],
         num_constants: usize,
@@ -530,7 +530,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> (Vec<PolynomialValues<F>>, Forest) {
+    pub(crate) fn sigma_vecs(
+        &self,
+        k_is: &[F],
+        subgroup: &[F],
+    ) -> (Vec<PolynomialValues<F>>, Forest) {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
         let config = &self.config;
@@ -1136,7 +1140,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn fill_batched_gates(&mut self) {
+    pub(crate) fn fill_batched_gates(&mut self) {
         self.fill_arithmetic_gates();
         self.fill_base_arithmetic_gates();
         self.fill_mul_gates();

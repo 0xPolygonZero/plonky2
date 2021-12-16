@@ -229,15 +229,6 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(coeffs.len(), degree_padded);
         let coefficients = PolynomialCoeffs { coeffs };
-        let degree = 200;
-        let degree_padded = log2_ceil(degree);
-        let mut coefficients = Vec::new();
-        for i in 0..degree {
-            coefficients.push(F::from_canonical_usize(i * 1337 % 100));
-        }
-        let coefficients = PolynomialCoeffs {
-            coeffs: coefficients,
-        };
 
         let points = fft(&coefficients);
         assert_eq!(points, evaluate_naive(&coefficients));

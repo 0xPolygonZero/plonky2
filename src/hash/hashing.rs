@@ -136,11 +136,12 @@ pub fn hash_n_to_m<F: RichField, P: PlonkyPermutation<F>>(
     // Absorb all input chunks.
     for input_chunk in inputs.chunks(SPONGE_RATE) {
         state[..input_chunk.len()].copy_from_slice(input_chunk);
+        // println!("{:?} {:?}", state, input_chunk.len());
         state = P::permute(state);
-        for i in 0..input_chunk.len() {
-            state[i] = input_chunk[i];
-        }
-        state = P::permute(state);
+        // for i in 0..input_chunk.len() {
+        //     state[i] = input_chunk[i];
+        // }
+        // state = P::permute(state);
     }
 
     // Squeeze until we have the desired number of outputs.
