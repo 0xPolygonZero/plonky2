@@ -329,7 +329,7 @@ unsafe fn canonicalize_s(x_s: __m256i) -> __m256i {
 /// Addition u64 + u64 -> u64. Assumes that x + y < 2^64 + FIELD_ORDER. The second argument is
 /// pre-shifted by 1 << 63. The result is similarly shifted.
 #[inline]
-unsafe fn add_small_64_64s_s(x: __m256i, y_s: __m256i) -> __m256i {
+unsafe fn add_no_double_overflow_64_64s_s(x: __m256i, y_s: __m256i) -> __m256i {
     let res_wrapped_s = _mm256_add_epi64(x, y_s);
     let mask = _mm256_cmpgt_epi64(y_s, res_wrapped_s); // -1 if overflowed else 0.
     let wrapback_amt = _mm256_srli_epi64::<32>(mask); // -FIELD_ORDER if overflowed else 0.
@@ -340,7 +340,7 @@ unsafe fn add_small_64_64s_s(x: __m256i, y_s: __m256i) -> __m256i {
 #[inline]
 unsafe fn add(x: __m256i, y: __m256i) -> __m256i {
     let y_s = shift(y);
-    let res_s = add_small_64_64s_s(x, canonicalize_s(y_s));
+    let res_s = add_no_double_overflow_64_64s_s(x, canonicalize_s(y_s));
     shift(res_s)
 }
 
@@ -429,19 +429,35 @@ unsafe fn square64(x: __m256i) -> (__m256i, __m256i) {
     (res_hi, res_lo)
 }
 
+/// Goldilocks addition of a "small" number. `x_s` is pre-shifted by 2**63. `y` is assumed to be <=
+/// `0xffffffff00000000`. The result is shifted by 2**63.
 #[inline]
 unsafe fn add_small_64s_64_s(x_s: __m256i, y: __m256i) -> __m256i {
     let res_wrapped_s = _mm256_add_epi64(x_s, y);
+    // 32-bit compare is faster than 64-bit. It's safe as long as x > res_wrapped iff x >> 32 >
+    // res_wrapped >> 32. The case of x >> 32 > res_wrapped >> 32 is trivial and so is <. The case
+    // where x >> 32 = res_wrapped >> 32 remains. If x >> 32 = res_wrapped >> 32, then y >> 32 =
+    // 0xffffffff and the addition of the low 32 bits generated a carry. This can never occur if y
+    // <= 0xffffffff00000000: if y >> 32 = 0xffffffff, then no carry can occur.
     let mask = _mm256_cmpgt_epi32(x_s, res_wrapped_s); // -1 if overflowed else 0.
+                                                       // The mask contains 0xffffffff in the high 32 bits if wraparound occured and 0 otherwise.
     let wrapback_amt = _mm256_srli_epi64::<32>(mask); // -FIELD_ORDER if overflowed else 0.
     let res_s = _mm256_add_epi64(res_wrapped_s, wrapback_amt);
     res_s
 }
 
+/// Goldilocks subtraction of a "small" number. `x_s` is pre-shifted by 2**63. `y` is assumed to be
+/// <= `0xffffffff00000000`. The result is shifted by 2**63.
 #[inline]
 unsafe fn sub_small_64s_64_s(x_s: __m256i, y: __m256i) -> __m256i {
     let res_wrapped_s = _mm256_sub_epi64(x_s, y);
+    // 32-bit compare is faster than 64-bit. It's safe as long as res_wrapped > x iff res_wrapped >>
+    // 32 > x >> 32. The case of res_wrapped >> 32 > x >> 32 is trivial and so is <. The case where
+    // res_wrapped >> 32 = x >> 32 remains. If res_wrapped >> 32 = x >> 32, then y >> 32 =
+    // 0xffffffff and the subtraction of the low 32 bits generated a borrow. This can never occur if
+    // y <= 0xffffffff00000000: if y >> 32 = 0xffffffff, then no borrow can occur.
     let mask = _mm256_cmpgt_epi32(res_wrapped_s, x_s); // -1 if underflowed else 0.
+                                                       // The mask contains 0xffffffff in the high 32 bits if wraparound occured and 0 otherwise.
     let wrapback_amt = _mm256_srli_epi64::<32>(mask); // -FIELD_ORDER if underflowed else 0.
     let res_s = _mm256_sub_epi64(res_wrapped_s, wrapback_amt);
     res_s
