@@ -6,6 +6,7 @@ use std::mem::transmute;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::field::goldilocks_field::GoldilocksField;
+use crate::field::field_types::{Field, PrimeField};
 use crate::field::packed_field::PackedField;
 
 // Avx2GoldilocksField wraps an array of four u64s, with the new and get methods to convert that
@@ -29,11 +30,11 @@ pub struct Avx2GoldilocksField(pub [GoldilocksField; 4]);
 impl Avx2GoldilocksField {
     #[inline]
     fn new(x: __m256i) -> Self {
-        transmute(x)
+        unsafe { transmute(x) }
     }
     #[inline]
     fn get(&self) -> __m256i {
-        transmute(*x)
+        unsafe { transmute(*self) }
     }
 }
 
@@ -159,8 +160,8 @@ unsafe impl PackedField for Avx2GoldilocksField {
 
     type Scalar = GoldilocksField;
 
-    const ZERO: Self = Self([GoldilocksField::ZERO; 4]);
-    const ONE: Self = Self([GoldilocksField::ONE; 4]);
+    const ZERO: Self = Self([<GoldilocksField as Field>::ZERO; 4]);
+    const ONE: Self = Self([<GoldilocksField as Field>::ONE; 4]);
 
     #[inline]
     fn from_arr(arr: [Self::Scalar; Self::WIDTH]) -> Self {
@@ -330,7 +331,7 @@ unsafe fn canonicalize_s(x_s: __m256i) -> __m256i {
 #[inline]
 unsafe fn add_small_64_64s_s(x: __m256i, y_s: __m256i) -> __m256i {
     let res_wrapped_s = _mm256_add_epi64(x, y_s);
-    let mask = _mm256_cmpgt_epi32(y_s, res_wrapped_s); // -1 if overflowed else 0.
+    let mask = _mm256_cmpgt_epi64(y_s, res_wrapped_s); // -1 if overflowed else 0.
     let wrapback_amt = _mm256_srli_epi64::<32>(mask); // -FIELD_ORDER if overflowed else 0.
     let res_s = _mm256_add_epi64(res_wrapped_s, wrapback_amt);
     res_s
@@ -345,11 +346,10 @@ unsafe fn add(x: __m256i, y: __m256i) -> __m256i {
 
 #[inline]
 unsafe fn sub(x: __m256i, y: __m256i) -> __m256i {
-    // JNTODO
     let mut y_s = shift(y);
     y_s = canonicalize_s(y_s);
     let x_s = shift(x);
-    let mask = _mm256_cmpgt_epi32(y_s, x_s); // -1 if sub will underflow (y > x) else 0.
+    let mask = _mm256_cmpgt_epi64(y_s, x_s); // -1 if sub will underflow (y > x) else 0.
     let wrapback_amt = _mm256_srli_epi64::<32>(mask); // -FIELD_ORDER if underflow else 0.
     let res_wrapped = _mm256_sub_epi64(x_s, y_s);
     let res = _mm256_sub_epi64(res_wrapped, wrapback_amt);
@@ -358,7 +358,6 @@ unsafe fn sub(x: __m256i, y: __m256i) -> __m256i {
 
 #[inline]
 unsafe fn neg(y: __m256i) -> __m256i {
-    // JNTODO
     let y_s = shift(y);
     _mm256_sub_epi64(SHITFTED_FIELD_ORDER, canonicalize_s(y_s))
 }
@@ -463,13 +462,13 @@ unsafe fn reduce128(x: (__m256i, __m256i)) -> __m256i {
 /// Multiply two integers modulo FIELD_ORDER.
 #[inline]
 unsafe fn mul(x: __m256i, y: __m256i) -> __m256i {
-    GoldilocksField::reduce128(mul64_64(x, y))
+    reduce128(mul64_64(x, y))
 }
 
 /// Square an integer modulo FIELD_ORDER.
 #[inline]
 unsafe fn square(x: __m256i) -> __m256i {
-    GoldilocksField::reduce128(square64(x))
+    reduce128(square64(x))
 }
 
 #[inline]
@@ -501,8 +500,9 @@ unsafe fn interleave2(x: __m256i, y: __m256i) -> (__m256i, __m256i) {
 
 #[cfg(test)]
 mod tests {
+    use crate::field::field_types::PrimeField;
     use crate::field::goldilocks_field::GoldilocksField;
-    use crate::field::packed_avx2::avx2_prime_field::Avx2GoldilocksField;
+    use crate::field::arch::x86_64::avx2_goldilocks_field::Avx2GoldilocksField;
     use crate::field::packed_field::PackedField;
 
     fn test_vals_a() -> [GoldilocksField; 4] {
