@@ -5,9 +5,10 @@ use unroll::unroll_for_loops;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::field_types::{Field, PrimeField};
 use crate::gates::gate::Gate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
+use crate::hash::hashing::SPONGE_WIDTH;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 // The number of full rounds and partial rounds is given by the
@@ -142,11 +143,8 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
     0x4543d9df72c4831d, 0xf172d73e69f20739, 0xdfd1c4ff1eb3d868, 0xbc8dfb62d26376f7,
 ];
 
-pub trait Poseidon<const WIDTH: usize>: PrimeField
-where
-    // magic to get const generic expressions to work
-    [(); WIDTH - 1]:,
-{
+const WIDTH: usize = SPONGE_WIDTH;
+pub trait Poseidon: PrimeField {
     // Total number of round constants required: width of the input
     // times number of rounds.
     const N_ROUND_CONSTANTS: usize = WIDTH * N_ROUNDS;
@@ -176,7 +174,6 @@ where
         let mut res = 0u128;
 
         // This is a hacky way of fully unrolling the loop.
-        assert!(WIDTH <= 12);
         for i in 0..12 {
             if i < WIDTH {
                 res += (v[(i + r) % WIDTH] as u128) << Self::MDS_MATRIX_EXPS[i];
@@ -208,13 +205,13 @@ where
         v: &[ExtensionTarget<D>; WIDTH],
     ) -> ExtensionTarget<D>
     where
-        Self: RichField + Extendable<D>,
+        Self: Extendable<D>,
     {
         debug_assert!(r < WIDTH);
         let mut res = builder.zero_extension();
 
         for i in 0..WIDTH {
-            let c = Self::from_canonical_u64(1 << <Self as Poseidon<WIDTH>>::MDS_MATRIX_EXPS[i]);
+            let c = Self::from_canonical_u64(1 << <Self as Poseidon>::MDS_MATRIX_EXPS[i]);
             res = builder.mul_const_add_extension(c, v[(i + r) % WIDTH], res);
         }
 
@@ -232,7 +229,6 @@ where
         }
 
         // This is a hacky way of fully unrolling the loop.
-        assert!(WIDTH <= 12);
         for r in 0..12 {
             if r < WIDTH {
                 let sum = Self::mds_row_shf(r, &state);
@@ -264,19 +260,19 @@ where
         state: &[ExtensionTarget<D>; WIDTH],
     ) -> [ExtensionTarget<D>; WIDTH]
     where
-        Self: RichField + Extendable<D>,
+        Self: Extendable<D>,
     {
         // If we have enough routed wires, we will use PoseidonMdsGate.
-        let mds_gate = PoseidonMdsGate::<Self, D, WIDTH>::new();
+        let mds_gate = PoseidonMdsGate::<Self, D>::new();
         if builder.config.num_routed_wires >= mds_gate.num_wires() {
             let index = builder.add_gate(mds_gate, vec![]);
             for i in 0..WIDTH {
-                let input_wire = PoseidonMdsGate::<Self, D, WIDTH>::wires_input(i);
+                let input_wire = PoseidonMdsGate::<Self, D>::wires_input(i);
                 builder.connect_extension(state[i], ExtensionTarget::from_range(index, input_wire));
             }
             (0..WIDTH)
                 .map(|i| {
-                    let output_wire = PoseidonMdsGate::<Self, D, WIDTH>::wires_output(i);
+                    let output_wire = PoseidonMdsGate::<Self, D>::wires_output(i);
                     ExtensionTarget::from_range(index, output_wire)
                 })
                 .collect::<Vec<_>>()
@@ -298,7 +294,6 @@ where
     fn partial_first_constant_layer<F: FieldExtension<D, BaseField = Self>, const D: usize>(
         state: &mut [F; WIDTH],
     ) {
-        assert!(WIDTH <= 12);
         for i in 0..12 {
             if i < WIDTH {
                 state[i] += F::from_canonical_u64(Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]);
@@ -311,10 +306,10 @@ where
         builder: &mut CircuitBuilder<Self, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
     ) where
-        Self: RichField + Extendable<D>,
+        Self: Extendable<D>,
     {
         for i in 0..WIDTH {
-            let c = <Self as Poseidon<WIDTH>>::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i];
+            let c = <Self as Poseidon>::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i];
             let c = Self::Extension::from_canonical_u64(c);
             let c = builder.constant_extension(c);
             state[i] = builder.add_extension(state[i], c);
@@ -333,10 +328,8 @@ where
         // c = 0
         result[0] = state[0];
 
-        assert!(WIDTH <= 12);
         for r in 1..12 {
             if r < WIDTH {
-                assert!(WIDTH <= 12);
                 for c in 1..12 {
                     if c < WIDTH {
                         // NB: FAST_PARTIAL_ROUND_INITIAL_MATRIX is stored in
@@ -359,7 +352,7 @@ where
         state: &[ExtensionTarget<D>; WIDTH],
     ) -> [ExtensionTarget<D>; WIDTH]
     where
-        Self: RichField + Extendable<D>,
+        Self: Extendable<D>,
     {
         let mut result = [builder.zero_extension(); WIDTH];
 
@@ -367,7 +360,7 @@ where
 
         for r in 1..WIDTH {
             for c in 1..WIDTH {
-                let t = <Self as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_INITIAL_MATRIX[r - 1][c - 1];
+                let t = <Self as Poseidon>::FAST_PARTIAL_ROUND_INITIAL_MATRIX[r - 1][c - 1];
                 let t = Self::Extension::from_canonical_u64(t);
                 let t = builder.constant_extension(t);
                 result[c] = builder.mul_add_extension(t, state[r], result[c]);
@@ -390,7 +383,6 @@ where
         // Set d = [M_00 | w^] dot [state]
 
         let mut d_sum = (0u128, 0u32); // u160 accumulator
-        assert!(WIDTH <= 12);
         for i in 1..12 {
             if i < WIDTH {
                 let t = Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1] as u128;
@@ -405,7 +397,6 @@ where
         // result = [d] concat [state[0] * v + state[shift up by 1]]
         let mut result = [Self::ZERO; WIDTH];
         result[0] = d;
-        assert!(WIDTH <= 12);
         for i in 1..12 {
             if i < WIDTH {
                 let t = Self::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
@@ -444,15 +435,15 @@ where
         r: usize,
     ) -> [ExtensionTarget<D>; WIDTH]
     where
-        Self: RichField + Extendable<D>,
+        Self: Extendable<D>,
     {
         let s0 = state[0];
         let mut d = builder.mul_const_extension(
-            Self::from_canonical_u64(1 << <Self as Poseidon<WIDTH>>::MDS_MATRIX_EXPS[0]),
+            Self::from_canonical_u64(1 << <Self as Poseidon>::MDS_MATRIX_EXPS[0]),
             s0,
         );
         for i in 1..WIDTH {
-            let t = <Self as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_W_HATS[r][i - 1];
+            let t = <Self as Poseidon>::FAST_PARTIAL_ROUND_W_HATS[r][i - 1];
             let t = Self::Extension::from_canonical_u64(t);
             let t = builder.constant_extension(t);
             d = builder.mul_add_extension(t, state[i], d);
@@ -461,7 +452,7 @@ where
         let mut result = [builder.zero_extension(); WIDTH];
         result[0] = d;
         for i in 1..WIDTH {
-            let t = <Self as Poseidon<WIDTH>>::FAST_PARTIAL_ROUND_VS[r][i - 1];
+            let t = <Self as Poseidon>::FAST_PARTIAL_ROUND_VS[r][i - 1];
             let t = Self::Extension::from_canonical_u64(t);
             let t = builder.constant_extension(t);
             result[i] = builder.mul_add_extension(t, state[0], state[i]);
@@ -472,7 +463,6 @@ where
     #[inline(always)]
     #[unroll_for_loops]
     fn constant_layer(state: &mut [Self; WIDTH], round_ctr: usize) {
-        assert!(WIDTH <= 12);
         for i in 0..12 {
             if i < WIDTH {
                 let round_constant = ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr];
@@ -499,7 +489,7 @@ where
         state: &mut [ExtensionTarget<D>; WIDTH],
         round_ctr: usize,
     ) where
-        Self: RichField + Extendable<D>,
+        Self: Extendable<D>,
     {
         for i in 0..WIDTH {
             let c = ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr];
@@ -524,7 +514,7 @@ where
         x: ExtensionTarget<D>,
     ) -> ExtensionTarget<D>
     where
-        Self: RichField + Extendable<D>,
+        Self: Extendable<D>,
     {
         // x |--> x^7
         builder.exp_u64_extension(x, 7)
@@ -533,7 +523,6 @@ where
     #[inline(always)]
     #[unroll_for_loops]
     fn sbox_layer(state: &mut [Self; WIDTH]) {
-        assert!(WIDTH <= 12);
         for i in 0..12 {
             if i < WIDTH {
                 state[i] = Self::sbox_monomial(state[i]);
@@ -555,10 +544,10 @@ where
         builder: &mut CircuitBuilder<Self, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
     ) where
-        Self: RichField + Extendable<D>,
+        Self: Extendable<D>,
     {
         for i in 0..WIDTH {
-            state[i] = <Self as Poseidon<WIDTH>>::sbox_monomial_recursive(builder, state[i]);
+            state[i] = <Self as Poseidon>::sbox_monomial_recursive(builder, state[i]);
         }
     }
 
@@ -628,39 +617,38 @@ where
 #[cfg(test)]
 pub(crate) mod test_helpers {
     use crate::field::field_types::Field;
+    use crate::hash::hashing::SPONGE_WIDTH;
     use crate::hash::poseidon::Poseidon;
 
-    pub(crate) fn check_test_vectors<F: Field, const WIDTH: usize>(
-        test_vectors: Vec<([u64; WIDTH], [u64; WIDTH])>,
+    pub(crate) fn check_test_vectors<F: Field>(
+        test_vectors: Vec<([u64; SPONGE_WIDTH], [u64; SPONGE_WIDTH])>,
     ) where
-        F: Poseidon<WIDTH>,
-        [(); WIDTH - 1]:,
+        F: Poseidon,
     {
         for (input_, expected_output_) in test_vectors.into_iter() {
-            let mut input = [F::ZERO; WIDTH];
-            for i in 0..WIDTH {
+            let mut input = [F::ZERO; SPONGE_WIDTH];
+            for i in 0..SPONGE_WIDTH {
                 input[i] = F::from_canonical_u64(input_[i]);
             }
             let output = F::poseidon(input);
-            for i in 0..WIDTH {
+            for i in 0..SPONGE_WIDTH {
                 let ex_output = F::from_canonical_u64(expected_output_[i]);
                 assert_eq!(output[i], ex_output);
             }
         }
     }
 
-    pub(crate) fn check_consistency<F: Field, const WIDTH: usize>()
+    pub(crate) fn check_consistency<F: Field>()
     where
-        F: Poseidon<WIDTH>,
-        [(); WIDTH - 1]:,
+        F: Poseidon,
     {
-        let mut input = [F::ZERO; WIDTH];
-        for i in 0..WIDTH {
+        let mut input = [F::ZERO; SPONGE_WIDTH];
+        for i in 0..SPONGE_WIDTH {
             input[i] = F::from_canonical_u64(i as u64);
         }
         let output = F::poseidon(input);
         let output_naive = F::poseidon_naive(input);
-        for i in 0..WIDTH {
+        for i in 0..SPONGE_WIDTH {
             assert_eq!(output[i], output_naive[i]);
         }
     }

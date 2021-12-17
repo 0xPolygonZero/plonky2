@@ -5,7 +5,7 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Checks that `x < 2^n_log` using a `BaseSumGate`.
     pub fn range_check(&mut self, x: Target, n_log: usize) {
         self.split_le(x, n_log);

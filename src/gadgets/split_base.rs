@@ -3,14 +3,14 @@ use std::borrow::Borrow;
 use itertools::Itertools;
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::gates::base_sum::BaseSumGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given element into a list of targets, where each one represents a
     /// base-B limb of the element, with little-endian ordering.
     pub fn split_le_base<const B: usize>(&mut self, x: Target, num_limbs: usize) -> Vec<Target> {
@@ -107,18 +107,20 @@ mod tests {
     use rand::{thread_rng, Rng};
 
     use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     fn test_split_base() -> Result<()> {
-        type F = GoldilocksField;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
         let x = F::from_canonical_usize(0b110100000); // 416 = 1532 in base 6.
         let xt = builder.constant(x);
         let limbs = builder.split_le_base::<6>(xt, 24);
@@ -132,7 +134,7 @@ mod tests {
         builder.connect(limbs[3], one);
 
         builder.assert_leading_zeros(xt, 64 - 9);
-        let data = builder.build();
+        let data = builder.build::<C>();
 
         let proof = data.prove(pw)?;
 
@@ -141,10 +143,12 @@ mod tests {
 
     #[test]
     fn test_base_sum() -> Result<()> {
-        type F = GoldilocksField;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let n = thread_rng().gen_range(0..(1 << 30));
         let x = builder.constant(F::from_canonical_usize(n));
@@ -165,7 +169,7 @@ mod tests {
 
         builder.connect(x, y);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
 
         let proof = data.prove(pw)?;
 

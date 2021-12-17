@@ -1,11 +1,12 @@
 use crate::field::batch_util::batch_add_inplace;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::gates::gate::PrefixedGate;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common;
 use crate::plonk::plonk_common::{eval_l_1_recursively, ZeroPolyOnCoset};
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
@@ -17,8 +18,8 @@ use crate::with_context;
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
 /// linear combination of gate constraints, plus some other terms relating to the permutation
 /// argument. All such terms should vanish on `H`.
-pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
-    common_data: &CommonCircuitData<F, D>,
+pub(crate) fn eval_vanishing_poly<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    common_data: &CommonCircuitData<F, C, D>,
     x: F::Extension,
     vars: EvaluationVars<F, D>,
     local_zs: &[F::Extension],
@@ -89,8 +90,12 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
 }
 
 /// Like `eval_vanishing_poly`, but specialized for base field points. Batched.
-pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const D: usize>(
-    common_data: &CommonCircuitData<F, D>,
+pub(crate) fn eval_vanishing_poly_base_batch<
+    F: Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    common_data: &CommonCircuitData<F, C, D>,
     indices_batch: &[usize],
     xs_batch: &[F],
     vars_batch: EvaluationVarsBaseBatch<F>,
@@ -196,7 +201,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
 /// `num_gate_constraints` is the largest number of constraints imposed by any gate. It is not
 /// strictly necessary, but it helps performance by ensuring that we allocate a vector with exactly
 /// the capacity that we need.
-pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
+pub fn evaluate_gate_constraints<F: Extendable<D>, const D: usize>(
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
     vars: EvaluationVars<F, D>,
@@ -220,7 +225,7 @@ pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
 /// Returns a vector of `num_gate_constraints * vars_batch.len()` field elements. The constraints
 /// corresponding to `vars_batch[i]` are found in `result[i], result[vars_batch.len() + i],
 /// result[2 * vars_batch.len() + i], ...`.
-pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const D: usize>(
+pub fn evaluate_gate_constraints_base_batch<F: Extendable<D>, const D: usize>(
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
     vars_batch: EvaluationVarsBaseBatch<F>,
@@ -244,7 +249,7 @@ pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const 
     constraints_batch
 }
 
-pub fn evaluate_gate_constraints_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub fn evaluate_gate_constraints_recursively<F: Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
@@ -272,9 +277,13 @@ pub fn evaluate_gate_constraints_recursively<F: RichField + Extendable<D>, const
 ///
 /// Assumes `x != 1`; if `x` could be 1 then this is unsound. This is fine if `x` is a random
 /// variable drawn from a sufficiently large domain.
-pub(crate) fn eval_vanishing_poly_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_vanishing_poly_recursively<
+    F: Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     builder: &mut CircuitBuilder<F, D>,
-    common_data: &CommonCircuitData<F, D>,
+    common_data: &CommonCircuitData<F, C, D>,
     x: ExtensionTarget<D>,
     x_pow_deg: ExtensionTarget<D>,
     vars: EvaluationTargets<D>,

@@ -440,6 +440,7 @@ mod tests {
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
 
     #[test]
@@ -481,12 +482,14 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
         let num_bits = 20;
         let num_chunks = 4;
 
-        test_eval_fns::<GoldilocksField, _, 4>(AssertLessThanGate::<_, 4>::new(
-            num_bits, num_chunks,
-        ))
+        test_eval_fns::<F, C, _, D>(AssertLessThanGate::<_, D>::new(num_bits, num_chunks))
     }
 
     #[test]

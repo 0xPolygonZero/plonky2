@@ -1,10 +1,9 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Selects `x` or `y` based on `b`, i.e., this returns `if b { x } else { y }`.
     pub fn select_ext(
         &mut self,
@@ -41,21 +40,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 mod tests {
     use anyhow::Result;
 
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     fn test_select() -> Result<()> {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
         let config = CircuitConfig::standard_recursion_config();
         let mut pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let (x, y) = (FF::rand(), FF::rand());
         let xt = builder.add_virtual_extension_target();
@@ -72,7 +72,7 @@ mod tests {
         builder.connect_extension(should_be_x, xt);
         builder.connect_extension(should_be_y, yt);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)

@@ -1,7 +1,7 @@
 use crate::field::extension_field::target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::field::extension_field::FieldExtension;
 use crate::field::extension_field::{Extendable, OEF};
-use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::field_types::{Field, PrimeField};
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::multiplication_extension::MulExtensionGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
@@ -10,7 +10,7 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bits_u64;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn arithmetic_extension(
         &mut self,
         const_0: F,
@@ -484,9 +484,7 @@ struct QuotientGeneratorExtension<const D: usize> {
     quotient: ExtensionTarget<D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for QuotientGeneratorExtension<D>
-{
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for QuotientGeneratorExtension<D> {
     fn dependencies(&self) -> Vec<Target> {
         let mut deps = self.numerator.to_target_array().to_vec();
         deps.extend(&self.denominator.to_target_array());
@@ -509,7 +507,7 @@ pub struct PowersTarget<const D: usize> {
 }
 
 impl<const D: usize> PowersTarget<D> {
-    pub fn next<F: RichField + Extendable<D>>(
+    pub fn next<F: Extendable<D>>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D> {
@@ -518,7 +516,7 @@ impl<const D: usize> PowersTarget<D> {
         result
     }
 
-    pub fn repeated_frobenius<F: RichField + Extendable<D>>(
+    pub fn repeated_frobenius<F: Extendable<D>>(
         self,
         k: usize,
         builder: &mut CircuitBuilder<F, D>,
@@ -531,7 +529,7 @@ impl<const D: usize> PowersTarget<D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn powers(&mut self, base: ExtensionTarget<D>) -> PowersTarget<D> {
         PowersTarget {
             base,
@@ -555,20 +553,20 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::extension_field::algebra::ExtensionAlgebra;
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::extension_field::target::ExtensionAlgebraTarget;
     use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     fn test_mul_many() -> Result<()> {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -593,7 +591,7 @@ mod tests {
         builder.connect_extension(mul0, mul1);
         builder.connect_extension(mul1, mul2);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
@@ -601,9 +599,10 @@ mod tests {
 
     #[test]
     fn test_div_extension() -> Result<()> {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::standard_recursion_zk_config();
 
@@ -619,7 +618,7 @@ mod tests {
         let comp_zt = builder.div_extension(xt, yt);
         builder.connect_extension(zt, comp_zt);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
@@ -627,9 +626,10 @@ mod tests {
 
     #[test]
     fn test_mul_algebra() -> Result<()> {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = KeccakGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -656,7 +656,7 @@ mod tests {
             pw.set_extension_target(zt.0[i], z.0[i]);
         }
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)

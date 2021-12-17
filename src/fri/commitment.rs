@@ -2,12 +2,13 @@ use rayon::prelude::*;
 
 use crate::field::extension_field::Extendable;
 use crate::field::fft::FftRootTable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::proof::OpeningSet;
 use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
@@ -20,15 +21,17 @@ use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transp
 pub const SALT_SIZE: usize = 4;
 
 /// Represents a batch FRI based commitment to a list of polynomials.
-pub struct PolynomialBatchCommitment<F: RichField> {
+pub struct PolynomialBatchCommitment<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
-    pub merkle_tree: MerkleTree<F>,
+    pub merkle_tree: MerkleTree<F, C::Hasher>,
     pub degree_log: usize,
     pub rate_bits: usize,
     pub blinding: bool,
 }
 
-impl<F: RichField> PolynomialBatchCommitment<F> {
+impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    PolynomialBatchCommitment<F, C, D>
+{
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
     pub(crate) fn from_values(
         values: Vec<PolynomialValues<F>>,
@@ -122,16 +125,13 @@ impl<F: RichField> PolynomialBatchCommitment<F> {
 
     /// Takes the commitments to the constants - sigmas - wires - zs - quotient — polynomials,
     /// and an opening point `zeta` and produces a batched opening proof + opening set.
-    pub(crate) fn open_plonk<const D: usize>(
+    pub(crate) fn open_plonk(
         commitments: &[&Self; 4],
         zeta: F::Extension,
-        challenger: &mut Challenger<F>,
-        common_data: &CommonCircuitData<F, D>,
+        challenger: &mut Challenger<F, C::InnerHasher>,
+        common_data: &CommonCircuitData<F, C, D>,
         timing: &mut TimingTree,
-    ) -> (FriProof<F, D>, OpeningSet<F, D>)
-    where
-        F: RichField + Extendable<D>,
-    {
+    ) -> (FriProof<F, C::Hasher, D>, OpeningSet<F, D>) {
         let config = &common_data.config;
         assert!(D > 1, "Not implemented for D=1.");
         let degree_log = commitments[0].degree_log;
@@ -159,7 +159,7 @@ impl<F: RichField> PolynomialBatchCommitment<F> {
         );
         challenger.observe_opening_set(&os);
 
-        let alpha = challenger.get_extension_challenge();
+        let alpha = challenger.get_extension_challenge::<D>();
         let mut alpha = ReducingFactor::new(alpha);
 
         // Final low-degree polynomial that goes into FRI.
@@ -225,13 +225,10 @@ impl<F: RichField> PolynomialBatchCommitment<F> {
 
     /// Given `points=(x_i)`, `evals=(y_i)` and `poly=P` with `P(x_i)=y_i`, computes the polynomial
     /// `Q=(P-I)/Z` where `I` interpolates `(x_i, y_i)` and `Z` is the vanishing polynomial on `(x_i)`.
-    fn compute_quotient<const D: usize, const N: usize>(
+    fn compute_quotient<const N: usize>(
         points: [F::Extension; N],
         poly: PolynomialCoeffs<F::Extension>,
-    ) -> PolynomialCoeffs<F::Extension>
-    where
-        F: Extendable<D>,
-    {
+    ) -> PolynomialCoeffs<F::Extension> {
         let quotient = if N == 1 {
             poly.divide_by_linear(points[0]).0
         } else if N == 2 {

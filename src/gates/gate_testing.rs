@@ -7,6 +7,7 @@ use crate::hash::hash_types::HashOut;
 use crate::iop::witness::{PartialWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
+use crate::plonk::config::GenericConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 use crate::plonk::verifier::verify;
 use crate::polynomial::{PolynomialCoeffs, PolynomialValues};
@@ -84,7 +85,12 @@ fn random_low_degree_values<F: Field>(rate_bits: usize) -> Vec<F> {
         .values
 }
 
-pub(crate) fn test_eval_fns<F: RichField + Extendable<D>, G: Gate<F, D>, const D: usize>(
+pub(crate) fn test_eval_fns<
+    F: Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    G: Gate<F, D>,
+    const D: usize,
+>(
     gate: G,
 ) -> Result<()> {
     // Test that `eval_unfiltered` and `eval_unfiltered_base` are coherent.
@@ -150,7 +156,7 @@ pub(crate) fn test_eval_fns<F: RichField + Extendable<D>, G: Gate<F, D>, const D
     let evals_t = gate.eval_unfiltered_recursively(&mut builder, vars_t);
     pw.set_extension_targets(&evals_t, &evals);
 
-    let data = builder.build();
+    let data = builder.build::<C>();
     let proof = data.prove(pw)?;
     verify(proof, &data.verifier_only, &data.common)
 }

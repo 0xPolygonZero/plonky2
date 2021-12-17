@@ -10,7 +10,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 /// Trait for gates which interpolate a polynomial, whose points are a (base field) coset of the multiplicative subgroup
 /// with the given size, and whose values are extension field elements, given by input wires.
 /// Outputs the evaluation of the interpolant at a given (extension field) evaluation point.
-pub(crate) trait InterpolationGate<F: RichField + Extendable<D>, const D: usize>:
+pub(crate) trait InterpolationGate<F: Extendable<D>, const D: usize>:
     Gate<F, D> + Copy
 {
     fn new(subgroup_bits: usize) -> Self;
@@ -108,23 +108,23 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 mod tests {
     use anyhow::Result;
 
-    use crate::field::extension_field::quadratic::QuadraticExtension;
     use crate::field::extension_field::FieldExtension;
     use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::interpolation::interpolant;
     use crate::gates::interpolation::HighDegreeInterpolationGate;
     use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     fn test_interpolate() -> Result<()> {
-        type F = GoldilocksField;
         const D: usize = 2;
-        type FF = QuadraticExtension<GoldilocksField>;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -172,7 +172,7 @@ mod tests {
         builder.connect_extension(eval_hd, true_eval_target);
         builder.connect_extension(eval_ld, true_eval_target);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)

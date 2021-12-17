@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -17,13 +17,13 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for checking that a particular element of a list matches a given value.
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct RandomAccessGate<F: RichField + Extendable<D>, const D: usize> {
+pub(crate) struct RandomAccessGate<F: Extendable<D>, const D: usize> {
     pub bits: usize,
     pub num_copies: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
+impl<F: Extendable<D>, const D: usize> RandomAccessGate<F, D> {
     fn new(num_copies: usize, bits: usize) -> Self {
         Self {
             bits,
@@ -79,7 +79,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -252,15 +252,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
 }
 
 #[derive(Debug)]
-struct RandomAccessGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct RandomAccessGenerator<F: Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: RandomAccessGate<F, D>,
     copy: usize,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for RandomAccessGenerator<F, D>
-{
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for RandomAccessGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
@@ -311,13 +309,13 @@ mod tests {
     use anyhow::Result;
     use rand::{thread_rng, Rng};
 
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::random_access::RandomAccessGate;
     use crate::hash::hash_types::HashOut;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
 
     #[test]
@@ -327,14 +325,18 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(RandomAccessGate::new(4, 4))
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        test_eval_fns::<F, C, _, D>(RandomAccessGate::new(4, 4))
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         /// Returns the local wires for a random access gate given the vectors, elements to compare,
         /// and indices.

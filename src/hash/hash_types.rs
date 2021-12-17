@@ -1,8 +1,10 @@
 use rand::Rng;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::iop::target::Target;
+use crate::util::ceil_div_usize;
+use crate::util::serialization::Buffer;
 
 /// Represents a ~256 bit hash output.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -57,6 +59,41 @@ impl<F: Field> Default for HashOut<F> {
     }
 }
 
+impl<F: PrimeField> From<Vec<u8>> for HashOut<F> {
+    fn from(v: Vec<u8>) -> Self {
+        HashOut {
+            elements: v
+                .chunks(8)
+                .take(4)
+                .map(|x| F::from_canonical_u64(u64::from_le_bytes(x.try_into().unwrap())))
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+        }
+    }
+}
+
+impl<F: PrimeField> From<HashOut<F>> for Vec<u8> {
+    fn from(h: HashOut<F>) -> Self {
+        h.elements
+            .into_iter()
+            .flat_map(|x| x.to_canonical_u64().to_le_bytes())
+            .collect()
+    }
+}
+
+impl<F: PrimeField> From<HashOut<F>> for Vec<F> {
+    fn from(h: HashOut<F>) -> Self {
+        h.elements.to_vec()
+    }
+}
+
+impl<F: PrimeField> From<HashOut<F>> for u64 {
+    fn from(h: HashOut<F>) -> Self {
+        h.elements[0].to_canonical_u64()
+    }
+}
+
 /// Represents a ~256 bit hash output.
 #[derive(Copy, Clone, Debug)]
 pub struct HashOutTarget {
@@ -84,3 +121,51 @@ impl HashOutTarget {
 
 #[derive(Clone, Debug)]
 pub struct MerkleCapTarget(pub Vec<HashOutTarget>);
+
+/// Hash consisting of a byte array.
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub struct BytesHash<const N: usize>(pub [u8; N]);
+impl<const N: usize> Serialize for BytesHash<N> {
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        todo!()
+    }
+}
+impl<'de, const N: usize> Deserialize<'de> for BytesHash<N> {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        todo!()
+    }
+}
+
+impl<const N: usize> From<Vec<u8>> for BytesHash<N> {
+    fn from(v: Vec<u8>) -> Self {
+        Self(v.try_into().unwrap())
+    }
+}
+
+impl<const N: usize> From<BytesHash<N>> for Vec<u8> {
+    fn from(hash: BytesHash<N>) -> Self {
+        hash.0.to_vec()
+    }
+}
+
+impl<const N: usize> From<BytesHash<N>> for u64 {
+    fn from(hash: BytesHash<N>) -> Self {
+        u64::from_le_bytes(hash.0[..8].try_into().unwrap())
+    }
+}
+
+impl<F: RichField, const N: usize> From<BytesHash<N>> for Vec<F> {
+    fn from(hash: BytesHash<N>) -> Self {
+        let n = hash.0.len();
+        let mut v = hash.0.to_vec();
+        v.resize(ceil_div_usize(n, 8) * 8, 0);
+        let mut buffer = Buffer::new(v);
+        buffer.read_field_vec(buffer.len() / 8).unwrap()
+    }
+}

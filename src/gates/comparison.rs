@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::field_types::{Field, PrimeField};
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -22,7 +22,7 @@ pub struct ComparisonGate<F: PrimeField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> ComparisonGate<F, D> {
+impl<F: Extendable<D>, const D: usize> ComparisonGate<F, D> {
     pub fn new(num_bits: usize, num_chunks: usize) -> Self {
         debug_assert!(num_bits < bits_u64(F::ORDER));
         Self {
@@ -83,7 +83,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ComparisonGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate<F, D> {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -374,14 +374,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
 }
 
 #[derive(Debug)]
-struct ComparisonGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct ComparisonGenerator<F: Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: ComparisonGate<F, D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for ComparisonGenerator<F, D>
-{
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ComparisonGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
@@ -499,13 +497,13 @@ mod tests {
     use anyhow::Result;
     use rand::Rng;
 
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::{Field, PrimeField};
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::comparison::ComparisonGate;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
 
     #[test]
@@ -550,15 +548,19 @@ mod tests {
     fn eval_fns() -> Result<()> {
         let num_bits = 40;
         let num_chunks = 5;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
-        test_eval_fns::<GoldilocksField, _, 4>(ComparisonGate::<_, 4>::new(num_bits, num_chunks))
+        test_eval_fns::<F, C, _, D>(ComparisonGate::<_, 2>::new(num_bits, num_chunks))
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         let num_bits = 40;
         let num_chunks = 5;

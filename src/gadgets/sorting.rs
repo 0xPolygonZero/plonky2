@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use itertools::izip;
 
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::gates::assert_le::AssertLessThanGate;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
@@ -26,7 +26,7 @@ pub struct MemoryOpTarget {
     value: Target,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn assert_permutation_memory_ops(&mut self, a: &[MemoryOpTarget], b: &[MemoryOpTarget]) {
         let a_chunks: Vec<Vec<Target>> = a
             .iter()
@@ -116,15 +116,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 #[derive(Debug)]
-struct MemoryOpSortGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct MemoryOpSortGenerator<F: Extendable<D>, const D: usize> {
     input_ops: Vec<MemoryOpTarget>,
     output_ops: Vec<MemoryOpTarget>,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for MemoryOpSortGenerator<F, D>
-{
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for MemoryOpSortGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         self.input_ops
             .iter()
@@ -176,14 +174,15 @@ mod tests {
 
     use super::*;
     use crate::field::field_types::{Field, PrimeField};
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     fn test_sorting(size: usize, address_bits: usize, timestamp_bits: usize) -> Result<()> {
-        type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -236,7 +235,7 @@ mod tests {
             pw.set_target(output_ops[i].value, input_ops_sorted[i].3);
         }
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
         verify(proof, &data.verifier_only, &data.common)

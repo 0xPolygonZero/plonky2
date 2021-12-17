@@ -224,7 +224,6 @@ mod tests {
     use log::info;
 
     use super::*;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gadgets::interpolation::InterpolationGate;
     use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
     use crate::gates::base_sum::BaseSumGate;
@@ -232,12 +231,14 @@ mod tests {
     use crate::gates::gmimc::GMiMCGate;
     use crate::gates::interpolation::HighDegreeInterpolationGate;
     use crate::gates::noop::NoopGate;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn test_prefix_generation() {
         env_logger::init();
-        type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let gates = vec![
             GateRef::new(NoopGate),

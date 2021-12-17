@@ -4,7 +4,7 @@ use num::{BigUint, FromPrimitive, Zero};
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::Field;
+use crate::field::field_types::{Field, RichField};
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
@@ -13,6 +13,7 @@ use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
+use crate::plonk::config::AlgebraicHasher;
 
 /// A witness holds information on the values of targets in a circuit.
 pub trait Witness<F: Field> {
@@ -104,7 +105,13 @@ pub trait Witness<F: Field> {
             .for_each(|(&t, x)| self.set_target(t, x));
     }
 
-    fn set_cap_target(&mut self, ct: &MerkleCapTarget, value: &MerkleCap<F>) {
+    fn set_cap_target<H: AlgebraicHasher<F>>(
+        &mut self,
+        ct: &MerkleCapTarget,
+        value: &MerkleCap<F, H>,
+    ) where
+        F: RichField,
+    {
         for (ht, h) in ct.0.iter().zip(&value.0) {
             self.set_hash_target(*ht, *h);
         }

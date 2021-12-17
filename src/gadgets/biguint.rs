@@ -248,24 +248,26 @@ mod tests {
     use rand::Rng;
 
     use crate::iop::witness::Witness;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::{
-        field::goldilocks_field::GoldilocksField,
         iop::witness::PartialWitness,
         plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, verifier::verify},
     };
 
     #[test]
     fn test_biguint_add() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let mut rng = rand::thread_rng();
 
         let x_value = BigUint::from_u128(rng.gen()).unwrap();
         let y_value = BigUint::from_u128(rng.gen()).unwrap();
         let expected_z_value = &x_value + &y_value;
 
-        type F = GoldilocksField;
         let config = CircuitConfig::standard_recursion_config();
         let mut pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.add_virtual_biguint_target(x_value.to_u32_digits().len());
         let y = builder.add_virtual_biguint_target(y_value.to_u32_digits().len());
@@ -277,13 +279,16 @@ mod tests {
         pw.set_biguint_target(&y, &y_value);
         pw.set_biguint_target(&expected_z, &expected_z_value);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }
 
     #[test]
     fn test_biguint_sub() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let mut rng = rand::thread_rng();
 
         let mut x_value = BigUint::from_u128(rng.gen()).unwrap();
@@ -293,10 +298,9 @@ mod tests {
         }
         let expected_z_value = &x_value - &y_value;
 
-        type F = GoldilocksField;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_biguint(&x_value);
         let y = builder.constant_biguint(&y_value);
@@ -305,23 +309,25 @@ mod tests {
 
         builder.connect_biguint(&z, &expected_z);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }
 
     #[test]
     fn test_biguint_mul() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let mut rng = rand::thread_rng();
 
         let x_value = BigUint::from_u128(rng.gen()).unwrap();
         let y_value = BigUint::from_u128(rng.gen()).unwrap();
         let expected_z_value = &x_value * &y_value;
 
-        type F = GoldilocksField;
         let config = CircuitConfig::standard_recursion_config();
         let mut pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.add_virtual_biguint_target(x_value.to_u32_digits().len());
         let y = builder.add_virtual_biguint_target(y_value.to_u32_digits().len());
@@ -333,22 +339,24 @@ mod tests {
         pw.set_biguint_target(&y, &y_value);
         pw.set_biguint_target(&expected_z, &expected_z_value);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }
 
     #[test]
     fn test_biguint_cmp() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let mut rng = rand::thread_rng();
 
         let x_value = BigUint::from_u128(rng.gen()).unwrap();
         let y_value = BigUint::from_u128(rng.gen()).unwrap();
 
-        type F = GoldilocksField;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_biguint(&x_value);
         let y = builder.constant_biguint(&y_value);
@@ -357,13 +365,16 @@ mod tests {
 
         builder.connect(cmp.target, expected_cmp.target);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }
 
     #[test]
     fn test_biguint_div_rem() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let mut rng = rand::thread_rng();
 
         let mut x_value = BigUint::from_u128(rng.gen()).unwrap();
@@ -373,10 +384,9 @@ mod tests {
         }
         let (expected_div_value, expected_rem_value) = x_value.div_rem(&y_value);
 
-        type F = GoldilocksField;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_biguint(&x_value);
         let y = builder.constant_biguint(&y_value);
@@ -388,7 +398,7 @@ mod tests {
         builder.connect_biguint(&div, &expected_div);
         builder.connect_biguint(&rem, &expected_rem);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }

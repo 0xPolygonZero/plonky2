@@ -180,18 +180,19 @@ mod tests {
     use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
     use crate::curve::secp256k1::Secp256K1;
     use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::secp256k1_base::Secp256K1Base;
     use crate::field::secp256k1_scalar::Secp256K1Scalar;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     fn test_curve_point_is_valid() -> Result<()> {
-        type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -205,7 +206,7 @@ mod tests {
         builder.curve_assert_valid(&g_target);
         builder.curve_assert_valid(&neg_g_target);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
         verify(proof, &data.verifier_only, &data.common)
@@ -214,8 +215,9 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_curve_point_is_not_valid() {
-        type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -232,7 +234,7 @@ mod tests {
 
         builder.curve_assert_valid(&not_g_target);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
         verify(proof, &data.verifier_only, &data.common).unwrap();
@@ -240,8 +242,9 @@ mod tests {
 
     #[test]
     fn test_curve_double() -> Result<()> {
-        type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -268,7 +271,7 @@ mod tests {
         builder.connect_affine_point(&double_g_expected, &double_g_actual);
         builder.connect_affine_point(&double_neg_g_expected, &double_neg_g_actual);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
         verify(proof, &data.verifier_only, &data.common)
@@ -276,8 +279,9 @@ mod tests {
 
     #[test]
     fn test_curve_add() -> Result<()> {
-        type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -297,7 +301,7 @@ mod tests {
 
         builder.connect_affine_point(&g_plus_2g_expected, &g_plus_2g_actual);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
         verify(proof, &data.verifier_only, &data.common)
@@ -306,8 +310,9 @@ mod tests {
     #[test]
     #[ignore]
     fn test_curve_mul() -> Result<()> {
-        type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig {
             num_routed_wires: 33,
@@ -331,7 +336,7 @@ mod tests {
 
         builder.connect_affine_point(&five_g_expected, &five_g_actual);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
         verify(proof, &data.verifier_only, &data.common)
@@ -340,8 +345,9 @@ mod tests {
     #[test]
     #[ignore]
     fn test_curve_random() -> Result<()> {
-        type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig {
             num_routed_wires: 33,
@@ -360,7 +366,7 @@ mod tests {
         let randot_times_two = builder.curve_scalar_mul(&randot, &two_target);
         builder.connect_affine_point(&randot_doubled, &randot_times_two);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
         verify(proof, &data.verifier_only, &data.common)

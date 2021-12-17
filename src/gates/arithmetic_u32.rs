@@ -4,7 +4,7 @@ use itertools::unfold;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -17,12 +17,12 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate to perform a basic mul-add on 32-bit values (we assume they are range-checked beforehand).
 #[derive(Copy, Clone, Debug)]
-pub struct U32ArithmeticGate<F: RichField + Extendable<D>, const D: usize> {
+pub struct U32ArithmeticGate<F: Extendable<D>, const D: usize> {
     pub num_ops: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
+impl<F: Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
     pub fn new_from_config(config: &CircuitConfig) -> Self {
         Self {
             num_ops: Self::num_ops(config),
@@ -72,7 +72,7 @@ impl<F: RichField + Extendable<D>, const D: usize> U32ArithmeticGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticGate<F, D> {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
@@ -258,16 +258,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
 }
 
 #[derive(Clone, Debug)]
-struct U32ArithmeticGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct U32ArithmeticGenerator<F: Extendable<D>, const D: usize> {
     gate: U32ArithmeticGate<F, D>,
     gate_index: usize,
     i: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for U32ArithmeticGenerator<F, D>
-{
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for U32ArithmeticGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
@@ -329,13 +327,13 @@ mod tests {
     use anyhow::Result;
     use rand::Rng;
 
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::arithmetic_u32::U32ArithmeticGate;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
 
     #[test]
@@ -348,7 +346,10 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(U32ArithmeticGate::<GoldilocksField, 4> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        test_eval_fns::<F, C, _, D>(U32ArithmeticGate::<GoldilocksField, D> {
             num_ops: 3,
             _phantom: PhantomData,
         })
@@ -356,9 +357,10 @@ mod tests {
 
     #[test]
     fn test_gate_constraint() {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
         const NUM_U32_ARITHMETIC_OPS: usize = 3;
 
         fn get_wires(
