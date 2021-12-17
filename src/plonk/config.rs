@@ -172,7 +172,7 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
         // Write the hashed byte array to a field array.
         let mut hash = [F::ZERO; SPONGE_WIDTH];
         for i in 0..SPONGE_WIDTH {
-            hash[i] = F::from_canonical_u64(u64::from_le_bytes(
+            hash[i] = F::from_noncanonical_u64(u64::from_le_bytes(
                 buffer[i * std::mem::size_of::<F>()..(i + 1) * std::mem::size_of::<F>()]
                     .try_into()
                     .unwrap(),
