@@ -14,7 +14,7 @@ use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
 
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
 #[derive(Clone)]
-pub struct Challenger<F: RichField, H: AlgebraicHasher<F>> {
+pub struct Challenger<F: RichField, H: Hasher<F>> {
     sponge_state: [F; SPONGE_WIDTH],
     input_buffer: Vec<F>,
     output_buffer: Vec<F>,
@@ -29,7 +29,7 @@ pub struct Challenger<F: RichField, H: AlgebraicHasher<F>> {
 /// design, but it can be viewed as a duplex sponge whose inputs are sometimes zero (when we perform
 /// multiple squeezes) and whose outputs are sometimes ignored (when we perform multiple
 /// absorptions). Thus the security properties of a duplex sponge still apply to our design.
-impl<F: RichField, H: AlgebraicHasher<F>> Challenger<F, H> {
+impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
     pub fn new() -> Challenger<F, H> {
         Challenger {
             sponge_state: [F::ZERO; SPONGE_WIDTH],

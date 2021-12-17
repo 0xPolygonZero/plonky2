@@ -77,7 +77,7 @@ pub(crate) fn prove<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize
         )
     );
 
-    let mut challenger = Challenger::new();
+    let mut challenger = Challenger::<F, C::Hasher>::new();
 
     // Observe the instance.
     challenger.observe_hash::<C::Hasher>(common_data.circuit_digest);

@@ -128,7 +128,7 @@ impl<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub(crate) fn open_plonk(
         commitments: &[&Self; 4],
         zeta: F::Extension,
-        challenger: &mut Challenger<F, C::InnerHasher>,
+        challenger: &mut Challenger<F, C::Hasher>,
         common_data: &CommonCircuitData<F, C, D>,
         timing: &mut TimingTree,
     ) -> (FriProof<F, C::Hasher, D>, OpeningSet<F, D>) {
