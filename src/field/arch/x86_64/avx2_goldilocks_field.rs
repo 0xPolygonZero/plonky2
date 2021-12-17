@@ -9,20 +9,11 @@ use crate::field::field_types::{Field, PrimeField};
 use crate::field::goldilocks_field::GoldilocksField;
 use crate::field::packed_field::PackedField;
 
-// Avx2GoldilocksField wraps an array of four u64s, with the new and get methods to convert that
-// array to and from __m256i, which is the type we actually operate on. This indirection is a
-// terrible trick to change Avx2GoldilocksField's alignment.
-//   We'd like to be able to cast slices of GoldilocksField to slices of Avx2GoldilocksField. Rust
-// aligns __m256i to 32 bytes but GoldilocksField has a lower alignment. That alignment extends to
-// Avx2GoldilocksField and it appears that it cannot be lowered with #[repr(C, blah)]. It is
-// important for Rust not to assume 32-byte alignment, so we cannot wrap __m256i directly.
-//   There are two versions of vectorized load/store instructions on x86: aligned (vmovaps and
-// friends) and unaligned (vmovups etc.). The difference between them is that aligned loads and
-// stores are permitted to segfault on unaligned accesses. Historically, the aligned instructions
-// were faster, and although this is no longer the case, compilers prefer the aligned versions if
-// they know that the address is aligned. Using aligned instructions on unaligned addresses leads to
-// bugs that can be frustrating to diagnose. Hence, we can't have Rust assuming alignment, and
-// therefore Avx2GoldilocksField wraps [GoldilocksField; 4] and not __m256i.
+// Ideally `Avx2GoldilocksField` would wrap `__m256i`. Unfortunately, `__m256i` has an alignment of
+// 32B, which would preclude us from casting `[GoldilocksField; 4]` (alignment 8B) to
+// `Avx2GoldilocksField`. We need to ensure that `Avx2GoldilocksField` has the same alignment as
+// `GoldilocksField`. Thus we wrap `[GoldilocksField; 4]` and use the `new` and `get` methods to
+// convert to and from `__m256i`.
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Avx2GoldilocksField(pub [GoldilocksField; 4]);
@@ -300,11 +291,6 @@ impl Sum for Avx2GoldilocksField {
 //    Notice that the above 3-value addition still only requires two calls to shift, just like our
 //    2-value addition.
 
-/// Convert to canonical representation.
-/// The argument is assumed to be shifted by 1 << 63 (i.e. x_s = x + 1<<63, where x is the field
-///   value). The returned value is similarly shifted by 1 << 63 (i.e. we return y_s = y + (1<<63),
-///   where 0 <= y < FIELD_ORDER).
-
 const SIGN_BIT: __m256i = unsafe { transmute([i64::MIN; 4]) };
 const SHITFTED_FIELD_ORDER: __m256i =
     unsafe { transmute([GoldilocksField::ORDER ^ (i64::MIN as u64); 4]) };
@@ -317,6 +303,10 @@ pub unsafe fn shift(x: __m256i) -> __m256i {
     _mm256_xor_si256(x, SIGN_BIT)
 }
 
+/// Convert to canonical representation.
+/// The argument is assumed to be shifted by 1 << 63 (i.e. x_s = x + 1<<63, where x is the field
+///   value). The returned value is similarly shifted by 1 << 63 (i.e. we return y_s = y + (1<<63),
+///   where 0 <= y < FIELD_ORDER).
 #[inline]
 unsafe fn canonicalize_s(x_s: __m256i) -> __m256i {
     // If x >= FIELD_ORDER then corresponding mask bits are all 0; otherwise all 1.
