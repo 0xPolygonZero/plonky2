@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 use std::fmt::Debug;
 
-use keccak_hash::keccak;
+use keccak_hash::{keccak, keccak256};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::field::extension_field::quadratic::QuadraticExtension;
@@ -21,6 +21,7 @@ use crate::util::serialization::Buffer;
 pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
     /// Size of `Hash` in bytes.
     const HASH_SIZE: usize;
+
     type Hash: From<Vec<u8>>
         + Into<Vec<u8>>
         + Into<Vec<F>>
@@ -34,6 +35,9 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
         + Serialize
         + DeserializeOwned;
 
+    /// Permutation used in the sponge construction.
+    type Permutation: PlonkyPermutation<F>;
+
     fn hash(input: Vec<F>, pad: bool) -> Self::Hash;
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash;
 }
@@ -43,8 +47,6 @@ pub trait AlgebraicHasher<F: RichField>: Hasher<F, Hash = HashOut<F>> {
     // TODO: Adding a `const WIDTH: usize` here yields a compiler error down the line.
     // Maybe try again in a while.
 
-    /// Permutation used in the sponge construction.
-    type Permutation: PlonkyPermutation<F>;
     /// Circuit to conditionally swap two chunks of the inputs (useful in verifying Merkle proofs),
     /// then apply the permutation.
     fn permute_swapped<const D: usize>(
@@ -62,19 +64,18 @@ pub struct PoseidonHash;
 impl<F: RichField> Hasher<F> for PoseidonHash {
     const HASH_SIZE: usize = 4 * 8;
     type Hash = HashOut<F>;
+    type Permutation = PoseidonPermutation;
 
     fn hash(input: Vec<F>, pad: bool) -> Self::Hash {
-        hash_n_to_hash::<F, <Self as AlgebraicHasher<F>>::Permutation>(input, pad)
+        hash_n_to_hash::<F, Self::Permutation>(input, pad)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
-        compress::<F, <Self as AlgebraicHasher<F>>::Permutation>(left, right)
+        compress::<F, Self::Permutation>(left, right)
     }
 }
 
 impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
-    type Permutation = PoseidonPermutation;
-
     fn permute_swapped<const D: usize>(
         inputs: [Target; SPONGE_WIDTH],
         swap: BoolTarget,
@@ -156,12 +157,37 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
 //     }
 // }
 
+/// Keccak-256 permutation used in the challenger.
+pub struct KeccakPermutation;
+impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
+    fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
+        // Fill a byte array with the little-endian representation of the field array.
+        let mut buffer = [0u8; SPONGE_WIDTH * std::mem::size_of::<u64>()];
+        for i in 0..SPONGE_WIDTH {
+            buffer[i * std::mem::size_of::<F>()..(i + 1) * std::mem::size_of::<F>()]
+                .copy_from_slice(&input[i].to_canonical_u64().to_le_bytes());
+        }
+        // Hash the bytes array in-place.
+        keccak256(&mut buffer);
+        // Write the hashed byte array to a field array.
+        let mut hash = [F::ZERO; SPONGE_WIDTH];
+        for i in 0..SPONGE_WIDTH {
+            hash[i] = F::from_canonical_u64(u64::from_le_bytes(
+                buffer[i * std::mem::size_of::<F>()..(i + 1) * std::mem::size_of::<F>()]
+                    .try_into()
+                    .unwrap(),
+            ));
+        }
+        hash
+    }
+}
 /// Keccak-256 hash function.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct KeccakHash<const N: usize>;
 impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
     const HASH_SIZE: usize = N;
     type Hash = BytesHash<N>;
+    type Permutation = KeccakPermutation;
 
     fn hash(input: Vec<F>, _pad: bool) -> Self::Hash {
         let mut buffer = Buffer::new(Vec::new());
