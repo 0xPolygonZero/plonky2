@@ -5,8 +5,8 @@ use std::iter::{Product, Sum};
 use std::mem::transmute;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use crate::field::goldilocks_field::GoldilocksField;
 use crate::field::field_types::{Field, PrimeField};
+use crate::field::goldilocks_field::GoldilocksField;
 use crate::field::packed_field::PackedField;
 
 // Avx2GoldilocksField wraps an array of four u64s, with the new and get methods to convert that
@@ -500,9 +500,9 @@ unsafe fn interleave2(x: __m256i, y: __m256i) -> (__m256i, __m256i) {
 
 #[cfg(test)]
 mod tests {
+    use crate::field::arch::x86_64::avx2_goldilocks_field::Avx2GoldilocksField;
     use crate::field::field_types::PrimeField;
     use crate::field::goldilocks_field::GoldilocksField;
-    use crate::field::arch::x86_64::avx2_goldilocks_field::Avx2GoldilocksField;
     use crate::field::packed_field::PackedField;
 
     fn test_vals_a() -> [GoldilocksField; 4] {
