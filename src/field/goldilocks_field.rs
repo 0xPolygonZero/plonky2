@@ -356,38 +356,6 @@ unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
     res_wrapped + EPSILON * (carry as u64)
 }
 
-/// Fast subtraction modulo ORDER for x86-64.
-/// This function is marked unsafe for the following reasons:
-///   - It is only correct if x - y >= -ORDER.
-///   - It is only faster in some circumstances. In particular, on x86 it overwrites both inputs in
-///     the registers, so its use is not recommended when either input will be used again.
-#[inline(always)]
-#[cfg(target_arch = "x86_64")]
-unsafe fn sub_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
-    use std::arch::asm;
-    let res_wrapped: u64;
-    let adjustment: u64;
-    asm!(
-        "sub {0}, {1}",
-        "sbb {1:e}, {1:e}", // See add_no_canonicalize_trashing_input.
-        inlateout(reg) x => res_wrapped,
-        inlateout(reg) y => adjustment,
-        options(pure, nomem, nostack),
-    );
-    assume(y != 0 || (res_wrapped == x && adjustment == 0));
-    // Subtract EPSILON == add ORDER.
-    // Cannot underflow unless the assumption x - y >= -ORDER is incorrect.
-    res_wrapped - adjustment
-}
-
-#[inline(always)]
-#[cfg(not(target_arch = "x86_64"))]
-unsafe fn sub_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
-    let (res_wrapped, borrow) = x.overflowing_sub(y);
-    // Below cannot underflow unless the assumption x - y >= -ORDER is incorrect.
-    res_wrapped - EPSILON * (borrow as u64)
-}
-
 /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
 /// field order and `2^64`.
 #[inline]
@@ -396,7 +364,11 @@ fn reduce128(x: u128) -> GoldilocksField {
     let x_hi_hi = x_hi >> 32;
     let x_hi_lo = x_hi & EPSILON;
 
-    let t0 = unsafe { sub_no_canonicalize_trashing_input(x_lo, x_hi_hi) };
+    let (mut t0, borrow) = x_lo.overflowing_sub(x_hi_hi);
+    if borrow {
+        branch_hint(); // A borrow is exceedingly rare. It is faster to branch.
+        t0 -= EPSILON; // Cannot underflow.
+    }
     let t1 = x_hi_lo * EPSILON;
     let t2 = unsafe { add_no_canonicalize_trashing_input(t0, t1) };
     GoldilocksField(t2)
