@@ -72,7 +72,7 @@ impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             state = HashOutTarget::from_vec(outputs[0..4].to_vec());
         }
 
-        let index = self.le_sum(leaf_index_bits[proof.siblings.len()..].to_vec().into_iter());
+        let index = self.le_sum(leaf_index_bits[proof.siblings.len()..].iter().copied());
 
         for i in 0..4 {
             self.random_access(
