@@ -231,9 +231,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
-    for U32ArithmeticGate<F, D>
-{
+impl<F: Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for U32ArithmeticGate<F, D> {
     fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
         &self,
         vars: EvaluationVarsBasePacked<P>,

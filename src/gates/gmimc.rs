@@ -208,8 +208,8 @@ impl<F: Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> Gate<F
     }
 }
 
-impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize>
-    PackedEvaluableBase<F, D> for GMiMCGate<F, D, WIDTH>
+impl<F: Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> PackedEvaluableBase<F, D>
+    for GMiMCGate<F, D, WIDTH>
 {
     fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
         &self,

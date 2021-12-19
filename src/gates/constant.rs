@@ -100,7 +100,7 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for ConstantGate {
+impl<F: Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for ConstantGate {
     fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
         &self,
         vars: EvaluationVarsBasePacked<P>,
