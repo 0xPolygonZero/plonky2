@@ -166,7 +166,6 @@ unsafe impl<F: ReducibleAvx2> PackedField for Avx2PrimeField<F> {
     const WIDTH: usize = 4;
 
     type Scalar = F;
-    type PackedPrimeField = Avx2PrimeField<F>;
 
     const ZERO: Self = Self([F::ZERO; 4]);
     const ONE: Self = Self([F::ONE; 4]);

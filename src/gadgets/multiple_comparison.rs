@@ -72,17 +72,19 @@ mod tests {
     use rand::Rng;
 
     use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     fn test_list_le(size: usize, num_bits: usize) -> Result<()> {
-        type F = GoldilocksField;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let mut rng = rand::thread_rng();
 
@@ -120,7 +122,7 @@ mod tests {
         let expected_result = builder.constant_bool(a_biguint <= b_biguint);
         builder.connect(result.target, expected_result.target);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }

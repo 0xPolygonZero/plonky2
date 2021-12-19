@@ -8,7 +8,7 @@ use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::fft::fft_root_table;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::arithmetic::BaseArithmeticOperation;
@@ -27,7 +27,6 @@ use crate::gates::random_access::RandomAccessGate;
 use crate::gates::subtraction_u32::U32SubtractionGate;
 use crate::gates::switch::SwitchGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
-use crate::hash::hashing::hash_n_to_hash;
 use crate::iop::generator::{
     CopyGenerator, RandomValueGenerator, SimpleGenerator, WitnessGenerator,
 };
@@ -37,6 +36,7 @@ use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierOnlyCircuitData,
 };
+use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkPolynomials;
@@ -47,7 +47,7 @@ use crate::util::partial_products::num_partial_products;
 use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 
-pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
+pub struct CircuitBuilder<F: Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
     /// The types of gates used in this circuit.
@@ -85,7 +85,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     batched_gates: BatchedGates<F, D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn new(config: CircuitConfig) -> Self {
         let builder = CircuitBuilder {
             config,
@@ -582,7 +582,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
-    pub fn build(mut self) -> CircuitData<F, D> {
+    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D> {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
         let start = Instant::now();
 
@@ -590,7 +590,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
         // those hash wires match the claimed public inputs.
-        let public_inputs_hash = self.hash_n_to_hash(self.public_inputs.clone(), true);
+        let public_inputs_hash =
+            self.hash_n_to_hash::<C::InnerHasher>(self.public_inputs.clone(), true);
         let pi_gate = self.add_gate(PublicInputGate, vec![]);
         for (&hash_part, wire) in public_inputs_hash
             .elements
@@ -709,7 +710,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_cap.flatten(),
             vec![/* Add other circuit data here */],
         ];
-        let circuit_digest = hash_n_to_hash(circuit_digest_parts.concat(), false);
+        let circuit_digest = C::Hasher::hash(circuit_digest_parts.concat(), false);
 
         let common = CommonCircuitData {
             config: self.config,
@@ -734,7 +735,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
-    pub fn build_prover(self) -> ProverCircuitData<F, D> {
+    pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<F, C, D> {
         // TODO: Can skip parts of this.
         let CircuitData {
             prover_only,
@@ -748,7 +749,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
-    pub fn build_verifier(self) -> VerifierCircuitData<F, D> {
+    pub fn build_verifier<C: GenericConfig<D, F = F>>(self) -> VerifierCircuitData<F, C, D> {
         // TODO: Can skip parts of this.
         let CircuitData {
             verifier_only,
@@ -764,7 +765,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 /// Various gate types can contain multiple copies in a single Gate. This helper struct lets a
 /// CircuitBuilder track such gates that are currently being "filled up."
-pub struct BatchedGates<F: RichField + Extendable<D>, const D: usize> {
+pub struct BatchedGates<F: Extendable<D>, const D: usize> {
     /// A map `(c0, c1) -> (g, i)` from constants `(c0,c1)` to an available arithmetic gate using
     /// these constants with gate index `g` and already using `i` arithmetic operations.
     pub(crate) free_arithmetic: HashMap<(F, F), (usize, usize)>,
@@ -791,7 +792,7 @@ pub struct BatchedGates<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) free_constant: Option<(usize, usize)>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> BatchedGates<F, D> {
+impl<F: Extendable<D>, const D: usize> BatchedGates<F, D> {
     pub fn new() -> Self {
         Self {
             free_arithmetic: HashMap::new(),
@@ -806,7 +807,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BatchedGates<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Finds the last available arithmetic gate with the given constants or add one if there aren't any.
     /// Returns `(g,i)` such that there is an arithmetic gate with the given constants at index
     /// `g` and the gate's `i`-th operation is available.

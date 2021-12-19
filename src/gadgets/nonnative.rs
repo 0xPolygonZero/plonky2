@@ -214,24 +214,26 @@ mod tests {
     use anyhow::Result;
 
     use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::secp256k1_base::Secp256K1Base;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     fn test_nonnative_add() -> Result<()> {
         type FF = Secp256K1Base;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let x_ff = FF::rand();
         let y_ff = FF::rand();
         let sum_ff = x_ff + y_ff;
 
-        type F = GoldilocksField;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative(x_ff);
         let y = builder.constant_nonnative(y_ff);
@@ -240,7 +242,7 @@ mod tests {
         let sum_expected = builder.constant_nonnative(sum_ff);
         builder.connect_nonnative(&sum, &sum_expected);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }
@@ -248,6 +250,9 @@ mod tests {
     #[test]
     fn test_nonnative_sub() -> Result<()> {
         type FF = Secp256K1Base;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let x_ff = FF::rand();
         let mut y_ff = FF::rand();
         while y_ff.to_biguint() > x_ff.to_biguint() {
@@ -255,10 +260,9 @@ mod tests {
         }
         let diff_ff = x_ff - y_ff;
 
-        type F = GoldilocksField;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative(x_ff);
         let y = builder.constant_nonnative(y_ff);
@@ -267,7 +271,7 @@ mod tests {
         let diff_expected = builder.constant_nonnative(diff_ff);
         builder.connect_nonnative(&diff, &diff_expected);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }
@@ -275,14 +279,16 @@ mod tests {
     #[test]
     fn test_nonnative_mul() -> Result<()> {
         type FF = Secp256K1Base;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let x_ff = FF::rand();
         let y_ff = FF::rand();
         let product_ff = x_ff * y_ff;
 
-        type F = GoldilocksField;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative(x_ff);
         let y = builder.constant_nonnative(y_ff);
@@ -291,7 +297,7 @@ mod tests {
         let product_expected = builder.constant_nonnative(product_ff);
         builder.connect_nonnative(&product, &product_expected);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }
@@ -299,13 +305,15 @@ mod tests {
     #[test]
     fn test_nonnative_neg() -> Result<()> {
         type FF = Secp256K1Base;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let x_ff = FF::rand();
         let neg_x_ff = -x_ff;
 
-        type F = GoldilocksField;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative(x_ff);
         let neg_x = builder.neg_nonnative(&x);
@@ -313,7 +321,7 @@ mod tests {
         let neg_x_expected = builder.constant_nonnative(neg_x_ff);
         builder.connect_nonnative(&neg_x, &neg_x_expected);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }
@@ -321,13 +329,15 @@ mod tests {
     #[test]
     fn test_nonnative_inv() -> Result<()> {
         type FF = Secp256K1Base;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let x_ff = FF::rand();
         let inv_x_ff = x_ff.inverse();
 
-        type F = GoldilocksField;
         let config = CircuitConfig::standard_recursion_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x = builder.constant_nonnative(x_ff);
         let inv_x = builder.inv_nonnative(&x);
@@ -335,7 +345,7 @@ mod tests {
         let inv_x_expected = builder.constant_nonnative(inv_x_ff);
         builder.connect_nonnative(&inv_x, &inv_x_expected);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }

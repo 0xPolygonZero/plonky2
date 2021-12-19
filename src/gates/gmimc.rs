@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
@@ -25,17 +25,11 @@ use crate::plonk::vars::{
 /// It has a flag which can be used to swap the first four inputs with the next four, for ordering
 /// sibling digests.
 #[derive(Debug)]
-pub struct GMiMCGate<
-    F: RichField + Extendable<D> + GMiMC<WIDTH>,
-    const D: usize,
-    const WIDTH: usize,
-> {
+pub struct GMiMCGate<F: Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize>
-    GMiMCGate<F, D, WIDTH>
-{
+impl<F: Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> GMiMCGate<F, D, WIDTH> {
     pub fn new() -> Self {
         GMiMCGate {
             _phantom: PhantomData,
@@ -67,7 +61,7 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
     }
 }
 
-impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> Gate<F, D>
+impl<F: Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> Gate<F, D>
     for GMiMCGate<F, D, WIDTH>
 {
     fn id(&self) -> String {
@@ -264,17 +258,13 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
 }
 
 #[derive(Debug)]
-struct GMiMCGenerator<
-    F: RichField + Extendable<D> + GMiMC<WIDTH>,
-    const D: usize,
-    const WIDTH: usize,
-> {
+struct GMiMCGenerator<F: Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> {
     gate_index: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize>
-    SimpleGenerator<F> for GMiMCGenerator<F, D, WIDTH>
+impl<F: Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize> SimpleGenerator<F>
+    for GMiMCGenerator<F, D, WIDTH>
 {
     fn dependencies(&self) -> Vec<Target> {
         let mut dep_input_indices = Vec::with_capacity(WIDTH + 1);
@@ -362,18 +352,21 @@ mod tests {
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn generated_output() {
-        type F = GoldilocksField;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         const WIDTH: usize = 12;
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::new(config);
-        type Gate = GMiMCGate<F, 4, WIDTH>;
+        type Gate = GMiMCGate<F, D, WIDTH>;
         let gate = Gate::new();
         let gate_index = builder.add_gate(gate, vec![]);
-        let circuit = builder.build_prover();
+        let circuit = builder.build_prover::<C>();
 
         let permutation_inputs = (0..WIDTH).map(F::from_canonical_usize).collect::<Vec<_>>();
 
@@ -418,9 +411,11 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        type F = GoldilocksField;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         const WIDTH: usize = 12;
-        let gate = GMiMCGate::<F, 4, WIDTH>::new();
-        test_eval_fns(gate)
+        let gate = GMiMCGate::<F, D, WIDTH>::new();
+        test_eval_fns::<F, C, _, D>(gate)
     }
 }

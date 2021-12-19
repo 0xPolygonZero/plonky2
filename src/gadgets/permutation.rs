@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
-use crate::field::field_types::RichField;
 use crate::field::{extension_field::Extendable, field_types::Field};
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
@@ -9,7 +8,7 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::bimap::bimap_from_lists;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Assert that two lists of expressions evaluate to permutations of one another.
     pub fn assert_permutation(&mut self, a: Vec<Vec<Target>>, b: Vec<Vec<Target>>) {
         assert_eq!(
@@ -364,14 +363,15 @@ mod tests {
 
     use super::*;
     use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     fn test_permutation_good(size: usize) -> Result<()> {
-        type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -388,15 +388,16 @@ mod tests {
 
         builder.assert_permutation(a, b);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
 
     fn test_permutation_duplicates(size: usize) -> Result<()> {
-        type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -417,15 +418,16 @@ mod tests {
 
         builder.assert_permutation(a, b);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
     }
 
     fn test_permutation_bad(size: usize) -> Result<()> {
-        type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
 
@@ -445,7 +447,7 @@ mod tests {
 
         builder.assert_permutation(a, b);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         data.prove(pw)?;
 
         Ok(())

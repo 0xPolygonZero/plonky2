@@ -8,6 +8,7 @@ use crate::fri::FriConfig;
 use crate::hash::merkle_proofs::verify_merkle_proof;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::circuit_data::CommonCircuitData;
+use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::proof::{OpeningSet, ProofChallenges};
 use crate::util::reducing::ReducingFactor;
@@ -55,13 +56,17 @@ pub(crate) fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: us
     Ok(())
 }
 
-pub(crate) fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn verify_fri_proof<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     // Openings of the PLONK polynomials.
     os: &OpeningSet<F, D>,
     challenges: &ProofChallenges<F, D>,
-    initial_merkle_caps: &[MerkleCap<F>],
-    proof: &FriProof<F, D>,
-    common_data: &CommonCircuitData<F, D>,
+    initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
+    proof: &FriProof<F, C::Hasher, D>,
+    common_data: &CommonCircuitData<F, C, D>,
 ) -> Result<()> {
     let config = &common_data.config;
     ensure!(
@@ -88,7 +93,7 @@ pub(crate) fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
         .iter()
         .zip(&proof.query_round_proofs)
     {
-        fri_verifier_query_round(
+        fri_verifier_query_round::<F, C, D>(
             challenges,
             precomputed_reduced_evals,
             initial_merkle_caps,
@@ -103,13 +108,13 @@ pub(crate) fn verify_fri_proof<F: RichField + Extendable<D>, const D: usize>(
     Ok(())
 }
 
-fn fri_verify_initial_proof<F: RichField>(
+fn fri_verify_initial_proof<F: RichField, H: Hasher<F>>(
     x_index: usize,
-    proof: &FriInitialTreeProof<F>,
-    initial_merkle_caps: &[MerkleCap<F>],
+    proof: &FriInitialTreeProof<F, H>,
+    initial_merkle_caps: &[MerkleCap<F, H>],
 ) -> Result<()> {
     for ((evals, merkle_proof), cap) in proof.evals_proofs.iter().zip(initial_merkle_caps) {
-        verify_merkle_proof(evals.clone(), x_index, cap, merkle_proof)?;
+        verify_merkle_proof::<F, H>(evals.clone(), x_index, cap, merkle_proof)?;
     }
 
     Ok(())
@@ -146,13 +151,13 @@ impl<F: Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D> {
     }
 }
 
-pub(crate) fn fri_combine_initial<F: RichField + Extendable<D>, const D: usize>(
-    proof: &FriInitialTreeProof<F>,
+pub(crate) fn fri_combine_initial<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    proof: &FriInitialTreeProof<F, C::Hasher>,
     alpha: F::Extension,
     zeta: F::Extension,
     subgroup_x: F,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
-    common_data: &CommonCircuitData<F, D>,
+    common_data: &CommonCircuitData<F, C, D>,
 ) -> F::Extension {
     let config = &common_data.config;
     assert!(D > 1, "Not implemented for D=1.");
@@ -207,17 +212,17 @@ pub(crate) fn fri_combine_initial<F: RichField + Extendable<D>, const D: usize>(
     sum
 }
 
-fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
+fn fri_verifier_query_round<F: Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenges: &ProofChallenges<F, D>,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
-    initial_merkle_caps: &[MerkleCap<F>],
-    proof: &FriProof<F, D>,
+    initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
+    proof: &FriProof<F, C::Hasher, D>,
     mut x_index: usize,
     n: usize,
-    round_proof: &FriQueryRound<F, D>,
-    common_data: &CommonCircuitData<F, D>,
+    round_proof: &FriQueryRound<F, C::Hasher, D>,
+    common_data: &CommonCircuitData<F, C, D>,
 ) -> Result<()> {
-    fri_verify_initial_proof(
+    fri_verify_initial_proof::<F, C::Hasher>(
         x_index,
         &round_proof.initial_trees_proof,
         initial_merkle_caps,
@@ -263,7 +268,7 @@ fn fri_verifier_query_round<F: RichField + Extendable<D>, const D: usize>(
             challenges.fri_betas[i],
         );
 
-        verify_merkle_proof(
+        verify_merkle_proof::<F, C::Hasher>(
             flatten(evals),
             coset_index,
             &proof.commit_phase_merkle_caps[i],

@@ -4,7 +4,6 @@ use std::ops::Range;
 use crate::field::extension_field::algebra::PolynomialCoeffsAlgebra;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::{Extendable, FieldExtension};
-use crate::field::field_types::RichField;
 use crate::field::interpolation::interpolant;
 use crate::gadgets::interpolation::InterpolationGate;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
@@ -21,12 +20,12 @@ use crate::polynomial::PolynomialCoeffs;
 /// Interpolation gate with constraints of degree at most `1<<subgroup_bits`.
 /// `eval_unfiltered_recursively` uses less gates than `LowDegreeInterpolationGate`.
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct HighDegreeInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
+pub(crate) struct HighDegreeInterpolationGate<F: Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> InterpolationGate<F, D>
+impl<F: Extendable<D>, const D: usize> InterpolationGate<F, D>
     for HighDegreeInterpolationGate<F, D>
 {
     fn new(subgroup_bits: usize) -> Self {
@@ -41,7 +40,7 @@ impl<F: RichField + Extendable<D>, const D: usize> InterpolationGate<F, D>
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> HighDegreeInterpolationGate<F, D> {
+impl<F: Extendable<D>, const D: usize> HighDegreeInterpolationGate<F, D> {
     /// End of wire indices, exclusive.
     fn end(&self) -> usize {
         self.start_coeffs() + self.num_points() * D
@@ -80,9 +79,7 @@ impl<F: RichField + Extendable<D>, const D: usize> HighDegreeInterpolationGate<F
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
-    for HighDegreeInterpolationGate<F, D>
-{
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for HighDegreeInterpolationGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -203,15 +200,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
 }
 
 #[derive(Debug)]
-struct InterpolationGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct InterpolationGenerator<F: Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: HighDegreeInterpolationGate<F, D>,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for InterpolationGenerator<F, D>
-{
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for InterpolationGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| {
             Target::Wire(Wire {
@@ -275,7 +270,6 @@ mod tests {
 
     use anyhow::Result;
 
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gadgets::interpolation::InterpolationGate;
@@ -283,6 +277,7 @@ mod tests {
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::interpolation::HighDegreeInterpolationGate;
     use crate::hash::hash_types::HashOut;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
     use crate::polynomial::PolynomialCoeffs;
 
@@ -312,14 +307,18 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(HighDegreeInterpolationGate::new(2))
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        test_eval_fns::<F, C, _, D>(HighDegreeInterpolationGate::new(2))
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         /// Returns the local wires for an interpolation gate for given coeffs, points and eval point.
         fn get_wires(

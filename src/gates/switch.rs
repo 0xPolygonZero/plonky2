@@ -4,7 +4,7 @@ use array_tool::vec::Union;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
@@ -22,13 +22,13 @@ use crate::plonk::vars::{
 
 /// A gate for conditionally swapping input values based on a boolean.
 #[derive(Clone, Debug)]
-pub(crate) struct SwitchGate<F: RichField + Extendable<D>, const D: usize> {
+pub(crate) struct SwitchGate<F: Extendable<D>, const D: usize> {
     pub(crate) chunk_size: usize,
     pub(crate) num_copies: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SwitchGate<F, D> {
+impl<F: Extendable<D>, const D: usize> SwitchGate<F, D> {
     pub fn new(num_copies: usize, chunk_size: usize) -> Self {
         Self {
             chunk_size,
@@ -72,7 +72,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SwitchGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, D> {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -214,13 +214,13 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
 }
 
 #[derive(Debug)]
-struct SwitchGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct SwitchGenerator<F: Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: SwitchGate<F, D>,
     copy: usize,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
+impl<F: Extendable<D>, const D: usize> SwitchGenerator<F, D> {
     fn in_out_dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
@@ -307,7 +307,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> WitnessGenerator<F> for SwitchGenerator<F, D> {
+impl<F: Extendable<D>, const D: usize> WitnessGenerator<F> for SwitchGenerator<F, D> {
     fn watch_list(&self) -> Vec<Target> {
         self.in_out_dependencies()
             .union(self.in_switch_dependencies())
@@ -332,7 +332,6 @@ mod tests {
 
     use anyhow::Result;
 
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate::Gate;
@@ -340,6 +339,7 @@ mod tests {
     use crate::gates::switch::SwitchGate;
     use crate::hash::hash_types::HashOut;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
 
     #[test]
@@ -379,7 +379,10 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(SwitchGate::<_, 4>::new_from_config(
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        test_eval_fns::<F, C, _, D>(SwitchGate::<_, D>::new_from_config(
             &CircuitConfig::standard_recursion_config(),
             3,
         ))
@@ -387,9 +390,10 @@ mod tests {
 
     #[test]
     fn test_gate_constraint() {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
         const CHUNK_SIZE: usize = 4;
         let num_copies = 3;
 

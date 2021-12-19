@@ -3,7 +3,6 @@ use std::ops::Range;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::extension_field::FieldExtension;
-use crate::field::field_types::RichField;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
@@ -48,7 +47,7 @@ impl<const D: usize> ArithmeticExtensionGate<D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D> {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExtensionGate<D> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
@@ -158,16 +157,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
 }
 
 #[derive(Clone, Debug)]
-struct ArithmeticExtensionGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct ArithmeticExtensionGenerator<F: Extendable<D>, const D: usize> {
     gate_index: usize,
     const_0: F,
     const_1: F,
     i: usize,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for ArithmeticExtensionGenerator<F, D>
-{
+impl<F: Extendable<D>, const D: usize> SimpleGenerator<F> for ArithmeticExtensionGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(self.i)
             .chain(ArithmeticExtensionGate::<D>::wires_ith_multiplicand_1(
@@ -212,6 +209,7 @@ mod tests {
     use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
     fn low_degree() {
@@ -222,8 +220,11 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
         let gate =
             ArithmeticExtensionGate::new_from_config(&CircuitConfig::standard_recursion_config());
-        test_eval_fns::<GoldilocksField, _, 4>(gate)
+        test_eval_fns::<F, C, _, D>(gate)
     }
 }

@@ -15,12 +15,12 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate for inserting a value into a list at a non-deterministic location.
 #[derive(Clone, Debug)]
-pub(crate) struct InsertionGate<F: RichField + Extendable<D>, const D: usize> {
+pub(crate) struct InsertionGate<F: Extendable<D>, const D: usize> {
     pub vec_size: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> InsertionGate<F, D> {
+impl<F: Extendable<D>, const D: usize> InsertionGate<F, D> {
     pub fn new(vec_size: usize) -> Self {
         Self {
             vec_size,
@@ -70,7 +70,7 @@ impl<F: RichField + Extendable<D>, const D: usize> InsertionGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
+impl<F: Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -324,13 +324,13 @@ mod tests {
 
     use anyhow::Result;
 
-    use crate::field::extension_field::quartic::QuarticExtension;
     use crate::field::field_types::Field;
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::insertion::InsertionGate;
     use crate::hash::hash_types::HashOut;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
 
     #[test]
@@ -359,14 +359,18 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(InsertionGate::new(4))
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        test_eval_fns::<F, C, _, D>(InsertionGate::new(4))
     }
 
     #[test]
     fn test_gate_constraint() {
-        type F = GoldilocksField;
-        type FF = QuarticExtension<GoldilocksField>;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type FF = <C as GenericConfig<D>>::FE;
 
         /// Returns the local wires for an insertion gate given the original vector, element to
         /// insert, and index.

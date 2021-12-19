@@ -13,23 +13,24 @@ use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
+use crate::plonk::config::{AlgebraicConfig, AlgebraicHasher, GenericConfig};
 use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::proof::OpeningSetTarget;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::util::{log2_strict, reverse_index_bits_in_place};
 use crate::with_context;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
     /// and P' is the FRI reduced polynomial.
-    fn compute_evaluation(
+    fn compute_evaluation<C: GenericConfig<D, F = F>>(
         &mut self,
         x: Target,
         x_index_within_coset_bits: &[BoolTarget],
         arity_bits: usize,
         evals: &[ExtensionTarget<D>],
         beta: ExtensionTarget<D>,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) -> ExtensionTarget<D> {
         let arity = 1 << arity_bits;
         debug_assert_eq!(evals.len(), arity);
@@ -68,10 +69,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
     /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
     /// helpful errors.
-    fn check_recursion_config(
+    fn check_recursion_config<C: GenericConfig<D, F = F>>(
         &self,
         max_fri_arity_bits: usize,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) {
         let random_access = RandomAccessGate::<F, D>::new_from_config(
             &self.config,
@@ -106,23 +107,23 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
-    fn fri_verify_proof_of_work(
+    fn fri_verify_proof_of_work<H: AlgebraicHasher<F>>(
         &mut self,
         proof: &FriProofTarget<D>,
-        challenger: &mut RecursiveChallenger,
+        challenger: &mut RecursiveChallenger<F, H, D>,
         config: &FriConfig,
     ) {
         let mut inputs = challenger.get_hash(self).elements.to_vec();
         inputs.push(proof.pow_witness);
 
-        let hash = self.hash_n_to_m(inputs, 1, false)[0];
+        let hash = self.hash_n_to_m::<H>(inputs, 1, false)[0];
         self.assert_leading_zeros(
             hash,
             config.proof_of_work_bits + (64 - F::order().bits()) as u32,
         );
     }
 
-    pub fn verify_fri_proof(
+    pub fn verify_fri_proof<C: AlgebraicConfig<D, F = F>>(
         &mut self,
         // Openings of the PLONK polynomials.
         os: &OpeningSetTarget<D>,
@@ -130,8 +131,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         zeta: ExtensionTarget<D>,
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
-        challenger: &mut RecursiveChallenger,
-        common_data: &CommonCircuitData<F, D>,
+        challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) {
         let config = &common_data.config;
 
@@ -170,7 +171,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         with_context!(
             self,
             "check PoW",
-            self.fri_verify_proof_of_work(proof, challenger, &config.fri_config)
+            self.fri_verify_proof_of_work::<C::Hasher>(proof, challenger, &config.fri_config)
         );
 
         // Check that parameters are coherent.
@@ -223,7 +224,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn fri_verify_initial_proof(
+    fn fri_verify_initial_proof<H: AlgebraicHasher<F>>(
         &mut self,
         x_index_bits: &[BoolTarget],
         proof: &FriInitialTreeProofTarget,
@@ -239,7 +240,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             with_context!(
                 self,
                 &format!("verify {}'th initial Merkle proof", i),
-                self.verify_merkle_proof_with_cap_index(
+                self.verify_merkle_proof_with_cap_index::<H>(
                     evals.clone(),
                     x_index_bits,
                     cap_index,
@@ -250,14 +251,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn fri_combine_initial(
+    fn fri_combine_initial<C: GenericConfig<D, F = F>>(
         &mut self,
         proof: &FriInitialTreeProofTarget,
         alpha: ExtensionTarget<D>,
         subgroup_x: Target,
         vanish_zeta: ExtensionTarget<D>,
         precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
         let config = &common_data.config;
@@ -319,18 +320,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         sum
     }
 
-    fn fri_verifier_query_round(
+    fn fri_verifier_query_round<C: AlgebraicConfig<D, F = F>>(
         &mut self,
         zeta: ExtensionTarget<D>,
         alpha: ExtensionTarget<D>,
         precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
-        challenger: &mut RecursiveChallenger,
+        challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
         n: usize,
         betas: &[ExtensionTarget<D>],
         round_proof: &FriQueryRoundTarget<D>,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, C, D>,
     ) {
         let n_log = log2_strict(n);
 
@@ -345,7 +346,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         with_context!(
             self,
             "check FRI initial proof",
-            self.fri_verify_initial_proof(
+            self.fri_verify_initial_proof::<C::Hasher>(
                 &x_index_bits,
                 &round_proof.initial_trees_proof,
                 initial_merkle_caps,
@@ -414,7 +415,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             with_context!(
                 self,
                 "verify FRI round Merkle proof.",
-                self.verify_merkle_proof_with_cap_index(
+                self.verify_merkle_proof_with_cap_index::<C::Hasher>(
                     flatten_target(evals),
                     &coset_index_bits,
                     cap_index,
