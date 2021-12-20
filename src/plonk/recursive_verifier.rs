@@ -389,14 +389,23 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
 
-        // Start with a degree 2^14 proof, then shrink it to 2^13, then to 2^12.
+        // Start with a degree 2^14 proof
         let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 16_000)?;
         assert_eq!(cd.degree_bits, 14);
+
+        // Shrink it to 2^13.
         let (proof, vd, cd) =
             recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, Some(13), false, false)?;
         assert_eq!(cd.degree_bits, 13);
+
+        // Shrink it to 2^12.
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, None, true, true)?;
+        assert_eq!(cd.degree_bits, 12);
+
+        // Final proof using Keccak-256.
         let (proof, _vd, cd) =
-            recursive_proof::<F, KC, C, D>(proof, vd, cd, &config, &config, None, true, true)?;
+            recursive_proof::<F, KC, C, D>(proof, vd, cd, &config, &config, None, false, false)?;
         assert_eq!(cd.degree_bits, 12);
 
         test_serialization(&proof, &cd)?;
