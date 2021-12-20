@@ -528,7 +528,7 @@ mod tests {
         )?;
         test_serialization(&proof, &cd)?;
 
-        let (proof, vd, cd) = recursive_proof::<F, KC, GC, D>(
+        let (proof, _vd, cd) = recursive_proof::<F, KC, GC, D>(
             proof,
             vd,
             cd,
