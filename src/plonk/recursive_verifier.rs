@@ -384,7 +384,6 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type KC = KeccakGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
@@ -399,13 +398,8 @@ mod tests {
         assert_eq!(cd.degree_bits, 13);
 
         // Shrink it to 2^12.
-        let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, None, true, true)?;
-        assert_eq!(cd.degree_bits, 12);
-
-        // Final proof using Keccak-256.
         let (proof, _vd, cd) =
-            recursive_proof::<F, KC, C, D>(proof, vd, cd, &config, &config, None, false, false)?;
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, None, true, true)?;
         assert_eq!(cd.degree_bits, 12);
 
         test_serialization(&proof, &cd)?;
