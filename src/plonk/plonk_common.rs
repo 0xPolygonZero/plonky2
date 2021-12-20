@@ -1,6 +1,7 @@
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, RichField};
+use crate::field::packed_field::PackedField;
 use crate::fri::commitment::SALT_SIZE;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -157,14 +158,14 @@ pub(crate) fn reduce_with_powers_multi<
     cumul
 }
 
-pub(crate) fn reduce_with_powers<'a, F: Field, T: IntoIterator<Item = &'a F>>(
+pub(crate) fn reduce_with_powers<'a, P: PackedField, T: IntoIterator<Item = &'a P>>(
     terms: T,
-    alpha: F,
-) -> F
+    alpha: P::Scalar,
+) -> P
 where
     T::IntoIter: DoubleEndedIterator,
 {
-    let mut sum = F::ZERO;
+    let mut sum = P::ZERO;
     for &term in terms.into_iter().rev() {
         sum = sum * alpha + term;
     }

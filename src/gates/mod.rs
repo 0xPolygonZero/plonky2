@@ -17,6 +17,7 @@ pub mod interpolation;
 pub mod low_degree_interpolation;
 pub mod multiplication_extension;
 pub mod noop;
+mod packed_util;
 pub mod poseidon;
 pub(crate) mod poseidon_mds;
 pub(crate) mod public_input;

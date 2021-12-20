@@ -2,11 +2,16 @@ use std::ops::Range;
 
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
+use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
+use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{
+    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
+    EvaluationVarsBasePacked,
+};
 
 /// A gate whose first four wires will be equal to a hash of public inputs.
 pub struct PublicInputGate;
@@ -31,14 +36,14 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for PublicInputGate {
 
     fn eval_unfiltered_base_one(
         &self,
-        vars: EvaluationVarsBase<F>,
-        mut yield_constr: StridedConstraintConsumer<F>,
+        _vars: EvaluationVarsBase<F>,
+        _yield_constr: StridedConstraintConsumer<F>,
     ) {
-        yield_constr.many(
-            Self::wires_public_inputs_hash()
-                .zip(vars.public_inputs_hash.elements)
-                .map(|(wire, hash_part)| vars.local_wires[wire] - hash_part),
-        )
+        panic!("use eval_unfiltered_base_packed instead");
+    }
+
+    fn eval_unfiltered_base_batch(&self, vars_base: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        self.eval_unfiltered_base_batch_packed(vars_base)
     }
 
     fn eval_unfiltered_recursively(
@@ -77,6 +82,20 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for PublicInputGate {
 
     fn num_constraints(&self) -> usize {
         4
+    }
+}
+
+impl<F: Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for PublicInputGate {
+    fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
+        &self,
+        vars: EvaluationVarsBasePacked<P>,
+        mut yield_constr: StridedConstraintConsumer<P>,
+    ) {
+        yield_constr.many(
+            Self::wires_public_inputs_hash()
+                .zip(vars.public_inputs_hash.elements)
+                .map(|(wire, hash_part)| vars.local_wires[wire] - hash_part),
+        )
     }
 }
 

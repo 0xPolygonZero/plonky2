@@ -3,7 +3,9 @@ use std::ops::Range;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::{Field, PrimeField, RichField};
+use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
+use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -11,7 +13,10 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{
+    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
+    EvaluationVarsBasePacked,
+};
 
 /// A gate which can decompose a number into base B little-endian limbs.
 #[derive(Copy, Clone, Debug)]
@@ -60,21 +65,14 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
 
     fn eval_unfiltered_base_one(
         &self,
-        vars: EvaluationVarsBase<F>,
-        mut yield_constr: StridedConstraintConsumer<F>,
+        _vars: EvaluationVarsBase<F>,
+        _yield_constr: StridedConstraintConsumer<F>,
     ) {
-        let sum = vars.local_wires[Self::WIRE_SUM];
-        let limbs = vars.local_wires.view(self.limbs());
-        let computed_sum = reduce_with_powers(limbs, F::from_canonical_usize(B));
+        panic!("use eval_unfiltered_base_packed instead");
+    }
 
-        yield_constr.one(computed_sum - sum);
-
-        let constraints_iter = limbs.iter().map(|&limb| {
-            (0..B)
-                .map(|i| unsafe { limb.sub_canonical_u64(i as u64) })
-                .product::<F>()
-        });
-        yield_constr.many(constraints_iter);
+    fn eval_unfiltered_base_batch(&self, vars_base: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        self.eval_unfiltered_base_batch_packed(vars_base)
     }
 
     fn eval_unfiltered_recursively(
@@ -133,6 +131,29 @@ impl<F: Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGat
     // 1 for checking the sum then `num_limbs` for range-checking the limbs.
     fn num_constraints(&self) -> usize {
         1 + self.num_limbs
+    }
+}
+
+impl<F: Extendable<D>, const D: usize, const B: usize> PackedEvaluableBase<F, D>
+    for BaseSumGate<B>
+{
+    fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
+        &self,
+        vars: EvaluationVarsBasePacked<P>,
+        mut yield_constr: StridedConstraintConsumer<P>,
+    ) {
+        let sum = vars.local_wires[Self::WIRE_SUM];
+        let limbs = vars.local_wires.view(self.limbs());
+        let computed_sum = reduce_with_powers(limbs, F::from_canonical_usize(B));
+
+        yield_constr.one(computed_sum - sum);
+
+        let constraints_iter = limbs.iter().map(|&limb| {
+            (0..B)
+                .map(|i| limb - F::from_canonical_usize(i))
+                .product::<P>()
+        });
+        yield_constr.many(constraints_iter);
     }
 }
 

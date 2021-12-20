@@ -5,7 +5,9 @@ use itertools::Itertools;
 use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
+use crate::field::packed_field::PackedField;
 use crate::gates::gate::Gate;
+use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -13,7 +15,10 @@ use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::plonk::vars::{
+    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
+    EvaluationVarsBasePacked,
+};
 
 /// A gate for checking that a particular element of a list matches a given value.
 #[derive(Copy, Clone, Debug)]
@@ -99,14 +104,14 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
 
             // Assert that each bit wire value is indeed boolean.
             for &b in &bits {
-                constraints.push(b * (b - F::Extension::ONE));
+                constraints.push(b * (b - <F::Extension as Field>::ONE));
             }
 
             // Assert that the binary decomposition was correct.
             let reconstructed_index = bits
                 .iter()
                 .rev()
-                .fold(F::Extension::ZERO, |acc, &b| acc.double() + b);
+                .fold(<F::Extension as Field>::ZERO, |acc, &b| acc.double() + b);
             constraints.push(reconstructed_index - access_index);
 
             // Repeatedly fold the list, selecting the left or right item from each pair based on
@@ -128,41 +133,14 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
 
     fn eval_unfiltered_base_one(
         &self,
-        vars: EvaluationVarsBase<F>,
-        mut yield_constr: StridedConstraintConsumer<F>,
+        _vars: EvaluationVarsBase<F>,
+        _yield_constr: StridedConstraintConsumer<F>,
     ) {
-        for copy in 0..self.num_copies {
-            let access_index = vars.local_wires[self.wire_access_index(copy)];
-            let mut list_items = (0..self.vec_size())
-                .map(|i| vars.local_wires[self.wire_list_item(i, copy)])
-                .collect::<Vec<_>>();
-            let claimed_element = vars.local_wires[self.wire_claimed_element(copy)];
-            let bits = (0..self.bits)
-                .map(|i| vars.local_wires[self.wire_bit(i, copy)])
-                .collect::<Vec<_>>();
+        panic!("use eval_unfiltered_base_packed instead");
+    }
 
-            // Assert that each bit wire value is indeed boolean.
-            for &b in &bits {
-                yield_constr.one(b * (b - F::ONE));
-            }
-
-            // Assert that the binary decomposition was correct.
-            let reconstructed_index = bits.iter().rev().fold(F::ZERO, |acc, &b| acc.double() + b);
-            yield_constr.one(reconstructed_index - access_index);
-
-            // Repeatedly fold the list, selecting the left or right item from each pair based on
-            // the corresponding bit.
-            for b in bits {
-                list_items = list_items
-                    .iter()
-                    .tuples()
-                    .map(|(&x, &y)| x + b * (y - x))
-                    .collect()
-            }
-
-            debug_assert_eq!(list_items.len(), 1);
-            yield_constr.one(list_items[0] - claimed_element);
-        }
+    fn eval_unfiltered_base_batch(&self, vars_base: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+        self.eval_unfiltered_base_batch_packed(vars_base)
     }
 
     fn eval_unfiltered_recursively(
@@ -248,6 +226,47 @@ impl<F: Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGate<F, D> {
     fn num_constraints(&self) -> usize {
         let constraints_per_copy = self.bits + 2;
         self.num_copies * constraints_per_copy
+    }
+}
+
+impl<F: Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for RandomAccessGate<F, D> {
+    fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
+        &self,
+        vars: EvaluationVarsBasePacked<P>,
+        mut yield_constr: StridedConstraintConsumer<P>,
+    ) {
+        for copy in 0..self.num_copies {
+            let access_index = vars.local_wires[self.wire_access_index(copy)];
+            let mut list_items = (0..self.vec_size())
+                .map(|i| vars.local_wires[self.wire_list_item(i, copy)])
+                .collect::<Vec<_>>();
+            let claimed_element = vars.local_wires[self.wire_claimed_element(copy)];
+            let bits = (0..self.bits)
+                .map(|i| vars.local_wires[self.wire_bit(i, copy)])
+                .collect::<Vec<_>>();
+
+            // Assert that each bit wire value is indeed boolean.
+            for &b in &bits {
+                yield_constr.one(b * (b - F::ONE));
+            }
+
+            // Assert that the binary decomposition was correct.
+            let reconstructed_index = bits.iter().rev().fold(P::ZERO, |acc, &b| acc + acc + b);
+            yield_constr.one(reconstructed_index - access_index);
+
+            // Repeatedly fold the list, selecting the left or right item from each pair based on
+            // the corresponding bit.
+            for b in bits {
+                list_items = list_items
+                    .iter()
+                    .tuples()
+                    .map(|(&x, &y)| x + b * (y - x))
+                    .collect()
+            }
+
+            debug_assert_eq!(list_items.len(), 1);
+            yield_constr.one(list_items[0] - claimed_element);
+        }
     }
 }
 

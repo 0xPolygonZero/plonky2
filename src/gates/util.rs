@@ -1,22 +1,23 @@
 use std::marker::PhantomData;
 
-use crate::field::field_types::Field;
+use crate::field::packed_field::PackedField;
 
 /// Writes constraints yielded by a gate to a buffer, with a given stride.
 /// Permits us to abstract the underlying memory layout. In particular, we can make a matrix of
 /// constraints where every column is an evaluation point and every row is a constraint index, with
 /// the matrix stored in row-contiguous form.
-pub struct StridedConstraintConsumer<'a, F: Field> {
+pub struct StridedConstraintConsumer<'a, P: PackedField> {
     // This is a particularly neat way of doing this, more so than a slice. We increase start by
     // stride at every step and terminate when it equals end.
-    start: *mut F,
-    end: *mut F,
+    start: *mut P::Scalar,
+    end: *mut P::Scalar,
     stride: usize,
-    _phantom: PhantomData<&'a mut [F]>,
+    _phantom: PhantomData<&'a mut [P::Scalar]>,
 }
 
-impl<'a, F: Field> StridedConstraintConsumer<'a, F> {
-    pub fn new(buffer: &'a mut [F], stride: usize, offset: usize) -> Self {
+impl<'a, P: PackedField> StridedConstraintConsumer<'a, P> {
+    pub fn new(buffer: &'a mut [P::Scalar], stride: usize, offset: usize) -> Self {
+        assert!(stride >= P::WIDTH);
         assert!(offset < stride);
         assert_eq!(buffer.len() % stride, 0);
         let ptr_range = buffer.as_mut_ptr_range();
@@ -38,12 +39,12 @@ impl<'a, F: Field> StridedConstraintConsumer<'a, F> {
     }
 
     /// Emit one constraint.
-    pub fn one(&mut self, constraint: F) {
+    pub fn one(&mut self, constraint: P) {
         if self.start != self.end {
             // # Safety
             // The checks in `new` guarantee that this points to valid space.
             unsafe {
-                *self.start = constraint;
+                *self.start.cast() = constraint;
             }
             // See the comment in `new`. `wrapping_add` is needed to avoid UB if we've just
             // exhausted our buffer (and hence we're setting `self.start` to point past the end).
@@ -54,7 +55,7 @@ impl<'a, F: Field> StridedConstraintConsumer<'a, F> {
     }
 
     /// Convenience method that calls `.one()` multiple times.
-    pub fn many<I: IntoIterator<Item = F>>(&mut self, constraints: I) {
+    pub fn many<I: IntoIterator<Item = P>>(&mut self, constraints: I) {
         constraints
             .into_iter()
             .for_each(|constraint| self.one(constraint));
