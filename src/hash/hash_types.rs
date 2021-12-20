@@ -161,6 +161,7 @@ impl<const N: usize> From<BytesHash<N>> for u64 {
 impl<F: RichField, const N: usize> From<BytesHash<N>> for Vec<F> {
     fn from(hash: BytesHash<N>) -> Self {
         hash.0
+            // Chunks of 7 bytes since 8 bytes would allow collisions.
             .chunks(7)
             .map(|bytes| {
                 let mut arr = [0; 8];
