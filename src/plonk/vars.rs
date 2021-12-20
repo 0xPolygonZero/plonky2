@@ -34,11 +34,11 @@ pub struct EvaluationVarsBase<'a, F: Field> {
     pub(crate) public_inputs_hash: &'a HashOut<F>,
 }
 
-/// Like EvaluationVarsBase, but packed.
+/// Like `EvaluationVarsBase`, but packed.
+// It's a separate struct because `EvaluationVarsBase` implements `get_local_ext` and we do not yet
+// have packed extension fields.
 #[derive(Debug, Copy, Clone)]
 pub struct EvaluationVarsBasePacked<'a, P: PackedField> {
-    // It's a separate struct because EvaluationVarsBase implements get_local_ext and we do not yet
-    // have packed extension fields.
     pub(crate) local_constants: PackedStridedView<'a, P>,
     pub(crate) local_wires: PackedStridedView<'a, P>,
     pub(crate) public_inputs_hash: &'a HashOut<P::Scalar>,
@@ -150,8 +150,12 @@ impl<'a, F: Field> Iterator for EvaluationVarsBaseBatchIter<'a, F> {
     }
 }
 
-/// Iterator of packed views (EvaluationVarsBasePacked) into a EvaluationVarsBaseBatch.
+/// Iterator of packed views (`EvaluationVarsBasePacked`) into a `EvaluationVarsBaseBatch`.
+/// Note: if the length of `EvaluationVarsBaseBatch` is not a multiple of `P::WIDTH`, then the
+/// leftovers at the end are ignored.
 pub struct EvaluationVarsBaseBatchIterPacked<'a, P: PackedField> {
+    /// Index to yield next, in units of `P::Scalar`. E.g. if `P::WIDTH == 4`, then we will yield
+    /// the vars for points `i`, `i + 1`, `i + 2`, and `i + 3`, packed.
     i: usize,
     vars_batch: EvaluationVarsBaseBatch<'a, P::Scalar>,
 }
