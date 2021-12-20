@@ -3,8 +3,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::field::field_types::{Field, PrimeField, RichField};
 use crate::iop::target::Target;
-use crate::util::ceil_div_usize;
-use crate::util::serialization::Buffer;
 
 /// Represents a ~256 bit hash output.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -162,10 +160,14 @@ impl<const N: usize> From<BytesHash<N>> for u64 {
 
 impl<F: RichField, const N: usize> From<BytesHash<N>> for Vec<F> {
     fn from(hash: BytesHash<N>) -> Self {
-        let n = hash.0.len();
-        let mut v = hash.0.to_vec();
-        v.resize(ceil_div_usize(n, 8) * 8, 0);
-        let mut buffer = Buffer::new(v);
-        buffer.read_field_vec(buffer.len() / 8).unwrap()
+        hash.0
+            // Chunks of 7 bytes since 8 bytes would allow collisions.
+            .chunks(7)
+            .map(|bytes| {
+                let mut arr = [0; 8];
+                arr[..bytes.len()].copy_from_slice(bytes);
+                F::from_canonical_u64(u64::from_le_bytes(arr))
+            })
+            .collect()
     }
 }
