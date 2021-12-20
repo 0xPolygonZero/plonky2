@@ -292,7 +292,7 @@ impl Sum for Avx2GoldilocksField {
 //    2-value addition.
 
 const SIGN_BIT: __m256i = unsafe { transmute([i64::MIN; 4]) };
-const SHITFTED_FIELD_ORDER: __m256i =
+const SHIFTED_FIELD_ORDER: __m256i =
     unsafe { transmute([GoldilocksField::ORDER ^ (i64::MIN as u64); 4]) };
 const EPSILON: __m256i = unsafe { transmute([GoldilocksField::ORDER.wrapping_neg(); 4]) };
 
@@ -310,7 +310,7 @@ pub unsafe fn shift(x: __m256i) -> __m256i {
 #[inline]
 unsafe fn canonicalize_s(x_s: __m256i) -> __m256i {
     // If x >= FIELD_ORDER then corresponding mask bits are all 0; otherwise all 1.
-    let mask = _mm256_cmpgt_epi64(SHITFTED_FIELD_ORDER, x_s);
+    let mask = _mm256_cmpgt_epi64(SHIFTED_FIELD_ORDER, x_s);
     // wrapback_amt is -FIELD_ORDER if mask is 0; otherwise 0.
     let wrapback_amt = _mm256_andnot_si256(mask, EPSILON);
     _mm256_add_epi64(x_s, wrapback_amt)
@@ -349,7 +349,7 @@ unsafe fn sub(x: __m256i, y: __m256i) -> __m256i {
 #[inline]
 unsafe fn neg(y: __m256i) -> __m256i {
     let y_s = shift(y);
-    _mm256_sub_epi64(SHITFTED_FIELD_ORDER, canonicalize_s(y_s))
+    _mm256_sub_epi64(SHIFTED_FIELD_ORDER, canonicalize_s(y_s))
 }
 
 /// Full 64-bit by 64-bit multiplication. This emulated multiplication is 1.33x slower than the
