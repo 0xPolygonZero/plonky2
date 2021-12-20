@@ -492,52 +492,28 @@ mod tests {
     fn test_recursive_verifier_multi_hash() -> Result<()> {
         init_logger();
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type PC = PoseidonGoldilocksConfig;
         type GC = GMiMCGoldilocksConfig;
         type KC = KeccakGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+        type F = <PC as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
-        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 4_000)?;
+        let (proof, vd, cd) = dummy_proof::<F, PC, D>(&config, 4_000)?;
 
         let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, Some(13), false, false)?;
+            recursive_proof::<F, PC, PC, D>(proof, vd, cd, &config, &config, None, false, false)?;
         test_serialization(&proof, &cd)?;
 
-        let (proof, vd, cd) = recursive_proof::<F, GC, C, D>(
-            proof,
-            vd,
-            cd,
-            &config,
-            &config,
-            Some(13),
-            false,
-            false,
-        )?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, GC, PC, D>(proof, vd, cd, &config, &config, None, false, false)?;
         test_serialization(&proof, &cd)?;
 
-        let (proof, vd, cd) = recursive_proof::<F, GC, GC, D>(
-            proof,
-            vd,
-            cd,
-            &config,
-            &config,
-            Some(13),
-            false,
-            false,
-        )?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, GC, GC, D>(proof, vd, cd, &config, &config, None, false, false)?;
         test_serialization(&proof, &cd)?;
 
-        let (proof, _vd, cd) = recursive_proof::<F, KC, GC, D>(
-            proof,
-            vd,
-            cd,
-            &config,
-            &config,
-            Some(13),
-            false,
-            false,
-        )?;
+        let (proof, _vd, cd) =
+            recursive_proof::<F, KC, GC, D>(proof, vd, cd, &config, &config, None, false, false)?;
         test_serialization(&proof, &cd)?;
 
         Ok(())
