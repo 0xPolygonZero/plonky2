@@ -137,7 +137,9 @@ mod tests {
     use crate::hash::merkle_proofs::MerkleProofTarget;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::VerifierOnlyCircuitData;
-    use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{
+        GMiMCGoldilocksConfig, GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig,
+    };
     use crate::plonk::proof::{
         CompressedProofWithPublicInputs, OpeningSetTarget, Proof, ProofTarget,
         ProofWithPublicInputs,
@@ -480,6 +482,62 @@ mod tests {
         )?;
         assert_eq!(cd.degree_bits, 12, "final proof too large");
 
+        test_serialization(&proof, &cd)?;
+
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn test_recursive_verifier_multi_hash() -> Result<()> {
+        init_logger();
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type GC = GMiMCGoldilocksConfig;
+        type KC = KeccakGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let config = CircuitConfig::standard_recursion_config();
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 4_000)?;
+
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, Some(13), false, false)?;
+        test_serialization(&proof, &cd)?;
+
+        let (proof, vd, cd) = recursive_proof::<F, GC, C, D>(
+            proof,
+            vd,
+            cd,
+            &config,
+            &config,
+            Some(13),
+            false,
+            false,
+        )?;
+        test_serialization(&proof, &cd)?;
+
+        let (proof, vd, cd) = recursive_proof::<F, GC, GC, D>(
+            proof,
+            vd,
+            cd,
+            &config,
+            &config,
+            Some(13),
+            false,
+            false,
+        )?;
+        test_serialization(&proof, &cd)?;
+
+        let (proof, vd, cd) = recursive_proof::<F, KC, GC, D>(
+            proof,
+            vd,
+            cd,
+            &config,
+            &config,
+            Some(13),
+            false,
+            false,
+        )?;
         test_serialization(&proof, &cd)?;
 
         Ok(())
