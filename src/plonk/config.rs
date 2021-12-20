@@ -8,10 +8,12 @@ use crate::field::extension_field::quadratic::QuadraticExtension;
 use crate::field::extension_field::{Extendable, FieldExtension};
 use crate::field::field_types::RichField;
 use crate::field::goldilocks_field::GoldilocksField;
+use crate::gates::gmimc::GMiMCGate;
 use crate::gates::poseidon::PoseidonGate;
 use crate::hash::hash_types::{BytesHash, HashOut};
 use crate::hash::hashing::{
-    compress, hash_n_to_hash, PlonkyPermutation, PoseidonPermutation, SPONGE_WIDTH,
+    compress, hash_n_to_hash, GMiMCPermutation, PlonkyPermutation, PoseidonPermutation,
+    SPONGE_WIDTH,
 };
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -106,55 +108,54 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
     }
 }
 
-// TODO: Remove width from `GMiMCGate` to make this work.
-// #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-// pub struct GMiMCHash;
-// impl<F: RichField> Hasher<F> for GMiMCHash {
-//     const HASH_SIZE: usize = 4 * 8;
-//     type Hash = HashOut<F>;
-//
-//     fn hash(input: Vec<F>, pad: bool) -> Self::Hash {
-//         hash_n_to_hash::<F, <Self as AlgebraicHasher<F>>::Permutation>(input, pad)
-//     }
-//
-//     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
-//         compress::<F, <Self as AlgebraicHasher<F>>::Permutation>(left, right)
-//     }
-// }
-//
-// impl<F: RichField> AlgebraicHasher<F> for GMiMCHash {
-//     type Permutation = GMiMCPermutation;
-//
-//     fn permute_swapped<const D: usize>(
-//         inputs: [Target; WIDTH],
-//         swap: BoolTarget,
-//         builder: &mut CircuitBuilder<F, D>,
-//     ) -> [Target; WIDTH]
-//     where
-//         F: Extendable<D>,
-//     {
-//         let gate_type = GMiMCGate::<F, D, W>::new();
-//         let gate = builder.add_gate(gate_type, vec![]);
-//
-//         let swap_wire = GMiMCGate::<F, D, W>::WIRE_SWAP;
-//         let swap_wire = Target::wire(gate, swap_wire);
-//         builder.connect(swap.target, swap_wire);
-//
-//         // Route input wires.
-//         for i in 0..W {
-//             let in_wire = GMiMCGate::<F, D, W>::wire_input(i);
-//             let in_wire = Target::wire(gate, in_wire);
-//             builder.connect(inputs[i], in_wire);
-//         }
-//
-//         // Collect output wires.
-//         (0..W)
-//             .map(|i| Target::wire(gate, input: GMiMCGate<F, D, W>::wire_output(i)))
-//             .collect::<Vec<_>>()
-//             .try_into()
-//             .unwrap()
-//     }
-// }
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct GMiMCHash;
+impl<F: RichField> Hasher<F> for GMiMCHash {
+    const HASH_SIZE: usize = 4 * 8;
+    type Hash = HashOut<F>;
+
+    fn hash(input: Vec<F>, pad: bool) -> Self::Hash {
+        hash_n_to_hash::<F, <Self as AlgebraicHasher<F>>::Permutation>(input, pad)
+    }
+
+    fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
+        compress::<F, <Self as AlgebraicHasher<F>>::Permutation>(left, right)
+    }
+}
+
+impl<F: RichField> AlgebraicHasher<F> for GMiMCHash {
+    type Permutation = GMiMCPermutation;
+
+    fn permute_swapped<const D: usize>(
+        inputs: [Target; SPONGE_WIDTH],
+        swap: BoolTarget,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> [Target; SPONGE_WIDTH]
+    where
+        F: Extendable<D>,
+    {
+        let gate_type = GMiMCGate::<F, D, SPONGE_WIDTH>::new();
+        let gate = builder.add_gate(gate_type, vec![]);
+
+        let swap_wire = GMiMCGate::<F, D, SPONGE_WIDTH>::WIRE_SWAP;
+        let swap_wire = Target::wire(gate, swap_wire);
+        builder.connect(swap.target, swap_wire);
+
+        // Route input wires.
+        for i in 0..SPONGE_WIDTH {
+            let in_wire = GMiMCGate::<F, D, SPONGE_WIDTH>::wire_input(i);
+            let in_wire = Target::wire(gate, in_wire);
+            builder.connect(inputs[i], in_wire);
+        }
+
+        // Collect output wires.
+        (0..SPONGE_WIDTH)
+            .map(|i| Target::wire(gate, GMiMCGate::<F, D, SPONGE_WIDTH>::wire_output(i)))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
+    }
+}
 
 /// Keccak-256 hash function.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -223,6 +224,16 @@ impl AlgebraicConfig<2> for PoseidonGoldilocksConfig {
     type FE = QuadraticExtension<Self::F>;
     type Hasher = PoseidonHash;
     type InnerHasher = PoseidonHash;
+}
+
+/// Configuration using GMiMC over the Goldilocks field.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct GMiMCGoldilocksConfig;
+impl AlgebraicConfig<2> for GMiMCGoldilocksConfig {
+    type F = GoldilocksField;
+    type FE = QuadraticExtension<Self::F>;
+    type Hasher = GMiMCHash;
+    type InnerHasher = GMiMCHash;
 }
 
 /// Configuration using truncated Keccak over the Goldilocks field.
