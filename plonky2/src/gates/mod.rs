@@ -27,6 +27,6 @@ pub mod subtraction_u32;
 pub mod switch;
 pub mod util;
 
-// TODO
-// #[cfg(test)]
+// Can't use #[cfg(test)] here because it needs to be visible to other crates.
+// See https://github.com/rust-lang/cargo/issues/8379
 pub mod gate_testing;
