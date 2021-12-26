@@ -23,7 +23,7 @@ use crate::plonk::vars::{
 
 /// A gate for conditionally swapping input values based on a boolean.
 #[derive(Clone, Debug)]
-pub(crate) struct SwitchGate<F: RichField + Extendable<D>, const D: usize> {
+pub struct SwitchGate<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) chunk_size: usize,
     pub(crate) num_copies: usize,
     _phantom: PhantomData<F>,

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use bimap::BiMap;
-use itertools::enumerate;
 
 /// Given two lists which are permutations of one another, creates a BiMap which maps an index in
 /// one list to an index in the other list with the same associated value.
@@ -13,7 +12,7 @@ pub fn bimap_from_lists<T: Eq + Hash>(a: Vec<T>, b: Vec<T>) -> BiMap<usize, usiz
     assert_eq!(a.len(), b.len(), "Vectors differ in length");
 
     let mut b_values_to_indices = HashMap::new();
-    for (i, value) in enumerate(b) {
+    for (i, value) in b.iter().enumerate() {
         b_values_to_indices
             .entry(value)
             .or_insert_with(Vec::new)
@@ -21,7 +20,7 @@ pub fn bimap_from_lists<T: Eq + Hash>(a: Vec<T>, b: Vec<T>) -> BiMap<usize, usiz
     }
 
     let mut bimap = BiMap::new();
-    for (i, value) in enumerate(a) {
+    for (i, value) in a.iter().enumerate() {
         if let Some(j) = b_values_to_indices.get_mut(&value).and_then(Vec::pop) {
             bimap.insert(i, j);
         } else {
@@ -34,7 +33,7 @@ pub fn bimap_from_lists<T: Eq + Hash>(a: Vec<T>, b: Vec<T>) -> BiMap<usize, usiz
 
 #[cfg(test)]
 mod tests {
-    use crate::util::bimap::bimap_from_lists;
+    use crate::bimap::bimap_from_lists;
 
     #[test]
     fn empty_lists() {

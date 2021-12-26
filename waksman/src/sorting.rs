@@ -1,16 +1,17 @@
 use std::marker::PhantomData;
 
 use itertools::izip;
-use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::Field;
+use plonky2::field::extension_field::Extendable;
+use plonky2::field::field_types::Field;
+use plonky2::gates::assert_le::AssertLessThanGate;
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
+use plonky2::iop::target::{BoolTarget, Target};
+use plonky2::iop::witness::{PartitionWitness, Witness};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_util::ceil_div_usize;
 
-use crate::gates::assert_le::AssertLessThanGate;
-use crate::hash::hash_types::RichField;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator};
-use crate::iop::target::{BoolTarget, Target};
-use crate::iop::witness::{PartitionWitness, Witness};
-use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::permutation::assert_permutation;
 
 pub struct MemoryOp<F: Field> {
     is_write: bool,
@@ -27,93 +28,102 @@ pub struct MemoryOpTarget {
     value: Target,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn assert_permutation_memory_ops(&mut self, a: &[MemoryOpTarget], b: &[MemoryOpTarget]) {
-        let a_chunks: Vec<Vec<Target>> = a
-            .iter()
-            .map(|op| vec![op.address, op.timestamp, op.is_write.target, op.value])
-            .collect();
-        let b_chunks: Vec<Vec<Target>> = b
-            .iter()
-            .map(|op| vec![op.address, op.timestamp, op.is_write.target, op.value])
-            .collect();
-
-        self.assert_permutation(a_chunks, b_chunks);
-    }
-
-    /// Add an AssertLessThanGate to assert that `lhs` is less than `rhs`, where their values are at most `bits` bits.
-    pub fn assert_le(&mut self, lhs: Target, rhs: Target, bits: usize, num_chunks: usize) {
-        let gate = AssertLessThanGate::new(bits, num_chunks);
-        let gate_index = self.add_gate(gate.clone(), vec![]);
-
-        self.connect(Target::wire(gate_index, gate.wire_first_input()), lhs);
-        self.connect(Target::wire(gate_index, gate.wire_second_input()), rhs);
-    }
-
-    /// Sort memory operations by address value, then by timestamp value.
-    /// This is done by combining address and timestamp into one field element (using their given bit lengths).
-    pub fn sort_memory_ops(
-        &mut self,
-        ops: &[MemoryOpTarget],
-        address_bits: usize,
-        timestamp_bits: usize,
-    ) -> Vec<MemoryOpTarget> {
-        let n = ops.len();
-
-        let combined_bits = address_bits + timestamp_bits;
-        let chunk_bits = 3;
-        let num_chunks = ceil_div_usize(combined_bits, chunk_bits);
-
-        // This is safe because `assert_permutation` will force these targets (in the output list) to match the boolean values from the input list.
-        let is_write_targets: Vec<_> = self
-            .add_virtual_targets(n)
-            .iter()
-            .map(|&t| BoolTarget::new_unsafe(t))
-            .collect();
-
-        let address_targets = self.add_virtual_targets(n);
-        let timestamp_targets = self.add_virtual_targets(n);
-        let value_targets = self.add_virtual_targets(n);
-
-        let output_targets: Vec<_> = izip!(
-            is_write_targets,
-            address_targets,
-            timestamp_targets,
-            value_targets
-        )
-        .map(|(i, a, t, v)| MemoryOpTarget {
-            is_write: i,
-            address: a,
-            timestamp: t,
-            value: v,
-        })
+pub fn assert_permutation_memory_ops<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a: &[MemoryOpTarget],
+    b: &[MemoryOpTarget],
+) {
+    let a_chunks: Vec<Vec<Target>> = a
+        .iter()
+        .map(|op| vec![op.address, op.timestamp, op.is_write.target, op.value])
+        .collect();
+    let b_chunks: Vec<Vec<Target>> = b
+        .iter()
+        .map(|op| vec![op.address, op.timestamp, op.is_write.target, op.value])
         .collect();
 
-        let two_n = self.constant(F::from_canonical_usize(1 << timestamp_bits));
-        let address_timestamp_combined: Vec<_> = output_targets
-            .iter()
-            .map(|op| self.mul_add(op.address, two_n, op.timestamp))
-            .collect();
+    assert_permutation(builder, a_chunks, b_chunks);
+}
 
-        for i in 1..n {
-            self.assert_le(
-                address_timestamp_combined[i - 1],
-                address_timestamp_combined[i],
-                combined_bits,
-                num_chunks,
-            );
-        }
+/// Add an AssertLessThanGate to assert that `lhs` is less than `rhs`, where their values are at most `bits` bits.
+pub fn assert_le<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    lhs: Target,
+    rhs: Target,
+    bits: usize,
+    num_chunks: usize,
+) {
+    let gate = AssertLessThanGate::new(bits, num_chunks);
+    let gate_index = builder.add_gate(gate.clone(), vec![]);
 
-        self.assert_permutation_memory_ops(ops, &output_targets);
+    builder.connect(Target::wire(gate_index, gate.wire_first_input()), lhs);
+    builder.connect(Target::wire(gate_index, gate.wire_second_input()), rhs);
+}
 
-        self.add_simple_generator(MemoryOpSortGenerator::<F, D> {
-            input_ops: ops.to_vec(),
-            output_ops: output_targets.clone(),
-            _phantom: PhantomData,
-        });
+/// Sort memory operations by address value, then by timestamp value.
+/// This is done by combining address and timestamp into one field element (using their given bit lengths).
+pub fn sort_memory_ops<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    ops: &[MemoryOpTarget],
+    address_bits: usize,
+    timestamp_bits: usize,
+) -> Vec<MemoryOpTarget> {
+    let n = ops.len();
 
-        output_targets
+    let combined_bits = address_bits + timestamp_bits;
+    let chunk_bits = 3;
+    let num_chunks = ceil_div_usize(combined_bits, chunk_bits);
+
+    // This is safe because `assert_permutation` will force these targets (in the output list) to match the boolean values from the input list.
+    let is_write_targets: Vec<_> = builder
+        .add_virtual_targets(n)
+        .iter()
+        .map(|&t| BoolTarget::new_unsafe(t))
+        .collect();
+
+    let address_targets = builder.add_virtual_targets(n);
+    let timestamp_targets = builder.add_virtual_targets(n);
+    let value_targets = builder.add_virtual_targets(n);
+
+    let output_targets: Vec<_> = izip!(
+        is_write_targets,
+        address_targets,
+        timestamp_targets,
+        value_targets
+    )
+    .map(|(i, a, t, v)| MemoryOpTarget {
+        is_write: i,
+        address: a,
+        timestamp: t,
+        value: v,
+    })
+    .collect();
+
+    let two_n = builder.constant(F::from_canonical_usize(1 << timestamp_bits));
+    let address_timestamp_combined: Vec<_> = output_targets
+        .iter()
+        .map(|op| builder.mul_add(op.address, two_n, op.timestamp))
+        .collect();
+
+    for i in 1..n {
+        assert_le(
+            builder,
+            address_timestamp_combined[i - 1],
+            address_timestamp_combined[i],
+            combined_bits,
+            num_chunks,
+        );
     }
+
+    assert_permutation_memory_ops(builder, ops, &output_targets);
+
+    builder.add_simple_generator(MemoryOpSortGenerator::<F, D> {
+        input_ops: ops.to_vec(),
+        output_ops: output_targets.clone(),
+        _phantom: PhantomData,
+    });
+
+    output_targets
 }
 
 #[derive(Debug)]
@@ -173,14 +183,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::field_types::{Field, PrimeField};
+    use plonky2::field::field_types::{Field, PrimeField};
+    use plonky2::iop::witness::PartialWitness;
+    use plonky2::plonk::circuit_data::CircuitConfig;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use rand::{thread_rng, Rng};
 
     use super::*;
-    use crate::iop::witness::PartialWitness;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::verifier::verify;
 
     fn test_sorting(size: usize, address_bits: usize, timestamp_bits: usize) -> Result<()> {
         const D: usize = 2;
@@ -228,8 +237,12 @@ mod tests {
         input_ops_and_keys.sort_by_key(|(_, val)| *val);
         let input_ops_sorted: Vec<_> = input_ops_and_keys.iter().map(|(x, _)| x).collect();
 
-        let output_ops =
-            builder.sort_memory_ops(input_ops.as_slice(), address_bits, timestamp_bits);
+        let output_ops = sort_memory_ops(
+            &mut builder,
+            input_ops.as_slice(),
+            address_bits,
+            timestamp_bits,
+        );
 
         for i in 0..size {
             pw.set_bool_target(output_ops[i].is_write, input_ops_sorted[i].0);
@@ -241,7 +254,7 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]

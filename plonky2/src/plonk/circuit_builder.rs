@@ -927,10 +927,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (gate, i)
     }
 
-    pub(crate) fn find_switch_gate(
-        &mut self,
-        chunk_size: usize,
-    ) -> (SwitchGate<F, D>, usize, usize) {
+    pub fn find_switch_gate(&mut self, chunk_size: usize) -> (SwitchGate<F, D>, usize, usize) {
         if self.batched_gates.current_switch_gates.len() < chunk_size {
             self.batched_gates.current_switch_gates.extend(vec![
                 None;

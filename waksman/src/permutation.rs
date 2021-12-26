@@ -1,164 +1,174 @@
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
-use plonky2_field::{extension_field::Extendable, field_types::Field};
+use plonky2::field::{extension_field::Extendable, field_types::Field};
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
+use plonky2::iop::target::Target;
+use plonky2::iop::witness::{PartitionWitness, Witness};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 
-use crate::hash::hash_types::RichField;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator};
-use crate::iop::target::Target;
-use crate::iop::witness::{PartitionWitness, Witness};
-use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::util::bimap::bimap_from_lists;
+use crate::bimap::bimap_from_lists;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Assert that two lists of expressions evaluate to permutations of one another.
-    pub fn assert_permutation(&mut self, a: Vec<Vec<Target>>, b: Vec<Vec<Target>>) {
-        assert_eq!(
-            a.len(),
-            b.len(),
-            "Permutation must have same number of inputs and outputs"
-        );
-        assert_eq!(a[0].len(), b[0].len(), "Chunk size must be the same");
+/// Assert that two lists of expressions evaluate to permutations of one another.
+pub fn assert_permutation<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a: Vec<Vec<Target>>,
+    b: Vec<Vec<Target>>,
+) {
+    assert_eq!(
+        a.len(),
+        b.len(),
+        "Permutation must have same number of inputs and outputs"
+    );
+    assert_eq!(a[0].len(), b[0].len(), "Chunk size must be the same");
 
-        let chunk_size = a[0].len();
+    let chunk_size = a[0].len();
 
-        match a.len() {
-            // Two empty lists are permutations of one another, trivially.
-            0 => (),
-            // Two singleton lists are permutations of one another as long as their items are equal.
-            1 => {
-                for e in 0..chunk_size {
-                    self.connect(a[0][e], b[0][e])
-                }
+    match a.len() {
+        // Two empty lists are permutations of one another, trivially.
+        0 => (),
+        // Two singleton lists are permutations of one another as long as their items are equal.
+        1 => {
+            for e in 0..chunk_size {
+                builder.connect(a[0][e], b[0][e])
             }
-            2 => {
-                self.assert_permutation_2x2(a[0].clone(), a[1].clone(), b[0].clone(), b[1].clone())
-            }
-            // For larger lists, we recursively use two smaller permutation networks.
-            _ => self.assert_permutation_recursive(a, b),
         }
+        2 => assert_permutation_2x2(
+            builder,
+            a[0].clone(),
+            a[1].clone(),
+            b[0].clone(),
+            b[1].clone(),
+        ),
+        // For larger lists, we recursively use two smaller permutation networks.
+        _ => assert_permutation_recursive(builder, a, b),
     }
+}
 
-    /// Assert that [a1, a2] is a permutation of [b1, b2].
-    fn assert_permutation_2x2(
-        &mut self,
-        a1: Vec<Target>,
-        a2: Vec<Target>,
-        b1: Vec<Target>,
-        b2: Vec<Target>,
-    ) {
-        assert!(
-            a1.len() == a2.len() && a2.len() == b1.len() && b1.len() == b2.len(),
-            "Chunk size must be the same"
+/// Assert that [a1, a2] is a permutation of [b1, b2].
+fn assert_permutation_2x2<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a1: Vec<Target>,
+    a2: Vec<Target>,
+    b1: Vec<Target>,
+    b2: Vec<Target>,
+) {
+    assert!(
+        a1.len() == a2.len() && a2.len() == b1.len() && b1.len() == b2.len(),
+        "Chunk size must be the same"
+    );
+
+    let chunk_size = a1.len();
+
+    let (_switch, gate_out1, gate_out2) = create_switch(builder, a1, a2);
+    for e in 0..chunk_size {
+        builder.connect(b1[e], gate_out1[e]);
+        builder.connect(b2[e], gate_out2[e]);
+    }
+}
+
+/// Given two input wire chunks, add a new switch to the circuit (by adding one copy to a switch
+/// gate). Returns the wire for the switch boolean, and the two output wire chunks.
+fn create_switch<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a1: Vec<Target>,
+    a2: Vec<Target>,
+) -> (Target, Vec<Target>, Vec<Target>) {
+    assert_eq!(a1.len(), a2.len(), "Chunk size must be the same");
+
+    let chunk_size = a1.len();
+
+    let (gate, gate_index, next_copy) = builder.find_switch_gate(chunk_size);
+
+    let mut c = Vec::new();
+    let mut d = Vec::new();
+    for e in 0..chunk_size {
+        builder.connect(
+            a1[e],
+            Target::wire(gate_index, gate.wire_first_input(next_copy, e)),
         );
-
-        let chunk_size = a1.len();
-
-        let (_switch, gate_out1, gate_out2) = self.create_switch(a1, a2);
-        for e in 0..chunk_size {
-            self.connect(b1[e], gate_out1[e]);
-            self.connect(b2[e], gate_out2[e]);
-        }
-    }
-
-    /// Given two input wire chunks, add a new switch to the circuit (by adding one copy to a switch
-    /// gate). Returns the wire for the switch boolean, and the two output wire chunks.
-    fn create_switch(
-        &mut self,
-        a1: Vec<Target>,
-        a2: Vec<Target>,
-    ) -> (Target, Vec<Target>, Vec<Target>) {
-        assert_eq!(a1.len(), a2.len(), "Chunk size must be the same");
-
-        let chunk_size = a1.len();
-
-        let (gate, gate_index, next_copy) = self.find_switch_gate(chunk_size);
-
-        let mut c = Vec::new();
-        let mut d = Vec::new();
-        for e in 0..chunk_size {
-            self.connect(
-                a1[e],
-                Target::wire(gate_index, gate.wire_first_input(next_copy, e)),
-            );
-            self.connect(
-                a2[e],
-                Target::wire(gate_index, gate.wire_second_input(next_copy, e)),
-            );
-            c.push(Target::wire(
-                gate_index,
-                gate.wire_first_output(next_copy, e),
-            ));
-            d.push(Target::wire(
-                gate_index,
-                gate.wire_second_output(next_copy, e),
-            ));
-        }
-
-        let switch = Target::wire(gate_index, gate.wire_switch_bool(next_copy));
-
-        (switch, c, d)
-    }
-
-    fn assert_permutation_recursive(&mut self, a: Vec<Vec<Target>>, b: Vec<Vec<Target>>) {
-        assert_eq!(
-            a.len(),
-            b.len(),
-            "Permutation must have same number of inputs and outputs"
+        builder.connect(
+            a2[e],
+            Target::wire(gate_index, gate.wire_second_input(next_copy, e)),
         );
-        assert_eq!(a[0].len(), b[0].len(), "Chunk size must be the same");
-
-        let n = a.len();
-        let even = n % 2 == 0;
-
-        let mut child_1_a = Vec::new();
-        let mut child_1_b = Vec::new();
-        let mut child_2_a = Vec::new();
-        let mut child_2_b = Vec::new();
-
-        // See Figure 8 in the AS-Waksman paper.
-        let a_num_switches = n / 2;
-        let b_num_switches = if even {
-            a_num_switches - 1
-        } else {
-            a_num_switches
-        };
-
-        let mut a_switches = Vec::new();
-        let mut b_switches = Vec::new();
-        for i in 0..a_num_switches {
-            let (switch, out_1, out_2) = self.create_switch(a[i * 2].clone(), a[i * 2 + 1].clone());
-            a_switches.push(switch);
-            child_1_a.push(out_1);
-            child_2_a.push(out_2);
-        }
-        for i in 0..b_num_switches {
-            let (switch, out_1, out_2) = self.create_switch(b[i * 2].clone(), b[i * 2 + 1].clone());
-            b_switches.push(switch);
-            child_1_b.push(out_1);
-            child_2_b.push(out_2);
-        }
-
-        // See Figure 8 in the AS-Waksman paper.
-        if even {
-            child_1_b.push(b[n - 2].clone());
-            child_2_b.push(b[n - 1].clone());
-        } else {
-            child_2_a.push(a[n - 1].clone());
-            child_2_b.push(b[n - 1].clone());
-        }
-
-        self.assert_permutation(child_1_a, child_1_b);
-        self.assert_permutation(child_2_a, child_2_b);
-
-        self.add_simple_generator(PermutationGenerator::<F> {
-            a,
-            b,
-            a_switches,
-            b_switches,
-            _phantom: PhantomData,
-        });
+        c.push(Target::wire(
+            gate_index,
+            gate.wire_first_output(next_copy, e),
+        ));
+        d.push(Target::wire(
+            gate_index,
+            gate.wire_second_output(next_copy, e),
+        ));
     }
+
+    let switch = Target::wire(gate_index, gate.wire_switch_bool(next_copy));
+
+    (switch, c, d)
+}
+
+fn assert_permutation_recursive<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    a: Vec<Vec<Target>>,
+    b: Vec<Vec<Target>>,
+) {
+    assert_eq!(
+        a.len(),
+        b.len(),
+        "Permutation must have same number of inputs and outputs"
+    );
+    assert_eq!(a[0].len(), b[0].len(), "Chunk size must be the same");
+
+    let n = a.len();
+    let even = n % 2 == 0;
+
+    let mut child_1_a = Vec::new();
+    let mut child_1_b = Vec::new();
+    let mut child_2_a = Vec::new();
+    let mut child_2_b = Vec::new();
+
+    // See Figure 8 in the AS-Waksman paper.
+    let a_num_switches = n / 2;
+    let b_num_switches = if even {
+        a_num_switches - 1
+    } else {
+        a_num_switches
+    };
+
+    let mut a_switches = Vec::new();
+    let mut b_switches = Vec::new();
+    for i in 0..a_num_switches {
+        let (switch, out_1, out_2) = create_switch(builder, a[i * 2].clone(), a[i * 2 + 1].clone());
+        a_switches.push(switch);
+        child_1_a.push(out_1);
+        child_2_a.push(out_2);
+    }
+    for i in 0..b_num_switches {
+        let (switch, out_1, out_2) = create_switch(builder, b[i * 2].clone(), b[i * 2 + 1].clone());
+        b_switches.push(switch);
+        child_1_b.push(out_1);
+        child_2_b.push(out_2);
+    }
+
+    // See Figure 8 in the AS-Waksman paper.
+    if even {
+        child_1_b.push(b[n - 2].clone());
+        child_2_b.push(b[n - 1].clone());
+    } else {
+        child_2_a.push(a[n - 1].clone());
+        child_2_b.push(b[n - 1].clone());
+    }
+
+    assert_permutation(builder, child_1_a, child_1_b);
+    assert_permutation(builder, child_2_a, child_2_b);
+
+    builder.add_simple_generator(PermutationGenerator::<F> {
+        a,
+        b,
+        a_switches,
+        b_switches,
+        _phantom: PhantomData,
+    });
 }
 
 fn route<F: Field>(
@@ -361,14 +371,13 @@ impl<F: Field> SimpleGenerator<F> for PermutationGenerator<F> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::field_types::Field;
+    use plonky2::field::field_types::Field;
+    use plonky2::iop::witness::PartialWitness;
+    use plonky2::plonk::circuit_data::CircuitConfig;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use rand::{seq::SliceRandom, thread_rng, Rng};
 
     use super::*;
-    use crate::iop::witness::PartialWitness;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::verifier::verify;
 
     fn test_permutation_good(size: usize) -> Result<()> {
         const D: usize = 2;
@@ -388,12 +397,12 @@ mod tests {
         let mut b = a.clone();
         b.shuffle(&mut thread_rng());
 
-        builder.assert_permutation(a, b);
+        assert_permutation(&mut builder, a, b);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     fn test_permutation_duplicates(size: usize) -> Result<()> {
@@ -418,12 +427,12 @@ mod tests {
         let mut b = a.clone();
         b.shuffle(&mut thread_rng());
 
-        builder.assert_permutation(a, b);
+        assert_permutation(&mut builder, a, b);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     fn test_permutation_bad(size: usize) -> Result<()> {
@@ -447,7 +456,7 @@ mod tests {
             .map(|pair| vec![builder.constant(pair[0]), builder.constant(pair[1])])
             .collect();
 
-        builder.assert_permutation(a, b);
+        assert_permutation(&mut builder, a, b);
 
         let data = builder.build::<C>();
         data.prove(pw)?;
