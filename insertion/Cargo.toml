@@ -1,0 +1,9 @@
+[package]
+name = "plonky2_insertion"
+description = "Circuit implementation of list insertion"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+plonky2 = { path = "../plonky2" }
+anyhow = "1.0.40"

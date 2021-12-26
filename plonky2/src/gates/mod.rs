@@ -12,7 +12,6 @@ pub mod exponentiation;
 pub mod gate;
 pub mod gate_tree;
 pub mod gmimc;
-pub mod insertion;
 pub mod interpolation;
 pub mod low_degree_interpolation;
 pub mod multiplication_extension;
@@ -26,7 +25,8 @@ pub mod reducing;
 pub mod reducing_extension;
 pub mod subtraction_u32;
 pub mod switch;
-mod util;
+pub mod util;
 
-#[cfg(test)]
-mod gate_testing;
+// TODO
+// #[cfg(test)]
+pub mod gate_testing;

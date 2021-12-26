@@ -11,9 +11,9 @@ use crate::util::strided_view::PackedStridedView;
 
 #[derive(Debug, Copy, Clone)]
 pub struct EvaluationVars<'a, F: RichField + Extendable<D>, const D: usize> {
-    pub(crate) local_constants: &'a [F::Extension],
-    pub(crate) local_wires: &'a [F::Extension],
-    pub(crate) public_inputs_hash: &'a HashOut<F>,
+    pub local_constants: &'a [F::Extension],
+    pub local_wires: &'a [F::Extension],
+    pub public_inputs_hash: &'a HashOut<F>,
 }
 
 /// A batch of evaluation vars, in the base field.
@@ -22,17 +22,17 @@ pub struct EvaluationVars<'a, F: RichField + Extendable<D>, const D: usize> {
 #[derive(Debug, Copy, Clone)]
 pub struct EvaluationVarsBaseBatch<'a, F: Field> {
     batch_size: usize,
-    pub(crate) local_constants: &'a [F],
-    pub(crate) local_wires: &'a [F],
-    pub(crate) public_inputs_hash: &'a HashOut<F>,
+    pub local_constants: &'a [F],
+    pub local_wires: &'a [F],
+    pub public_inputs_hash: &'a HashOut<F>,
 }
 
 /// A view into `EvaluationVarsBaseBatch` for a particular evaluation point. Does not copy the data.
 #[derive(Debug, Copy, Clone)]
 pub struct EvaluationVarsBase<'a, F: Field> {
-    pub(crate) local_constants: PackedStridedView<'a, F>,
-    pub(crate) local_wires: PackedStridedView<'a, F>,
-    pub(crate) public_inputs_hash: &'a HashOut<F>,
+    pub local_constants: PackedStridedView<'a, F>,
+    pub local_wires: PackedStridedView<'a, F>,
+    pub public_inputs_hash: &'a HashOut<F>,
 }
 
 /// Like `EvaluationVarsBase`, but packed.
@@ -40,9 +40,9 @@ pub struct EvaluationVarsBase<'a, F: Field> {
 // have packed extension fields.
 #[derive(Debug, Copy, Clone)]
 pub struct EvaluationVarsBasePacked<'a, P: PackedField> {
-    pub(crate) local_constants: PackedStridedView<'a, P>,
-    pub(crate) local_wires: PackedStridedView<'a, P>,
-    pub(crate) public_inputs_hash: &'a HashOut<P::Scalar>,
+    pub local_constants: PackedStridedView<'a, P>,
+    pub local_wires: PackedStridedView<'a, P>,
+    pub public_inputs_hash: &'a HashOut<P::Scalar>,
 }
 
 impl<'a, F: RichField + Extendable<D>, const D: usize> EvaluationVars<'a, F, D> {
@@ -216,9 +216,9 @@ impl<'a, const D: usize> EvaluationTargets<'a, D> {
 
 #[derive(Copy, Clone)]
 pub struct EvaluationTargets<'a, const D: usize> {
-    pub(crate) local_constants: &'a [ExtensionTarget<D>],
-    pub(crate) local_wires: &'a [ExtensionTarget<D>],
-    pub(crate) public_inputs_hash: &'a HashOutTarget,
+    pub local_constants: &'a [ExtensionTarget<D>],
+    pub local_wires: &'a [ExtensionTarget<D>],
+    pub public_inputs_hash: &'a HashOutTarget,
 }
 
 impl<'a, const D: usize> EvaluationTargets<'a, D> {

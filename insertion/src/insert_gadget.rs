@@ -1,15 +1,26 @@
-use plonky2_field::extension_field::Extendable;
+use plonky2::field::extension_field::Extendable;
 
-use crate::gates::insertion::InsertionGate;
-use crate::hash::hash_types::RichField;
-use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::target::Target;
-use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::insertion_gate::InsertionGate;
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::iop::target::Target;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+pub trait CircuitBuilderInsert<F: RichField + Extendable<D>, const D: usize> {
     /// Inserts a `Target` in a vector at a non-deterministic index.
     /// Note: `index` is not range-checked.
-    pub fn insert(
+    fn insert(
+        &mut self,
+        index: Target,
+        element: ExtensionTarget<D>,
+        v: Vec<ExtensionTarget<D>>,
+    ) -> Vec<ExtensionTarget<D>>;
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderInsert<F, D>
+for CircuitBuilder<F, D>
+{
+    fn insert(
         &mut self,
         index: Target,
         element: ExtensionTarget<D>,
@@ -42,13 +53,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::field_types::Field;
+    use plonky2::field::field_types::Field;
 
     use super::*;
-    use crate::iop::witness::PartialWitness;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::verifier::verify;
+    use plonky2::iop::witness::PartialWitness;
+    use plonky2::plonk::circuit_data::CircuitConfig;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     fn real_insert<const D: usize>(
         index: usize,
@@ -89,7 +99,7 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]
