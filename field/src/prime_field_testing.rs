@@ -75,7 +75,7 @@ macro_rules! test_prime_field_arithmetic {
             #[test]
             fn arithmetic_addition() {
                 let modulus = <$field>::ORDER;
-                crate::field::prime_field_testing::run_binaryop_test_cases(<$field>::add, |x, y| {
+                crate::prime_field_testing::run_binaryop_test_cases(<$field>::add, |x, y| {
                     ((x as u128 + y as u128) % (modulus as u128)) as u64
                 })
             }
@@ -83,7 +83,7 @@ macro_rules! test_prime_field_arithmetic {
             #[test]
             fn arithmetic_subtraction() {
                 let modulus = <$field>::ORDER;
-                crate::field::prime_field_testing::run_binaryop_test_cases(<$field>::sub, |x, y| {
+                crate::prime_field_testing::run_binaryop_test_cases(<$field>::sub, |x, y| {
                     if x >= y {
                         x - y
                     } else {
@@ -95,7 +95,7 @@ macro_rules! test_prime_field_arithmetic {
             #[test]
             fn arithmetic_negation() {
                 let modulus = <$field>::ORDER;
-                crate::field::prime_field_testing::run_unaryop_test_cases(<$field>::neg, |x| {
+                crate::prime_field_testing::run_unaryop_test_cases(<$field>::neg, |x| {
                     if x == 0 {
                         0
                     } else {
@@ -107,7 +107,7 @@ macro_rules! test_prime_field_arithmetic {
             #[test]
             fn arithmetic_multiplication() {
                 let modulus = <$field>::ORDER;
-                crate::field::prime_field_testing::run_binaryop_test_cases(<$field>::mul, |x, y| {
+                crate::prime_field_testing::run_binaryop_test_cases(<$field>::mul, |x, y| {
                     ((x as u128) * (y as u128) % (modulus as u128)) as u64
                 })
             }
@@ -115,7 +115,7 @@ macro_rules! test_prime_field_arithmetic {
             #[test]
             fn arithmetic_square() {
                 let modulus = <$field>::ORDER;
-                crate::field::prime_field_testing::run_unaryop_test_cases(
+                crate::prime_field_testing::run_unaryop_test_cases(
                     |x: $field| x.square(),
                     |x| ((x as u128 * x as u128) % (modulus as u128)) as u64,
                 )
@@ -129,7 +129,7 @@ macro_rules! test_prime_field_arithmetic {
 
                 assert_eq!(zero.try_inverse(), None);
 
-                let inputs = crate::field::prime_field_testing::test_inputs(modulus);
+                let inputs = crate::prime_field_testing::test_inputs(modulus);
 
                 for x in inputs {
                     if x != 0 {

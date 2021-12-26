@@ -383,6 +383,6 @@ impl Frobenius<1> for GoldilocksField {}
 mod tests {
     use crate::{test_field_arithmetic, test_prime_field_arithmetic};
 
-    test_prime_field_arithmetic!(crate::field::goldilocks_field::GoldilocksField);
-    test_field_arithmetic!(crate::field::goldilocks_field::GoldilocksField);
+    test_prime_field_arithmetic!(crate::goldilocks_field::GoldilocksField);
+    test_field_arithmetic!(crate::goldilocks_field::GoldilocksField);
 }

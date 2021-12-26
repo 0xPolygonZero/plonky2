@@ -13,6 +13,6 @@ impl<F: Field> Packable for F {
 }
 
 #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
-impl Packable for crate::field::goldilocks_field::GoldilocksField {
-    type Packing = crate::field::arch::x86_64::avx2_goldilocks_field::Avx2GoldilocksField;
+impl Packable for crate::goldilocks_field::GoldilocksField {
+    type Packing = crate::arch::x86_64::avx2_goldilocks_field::Avx2GoldilocksField;
 }

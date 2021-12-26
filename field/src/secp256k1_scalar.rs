@@ -253,5 +253,5 @@ impl DivAssign for Secp256K1Scalar {
 mod tests {
     use crate::test_field_arithmetic;
 
-    test_field_arithmetic!(crate::field::secp256k1_scalar::Secp256K1Scalar);
+    test_field_arithmetic!(crate::secp256k1_scalar::Secp256K1Scalar);
 }

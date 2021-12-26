@@ -168,23 +168,23 @@ macro_rules! test_field_extension {
         mod field_extension {
             #[test]
             fn test_add_neg_sub_mul() {
-                crate::field::field_testing::test_add_neg_sub_mul::<$field, $d>();
+                crate::field_testing::test_add_neg_sub_mul::<$field, $d>();
             }
             #[test]
             fn test_inv_div() {
-                crate::field::field_testing::test_inv_div::<$field, $d>();
+                crate::field_testing::test_inv_div::<$field, $d>();
             }
             #[test]
             fn test_frobenius() {
-                crate::field::field_testing::test_frobenius::<$field, $d>();
+                crate::field_testing::test_frobenius::<$field, $d>();
             }
             #[test]
             fn test_field_order() {
-                crate::field::field_testing::test_field_order::<$field, $d>();
+                crate::field_testing::test_field_order::<$field, $d>();
             }
             #[test]
             fn test_power_of_two_gen() {
-                crate::field::field_testing::test_power_of_two_gen::<$field, $d>();
+                crate::field_testing::test_power_of_two_gen::<$field, $d>();
             }
         }
     };
