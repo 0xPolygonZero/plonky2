@@ -3,7 +3,6 @@ use std::ops::Range;
 
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
-
 use plonky2::gates::gate::Gate;
 use plonky2::gates::util::StridedConstraintConsumer;
 use plonky2::hash::hash_types::RichField;
@@ -327,13 +326,13 @@ mod tests {
     use anyhow::Result;
     use plonky2::field::field_types::Field;
     use plonky2::field::goldilocks_field::GoldilocksField;
-
     use plonky2::gates::gate::Gate;
     use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use crate::insertion_gate::InsertionGate;
     use plonky2::hash::hash_types::HashOut;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::plonk::vars::EvaluationVars;
+
+    use crate::insertion_gate::InsertionGate;
 
     #[test]
     fn wire_indices() {

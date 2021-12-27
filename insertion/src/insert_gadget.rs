@@ -1,10 +1,10 @@
 use plonky2::field::extension_field::Extendable;
-
-use crate::insertion_gate::InsertionGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+
+use crate::insertion_gate::InsertionGate;
 
 pub trait CircuitBuilderInsert<F: RichField + Extendable<D>, const D: usize> {
     /// Inserts a `Target` in a vector at a non-deterministic index.
@@ -18,7 +18,7 @@ pub trait CircuitBuilderInsert<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderInsert<F, D>
-for CircuitBuilder<F, D>
+    for CircuitBuilder<F, D>
 {
     fn insert(
         &mut self,
@@ -54,11 +54,11 @@ for CircuitBuilder<F, D>
 mod tests {
     use anyhow::Result;
     use plonky2::field::field_types::Field;
-
-    use super::*;
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+
+    use super::*;
 
     fn real_insert<const D: usize>(
         index: usize,
