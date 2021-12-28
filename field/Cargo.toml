@@ -1,0 +1,13 @@
+[package]
+name = "plonky2_field"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+plonky2_util = { path = "../util" }
+anyhow = "1.0.40"
+itertools = "0.10.0"
+num = { version = "0.4", features = [ "rand" ] }
+rand = "0.8.4"
+serde = { version = "1.0", features = ["derive"] }
+unroll = "0.1.5"
