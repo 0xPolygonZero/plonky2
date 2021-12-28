@@ -7,7 +7,7 @@ use rayon::prelude::*;
 
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
@@ -24,19 +24,16 @@ use crate::util::transpose;
 pub const SALT_SIZE: usize = 4;
 
 /// Represents a batch FRI based commitment to a list of polynomials.
-pub struct PolynomialBatchCommitment<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
+pub struct PolynomialBatchCommitment<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>
+{
     pub polynomials: Vec<PolynomialCoeffs<F>>,
-    pub merkle_tree: MerkleTree<F, C::Hasher>,
+    pub merkle_tree: MerkleTree<F, C::Hasher, D>,
     pub degree_log: usize,
     pub rate_bits: usize,
     pub blinding: bool,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+impl<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>
     PolynomialBatchCommitment<F, C, D>
 {
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
@@ -135,7 +132,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub(crate) fn open_plonk(
         commitments: &[&Self; 4],
         zeta: F::Extension,
-        challenger: &mut Challenger<F, C::InnerHasher>,
+        challenger: &mut Challenger<F, C::InnerHasher, D>,
         common_data: &CommonCircuitData<F, C, D>,
         timing: &mut TimingTree,
     ) -> (FriProof<F, C::Hasher, D>, OpeningSet<F, D>) {

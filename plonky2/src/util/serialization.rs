@@ -10,7 +10,7 @@ use crate::fri::proof::{
     CompressedFriProof, CompressedFriQueryRounds, FriInitialTreeProof, FriProof, FriQueryRound,
     FriQueryStep,
 };
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::circuit_data::CommonCircuitData;
@@ -64,7 +64,7 @@ impl Buffer {
         )))
     }
 
-    fn write_field_ext<F: RichField + Extendable<D>, const D: usize>(
+    fn write_field_ext<F: PlonkyField<D>, const D: usize>(
         &mut self,
         x: F::Extension,
     ) -> Result<()> {
@@ -73,9 +73,7 @@ impl Buffer {
         }
         Ok(())
     }
-    fn read_field_ext<F: RichField + Extendable<D>, const D: usize>(
-        &mut self,
-    ) -> Result<F::Extension> {
+    fn read_field_ext<F: PlonkyField<D>, const D: usize>(&mut self) -> Result<F::Extension> {
         let mut arr = [F::ZERO; D];
         for a in arr.iter_mut() {
             *a = self.read_field()?;
@@ -85,29 +83,32 @@ impl Buffer {
         ))
     }
 
-    fn write_hash<F: RichField, H: Hasher<F>>(&mut self, h: H::Hash) -> Result<()> {
+    fn write_hash<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize>(
+        &mut self,
+        h: H::Hash,
+    ) -> Result<()> {
         self.0.write_all(&h.to_bytes())
     }
 
-    fn read_hash<F: RichField, H: Hasher<F>>(&mut self) -> Result<H::Hash> {
+    fn read_hash<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize>(&mut self) -> Result<H::Hash> {
         let mut buf = vec![0; H::HASH_SIZE];
         self.0.read_exact(&mut buf)?;
         Ok(H::Hash::from_bytes(&buf))
     }
 
-    fn write_merkle_cap<F: RichField, H: Hasher<F>>(
+    fn write_merkle_cap<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize>(
         &mut self,
-        cap: &MerkleCap<F, H>,
+        cap: &MerkleCap<F, H, D>,
     ) -> Result<()> {
         for &a in &cap.0 {
-            self.write_hash::<F, H>(a)?;
+            self.write_hash::<F, H, D>(a)?;
         }
         Ok(())
     }
-    fn read_merkle_cap<F: RichField, H: Hasher<F>>(
+    fn read_merkle_cap<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize>(
         &mut self,
         cap_height: usize,
-    ) -> Result<MerkleCap<F, H>> {
+    ) -> Result<MerkleCap<F, H, D>> {
         let cap_length = 1 << cap_height;
         Ok(MerkleCap(
             (0..cap_length)
@@ -128,7 +129,7 @@ impl Buffer {
             .collect::<Result<Vec<_>>>()
     }
 
-    fn write_field_ext_vec<F: RichField + Extendable<D>, const D: usize>(
+    fn write_field_ext_vec<F: PlonkyField<D>, const D: usize>(
         &mut self,
         v: &[F::Extension],
     ) -> Result<()> {
@@ -137,7 +138,7 @@ impl Buffer {
         }
         Ok(())
     }
-    fn read_field_ext_vec<F: RichField + Extendable<D>, const D: usize>(
+    fn read_field_ext_vec<F: PlonkyField<D>, const D: usize>(
         &mut self,
         length: usize,
     ) -> Result<Vec<F::Extension>> {
@@ -146,7 +147,7 @@ impl Buffer {
             .collect::<Result<Vec<_>>>()
     }
 
-    fn write_opening_set<F: RichField + Extendable<D>, const D: usize>(
+    fn write_opening_set<F: PlonkyField<D>, const D: usize>(
         &mut self,
         os: &OpeningSet<F, D>,
     ) -> Result<()> {
@@ -158,11 +159,7 @@ impl Buffer {
         self.write_field_ext_vec::<F, D>(&os.partial_products)?;
         self.write_field_ext_vec::<F, D>(&os.quotient_polys)
     }
-    fn read_opening_set<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn read_opening_set<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> Result<OpeningSet<F, D>> {
@@ -189,9 +186,9 @@ impl Buffer {
         })
     }
 
-    fn write_merkle_proof<F: RichField, H: Hasher<F>>(
+    fn write_merkle_proof<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize>(
         &mut self,
-        p: &MerkleProof<F, H>,
+        p: &MerkleProof<F, H, D>,
     ) -> Result<()> {
         let length = p.siblings.len();
         self.write_u8(
@@ -200,26 +197,24 @@ impl Buffer {
                 .expect("Merkle proof length must fit in u8."),
         )?;
         for &h in &p.siblings {
-            self.write_hash::<F, H>(h)?;
+            self.write_hash::<F, H, D>(h)?;
         }
         Ok(())
     }
-    fn read_merkle_proof<F: RichField, H: Hasher<F>>(&mut self) -> Result<MerkleProof<F, H>> {
+    fn read_merkle_proof<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize>(
+        &mut self,
+    ) -> Result<MerkleProof<F, H, D>> {
         let length = self.read_u8()?;
         Ok(MerkleProof {
             siblings: (0..length)
-                .map(|_| self.read_hash::<F, H>())
+                .map(|_| self.read_hash::<F, H, D>())
                 .collect::<Result<Vec<_>>>()?,
         })
     }
 
-    fn write_fri_initial_proof<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn write_fri_initial_proof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
-        fitp: &FriInitialTreeProof<F, C::Hasher>,
+        fitp: &FriInitialTreeProof<F, C::Hasher, D>,
     ) -> Result<()> {
         for (v, p) in &fitp.evals_proofs {
             self.write_field_vec(v)?;
@@ -227,14 +222,10 @@ impl Buffer {
         }
         Ok(())
     }
-    fn read_fri_initial_proof<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn read_fri_initial_proof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
-    ) -> Result<FriInitialTreeProof<F, C::Hasher>> {
+    ) -> Result<FriInitialTreeProof<F, C::Hasher, D>> {
         let config = &common_data.config;
         let mut evals_proofs = Vec::with_capacity(4);
 
@@ -260,22 +251,14 @@ impl Buffer {
         Ok(FriInitialTreeProof { evals_proofs })
     }
 
-    fn write_fri_query_step<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn write_fri_query_step<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         fqs: &FriQueryStep<F, C::Hasher, D>,
     ) -> Result<()> {
         self.write_field_ext_vec::<F, D>(&fqs.evals)?;
         self.write_merkle_proof(&fqs.merkle_proof)
     }
-    fn read_fri_query_step<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn read_fri_query_step<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         arity: usize,
         compressed: bool,
@@ -288,11 +271,7 @@ impl Buffer {
         })
     }
 
-    fn write_fri_query_rounds<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn write_fri_query_rounds<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         fqrs: &[FriQueryRound<F, C::Hasher, D>],
     ) -> Result<()> {
@@ -304,11 +283,7 @@ impl Buffer {
         }
         Ok(())
     }
-    fn read_fri_query_rounds<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn read_fri_query_rounds<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> Result<Vec<FriQueryRound<F, C::Hasher, D>>> {
@@ -330,7 +305,7 @@ impl Buffer {
         Ok(fqrs)
     }
 
-    fn write_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    fn write_fri_proof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         fp: &FriProof<F, C::Hasher, D>,
     ) -> Result<()> {
@@ -341,7 +316,7 @@ impl Buffer {
         self.write_field_ext_vec::<F, D>(&fp.final_poly.coeffs)?;
         self.write_field(fp.pow_witness)
     }
-    fn read_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    fn read_fri_proof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> Result<FriProof<F, C::Hasher, D>> {
@@ -361,7 +336,7 @@ impl Buffer {
         })
     }
 
-    pub fn write_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    pub fn write_proof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         proof: &Proof<F, C, D>,
     ) -> Result<()> {
@@ -371,7 +346,7 @@ impl Buffer {
         self.write_opening_set(&proof.openings)?;
         self.write_fri_proof::<F, C, D>(&proof.opening_proof)
     }
-    pub fn read_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    pub fn read_proof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> Result<Proof<F, C, D>> {
@@ -392,7 +367,7 @@ impl Buffer {
     }
 
     pub fn write_proof_with_public_inputs<
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
         C: GenericConfig<D, F = F>,
         const D: usize,
     >(
@@ -407,7 +382,7 @@ impl Buffer {
         self.write_field_vec(public_inputs)
     }
     pub fn read_proof_with_public_inputs<
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
         C: GenericConfig<D, F = F>,
         const D: usize,
     >(
@@ -426,7 +401,7 @@ impl Buffer {
     }
 
     fn write_compressed_fri_query_rounds<
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
         C: GenericConfig<D, F = F>,
         const D: usize,
     >(
@@ -452,7 +427,7 @@ impl Buffer {
         Ok(())
     }
     fn read_compressed_fri_query_rounds<
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
         C: GenericConfig<D, F = F>,
         const D: usize,
     >(
@@ -497,11 +472,7 @@ impl Buffer {
         })
     }
 
-    fn write_compressed_fri_proof<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn write_compressed_fri_proof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         fp: &CompressedFriProof<F, C::Hasher, D>,
     ) -> Result<()> {
@@ -512,11 +483,7 @@ impl Buffer {
         self.write_field_ext_vec::<F, D>(&fp.final_poly.coeffs)?;
         self.write_field(fp.pow_witness)
     }
-    fn read_compressed_fri_proof<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn read_compressed_fri_proof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> Result<CompressedFriProof<F, C::Hasher, D>> {
@@ -536,11 +503,7 @@ impl Buffer {
         })
     }
 
-    pub fn write_compressed_proof<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    pub fn write_compressed_proof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         proof: &CompressedProof<F, C, D>,
     ) -> Result<()> {
@@ -550,11 +513,7 @@ impl Buffer {
         self.write_opening_set(&proof.openings)?;
         self.write_compressed_fri_proof::<F, C, D>(&proof.opening_proof)
     }
-    pub fn read_compressed_proof<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    pub fn read_compressed_proof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> Result<CompressedProof<F, C, D>> {
@@ -575,7 +534,7 @@ impl Buffer {
     }
 
     pub fn write_compressed_proof_with_public_inputs<
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
         C: GenericConfig<D, F = F>,
         const D: usize,
     >(
@@ -590,7 +549,7 @@ impl Buffer {
         self.write_field_vec(public_inputs)
     }
     pub fn read_compressed_proof_with_public_inputs<
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
         C: GenericConfig<D, F = F>,
         const D: usize,
     >(

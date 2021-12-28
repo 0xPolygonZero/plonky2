@@ -1,13 +1,13 @@
 use plonky2_field::extension_field::Extendable;
 
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::hashing::SPONGE_WIDTH;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::AlgebraicHasher;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn permute<H: AlgebraicHasher<F>>(
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
+    pub fn permute<H: AlgebraicHasher<F, D>>(
         &mut self,
         inputs: [Target; SPONGE_WIDTH],
     ) -> [Target; SPONGE_WIDTH] {
@@ -18,7 +18,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Conditionally swap two chunks of the inputs (useful in verifying Merkle proofs), then apply
     /// a cryptographic permutation.
-    pub(crate) fn permute_swapped<H: AlgebraicHasher<F>>(
+    pub(crate) fn permute_swapped<H: AlgebraicHasher<F, D>>(
         &mut self,
         inputs: [Target; SPONGE_WIDTH],
         swap: BoolTarget,

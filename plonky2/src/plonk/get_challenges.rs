@@ -5,7 +5,7 @@ use plonky2_field::polynomial::PolynomialCoeffs;
 
 use crate::fri::proof::{CompressedFriProof, FriProof};
 use crate::fri::verifier::{compute_evaluation, fri_combine_initial, PrecomputedReducedEvals};
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
@@ -16,13 +16,13 @@ use crate::plonk::proof::{
 };
 use crate::util::reverse_bits;
 
-fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
-    wires_cap: &MerkleCap<F, C::Hasher>,
-    plonk_zs_partial_products_cap: &MerkleCap<F, C::Hasher>,
-    quotient_polys_cap: &MerkleCap<F, C::Hasher>,
+fn get_challenges<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F, D>>::Hash,
+    wires_cap: &MerkleCap<F, C::Hasher, D>,
+    plonk_zs_partial_products_cap: &MerkleCap<F, C::Hasher, D>,
+    quotient_polys_cap: &MerkleCap<F, C::Hasher, D>,
     openings: &OpeningSet<F, D>,
-    commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
+    commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher, D>],
     final_poly: &PolynomialCoeffs<F::Extension>,
     pow_witness: F,
     common_data: &CommonCircuitData<F, C, D>,
@@ -32,7 +32,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     let num_fri_queries = config.fri_config.num_query_rounds;
     let lde_size = common_data.lde_size();
 
-    let mut challenger = Challenger::<F, C::InnerHasher>::new();
+    let mut challenger = Challenger::<F, C::InnerHasher, D>::new();
 
     // Observe the instance.
     challenger.observe_hash::<C::Hasher>(common_data.circuit_digest);
@@ -46,19 +46,19 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     let plonk_alphas = challenger.get_n_challenges(num_challenges);
 
     challenger.observe_cap(quotient_polys_cap);
-    let plonk_zeta = challenger.get_extension_challenge::<D>();
+    let plonk_zeta = challenger.get_extension_challenge();
 
     challenger.observe_opening_set(openings);
 
     // Scaling factor to combine polynomials.
-    let fri_alpha = challenger.get_extension_challenge::<D>();
+    let fri_alpha = challenger.get_extension_challenge();
 
     // Recover the random betas used in the FRI reductions.
     let fri_betas = commit_phase_merkle_caps
         .iter()
         .map(|cap| {
             challenger.observe_cap(cap);
-            challenger.get_extension_challenge::<D>()
+            challenger.get_extension_challenge()
         })
         .collect();
 
@@ -92,9 +92,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     })
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    ProofWithPublicInputs<F, C, D>
-{
+impl<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> ProofWithPublicInputs<F, C, D> {
     pub(crate) fn fri_query_indices(
         &self,
         common_data: &CommonCircuitData<F, C, D>,
@@ -135,7 +133,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+impl<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>
     CompressedProofWithPublicInputs<F, C, D>
 {
     /// Computes all Fiat-Shamir challenges used in the Plonk proof.

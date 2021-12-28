@@ -8,7 +8,7 @@ use plonky2_field::field_types::Field;
 
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::hashing::SPONGE_WIDTH;
 use crate::hash::poseidon::Poseidon;
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};
@@ -19,11 +19,11 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 #[derive(Debug)]
-pub struct PoseidonMdsGate<F: RichField + Extendable<D> + Poseidon, const D: usize> {
+pub struct PoseidonMdsGate<F: PlonkyField<D> + Poseidon, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F, D> {
+impl<F: PlonkyField<D> + Poseidon, const D: usize> PoseidonMdsGate<F, D> {
     pub fn new() -> Self {
         PoseidonMdsGate {
             _phantom: PhantomData,
@@ -105,7 +105,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
     }
 }
 
-impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for PoseidonMdsGate<F, D> {
+impl<F: PlonkyField<D> + Poseidon, const D: usize> Gate<F, D> for PoseidonMdsGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<WIDTH={}>", self, SPONGE_WIDTH)
     }
@@ -202,9 +202,7 @@ struct PoseidonMdsGenerator<const D: usize> {
     gate_index: usize,
 }
 
-impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
-    for PoseidonMdsGenerator<D>
-{
+impl<F: PlonkyField<D> + Poseidon, const D: usize> SimpleGenerator<F> for PoseidonMdsGenerator<D> {
     fn dependencies(&self) -> Vec<Target> {
         (0..SPONGE_WIDTH)
             .flat_map(|i| {

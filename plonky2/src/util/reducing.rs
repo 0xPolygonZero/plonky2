@@ -7,7 +7,7 @@ use plonky2_field::polynomial::PolynomialCoeffs;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::reducing::ReducingGate;
 use crate::gates::reducing_extension::ReducingExtensionGate;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -104,7 +104,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
     {
         let l = terms.len();
 
@@ -159,7 +159,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
     {
         let l = terms.len();
 
@@ -219,7 +219,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
     {
         self.count += terms.len() as u64;
         terms
@@ -236,7 +236,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
     {
         let exp = builder.exp_u64_extension(self.base, self.count);
         self.count = 0;

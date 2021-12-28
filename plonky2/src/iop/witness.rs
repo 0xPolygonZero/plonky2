@@ -8,7 +8,7 @@ use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::HashOutTarget;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
@@ -32,7 +32,7 @@ pub trait Witness<F: Field> {
 
     fn get_extension_target<const D: usize>(&self, et: ExtensionTarget<D>) -> F::Extension
     where
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
     {
         F::Extension::from_basefield_array(
             self.get_targets(&et.to_target_array()).try_into().unwrap(),
@@ -41,7 +41,7 @@ pub trait Witness<F: Field> {
 
     fn get_extension_targets<const D: usize>(&self, ets: &[ExtensionTarget<D>]) -> Vec<F::Extension>
     where
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
     {
         ets.iter()
             .map(|&et| self.get_extension_target(et))
@@ -106,13 +106,11 @@ pub trait Witness<F: Field> {
             .for_each(|(&t, x)| self.set_target(t, x));
     }
 
-    fn set_cap_target<H: AlgebraicHasher<F>>(
+    fn set_cap_target<H: AlgebraicHasher<F, D>, const D: usize>(
         &mut self,
         ct: &MerkleCapTarget,
-        value: &MerkleCap<F, H>,
-    ) where
-        F: RichField,
-    {
+        value: &MerkleCap<F, H, D>,
+    ) {
         for (ht, h) in ct.0.iter().zip(&value.0) {
             self.set_hash_target(*ht, *h);
         }
@@ -120,7 +118,7 @@ pub trait Witness<F: Field> {
 
     fn set_extension_target<const D: usize>(&mut self, et: ExtensionTarget<D>, value: F::Extension)
     where
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
     {
         let limbs = value.to_basefield_array();
         (0..D).for_each(|i| {
@@ -133,7 +131,7 @@ pub trait Witness<F: Field> {
         ets: &[ExtensionTarget<D>],
         values: &[F::Extension],
     ) where
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
     {
         debug_assert_eq!(ets.len(), values.len());
         ets.iter()
@@ -171,7 +169,7 @@ pub trait Witness<F: Field> {
 
     fn set_ext_wires<W, const D: usize>(&mut self, wires: W, value: F::Extension)
     where
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
         W: IntoIterator<Item = Wire>,
     {
         self.set_wires(wires, &value.to_basefield_array());

@@ -3,7 +3,7 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
 
 use crate::fri::verifier::verify_fri_proof;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common::reduce_with_powers;
@@ -11,7 +11,7 @@ use crate::plonk::proof::{ProofChallenges, ProofWithPublicInputs};
 use crate::plonk::vanishing_poly::eval_vanishing_poly;
 use crate::plonk::vars::EvaluationVars;
 
-pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+pub(crate) fn verify<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
     proof_with_pis: ProofWithPublicInputs<F, C, D>,
     verifier_data: &VerifierOnlyCircuitData<C, D>,
     common_data: &CommonCircuitData<F, C, D>,
@@ -21,7 +21,7 @@ pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
 }
 
 pub(crate) fn verify_with_challenges<
-    F: RichField + Extendable<D>,
+    F: PlonkyField<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(

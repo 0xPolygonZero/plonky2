@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_RATE, SPONGE_WIDTH};
 use crate::hash::merkle_tree::MerkleCap;
@@ -15,7 +15,7 @@ use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
 
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
 #[derive(Clone)]
-pub struct Challenger<F: RichField, H: AlgebraicHasher<F>> {
+pub struct Challenger<F: PlonkyField<D>, H: AlgebraicHasher<F, D>, const D: usize> {
     sponge_state: [F; SPONGE_WIDTH],
     input_buffer: Vec<F>,
     output_buffer: Vec<F>,
@@ -30,8 +30,8 @@ pub struct Challenger<F: RichField, H: AlgebraicHasher<F>> {
 /// design, but it can be viewed as a duplex sponge whose inputs are sometimes zero (when we perform
 /// multiple squeezes) and whose outputs are sometimes ignored (when we perform multiple
 /// absorptions). Thus the security properties of a duplex sponge still apply to our design.
-impl<F: RichField, H: AlgebraicHasher<F>> Challenger<F, H> {
-    pub fn new() -> Challenger<F, H> {
+impl<F: PlonkyField<D>, H: AlgebraicHasher<F, D>, const D: usize> Challenger<F, H, D> {
+    pub fn new() -> Challenger<F, H, D> {
         Challenger {
             sponge_state: [F::ZERO; SPONGE_WIDTH],
             input_buffer: Vec::new(),
@@ -47,10 +47,7 @@ impl<F: RichField, H: AlgebraicHasher<F>> Challenger<F, H> {
         self.input_buffer.push(element);
     }
 
-    pub fn observe_extension_element<const D: usize>(&mut self, element: &F::Extension)
-    where
-        F: RichField + Extendable<D>,
-    {
+    pub fn observe_extension_element(&mut self, element: &F::Extension) {
         self.observe_elements(&element.to_basefield_array());
     }
 
@@ -60,19 +57,13 @@ impl<F: RichField, H: AlgebraicHasher<F>> Challenger<F, H> {
         }
     }
 
-    pub fn observe_extension_elements<const D: usize>(&mut self, elements: &[F::Extension])
-    where
-        F: RichField + Extendable<D>,
-    {
+    pub fn observe_extension_elements(&mut self, elements: &[F::Extension]) {
         for element in elements {
             self.observe_extension_element(element);
         }
     }
 
-    pub fn observe_opening_set<const D: usize>(&mut self, os: &OpeningSet<F, D>)
-    where
-        F: RichField + Extendable<D>,
-    {
+    pub fn observe_opening_set(&mut self, os: &OpeningSet<F, D>) {
         let OpeningSet {
             constants,
             plonk_sigmas,
@@ -95,11 +86,11 @@ impl<F: RichField, H: AlgebraicHasher<F>> Challenger<F, H> {
         }
     }
 
-    pub fn observe_hash<OH: Hasher<F>>(&mut self, hash: OH::Hash) {
+    pub fn observe_hash<OH: Hasher<F, D>>(&mut self, hash: OH::Hash) {
         self.observe_elements(&hash.to_vec())
     }
 
-    pub fn observe_cap<OH: Hasher<F>>(&mut self, cap: &MerkleCap<F, OH>) {
+    pub fn observe_cap<OH: Hasher<F, D>>(&mut self, cap: &MerkleCap<F, OH, D>) {
         for &hash in &cap.0 {
             self.observe_hash::<OH>(hash);
         }
@@ -134,19 +125,13 @@ impl<F: RichField, H: AlgebraicHasher<F>> Challenger<F, H> {
         }
     }
 
-    pub fn get_extension_challenge<const D: usize>(&mut self) -> F::Extension
-    where
-        F: RichField + Extendable<D>,
-    {
+    pub fn get_extension_challenge(&mut self) -> F::Extension {
         let mut arr = [F::ZERO; D];
         arr.copy_from_slice(&self.get_n_challenges(D));
         F::Extension::from_basefield_array(arr)
     }
 
-    pub fn get_n_extension_challenges<const D: usize>(&mut self, n: usize) -> Vec<F::Extension>
-    where
-        F: RichField + Extendable<D>,
-    {
+    pub fn get_n_extension_challenges(&mut self, n: usize) -> Vec<F::Extension> {
         (0..n)
             .map(|_| self.get_extension_challenge::<D>())
             .collect()
@@ -176,23 +161,20 @@ impl<F: RichField, H: AlgebraicHasher<F>> Challenger<F, H> {
     }
 }
 
-impl<F: RichField, H: AlgebraicHasher<F>> Default for Challenger<F, H> {
+impl<F: PlonkyField<D>, H: AlgebraicHasher<F, D>, const D: usize> Default for Challenger<F, H, D> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 /// A recursive version of `Challenger`.
-pub struct RecursiveChallenger<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
-{
+pub struct RecursiveChallenger<F: PlonkyField<D>, H: AlgebraicHasher<F, D>, const D: usize> {
     sponge_state: [Target; SPONGE_WIDTH],
     input_buffer: Vec<Target>,
     output_buffer: Vec<Target>,
 }
 
-impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
-    RecursiveChallenger<F, H, D>
-{
+impl<F: PlonkyField<D>, H: AlgebraicHasher<F, D>, const D: usize> RecursiveChallenger<F, H, D> {
     pub(crate) fn new(builder: &mut CircuitBuilder<F, D>) -> Self {
         let zero = builder.zero();
         RecursiveChallenger {

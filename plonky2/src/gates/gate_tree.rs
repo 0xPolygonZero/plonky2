@@ -2,7 +2,7 @@ use log::debug;
 use plonky2_field::extension_field::Extendable;
 
 use crate::gates::gate::GateRef;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 
 /// A binary tree where leaves hold some type `T` and other nodes are empty.
 #[derive(Debug, Clone)]
@@ -51,7 +51,7 @@ impl<T: Clone> Tree<T> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Tree<GateRef<F, D>> {
+impl<F: PlonkyField<D>, const D: usize> Tree<GateRef<F, D>> {
     /// The binary gate tree influences the degree `D` of the constraint polynomial and the number `C`
     /// of constant wires in the circuit. We want to construct a tree minimizing both values. To do so
     /// we iterate over possible values of `(D, C)` and try to construct a tree with these values.

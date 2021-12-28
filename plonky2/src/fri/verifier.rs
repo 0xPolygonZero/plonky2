@@ -6,7 +6,7 @@ use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::FriConfig;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::merkle_proofs::verify_merkle_proof;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::circuit_data::CommonCircuitData;
@@ -45,7 +45,7 @@ pub(crate) fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
     interpolate(&points, beta, &barycentric_weights)
 }
 
-pub(crate) fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn fri_verify_proof_of_work<F: PlonkyField<D>, const D: usize>(
     fri_pow_response: F,
     config: &FriConfig,
 ) -> Result<()> {
@@ -58,15 +58,11 @@ pub(crate) fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: us
     Ok(())
 }
 
-pub(crate) fn verify_fri_proof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
+pub(crate) fn verify_fri_proof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
     // Openings of the PLONK polynomials.
     os: &OpeningSet<F, D>,
     challenges: &ProofChallenges<F, D>,
-    initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
+    initial_merkle_caps: &[MerkleCap<F, C::Hasher, D>],
     proof: &FriProof<F, C::Hasher, D>,
     common_data: &CommonCircuitData<F, C, D>,
 ) -> Result<()> {
@@ -110,10 +106,10 @@ pub(crate) fn verify_fri_proof<
     Ok(())
 }
 
-fn fri_verify_initial_proof<F: RichField, H: Hasher<F>>(
+fn fri_verify_initial_proof<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize>(
     x_index: usize,
-    proof: &FriInitialTreeProof<F, H>,
-    initial_merkle_caps: &[MerkleCap<F, H>],
+    proof: &FriInitialTreeProof<F, H, D>,
+    initial_merkle_caps: &[MerkleCap<F, H, D>],
 ) -> Result<()> {
     for ((evals, merkle_proof), cap) in proof.evals_proofs.iter().zip(initial_merkle_caps) {
         verify_merkle_proof::<F, H>(evals.clone(), x_index, cap, merkle_proof)?;
@@ -125,13 +121,13 @@ fn fri_verify_initial_proof<F: RichField, H: Hasher<F>>(
 /// Holds the reduced (by `alpha`) evaluations at `zeta` for the polynomial opened just at
 /// zeta, for `Z` at zeta and for `Z` at `g*zeta`.
 #[derive(Copy, Clone, Debug)]
-pub(crate) struct PrecomputedReducedEvals<F: RichField + Extendable<D>, const D: usize> {
+pub(crate) struct PrecomputedReducedEvals<F: PlonkyField<D>, const D: usize> {
     pub single: F::Extension,
     pub zs: F::Extension,
     pub zs_right: F::Extension,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D> {
+impl<F: PlonkyField<D>, const D: usize> PrecomputedReducedEvals<F, D> {
     pub(crate) fn from_os_and_alpha(os: &OpeningSet<F, D>, alpha: F::Extension) -> Self {
         let mut alpha = ReducingFactor::new(alpha);
         let single = alpha.reduce(
@@ -153,12 +149,8 @@ impl<F: RichField + Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D>
     }
 }
 
-pub(crate) fn fri_combine_initial<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
-    proof: &FriInitialTreeProof<F, C::Hasher>,
+pub(crate) fn fri_combine_initial<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    proof: &FriInitialTreeProof<F, C::Hasher, D>,
     alpha: F::Extension,
     zeta: F::Extension,
     subgroup_x: F,
@@ -218,14 +210,10 @@ pub(crate) fn fri_combine_initial<
     sum
 }
 
-fn fri_verifier_query_round<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
+fn fri_verifier_query_round<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenges: &ProofChallenges<F, D>,
     precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
-    initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
+    initial_merkle_caps: &[MerkleCap<F, C::Hasher, D>],
     proof: &FriProof<F, C::Hasher, D>,
     mut x_index: usize,
     n: usize,

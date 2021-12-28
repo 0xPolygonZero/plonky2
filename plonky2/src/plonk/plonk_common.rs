@@ -3,7 +3,7 @@ use plonky2_field::field_types::Field;
 use plonky2_field::packed_field::PackedField;
 
 use crate::fri::commitment::SALT_SIZE;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -117,7 +117,7 @@ pub(crate) fn eval_l_1<F: Field>(n: usize, x: F) -> F {
 /// the order-`n` subgroup.
 ///
 /// Assumes `x != 1`; if `x` could be 1 then this is unsound.
-pub(crate) fn eval_l_1_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_l_1_recursively<F: PlonkyField<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     n: usize,
     x: ExtensionTarget<D>,
@@ -174,7 +174,7 @@ where
     sum
 }
 
-pub(crate) fn reduce_with_powers_ext_recursive<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn reduce_with_powers_ext_recursive<F: PlonkyField<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     terms: &[ExtensionTarget<D>],
     alpha: Target,

@@ -4,7 +4,7 @@ use num::{BigUint, Integer};
 use plonky2_field::extension_field::Extendable;
 
 use crate::gadgets::arithmetic_u32::U32Target;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -25,7 +25,7 @@ impl BigUintTarget {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn constant_biguint(&mut self, value: &BigUint) -> BigUintTarget {
         let limb_values = value.to_u32_digits();
         let limbs = limb_values.iter().map(|&l| self.constant_u32(l)).collect();
@@ -211,7 +211,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 #[derive(Debug)]
-struct BigUintDivRemGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct BigUintDivRemGenerator<F: PlonkyField<D>, const D: usize> {
     a: BigUintTarget,
     b: BigUintTarget,
     div: BigUintTarget,
@@ -219,9 +219,7 @@ struct BigUintDivRemGenerator<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for BigUintDivRemGenerator<F, D>
-{
+impl<F: PlonkyField<D>, const D: usize> SimpleGenerator<F> for BigUintDivRemGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         self.a
             .limbs

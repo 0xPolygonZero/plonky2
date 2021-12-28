@@ -8,7 +8,7 @@ use plonky2_field::packed_field::PackedField;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, WitnessGenerator};
 use crate::iop::target::Target;
@@ -23,13 +23,13 @@ use crate::plonk::vars::{
 
 /// A gate for conditionally swapping input values based on a boolean.
 #[derive(Clone, Debug)]
-pub struct SwitchGate<F: RichField + Extendable<D>, const D: usize> {
+pub struct SwitchGate<F: PlonkyField<D>, const D: usize> {
     pub(crate) chunk_size: usize,
     pub(crate) num_copies: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SwitchGate<F, D> {
+impl<F: PlonkyField<D>, const D: usize> SwitchGate<F, D> {
     pub fn new(num_copies: usize, chunk_size: usize) -> Self {
         Self {
             chunk_size,
@@ -73,7 +73,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SwitchGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, D> {
+impl<F: PlonkyField<D>, const D: usize> Gate<F, D> for SwitchGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -189,7 +189,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, 
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for SwitchGate<F, D> {
+impl<F: PlonkyField<D>, const D: usize> PackedEvaluableBase<F, D> for SwitchGate<F, D> {
     fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
         &self,
         vars: EvaluationVarsBasePacked<P>,
@@ -215,13 +215,13 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
 }
 
 #[derive(Debug)]
-struct SwitchGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct SwitchGenerator<F: PlonkyField<D>, const D: usize> {
     gate_index: usize,
     gate: SwitchGate<F, D>,
     copy: usize,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
+impl<F: PlonkyField<D>, const D: usize> SwitchGenerator<F, D> {
     fn in_out_dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 
@@ -308,7 +308,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> WitnessGenerator<F> for SwitchGenerator<F, D> {
+impl<F: PlonkyField<D>, const D: usize> WitnessGenerator<F> for SwitchGenerator<F, D> {
     fn watch_list(&self) -> Vec<Target> {
         self.in_out_dependencies()
             .union(self.in_switch_dependencies())

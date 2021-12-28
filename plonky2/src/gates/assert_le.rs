@@ -8,7 +8,7 @@ use plonky2_util::{bits_u64, ceil_div_usize};
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -31,7 +31,7 @@ pub struct AssertLessThanGate<F: PrimeField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> AssertLessThanGate<F, D> {
+impl<F: PlonkyField<D>, const D: usize> AssertLessThanGate<F, D> {
     pub fn new(num_bits: usize, num_chunks: usize) -> Self {
         debug_assert!(num_bits < bits_u64(F::ORDER));
         Self {
@@ -83,7 +83,7 @@ impl<F: RichField + Extendable<D>, const D: usize> AssertLessThanGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThanGate<F, D> {
+impl<F: PlonkyField<D>, const D: usize> Gate<F, D> for AssertLessThanGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -281,9 +281,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
-    for AssertLessThanGate<F, D>
-{
+impl<F: PlonkyField<D>, const D: usize> PackedEvaluableBase<F, D> for AssertLessThanGate<F, D> {
     fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
         &self,
         vars: EvaluationVarsBasePacked<P>,
@@ -354,14 +352,12 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
 }
 
 #[derive(Debug)]
-struct AssertLessThanGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct AssertLessThanGenerator<F: PlonkyField<D>, const D: usize> {
     gate_index: usize,
     gate: AssertLessThanGate<F, D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for AssertLessThanGenerator<F, D>
-{
+impl<F: PlonkyField<D>, const D: usize> SimpleGenerator<F> for AssertLessThanGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 

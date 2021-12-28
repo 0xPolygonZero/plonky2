@@ -2,16 +2,16 @@ use std::collections::HashMap;
 
 use num::Integer;
 
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::plonk::config::Hasher;
 
 /// Compress multiple Merkle proofs on the same tree by removing redundancy in the Merkle paths.
-pub(crate) fn compress_merkle_proofs<F: RichField, H: Hasher<F>>(
+pub(crate) fn compress_merkle_proofs<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize>(
     cap_height: usize,
     indices: &[usize],
-    proofs: &[MerkleProof<F, H>],
-) -> Vec<MerkleProof<F, H>> {
+    proofs: &[MerkleProof<F, H, D>],
+) -> Vec<MerkleProof<F, H, D>> {
     assert!(!proofs.is_empty());
     let height = cap_height + proofs[0].siblings.len();
     let num_leaves = 1 << height;
@@ -51,13 +51,13 @@ pub(crate) fn compress_merkle_proofs<F: RichField, H: Hasher<F>>(
 
 /// Decompress compressed Merkle proofs.
 /// Note: The data and indices must be in the same order as in `compress_merkle_proofs`.
-pub(crate) fn decompress_merkle_proofs<F: RichField, H: Hasher<F>>(
+pub(crate) fn decompress_merkle_proofs<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize>(
     leaves_data: &[Vec<F>],
     leaves_indices: &[usize],
-    compressed_proofs: &[MerkleProof<F, H>],
+    compressed_proofs: &[MerkleProof<F, H, D>],
     height: usize,
     cap_height: usize,
-) -> Vec<MerkleProof<F, H>> {
+) -> Vec<MerkleProof<F, H, D>> {
     let num_leaves = 1 << height;
     let compressed_proofs = compressed_proofs.to_vec();
     let mut decompressed_proofs = Vec::with_capacity(compressed_proofs.len());

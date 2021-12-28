@@ -9,7 +9,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::gates::gmimc::GMiMCGate;
 use crate::gates::poseidon::PoseidonGate;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::hash_types::{BytesHash, HashOut};
 use crate::hash::hashing::{
     compress, hash_n_to_hash, GMiMCPermutation, PlonkyPermutation, PoseidonPermutation,
@@ -19,7 +19,7 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::serialization::Buffer;
 
-pub trait GenericHashOut<F: RichField>:
+pub trait GenericHashOut<F: PlonkyField<D>, const D: usize>:
     Copy + Clone + Debug + Eq + PartialEq + Send + Sync + Serialize + DeserializeOwned
 {
     fn to_bytes(&self) -> Vec<u8>;
@@ -29,60 +29,59 @@ pub trait GenericHashOut<F: RichField>:
 }
 
 /// Trait for hash functions.
-pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
+pub trait Hasher<F: PlonkyField<D>, const D: usize>:
+    Sized + Clone + Debug + Eq + PartialEq
+{
     /// Size of `Hash` in bytes.
     const HASH_SIZE: usize;
-    type Hash: GenericHashOut<F>;
+    type Hash: GenericHashOut<F, D>;
 
     fn hash(input: Vec<F>, pad: bool) -> Self::Hash;
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash;
 }
 
 /// Trait for algebraic hash functions, built from a permutation using the sponge construction.
-pub trait AlgebraicHasher<F: RichField>: Hasher<F, Hash = HashOut<F>> {
+pub trait AlgebraicHasher<F: PlonkyField<D>, const D: usize>:
+    Hasher<F, D, Hash = HashOut<F>>
+{
     // TODO: Adding a `const WIDTH: usize` here yields a compiler error down the line.
     // Maybe try again in a while.
 
     /// Permutation used in the sponge construction.
-    type Permutation: PlonkyPermutation<F>;
+    type Permutation: PlonkyPermutation<F, D>;
     /// Circuit to conditionally swap two chunks of the inputs (useful in verifying Merkle proofs),
     /// then apply the permutation.
-    fn permute_swapped<const D: usize>(
+    fn permute_swapped(
         inputs: [Target; SPONGE_WIDTH],
         swap: BoolTarget,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> [Target; SPONGE_WIDTH]
-    where
-        F: RichField + Extendable<D>;
+    ) -> [Target; SPONGE_WIDTH];
 }
 
 /// Poseidon hash function.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct PoseidonHash;
-impl<F: RichField> Hasher<F> for PoseidonHash {
+impl<F: PlonkyField<D>, const D: usize> Hasher<F, D> for PoseidonHash {
     const HASH_SIZE: usize = 4 * 8;
     type Hash = HashOut<F>;
 
     fn hash(input: Vec<F>, pad: bool) -> Self::Hash {
-        hash_n_to_hash::<F, <Self as AlgebraicHasher<F>>::Permutation>(input, pad)
+        hash_n_to_hash::<F, <Self as AlgebraicHasher<F, D>>::Permutation>(input, pad)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
-        compress::<F, <Self as AlgebraicHasher<F>>::Permutation>(left, right)
+        compress::<F, <Self as AlgebraicHasher<F, D>>::Permutation>(left, right)
     }
 }
 
-impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
+impl<F: PlonkyField<D>, const D: usize> AlgebraicHasher<F, D> for PoseidonHash {
     type Permutation = PoseidonPermutation;
 
-    fn permute_swapped<const D: usize>(
+    fn permute_swapped(
         inputs: [Target; SPONGE_WIDTH],
         swap: BoolTarget,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> [Target; SPONGE_WIDTH]
-    where
-        F: RichField + Extendable<D>,
-    {
+    ) -> [Target; SPONGE_WIDTH] {
         let gate_type = PoseidonGate::<F, D>::new();
         let gate = builder.add_gate(gate_type, vec![]);
 
@@ -108,30 +107,27 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct GMiMCHash;
-impl<F: RichField> Hasher<F> for GMiMCHash {
+impl<F: PlonkyField<D>, const D: usize> Hasher<F, D> for GMiMCHash {
     const HASH_SIZE: usize = 4 * 8;
     type Hash = HashOut<F>;
 
     fn hash(input: Vec<F>, pad: bool) -> Self::Hash {
-        hash_n_to_hash::<F, <Self as AlgebraicHasher<F>>::Permutation>(input, pad)
+        hash_n_to_hash::<F, <Self as AlgebraicHasher<F, D>>::Permutation>(input, pad)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
-        compress::<F, <Self as AlgebraicHasher<F>>::Permutation>(left, right)
+        compress::<F, <Self as AlgebraicHasher<F, D>>::Permutation>(left, right)
     }
 }
 
-impl<F: RichField> AlgebraicHasher<F> for GMiMCHash {
+impl<F: PlonkyField<D>, const D: usize> AlgebraicHasher<F, D> for GMiMCHash {
     type Permutation = GMiMCPermutation;
 
-    fn permute_swapped<const D: usize>(
+    fn permute_swapped(
         inputs: [Target; SPONGE_WIDTH],
         swap: BoolTarget,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> [Target; SPONGE_WIDTH]
-    where
-        F: RichField + Extendable<D>,
-    {
+    ) -> [Target; SPONGE_WIDTH] {
         let gate_type = GMiMCGate::<F, D, SPONGE_WIDTH>::new();
         let gate = builder.add_gate(gate_type, vec![]);
 
@@ -158,7 +154,7 @@ impl<F: RichField> AlgebraicHasher<F> for GMiMCHash {
 /// Keccak-256 hash function.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct KeccakHash<const N: usize>;
-impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
+impl<F: PlonkyField<D>, const N: usize, const D: usize> Hasher<F, D> for KeccakHash<N> {
     const HASH_SIZE: usize = N;
     type Hash = BytesHash<N>;
 
@@ -186,25 +182,25 @@ pub trait GenericConfig<const D: usize>:
     Debug + Clone + Sync + Sized + Send + Eq + PartialEq
 {
     /// Main field.
-    type F: RichField + Extendable<D, Extension = Self::FE>;
+    type F: PlonkyField<D> + Extendable<D, Extension = Self::FE>;
     /// Field extension of degree D of the main field.
     type FE: FieldExtension<D, BaseField = Self::F>;
     /// Hash function used for building Merkle trees.
-    type Hasher: Hasher<Self::F>;
+    type Hasher: Hasher<Self::F, D>;
     /// Algebraic hash function used for the challenger and hashing public inputs.
-    type InnerHasher: AlgebraicHasher<Self::F>;
+    type InnerHasher: AlgebraicHasher<Self::F, D>;
 }
 
 /// Configuration trait for "algebraic" configurations, i.e., those using an algebraic hash function
 /// in Merkle trees.
-/// Same as `GenericConfig` trait but with `InnerHasher: AlgebraicHasher<F>`.
+/// Same as `GenericConfig` trait but with `InnerHasher: AlgebraicHasher<F, D>`.
 pub trait AlgebraicConfig<const D: usize>:
     Debug + Clone + Sync + Sized + Send + Eq + PartialEq
 {
-    type F: RichField + Extendable<D, Extension = Self::FE>;
+    type F: PlonkyField<D> + Extendable<D, Extension = Self::FE>;
     type FE: FieldExtension<D, BaseField = Self::F>;
-    type Hasher: AlgebraicHasher<Self::F>;
-    type InnerHasher: AlgebraicHasher<Self::F>;
+    type Hasher: AlgebraicHasher<Self::F, D>;
+    type InnerHasher: AlgebraicHasher<Self::F, D>;
 }
 
 impl<A: AlgebraicConfig<D>, const D: usize> GenericConfig<D> for A {

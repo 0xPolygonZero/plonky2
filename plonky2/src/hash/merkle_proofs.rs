@@ -2,7 +2,7 @@ use anyhow::{ensure, Result};
 use plonky2_field::extension_field::Extendable;
 use serde::{Deserialize, Serialize};
 
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::SPONGE_WIDTH;
 use crate::hash::merkle_tree::MerkleCap;
@@ -12,7 +12,7 @@ use crate::plonk::config::{AlgebraicHasher, Hasher};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct MerkleProof<F: RichField, H: Hasher<F>> {
+pub struct MerkleProof<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize> {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.
     pub siblings: Vec<H::Hash>,
 }
@@ -25,11 +25,11 @@ pub struct MerkleProofTarget {
 
 /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
 /// given cap.
-pub(crate) fn verify_merkle_proof<F: RichField, H: Hasher<F>>(
+pub(crate) fn verify_merkle_proof<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize>(
     leaf_data: Vec<F>,
     leaf_index: usize,
-    merkle_cap: &MerkleCap<F, H>,
-    proof: &MerkleProof<F, H>,
+    merkle_cap: &MerkleCap<F, H, D>,
+    proof: &MerkleProof<F, H, D>,
 ) -> Result<()> {
     let mut index = leaf_index;
     let mut current_digest = H::hash(leaf_data, false);
@@ -50,11 +50,11 @@ pub(crate) fn verify_merkle_proof<F: RichField, H: Hasher<F>>(
     Ok(())
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
     /// given cap. The index is given by it's little-endian bits.
     #[cfg(test)]
-    pub(crate) fn verify_merkle_proof<H: AlgebraicHasher<F>>(
+    pub(crate) fn verify_merkle_proof<H: AlgebraicHasher<F, D>>(
         &mut self,
         leaf_data: Vec<Target>,
         leaf_index_bits: &[BoolTarget],
@@ -84,7 +84,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Same as `verify_merkle_proof` but with the final "cap index" as extra parameter.
-    pub(crate) fn verify_merkle_proof_with_cap_index<H: AlgebraicHasher<F>>(
+    pub(crate) fn verify_merkle_proof_with_cap_index<H: AlgebraicHasher<F, D>>(
         &mut self,
         leaf_data: Vec<Target>,
         leaf_index_bits: &[BoolTarget],

@@ -7,7 +7,7 @@ use unroll::unroll_for_loops;
 
 use crate::gates::gate::Gate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::hashing::SPONGE_WIDTH;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -206,7 +206,7 @@ pub trait Poseidon: PrimeField {
         v: &[ExtensionTarget<D>; WIDTH],
     ) -> ExtensionTarget<D>
     where
-        Self: RichField + Extendable<D>,
+        Self: PlonkyField<D> + Extendable<D>,
     {
         debug_assert!(r < WIDTH);
         let mut res = builder.zero_extension();
@@ -261,7 +261,7 @@ pub trait Poseidon: PrimeField {
         state: &[ExtensionTarget<D>; WIDTH],
     ) -> [ExtensionTarget<D>; WIDTH]
     where
-        Self: RichField + Extendable<D>,
+        Self: PlonkyField<D> + Extendable<D>,
     {
         // If we have enough routed wires, we will use PoseidonMdsGate.
         let mds_gate = PoseidonMdsGate::<Self, D>::new();
@@ -307,7 +307,7 @@ pub trait Poseidon: PrimeField {
         builder: &mut CircuitBuilder<Self, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
     ) where
-        Self: RichField + Extendable<D>,
+        Self: PlonkyField<D> + Extendable<D>,
     {
         for i in 0..WIDTH {
             let c = <Self as Poseidon>::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i];
@@ -353,7 +353,7 @@ pub trait Poseidon: PrimeField {
         state: &[ExtensionTarget<D>; WIDTH],
     ) -> [ExtensionTarget<D>; WIDTH]
     where
-        Self: RichField + Extendable<D>,
+        Self: PlonkyField<D> + Extendable<D>,
     {
         let mut result = [builder.zero_extension(); WIDTH];
 
@@ -436,7 +436,7 @@ pub trait Poseidon: PrimeField {
         r: usize,
     ) -> [ExtensionTarget<D>; WIDTH]
     where
-        Self: RichField + Extendable<D>,
+        Self: PlonkyField<D> + Extendable<D>,
     {
         let s0 = state[0];
         let mut d = builder.mul_const_extension(
@@ -490,7 +490,7 @@ pub trait Poseidon: PrimeField {
         state: &mut [ExtensionTarget<D>; WIDTH],
         round_ctr: usize,
     ) where
-        Self: RichField + Extendable<D>,
+        Self: PlonkyField<D> + Extendable<D>,
     {
         for i in 0..WIDTH {
             let c = ALL_ROUND_CONSTANTS[i + WIDTH * round_ctr];
@@ -515,7 +515,7 @@ pub trait Poseidon: PrimeField {
         x: ExtensionTarget<D>,
     ) -> ExtensionTarget<D>
     where
-        Self: RichField + Extendable<D>,
+        Self: PlonkyField<D> + Extendable<D>,
     {
         // x |--> x^7
         builder.exp_u64_extension(x, 7)
@@ -545,7 +545,7 @@ pub trait Poseidon: PrimeField {
         builder: &mut CircuitBuilder<Self, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
     ) where
-        Self: RichField + Extendable<D>,
+        Self: PlonkyField<D> + Extendable<D>,
     {
         for i in 0..WIDTH {
             state[i] = <Self as Poseidon>::sbox_monomial_recursive(builder, state[i]);

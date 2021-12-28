@@ -6,7 +6,7 @@ use plonky2_util::ceil_div_usize;
 
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -18,7 +18,7 @@ pub struct NonNativeTarget<FF: Field> {
     _phantom: PhantomData<FF>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
     fn num_nonnative_limbs<FF: Field>() -> usize {
         ceil_div_usize(FF::BITS, 32)
     }
@@ -188,13 +188,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 #[derive(Debug)]
-struct NonNativeInverseGenerator<F: RichField + Extendable<D>, const D: usize, FF: Field> {
+struct NonNativeInverseGenerator<F: PlonkyField<D>, const D: usize, FF: Field> {
     x: NonNativeTarget<FF>,
     inv: NonNativeTarget<FF>,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize, FF: Field> SimpleGenerator<F>
+impl<F: PlonkyField<D>, const D: usize, FF: Field> SimpleGenerator<F>
     for NonNativeInverseGenerator<F, D, FF>
 {
     fn dependencies(&self) -> Vec<Target> {

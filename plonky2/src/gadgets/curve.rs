@@ -3,7 +3,7 @@ use plonky2_field::field_types::Field;
 
 use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
 use crate::gadgets::nonnative::NonNativeTarget;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 /// A Target representing an affine point on the curve `C`. We use incomplete arithmetic for efficiency,
@@ -20,7 +20,7 @@ impl<C: Curve> AffinePointTarget<C> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn constant_affine_point<C: Curve>(
         &mut self,
         point: AffinePoint<C>,

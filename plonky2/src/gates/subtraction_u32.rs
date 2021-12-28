@@ -7,7 +7,7 @@ use plonky2_field::packed_field::PackedField;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -23,12 +23,12 @@ use crate::plonk::vars::{
 /// A gate to perform a subtraction on 32-bit limbs: given `x`, `y`, and `borrow`, it returns
 /// the result `x - y - borrow` and, if this underflows, a new `borrow`. Inputs are not range-checked.
 #[derive(Copy, Clone, Debug)]
-pub struct U32SubtractionGate<F: RichField + Extendable<D>, const D: usize> {
+pub struct U32SubtractionGate<F: PlonkyField<D>, const D: usize> {
     pub num_ops: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> U32SubtractionGate<F, D> {
+impl<F: PlonkyField<D>, const D: usize> U32SubtractionGate<F, D> {
     pub fn new_from_config(config: &CircuitConfig) -> Self {
         Self {
             num_ops: Self::num_ops(config),
@@ -79,7 +79,7 @@ impl<F: RichField + Extendable<D>, const D: usize> U32SubtractionGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32SubtractionGate<F, D> {
+impl<F: PlonkyField<D>, const D: usize> Gate<F, D> for U32SubtractionGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
@@ -221,9 +221,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32Subtraction
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
-    for U32SubtractionGate<F, D>
-{
+impl<F: PlonkyField<D>, const D: usize> PackedEvaluableBase<F, D> for U32SubtractionGate<F, D> {
     fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
         &self,
         vars: EvaluationVarsBasePacked<P>,
@@ -264,16 +262,14 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
 }
 
 #[derive(Clone, Debug)]
-struct U32SubtractionGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct U32SubtractionGenerator<F: PlonkyField<D>, const D: usize> {
     gate: U32SubtractionGate<F, D>,
     gate_index: usize,
     i: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for U32SubtractionGenerator<F, D>
-{
+impl<F: PlonkyField<D>, const D: usize> SimpleGenerator<F> for U32SubtractionGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 

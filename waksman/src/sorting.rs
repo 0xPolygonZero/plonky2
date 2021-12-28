@@ -4,7 +4,7 @@ use itertools::izip;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::Field;
 use plonky2::gates::assert_le::AssertLessThanGate;
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hash_types::PlonkyField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::{PartitionWitness, Witness};
@@ -28,7 +28,7 @@ pub struct MemoryOpTarget {
     value: Target,
 }
 
-pub fn assert_permutation_memory_ops<F: RichField + Extendable<D>, const D: usize>(
+pub fn assert_permutation_memory_ops<F: PlonkyField<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     a: &[MemoryOpTarget],
     b: &[MemoryOpTarget],
@@ -46,7 +46,7 @@ pub fn assert_permutation_memory_ops<F: RichField + Extendable<D>, const D: usiz
 }
 
 /// Add an AssertLessThanGate to assert that `lhs` is less than `rhs`, where their values are at most `bits` bits.
-pub fn assert_le<F: RichField + Extendable<D>, const D: usize>(
+pub fn assert_le<F: PlonkyField<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lhs: Target,
     rhs: Target,
@@ -62,7 +62,7 @@ pub fn assert_le<F: RichField + Extendable<D>, const D: usize>(
 
 /// Sort memory operations by address value, then by timestamp value.
 /// This is done by combining address and timestamp into one field element (using their given bit lengths).
-pub fn sort_memory_ops<F: RichField + Extendable<D>, const D: usize>(
+pub fn sort_memory_ops<F: PlonkyField<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     ops: &[MemoryOpTarget],
     address_bits: usize,
@@ -127,15 +127,13 @@ pub fn sort_memory_ops<F: RichField + Extendable<D>, const D: usize>(
 }
 
 #[derive(Debug)]
-struct MemoryOpSortGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct MemoryOpSortGenerator<F: PlonkyField<D>, const D: usize> {
     input_ops: Vec<MemoryOpTarget>,
     output_ops: Vec<MemoryOpTarget>,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for MemoryOpSortGenerator<F, D>
-{
+impl<F: PlonkyField<D>, const D: usize> SimpleGenerator<F> for MemoryOpSortGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         self.input_ops
             .iter()

@@ -2,14 +2,14 @@ use plonky2_field::extension_field::Extendable;
 
 use crate::gates::arithmetic_u32::U32ArithmeticGate;
 use crate::gates::subtraction_u32::U32SubtractionGate;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 #[derive(Clone, Copy, Debug)]
 pub struct U32Target(pub Target);
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn add_virtual_u32_target(&mut self) -> U32Target {
         U32Target(self.add_virtual_target())
     }

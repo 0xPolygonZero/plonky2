@@ -5,7 +5,7 @@ use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::gates::gate::Gate;
 use plonky2::gates::util::StridedConstraintConsumer;
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hash_types::PlonkyField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use plonky2::iop::target::Target;
@@ -16,12 +16,12 @@ use plonky2::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase
 
 /// A gate for inserting a value into a list at a non-deterministic location.
 #[derive(Clone, Debug)]
-pub(crate) struct InsertionGate<F: RichField + Extendable<D>, const D: usize> {
+pub(crate) struct InsertionGate<F: PlonkyField<D>, const D: usize> {
     pub vec_size: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> InsertionGate<F, D> {
+impl<F: PlonkyField<D>, const D: usize> InsertionGate<F, D> {
     pub fn new(vec_size: usize) -> Self {
         Self {
             vec_size,
@@ -71,7 +71,7 @@ impl<F: RichField + Extendable<D>, const D: usize> InsertionGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
+impl<F: PlonkyField<D>, const D: usize> Gate<F, D> for InsertionGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}<D={}>", self, D)
     }
@@ -243,12 +243,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<
 }
 
 #[derive(Debug)]
-struct InsertionGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct InsertionGenerator<F: PlonkyField<D>, const D: usize> {
     gate_index: usize,
     gate: InsertionGate<F, D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator<F, D> {
+impl<F: PlonkyField<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |input| Target::wire(self.gate_index, input);
 

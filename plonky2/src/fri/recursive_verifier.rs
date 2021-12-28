@@ -10,7 +10,7 @@ use crate::gates::interpolation::HighDegreeInterpolationGate;
 use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
 use crate::gates::random_access::RandomAccessGate;
 use crate::hash::hash_types::MerkleCapTarget;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::ext_target::{flatten_target, ExtensionTarget};
 use crate::iop::target::{BoolTarget, Target};
@@ -22,7 +22,7 @@ use crate::plonk::proof::OpeningSetTarget;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
     /// and P' is the FRI reduced polynomial.
     fn compute_evaluation<C: GenericConfig<D, F = F>>(
@@ -109,7 +109,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
-    fn fri_verify_proof_of_work<H: AlgebraicHasher<F>>(
+    fn fri_verify_proof_of_work<H: AlgebraicHasher<F, D>>(
         &mut self,
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger<F, H, D>,
@@ -226,7 +226,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn fri_verify_initial_proof<H: AlgebraicHasher<F>>(
+    fn fri_verify_initial_proof<H: AlgebraicHasher<F, D>>(
         &mut self,
         x_index_bits: &[BoolTarget],
         proof: &FriInitialTreeProofTarget,
@@ -476,7 +476,7 @@ struct PrecomputedReducedEvalsTarget<const D: usize> {
 }
 
 impl<const D: usize> PrecomputedReducedEvalsTarget<D> {
-    fn from_os_and_alpha<F: RichField + Extendable<D>>(
+    fn from_os_and_alpha<F: PlonkyField<D>>(
         os: &OpeningSetTarget<D>,
         alpha: ExtensionTarget<D>,
         degree_log: usize,

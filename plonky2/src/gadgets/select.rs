@@ -1,11 +1,11 @@
 use plonky2_field::extension_field::Extendable;
 
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
     /// Selects `x` or `y` based on `b`, i.e., this returns `if b { x } else { y }`.
     pub fn select_ext(
         &mut self,

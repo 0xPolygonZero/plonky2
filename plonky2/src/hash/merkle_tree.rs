@@ -1,7 +1,7 @@
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::plonk::config::GenericHashOut;
 use crate::plonk::config::Hasher;
@@ -10,9 +10,9 @@ use crate::plonk::config::Hasher;
 /// It can be used in place of the root to verify Merkle paths, which are `h` elements shorter.
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct MerkleCap<F: RichField, H: Hasher<F>>(pub Vec<H::Hash>);
+pub struct MerkleCap<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize>(pub Vec<H::Hash>);
 
-impl<F: RichField, H: Hasher<F>> MerkleCap<F, H> {
+impl<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize> MerkleCap<F, H, D> {
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -23,7 +23,7 @@ impl<F: RichField, H: Hasher<F>> MerkleCap<F, H> {
 }
 
 #[derive(Clone, Debug)]
-pub struct MerkleTree<F: RichField, H: Hasher<F>> {
+pub struct MerkleTree<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize> {
     /// The data in the leaves of the Merkle tree.
     pub leaves: Vec<Vec<F>>,
 
@@ -31,10 +31,10 @@ pub struct MerkleTree<F: RichField, H: Hasher<F>> {
     pub layers: Vec<Vec<H::Hash>>,
 
     /// The Merkle cap.
-    pub cap: MerkleCap<F, H>,
+    pub cap: MerkleCap<F, H, D>,
 }
 
-impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
+impl<F: PlonkyField<D>, H: Hasher<F, D>, const D: usize> MerkleTree<F, H, D> {
     pub fn new(leaves: Vec<Vec<F>>, cap_height: usize) -> Self {
         let mut layers = vec![leaves
             .par_iter()
@@ -63,7 +63,7 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
     }
 
     /// Create a Merkle proof from a leaf index.
-    pub fn prove(&self, leaf_index: usize) -> MerkleProof<F, H> {
+    pub fn prove(&self, leaf_index: usize) -> MerkleProof<F, H, D> {
         MerkleProof {
             siblings: self
                 .layers
@@ -87,15 +87,11 @@ mod tests {
     use crate::hash::merkle_proofs::verify_merkle_proof;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
-    fn random_data<F: RichField>(n: usize, k: usize) -> Vec<Vec<F>> {
+    fn random_data<F: PlonkyField<D>, const D: usize>(n: usize, k: usize) -> Vec<Vec<F>> {
         (0..n).map(|_| F::rand_vec(k)).collect()
     }
 
-    fn verify_all_leaves<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn verify_all_leaves<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         leaves: Vec<Vec<F>>,
         n: usize,
     ) -> Result<()> {

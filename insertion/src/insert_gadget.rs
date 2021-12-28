@@ -1,12 +1,12 @@
 use plonky2::field::extension_field::Extendable;
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hash_types::PlonkyField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::insertion_gate::InsertionGate;
 
-pub trait CircuitBuilderInsert<F: RichField + Extendable<D>, const D: usize> {
+pub trait CircuitBuilderInsert<F: PlonkyField<D>, const D: usize> {
     /// Inserts a `Target` in a vector at a non-deterministic index.
     /// Note: `index` is not range-checked.
     fn insert(
@@ -17,9 +17,7 @@ pub trait CircuitBuilderInsert<F: RichField + Extendable<D>, const D: usize> {
     ) -> Vec<ExtensionTarget<D>>;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderInsert<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilderInsert<F, D> for CircuitBuilder<F, D> {
     fn insert(
         &mut self,
         index: Target,

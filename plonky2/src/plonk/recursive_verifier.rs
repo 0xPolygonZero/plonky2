@@ -1,6 +1,6 @@
 use plonky2_field::extension_field::Extendable;
 
-use crate::hash::hash_types::{HashOutTarget, RichField};
+use crate::hash::hash_types::{HashOutTarget, PlonkyField};
 use crate::iop::challenger::RecursiveChallenger;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
@@ -11,7 +11,7 @@ use crate::plonk::vars::EvaluationTargets;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
     pub fn add_recursive_verifier<C: AlgebraicConfig<D, F = F>>(
         &mut self,
@@ -150,11 +150,7 @@ mod tests {
     use crate::util::timing::TimingTree;
 
     // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
-    fn get_fri_query_round<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn get_fri_query_round<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         proof: &Proof<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> FriQueryRoundTarget<D> {
@@ -187,11 +183,7 @@ mod tests {
     }
 
     // Construct a `ProofTarget` with the same dimensions as `proof`.
-    fn proof_to_proof_target<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn proof_to_proof_target<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         proof_with_pis: &ProofWithPublicInputs<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> ProofWithPublicInputsTarget<D> {
@@ -252,11 +244,7 @@ mod tests {
     }
 
     // Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
-    fn set_proof_target<
-        F: RichField + Extendable<D>,
-        C: AlgebraicConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn set_proof_target<F: PlonkyField<D>, C: AlgebraicConfig<D, F = F>, const D: usize>(
         proof: &ProofWithPublicInputs<F, C, D>,
         pt: &ProofWithPublicInputsTarget<D>,
         pw: &mut PartialWitness<F>,
@@ -536,7 +524,7 @@ mod tests {
     }
 
     /// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
-    fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    fn dummy_proof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         config: &CircuitConfig,
         num_dummy_gates: u64,
     ) -> Result<(
@@ -558,7 +546,7 @@ mod tests {
     }
 
     fn recursive_proof<
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
         C: GenericConfig<D, F = F>,
         InnerC: AlgebraicConfig<D, F = F>,
         const D: usize,
@@ -619,11 +607,7 @@ mod tests {
     }
 
     /// Test serialization and print some size info.
-    fn test_serialization<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn test_serialization<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
         proof: &ProofWithPublicInputs<F, C, D>,
         cd: &CommonCircuitData<F, C, D>,
     ) -> Result<()> {

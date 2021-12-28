@@ -7,7 +7,7 @@ use plonky2_util::log2_ceil;
 use rayon::prelude::*;
 
 use crate::fri::commitment::PolynomialBatchCommitment;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::challenger::Challenger;
 use crate::iop::generator::generate_partial_witness;
 use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
@@ -23,7 +23,7 @@ use crate::util::partial_products::{partial_products_and_z_gx, quotient_chunk_pr
 use crate::util::timing::TimingTree;
 use crate::util::transpose;
 
-pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+pub(crate) fn prove<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, C, D>,
     common_data: &CommonCircuitData<F, C, D>,
     inputs: PartialWitness<F>,
@@ -204,7 +204,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
 
 /// Compute the partial products used in the `Z` polynomials.
 fn all_wires_permutation_partial_products<
-    F: RichField + Extendable<D>,
+    F: PlonkyField<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
@@ -231,7 +231,7 @@ fn all_wires_permutation_partial_products<
 /// Returns the polynomials interpolating `partial_products(f / g)`
 /// where `f, g` are the products in the definition of `Z`: `Z(g^i) = f / g`.
 fn wires_permutation_partial_products_and_zs<
-    F: RichField + Extendable<D>,
+    F: PlonkyField<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
@@ -291,15 +291,10 @@ fn wires_permutation_partial_products_and_zs<
 
 const BATCH_SIZE: usize = 32;
 
-fn compute_quotient_polys<
-    'a,
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
+fn compute_quotient_polys<'a, F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
     common_data: &CommonCircuitData<F, C, D>,
     prover_data: &'a ProverOnlyCircuitData<F, C, D>,
-    public_inputs_hash: &<<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
+    public_inputs_hash: &<<C as GenericConfig<D>>::InnerHasher as Hasher<F, D>>::Hash,
     wires_commitment: &'a PolynomialBatchCommitment<F, C, D>,
     zs_partial_products_commitment: &'a PolynomialBatchCommitment<F, C, D>,
     betas: &[F],

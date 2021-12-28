@@ -4,10 +4,10 @@ use plonky2_field::packed_field::PackedField;
 
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::plonk::vars::{EvaluationVarsBaseBatch, EvaluationVarsBasePacked};
 
-pub trait PackedEvaluableBase<F: RichField + Extendable<D>, const D: usize>: Gate<F, D> {
+pub trait PackedEvaluableBase<F: PlonkyField<D>, const D: usize>: Gate<F, D> {
     fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
         &self,
         vars_base: EvaluationVarsBasePacked<P>,

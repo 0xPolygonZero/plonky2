@@ -1,6 +1,6 @@
 use plonky2_field::extension_field::Extendable;
 
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -13,7 +13,7 @@ impl<const D: usize> PolynomialCoeffsExtTarget<D> {
         self.0.len()
     }
 
-    pub fn eval_scalar<F: RichField + Extendable<D>>(
+    pub fn eval_scalar<F: PlonkyField<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         point: Target,
@@ -23,7 +23,7 @@ impl<const D: usize> PolynomialCoeffsExtTarget<D> {
         point.reduce(&self.0, builder)
     }
 
-    pub fn eval<F: RichField + Extendable<D>>(
+    pub fn eval<F: PlonkyField<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         point: ExtensionTarget<D>,
@@ -42,7 +42,7 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
         point: ExtensionTarget<D>,
     ) -> ExtensionAlgebraTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
     {
         let mut acc = builder.zero_ext_algebra();
         for &c in self.0.iter().rev() {
@@ -57,7 +57,7 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
         point: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
     {
         let mut acc = builder.zero_ext_algebra();
         for &c in self.0.iter().rev() {
@@ -73,7 +73,7 @@ impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {
         powers: &[ExtensionAlgebraTarget<D>],
     ) -> ExtensionAlgebraTarget<D>
     where
-        F: RichField + Extendable<D>,
+        F: PlonkyField<D>,
     {
         debug_assert_eq!(self.0.len(), powers.len() + 1);
         let acc = self.0[0];

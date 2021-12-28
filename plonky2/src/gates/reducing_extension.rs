@@ -5,7 +5,7 @@ use plonky2_field::extension_field::FieldExtension;
 
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -56,7 +56,7 @@ impl<const D: usize> ReducingExtensionGate<D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingExtensionGate<D> {
+impl<F: PlonkyField<D>, const D: usize> Gate<F, D> for ReducingExtensionGate<D> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
@@ -172,7 +172,7 @@ struct ReducingGenerator<const D: usize> {
     gate: ReducingExtensionGate<D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<D> {
+impl<F: PlonkyField<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<D> {
     fn dependencies(&self) -> Vec<Target> {
         ReducingExtensionGate::<D>::wires_alpha()
             .chain(ReducingExtensionGate::<D>::wires_old_acc())

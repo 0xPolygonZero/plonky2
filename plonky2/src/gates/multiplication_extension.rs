@@ -5,7 +5,7 @@ use plonky2_field::extension_field::FieldExtension;
 
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -46,7 +46,7 @@ impl<const D: usize> MulExtensionGate<D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for MulExtensionGate<D> {
+impl<F: PlonkyField<D>, const D: usize> Gate<F, D> for MulExtensionGate<D> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
@@ -146,15 +146,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for MulExtensionGa
 }
 
 #[derive(Clone, Debug)]
-struct MulExtensionGenerator<F: RichField + Extendable<D>, const D: usize> {
+struct MulExtensionGenerator<F: PlonkyField<D>, const D: usize> {
     gate_index: usize,
     const_0: F,
     i: usize,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for MulExtensionGenerator<F, D>
-{
+impl<F: PlonkyField<D>, const D: usize> SimpleGenerator<F> for MulExtensionGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         MulExtensionGate::<D>::wires_ith_multiplicand_0(self.i)
             .chain(MulExtensionGate::<D>::wires_ith_multiplicand_1(self.i))

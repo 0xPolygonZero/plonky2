@@ -5,14 +5,14 @@ use plonky2_util::bits_u64;
 
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::multiplication_extension::MulExtensionGate;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn arithmetic_extension(
         &mut self,
         const_0: F,
@@ -486,9 +486,7 @@ struct QuotientGeneratorExtension<const D: usize> {
     quotient: ExtensionTarget<D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for QuotientGeneratorExtension<D>
-{
+impl<F: PlonkyField<D>, const D: usize> SimpleGenerator<F> for QuotientGeneratorExtension<D> {
     fn dependencies(&self) -> Vec<Target> {
         let mut deps = self.numerator.to_target_array().to_vec();
         deps.extend(&self.denominator.to_target_array());
@@ -511,7 +509,7 @@ pub struct PowersTarget<const D: usize> {
 }
 
 impl<const D: usize> PowersTarget<D> {
-    pub fn next<F: RichField + Extendable<D>>(
+    pub fn next<F: PlonkyField<D>>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D> {
@@ -520,7 +518,7 @@ impl<const D: usize> PowersTarget<D> {
         result
     }
 
-    pub fn repeated_frobenius<F: RichField + Extendable<D>>(
+    pub fn repeated_frobenius<F: PlonkyField<D>>(
         self,
         k: usize,
         builder: &mut CircuitBuilder<F, D>,
@@ -533,7 +531,7 @@ impl<const D: usize> PowersTarget<D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn powers(&mut self, base: ExtensionTarget<D>) -> PowersTarget<D> {
         PowersTarget {
             base,

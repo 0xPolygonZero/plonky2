@@ -10,11 +10,10 @@ use crate::iop::target::Target;
 use crate::plonk::config::GenericHashOut;
 
 /// A prime order field with the features we need to use it as a base field in our argument system.
-pub trait RichField: PrimeField + GMiMC<12> + Poseidon {}
+pub trait PlonkyField<const D: usize>: PrimeField + Extendable<D> + GMiMC<12> + Poseidon {}
 
-pub trait RichField2<const D: usize>: PrimeField + GMiMC<12> + Poseidon + Extendable<D> {}
-
-impl RichField for GoldilocksField {}
+impl PlonkyField<2> for GoldilocksField {}
+impl PlonkyField<4> for GoldilocksField {}
 
 /// Represents a ~256 bit hash output.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -63,7 +62,7 @@ impl<F: Field> HashOut<F> {
     }
 }
 
-impl<F: RichField> GenericHashOut<F> for HashOut<F> {
+impl<F: PlonkyField<D>, const D: usize> GenericHashOut<F, D> for HashOut<F> {
     fn to_bytes(&self) -> Vec<u8> {
         self.elements
             .into_iter()
@@ -126,7 +125,7 @@ pub struct MerkleCapTarget(pub Vec<HashOutTarget>);
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub struct BytesHash<const N: usize>(pub [u8; N]);
 
-impl<F: RichField, const N: usize> GenericHashOut<F> for BytesHash<N> {
+impl<F: PlonkyField<D>, const N: usize, const D: usize> GenericHashOut<F, D> for BytesHash<N> {
     fn to_bytes(&self) -> Vec<u8> {
         self.0.to_vec()
     }

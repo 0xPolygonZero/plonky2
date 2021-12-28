@@ -7,7 +7,7 @@ use plonky2_field::packed_field::PackedField;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
@@ -45,7 +45,7 @@ impl<const B: usize> BaseSumGate<B> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGate<B> {
+impl<F: PlonkyField<D>, const D: usize, const B: usize> Gate<F, D> for BaseSumGate<B> {
     fn id(&self) -> String {
         format!("{:?} + Base: {}", self, B)
     }
@@ -136,7 +136,7 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> fo
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize, const B: usize> PackedEvaluableBase<F, D>
+impl<F: PlonkyField<D>, const D: usize, const B: usize> PackedEvaluableBase<F, D>
     for BaseSumGate<B>
 {
     fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
@@ -165,7 +165,9 @@ pub struct BaseSplitGenerator<const B: usize> {
     num_limbs: usize,
 }
 
-impl<F: RichField, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
+impl<F: PlonkyField<D>, const B: usize, const D: usize> SimpleGenerator<F>
+    for BaseSplitGenerator<B>
+{
     fn dependencies(&self) -> Vec<Target> {
         vec![Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM)]
     }

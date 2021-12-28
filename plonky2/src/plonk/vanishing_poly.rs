@@ -3,7 +3,7 @@ use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 
 use crate::gates::gate::PrefixedGate;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -20,11 +20,7 @@ use crate::with_context;
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
 /// linear combination of gate constraints, plus some other terms relating to the permutation
 /// argument. All such terms should vanish on `H`.
-pub(crate) fn eval_vanishing_poly<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
+pub(crate) fn eval_vanishing_poly<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>(
     common_data: &CommonCircuitData<F, C, D>,
     x: F::Extension,
     vars: EvaluationVars<F, D>,
@@ -97,7 +93,7 @@ pub(crate) fn eval_vanishing_poly<
 
 /// Like `eval_vanishing_poly`, but specialized for base field points. Batched.
 pub(crate) fn eval_vanishing_poly_base_batch<
-    F: RichField + Extendable<D>,
+    F: PlonkyField<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
@@ -207,7 +203,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<
 /// `num_gate_constraints` is the largest number of constraints imposed by any gate. It is not
 /// strictly necessary, but it helps performance by ensuring that we allocate a vector with exactly
 /// the capacity that we need.
-pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
+pub fn evaluate_gate_constraints<F: PlonkyField<D>, const D: usize>(
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
     vars: EvaluationVars<F, D>,
@@ -231,7 +227,7 @@ pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
 /// Returns a vector of `num_gate_constraints * vars_batch.len()` field elements. The constraints
 /// corresponding to `vars_batch[i]` are found in `result[i], result[vars_batch.len() + i],
 /// result[2 * vars_batch.len() + i], ...`.
-pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const D: usize>(
+pub fn evaluate_gate_constraints_base_batch<F: PlonkyField<D>, const D: usize>(
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
     vars_batch: EvaluationVarsBaseBatch<F>,
@@ -255,7 +251,7 @@ pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const 
     constraints_batch
 }
 
-pub fn evaluate_gate_constraints_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub fn evaluate_gate_constraints_recursively<F: PlonkyField<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     gates: &[PrefixedGate<F, D>],
     num_gate_constraints: usize,
@@ -284,7 +280,7 @@ pub fn evaluate_gate_constraints_recursively<F: RichField + Extendable<D>, const
 /// Assumes `x != 1`; if `x` could be 1 then this is unsound. This is fine if `x` is a random
 /// variable drawn from a sufficiently large domain.
 pub(crate) fn eval_vanishing_poly_recursively<
-    F: RichField + Extendable<D>,
+    F: PlonkyField<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(

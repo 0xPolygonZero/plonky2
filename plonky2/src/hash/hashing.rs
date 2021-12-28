@@ -2,7 +2,7 @@
 
 use plonky2_field::extension_field::Extendable;
 
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::hash::hash_types::{HashOut, HashOutTarget};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -14,16 +14,18 @@ pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 
 /// Hash the vector if necessary to reduce its length to ~256 bits. If it already fits, this is a
 /// no-op.
-pub fn hash_or_noop<F: RichField, P: PlonkyPermutation<F>>(inputs: Vec<F>) -> HashOut<F> {
+pub fn hash_or_noop<F: PlonkyField<D>, P: PlonkyPermutation<F, D>, const D: usize>(
+    inputs: Vec<F>,
+) -> HashOut<F> {
     if inputs.len() <= 4 {
         HashOut::from_partial(inputs)
     } else {
-        hash_n_to_hash::<F, P>(inputs, false)
+        hash_n_to_hash::<F, P, D>(inputs, false)
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn hash_or_noop<H: AlgebraicHasher<F>>(&mut self, inputs: Vec<Target>) -> HashOutTarget {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
+    pub fn hash_or_noop<H: AlgebraicHasher<F, D>>(&mut self, inputs: Vec<Target>) -> HashOutTarget {
         let zero = self.zero();
         if inputs.len() <= 4 {
             HashOutTarget::from_partial(inputs, zero)
@@ -32,7 +34,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn hash_n_to_hash<H: AlgebraicHasher<F>>(
+    pub fn hash_n_to_hash<H: AlgebraicHasher<F, D>>(
         &mut self,
         inputs: Vec<Target>,
         pad: bool,
@@ -40,7 +42,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         HashOutTarget::from_vec(self.hash_n_to_m::<H>(inputs, 4, pad))
     }
 
-    pub fn hash_n_to_m<H: AlgebraicHasher<F>>(
+    pub fn hash_n_to_m<H: AlgebraicHasher<F, D>>(
         &mut self,
         mut inputs: Vec<Target>,
         num_outputs: usize,
@@ -83,7 +85,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 /// A one-way compression function which takes two ~256 bit inputs and returns a ~256 bit output.
-pub fn compress<F: RichField, P: PlonkyPermutation<F>>(x: HashOut<F>, y: HashOut<F>) -> HashOut<F> {
+pub fn compress<F: PlonkyField<D>, P: PlonkyPermutation<F, D>, const D: usize>(
+    x: HashOut<F>,
+    y: HashOut<F>,
+) -> HashOut<F> {
     let mut perm_inputs = [F::ZERO; SPONGE_WIDTH];
     perm_inputs[..4].copy_from_slice(&x.elements);
     perm_inputs[4..8].copy_from_slice(&y.elements);
@@ -93,18 +98,18 @@ pub fn compress<F: RichField, P: PlonkyPermutation<F>>(x: HashOut<F>, y: HashOut
 }
 
 /// Permutation that can be used in the sponge construction for an algebraic hash.
-pub trait PlonkyPermutation<F: RichField> {
+pub trait PlonkyPermutation<F: PlonkyField<D>, const D: usize> {
     fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH];
 }
 
 pub struct PoseidonPermutation;
-impl<F: RichField> PlonkyPermutation<F> for PoseidonPermutation {
+impl<F: PlonkyField<D>, const D: usize> PlonkyPermutation<F, D> for PoseidonPermutation {
     fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
         F::poseidon(input)
     }
 }
 pub struct GMiMCPermutation;
-impl<F: RichField> PlonkyPermutation<F> for GMiMCPermutation {
+impl<F: PlonkyField<D>, const D: usize> PlonkyPermutation<F, D> for GMiMCPermutation {
     fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
         F::gmimc_permute(input)
     }
@@ -113,7 +118,7 @@ impl<F: RichField> PlonkyPermutation<F> for GMiMCPermutation {
 /// If `pad` is enabled, the message is padded using the pad10*1 rule. In general this is required
 /// for the hash to be secure, but it can safely be disabled in certain cases, like if the input
 /// length is fixed.
-pub fn hash_n_to_m<F: RichField, P: PlonkyPermutation<F>>(
+pub fn hash_n_to_m<F: PlonkyField<D>, P: PlonkyPermutation<F, D>, const D: usize>(
     mut inputs: Vec<F>,
     num_outputs: usize,
     pad: bool,
@@ -147,7 +152,7 @@ pub fn hash_n_to_m<F: RichField, P: PlonkyPermutation<F>>(
     }
 }
 
-pub fn hash_n_to_hash<F: RichField, P: PlonkyPermutation<F>>(
+pub fn hash_n_to_hash<F: PlonkyField<D>, P: PlonkyPermutation<F, D>, const D: usize>(
     inputs: Vec<F>,
     pad: bool,
 ) -> HashOut<F> {

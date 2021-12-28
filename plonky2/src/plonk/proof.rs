@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::proof::{CompressedFriProof, FriProof, FriProofTarget};
-use crate::hash::hash_types::{MerkleCapTarget, RichField};
+use crate::hash::hash_types::{MerkleCapTarget, PlonkyField};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
@@ -15,13 +15,13 @@ use crate::util::serialization::Buffer;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct Proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+pub struct Proof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of wire values.
-    pub wires_cap: MerkleCap<F, C::Hasher>,
+    pub wires_cap: MerkleCap<F, C::Hasher, D>,
     /// Merkle cap of LDEs of Z, in the context of Plonk's permutation argument.
-    pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
+    pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher, D>,
     /// Merkle cap of LDEs of the quotient polynomial components.
-    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
+    pub quotient_polys_cap: MerkleCap<F, C::Hasher, D>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A batch FRI argument for all openings.
@@ -36,7 +36,7 @@ pub struct ProofTarget<const D: usize> {
     pub opening_proof: FriProofTarget<D>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> Proof<F, C, D> {
+impl<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> Proof<F, C, D> {
     /// Compress the proof.
     pub fn compress(
         self,
@@ -63,18 +63,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> P
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct ProofWithPublicInputs<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
+pub struct ProofWithPublicInputs<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub proof: Proof<F, C, D>,
     pub public_inputs: Vec<F>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    ProofWithPublicInputs<F, C, D>
-{
+impl<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> ProofWithPublicInputs<F, C, D> {
     pub fn compress(
         self,
         common_data: &CommonCircuitData<F, C, D>,
@@ -89,7 +83,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub(crate) fn get_public_inputs_hash(
         &self,
-    ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash {
+    ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F, D>>::Hash {
         C::InnerHasher::hash(self.public_inputs.clone(), true)
     }
 
@@ -111,23 +105,20 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
-pub struct CompressedProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-{
+pub struct CompressedProof<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of wire values.
-    pub wires_cap: MerkleCap<F, C::Hasher>,
+    pub wires_cap: MerkleCap<F, C::Hasher, D>,
     /// Merkle cap of LDEs of Z, in the context of Plonk's permutation argument.
-    pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
+    pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher, D>,
     /// Merkle cap of LDEs of the quotient polynomial components.
-    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
+    pub quotient_polys_cap: MerkleCap<F, C::Hasher, D>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A compressed batch FRI argument for all openings.
     pub opening_proof: CompressedFriProof<F, C::Hasher, D>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    CompressedProof<F, C, D>
-{
+impl<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> CompressedProof<F, C, D> {
     /// Decompress the proof.
     pub(crate) fn decompress(
         self,
@@ -156,7 +147,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(bound = "")]
 pub struct CompressedProofWithPublicInputs<
-    F: RichField + Extendable<D>,
+    F: PlonkyField<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
@@ -164,7 +155,7 @@ pub struct CompressedProofWithPublicInputs<
     pub public_inputs: Vec<F>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+impl<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize>
     CompressedProofWithPublicInputs<F, C, D>
 {
     pub fn decompress(
@@ -205,7 +196,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub(crate) fn get_public_inputs_hash(
         &self,
-    ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash {
+    ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F, D>>::Hash {
         C::InnerHasher::hash(self.public_inputs.clone(), true)
     }
 
@@ -225,7 +216,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
-pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> {
+pub(crate) struct ProofChallenges<F: PlonkyField<D>, const D: usize> {
     // Random values used in Plonk's permutation argument.
     pub plonk_betas: Vec<F>,
 
@@ -251,9 +242,7 @@ pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> 
 }
 
 /// Coset elements that can be inferred in the FRI reduction steps.
-pub(crate) struct FriInferredElements<F: RichField + Extendable<D>, const D: usize>(
-    pub Vec<F::Extension>,
-);
+pub(crate) struct FriInferredElements<F: PlonkyField<D>, const D: usize>(pub Vec<F::Extension>);
 
 pub struct ProofWithPublicInputsTarget<const D: usize> {
     pub proof: ProofTarget<D>,
@@ -262,7 +251,7 @@ pub struct ProofWithPublicInputsTarget<const D: usize> {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 /// The purported values of each polynomial at a single point.
-pub struct OpeningSet<F: RichField + Extendable<D>, const D: usize> {
+pub struct OpeningSet<F: PlonkyField<D>, const D: usize> {
     pub constants: Vec<F::Extension>,
     pub plonk_sigmas: Vec<F::Extension>,
     pub wires: Vec<F::Extension>,
@@ -272,7 +261,7 @@ pub struct OpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub quotient_polys: Vec<F::Extension>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
+impl<F: PlonkyField<D>, const D: usize> OpeningSet<F, D> {
     pub fn new<C: GenericConfig<D, F = F>>(
         z: F::Extension,
         g: F::Extension,

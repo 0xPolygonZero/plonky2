@@ -2,13 +2,13 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_util::ceil_div_usize;
 
 use crate::gates::base_sum::BaseSumGate;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given integer into a list of wires, where each one represents a
     /// bit of the integer, with little-endian ordering.
     /// Verifies that the decomposition is correct by using `k` `BaseSum<2>` gates
@@ -59,7 +59,7 @@ struct SplitGenerator {
     bits: Vec<Target>,
 }
 
-impl<F: RichField> SimpleGenerator<F> for SplitGenerator {
+impl<F: PlonkyField<D>, const D: usize> SimpleGenerator<F> for SplitGenerator {
     fn dependencies(&self) -> Vec<Target> {
         vec![self.integer]
     }
@@ -87,7 +87,7 @@ struct WireSplitGenerator {
     num_limbs: usize,
 }
 
-impl<F: RichField> SimpleGenerator<F> for WireSplitGenerator {
+impl<F: PlonkyField<D>, const D: usize> SimpleGenerator<F> for WireSplitGenerator {
     fn dependencies(&self) -> Vec<Target> {
         vec![self.integer]
     }

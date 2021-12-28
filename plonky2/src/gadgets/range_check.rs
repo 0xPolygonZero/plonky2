@@ -1,12 +1,12 @@
 use plonky2_field::extension_field::Extendable;
 
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
     /// Checks that `x < 2^n_log` using a `BaseSumGate`.
     pub fn range_check(&mut self, x: Target, n_log: usize) {
         self.split_le(x, n_log);
@@ -51,7 +51,7 @@ struct LowHighGenerator {
     high: Target,
 }
 
-impl<F: RichField> SimpleGenerator<F> for LowHighGenerator {
+impl<F: PlonkyField<D>, const D: usize> SimpleGenerator<F> for LowHighGenerator {
     fn dependencies(&self) -> Vec<Target> {
         vec![self.integer]
     }

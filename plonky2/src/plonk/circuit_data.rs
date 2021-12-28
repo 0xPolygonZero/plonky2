@@ -9,7 +9,7 @@ use crate::fri::commitment::PolynomialBatchCommitment;
 use crate::fri::reduction_strategies::FriReductionStrategy;
 use crate::fri::{FriConfig, FriParams};
 use crate::gates::gate::PrefixedGate;
-use crate::hash::hash_types::{MerkleCapTarget, RichField};
+use crate::hash::hash_types::{MerkleCapTarget, PlonkyField};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;
@@ -85,15 +85,13 @@ impl CircuitConfig {
 }
 
 /// Circuit data required by the prover or the verifier.
-pub struct CircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+pub struct CircuitData<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub(crate) prover_only: ProverOnlyCircuitData<F, C, D>,
     pub(crate) verifier_only: VerifierOnlyCircuitData<C, D>,
     pub(crate) common: CommonCircuitData<F, C, D>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    CircuitData<F, C, D>
-{
+impl<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> CircuitData<F, C, D> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
         prove(
             &self.prover_only,
@@ -122,18 +120,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 /// structure as succinct as we can. Thus we include various precomputed data which isn't strictly
 /// required, like LDEs of preprocessed polynomials. If more succinctness was desired, we could
 /// construct a more minimal prover structure and convert back and forth.
-pub struct ProverCircuitData<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
+pub struct ProverCircuitData<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub(crate) prover_only: ProverOnlyCircuitData<F, C, D>,
     pub(crate) common: CommonCircuitData<F, C, D>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    ProverCircuitData<F, C, D>
-{
+impl<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> ProverCircuitData<F, C, D> {
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
         prove(
             &self.prover_only,
@@ -146,18 +138,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
 /// Circuit data required by the prover.
 #[derive(Debug)]
-pub struct VerifierCircuitData<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
+pub struct VerifierCircuitData<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub(crate) verifier_only: VerifierOnlyCircuitData<C, D>,
     pub(crate) common: CommonCircuitData<F, C, D>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    VerifierCircuitData<F, C, D>
-{
+impl<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> VerifierCircuitData<F, C, D> {
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
         verify(proof_with_pis, &self.verifier_only, &self.common)
     }
@@ -172,7 +158,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
 /// Circuit data required by the prover, but not the verifier.
 pub(crate) struct ProverOnlyCircuitData<
-    F: RichField + Extendable<D>,
+    F: PlonkyField<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
@@ -201,16 +187,12 @@ pub(crate) struct ProverOnlyCircuitData<
 #[derive(Debug)]
 pub(crate) struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
+    pub(crate) constants_sigmas_cap: MerkleCap<C::F, C::Hasher, D>,
 }
 
 /// Circuit data required by both the prover and the verifier.
 #[derive(Debug)]
-pub struct CommonCircuitData<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
+pub struct CommonCircuitData<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
     pub(crate) fri_params: FriParams,
@@ -240,12 +222,10 @@ pub struct CommonCircuitData<
 
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
-    pub(crate) circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash,
+    pub(crate) circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F, D>>::Hash,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    CommonCircuitData<F, C, D>
-{
+impl<F: PlonkyField<D>, C: GenericConfig<D, F = F>, const D: usize> CommonCircuitData<F, C, D> {
     pub fn degree(&self) -> usize {
         1 << self.degree_bits
     }

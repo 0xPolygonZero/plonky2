@@ -1,7 +1,7 @@
 use plonky2_field::extension_field::Extendable;
 
 use crate::gates::gate::Gate;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -10,7 +10,7 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBa
 /// A gate which does nothing.
 pub struct NoopGate;
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
+impl<F: PlonkyField<D>, const D: usize> Gate<F, D> for NoopGate {
     fn id(&self) -> String {
         "NoopGate".into()
     }

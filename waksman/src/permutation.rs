@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
 use plonky2::field::{extension_field::Extendable, field_types::Field};
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hash_types::PlonkyField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartitionWitness, Witness};
@@ -11,7 +11,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use crate::bimap::bimap_from_lists;
 
 /// Assert that two lists of expressions evaluate to permutations of one another.
-pub fn assert_permutation<F: RichField + Extendable<D>, const D: usize>(
+pub fn assert_permutation<F: PlonkyField<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     a: Vec<Vec<Target>>,
     b: Vec<Vec<Target>>,
@@ -47,7 +47,7 @@ pub fn assert_permutation<F: RichField + Extendable<D>, const D: usize>(
 }
 
 /// Assert that [a1, a2] is a permutation of [b1, b2].
-fn assert_permutation_2x2<F: RichField + Extendable<D>, const D: usize>(
+fn assert_permutation_2x2<F: PlonkyField<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     a1: Vec<Target>,
     a2: Vec<Target>,
@@ -70,7 +70,7 @@ fn assert_permutation_2x2<F: RichField + Extendable<D>, const D: usize>(
 
 /// Given two input wire chunks, add a new switch to the circuit (by adding one copy to a switch
 /// gate). Returns the wire for the switch boolean, and the two output wire chunks.
-fn create_switch<F: RichField + Extendable<D>, const D: usize>(
+fn create_switch<F: PlonkyField<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     a1: Vec<Target>,
     a2: Vec<Target>,
@@ -107,7 +107,7 @@ fn create_switch<F: RichField + Extendable<D>, const D: usize>(
     (switch, c, d)
 }
 
-fn assert_permutation_recursive<F: RichField + Extendable<D>, const D: usize>(
+fn assert_permutation_recursive<F: PlonkyField<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     a: Vec<Vec<Target>>,
     b: Vec<Vec<Target>>,

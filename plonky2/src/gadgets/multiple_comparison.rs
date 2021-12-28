@@ -3,11 +3,11 @@ use plonky2_util::ceil_div_usize;
 
 use super::arithmetic_u32::U32Target;
 use crate::gates::comparison::ComparisonGate;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::PlonkyField;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+impl<F: PlonkyField<D>, const D: usize> CircuitBuilder<F, D> {
     /// Returns true if a is less than or equal to b, considered as base-`2^num_bits` limbs of a large value.
     /// This range-checks its inputs.
     pub fn list_le(&mut self, a: Vec<Target>, b: Vec<Target>, num_bits: usize) -> BoolTarget {
