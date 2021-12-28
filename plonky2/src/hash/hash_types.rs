@@ -1,3 +1,4 @@
+use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::{Field, PrimeField};
 use plonky2_field::goldilocks_field::GoldilocksField;
 use rand::Rng;
@@ -10,6 +11,8 @@ use crate::plonk::config::GenericHashOut;
 
 /// A prime order field with the features we need to use it as a base field in our argument system.
 pub trait RichField: PrimeField + GMiMC<12> + Poseidon {}
+
+pub trait RichField2<const D: usize>: PrimeField + GMiMC<12> + Poseidon + Extendable<D> {}
 
 impl RichField for GoldilocksField {}
 
@@ -68,7 +71,7 @@ impl<F: RichField> GenericHashOut<F> for HashOut<F> {
             .collect()
     }
 
-    fn from_bytes(bytes: Vec<u8>) -> Self {
+    fn from_bytes(bytes: &[u8]) -> Self {
         HashOut {
             elements: bytes
                 .chunks(8)
@@ -128,7 +131,7 @@ impl<F: RichField, const N: usize> GenericHashOut<F> for BytesHash<N> {
         self.0.to_vec()
     }
 
-    fn from_bytes(bytes: Vec<u8>) -> Self {
+    fn from_bytes(bytes: &[u8]) -> Self {
         Self(bytes.try_into().unwrap())
     }
 

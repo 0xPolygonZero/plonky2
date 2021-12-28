@@ -92,7 +92,7 @@ impl Buffer {
     fn read_hash<F: RichField, H: Hasher<F>>(&mut self) -> Result<H::Hash> {
         let mut buf = vec![0; H::HASH_SIZE];
         self.0.read_exact(&mut buf)?;
-        Ok(H::Hash::from_bytes(buf))
+        Ok(H::Hash::from_bytes(&buf))
     }
 
     fn write_merkle_cap<F: RichField, H: Hasher<F>>(
