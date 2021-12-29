@@ -5,7 +5,7 @@ use unroll::unroll_for_loops;
 
 use crate::gates::gmimc::GMiMCGate;
 use crate::hash::hash_types::{HashOut, RichField};
-use crate::hash::hashing::{compress, hash_n_to_hash, GMiMCPermutation, SPONGE_WIDTH};
+use crate::hash::hashing::{compress, hash_n_to_hash, PlonkyPermutation, SPONGE_WIDTH};
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, Hasher};
@@ -91,6 +91,13 @@ impl GMiMC<8> for GoldilocksField {
 
 impl GMiMC<12> for GoldilocksField {
     const ROUND_CONSTANTS: [u64; NUM_ROUNDS] = GOLDILOCKS_ROUND_CONSTANTS;
+}
+
+pub struct GMiMCPermutation;
+impl<F: RichField> PlonkyPermutation<F> for GMiMCPermutation {
+    fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
+        F::gmimc_permute(input)
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

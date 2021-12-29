@@ -9,7 +9,7 @@ use crate::gates::gate::Gate;
 use crate::gates::poseidon::PoseidonGate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
 use crate::hash::hash_types::{HashOut, RichField};
-use crate::hash::hashing::{compress, hash_n_to_hash, PoseidonPermutation, SPONGE_WIDTH};
+use crate::hash::hashing::{compress, hash_n_to_hash, PlonkyPermutation, SPONGE_WIDTH};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -615,6 +615,13 @@ pub trait Poseidon: PrimeField {
         debug_assert_eq!(round_ctr, N_ROUNDS);
 
         state
+    }
+}
+
+pub struct PoseidonPermutation;
+impl<F: RichField> PlonkyPermutation<F> for PoseidonPermutation {
+    fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
+        F::poseidon(input)
     }
 }
 
