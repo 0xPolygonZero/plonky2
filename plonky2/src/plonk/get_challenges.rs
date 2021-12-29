@@ -32,7 +32,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     let num_fri_queries = config.fri_config.num_query_rounds;
     let lde_size = common_data.lde_size();
 
-    let mut challenger = Challenger::<F, C::InnerHasher>::new();
+    let mut challenger = Challenger::<F, C::Hasher>::new();
 
     // Observe the instance.
     challenger.observe_hash::<C::Hasher>(common_data.circuit_digest);

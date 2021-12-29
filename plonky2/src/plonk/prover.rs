@@ -79,7 +79,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
         )
     );
 
-    let mut challenger = Challenger::new();
+    let mut challenger = Challenger::<F, C::Hasher>::new();
 
     // Observe the instance.
     challenger.observe_hash::<C::Hasher>(common_data.circuit_digest);
