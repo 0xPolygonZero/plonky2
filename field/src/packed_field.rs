@@ -4,6 +4,7 @@ use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 use std::slice;
 
 use crate::field_types::Field;
+use crate::ops::Squarable;
 
 /// # Safety
 /// - WIDTH is assumed to be a power of 2.
@@ -24,6 +25,7 @@ pub unsafe trait PackedField:
     + Mul<Self::Scalar, Output = Self>
     + MulAssign<Self>
     + MulAssign<Self::Scalar>
+    + Squarable
     + Neg<Output = Self>
     + Product
     + Send
@@ -43,10 +45,6 @@ where
     const WIDTH: usize;
     const ZERO: Self;
     const ONE: Self;
-
-    fn square(&self) -> Self {
-        *self * *self
-    }
 
     fn from_arr(arr: [Self::Scalar; Self::WIDTH]) -> Self;
     fn as_arr(&self) -> [Self::Scalar; Self::WIDTH];
@@ -105,10 +103,6 @@ unsafe impl<F: Field> PackedField for F {
     const WIDTH: usize = 1;
     const ZERO: Self = <F as Field>::ZERO;
     const ONE: Self = <F as Field>::ONE;
-
-    fn square(&self) -> Self {
-        <Self as Field>::square(self)
-    }
 
     fn from_arr(arr: [Self::Scalar; Self::WIDTH]) -> Self {
         arr[0]

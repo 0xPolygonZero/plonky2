@@ -1,6 +1,7 @@
 use std::ops::Add;
 
 use plonky2_field::field_types::Field;
+use plonky2_field::ops::Squarable;
 
 use crate::curve::curve_types::{AffinePoint, Curve, ProjectivePoint};
 

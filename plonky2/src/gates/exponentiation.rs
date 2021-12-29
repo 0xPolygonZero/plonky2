@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
+use plonky2_field::ops::Squarable;
 use plonky2_field::packed_field::PackedField;
 
 use crate::gates::gate::Gate;
@@ -90,7 +91,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
             let prev_intermediate_value = if i == 0 {
                 <F::Extension as Field>::ONE
             } else {
-                <F::Extension as Field>::square(&intermediate_values[i - 1])
+                F::Extension::square(&intermediate_values[i - 1])
             };
 
             // power_bits is in LE order, but we accumulate in BE order.
