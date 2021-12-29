@@ -6,11 +6,14 @@ use plonky2_field::field_types::{Field, PrimeField};
 use unroll::unroll_for_loops;
 
 use crate::gates::gate::Gate;
+use crate::gates::poseidon::PoseidonGate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
-use crate::hash::hash_types::RichField;
-use crate::hash::hashing::SPONGE_WIDTH;
+use crate::hash::hash_types::{HashOut, RichField};
+use crate::hash::hashing::{compress, hash_n_to_hash, PoseidonPermutation, SPONGE_WIDTH};
 use crate::iop::ext_target::ExtensionTarget;
+use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::config::{AlgebraicHasher, Hasher};
 
 // The number of full rounds and partial rounds is given by the
 // calc_round_numbers.py script. They happen to be the same for both
@@ -612,6 +615,55 @@ pub trait Poseidon: PrimeField {
         debug_assert_eq!(round_ctr, N_ROUNDS);
 
         state
+    }
+}
+
+/// Poseidon hash function.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct PoseidonHash;
+impl<F: RichField> Hasher<F> for PoseidonHash {
+    const HASH_SIZE: usize = 4 * 8;
+    type Hash = HashOut<F>;
+    type Permutation = PoseidonPermutation;
+
+    fn hash(input: Vec<F>, pad: bool) -> Self::Hash {
+        hash_n_to_hash::<F, Self::Permutation>(input, pad)
+    }
+
+    fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
+        compress::<F, Self::Permutation>(left, right)
+    }
+}
+
+impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
+    fn permute_swapped<const D: usize>(
+        inputs: [Target; SPONGE_WIDTH],
+        swap: BoolTarget,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> [Target; SPONGE_WIDTH]
+    where
+        F: RichField + Extendable<D>,
+    {
+        let gate_type = PoseidonGate::<F, D>::new();
+        let gate = builder.add_gate(gate_type, vec![]);
+
+        let swap_wire = PoseidonGate::<F, D>::WIRE_SWAP;
+        let swap_wire = Target::wire(gate, swap_wire);
+        builder.connect(swap.target, swap_wire);
+
+        // Route input wires.
+        for i in 0..SPONGE_WIDTH {
+            let in_wire = PoseidonGate::<F, D>::wire_input(i);
+            let in_wire = Target::wire(gate, in_wire);
+            builder.connect(inputs[i], in_wire);
+        }
+
+        // Collect output wires.
+        (0..SPONGE_WIDTH)
+            .map(|i| Target::wire(gate, PoseidonGate::<F, D>::wire_output(i)))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
     }
 }
 
