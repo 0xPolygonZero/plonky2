@@ -1,0 +1,13 @@
+[package]
+name = "starky"
+description = "Implementation of STARKs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+plonky2 = { path = "../plonky2" }
+plonky2_util = { path = "../util" }
+anyhow = "1.0.40"
+env_logger = "0.9.0"
+log = "0.4.14"
+rayon = "1.5.1"

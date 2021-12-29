@@ -389,7 +389,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let fri_config = &self.config.fri_config;
         let reduction_arity_bits = fri_config.reduction_strategy.reduction_arity_bits(
             degree_bits,
-            self.config.fri_config.rate_bits,
+            fri_config.rate_bits,
             fri_config.num_query_rounds,
         );
         FriParams {

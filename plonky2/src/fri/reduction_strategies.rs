@@ -22,7 +22,7 @@ pub enum FriReductionStrategy {
 
 impl FriReductionStrategy {
     /// The arity of each FRI reduction step, expressed as the log2 of the actual arity.
-    pub(crate) fn reduction_arity_bits(
+    pub fn reduction_arity_bits(
         &self,
         mut degree_bits: usize,
         rate_bits: usize,
