@@ -6,6 +6,8 @@ use crate::plonk::config::Hasher;
 use crate::util::serialization::Buffer;
 
 /// Keccak-256 permutation used in the challenger.
+/// A state `input: [F; 12]` is sent to the field representation of `H(input) || H(H(input)) || H(H(H(input)))`
+/// where `H` is the Keccak-256 hash.
 pub struct KeccakPermutation;
 impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
     fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
