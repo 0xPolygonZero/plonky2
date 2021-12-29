@@ -167,7 +167,7 @@ pub(crate) fn reduce_with_powers<'a, P: PackedField, T: IntoIterator<Item = &'a 
 where
     T::IntoIter: DoubleEndedIterator,
 {
-    let mut sum = P::ZERO;
+    let mut sum = P::ZEROS;
     for &term in terms.into_iter().rev() {
         sum = sum * alpha + term;
     }

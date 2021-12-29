@@ -105,14 +105,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
 
             // Assert that each bit wire value is indeed boolean.
             for &b in &bits {
-                constraints.push(b * (b - <F::Extension as Field>::ONE));
+                constraints.push(b * (b - F::Extension::ONE));
             }
 
             // Assert that the binary decomposition was correct.
             let reconstructed_index = bits
                 .iter()
                 .rev()
-                .fold(<F::Extension as Field>::ZERO, |acc, &b| acc.double() + b);
+                .fold(F::Extension::ZERO, |acc, &b| acc.double() + b);
             constraints.push(reconstructed_index - access_index);
 
             // Repeatedly fold the list, selecting the left or right item from each pair based on
@@ -254,7 +254,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
             }
 
             // Assert that the binary decomposition was correct.
-            let reconstructed_index = bits.iter().rev().fold(P::ZERO, |acc, &b| acc + acc + b);
+            let reconstructed_index = bits.iter().rev().fold(P::ZEROS, |acc, &b| acc + acc + b);
             yield_constr.one(reconstructed_index - access_index);
 
             // Repeatedly fold the list, selecting the left or right item from each pair based on

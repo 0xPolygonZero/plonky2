@@ -149,7 +149,7 @@ impl<P: PackedField, const N: usize> TryInto<[P; N]> for PackedStridedView<'_, P
     type Error = TryFromPackedStridedViewError;
     fn try_into(self) -> Result<[P; N], Self::Error> {
         if N == self.len() {
-            let mut res = [P::ZERO; N];
+            let mut res = [P::default(); N];
             for i in 0..N {
                 res[i] = *self.get(i).unwrap();
             }

@@ -88,7 +88,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
 
         for i in 0..self.num_power_bits {
             let prev_intermediate_value = if i == 0 {
-                <F::Extension as Field>::ONE
+                F::Extension::ONE
             } else {
                 <F::Extension as Field>::square(&intermediate_values[i - 1])
             };
@@ -96,7 +96,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
             // power_bits is in LE order, but we accumulate in BE order.
             let cur_bit = power_bits[self.num_power_bits - i - 1];
 
-            let not_cur_bit = <F::Extension as Field>::ONE - cur_bit;
+            let not_cur_bit = F::Extension::ONE - cur_bit;
             let computed_intermediate_value =
                 prev_intermediate_value * (cur_bit * base + not_cur_bit);
             constraints.push(computed_intermediate_value - intermediate_values[i]);
@@ -210,7 +210,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
 
         for i in 0..self.num_power_bits {
             let prev_intermediate_value = if i == 0 {
-                P::ONE
+                P::ONES
             } else {
                 intermediate_values[i - 1].square()
             };
@@ -218,7 +218,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
             // power_bits is in LE order, but we accumulate in BE order.
             let cur_bit = power_bits[self.num_power_bits - i - 1];
 
-            let not_cur_bit = P::ONE - cur_bit;
+            let not_cur_bit = P::ONES - cur_bit;
             let computed_intermediate_value =
                 prev_intermediate_value * (cur_bit * base + not_cur_bit);
             yield_constr.one(computed_intermediate_value - intermediate_values[i]);

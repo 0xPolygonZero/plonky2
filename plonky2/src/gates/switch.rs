@@ -83,7 +83,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, 
 
         for c in 0..self.num_copies {
             let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
-            let not_switch = <F::Extension as Field>::ONE - switch_bool;
+            let not_switch = F::Extension::ONE - switch_bool;
 
             for e in 0..self.chunk_size {
                 let first_input = vars.local_wires[self.wire_first_input(c, e)];
@@ -197,7 +197,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
     ) {
         for c in 0..self.num_copies {
             let switch_bool = vars.local_wires[self.wire_switch_bool(c)];
-            let not_switch = P::ONE - switch_bool;
+            let not_switch = P::ONES - switch_bool;
 
             for e in 0..self.chunk_size {
                 let first_input = vars.local_wires[self.wire_first_input(c, e)];

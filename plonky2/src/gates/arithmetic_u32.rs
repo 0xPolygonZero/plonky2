@@ -100,8 +100,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
 
             constraints.push(combined_output - computed_output);
 
-            let mut combined_low_limbs = <F::Extension as Field>::ZERO;
-            let mut combined_high_limbs = <F::Extension as Field>::ZERO;
+            let mut combined_low_limbs = F::Extension::ZERO;
+            let mut combined_high_limbs = F::Extension::ZERO;
             let midpoint = Self::num_limbs() / 2;
             let base = F::Extension::from_canonical_u64(1u64 << Self::limb_bits());
             for j in (0..Self::num_limbs()).rev() {
@@ -255,8 +255,8 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
 
             yield_constr.one(combined_output - computed_output);
 
-            let mut combined_low_limbs = P::ZERO;
-            let mut combined_high_limbs = P::ZERO;
+            let mut combined_low_limbs = P::ZEROS;
+            let mut combined_high_limbs = P::ZEROS;
             let midpoint = Self::num_limbs() / 2;
             let base = F::from_canonical_u64(1u64 << Self::limb_bits());
             for j in (0..Self::num_limbs()).rev() {

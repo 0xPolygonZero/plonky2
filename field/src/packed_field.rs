@@ -41,8 +41,8 @@ where
     type Scalar: Field;
 
     const WIDTH: usize;
-    const ZERO: Self;
-    const ONE: Self;
+    const ZEROS: Self;
+    const ONES: Self;
 
     fn square(&self) -> Self {
         *self * *self
@@ -103,8 +103,8 @@ unsafe impl<F: Field> PackedField for F {
     type Scalar = Self;
 
     const WIDTH: usize = 1;
-    const ZERO: Self = <F as Field>::ZERO;
-    const ONE: Self = <F as Field>::ONE;
+    const ZEROS: Self = F::ZERO;
+    const ONES: Self = F::ONE;
 
     fn square(&self) -> Self {
         <Self as Field>::square(self)
