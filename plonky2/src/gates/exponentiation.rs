@@ -91,7 +91,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
             let prev_intermediate_value = if i == 0 {
                 <F::Extension as Field>::ONE
             } else {
-                F::Extension::square(&intermediate_values[i - 1])
+                intermediate_values[i - 1].square()
             };
 
             // power_bits is in LE order, but we accumulate in BE order.
