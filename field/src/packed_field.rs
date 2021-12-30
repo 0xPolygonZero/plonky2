@@ -4,7 +4,7 @@ use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 use std::slice;
 
 use crate::field_types::Field;
-use crate::ops::Squarable;
+use crate::ops::Square;
 
 /// # Safety
 /// - WIDTH is assumed to be a power of 2.
@@ -25,7 +25,7 @@ pub unsafe trait PackedField:
     + Mul<Self::Scalar, Output = Self>
     + MulAssign<Self>
     + MulAssign<Self::Scalar>
-    + Squarable
+    + Square
     + Neg<Output = Self>
     + Product
     + Send

@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::ops::Neg;
 
 use plonky2_field::field_types::Field;
-use plonky2_field::ops::Squarable;
+use plonky2_field::ops::Square;
 
 // To avoid implementation conflicts from associated types,
 // see https://github.com/rust-lang/rust/issues/20400

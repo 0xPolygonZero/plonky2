@@ -1,10 +1,10 @@
 use std::ops::Mul;
 
-pub trait Squarable {
+pub trait Square {
     fn square(&self) -> Self;
 }
 
-impl<F: Mul<F, Output = Self> + Copy> Squarable for F {
+impl<F: Mul<F, Output = Self> + Copy> Square for F {
     default fn square(&self) -> Self {
         *self * *self
     }

@@ -1,7 +1,7 @@
 use crate::extension_field::Extendable;
 use crate::extension_field::Frobenius;
 use crate::field_types::Field;
-use crate::ops::Squarable;
+use crate::ops::Square;
 
 #[macro_export]
 macro_rules! test_field_arithmetic {

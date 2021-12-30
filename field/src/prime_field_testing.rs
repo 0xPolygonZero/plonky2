@@ -71,7 +71,7 @@ macro_rules! test_prime_field_arithmetic {
             use std::ops::{Add, Mul, Neg, Sub};
 
             use crate::field_types::{Field, PrimeField};
-            use crate::ops::Squarable;
+            use crate::ops::Square;
 
             #[test]
             fn arithmetic_addition() {

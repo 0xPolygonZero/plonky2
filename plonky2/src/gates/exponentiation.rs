@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
-use plonky2_field::ops::Squarable;
+use plonky2_field::ops::Square;
 use plonky2_field::packed_field::PackedField;
 
 use crate::gates::gate::Gate;

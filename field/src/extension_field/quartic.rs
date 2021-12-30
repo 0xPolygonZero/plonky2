@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::extension_field::{Extendable, FieldExtension, Frobenius, OEF};
 use crate::field_types::Field;
-use crate::ops::Squarable;
+use crate::ops::Square;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]
@@ -229,7 +229,7 @@ impl<F: Extendable<4>> MulAssign for QuarticExtension<F> {
     }
 }
 
-impl<F: Extendable<4>> Squarable for QuarticExtension<F> {
+impl<F: Extendable<4>> Square for QuarticExtension<F> {
     #[inline(always)]
     fn square(&self) -> Self {
         let Self([a0, a1, a2, a3]) = *self;

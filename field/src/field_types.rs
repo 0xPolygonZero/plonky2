@@ -11,7 +11,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::extension_field::Frobenius;
-use crate::ops::Squarable;
+use crate::ops::Square;
 
 /// A finite field.
 pub trait Field:
@@ -27,7 +27,7 @@ pub trait Field:
     + SubAssign<Self>
     + Mul<Self, Output = Self>
     + MulAssign<Self>
-    + Squarable
+    + Square
     + Product
     + Div<Self, Output = Self>
     + DivAssign<Self>

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::extension_field::{Extendable, FieldExtension, Frobenius, OEF};
 use crate::field_types::Field;
-use crate::ops::Squarable;
+use crate::ops::Square;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]
@@ -192,7 +192,7 @@ impl<F: Extendable<2>> MulAssign for QuadraticExtension<F> {
     }
 }
 
-impl<F: Extendable<2>> Squarable for QuadraticExtension<F> {
+impl<F: Extendable<2>> Square for QuadraticExtension<F> {
     #[inline(always)]
     fn square(&self) -> Self {
         // Specialising mul reduces the computation of c1 from 2 muls
