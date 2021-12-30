@@ -17,6 +17,7 @@ pub mod field_types;
 pub mod goldilocks_field;
 pub mod interpolation;
 mod inversion;
+pub mod ops;
 pub mod packable;
 pub mod packed_field;
 pub mod polynomial;

@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::extension_field::{Extendable, FieldExtension, Frobenius, OEF};
 use crate::field_types::Field;
+use crate::ops::Square;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]
@@ -73,19 +74,6 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
     }
     fn characteristic() -> BigUint {
         F::characteristic()
-    }
-
-    #[inline(always)]
-    fn square(&self) -> Self {
-        let Self([a0, a1, a2, a3]) = *self;
-        let w = <Self as OEF<4>>::W;
-
-        let c0 = a0.square() + w * (a1 * a3.double() + a2.square());
-        let c1 = (a0 * a1 + w * a2 * a3).double();
-        let c2 = a0 * a2.double() + a1.square() + w * a3.square();
-        let c3 = (a0 * a3 + a1 * a2).double();
-
-        Self([c0, c1, c2, c3])
     }
 
     // Algorithm 11.3.4 in Handbook of Elliptic and Hyperelliptic Curve Cryptography.
@@ -238,6 +226,21 @@ impl<F: Extendable<4>> MulAssign for QuarticExtension<F> {
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
+    }
+}
+
+impl<F: Extendable<4>> Square for QuarticExtension<F> {
+    #[inline(always)]
+    fn square(&self) -> Self {
+        let Self([a0, a1, a2, a3]) = *self;
+        let w = <Self as OEF<4>>::W;
+
+        let c0 = a0.square() + w * (a1 * a3.double() + a2.square());
+        let c1 = (a0 * a1 + w * a2 * a3).double();
+        let c2 = a0 * a2.double() + a1.square() + w * a3.square();
+        let c3 = (a0 * a3 + a1 * a2).double();
+
+        Self([c0, c1, c2, c3])
     }
 }
 

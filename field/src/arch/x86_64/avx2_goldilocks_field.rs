@@ -7,6 +7,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use crate::field_types::{Field, PrimeField};
 use crate::goldilocks_field::GoldilocksField;
+use crate::ops::Square;
 use crate::packed_field::PackedField;
 
 // Ideally `Avx2GoldilocksField` would wrap `__m256i`. Unfortunately, `__m256i` has an alignment of
@@ -194,7 +195,9 @@ unsafe impl PackedField for Avx2GoldilocksField {
         };
         (Self::new(res0), Self::new(res1))
     }
+}
 
+impl Square for Avx2GoldilocksField {
     #[inline]
     fn square(&self) -> Self {
         Self::new(unsafe { square(self.get()) })
@@ -509,6 +512,7 @@ mod tests {
     use crate::arch::x86_64::avx2_goldilocks_field::Avx2GoldilocksField;
     use crate::field_types::PrimeField;
     use crate::goldilocks_field::GoldilocksField;
+    use crate::ops::Square;
     use crate::packed_field::PackedField;
 
     fn test_vals_a() -> [GoldilocksField; 4] {

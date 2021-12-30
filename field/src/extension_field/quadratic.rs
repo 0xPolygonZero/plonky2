@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::extension_field::{Extendable, FieldExtension, Frobenius, OEF};
 use crate::field_types::Field;
+use crate::ops::Square;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]
@@ -71,19 +72,6 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
     }
     fn characteristic() -> BigUint {
         F::characteristic()
-    }
-
-    #[inline(always)]
-    fn square(&self) -> Self {
-        // Specialising mul reduces the computation of c1 from 2 muls
-        // and one add to one mul and a shift
-
-        let Self([a0, a1]) = *self;
-
-        let c0 = a0.square() + <Self as OEF<2>>::W * a1.square();
-        let c1 = a0 * a1.double();
-
-        Self([c0, c1])
     }
 
     // Algorithm 11.3.4 in Handbook of Elliptic and Hyperelliptic Curve Cryptography.
@@ -201,6 +189,21 @@ impl<F: Extendable<2>> MulAssign for QuadraticExtension<F> {
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
+    }
+}
+
+impl<F: Extendable<2>> Square for QuadraticExtension<F> {
+    #[inline(always)]
+    fn square(&self) -> Self {
+        // Specialising mul reduces the computation of c1 from 2 muls
+        // and one add to one mul and a shift
+
+        let Self([a0, a1]) = *self;
+
+        let c0 = a0.square() + <Self as OEF<2>>::W * a1.square();
+        let c1 = a0 * a1.double();
+
+        Self([c0, c1])
     }
 }
 
