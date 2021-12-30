@@ -116,7 +116,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
 
         let chunk_size = 1 << self.chunk_bits();
 
-        let mut most_significant_diff_so_far = <F::Extension as Field>::ZERO;
+        let mut most_significant_diff_so_far = F::Extension::ZERO;
 
         for i in 0..self.num_chunks {
             // Range-check the chunks to be less than `chunk_size`.
@@ -134,15 +134,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
             let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
 
             // Two constraints to assert that `chunks_equal` is valid.
-            constraints
-                .push(difference * equality_dummy - (<F::Extension as Field>::ONE - chunks_equal));
+            constraints.push(difference * equality_dummy - (F::Extension::ONE - chunks_equal));
             constraints.push(chunks_equal * difference);
 
             // Update `most_significant_diff_so_far`.
             let intermediate_value = vars.local_wires[self.wire_intermediate_value(i)];
             constraints.push(intermediate_value - chunks_equal * most_significant_diff_so_far);
             most_significant_diff_so_far =
-                intermediate_value + (<F::Extension as Field>::ONE - chunks_equal) * difference;
+                intermediate_value + (F::Extension::ONE - chunks_equal) * difference;
         }
 
         let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];
@@ -314,7 +313,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
 
         let chunk_size = 1 << self.chunk_bits();
 
-        let mut most_significant_diff_so_far = P::ZERO;
+        let mut most_significant_diff_so_far = P::ZEROS;
 
         for i in 0..self.num_chunks {
             // Range-check the chunks to be less than `chunk_size`.
@@ -332,14 +331,14 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
             let chunks_equal = vars.local_wires[self.wire_chunks_equal(i)];
 
             // Two constraints to assert that `chunks_equal` is valid.
-            yield_constr.one(difference * equality_dummy - (P::ONE - chunks_equal));
+            yield_constr.one(difference * equality_dummy - (P::ONES - chunks_equal));
             yield_constr.one(chunks_equal * difference);
 
             // Update `most_significant_diff_so_far`.
             let intermediate_value = vars.local_wires[self.wire_intermediate_value(i)];
             yield_constr.one(intermediate_value - chunks_equal * most_significant_diff_so_far);
             most_significant_diff_so_far =
-                intermediate_value + (P::ONE - chunks_equal) * difference;
+                intermediate_value + (P::ONES - chunks_equal) * difference;
         }
 
         let most_significant_diff = vars.local_wires[self.wire_most_significant_diff()];

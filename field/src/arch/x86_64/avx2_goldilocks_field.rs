@@ -73,7 +73,7 @@ impl Debug for Avx2GoldilocksField {
 impl Default for Avx2GoldilocksField {
     #[inline]
     fn default() -> Self {
-        Self::ZERO
+        Self::ZEROS
     }
 }
 
@@ -142,7 +142,7 @@ impl Neg for Avx2GoldilocksField {
 impl Product for Avx2GoldilocksField {
     #[inline]
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.reduce(|x, y| x * y).unwrap_or(Self::ONE)
+        iter.reduce(|x, y| x * y).unwrap_or(Self::ONES)
     }
 }
 
@@ -151,8 +151,8 @@ unsafe impl PackedField for Avx2GoldilocksField {
 
     type Scalar = GoldilocksField;
 
-    const ZERO: Self = Self([<GoldilocksField as Field>::ZERO; 4]);
-    const ONE: Self = Self([<GoldilocksField as Field>::ONE; 4]);
+    const ZEROS: Self = Self([GoldilocksField::ZERO; 4]);
+    const ONES: Self = Self([GoldilocksField::ONE; 4]);
 
     #[inline]
     fn from_arr(arr: [Self::Scalar; Self::WIDTH]) -> Self {
@@ -238,7 +238,7 @@ impl SubAssign<GoldilocksField> for Avx2GoldilocksField {
 impl Sum for Avx2GoldilocksField {
     #[inline]
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.reduce(|x, y| x + y).unwrap_or(Self::ZERO)
+        iter.reduce(|x, y| x + y).unwrap_or(Self::ZEROS)
     }
 }
 

@@ -100,7 +100,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32Subtraction
             constraints.push(output_result - (result_initial + base * output_borrow));
 
             // Range-check output_result to be at most 32 bits.
-            let mut combined_limbs = <F::Extension as Field>::ZERO;
+            let mut combined_limbs = F::Extension::ZERO;
             let limb_base = F::Extension::from_canonical_u64(1u64 << Self::limb_bits());
             for j in (0..Self::num_limbs()).rev() {
                 let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
@@ -115,7 +115,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32Subtraction
             constraints.push(combined_limbs - output_result);
 
             // Range-check output_borrow to be one bit.
-            constraints.push(output_borrow * (<F::Extension as Field>::ONE - output_borrow));
+            constraints.push(output_borrow * (F::Extension::ONE - output_borrow));
         }
 
         constraints
@@ -243,7 +243,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
             yield_constr.one(output_result - (result_initial + output_borrow * base));
 
             // Range-check output_result to be at most 32 bits.
-            let mut combined_limbs = P::ZERO;
+            let mut combined_limbs = P::ZEROS;
             let limb_base = F::from_canonical_u64(1u64 << Self::limb_bits());
             for j in (0..Self::num_limbs()).rev() {
                 let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
@@ -258,7 +258,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
             yield_constr.one(combined_limbs - output_result);
 
             // Range-check output_borrow to be one bit.
-            yield_constr.one(output_borrow * (P::ONE - output_borrow));
+            yield_constr.one(output_borrow * (P::ONES - output_borrow));
         }
     }
 }

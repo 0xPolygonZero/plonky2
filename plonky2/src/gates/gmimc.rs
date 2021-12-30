@@ -81,7 +81,7 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
 
         // Assert that `swap` is binary.
         let swap = vars.local_wires[Self::WIRE_SWAP];
-        constraints.push(swap * (swap - <F::Extension as Field>::ONE));
+        constraints.push(swap * (swap - F::Extension::ONE));
 
         let mut state = Vec::with_capacity(12);
         for i in 0..4 {
@@ -100,7 +100,7 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
 
         // Value that is implicitly added to each element.
         // See https://affine.group/2020/02/starkware-challenge
-        let mut addition_buffer = <F::Extension as Field>::ZERO;
+        let mut addition_buffer = F::Extension::ZERO;
 
         for r in 0..gmimc::NUM_ROUNDS {
             let active = r % WIDTH;
@@ -245,7 +245,7 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
 
         // Value that is implicitly added to each element.
         // See https://affine.group/2020/02/starkware-challenge
-        let mut addition_buffer = P::ZERO;
+        let mut addition_buffer = P::ZEROS;
 
         for r in 0..gmimc::NUM_ROUNDS {
             let active = r % WIDTH;
