@@ -29,7 +29,7 @@ jobs:
           command: test
           args: --all
         env:
-          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cincremental=false -Cdebuginfo=0 -Cprefer-dynamic=y
 
   lints:
     name: Formatting and Clippy
