@@ -1,4 +1,3 @@
-use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::{Field, PrimeField};
 use plonky2_field::goldilocks_field::GoldilocksField;
 use rand::Rng;
