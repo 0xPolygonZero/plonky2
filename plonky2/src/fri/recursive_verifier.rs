@@ -78,7 +78,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) {
         let random_access = RandomAccessGate::<F, D>::new_from_config(
             &self.config,
-            max_fri_arity_bits.max(self.config.cap_height),
+            max_fri_arity_bits.max(self.config.fri_config.cap_height),
         );
         let (interpolation_wires, interpolation_routed_wires) =
             if 1 << max_fri_arity_bits > common_data.quotient_degree_factor {
@@ -143,7 +143,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         debug_assert_eq!(
-            common_data.final_poly_len(),
+            common_data.fri_params.final_poly_len(),
             proof.final_poly.len(),
             "Final polynomial has wrong degree."
         );
@@ -267,8 +267,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let degree_log = common_data.degree_bits;
         debug_assert_eq!(
             degree_log,
-            common_data.config.cap_height + proof.evals_proofs[0].1.siblings.len()
-                - config.rate_bits
+            common_data.config.fri_config.cap_height + proof.evals_proofs[0].1.siblings.len()
+                - config.fri_config.rate_bits
         );
         let subgroup_x = self.convert_to_ext(subgroup_x);
         let mut alpha = ReducingFactorTarget::new(alpha);
@@ -343,8 +343,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let x_index = challenger.get_challenge(self);
         let mut x_index_bits = self.low_bits(x_index, n_log, F::BITS);
 
-        let cap_index =
-            self.le_sum(x_index_bits[x_index_bits.len() - common_data.config.cap_height..].iter());
+        let cap_index = self.le_sum(
+            x_index_bits[x_index_bits.len() - common_data.config.fri_config.cap_height..].iter(),
+        );
         with_context!(
             self,
             "check FRI initial proof",

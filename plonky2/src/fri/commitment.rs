@@ -208,14 +208,14 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         alpha.shift_poly(&mut final_poly);
         final_poly += zs_quotient;
 
-        let lde_final_poly = final_poly.lde(config.rate_bits);
+        let lde_final_poly = final_poly.lde(config.fri_config.rate_bits);
         let lde_final_values = timed!(
             timing,
             &format!("perform final FFT {}", lde_final_poly.len()),
             lde_final_poly.coset_fft(F::coset_shift().into())
         );
 
-        let fri_proof = fri_proof(
+        let fri_proof = fri_proof::<F, C, D>(
             &commitments
                 .par_iter()
                 .map(|c| &c.merkle_tree)
@@ -223,7 +223,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             lde_final_poly,
             lde_final_values,
             challenger,
-            common_data,
+            &common_data.fri_params,
             timing,
         );
 

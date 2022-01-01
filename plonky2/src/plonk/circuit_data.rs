@@ -30,14 +30,11 @@ pub struct CircuitConfig {
     /// for both base field and extension field arithmetic.
     pub use_base_arithmetic_gate: bool,
     pub security_bits: usize,
-    pub rate_bits: usize,
     /// The number of challenge points to generate, for IOPs that have soundness errors of (roughly)
     /// `degree / |F|`.
     pub num_challenges: usize,
     pub zero_knowledge: bool,
-    pub cap_height: usize,
 
-    // TODO: Find a better place for this.
     pub fri_config: FriConfig,
 }
 
@@ -49,7 +46,7 @@ impl Default for CircuitConfig {
 
 impl CircuitConfig {
     pub fn rate(&self) -> f64 {
-        1.0 / ((1 << self.rate_bits) as f64)
+        1.0 / ((1 << self.fri_config.rate_bits) as f64)
     }
 
     pub fn num_advice_wires(&self) -> usize {
@@ -64,11 +61,11 @@ impl CircuitConfig {
             constant_gate_size: 5,
             use_base_arithmetic_gate: true,
             security_bits: 100,
-            rate_bits: 3,
             num_challenges: 2,
             zero_knowledge: false,
-            cap_height: 4,
             fri_config: FriConfig {
+                rate_bits: 3,
+                cap_height: 4,
                 proof_of_work_bits: 16,
                 reduction_strategy: FriReductionStrategy::ConstantArityBits(4, 5),
                 num_query_rounds: 28,
@@ -251,11 +248,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     pub fn lde_size(&self) -> usize {
-        1 << (self.degree_bits + self.config.rate_bits)
+        1 << (self.degree_bits + self.config.fri_config.rate_bits)
     }
 
     pub fn lde_generator(&self) -> F {
-        F::primitive_root_of_unity(self.degree_bits + self.config.rate_bits)
+        F::primitive_root_of_unity(self.degree_bits + self.config.fri_config.rate_bits)
     }
 
     pub fn constraint_degree(&self) -> usize {
@@ -288,10 +285,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// Range of the partial products polynomials in the `zs_partial_products_commitment`.
     pub fn partial_products_range(&self) -> RangeFrom<usize> {
         self.config.num_challenges..
-    }
-
-    pub fn final_poly_len(&self) -> usize {
-        1 << (self.degree_bits - self.fri_params.total_arities())
     }
 }
 

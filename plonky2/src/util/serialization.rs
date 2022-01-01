@@ -347,11 +347,12 @@ impl Buffer {
     ) -> Result<FriProof<F, C::Hasher, D>> {
         let config = &common_data.config;
         let commit_phase_merkle_caps = (0..common_data.fri_params.reduction_arity_bits.len())
-            .map(|_| self.read_merkle_cap(config.cap_height))
+            .map(|_| self.read_merkle_cap(config.fri_config.cap_height))
             .collect::<Result<Vec<_>>>()?;
         let query_round_proofs = self.read_fri_query_rounds(common_data)?;
-        let final_poly =
-            PolynomialCoeffs::new(self.read_field_ext_vec::<F, D>(common_data.final_poly_len())?);
+        let final_poly = PolynomialCoeffs::new(
+            self.read_field_ext_vec::<F, D>(common_data.fri_params.final_poly_len())?,
+        );
         let pow_witness = self.read_field()?;
         Ok(FriProof {
             commit_phase_merkle_caps,
@@ -376,9 +377,9 @@ impl Buffer {
         common_data: &CommonCircuitData<F, C, D>,
     ) -> Result<Proof<F, C, D>> {
         let config = &common_data.config;
-        let wires_cap = self.read_merkle_cap(config.cap_height)?;
-        let plonk_zs_partial_products_cap = self.read_merkle_cap(config.cap_height)?;
-        let quotient_polys_cap = self.read_merkle_cap(config.cap_height)?;
+        let wires_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
+        let plonk_zs_partial_products_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
+        let quotient_polys_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let openings = self.read_opening_set(common_data)?;
         let opening_proof = self.read_fri_proof(common_data)?;
 
@@ -522,11 +523,12 @@ impl Buffer {
     ) -> Result<CompressedFriProof<F, C::Hasher, D>> {
         let config = &common_data.config;
         let commit_phase_merkle_caps = (0..common_data.fri_params.reduction_arity_bits.len())
-            .map(|_| self.read_merkle_cap(config.cap_height))
+            .map(|_| self.read_merkle_cap(config.fri_config.cap_height))
             .collect::<Result<Vec<_>>>()?;
         let query_round_proofs = self.read_compressed_fri_query_rounds(common_data)?;
-        let final_poly =
-            PolynomialCoeffs::new(self.read_field_ext_vec::<F, D>(common_data.final_poly_len())?);
+        let final_poly = PolynomialCoeffs::new(
+            self.read_field_ext_vec::<F, D>(common_data.fri_params.final_poly_len())?,
+        );
         let pow_witness = self.read_field()?;
         Ok(CompressedFriProof {
             commit_phase_merkle_caps,
@@ -559,9 +561,9 @@ impl Buffer {
         common_data: &CommonCircuitData<F, C, D>,
     ) -> Result<CompressedProof<F, C, D>> {
         let config = &common_data.config;
-        let wires_cap = self.read_merkle_cap(config.cap_height)?;
-        let plonk_zs_partial_products_cap = self.read_merkle_cap(config.cap_height)?;
-        let quotient_polys_cap = self.read_merkle_cap(config.cap_height)?;
+        let wires_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
+        let plonk_zs_partial_products_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
+        let quotient_polys_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let openings = self.read_opening_set(common_data)?;
         let opening_proof = self.read_compressed_fri_proof(common_data)?;
 

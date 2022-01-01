@@ -111,9 +111,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn check_config(&self) {
         let &CircuitConfig {
             security_bits,
-            rate_bits,
             fri_config:
                 FriConfig {
+                    rate_bits,
                     proof_of_work_bits,
                     num_query_rounds,
                     ..
@@ -368,14 +368,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         })
     }
 
-    fn fri_params(&self, degree_bits_estimate: usize) -> FriParams {
+    fn fri_params(&self, degree_bits: usize) -> FriParams {
         let fri_config = &self.config.fri_config;
         let reduction_arity_bits = fri_config.reduction_strategy.reduction_arity_bits(
-            degree_bits_estimate,
-            self.config.rate_bits,
+            degree_bits,
+            self.config.fri_config.rate_bits,
             fri_config.num_query_rounds,
         );
         FriParams {
+            config: fri_config.clone(),
+            degree_bits,
             reduction_arity_bits,
         }
     }
@@ -620,8 +622,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
         // `quotient_degree_factor` has to be between `max_filtered_constraint_degree-1` and `1<<rate_bits`.
         // We find the value that minimizes `num_partial_product + quotient_degree_factor`.
-        let quotient_degree_factor = (max_filtered_constraint_degree - 1
-            ..=1 << self.config.rate_bits)
+        let rate_bits = self.config.fri_config.rate_bits;
+        let quotient_degree_factor = (max_filtered_constraint_degree - 1..=1 << rate_bits)
             .min_by_key(|&q| num_partial_products(self.config.num_routed_wires, q).0 + q)
             .unwrap();
         debug!("Quotient degree factor set to: {}.", quotient_degree_factor);
@@ -635,16 +637,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let (sigma_vecs, forest) = self.sigma_vecs(&k_is, &subgroup);
 
         // Precompute FFT roots.
-        let max_fft_points =
-            1 << (degree_bits + max(self.config.rate_bits, log2_ceil(quotient_degree_factor)));
+        let max_fft_points = 1 << (degree_bits + max(rate_bits, log2_ceil(quotient_degree_factor)));
         let fft_root_table = fft_root_table(max_fft_points);
 
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
         let constants_sigmas_commitment = PolynomialBatchCommitment::from_values(
             constants_sigmas_vecs,
-            self.config.rate_bits,
+            rate_bits,
             self.config.zero_knowledge & PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
-            self.config.cap_height,
+            self.config.fri_config.cap_height,
             &mut timing,
             Some(&fft_root_table),
         );
