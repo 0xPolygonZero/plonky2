@@ -12,8 +12,6 @@ use crate::plonk::config::GenericHashOut;
 /// A prime order field with the features we need to use it as a base field in our argument system.
 pub trait RichField: PrimeField + GMiMC<12> + Poseidon {}
 
-pub trait RichField2<const D: usize>: PrimeField + GMiMC<12> + Poseidon + Extendable<D> {}
-
 impl RichField for GoldilocksField {}
 
 /// Represents a ~256 bit hash output.
