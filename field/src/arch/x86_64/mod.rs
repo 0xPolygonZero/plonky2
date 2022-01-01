@@ -18,6 +18,3 @@ pub mod avx2_goldilocks_field;
     target_feature = "avx512vl"
 ))]
 pub mod avx512_goldilocks_field;
-
-#[cfg(test)]
-mod testing;

@@ -7,6 +7,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use crate::field_types::{Field, PrimeField};
 use crate::goldilocks_field::GoldilocksField;
+use crate::ops::Square;
 use crate::packed_field::PackedField;
 
 // Ideally `Avx512GoldilocksField` would wrap `__m512i`. Unfortunately, `__m512i` has an alignment
@@ -73,7 +74,7 @@ impl Debug for Avx512GoldilocksField {
 impl Default for Avx512GoldilocksField {
     #[inline]
     fn default() -> Self {
-        Self::ZERO
+        Self::ZEROS
     }
 }
 
@@ -142,7 +143,7 @@ impl Neg for Avx512GoldilocksField {
 impl Product for Avx512GoldilocksField {
     #[inline]
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.reduce(|x, y| x * y).unwrap_or(Self::ONE)
+        iter.reduce(|x, y| x * y).unwrap_or(Self::ONES)
     }
 }
 
@@ -151,8 +152,8 @@ unsafe impl PackedField for Avx512GoldilocksField {
 
     type Scalar = GoldilocksField;
 
-    const ZERO: Self = Self([<GoldilocksField as Field>::ZERO; 8]);
-    const ONE: Self = Self([<GoldilocksField as Field>::ONE; 8]);
+    const ZEROS: Self = Self([GoldilocksField::ZERO; 8]);
+    const ONES: Self = Self([GoldilocksField::ONE; 8]);
 
     #[inline]
     fn from_arr(arr: [Self::Scalar; Self::WIDTH]) -> Self {
@@ -195,7 +196,9 @@ unsafe impl PackedField for Avx512GoldilocksField {
         };
         (Self::new(res0), Self::new(res1))
     }
+}
 
+impl Square for Avx512GoldilocksField {
     #[inline]
     fn square(&self) -> Self {
         Self::new(unsafe { square(self.get()) })
@@ -239,7 +242,7 @@ impl SubAssign<GoldilocksField> for Avx512GoldilocksField {
 impl Sum for Avx512GoldilocksField {
     #[inline]
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.reduce(|x, y| x + y).unwrap_or(Self::ZERO)
+        iter.reduce(|x, y| x + y).unwrap_or(Self::ZEROS)
     }
 }
 
@@ -403,11 +406,11 @@ unsafe fn interleave4(x: __m512i, y: __m512i) -> (__m512i, __m512i) {
 
 #[cfg(test)]
 mod tests {
-    use crate::field::arch::x86_64::avx512_goldilocks_field::Avx512GoldilocksField;
-    use crate::field::arch::x86_64::testing::test_binop;
-    use crate::field::field_types::PrimeField;
-    use crate::field::goldilocks_field::GoldilocksField;
-    use crate::field::packed_field::PackedField;
+    use crate::arch::x86_64::avx512_goldilocks_field::Avx512GoldilocksField;
+    use crate::field_types::PrimeField;
+    use crate::goldilocks_field::GoldilocksField;
+    use crate::ops::Square;
+    use crate::packed_field::PackedField;
 
     fn test_vals_a() -> [GoldilocksField; 8] {
         [
@@ -436,12 +439,34 @@ mod tests {
 
     #[test]
     fn test_add() {
-        test_binop::<Avx512GoldilocksField>(|a, b| a + b, |a, b| a + b);
+        let a_arr = test_vals_a();
+        let b_arr = test_vals_b();
+
+        let packed_a = Avx512GoldilocksField::from_arr(a_arr);
+        let packed_b = Avx512GoldilocksField::from_arr(b_arr);
+        let packed_res = packed_a + packed_b;
+        let arr_res = packed_res.as_arr();
+
+        let expected = a_arr.iter().zip(b_arr).map(|(&a, b)| a + b);
+        for (exp, res) in expected.zip(arr_res) {
+            assert_eq!(res, exp);
+        }
     }
 
     #[test]
     fn test_mul() {
-        test_binop::<Avx512GoldilocksField>(|a, b| a * b, |a, b| a * b);
+        let a_arr = test_vals_a();
+        let b_arr = test_vals_b();
+
+        let packed_a = Avx512GoldilocksField::from_arr(a_arr);
+        let packed_b = Avx512GoldilocksField::from_arr(b_arr);
+        let packed_res = packed_a * packed_b;
+        let arr_res = packed_res.as_arr();
+
+        let expected = a_arr.iter().zip(b_arr).map(|(&a, b)| a * b);
+        for (exp, res) in expected.zip(arr_res) {
+            assert_eq!(res, exp);
+        }
     }
 
     #[test]
@@ -474,7 +499,18 @@ mod tests {
 
     #[test]
     fn test_sub() {
-        test_binop::<Avx512GoldilocksField>(|a, b| a - b, |a, b| a - b);
+        let a_arr = test_vals_a();
+        let b_arr = test_vals_b();
+
+        let packed_a = Avx512GoldilocksField::from_arr(a_arr);
+        let packed_b = Avx512GoldilocksField::from_arr(b_arr);
+        let packed_res = packed_a - packed_b;
+        let arr_res = packed_res.as_arr();
+
+        let expected = a_arr.iter().zip(b_arr).map(|(&a, b)| a - b);
+        for (exp, res) in expected.zip(arr_res) {
+            assert_eq!(res, exp);
+        }
     }
 
     #[test]
