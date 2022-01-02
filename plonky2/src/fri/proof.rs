@@ -140,7 +140,7 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> FriProof<F, H, 
             pow_witness,
             ..
         } = self;
-        let cap_height = common_data.config.cap_height;
+        let cap_height = common_data.config.fri_config.cap_height;
         let reduction_arity_bits = &common_data.fri_params.reduction_arity_bits;
         let num_reductions = reduction_arity_bits.len();
         let num_initial_trees = query_round_proofs[0].initial_trees_proof.evals_proofs.len();
@@ -252,7 +252,7 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
             ..
         } = challenges;
         let mut fri_inferred_elements = fri_inferred_elements.0.into_iter();
-        let cap_height = common_data.config.cap_height;
+        let cap_height = common_data.config.fri_config.cap_height;
         let reduction_arity_bits = &common_data.fri_params.reduction_arity_bits;
         let num_reductions = reduction_arity_bits.len();
         let num_initial_trees = query_round_proofs
@@ -270,7 +270,7 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
         let mut steps_indices = vec![vec![]; num_reductions];
         let mut steps_evals = vec![vec![]; num_reductions];
         let mut steps_proofs = vec![vec![]; num_reductions];
-        let height = common_data.degree_bits + common_data.config.rate_bits;
+        let height = common_data.degree_bits + common_data.config.fri_config.rate_bits;
         let heights = reduction_arity_bits
             .iter()
             .scan(height, |acc, &bits| {

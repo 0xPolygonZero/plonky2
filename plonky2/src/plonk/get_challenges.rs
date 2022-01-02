@@ -189,7 +189,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             vec![HashSet::new(); common_data.fri_params.reduction_arity_bits.len()];
         let precomputed_reduced_evals =
             PrecomputedReducedEvals::from_os_and_alpha(&self.proof.openings, *fri_alpha);
-        let log_n = common_data.degree_bits + common_data.config.rate_bits;
+        let log_n = common_data.degree_bits + common_data.config.fri_config.rate_bits;
         // Simulate the proof verification and collect the inferred elements.
         // The content of the loop is basically the same as the `fri_verifier_query_round` function.
         for &(mut x_index) in fri_query_indices {

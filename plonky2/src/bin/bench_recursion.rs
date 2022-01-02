@@ -26,11 +26,11 @@ fn bench_prove<C: GenericConfig<D>, const D: usize>() -> Result<()> {
         constant_gate_size: 6,
         use_base_arithmetic_gate: false,
         security_bits: 128,
-        rate_bits: 3,
         num_challenges: 3,
         zero_knowledge: false,
-        cap_height: 1,
         fri_config: FriConfig {
+            rate_bits: 3,
+            cap_height: 1,
             proof_of_work_bits: 15,
             reduction_strategy: FriReductionStrategy::ConstantArityBits(3, 5),
             num_query_rounds: 35,

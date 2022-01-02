@@ -72,7 +72,7 @@ pub(crate) fn verify_fri_proof<
 ) -> Result<()> {
     let config = &common_data.config;
     ensure!(
-        common_data.final_poly_len() == proof.final_poly.len(),
+        common_data.fri_params.final_poly_len() == proof.final_poly.len(),
         "Final polynomial has wrong degree."
     );
 

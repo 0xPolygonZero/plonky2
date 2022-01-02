@@ -71,9 +71,9 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
         "compute wires commitment",
         PolynomialBatchCommitment::from_values(
             wires_values,
-            config.rate_bits,
+            config.fri_config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::WIRES.blinding,
-            config.cap_height,
+            config.fri_config.cap_height,
             timing,
             prover_data.fft_root_table.as_ref(),
         )
@@ -111,9 +111,9 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
         "commit to partial products and Z's",
         PolynomialBatchCommitment::from_values(
             zs_partial_products,
-            config.rate_bits,
+            config.fri_config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding,
-            config.cap_height,
+            config.fri_config.cap_height,
             timing,
             prover_data.fft_root_table.as_ref(),
         )
@@ -160,9 +160,9 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
         "commit to quotient polys",
         PolynomialBatchCommitment::from_coeffs(
             all_quotient_poly_chunks,
-            config.rate_bits,
+            config.fri_config.rate_bits,
             config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding,
-            config.cap_height,
+            config.fri_config.cap_height,
             timing,
             prover_data.fft_root_table.as_ref(),
         )
@@ -309,14 +309,14 @@ fn compute_quotient_polys<
     let num_challenges = common_data.config.num_challenges;
     let max_degree_bits = log2_ceil(common_data.quotient_degree_factor);
     assert!(
-        max_degree_bits <= common_data.config.rate_bits,
+        max_degree_bits <= common_data.config.fri_config.rate_bits,
         "Having constraints of degree higher than the rate is not supported yet. \
         If we need this in the future, we can precompute the larger LDE before computing the `ListPolynomialCommitment`s."
     );
 
     // We reuse the LDE computed in `ListPolynomialCommitment` and extract every `step` points to get
     // an LDE matching `max_filtered_constraint_degree`.
-    let step = 1 << (common_data.config.rate_bits - max_degree_bits);
+    let step = 1 << (common_data.config.fri_config.rate_bits - max_degree_bits);
     // When opening the `Z`s polys at the "next" point in Plonk, need to look at the point `next_step`
     // steps away since we work on an LDE of degree `max_filtered_constraint_degree`.
     let next_step = 1 << max_degree_bits;

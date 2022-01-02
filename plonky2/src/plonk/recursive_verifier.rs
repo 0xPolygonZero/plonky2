@@ -454,8 +454,8 @@ mod tests {
 
         // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
         let high_rate_config = CircuitConfig {
-            rate_bits: 7,
             fri_config: FriConfig {
+                rate_bits: 7,
                 proof_of_work_bits: 16,
                 num_query_rounds: 12,
                 ..standard_config.fri_config.clone()
@@ -476,10 +476,10 @@ mod tests {
 
         // A final proof, optimized for size.
         let final_config = CircuitConfig {
-            cap_height: 0,
-            rate_bits: 8,
             num_routed_wires: 37,
             fri_config: FriConfig {
+                rate_bits: 8,
+                cap_height: 0,
                 proof_of_work_bits: 20,
                 reduction_strategy: FriReductionStrategy::MinSize(None),
                 num_query_rounds: 10,
@@ -582,7 +582,7 @@ mod tests {
         set_proof_target(&inner_proof, &pt, &mut pw);
 
         let inner_data = VerifierCircuitTarget {
-            constants_sigmas_cap: builder.add_virtual_cap(inner_config.cap_height),
+            constants_sigmas_cap: builder.add_virtual_cap(inner_config.fri_config.cap_height),
         };
         pw.set_cap_target(
             &inner_data.constants_sigmas_cap,
