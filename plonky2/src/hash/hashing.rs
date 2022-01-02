@@ -97,19 +97,6 @@ pub trait PlonkyPermutation<F: RichField> {
     fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH];
 }
 
-pub struct PoseidonPermutation;
-impl<F: RichField> PlonkyPermutation<F> for PoseidonPermutation {
-    fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
-        F::poseidon(input)
-    }
-}
-pub struct GMiMCPermutation;
-impl<F: RichField> PlonkyPermutation<F> for GMiMCPermutation {
-    fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
-        F::gmimc_permute(input)
-    }
-}
-
 /// If `pad` is enabled, the message is padded using the pad10*1 rule. In general this is required
 /// for the hash to be secure, but it can safely be disabled in certain cases, like if the input
 /// length is fixed.

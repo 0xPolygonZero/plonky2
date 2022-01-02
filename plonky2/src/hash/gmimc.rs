@@ -1,6 +1,14 @@
+use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
 use plonky2_field::goldilocks_field::GoldilocksField;
 use unroll::unroll_for_loops;
+
+use crate::gates::gmimc::GMiMCGate;
+use crate::hash::hash_types::{HashOut, RichField};
+use crate::hash::hashing::{compress, hash_n_to_hash, PlonkyPermutation, SPONGE_WIDTH};
+use crate::iop::target::{BoolTarget, Target};
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::config::{AlgebraicHasher, Hasher};
 
 pub(crate) const NUM_ROUNDS: usize = 101;
 
@@ -83,6 +91,61 @@ impl GMiMC<8> for GoldilocksField {
 
 impl GMiMC<12> for GoldilocksField {
     const ROUND_CONSTANTS: [u64; NUM_ROUNDS] = GOLDILOCKS_ROUND_CONSTANTS;
+}
+
+pub struct GMiMCPermutation;
+impl<F: RichField> PlonkyPermutation<F> for GMiMCPermutation {
+    fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
+        F::gmimc_permute(input)
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct GMiMCHash;
+impl<F: RichField> Hasher<F> for GMiMCHash {
+    const HASH_SIZE: usize = 4 * 8;
+    type Hash = HashOut<F>;
+    type Permutation = GMiMCPermutation;
+
+    fn hash(input: Vec<F>, pad: bool) -> Self::Hash {
+        hash_n_to_hash::<F, Self::Permutation>(input, pad)
+    }
+
+    fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
+        compress::<F, Self::Permutation>(left, right)
+    }
+}
+
+impl<F: RichField> AlgebraicHasher<F> for GMiMCHash {
+    fn permute_swapped<const D: usize>(
+        inputs: [Target; SPONGE_WIDTH],
+        swap: BoolTarget,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> [Target; SPONGE_WIDTH]
+    where
+        F: RichField + Extendable<D>,
+    {
+        let gate_type = GMiMCGate::<F, D, SPONGE_WIDTH>::new();
+        let gate = builder.add_gate(gate_type, vec![]);
+
+        let swap_wire = GMiMCGate::<F, D, SPONGE_WIDTH>::WIRE_SWAP;
+        let swap_wire = Target::wire(gate, swap_wire);
+        builder.connect(swap.target, swap_wire);
+
+        // Route input wires.
+        for i in 0..SPONGE_WIDTH {
+            let in_wire = GMiMCGate::<F, D, SPONGE_WIDTH>::wire_input(i);
+            let in_wire = Target::wire(gate, in_wire);
+            builder.connect(inputs[i], in_wire);
+        }
+
+        // Collect output wires.
+        (0..SPONGE_WIDTH)
+            .map(|i| Target::wire(gate, GMiMCGate::<F, D, SPONGE_WIDTH>::wire_output(i)))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
+    }
 }
 
 #[cfg(test)]

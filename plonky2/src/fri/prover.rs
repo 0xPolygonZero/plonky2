@@ -21,7 +21,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
     // Evaluation of the polynomial on the large domain.
     lde_polynomial_values: PolynomialValues<F::Extension>,
-    challenger: &mut Challenger<F, C::InnerHasher>,
+    challenger: &mut Challenger<F, C::Hasher>,
     common_data: &CommonCircuitData<F, C, D>,
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
@@ -63,7 +63,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
 fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     mut coeffs: PolynomialCoeffs<F::Extension>,
     mut values: PolynomialValues<F::Extension>,
-    challenger: &mut Challenger<F, C::InnerHasher>,
+    challenger: &mut Challenger<F, C::Hasher>,
     common_data: &CommonCircuitData<F, C, D>,
 ) -> (
     Vec<MerkleTree<F, C::Hasher>>,
@@ -140,7 +140,7 @@ fn fri_prover_query_rounds<
 >(
     initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
     trees: &[MerkleTree<F, C::Hasher>],
-    challenger: &mut Challenger<F, C::InnerHasher>,
+    challenger: &mut Challenger<F, C::Hasher>,
     n: usize,
     common_data: &CommonCircuitData<F, C, D>,
 ) -> Vec<FriQueryRound<F, C::Hasher, D>> {
@@ -156,7 +156,7 @@ fn fri_prover_query_round<
 >(
     initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
     trees: &[MerkleTree<F, C::Hasher>],
-    challenger: &mut Challenger<F, C::InnerHasher>,
+    challenger: &mut Challenger<F, C::Hasher>,
     n: usize,
     common_data: &CommonCircuitData<F, C, D>,
 ) -> FriQueryRound<F, C::Hasher, D> {
