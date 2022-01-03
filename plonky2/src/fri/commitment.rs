@@ -172,21 +172,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // Final low-degree polynomial that goes into FRI.
         let mut final_poly = PolynomialCoeffs::empty();
 
-        let mut zs_polys = commitments[PlonkPolynomials::ZS_PARTIAL_PRODUCTS.index]
-            .polynomials
-            .iter()
-            .collect::<Vec<_>>();
-        let partial_products_polys = zs_polys.split_off(common_data.zs_range().end);
-
-        // Polynomials opened at a single point.
+        // All polynomials are opened at `zeta`.
         let single_polys = [
             PlonkPolynomials::CONSTANTS_SIGMAS,
             PlonkPolynomials::WIRES,
+            PlonkPolynomials::ZS_PARTIAL_PRODUCTS,
             PlonkPolynomials::QUOTIENT,
         ]
         .iter()
-        .flat_map(|&p| &commitments[p.index].polynomials)
-        .chain(partial_products_polys);
+        .flat_map(|&p| &commitments[p.index].polynomials);
         let single_composition_poly = timed!(
             timing,
             "reduce single polys",
@@ -197,14 +191,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         final_poly += single_quotient;
         alpha.reset();
 
-        // Zs polynomials are opened at `zeta` and `g*zeta`.
-        let zs_composition_poly = timed!(
-            timing,
-            "reduce Z polys",
-            alpha.reduce_polys_base(zs_polys.into_iter())
-        );
+        // Z polynomials have an additional opening at `g zeta`.
+        let zs_polys = &commitments[PlonkPolynomials::ZS_PARTIAL_PRODUCTS.index].polynomials
+            [common_data.zs_range()];
+        let zs_composition_poly =
+            timed!(timing, "reduce Z polys", alpha.reduce_polys_base(zs_polys));
 
-        let zs_quotient = Self::compute_quotient([zeta, g * zeta], zs_composition_poly);
+        let zs_quotient = Self::compute_quotient([g * zeta], zs_composition_poly);
         alpha.shift_poly(&mut final_poly);
         final_poly += zs_quotient;
 

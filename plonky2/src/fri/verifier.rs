@@ -1,7 +1,7 @@
 use anyhow::{ensure, Result};
 use plonky2_field::extension_field::{flatten, Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
-use plonky2_field::interpolation::{barycentric_weights, interpolate, interpolate2};
+use plonky2_field::interpolation::{barycentric_weights, interpolate};
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound};
@@ -127,7 +127,6 @@ fn fri_verify_initial_proof<F: RichField, H: Hasher<F>>(
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct PrecomputedReducedEvals<F: RichField + Extendable<D>, const D: usize> {
     pub single: F::Extension,
-    pub zs: F::Extension,
     pub zs_right: F::Extension,
 }
 
@@ -139,17 +138,13 @@ impl<F: RichField + Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D>
                 .iter()
                 .chain(&os.plonk_sigmas)
                 .chain(&os.wires)
-                .chain(&os.quotient_polys)
-                .chain(&os.partial_products),
+                .chain(&os.plonk_zs)
+                .chain(&os.partial_products)
+                .chain(&os.quotient_polys),
         );
-        let zs = alpha.reduce(os.plonk_zs.iter());
         let zs_right = alpha.reduce(os.plonk_zs_right.iter());
 
-        Self {
-            single,
-            zs,
-            zs_right,
-        }
+        Self { single, zs_right }
     }
 }
 
@@ -172,22 +167,16 @@ pub(crate) fn fri_combine_initial<
     let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;
 
-    // We will add three terms to `sum`:
-    // - one for various polynomials which are opened at a single point `x`
-    // - one for Zs, which are opened at `x` and `g x`
-
-    // Polynomials opened at `x`, i.e., the constants-sigmas, wires, quotient and partial products polynomials.
+    // We will add two terms to `sum`: one for openings at `x`, and one for openings at `g x`.
+    // All polynomials are opened at `x`.
     let single_evals = [
         PlonkPolynomials::CONSTANTS_SIGMAS,
         PlonkPolynomials::WIRES,
+        PlonkPolynomials::ZS_PARTIAL_PRODUCTS,
         PlonkPolynomials::QUOTIENT,
     ]
     .iter()
     .flat_map(|&p| proof.unsalted_evals(p, config.zero_knowledge))
-    .chain(
-        &proof.unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
-            [common_data.partial_products_range()],
-    )
     .map(|&e| F::Extension::from_basefield(e));
     let single_composition_eval = alpha.reduce(single_evals);
     let single_numerator = single_composition_eval - precomputed_reduced_evals.single;
@@ -195,7 +184,7 @@ pub(crate) fn fri_combine_initial<
     sum += single_numerator / single_denominator;
     alpha.reset();
 
-    // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
+    // Z polynomials have an additional opening at `g x`.
     let zs_evals = proof
         .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
         .iter()
@@ -203,15 +192,8 @@ pub(crate) fn fri_combine_initial<
         .take(common_data.zs_range().end);
     let zs_composition_eval = alpha.reduce(zs_evals);
     let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
-    let zs_interpol = interpolate2(
-        [
-            (zeta, precomputed_reduced_evals.zs),
-            (zeta_right, precomputed_reduced_evals.zs_right),
-        ],
-        subgroup_x,
-    );
-    let zs_numerator = zs_composition_eval - zs_interpol;
-    let zs_denominator = (subgroup_x - zeta) * (subgroup_x - zeta_right);
+    let zs_numerator = zs_composition_eval - precomputed_reduced_evals.zs_right;
+    let zs_denominator = subgroup_x - zeta_right;
     sum = alpha.shift(sum);
     sum += zs_numerator / zs_denominator;
 
