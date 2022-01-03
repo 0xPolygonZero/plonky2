@@ -1,5 +1,7 @@
+use std::iter;
 use std::mem::size_of;
 
+use itertools::Itertools;
 use keccak_hash::keccak;
 
 use crate::hash::hash_types::{BytesHash, RichField};
@@ -13,43 +15,36 @@ use crate::util::serialization::Buffer;
 pub struct KeccakPermutation;
 impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
     fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
-        // Use rejection sampling so that if one of the `u64` values in the output is larger than
-        // the field order, we increment the nonce and start again.
-        'rejection_sampling: for nonce in 0u64.. {
-            // Fill a byte array with the little-endian representation of the field array.
-            let mut buffer = [0u8; (SPONGE_WIDTH + 1) * size_of::<u64>()];
-            for i in 0..SPONGE_WIDTH {
-                buffer[i * size_of::<u64>()..(i + 1) * size_of::<u64>()]
-                    .copy_from_slice(&input[i].to_canonical_u64().to_le_bytes());
-            }
-            // Add the nonce at the end of the buffer.
-            buffer[SPONGE_WIDTH * size_of::<u64>()..].copy_from_slice(&nonce.to_le_bytes());
-            // Concatenate `H(input), H(H(input)), H(H(H(input)))`.
-            let permutated_input_bytes = {
-                let mut ans = [0u8; 96];
-                ans[0..32].copy_from_slice(&keccak(buffer).0);
-                ans[32..64].copy_from_slice(&keccak(keccak(buffer).0).0);
-                ans[64..96].copy_from_slice(&keccak(keccak(keccak(buffer).0).0).0);
-                ans
-            };
-            // Write the hashed byte array to a field array.
-            let mut permutated_input = [F::ZERO; SPONGE_WIDTH];
-            for i in 0..SPONGE_WIDTH {
-                let perm_u64 = u64::from_le_bytes(
-                    permutated_input_bytes[i * size_of::<u64>()..(i + 1) * size_of::<u64>()]
-                        .try_into()
-                        .unwrap(),
-                );
-                if perm_u64 >= F::ORDER {
-                    // If a value is larger than the field order, we break and start again with a new nonce.
-                    continue 'rejection_sampling;
-                } else {
-                    permutated_input[i] = F::from_canonical_u64(perm_u64);
-                }
-            }
-            return permutated_input;
+        let mut state = vec![0u8; SPONGE_WIDTH * size_of::<u64>()];
+        for i in 0..SPONGE_WIDTH {
+            state[i * size_of::<u64>()..(i + 1) * size_of::<u64>()]
+                .copy_from_slice(&input[i].to_canonical_u64().to_le_bytes());
         }
-        panic!("Improbable.")
+
+        let hash_onion = iter::repeat_with(|| {
+            let output = keccak(state.clone()).to_fixed_bytes();
+            state = output.to_vec();
+            output
+        });
+
+        let hash_onion_u64s = hash_onion.flat_map(|output| {
+            output
+                .chunks_exact(size_of::<u64>())
+                .map(|word| u64::from_le_bytes(word.try_into().unwrap()))
+                .collect_vec()
+        });
+
+        // Parse field elements from u64 stream, using rejection sampling such that words that don't
+        // fit in F are ignored.
+        let hash_onion_elems = hash_onion_u64s
+            .filter(|&word| word < F::ORDER)
+            .map(F::from_canonical_u64);
+
+        hash_onion_elems
+            .take(SPONGE_WIDTH)
+            .collect_vec()
+            .try_into()
+            .unwrap()
     }
 }
 
