@@ -274,22 +274,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut alpha = ReducingFactorTarget::new(alpha);
         let mut sum = self.zero_extension();
 
-        // We will add three terms to `sum`:
-        // - one for polynomials opened at `x` only
-        // - one for polynomials opened at `x` and `g x`
-
-        // Polynomials opened at `x`, i.e., the constants-sigmas, wires, quotient and partial products polynomials.
+        // We will add two terms to `sum`: one for openings at `x`, and one for openings at `g x`.
+        // All polynomials are opened at `x`.
         let single_evals = [
             PlonkPolynomials::CONSTANTS_SIGMAS,
             PlonkPolynomials::WIRES,
+            PlonkPolynomials::ZS_PARTIAL_PRODUCTS,
             PlonkPolynomials::QUOTIENT,
         ]
         .iter()
         .flat_map(|&p| proof.unsalted_evals(p, config.zero_knowledge))
-        .chain(
-            &proof.unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
-                [common_data.partial_products_range()],
-        )
         .copied()
         .collect::<Vec<_>>();
         let single_composition_eval = alpha.reduce_base(&single_evals, self);
@@ -307,16 +301,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect::<Vec<_>>();
         let zs_composition_eval = alpha.reduce_base(&zs_evals, self);
 
-        let interpol_val = self.mul_add_extension(
-            vanish_zeta,
-            precomputed_reduced_evals.slope,
-            precomputed_reduced_evals.zs,
-        );
-        let zs_numerator = self.sub_extension(zs_composition_eval, interpol_val);
-        let vanish_zeta_right =
-            self.sub_extension(subgroup_x, precomputed_reduced_evals.zeta_right);
-        sum = alpha.shift(sum, self);
-        let zs_denominator = self.mul_extension(vanish_zeta, vanish_zeta_right);
+        let zs_numerator =
+            self.sub_extension(zs_composition_eval, precomputed_reduced_evals.zs_right);
+        let zs_denominator = self.sub_extension(subgroup_x, precomputed_reduced_evals.zeta_right);
+        sum = alpha.shift(sum, self); // TODO: alpha^count could be precomputed.
         sum = self.div_add_extension(zs_numerator, zs_denominator, sum);
 
         sum
@@ -470,9 +458,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[derive(Copy, Clone)]
 struct PrecomputedReducedEvalsTarget<const D: usize> {
     pub single: ExtensionTarget<D>,
-    pub zs: ExtensionTarget<D>,
-    /// Slope of the line from `(zeta, zs)` to `(zeta_right, zs_right)`.
-    pub slope: ExtensionTarget<D>,
+    pub zs_right: ExtensionTarget<D>,
     pub zeta_right: ExtensionTarget<D>,
 }
 
@@ -490,24 +476,21 @@ impl<const D: usize> PrecomputedReducedEvalsTarget<D> {
                 .iter()
                 .chain(&os.plonk_sigmas)
                 .chain(&os.wires)
-                .chain(&os.quotient_polys)
+                .chain(&os.plonk_zs)
                 .chain(&os.partial_products)
+                .chain(&os.quotient_polys)
                 .copied()
                 .collect::<Vec<_>>(),
             builder,
         );
-        let zs = alpha.reduce(&os.plonk_zs, builder);
         let zs_right = alpha.reduce(&os.plonk_zs_right, builder);
 
         let g = builder.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
         let zeta_right = builder.mul_extension(g, zeta);
-        let numerator = builder.sub_extension(zs_right, zs);
-        let denominator = builder.sub_extension(zeta_right, zeta);
 
         Self {
             single,
-            zs,
-            slope: builder.div_extension(numerator, denominator),
+            zs_right,
             zeta_right,
         }
     }
