@@ -30,7 +30,7 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
         let hash_onion_u64s = hash_onion.flat_map(|output| {
             output
                 .chunks_exact(size_of::<u64>())
-                .map(|word| u64::from_be_bytes(word.try_into().unwrap()))
+                .map(|word| u64::from_le_bytes(word.try_into().unwrap()))
                 .collect_vec()
         });
 
