@@ -122,32 +122,6 @@ fn fri_verify_initial_proof<F: RichField, H: Hasher<F>>(
     Ok(())
 }
 
-/// Holds the reduced (by `alpha`) evaluations at `zeta` for the polynomial opened just at
-/// zeta, for `Z` at zeta and for `Z` at `g*zeta`.
-#[derive(Copy, Clone, Debug)]
-pub(crate) struct PrecomputedReducedEvals<F: RichField + Extendable<D>, const D: usize> {
-    pub single: F::Extension,
-    pub zs_right: F::Extension,
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D> {
-    pub(crate) fn from_os_and_alpha(os: &OpeningSet<F, D>, alpha: F::Extension) -> Self {
-        let mut alpha = ReducingFactor::new(alpha);
-        let single = alpha.reduce(
-            os.constants
-                .iter()
-                .chain(&os.plonk_sigmas)
-                .chain(&os.wires)
-                .chain(&os.plonk_zs)
-                .chain(&os.partial_products)
-                .chain(&os.quotient_polys),
-        );
-        let zs_right = alpha.reduce(os.plonk_zs_right.iter());
-
-        Self { single, zs_right }
-    }
-}
-
 pub(crate) fn fri_combine_initial<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -281,4 +255,30 @@ fn fri_verifier_query_round<
     );
 
     Ok(())
+}
+
+/// Holds the reduced (by `alpha`) evaluations at `zeta` for the polynomial opened just at
+/// zeta, for `Z` at zeta and for `Z` at `g*zeta`.
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct PrecomputedReducedEvals<F: RichField + Extendable<D>, const D: usize> {
+    pub single: F::Extension,
+    pub zs_right: F::Extension,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D> {
+    pub(crate) fn from_os_and_alpha(os: &OpeningSet<F, D>, alpha: F::Extension) -> Self {
+        let mut alpha = ReducingFactor::new(alpha);
+        let single = alpha.reduce(
+            os.constants
+                .iter()
+                .chain(&os.plonk_sigmas)
+                .chain(&os.wires)
+                .chain(&os.plonk_zs)
+                .chain(&os.partial_products)
+                .chain(&os.quotient_polys),
+        );
+        let zs_right = alpha.reduce(os.plonk_zs_right.iter());
+
+        Self { single, zs_right }
+    }
 }
