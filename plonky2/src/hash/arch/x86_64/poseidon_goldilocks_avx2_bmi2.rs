@@ -757,9 +757,9 @@ unsafe fn partial_round(
         // multiplication where we've set the first element to 0.) Add the remaining bits now.
         // TODO: This is a bit of an afterthought, which is why these constants are loaded 22
         //   times... There's likely a better way of merging those results.
-        "vmovdqu ymm6, {mds_matrix}[rip]",
-        "vmovdqu ymm7, {mds_matrix}[rip + 32]",
-        "vmovdqu ymm8, {mds_matrix}[rip + 64]",
+        "vmovdqu ymm6, [{mds_matrix}]",
+        "vmovdqu ymm7, [{mds_matrix} + 32]",
+        "vmovdqu ymm8, [{mds_matrix} + 64]",
         "vpsllvq ymm9, ymm13, ymm6",
         "vpsllvq ymm10, ymm13, ymm7",
         "vpsllvq ymm11, ymm13, ymm8",
@@ -775,7 +775,7 @@ unsafe fn partial_round(
         // Reduction required.
 
         state0a = in(reg) state0a,
-        mds_matrix = sym TOP_ROW_EXPS,
+        mds_matrix = in(reg) &TOP_ROW_EXPS,
         inout("ymm0") unreduced_lo0_s,
         inout("ymm1") unreduced_lo1_s,
         inout("ymm2") unreduced_lo2_s,
