@@ -1080,7 +1080,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .free_binary_subtraction_gate
                 .insert(BITS, (gate, i + 1));
         } else {
-            self.batched_gates.free_binary_subtraction_gate.remove(&BITS);
+            self.batched_gates
+                .free_binary_subtraction_gate
+                .remove(&BITS);
         }
 
         (gate, i)
