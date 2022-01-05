@@ -10,7 +10,7 @@ use plonky2_field::field_types::Field;
 use plonky2_field::polynomial::PolynomialValues;
 use plonky2_util::{log2_ceil, log2_strict};
 
-use crate::fri::commitment::PolynomialBatchCommitment;
+use crate::fri::oracle::FriOracle;
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::arithmetic::BaseArithmeticOperation;
 use crate::gadgets::arithmetic_extension::ExtensionArithmeticOperation;
@@ -41,7 +41,7 @@ use crate::plonk::circuit_data::{
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::permutation_argument::Forest;
-use crate::plonk::plonk_common::PlonkPolynomials;
+use crate::plonk::plonk_common::PlonkOracle;
 use crate::util::context_tree::ContextTree;
 use crate::util::marking::{Markable, MarkedTargets};
 use crate::util::partial_products::num_partial_products;
@@ -641,10 +641,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let fft_root_table = fft_root_table(max_fft_points);
 
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
-        let constants_sigmas_commitment = PolynomialBatchCommitment::from_values(
+        let constants_sigmas_commitment = FriOracle::from_values(
             constants_sigmas_vecs,
             rate_bits,
-            self.config.zero_knowledge & PlonkPolynomials::CONSTANTS_SIGMAS.blinding,
+            PlonkOracle::CONSTANTS_SIGMAS.blinding,
             self.config.fri_config.cap_height,
             &mut timing,
             Some(&fft_root_table),

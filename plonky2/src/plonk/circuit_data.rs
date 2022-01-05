@@ -5,16 +5,23 @@ use anyhow::Result;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::fft::FftRootTable;
 
-use crate::fri::commitment::PolynomialBatchCommitment;
+use crate::field::field_types::Field;
+use crate::fri::oracle::FriOracle;
 use crate::fri::reduction_strategies::FriReductionStrategy;
+use crate::fri::structure::{
+    FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriPolynomialInfo,
+};
 use crate::fri::{FriConfig, FriParams};
 use crate::gates::gate::PrefixedGate;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
+use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;
 use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::plonk_common::{PlonkOracle, FRI_ORACLES};
 use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
@@ -178,7 +185,7 @@ pub(crate) struct ProverOnlyCircuitData<
     /// they watch.
     pub generator_indices_by_watches: BTreeMap<usize, Vec<usize>>,
     /// Commitments to the constants polynomials and sigma polynomials.
-    pub constants_sigmas_commitment: PolynomialBatchCommitment<F, C, D>,
+    pub constants_sigmas_commitment: FriOracle<F, C, D>,
     /// The transpose of the list of sigma polynomials.
     pub sigmas: Vec<Vec<F>>,
     /// Subgroup of order `degree`.
@@ -285,6 +292,95 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// Range of the partial products polynomials in the `zs_partial_products_commitment`.
     pub fn partial_products_range(&self) -> RangeFrom<usize> {
         self.config.num_challenges..
+    }
+
+    pub(crate) fn get_fri_instance(&self, zeta: F::Extension) -> FriInstanceInfo<F, D> {
+        // All polynomials are opened at zeta.
+        let zeta_batch = FriBatchInfo {
+            point: zeta,
+            polynomials: self.fri_all_polys(),
+        };
+
+        // The Z polynomials are also opened at g * zeta.
+        let g = F::Extension::primitive_root_of_unity(self.degree_bits);
+        let zeta_right = g * zeta;
+        let zeta_right_batch = FriBatchInfo {
+            point: zeta_right,
+            polynomials: self.fri_zs_polys(),
+        };
+
+        let openings = vec![zeta_batch, zeta_right_batch];
+        FriInstanceInfo {
+            oracles: FRI_ORACLES.to_vec(),
+            batches: openings,
+        }
+    }
+
+    pub(crate) fn get_fri_instance_target(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        zeta: ExtensionTarget<D>,
+    ) -> FriInstanceInfoTarget<D> {
+        // All polynomials are opened at zeta.
+        let zeta_batch = FriBatchInfoTarget {
+            point: zeta,
+            polynomials: self.fri_all_polys(),
+        };
+
+        // The Z polynomials are also opened at g * zeta.
+        let g = F::primitive_root_of_unity(self.degree_bits);
+        let zeta_right = builder.mul_const_extension(g, zeta);
+        let zeta_right_batch = FriBatchInfoTarget {
+            point: zeta_right,
+            polynomials: self.fri_zs_polys(),
+        };
+
+        let openings = vec![zeta_batch, zeta_right_batch];
+        FriInstanceInfoTarget {
+            oracles: FRI_ORACLES.to_vec(),
+            batches: openings,
+        }
+    }
+
+    fn fri_preprocessed_polys(&self) -> Vec<FriPolynomialInfo> {
+        let num_preprocessed_polys = self.sigmas_range().end;
+        FriPolynomialInfo::from_range(
+            PlonkOracle::CONSTANTS_SIGMAS.index,
+            0..num_preprocessed_polys,
+        )
+    }
+
+    fn fri_wire_polys(&self) -> Vec<FriPolynomialInfo> {
+        let num_wire_polys = self.config.num_wires;
+        FriPolynomialInfo::from_range(PlonkOracle::WIRES.index, 0..num_wire_polys)
+    }
+
+    fn fri_zs_partial_products_polys(&self) -> Vec<FriPolynomialInfo> {
+        let num_zs_partial_products_polys =
+            self.config.num_challenges * (1 + self.num_partial_products.0);
+        FriPolynomialInfo::from_range(
+            PlonkOracle::ZS_PARTIAL_PRODUCTS.index,
+            0..num_zs_partial_products_polys,
+        )
+    }
+
+    fn fri_zs_polys(&self) -> Vec<FriPolynomialInfo> {
+        FriPolynomialInfo::from_range(PlonkOracle::ZS_PARTIAL_PRODUCTS.index, self.zs_range())
+    }
+
+    fn fri_quotient_polys(&self) -> Vec<FriPolynomialInfo> {
+        let num_quotient_polys = self.config.num_challenges * self.quotient_degree_factor;
+        FriPolynomialInfo::from_range(PlonkOracle::QUOTIENT.index, 0..num_quotient_polys)
+    }
+
+    fn fri_all_polys(&self) -> Vec<FriPolynomialInfo> {
+        [
+            self.fri_preprocessed_polys(),
+            self.fri_wire_polys(),
+            self.fri_zs_partial_products_polys(),
+            self.fri_quotient_polys(),
+        ]
+        .concat()
     }
 }
 

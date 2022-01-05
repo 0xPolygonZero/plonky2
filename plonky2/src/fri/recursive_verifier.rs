@@ -1,8 +1,9 @@
+use itertools::Itertools;
 use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::Field;
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
 use crate::fri::proof::{FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget};
+use crate::fri::structure::{FriBatchInfoTarget, FriInstanceInfoTarget, FriOpeningsTarget};
 use crate::fri::FriConfig;
 use crate::gadgets::interpolation::InterpolationGate;
 use crate::gates::gate::Gate;
@@ -17,7 +18,6 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::config::{AlgebraicConfig, AlgebraicHasher, GenericConfig};
-use crate::plonk::plonk_common::PlonkPolynomials;
 use crate::plonk::proof::OpeningSetTarget;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
@@ -127,10 +127,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn verify_fri_proof<C: AlgebraicConfig<D, F = F>>(
         &mut self,
+        instance: &FriInstanceInfoTarget<D>,
         // Openings of the PLONK polynomials.
         os: &OpeningSetTarget<D>,
-        // Point at which the PLONK polynomials are opened.
-        zeta: ExtensionTarget<D>,
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
@@ -186,13 +185,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let precomputed_reduced_evals = with_context!(
             self,
             "precompute reduced evaluations",
-            PrecomputedReducedEvalsTarget::from_os_and_alpha(
-                os,
-                alpha,
-                common_data.degree_bits,
-                zeta,
-                self
-            )
+            PrecomputedReducedOpeningsTarget::from_os_and_alpha(&os.to_fri_openings(), alpha, self)
         );
 
         for (i, round_proof) in proof.query_round_proofs.iter().enumerate() {
@@ -211,9 +204,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 level,
                 &format!("verify one (of {}) query rounds", num_queries),
                 self.fri_verifier_query_round(
-                    zeta,
+                    instance,
                     alpha,
-                    precomputed_reduced_evals,
+                    &precomputed_reduced_evals,
                     initial_merkle_caps,
                     proof,
                     challenger,
@@ -255,11 +248,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn fri_combine_initial<C: GenericConfig<D, F = F>>(
         &mut self,
+        instance: &FriInstanceInfoTarget<D>,
         proof: &FriInitialTreeProofTarget,
         alpha: ExtensionTarget<D>,
         subgroup_x: Target,
-        vanish_zeta: ExtensionTarget<D>,
-        precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
+        precomputed_reduced_evals: &PrecomputedReducedOpeningsTarget<D>,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
@@ -274,47 +267,35 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut alpha = ReducingFactorTarget::new(alpha);
         let mut sum = self.zero_extension();
 
-        // We will add two terms to `sum`: one for openings at `x`, and one for openings at `g x`.
-        // All polynomials are opened at `x`.
-        let single_evals = [
-            PlonkPolynomials::CONSTANTS_SIGMAS,
-            PlonkPolynomials::WIRES,
-            PlonkPolynomials::ZS_PARTIAL_PRODUCTS,
-            PlonkPolynomials::QUOTIENT,
-        ]
-        .iter()
-        .flat_map(|&p| proof.unsalted_evals(p, config.zero_knowledge))
-        .copied()
-        .collect::<Vec<_>>();
-        let single_composition_eval = alpha.reduce_base(&single_evals, self);
-        let single_numerator =
-            self.sub_extension(single_composition_eval, precomputed_reduced_evals.single);
-        sum = self.div_add_extension(single_numerator, vanish_zeta, sum);
-        alpha.reset();
-
-        // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
-        let zs_evals = proof
-            .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
+        for (batch, reduced_openings) in instance
+            .batches
             .iter()
-            .take(common_data.zs_range().end)
-            .copied()
-            .collect::<Vec<_>>();
-        let zs_composition_eval = alpha.reduce_base(&zs_evals, self);
-
-        let zs_numerator =
-            self.sub_extension(zs_composition_eval, precomputed_reduced_evals.zs_right);
-        let zs_denominator = self.sub_extension(subgroup_x, precomputed_reduced_evals.zeta_right);
-        sum = alpha.shift(sum, self); // TODO: alpha^count could be precomputed.
-        sum = self.div_add_extension(zs_numerator, zs_denominator, sum);
+            .zip(&precomputed_reduced_evals.reduced_openings_at_point)
+        {
+            let FriBatchInfoTarget { point, polynomials } = batch;
+            let evals = polynomials
+                .iter()
+                .map(|p| {
+                    let poly_blinding = instance.oracles[p.oracle_index].blinding;
+                    let salted = config.zero_knowledge && poly_blinding;
+                    proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted)
+                })
+                .collect_vec();
+            let reduced_evals = alpha.reduce_base(&evals, self);
+            let numerator = self.sub_extension(reduced_evals, *reduced_openings);
+            let denominator = self.sub_extension(subgroup_x, *point);
+            sum = alpha.shift(sum, self);
+            sum = self.div_add_extension(numerator, denominator, sum);
+        }
 
         sum
     }
 
     fn fri_verifier_query_round<C: AlgebraicConfig<D, F = F>>(
         &mut self,
-        zeta: ExtensionTarget<D>,
+        instance: &FriInstanceInfoTarget<D>,
         alpha: ExtensionTarget<D>,
-        precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
+        precomputed_reduced_evals: &PrecomputedReducedOpeningsTarget<D>,
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
@@ -346,16 +327,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
-        let (mut subgroup_x, vanish_zeta) = with_context!(self, "compute x from its index", {
+        let mut subgroup_x = with_context!(self, "compute x from its index", {
             let g = self.constant(F::coset_shift());
             let phi = F::primitive_root_of_unity(n_log);
             let phi = self.exp_from_bits_const_base(phi, x_index_bits.iter().rev());
-            let g_ext = self.convert_to_ext(g);
-            let phi_ext = self.convert_to_ext(phi);
-            // `subgroup_x = g*phi, vanish_zeta = g*phi - zeta`
-            let subgroup_x = self.mul(g, phi);
-            let vanish_zeta = self.mul_sub_extension(g_ext, phi_ext, zeta);
-            (subgroup_x, vanish_zeta)
+            // subgroup_x = g * phi
+            self.mul(g, phi)
         });
 
         // old_eval is the last derived evaluation; it will be checked for consistency with its
@@ -364,10 +341,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self,
             "combine initial oracles",
             self.fri_combine_initial(
+                instance,
                 &round_proof.initial_trees_proof,
                 alpha,
                 subgroup_x,
-                vanish_zeta,
                 precomputed_reduced_evals,
                 common_data,
             )
@@ -455,43 +432,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-#[derive(Copy, Clone)]
-struct PrecomputedReducedEvalsTarget<const D: usize> {
-    pub single: ExtensionTarget<D>,
-    pub zs_right: ExtensionTarget<D>,
-    pub zeta_right: ExtensionTarget<D>,
+/// For each opening point, holds the reduced (by `alpha`) evaluations of each polynomial that's
+/// opened at that point.
+#[derive(Clone)]
+struct PrecomputedReducedOpeningsTarget<const D: usize> {
+    reduced_openings_at_point: Vec<ExtensionTarget<D>>,
 }
 
-impl<const D: usize> PrecomputedReducedEvalsTarget<D> {
+impl<const D: usize> PrecomputedReducedOpeningsTarget<D> {
     fn from_os_and_alpha<F: RichField + Extendable<D>>(
-        os: &OpeningSetTarget<D>,
+        openings: &FriOpeningsTarget<D>,
         alpha: ExtensionTarget<D>,
-        degree_log: usize,
-        zeta: ExtensionTarget<D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
-        let mut alpha = ReducingFactorTarget::new(alpha);
-        let single = alpha.reduce(
-            &os.constants
-                .iter()
-                .chain(&os.plonk_sigmas)
-                .chain(&os.wires)
-                .chain(&os.plonk_zs)
-                .chain(&os.partial_products)
-                .chain(&os.quotient_polys)
-                .copied()
-                .collect::<Vec<_>>(),
-            builder,
-        );
-        let zs_right = alpha.reduce(&os.plonk_zs_right, builder);
-
-        let g = builder.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
-        let zeta_right = builder.mul_extension(g, zeta);
-
+        let reduced_openings_at_point = openings
+            .batches
+            .iter()
+            .map(|batch| ReducingFactorTarget::new(alpha).reduce(&batch.values, builder))
+            .collect();
         Self {
-            single,
-            zs_right,
-            zeta_right,
+            reduced_openings_at_point,
         }
     }
 }

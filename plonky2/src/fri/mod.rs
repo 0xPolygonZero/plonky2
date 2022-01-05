@@ -1,10 +1,11 @@
 use crate::fri::reduction_strategies::FriReductionStrategy;
 
-pub mod commitment;
+pub mod oracle;
 pub mod proof;
 pub mod prover;
 pub mod recursive_verifier;
 pub mod reduction_strategies;
+pub mod structure;
 pub mod verifier;
 
 #[derive(Debug, Clone, Eq, PartialEq)]

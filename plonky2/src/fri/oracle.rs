@@ -7,13 +7,12 @@ use rayon::prelude::*;
 
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
+use crate::fri::structure::{FriBatchInfo, FriInstanceInfo};
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::GenericConfig;
-use crate::plonk::plonk_common::PlonkPolynomials;
-use crate::plonk::proof::OpeningSet;
 use crate::timed;
 use crate::util::reducing::ReducingFactor;
 use crate::util::reverse_bits;
@@ -24,11 +23,7 @@ use crate::util::transpose;
 pub const SALT_SIZE: usize = 4;
 
 /// Represents a batch FRI based commitment to a list of polynomials.
-pub struct PolynomialBatchCommitment<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
+pub struct FriOracle<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
     pub merkle_tree: MerkleTree<F, C::Hasher>,
     pub degree_log: usize,
@@ -36,9 +31,7 @@ pub struct PolynomialBatchCommitment<
     pub blinding: bool,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    PolynomialBatchCommitment<F, C, D>
-{
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> FriOracle<F, C, D> {
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
     pub(crate) fn from_values(
         values: Vec<PolynomialValues<F>>,
@@ -130,76 +123,35 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         &slice[..slice.len() - if self.blinding { SALT_SIZE } else { 0 }]
     }
 
-    /// Takes the commitments to the constants - sigmas - wires - zs - quotient — polynomials,
-    /// and an opening point `zeta` and produces a batched opening proof + opening set.
-    pub(crate) fn open_plonk(
-        commitments: &[&Self; 4],
-        zeta: F::Extension,
+    /// Produces a batch opening proof.
+    pub(crate) fn prove_openings(
+        instance: &FriInstanceInfo<F, D>,
+        oracles: &[&Self],
         challenger: &mut Challenger<F, C::Hasher>,
         common_data: &CommonCircuitData<F, C, D>,
         timing: &mut TimingTree,
-    ) -> (FriProof<F, C::Hasher, D>, OpeningSet<F, D>) {
+    ) -> FriProof<F, C::Hasher, D> {
         let config = &common_data.config;
         assert!(D > 1, "Not implemented for D=1.");
-        let degree_log = commitments[0].degree_log;
-        let g = F::Extension::primitive_root_of_unity(degree_log);
-        for p in &[zeta, g * zeta] {
-            assert_ne!(
-                p.exp_u64(1 << degree_log as u64),
-                F::Extension::ONE,
-                "Opening point is in the subgroup."
-            );
-        }
-
-        let os = timed!(
-            timing,
-            "construct the opening set",
-            OpeningSet::new(
-                zeta,
-                g,
-                commitments[0],
-                commitments[1],
-                commitments[2],
-                commitments[3],
-                common_data,
-            )
-        );
-        challenger.observe_opening_set(&os);
-
         let alpha = challenger.get_extension_challenge::<D>();
         let mut alpha = ReducingFactor::new(alpha);
 
         // Final low-degree polynomial that goes into FRI.
         let mut final_poly = PolynomialCoeffs::empty();
 
-        // All polynomials are opened at `zeta`.
-        let single_polys = [
-            PlonkPolynomials::CONSTANTS_SIGMAS,
-            PlonkPolynomials::WIRES,
-            PlonkPolynomials::ZS_PARTIAL_PRODUCTS,
-            PlonkPolynomials::QUOTIENT,
-        ]
-        .iter()
-        .flat_map(|&p| &commitments[p.index].polynomials);
-        let single_composition_poly = timed!(
-            timing,
-            "reduce single polys",
-            alpha.reduce_polys_base(single_polys)
-        );
-
-        let single_quotient = Self::compute_quotient([zeta], single_composition_poly);
-        final_poly += single_quotient;
-        alpha.reset();
-
-        // Z polynomials have an additional opening at `g zeta`.
-        let zs_polys = &commitments[PlonkPolynomials::ZS_PARTIAL_PRODUCTS.index].polynomials
-            [common_data.zs_range()];
-        let zs_composition_poly =
-            timed!(timing, "reduce Z polys", alpha.reduce_polys_base(zs_polys));
-
-        let zs_quotient = Self::compute_quotient([g * zeta], zs_composition_poly);
-        alpha.shift_poly(&mut final_poly);
-        final_poly += zs_quotient;
+        for FriBatchInfo { point, polynomials } in &instance.batches {
+            let polys_coeff = polynomials.iter().map(|fri_poly| {
+                &oracles[fri_poly.oracle_index].polynomials[fri_poly.polynomial_index]
+            });
+            let composition_poly = timed!(
+                timing,
+                &format!("reduce batch of {} polynomials", polynomials.len()),
+                alpha.reduce_polys_base(polys_coeff)
+            );
+            let quotient = Self::compute_quotient([*point], composition_poly);
+            alpha.shift_poly(&mut final_poly);
+            final_poly += quotient;
+        }
 
         let lde_final_poly = final_poly.lde(config.fri_config.rate_bits);
         let lde_final_values = timed!(
@@ -209,7 +161,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         );
 
         let fri_proof = fri_proof::<F, C, D>(
-            &commitments
+            &oracles
                 .par_iter()
                 .map(|c| &c.merkle_tree)
                 .collect::<Vec<_>>(),
@@ -220,7 +172,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             timing,
         );
 
-        (fri_proof, os)
+        fri_proof
     }
 
     /// Given `points=(x_i)`, `evals=(y_i)` and `poly=P` with `P(x_i)=y_i`, computes the polynomial

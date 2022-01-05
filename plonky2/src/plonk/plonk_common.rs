@@ -2,49 +2,59 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
 use plonky2_field::packed_field::PackedField;
 
-use crate::fri::commitment::SALT_SIZE;
+use crate::fri::oracle::SALT_SIZE;
+use crate::fri::structure::FriOracleInfo;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::reducing::ReducingFactorTarget;
 
+pub(crate) const FRI_ORACLES: [FriOracleInfo; 4] = [
+    PlonkOracle::CONSTANTS_SIGMAS.as_fri_oracle(),
+    PlonkOracle::WIRES.as_fri_oracle(),
+    PlonkOracle::ZS_PARTIAL_PRODUCTS.as_fri_oracle(),
+    PlonkOracle::QUOTIENT.as_fri_oracle(),
+];
+
 /// Holds the Merkle tree index and blinding flag of a set of polynomials used in FRI.
 #[derive(Debug, Copy, Clone)]
-pub struct PolynomialsIndexBlinding {
+pub struct PlonkOracle {
     pub(crate) index: usize,
     pub(crate) blinding: bool,
 }
-impl PolynomialsIndexBlinding {
-    pub fn salt_size(&self, zero_knowledge: bool) -> usize {
-        if zero_knowledge & self.blinding {
-            SALT_SIZE
-        } else {
-            0
+
+impl PlonkOracle {
+    pub const CONSTANTS_SIGMAS: PlonkOracle = PlonkOracle {
+        index: 0,
+        blinding: false,
+    };
+    pub const WIRES: PlonkOracle = PlonkOracle {
+        index: 1,
+        blinding: true,
+    };
+    pub const ZS_PARTIAL_PRODUCTS: PlonkOracle = PlonkOracle {
+        index: 2,
+        blinding: true,
+    };
+    pub const QUOTIENT: PlonkOracle = PlonkOracle {
+        index: 3,
+        blinding: true,
+    };
+
+    pub(crate) const fn as_fri_oracle(&self) -> FriOracleInfo {
+        FriOracleInfo {
+            blinding: self.blinding,
         }
     }
 }
 
-/// Holds the indices and blinding flags of the Plonk polynomials.
-pub struct PlonkPolynomials;
-
-impl PlonkPolynomials {
-    pub const CONSTANTS_SIGMAS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
-        index: 0,
-        blinding: false,
-    };
-    pub const WIRES: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
-        index: 1,
-        blinding: true,
-    };
-    pub const ZS_PARTIAL_PRODUCTS: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
-        index: 2,
-        blinding: true,
-    };
-    pub const QUOTIENT: PolynomialsIndexBlinding = PolynomialsIndexBlinding {
-        index: 3,
-        blinding: true,
-    };
+pub fn salt_size(salted: bool) -> usize {
+    if salted {
+        SALT_SIZE
+    } else {
+        0
+    }
 }
 
 /// Evaluate the polynomial which vanishes on any multiplicative subgroup of a given order `n`.

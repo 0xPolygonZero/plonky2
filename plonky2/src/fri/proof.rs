@@ -15,7 +15,7 @@ use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::{GenericConfig, Hasher};
-use crate::plonk::plonk_common::PolynomialsIndexBlinding;
+use crate::plonk::plonk_common::salt_size;
 use crate::plonk::proof::{FriInferredElements, ProofChallenges};
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
@@ -41,13 +41,13 @@ pub struct FriInitialTreeProof<F: RichField, H: Hasher<F>> {
 }
 
 impl<F: RichField, H: Hasher<F>> FriInitialTreeProof<F, H> {
-    pub(crate) fn unsalted_evals(
-        &self,
-        polynomials: PolynomialsIndexBlinding,
-        zero_knowledge: bool,
-    ) -> &[F] {
-        let evals = &self.evals_proofs[polynomials.index].0;
-        &evals[..evals.len() - polynomials.salt_size(zero_knowledge)]
+    pub(crate) fn unsalted_eval(&self, oracle_index: usize, poly_index: usize, salted: bool) -> F {
+        self.unsalted_evals(oracle_index, salted)[poly_index]
+    }
+
+    fn unsalted_evals(&self, oracle_index: usize, salted: bool) -> &[F] {
+        let evals = &self.evals_proofs[oracle_index].0;
+        &evals[..evals.len() - salt_size(salted)]
     }
 }
 
@@ -57,13 +57,18 @@ pub struct FriInitialTreeProofTarget {
 }
 
 impl FriInitialTreeProofTarget {
-    pub(crate) fn unsalted_evals(
+    pub(crate) fn unsalted_eval(
         &self,
-        polynomials: PolynomialsIndexBlinding,
-        zero_knowledge: bool,
-    ) -> &[Target] {
-        let evals = &self.evals_proofs[polynomials.index].0;
-        &evals[..evals.len() - polynomials.salt_size(zero_knowledge)]
+        oracle_index: usize,
+        poly_index: usize,
+        salted: bool,
+    ) -> Target {
+        self.unsalted_evals(oracle_index, salted)[poly_index]
+    }
+
+    fn unsalted_evals(&self, oracle_index: usize, salted: bool) -> &[Target] {
+        let evals = &self.evals_proofs[oracle_index].0;
+        &evals[..evals.len() - salt_size(salted)]
     }
 }
 
