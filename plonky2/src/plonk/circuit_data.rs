@@ -6,7 +6,7 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_field::fft::FftRootTable;
 
 use crate::field::field_types::Field;
-use crate::fri::oracle::FriOracle;
+use crate::fri::oracle::PolynomialBatch;
 use crate::fri::reduction_strategies::FriReductionStrategy;
 use crate::fri::structure::{
     FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriPolynomialInfo,
@@ -185,7 +185,7 @@ pub(crate) struct ProverOnlyCircuitData<
     /// they watch.
     pub generator_indices_by_watches: BTreeMap<usize, Vec<usize>>,
     /// Commitments to the constants polynomials and sigma polynomials.
-    pub constants_sigmas_commitment: FriOracle<F, C, D>,
+    pub constants_sigmas_commitment: PolynomialBatch<F, C, D>,
     /// The transpose of the list of sigma polynomials.
     pub sigmas: Vec<Vec<F>>,
     /// Subgroup of order `degree`.

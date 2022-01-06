@@ -22,8 +22,9 @@ use crate::util::transpose;
 /// Four (~64 bit) field elements gives ~128 bit security.
 pub const SALT_SIZE: usize = 4;
 
-/// Represents a batch FRI based commitment to a list of polynomials.
-pub struct FriOracle<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+/// Represents a FRI oracle, i.e. a batch of polynomials which have been Merklized.
+pub struct PolynomialBatch<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+{
     pub polynomials: Vec<PolynomialCoeffs<F>>,
     pub merkle_tree: MerkleTree<F, C::Hasher>,
     pub degree_log: usize,
@@ -31,7 +32,9 @@ pub struct FriOracle<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     pub blinding: bool,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> FriOracle<F, C, D> {
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    PolynomialBatch<F, C, D>
+{
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
     pub(crate) fn from_values(
         values: Vec<PolynomialValues<F>>,
@@ -131,7 +134,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> F
         common_data: &CommonCircuitData<F, C, D>,
         timing: &mut TimingTree,
     ) -> FriProof<F, C::Hasher, D> {
-        let config = &common_data.config;
         assert!(D > 1, "Not implemented for D=1.");
         let alpha = challenger.get_extension_challenge::<D>();
         let mut alpha = ReducingFactor::new(alpha);
@@ -153,7 +155,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> F
             final_poly += quotient;
         }
 
-        let lde_final_poly = final_poly.lde(config.fri_config.rate_bits);
+        let lde_final_poly = final_poly.lde(common_data.config.fri_config.rate_bits);
         let lde_final_values = timed!(
             timing,
             &format!("perform final FFT {}", lde_final_poly.len()),

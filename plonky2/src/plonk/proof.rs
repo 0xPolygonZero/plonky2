@@ -2,7 +2,7 @@ use plonky2_field::extension_field::Extendable;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::fri::oracle::FriOracle;
+use crate::fri::oracle::PolynomialBatch;
 use crate::fri::proof::{CompressedFriProof, FriProof, FriProofTarget};
 use crate::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
@@ -279,13 +279,13 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
     pub fn new<C: GenericConfig<D, F = F>>(
         zeta: F::Extension,
         g: F::Extension,
-        constants_sigmas_commitment: &FriOracle<F, C, D>,
-        wires_commitment: &FriOracle<F, C, D>,
-        zs_partial_products_commitment: &FriOracle<F, C, D>,
-        quotient_polys_commitment: &FriOracle<F, C, D>,
+        constants_sigmas_commitment: &PolynomialBatch<F, C, D>,
+        wires_commitment: &PolynomialBatch<F, C, D>,
+        zs_partial_products_commitment: &PolynomialBatch<F, C, D>,
+        quotient_polys_commitment: &PolynomialBatch<F, C, D>,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> Self {
-        let eval_commitment = |z: F::Extension, c: &FriOracle<F, C, D>| {
+        let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
             c.polynomials
                 .par_iter()
                 .map(|p| p.to_extension().eval(z))

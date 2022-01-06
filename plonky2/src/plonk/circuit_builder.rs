@@ -10,7 +10,7 @@ use plonky2_field::field_types::Field;
 use plonky2_field::polynomial::PolynomialValues;
 use plonky2_util::{log2_ceil, log2_strict};
 
-use crate::fri::oracle::FriOracle;
+use crate::fri::oracle::PolynomialBatch;
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::arithmetic::BaseArithmeticOperation;
 use crate::gadgets::arithmetic_extension::ExtensionArithmeticOperation;
@@ -641,7 +641,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let fft_root_table = fft_root_table(max_fft_points);
 
         let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
-        let constants_sigmas_commitment = FriOracle::from_values(
+        let constants_sigmas_commitment = PolynomialBatch::from_values(
             constants_sigmas_vecs,
             rate_bits,
             PlonkOracle::CONSTANTS_SIGMAS.blinding,

@@ -7,7 +7,7 @@ use crate::field::extension_field::Extendable;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 
-/// Describes an instance of a batch-FRI protocol.
+/// Describes an instance of a FRI-based batch opening.
 pub struct FriInstanceInfo<F: RichField + Extendable<D>, const D: usize> {
     /// The oracles involved, not counting oracles created during the commit phase.
     pub oracles: Vec<FriOracleInfo>,
@@ -15,7 +15,7 @@ pub struct FriInstanceInfo<F: RichField + Extendable<D>, const D: usize> {
     pub batches: Vec<FriBatchInfo<F, D>>,
 }
 
-/// Describes an instance of a batch-FRI protocol.
+/// Describes an instance of a FRI-based batch opening.
 pub struct FriInstanceInfoTarget<const D: usize> {
     /// The oracles involved, not counting oracles created during the commit phase.
     pub oracles: Vec<FriOracleInfo>,
@@ -42,7 +42,9 @@ pub struct FriBatchInfoTarget<const D: usize> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct FriPolynomialInfo {
+    /// Index into `FriInstanceInfoTarget`'s `oracles` list.
     pub oracle_index: usize,
+    /// Index of the polynomial within the oracle.
     pub polynomial_index: usize,
 }
 
