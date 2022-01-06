@@ -30,6 +30,57 @@ impl Avx512GoldilocksField {
     }
 }
 
+unsafe impl PackedField for Avx512GoldilocksField {
+    const WIDTH: usize = 8;
+
+    type Scalar = GoldilocksField;
+
+    const ZEROS: Self = Self([GoldilocksField::ZERO; 8]);
+    const ONES: Self = Self([GoldilocksField::ONE; 8]);
+
+    #[inline]
+    fn from_arr(arr: [Self::Scalar; Self::WIDTH]) -> Self {
+        Self(arr)
+    }
+
+    #[inline]
+    fn as_arr(&self) -> [Self::Scalar; Self::WIDTH] {
+        self.0
+    }
+
+    #[inline]
+    fn from_slice(slice: &[Self::Scalar]) -> &Self {
+        assert_eq!(slice.len(), Self::WIDTH);
+        unsafe { &*slice.as_ptr().cast() }
+    }
+    #[inline]
+    fn from_slice_mut(slice: &mut [Self::Scalar]) -> &mut Self {
+        assert_eq!(slice.len(), Self::WIDTH);
+        unsafe { &mut *slice.as_mut_ptr().cast() }
+    }
+    #[inline]
+    fn as_slice(&self) -> &[Self::Scalar] {
+        &self.0[..]
+    }
+    #[inline]
+    fn as_slice_mut(&mut self) -> &mut [Self::Scalar] {
+        &mut self.0[..]
+    }
+
+    #[inline]
+    fn interleave(&self, other: Self, block_len: usize) -> (Self, Self) {
+        let (v0, v1) = (self.get(), other.get());
+        let (res0, res1) = match block_len {
+            1 => unsafe { interleave1(v0, v1) },
+            2 => unsafe { interleave2(v0, v1) },
+            4 => unsafe { interleave4(v0, v1) },
+            8 => (v0, v1),
+            _ => panic!("unsupported block_len"),
+        };
+        (Self::new(res0), Self::new(res1))
+    }
+}
+
 impl Add<Self> for Avx512GoldilocksField {
     type Output = Self;
     #[inline]
@@ -144,57 +195,6 @@ impl Product for Avx512GoldilocksField {
     #[inline]
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.reduce(|x, y| x * y).unwrap_or(Self::ONES)
-    }
-}
-
-unsafe impl PackedField for Avx512GoldilocksField {
-    const WIDTH: usize = 8;
-
-    type Scalar = GoldilocksField;
-
-    const ZEROS: Self = Self([GoldilocksField::ZERO; 8]);
-    const ONES: Self = Self([GoldilocksField::ONE; 8]);
-
-    #[inline]
-    fn from_arr(arr: [Self::Scalar; Self::WIDTH]) -> Self {
-        Self(arr)
-    }
-
-    #[inline]
-    fn as_arr(&self) -> [Self::Scalar; Self::WIDTH] {
-        self.0
-    }
-
-    #[inline]
-    fn from_slice(slice: &[Self::Scalar]) -> &Self {
-        assert_eq!(slice.len(), Self::WIDTH);
-        unsafe { &*slice.as_ptr().cast() }
-    }
-    #[inline]
-    fn from_slice_mut(slice: &mut [Self::Scalar]) -> &mut Self {
-        assert_eq!(slice.len(), Self::WIDTH);
-        unsafe { &mut *slice.as_mut_ptr().cast() }
-    }
-    #[inline]
-    fn as_slice(&self) -> &[Self::Scalar] {
-        &self.0[..]
-    }
-    #[inline]
-    fn as_slice_mut(&mut self) -> &mut [Self::Scalar] {
-        &mut self.0[..]
-    }
-
-    #[inline]
-    fn interleave(&self, other: Self, block_len: usize) -> (Self, Self) {
-        let (v0, v1) = (self.get(), other.get());
-        let (res0, res1) = match block_len {
-            1 => unsafe { interleave1(v0, v1) },
-            2 => unsafe { interleave2(v0, v1) },
-            4 => unsafe { interleave4(v0, v1) },
-            8 => (v0, v1),
-            _ => panic!("unsupported block_len"),
-        };
-        (Self::new(res0), Self::new(res1))
     }
 }
 
