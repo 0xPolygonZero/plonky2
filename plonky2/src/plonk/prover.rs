@@ -1,20 +1,22 @@
 use std::mem::swap;
 
+use anyhow::ensure;
 use anyhow::Result;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_util::log2_ceil;
 use rayon::prelude::*;
 
-use crate::fri::commitment::PolynomialBatchCommitment;
+use crate::field::field_types::Field;
+use crate::fri::oracle::PolynomialBatch;
 use crate::hash::hash_types::RichField;
 use crate::iop::challenger::Challenger;
 use crate::iop::generator::generate_partial_witness;
 use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::plonk::config::{GenericConfig, Hasher};
-use crate::plonk::plonk_common::PlonkPolynomials;
-use crate::plonk::plonk_common::ZeroPolyOnCoset;
+use crate::plonk::plonk_common::{PlonkOracle, ZeroPolyOnCoset};
+use crate::plonk::proof::OpeningSet;
 use crate::plonk::proof::{Proof, ProofWithPublicInputs};
 use crate::plonk::vanishing_poly::eval_vanishing_poly_base_batch;
 use crate::plonk::vars::EvaluationVarsBaseBatch;
@@ -69,10 +71,10 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     let wires_commitment = timed!(
         timing,
         "compute wires commitment",
-        PolynomialBatchCommitment::from_values(
+        PolynomialBatch::from_values(
             wires_values,
             config.fri_config.rate_bits,
-            config.zero_knowledge & PlonkPolynomials::WIRES.blinding,
+            config.zero_knowledge && PlonkOracle::WIRES.blinding,
             config.fri_config.cap_height,
             timing,
             prover_data.fft_root_table.as_ref(),
@@ -109,10 +111,10 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     let partial_products_and_zs_commitment = timed!(
         timing,
         "commit to partial products and Z's",
-        PolynomialBatchCommitment::from_values(
+        PolynomialBatch::from_values(
             zs_partial_products,
             config.fri_config.rate_bits,
-            config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding,
+            config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
             config.fri_config.cap_height,
             timing,
             prover_data.fft_root_table.as_ref(),
@@ -158,10 +160,10 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     let quotient_polys_commitment = timed!(
         timing,
         "commit to quotient polys",
-        PolynomialBatchCommitment::from_coeffs(
+        PolynomialBatch::from_coeffs(
             all_quotient_poly_chunks,
             config.fri_config.rate_bits,
-            config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding,
+            config.zero_knowledge && PlonkOracle::QUOTIENT.blinding,
             config.fri_config.cap_height,
             timing,
             prover_data.fft_root_table.as_ref(),
@@ -171,18 +173,41 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     challenger.observe_cap(&quotient_polys_commitment.merkle_tree.cap);
 
     let zeta = challenger.get_extension_challenge::<D>();
+    // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
+    // `g * zeta`, are not in our subgroup `H`. It suffices to check `zeta` only, since
+    // `(g * zeta)^n = zeta^n`, where `n` is the order of `g`.
+    let g = F::Extension::primitive_root_of_unity(common_data.degree_bits);
+    ensure!(
+        zeta.exp_power_of_2(common_data.degree_bits) != F::Extension::ONE,
+        "Opening point is in the subgroup."
+    );
 
-    let (opening_proof, openings) = timed!(
+    let openings = timed!(
+        timing,
+        "construct the opening set",
+        OpeningSet::new(
+            zeta,
+            g,
+            &prover_data.constants_sigmas_commitment,
+            &wires_commitment,
+            &partial_products_and_zs_commitment,
+            &quotient_polys_commitment,
+            common_data,
+        )
+    );
+    challenger.observe_opening_set(&openings);
+
+    let opening_proof = timed!(
         timing,
         "compute opening proofs",
-        PolynomialBatchCommitment::open_plonk(
+        PolynomialBatch::prove_openings(
+            &common_data.get_fri_instance(zeta),
             &[
                 &prover_data.constants_sigmas_commitment,
                 &wires_commitment,
                 &partial_products_and_zs_commitment,
                 &quotient_polys_commitment,
             ],
-            zeta,
             &mut challenger,
             common_data,
             timing,
@@ -300,8 +325,8 @@ fn compute_quotient_polys<
     common_data: &CommonCircuitData<F, C, D>,
     prover_data: &'a ProverOnlyCircuitData<F, C, D>,
     public_inputs_hash: &<<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
-    wires_commitment: &'a PolynomialBatchCommitment<F, C, D>,
-    zs_partial_products_commitment: &'a PolynomialBatchCommitment<F, C, D>,
+    wires_commitment: &'a PolynomialBatch<F, C, D>,
+    zs_partial_products_commitment: &'a PolynomialBatch<F, C, D>,
     betas: &[F],
     gammas: &[F],
     alphas: &[F],
@@ -325,9 +350,8 @@ fn compute_quotient_polys<
     let lde_size = points.len();
 
     // Retrieve the LDE values at index `i`.
-    let get_at_index = |comm: &'a PolynomialBatchCommitment<F, C, D>, i: usize| -> &'a [F] {
-        comm.get_lde_values(i * step)
-    };
+    let get_at_index =
+        |comm: &'a PolynomialBatch<F, C, D>, i: usize| -> &'a [F] { comm.get_lde_values(i * step) };
 
     let z_h_on_coset = ZeroPolyOnCoset::new(common_data.degree_bits, max_degree_bits);
 

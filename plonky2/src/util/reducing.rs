@@ -238,7 +238,14 @@ impl<const D: usize> ReducingFactorTarget<D> {
     where
         F: RichField + Extendable<D>,
     {
-        let exp = builder.exp_u64_extension(self.base, self.count);
+        let zero_ext = builder.zero_extension();
+        let exp = if x == zero_ext {
+            // The result will get zeroed out, so don't actually compute the exponentiation.
+            zero_ext
+        } else {
+            builder.exp_u64_extension(self.base, self.count)
+        };
+
         self.count = 0;
         builder.mul_extension(exp, x)
     }

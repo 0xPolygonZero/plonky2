@@ -4,7 +4,7 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_field::polynomial::PolynomialCoeffs;
 
 use crate::fri::proof::{CompressedFriProof, FriProof};
-use crate::fri::verifier::{compute_evaluation, fri_combine_initial, PrecomputedReducedEvals};
+use crate::fri::verifier::{compute_evaluation, fri_combine_initial, PrecomputedReducedOpenings};
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::challenger::Challenger;
@@ -187,8 +187,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // Holds the indices that have already been seen at each reduction depth.
         let mut seen_indices_by_depth =
             vec![HashSet::new(); common_data.fri_params.reduction_arity_bits.len()];
-        let precomputed_reduced_evals =
-            PrecomputedReducedEvals::from_os_and_alpha(&self.proof.openings, *fri_alpha);
+        let precomputed_reduced_evals = PrecomputedReducedOpenings::from_os_and_alpha(
+            &self.proof.openings.to_fri_openings(),
+            *fri_alpha,
+        );
         let log_n = common_data.degree_bits + common_data.config.fri_config.rate_bits;
         // Simulate the proof verification and collect the inferred elements.
         // The content of the loop is basically the same as the `fri_verifier_query_round` function.
@@ -196,15 +198,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
                 * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
             let mut old_eval = fri_combine_initial(
+                &common_data.get_fri_instance(*plonk_zeta),
                 &self
                     .proof
                     .opening_proof
                     .query_round_proofs
                     .initial_trees_proofs[&x_index],
                 *fri_alpha,
-                *plonk_zeta,
                 subgroup_x,
-                precomputed_reduced_evals,
+                &precomputed_reduced_evals,
                 common_data,
             );
             for (i, &arity_bits) in common_data

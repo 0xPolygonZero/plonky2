@@ -2,8 +2,11 @@ use plonky2_field::extension_field::Extendable;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::fri::commitment::PolynomialBatchCommitment;
+use crate::fri::oracle::PolynomialBatch;
 use crate::fri::proof::{CompressedFriProof, FriProof, FriProofTarget};
+use crate::fri::structure::{
+    FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
+};
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
@@ -274,33 +277,53 @@ pub struct OpeningSet<F: RichField + Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
     pub fn new<C: GenericConfig<D, F = F>>(
-        z: F::Extension,
+        zeta: F::Extension,
         g: F::Extension,
-        constants_sigmas_commitment: &PolynomialBatchCommitment<F, C, D>,
-        wires_commitment: &PolynomialBatchCommitment<F, C, D>,
-        zs_partial_products_commitment: &PolynomialBatchCommitment<F, C, D>,
-        quotient_polys_commitment: &PolynomialBatchCommitment<F, C, D>,
+        constants_sigmas_commitment: &PolynomialBatch<F, C, D>,
+        wires_commitment: &PolynomialBatch<F, C, D>,
+        zs_partial_products_commitment: &PolynomialBatch<F, C, D>,
+        quotient_polys_commitment: &PolynomialBatch<F, C, D>,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> Self {
-        let eval_commitment = |z: F::Extension, c: &PolynomialBatchCommitment<F, C, D>| {
+        let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
             c.polynomials
                 .par_iter()
                 .map(|p| p.to_extension().eval(z))
                 .collect::<Vec<_>>()
         };
-        let constants_sigmas_eval = eval_commitment(z, constants_sigmas_commitment);
-        let zs_partial_products_eval = eval_commitment(z, zs_partial_products_commitment);
+        let constants_sigmas_eval = eval_commitment(zeta, constants_sigmas_commitment);
+        let zs_partial_products_eval = eval_commitment(zeta, zs_partial_products_commitment);
         Self {
             constants: constants_sigmas_eval[common_data.constants_range()].to_vec(),
             plonk_sigmas: constants_sigmas_eval[common_data.sigmas_range()].to_vec(),
-            wires: eval_commitment(z, wires_commitment),
+            wires: eval_commitment(zeta, wires_commitment),
             plonk_zs: zs_partial_products_eval[common_data.zs_range()].to_vec(),
-            plonk_zs_right: eval_commitment(g * z, zs_partial_products_commitment)
+            plonk_zs_right: eval_commitment(g * zeta, zs_partial_products_commitment)
                 [common_data.zs_range()]
             .to_vec(),
             partial_products: zs_partial_products_eval[common_data.partial_products_range()]
                 .to_vec(),
-            quotient_polys: eval_commitment(z, quotient_polys_commitment),
+            quotient_polys: eval_commitment(zeta, quotient_polys_commitment),
+        }
+    }
+
+    pub(crate) fn to_fri_openings(&self) -> FriOpenings<F, D> {
+        let zeta_batch = FriOpeningBatch {
+            values: [
+                self.constants.as_slice(),
+                self.plonk_sigmas.as_slice(),
+                self.wires.as_slice(),
+                self.plonk_zs.as_slice(),
+                self.partial_products.as_slice(),
+                self.quotient_polys.as_slice(),
+            ]
+            .concat(),
+        };
+        let zeta_right_batch = FriOpeningBatch {
+            values: self.plonk_zs_right.clone(),
+        };
+        FriOpenings {
+            batches: vec![zeta_batch, zeta_right_batch],
         }
     }
 }
@@ -315,6 +338,28 @@ pub struct OpeningSetTarget<const D: usize> {
     pub plonk_zs_right: Vec<ExtensionTarget<D>>,
     pub partial_products: Vec<ExtensionTarget<D>>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
+}
+
+impl<const D: usize> OpeningSetTarget<D> {
+    pub(crate) fn to_fri_openings(&self) -> FriOpeningsTarget<D> {
+        let zeta_batch = FriOpeningBatchTarget {
+            values: [
+                self.constants.as_slice(),
+                self.plonk_sigmas.as_slice(),
+                self.wires.as_slice(),
+                self.plonk_zs.as_slice(),
+                self.partial_products.as_slice(),
+                self.quotient_polys.as_slice(),
+            ]
+            .concat(),
+        };
+        let zeta_right_batch = FriOpeningBatchTarget {
+            values: self.plonk_zs_right.clone(),
+        };
+        FriOpeningsTarget {
+            batches: vec![zeta_batch, zeta_right_batch],
+        }
+    }
 }
 
 #[cfg(test)]

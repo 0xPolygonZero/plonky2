@@ -107,12 +107,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             proof.quotient_polys_cap,
         ];
 
+        let fri_instance = inner_common_data.get_fri_instance_target(self, zeta);
         with_context!(
             self,
             "verify FRI proof",
             self.verify_fri_proof(
+                &fri_instance,
                 &proof.openings,
-                zeta,
                 merkle_caps,
                 &proof.opening_proof,
                 &mut challenger,
