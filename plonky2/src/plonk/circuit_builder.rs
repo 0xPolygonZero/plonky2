@@ -18,6 +18,7 @@ use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::arithmetic_u32::U32ArithmeticGate;
+use crate::gates::batchable::{BatchableGate, CurrentSlot};
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
@@ -83,6 +84,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// Memoized results of `arithmetic_extension` calls.
     pub(crate) arithmetic_results: HashMap<ExtensionArithmeticOperation<F, D>, ExtensionTarget<D>>,
 
+    // yo: Vec<Yo<F, D, dyn Copy>>,
     batched_gates: BatchedGates<F, D>,
 }
 
