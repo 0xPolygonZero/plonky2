@@ -133,16 +133,16 @@ unsafe fn add_with_wraparound(a: u64, b: u64) -> u64 {
 /// Subtraction of a and (b >> 32) modulo ORDER accounting for wraparound.
 #[inline(always)]
 unsafe fn sub_with_wraparound_lsr32(a: u64, b: u64) -> u64 {
-    let b_lo = b >> 32;
-    // This could be done with a.overflowing_add(b_lo), but `checked_sub` signals to the compiler
+    let b_hi = b >> 32;
+    // This could be done with a.overflowing_add(b_hi), but `checked_sub` signals to the compiler
     // that overflow is unlikely (note: this is a standard library implementation detail, not part
     // of the spec).
-    match a.checked_sub(b_lo) {
+    match a.checked_sub(b_hi) {
         Some(res) => res,
         None => {
             // Super rare. Better off branching.
             branch_hint();
-            let res_wrapped = a.wrapping_sub(b_lo);
+            let res_wrapped = a.wrapping_sub(b_hi);
             res_wrapped - EPSILON
         }
     }
