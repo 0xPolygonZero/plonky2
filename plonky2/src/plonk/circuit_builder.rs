@@ -589,6 +589,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D> {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
         let start = Instant::now();
+        let rate_bits = self.config.fri_config.rate_bits;
 
         self.fill_batched_gates();
 
@@ -621,14 +622,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let gates = self.gates.iter().cloned().collect();
         let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
+        let prefixed_gates = PrefixedGate::from_tree(gate_tree);
+
         // `quotient_degree_factor` has to be between `max_filtered_constraint_degree-1` and `1<<rate_bits`.
         // We find the value that minimizes `num_partial_product + quotient_degree_factor`.
-        let rate_bits = self.config.fri_config.rate_bits;
-        let quotient_degree_factor = (max_filtered_constraint_degree - 1..=1 << rate_bits)
+        let min_quotient_degree_factor = max_filtered_constraint_degree - 1;
+        let max_quotient_degree_factor = self.config.max_quotient_degree_factor.min(1 << rate_bits);
+        let quotient_degree_factor = (min_quotient_degree_factor..=max_quotient_degree_factor)
             .min_by_key(|&q| num_partial_products(self.config.num_routed_wires, q).0 + q)
             .unwrap();
         debug!("Quotient degree factor set to: {}.", quotient_degree_factor);
-        let prefixed_gates = PrefixedGate::from_tree(gate_tree);
 
         let subgroup = F::two_adic_subgroup(degree_bits);
 
