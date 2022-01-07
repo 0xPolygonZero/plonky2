@@ -68,7 +68,7 @@ impl CircuitConfig {
             security_bits: 100,
             num_challenges: 2,
             zero_knowledge: false,
-            max_quotient_degree_factor: 9,
+            max_quotient_degree_factor: 8,
             fri_config: FriConfig {
                 rate_bits: 3,
                 cap_height: 4,
