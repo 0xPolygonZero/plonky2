@@ -9,7 +9,7 @@ repository = "https://github.com/mir-protocol/plonky2"
 keywords = ["cryptography", "SNARK", "FRI"]
 categories = ["cryptography"]
 edition = "2021"
-default-run = "bench_recursion"
+default-run = "generate_constants"
 
 [dependencies]
 plonky2_field = { path = "../field" }
