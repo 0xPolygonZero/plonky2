@@ -2,6 +2,7 @@
 pub(crate) mod challenger;
 pub mod ext_target;
 pub mod generator;
+pub mod operation;
 pub mod target;
 pub mod wire;
 pub mod witness;
