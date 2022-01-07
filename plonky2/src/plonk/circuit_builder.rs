@@ -12,7 +12,6 @@ use plonky2_util::{log2_ceil, log2_strict};
 
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::{FriConfig, FriParams};
-use crate::gadgets::arithmetic::BaseArithmeticOperation;
 use crate::gadgets::arithmetic_extension::ExtensionArithmeticOperation;
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gates::arithmetic_base::ArithmeticGate;
@@ -32,6 +31,7 @@ use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{
     CopyGenerator, RandomValueGenerator, SimpleGenerator, WitnessGenerator,
 };
+use crate::iop::operation::Operation;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_data::{
@@ -65,6 +65,8 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
     marked_targets: Vec<MarkedTargets<D>>,
 
+    operations: HashSet<Box<dyn Operation<F, D>>>,
+
     /// Generators used to generate the witness.
     generators: Vec<Box<dyn WitnessGenerator<F>>>,
 
@@ -81,6 +83,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             copy_constraints: Vec::new(),
             context_log: ContextTree::new(),
             marked_targets: Vec::new(),
+            operations: HashSet::new(),
             generators: Vec::new(),
             constants_to_targets: HashMap::new(),
             targets_to_constants: HashMap::new(),

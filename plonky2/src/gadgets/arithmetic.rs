@@ -316,13 +316,3 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.inverse_extension(x_ext).0[0]
     }
 }
-
-/// Represents a base arithmetic operation in the circuit. Used to memoize results.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub(crate) struct BaseArithmeticOperation<F: PrimeField> {
-    const_0: F,
-    const_1: F,
-    multiplicand_0: Target,
-    multiplicand_1: Target,
-    addend: Target,
-}

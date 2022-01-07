@@ -123,12 +123,6 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         }
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>>;
-
     /// The number of wires used by this gate.
     fn num_wires(&self) -> usize;
 

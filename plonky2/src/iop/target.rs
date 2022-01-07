@@ -5,7 +5,7 @@ use crate::plonk::circuit_data::CircuitConfig;
 
 /// A location in the witness.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct Target(usize);
+pub struct Target(pub usize);
 
 impl Target {}
 

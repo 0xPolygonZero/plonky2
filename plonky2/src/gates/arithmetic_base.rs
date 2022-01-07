@@ -1,12 +1,16 @@
+use std::sync::Arc;
+
 use plonky2_field::extension_field::Extendable;
+use plonky2_field::field_types::PrimeField;
 use plonky2_field::packed_field::PackedField;
 
-use crate::gates::gate::Gate;
+use crate::gates::gate::{Gate, GateRef};
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::operation::Operation;
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -113,27 +117,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticGate
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        (0..self.num_ops)
-            .map(|i| {
-                let g: Box<dyn WitnessGenerator<F>> = Box::new(
-                    ArithmeticBaseGenerator {
-                        gate_index,
-                        const_0: local_constants[0],
-                        const_1: local_constants[1],
-                        i,
-                    }
-                    .adapter(),
-                );
-                g
-            })
-            .collect::<Vec<_>>()
-    }
-
     fn num_wires(&self) -> usize {
         self.num_ops * 4
     }
@@ -169,6 +152,42 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
 
             yield_constr.one(output - computed_output);
         }
+    }
+}
+
+/// Represents a base arithmetic operation in the circuit. Used to memoize results.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub(crate) struct BaseArithmeticOperation<F: PrimeField> {
+    const_0: F,
+    const_1: F,
+    multiplicand_0: Target,
+    multiplicand_1: Target,
+    addend: Target,
+    output: Target,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> Operation<F, D> for BaseArithmeticOperation<F> {
+    fn inputs(&self) -> Vec<Target> {
+        vec![self.multiplicand_0, self.multiplicand_1, self.addend]
+    }
+
+    fn advices(&self) -> Vec<Target> {
+        vec![]
+    }
+
+    fn outputs(&self) -> Vec<Target> {
+        vec![self.output]
+    }
+
+    fn generators(&self) -> Vec<Box<dyn WitnessGenerator<F>>> {
+        todo!()
+    }
+
+    fn gate_with_constants(&self, config: &CircuitConfig) -> (GateRef<F, D>, Vec<F>) {
+        (
+            GateRef(Arc::new(ArithmeticGate::new_from_config(config))),
+            vec![self.const_0, self.const_1],
+        )
     }
 }
 
