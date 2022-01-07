@@ -22,8 +22,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Returns `(a,b)` such that `x = a + 2^n_log * b` with `a < 2^n_log`.
     /// `x` is assumed to be range-checked for having `num_bits` bits.
     pub fn split_low_high(&mut self, x: Target, n_log: usize, num_bits: usize) -> (Target, Target) {
-        let low = self.add_virtual_target();
-        let high = self.add_virtual_target();
+        let low = self.add_target();
+        let high = self.add_target();
 
         self.add_simple_generator(LowHighGenerator {
             integer: x,

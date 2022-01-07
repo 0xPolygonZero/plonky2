@@ -76,14 +76,14 @@ pub fn sort_memory_ops<F: RichField + Extendable<D>, const D: usize>(
 
     // This is safe because `assert_permutation` will force these targets (in the output list) to match the boolean values from the input list.
     let is_write_targets: Vec<_> = builder
-        .add_virtual_targets(n)
+        .add_targets(n)
         .iter()
         .map(|&t| BoolTarget::new_unsafe(t))
         .collect();
 
-    let address_targets = builder.add_virtual_targets(n);
-    let timestamp_targets = builder.add_virtual_targets(n);
-    let value_targets = builder.add_virtual_targets(n);
+    let address_targets = builder.add_targets(n);
+    let timestamp_targets = builder.add_targets(n);
+    let value_targets = builder.add_targets(n);
 
     let output_targets: Vec<_> = izip!(
         is_write_targets,

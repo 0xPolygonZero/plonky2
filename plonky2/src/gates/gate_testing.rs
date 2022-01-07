@@ -134,11 +134,11 @@ pub fn test_eval_fns<
     let mut pw = PartialWitness::new();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
-    let wires_t = builder.add_virtual_extension_targets(wires.len());
-    let constants_t = builder.add_virtual_extension_targets(constants.len());
+    let wires_t = builder.add_extension_targets(wires.len());
+    let constants_t = builder.add_extension_targets(constants.len());
     pw.set_extension_targets(&wires_t, &wires);
     pw.set_extension_targets(&constants_t, &constants);
-    let public_inputs_hash_t = builder.add_virtual_hash();
+    let public_inputs_hash_t = builder.add_hash();
     pw.set_hash_target(public_inputs_hash_t, public_inputs_hash);
 
     let vars = EvaluationVars {

@@ -170,17 +170,17 @@ mod tests {
             .evals_proofs
         {
             query_round.initial_trees_proof.evals_proofs.push((
-                builder.add_virtual_targets(v.len()),
+                builder.add_targets(v.len()),
                 MerkleProofTarget {
-                    siblings: builder.add_virtual_hashes(merkle_proof.siblings.len()),
+                    siblings: builder.add_hashes(merkle_proof.siblings.len()),
                 },
             ));
         }
         for step in &proof.opening_proof.query_round_proofs[0].steps {
             query_round.steps.push(FriQueryStepTarget {
-                evals: builder.add_virtual_extension_targets(step.evals.len()),
+                evals: builder.add_extension_targets(step.evals.len()),
                 merkle_proof: MerkleProofTarget {
-                    siblings: builder.add_virtual_hashes(step.merkle_proof.siblings.len()),
+                    siblings: builder.add_hashes(step.merkle_proof.siblings.len()),
                 },
             });
         }
@@ -201,23 +201,19 @@ mod tests {
             public_inputs,
         } = proof_with_pis;
 
-        let wires_cap = builder.add_virtual_cap(log2_strict(proof.wires_cap.0.len()));
+        let wires_cap = builder.add_cap(log2_strict(proof.wires_cap.0.len()));
         let plonk_zs_cap =
-            builder.add_virtual_cap(log2_strict(proof.plonk_zs_partial_products_cap.0.len()));
-        let quotient_polys_cap =
-            builder.add_virtual_cap(log2_strict(proof.quotient_polys_cap.0.len()));
+            builder.add_cap(log2_strict(proof.plonk_zs_partial_products_cap.0.len()));
+        let quotient_polys_cap = builder.add_cap(log2_strict(proof.quotient_polys_cap.0.len()));
 
         let openings = OpeningSetTarget {
-            constants: builder.add_virtual_extension_targets(proof.openings.constants.len()),
-            plonk_sigmas: builder.add_virtual_extension_targets(proof.openings.plonk_sigmas.len()),
-            wires: builder.add_virtual_extension_targets(proof.openings.wires.len()),
-            plonk_zs: builder.add_virtual_extension_targets(proof.openings.plonk_zs.len()),
-            plonk_zs_right: builder
-                .add_virtual_extension_targets(proof.openings.plonk_zs_right.len()),
-            partial_products: builder
-                .add_virtual_extension_targets(proof.openings.partial_products.len()),
-            quotient_polys: builder
-                .add_virtual_extension_targets(proof.openings.quotient_polys.len()),
+            constants: builder.add_extension_targets(proof.openings.constants.len()),
+            plonk_sigmas: builder.add_extension_targets(proof.openings.plonk_sigmas.len()),
+            wires: builder.add_extension_targets(proof.openings.wires.len()),
+            plonk_zs: builder.add_extension_targets(proof.openings.plonk_zs.len()),
+            plonk_zs_right: builder.add_extension_targets(proof.openings.plonk_zs_right.len()),
+            partial_products: builder.add_extension_targets(proof.openings.partial_products.len()),
+            quotient_polys: builder.add_extension_targets(proof.openings.quotient_polys.len()),
         };
         let query_round_proofs = (0..proof.opening_proof.query_round_proofs.len())
             .map(|_| get_fri_query_round(proof, builder))
@@ -226,15 +222,15 @@ mod tests {
             .opening_proof
             .commit_phase_merkle_caps
             .iter()
-            .map(|r| builder.add_virtual_cap(log2_strict(r.0.len())))
+            .map(|r| builder.add_cap(log2_strict(r.0.len())))
             .collect();
         let opening_proof = FriProofTarget {
             commit_phase_merkle_caps,
             query_round_proofs,
             final_poly: PolynomialCoeffsExtTarget(
-                builder.add_virtual_extension_targets(proof.opening_proof.final_poly.len()),
+                builder.add_extension_targets(proof.opening_proof.final_poly.len()),
             ),
-            pow_witness: builder.add_virtual_target(),
+            pow_witness: builder.add_target(),
         };
 
         let proof = ProofTarget {
@@ -245,7 +241,7 @@ mod tests {
             opening_proof,
         };
 
-        let public_inputs = builder.add_virtual_targets(public_inputs.len());
+        let public_inputs = builder.add_targets(public_inputs.len());
         ProofWithPublicInputsTarget {
             proof,
             public_inputs,
@@ -583,7 +579,7 @@ mod tests {
         set_proof_target(&inner_proof, &pt, &mut pw);
 
         let inner_data = VerifierCircuitTarget {
-            constants_sigmas_cap: builder.add_virtual_cap(inner_config.fri_config.cap_height),
+            constants_sigmas_cap: builder.add_cap(inner_config.fri_config.cap_height),
         };
         pw.set_cap_target(
             &inner_data.constants_sigmas_cap,

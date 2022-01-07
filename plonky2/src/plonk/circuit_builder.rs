@@ -51,17 +51,11 @@ use crate::util::{transpose, transpose_poly_values};
 pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) config: CircuitConfig,
 
-    /// The types of gates used in this circuit.
-    gates: HashSet<GateRef<F, D>>,
-
-    /// The concrete placement of each gate.
-    pub(crate) gate_instances: Vec<GateInstance<F, D>>,
-
     /// Targets to be made public.
     public_inputs: Vec<Target>,
 
-    /// The next available index for a `VirtualTarget`.
-    virtual_target_index: usize,
+    /// The next available index for a `Target`.
+    target_index: usize,
 
     copy_constraints: Vec<CopyConstraint>,
 
@@ -76,33 +70,20 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
 
     constants_to_targets: HashMap<F, Target>,
     targets_to_constants: HashMap<Target, F>,
-
-    /// Memoized results of `arithmetic` calls.
-    pub(crate) base_arithmetic_results: HashMap<BaseArithmeticOperation<F>, Target>,
-
-    /// Memoized results of `arithmetic_extension` calls.
-    pub(crate) arithmetic_results: HashMap<ExtensionArithmeticOperation<F, D>, ExtensionTarget<D>>,
-
-    batched_gates: BatchedGates<F, D>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn new(config: CircuitConfig) -> Self {
         let builder = CircuitBuilder {
             config,
-            gates: HashSet::new(),
-            gate_instances: Vec::new(),
             public_inputs: Vec::new(),
-            virtual_target_index: 0,
+            target_index: 0,
             copy_constraints: Vec::new(),
             context_log: ContextTree::new(),
             marked_targets: Vec::new(),
             generators: Vec::new(),
             constants_to_targets: HashMap::new(),
-            base_arithmetic_results: HashMap::new(),
-            arithmetic_results: HashMap::new(),
             targets_to_constants: HashMap::new(),
-            batched_gates: BatchedGates::new(),
         };
         builder.check_config();
         builder
@@ -149,41 +130,39 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// that help facilitate witness generation. In particular, a generator can assign a values to a
     /// virtual target, which can then be copied to other (virtual or concrete) targets. When we
     /// generate the final witness (a grid of wire values), these virtual targets will go away.
-    pub fn add_virtual_target(&mut self) -> Target {
-        let index = self.virtual_target_index;
+    pub fn add_target(&mut self) -> Target {
+        let index = self.target_index;
         self.virtual_target_index += 1;
-        Target::VirtualTarget { index }
+        Target(index)
     }
 
-    pub fn add_virtual_targets(&mut self, n: usize) -> Vec<Target> {
-        (0..n).map(|_i| self.add_virtual_target()).collect()
+    pub fn add_targets(&mut self, n: usize) -> Vec<Target> {
+        (0..n).map(|_i| self.add_target()).collect()
     }
 
-    pub fn add_virtual_hash(&mut self) -> HashOutTarget {
-        HashOutTarget::from_vec(self.add_virtual_targets(4))
+    pub fn add_hash(&mut self) -> HashOutTarget {
+        HashOutTarget::from_vec(self.add_targets(4))
     }
 
-    pub fn add_virtual_cap(&mut self, cap_height: usize) -> MerkleCapTarget {
-        MerkleCapTarget(self.add_virtual_hashes(1 << cap_height))
+    pub fn add_hashes(&mut self, n: usize) -> Vec<HashOutTarget> {
+        (0..n).map(|_i| self.add_hash()).collect()
     }
 
-    pub fn add_virtual_hashes(&mut self, n: usize) -> Vec<HashOutTarget> {
-        (0..n).map(|_i| self.add_virtual_hash()).collect()
+    pub fn add_cap(&mut self, cap_height: usize) -> MerkleCapTarget {
+        MerkleCapTarget(self.add_hashes(1 << cap_height))
     }
 
-    pub fn add_virtual_extension_target(&mut self) -> ExtensionTarget<D> {
-        ExtensionTarget(self.add_virtual_targets(D).try_into().unwrap())
+    pub fn add_extension_target(&mut self) -> ExtensionTarget<D> {
+        ExtensionTarget(self.add_targets(D).try_into().unwrap())
     }
 
-    pub fn add_virtual_extension_targets(&mut self, n: usize) -> Vec<ExtensionTarget<D>> {
-        (0..n)
-            .map(|_i| self.add_virtual_extension_target())
-            .collect()
+    pub fn add_extension_targets(&mut self, n: usize) -> Vec<ExtensionTarget<D>> {
+        (0..n).map(|_i| self.add_extension_target()).collect()
     }
 
     // TODO: Unsafe
-    pub fn add_virtual_bool_target(&mut self) -> BoolTarget {
-        BoolTarget::new_unsafe(self.add_virtual_target())
+    pub fn add_bool_target(&mut self) -> BoolTarget {
+        BoolTarget::new_unsafe(self.add_target())
     }
 
     /// Adds a gate to the circuit, and returns its index.
@@ -235,16 +214,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Uses Plonk's permutation argument to require that two elements be equal.
-    /// Both elements must be routable, otherwise this method will panic.
     pub fn connect(&mut self, x: Target, y: Target) {
-        assert!(
-            x.is_routable(&self.config),
-            "Tried to route a wire that isn't routable"
-        );
-        assert!(
-            y.is_routable(&self.config),
-            "Tried to route a wire that isn't routable"
-        );
         self.copy_constraints
             .push(CopyConstraint::new((x, y), self.context_log.open_stack()));
     }
@@ -303,7 +273,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let (gate, instance) = self.constant_gate_instance();
-        let target = Target::wire(gate, instance);
+        let target = self.add_target();
         self.gate_instances[gate].constants[instance] = c;
 
         self.constants_to_targets.insert(c, target);
@@ -1032,7 +1002,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             for _ in i..ArithmeticGate::num_ops(&self.config) {
                 // If we directly wire in zero, an optimization will skip doing anything and return
                 // zero. So we pass in a virtual target and connect it to zero afterward.
-                let dummy = self.add_virtual_target();
+                let dummy = self.add_target();
                 self.arithmetic(c0, c1, dummy, dummy, dummy);
                 self.connect(dummy, zero);
             }
@@ -1048,7 +1018,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             for _ in i..ArithmeticExtensionGate::<D>::num_ops(&self.config) {
                 // If we directly wire in zero, an optimization will skip doing anything and return
                 // zero. So we pass in a virtual target and connect it to zero afterward.
-                let dummy = self.add_virtual_extension_target();
+                let dummy = self.add_extension_target();
                 self.arithmetic_extension(c0, c1, dummy, dummy, dummy);
                 self.connect_extension(dummy, zero);
             }
@@ -1064,7 +1034,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             for _ in i..MulExtensionGate::<D>::num_ops(&self.config) {
                 // If we directly wire in zero, an optimization will skip doing anything and return
                 // zero. So we pass in a virtual target and connect it to zero afterward.
-                let dummy = self.add_virtual_extension_target();
+                let dummy = self.add_extension_target();
                 self.arithmetic_extension(c0, F::ZERO, dummy, dummy, zero);
                 self.connect_extension(dummy, zero);
             }

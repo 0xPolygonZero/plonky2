@@ -457,7 +457,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         y: ExtensionTarget<D>,
         z: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
-        let inv = self.add_virtual_extension_target();
+        let inv = self.add_extension_target();
         let one = self.one_extension();
         self.add_simple_generator(QuotientGeneratorExtension {
             numerator: one,
@@ -578,7 +578,7 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let vs = FF::rand_vec(3);
-        let ts = builder.add_virtual_extension_targets(3);
+        let ts = builder.add_extension_targets(3);
         for (&v, &t) in vs.iter().zip(&ts) {
             pw.set_extension_target(t, v);
         }
@@ -640,12 +640,9 @@ mod tests {
         let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let xt =
-            ExtensionAlgebraTarget(builder.add_virtual_extension_targets(D).try_into().unwrap());
-        let yt =
-            ExtensionAlgebraTarget(builder.add_virtual_extension_targets(D).try_into().unwrap());
-        let zt =
-            ExtensionAlgebraTarget(builder.add_virtual_extension_targets(D).try_into().unwrap());
+        let xt = ExtensionAlgebraTarget(builder.add_extension_targets(D).try_into().unwrap());
+        let yt = ExtensionAlgebraTarget(builder.add_extension_targets(D).try_into().unwrap());
+        let zt = ExtensionAlgebraTarget(builder.add_extension_targets(D).try_into().unwrap());
         let comp_zt = builder.mul_ext_algebra(xt, yt);
         for i in 0..D {
             builder.connect_extension(zt.0[i], comp_zt.0[i]);

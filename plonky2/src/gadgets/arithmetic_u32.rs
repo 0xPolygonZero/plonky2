@@ -11,14 +11,11 @@ pub struct U32Target(pub Target);
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn add_virtual_u32_target(&mut self) -> U32Target {
-        U32Target(self.add_virtual_target())
+        U32Target(self.add_target())
     }
 
     pub fn add_virtual_u32_targets(&mut self, n: usize) -> Vec<U32Target> {
-        self.add_virtual_targets(n)
-            .into_iter()
-            .map(U32Target)
-            .collect()
+        self.add_targets(n).into_iter().map(U32Target).collect()
     }
 
     pub fn zero_u32(&mut self) -> U32Target {
