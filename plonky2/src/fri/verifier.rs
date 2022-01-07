@@ -6,11 +6,10 @@ use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo, FriOpenings};
-use crate::fri::FriConfig;
+use crate::fri::{FriConfig, FriParams};
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::verify_merkle_proof;
 use crate::hash::merkle_tree::MerkleCap;
-use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::proof::{OpeningSet, ProofChallenges};
 use crate::util::reducing::ReducingFactor;
@@ -69,23 +68,22 @@ pub(crate) fn verify_fri_proof<
     challenges: &ProofChallenges<F, D>,
     initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
     proof: &FriProof<F, C::Hasher, D>,
-    common_data: &CommonCircuitData<F, C, D>,
+    params: &FriParams,
 ) -> Result<()> {
-    let config = &common_data.config;
     ensure!(
-        common_data.fri_params.final_poly_len() == proof.final_poly.len(),
+        params.final_poly_len() == proof.final_poly.len(),
         "Final polynomial has wrong degree."
     );
 
     // Size of the LDE domain.
-    let n = common_data.lde_size();
+    let n = params.lde_size();
 
     // Check PoW.
-    fri_verify_proof_of_work(challenges.fri_pow_response, &config.fri_config)?;
+    fri_verify_proof_of_work(challenges.fri_pow_response, &params.config)?;
 
     // Check that parameters are coherent.
     ensure!(
-        config.fri_config.num_query_rounds == proof.query_round_proofs.len(),
+        params.config.num_query_rounds == proof.query_round_proofs.len(),
         "Number of query rounds does not match config."
     );
 
@@ -105,7 +103,7 @@ pub(crate) fn verify_fri_proof<
             x_index,
             n,
             round_proof,
-            common_data,
+            params,
         )?;
     }
 
@@ -134,9 +132,8 @@ pub(crate) fn fri_combine_initial<
     alpha: F::Extension,
     subgroup_x: F,
     precomputed_reduced_evals: &PrecomputedReducedOpenings<F, D>,
-    common_data: &CommonCircuitData<F, C, D>,
+    params: &FriParams,
 ) -> F::Extension {
-    let config = &common_data.config;
     assert!(D > 1, "Not implemented for D=1.");
     let subgroup_x = F::Extension::from_basefield(subgroup_x);
     let mut alpha = ReducingFactor::new(alpha);
@@ -152,7 +149,7 @@ pub(crate) fn fri_combine_initial<
             .iter()
             .map(|p| {
                 let poly_blinding = instance.oracles[p.oracle_index].blinding;
-                let salted = config.zero_knowledge && poly_blinding;
+                let salted = params.hiding && poly_blinding;
                 proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted)
             })
             .map(F::Extension::from_basefield);
@@ -179,7 +176,7 @@ fn fri_verifier_query_round<
     mut x_index: usize,
     n: usize,
     round_proof: &FriQueryRound<F, C::Hasher, D>,
-    common_data: &CommonCircuitData<F, C, D>,
+    params: &FriParams,
 ) -> Result<()> {
     fri_verify_initial_proof::<F, C::Hasher>(
         x_index,
@@ -193,21 +190,16 @@ fn fri_verifier_query_round<
 
     // old_eval is the last derived evaluation; it will be checked for consistency with its
     // committed "parent" value in the next iteration.
-    let mut old_eval = fri_combine_initial(
+    let mut old_eval = fri_combine_initial::<F, C, D>(
         instance,
         &round_proof.initial_trees_proof,
         challenges.fri_alpha,
         subgroup_x,
         precomputed_reduced_evals,
-        common_data,
+        params,
     );
 
-    for (i, &arity_bits) in common_data
-        .fri_params
-        .reduction_arity_bits
-        .iter()
-        .enumerate()
-    {
+    for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
         let arity = 1 << arity_bits;
         let evals = &round_proof.steps[i].evals;
 

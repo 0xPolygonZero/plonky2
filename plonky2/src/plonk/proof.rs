@@ -7,6 +7,7 @@ use crate::fri::proof::{CompressedFriProof, FriProof, FriProofTarget};
 use crate::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
+use crate::fri::FriParams;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
@@ -41,11 +42,7 @@ pub struct ProofTarget<const D: usize> {
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> Proof<F, C, D> {
     /// Compress the proof.
-    pub fn compress(
-        self,
-        indices: &[usize],
-        common_data: &CommonCircuitData<F, C, D>,
-    ) -> CompressedProof<F, C, D> {
+    pub fn compress(self, indices: &[usize], params: &FriParams) -> CompressedProof<F, C, D> {
         let Proof {
             wires_cap,
             plonk_zs_partial_products_cap,
@@ -59,7 +56,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> P
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
             openings,
-            opening_proof: opening_proof.compress(indices, common_data),
+            opening_proof: opening_proof.compress::<C>(indices, params),
         }
     }
 }
@@ -83,7 +80,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<CompressedProofWithPublicInputs<F, C, D>> {
         let indices = self.fri_query_indices(common_data)?;
-        let compressed_proof = self.proof.compress(&indices, common_data);
+        let compressed_proof = self.proof.compress(&indices, &common_data.fri_params);
         Ok(CompressedProofWithPublicInputs {
             public_inputs: self.public_inputs,
             proof: compressed_proof,
@@ -136,7 +133,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         self,
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,
-        common_data: &CommonCircuitData<F, C, D>,
+        params: &FriParams,
     ) -> Proof<F, C, D> {
         let CompressedProof {
             wires_cap,
@@ -151,7 +148,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
             openings,
-            opening_proof: opening_proof.decompress(challenges, fri_inferred_elements, common_data),
+            opening_proof: opening_proof.decompress::<C>(challenges, fri_inferred_elements, params),
         }
     }
 }
@@ -178,7 +175,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let decompressed_proof =
             self.proof
-                .decompress(&challenges, fri_inferred_elements, common_data);
+                .decompress(&challenges, fri_inferred_elements, &common_data.fri_params);
         Ok(ProofWithPublicInputs {
             public_inputs: self.public_inputs,
             proof: decompressed_proof,
@@ -194,7 +191,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let decompressed_proof =
             self.proof
-                .decompress(&challenges, fri_inferred_elements, common_data);
+                .decompress(&challenges, fri_inferred_elements, &common_data.fri_params);
         verify_with_challenges(
             ProofWithPublicInputs {
                 public_inputs: self.public_inputs,

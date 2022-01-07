@@ -30,7 +30,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let public_inputs_hash = &self.hash_n_to_hash::<C::InnerHasher>(public_inputs, true);
 
-        let mut challenger = RecursiveChallenger::new(self);
+        let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(self);
 
         let (betas, gammas, alphas, zeta) =
             with_context!(self, "observe proof and generates challenges", {
@@ -111,13 +111,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         with_context!(
             self,
             "verify FRI proof",
-            self.verify_fri_proof(
+            self.verify_fri_proof::<C>(
                 &fri_instance,
                 &proof.openings,
                 merkle_caps,
                 &proof.opening_proof,
                 &mut challenger,
-                inner_common_data,
+                &inner_common_data.fri_params,
             )
         );
     }

@@ -24,12 +24,21 @@ pub struct FriConfig {
     pub num_query_rounds: usize,
 }
 
+impl FriConfig {
+    pub fn rate(&self) -> f64 {
+        1.0 / ((1 << self.rate_bits) as f64)
+    }
+}
+
 /// FRI parameters, including generated parameters which are specific to an instance size, in
 /// contrast to `FriConfig` which is user-specified and independent of instance size.
 #[derive(Debug)]
 pub struct FriParams {
     /// User-specified FRI configuration.
     pub config: FriConfig,
+
+    /// Whether to use a hiding variant of Merkle trees (where random salts are added to leaves).
+    pub hiding: bool,
 
     /// The degree of the purported codeword, measured in bits.
     pub degree_bits: usize,

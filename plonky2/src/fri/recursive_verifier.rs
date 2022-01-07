@@ -4,7 +4,7 @@ use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
 use crate::fri::proof::{FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget};
 use crate::fri::structure::{FriBatchInfoTarget, FriInstanceInfoTarget, FriOpeningsTarget};
-use crate::fri::FriConfig;
+use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::interpolation::InterpolationGate;
 use crate::gates::gate::Gate;
 use crate::gates::interpolation::HighDegreeInterpolationGate;
@@ -16,7 +16,6 @@ use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::ext_target::{flatten_target, ExtensionTarget};
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::config::{AlgebraicConfig, AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::OpeningSetTarget;
 use crate::util::reducing::ReducingFactorTarget;
@@ -32,7 +31,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         arity_bits: usize,
         evals: &[ExtensionTarget<D>],
         beta: ExtensionTarget<D>,
-        common_data: &CommonCircuitData<F, C, D>,
     ) -> ExtensionTarget<D> {
         let arity = 1 << arity_bits;
         debug_assert_eq!(evals.len(), arity);
@@ -51,7 +49,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
         // `HighDegreeInterpolationGate` has degree `arity`, so we use the low-degree gate if
         // the arity is too large.
-        if arity > common_data.quotient_degree_factor {
+        if arity > self.config.max_quotient_degree_factor {
             self.interpolate_coset::<LowDegreeInterpolationGate<F, D>>(
                 arity_bits,
                 coset_start,
@@ -71,17 +69,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
     /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
     /// helpful errors.
-    fn check_recursion_config<C: GenericConfig<D, F = F>>(
-        &self,
-        max_fri_arity_bits: usize,
-        common_data: &CommonCircuitData<F, C, D>,
-    ) {
+    fn check_recursion_config<C: GenericConfig<D, F = F>>(&self, max_fri_arity_bits: usize) {
         let random_access = RandomAccessGate::<F, D>::new_from_config(
             &self.config,
             max_fri_arity_bits.max(self.config.fri_config.cap_height),
         );
         let (interpolation_wires, interpolation_routed_wires) =
-            if 1 << max_fri_arity_bits > common_data.quotient_degree_factor {
+            if 1 << max_fri_arity_bits > self.config.max_quotient_degree_factor {
                 let gate = LowDegreeInterpolationGate::<F, D>::new(max_fri_arity_bits);
                 (gate.num_wires(), gate.num_routed_wires())
             } else {
@@ -133,22 +127,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
-        common_data: &CommonCircuitData<F, C, D>,
+        params: &FriParams,
     ) {
-        let config = &common_data.config;
-
-        if let Some(max_arity_bits) = common_data.fri_params.max_arity_bits() {
-            self.check_recursion_config(max_arity_bits, common_data);
+        if let Some(max_arity_bits) = params.max_arity_bits() {
+            self.check_recursion_config::<C>(max_arity_bits);
         }
 
         debug_assert_eq!(
-            common_data.fri_params.final_poly_len(),
+            params.final_poly_len(),
             proof.final_poly.len(),
             "Final polynomial has wrong degree."
         );
 
         // Size of the LDE domain.
-        let n = common_data.lde_size();
+        let n = params.lde_size();
 
         challenger.observe_opening_set(os);
 
@@ -172,12 +164,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         with_context!(
             self,
             "check PoW",
-            self.fri_verify_proof_of_work::<C::Hasher>(proof, challenger, &config.fri_config)
+            self.fri_verify_proof_of_work::<C::Hasher>(proof, challenger, &params.config)
         );
 
         // Check that parameters are coherent.
         debug_assert_eq!(
-            config.fri_config.num_query_rounds,
+            params.config.num_query_rounds,
             proof.query_round_proofs.len(),
             "Number of query rounds does not match config."
         );
@@ -203,7 +195,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self,
                 level,
                 &format!("verify one (of {}) query rounds", num_queries),
-                self.fri_verifier_query_round(
+                self.fri_verifier_query_round::<C>(
                     instance,
                     alpha,
                     &precomputed_reduced_evals,
@@ -213,7 +205,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     n,
                     &betas,
                     round_proof,
-                    common_data,
+                    params,
                 )
             );
         }
@@ -253,15 +245,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         alpha: ExtensionTarget<D>,
         subgroup_x: Target,
         precomputed_reduced_evals: &PrecomputedReducedOpeningsTarget<D>,
-        common_data: &CommonCircuitData<F, C, D>,
+        params: &FriParams,
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
-        let config = &common_data.config;
-        let degree_log = common_data.degree_bits;
+        let degree_log = params.degree_bits;
         debug_assert_eq!(
             degree_log,
-            common_data.config.fri_config.cap_height + proof.evals_proofs[0].1.siblings.len()
-                - config.fri_config.rate_bits
+            params.config.cap_height + proof.evals_proofs[0].1.siblings.len()
+                - params.config.rate_bits
         );
         let subgroup_x = self.convert_to_ext(subgroup_x);
         let mut alpha = ReducingFactorTarget::new(alpha);
@@ -277,7 +268,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .iter()
                 .map(|p| {
                     let poly_blinding = instance.oracles[p.oracle_index].blinding;
-                    let salted = config.zero_knowledge && poly_blinding;
+                    let salted = params.hiding && poly_blinding;
                     proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted)
                 })
                 .collect_vec();
@@ -302,19 +293,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         n: usize,
         betas: &[ExtensionTarget<D>],
         round_proof: &FriQueryRoundTarget<D>,
-        common_data: &CommonCircuitData<F, C, D>,
+        params: &FriParams,
     ) {
         let n_log = log2_strict(n);
 
         // Note that this `low_bits` decomposition permits non-canonical binary encodings. Here we
         // verify that this has a negligible impact on soundness error.
-        Self::assert_noncanonical_indices_ok(&common_data.config);
+        Self::assert_noncanonical_indices_ok(&params.config);
         let x_index = challenger.get_challenge(self);
         let mut x_index_bits = self.low_bits(x_index, n_log, F::BITS);
 
-        let cap_index = self.le_sum(
-            x_index_bits[x_index_bits.len() - common_data.config.fri_config.cap_height..].iter(),
-        );
+        let cap_index =
+            self.le_sum(x_index_bits[x_index_bits.len() - params.config.cap_height..].iter());
         with_context!(
             self,
             "check FRI initial proof",
@@ -340,22 +330,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut old_eval = with_context!(
             self,
             "combine initial oracles",
-            self.fri_combine_initial(
+            self.fri_combine_initial::<C>(
                 instance,
                 &round_proof.initial_trees_proof,
                 alpha,
                 subgroup_x,
                 precomputed_reduced_evals,
-                common_data,
+                params,
             )
         );
 
-        for (i, &arity_bits) in common_data
-            .fri_params
-            .reduction_arity_bits
-            .iter()
-            .enumerate()
-        {
+        for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
             let evals = &round_proof.steps[i].evals;
 
             // Split x_index into the index of the coset x is in, and the index of x within that coset.
@@ -370,13 +355,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             old_eval = with_context!(
                 self,
                 "infer evaluation using interpolation",
-                self.compute_evaluation(
+                self.compute_evaluation::<C>(
                     subgroup_x,
                     x_index_within_coset_bits,
                     arity_bits,
                     evals,
                     betas[i],
-                    common_data
                 )
             );
 
@@ -423,7 +407,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Thus ambiguous elements contribute a negligible amount to soundness error.
     ///
     /// Here we compare the probabilities as a sanity check, to verify the claim above.
-    fn assert_noncanonical_indices_ok(config: &CircuitConfig) {
+    fn assert_noncanonical_indices_ok(config: &FriConfig) {
         let num_ambiguous_elems = u64::MAX - F::ORDER + 1;
         let query_error = config.rate();
         let p_ambiguous = (num_ambiguous_elems as f64) / (F::ORDER as f64);

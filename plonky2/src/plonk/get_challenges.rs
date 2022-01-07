@@ -197,7 +197,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         for &(mut x_index) in fri_query_indices {
             let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
                 * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
-            let mut old_eval = fri_combine_initial(
+            let mut old_eval = fri_combine_initial::<F, C, D>(
                 &common_data.get_fri_instance(*plonk_zeta),
                 &self
                     .proof
@@ -207,7 +207,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 *fri_alpha,
                 subgroup_x,
                 &precomputed_reduced_evals,
-                common_data,
+                &common_data.fri_params,
             );
             for (i, &arity_bits) in common_data
                 .fri_params

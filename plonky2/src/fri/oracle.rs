@@ -8,10 +8,10 @@ use rayon::prelude::*;
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo};
+use crate::fri::FriParams;
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
-use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::GenericConfig;
 use crate::timed;
 use crate::util::reducing::ReducingFactor;
@@ -131,7 +131,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         instance: &FriInstanceInfo<F, D>,
         oracles: &[&Self],
         challenger: &mut Challenger<F, C::Hasher>,
-        common_data: &CommonCircuitData<F, C, D>,
+        fri_params: &FriParams,
         timing: &mut TimingTree,
     ) -> FriProof<F, C::Hasher, D> {
         assert!(D > 1, "Not implemented for D=1.");
@@ -155,7 +155,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             final_poly += quotient;
         }
 
-        let lde_final_poly = final_poly.lde(common_data.config.fri_config.rate_bits);
+        let lde_final_poly = final_poly.lde(fri_params.config.rate_bits);
         let lde_final_values = timed!(
             timing,
             &format!("perform final FFT {}", lde_final_poly.len()),
@@ -170,7 +170,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             lde_final_poly,
             lde_final_values,
             challenger,
-            &common_data.fri_params,
+            fri_params,
             timing,
         );
 

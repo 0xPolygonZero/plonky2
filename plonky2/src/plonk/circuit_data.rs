@@ -41,7 +41,9 @@ pub struct CircuitConfig {
     /// `degree / |F|`.
     pub num_challenges: usize,
     pub zero_knowledge: bool,
-
+    /// A cap on the quotient polynomial's degree factor. The actual degree factor is derived
+    /// systematically, but will never exceed this value.
+    pub max_quotient_degree_factor: usize,
     pub fri_config: FriConfig,
 }
 
@@ -52,10 +54,6 @@ impl Default for CircuitConfig {
 }
 
 impl CircuitConfig {
-    pub fn rate(&self) -> f64 {
-        1.0 / ((1 << self.fri_config.rate_bits) as f64)
-    }
-
     pub fn num_advice_wires(&self) -> usize {
         self.num_wires - self.num_routed_wires
     }
@@ -70,6 +68,7 @@ impl CircuitConfig {
             security_bits: 100,
             num_challenges: 2,
             zero_knowledge: false,
+            max_quotient_degree_factor: 8,
             fri_config: FriConfig {
                 rate_bits: 3,
                 cap_height: 4,

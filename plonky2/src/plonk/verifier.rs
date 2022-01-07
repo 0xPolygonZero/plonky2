@@ -85,13 +85,13 @@ pub(crate) fn verify_with_challenges<
         proof.quotient_polys_cap,
     ];
 
-    verify_fri_proof(
+    verify_fri_proof::<F, C, D>(
         &common_data.get_fri_instance(challenges.plonk_zeta),
         &proof.openings,
         &challenges,
         merkle_caps,
         &proof.opening_proof,
-        common_data,
+        &common_data.fri_params,
     )?;
 
     Ok(())
