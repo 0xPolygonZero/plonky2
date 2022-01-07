@@ -5,6 +5,7 @@ use plonky2_field::extension_field::{flatten, unflatten, Extendable};
 use plonky2_field::polynomial::PolynomialCoeffs;
 use serde::{Deserialize, Serialize};
 
+use crate::fri::FriParams;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::hash::hash_types::MerkleCapTarget;
 use crate::hash::hash_types::RichField;
@@ -13,7 +14,6 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::hash::path_compression::{compress_merkle_proofs, decompress_merkle_proofs};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
-use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::salt_size;
 use crate::plonk::proof::{FriInferredElements, ProofChallenges};
@@ -136,7 +136,7 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> FriProof<F, H, 
     pub fn compress<C: GenericConfig<D, F = F, Hasher = H>>(
         self,
         indices: &[usize],
-        common_data: &CommonCircuitData<F, C, D>,
+        params: &FriParams,
     ) -> CompressedFriProof<F, H, D> {
         let FriProof {
             commit_phase_merkle_caps,
@@ -145,8 +145,8 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> FriProof<F, H, 
             pow_witness,
             ..
         } = self;
-        let cap_height = common_data.config.fri_config.cap_height;
-        let reduction_arity_bits = &common_data.fri_params.reduction_arity_bits;
+        let cap_height = params.config.cap_height;
+        let reduction_arity_bits = &params.reduction_arity_bits;
         let num_reductions = reduction_arity_bits.len();
         let num_initial_trees = query_round_proofs[0].initial_trees_proof.evals_proofs.len();
 
@@ -243,7 +243,7 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
         self,
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,
-        common_data: &CommonCircuitData<F, C, D>,
+        params: &FriParams,
     ) -> FriProof<F, H, D> {
         let CompressedFriProof {
             commit_phase_merkle_caps,
@@ -257,8 +257,8 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
             ..
         } = challenges;
         let mut fri_inferred_elements = fri_inferred_elements.0.into_iter();
-        let cap_height = common_data.config.fri_config.cap_height;
-        let reduction_arity_bits = &common_data.fri_params.reduction_arity_bits;
+        let cap_height = params.config.cap_height;
+        let reduction_arity_bits = &params.reduction_arity_bits;
         let num_reductions = reduction_arity_bits.len();
         let num_initial_trees = query_round_proofs
             .initial_trees_proofs
@@ -275,7 +275,7 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
         let mut steps_indices = vec![vec![]; num_reductions];
         let mut steps_evals = vec![vec![]; num_reductions];
         let mut steps_proofs = vec![vec![]; num_reductions];
-        let height = common_data.degree_bits + common_data.config.fri_config.rate_bits;
+        let height = params.degree_bits + params.config.rate_bits;
         let heights = reduction_arity_bits
             .iter()
             .scan(height, |acc, &bits| {
@@ -285,10 +285,8 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
             .collect::<Vec<_>>();
 
         // Holds the `evals` vectors that have already been reconstructed at each reduction depth.
-        let mut evals_by_depth = vec![
-            HashMap::<usize, Vec<_>>::new();
-            common_data.fri_params.reduction_arity_bits.len()
-        ];
+        let mut evals_by_depth =
+            vec![HashMap::<usize, Vec<_>>::new(); params.reduction_arity_bits.len()];
         for &(mut index) in indices {
             let initial_trees_proof = query_round_proofs.initial_trees_proofs[&index].clone();
             for (i, (leaves_data, proof)) in

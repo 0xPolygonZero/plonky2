@@ -209,7 +209,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
                 &quotient_polys_commitment,
             ],
             &mut challenger,
-            common_data,
+            &common_data.fri_params,
             timing,
         )
     );

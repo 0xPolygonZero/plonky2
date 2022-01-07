@@ -377,6 +377,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         FriParams {
             config: fri_config.clone(),
+            hiding: self.config.zero_knowledge,
             degree_bits,
             reduction_arity_bits,
         }
