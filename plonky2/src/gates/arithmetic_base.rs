@@ -179,8 +179,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Operation<F, D> for BaseArith
         vec![self.output]
     }
 
-    fn generators(&self) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        todo!()
+    fn run<R: FnOnce(&PartitionWitness<F>, &mut GeneratedValues<F>)>(&self) -> R {
+        |witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>| {
+            let multiplicand_0 = witness.get_target(self.multiplicand_0);
+            let multiplicand_1 = witness.get_target(self.multiplicand_1);
+            let addend = witness.get_target(self.addend);
+
+            let computed_output =
+                multiplicand_0 * multiplicand_1 * self.const_0 + addend * self.const_1;
+
+            out_buffer.set_target(self.output, computed_output)
+        }
     }
 
     fn gate_with_constants(&self, config: &CircuitConfig) -> (GateRef<F, D>, Vec<F>) {

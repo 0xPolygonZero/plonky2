@@ -2,8 +2,9 @@ use plonky2_field::extension_field::Extendable;
 
 use crate::gates::gate::GateRef;
 use crate::hash::hash_types::RichField;
-use crate::iop::generator::WitnessGenerator;
+use crate::iop::generator::{GeneratedValues, WitnessGenerator};
 use crate::iop::target::Target;
+use crate::iop::witness::PartitionWitness;
 use crate::plonk::circuit_data::CircuitConfig;
 
 pub trait Operation<F: RichField + Extendable<D>, const D: usize> {
@@ -12,7 +13,7 @@ pub trait Operation<F: RichField + Extendable<D>, const D: usize> {
     fn outputs(&self) -> Vec<Target>;
     /// Generators used to generate the witness.
     // TODO: Do we need only one per operation?
-    fn generators(&self) -> Vec<Box<dyn WitnessGenerator<F>>>;
+    fn run<R: FnOnce(&PartitionWitness<F>, &mut GeneratedValues<F>)>(&self) -> R;
 
     fn gate_with_constants(&self, config: &CircuitConfig) -> (GateRef<F, D>, Vec<F>);
 }
