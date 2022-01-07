@@ -120,27 +120,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        (0..self.num_ops)
-            .map(|i| {
-                let g: Box<dyn WitnessGenerator<F>> = Box::new(
-                    ArithmeticExtensionGenerator {
-                        gate_index,
-                        const_0: local_constants[0],
-                        const_1: local_constants[1],
-                        i,
-                    }
-                    .adapter(),
-                );
-                g
-            })
-            .collect::<Vec<_>>()
-    }
-
     fn num_wires(&self) -> usize {
         self.num_ops * 4 * D
     }

@@ -108,26 +108,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for MulExtensionGa
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        (0..self.num_ops)
-            .map(|i| {
-                let g: Box<dyn WitnessGenerator<F>> = Box::new(
-                    MulExtensionGenerator {
-                        gate_index,
-                        const_0: local_constants[0],
-                        i,
-                    }
-                    .adapter(),
-                );
-                g
-            })
-            .collect::<Vec<_>>()
-    }
-
     fn num_wires(&self) -> usize {
         self.num_ops * 3 * D
     }

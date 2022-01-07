@@ -194,27 +194,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        (0..self.num_ops)
-            .map(|i| {
-                let g: Box<dyn WitnessGenerator<F>> = Box::new(
-                    U32ArithmeticGenerator {
-                        gate: *self,
-                        gate_index,
-                        i,
-                        _phantom: PhantomData,
-                    }
-                    .adapter(),
-                );
-                g
-            })
-            .collect::<Vec<_>>()
-    }
-
     fn num_wires(&self) -> usize {
         self.num_ops * (5 + Self::num_limbs())
     }

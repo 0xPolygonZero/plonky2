@@ -104,18 +104,6 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> fo
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = BaseSplitGenerator::<B> {
-            gate_index,
-            num_limbs: self.num_limbs,
-        };
-        vec![Box::new(gen.adapter())]
-    }
-
     // 1 for the sum then `num_limbs` for the limbs.
     fn num_wires(&self) -> usize {
         1 + self.num_limbs

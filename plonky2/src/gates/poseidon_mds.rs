@@ -171,15 +171,6 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
             .collect()
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = PoseidonMdsGenerator::<D> { gate_index };
-        vec![Box::new(gen.adapter())]
-    }
-
     fn num_wires(&self) -> usize {
         2 * D * SPONGE_WIDTH
     }

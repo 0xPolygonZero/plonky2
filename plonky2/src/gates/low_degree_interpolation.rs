@@ -261,19 +261,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = InterpolationGenerator::<F, D> {
-            gate_index,
-            gate: *self,
-            _phantom: PhantomData,
-        };
-        vec![Box::new(gen.adapter())]
-    }
-
     fn num_wires(&self) -> usize {
         self.end()
     }

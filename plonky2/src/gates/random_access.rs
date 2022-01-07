@@ -192,26 +192,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        (0..self.num_copies)
-            .map(|copy| {
-                let g: Box<dyn WitnessGenerator<F>> = Box::new(
-                    RandomAccessGenerator {
-                        gate_index,
-                        gate: *self,
-                        copy,
-                    }
-                    .adapter(),
-                );
-                g
-            })
-            .collect::<Vec<_>>()
-    }
-
     fn num_wires(&self) -> usize {
         self.wire_bit(self.bits - 1, self.num_copies - 1) + 1
     }

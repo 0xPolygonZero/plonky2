@@ -187,18 +187,6 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = GMiMCGenerator::<F, D, WIDTH> {
-            gate_index,
-            _phantom: PhantomData,
-        };
-        vec![Box::new(gen.adapter())]
-    }
-
     fn num_wires(&self) -> usize {
         Self::end()
     }

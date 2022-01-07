@@ -62,14 +62,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PublicInputGat
             .collect()
     }
 
-    fn generators(
-        &self,
-        _gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        Vec::new()
-    }
-
     fn num_wires(&self) -> usize {
         4
     }

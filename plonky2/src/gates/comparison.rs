@@ -284,18 +284,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = ComparisonGenerator::<F, D> {
-            gate_index,
-            gate: self.clone(),
-        };
-        vec![Box::new(gen.adapter())]
-    }
-
     fn num_wires(&self) -> usize {
         4 + 5 * self.num_chunks + (self.chunk_bits() + 1)
     }

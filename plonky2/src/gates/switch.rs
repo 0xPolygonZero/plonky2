@@ -155,23 +155,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, 
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        (0..self.num_copies)
-            .map(|c| {
-                let g: Box<dyn WitnessGenerator<F>> = Box::new(SwitchGenerator::<F, D> {
-                    gate_index,
-                    gate: self.clone(),
-                    copy: c,
-                });
-                g
-            })
-            .collect()
-    }
-
     fn num_wires(&self) -> usize {
         self.wire_switch_bool(self.num_copies - 1) + 1
     }

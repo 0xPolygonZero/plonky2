@@ -72,19 +72,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
             .collect()
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = ConstantGenerator {
-            gate_index,
-            gate: *self,
-            constants: local_constants[self.consts_inputs()].to_vec(),
-        };
-        vec![Box::new(gen.adapter())]
-    }
-
     fn num_wires(&self) -> usize {
         self.num_consts
     }

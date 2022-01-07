@@ -135,20 +135,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingExtens
             .collect()
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        vec![Box::new(
-            ReducingGenerator {
-                gate_index,
-                gate: self.clone(),
-            }
-            .adapter(),
-        )]
-    }
-
     fn num_wires(&self) -> usize {
         2 * D + 2 * D * self.num_coeffs
     }
