@@ -24,8 +24,8 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     fri_params: &FriParams,
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
-    let n = lde_polynomial_values.values.len();
-    assert_eq!(lde_polynomial_coeffs.coeffs.len(), n);
+    let n = lde_polynomial_values.len();
+    assert_eq!(lde_polynomial_coeffs.len(), n);
 
     // Commit phase
     let (trees, final_coeffs) = timed!(

@@ -27,7 +27,7 @@ impl<F: Field> PolynomialValues<F> {
     }
 
     /// The number of values stored.
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.values.len()
     }
 
