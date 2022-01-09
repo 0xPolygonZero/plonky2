@@ -35,8 +35,7 @@ pub(crate) fn partial_products_and_z_gx<F: Field>(z_x: F, quotient_chunk_product
     res
 }
 
-/// Returns a tuple `(a,b)`, where `a` is the length of the output of `partial_products()` on a
-/// vector of length `n`, and `b` is the number of original elements consumed in `partial_products()`.
+/// Returns the length of the output of `partial_products()` on a vector of length `n`.
 pub(crate) fn num_partial_products(n: usize, max_degree: usize) -> usize {
     debug_assert!(max_degree > 1);
     let chunk_size = max_degree;
