@@ -16,7 +16,7 @@ use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::ext_target::{flatten_target, ExtensionTarget};
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::config::{AlgebraicConfig, AlgebraicHasher, GenericConfig};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::OpeningSetTarget;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
@@ -119,7 +119,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
-    pub fn verify_fri_proof<C: AlgebraicConfig<D, F = F>>(
+    pub fn verify_fri_proof<C: GenericConfig<D, F = F>>(
         &mut self,
         instance: &FriInstanceInfoTarget<D>,
         // Openings of the PLONK polynomials.
@@ -128,7 +128,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &FriProofTarget<D>,
         challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
         params: &FriParams,
-    ) {
+    ) where
+        C::Hasher: AlgebraicHasher<F>,
+    {
         if let Some(max_arity_bits) = params.max_arity_bits() {
             self.check_recursion_config::<C>(max_arity_bits);
         }
@@ -282,7 +284,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         sum
     }
 
-    fn fri_verifier_query_round<C: AlgebraicConfig<D, F = F>>(
+    fn fri_verifier_query_round<C: GenericConfig<D, F = F>>(
         &mut self,
         instance: &FriInstanceInfoTarget<D>,
         alpha: ExtensionTarget<D>,
@@ -294,7 +296,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         betas: &[ExtensionTarget<D>],
         round_proof: &FriQueryRoundTarget<D>,
         params: &FriParams,
-    ) {
+    ) where
+        C::Hasher: AlgebraicHasher<F>,
+    {
         let n_log = log2_strict(n);
 
         // Note that this `low_bits` decomposition permits non-canonical binary encodings. Here we

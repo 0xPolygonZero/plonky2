@@ -4,7 +4,7 @@ use crate::hash::hash_types::{HashOutTarget, RichField};
 use crate::iop::challenger::RecursiveChallenger;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
-use crate::plonk::config::AlgebraicConfig;
+use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::ProofWithPublicInputsTarget;
 use crate::plonk::vanishing_poly::eval_vanishing_poly_recursively;
 use crate::plonk::vars::EvaluationTargets;
@@ -13,13 +13,15 @@ use crate::with_context;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
-    pub fn add_recursive_verifier<C: AlgebraicConfig<D, F = F>>(
+    pub fn add_recursive_verifier<C: GenericConfig<D, F = F>>(
         &mut self,
         proof_with_pis: ProofWithPublicInputsTarget<D>,
         inner_config: &CircuitConfig,
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, C, D>,
-    ) {
+    ) where
+        C::Hasher: AlgebraicHasher<F>,
+    {
         let ProofWithPublicInputsTarget {
             proof,
             public_inputs,
@@ -253,15 +255,13 @@ mod tests {
     }
 
     // Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
-    fn set_proof_target<
-        F: RichField + Extendable<D>,
-        C: AlgebraicConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn set_proof_target<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         proof: &ProofWithPublicInputs<F, C, D>,
         pt: &ProofWithPublicInputsTarget<D>,
         pw: &mut PartialWitness<F>,
-    ) {
+    ) where
+        C::Hasher: AlgebraicHasher<F>,
+    {
         let ProofWithPublicInputs {
             proof,
             public_inputs,
@@ -561,7 +561,7 @@ mod tests {
     fn recursive_proof<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
-        InnerC: AlgebraicConfig<D, F = F>,
+        InnerC: GenericConfig<D, F = F>,
         const D: usize,
     >(
         inner_proof: ProofWithPublicInputs<F, InnerC, D>,
@@ -576,7 +576,10 @@ mod tests {
         ProofWithPublicInputs<F, C, D>,
         VerifierOnlyCircuitData<C, D>,
         CommonCircuitData<F, C, D>,
-    )> {
+    )>
+    where
+        InnerC::Hasher: AlgebraicHasher<F>,
+    {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
         let pt = proof_to_proof_target(&inner_proof, &mut builder);

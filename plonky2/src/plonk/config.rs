@@ -66,29 +66,10 @@ pub trait GenericConfig<const D: usize>:
     type InnerHasher: AlgebraicHasher<Self::F>;
 }
 
-/// Configuration trait for "algebraic" configurations, i.e., those using an algebraic hash function
-/// in Merkle trees.
-/// Same as `GenericConfig` trait but with `InnerHasher: AlgebraicHasher<F>`.
-pub trait AlgebraicConfig<const D: usize>:
-    Debug + Clone + Sync + Sized + Send + Eq + PartialEq
-{
-    type F: RichField + Extendable<D, Extension = Self::FE>;
-    type FE: FieldExtension<D, BaseField = Self::F>;
-    type Hasher: AlgebraicHasher<Self::F>;
-    type InnerHasher: AlgebraicHasher<Self::F>;
-}
-
-impl<A: AlgebraicConfig<D>, const D: usize> GenericConfig<D> for A {
-    type F = <Self as AlgebraicConfig<D>>::F;
-    type FE = <Self as AlgebraicConfig<D>>::FE;
-    type Hasher = <Self as AlgebraicConfig<D>>::Hasher;
-    type InnerHasher = <Self as AlgebraicConfig<D>>::InnerHasher;
-}
-
 /// Configuration using Poseidon over the Goldilocks field.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PoseidonGoldilocksConfig;
-impl AlgebraicConfig<2> for PoseidonGoldilocksConfig {
+impl GenericConfig<2> for PoseidonGoldilocksConfig {
     type F = GoldilocksField;
     type FE = QuadraticExtension<Self::F>;
     type Hasher = PoseidonHash;
@@ -98,7 +79,7 @@ impl AlgebraicConfig<2> for PoseidonGoldilocksConfig {
 /// Configuration using GMiMC over the Goldilocks field.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct GMiMCGoldilocksConfig;
-impl AlgebraicConfig<2> for GMiMCGoldilocksConfig {
+impl GenericConfig<2> for GMiMCGoldilocksConfig {
     type F = GoldilocksField;
     type FE = QuadraticExtension<Self::F>;
     type Hasher = GMiMCHash;
