@@ -2,7 +2,7 @@
 
 Plonky2 is a SNARK implementation based on techniques from PLONK and FRI. It is the successor of [Plonky](https://github.com/mir-protocol/plonky), which was based on PLONK and Halo.
 
-Plonky2 is built for speed, particularly fast recursion. On a Macbook Pro, recursive proofs can be generated in about 170 ms.
+Plonky2 is built for speed, and features a highly efficient recursive circuit. On a Macbook Pro, recursive proofs can be generated in about 170 ms.
 
 
 ## Documentation
