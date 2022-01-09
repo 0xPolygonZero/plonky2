@@ -37,14 +37,13 @@ pub(crate) fn partial_products_and_z_gx<F: Field>(z_x: F, quotient_chunk_product
 
 /// Returns a tuple `(a,b)`, where `a` is the length of the output of `partial_products()` on a
 /// vector of length `n`, and `b` is the number of original elements consumed in `partial_products()`.
-pub(crate) fn num_partial_products(n: usize, max_degree: usize) -> (usize, usize) {
+pub(crate) fn num_partial_products(n: usize, max_degree: usize) -> usize {
     debug_assert!(max_degree > 1);
     let chunk_size = max_degree;
     // We'll split the product into `ceil_div_usize(n, chunk_size)` chunks, but the last chunk will
     // be associated with Z(gx) itself. Thus we subtract one to get the chunks associated with
     // partial products.
-    let num_chunks = ceil_div_usize(n, chunk_size) - 1;
-    (num_chunks, num_chunks * chunk_size)
+    ceil_div_usize(n, chunk_size) - 1
 }
 
 /// Checks the relationship between each pair of partial product accumulators. In particular, this
@@ -127,7 +126,7 @@ mod tests {
         assert_eq!(pps_and_z_gx, field_vec(&[2, 24, 720]));
 
         let nums = num_partial_products(v.len(), 2);
-        assert_eq!(pps.len(), nums.0);
+        assert_eq!(pps.len(), nums);
         assert!(check_partial_products(&v, &denominators, pps, z_x, z_gx, 2)
             .iter()
             .all(|x| x.is_zero()));
@@ -138,7 +137,7 @@ mod tests {
         let pps = &pps_and_z_gx[..pps_and_z_gx.len() - 1];
         assert_eq!(pps_and_z_gx, field_vec(&[6, 720]));
         let nums = num_partial_products(v.len(), 3);
-        assert_eq!(pps.len(), nums.0);
+        assert_eq!(pps.len(), nums);
         assert!(check_partial_products(&v, &denominators, pps, z_x, z_gx, 3)
             .iter()
             .all(|x| x.is_zero()));
