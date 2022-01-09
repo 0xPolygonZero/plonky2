@@ -629,7 +629,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let min_quotient_degree_factor = max_filtered_constraint_degree - 1;
         let max_quotient_degree_factor = self.config.max_quotient_degree_factor.min(1 << rate_bits);
         let quotient_degree_factor = (min_quotient_degree_factor..=max_quotient_degree_factor)
-            .min_by_key(|&q| num_partial_products(self.config.num_routed_wires, q).0 + q)
+            .min_by_key(|&q| num_partial_products(self.config.num_routed_wires, q) + q)
             .unwrap();
         debug!("Quotient degree factor set to: {}.", quotient_degree_factor);
 

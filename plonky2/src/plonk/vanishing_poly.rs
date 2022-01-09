@@ -37,7 +37,7 @@ pub(crate) fn eval_vanishing_poly<
     alphas: &[F],
 ) -> Vec<F::Extension> {
     let max_degree = common_data.quotient_degree_factor;
-    let (num_prods, _final_num_prod) = common_data.num_partial_products;
+    let num_prods = common_data.num_partial_products;
 
     let constraint_terms =
         evaluate_gate_constraints(&common_data.gates, common_data.num_gate_constraints, vars);
@@ -123,7 +123,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<
     assert_eq!(s_sigmas_batch.len(), n);
 
     let max_degree = common_data.quotient_degree_factor;
-    let (num_prods, _final_num_prod) = common_data.num_partial_products;
+    let num_prods = common_data.num_partial_products;
 
     let num_gate_constraints = common_data.num_gate_constraints;
 
@@ -302,7 +302,7 @@ pub(crate) fn eval_vanishing_poly_recursively<
     alphas: &[Target],
 ) -> Vec<ExtensionTarget<D>> {
     let max_degree = common_data.quotient_degree_factor;
-    let (num_prods, _final_num_prod) = common_data.num_partial_products;
+    let num_prods = common_data.num_partial_products;
 
     let constraint_terms = with_context!(
         builder,

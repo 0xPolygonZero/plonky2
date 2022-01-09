@@ -237,9 +237,8 @@ pub struct CommonCircuitData<
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
     pub(crate) k_is: Vec<F>,
 
-    /// The number of partial products needed to compute the `Z` polynomials and
-    /// the number of original elements consumed in `partial_products()`.
-    pub(crate) num_partial_products: (usize, usize),
+    /// The number of partial products needed to compute the `Z` polynomials.
+    pub(crate) num_partial_products: usize,
 
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
@@ -356,7 +355,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     fn fri_zs_partial_products_polys(&self) -> Vec<FriPolynomialInfo> {
         let num_zs_partial_products_polys =
-            self.config.num_challenges * (1 + self.num_partial_products.0);
+            self.config.num_challenges * (1 + self.num_partial_products);
         FriPolynomialInfo::from_range(
             PlonkOracle::ZS_PARTIAL_PRODUCTS.index,
             0..num_zs_partial_products_polys,
