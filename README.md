@@ -1,8 +1,13 @@
 # Plonky2
 
-Plonky2 is an implementation of recursive arguments based on Plonk and FRI. It uses FRI to check systems of polynomial constraints, similar to the DEEP-ALI method described in the [DEEP-FRI](https://arxiv.org/abs/1903.12243) paper. It is the successor of [plonky](https://github.com/mir-protocol/plonky), which was based on Plonk and Halo.
+Plonky2 is a SNARK implementation based on techniques from PLONK and FRI. It is the successor of [Plonky](https://github.com/mir-protocol/plonky), which was based on PLONK and Halo.
 
-Plonky2 is largely focused on recursion performance. We use custom gates to mitigate the bottlenecks of FRI verification, such as hashing and interpolation. We also encode witness data in a ~64 bit field, so field operations take just a few cycles. To achieve 128-bit security, we repeat certain checks, and run certain parts of the argument in an extension field.
+Plonky2 is built for speed, particularly fast recursion. On a Macbook Pro, recursive proofs can be generated in about 170 ms.
+
+
+## Documentation
+
+For more details about the Plonky2 argument system, see this [writeup](plonky2.pdf).
 
 
 ## Running
@@ -21,5 +26,5 @@ Plonky2 was developed by Polygon Zero (formerly Mir). While we plan to adopt an 
 
 ## Disclaimer
 
-This code has not been thoroughly reviewed or tested, and should not be used in any production systems.
+This code has not yet been audited, and should not be used in any production systems.
 
