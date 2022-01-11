@@ -197,11 +197,12 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
     for PoseidonMdsGenerator<D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        (0..SPONGE_WIDTH)
-            .flat_map(|i| {
-                Target::wires_from_range(self.gate_index, PoseidonMdsGate::<F, D>::wires_input(i))
-            })
-            .collect()
+        // (0..SPONGE_WIDTH)
+        //     .flat_map(|i| {
+        //         Target::wires_from_range(self.gate_index, PoseidonMdsGate::<F, D>::wires_input(i))
+        //     })
+        //     .collect()
+        todo!()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {

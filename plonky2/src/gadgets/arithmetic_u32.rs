@@ -70,33 +70,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         y: U32Target,
         z: U32Target,
     ) -> (U32Target, U32Target) {
-        if let Some(result) = self.arithmetic_u32_special_cases(x, y, z) {
-            return result;
-        }
-
-        let gate = U32ArithmeticGate::<F, D>::new_from_config(&self.config);
-        let (gate_index, copy) = self.find_u32_arithmetic_gate();
-
-        self.connect(
-            Target::wire(gate_index, gate.wire_ith_multiplicand_0(copy)),
-            x.0,
-        );
-        self.connect(
-            Target::wire(gate_index, gate.wire_ith_multiplicand_1(copy)),
-            y.0,
-        );
-        self.connect(Target::wire(gate_index, gate.wire_ith_addend(copy)), z.0);
-
-        let output_low = U32Target(Target::wire(
-            gate_index,
-            gate.wire_ith_output_low_half(copy),
-        ));
-        let output_high = U32Target(Target::wire(
-            gate_index,
-            gate.wire_ith_output_high_half(copy),
-        ));
-
-        (output_low, output_high)
+        todo!()
     }
 
     pub fn add_u32(&mut self, a: U32Target, b: U32Target) -> (U32Target, U32Target) {
@@ -134,19 +108,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         y: U32Target,
         borrow: U32Target,
     ) -> (U32Target, U32Target) {
-        let gate = U32SubtractionGate::<F, D>::new_from_config(&self.config);
-        let (gate_index, copy) = self.find_u32_subtraction_gate();
-
-        self.connect(Target::wire(gate_index, gate.wire_ith_input_x(copy)), x.0);
-        self.connect(Target::wire(gate_index, gate.wire_ith_input_y(copy)), y.0);
-        self.connect(
-            Target::wire(gate_index, gate.wire_ith_input_borrow(copy)),
-            borrow.0,
-        );
-
-        let output_result = U32Target(Target::wire(gate_index, gate.wire_ith_output_result(copy)));
-        let output_borrow = U32Target(Target::wire(gate_index, gate.wire_ith_output_borrow(copy)));
-
-        (output_result, output_borrow)
+        todo!()
     }
 }

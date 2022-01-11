@@ -254,60 +254,62 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for U32SubtractionGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| Target::wire(self.gate_index, input);
-
-        vec![
-            local_target(self.gate.wire_ith_input_x(self.i)),
-            local_target(self.gate.wire_ith_input_y(self.i)),
-            local_target(self.gate.wire_ith_input_borrow(self.i)),
-        ]
+        // let local_target = |input| Target::wire(self.gate_index, input);
+        //
+        // vec![
+        //     local_target(self.gate.wire_ith_input_x(self.i)),
+        //     local_target(self.gate.wire_ith_input_y(self.i)),
+        //     local_target(self.gate.wire_ith_input_borrow(self.i)),
+        // ]
+        todo!()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
-        };
-
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
-
-        let input_x = get_local_wire(self.gate.wire_ith_input_x(self.i));
-        let input_y = get_local_wire(self.gate.wire_ith_input_y(self.i));
-        let input_borrow = get_local_wire(self.gate.wire_ith_input_borrow(self.i));
-
-        let result_initial = input_x - input_y - input_borrow;
-        let result_initial_u64 = result_initial.to_canonical_u64();
-        let output_borrow = if result_initial_u64 > 1 << 32u64 {
-            F::ONE
-        } else {
-            F::ZERO
-        };
-
-        let base = F::from_canonical_u64(1 << 32u64);
-        let output_result = result_initial + base * output_borrow;
-
-        let output_result_wire = local_wire(self.gate.wire_ith_output_result(self.i));
-        let output_borrow_wire = local_wire(self.gate.wire_ith_output_borrow(self.i));
-
-        out_buffer.set_wire(output_result_wire, output_result);
-        out_buffer.set_wire(output_borrow_wire, output_borrow);
-
-        let output_result_u64 = output_result.to_canonical_u64();
-
-        let num_limbs = U32SubtractionGate::<F, D>::num_limbs();
-        let limb_base = 1 << U32SubtractionGate::<F, D>::limb_bits();
-        let output_limbs: Vec<_> = (0..num_limbs)
-            .scan(output_result_u64, |acc, _| {
-                let tmp = *acc % limb_base;
-                *acc /= limb_base;
-                Some(F::from_canonical_u64(tmp))
-            })
-            .collect();
-
-        for j in 0..num_limbs {
-            let wire = local_wire(self.gate.wire_ith_output_jth_limb(self.i, j));
-            out_buffer.set_wire(wire, output_limbs[j]);
-        }
+        // let local_wire = |input| Wire {
+        //     gate: self.gate_index,
+        //     input,
+        // };
+        //
+        // let get_local_wire = |input| witness.get_wire(local_wire(input));
+        //
+        // let input_x = get_local_wire(self.gate.wire_ith_input_x(self.i));
+        // let input_y = get_local_wire(self.gate.wire_ith_input_y(self.i));
+        // let input_borrow = get_local_wire(self.gate.wire_ith_input_borrow(self.i));
+        //
+        // let result_initial = input_x - input_y - input_borrow;
+        // let result_initial_u64 = result_initial.to_canonical_u64();
+        // let output_borrow = if result_initial_u64 > 1 << 32u64 {
+        //     F::ONE
+        // } else {
+        //     F::ZERO
+        // };
+        //
+        // let base = F::from_canonical_u64(1 << 32u64);
+        // let output_result = result_initial + base * output_borrow;
+        //
+        // let output_result_wire = local_wire(self.gate.wire_ith_output_result(self.i));
+        // let output_borrow_wire = local_wire(self.gate.wire_ith_output_borrow(self.i));
+        //
+        // out_buffer.set_wire(output_result_wire, output_result);
+        // out_buffer.set_wire(output_borrow_wire, output_borrow);
+        //
+        // let output_result_u64 = output_result.to_canonical_u64();
+        //
+        // let num_limbs = U32SubtractionGate::<F, D>::num_limbs();
+        // let limb_base = 1 << U32SubtractionGate::<F, D>::limb_bits();
+        // let output_limbs: Vec<_> = (0..num_limbs)
+        //     .scan(output_result_u64, |acc, _| {
+        //         let tmp = *acc % limb_base;
+        //         *acc /= limb_base;
+        //         Some(F::from_canonical_u64(tmp))
+        //     })
+        //     .collect();
+        //
+        // for j in 0..num_limbs {
+        //     let wire = local_wire(self.gate.wire_ith_output_jth_limb(self.i, j));
+        //     out_buffer.set_wire(wire, output_limbs[j]);
+        // }
+        todo!()
     }
 }
 

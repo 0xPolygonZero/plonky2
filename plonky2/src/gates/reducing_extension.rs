@@ -160,11 +160,12 @@ struct ReducingGenerator<const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<D> {
     fn dependencies(&self) -> Vec<Target> {
-        ReducingExtensionGate::<D>::wires_alpha()
-            .chain(ReducingExtensionGate::<D>::wires_old_acc())
-            .chain((0..self.gate.num_coeffs).flat_map(ReducingExtensionGate::<D>::wires_coeff))
-            .map(|i| Target::wire(self.gate_index, i))
-            .collect()
+        // ReducingExtensionGate::<D>::wires_alpha()
+        //     .chain(ReducingExtensionGate::<D>::wires_old_acc())
+        //     .chain((0..self.gate.num_coeffs).flat_map(ReducingExtensionGate::<D>::wires_coeff))
+        //     .map(|i| Target::wire(self.gate_index, i))
+        //     .collect()
+        todo!()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {

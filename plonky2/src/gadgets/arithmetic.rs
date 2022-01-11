@@ -317,6 +317,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 impl<F: RichField + Extendable<D>, const D: usize> Operation<F, D>
     for ExponentiationOperation<F, D>
 {
+    fn id(&self) -> String {
+        format!("{:?}", self)
+    }
+
     fn targets(&self) -> Vec<Target> {
         todo!()
     }

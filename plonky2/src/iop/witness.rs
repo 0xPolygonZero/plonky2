@@ -83,14 +83,6 @@ pub trait Witness<F: Field> {
         }
     }
 
-    fn get_wire(&self, wire: Wire) -> F {
-        self.get_target(Target::Wire(wire))
-    }
-
-    fn try_get_wire(&self, wire: Wire) -> Option<F> {
-        self.try_get_target(Target::Wire(wire))
-    }
-
     fn contains(&self, target: Target) -> bool {
         self.try_get_target(target).is_some()
     }
@@ -153,28 +145,6 @@ pub trait Witness<F: Field> {
         for (&lt, &l) in target.limbs.iter().zip(&value.to_u32_digits()) {
             self.set_u32_target(lt, l);
         }
-    }
-
-    fn set_wire(&mut self, wire: Wire, value: F) {
-        self.set_target(Target::Wire(wire), value)
-    }
-
-    fn set_wires<W>(&mut self, wires: W, values: &[F])
-    where
-        W: IntoIterator<Item = Wire>,
-    {
-        // If we used itertools, we could use zip_eq for extra safety.
-        for (wire, &value) in wires.into_iter().zip(values) {
-            self.set_wire(wire, value);
-        }
-    }
-
-    fn set_ext_wires<W, const D: usize>(&mut self, wires: W, value: F::Extension)
-    where
-        F: RichField + Extendable<D>,
-        W: IntoIterator<Item = Wire>,
-    {
-        self.set_wires(wires, &value.to_basefield_array());
     }
 
     fn extend<I: Iterator<Item = (Target, F)>>(&mut self, pairs: I) {
@@ -269,21 +239,22 @@ impl<'a, F: Field> PartitionWitness<'a, F> {
     }
 
     pub(crate) fn target_index(&self, target: Target) -> usize {
-        target.index(self.num_wires, self.degree)
+        target.0
     }
 
     pub fn full_witness(self) -> MatrixWitness<F> {
-        let mut wire_values = vec![vec![F::ZERO; self.degree]; self.num_wires];
-        for i in 0..self.degree {
-            for j in 0..self.num_wires {
-                let t = Target::Wire(Wire { gate: i, input: j });
-                if let Some(x) = self.try_get_target(t) {
-                    wire_values[j][i] = x;
-                }
-            }
-        }
-
-        MatrixWitness { wire_values }
+        // let mut wire_values = vec![vec![F::ZERO; self.degree]; self.num_wires];
+        // for i in 0..self.degree {
+        //     for j in 0..self.num_wires {
+        //         let t = Target::Wire(Wire { gate: i, input: j });
+        //         if let Some(x) = self.try_get_target(t) {
+        //             wire_values[j][i] = x;
+        //         }
+        //     }
+        // }
+        //
+        // MatrixWitness { wire_values }
+        todo!()
     }
 }
 

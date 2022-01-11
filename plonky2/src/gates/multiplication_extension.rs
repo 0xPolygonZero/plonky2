@@ -136,10 +136,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for MulExtensionGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        MulExtensionGate::<D>::wires_ith_multiplicand_0(self.i)
-            .chain(MulExtensionGate::<D>::wires_ith_multiplicand_1(self.i))
-            .map(|i| Target::wire(self.gate_index, i))
-            .collect()
+        // MulExtensionGate::<D>::wires_ith_multiplicand_0(self.i)
+        //     .chain(MulExtensionGate::<D>::wires_ith_multiplicand_1(self.i))
+        //     .map(|i| Target::wire(self.gate_index, i))
+        //     .collect()
+        todo!()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {

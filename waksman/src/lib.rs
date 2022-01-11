@@ -5,6 +5,6 @@
 #![allow(clippy::needless_range_loop)]
 #![allow(clippy::return_self_not_must_use)]
 
-pub mod bimap;
-pub mod permutation;
-pub mod sorting;
+// pub mod bimap;
+// pub mod permutation;
+// pub mod sorting;

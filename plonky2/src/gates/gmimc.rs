@@ -267,74 +267,76 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
     SimpleGenerator<F> for GMiMCGenerator<F, D, WIDTH>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let mut dep_input_indices = Vec::with_capacity(WIDTH + 1);
-        for i in 0..WIDTH {
-            dep_input_indices.push(GMiMCGate::<F, D, WIDTH>::wire_input(i));
-        }
-        dep_input_indices.push(GMiMCGate::<F, D, WIDTH>::WIRE_SWAP);
-
-        dep_input_indices
-            .into_iter()
-            .map(|input| {
-                Target::Wire(Wire {
-                    gate: self.gate_index,
-                    input,
-                })
-            })
-            .collect()
+        // let mut dep_input_indices = Vec::with_capacity(WIDTH + 1);
+        // for i in 0..WIDTH {
+        //     dep_input_indices.push(GMiMCGate::<F, D, WIDTH>::wire_input(i));
+        // }
+        // dep_input_indices.push(GMiMCGate::<F, D, WIDTH>::WIRE_SWAP);
+        //
+        // dep_input_indices
+        //     .into_iter()
+        //     .map(|input| {
+        //         Target::Wire(Wire {
+        //             gate: self.gate_index,
+        //             input,
+        //         })
+        //     })
+        //     .collect()
+        todo!()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let mut state = (0..WIDTH)
-            .map(|i| {
-                witness.get_wire(Wire {
-                    gate: self.gate_index,
-                    input: GMiMCGate::<F, D, WIDTH>::wire_input(i),
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let swap_value = witness.get_wire(Wire {
-            gate: self.gate_index,
-            input: GMiMCGate::<F, D, WIDTH>::WIRE_SWAP,
-        });
-        debug_assert!(swap_value == F::ZERO || swap_value == F::ONE);
-        if swap_value == F::ONE {
-            for i in 0..4 {
-                state.swap(i, 4 + i);
-            }
-        }
-
-        // Value that is implicitly added to each element.
-        // See https://affine.group/2020/02/starkware-challenge
-        let mut addition_buffer = F::ZERO;
-
-        for r in 0..gmimc::NUM_ROUNDS {
-            let active = r % WIDTH;
-            let constant = F::from_canonical_u64(<F as GMiMC<WIDTH>>::ROUND_CONSTANTS[r]);
-            let cubing_input = state[active] + addition_buffer + constant;
-            out_buffer.set_wire(
-                Wire {
-                    gate: self.gate_index,
-                    input: GMiMCGate::<F, D, WIDTH>::wire_cubing_input(r),
-                },
-                cubing_input,
-            );
-            let f = cubing_input.cube();
-            addition_buffer += f;
-            state[active] -= f;
-        }
-
-        for i in 0..WIDTH {
-            state[i] += addition_buffer;
-            out_buffer.set_wire(
-                Wire {
-                    gate: self.gate_index,
-                    input: GMiMCGate::<F, D, WIDTH>::wire_output(i),
-                },
-                state[i],
-            );
-        }
+        // let mut state = (0..WIDTH)
+        //     .map(|i| {
+        //         witness.get_wire(Wire {
+        //             gate: self.gate_index,
+        //             input: GMiMCGate::<F, D, WIDTH>::wire_input(i),
+        //         })
+        //     })
+        //     .collect::<Vec<_>>();
+        //
+        // let swap_value = witness.get_wire(Wire {
+        //     gate: self.gate_index,
+        //     input: GMiMCGate::<F, D, WIDTH>::WIRE_SWAP,
+        // });
+        // debug_assert!(swap_value == F::ZERO || swap_value == F::ONE);
+        // if swap_value == F::ONE {
+        //     for i in 0..4 {
+        //         state.swap(i, 4 + i);
+        //     }
+        // }
+        //
+        // // Value that is implicitly added to each element.
+        // // See https://affine.group/2020/02/starkware-challenge
+        // let mut addition_buffer = F::ZERO;
+        //
+        // for r in 0..gmimc::NUM_ROUNDS {
+        //     let active = r % WIDTH;
+        //     let constant = F::from_canonical_u64(<F as GMiMC<WIDTH>>::ROUND_CONSTANTS[r]);
+        //     let cubing_input = state[active] + addition_buffer + constant;
+        //     out_buffer.set_wire(
+        //         Wire {
+        //             gate: self.gate_index,
+        //             input: GMiMCGate::<F, D, WIDTH>::wire_cubing_input(r),
+        //         },
+        //         cubing_input,
+        //     );
+        //     let f = cubing_input.cube();
+        //     addition_buffer += f;
+        //     state[active] -= f;
+        // }
+        //
+        // for i in 0..WIDTH {
+        //     state[i] += addition_buffer;
+        //     out_buffer.set_wire(
+        //         Wire {
+        //             gate: self.gate_index,
+        //             input: GMiMCGate::<F, D, WIDTH>::wire_output(i),
+        //         },
+        //         state[i],
+        //     );
+        // }
+        todo!()
     }
 }
 

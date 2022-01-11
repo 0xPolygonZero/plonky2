@@ -270,56 +270,58 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for U32ArithmeticGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| Target::wire(self.gate_index, input);
-
-        vec![
-            local_target(self.gate.wire_ith_multiplicand_0(self.i)),
-            local_target(self.gate.wire_ith_multiplicand_1(self.i)),
-            local_target(self.gate.wire_ith_addend(self.i)),
-        ]
+        // let local_target = |input| Target::wire(self.gate_index, input);
+        //
+        // vec![
+        //     local_target(self.gate.wire_ith_multiplicand_0(self.i)),
+        //     local_target(self.gate.wire_ith_multiplicand_1(self.i)),
+        //     local_target(self.gate.wire_ith_addend(self.i)),
+        // ]
+        todo!()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
-        };
-
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
-
-        let multiplicand_0 = get_local_wire(self.gate.wire_ith_multiplicand_0(self.i));
-        let multiplicand_1 = get_local_wire(self.gate.wire_ith_multiplicand_1(self.i));
-        let addend = get_local_wire(self.gate.wire_ith_addend(self.i));
-
-        let output = multiplicand_0 * multiplicand_1 + addend;
-        let mut output_u64 = output.to_canonical_u64();
-
-        let output_high_u64 = output_u64 >> 32;
-        let output_low_u64 = output_u64 & ((1 << 32) - 1);
-
-        let output_high = F::from_canonical_u64(output_high_u64);
-        let output_low = F::from_canonical_u64(output_low_u64);
-
-        let output_high_wire = local_wire(self.gate.wire_ith_output_high_half(self.i));
-        let output_low_wire = local_wire(self.gate.wire_ith_output_low_half(self.i));
-
-        out_buffer.set_wire(output_high_wire, output_high);
-        out_buffer.set_wire(output_low_wire, output_low);
-
-        let num_limbs = U32ArithmeticGate::<F, D>::num_limbs();
-        let limb_base = 1 << U32ArithmeticGate::<F, D>::limb_bits();
-        let output_limbs_u64 = unfold((), move |_| {
-            let ret = output_u64 % limb_base;
-            output_u64 /= limb_base;
-            Some(ret)
-        })
-        .take(num_limbs);
-        let output_limbs_f = output_limbs_u64.map(F::from_canonical_u64);
-
-        for (j, output_limb) in output_limbs_f.enumerate() {
-            let wire = local_wire(self.gate.wire_ith_output_jth_limb(self.i, j));
-            out_buffer.set_wire(wire, output_limb);
-        }
+        // let local_wire = |input| Wire {
+        //     gate: self.gate_index,
+        //     input,
+        // };
+        //
+        // let get_local_wire = |input| witness.get_wire(local_wire(input));
+        //
+        // let multiplicand_0 = get_local_wire(self.gate.wire_ith_multiplicand_0(self.i));
+        // let multiplicand_1 = get_local_wire(self.gate.wire_ith_multiplicand_1(self.i));
+        // let addend = get_local_wire(self.gate.wire_ith_addend(self.i));
+        //
+        // let output = multiplicand_0 * multiplicand_1 + addend;
+        // let mut output_u64 = output.to_canonical_u64();
+        //
+        // let output_high_u64 = output_u64 >> 32;
+        // let output_low_u64 = output_u64 & ((1 << 32) - 1);
+        //
+        // let output_high = F::from_canonical_u64(output_high_u64);
+        // let output_low = F::from_canonical_u64(output_low_u64);
+        //
+        // let output_high_wire = local_wire(self.gate.wire_ith_output_high_half(self.i));
+        // let output_low_wire = local_wire(self.gate.wire_ith_output_low_half(self.i));
+        //
+        // out_buffer.set_wire(output_high_wire, output_high);
+        // out_buffer.set_wire(output_low_wire, output_low);
+        //
+        // let num_limbs = U32ArithmeticGate::<F, D>::num_limbs();
+        // let limb_base = 1 << U32ArithmeticGate::<F, D>::limb_bits();
+        // let output_limbs_u64 = unfold((), move |_| {
+        //     let ret = output_u64 % limb_base;
+        //     output_u64 /= limb_base;
+        //     Some(ret)
+        // })
+        // .take(num_limbs);
+        // let output_limbs_f = output_limbs_u64.map(F::from_canonical_u64);
+        //
+        // for (j, output_limb) in output_limbs_f.enumerate() {
+        //     let wire = local_wire(self.gate.wire_ith_output_jth_limb(self.i, j));
+        //     out_buffer.set_wire(wire, output_limb);
+        // }
+        todo!()
     }
 }
 

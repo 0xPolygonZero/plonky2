@@ -201,59 +201,61 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for InterpolationGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| {
-            Target::Wire(Wire {
-                gate: self.gate_index,
-                input,
-            })
-        };
-
-        let local_targets = |inputs: Range<usize>| inputs.map(local_target);
-
-        let num_points = self.gate.num_points();
-        let mut deps = Vec::with_capacity(1 + D + num_points * D);
-
-        deps.push(local_target(self.gate.wire_shift()));
-        deps.extend(local_targets(self.gate.wires_evaluation_point()));
-        for i in 0..num_points {
-            deps.extend(local_targets(self.gate.wires_value(i)));
-        }
-        deps
+        // let local_target = |input| {
+        //     Target::Wire(Wire {
+        //         gate: self.gate_index,
+        //         input,
+        //     })
+        // };
+        //
+        // let local_targets = |inputs: Range<usize>| inputs.map(local_target);
+        //
+        // let num_points = self.gate.num_points();
+        // let mut deps = Vec::with_capacity(1 + D + num_points * D);
+        //
+        // deps.push(local_target(self.gate.wire_shift()));
+        // deps.extend(local_targets(self.gate.wires_evaluation_point()));
+        // for i in 0..num_points {
+        //     deps.extend(local_targets(self.gate.wires_value(i)));
+        // }
+        // deps
+        todo!()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
-        };
-
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
-
-        let get_local_ext = |wire_range: Range<usize>| {
-            debug_assert_eq!(wire_range.len(), D);
-            let values = wire_range.map(get_local_wire).collect::<Vec<_>>();
-            let arr = values.try_into().unwrap();
-            F::Extension::from_basefield_array(arr)
-        };
-
-        // Compute the interpolant.
-        let points = self.gate.coset(get_local_wire(self.gate.wire_shift()));
-        let points = points
-            .into_iter()
-            .enumerate()
-            .map(|(i, point)| (point.into(), get_local_ext(self.gate.wires_value(i))))
-            .collect::<Vec<_>>();
-        let interpolant = interpolant(&points);
-
-        for (i, &coeff) in interpolant.coeffs.iter().enumerate() {
-            let wires = self.gate.wires_coeff(i).map(local_wire);
-            out_buffer.set_ext_wires(wires, coeff);
-        }
-
-        let evaluation_point = get_local_ext(self.gate.wires_evaluation_point());
-        let evaluation_value = interpolant.eval(evaluation_point);
-        let evaluation_value_wires = self.gate.wires_evaluation_value().map(local_wire);
-        out_buffer.set_ext_wires(evaluation_value_wires, evaluation_value);
+        // let local_wire = |input| Wire {
+        //     gate: self.gate_index,
+        //     input,
+        // };
+        //
+        // let get_local_wire = |input| witness.get_wire(local_wire(input));
+        //
+        // let get_local_ext = |wire_range: Range<usize>| {
+        //     debug_assert_eq!(wire_range.len(), D);
+        //     let values = wire_range.map(get_local_wire).collect::<Vec<_>>();
+        //     let arr = values.try_into().unwrap();
+        //     F::Extension::from_basefield_array(arr)
+        // };
+        //
+        // // Compute the interpolant.
+        // let points = self.gate.coset(get_local_wire(self.gate.wire_shift()));
+        // let points = points
+        //     .into_iter()
+        //     .enumerate()
+        //     .map(|(i, point)| (point.into(), get_local_ext(self.gate.wires_value(i))))
+        //     .collect::<Vec<_>>();
+        // let interpolant = interpolant(&points);
+        //
+        // for (i, &coeff) in interpolant.coeffs.iter().enumerate() {
+        //     let wires = self.gate.wires_coeff(i).map(local_wire);
+        //     out_buffer.set_ext_wires(wires, coeff);
+        // }
+        //
+        // let evaluation_point = get_local_ext(self.gate.wires_evaluation_point());
+        // let evaluation_value = interpolant.eval(evaluation_point);
+        // let evaluation_value_wires = self.gate.wires_evaluation_value().map(local_wire);
+        // out_buffer.set_ext_wires(evaluation_value_wires, evaluation_value);
+        todo!()
     }
 }
 

@@ -131,22 +131,23 @@ impl<const D: usize> ReducingFactorTarget<D> {
         }
         reversed_terms.reverse();
         for chunk in reversed_terms.chunks_exact(max_coeffs_len) {
-            let gate = ReducingGate::new(max_coeffs_len);
-            let gate_index = builder.add_gate(gate.clone(), Vec::new());
-
-            builder.connect_extension(
-                self.base,
-                ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_alpha()),
-            );
-            builder.connect_extension(
-                acc,
-                ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_old_acc()),
-            );
-            for (&t, c) in chunk.iter().zip(gate.wires_coeffs()) {
-                builder.connect(t, Target::wire(gate_index, c));
-            }
-
-            acc = ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_output());
+            // let gate = ReducingGate::new(max_coeffs_len);
+            // let gate_index = builder.add_gate(gate.clone(), Vec::new());
+            //
+            // builder.connect_extension(
+            //     self.base,
+            //     ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_alpha()),
+            // );
+            // builder.connect_extension(
+            //     acc,
+            //     ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_old_acc()),
+            // );
+            // for (&t, c) in chunk.iter().zip(gate.wires_coeffs()) {
+            //     builder.connect(t, Target::wire(gate_index, c));
+            // }
+            //
+            // acc = ExtensionTarget::from_range(gate_index, ReducingGate::<D>::wires_output());
+            todo!()
         }
 
         acc

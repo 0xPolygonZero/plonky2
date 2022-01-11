@@ -160,41 +160,43 @@ struct ReducingGenerator<const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for ReducingGenerator<D> {
     fn dependencies(&self) -> Vec<Target> {
-        ReducingGate::<D>::wires_alpha()
-            .chain(ReducingGate::<D>::wires_old_acc())
-            .chain(self.gate.wires_coeffs())
-            .map(|i| Target::wire(self.gate_index, i))
-            .collect()
+        // ReducingGate::<D>::wires_alpha()
+        //     .chain(ReducingGate::<D>::wires_old_acc())
+        //     .chain(self.gate.wires_coeffs())
+        //     .map(|i| Target::wire(self.gate_index, i))
+        //     .collect()
+        todo!()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let extract_extension = |range: Range<usize>| -> F::Extension {
-            let t = ExtensionTarget::from_range(self.gate_index, range);
-            witness.get_extension_target(t)
-        };
-
-        let alpha = extract_extension(ReducingGate::<D>::wires_alpha());
-        let old_acc = extract_extension(ReducingGate::<D>::wires_old_acc());
-        let coeffs = witness.get_targets(
-            &self
-                .gate
-                .wires_coeffs()
-                .map(|i| Target::wire(self.gate_index, i))
-                .collect::<Vec<_>>(),
-        );
-        let accs = (0..self.gate.num_coeffs)
-            .map(|i| ExtensionTarget::from_range(self.gate_index, self.gate.wires_accs(i)))
-            .collect::<Vec<_>>();
-        let output =
-            ExtensionTarget::from_range(self.gate_index, ReducingGate::<D>::wires_output());
-
-        let mut acc = old_acc;
-        for i in 0..self.gate.num_coeffs {
-            let computed_acc = acc * alpha + coeffs[i].into();
-            out_buffer.set_extension_target(accs[i], computed_acc);
-            acc = computed_acc;
-        }
-        out_buffer.set_extension_target(output, acc);
+        // let extract_extension = |range: Range<usize>| -> F::Extension {
+        //     let t = ExtensionTarget::from_range(self.gate_index, range);
+        //     witness.get_extension_target(t)
+        // };
+        //
+        // let alpha = extract_extension(ReducingGate::<D>::wires_alpha());
+        // let old_acc = extract_extension(ReducingGate::<D>::wires_old_acc());
+        // let coeffs = witness.get_targets(
+        //     &self
+        //         .gate
+        //         .wires_coeffs()
+        //         .map(|i| Target::wire(self.gate_index, i))
+        //         .collect::<Vec<_>>(),
+        // );
+        // let accs = (0..self.gate.num_coeffs)
+        //     .map(|i| ExtensionTarget::from_range(self.gate_index, self.gate.wires_accs(i)))
+        //     .collect::<Vec<_>>();
+        // let output =
+        //     ExtensionTarget::from_range(self.gate_index, ReducingGate::<D>::wires_output());
+        //
+        // let mut acc = old_acc;
+        // for i in 0..self.gate.num_coeffs {
+        //     let computed_acc = acc * alpha + coeffs[i].into();
+        //     out_buffer.set_extension_target(accs[i], computed_acc);
+        //     acc = computed_acc;
+        // }
+        // out_buffer.set_extension_target(output, acc);
+        todo!()
     }
 }
 

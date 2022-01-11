@@ -34,7 +34,7 @@ impl Forest {
     }
 
     pub(crate) fn target_index(&self, target: Target) -> usize {
-        target.index(self.num_wires, self.degree)
+        target.0
     }
 
     /// Add a new partition with a single member.
@@ -86,20 +86,21 @@ impl Forest {
 
     /// Assumes `compress_paths` has already been called.
     pub fn wire_partition(&mut self) -> WirePartition {
-        let mut partition = HashMap::<_, Vec<_>>::new();
-
-        // Here we keep just the Wire targets, filtering out everything else.
-        for gate in 0..self.degree {
-            for input in 0..self.num_routed_wires {
-                let w = Wire { gate, input };
-                let t = Target::Wire(w);
-                let x_parent = self.parents[self.target_index(t)];
-                partition.entry(x_parent).or_default().push(w);
-            }
-        }
-
-        let partition = partition.into_values().collect();
-        WirePartition { partition }
+        // let mut partition = HashMap::<_, Vec<_>>::new();
+        //
+        // // Here we keep just the Wire targets, filtering out everything else.
+        // for gate in 0..self.degree {
+        //     for input in 0..self.num_routed_wires {
+        //         let w = Wire { gate, input };
+        //         let t = Target::Wire(w);
+        //         let x_parent = self.parents[self.target_index(t)];
+        //         partition.entry(x_parent).or_default().push(w);
+        //     }
+        // }
+        //
+        // let partition = partition.into_values().collect();
+        // WirePartition { partition }
+        todo!()
     }
 }
 

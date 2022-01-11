@@ -350,90 +350,92 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for AssertLessThanGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| Target::wire(self.gate_index, input);
-
-        vec![
-            local_target(self.gate.wire_first_input()),
-            local_target(self.gate.wire_second_input()),
-        ]
+        // let local_target = |input| Target::wire(self.gate_index, input);
+        //
+        // vec![
+        //     local_target(self.gate.wire_first_input()),
+        //     local_target(self.gate.wire_second_input()),
+        // ]
+        todo!()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
-        };
-
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
-
-        let first_input = get_local_wire(self.gate.wire_first_input());
-        let second_input = get_local_wire(self.gate.wire_second_input());
-
-        let first_input_u64 = first_input.to_canonical_u64();
-        let second_input_u64 = second_input.to_canonical_u64();
-
-        debug_assert!(first_input_u64 < second_input_u64);
-
-        let chunk_size = 1 << self.gate.chunk_bits();
-        let first_input_chunks: Vec<F> = (0..self.gate.num_chunks)
-            .scan(first_input_u64, |acc, _| {
-                let tmp = *acc % chunk_size;
-                *acc /= chunk_size;
-                Some(F::from_canonical_u64(tmp))
-            })
-            .collect();
-        let second_input_chunks: Vec<F> = (0..self.gate.num_chunks)
-            .scan(second_input_u64, |acc, _| {
-                let tmp = *acc % chunk_size;
-                *acc /= chunk_size;
-                Some(F::from_canonical_u64(tmp))
-            })
-            .collect();
-
-        let chunks_equal: Vec<F> = (0..self.gate.num_chunks)
-            .map(|i| F::from_bool(first_input_chunks[i] == second_input_chunks[i]))
-            .collect();
-        let equality_dummies: Vec<F> = first_input_chunks
-            .iter()
-            .zip(second_input_chunks.iter())
-            .map(|(&f, &s)| if f == s { F::ONE } else { F::ONE / (s - f) })
-            .collect();
-
-        let mut most_significant_diff_so_far = F::ZERO;
-        let mut intermediate_values = Vec::new();
-        for i in 0..self.gate.num_chunks {
-            if first_input_chunks[i] != second_input_chunks[i] {
-                most_significant_diff_so_far = second_input_chunks[i] - first_input_chunks[i];
-                intermediate_values.push(F::ZERO);
-            } else {
-                intermediate_values.push(most_significant_diff_so_far);
-            }
-        }
-        let most_significant_diff = most_significant_diff_so_far;
-
-        out_buffer.set_wire(
-            local_wire(self.gate.wire_most_significant_diff()),
-            most_significant_diff,
-        );
-        for i in 0..self.gate.num_chunks {
-            out_buffer.set_wire(
-                local_wire(self.gate.wire_first_chunk_val(i)),
-                first_input_chunks[i],
-            );
-            out_buffer.set_wire(
-                local_wire(self.gate.wire_second_chunk_val(i)),
-                second_input_chunks[i],
-            );
-            out_buffer.set_wire(
-                local_wire(self.gate.wire_equality_dummy(i)),
-                equality_dummies[i],
-            );
-            out_buffer.set_wire(local_wire(self.gate.wire_chunks_equal(i)), chunks_equal[i]);
-            out_buffer.set_wire(
-                local_wire(self.gate.wire_intermediate_value(i)),
-                intermediate_values[i],
-            );
-        }
+        // let local_wire = |input| Wire {
+        //     gate: self.gate_index,
+        //     input,
+        // };
+        //
+        // let get_local_wire = |input| witness.get_wire(local_wire(input));
+        //
+        // let first_input = get_local_wire(self.gate.wire_first_input());
+        // let second_input = get_local_wire(self.gate.wire_second_input());
+        //
+        // let first_input_u64 = first_input.to_canonical_u64();
+        // let second_input_u64 = second_input.to_canonical_u64();
+        //
+        // debug_assert!(first_input_u64 < second_input_u64);
+        //
+        // let chunk_size = 1 << self.gate.chunk_bits();
+        // let first_input_chunks: Vec<F> = (0..self.gate.num_chunks)
+        //     .scan(first_input_u64, |acc, _| {
+        //         let tmp = *acc % chunk_size;
+        //         *acc /= chunk_size;
+        //         Some(F::from_canonical_u64(tmp))
+        //     })
+        //     .collect();
+        // let second_input_chunks: Vec<F> = (0..self.gate.num_chunks)
+        //     .scan(second_input_u64, |acc, _| {
+        //         let tmp = *acc % chunk_size;
+        //         *acc /= chunk_size;
+        //         Some(F::from_canonical_u64(tmp))
+        //     })
+        //     .collect();
+        //
+        // let chunks_equal: Vec<F> = (0..self.gate.num_chunks)
+        //     .map(|i| F::from_bool(first_input_chunks[i] == second_input_chunks[i]))
+        //     .collect();
+        // let equality_dummies: Vec<F> = first_input_chunks
+        //     .iter()
+        //     .zip(second_input_chunks.iter())
+        //     .map(|(&f, &s)| if f == s { F::ONE } else { F::ONE / (s - f) })
+        //     .collect();
+        //
+        // let mut most_significant_diff_so_far = F::ZERO;
+        // let mut intermediate_values = Vec::new();
+        // for i in 0..self.gate.num_chunks {
+        //     if first_input_chunks[i] != second_input_chunks[i] {
+        //         most_significant_diff_so_far = second_input_chunks[i] - first_input_chunks[i];
+        //         intermediate_values.push(F::ZERO);
+        //     } else {
+        //         intermediate_values.push(most_significant_diff_so_far);
+        //     }
+        // }
+        // let most_significant_diff = most_significant_diff_so_far;
+        //
+        // out_buffer.set_wire(
+        //     local_wire(self.gate.wire_most_significant_diff()),
+        //     most_significant_diff,
+        // );
+        // for i in 0..self.gate.num_chunks {
+        //     out_buffer.set_wire(
+        //         local_wire(self.gate.wire_first_chunk_val(i)),
+        //         first_input_chunks[i],
+        //     );
+        //     out_buffer.set_wire(
+        //         local_wire(self.gate.wire_second_chunk_val(i)),
+        //         second_input_chunks[i],
+        //     );
+        //     out_buffer.set_wire(
+        //         local_wire(self.gate.wire_equality_dummy(i)),
+        //         equality_dummies[i],
+        //     );
+        //     out_buffer.set_wire(local_wire(self.gate.wire_chunks_equal(i)), chunks_equal[i]);
+        //     out_buffer.set_wire(
+        //         local_wire(self.gate.wire_intermediate_value(i)),
+        //         intermediate_values[i],
+        //     );
+        // }
+        todo!()
     }
 }
 

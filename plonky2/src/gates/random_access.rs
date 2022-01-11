@@ -264,45 +264,47 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for RandomAccessGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| Target::wire(self.gate_index, input);
-
-        let mut deps = vec![local_target(self.gate.wire_access_index(self.copy))];
-        for i in 0..self.gate.vec_size() {
-            deps.push(local_target(self.gate.wire_list_item(i, self.copy)));
-        }
-        deps
+        // let local_target = |input| Target::wire(self.gate_index, input);
+        //
+        // let mut deps = vec![local_target(self.gate.wire_access_index(self.copy))];
+        // for i in 0..self.gate.vec_size() {
+        //     deps.push(local_target(self.gate.wire_list_item(i, self.copy)));
+        // }
+        // deps
+        todo!()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
-        };
-
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
-        let mut set_local_wire = |input, value| out_buffer.set_wire(local_wire(input), value);
-
-        let copy = self.copy;
-        let vec_size = self.gate.vec_size();
-
-        let access_index_f = get_local_wire(self.gate.wire_access_index(copy));
-        let access_index = access_index_f.to_canonical_u64() as usize;
-        debug_assert!(
-            access_index < vec_size,
-            "Access index {} is larger than the vector size {}",
-            access_index,
-            vec_size
-        );
-
-        set_local_wire(
-            self.gate.wire_claimed_element(copy),
-            get_local_wire(self.gate.wire_list_item(access_index, copy)),
-        );
-
-        for i in 0..self.gate.bits {
-            let bit = F::from_bool(((access_index >> i) & 1) != 0);
-            set_local_wire(self.gate.wire_bit(i, copy), bit);
-        }
+        // let local_wire = |input| Wire {
+        //     gate: self.gate_index,
+        //     input,
+        // };
+        //
+        // let get_local_wire = |input| witness.get_wire(local_wire(input));
+        // let mut set_local_wire = |input, value| out_buffer.set_wire(local_wire(input), value);
+        //
+        // let copy = self.copy;
+        // let vec_size = self.gate.vec_size();
+        //
+        // let access_index_f = get_local_wire(self.gate.wire_access_index(copy));
+        // let access_index = access_index_f.to_canonical_u64() as usize;
+        // debug_assert!(
+        //     access_index < vec_size,
+        //     "Access index {} is larger than the vector size {}",
+        //     access_index,
+        //     vec_size
+        // );
+        //
+        // set_local_wire(
+        //     self.gate.wire_claimed_element(copy),
+        //     get_local_wire(self.gate.wire_list_item(access_index, copy)),
+        // );
+        //
+        // for i in 0..self.gate.bits {
+        //     let bit = F::from_bool(((access_index >> i) & 1) != 0);
+        //     set_local_wire(self.gate.wire_bit(i, copy), bit);
+        // }
+        todo!()
     }
 }
 

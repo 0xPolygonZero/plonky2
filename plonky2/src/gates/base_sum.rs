@@ -155,32 +155,34 @@ pub struct BaseSplitGenerator<const B: usize> {
 
 impl<F: RichField, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
     fn dependencies(&self) -> Vec<Target> {
-        vec![Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM)]
+        // vec![Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM)]
+        todo!()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let sum_value = witness
-            .get_target(Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM))
-            .to_canonical_u64() as usize;
-        debug_assert_eq!(
-            (0..self.num_limbs).fold(sum_value, |acc, _| acc / B),
-            0,
-            "Integer too large to fit in given number of limbs"
-        );
-
-        let limbs = (BaseSumGate::<B>::START_LIMBS..BaseSumGate::<B>::START_LIMBS + self.num_limbs)
-            .map(|i| Target::wire(self.gate_index, i));
-        let limbs_value = (0..self.num_limbs)
-            .scan(sum_value, |acc, _| {
-                let tmp = *acc % B;
-                *acc /= B;
-                Some(F::from_canonical_usize(tmp))
-            })
-            .collect::<Vec<_>>();
-
-        for (b, b_value) in limbs.zip(limbs_value) {
-            out_buffer.set_target(b, b_value);
-        }
+        // let sum_value = witness
+        //     .get_target(Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM))
+        //     .to_canonical_u64() as usize;
+        // debug_assert_eq!(
+        //     (0..self.num_limbs).fold(sum_value, |acc, _| acc / B),
+        //     0,
+        //     "Integer too large to fit in given number of limbs"
+        // );
+        //
+        // let limbs = (BaseSumGate::<B>::START_LIMBS..BaseSumGate::<B>::START_LIMBS + self.num_limbs)
+        //     .map(|i| Target::wire(self.gate_index, i));
+        // let limbs_value = (0..self.num_limbs)
+        //     .scan(sum_value, |acc, _| {
+        //         let tmp = *acc % B;
+        //         *acc /= B;
+        //         Some(F::from_canonical_usize(tmp))
+        //     })
+        //     .collect::<Vec<_>>();
+        //
+        // for (b, b_value) in limbs.zip(limbs_value) {
+        //     out_buffer.set_target(b, b_value);
+        // }
+        todo!()
     }
 }
 

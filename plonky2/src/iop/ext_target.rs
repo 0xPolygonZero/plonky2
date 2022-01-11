@@ -53,8 +53,9 @@ impl<const D: usize> ExtensionTarget<D> {
     }
 
     pub fn from_range(gate: usize, range: Range<usize>) -> Self {
-        debug_assert_eq!(range.end - range.start, D);
-        Target::wires_from_range(gate, range).try_into().unwrap()
+        // debug_assert_eq!(range.end - range.start, D);
+        // Target::wires_from_range(gate, range).try_into().unwrap()
+        todo!()
     }
 }
 

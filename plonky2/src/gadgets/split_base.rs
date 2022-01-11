@@ -15,12 +15,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Split the given element into a list of targets, where each one represents a
     /// base-B limb of the element, with little-endian ordering.
     pub fn split_le_base<const B: usize>(&mut self, x: Target, num_limbs: usize) -> Vec<Target> {
-        let gate_type = BaseSumGate::<B>::new(num_limbs);
-        let gate = self.add_gate(gate_type, vec![]);
-        let sum = Target::wire(gate, BaseSumGate::<B>::WIRE_SUM);
-        self.connect(x, sum);
-
-        Target::wires_from_range(gate, gate_type.limbs())
+        // let gate_type = BaseSumGate::<B>::new(num_limbs);
+        // let gate = self.add_gate(gate_type, vec![]);
+        // let sum = Target::wire(gate, BaseSumGate::<B>::WIRE_SUM);
+        // self.connect(x, sum);
+        //
+        // Target::wires_from_range(gate, gate_type.limbs())
+        todo!()
     }
 
     /// Asserts that `x`'s big-endian bit representation has at least `leading_zeros` leading zeros.
@@ -31,46 +32,47 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Takes an iterator of bits `(b_i)` and returns `sum b_i * 2^i`, i.e.,
     /// the number with little-endian bit representation given by `bits`.
     pub(crate) fn le_sum(&mut self, bits: impl Iterator<Item = impl Borrow<BoolTarget>>) -> Target {
-        let bits = bits.map(|b| *b.borrow()).collect_vec();
-        let num_bits = bits.len();
-        if num_bits == 0 {
-            return self.zero();
-        }
-
-        // Check if it's cheaper to just do this with arithmetic operations.
-        let arithmetic_ops = num_bits - 1;
-        if arithmetic_ops <= self.num_base_arithmetic_ops_per_gate() {
-            let two = self.two();
-            let mut rev_bits = bits.iter().rev();
-            let mut sum = rev_bits.next().unwrap().target;
-            for &bit in rev_bits {
-                sum = self.mul_add(two, sum, bit.target);
-            }
-            return sum;
-        }
-
-        debug_assert!(
-            BaseSumGate::<2>::START_LIMBS + num_bits <= self.config.num_routed_wires,
-            "Not enough routed wires."
-        );
-        let gate_type = BaseSumGate::<2>::new_from_config::<F>(&self.config);
-        let gate_index = self.add_gate(gate_type, vec![]);
-        for (limb, wire) in bits
-            .iter()
-            .zip(BaseSumGate::<2>::START_LIMBS..BaseSumGate::<2>::START_LIMBS + num_bits)
-        {
-            self.connect(limb.target, Target::wire(gate_index, wire));
-        }
-        for l in gate_type.limbs().skip(num_bits) {
-            self.assert_zero(Target::wire(gate_index, l));
-        }
-
-        self.add_simple_generator(BaseSumGenerator::<2> {
-            gate_index,
-            limbs: bits,
-        });
-
-        Target::wire(gate_index, BaseSumGate::<2>::WIRE_SUM)
+        // let bits = bits.map(|b| *b.borrow()).collect_vec();
+        // let num_bits = bits.len();
+        // if num_bits == 0 {
+        //     return self.zero();
+        // }
+        //
+        // // Check if it's cheaper to just do this with arithmetic operations.
+        // let arithmetic_ops = num_bits - 1;
+        // if arithmetic_ops <= self.num_base_arithmetic_ops_per_gate() {
+        //     let two = self.two();
+        //     let mut rev_bits = bits.iter().rev();
+        //     let mut sum = rev_bits.next().unwrap().target;
+        //     for &bit in rev_bits {
+        //         sum = self.mul_add(two, sum, bit.target);
+        //     }
+        //     return sum;
+        // }
+        //
+        // debug_assert!(
+        //     BaseSumGate::<2>::START_LIMBS + num_bits <= self.config.num_routed_wires,
+        //     "Not enough routed wires."
+        // );
+        // let gate_type = BaseSumGate::<2>::new_from_config::<F>(&self.config);
+        // let gate_index = self.add_gate(gate_type, vec![]);
+        // for (limb, wire) in bits
+        //     .iter()
+        //     .zip(BaseSumGate::<2>::START_LIMBS..BaseSumGate::<2>::START_LIMBS + num_bits)
+        // {
+        //     self.connect(limb.target, Target::wire(gate_index, wire));
+        // }
+        // for l in gate_type.limbs().skip(num_bits) {
+        //     self.assert_zero(Target::wire(gate_index, l));
+        // }
+        //
+        // self.add_simple_generator(BaseSumGenerator::<2> {
+        //     gate_index,
+        //     limbs: bits,
+        // });
+        //
+        // Target::wire(gate_index, BaseSumGate::<2>::WIRE_SUM)
+        todo!()
     }
 }
 
@@ -86,19 +88,20 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let sum = self
-            .limbs
-            .iter()
-            .map(|&t| witness.get_bool_target(t))
-            .rev()
-            .fold(F::ZERO, |acc, limb| {
-                acc * F::from_canonical_usize(B) + F::from_bool(limb)
-            });
-
-        out_buffer.set_target(
-            Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM),
-            sum,
-        );
+        // let sum = self
+        //     .limbs
+        //     .iter()
+        //     .map(|&t| witness.get_bool_target(t))
+        //     .rev()
+        //     .fold(F::ZERO, |acc, limb| {
+        //         acc * F::from_canonical_usize(B) + F::from_bool(limb)
+        //     });
+        //
+        // out_buffer.set_target(
+        //     Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM),
+        //     sum,
+        // );
+        todo!()
     }
 }
 

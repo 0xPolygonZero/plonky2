@@ -405,93 +405,95 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
     for PoseidonGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        (0..SPONGE_WIDTH)
-            .map(|i| PoseidonGate::<F, D>::wire_input(i))
-            .chain(Some(PoseidonGate::<F, D>::WIRE_SWAP))
-            .map(|input| Target::wire(self.gate_index, input))
-            .collect()
+        // (0..SPONGE_WIDTH)
+        //     .map(|i| PoseidonGate::<F, D>::wire_input(i))
+        //     .chain(Some(PoseidonGate::<F, D>::WIRE_SWAP))
+        //     .map(|input| Target::wire(self.gate_index, input))
+        //     .collect()
+        todo!()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
-        };
-
-        let mut state = (0..SPONGE_WIDTH)
-            .map(|i| witness.get_wire(local_wire(PoseidonGate::<F, D>::wire_input(i))))
-            .collect::<Vec<_>>();
-
-        let swap_value = witness.get_wire(local_wire(PoseidonGate::<F, D>::WIRE_SWAP));
-        debug_assert!(swap_value == F::ZERO || swap_value == F::ONE);
-
-        for i in 0..4 {
-            let delta_i = swap_value * (state[i + 4] - state[i]);
-            out_buffer.set_wire(local_wire(PoseidonGate::<F, D>::wire_delta(i)), delta_i);
-        }
-
-        if swap_value == F::ONE {
-            for i in 0..4 {
-                state.swap(i, 4 + i);
-            }
-        }
-
-        let mut state: [F; SPONGE_WIDTH] = state.try_into().unwrap();
-        let mut round_ctr = 0;
-
-        for r in 0..poseidon::HALF_N_FULL_ROUNDS {
-            <F as Poseidon>::constant_layer_field(&mut state, round_ctr);
-            if r != 0 {
-                for i in 0..SPONGE_WIDTH {
-                    out_buffer.set_wire(
-                        local_wire(PoseidonGate::<F, D>::wire_full_sbox_0(r, i)),
-                        state[i],
-                    );
-                }
-            }
-            <F as Poseidon>::sbox_layer_field(&mut state);
-            state = <F as Poseidon>::mds_layer_field(&state);
-            round_ctr += 1;
-        }
-
-        <F as Poseidon>::partial_first_constant_layer(&mut state);
-        state = <F as Poseidon>::mds_partial_layer_init(&state);
-        for r in 0..(poseidon::N_PARTIAL_ROUNDS - 1) {
-            out_buffer.set_wire(
-                local_wire(PoseidonGate::<F, D>::wire_partial_sbox(r)),
-                state[0],
-            );
-            state[0] = <F as Poseidon>::sbox_monomial(state[0]);
-            state[0] += F::from_canonical_u64(<F as Poseidon>::FAST_PARTIAL_ROUND_CONSTANTS[r]);
-            state = <F as Poseidon>::mds_partial_layer_fast_field(&state, r);
-        }
-        out_buffer.set_wire(
-            local_wire(PoseidonGate::<F, D>::wire_partial_sbox(
-                poseidon::N_PARTIAL_ROUNDS - 1,
-            )),
-            state[0],
-        );
-        state[0] = <F as Poseidon>::sbox_monomial(state[0]);
-        state =
-            <F as Poseidon>::mds_partial_layer_fast_field(&state, poseidon::N_PARTIAL_ROUNDS - 1);
-        round_ctr += poseidon::N_PARTIAL_ROUNDS;
-
-        for r in 0..poseidon::HALF_N_FULL_ROUNDS {
-            <F as Poseidon>::constant_layer_field(&mut state, round_ctr);
-            for i in 0..SPONGE_WIDTH {
-                out_buffer.set_wire(
-                    local_wire(PoseidonGate::<F, D>::wire_full_sbox_1(r, i)),
-                    state[i],
-                );
-            }
-            <F as Poseidon>::sbox_layer_field(&mut state);
-            state = <F as Poseidon>::mds_layer_field(&state);
-            round_ctr += 1;
-        }
-
-        for i in 0..SPONGE_WIDTH {
-            out_buffer.set_wire(local_wire(PoseidonGate::<F, D>::wire_output(i)), state[i]);
-        }
+        // let local_wire = |input| Wire {
+        //     gate: self.gate_index,
+        //     input,
+        // };
+        //
+        // let mut state = (0..SPONGE_WIDTH)
+        //     .map(|i| witness.get_wire(local_wire(PoseidonGate::<F, D>::wire_input(i))))
+        //     .collect::<Vec<_>>();
+        //
+        // let swap_value = witness.get_wire(local_wire(PoseidonGate::<F, D>::WIRE_SWAP));
+        // debug_assert!(swap_value == F::ZERO || swap_value == F::ONE);
+        //
+        // for i in 0..4 {
+        //     let delta_i = swap_value * (state[i + 4] - state[i]);
+        //     out_buffer.set_wire(local_wire(PoseidonGate::<F, D>::wire_delta(i)), delta_i);
+        // }
+        //
+        // if swap_value == F::ONE {
+        //     for i in 0..4 {
+        //         state.swap(i, 4 + i);
+        //     }
+        // }
+        //
+        // let mut state: [F; SPONGE_WIDTH] = state.try_into().unwrap();
+        // let mut round_ctr = 0;
+        //
+        // for r in 0..poseidon::HALF_N_FULL_ROUNDS {
+        //     <F as Poseidon>::constant_layer_field(&mut state, round_ctr);
+        //     if r != 0 {
+        //         for i in 0..SPONGE_WIDTH {
+        //             out_buffer.set_wire(
+        //                 local_wire(PoseidonGate::<F, D>::wire_full_sbox_0(r, i)),
+        //                 state[i],
+        //             );
+        //         }
+        //     }
+        //     <F as Poseidon>::sbox_layer_field(&mut state);
+        //     state = <F as Poseidon>::mds_layer_field(&state);
+        //     round_ctr += 1;
+        // }
+        //
+        // <F as Poseidon>::partial_first_constant_layer(&mut state);
+        // state = <F as Poseidon>::mds_partial_layer_init(&state);
+        // for r in 0..(poseidon::N_PARTIAL_ROUNDS - 1) {
+        //     out_buffer.set_wire(
+        //         local_wire(PoseidonGate::<F, D>::wire_partial_sbox(r)),
+        //         state[0],
+        //     );
+        //     state[0] = <F as Poseidon>::sbox_monomial(state[0]);
+        //     state[0] += F::from_canonical_u64(<F as Poseidon>::FAST_PARTIAL_ROUND_CONSTANTS[r]);
+        //     state = <F as Poseidon>::mds_partial_layer_fast_field(&state, r);
+        // }
+        // out_buffer.set_wire(
+        //     local_wire(PoseidonGate::<F, D>::wire_partial_sbox(
+        //         poseidon::N_PARTIAL_ROUNDS - 1,
+        //     )),
+        //     state[0],
+        // );
+        // state[0] = <F as Poseidon>::sbox_monomial(state[0]);
+        // state =
+        //     <F as Poseidon>::mds_partial_layer_fast_field(&state, poseidon::N_PARTIAL_ROUNDS - 1);
+        // round_ctr += poseidon::N_PARTIAL_ROUNDS;
+        //
+        // for r in 0..poseidon::HALF_N_FULL_ROUNDS {
+        //     <F as Poseidon>::constant_layer_field(&mut state, round_ctr);
+        //     for i in 0..SPONGE_WIDTH {
+        //         out_buffer.set_wire(
+        //             local_wire(PoseidonGate::<F, D>::wire_full_sbox_1(r, i)),
+        //             state[i],
+        //         );
+        //     }
+        //     <F as Poseidon>::sbox_layer_field(&mut state);
+        //     state = <F as Poseidon>::mds_layer_field(&state);
+        //     round_ctr += 1;
+        // }
+        //
+        // for i in 0..SPONGE_WIDTH {
+        //     out_buffer.set_wire(local_wire(PoseidonGate::<F, D>::wire_output(i)), state[i]);
+        // }
+        todo!()
     }
 }
 

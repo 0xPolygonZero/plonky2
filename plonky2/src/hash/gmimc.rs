@@ -125,26 +125,27 @@ impl<F: RichField> AlgebraicHasher<F> for GMiMCHash {
     where
         F: RichField + Extendable<D>,
     {
-        let gate_type = GMiMCGate::<F, D, SPONGE_WIDTH>::new();
-        let gate = builder.add_gate(gate_type, vec![]);
-
-        let swap_wire = GMiMCGate::<F, D, SPONGE_WIDTH>::WIRE_SWAP;
-        let swap_wire = Target::wire(gate, swap_wire);
-        builder.connect(swap.target, swap_wire);
-
-        // Route input wires.
-        for i in 0..SPONGE_WIDTH {
-            let in_wire = GMiMCGate::<F, D, SPONGE_WIDTH>::wire_input(i);
-            let in_wire = Target::wire(gate, in_wire);
-            builder.connect(inputs[i], in_wire);
-        }
-
-        // Collect output wires.
-        (0..SPONGE_WIDTH)
-            .map(|i| Target::wire(gate, GMiMCGate::<F, D, SPONGE_WIDTH>::wire_output(i)))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap()
+        // let gate_type = GMiMCGate::<F, D, SPONGE_WIDTH>::new();
+        // let gate = builder.add_gate(gate_type, vec![]);
+        //
+        // let swap_wire = GMiMCGate::<F, D, SPONGE_WIDTH>::WIRE_SWAP;
+        // let swap_wire = Target::wire(gate, swap_wire);
+        // builder.connect(swap.target, swap_wire);
+        //
+        // // Route input wires.
+        // for i in 0..SPONGE_WIDTH {
+        //     let in_wire = GMiMCGate::<F, D, SPONGE_WIDTH>::wire_input(i);
+        //     let in_wire = Target::wire(gate, in_wire);
+        //     builder.connect(inputs[i], in_wire);
+        // }
+        //
+        // // Collect output wires.
+        // (0..SPONGE_WIDTH)
+        //     .map(|i| Target::wire(gate, GMiMCGate::<F, D, SPONGE_WIDTH>::wire_output(i)))
+        //     .collect::<Vec<_>>()
+        //     .try_into()
+        //     .unwrap()
+        todo!()
     }
 }
 

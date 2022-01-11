@@ -206,88 +206,92 @@ struct SwitchGenerator<F: RichField + Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
     fn in_out_dependencies(&self) -> Vec<Target> {
-        let local_target = |input| Target::wire(self.gate_index, input);
-
-        let mut deps = Vec::new();
-        for e in 0..self.gate.chunk_size {
-            deps.push(local_target(self.gate.wire_first_input(self.copy, e)));
-            deps.push(local_target(self.gate.wire_second_input(self.copy, e)));
-            deps.push(local_target(self.gate.wire_first_output(self.copy, e)));
-            deps.push(local_target(self.gate.wire_second_output(self.copy, e)));
-        }
-
-        deps
+        // let local_target = |input| Target::wire(self.gate_index, input);
+        //
+        // let mut deps = Vec::new();
+        // for e in 0..self.gate.chunk_size {
+        //     deps.push(local_target(self.gate.wire_first_input(self.copy, e)));
+        //     deps.push(local_target(self.gate.wire_second_input(self.copy, e)));
+        //     deps.push(local_target(self.gate.wire_first_output(self.copy, e)));
+        //     deps.push(local_target(self.gate.wire_second_output(self.copy, e)));
+        // }
+        //
+        // deps
+        todo!()
     }
 
     fn in_switch_dependencies(&self) -> Vec<Target> {
-        let local_target = |input| Target::wire(self.gate_index, input);
-
-        let mut deps = Vec::new();
-        for e in 0..self.gate.chunk_size {
-            deps.push(local_target(self.gate.wire_first_input(self.copy, e)));
-            deps.push(local_target(self.gate.wire_second_input(self.copy, e)));
-            deps.push(local_target(self.gate.wire_switch_bool(self.copy)));
-        }
-
-        deps
+        // let local_target = |input| Target::wire(self.gate_index, input);
+        //
+        // let mut deps = Vec::new();
+        // for e in 0..self.gate.chunk_size {
+        //     deps.push(local_target(self.gate.wire_first_input(self.copy, e)));
+        //     deps.push(local_target(self.gate.wire_second_input(self.copy, e)));
+        //     deps.push(local_target(self.gate.wire_switch_bool(self.copy)));
+        // }
+        //
+        // deps
+        todo!()
     }
 
     fn run_in_out(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
-        };
-
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
-
-        let switch_bool_wire = local_wire(self.gate.wire_switch_bool(self.copy));
-
-        let mut first_inputs = Vec::new();
-        let mut second_inputs = Vec::new();
-        let mut first_outputs = Vec::new();
-        let mut second_outputs = Vec::new();
-        for e in 0..self.gate.chunk_size {
-            first_inputs.push(get_local_wire(self.gate.wire_first_input(self.copy, e)));
-            second_inputs.push(get_local_wire(self.gate.wire_second_input(self.copy, e)));
-            first_outputs.push(get_local_wire(self.gate.wire_first_output(self.copy, e)));
-            second_outputs.push(get_local_wire(self.gate.wire_second_output(self.copy, e)));
-        }
-
-        if first_outputs == first_inputs && second_outputs == second_inputs {
-            out_buffer.set_wire(switch_bool_wire, F::ZERO);
-        } else if first_outputs == second_inputs && second_outputs == first_inputs {
-            out_buffer.set_wire(switch_bool_wire, F::ONE);
-        } else {
-            panic!("No permutation from given inputs to given outputs");
-        }
+        // let local_wire = |input| Wire {
+        //     gate: self.gate_index,
+        //     input,
+        // };
+        //
+        // let get_local_wire = |input| witness.get_wire(local_wire(input));
+        //
+        // let switch_bool_wire = local_wire(self.gate.wire_switch_bool(self.copy));
+        //
+        // let mut first_inputs = Vec::new();
+        // let mut second_inputs = Vec::new();
+        // let mut first_outputs = Vec::new();
+        // let mut second_outputs = Vec::new();
+        // for e in 0..self.gate.chunk_size {
+        //     first_inputs.push(get_local_wire(self.gate.wire_first_input(self.copy, e)));
+        //     second_inputs.push(get_local_wire(self.gate.wire_second_input(self.copy, e)));
+        //     first_outputs.push(get_local_wire(self.gate.wire_first_output(self.copy, e)));
+        //     second_outputs.push(get_local_wire(self.gate.wire_second_output(self.copy, e)));
+        // }
+        //
+        // if first_outputs == first_inputs && second_outputs == second_inputs {
+        //     out_buffer.set_wire(switch_bool_wire, F::ZERO);
+        // } else if first_outputs == second_inputs && second_outputs == first_inputs {
+        //     out_buffer.set_wire(switch_bool_wire, F::ONE);
+        // } else {
+        //     panic!("No permutation from given inputs to given outputs");
+        // }
+        todo!()
     }
 
     fn run_in_switch(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
-        };
-
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
-
-        let switch_bool = get_local_wire(self.gate.wire_switch_bool(self.copy));
-        for e in 0..self.gate.chunk_size {
-            let first_output_wire = local_wire(self.gate.wire_first_output(self.copy, e));
-            let second_output_wire = local_wire(self.gate.wire_second_output(self.copy, e));
-            let first_input = get_local_wire(self.gate.wire_first_input(self.copy, e));
-            let second_input = get_local_wire(self.gate.wire_second_input(self.copy, e));
-
-            let (first_output, second_output) = if switch_bool == F::ZERO {
-                (first_input, second_input)
-            } else if switch_bool == F::ONE {
-                (second_input, first_input)
-            } else {
-                panic!("Invalid switch bool value");
-            };
-
-            out_buffer.set_wire(first_output_wire, first_output);
-            out_buffer.set_wire(second_output_wire, second_output);
-        }
+        // let local_wire = |input| Wire {
+        //     gate: self.gate_index,
+        //     input,
+        // };
+        //
+        // let get_local_wire = |input| witness.get_wire(local_wire(input));
+        //
+        // let switch_bool = get_local_wire(self.gate.wire_switch_bool(self.copy));
+        // for e in 0..self.gate.chunk_size {
+        //     // let first_output_wire = local_wire(self.gate.wire_first_output(self.copy, e));
+        //     // let second_output_wire = local_wire(self.gate.wire_second_output(self.copy, e));
+        //     // let first_input = get_local_wire(self.gate.wire_first_input(self.copy, e));
+        //     // let second_input = get_local_wire(self.gate.wire_second_input(self.copy, e));
+        //     //
+        //     // let (first_output, second_output) = if switch_bool == F::ZERO {
+        //     //     (first_input, second_input)
+        //     // } else if switch_bool == F::ONE {
+        //     //     (second_input, first_input)
+        //     // } else {
+        //     //     panic!("Invalid switch bool value");
+        //     // };
+        //     //
+        //     // out_buffer.set_wire(first_output_wire, first_output);
+        //     // out_buffer.set_wire(second_output_wire, second_output);
+        // }
+        todo!()
     }
 }
 

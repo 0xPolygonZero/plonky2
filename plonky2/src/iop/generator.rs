@@ -133,10 +133,6 @@ impl<F: Field> GeneratedValues<F> {
         Vec::new().into()
     }
 
-    pub fn singleton_wire(wire: Wire, value: F) -> Self {
-        Self::singleton_target(Target::Wire(wire), value)
-    }
-
     pub fn singleton_target(target: Target, value: F) -> Self {
         vec![(target, value)].into()
     }
@@ -197,28 +193,6 @@ impl<F: Field> GeneratedValues<F> {
         (0..D).for_each(|i| {
             self.set_target(et.0[i], limbs[i]);
         });
-    }
-
-    pub fn set_wire(&mut self, wire: Wire, value: F) {
-        self.set_target(Target::Wire(wire), value)
-    }
-
-    pub fn set_wires<W>(&mut self, wires: W, values: &[F])
-    where
-        W: IntoIterator<Item = Wire>,
-    {
-        // If we used itertools, we could use zip_eq for extra safety.
-        for (wire, &value) in wires.into_iter().zip(values) {
-            self.set_wire(wire, value);
-        }
-    }
-
-    pub fn set_ext_wires<W, const D: usize>(&mut self, wires: W, value: F::Extension)
-    where
-        F: RichField + Extendable<D>,
-        W: IntoIterator<Item = Wire>,
-    {
-        self.set_wires(wires, &value.to_basefield_array());
     }
 }
 

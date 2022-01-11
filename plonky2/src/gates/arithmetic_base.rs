@@ -212,30 +212,32 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for ArithmeticBaseGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        [
-            ArithmeticGate::wire_ith_multiplicand_0(self.i),
-            ArithmeticGate::wire_ith_multiplicand_1(self.i),
-            ArithmeticGate::wire_ith_addend(self.i),
-        ]
-        .iter()
-        .map(|&i| Target::wire(self.gate_index, i))
-        .collect()
+        // [
+        //     ArithmeticGate::wire_ith_multiplicand_0(self.i),
+        //     ArithmeticGate::wire_ith_multiplicand_1(self.i),
+        //     ArithmeticGate::wire_ith_addend(self.i),
+        // ]
+        // .iter()
+        // .map(|&i| Target::wire(self.gate_index, i))
+        // .collect()
+        todo!()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let get_wire =
-            |wire: usize| -> F { witness.get_target(Target::wire(self.gate_index, wire)) };
-
-        let multiplicand_0 = get_wire(ArithmeticGate::wire_ith_multiplicand_0(self.i));
-        let multiplicand_1 = get_wire(ArithmeticGate::wire_ith_multiplicand_1(self.i));
-        let addend = get_wire(ArithmeticGate::wire_ith_addend(self.i));
-
-        let output_target = Target::wire(self.gate_index, ArithmeticGate::wire_ith_output(self.i));
-
-        let computed_output =
-            multiplicand_0 * multiplicand_1 * self.const_0 + addend * self.const_1;
-
-        out_buffer.set_target(output_target, computed_output)
+        // let get_wire =
+        //     |wire: usize| -> F { witness.get_target(Target::wire(self.gate_index, wire)) };
+        //
+        // let multiplicand_0 = get_wire(ArithmeticGate::wire_ith_multiplicand_0(self.i));
+        // let multiplicand_1 = get_wire(ArithmeticGate::wire_ith_multiplicand_1(self.i));
+        // let addend = get_wire(ArithmeticGate::wire_ith_addend(self.i));
+        //
+        // let output_target = Target::wire(self.gate_index, ArithmeticGate::wire_ith_output(self.i));
+        //
+        // let computed_output =
+        //     multiplicand_0 * multiplicand_1 * self.const_0 + addend * self.const_1;
+        //
+        // out_buffer.set_target(output_target, computed_output)
+        todo!()
     }
 }
 

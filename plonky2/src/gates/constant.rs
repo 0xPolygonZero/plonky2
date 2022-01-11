@@ -117,11 +117,12 @@ impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
 
     fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         for (con, out) in self.gate.consts_inputs().zip(self.gate.wires_outputs()) {
-            let wire = Wire {
-                gate: self.gate_index,
-                input: out,
-            };
-            out_buffer.set_wire(wire, self.constants[con]);
+            // let wire = Wire {
+            //     gate: self.gate_index,
+            //     input: out,
+            // };
+            // out_buffer.set_wire(wire, self.constants[con]);
+            todo!()
         }
     }
 }

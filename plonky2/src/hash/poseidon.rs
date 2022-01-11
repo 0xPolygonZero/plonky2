@@ -651,26 +651,27 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
     where
         F: RichField + Extendable<D>,
     {
-        let gate_type = PoseidonGate::<F, D>::new();
-        let gate = builder.add_gate(gate_type, vec![]);
-
-        let swap_wire = PoseidonGate::<F, D>::WIRE_SWAP;
-        let swap_wire = Target::wire(gate, swap_wire);
-        builder.connect(swap.target, swap_wire);
-
-        // Route input wires.
-        for i in 0..SPONGE_WIDTH {
-            let in_wire = PoseidonGate::<F, D>::wire_input(i);
-            let in_wire = Target::wire(gate, in_wire);
-            builder.connect(inputs[i], in_wire);
-        }
-
-        // Collect output wires.
-        (0..SPONGE_WIDTH)
-            .map(|i| Target::wire(gate, PoseidonGate::<F, D>::wire_output(i)))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap()
+        // let gate_type = PoseidonGate::<F, D>::new();
+        // let gate = builder.add_gate(gate_type, vec![]);
+        //
+        // let swap_wire = PoseidonGate::<F, D>::WIRE_SWAP;
+        // let swap_wire = Target::wire(gate, swap_wire);
+        // builder.connect(swap.target, swap_wire);
+        //
+        // // Route input wires.
+        // for i in 0..SPONGE_WIDTH {
+        //     let in_wire = PoseidonGate::<F, D>::wire_input(i);
+        //     let in_wire = Target::wire(gate, in_wire);
+        //     builder.connect(inputs[i], in_wire);
+        // }
+        //
+        // // Collect output wires.
+        // (0..SPONGE_WIDTH)
+        //     .map(|i| Target::wire(gate, PoseidonGate::<F, D>::wire_output(i)))
+        //     .collect::<Vec<_>>()
+        //     .try_into()
+        //     .unwrap()
+        todo!()
     }
 }
 
