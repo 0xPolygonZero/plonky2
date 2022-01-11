@@ -65,7 +65,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
     marked_targets: Vec<MarkedTargets<D>>,
 
-    operations: HashSet<Operation<F, D>>,
+    operations: HashSet<Box<dyn Operation<F, D>>>,
 
     /// Generators used to generate the witness.
     generators: Vec<Box<dyn WitnessGenerator<F>>>,
@@ -169,7 +169,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Adds an operartion to the builder.
-    pub fn add_operation(&mut self, op: Operation<F, D>) {
+    pub fn add_operation(&mut self, op: impl Operation<F, D>) {
         self.operations.insert(op);
     }
 

@@ -22,7 +22,7 @@ use crate::plonk::vars::{
 };
 
 /// A gate for raising a value to a power.
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub(crate) struct ExponentiationGate<F: RichField + Extendable<D>, const D: usize> {
     pub num_power_bits: usize,
     pub _phantom: PhantomData<F>,
@@ -214,60 +214,6 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
         }
 
         yield_constr.one(output - intermediate_values[self.num_power_bits - 1]);
-    }
-}
-
-#[derive(Debug)]
-pub struct ExponentiationGenerator<F: RichField + Extendable<D>, const D: usize> {
-    pub targets: Vec<Target>,
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
-    for ExponentiationGenerator<F, D>
-{
-    fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| Target::wire(self.gate_index, input);
-
-        let mut deps = Vec::with_capacity(self.gate.num_power_bits + 1);
-        deps.push(local_target(self.gate.wire_base()));
-        for i in 0..self.gate.num_power_bits {
-            deps.push(local_target(self.gate.wire_power_bit(i)));
-        }
-        deps
-    }
-
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
-        };
-
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
-
-        let num_power_bits = self.gate.num_power_bits;
-        let base = get_local_wire(self.gate.wire_base());
-
-        let power_bits = (0..num_power_bits)
-            .map(|i| get_local_wire(self.gate.wire_power_bit(i)))
-            .collect::<Vec<_>>();
-        let mut intermediate_values = Vec::new();
-
-        let mut current_intermediate_value = F::ONE;
-        for i in 0..num_power_bits {
-            if power_bits[num_power_bits - i - 1] == F::ONE {
-                current_intermediate_value *= base;
-            }
-            intermediate_values.push(current_intermediate_value);
-            current_intermediate_value *= current_intermediate_value;
-        }
-
-        for i in 0..num_power_bits {
-            let intermediate_value_wire = local_wire(self.gate.wire_intermediate_value(i));
-            out_buffer.set_wire(intermediate_value_wire, intermediate_values[i]);
-        }
-
-        let output_wire = local_wire(self.gate.wire_output());
-        out_buffer.set_wire(output_wire, intermediate_values[num_power_bits - 1]);
     }
 }
 

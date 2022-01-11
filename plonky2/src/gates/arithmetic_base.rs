@@ -155,16 +155,6 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
     }
 }
 
-fn base_arithmetic_operation<F: RichField + Extendable<D>, const D: usize>() -> Operation<F, D> {
-    Operation {
-        inputs: vec![],
-        outputs: vec![],
-        generators: vec![],
-        gate: GateRef(),
-        constants: vec![],
-    }
-}
-
 // /// Represents a base arithmetic operation in the circuit. Used to memoize results.
 // #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 // pub(crate) struct BaseArithmeticOperation<F: PrimeField> {

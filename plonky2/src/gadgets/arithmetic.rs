@@ -1,15 +1,18 @@
 use std::borrow::Borrow;
+use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::PrimeField;
 
 use crate::gates::arithmetic_base::ArithmeticGate;
-use crate::gates::exponentiation::{ExponentiationGate, ExponentiationGenerator};
+use crate::gates::exponentiation::ExponentiationGate;
 use crate::gates::gate::GateRef;
 use crate::hash::hash_types::RichField;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::operation::Operation;
 use crate::iop::target::{BoolTarget, Target};
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -183,18 +186,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         exponent_bits: impl IntoIterator<Item = impl Borrow<BoolTarget>>,
     ) -> Target {
         let mut targets: Vec<Target> = vec![base];
-        targets.extend(exponent_bits.into_iter().map(|b| *b.borrow().target));
-        let output = self.add_target();
-        targets.push(output);
+        let bits = exponent_bits.into_iter().map(|b| *b.borrow()).collect();
+        let result = self.add_target();
         let gate = ExponentiationGate::new_from_config(&self.config);
-        let exponentiation_operation = Operation {
-            targets: targets.clone(),
-            generators: Box::new(ExponentiationGenerator { targets }),
-            gate: GateRef(Arc::new(ExponentiationGate)),
-            constants: vec![],
+        let exponentiation_operation = ExponentiationOperation {
+            base,
+            bits,
+            result,
+            intermediate_values: self.add_targets(gate.num_power_bits),
+            gate,
         };
         self.add_operation(exponentiation_operation);
-        output
+        result
     }
 
     // TODO: Test
@@ -262,5 +265,67 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn inverse(&mut self, x: Target) -> Target {
         let x_ext = self.convert_to_ext(x);
         self.inverse_extension(x_ext).0[0]
+    }
+}
+
+#[derive(Debug)]
+struct ExponentiationOperation<F: RichField + Extendable<D>, const D: usize> {
+    base: Target,
+    bits: Vec<BoolTarget>,
+    result: Target,
+    intermediate_values: Vec<Target>,
+    gate: ExponentiationGate<F, D>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for ExponentiationOperation<F, D>
+{
+    fn dependencies(&self) -> Vec<Target> {
+        let mut ans = vec![self.base];
+        ans.extend(self.bits.iter().map(|b| b.target));
+        ans
+    }
+
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        let num_power_bits = self.gate.num_power_bits;
+        let base = witness.get_target(self.base);
+
+        let power_bits = self
+            .bits
+            .iter()
+            .map(|t| witness.get_target(t.target))
+            .collect::<Vec<_>>();
+        let mut intermediate_values = Vec::new();
+
+        let mut current_intermediate_value = F::ONE;
+        for i in 0..num_power_bits {
+            if power_bits[num_power_bits - i - 1] == F::ONE {
+                current_intermediate_value *= base;
+            }
+            intermediate_values.push(current_intermediate_value);
+            current_intermediate_value *= current_intermediate_value;
+        }
+
+        for i in 0..num_power_bits {
+            out_buffer.set_target(self.intermediate_values[i], intermediate_values[i]);
+        }
+
+        out_buffer.set_target(self.result, intermediate_values[num_power_bits - 1]);
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> Operation<F, D>
+    for ExponentiationOperation<F, D>
+{
+    fn targets(&self) -> Vec<Target> {
+        todo!()
+    }
+
+    fn gate(&self) -> Option<GateRef<F, D>> {
+        Some(GateRef(Arc::new(self.gate)))
+    }
+
+    fn constants(&self) -> Vec<F> {
+        todo!()
     }
 }
