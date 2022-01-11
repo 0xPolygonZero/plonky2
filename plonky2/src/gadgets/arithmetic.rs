@@ -1,11 +1,14 @@
 use std::borrow::Borrow;
+use std::sync::Arc;
 
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::PrimeField;
 
-use crate::gates::arithmetic_base::{ArithmeticGate, BaseArithmeticOperation};
-use crate::gates::exponentiation::ExponentiationGate;
+use crate::gates::arithmetic_base::ArithmeticGate;
+use crate::gates::exponentiation::{ExponentiationGate, ExponentiationGenerator};
+use crate::gates::gate::GateRef;
 use crate::hash::hash_types::RichField;
+use crate::iop::operation::Operation;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -35,59 +38,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         multiplicand_1: Target,
         addend: Target,
     ) -> Target {
-        // If we're not configured to use the base arithmetic gate, just call arithmetic_extension.
-        if !self.config.use_base_arithmetic_gate {
-            let multiplicand_0_ext = self.convert_to_ext(multiplicand_0);
-            let multiplicand_1_ext = self.convert_to_ext(multiplicand_1);
-            let addend_ext = self.convert_to_ext(addend);
-
-            return self
-                .arithmetic_extension(
-                    const_0,
-                    const_1,
-                    multiplicand_0_ext,
-                    multiplicand_1_ext,
-                    addend_ext,
-                )
-                .0[0];
-        }
-
-        // See if we can determine the result without adding an `ArithmeticGate`.
-        if let Some(result) =
-            self.arithmetic_special_cases(const_0, const_1, multiplicand_0, multiplicand_1, addend)
-        {
-            return result;
-        }
-
-        // See if we've already computed the same operation.
-        let operation = BaseArithmeticOperation {
-            const_0,
-            const_1,
-            multiplicand_0,
-            multiplicand_1,
-            addend,
-        };
-        if let Some(&result) = self.base_arithmetic_results.get(&operation) {
-            return result;
-        }
-
-        // Otherwise, we must actually perform the operation using an ArithmeticExtensionGate slot.
-        let result = self.add_base_arithmetic_operation(operation);
-        self.base_arithmetic_results.insert(operation, result);
-        result
-    }
-
-    fn add_base_arithmetic_operation(&mut self, operation: BaseArithmeticOperation<F>) -> Target {
-        let (gate, i) = self.find_base_arithmetic_gate(operation.const_0, operation.const_1);
-        let wires_multiplicand_0 = Target::wire(gate, ArithmeticGate::wire_ith_multiplicand_0(i));
-        let wires_multiplicand_1 = Target::wire(gate, ArithmeticGate::wire_ith_multiplicand_1(i));
-        let wires_addend = Target::wire(gate, ArithmeticGate::wire_ith_addend(i));
-
-        self.connect(operation.multiplicand_0, wires_multiplicand_0);
-        self.connect(operation.multiplicand_1, wires_multiplicand_1);
-        self.connect(operation.addend, wires_addend);
-
-        Target::wire(gate, ArithmeticGate::wire_ith_output(i))
+        todo!()
     }
 
     /// Checks for special cases where the value of
@@ -231,22 +182,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         base: Target,
         exponent_bits: impl IntoIterator<Item = impl Borrow<BoolTarget>>,
     ) -> Target {
-        let _false = self._false();
+        let mut targets: Vec<Target> = vec![base];
+        targets.extend(exponent_bits.into_iter().map(|b| *b.borrow().target));
+        let output = self.add_target();
+        targets.push(output);
         let gate = ExponentiationGate::new_from_config(&self.config);
-        let num_power_bits = gate.num_power_bits;
-        let mut exp_bits_vec: Vec<BoolTarget> =
-            exponent_bits.into_iter().map(|b| *b.borrow()).collect();
-        while exp_bits_vec.len() < num_power_bits {
-            exp_bits_vec.push(_false);
-        }
-        let gate_index = self.add_gate(gate.clone(), vec![]);
-
-        self.connect(base, Target::wire(gate_index, gate.wire_base()));
-        exp_bits_vec.iter().enumerate().for_each(|(i, bit)| {
-            self.connect(bit.target, Target::wire(gate_index, gate.wire_power_bit(i)));
-        });
-
-        Target::wire(gate_index, gate.wire_output())
+        let exponentiation_operation = Operation {
+            targets: targets.clone(),
+            generators: Box::new(ExponentiationGenerator { targets }),
+            gate: GateRef(Arc::new(ExponentiationGate)),
+            constants: vec![],
+        };
+        self.add_operation(exponentiation_operation);
+        output
     }
 
     // TODO: Test

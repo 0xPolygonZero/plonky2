@@ -7,15 +7,15 @@ use crate::iop::target::Target;
 use crate::iop::witness::PartitionWitness;
 use crate::plonk::circuit_data::CircuitConfig;
 
+#[derive(Debug, Clone)]
 pub struct Operation<F: RichField + Extendable<D>, const D: usize> {
-    inputs: Vec<Target>,
-    outputs: Vec<Target>,
+    pub targets: Vec<Target>,
     /// Generators used to generate the witness.
     // TODO: Do we need only one per operation?
-    generators: Vec<Box<dyn WitnessGenerator<F>>>,
+    pub generators: Box<dyn WitnessGenerator<F>>,
 
-    gate: GateRef<F, D>,
-    constants: Vec<F>,
+    pub gate: GateRef<F, D>,
+    pub constants: Vec<F>,
 }
 
 // z = builder.add(x,y)

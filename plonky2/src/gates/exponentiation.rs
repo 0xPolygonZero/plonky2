@@ -218,9 +218,8 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
 }
 
 #[derive(Debug)]
-struct ExponentiationGenerator<F: RichField + Extendable<D>, const D: usize> {
-    gate_index: usize,
-    gate: ExponentiationGate<F, D>,
+pub struct ExponentiationGenerator<F: RichField + Extendable<D>, const D: usize> {
+    pub targets: Vec<Target>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>

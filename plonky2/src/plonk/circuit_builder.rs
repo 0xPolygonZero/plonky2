@@ -135,7 +135,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// generate the final witness (a grid of wire values), these virtual targets will go away.
     pub fn add_target(&mut self) -> Target {
         let index = self.target_index;
-        self.virtual_target_index += 1;
+        self.target_index += 1;
         Target(index)
     }
 
@@ -166,6 +166,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     // TODO: Unsafe
     pub fn add_bool_target(&mut self) -> BoolTarget {
         BoolTarget::new_unsafe(self.add_target())
+    }
+
+    /// Adds an operartion to the builder.
+    pub fn add_operation(&mut self, op: Operation<F, D>) {
+        self.operations.insert(op);
     }
 
     /// Adds a gate to the circuit, and returns its index.
