@@ -7,15 +7,15 @@ use crate::iop::target::Target;
 use crate::iop::witness::PartitionWitness;
 use crate::plonk::circuit_data::CircuitConfig;
 
-pub trait Operation<F: RichField + Extendable<D>, const D: usize> {
-    fn inputs(&self) -> Vec<Target>;
-    fn advices(&self) -> Vec<Target>;
-    fn outputs(&self) -> Vec<Target>;
+pub struct Operation<F: RichField + Extendable<D>, const D: usize> {
+    inputs: Vec<Target>,
+    outputs: Vec<Target>,
     /// Generators used to generate the witness.
     // TODO: Do we need only one per operation?
-    fn run<R: FnOnce(&PartitionWitness<F>, &mut GeneratedValues<F>)>(&self) -> R;
+    generators: Vec<Box<dyn WitnessGenerator<F>>>,
 
-    fn gate_with_constants(&self, config: &CircuitConfig) -> (GateRef<F, D>, Vec<F>);
+    gate: GateRef<F, D>,
+    constants: Vec<F>,
 }
 
 // z = builder.add(x,y)

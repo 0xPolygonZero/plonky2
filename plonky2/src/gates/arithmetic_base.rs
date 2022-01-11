@@ -155,50 +155,60 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
     }
 }
 
-/// Represents a base arithmetic operation in the circuit. Used to memoize results.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub(crate) struct BaseArithmeticOperation<F: PrimeField> {
-    const_0: F,
-    const_1: F,
-    multiplicand_0: Target,
-    multiplicand_1: Target,
-    addend: Target,
-    output: Target,
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> Operation<F, D> for BaseArithmeticOperation<F> {
-    fn inputs(&self) -> Vec<Target> {
-        vec![self.multiplicand_0, self.multiplicand_1, self.addend]
-    }
-
-    fn advices(&self) -> Vec<Target> {
-        vec![]
-    }
-
-    fn outputs(&self) -> Vec<Target> {
-        vec![self.output]
-    }
-
-    fn run<R: FnOnce(&PartitionWitness<F>, &mut GeneratedValues<F>)>(&self) -> R {
-        |witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>| {
-            let multiplicand_0 = witness.get_target(self.multiplicand_0);
-            let multiplicand_1 = witness.get_target(self.multiplicand_1);
-            let addend = witness.get_target(self.addend);
-
-            let computed_output =
-                multiplicand_0 * multiplicand_1 * self.const_0 + addend * self.const_1;
-
-            out_buffer.set_target(self.output, computed_output)
-        }
-    }
-
-    fn gate_with_constants(&self, config: &CircuitConfig) -> (GateRef<F, D>, Vec<F>) {
-        (
-            GateRef(Arc::new(ArithmeticGate::new_from_config(config))),
-            vec![self.const_0, self.const_1],
-        )
+fn base_arithmetic_operation<F: RichField + Extendable<D>, const D: usize>() -> Operation<F, D> {
+    Operation {
+        inputs: vec![],
+        outputs: vec![],
+        generators: vec![],
+        gate: GateRef(),
+        constants: vec![],
     }
 }
+
+// /// Represents a base arithmetic operation in the circuit. Used to memoize results.
+// #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+// pub(crate) struct BaseArithmeticOperation<F: PrimeField> {
+//     const_0: F,
+//     const_1: F,
+//     multiplicand_0: Target,
+//     multiplicand_1: Target,
+//     addend: Target,
+//     output: Target,
+// }
+//
+// impl<F: RichField + Extendable<D>, const D: usize> Operation<F, D> for BaseArithmeticOperation<F> {
+//     fn inputs(&self) -> Vec<Target> {
+//         vec![self.multiplicand_0, self.multiplicand_1, self.addend]
+//     }
+//
+//     fn advices(&self) -> Vec<Target> {
+//         vec![]
+//     }
+//
+//     fn outputs(&self) -> Vec<Target> {
+//         vec![self.output]
+//     }
+//
+//     fn run<R: FnOnce(&PartitionWitness<F>, &mut GeneratedValues<F>)>(&self) -> R {
+//         |witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>| {
+//             let multiplicand_0 = witness.get_target(self.multiplicand_0);
+//             let multiplicand_1 = witness.get_target(self.multiplicand_1);
+//             let addend = witness.get_target(self.addend);
+//
+//             let computed_output =
+//                 multiplicand_0 * multiplicand_1 * self.const_0 + addend * self.const_1;
+//
+//             out_buffer.set_target(self.output, computed_output)
+//         }
+//     }
+//
+//     fn gate_with_constants(&self, config: &CircuitConfig) -> (GateRef<F, D>, Vec<F>) {
+//         (
+//             GateRef(Arc::new(ArithmeticGate::new_from_config(config))),
+//             vec![self.const_0, self.const_1],
+//         )
+//     }
+// }
 
 #[derive(Clone, Debug)]
 struct ArithmeticBaseGenerator<F: RichField + Extendable<D>, const D: usize> {
