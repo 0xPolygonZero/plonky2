@@ -10,6 +10,17 @@ Plonky2 is built for speed, and features a highly efficient recursive circuit. O
 For more details about the Plonky2 argument system, see this [writeup](plonky2.pdf).
 
 
+## Building
+
+Plonky2 requires a recent nightly toolchain, although we plan to transition to stable in the future.
+
+To use a nightly toolchain for Plonky2 by default, you can run
+```
+rustup override set nightly
+```
+in the Plonky2 directory.
+
+
 ## Running
 
 To see recursion performance, one can run this test, which generates a chain of three recursion proofs:
