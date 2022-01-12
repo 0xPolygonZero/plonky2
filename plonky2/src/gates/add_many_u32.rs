@@ -38,7 +38,7 @@ impl<F: RichField + Extendable<D>, const D: usize> U32AddManyGate<F, D> {
     pub(crate) fn num_ops(num_addends: usize, config: &CircuitConfig) -> usize {
         debug_assert!(num_addends <= MAX_NUM_ADDENDS);
         let wires_per_op = (num_addends + 3) + Self::num_limbs();
-        let routed_wires_per_op = 5;
+        let routed_wires_per_op = num_addends + 3;
         (config.num_wires / wires_per_op).min(config.num_routed_wires / routed_wires_per_op)
     }
 
