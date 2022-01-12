@@ -123,6 +123,18 @@ pub struct MerkleCapTarget(pub Vec<HashOutTarget>);
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub struct BytesHash<const N: usize>(pub [u8; N]);
 
+impl<const N: usize> BytesHash<N> {
+    pub fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+        let mut buf = [0; N];
+        rng.fill_bytes(&mut buf);
+        Self(buf)
+    }
+
+    pub fn rand() -> Self {
+        Self::rand_from_rng(&mut rand::thread_rng())
+    }
+}
+
 impl<F: RichField, const N: usize> GenericHashOut<F> for BytesHash<N> {
     fn to_bytes(&self) -> Vec<u8> {
         self.0.to_vec()

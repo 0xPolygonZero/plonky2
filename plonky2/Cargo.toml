@@ -49,6 +49,10 @@ name = "hashing"
 harness = false
 
 [[bench]]
+name = "merkle"
+harness = false
+
+[[bench]]
 name = "transpose"
 harness = false
 
