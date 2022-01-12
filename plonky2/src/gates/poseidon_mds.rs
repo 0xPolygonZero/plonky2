@@ -110,6 +110,10 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
         format!("{:?}<WIDTH={}>", self, SPONGE_WIDTH)
     }
 
+    fn add_operation(&self, targets: Vec<Target>, rows: &mut Vec<Vec<Target>>) {
+        todo!()
+    }
+
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let inputs: [_; SPONGE_WIDTH] = (0..SPONGE_WIDTH)
             .map(|i| vars.get_local_ext_algebra(Self::wires_input(i)))

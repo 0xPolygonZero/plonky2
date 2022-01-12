@@ -54,6 +54,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
         format!("{:?}", self)
     }
 
+    fn add_operation(&self, targets: Vec<Target>, rows: &mut Vec<Vec<Target>>) {
+        todo!()
+    }
+
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let const_0 = vars.local_constants[0];
         let const_1 = vars.local_constants[1];

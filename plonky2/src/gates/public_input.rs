@@ -34,6 +34,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PublicInputGat
         "PublicInputGate".into()
     }
 
+    fn add_operation(&self, targets: Vec<Target>, rows: &mut Vec<Vec<Target>>) {
+        todo!()
+    }
+
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         Self::wires_public_inputs_hash()
             .zip(vars.public_inputs_hash.elements)

@@ -58,6 +58,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D
         format!("{:?}", self)
     }
 
+    fn add_operation(&self, targets: Vec<Target>, rows: &mut Vec<Vec<Target>>) {
+        todo!()
+    }
+
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         let alpha = vars.get_local_ext_algebra(Self::wires_alpha());
         let old_acc = vars.get_local_ext_algebra(Self::wires_old_acc());

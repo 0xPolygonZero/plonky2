@@ -14,6 +14,7 @@ use crate::fri::FriParams;
 use crate::gates::gate::{GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
 use crate::hash::hash_types::RichField;
+use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierOnlyCircuitData,
@@ -34,9 +35,16 @@ pub struct Circuit<F: RichField + Extendable<D>, const D: usize> {
 
     /// The concrete placement of each gate.
     pub(crate) gate_instances: Vec<GateInstance<F, D>>,
+
+    /// Generators used to generate the witness.
+    generators: Vec<Box<dyn WitnessGenerator<F>>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Circuit<F, D> {
+    pub fn add_generators(&mut self, generators: Vec<Box<dyn WitnessGenerator<F>>>) {
+        self.generators.extend(generators);
+    }
+
     fn fri_params(&self, degree_bits: usize) -> FriParams {
         let fri_config = &self.config.fri_config;
         let reduction_arity_bits = fri_config.reduction_strategy.reduction_arity_bits(

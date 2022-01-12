@@ -4,12 +4,13 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
 use plonky2_field::packed_field::PackedField;
 
-use crate::gates::gate::Gate;
+use crate::gates::gate::{Gate, GateRef};
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::operation::Operation;
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::PartitionWitness;
@@ -38,6 +39,10 @@ impl ConstantGate {
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     fn id(&self) -> String {
         format!("{:?}", self)
+    }
+
+    fn add_operation(&self, targets: Vec<Target>, rows: &mut Vec<Vec<Target>>) {
+        todo!()
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
@@ -100,6 +105,41 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
                 .zip(self.wires_outputs())
                 .map(|(con, out)| vars.local_constants[con] - vars.local_wires[out]),
         );
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ConstantOperation<F: Field> {
+    target: Target,
+    pub(crate) constant: F,
+    pub(crate) gate: ConstantGate,
+}
+
+impl<F: RichField> SimpleGenerator<F> for ConstantOperation<F> {
+    fn dependencies(&self) -> Vec<Target> {
+        vec![]
+    }
+
+    fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        out_buffer.set_target(self.target, self.constant);
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> Operation<F, D> for ConstantOperation<F> {
+    fn id(&self) -> String {
+        format!("{:?}", self)
+    }
+
+    fn targets(&self) -> Vec<Target> {
+        vec![self.target]
+    }
+
+    fn gate(&self) -> Option<GateRef<F, D>> {
+        Some(GateRef::new(self.gate))
+    }
+
+    fn constants(&self) -> Vec<F> {
+        vec![self.constant]
     }
 }
 

@@ -268,7 +268,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ExponentiationOperation<F: RichField + Extendable<D>, const D: usize> {
     base: Target,
     bits: Vec<BoolTarget>,
