@@ -1,14 +1,18 @@
 use std::ops::Range;
+use std::sync::Arc;
 
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::packed_field::PackedField;
 
-use crate::gates::gate::Gate;
+use crate::gates::gate::{Gate, GateRef};
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::{HashOutTarget, RichField};
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::WitnessGenerator;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::operation::Operation;
+use crate::iop::target::Target;
+use crate::iop::witness::PartitionWitness;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
@@ -16,6 +20,7 @@ use crate::plonk::vars::{
 };
 
 /// A gate whose first four wires will be equal to a hash of public inputs.
+#[derive(Copy, Clone, Debug)]
 pub struct PublicInputGate;
 
 impl PublicInputGate {
@@ -90,6 +95,38 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
                 .zip(vars.public_inputs_hash.elements)
                 .map(|(wire, hash_part)| vars.local_wires[wire] - hash_part),
         )
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct PublicInputOperation {
+    public_inputs_hash: HashOutTarget,
+    pub(crate) gate: PublicInputGate,
+}
+
+impl<F: RichField> SimpleGenerator<F> for PublicInputOperation {
+    fn dependencies(&self) -> Vec<Target> {
+        vec![]
+    }
+
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {}
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> Operation<F, D> for PublicInputOperation {
+    fn id(&self) -> String {
+        format!("{:?}", self)
+    }
+
+    fn targets(&self) -> Vec<Target> {
+        self.public_inputs_hash.elements.to_vec()
+    }
+
+    fn gate(&self) -> Option<GateRef<F, D>> {
+        Some(GateRef::new(self.gate))
+    }
+
+    fn constants(&self) -> Vec<F> {
+        vec![]
     }
 }
 

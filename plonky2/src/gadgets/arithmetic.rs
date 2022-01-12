@@ -322,7 +322,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Operation<F, D>
     }
 
     fn targets(&self) -> Vec<Target> {
-        todo!()
+        let mut ans = vec![self.base];
+        ans.extend(self.bits.iter().map(|b| b.target));
+        ans.push(self.result);
+        ans.extend(&self.intermediate_values);
+        ans
     }
 
     fn gate(&self) -> Option<GateRef<F, D>> {
@@ -330,6 +334,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Operation<F, D>
     }
 
     fn constants(&self) -> Vec<F> {
-        todo!()
+        vec![]
     }
 }
