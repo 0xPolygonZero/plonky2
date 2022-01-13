@@ -42,6 +42,7 @@ use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkOracle;
+use crate::timed;
 use crate::util::context_tree::ContextTree;
 use crate::util::marking::{Markable, MarkedTargets};
 use crate::util::partial_products::num_partial_products;
@@ -635,10 +636,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let subgroup = F::two_adic_subgroup(degree_bits);
 
-        let constant_vecs = self.constant_polys(&prefixed_gates, num_constants);
+        let constant_vecs = timed!(
+            &mut timing,
+            "generate constant polynomials",
+            self.constant_polys(&prefixed_gates, num_constants)
+        );
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
-        let (sigma_vecs, forest) = self.sigma_vecs(&k_is, &subgroup);
+        let (sigma_vecs, forest) = timed!(
+            &mut timing,
+            "generate sigma polynomials",
+            self.sigma_vecs(&k_is, &subgroup)
+        );
 
         // Precompute FFT roots.
         let max_fft_points = 1 << (degree_bits + max(rate_bits, log2_ceil(quotient_degree_factor)));
@@ -732,6 +741,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             circuit_digest,
         };
 
+        timing.print();
         debug!("Building circuit took {}s", start.elapsed().as_secs_f32());
         CircuitData {
             prover_only,
