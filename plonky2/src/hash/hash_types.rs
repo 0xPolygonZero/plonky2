@@ -94,7 +94,7 @@ impl<F: Field> Default for HashOut<F> {
 /// Represents a ~256 bit hash output.
 #[derive(Copy, Clone, Debug)]
 pub struct HashOutTarget {
-    pub(crate) elements: [Target; 4],
+    pub elements: [Target; 4],
 }
 
 impl HashOutTarget {
