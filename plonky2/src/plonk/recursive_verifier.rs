@@ -404,21 +404,10 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
 
-        // Start with a degree 2^14 proof
-        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 16_000)?;
-        assert_eq!(cd.degree_bits, 14);
-
-        // Shrink it to 2^13.
-        let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, Some(13), false, false)?;
-        assert_eq!(cd.degree_bits, 13);
-
-        // Shrink it to 2^12.
-        let (proof, _vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, None, true, true)?;
-        assert_eq!(cd.degree_bits, 12);
-
-        test_serialization(&proof, &cd)?;
+        // Start with a degree 2^degree_bits proof.
+        let degree_bits = 17;
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, (1 << (degree_bits - 1)) + 1)?;
+        assert_eq!(cd.degree_bits, degree_bits);
 
         Ok(())
     }
@@ -552,7 +541,9 @@ mod tests {
 
         let data = builder.build::<C>();
         let inputs = PartialWitness::new();
-        let proof = data.prove(inputs)?;
+        let mut timing = TimingTree::new("prove", Level::Debug);
+        let proof = prove(&data.prover_only, &data.common, inputs, &mut timing)?;
+        timing.print();
         data.verify(proof.clone())?;
 
         Ok((proof, data.verifier_only, data.common))
