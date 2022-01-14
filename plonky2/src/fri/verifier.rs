@@ -160,7 +160,7 @@ pub(crate) fn fri_combine_initial<
         sum += numerator / denominator;
     }
 
-    sum
+    sum * subgroup_x
 }
 
 fn fri_verifier_query_round<
