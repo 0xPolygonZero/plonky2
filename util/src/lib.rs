@@ -17,14 +17,20 @@ pub const fn ceil_div_usize(a: usize, b: usize) -> usize {
 }
 
 /// Computes `ceil(log_2(n))`.
+#[must_use]
 pub fn log2_ceil(n: usize) -> usize {
-    n.next_power_of_two().trailing_zeros() as usize
+    if n == 0 {
+        0
+    } else {
+        (usize::BITS - (n - 1).leading_zeros()) as usize
+    }
 }
 
 /// Computes `log_2(n)`, panicking if `n` is not a power of two.
 pub fn log2_strict(n: usize) -> usize {
-    assert!(n.is_power_of_two(), "Not a power of two: {}", n);
-    log2_ceil(n)
+    let res = n.trailing_zeros();
+    assert!(n.wrapping_shr(res) == 1, "Not a power of two: {}", n);
+    res as usize
 }
 
 /// Permutes `arr` such that each index is mapped to its reverse in binary.
