@@ -19,11 +19,7 @@ pub const fn ceil_div_usize(a: usize, b: usize) -> usize {
 /// Computes `ceil(log_2(n))`.
 #[must_use]
 pub fn log2_ceil(n: usize) -> usize {
-    if n == 0 {
-        0
-    } else {
-        (usize::BITS - (n - 1).leading_zeros()) as usize
-    }
+    (usize::BITS - n.saturating_sub(1).leading_zeros()) as usize
 }
 
 /// Computes `log_2(n)`, panicking if `n` is not a power of two.
