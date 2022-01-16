@@ -17,14 +17,16 @@ pub const fn ceil_div_usize(a: usize, b: usize) -> usize {
 }
 
 /// Computes `ceil(log_2(n))`.
+#[must_use]
 pub fn log2_ceil(n: usize) -> usize {
-    n.next_power_of_two().trailing_zeros() as usize
+    (usize::BITS - n.saturating_sub(1).leading_zeros()) as usize
 }
 
 /// Computes `log_2(n)`, panicking if `n` is not a power of two.
 pub fn log2_strict(n: usize) -> usize {
-    assert!(n.is_power_of_two(), "Not a power of two: {}", n);
-    log2_ceil(n)
+    let res = n.trailing_zeros();
+    assert!(n.wrapping_shr(res) == 1, "Not a power of two: {}", n);
+    res as usize
 }
 
 /// Permutes `arr` such that each index is mapped to its reverse in binary.
@@ -169,5 +171,61 @@ pub fn assume(p: bool) {
 pub fn branch_hint() {
     unsafe {
         asm!("", options(nomem, nostack, preserves_flags));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{log2_ceil, log2_strict};
+
+    #[test]
+    fn test_log2_strict() {
+        assert_eq!(log2_strict(1), 0);
+        assert_eq!(log2_strict(2), 1);
+        assert_eq!(log2_strict(1 << 18), 18);
+        assert_eq!(log2_strict(1 << 31), 31);
+        assert_eq!(
+            log2_strict(1 << (usize::BITS - 1)),
+            usize::BITS as usize - 1
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_log2_strict_zero() {
+        log2_strict(0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_log2_strict_nonpower_2() {
+        log2_strict(0x78c341c65ae6d262);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_log2_strict_usize_max() {
+        log2_strict(usize::MAX);
+    }
+
+    #[test]
+    fn test_log2_ceil() {
+        // Powers of 2
+        assert_eq!(log2_ceil(0), 0);
+        assert_eq!(log2_ceil(1), 0);
+        assert_eq!(log2_ceil(2), 1);
+        assert_eq!(log2_ceil(1 << 18), 18);
+        assert_eq!(log2_ceil(1 << 31), 31);
+        assert_eq!(log2_ceil(1 << (usize::BITS - 1)), usize::BITS as usize - 1);
+
+        // Nonpowers; want to round up
+        assert_eq!(log2_ceil(3), 2);
+        assert_eq!(log2_ceil(0x14fe901b), 29);
+        assert_eq!(
+            log2_ceil((1 << (usize::BITS - 1)) + 1),
+            usize::BITS as usize
+        );
+        assert_eq!(log2_ceil(usize::MAX - 1), usize::BITS as usize);
+        assert_eq!(log2_ceil(usize::MAX), usize::BITS as usize);
     }
 }
