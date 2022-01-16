@@ -177,3 +177,59 @@ pub fn branch_hint() {
         asm!("", options(nomem, nostack, preserves_flags));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{log2_ceil, log2_strict};
+
+    #[test]
+    fn test_log2_strict() {
+        assert_eq!(log2_strict(1), 0);
+        assert_eq!(log2_strict(2), 1);
+        assert_eq!(log2_strict(1 << 18), 18);
+        assert_eq!(log2_strict(1 << 31), 31);
+        assert_eq!(
+            log2_strict(1 << (usize::BITS - 1)),
+            usize::BITS as usize - 1
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_log2_strict_zero() {
+        log2_strict(0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_log2_strict_nonpower_2() {
+        log2_strict(0x78c341c65ae6d262);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_log2_strict_usize_max() {
+        log2_strict(usize::MAX);
+    }
+
+    #[test]
+    fn test_log2_ceil() {
+        // Powers of 2
+        assert_eq!(log2_ceil(0), 0);
+        assert_eq!(log2_ceil(1), 0);
+        assert_eq!(log2_ceil(2), 1);
+        assert_eq!(log2_ceil(1 << 18), 18);
+        assert_eq!(log2_ceil(1 << 31), 31);
+        assert_eq!(log2_ceil(1 << (usize::BITS - 1)), usize::BITS as usize - 1);
+
+        // Nonpowers; want to round up
+        assert_eq!(log2_ceil(3), 2);
+        assert_eq!(log2_ceil(0x14fe901b), 29);
+        assert_eq!(
+            log2_ceil((1 << (usize::BITS - 1)) + 1),
+            usize::BITS as usize
+        );
+        assert_eq!(log2_ceil(usize::MAX - 1), usize::BITS as usize);
+        assert_eq!(log2_ceil(usize::MAX), usize::BITS as usize);
+    }
+}
