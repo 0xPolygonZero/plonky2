@@ -155,11 +155,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             final_poly += quotient;
         }
         final_poly.trim();
-        let mut final_poly_coeffs = final_poly.coeffs;
-        final_poly_coeffs.insert(0, F::Extension::ZERO);
-        final_poly = PolynomialCoeffs {
-            coeffs: final_poly_coeffs,
-        };
+        final_poly.coeffs.insert(0, F::Extension::ZERO);
 
         let lde_final_poly = final_poly.lde(fri_params.config.rate_bits);
         let lde_final_values = timed!(
