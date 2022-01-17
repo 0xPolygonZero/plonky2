@@ -281,7 +281,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             sum = self.div_add_extension(numerator, denominator, sum);
         }
 
-        sum
+        self.mul_extension(sum, subgroup_x)
     }
 
     fn fri_verifier_query_round<C: GenericConfig<D, F = F>>(
