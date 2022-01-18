@@ -90,7 +90,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub(crate) fn get_public_inputs_hash(
         &self,
     ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash {
-        C::InnerHasher::hash(self.public_inputs.clone(), true)
+        C::InnerHasher::hash(&self.public_inputs, true)
     }
 
     pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -206,7 +206,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub(crate) fn get_public_inputs_hash(
         &self,
     ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash {
-        C::InnerHasher::hash(self.public_inputs.clone(), true)
+        C::InnerHasher::hash(&self.public_inputs, true)
     }
 
     pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {

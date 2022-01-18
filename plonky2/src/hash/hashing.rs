@@ -18,7 +18,7 @@ pub fn hash_or_noop<F: RichField, P: PlonkyPermutation<F>>(inputs: Vec<F>) -> Ha
     if inputs.len() <= 4 {
         HashOut::from_partial(inputs)
     } else {
-        hash_n_to_hash::<F, P>(inputs, false)
+        hash_n_to_hash::<F, P>(&inputs, false)
     }
 }
 
@@ -101,16 +101,18 @@ pub trait PlonkyPermutation<F: RichField> {
 /// for the hash to be secure, but it can safely be disabled in certain cases, like if the input
 /// length is fixed.
 pub fn hash_n_to_m<F: RichField, P: PlonkyPermutation<F>>(
-    mut inputs: Vec<F>,
+    inputs: &[F],
     num_outputs: usize,
     pad: bool,
 ) -> Vec<F> {
     if pad {
-        inputs.push(F::ZERO);
-        while (inputs.len() + 1) % SPONGE_WIDTH != 0 {
-            inputs.push(F::ONE);
+        let mut padded_inputs = inputs.to_vec();
+        padded_inputs.push(F::ZERO);
+        while (padded_inputs.len() + 1) % SPONGE_WIDTH != 0 {
+            padded_inputs.push(F::ONE);
         }
-        inputs.push(F::ZERO);
+        padded_inputs.push(F::ZERO);
+        return hash_n_to_m::<F, P>(&padded_inputs, num_outputs, false);
     }
 
     let mut state = [F::ZERO; SPONGE_WIDTH];
@@ -135,7 +137,7 @@ pub fn hash_n_to_m<F: RichField, P: PlonkyPermutation<F>>(
 }
 
 pub fn hash_n_to_hash<F: RichField, P: PlonkyPermutation<F>>(
-    inputs: Vec<F>,
+    inputs: &[F],
     pad: bool,
 ) -> HashOut<F> {
     HashOut::from_vec(hash_n_to_m::<F, P>(inputs, 4, pad))

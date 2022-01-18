@@ -107,7 +107,7 @@ impl<F: RichField> Hasher<F> for GMiMCHash {
     type Hash = HashOut<F>;
     type Permutation = GMiMCPermutation;
 
-    fn hash(input: Vec<F>, pad: bool) -> Self::Hash {
+    fn hash(input: &[F], pad: bool) -> Self::Hash {
         hash_n_to_hash::<F, Self::Permutation>(input, pad)
     }
 

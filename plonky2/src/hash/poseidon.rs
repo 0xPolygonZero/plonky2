@@ -633,7 +633,7 @@ impl<F: RichField> Hasher<F> for PoseidonHash {
     type Hash = HashOut<F>;
     type Permutation = PoseidonPermutation;
 
-    fn hash(input: Vec<F>, pad: bool) -> Self::Hash {
+    fn hash(input: &[F], pad: bool) -> Self::Hash {
         hash_n_to_hash::<F, Self::Permutation>(input, pad)
     }
 
