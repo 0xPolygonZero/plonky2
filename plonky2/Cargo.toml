@@ -55,11 +55,3 @@ harness = false
 [[bench]]
 name = "transpose"
 harness = false
-
-[profile.release]
-opt-level = 3
-#lto = "fat"
-#codegen-units = 1
-
-[profile.bench]
-opt-level = 3

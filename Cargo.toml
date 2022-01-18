@@ -1,2 +1,10 @@
 [workspace]
 members = ["field", "insertion", "plonky2", "util", "waksman"]
+
+[profile.release]
+opt-level = 3
+#lto = "fat"
+#codegen-units = 1
+
+[profile.bench]
+opt-level = 3
