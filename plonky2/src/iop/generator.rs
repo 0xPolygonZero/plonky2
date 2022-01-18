@@ -162,6 +162,10 @@ impl<F: Field> GeneratedValues<F> {
         self.target_values.push((target, value))
     }
 
+    pub fn set_bool_target(&mut self, target: BoolTarget, value: bool) {
+        self.set_target(target.target, F::from_bool(value))
+    }
+
     pub fn set_u32_target(&mut self, target: U32Target, value: u32) {
         self.set_target(target.0, F::from_canonical_u32(value))
     }

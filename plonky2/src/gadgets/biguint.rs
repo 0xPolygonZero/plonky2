@@ -40,6 +40,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         BigUintTarget { limbs }
     }
 
+    pub fn zero_biguint(&mut self) -> BigUintTarget {
+        self.constant_biguint(&BigUint::zero())
+    }
+
     pub fn connect_biguint(&mut self, lhs: &BigUintTarget, rhs: &BigUintTarget) {
         let min_limbs = lhs.num_limbs().min(rhs.num_limbs());
         for i in 0..min_limbs {
@@ -156,6 +160,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         BigUintTarget {
             limbs: combined_limbs,
+        }
+    }
+
+    pub fn mul_biguint_by_bool(
+        &mut self,
+        a: &BigUintTarget,
+        b: BoolTarget,
+    ) -> BigUintTarget {
+        let t = b.target;
+
+        BigUintTarget {
+            limbs: a.limbs.iter().map(|l| U32Target(self.mul(l.0, t))).collect()
         }
     }
 
@@ -396,11 +412,11 @@ mod tests {
         let y = builder.constant_biguint(&y_value);
         let (div, rem) = builder.div_rem_biguint(&x, &y);
 
-        // let expected_div = builder.constant_biguint(&expected_div_value);
-        // let expected_rem = builder.constant_biguint(&expected_rem_value);
+        let expected_div = builder.constant_biguint(&expected_div_value);
+        let expected_rem = builder.constant_biguint(&expected_rem_value);
 
-        // builder.connect_biguint(&div, &expected_div);
-        // builder.connect_biguint(&rem, &expected_rem);
+        builder.connect_biguint(&div, &expected_div);
+        builder.connect_biguint(&rem, &expected_rem);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();

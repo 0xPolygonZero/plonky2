@@ -11,6 +11,7 @@ pub mod binary_arithmetic;
 pub mod binary_subtraction;
 pub mod comparison;
 pub mod constant;
+// pub mod curve_double;
 pub mod exponentiation;
 pub mod gate;
 pub mod gate_tree;
