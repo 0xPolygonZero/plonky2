@@ -66,7 +66,7 @@ pub(crate) fn decompress_merkle_proofs<F: RichField, H: Hasher<F>>(
 
     for (&i, v) in leaves_indices.iter().zip(leaves_data) {
         // Observe the leaves.
-        seen.insert(i + num_leaves, H::hash(v.to_vec(), false));
+        seen.insert(i + num_leaves, H::hash(v, false));
     }
 
     // Iterators over the siblings.

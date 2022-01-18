@@ -43,7 +43,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     );
 
     let public_inputs = partition_witness.get_targets(&prover_data.public_inputs);
-    let public_inputs_hash = C::InnerHasher::hash(public_inputs.clone(), true);
+    let public_inputs_hash = C::InnerHasher::hash(&public_inputs, true);
 
     if cfg!(debug_assertions) {
         // Display the marked targets for debugging purposes.

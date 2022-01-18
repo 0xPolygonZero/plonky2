@@ -32,7 +32,7 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
     /// Permutation used in the sponge construction.
     type Permutation: PlonkyPermutation<F>;
 
-    fn hash(input: Vec<F>, pad: bool) -> Self::Hash;
+    fn hash(input: &[F], pad: bool) -> Self::Hash;
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash;
 }
 

@@ -36,21 +36,24 @@ pub struct MerkleTree<F: RichField, H: Hasher<F>> {
 
 impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
     pub fn new(leaves: Vec<Vec<F>>, cap_height: usize) -> Self {
-        let mut layers = vec![leaves
+        let mut current_layer = leaves
             .par_iter()
-            .map(|l| H::hash(l.clone(), false))
-            .collect::<Vec<_>>()];
-        while let Some(l) = layers.last() {
-            if l.len() == 1 << cap_height {
-                break;
+            .map(|l| H::hash(l, false))
+            .collect::<Vec<_>>();
+
+        let mut layers = vec![];
+        let cap = loop {
+            if current_layer.len() == 1 << cap_height {
+                break current_layer;
             }
-            let next_layer = l
+            let next_layer = current_layer
                 .par_chunks(2)
                 .map(|chunk| H::two_to_one(chunk[0], chunk[1]))
                 .collect::<Vec<_>>();
-            layers.push(next_layer);
-        }
-        let cap = layers.pop().unwrap();
+            layers.push(current_layer);
+            current_layer = next_layer;
+        };
+
         Self {
             leaves,
             layers,

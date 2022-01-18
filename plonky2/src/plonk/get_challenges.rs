@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use itertools::Itertools;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::polynomial::PolynomialCoeffs;
 
@@ -65,13 +66,13 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     challenger.observe_extension_elements(&final_poly.coeffs);
 
     let fri_pow_response = C::InnerHasher::hash(
-        challenger
+        &challenger
             .get_hash()
             .elements
             .iter()
             .copied()
             .chain(Some(pow_witness))
-            .collect(),
+            .collect_vec(),
         false,
     )
     .elements[0];

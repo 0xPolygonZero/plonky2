@@ -32,7 +32,7 @@ pub(crate) fn verify_merkle_proof<F: RichField, H: Hasher<F>>(
     proof: &MerkleProof<F, H>,
 ) -> Result<()> {
     let mut index = leaf_index;
-    let mut current_digest = H::hash(leaf_data, false);
+    let mut current_digest = H::hash(&leaf_data, false);
     for &sibling_digest in proof.siblings.iter() {
         let bit = index & 1;
         index >>= 1;

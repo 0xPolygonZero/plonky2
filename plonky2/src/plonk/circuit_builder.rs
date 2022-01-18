@@ -725,7 +725,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_cap.flatten(),
             vec![/* Add other circuit data here */],
         ];
-        let circuit_digest = C::Hasher::hash(circuit_digest_parts.concat(), false);
+        let circuit_digest = C::Hasher::hash(&circuit_digest_parts.concat(), false);
 
         let common = CommonCircuitData {
             config: self.config,

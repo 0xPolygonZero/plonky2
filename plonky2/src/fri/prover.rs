@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use plonky2_field::extension_field::{flatten, unflatten, Extendable};
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_util::reverse_index_bits_in_place;
@@ -116,12 +117,12 @@ fn fri_proof_of_work<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
         .into_par_iter()
         .find_any(|&i| {
             C::InnerHasher::hash(
-                current_hash
+                &current_hash
                     .elements
                     .iter()
                     .copied()
                     .chain(Some(F::from_canonical_u64(i)))
-                    .collect(),
+                    .collect_vec(),
                 false,
             )
             .elements[0]
