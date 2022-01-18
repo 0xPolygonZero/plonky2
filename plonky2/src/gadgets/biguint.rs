@@ -163,15 +163,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn mul_biguint_by_bool(
-        &mut self,
-        a: &BigUintTarget,
-        b: BoolTarget,
-    ) -> BigUintTarget {
+    pub fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget {
         let t = b.target;
 
         BigUintTarget {
-            limbs: a.limbs.iter().map(|l| U32Target(self.mul(l.0, t))).collect()
+            limbs: a
+                .limbs
+                .iter()
+                .map(|l| U32Target(self.mul(l.0, t)))
+                .collect(),
         }
     }
 
