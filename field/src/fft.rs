@@ -1,7 +1,7 @@
 use std::cmp::{max, min};
 use std::option::Option;
 
-use plonky2_util::{log2_strict, reverse_index_bits};
+use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 use unroll::unroll_for_loops;
 
 use crate::field_types::Field;
@@ -34,10 +34,10 @@ pub fn fft_root_table<F: Field>(n: usize) -> FftRootTable<F> {
 
 #[inline]
 fn fft_dispatch<F: Field>(
-    input: &[F],
+    input: &mut [F],
     zero_factor: Option<usize>,
     root_table: Option<&FftRootTable<F>>,
-) -> Vec<F> {
+) {
     let computed_root_table = if root_table.is_some() {
         None
     } else {
@@ -45,33 +45,32 @@ fn fft_dispatch<F: Field>(
     };
     let used_root_table = root_table.or(computed_root_table.as_ref()).unwrap();
 
-    fft_classic(input, zero_factor.unwrap_or(0), used_root_table)
+    fft_classic(input, zero_factor.unwrap_or(0), used_root_table);
 }
 
 #[inline]
-pub fn fft<F: Field>(poly: &PolynomialCoeffs<F>) -> PolynomialValues<F> {
+pub fn fft<F: Field>(poly: PolynomialCoeffs<F>) -> PolynomialValues<F> {
     fft_with_options(poly, None, None)
 }
 
 #[inline]
 pub fn fft_with_options<F: Field>(
-    poly: &PolynomialCoeffs<F>,
+    poly: PolynomialCoeffs<F>,
     zero_factor: Option<usize>,
     root_table: Option<&FftRootTable<F>>,
 ) -> PolynomialValues<F> {
-    let PolynomialCoeffs { coeffs } = poly;
-    PolynomialValues {
-        values: fft_dispatch(coeffs, zero_factor, root_table),
-    }
+    let PolynomialCoeffs { coeffs: mut buffer } = poly;
+    fft_dispatch(&mut buffer, zero_factor, root_table);
+    PolynomialValues { values: buffer }
 }
 
 #[inline]
-pub fn ifft<F: Field>(poly: &PolynomialValues<F>) -> PolynomialCoeffs<F> {
+pub fn ifft<F: Field>(poly: PolynomialValues<F>) -> PolynomialCoeffs<F> {
     ifft_with_options(poly, None, None)
 }
 
 pub fn ifft_with_options<F: Field>(
-    poly: &PolynomialValues<F>,
+    poly: PolynomialValues<F>,
     zero_factor: Option<usize>,
     root_table: Option<&FftRootTable<F>>,
 ) -> PolynomialCoeffs<F> {
@@ -79,20 +78,20 @@ pub fn ifft_with_options<F: Field>(
     let lg_n = log2_strict(n);
     let n_inv = F::inverse_2exp(lg_n);
 
-    let PolynomialValues { values } = poly;
-    let mut coeffs = fft_dispatch(values, zero_factor, root_table);
+    let PolynomialValues { values: mut buffer } = poly;
+    fft_dispatch(&mut buffer, zero_factor, root_table);
 
     // We reverse all values except the first, and divide each by n.
-    coeffs[0] *= n_inv;
-    coeffs[n / 2] *= n_inv;
+    buffer[0] *= n_inv;
+    buffer[n / 2] *= n_inv;
     for i in 1..(n / 2) {
         let j = n - i;
-        let coeffs_i = coeffs[j] * n_inv;
-        let coeffs_j = coeffs[i] * n_inv;
-        coeffs[i] = coeffs_i;
-        coeffs[j] = coeffs_j;
+        let coeffs_i = buffer[j] * n_inv;
+        let coeffs_j = buffer[i] * n_inv;
+        buffer[i] = coeffs_i;
+        buffer[j] = coeffs_j;
     }
-    PolynomialCoeffs { coeffs }
+    PolynomialCoeffs { coeffs: buffer }
 }
 
 /// Generic FFT implementation that works with both scalar and packed inputs.
@@ -167,8 +166,8 @@ fn fft_classic_simd<P: PackedField>(
 /// The parameter r signifies that the first 1/2^r of the entries of
 /// input may be non-zero, but the last 1 - 1/2^r entries are
 /// definitely zero.
-pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: &FftRootTable<F>) -> Vec<F> {
-    let mut values = reverse_index_bits(input);
+pub(crate) fn fft_classic<F: Field>(values: &mut [F], r: usize, root_table: &FftRootTable<F>) {
+    reverse_index_bits_in_place(values);
 
     let n = values.len();
     let lg_n = log2_strict(n);
@@ -200,13 +199,13 @@ pub(crate) fn fft_classic<F: Field>(input: &[F], r: usize, root_table: &FftRootT
     if lg_n <= lg_packed_width {
         // Need the slice to be at least the width of two packed vectors for the vectorized version
         // to work. Do this tiny problem in scalar.
-        fft_classic_simd::<F>(&mut values[..], r, lg_n, root_table);
+        fft_classic_simd::<F>(values, r, lg_n, root_table);
     } else {
-        fft_classic_simd::<<F as Packable>::Packing>(&mut values[..], r, lg_n, root_table);
+        fft_classic_simd::<<F as Packable>::Packing>(values, r, lg_n, root_table);
     }
-    values
 }
 
+// JNTODO
 #[cfg(test)]
 mod tests {
     use plonky2_util::{log2_ceil, log2_strict};
@@ -231,10 +230,10 @@ mod tests {
         assert_eq!(coeffs.len(), degree_padded);
         let coefficients = PolynomialCoeffs { coeffs };
 
-        let points = fft(&coefficients);
+        let points = fft(coefficients.clone());
         assert_eq!(points, evaluate_naive(&coefficients));
 
-        let interpolated_coefficients = ifft(&points);
+        let interpolated_coefficients = ifft(points);
         for i in 0..degree {
             assert_eq!(interpolated_coefficients.coeffs[i], coefficients.coeffs[i]);
         }
@@ -245,7 +244,10 @@ mod tests {
         for r in 0..4 {
             // expand coefficients by factor 2^r by filling with zeros
             let zero_tail = coefficients.lde(r);
-            assert_eq!(fft(&zero_tail), fft_with_options(&zero_tail, Some(r), None));
+            assert_eq!(
+                fft(zero_tail.clone()),
+                fft_with_options(zero_tail, Some(r), None)
+            );
         }
     }
 
