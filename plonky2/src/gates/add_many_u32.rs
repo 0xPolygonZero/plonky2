@@ -248,7 +248,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
                 );
                 g
             })
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     fn num_wires(&self) -> usize {
@@ -426,7 +426,7 @@ mod tests {
             v0.iter()
                 .chain(v1.iter())
                 .map(|&x| x.into())
-                .collect::<Vec<_>>()
+                .collect()
         }
 
         let mut rng = rand::thread_rng();
