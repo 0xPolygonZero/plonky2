@@ -173,7 +173,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> NonNativeTarget<FF> {
         let prod = self.add_virtual_nonnative_target::<FF>();
         let modulus = self.constant_biguint(&FF::order());
-        let overflow = self.add_virtual_biguint_target(a.value.num_limbs() + b.value.num_limbs() - modulus.num_limbs());
+        let overflow = self.add_virtual_biguint_target(
+            a.value.num_limbs() + b.value.num_limbs() - modulus.num_limbs(),
+        );
 
         self.add_simple_generator(NonNativeMultiplicationGenerator::<F, D, FF> {
             a: a.clone(),

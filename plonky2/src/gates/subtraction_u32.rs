@@ -416,10 +416,7 @@ mod tests {
                 v1.append(&mut output_limbs);
             }
 
-            v0.iter()
-                .chain(v1.iter())
-                .map(|&x| x.into())
-                .collect()
+            v0.iter().chain(v1.iter()).map(|&x| x.into()).collect()
         }
 
         let mut rng = rand::thread_rng();

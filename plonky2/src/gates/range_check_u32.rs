@@ -29,11 +29,11 @@ impl<F: RichField + Extendable<D>, const D: usize> U32RangeCheckGate<F, D> {
 
     pub const AUX_LIMB_BITS: usize = 3;
     pub const BASE: usize = 1 << Self::AUX_LIMB_BITS;
-    
+
     fn aux_limbs_per_input_limb(&self) -> usize {
         ceil_div_usize(32, Self::AUX_LIMB_BITS)
     }
-    pub fn wire_ith_input_limb(&self, i: usize) -> usize{
+    pub fn wire_ith_input_limb(&self, i: usize) -> usize {
         debug_assert!(i < self.num_input_limbs);
         i
     }
@@ -44,7 +44,7 @@ impl<F: RichField + Extendable<D>, const D: usize> U32RangeCheckGate<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckGate<F, D>{
+impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckGate<F, D> {
     fn id(&self) -> String {
         format!("{:?}", self)
     }
@@ -55,7 +55,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
         let base = F::Extension::from_canonical_usize(Self::BASE);
         for i in 0..self.num_input_limbs {
             let input_limb = vars.local_wires[self.wire_ith_input_limb(i)];
-            let aux_limbs: Vec<_> = (0..self.aux_limbs_per_input_limb()).map(|j| vars.local_wires[self.wire_ith_input_limb_jth_aux_limb(i, j)]).collect();
+            let aux_limbs: Vec<_> = (0..self.aux_limbs_per_input_limb())
+                .map(|j| vars.local_wires[self.wire_ith_input_limb_jth_aux_limb(i, j)])
+                .collect();
             let computed_sum = reduce_with_powers(&aux_limbs, base);
 
             constraints.push(computed_sum - input_limb);
@@ -66,7 +68,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
                         .product(),
                 );
             }
-
         }
 
         constraints
@@ -78,7 +79,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
         let base = F::from_canonical_usize(Self::BASE);
         for i in 0..self.num_input_limbs {
             let input_limb = vars.local_wires[self.wire_ith_input_limb(i)];
-            let aux_limbs: Vec<_> = (0..self.aux_limbs_per_input_limb()).map(|j| vars.local_wires[self.wire_ith_input_limb_jth_aux_limb(i, j)]).collect();
+            let aux_limbs: Vec<_> = (0..self.aux_limbs_per_input_limb())
+                .map(|j| vars.local_wires[self.wire_ith_input_limb_jth_aux_limb(i, j)])
+                .collect();
             let computed_sum = reduce_with_powers(&aux_limbs, base);
 
             constraints.push(computed_sum - input_limb);
@@ -89,7 +92,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
                         .product(),
                 );
             }
-
         }
 
         constraints
@@ -105,7 +107,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
         let base = builder.constant(F::from_canonical_usize(Self::BASE));
         for i in 0..self.num_input_limbs {
             let input_limb = vars.local_wires[self.wire_ith_input_limb(i)];
-            let aux_limbs: Vec<_> = (0..self.aux_limbs_per_input_limb()).map(|j| vars.local_wires[self.wire_ith_input_limb_jth_aux_limb(i, j)]).collect();
+            let aux_limbs: Vec<_> = (0..self.aux_limbs_per_input_limb())
+                .map(|j| vars.local_wires[self.wire_ith_input_limb_jth_aux_limb(i, j)])
+                .collect();
             let computed_sum = reduce_with_powers_ext_recursive(builder, &aux_limbs, base);
 
             constraints.push(builder.sub_extension(computed_sum, input_limb));
@@ -123,7 +127,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
                     acc
                 });
             }
-
         }
 
         constraints
@@ -166,22 +169,33 @@ pub struct U32RangeCheckGenerator<F: RichField + Extendable<D>, const D: usize> 
     gate_index: usize,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for U32RangeCheckGenerator<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for U32RangeCheckGenerator<F, D>
+{
     fn dependencies(&self) -> Vec<Target> {
         let num_input_limbs = self.gate.num_input_limbs;
-        (0..num_input_limbs).map(|i| Target::wire(self.gate_index, self.gate.wire_ith_input_limb(i))).collect()
+        (0..num_input_limbs)
+            .map(|i| Target::wire(self.gate_index, self.gate.wire_ith_input_limb(i)))
+            .collect()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let num_input_limbs = self.gate.num_input_limbs;
         for i in 0..num_input_limbs {
             let sum_value = witness
-                .get_target(Target::wire(self.gate_index, self.gate.wire_ith_input_limb(i)))
+                .get_target(Target::wire(
+                    self.gate_index,
+                    self.gate.wire_ith_input_limb(i),
+                ))
                 .to_canonical_u64() as u32;
 
             let base = U32RangeCheckGate::<F, D>::BASE as u32;
-            let limbs = (0..self.gate.aux_limbs_per_input_limb())
-                .map(|j| Target::wire(self.gate_index, self.gate.wire_ith_input_limb_jth_aux_limb(i, j)));
+            let limbs = (0..self.gate.aux_limbs_per_input_limb()).map(|j| {
+                Target::wire(
+                    self.gate_index,
+                    self.gate.wire_ith_input_limb_jth_aux_limb(i, j),
+                )
+            });
             let limbs_value = (0..self.gate.aux_limbs_per_input_limb())
                 .scan(sum_value, |acc, _| {
                     let tmp = *acc % base;
@@ -194,7 +208,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for U32Ran
                 out_buffer.set_target(b, b_value);
             }
         }
-        
     }
 }
 
@@ -233,14 +246,14 @@ mod tests {
         const AUX_LIMB_BITS: usize = 3;
         const BASE: usize = 1 << AUX_LIMB_BITS;
         const AUX_LIMBS_PER_INPUT_LIMB: usize = ceil_div_usize(32, AUX_LIMB_BITS);
-        
+
         fn get_wires(input_limbs: Vec<u64>) -> Vec<FF> {
             let num_input_limbs = input_limbs.len();
             let mut v = Vec::new();
 
             for i in 0..num_input_limbs {
                 let input_limb = input_limbs[i];
-                
+
                 let split_to_limbs = |mut val, num| {
                     unfold((), move |_| {
                         let ret = val % (BASE as u64);
@@ -253,16 +266,17 @@ mod tests {
 
                 let mut aux_limbs: Vec<_> =
                     split_to_limbs(input_limb, AUX_LIMBS_PER_INPUT_LIMB).collect();
-                
+
                 v.append(&mut aux_limbs);
             }
 
-            input_limbs.iter()
-                       .cloned()
-                       .map(F::from_canonical_u64)
-                       .chain(v.iter().cloned())
-                       .map(|x| x.into())
-                       .collect()
+            input_limbs
+                .iter()
+                .cloned()
+                .map(F::from_canonical_u64)
+                .chain(v.iter().cloned())
+                .map(|x| x.into())
+                .collect()
         }
 
         let gate = U32RangeCheckGate::<F, D> {
@@ -285,9 +299,7 @@ mod tests {
     #[test]
     fn test_gate_constraint_good() {
         let mut rng = rand::thread_rng();
-        let input_limbs: Vec<_> = (0..8)
-            .map(|_| rng.gen::<u32>() as u64)
-            .collect();
+        let input_limbs: Vec<_> = (0..8).map(|_| rng.gen::<u32>() as u64).collect();
 
         test_gate_constraint(input_limbs);
     }
@@ -296,9 +308,7 @@ mod tests {
     #[should_panic]
     fn test_gate_constraint_bad() {
         let mut rng = rand::thread_rng();
-        let input_limbs: Vec<_> = (0..8)
-            .map(|_| rng.gen())
-            .collect();
+        let input_limbs: Vec<_> = (0..8).map(|_| rng.gen()).collect();
 
         test_gate_constraint(input_limbs);
     }
