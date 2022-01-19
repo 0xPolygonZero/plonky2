@@ -419,7 +419,7 @@ mod tests {
             v0.iter()
                 .chain(v1.iter())
                 .map(|&x| x.into())
-                .collect::<Vec<_>>()
+                .collect()
         }
 
         let mut rng = rand::thread_rng();

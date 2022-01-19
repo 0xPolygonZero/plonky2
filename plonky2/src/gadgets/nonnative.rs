@@ -171,9 +171,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a: &NonNativeTarget<FF>,
         b: &NonNativeTarget<FF>,
     ) -> NonNativeTarget<FF> {
-        let result = self.mul_biguint(&a.value, &b.value);
+        let prod = self.add_virtual_nonnative_target::<FF>();
+        let modulus = self.constant_biguint(&FF::order());
+        let overflow = self.add_virtual_biguint_target(a.value.num_limbs() + b.value.num_limbs() - modulus.num_limbs());
 
-        self.reduce(&result)
+        self.add_simple_generator(NonNativeMultiplicationGenerator::<F, D, FF> {
+            a: a.clone(),
+            b: b.clone(),
+            prod: prod.clone(),
+            overflow: overflow.clone(),
+            _phantom: PhantomData,
+        });
+
+        let prod_expected = self.mul_biguint(&a.value, &b.value);
+
+        let mod_times_overflow = self.mul_biguint(&modulus, &overflow);
+        let prod_actual = self.add_biguint(&prod.value, &mod_times_overflow);
+        self.connect_biguint(&prod_expected, &prod_actual);
+
+        prod
     }
 
     pub fn mul_many_nonnative<FF: Field>(
@@ -226,20 +242,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inv
     }
 
-    pub fn div_rem_nonnative<FF: Field>(
-        &mut self,
-        x: &NonNativeTarget<FF>,
-        y: &NonNativeTarget<FF>,
-    ) -> (NonNativeTarget<FF>, NonNativeTarget<FF>) {
-        let x_biguint = self.nonnative_to_biguint(x);
-        let y_biguint = self.nonnative_to_biguint(y);
-
-        let (div_biguint, rem_biguint) = self.div_rem_biguint(&x_biguint, &y_biguint);
-        let div = self.biguint_to_nonnative(&div_biguint);
-        let rem = self.biguint_to_nonnative(&rem_biguint);
-        (div, rem)
-    }
-
     /// Returns `x % |FF|` as a `NonNativeTarget`.
     fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
         let modulus = FF::order();
@@ -252,8 +254,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    #[allow(dead_code)]
-    fn reduce_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
+    pub fn reduce_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
         let x_biguint = self.nonnative_to_biguint(x);
         self.reduce(&x_biguint)
     }
@@ -417,6 +418,45 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: Field> SimpleGenerator<F>
 }
 
 #[derive(Debug)]
+struct NonNativeMultiplicationGenerator<F: RichField + Extendable<D>, const D: usize, FF: Field> {
+    a: NonNativeTarget<FF>,
+    b: NonNativeTarget<FF>,
+    prod: NonNativeTarget<FF>,
+    overflow: BigUintTarget,
+    _phantom: PhantomData<F>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize, FF: Field> SimpleGenerator<F>
+    for NonNativeMultiplicationGenerator<F, D, FF>
+{
+    fn dependencies(&self) -> Vec<Target> {
+        self.a
+            .value
+            .limbs
+            .iter()
+            .cloned()
+            .chain(self.b.value.limbs.clone())
+            .map(|l| l.0)
+            .collect()
+    }
+
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        let a = witness.get_nonnative_target(self.a.clone());
+        let b = witness.get_nonnative_target(self.b.clone());
+        let a_biguint = a.to_biguint();
+        let b_biguint = b.to_biguint();
+
+        let prod_biguint = a_biguint * b_biguint;
+
+        let modulus = FF::order();
+        let (overflow_biguint, prod_reduced) = prod_biguint.div_rem(&modulus);
+
+        out_buffer.set_biguint_target(self.prod.value.clone(), prod_reduced);
+        out_buffer.set_biguint_target(self.overflow.clone(), overflow_biguint);
+    }
+}
+
+#[derive(Debug)]
 struct NonNativeInverseGenerator<F: RichField + Extendable<D>, const D: usize, FF: Field> {
     x: NonNativeTarget<FF>,
     inv: BigUintTarget,
@@ -566,7 +606,6 @@ mod tests {
 
         let x = builder.constant_nonnative(x_ff);
         let y = builder.constant_nonnative(y_ff);
-        println!("LIMBS LIMBS LIMBS {}", y.value.limbs.len());
         let product = builder.mul_nonnative(&x, &y);
 
         let product_expected = builder.constant_nonnative(product_ff);
