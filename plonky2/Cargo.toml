@@ -55,3 +55,7 @@ harness = false
 [[bench]]
 name = "transpose"
 harness = false
+
+[[bench]]
+name = "reverse_index_bits"
+harness = false
