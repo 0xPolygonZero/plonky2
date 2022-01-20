@@ -1,4 +1,5 @@
-use itertools::unfold;
+use itertools::{unfold, Itertools};
+use num::BigUint;
 
 use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
 use crate::field::field_types::{Field, RichField};
@@ -35,15 +36,19 @@ pub fn hash_to_bits<F: RichField>(x: F, num_bits: usize) -> Vec<bool> {
 
 pub fn hash_to_scalar<F: RichField, C: Curve>(x: F, num_bits: usize) -> C::ScalarField {
     let h_bits = hash_to_bits(x, num_bits);
-    let h_u32 = h_bits
+    let h_vals: Vec<_> = h_bits
         .iter()
-        .zip(0..32)
-        .fold(0u32, |acc, (&bit, pow)| acc + (bit as u32) * (2 << pow));
-    C::ScalarField::from_canonical_u32(h_u32)
+        .chunks(32)
+        .into_iter()
+        .map(|chunk| {
+            chunk.enumerate()
+                 .fold(0u32, |acc, (pow, &bit)| acc + (bit as u32) * (2 << pow))
+        }).collect();
+    C::ScalarField::from_biguint(BigUint::new(h_vals))
 }
 
 pub fn sign_message<F: RichField, C: Curve>(msg: F, sk: ECDSASecretKey<C>) -> ECDSASignature<C> {
-    let h = hash_to_scalar::<F, C>(msg, 32);
+    let h = hash_to_scalar::<F, C>(msg, 256);
 
     let k = C::ScalarField::rand();
     let rr = (CurveScalar(k) * C::GENERATOR_PROJECTIVE).to_affine();
@@ -60,7 +65,7 @@ pub fn verify_message<F: RichField, C: Curve>(
 ) -> bool {
     let ECDSASignature { r, s } = sig;
 
-    let h = hash_to_scalar::<F, C>(msg, 32);
+    let h = hash_to_scalar::<F, C>(msg, 256);
 
     let c = s.inverse();
     let u1 = h * c;
