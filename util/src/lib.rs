@@ -7,6 +7,7 @@
 
 use std::arch::asm;
 use std::hint::unreachable_unchecked;
+use std::mem::{size_of, swap};
 
 pub fn bits_u64(n: u64) -> usize {
     (64 - n.leading_zeros()) as usize
@@ -80,59 +81,164 @@ fn reverse_index_bits_large<T: Copy>(arr: &[T], n_power: usize) -> Vec<T> {
     result
 }
 
-pub fn reverse_index_bits_in_place<T>(arr: &mut Vec<T>) {
-    let n = arr.len();
-    let n_power = log2_strict(n);
+const LB_TLB_SIZE: usize = 3;
+const LB_CACHE_SIZE: usize = 11;
 
-    if n_power <= 6 {
+#[inline(always)]
+unsafe fn swap_unchecked<T>(arr: &mut [T], i: usize, j: usize) {
+    // Cast to pointers to remove lifetime information.
+    let i_ptr: *mut T = arr.get_unchecked_mut(i);
+    let j_ptr: *mut T = arr.get_unchecked_mut(j);
+    swap(&mut *i_ptr, &mut *j_ptr);
+}
+
+unsafe fn transpose_in_place_square_small<T>(
+    arr: &mut [T],
+    lb_stride: usize,
+    lb_size: usize,
+    x: usize,
+) {
+    for i in x..x + (1 << lb_size) {
+        for offset in 0..1 << lb_size {
+            let j = x + ((i + offset) & ((1 << lb_size) - 1));
+            swap_unchecked(arr, i + (j << lb_stride), (i << lb_stride) + j);
+        }
+    }
+}
+
+unsafe fn transpose_swap_square_small<T>(
+    arr: &mut [T],
+    lb_stride: usize,
+    lb_size: usize,
+    x: usize,
+    y: usize,
+) {
+    for i in x..x + (1 << lb_size) {
+        for offset in 0..1 << lb_size {
+            let j = y + ((i + offset) & ((1 << lb_size) - 1));
+            swap_unchecked(arr, i + (j << lb_stride), (i << lb_stride) + j);
+        }
+    }
+}
+
+unsafe fn transpose_in_place_square<T>(arr: &mut [T], lb_stride: usize, lb_size: usize, x: usize) {
+    if lb_size <= LB_TLB_SIZE {
+        transpose_in_place_square_small(arr, lb_stride, lb_size, x);
+    } else {
+        transpose_in_place_square(arr, lb_stride, lb_size - 1, x);
+        transpose_swap_square(arr, lb_stride, lb_size - 1, x, x + (1 << (lb_size >> 1)));
+        transpose_in_place_square(arr, lb_stride, lb_size - 1, x + (1 << (lb_size >> 1)));
+    }
+}
+
+unsafe fn transpose_swap_square<T>(
+    arr: &mut [T],
+    lb_stride: usize,
+    lb_size: usize,
+    x: usize,
+    y: usize,
+) {
+    if lb_size <= LB_TLB_SIZE {
+        transpose_swap_square_small(arr, lb_stride, lb_size, x, y);
+    } else {
+        transpose_swap_square(arr, lb_stride, lb_size - 1, x, y);
+        transpose_swap_square(arr, lb_stride, lb_size - 1, x + (1 << (lb_size >> 1)), y);
+        transpose_swap_square(
+            arr,
+            lb_stride,
+            lb_size - 1,
+            x + (1 << (lb_size >> 1)),
+            y + (1 << (lb_size >> 1)),
+        );
+        transpose_swap_square(arr, lb_stride, lb_size - 1, x, y + (1 << (lb_size >> 1)));
+    }
+}
+
+fn reverse_index_bits_in_place_small<T>(arr: &mut [T], n_power: usize) {
+    for src in 0..arr.len() {
+        let dst = src.reverse_bits() >> (64 - n_power);
+        if src < dst {
+            unsafe {
+                swap_unchecked(arr, src, dst);
+            }
+        }
+    }
+}
+
+fn reverse_index_bits_swap_small<T>(arr0: &mut [T], arr1: &mut [T], n_power: usize) {
+    let n = arr0.len();
+    debug_assert_eq!(n, arr1.len());
+    for src in 0..n {
+        let dst = src.reverse_bits() >> (64 - n_power);
+        swap(unsafe { arr0.get_unchecked_mut(src) }, unsafe {
+            arr1.get_unchecked_mut(dst)
+        });
+    }
+}
+
+fn reverse_index_bits_swap<T>(arr0: &mut [T], arr1: &mut [T], n_power: usize) {
+    let n = arr0.len();
+    debug_assert_eq!(n, arr1.len());
+    if n * size_of::<T>() <= 1 << LB_CACHE_SIZE {
+        reverse_index_bits_swap_small(arr0, arr1, n_power);
+    } else {
+        assert_eq!(n_power & 1, 0);
+        let half_n_power = n_power >> 1;
+
+        for i in 0..1usize << half_n_power {
+            let j = i.reverse_bits() >> (64 - half_n_power);
+            reverse_index_bits_swap(
+                unsafe { arr0.get_unchecked_mut(i << half_n_power..(i + 1) << half_n_power) },
+                unsafe { arr1.get_unchecked_mut(j << half_n_power..(j + 1) << half_n_power) },
+                half_n_power,
+            );
+        }
+
+        unsafe {
+            transpose_in_place_square(arr0, half_n_power, half_n_power, 0);
+            transpose_in_place_square(arr1, half_n_power, half_n_power, 0);
+        }
+    }
+}
+
+fn reverse_index_bits_in_place_inner<T>(arr: &mut [T], n_power: usize) {
+    let n = arr.len();
+    if n * size_of::<T>() <= 1 << LB_CACHE_SIZE {
         reverse_index_bits_in_place_small(arr, n_power);
     } else {
-        reverse_index_bits_in_place_large(arr, n_power);
+        assert_eq!(n_power & 1, 0);
+        let half_n_power = n_power >> 1;
+
+        for i in 0..1usize << half_n_power {
+            let j = i.reverse_bits() >> (64 - half_n_power);
+            if i < j {
+                let arr0_ptr: *mut [T] =
+                    unsafe { arr.get_unchecked_mut(i << half_n_power..(j + 1) << half_n_power) };
+                let arr1_ptr: *mut [T] =
+                    unsafe { arr.get_unchecked_mut(j << half_n_power..(i + 1) << half_n_power) };
+                reverse_index_bits_swap(
+                    unsafe { &mut *arr0_ptr },
+                    unsafe { &mut *arr1_ptr },
+                    half_n_power,
+                );
+            } else if i == j {
+                reverse_index_bits_in_place_inner(
+                    unsafe { arr.get_unchecked_mut(i << half_n_power..(i + 1) << half_n_power) },
+                    half_n_power,
+                );
+            }
+        }
+
+        unsafe {
+            transpose_in_place_square(arr, half_n_power, half_n_power, 0);
+        }
     }
 }
 
-/* Both functions below are semantically equivalent to:
-        for src in 0..n {
-            let dst = reverse_bits(src, n_power);
-            if src < dst {
-                arr.swap(src, dst);
-            }
-        }
-   where reverse_bits(src, n_power) computes the n_power-bit reverse.
-*/
-
-fn reverse_index_bits_in_place_small<T>(arr: &mut Vec<T>, n_power: usize) {
+pub fn reverse_index_bits_in_place<T>(arr: &mut [T]) {
     let n = arr.len();
-    // BIT_REVERSE_6BIT holds 6-bit reverses. This shift makes them n_power-bit reverses.
-    let dst_shr_amt = 6 - n_power;
-    for src in 0..n {
-        let dst = (BIT_REVERSE_6BIT[src] as usize) >> dst_shr_amt;
-        if src < dst {
-            arr.swap(src, dst);
-        }
-    }
-}
-
-fn reverse_index_bits_in_place_large<T>(arr: &mut Vec<T>, n_power: usize) {
-    let n = arr.len();
-    // LLVM does not know that it does not need to reverse src at each iteration (which is expensive
-    // on x86). We take advantage of the fact that the low bits of dst change rarely and the high
-    // bits of dst are dependent only on the low bits of src.
-    let dst_lo_shr_amt = 64 - (n_power - 6);
-    let dst_hi_shl_amt = n_power - 6;
-    for src_chunk in 0..(n >> 6) {
-        let src_hi = src_chunk << 6;
-        let dst_lo = src_chunk.reverse_bits() >> dst_lo_shr_amt;
-        for src_lo in 0..(1 << 6) {
-            let dst_hi = (BIT_REVERSE_6BIT[src_lo] as usize) << dst_hi_shl_amt;
-
-            let src = src_hi + src_lo;
-            let dst = dst_hi + dst_lo;
-            if src < dst {
-                arr.swap(src, dst);
-            }
-        }
-    }
+    let n_power = log2_strict(n);
+    reverse_index_bits_in_place_inner(arr, n_power);
 }
 
 // Lookup table of 6-bit reverses.

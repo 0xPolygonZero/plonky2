@@ -127,4 +127,15 @@ mod tests {
         reverse_index_bits_in_place(&mut arr256);
         assert_eq!(arr256, output256);
     }
+
+    #[test]
+    fn test_reverse_index_bits_in_place_big() {
+        let mut arr: Vec<u64> = (0..1 << 24).collect();
+        let target = reverse_index_bits(&arr);
+        reverse_index_bits_in_place(&mut arr);
+        assert_eq!(arr, target);
+        reverse_index_bits_in_place(&mut arr);
+        let range: Vec<u64> = (0..1 << 24).collect();
+        assert_eq!(arr, range);
+    }
 }
