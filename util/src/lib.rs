@@ -8,6 +8,7 @@
 use std::arch::asm;
 use std::hint::unreachable_unchecked;
 use std::mem::{size_of, swap};
+use std::ptr::swap_nonoverlapping;
 
 pub fn bits_u64(n: u64) -> usize {
     (64 - n.leading_zeros()) as usize
@@ -165,44 +166,10 @@ fn reverse_index_bits_in_place_small<T>(arr: &mut [T], n_power: usize) {
     }
 }
 
-fn reverse_index_bits_swap_small<T>(arr0: &mut [T], arr1: &mut [T], n_power: usize) {
-    let n = arr0.len();
-    debug_assert_eq!(n, arr1.len());
-    for src in 0..n {
-        let dst = src.reverse_bits() >> (64 - n_power);
-        swap(unsafe { arr0.get_unchecked_mut(src) }, unsafe {
-            arr1.get_unchecked_mut(dst)
-        });
-    }
-}
-
-fn reverse_index_bits_swap<T>(arr0: &mut [T], arr1: &mut [T], n_power: usize) {
-    let n = arr0.len();
-    debug_assert_eq!(n, arr1.len());
-    if n * size_of::<T>() <= 1 << LB_CACHE_SIZE {
-        reverse_index_bits_swap_small(arr0, arr1, n_power);
-    } else {
-        assert_eq!(n_power & 1, 0);
-        let half_n_power = n_power >> 1;
-
-        for i in 0..1usize << half_n_power {
-            let j = i.reverse_bits() >> (64 - half_n_power);
-            reverse_index_bits_swap(
-                unsafe { arr0.get_unchecked_mut(i << half_n_power..(i + 1) << half_n_power) },
-                unsafe { arr1.get_unchecked_mut(j << half_n_power..(j + 1) << half_n_power) },
-                half_n_power,
-            );
-        }
-
-        unsafe {
-            transpose_in_place_square(arr0, half_n_power, half_n_power, 0);
-            transpose_in_place_square(arr1, half_n_power, half_n_power, 0);
-        }
-    }
-}
-
-fn reverse_index_bits_in_place_inner<T>(arr: &mut [T], n_power: usize) {
+pub fn reverse_index_bits_in_place<T>(arr: &mut [T]) {
     let n = arr.len();
+    let n_power = log2_strict(n);
+
     if n * size_of::<T>() <= 1 << LB_CACHE_SIZE {
         reverse_index_bits_in_place_small(arr, n_power);
     } else {
@@ -212,33 +179,33 @@ fn reverse_index_bits_in_place_inner<T>(arr: &mut [T], n_power: usize) {
         for i in 0..1usize << half_n_power {
             let j = i.reverse_bits() >> (64 - half_n_power);
             if i < j {
-                let arr0_ptr: *mut [T] =
-                    unsafe { arr.get_unchecked_mut(i << half_n_power..(j + 1) << half_n_power) };
-                let arr1_ptr: *mut [T] =
-                    unsafe { arr.get_unchecked_mut(j << half_n_power..(i + 1) << half_n_power) };
-                reverse_index_bits_swap(
-                    unsafe { &mut *arr0_ptr },
-                    unsafe { &mut *arr1_ptr },
-                    half_n_power,
-                );
-            } else if i == j {
-                reverse_index_bits_in_place_inner(
-                    unsafe { arr.get_unchecked_mut(i << half_n_power..(i + 1) << half_n_power) },
-                    half_n_power,
-                );
+                unsafe {
+                    swap_nonoverlapping(
+                        arr.get_unchecked_mut(i << half_n_power),
+                        arr.get_unchecked_mut(j << half_n_power),
+                        1 << half_n_power,
+                    );
+                }
             }
         }
 
         unsafe {
             transpose_in_place_square(arr, half_n_power, half_n_power, 0);
         }
-    }
-}
 
-pub fn reverse_index_bits_in_place<T>(arr: &mut [T]) {
-    let n = arr.len();
-    let n_power = log2_strict(n);
-    reverse_index_bits_in_place_inner(arr, n_power);
+        for i in 0..1usize << half_n_power {
+            let j = i.reverse_bits() >> (64 - half_n_power);
+            if i < j {
+                unsafe {
+                    swap_nonoverlapping(
+                        arr.get_unchecked_mut(i << half_n_power),
+                        arr.get_unchecked_mut(j << half_n_power),
+                        1 << half_n_power,
+                    );
+                }
+            }
+        }
+    }
 }
 
 // Lookup table of 6-bit reverses.
