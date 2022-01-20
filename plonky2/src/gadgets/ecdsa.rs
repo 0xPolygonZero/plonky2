@@ -55,7 +55,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) {
         let ECDSASignatureTarget { r, s } = sig;
 
-        let h = self.hash_to_scalar::<C>(msg, 32);
+        let h = self.hash_to_scalar::<C>(msg, 256);
 
         let c = self.inv_nonnative(&s);
         let u1 = self.mul_nonnative(&h, &c);
