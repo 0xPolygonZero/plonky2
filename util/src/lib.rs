@@ -94,7 +94,7 @@ unsafe fn reverse_index_bits_in_place_small<T>(arr: &mut [T], lb_n: usize) {
         for src in 0..arr.len() {
             let dst = (BIT_REVERSE_6BIT[src] as usize) >> dst_shr_amt;
             if src < dst {
-                arr.swap(src, dst);
+                swap(arr.get_unchecked_mut(src), arr.get_unchecked_mut(dst));
             }
         }
     } else {
