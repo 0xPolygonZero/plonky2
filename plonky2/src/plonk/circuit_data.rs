@@ -234,6 +234,8 @@ pub struct CommonCircuitData<
 
     pub(crate) num_virtual_targets: usize,
 
+    pub(crate) num_public_inputs: usize,
+
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
     pub(crate) k_is: Vec<F>,
 
@@ -341,11 +343,14 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     fn fri_preprocessed_polys(&self) -> Vec<FriPolynomialInfo> {
-        let num_preprocessed_polys = self.sigmas_range().end;
         FriPolynomialInfo::from_range(
             PlonkOracle::CONSTANTS_SIGMAS.index,
-            0..num_preprocessed_polys,
+            0..self.num_preprocessed_polys(),
         )
+    }
+
+    pub(crate) fn num_preprocessed_polys(&self) -> usize {
+        self.sigmas_range().end
     }
 
     fn fri_wire_polys(&self) -> Vec<FriPolynomialInfo> {
@@ -354,12 +359,14 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     fn fri_zs_partial_products_polys(&self) -> Vec<FriPolynomialInfo> {
-        let num_zs_partial_products_polys =
-            self.config.num_challenges * (1 + self.num_partial_products);
         FriPolynomialInfo::from_range(
             PlonkOracle::ZS_PARTIAL_PRODUCTS.index,
-            0..num_zs_partial_products_polys,
+            0..self.num_zs_partial_products_polys(),
         )
+    }
+
+    pub(crate) fn num_zs_partial_products_polys(&self) -> usize {
+        self.config.num_challenges * (1 + self.num_partial_products)
     }
 
     fn fri_zs_polys(&self) -> Vec<FriPolynomialInfo> {
@@ -367,8 +374,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     fn fri_quotient_polys(&self) -> Vec<FriPolynomialInfo> {
-        let num_quotient_polys = self.config.num_challenges * self.quotient_degree_factor;
-        FriPolynomialInfo::from_range(PlonkOracle::QUOTIENT.index, 0..num_quotient_polys)
+        FriPolynomialInfo::from_range(PlonkOracle::QUOTIENT.index, 0..self.num_quotient_polys())
+    }
+
+    pub(crate) fn num_quotient_polys(&self) -> usize {
+        self.config.num_challenges * self.quotient_degree_factor
     }
 
     fn fri_all_polys(&self) -> Vec<FriPolynomialInfo> {

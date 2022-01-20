@@ -17,7 +17,7 @@ pub struct MerkleProof<F: RichField, H: Hasher<F>> {
     pub siblings: Vec<H::Hash>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MerkleProofTarget {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.
     pub siblings: Vec<HashOutTarget>,

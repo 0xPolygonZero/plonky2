@@ -15,6 +15,7 @@ use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::arithmetic::BaseArithmeticOperation;
 use crate::gadgets::arithmetic_extension::ExtensionArithmeticOperation;
 use crate::gadgets::arithmetic_u32::U32Target;
+use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::arithmetic_u32::U32ArithmeticGate;
@@ -28,6 +29,7 @@ use crate::gates::random_access::RandomAccessGate;
 use crate::gates::subtraction_u32::U32SubtractionGate;
 use crate::gates::switch::SwitchGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
+use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{
     CopyGenerator, RandomValueGenerator, SimpleGenerator, WitnessGenerator,
@@ -172,6 +174,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (0..n).map(|_i| self.add_virtual_hash()).collect()
     }
 
+    pub(crate) fn add_virtual_merkle_proof(&mut self, len: usize) -> MerkleProofTarget {
+        MerkleProofTarget {
+            siblings: self.add_virtual_hashes(len),
+        }
+    }
+
     pub fn add_virtual_extension_target(&mut self) -> ExtensionTarget<D> {
         ExtensionTarget(self.add_virtual_targets(D).try_into().unwrap())
     }
@@ -180,6 +188,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (0..n)
             .map(|_i| self.add_virtual_extension_target())
             .collect()
+    }
+
+    pub(crate) fn add_virtual_poly_coeff_ext(
+        &mut self,
+        num_coeffs: usize,
+    ) -> PolynomialCoeffsExtTarget<D> {
+        let coeffs = self.add_virtual_extension_targets(num_coeffs);
+        PolynomialCoeffsExtTarget(coeffs)
     }
 
     // TODO: Unsafe
@@ -596,6 +612,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
         // those hash wires match the claimed public inputs.
+        let num_public_inputs = self.public_inputs.len();
         let public_inputs_hash =
             self.hash_n_to_hash::<C::InnerHasher>(self.public_inputs.clone(), true);
         let pi_gate = self.add_gate(PublicInputGate, vec![]);
@@ -736,6 +753,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             num_gate_constraints,
             num_constants,
             num_virtual_targets: self.virtual_target_index,
+            num_public_inputs,
             k_is,
             num_partial_products,
             circuit_digest,
