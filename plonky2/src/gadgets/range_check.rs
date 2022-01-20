@@ -41,6 +41,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         (low, high)
     }
+
+    pub fn range_check_u32(&mut self, vals: Vec<U32Target>) {
+        let num_input_limbs = vals.len();
+        let gate = U32RangeCheckGate::<F, D>::new(num_input_limbs);
+        let gate_index = self.add_gate(gate, vec![]);
+
+        for i in 0..num_input_limbs {
+            self.connect(
+                Target::wire(gate_index, gate.wire_ith_input_limb(i)),
+                vals[i].0,
+            );
+        }
+    }
+
+    pub fn assert_bool(&mut self, b: BoolTarget) {
+        let z = self.mul_sub(b.target, b.target, b.target);
+        let zero = self.zero();
+        self.connect(z, zero);
+    }
 }
 
 #[derive(Debug)]

@@ -125,6 +125,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             _phantom: PhantomData,
         });
 
+        self.range_check_u32(sum.value.limbs.clone());
+        self.range_check_u32(vec![overflow]);
+
         let sum_expected = summands
             .iter()
             .fold(self.zero_biguint(), |a, b| self.add_biguint(&a, &b.value));
@@ -157,6 +160,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             _phantom: PhantomData,
         });
 
+        self.range_check_u32(diff.value.limbs.clone());
+        self.assert_bool(overflow);
+
         let diff_plus_b = self.add_biguint(&diff.value, &b.value);
         let modulus = self.constant_biguint(&FF::order());
         let mod_times_overflow = self.mul_biguint_by_bool(&modulus, overflow);
@@ -185,6 +191,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             _phantom: PhantomData,
         });
 
+        self.range_check_u32(prod.value.limbs.clone());
+        self.range_check_u32(overflow.limbs.clone());
+
         let prod_expected = self.mul_biguint(&a.value, &b.value);
 
         let mod_times_overflow = self.mul_biguint(&modulus, &overflow);
@@ -202,12 +211,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return to_mul[0].clone();
         }
 
-        let mut result = self.mul_biguint(&to_mul[0].value, &to_mul[1].value);
+        let mut accumulator = self.mul_nonnative(&to_mul[0], &to_mul[1]);
         for i in 2..to_mul.len() {
-            result = self.mul_biguint(&result, &to_mul[i].value);
+            accumulator = self.mul_nonnative(&accumulator, &to_mul[i]);
         }
-
-        self.reduce(&result)
+        accumulator
     }
 
     pub fn neg_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {

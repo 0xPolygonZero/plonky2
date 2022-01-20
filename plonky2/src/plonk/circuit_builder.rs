@@ -191,6 +191,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         BoolTarget::new_unsafe(self.add_virtual_target())
     }
 
+    pub fn add_virtual_bool_target_safe(&mut self) -> BoolTarget {
+        let b = BoolTarget::new_unsafe(self.add_virtual_target());
+        self.assert_bool(b);
+        b
+    }
+
     /// Adds a gate to the circuit, and returns its index.
     pub fn add_gate<G: Gate<F, D>>(&mut self, gate_type: G, constants: Vec<F>) -> usize {
         self.check_gate_compatibility(&gate_type);
@@ -221,7 +227,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn check_gate_compatibility<G: Gate<F, D>>(&self, gate: &G) {
         assert!(
             gate.num_wires() <= self.config.num_wires,
-            "{:?} requires {} wires, but our GateConfig has only {}",
+            "{:?} requires {} wires, but our CircuitConfig has only {}",
             gate.id(),
             gate.num_wires(),
             self.config.num_wires

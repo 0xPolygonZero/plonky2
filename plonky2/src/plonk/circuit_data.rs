@@ -49,7 +49,7 @@ pub struct CircuitConfig {
 
 impl Default for CircuitConfig {
     fn default() -> Self {
-        CircuitConfig::standard_recursion_config()
+        Self::standard_recursion_config()
     }
 }
 
@@ -76,6 +76,13 @@ impl CircuitConfig {
                 reduction_strategy: FriReductionStrategy::ConstantArityBits(4, 5),
                 num_query_rounds: 28,
             },
+        }
+    }
+
+    pub fn standard_ecc_config() -> Self {
+        Self {
+            num_wires: 136,
+            ..Self::standard_recursion_config()
         }
     }
 

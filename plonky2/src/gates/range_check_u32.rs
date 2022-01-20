@@ -27,7 +27,7 @@ impl<F: RichField + Extendable<D>, const D: usize> U32RangeCheckGate<F, D> {
         }
     }
 
-    pub const AUX_LIMB_BITS: usize = 3;
+    pub const AUX_LIMB_BITS: usize = 2;
     pub const BASE: usize = 1 << Self::AUX_LIMB_BITS;
 
     fn aux_limbs_per_input_limb(&self) -> usize {
@@ -243,7 +243,7 @@ mod tests {
         type F = GoldilocksField;
         type FF = QuarticExtension<GoldilocksField>;
         const D: usize = 4;
-        const AUX_LIMB_BITS: usize = 3;
+        const AUX_LIMB_BITS: usize = 2;
         const BASE: usize = 1 << AUX_LIMB_BITS;
         const AUX_LIMBS_PER_INPUT_LIMB: usize = ceil_div_usize(32, AUX_LIMB_BITS);
 

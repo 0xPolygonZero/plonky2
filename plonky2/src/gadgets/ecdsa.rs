@@ -96,7 +96,7 @@ mod tests {
         const D: usize = 4;
         type C = Secp256K1;
 
-        let config = CircuitConfig::standard_recursion_config();
+        let config = CircuitConfig::standard_ecc_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -123,7 +123,6 @@ mod tests {
 
         let data = builder.build();
         let proof = data.prove(pw).unwrap();
-
         verify(proof, &data.verifier_only, &data.common)
     }
 }

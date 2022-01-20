@@ -315,6 +315,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let x_ext = self.convert_to_ext(x);
         self.inverse_extension(x_ext).0[0]
     }
+
+    pub fn not(&mut self, b: BoolTarget) -> BoolTarget {
+        let one = self.one();
+        let res = self.sub(one, b.target);
+        BoolTarget::new_unsafe(res)
+    }
 }
 
 /// Represents a base arithmetic operation in the circuit. Used to memoize results.
