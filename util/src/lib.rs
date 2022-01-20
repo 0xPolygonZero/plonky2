@@ -7,8 +7,11 @@
 
 use std::arch::asm;
 use std::hint::unreachable_unchecked;
-use std::mem::{size_of, swap};
-use std::ptr::swap_nonoverlapping;
+use std::mem::size_of;
+use std::ptr::{swap, swap_nonoverlapping};
+
+mod transpose_util;
+use crate::transpose_util::transpose_in_place_square;
 
 pub fn bits_u64(n: u64) -> usize {
     (64 - n.leading_zeros()) as usize
@@ -28,6 +31,7 @@ pub fn log2_ceil(n: usize) -> usize {
 pub fn log2_strict(n: usize) -> usize {
     let res = n.trailing_zeros();
     assert!(n.wrapping_shr(res) == 1, "Not a power of two: {}", n);
+    assume(n == 1 << res);
     res as usize
 }
 
@@ -82,128 +86,87 @@ fn reverse_index_bits_large<T: Copy>(arr: &[T], n_power: usize) -> Vec<T> {
     result
 }
 
-const LB_TLB_SIZE: usize = 3;
-const LB_CACHE_SIZE: usize = 11;
-
-#[inline(always)]
-unsafe fn swap_unchecked<T>(arr: &mut [T], i: usize, j: usize) {
-    // Cast to pointers to remove lifetime information.
-    let i_ptr: *mut T = arr.get_unchecked_mut(i);
-    let j_ptr: *mut T = arr.get_unchecked_mut(j);
-    swap(&mut *i_ptr, &mut *j_ptr);
-}
-
-unsafe fn transpose_in_place_square_small<T>(
-    arr: &mut [T],
-    lb_stride: usize,
-    lb_size: usize,
-    x: usize,
-) {
-    for i in x..x + (1 << lb_size) {
-        for offset in 0..1 << lb_size {
-            let j = x + ((i + offset) & ((1 << lb_size) - 1));
-            swap_unchecked(arr, i + (j << lb_stride), (i << lb_stride) + j);
+#[cfg(not(target_arch = "aarch64"))]
+unsafe fn reverse_index_bits_in_place_small<T>(arr: &mut Vec<T>, lb_n: usize) {
+    if lb_n <= 6 {
+        // BIT_REVERSE_6BIT holds 6-bit reverses. This shift makes them lb_n-bit reverses.
+        let dst_shr_amt = 6 - lb_n;
+        for src in 0..arr.len() {
+            let dst = (BIT_REVERSE_6BIT[src] as usize) >> dst_shr_amt;
+            if src < dst {
+                arr.swap(src, dst);
+            }
         }
-    }
-}
-
-unsafe fn transpose_swap_square_small<T>(
-    arr: &mut [T],
-    lb_stride: usize,
-    lb_size: usize,
-    x: usize,
-    y: usize,
-) {
-    for i in x..x + (1 << lb_size) {
-        for offset in 0..1 << lb_size {
-            let j = y + ((i + offset) & ((1 << lb_size) - 1));
-            swap_unchecked(arr, i + (j << lb_stride), (i << lb_stride) + j);
-        }
-    }
-}
-
-unsafe fn transpose_in_place_square<T>(arr: &mut [T], lb_stride: usize, lb_size: usize, x: usize) {
-    if lb_size <= LB_TLB_SIZE {
-        transpose_in_place_square_small(arr, lb_stride, lb_size, x);
     } else {
-        transpose_in_place_square(arr, lb_stride, lb_size - 1, x);
-        transpose_swap_square(arr, lb_stride, lb_size - 1, x, x + (1 << (lb_size >> 1)));
-        transpose_in_place_square(arr, lb_stride, lb_size - 1, x + (1 << (lb_size >> 1)));
-    }
-}
-
-unsafe fn transpose_swap_square<T>(
-    arr: &mut [T],
-    lb_stride: usize,
-    lb_size: usize,
-    x: usize,
-    y: usize,
-) {
-    if lb_size <= LB_TLB_SIZE {
-        transpose_swap_square_small(arr, lb_stride, lb_size, x, y);
-    } else {
-        transpose_swap_square(arr, lb_stride, lb_size - 1, x, y);
-        transpose_swap_square(arr, lb_stride, lb_size - 1, x + (1 << (lb_size >> 1)), y);
-        transpose_swap_square(
-            arr,
-            lb_stride,
-            lb_size - 1,
-            x + (1 << (lb_size >> 1)),
-            y + (1 << (lb_size >> 1)),
-        );
-        transpose_swap_square(arr, lb_stride, lb_size - 1, x, y + (1 << (lb_size >> 1)));
-    }
-}
-
-fn reverse_index_bits_in_place_small<T>(arr: &mut [T], n_power: usize) {
-    for src in 0..arr.len() {
-        let dst = src.reverse_bits() >> (64 - n_power);
-        if src < dst {
-            unsafe {
-                swap_unchecked(arr, src, dst);
+        // LLVM does not know that it does not need to reverse src at each iteration (which is
+        // expensive on x86). We take advantage of the fact that the low bits of dst change rarely and the high
+        // bits of dst are dependent only on the low bits of src.
+        let dst_lo_shr_amt = 64 - (lb_n - 6);
+        let dst_hi_shl_amt = lb_n - 6;
+        for src_chunk in 0..(arr.len() >> 6) {
+            let src_hi = src_chunk << 6;
+            let dst_lo = src_chunk.reverse_bits() >> dst_lo_shr_amt;
+            for src_lo in 0..(1 << 6) {
+                let dst_hi = (BIT_REVERSE_6BIT[src_lo] as usize) << dst_hi_shl_amt;
+                let src = src_hi + src_lo;
+                let dst = dst_hi + dst_lo;
+                if src < dst {
+                    swap(arr.get_unchecked_mut(src), arr.get_unchecked_mut(dst));
+                }
             }
         }
     }
 }
 
+#[cfg(target_arch = "aarch64")]
+unsafe fn reverse_index_bits_in_place_small<T>(arr: &mut [T], lb_n: usize) {
+    for src in 0..arr.len() {
+        let dst = src.reverse_bits() >> (usize::BITS as usize - lb_n);
+        if src < dst {
+            swap(arr.get_unchecked_mut(src), arr.get_unchecked_mut(dst));
+        }
+    }
+}
+
+unsafe fn reverse_index_bits_in_place_chunks<T>(
+    arr: &mut [T],
+    lb_num_chunks: usize,
+    lb_chunk_size: usize,
+) {
+    for i in 0..1usize << lb_num_chunks {
+        let j = i.reverse_bits() >> (usize::BITS as usize - lb_num_chunks);
+        if i < j {
+            swap_nonoverlapping(
+                arr.get_unchecked_mut(i << lb_chunk_size),
+                arr.get_unchecked_mut(j << lb_chunk_size),
+                1 << lb_chunk_size,
+            );
+        }
+    }
+}
+
+// Ensure that SMALL_ARR_SIZE >= 4 * BIG_T_SIZE.
+const BIG_T_SIZE: usize = 1 << 14;
+const SMALL_ARR_SIZE: usize = 1 << 16;
 pub fn reverse_index_bits_in_place<T>(arr: &mut [T]) {
     let n = arr.len();
-    let n_power = log2_strict(n);
-
-    if n * size_of::<T>() <= 1 << LB_CACHE_SIZE {
-        reverse_index_bits_in_place_small(arr, n_power);
-    } else {
-        assert_eq!(n_power & 1, 0);
-        let half_n_power = n_power >> 1;
-
-        for i in 0..1usize << half_n_power {
-            let j = i.reverse_bits() >> (64 - half_n_power);
-            if i < j {
-                unsafe {
-                    swap_nonoverlapping(
-                        arr.get_unchecked_mut(i << half_n_power),
-                        arr.get_unchecked_mut(j << half_n_power),
-                        1 << half_n_power,
-                    );
-                }
-            }
-        }
-
+    let lb_n = log2_strict(n);
+    if size_of::<T>() >= BIG_T_SIZE || size_of::<T>() << lb_n <= SMALL_ARR_SIZE {
         unsafe {
-            transpose_in_place_square(arr, half_n_power, half_n_power, 0);
+            reverse_index_bits_in_place_small(arr, lb_n);
         }
-
-        for i in 0..1usize << half_n_power {
-            let j = i.reverse_bits() >> (64 - half_n_power);
-            if i < j {
-                unsafe {
-                    swap_nonoverlapping(
-                        arr.get_unchecked_mut(i << half_n_power),
-                        arr.get_unchecked_mut(j << half_n_power),
-                        1 << half_n_power,
-                    );
-                }
+    } else {
+        debug_assert!(n >= 4);
+        let lb_num_chunks = lb_n >> 1;
+        let lb_chunk_size = lb_n - lb_num_chunks;
+        unsafe {
+            reverse_index_bits_in_place_chunks(arr, lb_num_chunks, lb_chunk_size);
+            transpose_in_place_square(arr, lb_chunk_size, lb_num_chunks, 0);
+            if lb_num_chunks != lb_chunk_size {
+                let arr_with_offset = &mut arr[1 << lb_num_chunks..];
+                transpose_in_place_square(arr_with_offset, lb_chunk_size, lb_num_chunks, 0);
             }
+            reverse_index_bits_in_place_chunks(arr, lb_num_chunks, lb_chunk_size);
         }
     }
 }
