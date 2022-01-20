@@ -133,7 +133,6 @@ unsafe fn reverse_index_bits_in_place_small<T>(arr: &mut [T], lb_n: usize) {
     }
 }
 
-
 /// Split `arr` chunks and bit-reverse the order of the chunks. There are `1 << lb_num_chunks`
 /// chunks, each of length `1 << lb_chunk_size`.
 /// SAFETY: ensure that `arr.len() == 1 << lb_num_chunks + lb_chunk_size`.
@@ -169,6 +168,7 @@ pub fn reverse_index_bits_in_place<T>(arr: &mut [T]) {
         }
     } else {
         debug_assert!(n >= 4); // By our choice of `BIG_T_SIZE` and `SMALL_ARR_SIZE`.
+
         // Algorithm:
         //
         // Treat `arr` as a `sqrt(n)` by `sqrt(n)` row-major matrix. (Assume for now that `lb_n` is
