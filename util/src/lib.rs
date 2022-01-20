@@ -87,7 +87,7 @@ fn reverse_index_bits_large<T: Copy>(arr: &[T], n_power: usize) -> Vec<T> {
 }
 
 #[cfg(not(target_arch = "aarch64"))]
-unsafe fn reverse_index_bits_in_place_small<T>(arr: &mut Vec<T>, lb_n: usize) {
+unsafe fn reverse_index_bits_in_place_small<T>(arr: &mut [T], lb_n: usize) {
     if lb_n <= 6 {
         // BIT_REVERSE_6BIT holds 6-bit reverses. This shift makes them lb_n-bit reverses.
         let dst_shr_amt = 6 - lb_n;
