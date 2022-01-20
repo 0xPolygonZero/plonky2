@@ -91,6 +91,7 @@ mod tests {
     use crate::plonk::verifier::verify;
 
     #[test]
+    #[ignore]
     fn test_ecdsa_circuit() -> Result<()> {
         type F = GoldilocksField;
         const D: usize = 4;

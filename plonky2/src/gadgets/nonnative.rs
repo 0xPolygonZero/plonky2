@@ -518,7 +518,7 @@ mod tests {
         let y_ff = FF::rand();
         let sum_ff = x_ff + y_ff;
 
-        let config = CircuitConfig::standard_recursion_config();
+        let config = CircuitConfig::standard_ecc_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -547,8 +547,7 @@ mod tests {
         let h_ff = FF::rand();
         let sum_ff = a_ff + b_ff + c_ff + d_ff + e_ff + f_ff + g_ff + h_ff;
 
-        type F = GoldilocksField;
-        let config = CircuitConfig::standard_recursion_config();
+        let config = CircuitConfig::standard_ecc_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, 4>::new(config);
 
@@ -584,7 +583,7 @@ mod tests {
         }
         let diff_ff = x_ff - y_ff;
 
-        let config = CircuitConfig::standard_recursion_config();
+        let config = CircuitConfig::standard_ecc_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -610,7 +609,7 @@ mod tests {
         let y_ff = FF::rand();
         let product_ff = x_ff * y_ff;
 
-        let config = CircuitConfig::standard_recursion_config();
+        let config = CircuitConfig::standard_ecc_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -630,7 +629,7 @@ mod tests {
         type FF = Secp256K1Base;
 
         type F = GoldilocksField;
-        let config = CircuitConfig::standard_recursion_config();
+        let config = CircuitConfig::standard_ecc_config();
         let mut unop_builder = CircuitBuilder::<F, 4>::new(config.clone());
         let mut op_builder = CircuitBuilder::<F, 4>::new(config);
 
@@ -668,7 +667,7 @@ mod tests {
         let x_ff = FF::rand();
         let neg_x_ff = -x_ff;
 
-        let config = CircuitConfig::standard_recursion_config();
+        let config = CircuitConfig::standard_ecc_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -692,7 +691,7 @@ mod tests {
         let x_ff = FF::rand();
         let inv_x_ff = x_ff.inverse();
 
-        let config = CircuitConfig::standard_recursion_config();
+        let config = CircuitConfig::standard_ecc_config();
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
