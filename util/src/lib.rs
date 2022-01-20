@@ -86,6 +86,8 @@ fn reverse_index_bits_large<T: Copy>(arr: &[T], n_power: usize) -> Vec<T> {
     result
 }
 
+/// Bit-reverse the order of elements in `arr`.
+/// SAFETY: ensure that `arr.len() == 1 << lb_n`.
 #[cfg(not(target_arch = "aarch64"))]
 unsafe fn reverse_index_bits_in_place_small<T>(arr: &mut [T], lb_n: usize) {
     if lb_n <= 6 {
@@ -118,8 +120,11 @@ unsafe fn reverse_index_bits_in_place_small<T>(arr: &mut [T], lb_n: usize) {
     }
 }
 
+/// Bit-reverse the order of elements in `arr`.
+/// SAFETY: ensure that `arr.len() == 1 << lb_n`.
 #[cfg(target_arch = "aarch64")]
 unsafe fn reverse_index_bits_in_place_small<T>(arr: &mut [T], lb_n: usize) {
+    // Aarch64 can reverse bits in one instruction, so the trivial version works best.
     for src in 0..arr.len() {
         let dst = src.reverse_bits() >> (usize::BITS as usize - lb_n);
         if src < dst {
@@ -128,6 +133,10 @@ unsafe fn reverse_index_bits_in_place_small<T>(arr: &mut [T], lb_n: usize) {
     }
 }
 
+
+/// Split `arr` chunks and bit-reverse the order of the chunks. There are `1 << lb_num_chunks`
+/// chunks, each of length `1 << lb_chunk_size`.
+/// SAFETY: ensure that `arr.len() == 1 << lb_num_chunks + lb_chunk_size`.
 unsafe fn reverse_index_bits_in_place_chunks<T>(
     arr: &mut [T],
     lb_num_chunks: usize,
@@ -151,18 +160,45 @@ const SMALL_ARR_SIZE: usize = 1 << 16;
 pub fn reverse_index_bits_in_place<T>(arr: &mut [T]) {
     let n = arr.len();
     let lb_n = log2_strict(n);
-    if size_of::<T>() >= BIG_T_SIZE || size_of::<T>() << lb_n <= SMALL_ARR_SIZE {
+    // If the whole array fits in fast cache, then the trivial algorithm is cache friendly. Also, if
+    // `T` is really big, then the trivial algorithm is cache-friendly, no matter the size of the
+    // array.
+    if size_of::<T>() << lb_n <= SMALL_ARR_SIZE || size_of::<T>() >= BIG_T_SIZE {
         unsafe {
             reverse_index_bits_in_place_small(arr, lb_n);
         }
     } else {
-        debug_assert!(n >= 4);
+        debug_assert!(n >= 4); // By our choice of `BIG_T_SIZE` and `SMALL_ARR_SIZE`.
+        // Algorithm:
+        //
+        // Treat `arr` as a `sqrt(n)` by `sqrt(n)` row-major matrix. (Assume for now that `lb_n` is
+        // even, i.e., `n` is a square number.) To perform bit-order reversal we:
+        //  1. Bit-reverse the order of the rows. (They are contiguous in memory, so this is
+        //     basically a series of large `memcpy`s.)
+        //  2. Transpose the matrix.
+        //  3. Bit-reverse the order of the rows.
+        // This is equivalent to, for every index `0 <= i < n`:
+        //  1. bit-reversing `i[lb_n / 2..lb_n]`,
+        //  2. swapping `i[0..lb_n / 2]` and `i[lb_n / 2..lb_n]`,
+        //  3. bit-reversing `i[lb_n / 2..lb_n]`.
+        //
+        // If `lb_n` is odd, i.e., `n` is not a square number, then the above procedure requires
+        // slight modification. At steps 1 and 3 we bit-reverse bits `ceil(lb_n / 2)..lb_n`, of the
+        // index (shuffling `floor(lb_n / 2)` chunks of length `ceil(lb_n / 2)`). At step 2, we
+        // perform _two_ transposes. We treat `arr` as two matrices, one where the middle bit of the
+        // index is `0` and another, where the middle bit is `1`; we transpose each individually.
+
         let lb_num_chunks = lb_n >> 1;
         let lb_chunk_size = lb_n - lb_num_chunks;
         unsafe {
             reverse_index_bits_in_place_chunks(arr, lb_num_chunks, lb_chunk_size);
             transpose_in_place_square(arr, lb_chunk_size, lb_num_chunks, 0);
             if lb_num_chunks != lb_chunk_size {
+                // `arr` cannot be interpreted as a square matrix. We instead interpret it as a
+                // `1 << lb_num_chunks` by `2` by `1 << lb_num_chunks` tensor, in row-major order.
+                // The above transpose acted on `tensor[..., 0, ...]` (all indices with middle bit
+                // `0`). We still need to transpose `tensor[..., 1, ...]`. To do so, we advance
+                // arr by `1 << lb_num_chunks` effectively, adding that to every index.
                 let arr_with_offset = &mut arr[1 << lb_num_chunks..];
                 transpose_in_place_square(arr_with_offset, lb_chunk_size, lb_num_chunks, 0);
             }
