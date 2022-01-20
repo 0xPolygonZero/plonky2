@@ -2,6 +2,14 @@ use std::ptr::swap;
 
 const LB_BLOCK_SIZE: usize = 3;
 
+/// Transpose square matrix in-place
+/// The matrix is of size `1 << lb_size` by `1 << lb_size`. It occupies
+/// `M[i, j] == arr[(i + x << lb_stride) + j + x]` for `0 <= i, j < 1 << lb_size`. The transposition
+/// swaps `M[i, j]` and `M[j, i]`.
+///
+/// SAFETY:
+/// Make sure that `(i + x << lb_stride) + j + x` is a valid index in `arr` for all
+/// `0 <= i, j < 1 << lb_size`. Ensure also that `lb_size <= lb_stride` to prevent overlap.
 unsafe fn transpose_in_place_square_small<T>(
     arr: &mut [T],
     lb_stride: usize,
@@ -18,6 +26,15 @@ unsafe fn transpose_in_place_square_small<T>(
     }
 }
 
+/// Transpose square matrices and swap
+/// The matrices are of of size `1 << lb_size` by `1 << lb_size`. They occupy
+/// `M0[i, j] == arr[(i + x << lb_stride) + j + y]`, `M1[i, j] == arr[i + x + (j + y << lb_stride)]`
+/// for `0 <= i, j < 1 << lb_size. The transposition swaps `M0[i, j]` and `M1[j, i]`.
+///
+/// SAFETY:
+/// Make sure that `(i + x << lb_stride) + j + y` and `i + x + (j + y << lb_stride)` are valid
+/// indices in `arr` for all `0 <= i, j < 1 << lb_size`. Ensure also that `lb_size <= lb_stride` to
+/// prevent overlap.
 unsafe fn transpose_swap_square_small<T>(
     arr: &mut [T],
     lb_stride: usize,
@@ -35,6 +52,15 @@ unsafe fn transpose_swap_square_small<T>(
     }
 }
 
+/// Transpose square matrices and swap
+/// The matrices are of of size `1 << lb_size` by `1 << lb_size`. They occupy
+/// `M0[i, j] == arr[(i + x << lb_stride) + j + y]`, `M1[i, j] == arr[i + x + (j + y << lb_stride)]`
+/// for `0 <= i, j < 1 << lb_size. The transposition swaps `M0[i, j]` and `M1[j, i]`.
+///
+/// SAFETY:
+/// Make sure that `(i + x << lb_stride) + j + y` and `i + x + (j + y << lb_stride)` are valid
+/// indices in `arr` for all `0 <= i, j < 1 << lb_size`. Ensure also that `lb_size <= lb_stride` to
+/// prevent overlap.
 unsafe fn transpose_swap_square<T>(
     arr: &mut [T],
     lb_stride: usize,
@@ -60,6 +86,14 @@ unsafe fn transpose_swap_square<T>(
     }
 }
 
+/// Transpose square matrix in-place
+/// The matrix is of size `1 << lb_size` by `1 << lb_size`. It occupies
+/// `M[i, j] == arr[(i + x << lb_stride) + j + x]` for `0 <= i, j < 1 << lb_size`. The transposition
+/// swaps `M[i, j]` and `M[j, i]`.
+///
+/// SAFETY:
+/// Make sure that `(i + x << lb_stride) + j + x` is a valid index in `arr` for all
+/// `0 <= i, j < 1 << lb_size`. Ensure also that `lb_size <= lb_stride` to prevent overlap.
 pub(crate) unsafe fn transpose_in_place_square<T>(
     arr: &mut [T],
     lb_stride: usize,
