@@ -1,5 +1,6 @@
 [package]
 name = "plonky2_field"
+description = "Finite field arithmetic"
 version = "0.1.0"
 edition = "2021"
 
