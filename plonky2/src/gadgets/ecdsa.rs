@@ -4,7 +4,7 @@ use crate::curve::curve_types::Curve;
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::RichField;
 use crate::gadgets::biguint::BigUintTarget;
-use crate::gadgets::binary_arithmetic::BinaryTarget;
+use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::curve::AffinePointTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
 use crate::iop::target::{BoolTarget, Target};
@@ -38,7 +38,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         for &bit in rev_bits {
             sum = self.mul_add(two, sum, bit.target);
         }
-        let limbs = vec![BinaryTarget::<30>(sum)];
+        let limbs = vec![U32Target(sum)];
         let value = BigUintTarget { limbs };
 
         NonNativeTarget {
