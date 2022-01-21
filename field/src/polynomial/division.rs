@@ -67,9 +67,9 @@ impl<F: Field> PolynomialCoeffs<F> {
         }
     }
 
-    /// Let `self=p(X)`, this returns `(p(X)-p(z))/(X-z)` and `p(z)`.
+    /// Let `self=p(X)`, this returns `(p(X)-p(z))/(X-z)`.
     /// See https://en.wikipedia.org/wiki/Horner%27s_method
-    pub fn divide_by_linear(&self, z: F) -> (PolynomialCoeffs<F>, F) {
+    pub fn divide_by_linear(&self, z: F) -> PolynomialCoeffs<F> {
         let mut bs = self
             .coeffs
             .iter()
@@ -79,9 +79,9 @@ impl<F: Field> PolynomialCoeffs<F> {
                 Some(*acc)
             })
             .collect::<Vec<_>>();
-        let ev = bs.pop().unwrap_or(F::ZERO);
+        bs.pop();
         bs.reverse();
-        (Self { coeffs: bs }, ev)
+        Self { coeffs: bs }
     }
 
     /// Computes the inverse of `self` modulo `x^n`.
@@ -125,7 +125,7 @@ impl<F: Field> PolynomialCoeffs<F> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Instant;
+    use rand::{thread_rng, Rng};
 
     use crate::extension_field::quartic::QuarticExtension;
     use crate::field_types::Field;
@@ -133,47 +133,17 @@ mod tests {
     use crate::polynomial::PolynomialCoeffs;
 
     #[test]
-    #[ignore]
     fn test_division_by_linear() {
         type F = QuarticExtension<GoldilocksField>;
-        let n = 1_000_000;
+        let n = thread_rng().gen_range(1..1000);
         let poly = PolynomialCoeffs::new(F::rand_vec(n));
         let z = F::rand();
         let ev = poly.eval(z);
 
-        let timer = Instant::now();
-        let (_quotient, ev2) = poly.div_rem(&PolynomialCoeffs::new(vec![-z, F::ONE]));
-        println!("{:.3}s for usual", timer.elapsed().as_secs_f32());
-        assert_eq!(ev2.trimmed().coeffs, vec![ev]);
-
-        let timer = Instant::now();
-        let (quotient, ev3) = poly.div_rem_long_division(&PolynomialCoeffs::new(vec![-z, F::ONE]));
-        println!("{:.3}s for long division", timer.elapsed().as_secs_f32());
-        assert_eq!(ev3.trimmed().coeffs, vec![ev]);
-
-        let timer = Instant::now();
-        let horn = poly.divide_by_linear(z);
-        println!("{:.3}s for Horner", timer.elapsed().as_secs_f32());
-        assert_eq!((quotient, ev), horn);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_division_by_quadratic() {
-        type F = QuarticExtension<GoldilocksField>;
-        let n = 1_000_000;
-        let poly = PolynomialCoeffs::new(F::rand_vec(n));
-        let quad = PolynomialCoeffs::new(F::rand_vec(2));
-
-        let timer = Instant::now();
-        let (quotient0, rem0) = poly.div_rem(&quad);
-        println!("{:.3}s for usual", timer.elapsed().as_secs_f32());
-
-        let timer = Instant::now();
-        let (quotient1, rem1) = poly.div_rem_long_division(&quad);
-        println!("{:.3}s for long division", timer.elapsed().as_secs_f32());
-
-        assert_eq!(quotient0.trimmed(), quotient1.trimmed());
-        assert_eq!(rem0.trimmed(), rem1.trimmed());
+        let quotient = poly.divide_by_linear(z);
+        assert_eq!(
+            poly,
+            &(&quotient * &vec![-z, F::ONE].into()) + &vec![ev].into() // `quotient * (X-z) + ev`
+        );
     }
 }

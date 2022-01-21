@@ -150,11 +150,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 &format!("reduce batch of {} polynomials", polynomials.len()),
                 alpha.reduce_polys_base(polys_coeff)
             );
-            let quotient = Self::compute_quotient([*point], composition_poly);
+            let quotient = composition_poly.divide_by_linear(*point);
             alpha.shift_poly(&mut final_poly);
             final_poly += quotient;
         }
-        final_poly.trim();
         // Multiply the final polynomial by `X`, so that `final_poly` has the maximum degree for
         // which the LDT will pass. See github.com/mir-protocol/plonky2/pull/436 for details.
         final_poly.coeffs.insert(0, F::Extension::ZERO);
@@ -179,29 +178,5 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         );
 
         fri_proof
-    }
-
-    /// Given `points=(x_i)`, `evals=(y_i)` and `poly=P` with `P(x_i)=y_i`, computes the polynomial
-    /// `Q=(P-I)/Z` where `I` interpolates `(x_i, y_i)` and `Z` is the vanishing polynomial on `(x_i)`.
-    fn compute_quotient<const N: usize>(
-        points: [F::Extension; N],
-        poly: PolynomialCoeffs<F::Extension>,
-    ) -> PolynomialCoeffs<F::Extension> {
-        let quotient = if N == 1 {
-            poly.divide_by_linear(points[0]).0
-        } else if N == 2 {
-            // The denominator is `(X - p0)(X - p1) = p0 p1 - (p0 + p1) X + X^2`.
-            let denominator = vec![
-                points[0] * points[1],
-                -points[0] - points[1],
-                F::Extension::ONE,
-            ]
-            .into();
-            poly.div_rem_long_division(&denominator).0 // Could also use `divide_by_linear` twice.
-        } else {
-            unreachable!("This shouldn't happen. Plonk should open polynomials at 1 or 2 points.")
-        };
-
-        quotient.padded(quotient.degree_plus_one().next_power_of_two())
     }
 }
