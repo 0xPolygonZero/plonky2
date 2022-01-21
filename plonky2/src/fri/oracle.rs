@@ -47,7 +47,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let coeffs = timed!(
             timing,
             "IFFT",
-            values.par_iter().map(|v| v.ifft()).collect::<Vec<_>>()
+            values.into_par_iter().map(|v| v.ifft()).collect::<Vec<_>>()
         );
 
         Self::from_coeffs(

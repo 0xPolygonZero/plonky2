@@ -80,7 +80,7 @@ fn reverse_index_bits_large<T: Copy>(arr: &[T], n_power: usize) -> Vec<T> {
     result
 }
 
-pub fn reverse_index_bits_in_place<T>(arr: &mut Vec<T>) {
+pub fn reverse_index_bits_in_place<T>(arr: &mut [T]) {
     let n = arr.len();
     let n_power = log2_strict(n);
 
@@ -101,7 +101,7 @@ pub fn reverse_index_bits_in_place<T>(arr: &mut Vec<T>) {
    where reverse_bits(src, n_power) computes the n_power-bit reverse.
 */
 
-fn reverse_index_bits_in_place_small<T>(arr: &mut Vec<T>, n_power: usize) {
+fn reverse_index_bits_in_place_small<T>(arr: &mut [T], n_power: usize) {
     let n = arr.len();
     // BIT_REVERSE_6BIT holds 6-bit reverses. This shift makes them n_power-bit reverses.
     let dst_shr_amt = 6 - n_power;
@@ -113,7 +113,7 @@ fn reverse_index_bits_in_place_small<T>(arr: &mut Vec<T>, n_power: usize) {
     }
 }
 
-fn reverse_index_bits_in_place_large<T>(arr: &mut Vec<T>, n_power: usize) {
+fn reverse_index_bits_in_place_large<T>(arr: &mut [T], n_power: usize) {
     let n = arr.len();
     // LLVM does not know that it does not need to reverse src at each iteration (which is expensive
     // on x86). We take advantage of the fact that the low bits of dst change rarely and the high
