@@ -99,7 +99,18 @@ mod tests {
     }
 
     #[test]
-    fn test_reverse_index_bits_in_place() {
+    fn test_reverse_index_bits_in_place_trivial() {
+        let mut arr1: Vec<u64> = vec![10];
+        reverse_index_bits_in_place(&mut arr1);
+        assert_eq!(arr1, vec![10]);
+
+        let mut arr2: Vec<u64> = vec![10, 20];
+        reverse_index_bits_in_place(&mut arr2);
+        assert_eq!(arr2, vec![10, 20]);
+    }
+
+    #[test]
+    fn test_reverse_index_bits_in_place_small() {
         let mut arr4: Vec<u64> = vec![10, 20, 30, 40];
         reverse_index_bits_in_place(&mut arr4);
         assert_eq!(arr4, vec![10, 30, 20, 40]);

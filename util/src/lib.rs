@@ -126,7 +126,10 @@ unsafe fn reverse_index_bits_in_place_small<T>(arr: &mut [T], lb_n: usize) {
 unsafe fn reverse_index_bits_in_place_small<T>(arr: &mut [T], lb_n: usize) {
     // Aarch64 can reverse bits in one instruction, so the trivial version works best.
     for src in 0..arr.len() {
-        let dst = src.reverse_bits() >> (usize::BITS as usize - lb_n);
+        // `wrapping_shr` handles the case when `arr.len() == 1`. In that case `src == 0`, so
+        // `src.reverse_bits() == 0`. `usize::wrapping_shr` by 64 is a no-op, but it gives the
+        // correct result.
+        let dst = src.reverse_bits().wrapping_shr(usize::BITS - lb_n as u32);
         if src < dst {
             swap(arr.get_unchecked_mut(src), arr.get_unchecked_mut(dst));
         }
@@ -142,7 +145,8 @@ unsafe fn reverse_index_bits_in_place_chunks<T>(
     lb_chunk_size: usize,
 ) {
     for i in 0..1usize << lb_num_chunks {
-        let j = i.reverse_bits() >> (usize::BITS as usize - lb_num_chunks);
+        // `wrapping_shr` handles the silly case when `lb_num_chunks == 0`.
+        let j = i.reverse_bits().wrapping_shr(usize::BITS - lb_num_chunks as u32);
         if i < j {
             swap_nonoverlapping(
                 arr.get_unchecked_mut(i << lb_chunk_size),
