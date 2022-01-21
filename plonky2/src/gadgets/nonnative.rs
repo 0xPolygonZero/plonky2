@@ -248,7 +248,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn bool_to_nonnative<FF: Field>(&mut self, b: &BoolTarget) -> NonNativeTarget<FF> {
-        let limbs = vec![BinaryTarget::<30>(b.target)];
+        let limbs = vec![U32Target(b.target)];
         let value = BigUintTarget { limbs };
 
         NonNativeTarget {
