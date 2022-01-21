@@ -193,8 +193,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let x_u64 = x.to_canonical_u64();
         let low = x_u64 as u32;
         let high: u32 = (x_u64 >> 32).try_into().unwrap();
-        println!("LOW: {}", low);
-        println!("HIGH: {}", high);
 
         out_buffer.set_u32_target(self.low.clone(), low);
         out_buffer.set_u32_target(self.high.clone(), high);
