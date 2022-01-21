@@ -1,18 +1,12 @@
 use std::marker::PhantomData;
 
-<<<<<<< HEAD:plonky2/src/gadgets/nonnative.rs
 use num::{BigUint, Zero};
 use plonky2_field::{extension_field::Extendable, field_types::Field};
 use plonky2_util::ceil_div_usize;
-=======
-use num::{BigUint, Zero, Integer, One};
->>>>>>> f2a1cca (binary arithmetic):src/gadgets/nonnative.rs
 
 use crate::gadgets::arithmetic_u32::U32Target;
-use crate::gadgets::biguint::BigUintTarget;
-use crate::hash::hash_types::RichField;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator};
-use crate::iop::target::{BoolTarget, Target};
+use crate::field::field_types::RichField;
+use crate::gadgets::binary_arithmetic::BinaryTarget;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -201,7 +195,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Returns `x % |FF|` as a `NonNativeTarget`.
-    fn reduce_by_bits<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
+    /*fn reduce_by_bits<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
         println!("NUM LIMBS: {}", x.limbs.len());
         let before = self.num_gates();
 
@@ -252,7 +246,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             value,
             _phantom: PhantomData,
         }
-    }
+    }*/
 
     #[allow(dead_code)]
     fn reduce_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
@@ -261,7 +255,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn bool_to_nonnative<FF: Field>(&mut self, b: &BoolTarget) -> NonNativeTarget<FF> {
-        let limbs = vec![U32Target(b.target)];
+        let limbs = vec![BinaryTarget::<30>(b.target)];
         let value = BigUintTarget { limbs };
 
         NonNativeTarget {
@@ -529,13 +523,7 @@ mod tests {
         let inv_x_expected = builder.constant_nonnative(inv_x_ff);
         builder.connect_nonnative(&inv_x, &inv_x_expected);
 
-<<<<<<< HEAD:plonky2/src/gadgets/nonnative.rs
         let data = builder.build::<C>();
-=======
-        println!("NUM GATES: {}", builder.num_gates());
-
-        let data = builder.build();
->>>>>>> f2a1cca (binary arithmetic):src/gadgets/nonnative.rs
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }

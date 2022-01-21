@@ -1,18 +1,8 @@
-<<<<<<< HEAD:plonky2/src/gadgets/arithmetic_u32.rs
 use plonky2_field::extension_field::Extendable;
 
 use crate::gates::arithmetic_u32::U32ArithmeticGate;
 use crate::gates::subtraction_u32::U32SubtractionGate;
 use crate::hash::hash_types::RichField;
-=======
-use std::marker::PhantomData;
-
-use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
-use crate::gates::arithmetic_u32::U32ArithmeticGate;
-use crate::gates::subtraction_u32::U32SubtractionGate;
-use crate::iop::generator::{SimpleGenerator, GeneratedValues};
->>>>>>> f2a1cca (binary arithmetic):src/gadgets/arithmetic_u32.rs
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
