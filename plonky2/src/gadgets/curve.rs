@@ -303,7 +303,13 @@ mod tests {
 
         builder.connect_affine_point(&g_plus_2g_expected, &g_plus_2g_actual);
 
+<<<<<<< HEAD:plonky2/src/gadgets/curve.rs
         let data = builder.build::<C>();
+=======
+        println!("GATE COUNT: {}", builder.num_gates());
+
+        let data = builder.build();
+>>>>>>> f2a1cca (binary arithmetic):src/gadgets/curve.rs
         let proof = data.prove(pw).unwrap();
 
         verify(proof, &data.verifier_only, &data.common)
