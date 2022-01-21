@@ -403,17 +403,17 @@ fn compute_quotient_polys<
             // NB (JN): I'm not sure how (in)efficient the below is. It needs measuring.
             let mut local_constants_batch =
                 vec![F::ZERO; xs_batch.len() * local_constants_batch_refs[0].len()];
-            for (i, constants) in local_constants_batch_refs.iter().enumerate() {
-                for (j, &constant) in constants.iter().enumerate() {
-                    local_constants_batch[i + j * xs_batch.len()] = constant;
+            for i in 0..local_constants_batch_refs[0].len() {
+                for (j, constants) in local_constants_batch_refs.iter().enumerate() {
+                    local_constants_batch[i * xs_batch.len() + j] = constants[i];
                 }
             }
 
             let mut local_wires_batch =
                 vec![F::ZERO; xs_batch.len() * local_wires_batch_refs[0].len()];
-            for (i, wires) in local_wires_batch_refs.iter().enumerate() {
-                for (j, &wire) in wires.iter().enumerate() {
-                    local_wires_batch[i + j * xs_batch.len()] = wire;
+            for i in 0..local_wires_batch_refs[0].len() {
+                for (j, wires) in local_wires_batch_refs.iter().enumerate() {
+                    local_wires_batch[i * xs_batch.len() + j] = wires[i];
                 }
             }
 
