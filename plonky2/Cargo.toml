@@ -1,12 +1,11 @@
 [package]
 name = "plonky2"
-description = "Recursive SNARKs based on Plonk and FRI"
+description = "Recursive SNARKs based on PLONK and FRI"
 version = "0.1.0"
-authors = ["Daniel Lubarov <daniel@mirprotocol.org>"]
+authors = ["Polygon Zero <daniel@mirprotocol.org>"]
 readme = "README.md"
-license = "MIT OR Apache-2.0"
 repository = "https://github.com/mir-protocol/plonky2"
-keywords = ["cryptography", "SNARK", "FRI"]
+keywords = ["cryptography", "SNARK", "PLONK", "FRI"]
 categories = ["cryptography"]
 edition = "2021"
 default-run = "generate_constants"

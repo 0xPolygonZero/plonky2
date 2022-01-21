@@ -11,7 +11,7 @@ pub(crate) fn bench_ffts<F: Field>(c: &mut Criterion) {
         let size = 1 << size_log;
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             let coeffs = PolynomialCoeffs::new(F::rand_vec(size));
-            b.iter(|| coeffs.fft_with_options(None, None));
+            b.iter(|| coeffs.clone().fft_with_options(None, None));
         });
     }
 }
