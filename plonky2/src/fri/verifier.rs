@@ -160,7 +160,9 @@ pub(crate) fn fri_combine_initial<
         sum += numerator / denominator;
     }
 
-    sum
+    // Multiply the final polynomial by `X`, so that `final_poly` has the maximum degree for
+    // which the LDT will pass. See github.com/mir-protocol/plonky2/pull/436 for details.
+    sum * subgroup_x
 }
 
 fn fri_verifier_query_round<
