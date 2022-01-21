@@ -205,7 +205,6 @@ pub(crate) fn fft_classic<F: Field>(values: &mut [F], r: usize, root_table: &Fft
     }
 }
 
-// JNTODO
 #[cfg(test)]
 mod tests {
     use plonky2_util::{log2_ceil, log2_strict};
