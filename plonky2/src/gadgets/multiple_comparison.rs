@@ -59,14 +59,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Helper function for comparing, specifically, lists of `U32Target`s.
-    pub fn list_le_binary<const BITS: usize>(
-        &mut self,
-        a: Vec<BinaryTarget<BITS>>,
-        b: Vec<BinaryTarget<BITS>>,
-    ) -> BoolTarget {
-        let a_targets = a.iter().map(|&t| t.0).collect();
-        let b_targets = b.iter().map(|&t| t.0).collect();
-        self.list_le(a_targets, b_targets, BITS)
+    pub fn list_le_30(&mut self, a: Vec<BinaryTarget<30>>, b: Vec<BinaryTarget<30>>) -> BoolTarget {
+        let a_targets: Vec<Target> = a.iter().map(|&t| t.0).collect();
+        let b_targets: Vec<Target> = b.iter().map(|&t| t.0).collect();
+
+        self.list_le(a_targets, b_targets, 30)
     }
 }
 

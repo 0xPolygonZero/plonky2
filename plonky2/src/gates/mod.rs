@@ -1,6 +1,7 @@
 // Gates have `new` methods that return `GateRef`s.
 #![allow(clippy::new_ret_no_self)]
 
+pub mod add_many_u32;
 pub mod arithmetic_base;
 pub mod arithmetic_extension;
 pub mod arithmetic_u32;
