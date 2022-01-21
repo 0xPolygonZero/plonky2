@@ -83,7 +83,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn cmp_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BoolTarget {
         let (a, b) = self.pad_biguints(a, b);
 
-        self.list_le_binary::<30>(a.limbs, b.limbs)
+        self.list_le_30(a.limbs, b.limbs)
     }
 
     pub fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget {
@@ -138,6 +138,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn mul_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
+        let before = self.num_gates();
+
         let total_limbs = a.limbs.len() + b.limbs.len();
 
         let mut to_add = vec![vec![]; total_limbs];
@@ -158,6 +160,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             carry = new_carry;
         }
         combined_limbs.push(carry);
+
+        println!("NUMBER OF GATES: {}", self.num_gates() - before);
 
         BigUintTarget {
             limbs: combined_limbs,
