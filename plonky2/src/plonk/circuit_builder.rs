@@ -19,6 +19,8 @@ use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::arithmetic_u32::U32ArithmeticGate;
+use crate::gates::binary_arithmetic::BinaryArithmeticGate;
+use crate::gates::binary_subtraction::BinarySubtractionGate;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
@@ -222,6 +224,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let gate_ref = GateRef::new(gate_type);
         self.gates.insert(gate_ref.clone());
 
+        /*println!("ADDING GATE {}: {:?}", index, gate_ref);
+        if index == 145 {
+            panic!();
+        }*/
+
         self.gate_instances.push(GateInstance {
             gate_ref,
             constants,
@@ -344,6 +351,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Returns a U32Target for the value `c`, which is assumed to be at most 32 bits.
     pub fn constant_u32(&mut self, c: u32) -> U32Target {
         U32Target(self.constant(F::from_canonical_u32(c)))
+    }
+
+    /// Returns a BinaryTarget for the value `c`, which is assumed to be at most BITS bits.
+    pub fn constant_binary<const BITS: usize>(&mut self, c: F) -> BinaryTarget<BITS> {
+        BinaryTarget(self.constant(c))
     }
 
     /// If the given target is a constant (i.e. it was created by the `constant(F)` method), returns
@@ -818,9 +830,13 @@ pub struct BatchedGates<F: RichField + Extendable<D>, const D: usize> {
 
     /// The `U32ArithmeticGate` currently being filled (so new u32 arithmetic operations will be added to this gate before creating a new one)
     pub(crate) current_u32_arithmetic_gate: Option<(usize, usize)>,
-
     /// The `U32SubtractionGate` currently being filled (so new u32 subtraction operations will be added to this gate before creating a new one)
     pub(crate) current_u32_subtraction_gate: Option<(usize, usize)>,
+
+    /// A map `b -> (g, i)` from `b` bits to an available `BinaryArithmeticGate` for number of bits `b`.
+    pub(crate) free_binary_arithmetic_gate: HashMap<usize, (usize, usize)>,
+    /// A map `b -> (g, i)` from `b` bits to an available `BinarySubtractionGate` for number of bits `b`.
+    pub(crate) free_binary_subtraction_gate: HashMap<usize, (usize, usize)>,
 
     /// An available `ConstantGate` instance, if any.
     pub(crate) free_constant: Option<(usize, usize)>,
@@ -836,6 +852,8 @@ impl<F: RichField + Extendable<D>, const D: usize> BatchedGates<F, D> {
             current_switch_gates: Vec::new(),
             current_u32_arithmetic_gate: None,
             current_u32_subtraction_gate: None,
+            free_binary_arithmetic_gate: HashMap::new(),
+            free_binary_subtraction_gate: HashMap::new(),
             free_constant: None,
         }
     }
@@ -931,8 +949,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (gate, i)
     }
 
-    /// Finds the last available random access gate with the given `vec_size` or add one if there aren't any.
-    /// Returns `(g,i)` such that there is a random access gate with the given `vec_size` at index
+    /// Finds the last available random access gate with the given `bits` or add one if there aren't any.
+    /// Returns `(g,i)` such that there is a random access gate for the given `bits` at index
     /// `g` and the gate's `i`-th random access is available.
     pub(crate) fn find_random_access_gate(&mut self, bits: usize) -> (usize, usize) {
         let (gate, i) = self
@@ -1030,6 +1048,64 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         (gate_index, copy)
+    }
+    
+    /// Finds the last available binary arithmetic with the given `bits` or add one if there aren't any.
+    /// Returns `(g,i)` such that there is a binary arithmetic for the given `bits` at index
+    /// `g` and the gate's `i`-th copy is available.
+    pub(crate) fn find_binary_arithmetic_gate<const BITS: usize>(&mut self) -> (usize, usize) {
+        let (gate, i) = self
+            .batched_gates
+            .free_binary_arithmetic_gate
+            .get(&BITS)
+            .copied()
+            .unwrap_or_else(|| {
+                let gate = self.add_gate(
+                    BinaryArithmeticGate::<F, D, BITS>::new_from_config(&self.config),
+                    vec![],
+                );
+                (gate, 0)
+            });
+
+        // Update `free_binary_arithmetic` with new values.
+        if i + 1 < BinaryArithmeticGate::<F, D, BITS>::new_from_config(&self.config).num_ops {
+            self.batched_gates
+                .free_random_access
+                .insert(BITS, (gate, i + 1));
+        } else {
+            self.batched_gates.free_random_access.remove(&BITS);
+        }
+
+        (gate, i)
+    }
+
+    /// Finds the last available binary subtraction with the given `bits` or add one if there aren't any.
+    /// Returns `(g,i)` such that there is a binary subtraction for the given `bits` at index
+    /// `g` and the gate's `i`-th copy is available.
+    pub(crate) fn find_binary_subtraction_gate<const BITS: usize>(&mut self) -> (usize, usize) {
+        let (gate, i) = self
+            .batched_gates
+            .free_binary_subtraction_gate
+            .get(&BITS)
+            .copied()
+            .unwrap_or_else(|| {
+                let gate = self.add_gate(
+                    BinarySubtractionGate::<F, D, BITS>::new_from_config(&self.config),
+                    vec![],
+                );
+                (gate, 0)
+            });
+
+        // Update `free_binary_subtraction` with new values.
+        if i + 1 < BinarySubtractionGate::<F, D, BITS>::new_from_config(&self.config).num_ops {
+            self.batched_gates
+                .free_random_access
+                .insert(BITS, (gate, i + 1));
+        } else {
+            self.batched_gates.free_random_access.remove(&BITS);
+        }
+
+        (gate, i)
     }
 
     /// Returns the gate index and copy index of a free `ConstantGate` slot, potentially adding a

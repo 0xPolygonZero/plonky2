@@ -4,6 +4,7 @@ use crate::gates::arithmetic_u32::U32ArithmeticGate;
 use crate::gates::subtraction_u32::U32SubtractionGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::target::Target;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 #[derive(Clone, Copy, Debug)]
@@ -151,5 +152,86 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let output_borrow = U32Target(Target::wire(gate_index, gate.wire_ith_output_borrow(copy)));
 
         (output_result, output_borrow)
+    }
+
+    pub fn split_to_u32(&mut self, x: Target) -> (U32Target, U32Target) {
+        let low = self.add_virtual_u32_target();
+        let high = self.add_virtual_u32_target();
+
+        let base = self.constant(F::from_canonical_u64(1u64 << 32));
+        let combined = self.mul_add(high.0, base, low.0);
+        self.connect(x, combined);
+
+        self.add_simple_generator(SplitToU32Generator::<F, D> {
+            x: x.clone(),
+            low: low.clone(),
+            high: high.clone(),
+            _phantom: PhantomData,
+        });
+
+        (low, high)
+    }
+}
+
+#[derive(Debug)]
+struct SplitToU32Generator<F: RichField + Extendable<D>, const D: usize> {
+    x: Target,
+    low: U32Target,
+    high: U32Target,
+    _phantom: PhantomData<F>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for SplitToU32Generator<F, D>
+{
+    fn dependencies(&self) -> Vec<Target> {
+        vec![self.x]
+    }
+
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        let x = witness.get_target(self.x.clone());
+        let x_u64 = x.to_canonical_u64();
+        let low = x_u64 as u32;
+        let high: u32 = (x_u64 >> 32).try_into().unwrap();
+        println!("LOW: {}", low);
+        println!("HIGH: {}", high);
+
+        out_buffer.set_u32_target(self.low.clone(), low);
+        out_buffer.set_u32_target(self.high.clone(), high);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+    
+    use rand::{thread_rng, Rng};
+
+    use crate::field::goldilocks_field::GoldilocksField;
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::verifier::verify;
+
+    #[test]
+    pub fn test_add_many_u32s() -> Result<()> {
+        type F = GoldilocksField;
+        const D: usize = 4;
+
+        let config = CircuitConfig::standard_recursion_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let mut rng = thread_rng();
+        let mut to_add = Vec::new();
+        for _ in 0..10 {
+            to_add.push(builder.constant_u32(rng.gen()));
+        }
+        let _ = builder.add_many_u32(&to_add);
+
+        let data = builder.build();
+        let proof = data.prove(pw).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
     }
 }
