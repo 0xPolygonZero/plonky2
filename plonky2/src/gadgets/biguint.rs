@@ -12,7 +12,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 
 #[derive(Clone, Debug)]
 pub struct BigUintTarget {
-    pub limbs: Vec<U32Target>,
+    pub limbs: Vec<BinaryTarget<30>>,
 }
 
 impl BigUintTarget {
@@ -20,15 +20,23 @@ impl BigUintTarget {
         self.limbs.len()
     }
 
-    pub fn get_limb(&self, i: usize) -> U32Target {
+    pub fn get_limb(&self, i: usize) -> BinaryTarget<30> {
         self.limbs[i]
     }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn constant_biguint(&mut self, value: &BigUint) -> BigUintTarget {
-        let limb_values = value.to_u32_digits();
-        let limbs = limb_values.iter().map(|&l| self.constant_u32(l)).collect();
+        let base = BigUint::from_u64(1 << 30).unwrap();
+        let mut limb_values = Vec::new();
+        let mut current = value.clone();
+        while current > BigUint::zero() {
+            let (div, rem) = current.div_rem(&base);
+            current = div;
+            let rem_u64 = rem.to_u64_digits()[0];
+            limb_values.push(F::from_canonical_u64(rem_u64));
+        }
+        let limbs = limb_values.iter().map(|&l| self.constant_binary(l)).collect();
 
         BigUintTarget { limbs }
     }
@@ -36,14 +44,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn connect_biguint(&mut self, lhs: &BigUintTarget, rhs: &BigUintTarget) {
         let min_limbs = lhs.num_limbs().min(rhs.num_limbs());
         for i in 0..min_limbs {
-            self.connect_u32(lhs.get_limb(i), rhs.get_limb(i));
+            self.connect_binary(lhs.get_limb(i), rhs.get_limb(i));
         }
 
         for i in min_limbs..lhs.num_limbs() {
-            self.assert_zero_u32(lhs.get_limb(i));
+            self.assert_zero_binary(lhs.get_limb(i));
         }
         for i in min_limbs..rhs.num_limbs() {
-            self.assert_zero_u32(rhs.get_limb(i));
+            self.assert_zero_binary(rhs.get_limb(i));
         }
     }
 
@@ -55,14 +63,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         if a.num_limbs() > b.num_limbs() {
             let mut padded_b = b.clone();
             for _ in b.num_limbs()..a.num_limbs() {
-                padded_b.limbs.push(self.zero_u32());
+                padded_b.limbs.push(self.zero_binary());
             }
 
             (a.clone(), padded_b)
         } else {
             let mut padded_a = a.clone();
             for _ in a.num_limbs()..b.num_limbs() {
-                padded_a.limbs.push(self.zero_u32());
+                padded_a.limbs.push(self.zero_binary());
             }
 
             (padded_a, b.clone())
@@ -72,13 +80,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn cmp_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BoolTarget {
         let (a, b) = self.pad_biguints(a, b);
 
-        self.list_le_u32(a.limbs, b.limbs)
+        self.list_le_binary::<30>(a.limbs, b.limbs)
     }
 
     pub fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget {
-        let limbs = (0..num_limbs)
-            .map(|_| self.add_virtual_u32_target())
-            .collect();
+        let limbs = self.add_virtual_binary_targets(num_limbs);
 
         BigUintTarget { limbs }
     }
@@ -88,16 +94,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_limbs = a.num_limbs().max(b.num_limbs());
 
         let mut combined_limbs = vec![];
-        let mut carry = self.zero_u32();
+        let mut carry = self.zero_binary();
         for i in 0..num_limbs {
             let a_limb = (i < a.num_limbs())
                 .then(|| a.limbs[i])
-                .unwrap_or_else(|| self.zero_u32());
+                .unwrap_or_else(|| self.zero_binary());
             let b_limb = (i < b.num_limbs())
                 .then(|| b.limbs[i])
-                .unwrap_or_else(|| self.zero_u32());
+                .unwrap_or_else(|| self.zero_binary());
 
-            let (new_limb, new_carry) = self.add_many_u32(&[carry, a_limb, b_limb]);
+            let (new_limb, new_carry) = self.add_many_binary(&[carry, a_limb, b_limb]);
             carry = new_carry;
             combined_limbs.push(new_limb);
         }
@@ -115,9 +121,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut result_limbs = vec![];
 
-        let mut borrow = self.zero_u32();
+        let mut borrow = self.zero_binary();
         for i in 0..num_limbs {
-            let (result, new_borrow) = self.sub_u32(a.limbs[i], b.limbs[i], borrow);
+            let (result, new_borrow) = self.sub_binary(a.limbs[i], b.limbs[i], borrow);
             result_limbs.push(result);
             borrow = new_borrow;
         }
@@ -134,17 +140,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut to_add = vec![vec![]; total_limbs];
         for i in 0..a.limbs.len() {
             for j in 0..b.limbs.len() {
-                let (product, carry) = self.mul_u32(a.limbs[i], b.limbs[j]);
+                let (product, carry) = self.mul_binary(a.limbs[i], b.limbs[j]);
                 to_add[i + j].push(product);
                 to_add[i + j + 1].push(carry);
             }
         }
 
         let mut combined_limbs = vec![];
-        let mut carry = self.zero_u32();
+        let mut carry = self.zero_binary();
         for summands in &mut to_add {
             summands.push(carry);
-            let (new_result, new_carry) = self.add_many_u32(summands);
+            let (new_result, new_carry) = self.add_many_binary(summands);
             combined_limbs.push(new_result);
             carry = new_carry;
         }

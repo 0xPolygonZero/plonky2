@@ -171,12 +171,21 @@ impl<F: Field> GeneratedValues<F> {
     }
 
     pub fn set_biguint_target(&mut self, target: BigUintTarget, value: BigUint) {
-        let mut limbs = value.to_u32_digits();
+        let base = BigUint::from_u64(1 << 30).unwrap();
+        let mut limbs = Vec::new();
+        let mut current = value.clone();
+        while current > BigUint::zero() {
+            let (div, rem) = current.div_rem(&base);
+            current = div;
+            let rem_u64 = rem.to_u64_digits()[0];
+            limbs.push(F::from_canonical_u64(rem_u64));
+        }
+
         assert!(target.num_limbs() >= limbs.len());
 
-        limbs.resize(target.num_limbs(), 0);
+        limbs.resize(target.num_limbs(), F::ZERO);
         for i in 0..target.num_limbs() {
-            self.set_u32_target(target.get_limb(i), limbs[i]);
+            self.set_binary_target(target.get_limb(i), limbs[i]);
         }
     }
 
