@@ -209,11 +209,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let gate_ref = GateRef::new(gate_type);
         self.gates.insert(gate_ref.clone());
 
-        /*println!("ADDING GATE {}: {:?}", index, gate_ref);
-        if index == 145 {
-            panic!();
-        }*/
-
         self.gate_instances.push(GateInstance {
             gate_ref,
             constants,
@@ -1053,10 +1048,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Update `free_binary_arithmetic` with new values.
         if i + 1 < BinaryArithmeticGate::<F, D, BITS>::new_from_config(&self.config).num_ops {
             self.batched_gates
-                .free_random_access
+                .free_binary_arithmetic_gate
                 .insert(BITS, (gate, i + 1));
         } else {
-            self.batched_gates.free_random_access.remove(&BITS);
+            self.batched_gates.free_binary_arithmetic_gate.remove(&BITS);
         }
 
         (gate, i)
@@ -1082,10 +1077,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Update `free_binary_subtraction` with new values.
         if i + 1 < BinarySubtractionGate::<F, D, BITS>::new_from_config(&self.config).num_ops {
             self.batched_gates
-                .free_random_access
+                .free_binary_subtraction_gate
                 .insert(BITS, (gate, i + 1));
         } else {
-            self.batched_gates.free_random_access.remove(&BITS);
+            self.batched_gates.free_binary_subtraction_gate.remove(&BITS);
         }
 
         (gate, i)
@@ -1225,6 +1220,36 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// Fill the remaining unused binary arithmetic operations with zeros, so that all
+    /// `BinaryArithmeticGenerator`s are run.
+    fn fill_binary_arithmetic_gates(&mut self) {
+        let zero = self.zero_binary::<30>();
+        if let Some(&(_, i)) = self.batched_gates.free_binary_arithmetic_gate.get(&30) {
+            let max_copies =
+                BinaryArithmeticGate::<F, D, 30>::new_from_config(&self.config).num_ops;
+            for _ in i..max_copies {
+                let dummy = self.add_virtual_binary_target();
+                self.mul_add_binary(dummy, dummy, dummy);
+                self.connect_binary(dummy, zero);
+            }
+        }
+    }
+
+    /// Fill the remaining unused binary subtraction operations with zeros, so that all
+    /// `BinarySubtractionGenerator`s are run.
+    fn fill_binary_subtraction_gates(&mut self) {
+        let zero = self.zero_binary::<30>();
+        if let Some(&(_, i)) = self.batched_gates.free_binary_subtraction_gate.get(&30) {
+            let max_copies =
+                BinarySubtractionGate::<F, D, 30>::new_from_config(&self.config).num_ops;
+            for _ in i..max_copies {
+                let dummy = self.add_virtual_binary_target();
+                self.sub_binary(dummy, dummy, dummy);
+                self.connect_binary(dummy, zero);
+            }
+        }
+    }
+
     fn fill_batched_gates(&mut self) {
         self.fill_arithmetic_gates();
         self.fill_base_arithmetic_gates();
@@ -1233,5 +1258,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.fill_switch_gates();
         self.fill_u32_arithmetic_gates();
         self.fill_u32_subtraction_gates();
+        self.fill_binary_arithmetic_gates();
+        self.fill_binary_subtraction_gates();
     }
 }

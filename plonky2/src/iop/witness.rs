@@ -62,7 +62,7 @@ pub trait Witness<F: Field> {
     fn get_biguint_target(&self, target: BigUintTarget) -> BigUint {
         let mut result = BigUint::zero();
 
-        let limb_base = BigUint::from_u64(1 << 32u64).unwrap();
+        let limb_base = BigUint::from_u64(1 << 30u64).unwrap();
         for i in (0..target.num_limbs()).rev() {
             let limb = target.get_limb(i);
             result *= &limb_base;
