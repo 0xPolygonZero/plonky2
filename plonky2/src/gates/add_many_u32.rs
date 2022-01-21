@@ -13,9 +13,10 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use crate::util::ceil_div_usize;
 
-const LOG2_MAX_NUM_ADDENDS: usize = 6;
-const MAX_NUM_ADDENDS: usize = 1 << LOG2_MAX_NUM_ADDENDS;
+const LOG2_MAX_NUM_ADDENDS: usize = 4;
+const MAX_NUM_ADDENDS: usize = 16;
 
 /// A gate to perform addition on `num_addends` different 32-bit values, plus a small carry
 #[derive(Copy, Clone, Debug)]
@@ -26,7 +27,7 @@ pub struct U32AddManyGate<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> U32AddManyGate<F, D> {
-    pub fn new_from_config(num_addends: usize, config: &CircuitConfig) -> Self {
+    pub fn new_from_config(config: &CircuitConfig, num_addends: usize) -> Self {
         Self {
             num_addends,
             num_ops: Self::num_ops(num_addends, config),
@@ -35,7 +36,7 @@ impl<F: RichField + Extendable<D>, const D: usize> U32AddManyGate<F, D> {
     }
 
     pub(crate) fn num_ops(num_addends: usize, config: &CircuitConfig) -> usize {
-        debug_assert!(num_addends < MAX_NUM_ADDENDS);
+        debug_assert!(num_addends <= MAX_NUM_ADDENDS);
         let wires_per_op = (num_addends + 3) + Self::num_limbs();
         let routed_wires_per_op = 5;
         (config.num_wires / wires_per_op).min(config.num_routed_wires / routed_wires_per_op)
@@ -43,7 +44,7 @@ impl<F: RichField + Extendable<D>, const D: usize> U32AddManyGate<F, D> {
 
     pub fn wire_ith_op_jth_addend(&self, i: usize, j: usize) -> usize {
         debug_assert!(i < self.num_ops);
-        debug_assert!(i < self.num_addends);
+        debug_assert!(j < self.num_addends);
         (self.num_addends + 3) * i + j
     }
     pub fn wire_ith_carry(&self, i: usize) -> usize {
@@ -51,11 +52,11 @@ impl<F: RichField + Extendable<D>, const D: usize> U32AddManyGate<F, D> {
         (self.num_addends + 3) * i + self.num_addends
     }
 
-    pub fn wire_ith_output_low_half(&self, i: usize) -> usize {
+    pub fn wire_ith_output_result(&self, i: usize) -> usize {
         debug_assert!(i < self.num_ops);
         (self.num_addends + 3) * i + self.num_addends + 1
     }
-    pub fn wire_ith_output_high_half(&self, i: usize) -> usize {
+    pub fn wire_ith_output_carry(&self, i: usize) -> usize {
         debug_assert!(i < self.num_ops);
         (self.num_addends + 3) * i + self.num_addends + 2
     }
@@ -63,8 +64,14 @@ impl<F: RichField + Extendable<D>, const D: usize> U32AddManyGate<F, D> {
     pub fn limb_bits() -> usize {
         2
     }
+    pub fn num_result_limbs() -> usize {
+        ceil_div_usize(32, Self::limb_bits())
+    }
+    pub fn num_carry_limbs() -> usize {
+        ceil_div_usize(LOG2_MAX_NUM_ADDENDS, Self::limb_bits())
+    }
     pub fn num_limbs() -> usize {
-        32 / Self::limb_bits()
+        Self::num_result_limbs() + Self::num_carry_limbs()
     }
 
     pub fn wire_ith_output_jth_limb(&self, i: usize, j: usize) -> usize {
@@ -85,19 +92,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
             let addends: Vec<F::Extension> = (0..self.num_addends)
                 .map(|j| vars.local_wires[self.wire_ith_op_jth_addend(i, j)])
                 .collect();
-            let borrow = vars.local_wires[self.wire_ith_carry(i)];
+            let carry = vars.local_wires[self.wire_ith_carry(i)];
 
-            let computed_output = addends.iter().fold(F::Extension::ZERO, |x, &y| x + y) + borrow;
+            let computed_output = addends.iter().fold(F::Extension::ZERO, |x, &y| x + y) + carry;
 
-            let output_low = vars.local_wires[self.wire_ith_output_low_half(i)];
-            let output_high = vars.local_wires[self.wire_ith_output_high_half(i)];
+            let output_result = vars.local_wires[self.wire_ith_output_result(i)];
+            let output_carry = vars.local_wires[self.wire_ith_output_carry(i)];
 
             let base = F::Extension::from_canonical_u64(1 << 32u64);
-            let combined_output = output_high * base + output_low;
+            let combined_output = output_carry * base + output_result;
 
             constraints.push(combined_output - computed_output);
 
-            let mut combined_low_limbs = F::Extension::ZERO;
+            let mut combined_result_limbs = F::Extension::ZERO;
+            let mut combined_carry_limbs = F::Extension::ZERO;
             let base = F::Extension::from_canonical_u64(1u64 << Self::limb_bits());
             for j in (0..Self::num_limbs()).rev() {
                 let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
@@ -107,15 +115,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
                     .product();
                 constraints.push(product);
 
-                combined_low_limbs = base * combined_low_limbs + this_limb;
+                if j < Self::num_result_limbs() {
+                    combined_result_limbs = base * combined_result_limbs + this_limb;
+                } else {
+                    combined_carry_limbs = base * combined_carry_limbs + this_limb;
+                }
             }
-            constraints.push(combined_low_limbs - output_low);
-
-            let max_overflow = self.num_addends;
-            let product = (0..max_overflow)
-                .map(|x| output_high - F::Extension::from_canonical_usize(x))
-                .product();
-            constraints.push(product);
+            constraints.push(combined_result_limbs - output_result);
+            constraints.push(combined_carry_limbs - output_carry);
         }
 
         constraints
@@ -127,19 +134,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
             let addends: Vec<F> = (0..self.num_addends)
                 .map(|j| vars.local_wires[self.wire_ith_op_jth_addend(i, j)])
                 .collect();
-            let borrow = vars.local_wires[self.wire_ith_carry(i)];
+            let carry = vars.local_wires[self.wire_ith_carry(i)];
 
-            let computed_output = addends.iter().fold(F::ZERO, |x, &y| x + y) + borrow;
+            let computed_output = addends.iter().fold(F::ZERO, |x, &y| x + y) + carry;
 
-            let output_low = vars.local_wires[self.wire_ith_output_low_half(i)];
-            let output_high = vars.local_wires[self.wire_ith_output_high_half(i)];
+            let output_result = vars.local_wires[self.wire_ith_output_result(i)];
+            let output_carry = vars.local_wires[self.wire_ith_output_carry(i)];
 
             let base = F::from_canonical_u64(1 << 32u64);
-            let combined_output = output_high * base + output_low;
+            let combined_output = output_carry * base + output_result;
 
             constraints.push(combined_output - computed_output);
 
-            let mut combined_low_limbs = F::ZERO;
+            let mut combined_result_limbs = F::ZERO;
+            let mut combined_carry_limbs = F::ZERO;
             let base = F::from_canonical_u64(1u64 << Self::limb_bits());
             for j in (0..Self::num_limbs()).rev() {
                 let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
@@ -149,15 +157,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
                     .product();
                 constraints.push(product);
 
-                combined_low_limbs = base * combined_low_limbs + this_limb;
+                if j < Self::num_result_limbs() {
+                    combined_result_limbs = base * combined_result_limbs + this_limb;
+                } else {
+                    combined_carry_limbs = base * combined_carry_limbs + this_limb;
+                }
             }
-            constraints.push(combined_low_limbs - output_low);
-
-            let max_overflow = self.num_addends;
-            let product = (0..max_overflow)
-                .map(|x| output_high - F::from_canonical_usize(x))
-                .product();
-            constraints.push(product);
+            constraints.push(combined_result_limbs - output_result);
+            constraints.push(combined_carry_limbs - output_carry);
         }
 
         constraints
@@ -174,23 +181,25 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
             let addends: Vec<ExtensionTarget<D>> = (0..self.num_addends)
                 .map(|j| vars.local_wires[self.wire_ith_op_jth_addend(i, j)])
                 .collect();
-            let borrow = vars.local_wires[self.wire_ith_carry(i)];
+            let carry = vars.local_wires[self.wire_ith_carry(i)];
 
-            let mut computed_output = borrow;
+            let mut computed_output = carry;
             for addend in addends {
                 computed_output = builder.add_extension(computed_output, addend);
             }
 
-            let output_low = vars.local_wires[self.wire_ith_output_low_half(i)];
-            let output_high = vars.local_wires[self.wire_ith_output_high_half(i)];
+            let output_result = vars.local_wires[self.wire_ith_output_result(i)];
+            let output_carry = vars.local_wires[self.wire_ith_output_carry(i)];
 
             let base: F::Extension = F::from_canonical_u64(1 << 32u64).into();
             let base_target = builder.constant_extension(base);
-            let combined_output = builder.mul_add_extension(output_high, base_target, output_low);
+            let combined_output =
+                builder.mul_add_extension(output_carry, base_target, output_result);
 
             constraints.push(builder.sub_extension(combined_output, computed_output));
 
-            let mut combined_low_limbs = builder.zero_extension();
+            let mut combined_result_limbs = builder.zero_extension();
+            let mut combined_carry_limbs = builder.zero_extension();
             let base = builder
                 .constant_extension(F::Extension::from_canonical_u64(1u64 << Self::limb_bits()));
             for j in (0..Self::num_limbs()).rev() {
@@ -206,18 +215,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
                 }
                 constraints.push(product);
 
-                combined_low_limbs = builder.mul_add_extension(base, combined_low_limbs, this_limb);
+                if j < Self::num_result_limbs() {
+                    combined_result_limbs =
+                        builder.mul_add_extension(base, combined_result_limbs, this_limb);
+                } else {
+                    combined_carry_limbs =
+                        builder.mul_add_extension(base, combined_carry_limbs, this_limb);
+                }
             }
-            constraints.push(builder.sub_extension(combined_low_limbs, output_low));
-
-            let max_overflow = self.num_addends;
-            let mut product = builder.one_extension();
-            for x in 0..max_overflow {
-                let x_target = builder.constant_extension(F::Extension::from_canonical_usize(x));
-                let diff = builder.sub_extension(output_high, x_target);
-                product = builder.mul_extension(product, diff);
-            }
-            constraints.push(product);
+            constraints.push(builder.sub_extension(combined_result_limbs, output_result));
+            constraints.push(builder.sub_extension(combined_carry_limbs, output_carry));
         }
 
         constraints
@@ -289,37 +296,46 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         let get_local_wire = |input| witness.get_wire(local_wire(input));
 
-        let addends: Vec<_> = (0..self.gate.num_addends).map(|j| get_local_wire(self.gate.wire_ith_output_jth_limb(self.i, j))).collect();
+        let addends: Vec<_> = (0..self.gate.num_addends)
+            .map(|j| get_local_wire(self.gate.wire_ith_op_jth_addend(self.i, j)))
+            .collect();
         let carry = get_local_wire(self.gate.wire_ith_carry(self.i));
 
         let output = addends.iter().fold(F::ZERO, |x, &y| x + y) + carry;
-        let mut output_u64 = output.to_canonical_u64();
+        let output_u64 = output.to_canonical_u64();
 
-        let output_high_u64 = output_u64 >> 32;
-        let output_low_u64 = output_u64 & ((1 << 32) - 1);
+        let output_carry_u64 = output_u64 >> 32;
+        let output_result_u64 = output_u64 & ((1 << 32) - 1);
 
-        let output_high = F::from_canonical_u64(output_high_u64);
-        let output_low = F::from_canonical_u64(output_low_u64);
+        let output_carry = F::from_canonical_u64(output_carry_u64);
+        let output_result = F::from_canonical_u64(output_result_u64);
 
-        let output_high_wire = local_wire(self.gate.wire_ith_output_high_half(self.i));
-        let output_low_wire = local_wire(self.gate.wire_ith_output_low_half(self.i));
+        let output_carry_wire = local_wire(self.gate.wire_ith_output_carry(self.i));
+        let output_result_wire = local_wire(self.gate.wire_ith_output_result(self.i));
 
-        out_buffer.set_wire(output_high_wire, output_high);
-        out_buffer.set_wire(output_low_wire, output_low);
+        out_buffer.set_wire(output_carry_wire, output_carry);
+        out_buffer.set_wire(output_result_wire, output_result);
 
-        let num_limbs = U32AddManyGate::<F, D>::num_limbs();
+        let num_result_limbs = U32AddManyGate::<F, D>::num_result_limbs();
+        let num_carry_limbs = U32AddManyGate::<F, D>::num_carry_limbs();
         let limb_base = 1 << U32AddManyGate::<F, D>::limb_bits();
-        let output_limbs_u64 = unfold((), move |_| {
-            let ret = output_u64 % limb_base;
-            output_u64 /= limb_base;
-            Some(ret)
-        })
-        .take(num_limbs);
-        let output_limbs_f = output_limbs_u64.map(F::from_canonical_u64);
 
-        for (j, output_limb) in output_limbs_f.enumerate() {
+        let split_to_limbs = |mut val, num| {
+            unfold((), move |_| {
+                let ret = val % limb_base;
+                val /= limb_base;
+                Some(ret)
+            })
+            .take(num)
+            .map(F::from_canonical_u64)
+        };
+
+        let result_limbs = split_to_limbs(output_result_u64, num_result_limbs);
+        let carry_limbs = split_to_limbs(output_carry_u64, num_carry_limbs);
+
+        for (j, limb) in result_limbs.chain(carry_limbs).enumerate() {
             let wire = local_wire(self.gate.wire_ith_output_jth_limb(self.i, j));
-            out_buffer.set_wire(wire, output_limb);
+            out_buffer.set_wire(wire, limb);
         }
     }
 }
@@ -329,6 +345,7 @@ mod tests {
     use std::marker::PhantomData;
 
     use anyhow::Result;
+    use itertools::unfold;
     use rand::Rng;
 
     use crate::field::extension_field::quartic::QuarticExtension;
@@ -363,44 +380,47 @@ mod tests {
         type F = GoldilocksField;
         type FF = QuarticExtension<GoldilocksField>;
         const D: usize = 4;
-        const NUM_ADDENDS: usize = 4;
+        const NUM_ADDENDS: usize = 10;
         const NUM_U32_ADD_MANY_OPS: usize = 3;
 
-        fn get_wires(
-            addends: Vec<Vec<u64>>,
-            carries: Vec<u64>,
-        ) -> Vec<FF> {
+        fn get_wires(addends: Vec<Vec<u64>>, carries: Vec<u64>) -> Vec<FF> {
             let mut v0 = Vec::new();
             let mut v1 = Vec::new();
 
-            let limb_bits = U32AddManyGate::<F, D>::limb_bits();
-            let num_limbs = U32AddManyGate::<F, D>::num_limbs();
-            let limb_base = 1 << limb_bits;
+            let num_result_limbs = U32AddManyGate::<F, D>::num_result_limbs();
+            let num_carry_limbs = U32AddManyGate::<F, D>::num_carry_limbs();
+            let limb_base = 1 << U32AddManyGate::<F, D>::limb_bits();
             for op in 0..NUM_U32_ADD_MANY_OPS {
                 let adds = &addends[op];
                 let ca = carries[op];
 
-                let mut output = adds.iter().sum::<u64>() + ca;
-                let output_low = output & ((1 << 32) - 1);
-                let output_high = output >> 32;
+                let output = adds.iter().sum::<u64>() + ca;
+                let output_result = output & ((1 << 32) - 1);
+                let output_carry = output >> 32;
 
-                let mut output_limbs = Vec::with_capacity(num_limbs);
-                for _i in 0..num_limbs {
-                    output_limbs.push(output % limb_base);
-                    output /= limb_base;
-                }
-                let mut output_limbs_f: Vec<_> = output_limbs
-                    .into_iter()
+                let split_to_limbs = |mut val, num| {
+                    unfold((), move |_| {
+                        let ret = val % limb_base;
+                        val /= limb_base;
+                        Some(ret)
+                    })
+                    .take(num)
                     .map(F::from_canonical_u64)
-                    .collect();
+                };
+
+                let mut result_limbs: Vec<_> =
+                    split_to_limbs(output_result, num_result_limbs).collect();
+                let mut carry_limbs: Vec<_> =
+                    split_to_limbs(output_carry, num_carry_limbs).collect();
 
                 for a in adds {
                     v0.push(F::from_canonical_u64(*a));
                 }
                 v0.push(F::from_canonical_u64(ca));
-                v0.push(F::from_canonical_u64(output_low));
-                v0.push(F::from_canonical_u64(output_high));
-                v1.append(&mut output_limbs_f);
+                v0.push(F::from_canonical_u64(output_result));
+                v0.push(F::from_canonical_u64(output_carry));
+                v1.append(&mut result_limbs);
+                v1.append(&mut carry_limbs);
             }
 
             v0.iter()

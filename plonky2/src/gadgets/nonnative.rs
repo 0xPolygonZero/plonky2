@@ -430,6 +430,7 @@ mod tests {
 
         let x = builder.constant_nonnative(x_ff);
         let y = builder.constant_nonnative(y_ff);
+        println!("LIMBS LIMBS LIMBS {}", y.value.limbs.len());
         let product = builder.mul_nonnative(&x, &y);
 
         let product_expected = builder.constant_nonnative(product_ff);
