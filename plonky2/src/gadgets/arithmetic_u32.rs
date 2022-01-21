@@ -204,7 +204,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    
     use rand::{thread_rng, Rng};
 
     use crate::field::goldilocks_field::GoldilocksField;

@@ -139,7 +139,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_limbs = x.value.num_limbs();
         let inv_biguint = self.add_virtual_biguint_target(num_limbs);
         let div = self.add_virtual_biguint_target(num_limbs);
-        
+
         self.add_simple_generator(NonNativeInverseGenerator::<F, D, FF> {
             x: x.clone(),
             inv: inv_biguint.clone(),
@@ -148,7 +148,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         });
 
         let product = self.mul_biguint(&x.value, &inv_biguint);
-        
+
         let modulus = self.constant_biguint(&FF::order());
         let mod_times_div = self.mul_biguint(&modulus, &div);
         let one = self.constant_biguint(&BigUint::one());
@@ -460,11 +460,17 @@ mod tests {
 
         let ffs: Vec<_> = (0..num).map(|_| FF::rand()).collect();
 
-        let op_targets: Vec<_> = ffs.iter().map(|&x| op_builder.constant_nonnative(x)).collect();
+        let op_targets: Vec<_> = ffs
+            .iter()
+            .map(|&x| op_builder.constant_nonnative(x))
+            .collect();
         op_builder.mul_many_nonnative(&op_targets);
         println!("OPTIMIZED GATE COUNT: {}", op_builder.num_gates());
 
-        let unop_targets: Vec<_> = ffs.iter().map(|&x| unop_builder.constant_nonnative(x)).collect();
+        let unop_targets: Vec<_> = ffs
+            .iter()
+            .map(|&x| unop_builder.constant_nonnative(x))
+            .collect();
         let mut result = unop_targets[0].clone();
         for i in 1..unop_targets.len() {
             result = unop_builder.mul_nonnative(&result, &unop_targets[i]);

@@ -1032,7 +1032,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         (gate_index, copy)
     }
-    
+
     /// Finds the last available binary arithmetic with the given `bits` or add one if there aren't any.
     /// Returns `(g,i)` such that there is a binary arithmetic for the given `bits` at index
     /// `g` and the gate's `i`-th copy is available.

@@ -3,11 +3,11 @@
 
 pub mod arithmetic_base;
 pub mod arithmetic_extension;
-pub mod binary_arithmetic;
-pub mod binary_subtraction;
 pub mod arithmetic_u32;
 pub mod assert_le;
 pub mod base_sum;
+pub mod binary_arithmetic;
+pub mod binary_subtraction;
 pub mod comparison;
 pub mod constant;
 pub mod exponentiation;
