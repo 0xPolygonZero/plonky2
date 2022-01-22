@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use num::{BigUint, Integer};
+use num::{BigUint, FromPrimitive, Integer, Zero};
 use plonky2_field::extension_field::Extendable;
 
 use crate::gadgets::arithmetic_u32::U32Target;

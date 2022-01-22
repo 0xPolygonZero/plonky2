@@ -1,8 +1,12 @@
+use std::marker::PhantomData;
+
 use plonky2_field::extension_field::Extendable;
 
+use crate::gates::add_many_u32::U32AddManyGate;
 use crate::gates::arithmetic_u32::U32ArithmeticGate;
 use crate::gates::subtraction_u32::U32SubtractionGate;
 use crate::hash::hash_types::RichField;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -243,16 +247,18 @@ mod tests {
     use anyhow::Result;
     use rand::{thread_rng, Rng};
 
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     pub fn test_add_many_u32s() -> Result<()> {
-        type F = GoldilocksField;
-        const D: usize = 4;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
         const NUM_ADDENDS: usize = 15;
 
         let config = CircuitConfig::standard_recursion_config();
@@ -276,7 +282,7 @@ mod tests {
         builder.connect_u32(result_low, expected_low);
         builder.connect_u32(result_high, expected_high);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }

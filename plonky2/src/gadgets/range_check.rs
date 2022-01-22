@@ -1,5 +1,7 @@
 use plonky2_field::extension_field::Extendable;
 
+use crate::gadgets::arithmetic_u32::U32Target;
+use crate::gates::range_check_u32::U32RangeCheckGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};

@@ -2,7 +2,6 @@ pub mod arithmetic;
 pub mod arithmetic_extension;
 pub mod arithmetic_u32;
 pub mod biguint;
-pub mod binary_arithmetic;
 pub mod curve;
 pub mod ecdsa;
 pub mod hash;

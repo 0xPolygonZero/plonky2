@@ -1,16 +1,19 @@
 use std::marker::PhantomData;
 
-use crate::field::extension_field::target::ExtensionTarget;
+use plonky2_util::ceil_div_usize;
+
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
+use crate::hash::hash_types::RichField;
+use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use crate::util::ceil_div_usize;
 
 /// A gate which can decompose a number into base B little-endian limbs.
 #[derive(Copy, Clone, Debug)]
@@ -73,9 +76,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(self.num_constraints());
-
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         let base = F::from_canonical_usize(Self::BASE);
         for i in 0..self.num_input_limbs {
             let input_limb = vars.local_wires[self.wire_ith_input_limb(i)];
@@ -84,17 +89,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
                 .collect();
             let computed_sum = reduce_with_powers(&aux_limbs, base);
 
-            constraints.push(computed_sum - input_limb);
+            yield_constr.one(computed_sum - input_limb);
             for aux_limb in aux_limbs {
-                constraints.push(
+                yield_constr.one(
                     (0..Self::BASE)
                         .map(|i| aux_limb - F::from_canonical_usize(i))
                         .product(),
                 );
             }
         }
-
-        constraints
     }
 
     fn eval_unfiltered_recursively(
@@ -217,6 +220,7 @@ mod tests {
 
     use anyhow::Result;
     use itertools::unfold;
+    use plonky2_util::ceil_div_usize;
     use rand::Rng;
 
     use crate::field::extension_field::quartic::QuarticExtension;
@@ -226,8 +230,8 @@ mod tests {
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::range_check_u32::U32RangeCheckGate;
     use crate::hash::hash_types::HashOut;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
-    use crate::util::ceil_div_usize;
 
     #[test]
     fn low_degree() {
@@ -236,7 +240,10 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(U32RangeCheckGate::new(8))
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        test_eval_fns::<F, C, _, D>(U32RangeCheckGate::new(8))
     }
 
     fn test_gate_constraint(input_limbs: Vec<u64>) {
