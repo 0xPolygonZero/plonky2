@@ -2,11 +2,12 @@ use std::marker::PhantomData;
 
 use crate::curve::curve_types::Curve;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::RichField;
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::curve::AffinePointTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
+use crate::hash::hash_types::RichField;
+use crate::hash::poseidon::PoseidonHash;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -21,7 +22,7 @@ pub struct ECDSASignatureTarget<C: Curve> {
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn hash_to_bits(&mut self, x: Target, num_bits: usize) -> Vec<BoolTarget> {
         let inputs = vec![x];
-        let hashed = self.hash_n_to_m(inputs, 1, true)[0];
+        let hashed = self.hash_n_to_m::<PoseidonHash>(inputs, 1, true)[0];
         self.split_le(hashed, num_bits)
     }
 
@@ -82,20 +83,22 @@ mod tests {
     use crate::curve::ecdsa::{sign_message, ECDSAPublicKey, ECDSASecretKey, ECDSASignature};
     use crate::curve::secp256k1::Secp256K1;
     use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::field::secp256k1_scalar::Secp256K1Scalar;
     use crate::gadgets::ecdsa::{ECDSAPublicKeyTarget, ECDSASignatureTarget};
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     #[ignore]
     fn test_ecdsa_circuit() -> Result<()> {
-        type F = GoldilocksField;
-        const D: usize = 4;
-        type C = Secp256K1;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        type Curve = Secp256K1;
 
         let config = CircuitConfig::standard_ecc_config();
 
@@ -105,8 +108,8 @@ mod tests {
         let msg = F::rand();
         let msg_target = builder.constant(msg);
 
-        let sk = ECDSASecretKey::<C>(Secp256K1Scalar::rand());
-        let pk = ECDSAPublicKey((CurveScalar(sk.0) * C::GENERATOR_PROJECTIVE).to_affine());
+        let sk = ECDSASecretKey::<Curve>(Secp256K1Scalar::rand());
+        let pk = ECDSAPublicKey((CurveScalar(sk.0) * Curve::GENERATOR_PROJECTIVE).to_affine());
 
         let pk_target = ECDSAPublicKeyTarget(builder.constant_affine_point(pk.0));
 
@@ -122,7 +125,7 @@ mod tests {
 
         builder.verify_message(msg_target, sig_target, pk_target);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }

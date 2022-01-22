@@ -1,11 +1,14 @@
 use std::marker::PhantomData;
 
 use itertools::unfold;
+use plonky2_util::ceil_div_usize;
 
-use crate::field::extension_field::target::ExtensionTarget;
 use crate::field::extension_field::Extendable;
-use crate::field::field_types::{Field, RichField};
+use crate::field::field_types::Field;
 use crate::gates::gate::Gate;
+use crate::gates::util::StridedConstraintConsumer;
+use crate::hash::hash_types::RichField;
+use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
@@ -13,7 +16,6 @@ use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
-use crate::util::ceil_div_usize;
 
 const LOG2_MAX_NUM_ADDENDS: usize = 4;
 const MAX_NUM_ADDENDS: usize = 16;
@@ -128,8 +130,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
         constraints
     }
 
-    fn eval_unfiltered_base(&self, vars: EvaluationVarsBase<F>) -> Vec<F> {
-        let mut constraints = Vec::with_capacity(self.num_constraints());
+    fn eval_unfiltered_base_one(
+        &self,
+        vars: EvaluationVarsBase<F>,
+        mut yield_constr: StridedConstraintConsumer<F>,
+    ) {
         for i in 0..self.num_ops {
             let addends: Vec<F> = (0..self.num_addends)
                 .map(|j| vars.local_wires[self.wire_ith_op_jth_addend(i, j)])
@@ -144,7 +149,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
             let base = F::from_canonical_u64(1 << 32u64);
             let combined_output = output_carry * base + output_result;
 
-            constraints.push(combined_output - computed_output);
+            yield_constr.one(combined_output - computed_output);
 
             let mut combined_result_limbs = F::ZERO;
             let mut combined_carry_limbs = F::ZERO;
@@ -155,7 +160,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
                 let product = (0..max_limb)
                     .map(|x| this_limb - F::from_canonical_usize(x))
                     .product();
-                constraints.push(product);
+                yield_constr.one(product);
 
                 if j < Self::num_result_limbs() {
                     combined_result_limbs = base * combined_result_limbs + this_limb;
@@ -163,11 +168,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
                     combined_carry_limbs = base * combined_carry_limbs + this_limb;
                 }
             }
-            constraints.push(combined_result_limbs - output_result);
-            constraints.push(combined_carry_limbs - output_carry);
+            yield_constr.one(combined_result_limbs - output_result);
+            yield_constr.one(combined_carry_limbs - output_carry);
         }
-
-        constraints
     }
 
     fn eval_unfiltered_recursively(
@@ -355,6 +358,7 @@ mod tests {
     use crate::gates::gate::Gate;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::vars::EvaluationVars;
 
     #[test]
@@ -368,7 +372,10 @@ mod tests {
 
     #[test]
     fn eval_fns() -> Result<()> {
-        test_eval_fns::<GoldilocksField, _, 4>(U32AddManyGate::<GoldilocksField, 4> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        test_eval_fns::<F, C, _, D>(U32AddManyGate::<GoldilocksField, D> {
             num_addends: 4,
             num_ops: 3,
             _phantom: PhantomData,

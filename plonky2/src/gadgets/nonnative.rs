@@ -1,12 +1,14 @@
 use std::marker::PhantomData;
 
-use num::{BigUint, Zero};
+use num::{BigUint, Integer, One, Zero};
 use plonky2_field::{extension_field::Extendable, field_types::Field};
 use plonky2_util::ceil_div_usize;
 
 use crate::gadgets::arithmetic_u32::U32Target;
-use crate::field::field_types::RichField;
-use crate::gadgets::binary_arithmetic::BinaryTarget;
+use crate::gadgets::biguint::BigUintTarget;
+use crate::hash::hash_types::RichField;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator};
+use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -514,6 +516,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
+
         let x_ff = FF::rand();
         let y_ff = FF::rand();
         let sum_ff = x_ff + y_ff;
@@ -537,6 +540,10 @@ mod tests {
     #[test]
     fn test_nonnative_many_adds() -> Result<()> {
         type FF = Secp256K1Base;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
         let a_ff = FF::rand();
         let b_ff = FF::rand();
         let c_ff = FF::rand();
@@ -549,7 +556,7 @@ mod tests {
 
         let config = CircuitConfig::standard_ecc_config();
         let pw = PartialWitness::new();
-        let mut builder = CircuitBuilder::<F, 4>::new(config);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let a = builder.constant_nonnative(a_ff);
         let b = builder.constant_nonnative(b_ff);
@@ -565,7 +572,7 @@ mod tests {
         let sum_expected = builder.constant_nonnative(sum_ff);
         builder.connect_nonnative(&sum, &sum_expected);
 
-        let data = builder.build();
+        let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
     }
@@ -576,6 +583,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
+
         let x_ff = FF::rand();
         let mut y_ff = FF::rand();
         while y_ff.to_biguint() > x_ff.to_biguint() {
@@ -627,11 +635,13 @@ mod tests {
 
     fn test_nonnative_many_muls_helper(num: usize) {
         type FF = Secp256K1Base;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
 
-        type F = GoldilocksField;
         let config = CircuitConfig::standard_ecc_config();
-        let mut unop_builder = CircuitBuilder::<F, 4>::new(config.clone());
-        let mut op_builder = CircuitBuilder::<F, 4>::new(config);
+        let mut unop_builder = CircuitBuilder::<F, D>::new(config.clone());
+        let mut op_builder = CircuitBuilder::<F, D>::new(config);
 
         let ffs: Vec<_> = (0..num).map(|_| FF::rand()).collect();
 

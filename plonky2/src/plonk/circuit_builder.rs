@@ -19,8 +19,6 @@ use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::arithmetic_u32::U32ArithmeticGate;
-use crate::gates::binary_arithmetic::BinaryArithmeticGate;
-use crate::gates::binary_subtraction::BinarySubtractionGate;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
@@ -352,11 +350,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Returns a U32Target for the value `c`, which is assumed to be at most 32 bits.
     pub fn constant_u32(&mut self, c: u32) -> U32Target {
         U32Target(self.constant(F::from_canonical_u32(c)))
-    }
-
-    /// Returns a BinaryTarget for the value `c`, which is assumed to be at most BITS bits.
-    pub fn constant_binary<const BITS: usize>(&mut self, c: F) -> BinaryTarget<BITS> {
-        BinaryTarget(self.constant(c))
     }
 
     /// If the given target is a constant (i.e. it was created by the `constant(F)` method), returns
@@ -838,11 +831,6 @@ pub struct BatchedGates<F: RichField + Extendable<D>, const D: usize> {
     /// The `U32SubtractionGate` currently being filled (so new u32 subtraction operations will be added to this gate before creating a new one)
     pub(crate) current_u32_subtraction_gate: Option<(usize, usize)>,
 
-    /// A map `b -> (g, i)` from `b` bits to an available `BinaryArithmeticGate` for number of bits `b`.
-    pub(crate) free_binary_arithmetic_gate: HashMap<usize, (usize, usize)>,
-    /// A map `b -> (g, i)` from `b` bits to an available `BinarySubtractionGate` for number of bits `b`.
-    pub(crate) free_binary_subtraction_gate: HashMap<usize, (usize, usize)>,
-
     /// An available `ConstantGate` instance, if any.
     pub(crate) free_constant: Option<(usize, usize)>,
 }
@@ -858,8 +846,6 @@ impl<F: RichField + Extendable<D>, const D: usize> BatchedGates<F, D> {
             free_u32_add_many: HashMap::new(),
             current_u32_arithmetic_gate: None,
             current_u32_subtraction_gate: None,
-            free_binary_arithmetic_gate: HashMap::new(),
-            free_binary_subtraction_gate: HashMap::new(),
             free_constant: None,
         }
     }
@@ -1085,66 +1071,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (gate_index, copy)
     }
 
-    /// Finds the last available binary arithmetic with the given `bits` or add one if there aren't any.
-    /// Returns `(g,i)` such that there is a binary arithmetic for the given `bits` at index
-    /// `g` and the gate's `i`-th copy is available.
-    pub(crate) fn find_binary_arithmetic_gate<const BITS: usize>(&mut self) -> (usize, usize) {
-        let (gate, i) = self
-            .batched_gates
-            .free_binary_arithmetic_gate
-            .get(&BITS)
-            .copied()
-            .unwrap_or_else(|| {
-                let gate = self.add_gate(
-                    BinaryArithmeticGate::<F, D, BITS>::new_from_config(&self.config),
-                    vec![],
-                );
-                (gate, 0)
-            });
-
-        // Update `free_binary_arithmetic` with new values.
-        if i + 1 < BinaryArithmeticGate::<F, D, BITS>::new_from_config(&self.config).num_ops {
-            self.batched_gates
-                .free_binary_arithmetic_gate
-                .insert(BITS, (gate, i + 1));
-        } else {
-            self.batched_gates.free_binary_arithmetic_gate.remove(&BITS);
-        }
-
-        (gate, i)
-    }
-
-    /// Finds the last available binary subtraction with the given `bits` or add one if there aren't any.
-    /// Returns `(g,i)` such that there is a binary subtraction for the given `bits` at index
-    /// `g` and the gate's `i`-th copy is available.
-    pub(crate) fn find_binary_subtraction_gate<const BITS: usize>(&mut self) -> (usize, usize) {
-        let (gate, i) = self
-            .batched_gates
-            .free_binary_subtraction_gate
-            .get(&BITS)
-            .copied()
-            .unwrap_or_else(|| {
-                let gate = self.add_gate(
-                    BinarySubtractionGate::<F, D, BITS>::new_from_config(&self.config),
-                    vec![],
-                );
-                (gate, 0)
-            });
-
-        // Update `free_binary_subtraction` with new values.
-        if i + 1 < BinarySubtractionGate::<F, D, BITS>::new_from_config(&self.config).num_ops {
-            self.batched_gates
-                .free_binary_subtraction_gate
-                .insert(BITS, (gate, i + 1));
-        } else {
-            self.batched_gates
-                .free_binary_subtraction_gate
-                .remove(&BITS);
-        }
-
-        (gate, i)
-    }
-
     /// Returns the gate index and copy index of a free `ConstantGate` slot, potentially adding a
     /// new `ConstantGate` if needed.
     fn constant_gate_instance(&mut self) -> (usize, usize) {
@@ -1301,36 +1227,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    /// Fill the remaining unused binary arithmetic operations with zeros, so that all
-    /// `BinaryArithmeticGenerator`s are run.
-    fn fill_binary_arithmetic_gates(&mut self) {
-        let zero = self.zero_binary::<30>();
-        if let Some(&(_, i)) = self.batched_gates.free_binary_arithmetic_gate.get(&30) {
-            let max_copies =
-                BinaryArithmeticGate::<F, D, 30>::new_from_config(&self.config).num_ops;
-            for _ in i..max_copies {
-                let dummy = self.add_virtual_binary_target();
-                self.mul_add_binary(dummy, dummy, dummy);
-                self.connect_binary(dummy, zero);
-            }
-        }
-    }
-
-    /// Fill the remaining unused binary subtraction operations with zeros, so that all
-    /// `BinarySubtractionGenerator`s are run.
-    fn fill_binary_subtraction_gates(&mut self) {
-        let zero = self.zero_binary::<30>();
-        if let Some(&(_, i)) = self.batched_gates.free_binary_subtraction_gate.get(&30) {
-            let max_copies =
-                BinarySubtractionGate::<F, D, 30>::new_from_config(&self.config).num_ops;
-            for _ in i..max_copies {
-                let dummy = self.add_virtual_binary_target();
-                self.sub_binary(dummy, dummy, dummy);
-                self.connect_binary(dummy, zero);
-            }
-        }
-    }
-
     fn fill_batched_gates(&mut self) {
         self.fill_arithmetic_gates();
         self.fill_base_arithmetic_gates();
@@ -1340,7 +1236,5 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.fill_u32_add_many_gates();
         self.fill_u32_arithmetic_gates();
         self.fill_u32_subtraction_gates();
-        self.fill_binary_arithmetic_gates();
-        self.fill_binary_subtraction_gates();
     }
 }
