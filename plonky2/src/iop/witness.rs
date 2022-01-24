@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
+use itertools::Itertools;
 use num::{BigUint, FromPrimitive, Zero};
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 
+use crate::fri::proof::{FriProof, FriProofTarget};
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
@@ -14,7 +16,8 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
-use crate::plonk::config::AlgebraicHasher;
+use crate::plonk::config::{AlgebraicHasher, GenericConfig};
+use crate::plonk::proof::{Proof, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget};
 
 /// A witness holds information on the values of targets in a circuit.
 pub trait Witness<F: Field> {
@@ -152,6 +155,171 @@ pub trait Witness<F: Field> {
     fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) {
         for (&lt, &l) in target.limbs.iter().zip(&value.to_u32_digits()) {
             self.set_u32_target(lt, l);
+        }
+    }
+
+    /// Set the targets in a `ProofWithPublicInputsTarget` to their corresponding values in a
+    /// `ProofWithPublicInputs`.
+    fn set_proof_with_pis_target<C: GenericConfig<D, F = F>, const D: usize>(
+        &mut self,
+        proof_with_pis: &ProofWithPublicInputs<F, C, D>,
+        proof_with_pis_target: &ProofWithPublicInputsTarget<D>,
+    ) where
+        F: RichField + Extendable<D>,
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        let ProofWithPublicInputs {
+            proof,
+            public_inputs,
+        } = proof_with_pis;
+        let ProofWithPublicInputsTarget {
+            proof: pt,
+            public_inputs: pi_targets,
+        } = proof_with_pis_target;
+
+        // Set public inputs.
+        for (&pi_t, &pi) in pi_targets.iter().zip_eq(public_inputs) {
+            self.set_target(pi_t, pi);
+        }
+
+        self.set_proof_target(proof, pt);
+    }
+
+    /// Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
+    fn set_proof_target<C: GenericConfig<D, F = F>, const D: usize>(
+        &mut self,
+        proof: &Proof<F, C, D>,
+        proof_target: &ProofTarget<D>,
+    ) where
+        F: RichField + Extendable<D>,
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        self.set_cap_target(&proof_target.wires_cap, &proof.wires_cap);
+        self.set_cap_target(
+            &proof_target.plonk_zs_partial_products_cap,
+            &proof.plonk_zs_partial_products_cap,
+        );
+        self.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap);
+
+        for (&t, &x) in proof_target
+            .openings
+            .wires
+            .iter()
+            .zip_eq(&proof.openings.wires)
+        {
+            self.set_extension_target(t, x);
+        }
+        for (&t, &x) in proof_target
+            .openings
+            .constants
+            .iter()
+            .zip_eq(&proof.openings.constants)
+        {
+            self.set_extension_target(t, x);
+        }
+        for (&t, &x) in proof_target
+            .openings
+            .plonk_sigmas
+            .iter()
+            .zip_eq(&proof.openings.plonk_sigmas)
+        {
+            self.set_extension_target(t, x);
+        }
+        for (&t, &x) in proof_target
+            .openings
+            .plonk_zs
+            .iter()
+            .zip_eq(&proof.openings.plonk_zs)
+        {
+            self.set_extension_target(t, x);
+        }
+        for (&t, &x) in proof_target
+            .openings
+            .plonk_zs_right
+            .iter()
+            .zip_eq(&proof.openings.plonk_zs_right)
+        {
+            self.set_extension_target(t, x);
+        }
+        for (&t, &x) in proof_target
+            .openings
+            .partial_products
+            .iter()
+            .zip_eq(&proof.openings.partial_products)
+        {
+            self.set_extension_target(t, x);
+        }
+        for (&t, &x) in proof_target
+            .openings
+            .quotient_polys
+            .iter()
+            .zip_eq(&proof.openings.quotient_polys)
+        {
+            self.set_extension_target(t, x);
+        }
+
+        self.set_fri_proof_target(&proof.opening_proof, &proof_target.opening_proof);
+    }
+
+    /// Set the targets in a `FriProofTarget` to their corresponding values in a `FriProof`.
+    fn set_fri_proof_target<H: AlgebraicHasher<F>, const D: usize>(
+        &mut self,
+        fri_proof: &FriProof<F, H, D>,
+        fri_proof_target: &FriProofTarget<D>,
+    ) where
+        F: RichField + Extendable<D>,
+    {
+        self.set_target(fri_proof_target.pow_witness, fri_proof.pow_witness);
+
+        for (&t, &x) in fri_proof_target
+            .final_poly
+            .0
+            .iter()
+            .zip_eq(&fri_proof.final_poly.coeffs)
+        {
+            self.set_extension_target(t, x);
+        }
+
+        for (t, x) in fri_proof_target
+            .commit_phase_merkle_caps
+            .iter()
+            .zip_eq(&fri_proof.commit_phase_merkle_caps)
+        {
+            self.set_cap_target(t, x);
+        }
+
+        for (qt, q) in fri_proof_target
+            .query_round_proofs
+            .iter()
+            .zip_eq(&fri_proof.query_round_proofs)
+        {
+            for (at, a) in qt
+                .initial_trees_proof
+                .evals_proofs
+                .iter()
+                .zip_eq(&q.initial_trees_proof.evals_proofs)
+            {
+                for (&t, &x) in at.0.iter().zip_eq(&a.0) {
+                    self.set_target(t, x);
+                }
+                for (&t, &x) in at.1.siblings.iter().zip_eq(&a.1.siblings) {
+                    self.set_hash_target(t, x);
+                }
+            }
+
+            for (st, s) in qt.steps.iter().zip_eq(&q.steps) {
+                for (&t, &x) in st.evals.iter().zip_eq(&s.evals) {
+                    self.set_extension_target(t, x);
+                }
+                for (&t, &x) in st
+                    .merkle_proof
+                    .siblings
+                    .iter()
+                    .zip_eq(&s.merkle_proof.siblings)
+                {
+                    self.set_hash_target(t, x);
+                }
+            }
         }
     }
 
