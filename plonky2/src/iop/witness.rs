@@ -201,7 +201,12 @@ pub trait Witness<F: Field> {
         );
         self.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap);
 
-        for (&t, &x) in proof_target.openings.wires.iter().zip_eq(&proof.openings.wires) {
+        for (&t, &x) in proof_target
+            .openings
+            .wires
+            .iter()
+            .zip_eq(&proof.openings.wires)
+        {
             self.set_extension_target(t, x);
         }
         for (&t, &x) in proof_target
@@ -220,7 +225,12 @@ pub trait Witness<F: Field> {
         {
             self.set_extension_target(t, x);
         }
-        for (&t, &x) in proof_target.openings.plonk_zs.iter().zip_eq(&proof.openings.plonk_zs) {
+        for (&t, &x) in proof_target
+            .openings
+            .plonk_zs
+            .iter()
+            .zip_eq(&proof.openings.plonk_zs)
+        {
             self.set_extension_target(t, x);
         }
         for (&t, &x) in proof_target
