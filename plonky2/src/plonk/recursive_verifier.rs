@@ -204,7 +204,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use itertools::Itertools;
     use log::{info, Level};
 
     use super::*;
@@ -219,134 +218,6 @@ mod tests {
     use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
     use crate::plonk::prover::prove;
     use crate::util::timing::TimingTree;
-
-    // Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
-    fn set_proof_target<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-        proof: &ProofWithPublicInputs<F, C, D>,
-        pt: &ProofWithPublicInputsTarget<D>,
-        pw: &mut PartialWitness<F>,
-    ) where
-        C::Hasher: AlgebraicHasher<F>,
-    {
-        let ProofWithPublicInputs {
-            proof,
-            public_inputs,
-        } = proof;
-        let ProofWithPublicInputsTarget {
-            proof: pt,
-            public_inputs: pi_targets,
-        } = pt;
-
-        // Set public inputs.
-        for (&pi_t, &pi) in pi_targets.iter().zip_eq(public_inputs) {
-            pw.set_target(pi_t, pi);
-        }
-
-        pw.set_cap_target(&pt.wires_cap, &proof.wires_cap);
-        pw.set_cap_target(
-            &pt.plonk_zs_partial_products_cap,
-            &proof.plonk_zs_partial_products_cap,
-        );
-        pw.set_cap_target(&pt.quotient_polys_cap, &proof.quotient_polys_cap);
-
-        for (&t, &x) in pt.openings.wires.iter().zip_eq(&proof.openings.wires) {
-            pw.set_extension_target(t, x);
-        }
-        for (&t, &x) in pt
-            .openings
-            .constants
-            .iter()
-            .zip_eq(&proof.openings.constants)
-        {
-            pw.set_extension_target(t, x);
-        }
-        for (&t, &x) in pt
-            .openings
-            .plonk_sigmas
-            .iter()
-            .zip_eq(&proof.openings.plonk_sigmas)
-        {
-            pw.set_extension_target(t, x);
-        }
-        for (&t, &x) in pt.openings.plonk_zs.iter().zip_eq(&proof.openings.plonk_zs) {
-            pw.set_extension_target(t, x);
-        }
-        for (&t, &x) in pt
-            .openings
-            .plonk_zs_right
-            .iter()
-            .zip_eq(&proof.openings.plonk_zs_right)
-        {
-            pw.set_extension_target(t, x);
-        }
-        for (&t, &x) in pt
-            .openings
-            .partial_products
-            .iter()
-            .zip_eq(&proof.openings.partial_products)
-        {
-            pw.set_extension_target(t, x);
-        }
-        for (&t, &x) in pt
-            .openings
-            .quotient_polys
-            .iter()
-            .zip_eq(&proof.openings.quotient_polys)
-        {
-            pw.set_extension_target(t, x);
-        }
-
-        let fri_proof = &proof.opening_proof;
-        let fpt = &pt.opening_proof;
-
-        pw.set_target(fpt.pow_witness, fri_proof.pow_witness);
-
-        for (&t, &x) in fpt.final_poly.0.iter().zip_eq(&fri_proof.final_poly.coeffs) {
-            pw.set_extension_target(t, x);
-        }
-
-        for (t, x) in fpt
-            .commit_phase_merkle_caps
-            .iter()
-            .zip_eq(&fri_proof.commit_phase_merkle_caps)
-        {
-            pw.set_cap_target(t, x);
-        }
-
-        for (qt, q) in fpt
-            .query_round_proofs
-            .iter()
-            .zip_eq(&fri_proof.query_round_proofs)
-        {
-            for (at, a) in qt
-                .initial_trees_proof
-                .evals_proofs
-                .iter()
-                .zip_eq(&q.initial_trees_proof.evals_proofs)
-            {
-                for (&t, &x) in at.0.iter().zip_eq(&a.0) {
-                    pw.set_target(t, x);
-                }
-                for (&t, &x) in at.1.siblings.iter().zip_eq(&a.1.siblings) {
-                    pw.set_hash_target(t, x);
-                }
-            }
-
-            for (st, s) in qt.steps.iter().zip_eq(&q.steps) {
-                for (&t, &x) in st.evals.iter().zip_eq(&s.evals) {
-                    pw.set_extension_target(t, x);
-                }
-                for (&t, &x) in st
-                    .merkle_proof
-                    .siblings
-                    .iter()
-                    .zip_eq(&s.merkle_proof.siblings)
-                {
-                    pw.set_hash_target(t, x);
-                }
-            }
-        }
-    }
 
     #[test]
     #[ignore]
@@ -554,7 +425,7 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
         let pt = builder.add_virtual_proof_with_pis(&inner_cd);
-        set_proof_target(&inner_proof, &pt, &mut pw);
+        pw.set_proof_with_pis_target(&inner_proof, &pt);
 
         let inner_data = VerifierCircuitTarget {
             constants_sigmas_cap: builder.add_virtual_cap(inner_config.fri_config.cap_height),
