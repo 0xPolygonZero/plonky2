@@ -26,7 +26,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             proof,
             public_inputs,
         } = proof_with_pis;
+
+        assert_eq!(public_inputs.len(), inner_common_data.num_public_inputs);
         let public_inputs_hash = self.hash_n_to_hash::<C::InnerHasher>(public_inputs, true);
+
         self.verify_proof(
             proof,
             public_inputs_hash,
@@ -147,6 +150,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         common_data: &CommonCircuitData<F, InnerC, D>,
     ) -> ProofWithPublicInputsTarget<D> {
+        let proof = self.add_virtual_proof(common_data);
+        let public_inputs = self.add_virtual_targets(common_data.num_public_inputs);
+        ProofWithPublicInputsTarget {
+            proof,
+            public_inputs,
+        }
+    }
+
+    fn add_virtual_proof<InnerC: GenericConfig<D, F = F>>(
+        &mut self,
+        common_data: &CommonCircuitData<F, InnerC, D>,
+    ) -> ProofTarget<D> {
         let config = &common_data.config;
         let fri_params = &common_data.fri_params;
         let cap_height = fri_params.config.cap_height;
@@ -158,18 +173,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             common_data.num_quotient_polys(),
         ];
 
-        let proof = ProofTarget {
+        ProofTarget {
             wires_cap: self.add_virtual_cap(cap_height),
             plonk_zs_partial_products_cap: self.add_virtual_cap(cap_height),
             quotient_polys_cap: self.add_virtual_cap(cap_height),
             openings: self.add_opening_set(common_data),
             opening_proof: self.add_virtual_fri_proof(num_leaves_per_oracle, fri_params),
-        };
-
-        let public_inputs = self.add_virtual_targets(common_data.num_public_inputs);
-        ProofWithPublicInputsTarget {
-            proof,
-            public_inputs,
         }
     }
 
