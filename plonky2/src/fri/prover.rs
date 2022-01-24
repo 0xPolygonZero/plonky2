@@ -72,9 +72,8 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     let mut trees = Vec::new();
 
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
-    let num_reductions = fri_params.reduction_arity_bits.len();
-    for i in 0..num_reductions {
-        let arity = 1 << fri_params.reduction_arity_bits[i];
+    for arity_bits in &fri_params.reduction_arity_bits {
+        let arity = 1 << arity_bits;
 
         reverse_index_bits_in_place(&mut values.values);
         let chunked_values = values

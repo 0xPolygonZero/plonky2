@@ -2,7 +2,9 @@ use itertools::Itertools;
 use plonky2_field::extension_field::Extendable;
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
-use crate::fri::proof::{FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget};
+use crate::fri::proof::{
+    FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
+};
 use crate::fri::structure::{FriBatchInfoTarget, FriInstanceInfoTarget, FriOpeningsTarget};
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::interpolation::InterpolationGate;
@@ -419,6 +421,81 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let p_ambiguous = (num_ambiguous_elems as f64) / (F::ORDER as f64);
         assert!(p_ambiguous < query_error * 1e-5,
                 "A non-negligible portion of field elements are in the range that permits non-canonical encodings. Need to do more analysis or enforce canonical encodings.");
+    }
+
+    pub(crate) fn add_virtual_fri_proof(
+        &mut self,
+        num_leaves_per_oracle: &[usize],
+        params: &FriParams,
+    ) -> FriProofTarget<D> {
+        let cap_height = params.config.cap_height;
+        let num_queries = params.config.num_query_rounds;
+        let commit_phase_merkle_caps = (0..params.reduction_arity_bits.len())
+            .map(|_| self.add_virtual_cap(cap_height))
+            .collect();
+        let query_round_proofs = (0..num_queries)
+            .map(|_| self.add_virtual_fri_query(num_leaves_per_oracle, params))
+            .collect();
+        let final_poly = self.add_virtual_poly_coeff_ext(params.final_poly_len());
+        let pow_witness = self.add_virtual_target();
+        FriProofTarget {
+            commit_phase_merkle_caps,
+            query_round_proofs,
+            final_poly,
+            pow_witness,
+        }
+    }
+
+    fn add_virtual_fri_query(
+        &mut self,
+        num_leaves_per_oracle: &[usize],
+        params: &FriParams,
+    ) -> FriQueryRoundTarget<D> {
+        let cap_height = params.config.cap_height;
+        assert!(params.lde_bits() >= cap_height);
+        let mut merkle_proof_len = params.lde_bits() - cap_height;
+
+        let initial_trees_proof =
+            self.add_virtual_fri_initial_trees_proof(num_leaves_per_oracle, merkle_proof_len);
+
+        let mut steps = vec![];
+        for &arity_bits in &params.reduction_arity_bits {
+            assert!(merkle_proof_len >= arity_bits);
+            merkle_proof_len -= arity_bits;
+            steps.push(self.add_virtual_fri_query_step(arity_bits, merkle_proof_len));
+        }
+
+        FriQueryRoundTarget {
+            initial_trees_proof,
+            steps,
+        }
+    }
+
+    fn add_virtual_fri_initial_trees_proof(
+        &mut self,
+        num_leaves_per_oracle: &[usize],
+        initial_merkle_proof_len: usize,
+    ) -> FriInitialTreeProofTarget {
+        let evals_proofs = num_leaves_per_oracle
+            .iter()
+            .map(|&num_oracle_leaves| {
+                let leaves = self.add_virtual_targets(num_oracle_leaves);
+                let merkle_proof = self.add_virtual_merkle_proof(initial_merkle_proof_len);
+                (leaves, merkle_proof)
+            })
+            .collect();
+        FriInitialTreeProofTarget { evals_proofs }
+    }
+
+    fn add_virtual_fri_query_step(
+        &mut self,
+        arity_bits: usize,
+        merkle_proof_len: usize,
+    ) -> FriQueryStepTarget<D> {
+        FriQueryStepTarget {
+            evals: self.add_virtual_extension_targets(1 << arity_bits),
+            merkle_proof: self.add_virtual_merkle_proof(merkle_proof_len),
+        }
     }
 }
 
