@@ -69,7 +69,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         // Squeeze until we have the desired number of outputs.
-        let mut outputs = Vec::new();
+        let mut outputs = Vec::with_capacity(num_outputs);
         loop {
             for i in 0..SPONGE_RATE {
                 outputs.push(state[i]);
