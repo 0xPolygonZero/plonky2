@@ -14,7 +14,7 @@ use crate::memory::TransactionMemory;
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
 
 /// We require at least 2^16 rows as it helps support efficient 16-bit range checks.
-const MIN_ROWS: usize = 1 << 16;
+const MIN_TRACE_ROWS: usize = 1 << 16;
 
 pub struct SystemZero<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
@@ -28,7 +28,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         self.generate_first_row_core_registers(&mut row);
         self.generate_permutation_unit(&mut row);
 
-        let mut trace = Vec::with_capacity(MIN_ROWS);
+        let mut trace = Vec::with_capacity(MIN_TRACE_ROWS);
 
         loop {
             let mut next_row = [F::ZERO; NUM_COLUMNS];
@@ -89,9 +89,7 @@ mod tests {
     use plonky2::util::timing::TimingTree;
     use starky::config::StarkConfig;
     use starky::prover::prove;
-    use starky::stark::Stark;
 
-    use crate::column_layout::NUM_COLUMNS;
     use crate::system_zero::SystemZero;
 
     #[test]

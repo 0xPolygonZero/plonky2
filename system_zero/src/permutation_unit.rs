@@ -2,7 +2,6 @@ use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::hashing::SPONGE_WIDTH;
-use plonky2::hash::poseidon;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use starky::vars::StarkEvaluationTargets;
