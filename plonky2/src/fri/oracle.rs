@@ -36,7 +36,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     PolynomialBatch<F, C, D>
 {
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
-    pub(crate) fn from_values(
+    pub fn from_values(
         values: Vec<PolynomialValues<F>>,
         rate_bits: usize,
         blinding: bool,
@@ -61,7 +61,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     /// Creates a list polynomial commitment for the polynomials `polynomials`.
-    pub(crate) fn from_coeffs(
+    pub fn from_coeffs(
         polynomials: Vec<PolynomialCoeffs<F>>,
         rate_bits: usize,
         blinding: bool,
