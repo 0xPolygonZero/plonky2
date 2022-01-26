@@ -91,23 +91,18 @@ fn fill_digests_buf<F: RichField, H: Hasher<F>>(
 ) {
     let subtree_digests_len = digests_buf.len() >> cap_height;
     let subtree_leaves_len = leaves.len() >> cap_height;
-    rayon::scope(|s| {
-        let digests_chunks = digests_buf.chunks_exact_mut(subtree_digests_len);
-        let cap_refs = cap_buf.iter_mut();
-        let leaves_chunks = leaves.chunks_exact(subtree_leaves_len);
-        assert_eq!(digests_chunks.len(), cap_refs.len());
-        assert_eq!(digests_chunks.len(), leaves_chunks.len());
-        for ((subtree_digests, subtree_cap), subtree_leaves) in
-            digests_chunks.zip(cap_refs).zip(leaves_chunks)
-        {
+    let digests_chunks = digests_buf.par_chunks_exact_mut(subtree_digests_len);
+    let leaves_chunks = leaves.par_chunks_exact(subtree_leaves_len);
+    assert_eq!(digests_chunks.len(), cap_buf.len());
+    assert_eq!(digests_chunks.len(), leaves_chunks.len());
+    digests_chunks.zip(cap_buf).zip(leaves_chunks).for_each(
+        |((subtree_digests, subtree_cap), subtree_leaves)| {
             // We have `1 << cap_height` sub-trees, one for each entry in `cap`. They are totally
             // independent, so we schedule one task for each. `digests_buf` and `leaves` are split
             // into `1 << cap_height` slices, one for each sub-tree.
-            s.spawn(|_| {
-                subtree_cap.write(fill_subtree::<F, H>(subtree_digests, subtree_leaves));
-            });
-        }
-    });
+            subtree_cap.write(fill_subtree::<F, H>(subtree_digests, subtree_leaves));
+        },
+    );
 }
 
 impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
