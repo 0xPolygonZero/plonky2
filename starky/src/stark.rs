@@ -14,10 +14,6 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize> {
     /// The number of public inputs.
     const PUBLIC_INPUTS: usize;
 
-    fn generate_first_row(&self) -> [F; Self::COLUMNS];
-
-    fn generate_next_row(&self, local_values: &[F; Self::COLUMNS]) -> [F; Self::COLUMNS];
-
     /// Evaluate constraints at a vector of points.
     ///
     /// The points are elements of a field `FE`, a degree `D2` extension of `F`. This lets us

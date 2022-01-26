@@ -1,5 +1,3 @@
-//// CORE REGISTERS
-
 use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::hash::poseidon;
 
@@ -57,13 +55,13 @@ pub(crate) const fn col_permutation_output(i: usize) -> usize {
     col_permutation_full_second(poseidon::HALF_N_FULL_ROUNDS, i)
 }
 
-const END_PERMUTATION_UNIT: usize = col_permutation_output(SPONGE_WIDTH - 1) + 1;
+const END_PERMUTATION_UNIT: usize = col_permutation_output(SPONGE_WIDTH - 1);
 
 //// MEMORY UNITS
 
 //// DECOMPOSITION UNITS
 
-const COL_START_DECOMPOSITION: usize = END_PERMUTATION_UNIT;
+const START_DECOMPOSITION_UNITS: usize = END_PERMUTATION_UNIT + 1;
 
 const NUM_DECOMPOSITION_UNITS: usize = 4;
 /// The number of bits associated with a single decomposition unit.
@@ -73,16 +71,16 @@ const DECOMPOSITION_UNIT_COLS: usize = 1 + DECOMPOSITION_UNIT_BITS;
 
 pub(crate) const fn col_decomposition_input(unit: usize) -> usize {
     debug_assert!(unit < NUM_DECOMPOSITION_UNITS);
-    COL_START_DECOMPOSITION + unit * DECOMPOSITION_UNIT_COLS
+    START_DECOMPOSITION_UNITS + unit * DECOMPOSITION_UNIT_COLS
 }
 
 pub(crate) const fn col_decomposition_bit(unit: usize, bit: usize) -> usize {
     debug_assert!(unit < NUM_DECOMPOSITION_UNITS);
     debug_assert!(bit < DECOMPOSITION_UNIT_BITS);
-    COL_START_DECOMPOSITION + unit * DECOMPOSITION_UNIT_COLS + 1 + bit
+    START_DECOMPOSITION_UNITS + unit * DECOMPOSITION_UNIT_COLS + 1 + bit
 }
 
-const COL_END_DECOMPOSITION: usize =
-    COL_START_DECOMPOSITION + DECOMPOSITION_UNIT_COLS * NUM_DECOMPOSITION_UNITS;
+const END_DECOMPOSITION_UNITS: usize =
+    START_DECOMPOSITION_UNITS + DECOMPOSITION_UNIT_COLS * NUM_DECOMPOSITION_UNITS;
 
-pub(crate) const NUM_COLUMNS: usize = COL_END_DECOMPOSITION;
+pub(crate) const NUM_COLUMNS: usize = END_DECOMPOSITION_UNITS;

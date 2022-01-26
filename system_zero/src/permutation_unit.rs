@@ -51,7 +51,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         // TODO: Partial rounds.
         // TODO: Second full rounds.
 
-        // Assert that the computed output matches the outputs in the witness.
+        // Assert that the computed output matches the outputs in the trace.
         for i in 0..SPONGE_WIDTH {
             let out = local_values[col_permutation_output(i)];
             yield_constr.one(state[i] - out);
@@ -77,7 +77,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         // TODO: Partial rounds.
         // TODO: Second full rounds.
 
-        // Assert that the computed output matches the outputs in the witness.
+        // Assert that the computed output matches the outputs in the trace.
         for i in 0..SPONGE_WIDTH {
             let out = local_values[col_permutation_output(i)];
             let diff = builder.sub_extension(state[i], out);

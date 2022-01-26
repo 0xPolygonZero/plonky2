@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::fri::oracle::PolynomialBatch;
@@ -15,20 +16,10 @@ use crate::config::StarkConfig;
 use crate::proof::StarkProof;
 use crate::stark::Stark;
 
-/// Returns a witness matrix in row-major form.
-fn generate_witness<F, S, const D: usize>(stark: S) -> Vec<Vec<F>>
-where
-    F: RichField + Extendable<D>,
-    S: Stark<F, D>,
-    [(); S::COLUMNS]:,
-{
-    let mut row = stark.generate_first_row();
-    todo!()
-}
-
 pub fn prove<F, C, S, const D: usize>(
     stark: S,
     config: StarkConfig,
+    trace: Vec<[F; S::COLUMNS]>,
     timing: &mut TimingTree,
 ) -> StarkProof<F, C, D>
 where
@@ -37,18 +28,15 @@ where
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
 {
-    let witness_row_major: Vec<Vec<F>> = timed!(
-        timing,
-        "generate witness",
-        generate_witness::<F, S, D>(stark)
-    );
-    let degree_bits = log2_strict(witness_row_major.len());
-    let witness_col_major: Vec<Vec<F>> = transpose(&witness_row_major);
+    let degree_bits = log2_strict(trace.len());
+
+    let trace_vecs = trace.into_iter().map(|row| row.to_vec()).collect_vec();
+    let trace_col_major: Vec<Vec<F>> = transpose(&trace_vecs);
 
     let trace_poly_values: Vec<PolynomialValues<F>> = timed!(
         timing,
         "compute trace polynomials",
-        witness_col_major
+        trace_col_major
             .par_iter()
             .map(|column| PolynomialValues::new(column.clone()))
             .collect()

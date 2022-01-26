@@ -13,15 +13,40 @@ use crate::column_layout::NUM_COLUMNS;
 use crate::memory::TransactionMemory;
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
 
+/// We require at least 2^16 rows as it helps support efficient 16-bit range checks.
+const MIN_ROWS: usize = 1 << 16;
+
 pub struct SystemZero<F: RichField + Extendable<D>, const D: usize> {
-    memory: TransactionMemory,
     _phantom: PhantomData<F>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
+    fn generate_trace(&self) -> Vec<[F; NUM_COLUMNS]> {
+        let memory = TransactionMemory::default();
+
+        let mut row = [F::ZERO; NUM_COLUMNS];
+        self.generate_first_row_core_registers(&mut row);
+        self.generate_permutation_unit(&mut row);
+
+        let mut trace = Vec::with_capacity(MIN_ROWS);
+
+        loop {
+            let mut next_row = [F::ZERO; NUM_COLUMNS];
+            self.generate_next_row_core_registers(&row, &mut next_row);
+            self.generate_permutation_unit(&mut next_row);
+
+            trace.push(row);
+            row = next_row;
+        }
+
+        trace.push(row);
+        trace
+    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Default for SystemZero<F, D> {
     fn default() -> Self {
         Self {
-            memory: Default::default(),
             _phantom: PhantomData,
         }
     }
@@ -30,20 +55,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for SystemZero<F, D> 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F, D> {
     const COLUMNS: usize = NUM_COLUMNS;
     const PUBLIC_INPUTS: usize = NUM_PUBLIC_INPUTS;
-
-    fn generate_first_row(&self) -> [F; NUM_COLUMNS] {
-        let mut first_values = [F::ZERO; NUM_COLUMNS];
-        self.generate_first_row_core_registers(&mut first_values);
-        self.generate_permutation_unit(&mut first_values);
-        first_values
-    }
-
-    fn generate_next_row(&self, local_values: &[F; NUM_COLUMNS]) -> [F; NUM_COLUMNS] {
-        let mut next_values = [F::ZERO; NUM_COLUMNS];
-        self.generate_next_row_core_registers(local_values, &mut next_values);
-        self.generate_permutation_unit(&mut next_values);
-        next_values
-    }
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
@@ -78,7 +89,9 @@ mod tests {
     use plonky2::util::timing::TimingTree;
     use starky::config::StarkConfig;
     use starky::prover::prove;
+    use starky::stark::Stark;
 
+    use crate::column_layout::NUM_COLUMNS;
     use crate::system_zero::SystemZero;
 
     #[test]
@@ -87,9 +100,11 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         const D: usize = 2;
 
-        let system = SystemZero::<F, D>::default();
+        type S = SystemZero<F, D>;
+        let system = S::default();
         let config = StarkConfig::standard_fast_config();
         let mut timing = TimingTree::new("prove", Level::Debug);
-        prove::<F, C, _, D>(system, config, &mut timing);
+        let trace = system.generate_trace();
+        prove::<F, C, S, D>(system, config, trace, &mut timing);
     }
 }
