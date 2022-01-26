@@ -2,6 +2,7 @@ use std::mem::MaybeUninit;
 use std::slice;
 
 use plonky2_util::log2_strict;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::hash::hash_types::RichField;
