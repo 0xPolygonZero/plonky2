@@ -93,6 +93,7 @@ mod tests {
     use crate::system_zero::SystemZero;
 
     #[test]
+    #[ignore] // TODO
     fn run() {
         type F = GoldilocksField;
         type C = PoseidonGoldilocksConfig;
