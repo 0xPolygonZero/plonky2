@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use plonky2::field::extension_field::Extendable;
+use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
@@ -24,6 +25,24 @@ pub struct ConstraintConsumer<P: PackedField> {
 }
 
 impl<P: PackedField> ConstraintConsumer<P> {
+    pub fn new(
+        alpha: P::Scalar,
+        lagrange_basis_first: P::Scalar,
+        lagrange_basis_last: P::Scalar,
+    ) -> Self {
+        Self {
+            alpha,
+            constraint_acc: P::ZEROS,
+            lagrange_basis_first,
+            lagrange_basis_last,
+        }
+    }
+
+    // TODO: Do this correctly.
+    pub fn accumulator(&self) -> P::Scalar {
+        self.constraint_acc.as_slice()[0]
+    }
+
     /// Add one constraint.
     pub fn one(&mut self, constraint: P) {
         self.constraint_acc *= self.alpha;

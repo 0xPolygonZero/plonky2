@@ -1,6 +1,7 @@
 use plonky2_field::batch_util::batch_add_inplace;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
+use plonky2_field::zero_poly_coset::ZeroPolyOnCoset;
 
 use crate::gates::gate::PrefixedGate;
 use crate::hash::hash_types::RichField;
@@ -10,7 +11,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common;
-use crate::plonk::plonk_common::{eval_l_1_recursively, ZeroPolyOnCoset};
+use crate::plonk::plonk_common::eval_l_1_recursively;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 use crate::util::partial_products::{check_partial_products, check_partial_products_recursively};
 use crate::util::reducing::ReducingFactorTarget;

@@ -8,7 +8,7 @@ use crate::vars::StarkEvaluationTargets;
 use crate::vars::StarkEvaluationVars;
 
 /// Represents a STARK system.
-pub trait Stark<F: RichField + Extendable<D>, const D: usize> {
+pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// The total number of columns in the trace.
     const COLUMNS: usize;
     /// The number of public inputs.
