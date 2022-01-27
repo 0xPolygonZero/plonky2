@@ -213,7 +213,7 @@ mod tests {
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::VerifierOnlyCircuitData;
     use crate::plonk::config::{
-        GMiMCGoldilocksConfig, GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig,
+        GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig,
     };
     use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
     use crate::plonk::prover::prove;
@@ -352,7 +352,6 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type PC = PoseidonGoldilocksConfig;
-        type GC = GMiMCGoldilocksConfig;
         type KC = KeccakGoldilocksConfig;
         type F = <PC as GenericConfig<D>>::F;
 
@@ -363,16 +362,8 @@ mod tests {
             recursive_proof::<F, PC, PC, D>(proof, vd, cd, &config, &config, None, false, false)?;
         test_serialization(&proof, &cd)?;
 
-        let (proof, vd, cd) =
-            recursive_proof::<F, GC, PC, D>(proof, vd, cd, &config, &config, None, false, false)?;
-        test_serialization(&proof, &cd)?;
-
-        let (proof, vd, cd) =
-            recursive_proof::<F, GC, GC, D>(proof, vd, cd, &config, &config, None, false, false)?;
-        test_serialization(&proof, &cd)?;
-
         let (proof, _vd, cd) =
-            recursive_proof::<F, KC, GC, D>(proof, vd, cd, &config, &config, None, false, false)?;
+            recursive_proof::<F, KC, PC, D>(proof, vd, cd, &config, &config, None, false, false)?;
         test_serialization(&proof, &cd)?;
 
         Ok(())

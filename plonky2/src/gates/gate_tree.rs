@@ -228,7 +228,7 @@ mod tests {
     use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
     use crate::gates::base_sum::BaseSumGate;
     use crate::gates::constant::ConstantGate;
-    use crate::gates::gmimc::GMiMCGate;
+    use crate::gates::poseidon::PoseidonGate;
     use crate::gates::interpolation::HighDegreeInterpolationGate;
     use crate::gates::noop::NoopGate;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
@@ -245,7 +245,7 @@ mod tests {
             GateRef::new(ConstantGate { num_consts: 4 }),
             GateRef::new(ArithmeticExtensionGate { num_ops: 4 }),
             GateRef::new(BaseSumGate::<4>::new(4)),
-            GateRef::new(GMiMCGate::<F, D, 12>::new()),
+            GateRef::new(PoseidonGate::<F, D>::new()),
             GateRef::new(HighDegreeInterpolationGate::new(2)),
         ];
 
@@ -276,7 +276,7 @@ mod tests {
         assert!(
             gates_with_prefix
                 .iter()
-                .all(|(g, p)| g.0.degree() + g.0.num_constants() + p.len() <= 8),
+                .all(|(g, p)| g.0.degree() + g.0.num_constants() + p.len() <= 9),
             "Total degree is larger than 8."
         );
 
