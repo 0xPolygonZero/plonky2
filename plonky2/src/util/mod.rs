@@ -1,5 +1,6 @@
 use plonky2_field::field_types::Field;
 use plonky2_field::polynomial::PolynomialValues;
+use plonky2_util::capacity_up_to_unchecked;
 
 pub(crate) mod context_tree;
 pub(crate) mod marking;
@@ -14,32 +15,74 @@ pub(crate) fn transpose_poly_values<F: Field>(polys: Vec<PolynomialValues<F>>) -
     transpose(&poly_values)
 }
 
+/// Copy matrix[j][i] to transposed[i][j] (within the uninitialized capacity) without bounds checks.
+///
+/// # Safety
+/// It is undefined behavior to call this function unless all of the following hold:
+/// - `j < matrix.len()`
+/// - `i < matrix[j].len()`
+/// - `i < transposed.len()`
+/// - `j < transposed[i].capacity()`
+unsafe fn copy_into_capacity_unchecked<F: Field>(
+    matrix: &[Vec<F>],
+    transposed: &mut Vec<Vec<F>>,
+    i: usize,
+    j: usize,
+) {
+    debug_assert!(j < matrix.len());
+    let matrix_j = matrix.get_unchecked(j);
+    debug_assert!(i < matrix_j.len());
+    let matrix_j_i = matrix_j.get_unchecked(i);
+
+    debug_assert!(i < transposed.len());
+    let transposed_i = transposed.get_unchecked_mut(i);
+    // Get the first `j + 1` of the capacity; could do `matrix.len()` too.
+    debug_assert!(j < transposed_i.capacity());
+    let transposed_i_capacity = capacity_up_to_unchecked(transposed_i, j + 1);
+    debug_assert!(j < transposed_i_capacity.len());
+    let transposed_i_capacity_j = transposed_i_capacity.get_unchecked_mut(j);
+
+    transposed_i_capacity_j.write(*matrix_j_i);
+}
+
 pub fn transpose<F: Field>(matrix: &[Vec<F>]) -> Vec<Vec<F>> {
     let l = matrix.len();
     let w = matrix[0].len();
 
-    let mut transposed = vec![vec![]; w];
-    for i in 0..w {
-        transposed[i].reserve_exact(l);
-        unsafe {
-            // After .reserve_exact(l), transposed[i] will have capacity at least l. Hence, set_len
-            // will not cause the buffer to overrun.
-            transposed[i].set_len(l);
-        }
-    }
+    // This assert is needed to make the unchecked memory accesses below safe.
+    assert!(
+        matrix.iter().all(|row| row.len() == w),
+        "rows of `matrix` have unequal length"
+    );
+
+    let mut transposed: Vec<_> = (0..w).into_iter().map(|_| Vec::with_capacity(l)).collect();
 
     // Optimization: ensure the larger loop is outside.
     if w >= l {
         for i in 0..w {
             for j in 0..l {
-                transposed[i][j] = matrix[j][i];
+                unsafe {
+                    // SAFETY: the space is reserved and the indices are valid.
+                    copy_into_capacity_unchecked(matrix, &mut transposed, i, j);
+                }
             }
         }
     } else {
         for j in 0..l {
             for i in 0..w {
-                transposed[i][j] = matrix[j][i];
+                unsafe {
+                    // SAFETY: the space is reserved and the indices are valid.
+                    copy_into_capacity_unchecked(matrix, &mut transposed, i, j);
+                }
             }
+        }
+    }
+
+    for row in transposed.iter_mut() {
+        unsafe {
+            // SAFETY: We reserved space for `l` elements at creation of this vector. We initialized
+            // the values above.
+            row.set_len(l);
         }
     }
 

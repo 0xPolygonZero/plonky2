@@ -1,7 +1,6 @@
 use std::mem::MaybeUninit;
-use std::slice;
 
-use plonky2_util::log2_strict;
+use plonky2_util::{capacity_up_to, log2_strict};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -43,18 +42,6 @@ pub struct MerkleTree<F: RichField, H: Hasher<F>> {
 
     /// The Merkle cap.
     pub cap: MerkleCap<F, H>,
-}
-
-fn capacity_up_to_mut<T>(v: &mut Vec<T>, len: usize) -> &mut [MaybeUninit<T>] {
-    assert!(v.capacity() >= len);
-    let v_ptr = v.as_mut_ptr().cast::<MaybeUninit<T>>();
-    unsafe {
-        // SAFETY: `v_ptr` is a valid pointer to a buffer of length at least `len`. Upon return, the
-        // lifetime will be bound to that of `v`. The underlying memory will not be deallocated as
-        // we hold the sole mutable reference to `v`. The contents of the slice may be
-        // uninitialized, but the `MaybeUninit` makes it safe.
-        slice::from_raw_parts_mut(v_ptr, len)
-    }
 }
 
 fn fill_subtree<F: RichField, H: Hasher<F>>(
@@ -114,8 +101,8 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
         let len_cap = 1 << cap_height;
         let mut cap = Vec::with_capacity(len_cap);
 
-        let digests_buf = capacity_up_to_mut(&mut digests, num_digests);
-        let cap_buf = capacity_up_to_mut(&mut cap, len_cap);
+        let digests_buf = capacity_up_to(&mut digests, num_digests);
+        let cap_buf = capacity_up_to(&mut cap, len_cap);
         fill_digests_buf::<F, H>(digests_buf, cap_buf, &leaves[..], cap_height);
 
         unsafe {

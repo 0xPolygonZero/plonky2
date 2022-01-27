@@ -7,8 +7,9 @@
 
 use std::arch::asm;
 use std::hint::unreachable_unchecked;
-use std::mem::size_of;
+use std::mem::{size_of, MaybeUninit};
 use std::ptr::{swap, swap_nonoverlapping};
+use std::slice;
 
 mod transpose_util;
 use crate::transpose_util::transpose_in_place_square;
@@ -252,6 +253,35 @@ pub fn branch_hint() {
     unsafe {
         asm!("", options(nomem, nostack, preserves_flags));
     }
+}
+
+/// Get a reference to the first `len` elements in the buffer reserved by a `Vec`. Those elements
+/// may not have been initialized (`v.len() < len` is permitted). The only requirement is that the
+/// `Vec` has reserved enough memory for `len` elements (`len <= v.capacity()`).
+#[must_use]
+pub fn capacity_up_to<T>(v: &mut Vec<T>, len: usize) -> &mut [MaybeUninit<T>] {
+    assert!(v.capacity() >= len);
+    unsafe {
+        // SAFETY: we just `assert`ed that it's safe to call this.
+        capacity_up_to_unchecked(v, len)
+    }
+}
+
+/// Get a reference to the first `len` elements in the buffer reserved by a `Vec`. Those elements
+/// may not have been initialized (`v.len() < len` is permitted).
+///
+/// This function is unsafe as it does not perform bounds checks. For the safe variant, see
+/// `capacity_up_to`.
+///
+/// # Safety
+/// It is undefined behavior to call this function when `len < v.capacity()`.
+#[must_use]
+pub unsafe fn capacity_up_to_unchecked<T>(v: &mut Vec<T>, len: usize) -> &mut [MaybeUninit<T>] {
+    let v_ptr = v.as_mut_ptr().cast::<MaybeUninit<T>>();
+    // SAFETY: By precondition, `v_ptr` points to a buffer of length >= `len`. The lifetime will be
+    // bound to `v` upon return, so we respect the borrow checker. `MaybeUninit` plays well with the
+    // uninitialized contents.
+    slice::from_raw_parts_mut(v_ptr, len)
 }
 
 #[cfg(test)]
