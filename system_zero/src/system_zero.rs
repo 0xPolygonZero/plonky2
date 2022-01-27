@@ -104,6 +104,6 @@ mod tests {
         let config = StarkConfig::standard_fast_config();
         let mut timing = TimingTree::new("prove", Level::Debug);
         let trace = system.generate_trace();
-        prove::<F, C, S, D>(system, config, trace, &mut timing);
+        prove::<F, C, S, D>(system, config, trace, &mut timing).unwrap();
     }
 }
