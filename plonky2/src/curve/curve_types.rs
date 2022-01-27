@@ -259,3 +259,11 @@ impl<C: Curve> Neg for ProjectivePoint<C> {
         ProjectivePoint { x, y: -y, z }
     }
 }
+
+pub fn base_to_scalar<C: Curve>(x: C::BaseField) -> C::ScalarField {
+    C::ScalarField::from_biguint(x.to_biguint())
+}
+
+pub fn scalar_to_base<C: Curve>(x: C::ScalarField) -> C::BaseField {
+    C::BaseField::from_biguint(x.to_biguint())
+}

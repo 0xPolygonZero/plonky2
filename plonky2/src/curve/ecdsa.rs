@@ -1,7 +1,7 @@
 use itertools::{unfold, Itertools};
 use num::BigUint;
 
-use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
+use crate::curve::curve_types::{base_to_scalar, AffinePoint, Curve, CurveScalar};
 use crate::field::field_types::Field;
 use crate::hash::hash_types::RichField;
 use crate::hash::hashing::{hash_n_to_m, PlonkyPermutation};
@@ -14,14 +14,6 @@ pub struct ECDSASignature<C: Curve> {
 
 pub struct ECDSASecretKey<C: Curve>(pub C::ScalarField);
 pub struct ECDSAPublicKey<C: Curve>(pub AffinePoint<C>);
-
-pub fn base_to_scalar<C: Curve>(x: C::BaseField) -> C::ScalarField {
-    C::ScalarField::from_biguint(x.to_biguint())
-}
-
-pub fn scalar_to_base<C: Curve>(x: C::ScalarField) -> C::BaseField {
-    C::BaseField::from_biguint(x.to_biguint())
-}
 
 pub fn hash_to_bits<F: RichField, P: PlonkyPermutation<F>>(x: F, num_bits: usize) -> Vec<bool> {
     let hashed = hash_n_to_m::<F, P>(&vec![x], 1, true)[0];

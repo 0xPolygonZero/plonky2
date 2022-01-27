@@ -343,7 +343,7 @@ mod tests {
             for i in 0..coeffs.len() {
                 v.extend(coeffs.coeffs[i].0);
             }
-            v.iter().map(|&x| x.into()).collect::<Vec<_>>()
+            v.iter().map(|&x| x.into()).collect()
         }
 
         // Get a working row for InterpolationGate.

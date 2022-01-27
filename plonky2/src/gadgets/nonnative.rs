@@ -93,17 +93,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         a: &NonNativeTarget<FF>,
         b: BoolTarget,
     ) -> NonNativeTarget<FF> {
-        let t = b.target;
-
         NonNativeTarget {
-            value: BigUintTarget {
-                limbs: a
-                    .value
-                    .limbs
-                    .iter()
-                    .map(|l| U32Target(self.mul(l.0, t)))
-                    .collect(),
-            },
+            value: self.mul_biguint_by_bool(&a.value, b),
             _phantom: PhantomData,
         }
     }
