@@ -41,7 +41,11 @@ impl<T> Matrix<T> {
         // NB: We ask for the height _and_ the width to handle edge cases when `v.len() == 0`.
 
         let size = size_checked(height, width);
-        assert_eq!(size, v.len(), "matrix dimensions do not match vector length");
+        assert_eq!(
+            size,
+            v.len(),
+            "matrix dimensions do not match vector length"
+        );
 
         // Get the buffer as a box. This is guaranteed to drop excess capacity; this is important
         // because to correctly deallocate memory we need to know its allocated size.
@@ -106,19 +110,29 @@ impl<T> Matrix<T> {
     }
 
     pub unsafe fn get_unchecked(&self, index: usize) -> &[T] {
-        self.as_flat().get_unchecked(index * self.width..).get_unchecked(..self.width)
+        self.as_flat()
+            .get_unchecked(index * self.width..)
+            .get_unchecked(..self.width)
     }
 
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut [T] {
         let width = self.width;
-        self.as_flat_mut().get_unchecked_mut(index * width..).get_unchecked_mut(..width)
+        self.as_flat_mut()
+            .get_unchecked_mut(index * width..)
+            .get_unchecked_mut(..width)
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a [T]> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
+    pub fn iter<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = &'a [T]> + DoubleEndedIterator + ExactSizeIterator + FusedIterator
+    {
         self.as_flat().chunks(self.width)
     }
 
-    pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut [T]> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
+    pub fn iter_mut<'a>(
+        &'a mut self,
+    ) -> impl Iterator<Item = &'a mut [T]> + DoubleEndedIterator + ExactSizeIterator + FusedIterator
+    {
         let width = self.width;
         self.as_flat_mut().chunks_mut(width)
     }
@@ -131,7 +145,7 @@ impl<T> Matrix<T> {
 impl<T> Matrix<MaybeUninit<T>> {
     pub unsafe fn assume_init(self) -> Matrix<T> {
         // Prevent `self` from getting dropped.
-        // Warning: must ensure that we can't crash before making a new Matrix or we will leak! 
+        // Warning: must ensure that we can't crash before making a new Matrix or we will leak!
         let me = ManuallyDrop::new(self);
         Matrix::from_raw(me.data.cast(), me.height, me.width)
     }
@@ -170,14 +184,20 @@ impl<T> IndexMut<usize> for Matrix<T> {
 impl<T, R: IntoIterator<Item = T>> FromIterator<R> for Matrix<T> {
     fn from_iter<I: IntoIterator<Item = R>>(iter: I) -> Self {
         let mut iter = iter.into_iter();
-        let first_row = iter.next().expect("cannot create matrix from empty iterator");
+        let first_row = iter
+            .next()
+            .expect("cannot create matrix from empty iterator");
         let mut buf: Vec<T> = first_row.into_iter().collect();
         let width = buf.len();
         let mut height = 0;
         for row in iter {
             let old_len = buf.len();
             buf.extend(row);
-            assert_eq!(buf.len() - old_len, width, "matrix rows have unequal length");
+            assert_eq!(
+                buf.len() - old_len,
+                width,
+                "matrix rows have unequal length"
+            );
             height += 1;
         }
         Self::from_flat_vec(height, width, buf)
