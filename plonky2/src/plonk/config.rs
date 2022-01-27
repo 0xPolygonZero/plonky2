@@ -5,7 +5,6 @@ use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::goldilocks_field::GoldilocksField;
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::hash::gmimc::GMiMCHash;
 use crate::hash::hash_types::HashOut;
 use crate::hash::hash_types::RichField;
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
@@ -74,16 +73,6 @@ impl GenericConfig<2> for PoseidonGoldilocksConfig {
     type FE = QuadraticExtension<Self::F>;
     type Hasher = PoseidonHash;
     type InnerHasher = PoseidonHash;
-}
-
-/// Configuration using GMiMC over the Goldilocks field.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct GMiMCGoldilocksConfig;
-impl GenericConfig<2> for GMiMCGoldilocksConfig {
-    type F = GoldilocksField;
-    type FE = QuadraticExtension<Self::F>;
-    type Hasher = GMiMCHash;
-    type InnerHasher = GMiMCHash;
 }
 
 /// Configuration using truncated Keccak over the Goldilocks field.
