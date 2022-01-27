@@ -1,4 +1,4 @@
-use crate::curve::curve_types::{AffinePoint, base_to_scalar, Curve, CurveScalar};
+use crate::curve::curve_types::{base_to_scalar, AffinePoint, Curve, CurveScalar};
 use crate::field::field_types::Field;
 
 pub struct ECDSASignature<C: Curve> {

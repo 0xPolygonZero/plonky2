@@ -135,7 +135,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         for &bit in bits.iter() {
             let not_bit = self.not(bit);
-            
+
             let result_plus_2_i_p = self.curve_add(&result, &two_i_times_p);
 
             let new_x_if_bit = self.mul_nonnative_by_bool(&result_plus_2_i_p.x, bit);

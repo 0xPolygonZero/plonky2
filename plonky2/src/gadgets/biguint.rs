@@ -160,10 +160,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let t = b.target;
 
         BigUintTarget {
-            limbs: a.limbs
-                    .iter()
-                    .map(|&l| U32Target(self.mul(l.0, t)))
-                    .collect(),
+            limbs: a
+                .limbs
+                .iter()
+                .map(|&l| U32Target(self.mul(l.0, t)))
+                .collect(),
         }
     }
 
