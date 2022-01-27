@@ -20,46 +20,16 @@ pub struct ECDSASignatureTarget<C: Curve> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn hash_to_bits(&mut self, x: Target, num_bits: usize) -> Vec<BoolTarget> {
-        let inputs = vec![x];
-        let hashed = self.hash_n_to_m::<PoseidonHash>(inputs, 1, true)[0];
-        self.split_le(hashed, num_bits)
-    }
-
-    pub fn hash_to_scalar<C: Curve>(
-        &mut self,
-        x: Target,
-        num_bits: usize,
-    ) -> NonNativeTarget<C::ScalarField> {
-        let h_bits = self.hash_to_bits(x, num_bits);
-
-        let two = self.two();
-        let mut rev_bits = h_bits.iter().rev();
-        let mut sum = rev_bits.next().unwrap().target;
-        for &bit in rev_bits {
-            sum = self.mul_add(two, sum, bit.target);
-        }
-        let limbs = vec![U32Target(sum)];
-        let value = BigUintTarget { limbs };
-
-        NonNativeTarget {
-            value,
-            _phantom: PhantomData,
-        }
-    }
-
     pub fn verify_message<C: Curve>(
         &mut self,
-        msg: Target,
+        msg: NonNativeTarget<C::ScalarField>,
         sig: ECDSASignatureTarget<C>,
         pk: ECDSAPublicKeyTarget<C>,
     ) {
         let ECDSASignatureTarget { r, s } = sig;
 
-        let h = self.hash_to_scalar::<C>(msg, 256);
-
         let c = self.inv_nonnative(&s);
-        let u1 = self.mul_nonnative(&h, &c);
+        let u1 = self.mul_nonnative(&msg, &c);
         let u2 = self.mul_nonnative(&r, &c);
 
         let g = self.constant_affine_point(C::GENERATOR_AFFINE);
@@ -105,8 +75,8 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let msg = F::rand();
-        let msg_target = builder.constant(msg);
+        let msg = Secp256K1Scalar::rand();
+        let msg_target = builder.constant_nonnative(msg);
 
         let sk = ECDSASecretKey::<Curve>(Secp256K1Scalar::rand());
         let pk = ECDSAPublicKey((CurveScalar(sk.0) * Curve::GENERATOR_PROJECTIVE).to_affine());
