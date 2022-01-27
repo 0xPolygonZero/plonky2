@@ -228,9 +228,9 @@ mod tests {
     use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
     use crate::gates::base_sum::BaseSumGate;
     use crate::gates::constant::ConstantGate;
-    use crate::gates::poseidon::PoseidonGate;
     use crate::gates::interpolation::HighDegreeInterpolationGate;
     use crate::gates::noop::NoopGate;
+    use crate::gates::poseidon::PoseidonGate;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
