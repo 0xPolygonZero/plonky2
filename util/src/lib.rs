@@ -10,6 +10,7 @@ use std::hint::unreachable_unchecked;
 use std::mem::size_of;
 use std::ptr::{swap, swap_nonoverlapping};
 
+pub mod matrix;
 mod transpose_util;
 
 use crate::transpose_util::transpose_in_place_square;
