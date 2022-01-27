@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use num::{BigUint, FromPrimitive, Integer, Zero};
+use num::{BigUint, Integer, Zero};
 use plonky2_field::extension_field::Extendable;
 
 use crate::gadgets::arithmetic_u32::U32Target;
@@ -27,14 +27,7 @@ impl BigUintTarget {
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn constant_biguint(&mut self, value: &BigUint) -> BigUintTarget {
-        let base = BigUint::from_u64(1 << 32).unwrap();
-        let mut limb_values = Vec::new();
-        let mut current = value.clone();
-        while current > BigUint::zero() {
-            let (div, rem) = current.div_rem(&base);
-            current = div;
-            limb_values.push(rem.to_u64_digits()[0] as u32);
-        }
+        let limb_values = value.to_u32_digits();
         let limbs = limb_values.iter().map(|&l| self.constant_u32(l)).collect();
 
         BigUintTarget { limbs }
@@ -167,11 +160,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let t = b.target;
 
         BigUintTarget {
-            limbs: a
-                .limbs
-                .iter()
-                .map(|l| U32Target(self.mul(l.0, t)))
-                .collect(),
+            limbs: a.limbs
+                    .iter()
+                    .map(|&l| U32Target(self.mul(l.0, t)))
+                    .collect(),
         }
     }
 

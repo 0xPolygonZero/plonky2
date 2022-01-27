@@ -138,7 +138,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
                 );
                 g
             })
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     fn num_wires(&self) -> usize {

@@ -196,24 +196,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         (output_result, output_borrow)
     }
-
-    pub fn split_to_u32(&mut self, x: Target) -> (U32Target, U32Target) {
-        let low = self.add_virtual_u32_target();
-        let high = self.add_virtual_u32_target();
-
-        let base = self.constant(F::from_canonical_u64(1u64 << 32));
-        let combined = self.mul_add(high.0, base, low.0);
-        self.connect(x, combined);
-
-        self.add_simple_generator(SplitToU32Generator::<F, D> {
-            x: x.clone(),
-            low: low.clone(),
-            high: high.clone(),
-            _phantom: PhantomData,
-        });
-
-        (low, high)
-    }
 }
 
 #[derive(Debug)]
@@ -235,7 +217,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let x = witness.get_target(self.x.clone());
         let x_u64 = x.to_canonical_u64();
         let low = x_u64 as u32;
-        let high: u32 = (x_u64 >> 32).try_into().unwrap();
+        let high = (x_u64 >> 32) as u32;
 
         out_buffer.set_u32_target(self.low.clone(), low);
         out_buffer.set_u32_target(self.high.clone(), high);
