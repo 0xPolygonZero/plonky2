@@ -17,19 +17,15 @@ pub struct ConstraintConsumer<P: PackedField> {
 
     /// The evaluation of the Lagrange basis polynomial which is nonzero at the point associated
     /// with the first trace row, and zero at other points in the subgroup.
-    lagrange_basis_first: P::Scalar,
+    lagrange_basis_first: P,
 
     /// The evaluation of the Lagrange basis polynomial which is nonzero at the point associated
     /// with the last trace row, and zero at other points in the subgroup.
-    lagrange_basis_last: P::Scalar,
+    lagrange_basis_last: P,
 }
 
 impl<P: PackedField> ConstraintConsumer<P> {
-    pub fn new(
-        alpha: P::Scalar,
-        lagrange_basis_first: P::Scalar,
-        lagrange_basis_last: P::Scalar,
-    ) -> Self {
+    pub fn new(alpha: P::Scalar, lagrange_basis_first: P, lagrange_basis_last: P) -> Self {
         Self {
             alpha,
             constraint_acc: P::ZEROS,
