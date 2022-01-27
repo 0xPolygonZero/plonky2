@@ -14,4 +14,4 @@ pub mod stark;
 pub mod vars;
 
 #[cfg(test)]
-pub mod julia_stark;
+pub mod fibonacci_stark;

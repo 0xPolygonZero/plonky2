@@ -9,34 +9,37 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
-pub struct JuliaStark<F: RichField + Extendable<D>, const D: usize> {
-    c: F,
+pub struct FibonacciStark<F: RichField + Extendable<D>, const D: usize> {
+    x0: F,
+    x1: F,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> JuliaStark<F, D> {
-    const NUM_COLUMNS: usize = 1;
-    const NUM_ROWS: usize = 1 << 10;
+impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
+    const NUM_COLUMNS: usize = 2;
+    const NUM_ROWS: usize = 1 << 5;
 
-    fn new(c: F) -> Self {
+    fn new(x0: F, x1: F) -> Self {
         Self {
-            c,
+            x0,
+            x1,
             _phantom: PhantomData,
         }
     }
 
     fn generate_trace(&self) -> Vec<[F; Self::NUM_COLUMNS]> {
         (0..Self::NUM_ROWS)
-            .scan([F::ZERO; Self::NUM_COLUMNS], |acc, _| {
+            .scan([self.x0, self.x1], |acc, _| {
                 let tmp = *acc;
-                acc[0] = acc[0] * acc[0] + self.c;
+                acc[0] = tmp[1];
+                acc[1] = tmp[0] + tmp[1];
                 Some(tmp)
             })
             .collect()
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for JuliaStark<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStark<F, D> {
     const COLUMNS: usize = Self::NUM_COLUMNS;
     const PUBLIC_INPUTS: usize = 0;
 
@@ -48,11 +51,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for JuliaStark<F,
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        yield_constr.one(
-            vars.next_values[0]
-                - vars.local_values[0] * vars.local_values[0]
-                - FE::from_basefield(self.c),
-        );
+        yield_constr.one(vars.next_values[0] - vars.local_values[1]);
+        yield_constr.one(vars.next_values[1] - vars.local_values[0] - vars.local_values[1]);
     }
 
     fn eval_ext_recursively(
@@ -67,25 +67,28 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for JuliaStark<F,
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
     use plonky2::field::field_types::Field;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
 
     use crate::config::StarkConfig;
-    use crate::julia_stark::JuliaStark;
+    use crate::fibonacci_stark::FibonacciStark;
     use crate::prover::prove;
 
     #[test]
-    fn test_julia_stark() {
+    fn test_fibonacci_stark() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type S = JuliaStark<F, D>;
+        type S = FibonacciStark<F, D>;
 
         let config = StarkConfig::standard_fast_config();
-        let stark = S::new(F::NEG_ONE);
+        let stark = S::new(F::ZERO, F::ONE);
         let trace = stark.generate_trace();
-        prove::<F, C, S, D>(stark, config, trace, &mut TimingTree::default());
+        prove::<F, C, S, D>(stark, config, trace, &mut TimingTree::default())?;
+
+        Ok(())
     }
 }
