@@ -9,6 +9,9 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
+/// Toy STARK system used for testing.
+/// Computes a Fibonacci sequence with inital values `x0, x1` using the transition
+/// `x0 <- x1, x1 <- x0 + x1`.
 pub struct FibonacciStark<F: RichField + Extendable<D>, const D: usize> {
     x0: F,
     x1: F,
@@ -51,7 +54,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
+        // x0 <- x1
         yield_constr.one(vars.next_values[0] - vars.local_values[1]);
+        // x1 <- x0 + x1
         yield_constr.one(vars.next_values[1] - vars.local_values[0] - vars.local_values[1]);
     }
 

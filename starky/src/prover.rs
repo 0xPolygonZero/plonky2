@@ -20,6 +20,7 @@ use crate::proof::{StarkOpeningSet, StarkProof};
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationVars;
 
+// TODO: Deal with public inputs.
 pub fn prove<F, C, S, const D: usize>(
     stark: S,
     config: StarkConfig,
@@ -82,7 +83,7 @@ where
             quotient_poly
                 .pad(degree << rate_bits)
                 .expect("Quotient has failed, the vanishing polynomial is not divisible by `Z_H");
-            // Split t into degree-n chunks.
+            // Split quotient into degree-n chunks.
             quotient_poly.chunks(degree)
         })
         .collect();
@@ -134,6 +135,10 @@ where
     })
 }
 
+/// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
+/// where the `C_i`s are the Stark constraints.
+// TODO: This won't work for the Fibonacci example because the constraints wrap around the subgroup.
+// The denominator should be the vanishing polynomial of `H` without its last element.
 fn compute_quotient_polys<F, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &PolynomialBatch<F, C, D>,
@@ -151,11 +156,13 @@ where
     let degree = 1 << degree_bits;
     let points = F::two_adic_subgroup(degree_bits + rate_bits);
 
+    // Evaluation of the first Lagrange polynomial on the LDE domain.
     let lagrange_first = {
         let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
         evals.values[0] = F::ONE;
         evals.lde(rate_bits)
     };
+    // Evaluation of the last Lagrange polynomial on the LDE domain.
     let lagrange_last = {
         let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
         evals.values[degree - 1] = F::ONE;
@@ -164,6 +171,11 @@ where
 
     let z_h_on_coset = ZeroPolyOnCoset::new(degree_bits, rate_bits);
 
+    // Retrieve the LDE values at index `i`.
+    let get_at_index = |comm: &PolynomialBatch<F, C, D>, i: usize| -> [F; S::COLUMNS] {
+        comm.get_lde_values(i).try_into().unwrap()
+    };
+
     alphas
         .iter()
         .map(|&alpha| {
@@ -171,6 +183,7 @@ where
                 (0..degree << rate_bits)
                     .into_par_iter()
                     .map(|i| {
+                        // TODO: Set `P` to a genuine `PackedField` here.
                         let mut consumer = ConstraintConsumer::<F>::new(
                             alpha,
                             lagrange_first.values[i],
@@ -178,17 +191,15 @@ where
                         );
                         let vars =
                             StarkEvaluationVars::<F, F, { S::COLUMNS }, { S::PUBLIC_INPUTS }> {
-                                local_values: trace_commitment
-                                    .get_lde_values(i)
-                                    .try_into()
-                                    .unwrap(),
-                                next_values: trace_commitment
-                                    .get_lde_values((i + 1) % (degree << rate_bits))
-                                    .try_into()
-                                    .unwrap(),
+                                local_values: &get_at_index(trace_commitment, i),
+                                next_values: &get_at_index(
+                                    trace_commitment,
+                                    (i + 1) % (degree << rate_bits),
+                                ),
                                 public_inputs: &[F::ZERO; S::PUBLIC_INPUTS],
                             };
                         stark.eval_packed_base(vars, &mut consumer);
+                        // TODO: Fix this once we a genuine `PackedField`.
                         let constraints_eval = consumer.accumulator();
                         let denominator_inv = z_h_on_coset.eval_inverse(i);
                         constraints_eval * denominator_inv

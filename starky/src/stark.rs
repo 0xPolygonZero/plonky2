@@ -61,6 +61,8 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     );
 
+    /// Computes the FRI instance used to prove this Stark.
+    // TODO: Permutation polynomials.
     fn fri_instance(
         zeta: F::Extension,
         g: F::Extension,

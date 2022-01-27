@@ -52,7 +52,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         Self {
             local_values: eval_commitment(zeta, trace_commitment),
             next_values: eval_commitment(zeta * g, trace_commitment),
-            permutation_zs: vec![],
+            permutation_zs: vec![/*TODO*/],
             quotient_polys: eval_commitment(zeta, quotient_commitment),
         }
     }
