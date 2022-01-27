@@ -168,7 +168,18 @@ impl<T> IndexMut<usize> for Matrix<T> {
 }
 
 impl<T, R: IntoIterator<Item = T>> FromIterator<R> for Matrix<T> {
-    fn from_iter<I: IntoIterator<Item = R>>(_iter: I) -> Self {
-        todo!();
+    fn from_iter<I: IntoIterator<Item = R>>(iter: I) -> Self {
+        let mut iter = iter.into_iter();
+        let first_row = iter.next().expect("cannot create matrix from empty iterator");
+        let mut buf: Vec<T> = first_row.into_iter().collect();
+        let width = buf.len();
+        let mut height = 0;
+        for row in iter {
+            let old_len = buf.len();
+            buf.extend(row);
+            assert_eq!(buf.len() - old_len, width, "matrix rows have unequal length");
+            height += 1;
+        }
+        Self::from_flat_vec(height, width, buf)
     }
 }
