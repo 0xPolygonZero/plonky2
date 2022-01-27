@@ -122,16 +122,15 @@ impl<T> Matrix<T> {
             .get_unchecked_mut(..width)
     }
 
-    pub fn iter<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = &'a [T]> + DoubleEndedIterator + ExactSizeIterator + FusedIterator
-    {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = &[T]> + DoubleEndedIterator + ExactSizeIterator + FusedIterator {
         self.as_flat().chunks(self.width)
     }
 
-    pub fn iter_mut<'a>(
-        &'a mut self,
-    ) -> impl Iterator<Item = &'a mut [T]> + DoubleEndedIterator + ExactSizeIterator + FusedIterator
+    pub fn iter_mut(
+        &mut self,
+    ) -> impl Iterator<Item = &mut [T]> + DoubleEndedIterator + ExactSizeIterator + FusedIterator
     {
         let width = self.width;
         self.as_flat_mut().chunks_mut(width)
