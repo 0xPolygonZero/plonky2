@@ -1,0 +1,10 @@
+[package]
+name = "zkrouter"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+plonky2 = { path = "../plonky2" }
+plonky2_field = { path = "../field" }
+rand = "0.8.4"
+anyhow = "1.0.40"

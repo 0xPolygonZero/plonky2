@@ -183,7 +183,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         })
     }
 
-    pub(crate) fn verify(
+    pub fn verify(
         self,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         common_data: &CommonCircuitData<F, C, D>,
