@@ -10,11 +10,9 @@ use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// Toy STARK system used for testing.
-/// Computes a Fibonacci sequence with inital values `x0, x1` using the transition
+/// Computes a Fibonacci sequence with state `[x0, x1]` using the state transition
 /// `x0 <- x1, x1 <- x0 + x1`.
 struct FibonacciStark<F: RichField + Extendable<D>, const D: usize> {
-    x0: F,
-    x1: F,
     num_rows: usize,
     _phantom: PhantomData<F>,
 }
@@ -25,21 +23,20 @@ impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
     // The second public input is `x1`.
     const PI_INDEX_X1: usize = 1;
     // The third public input is the second element of the last row, which should be equal to the
-    // `(num_rows + 1)`-th Fibonacci number.
+    // `num_rows`-th Fibonacci number.
     const PI_INDEX_RES: usize = 2;
 
-    fn new(num_rows: usize, x0: F, x1: F) -> Self {
+    fn new(num_rows: usize) -> Self {
         Self {
-            x0,
-            x1,
             num_rows,
             _phantom: PhantomData,
         }
     }
 
-    fn generate_trace(&self) -> Vec<[F; Self::COLUMNS]> {
+    /// Generate the trace using `x0, x1` as inital state values.
+    fn generate_trace(&self, x0: F, x1: F) -> Vec<[F; Self::COLUMNS]> {
         (0..self.num_rows)
-            .scan([self.x0, self.x1], |acc, _| {
+            .scan([x0, x1], |acc, _| {
                 let tmp = *acc;
                 acc[0] = tmp[1];
                 acc[1] = tmp[0] + tmp[1];
@@ -61,9 +58,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
+        // Check public inputs.
         yield_constr.one_first_row(vars.local_values[0] - vars.public_inputs[Self::PI_INDEX_X0]);
         yield_constr.one_first_row(vars.local_values[1] - vars.public_inputs[Self::PI_INDEX_X1]);
         yield_constr.one_last_row(vars.local_values[1] - vars.public_inputs[Self::PI_INDEX_RES]);
+
         // x0 <- x1
         yield_constr.one(vars.next_values[0] - vars.local_values[1]);
         // x1 <- x0 + x1
@@ -109,8 +108,8 @@ mod tests {
             F::ONE,
             F::from_canonical_usize(fibonacci(num_rows - 1, 0, 1)),
         ];
-        let stark = S::new(num_rows, public_inputs[0], public_inputs[1]);
-        let trace = stark.generate_trace();
+        let stark = S::new(num_rows);
+        let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
         prove::<F, C, S, D>(
             stark,
             config,
