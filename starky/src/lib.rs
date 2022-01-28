@@ -12,3 +12,6 @@ pub mod proof;
 pub mod prover;
 pub mod stark;
 pub mod vars;
+
+#[cfg(test)]
+pub mod fibonacci_stark;

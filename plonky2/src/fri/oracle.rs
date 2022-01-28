@@ -127,7 +127,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     /// Produces a batch opening proof.
-    pub(crate) fn prove_openings(
+    pub fn prove_openings(
         instance: &FriInstanceInfo<F, D>,
         oracles: &[&Self],
         challenger: &mut Challenger<F, C::Hasher>,

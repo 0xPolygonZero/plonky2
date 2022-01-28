@@ -4,6 +4,7 @@ use anyhow::ensure;
 use anyhow::Result;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
+use plonky2_field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2_util::log2_ceil;
 use rayon::prelude::*;
 
@@ -15,7 +16,7 @@ use crate::iop::generator::generate_partial_witness;
 use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::plonk::config::{GenericConfig, Hasher};
-use crate::plonk::plonk_common::{PlonkOracle, ZeroPolyOnCoset};
+use crate::plonk::plonk_common::PlonkOracle;
 use crate::plonk::proof::OpeningSet;
 use crate::plonk::proof::{Proof, ProofWithPublicInputs};
 use crate::plonk::vanishing_poly::eval_vanishing_poly_base_batch;

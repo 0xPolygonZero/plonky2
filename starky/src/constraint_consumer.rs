@@ -8,26 +8,45 @@ use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 pub struct ConstraintConsumer<P: PackedField> {
-    /// A random value used to combine multiple constraints into one.
-    alpha: P::Scalar,
+    /// Random values used to combine multiple constraints into one.
+    alphas: Vec<P::Scalar>,
 
-    /// A running sum of constraints that have been emitted so far, scaled by powers of alpha.
-    constraint_acc: P,
+    /// Running sums of constraints that have been emitted so far, scaled by powers of alpha.
+    constraint_accs: Vec<P>,
 
     /// The evaluation of the Lagrange basis polynomial which is nonzero at the point associated
     /// with the first trace row, and zero at other points in the subgroup.
-    lagrange_basis_first: P::Scalar,
+    lagrange_basis_first: P,
 
     /// The evaluation of the Lagrange basis polynomial which is nonzero at the point associated
     /// with the last trace row, and zero at other points in the subgroup.
-    lagrange_basis_last: P::Scalar,
+    lagrange_basis_last: P,
 }
 
 impl<P: PackedField> ConstraintConsumer<P> {
+    pub fn new(alphas: Vec<P::Scalar>, lagrange_basis_first: P, lagrange_basis_last: P) -> Self {
+        Self {
+            constraint_accs: vec![P::ZEROS; alphas.len()],
+            alphas,
+            lagrange_basis_first,
+            lagrange_basis_last,
+        }
+    }
+
+    // TODO: Do this correctly.
+    pub fn accumulators(self) -> Vec<P::Scalar> {
+        self.constraint_accs
+            .into_iter()
+            .map(|acc| acc.as_slice()[0])
+            .collect()
+    }
+
     /// Add one constraint.
     pub fn one(&mut self, constraint: P) {
-        self.constraint_acc *= self.alpha;
-        self.constraint_acc += constraint;
+        for (&alpha, acc) in self.alphas.iter().zip(&mut self.constraint_accs) {
+            *acc *= alpha;
+            *acc += constraint;
+        }
     }
 
     /// Add a series of constraints.

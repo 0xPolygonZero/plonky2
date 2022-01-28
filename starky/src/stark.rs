@@ -1,5 +1,6 @@
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::packed_field::PackedField;
+use plonky2::fri::structure::{FriBatchInfo, FriInstanceInfo, FriOracleInfo, FriPolynomialInfo};
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
@@ -8,7 +9,7 @@ use crate::vars::StarkEvaluationTargets;
 use crate::vars::StarkEvaluationVars;
 
 /// Represents a STARK system.
-pub trait Stark<F: RichField + Extendable<D>, const D: usize> {
+pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// The total number of columns in the trace.
     const COLUMNS: usize;
     /// The number of public inputs.
@@ -59,4 +60,28 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize> {
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     );
+
+    /// Computes the FRI instance used to prove this Stark.
+    // TODO: Permutation polynomials.
+    fn fri_instance(
+        zeta: F::Extension,
+        g: F::Extension,
+        rate_bits: usize,
+    ) -> FriInstanceInfo<F, D> {
+        let no_blinding_oracle = FriOracleInfo { blinding: false };
+        let trace_info = FriPolynomialInfo::from_range(0, 0..Self::COLUMNS);
+        let quotient_info = FriPolynomialInfo::from_range(1, 0..1 << rate_bits);
+        let zeta_batch = FriBatchInfo {
+            point: zeta,
+            polynomials: [trace_info.clone(), quotient_info].concat(),
+        };
+        let zeta_right_batch = FriBatchInfo::<F, D> {
+            point: zeta * g,
+            polynomials: trace_info,
+        };
+        FriInstanceInfo {
+            oracles: vec![no_blinding_oracle; 3],
+            batches: vec![zeta_batch],
+        }
+    }
 }
