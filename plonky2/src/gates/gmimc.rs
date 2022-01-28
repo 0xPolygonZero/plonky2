@@ -4,6 +4,7 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
 use plonky2_field::packed_field::PackedField;
 
+use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -213,6 +214,17 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
 
     fn num_constraints(&self) -> usize {
         gmimc::NUM_ROUNDS + WIDTH + 1
+    }
+}
+impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: usize>
+    MultiOpsGate<F, D> for GMiMCGate<F, D, WIDTH>
+{
+    fn num_ops(&self) -> usize {
+        1
+    }
+
+    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
+        unreachable!()
     }
 }
 

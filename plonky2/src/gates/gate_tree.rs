@@ -1,7 +1,7 @@
 use log::debug;
 use plonky2_field::extension_field::Extendable;
 
-use crate::gates::gate::GateRef;
+use crate::gates::batchable::GateRef;
 use crate::hash::hash_types::RichField;
 
 /// A binary tree where leaves hold some type `T` and other nodes are empty.

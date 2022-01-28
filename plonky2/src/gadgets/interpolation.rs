@@ -2,6 +2,7 @@ use std::ops::Range;
 
 use plonky2_field::extension_field::Extendable;
 
+use crate::gates::batchable::BatchableGate;
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
@@ -12,7 +13,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 /// with the given size, and whose values are extension field elements, given by input wires.
 /// Outputs the evaluation of the interpolant at a given (extension field) evaluation point.
 pub(crate) trait InterpolationGate<F: RichField + Extendable<D>, const D: usize>:
-    Gate<F, D> + Copy
+    BatchableGate<F, D> + Copy
 {
     fn new(subgroup_bits: usize) -> Self;
 

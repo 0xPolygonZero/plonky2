@@ -5,6 +5,7 @@ use plonky2_field::field_types::Field;
 use plonky2_field::ops::Square;
 use plonky2_field::packed_field::PackedField;
 
+use crate::gates::batchable::{BatchableGate, MultiOpsGate};
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -187,6 +188,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
 
     fn num_constraints(&self) -> usize {
         self.num_power_bits + 1
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D> for ExponentiationGate<F, D> {
+    fn num_ops(&self) -> usize {
+        1
+    }
+
+    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
+        unreachable!()
     }
 }
 

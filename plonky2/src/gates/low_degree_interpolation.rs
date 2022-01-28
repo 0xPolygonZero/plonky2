@@ -9,6 +9,7 @@ use plonky2_field::polynomial::PolynomialCoeffs;
 
 use crate::gadgets::interpolation::InterpolationGate;
 use crate::gadgets::polynomial::PolynomialCoeffsExtAlgebraTarget;
+use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -291,6 +292,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
         // point-value pairs, plus `D` constraints for the evaluation value, plus `(D+1)*(num_points-2)`
         // to check power constraints for evaluation point and shift.
         self.num_points() * D + D + (D + 1) * (self.num_points() - 2)
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D>
+    for LowDegreeInterpolationGate<F, D>
+{
+    fn num_ops(&self) -> usize {
+        1
+    }
+
+    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
+        unreachable!()
     }
 }
 

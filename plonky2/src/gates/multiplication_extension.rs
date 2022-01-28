@@ -3,6 +3,7 @@ use std::ops::Range;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::extension_field::FieldExtension;
 
+use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -142,6 +143,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for MulExtensionGa
 
     fn num_constraints(&self) -> usize {
         self.num_ops * D
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D> for MulExtensionGate<D> {
+    fn num_ops(&self) -> usize {
+        self.num_ops
+    }
+
+    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
+        [
+            ExtensionTarget::<D>::from_range(gate_index, Self::wires_ith_multiplicand_0(i)).0,
+            ExtensionTarget::<D>::from_range(gate_index, Self::wires_ith_multiplicand_1(i)).0,
+        ]
+        .concat()
     }
 }
 

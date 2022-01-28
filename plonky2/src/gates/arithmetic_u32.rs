@@ -5,6 +5,7 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
 use plonky2_field::packed_field::PackedField;
 
+use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -229,6 +230,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
 
     fn num_constraints(&self) -> usize {
         self.num_ops * (3 + Self::num_limbs())
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D> for U32ArithmeticGate<F, D> {
+    fn num_ops(&self) -> usize {
+        self.num_ops
+    }
+
+    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
+        vec![
+            Target::wire(gate_index, self.wire_ith_multiplicand_0(i)),
+            Target::wire(gate_index, self.wire_ith_multiplicand_1(i)),
+            Target::wire(gate_index, self.wire_ith_addend(i)),
+        ]
     }
 }
 

@@ -3,12 +3,14 @@ use std::ops::Range;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::packed_field::PackedField;
 
+use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGenerator;
+use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
@@ -84,6 +86,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PublicInputGat
 
     fn num_constraints(&self) -> usize {
         4
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D> for PublicInputGate {
+    fn num_ops(&self) -> usize {
+        1
+    }
+
+    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
+        unreachable!()
     }
 }
 

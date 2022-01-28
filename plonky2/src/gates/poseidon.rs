@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
 
+use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
 use crate::gates::util::StridedConstraintConsumer;
@@ -404,6 +405,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
             + SPONGE_WIDTH
             + 1
             + 4
+    }
+}
+impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D> for PoseidonGate<F, D> {
+    fn num_ops(&self) -> usize {
+        1
+    }
+
+    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
+        unreachable!()
     }
 }
 

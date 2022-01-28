@@ -3,6 +3,7 @@ use std::ops::Range;
 
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
+use plonky2::gates::batchable::MultiOpsGate;
 use plonky2::gates::gate::Gate;
 use plonky2::gates::util::StridedConstraintConsumer;
 use plonky2::hash::hash_types::RichField;
@@ -239,6 +240,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<
 
     fn num_constraints(&self) -> usize {
         (self.vec_size + 1) * (2 + D)
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D> for InsertionGate<F, D> {
+    fn num_ops(&self) -> usize {
+        1
+    }
+
+    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
+        unreachable!()
     }
 }
 

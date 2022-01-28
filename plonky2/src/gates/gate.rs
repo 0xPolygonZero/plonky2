@@ -6,6 +6,7 @@ use plonky2_field::batch_util::batch_multiply_inplace;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 
+use crate::gates::batchable::GateRef;
 use crate::gates::gate_tree::Tree;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -141,35 +142,35 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     fn num_constraints(&self) -> usize;
 }
 
-/// A wrapper around an `Rc<Gate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
-#[derive(Clone)]
-pub struct GateRef<F: RichField + Extendable<D>, const D: usize>(pub(crate) Arc<dyn Gate<F, D>>);
-
-impl<F: RichField + Extendable<D>, const D: usize> GateRef<F, D> {
-    pub fn new<G: Gate<F, D>>(gate: G) -> GateRef<F, D> {
-        GateRef(Arc::new(gate))
-    }
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> PartialEq for GateRef<F, D> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.id() == other.0.id()
-    }
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> Hash for GateRef<F, D> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.id().hash(state)
-    }
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> Eq for GateRef<F, D> {}
-
-impl<F: RichField + Extendable<D>, const D: usize> Debug for GateRef<F, D> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        write!(f, "{}", self.0.id())
-    }
-}
+// /// A wrapper around an `Rc<Gate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
+// #[derive(Clone)]
+// pub struct GateRef<F: RichField + Extendable<D>, const D: usize>(pub(crate) Arc<dyn Gate<F, D>>);
+//
+// impl<F: RichField + Extendable<D>, const D: usize> GateRef<F, D> {
+//     pub fn new<G: Gate<F, D>>(gate: G) -> GateRef<F, D> {
+//         GateRef(Arc::new(gate))
+//     }
+// }
+//
+// impl<F: RichField + Extendable<D>, const D: usize> PartialEq for GateRef<F, D> {
+//     fn eq(&self, other: &Self) -> bool {
+//         self.0.id() == other.0.id()
+//     }
+// }
+//
+// impl<F: RichField + Extendable<D>, const D: usize> Hash for GateRef<F, D> {
+//     fn hash<H: Hasher>(&self, state: &mut H) {
+//         self.0.id().hash(state)
+//     }
+// }
+//
+// impl<F: RichField + Extendable<D>, const D: usize> Eq for GateRef<F, D> {}
+//
+// impl<F: RichField + Extendable<D>, const D: usize> Debug for GateRef<F, D> {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+//         write!(f, "{}", self.0.id())
+//     }
+// }
 
 /// A gate along with any constants used to configure it.
 pub struct GateInstance<F: RichField + Extendable<D>, const D: usize> {

@@ -18,9 +18,9 @@ use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::arithmetic_u32::U32ArithmeticGate;
-use crate::gates::batchable::{BatchableGate, CurrentSlot};
+use crate::gates::batchable::{BatchableGate, CurrentSlot, GateRef};
 use crate::gates::constant::ConstantGate;
-use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
+use crate::gates::gate::{Gate, GateInstance, PrefixedGate};
 use crate::gates::gate_tree::Tree;
 use crate::gates::multiplication_extension::MulExtensionGate;
 use crate::gates::noop::NoopGate;
@@ -86,6 +86,8 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
 
     // yo: Vec<Yo<F, D, dyn Copy>>,
     batched_gates: BatchedGates<F, D>,
+
+    current_slots: HashMap<GateRef<F, D>, CurrentSlot<F, D>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -105,6 +107,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             arithmetic_results: HashMap::new(),
             targets_to_constants: HashMap::new(),
             batched_gates: BatchedGates::new(),
+            current_slots: HashMap::new(),
         };
         builder.check_config();
         builder
@@ -189,7 +192,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Adds a gate to the circuit, and returns its index.
-    pub fn add_gate<G: Gate<F, D>>(&mut self, gate_type: G, constants: Vec<F>) -> usize {
+    pub fn add_gate<G: BatchableGate<F, D>>(&mut self, gate_type: G, constants: Vec<F>) -> usize {
         self.check_gate_compatibility(&gate_type);
         assert_eq!(
             gate_type.num_constants(),
