@@ -159,26 +159,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     // pub fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget {
-    //     assert_eq!(a.num_limbs(), 8);
     //     let t = b.target;
-    //     dbg!(self.target_as_constant(a.limbs[1].0));
-    //     //
-    //     // dbg!(self.num_gates());
-    //     let tmp = BigUintTarget {
+    //     BigUintTarget {
     //         limbs: a
     //             .limbs
     //             .iter()
     //             .map(|&l| U32Target(self.mul(l.0, t)))
     //             .collect(),
-    //     };
-    //     // dbg!(self.num_gates());
-    //     tmp
+    //     }
     // }
 
     pub fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget {
         assert_eq!(a.num_limbs(), 8);
         let t = b.target;
-        // dbg!(self.target_as_constant(a.limbs[0].0));
 
         let gate = MulU32BoolGate::<F, D>::new_from_config(&self.config);
         let (gate_index, copy) = self.find_mulu32bool_gate();
@@ -186,9 +179,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect(Target::wire(gate_index, gate.wire_bool(copy)), t);
         let mut result = BigUintTarget { limbs: vec![] };
         for j in 0..8 {
-            // dbg!(copy, j);
-            // dbg!(gate.wire_ith_op_jth_input(copy, j));
-            // dbg!(a.limbs[j].0);
             self.connect(
                 Target::wire(gate_index, gate.wire_ith_op_jth_input(copy, j)),
                 a.limbs[j].0,
