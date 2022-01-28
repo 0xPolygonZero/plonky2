@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use num::{BigUint, FromPrimitive, Integer, Zero};
+use num::BigUint;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 
