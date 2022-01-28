@@ -11,7 +11,6 @@ use rand_chacha::ChaCha8Rng;
 // range of GoldilocksField, then verify that each constant also fits in GoldilocksField.
 const SAMPLE_RANGE_END: u64 = 0xffffffff70000001;
 
-// const N: usize = 101; // For GMiMC
 // const N: usize = 8 * 30; // For Posiedon-8
 const N: usize = 12 * 30; // For Posiedon-12
 
