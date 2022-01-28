@@ -170,14 +170,7 @@ impl<F: Field> GeneratedValues<F> {
     }
 
     pub fn set_biguint_target(&mut self, target: BigUintTarget, value: BigUint) {
-        let base = BigUint::from_u64(1 << 32).unwrap();
-        let mut limbs = Vec::new();
-        let mut current = value.clone();
-        while current > BigUint::zero() {
-            let (div, rem) = current.div_rem(&base);
-            current = div;
-            limbs.push(rem.to_u64_digits()[0] as u32);
-        }
+        let mut limbs = value.to_u32_digits();
 
         assert!(target.num_limbs() >= limbs.len());
 

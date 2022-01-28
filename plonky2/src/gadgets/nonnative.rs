@@ -624,41 +624,6 @@ mod tests {
         verify(proof, &data.verifier_only, &data.common)
     }
 
-    fn test_nonnative_many_muls_helper(num: usize) {
-        type FF = Secp256K1Base;
-        const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-
-        let config = CircuitConfig::standard_ecc_config();
-        let mut unop_builder = CircuitBuilder::<F, D>::new(config.clone());
-        let mut op_builder = CircuitBuilder::<F, D>::new(config);
-
-        let ffs: Vec<_> = (0..num).map(|_| FF::rand()).collect();
-
-        let op_targets: Vec<_> = ffs
-            .iter()
-            .map(|&x| op_builder.constant_nonnative(x))
-            .collect();
-        op_builder.mul_many_nonnative(&op_targets);
-
-        let unop_targets: Vec<_> = ffs
-            .iter()
-            .map(|&x| unop_builder.constant_nonnative(x))
-            .collect();
-        let mut result = unop_targets[0].clone();
-        for i in 1..unop_targets.len() {
-            result = unop_builder.mul_nonnative(&result, &unop_targets[i]);
-        }
-    }
-
-    #[test]
-    fn test_nonnative_many_muls() {
-        for num in 2..10 {
-            test_nonnative_many_muls_helper(num);
-        }
-    }
-
     #[test]
     fn test_nonnative_neg() -> Result<()> {
         type FF = Secp256K1Base;

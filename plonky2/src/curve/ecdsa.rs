@@ -26,6 +26,8 @@ pub fn verify_message<C: Curve>(
 ) -> bool {
     let ECDSASignature { r, s } = sig;
 
+    assert!(pk.0.is_valid());
+
     let c = s.inverse();
     let u1 = msg * c;
     let u2 = r * c;

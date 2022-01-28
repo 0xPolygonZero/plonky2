@@ -2,13 +2,9 @@ use std::marker::PhantomData;
 
 use crate::curve::curve_types::Curve;
 use crate::field::extension_field::Extendable;
-use crate::gadgets::arithmetic_u32::U32Target;
-use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::curve::AffinePointTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::RichField;
-use crate::hash::poseidon::PoseidonHash;
-use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 pub struct ECDSASecretKeyTarget<C: Curve>(NonNativeTarget<C::ScalarField>);
@@ -27,6 +23,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         pk: ECDSAPublicKeyTarget<C>,
     ) {
         let ECDSASignatureTarget { r, s } = sig;
+
+        self.curve_assert_valid(&pk.0);
 
         let c = self.inv_nonnative(&s);
         let u1 = self.mul_nonnative(&msg, &c);
@@ -62,7 +60,6 @@ mod tests {
     use crate::plonk::verifier::verify;
 
     #[test]
-    #[ignore]
     fn test_ecdsa_circuit() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
