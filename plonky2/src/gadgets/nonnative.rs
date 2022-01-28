@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use num::{BigUint, Integer, One, Zero};
+use plonky2_field::secp256k1_base::Secp256K1Base;
 use plonky2_field::{extension_field::Extendable, field_types::Field};
 use plonky2_util::ceil_div_usize;
 
@@ -80,8 +81,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let sum_expected = self.add_biguint(&a.value, &b.value);
 
-        let modulus = self.constant_biguint(&FF::order());
-        let mod_times_overflow = self.mul_biguint_by_bool(&modulus, overflow);
+        assert_eq!(FF::order(), Secp256K1Base::order());
+        let mod_times_overflow = self.secp256k1_base_bool(overflow);
         let sum_actual = self.add_biguint(&sum.value, &mod_times_overflow);
         self.connect_biguint(&sum_expected, &sum_actual);
 
@@ -157,8 +158,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.assert_bool(overflow);
 
         let diff_plus_b = self.add_biguint(&diff.value, &b.value);
-        let modulus = self.constant_biguint(&FF::order());
-        let mod_times_overflow = self.mul_biguint_by_bool(&modulus, overflow);
+        // let modulus = self.constant_biguint(&FF::order());
+        // let mod_times_overflow = self.mul_biguint_by_bool(&modulus, overflow);
+        assert_eq!(FF::order(), Secp256K1Base::order());
+        let mod_times_overflow = self.secp256k1_base_bool(overflow);
         let diff_plus_b_reduced = self.sub_biguint(&diff_plus_b, &mod_times_overflow);
         self.connect_biguint(&a.value, &diff_plus_b_reduced);
 

@@ -22,10 +22,12 @@ use crate::gates::arithmetic_u32::U32ArithmeticGate;
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
+use crate::gates::mul_biguint_bool::MulU32BoolGate;
 use crate::gates::multiplication_extension::MulExtensionGate;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
 use crate::gates::random_access::RandomAccessGate;
+use crate::gates::secp256k1_base_bool::Secp256k1BaseBoolGate;
 use crate::gates::subtraction_u32::U32SubtractionGate;
 use crate::gates::switch::SwitchGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
@@ -816,6 +818,10 @@ pub struct BatchedGates<F: RichField + Extendable<D>, const D: usize> {
 
     /// An available `ConstantGate` instance, if any.
     pub(crate) free_constant: Option<(usize, usize)>,
+
+    pub(crate) current_mulu32bool_gate: Option<(usize, usize)>,
+
+    pub(crate) current_secp256k1bool_gate: Option<(usize, usize)>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> BatchedGates<F, D> {
@@ -830,6 +836,8 @@ impl<F: RichField + Extendable<D>, const D: usize> BatchedGates<F, D> {
             current_u32_arithmetic_gate: None,
             current_u32_subtraction_gate: None,
             free_constant: None,
+            current_mulu32bool_gate: None,
+            current_secp256k1bool_gate: None,
         }
     }
 }
@@ -1054,6 +1062,44 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (gate_index, copy)
     }
 
+    pub(crate) fn find_mulu32bool_gate(&mut self) -> (usize, usize) {
+        let (gate_index, copy) = match self.batched_gates.current_mulu32bool_gate {
+            None => {
+                let gate = MulU32BoolGate::new_from_config(&self.config);
+                let gate_index = self.add_gate(gate, vec![]);
+                (gate_index, 0)
+            }
+            Some((gate_index, copy)) => (gate_index, copy),
+        };
+
+        if copy == MulU32BoolGate::<F, D>::num_ops(&self.config) - 1 {
+            self.batched_gates.current_mulu32bool_gate = None;
+        } else {
+            self.batched_gates.current_mulu32bool_gate = Some((gate_index, copy + 1));
+        }
+
+        (gate_index, copy)
+    }
+
+    pub(crate) fn find_secp256k1bool_gate(&mut self) -> (usize, usize) {
+        let (gate_index, copy) = match self.batched_gates.current_secp256k1bool_gate {
+            None => {
+                let gate = Secp256k1BaseBoolGate::new_from_config(&self.config);
+                let gate_index = self.add_gate(gate, vec![]);
+                (gate_index, 0)
+            }
+            Some((gate_index, copy)) => (gate_index, copy),
+        };
+
+        if copy == Secp256k1BaseBoolGate::<F, D>::num_ops(&self.config) - 1 {
+            self.batched_gates.current_secp256k1bool_gate = None;
+        } else {
+            self.batched_gates.current_secp256k1bool_gate = Some((gate_index, copy + 1));
+        }
+
+        (gate_index, copy)
+    }
+
     /// Returns the gate index and copy index of a free `ConstantGate` slot, potentially adding a
     /// new `ConstantGate` if needed.
     fn constant_gate_instance(&mut self) -> (usize, usize) {
@@ -1210,6 +1256,34 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// Fill the remaining unused U32 subtraction operations with zeros, so that all
+    /// `U32SubtractionGenerator`s are run.
+    fn fill_mulu32bool_gate(&mut self) {
+        let zero = self.zero();
+        let gate = MulU32BoolGate::<F, D>::new_from_config(&self.config);
+        if let Some((gate_index, copy)) = self.batched_gates.current_mulu32bool_gate {
+            for i in copy..gate.num_ops {
+                self.connect(Target::wire(gate_index, gate.wire_bool(i)), zero);
+                for j in 0..8 {
+                    self.connect(
+                        Target::wire(gate_index, gate.wire_ith_op_jth_input(i, j)),
+                        zero,
+                    );
+                }
+            }
+        }
+    }
+
+    fn fill_secp256k1bool_gate(&mut self) {
+        let zero = self.zero();
+        let gate = Secp256k1BaseBoolGate::<F, D>::new_from_config(&self.config);
+        if let Some((gate_index, copy)) = self.batched_gates.current_secp256k1bool_gate {
+            for i in copy..gate.num_ops {
+                self.connect(Target::wire(gate_index, gate.wire_bool(i)), zero);
+            }
+        }
+    }
+
     fn fill_batched_gates(&mut self) {
         self.fill_arithmetic_gates();
         self.fill_base_arithmetic_gates();
@@ -1219,5 +1293,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.fill_u32_add_many_gates();
         self.fill_u32_arithmetic_gates();
         self.fill_u32_subtraction_gates();
+        self.fill_mulu32bool_gate();
+        self.fill_secp256k1bool_gate();
     }
 }

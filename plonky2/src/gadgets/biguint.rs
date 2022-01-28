@@ -4,6 +4,8 @@ use num::{BigUint, Integer, Zero};
 use plonky2_field::extension_field::Extendable;
 
 use crate::gadgets::arithmetic_u32::U32Target;
+use crate::gates::mul_biguint_bool::MulU32BoolGate;
+use crate::gates::secp256k1_base_bool::Secp256k1BaseBoolGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
@@ -156,14 +158,76 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget {
-        let t = b.target;
+    // pub fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget {
+    //     assert_eq!(a.num_limbs(), 8);
+    //     let t = b.target;
+    //     dbg!(self.target_as_constant(a.limbs[1].0));
+    //     //
+    //     // dbg!(self.num_gates());
+    //     let tmp = BigUintTarget {
+    //         limbs: a
+    //             .limbs
+    //             .iter()
+    //             .map(|&l| U32Target(self.mul(l.0, t)))
+    //             .collect(),
+    //     };
+    //     // dbg!(self.num_gates());
+    //     tmp
+    // }
 
+    pub fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget {
+        assert_eq!(a.num_limbs(), 8);
+        let t = b.target;
+        // dbg!(self.target_as_constant(a.limbs[0].0));
+
+        let gate = MulU32BoolGate::<F, D>::new_from_config(&self.config);
+        let (gate_index, copy) = self.find_mulu32bool_gate();
+
+        self.connect(Target::wire(gate_index, gate.wire_bool(copy)), t);
+        let mut result = BigUintTarget { limbs: vec![] };
+        for j in 0..8 {
+            // dbg!(copy, j);
+            // dbg!(gate.wire_ith_op_jth_input(copy, j));
+            // dbg!(a.limbs[j].0);
+            self.connect(
+                Target::wire(gate_index, gate.wire_ith_op_jth_input(copy, j)),
+                a.limbs[j].0,
+            );
+            result.limbs.push(U32Target(Target::wire(
+                gate_index,
+                gate.wire_ith_op_jth_output(copy, j),
+            )));
+        }
+
+        result
+    }
+
+    pub fn secp256k1_base_bool(&mut self, b: BoolTarget) -> BigUintTarget {
+        let t = b.target;
+        // dbg!(self.target_as_constant(a.limbs[0].0));
+
+        let gate = Secp256k1BaseBoolGate::<F, D>::new_from_config(&self.config);
+        let (gate_index, copy) = self.find_secp256k1bool_gate();
+
+        self.connect(Target::wire(gate_index, gate.wire_bool(copy)), t);
+        let limbs = [
+            U32Target(Target::wire(
+                gate_index,
+                gate.wire_ith_op_jth_output(copy, 0),
+            )),
+            U32Target(Target::wire(
+                gate_index,
+                gate.wire_ith_op_jth_output(copy, 1),
+            )),
+            U32Target(Target::wire(
+                gate_index,
+                gate.wire_ith_op_jth_output(copy, 2),
+            )),
+        ];
         BigUintTarget {
-            limbs: a.limbs
-                    .iter()
-                    .map(|&l| U32Target(self.mul(l.0, t)))
-                    .collect(),
+            limbs: vec![
+                limbs[0], limbs[1], limbs[2], limbs[2], limbs[2], limbs[2], limbs[2], limbs[2],
+            ],
         }
     }
 

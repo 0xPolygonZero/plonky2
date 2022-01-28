@@ -135,7 +135,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         for &bit in bits.iter() {
             let not_bit = self.not(bit);
-            
+
             let result_plus_2_i_p = self.curve_add(&result, &two_i_times_p);
 
             let new_x_if_bit = self.mul_nonnative_by_bool(&result_plus_2_i_p.x, bit);
@@ -170,7 +170,7 @@ mod tests {
 
     use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
     use crate::curve::secp256k1::Secp256K1;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
@@ -303,7 +303,7 @@ mod tests {
 
         let config = CircuitConfig::standard_ecc_config();
 
-        let pw = PartialWitness::new();
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let g = Secp256K1::GENERATOR_AFFINE;
@@ -314,10 +314,15 @@ mod tests {
         let neg_five_g_expected = builder.constant_affine_point(neg_five_g);
         builder.curve_assert_valid(&neg_five_g_expected);
 
-        let g_target = builder.constant_affine_point(g);
-        let neg_five_target = builder.constant_nonnative(neg_five);
+        // let g_target = builder.constant_affine_point(g);
+        let g_target = builder.add_virtual_affine_point_target();
+        let neg_five_target = builder.add_virtual_nonnative_target();
+        // let neg_five_target = builder.constant_nonnative(neg_five);
         let neg_five_g_actual = builder.curve_scalar_mul(&g_target, &neg_five_target);
+        pw.set_biguint_target(&neg_five_target.value, &neg_five.to_biguint());
         builder.curve_assert_valid(&neg_five_g_actual);
+        pw.set_biguint_target(&g_target.x.value, &g.x.to_biguint());
+        pw.set_biguint_target(&g_target.y.value, &g.y.to_biguint());
 
         builder.connect_affine_point(&neg_five_g_expected, &neg_five_g_actual);
 

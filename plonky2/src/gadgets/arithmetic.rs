@@ -68,6 +68,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             addend,
         };
         if let Some(&result) = self.base_arithmetic_results.get(&operation) {
+            assert_eq!(multiplicand_0, Target::wire(3, 4));
+            dbg!(self.target_as_constant(Target::wire(3, 4)));
+            // dbg!(
+            //     "yo",
+            //     multiplicand_0,
+            //     multiplicand_1,
+            //     self.target_as_constant(multiplicand_0)
+            // );
             return result;
         }
 
