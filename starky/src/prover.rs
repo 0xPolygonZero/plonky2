@@ -25,6 +25,7 @@ pub fn prove<F, C, S, const D: usize>(
     stark: S,
     config: StarkConfig,
     trace: Vec<[F; S::COLUMNS]>,
+    public_inputs: [F; S::PUBLIC_INPUTS],
     timing: &mut TimingTree,
 ) -> Result<StarkProof<F, C, D>>
 where
@@ -72,6 +73,7 @@ where
     let quotient_polys = compute_quotient_polys::<F, C, S, D>(
         &stark,
         &trace_commitment,
+        public_inputs,
         &alphas,
         degree_bits,
         rate_bits,
@@ -142,6 +144,7 @@ where
 fn compute_quotient_polys<F, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &PolynomialBatch<F, C, D>,
+    public_inputs: [F; S::PUBLIC_INPUTS],
     alphas: &[F],
     degree_bits: usize,
     rate_bits: usize,
@@ -196,7 +199,7 @@ where
                                     trace_commitment,
                                     (i + 1) % (degree << rate_bits),
                                 ),
-                                public_inputs: &[F::ZERO; S::PUBLIC_INPUTS],
+                                public_inputs: &public_inputs,
                             };
                         stark.eval_packed_base(vars, &mut consumer);
                         // TODO: Fix this once we a genuine `PackedField`.

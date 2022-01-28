@@ -83,27 +83,33 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
     use log::Level;
+    use plonky2::field::field_types::Field;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
     use plonky2::util::timing::TimingTree;
     use starky::config::StarkConfig;
     use starky::prover::prove;
+    use starky::stark::Stark;
 
     use crate::system_zero::SystemZero;
 
     #[test]
     #[ignore] // TODO
-    fn run() {
+    fn run() -> Result<()> {
         type F = GoldilocksField;
         type C = PoseidonGoldilocksConfig;
         const D: usize = 2;
 
         type S = SystemZero<F, D>;
         let system = S::default();
+        let public_inputs = [F::ZERO; S::PUBLIC_INPUTS];
         let config = StarkConfig::standard_fast_config();
         let mut timing = TimingTree::new("prove", Level::Debug);
         let trace = system.generate_trace();
-        prove::<F, C, S, D>(system, config, trace, &mut timing).unwrap();
+        prove::<F, C, S, D>(system, config, trace, public_inputs, &mut timing)?;
+
+        Ok(())
     }
 }
