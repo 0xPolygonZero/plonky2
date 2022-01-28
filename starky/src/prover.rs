@@ -74,7 +74,7 @@ where
         &stark,
         &trace_commitment,
         public_inputs,
-        &alphas,
+        alphas,
         degree_bits,
         rate_bits,
     );
@@ -145,7 +145,7 @@ fn compute_quotient_polys<F, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &PolynomialBatch<F, C, D>,
     public_inputs: [F; S::PUBLIC_INPUTS],
-    alphas: &[F],
+    alphas: Vec<F>,
     degree_bits: usize,
     rate_bits: usize,
 ) -> Vec<PolynomialCoeffs<F>>
@@ -179,37 +179,34 @@ where
         comm.get_lde_values(i).try_into().unwrap()
     };
 
-    alphas
-        .iter()
-        .map(|&alpha| {
-            let quotient_evals = PolynomialValues::new(
-                (0..degree << rate_bits)
-                    .into_par_iter()
-                    .map(|i| {
-                        // TODO: Set `P` to a genuine `PackedField` here.
-                        let mut consumer = ConstraintConsumer::<F>::new(
-                            alpha,
-                            lagrange_first.values[i],
-                            lagrange_last.values[i],
-                        );
-                        let vars =
-                            StarkEvaluationVars::<F, F, { S::COLUMNS }, { S::PUBLIC_INPUTS }> {
-                                local_values: &get_at_index(trace_commitment, i),
-                                next_values: &get_at_index(
-                                    trace_commitment,
-                                    (i + 1) % (degree << rate_bits),
-                                ),
-                                public_inputs: &public_inputs,
-                            };
-                        stark.eval_packed_base(vars, &mut consumer);
-                        // TODO: Fix this once we a genuine `PackedField`.
-                        let constraints_eval = consumer.accumulator();
-                        let denominator_inv = z_h_on_coset.eval_inverse(i);
-                        constraints_eval * denominator_inv
-                    })
-                    .collect(),
+    let quotient_values = (0..degree << rate_bits)
+        .into_par_iter()
+        .map(|i| {
+            // TODO: Set `P` to a genuine `PackedField` here.
+            let mut consumer = ConstraintConsumer::<F>::new(
+                alphas.clone(),
+                lagrange_first.values[i],
+                lagrange_last.values[i],
             );
-            quotient_evals.coset_ifft(F::coset_shift())
+            let vars = StarkEvaluationVars::<F, F, { S::COLUMNS }, { S::PUBLIC_INPUTS }> {
+                local_values: &get_at_index(trace_commitment, i),
+                next_values: &get_at_index(trace_commitment, (i + 1) % (degree << rate_bits)),
+                public_inputs: &public_inputs,
+            };
+            stark.eval_packed_base(vars, &mut consumer);
+            // TODO: Fix this once we a genuine `PackedField`.
+            let mut constraints_evals = consumer.accumulators();
+            let denominator_inv = z_h_on_coset.eval_inverse(i);
+            for eval in &mut constraints_evals {
+                *eval *= denominator_inv;
+            }
+            constraints_evals
         })
+        .collect::<Vec<_>>();
+
+    transpose(&quotient_values)
+        .into_par_iter()
+        .map(PolynomialValues::new)
+        .map(|values| values.coset_ifft(F::coset_shift()))
         .collect()
 }
