@@ -16,7 +16,7 @@ use rayon::prelude::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::proof::{StarkOpeningSet, StarkProof};
+use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationVars;
 
@@ -27,7 +27,7 @@ pub fn prove<F, C, S, const D: usize>(
     trace: Vec<[F; S::COLUMNS]>,
     public_inputs: [F; S::PUBLIC_INPUTS],
     timing: &mut TimingTree,
-) -> Result<StarkProof<F, C, D>>
+) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -101,7 +101,8 @@ where
             None,
         )
     );
-    challenger.observe_cap(&quotient_commitment.merkle_tree.cap);
+    let quotient_polys_cap = quotient_commitment.merkle_tree.cap;
+    challenger.observe_cap(quotient_polys_cap);
 
     let zeta = challenger.get_extension_challenge::<D>();
     // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
@@ -113,6 +114,7 @@ where
         "Opening point is in the subgroup."
     );
     let openings = StarkOpeningSet::new(zeta, g, &trace_commitment, &quotient_commitment);
+    openings.observe(&mut challenger);
 
     // TODO: Add permuation checks
     let initial_merkle_trees = &[&trace_commitment, &quotient_commitment];
@@ -129,11 +131,16 @@ where
             timing,
         )
     );
-
-    Ok(StarkProof {
+    let proof = StarkProof {
         trace_cap,
+        quotient_polys_cap,
         openings,
         opening_proof,
+    };
+
+    Ok(StarkProofWithPublicInputs {
+        proof,
+        public_inputs: public_inputs.to_vec(),
     })
 }
 
