@@ -1,3 +1,4 @@
+use crate::curve::curve_msm::msm_parallel;
 use crate::curve::curve_types::{base_to_scalar, AffinePoint, Curve, CurveScalar};
 use crate::field::field_types::Field;
 
@@ -10,8 +11,15 @@ pub struct ECDSASecretKey<C: Curve>(pub C::ScalarField);
 pub struct ECDSAPublicKey<C: Curve>(pub AffinePoint<C>);
 
 pub fn sign_message<C: Curve>(msg: C::ScalarField, sk: ECDSASecretKey<C>) -> ECDSASignature<C> {
-    let k = C::ScalarField::rand();
-    let rr = (CurveScalar(k) * C::GENERATOR_PROJECTIVE).to_affine();
+    let (k, rr) = {
+        let mut k = C::ScalarField::rand();
+        let mut rr = (CurveScalar(k) * C::GENERATOR_PROJECTIVE).to_affine();
+        while rr.x == C::BaseField::ZERO {
+            k = C::ScalarField::rand();
+            rr = (CurveScalar(k) * C::GENERATOR_PROJECTIVE).to_affine();
+        }
+        (k, rr)
+    };
     let r = base_to_scalar::<C>(rr.x);
 
     let s = k.inverse() * (msg + r * sk.0);
