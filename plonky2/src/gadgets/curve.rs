@@ -321,7 +321,6 @@ mod tests {
 
         builder.connect_affine_point(&neg_five_g_expected, &neg_five_g_actual);
 
-        println!("NUM GATES: {}", builder.num_gates());
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
