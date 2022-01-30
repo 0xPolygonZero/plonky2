@@ -41,7 +41,8 @@ pub fn verify_message<C: Curve>(
     let u2 = r * c;
 
     let g = C::GENERATOR_PROJECTIVE;
-    let point_proj = CurveScalar(u1) * g + CurveScalar(u2) * pk.0.to_projective();
+    let w = 5; // Experimentally fastest
+    let point_proj = msm_parallel(&[u1, u2], &[g, pk.0.to_projective()], w);
     let point = point_proj.to_affine();
 
     let x = base_to_scalar::<C>(point.x);
