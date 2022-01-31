@@ -85,6 +85,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let sum_actual = self.add_biguint(&sum.value, &mod_times_overflow);
         self.connect_biguint(&sum_expected, &sum_actual);
 
+        // Range-check result.
+        // TODO: can potentially leave unreduced until necessary (e.g. when connecting values).
         let cmp = self.cmp_biguint(&sum.value, &modulus);
         let one = self.one();
         self.connect(cmp.target, one);
@@ -137,6 +139,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let sum_actual = self.add_biguint(&sum.value, &mod_times_overflow);
         self.connect_biguint(&sum_expected, &sum_actual);
 
+        // Range-check result.
+        // TODO: can potentially leave unreduced until necessary (e.g. when connecting values).
         let cmp = self.cmp_biguint(&sum.value, &modulus);
         let one = self.one();
         self.connect(cmp.target, one);
