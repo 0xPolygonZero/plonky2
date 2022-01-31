@@ -16,7 +16,7 @@ use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::salt_size;
-use crate::plonk::proof::{FriInferredElements, ProofChallenges};
+use crate::plonk::proof::{FriChallenges, FriInferredElements, ProofChallenges};
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
@@ -253,10 +253,10 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
             pow_witness,
             ..
         } = self;
-        let ProofChallenges {
+        let FriChallenges {
             fri_query_indices: indices,
             ..
-        } = challenges;
+        } = &challenges.fri_challenges;
         let mut fri_inferred_elements = fri_inferred_elements.0.into_iter();
         let cap_height = params.config.cap_height;
         let reduction_arity_bits = &params.reduction_arity_bits;

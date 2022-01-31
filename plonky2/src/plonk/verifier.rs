@@ -92,7 +92,7 @@ pub(crate) fn verify_with_challenges<
     verify_fri_proof::<F, C, D>(
         &common_data.get_fri_instance(challenges.plonk_zeta),
         &proof.openings,
-        &challenges,
+        &challenges.fri_challenges,
         merkle_caps,
         &proof.opening_proof,
         &common_data.fri_params,

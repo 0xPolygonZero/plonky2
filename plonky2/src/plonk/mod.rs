@@ -4,7 +4,7 @@ pub mod config;
 pub(crate) mod copy_constraint;
 mod get_challenges;
 pub(crate) mod permutation_argument;
-pub(crate) mod plonk_common;
+pub mod plonk_common;
 pub mod proof;
 pub mod prover;
 pub mod recursive_verifier;

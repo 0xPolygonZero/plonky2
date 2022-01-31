@@ -108,7 +108,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             quotient_polys,
         } = self;
         for v in &[local_values, next_values, permutation_zs, quotient_polys] {
-            self.observe_extension_elements(v);
+            challenger.observe_extension_elements(v);
         }
     }
 }

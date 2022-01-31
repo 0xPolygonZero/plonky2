@@ -125,7 +125,7 @@ pub(crate) fn reduce_with_powers_multi<
     cumul
 }
 
-pub(crate) fn reduce_with_powers<'a, P: PackedField, T: IntoIterator<Item = &'a P>>(
+pub fn reduce_with_powers<'a, P: PackedField, T: IntoIterator<Item = &'a P>>(
     terms: T,
     alpha: P::Scalar,
 ) -> P

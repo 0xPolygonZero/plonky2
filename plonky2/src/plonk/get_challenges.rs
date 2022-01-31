@@ -12,8 +12,8 @@ use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::proof::{
-    CompressedProof, CompressedProofWithPublicInputs, FriInferredElements, OpeningSet, Proof,
-    ProofChallenges, ProofWithPublicInputs,
+    CompressedProof, CompressedProofWithPublicInputs, FriChallenges, FriInferredElements,
+    OpeningSet, Proof, ProofChallenges, ProofWithPublicInputs,
 };
 use crate::util::reverse_bits;
 
@@ -86,10 +86,12 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
         plonk_gammas,
         plonk_alphas,
         plonk_zeta,
-        fri_alpha,
-        fri_betas,
-        fri_pow_response,
-        fri_query_indices,
+        fri_challenges: FriChallenges {
+            fri_alpha,
+            fri_betas,
+            fri_pow_response,
+            fri_query_indices,
+        },
     })
 }
 
@@ -100,7 +102,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         &self,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<Vec<usize>> {
-        Ok(self.get_challenges(common_data)?.fri_query_indices)
+        Ok(self
+            .get_challenges(common_data)?
+            .fri_challenges
+            .fri_query_indices)
     }
 
     /// Computes all Fiat-Shamir challenges used in the Plonk proof.
@@ -179,9 +184,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ) -> FriInferredElements<F, D> {
         let ProofChallenges {
             plonk_zeta,
-            fri_alpha,
-            fri_betas,
-            fri_query_indices,
+            fri_challenges:
+                FriChallenges {
+                    fri_alpha,
+                    fri_betas,
+                    fri_query_indices,
+                    ..
+                },
             ..
         } = challenges;
         let mut fri_inferred_elements = Vec::new();

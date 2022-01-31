@@ -102,7 +102,7 @@ where
         )
     );
     let quotient_polys_cap = quotient_commitment.merkle_tree.cap;
-    challenger.observe_cap(quotient_polys_cap);
+    challenger.observe_cap(&quotient_polys_cap);
 
     let zeta = challenger.get_extension_challenge::<D>();
     // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and

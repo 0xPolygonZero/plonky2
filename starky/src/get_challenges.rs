@@ -77,14 +77,19 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     StarkProofWithPublicInputs<F, C, D>
 {
-    pub(crate) fn fri_query_indices(&self, config: &StarkConfig) -> anyhow::Result<Vec<usize>> {
-        Ok(self.get_challenges(config)?.fri_query_indices)
+    pub(crate) fn fri_query_indices(
+        &self,
+        config: &StarkConfig,
+        degree_bits: usize,
+    ) -> anyhow::Result<Vec<usize>> {
+        Ok(self.get_challenges(config, degree_bits)?.fri_query_indices)
     }
 
     /// Computes all Fiat-Shamir challenges used in the Plonk proof.
     pub(crate) fn get_challenges(
         &self,
         config: &StarkConfig,
+        degree_bits: usize,
     ) -> Result<StarkProofChallenges<F, D>> {
         let StarkProof {
             trace_cap,
@@ -99,7 +104,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 },
         } = &self.proof;
 
-        get_challenges(
+        get_challenges::<F, C, D>(
             trace_cap,
             quotient_polys_cap,
             openings,
@@ -107,6 +112,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             final_poly,
             *pow_witness,
             config,
+            degree_bits,
         )
     }
 }

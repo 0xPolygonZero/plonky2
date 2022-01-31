@@ -239,6 +239,10 @@ pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> 
     // Point at which the PLONK polynomials are opened.
     pub plonk_zeta: F::Extension,
 
+    pub fri_challenges: FriChallenges<F, D>,
+}
+
+pub struct FriChallenges<F: RichField + Extendable<D>, const D: usize> {
     // Scaling factor to combine polynomials.
     pub fri_alpha: F::Extension,
 
