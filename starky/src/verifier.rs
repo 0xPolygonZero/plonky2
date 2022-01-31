@@ -1,13 +1,17 @@
 use anyhow::{ensure, Result};
 use plonky2::field::extension_field::Extendable;
+use plonky2::field::field_types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_data::CommonCircuitData;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::proof::ProofWithPublicInputs;
+use plonky2_util::log2_strict;
 
 use crate::config::StarkConfig;
-use crate::proof::{StarkProof, StarkProofWithPublicInputs};
+use crate::constraint_consumer::ConstraintConsumer;
+use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProofWithPublicInputs};
 use crate::stark::Stark;
+use crate::vars::StarkEvaluationVars;
 
 pub(crate) fn verify<
     F: RichField + Extendable<D>,
@@ -28,44 +32,40 @@ pub(crate) fn verify_with_challenges<
     S: Stark<F, D>,
     const D: usize,
 >(
+    stark: S,
     proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
-    challenges: ProofChallenges<F, D>,
-    verifier_data: &VerifierOnlyCircuitData<C, D>,
-    common_data: &CommonCircuitData<F, C, D>,
+    challenges: StarkProofChallenges<F, D>,
+    config: &StarkConfig,
 ) -> Result<()> {
-    assert_eq!(
-        proof_with_pis.public_inputs.len(),
-        common_data.num_public_inputs
-    );
-    let public_inputs_hash = &proof_with_pis.get_public_inputs_hash();
-
-    let ProofWithPublicInputs { proof, .. } = proof_with_pis;
+    let StarkProofWithPublicInputs {
+        proof,
+        public_inputs,
+    } = proof_with_pis;
+    let degree = recover_degree(&proof, config);
+    let degree_log = log2_strict(degree);
 
     let local_constants = &proof.openings.constants;
-    let local_wires = &proof.openings.wires;
-    let vars = EvaluationVars {
-        local_constants,
-        local_wires,
-        public_inputs_hash,
+    let local_values = &proof.openings.local_values;
+    let next_values = &proof.openings.local_values;
+    let StarkOpeningSet {
+        local_values,
+        next_values,
+        permutation_zs,
+        quotient_polys,
+    } = &proof.openings;
+    let vars = StarkEvaluationVars {
+        local_values,
+        next_values,
+        public_inputs: &public_inputs,
     };
-    let local_zs = &proof.openings.plonk_zs;
-    let next_zs = &proof.openings.plonk_zs_right;
-    let s_sigmas = &proof.openings.plonk_sigmas;
-    let partial_products = &proof.openings.partial_products;
 
-    // Evaluate the vanishing polynomial at our challenge point, zeta.
-    let vanishing_polys_zeta = eval_vanishing_poly(
-        common_data,
-        challenges.plonk_zeta,
-        vars,
-        local_zs,
-        next_zs,
-        partial_products,
-        s_sigmas,
-        &challenges.plonk_betas,
-        &challenges.plonk_gammas,
-        &challenges.plonk_alphas,
+    let mut consumer = ConstraintConsumer::<F::Extension>::new(
+        challenges.stark_alphas,
+        lagrange_first.values[i],
+        lagrange_last.values[i],
     );
+    let (l_1, l_n) = eval_l_1_and_l_last(degree_log, challenges.stark_zeta);
+    stark.eval_ext()
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
     let quotient_polys_zeta = &proof.openings.quotient_polys;
@@ -102,4 +102,18 @@ pub(crate) fn verify_with_challenges<
     )?;
 
     Ok(())
+}
+
+/// Evaluate the Lagrange basis `L_1` and `L_n` at a point `x`.
+fn eval_l_1_and_l_last<F: Field>(log_n: usize, x: F) -> (F,F) {
+    let n = 1 << log_n;
+    let g = F::primitive_root_of_unity(log_n);
+    let z_x = x.exp_power_of_2(log_n);
+    let invs = F::batch_multiplicative_inverse(&[F::from_canonical_usize(n) * (x - F::ONE), F::from_canonical_usize(n) * (g*x - F::ONE)]);
+
+    (z_x * invs[0], z_x * invs[1])
+}
+
+fn recover_degree<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(proof: &StarkProof<F, C,D>, config: &StarkConfig) -> usize {
+    1<<(proof.opening_proof.query_round_proofs[0].initial_trees_proof.evals_proofs[0].1.siblings.len() + config.fri_config.cap_height)
 }
