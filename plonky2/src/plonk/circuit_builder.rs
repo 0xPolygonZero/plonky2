@@ -16,6 +16,7 @@ use crate::gadgets::arithmetic::BaseArithmeticOperation;
 use crate::gadgets::arithmetic_extension::ExtensionArithmeticOperation;
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
+use crate::gates::add_many_u32::U32AddManyGate;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::arithmetic_u32::U32ArithmeticGate;
