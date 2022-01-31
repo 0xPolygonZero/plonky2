@@ -2,10 +2,12 @@ use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::Field;
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::fri::proof::{CompressedFriProof, FriProof};
+use plonky2::fri::structure::{FriOpeningBatch, FriOpenings};
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::{GenericConfig, Hasher};
+use plonky2::plonk::proof::FriChallenges;
 use rayon::prelude::*;
 
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
@@ -58,16 +60,7 @@ pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: us
     // Point at which the PLONK polynomials are opened.
     pub stark_zeta: F::Extension,
 
-    // Scaling factor to combine polynomials.
-    pub fri_alpha: F::Extension,
-
-    // Betas used in the FRI commit phase reductions.
-    pub fri_betas: Vec<F::Extension>,
-
-    pub fri_pow_response: F,
-
-    // Indices at which the oracle is queried in FRI.
-    pub fri_query_indices: Vec<usize>,
+    pub fri_challenges: FriChallenges<F, D>,
 }
 
 /// Purported values of each polynomial at the challenge point.
@@ -109,6 +102,23 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         } = self;
         for v in &[local_values, next_values, permutation_zs, quotient_polys] {
             challenger.observe_extension_elements(v);
+        }
+    }
+
+    pub(crate) fn to_fri_openings(&self) -> FriOpenings<F, D> {
+        let zeta_batch = FriOpeningBatch {
+            values: [
+                self.local_values.as_slice(),
+                self.quotient_polys.as_slice(),
+                self.permutation_zs.as_slice(),
+            ]
+            .concat(),
+        };
+        let zeta_right_batch = FriOpeningBatch {
+            values: self.next_values.to_vec(),
+        };
+        FriOpenings {
+            batches: vec![zeta_batch, zeta_right_batch],
         }
     }
 }

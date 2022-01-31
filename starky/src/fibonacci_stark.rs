@@ -12,6 +12,7 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 /// Toy STARK system used for testing.
 /// Computes a Fibonacci sequence with state `[x0, x1]` using the state transition
 /// `x0 <- x1, x1 <- x0 + x1`.
+#[derive(Copy, Clone)]
 struct FibonacciStark<F: RichField + Extendable<D>, const D: usize> {
     num_rows: usize,
     _phantom: PhantomData<F>,
@@ -58,10 +59,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        // Check public inputs.
-        yield_constr.one_first_row(vars.local_values[0] - vars.public_inputs[Self::PI_INDEX_X0]);
-        yield_constr.one_first_row(vars.local_values[1] - vars.public_inputs[Self::PI_INDEX_X1]);
-        yield_constr.one_last_row(vars.local_values[1] - vars.public_inputs[Self::PI_INDEX_RES]);
+        // // Check public inputs.
+        // yield_constr.one_first_row(vars.local_values[0] - vars.public_inputs[Self::PI_INDEX_X0]);
+        // yield_constr.one_first_row(vars.local_values[1] - vars.public_inputs[Self::PI_INDEX_X1]);
+        // yield_constr.one_last_row(vars.local_values[1] - vars.public_inputs[Self::PI_INDEX_RES]);
 
         // x0 <- x1
         yield_constr.one(vars.next_values[0] - vars.local_values[1]);
@@ -89,6 +90,7 @@ mod tests {
     use crate::config::StarkConfig;
     use crate::fibonacci_stark::FibonacciStark;
     use crate::prover::prove;
+    use crate::verifier::verify;
 
     fn fibonacci(n: usize, x0: usize, x1: usize) -> usize {
         (0..n).fold((0, 1), |x, _| (x.1, x.0 + x.1)).1
@@ -110,14 +112,14 @@ mod tests {
         ];
         let stark = S::new(num_rows);
         let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
-        prove::<F, C, S, D>(
+        let proof = prove::<F, C, S, D>(
             stark,
-            config,
+            &config,
             trace,
             public_inputs,
             &mut TimingTree::default(),
         )?;
 
-        Ok(())
+        verify(stark, proof, &config, num_rows)
     }
 }

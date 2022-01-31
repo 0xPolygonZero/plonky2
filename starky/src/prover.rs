@@ -23,7 +23,7 @@ use crate::vars::StarkEvaluationVars;
 // TODO: Deal with public inputs.
 pub fn prove<F, C, S, const D: usize>(
     stark: S,
-    config: StarkConfig,
+    config: &StarkConfig,
     trace: Vec<[F; S::COLUMNS]>,
     public_inputs: [F; S::PUBLIC_INPUTS],
     timing: &mut TimingTree,
@@ -101,7 +101,7 @@ where
             None,
         )
     );
-    let quotient_polys_cap = quotient_commitment.merkle_tree.cap;
+    let quotient_polys_cap = quotient_commitment.merkle_tree.cap.clone();
     challenger.observe_cap(&quotient_polys_cap);
 
     let zeta = challenger.get_extension_challenge::<D>();
@@ -164,7 +164,6 @@ where
     [(); S::PUBLIC_INPUTS]:,
 {
     let degree = 1 << degree_bits;
-    let points = F::two_adic_subgroup(degree_bits + rate_bits);
 
     // Evaluation of the first Lagrange polynomial on the LDE domain.
     let lagrange_first = {
@@ -179,12 +178,18 @@ where
         evals.lde(rate_bits)
     };
 
-    let z_h_on_coset = ZeroPolyOnCoset::new(degree_bits, rate_bits);
+    let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, rate_bits);
 
     // Retrieve the LDE values at index `i`.
     let get_at_index = |comm: &PolynomialBatch<F, C, D>, i: usize| -> [F; S::COLUMNS] {
         comm.get_lde_values(i).try_into().unwrap()
     };
+    let last = F::primitive_root_of_unity(degree_bits).inverse();
+    let coset = F::cyclic_subgroup_coset_known_order(
+        F::primitive_root_of_unity(degree_bits + rate_bits),
+        F::coset_shift(),
+        degree << rate_bits,
+    );
 
     let quotient_values = (0..degree << rate_bits)
         .into_par_iter()
@@ -197,15 +202,19 @@ where
             );
             let vars = StarkEvaluationVars::<F, F, { S::COLUMNS }, { S::PUBLIC_INPUTS }> {
                 local_values: &get_at_index(trace_commitment, i),
-                next_values: &get_at_index(trace_commitment, (i + 1) % (degree << rate_bits)),
+                next_values: &get_at_index(
+                    trace_commitment,
+                    (i + (1 << rate_bits)) % (degree << rate_bits),
+                ),
                 public_inputs: &public_inputs,
             };
             stark.eval_packed_base(vars, &mut consumer);
-            // TODO: Fix this once we a genuine `PackedField`.
+            // TODO: Fix this once we use a genuine `PackedField`.
             let mut constraints_evals = consumer.accumulators();
             let denominator_inv = z_h_on_coset.eval_inverse(i);
+            let z_last = coset[i] - last;
             for eval in &mut constraints_evals {
-                *eval *= denominator_inv;
+                *eval *= denominator_inv * z_last;
             }
             constraints_evals
         })

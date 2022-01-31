@@ -63,8 +63,7 @@ pub fn verify_fri_proof<
     const D: usize,
 >(
     instance: &FriInstanceInfo<F, D>,
-    // Openings of the PLONK polynomials.
-    os: &OpeningSet<F, D>,
+    openings: &FriOpenings<F, D>,
     challenges: &FriChallenges<F, D>,
     initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
     proof: &FriProof<F, C::Hasher, D>,
@@ -88,7 +87,7 @@ pub fn verify_fri_proof<
     );
 
     let precomputed_reduced_evals =
-        PrecomputedReducedOpenings::from_os_and_alpha(&os.to_fri_openings(), challenges.fri_alpha);
+        PrecomputedReducedOpenings::from_os_and_alpha(&openings, challenges.fri_alpha);
     for (&x_index, round_proof) in challenges
         .fri_query_indices
         .iter()

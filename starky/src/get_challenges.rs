@@ -6,6 +6,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::{GenericConfig, Hasher};
+use plonky2::plonk::proof::FriChallenges;
 
 use crate::config::StarkConfig;
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProofWithPublicInputs};
@@ -67,10 +68,12 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     Ok(StarkProofChallenges {
         stark_alphas,
         stark_zeta,
-        fri_alpha,
-        fri_betas,
-        fri_pow_response,
-        fri_query_indices,
+        fri_challenges: FriChallenges {
+            fri_alpha,
+            fri_betas,
+            fri_pow_response,
+            fri_query_indices,
+        },
     })
 }
 
@@ -82,7 +85,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         config: &StarkConfig,
         degree_bits: usize,
     ) -> anyhow::Result<Vec<usize>> {
-        Ok(self.get_challenges(config, degree_bits)?.fri_query_indices)
+        Ok(self
+            .get_challenges(config, degree_bits)?
+            .fri_challenges
+            .fri_query_indices)
     }
 
     /// Computes all Fiat-Shamir challenges used in the Plonk proof.
