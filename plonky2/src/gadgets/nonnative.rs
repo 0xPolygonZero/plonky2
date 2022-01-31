@@ -74,7 +74,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             a: a.clone(),
             b: b.clone(),
             sum: sum.clone(),
-            overflow: overflow.clone(),
+            overflow,
             _phantom: PhantomData,
         });
 
@@ -120,7 +120,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.add_simple_generator(NonNativeMultipleAddsGenerator::<F, D, FF> {
             summands: summands.clone(),
             sum: sum.clone(),
-            overflow: overflow.clone(),
+            overflow,
             _phantom: PhantomData,
         });
 
@@ -161,7 +161,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             a: a.clone(),
             b: b.clone(),
             diff: diff.clone(),
-            overflow: overflow.clone(),
+            overflow,
             _phantom: PhantomData,
         });
 
@@ -250,11 +250,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let expected_product = self.add_biguint(&mod_times_div, &one);
         self.connect_biguint(&product, &expected_product);
 
-        let inv = NonNativeTarget::<FF> {
+        NonNativeTarget::<FF> {
             value: inv_biguint,
             _phantom: PhantomData,
-        };
-        inv
+        }
     }
 
     /// Returns `x % |FF|` as a `NonNativeTarget`.
@@ -362,8 +361,7 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: Field> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         self.summands
             .iter()
-            .map(|summand| summand.value.limbs.iter().map(|limb| limb.0))
-            .flatten()
+            .flat_map(|summand| summand.value.limbs.iter().map(|limb| limb.0))
             .collect()
     }
 

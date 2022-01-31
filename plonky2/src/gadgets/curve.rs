@@ -110,9 +110,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let s_squared = self.mul_nonnative(&s, &s);
         let x_sum = self.add_nonnative(x2, x1);
         let x3 = self.sub_nonnative(&s_squared, &x_sum);
-        let x_diff = self.sub_nonnative(&x1, &x3);
+        let x_diff = self.sub_nonnative(x1, &x3);
         let prod = self.mul_nonnative(&s, &x_diff);
-        let y3 = self.sub_nonnative(&prod, &y1);
+        let y3 = self.sub_nonnative(&prod, y1);
 
         AffinePointTarget { x: x3, y: y3 }
     }

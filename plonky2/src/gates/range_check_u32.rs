@@ -141,7 +141,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
         _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = U32RangeCheckGenerator {
-            gate: self.clone(),
+            gate: *self,
             gate_index,
         };
         vec![Box::new(gen.adapter())]

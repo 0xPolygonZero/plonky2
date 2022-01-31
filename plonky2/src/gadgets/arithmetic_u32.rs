@@ -214,13 +214,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let x = witness.get_target(self.x.clone());
+        let x = witness.get_target(self.x);
         let x_u64 = x.to_canonical_u64();
         let low = x_u64 as u32;
         let high = (x_u64 >> 32) as u32;
 
-        out_buffer.set_u32_target(self.low.clone(), low);
-        out_buffer.set_u32_target(self.high.clone(), high);
+        out_buffer.set_u32_target(self.low, low);
+        out_buffer.set_u32_target(self.high, high);
     }
 }
 
