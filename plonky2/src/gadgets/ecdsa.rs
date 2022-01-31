@@ -60,6 +60,7 @@ mod tests {
     use crate::plonk::verifier::verify;
 
     #[test]
+    #[ignore]
     fn test_ecdsa_circuit() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
