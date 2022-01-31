@@ -10,7 +10,7 @@ use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::target::Target;
+use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartialWitness, PartitionWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
@@ -161,12 +161,17 @@ impl<F: Field> GeneratedValues<F> {
         self.target_values.push((target, value))
     }
 
-    fn set_u32_target(&mut self, target: U32Target, value: u32) {
+    pub fn set_bool_target(&mut self, target: BoolTarget, value: bool) {
+        self.set_target(target.target, F::from_bool(value))
+    }
+
+    pub fn set_u32_target(&mut self, target: U32Target, value: u32) {
         self.set_target(target.0, F::from_canonical_u32(value))
     }
 
     pub fn set_biguint_target(&mut self, target: BigUintTarget, value: BigUint) {
         let mut limbs = value.to_u32_digits();
+
         assert!(target.num_limbs() >= limbs.len());
 
         limbs.resize(target.num_limbs(), 0);

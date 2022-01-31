@@ -16,6 +16,7 @@ use crate::gadgets::arithmetic::BaseArithmeticOperation;
 use crate::gadgets::arithmetic_extension::ExtensionArithmeticOperation;
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
+use crate::gates::add_many_u32::U32AddManyGate;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::arithmetic_u32::U32ArithmeticGate;
@@ -203,6 +204,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         BoolTarget::new_unsafe(self.add_virtual_target())
     }
 
+    pub fn add_virtual_bool_target_safe(&mut self) -> BoolTarget {
+        let b = BoolTarget::new_unsafe(self.add_virtual_target());
+        self.assert_bool(b);
+        b
+    }
+
     /// Adds a gate to the circuit, and returns its index.
     pub fn add_gate<G: Gate<F, D>>(&mut self, gate_type: G, constants: Vec<F>) -> usize {
         self.check_gate_compatibility(&gate_type);
@@ -233,7 +240,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn check_gate_compatibility<G: Gate<F, D>>(&self, gate: &G) {
         assert!(
             gate.num_wires() <= self.config.num_wires,
-            "{:?} requires {} wires, but our GateConfig has only {}",
+            "{:?} requires {} wires, but our CircuitConfig has only {}",
             gate.id(),
             gate.num_wires(),
             self.config.num_wires
@@ -654,14 +661,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let subgroup = F::two_adic_subgroup(degree_bits);
 
         let constant_vecs = timed!(
-            &mut timing,
+            timing,
             "generate constant polynomials",
             self.constant_polys(&prefixed_gates, num_constants)
         );
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let (sigma_vecs, forest) = timed!(
-            &mut timing,
+            timing,
             "generate sigma polynomials",
             self.sigma_vecs(&k_is, &subgroup)
         );
@@ -816,9 +823,12 @@ pub struct BatchedGates<F: RichField + Extendable<D>, const D: usize> {
     /// of switches
     pub(crate) current_switch_gates: Vec<Option<(SwitchGate<F, D>, usize, usize)>>,
 
+    /// A map `n -> (g, i)` from `n` number of addends to an available `U32AddManyGate` of that size with gate
+    /// index `g` and already using `i` random accesses.
+    pub(crate) free_u32_add_many: HashMap<usize, (usize, usize)>,
+
     /// The `U32ArithmeticGate` currently being filled (so new u32 arithmetic operations will be added to this gate before creating a new one)
     pub(crate) current_u32_arithmetic_gate: Option<(usize, usize)>,
-
     /// The `U32SubtractionGate` currently being filled (so new u32 subtraction operations will be added to this gate before creating a new one)
     pub(crate) current_u32_subtraction_gate: Option<(usize, usize)>,
 
@@ -834,6 +844,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BatchedGates<F, D> {
             free_mul: HashMap::new(),
             free_random_access: HashMap::new(),
             current_switch_gates: Vec::new(),
+            free_u32_add_many: HashMap::new(),
             current_u32_arithmetic_gate: None,
             current_u32_subtraction_gate: None,
             free_constant: None,
@@ -931,8 +942,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (gate, i)
     }
 
-    /// Finds the last available random access gate with the given `vec_size` or add one if there aren't any.
-    /// Returns `(g,i)` such that there is a random access gate with the given `vec_size` at index
+    /// Finds the last available random access gate with the given `bits` or adds one if there aren't any.
+    /// Returns `(g,i)` such that there is a random access gate for the given `bits` at index
     /// `g` and the gate's `i`-th random access is available.
     pub(crate) fn find_random_access_gate(&mut self, bits: usize) -> (usize, usize) {
         let (gate, i) = self
@@ -992,6 +1003,35 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         (gate, gate_index, next_copy)
+    }
+
+    /// Finds the last available U32 add-many gate with the given `num_addends` or adds one if there aren't any.
+    /// Returns `(g,i)` such that there is a `U32AddManyGate` for the given `num_addends` at index
+    /// `g` and the gate's `i`-th copy is available.
+    pub(crate) fn find_u32_add_many_gate(&mut self, num_addends: usize) -> (usize, usize) {
+        let (gate, i) = self
+            .batched_gates
+            .free_u32_add_many
+            .get(&num_addends)
+            .copied()
+            .unwrap_or_else(|| {
+                let gate = self.add_gate(
+                    U32AddManyGate::new_from_config(&self.config, num_addends),
+                    vec![],
+                );
+                (gate, 0)
+            });
+
+        // Update `free_u32_add_many` with new values.
+        if i + 1 < U32AddManyGate::<F, D>::new_from_config(&self.config, num_addends).num_ops {
+            self.batched_gates
+                .free_u32_add_many
+                .insert(num_addends, (gate, i + 1));
+        } else {
+            self.batched_gates.free_u32_add_many.remove(&num_addends);
+        }
+
+        (gate, i)
     }
 
     pub(crate) fn find_u32_arithmetic_gate(&mut self) -> (usize, usize) {
@@ -1140,6 +1180,28 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// Fill the remaining unused u32 add-many operations with zeros, so that all
+    /// `U32AddManyGenerator`s are run.
+    fn fill_u32_add_many_gates(&mut self) {
+        let zero = self.zero_u32();
+        for (num_addends, (_, i)) in self.batched_gates.free_u32_add_many.clone() {
+            let max_copies =
+                U32AddManyGate::<F, D>::new_from_config(&self.config, num_addends).num_ops;
+            for _ in i..max_copies {
+                let gate = U32AddManyGate::<F, D>::new_from_config(&self.config, num_addends);
+                let (gate_index, copy) = self.find_u32_add_many_gate(num_addends);
+
+                for j in 0..num_addends {
+                    self.connect(
+                        Target::wire(gate_index, gate.wire_ith_op_jth_addend(copy, j)),
+                        zero.0,
+                    );
+                }
+                self.connect(Target::wire(gate_index, gate.wire_ith_carry(copy)), zero.0);
+            }
+        }
+    }
+
     /// Fill the remaining unused U32 arithmetic operations with zeros, so that all
     /// `U32ArithmeticGenerator`s are run.
     fn fill_u32_arithmetic_gates(&mut self) {
@@ -1172,6 +1234,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.fill_mul_gates();
         self.fill_random_access_gates();
         self.fill_switch_gates();
+        self.fill_u32_add_many_gates();
         self.fill_u32_arithmetic_gates();
         self.fill_u32_subtraction_gates();
     }

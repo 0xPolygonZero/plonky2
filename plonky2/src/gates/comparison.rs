@@ -658,7 +658,7 @@ mod tests {
             v.append(&mut intermediate_values);
             v.append(&mut msd_bits);
 
-            v.iter().map(|&x| x.into()).collect::<Vec<_>>()
+            v.iter().map(|&x| x.into()).collect()
         };
 
         let mut rng = rand::thread_rng();

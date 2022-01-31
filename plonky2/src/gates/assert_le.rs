@@ -578,7 +578,7 @@ mod tests {
             v.append(&mut chunks_equal);
             v.append(&mut intermediate_values);
 
-            v.iter().map(|&x| x.into()).collect::<Vec<_>>()
+            v.iter().map(|&x| x.into()).collect()
         };
 
         let mut rng = rand::thread_rng();
