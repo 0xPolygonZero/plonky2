@@ -113,7 +113,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         builder: &mut CircuitBuilder<F, D>,
         mut vars: EvaluationTargets<D>,
         prefix: &[bool],
-        combined_gate_constraints: &mut Vec<ExtensionTarget<D>>,
+        combined_gate_constraints: &mut [ExtensionTarget<D>],
     ) {
         let filter = compute_filter_recursively(builder, prefix, vars.local_constants);
         vars.remove_prefix(prefix);

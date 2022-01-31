@@ -661,14 +661,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let subgroup = F::two_adic_subgroup(degree_bits);
 
         let constant_vecs = timed!(
-            &mut timing,
+            timing,
             "generate constant polynomials",
             self.constant_polys(&prefixed_gates, num_constants)
         );
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let (sigma_vecs, forest) = timed!(
-            &mut timing,
+            timing,
             "generate sigma polynomials",
             self.sigma_vecs(&k_is, &subgroup)
         );
