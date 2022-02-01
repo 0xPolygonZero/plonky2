@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use num::BigUint;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::Field;
+use plonky2_field::field_types::{Field, PrimeField};
 
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
@@ -175,7 +175,7 @@ impl<F: Field> GeneratedValues<F> {
         }
     }
 
-    pub fn set_nonnative_target<FF: Field>(&mut self, target: NonNativeTarget<FF>, value: FF) {
+    pub fn set_nonnative_target<FF: PrimeField>(&mut self, target: NonNativeTarget<FF>, value: FF) {
         self.set_biguint_target(target.value, value.to_biguint())
     }
 

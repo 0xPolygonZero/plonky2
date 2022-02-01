@@ -1,4 +1,4 @@
-use crate::field_types::PrimeField;
+use crate::field_types::Field64;
 
 /// This is a 'safe' iteration for the modular inversion algorithm. It
 /// is safe in the sense that it will produce the right answer even
@@ -63,7 +63,7 @@ unsafe fn unsafe_iteration(f: &mut u64, g: &mut u64, c: &mut i128, d: &mut i128,
 /// Elliptic and Hyperelliptic Cryptography, Algorithms 11.6
 /// and 11.12.
 #[allow(clippy::many_single_char_names)]
-pub(crate) fn try_inverse_u64<F: PrimeField>(x: &F) -> Option<F> {
+pub(crate) fn try_inverse_u64<F: Field64>(x: &F) -> Option<F> {
     let mut f = x.to_noncanonical_u64();
     let mut g = F::ORDER;
     // NB: These two are very rarely such that their absolute

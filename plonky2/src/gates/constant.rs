@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::Field;
+use plonky2_field::field_types::PrimeField;
 use plonky2_field::packed_field::PackedField;
 
 use crate::gates::gate::Gate;
@@ -117,13 +117,13 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
 }
 
 #[derive(Debug)]
-struct ConstantGenerator<F: Field> {
+struct ConstantGenerator<F: PrimeField> {
     gate_index: usize,
     gate: ConstantGate,
     constants: Vec<F>,
 }
 
-impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
+impl<F: PrimeField> SimpleGenerator<F> for ConstantGenerator<F> {
     fn dependencies(&self) -> Vec<Target> {
         Vec::new()
     }

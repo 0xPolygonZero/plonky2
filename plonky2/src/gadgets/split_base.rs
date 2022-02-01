@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use itertools::Itertools;
 use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::Field;
+use plonky2_field::field_types::PrimeField;
 
 use crate::gates::base_sum::BaseSumGate;
 use crate::hash::hash_types::RichField;
@@ -80,7 +80,7 @@ struct BaseSumGenerator<const B: usize> {
     limbs: Vec<BoolTarget>,
 }
 
-impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
+impl<F: PrimeField, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
     fn dependencies(&self) -> Vec<Target> {
         self.limbs.iter().map(|b| b.target).collect()
     }

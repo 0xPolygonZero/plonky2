@@ -1,7 +1,8 @@
 use std::marker::PhantomData;
 
 use num::{BigUint, Zero};
-use plonky2_field::{extension_field::Extendable, field_types::Field};
+use plonky2_field::extension_field::Extendable;
+use plonky2_field::field_types::PrimeField;
 use plonky2_util::ceil_div_usize;
 
 use crate::gadgets::arithmetic_u32::U32Target;
@@ -12,35 +13,42 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
+/// A prime field element, where the field `FF` may be distinct from our native witness field.
 #[derive(Clone, Debug)]
-pub struct NonNativeTarget<FF: Field> {
+pub struct NonNativeTarget<FF: PrimeField> {
     pub(crate) value: BigUintTarget,
     _phantom: PhantomData<FF>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    fn num_nonnative_limbs<FF: Field>() -> usize {
+    fn num_nonnative_limbs<FF: PrimeField>() -> usize {
         ceil_div_usize(FF::BITS, 32)
     }
 
-    pub fn biguint_to_nonnative<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
+    pub fn biguint_to_nonnative<FF: PrimeField>(
+        &mut self,
+        x: &BigUintTarget,
+    ) -> NonNativeTarget<FF> {
         NonNativeTarget {
             value: x.clone(),
             _phantom: PhantomData,
         }
     }
 
-    pub fn nonnative_to_biguint<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> BigUintTarget {
+    pub fn nonnative_to_biguint<FF: PrimeField>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+    ) -> BigUintTarget {
         x.value.clone()
     }
 
-    pub fn constant_nonnative<FF: Field>(&mut self, x: FF) -> NonNativeTarget<FF> {
+    pub fn constant_nonnative<FF: PrimeField>(&mut self, x: FF) -> NonNativeTarget<FF> {
         let x_biguint = self.constant_biguint(&x.to_biguint());
         self.biguint_to_nonnative(&x_biguint)
     }
 
     // Assert that two NonNativeTarget's, both assumed to be in reduced form, are equal.
-    pub fn connect_nonnative<FF: Field>(
+    pub fn connect_nonnative<FF: PrimeField>(
         &mut self,
         lhs: &NonNativeTarget<FF>,
         rhs: &NonNativeTarget<FF>,
@@ -48,7 +56,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect_biguint(&lhs.value, &rhs.value);
     }
 
-    pub fn add_virtual_nonnative_target<FF: Field>(&mut self) -> NonNativeTarget<FF> {
+    pub fn add_virtual_nonnative_target<FF: PrimeField>(&mut self) -> NonNativeTarget<FF> {
         let num_limbs = Self::num_nonnative_limbs::<FF>();
         let value = self.add_virtual_biguint_target(num_limbs);
 
@@ -59,7 +67,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     // Add two `NonNativeTarget`s.
-    pub fn add_nonnative<FF: Field>(
+    pub fn add_nonnative<FF: PrimeField>(
         &mut self,
         a: &NonNativeTarget<FF>,
         b: &NonNativeTarget<FF>,
@@ -71,7 +79,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     // Subtract two `NonNativeTarget`s.
-    pub fn sub_nonnative<FF: Field>(
+    pub fn sub_nonnative<FF: PrimeField>(
         &mut self,
         a: &NonNativeTarget<FF>,
         b: &NonNativeTarget<FF>,
@@ -84,7 +92,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.reduce(&result)
     }
 
-    pub fn mul_nonnative<FF: Field>(
+    pub fn mul_nonnative<FF: PrimeField>(
         &mut self,
         a: &NonNativeTarget<FF>,
         b: &NonNativeTarget<FF>,
@@ -94,14 +102,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.reduce(&result)
     }
 
-    pub fn neg_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
+    pub fn neg_nonnative<FF: PrimeField>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF> {
         let zero_target = self.constant_biguint(&BigUint::zero());
         let zero_ff = self.biguint_to_nonnative(&zero_target);
 
         self.sub_nonnative(&zero_ff, x)
     }
 
-    pub fn inv_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
+    pub fn inv_nonnative<FF: PrimeField>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF> {
         let num_limbs = x.value.num_limbs();
         let inv_biguint = self.add_virtual_biguint_target(num_limbs);
         let inv = NonNativeTarget::<FF> {
@@ -122,7 +136,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         inv
     }
 
-    pub fn div_rem_nonnative<FF: Field>(
+    pub fn div_rem_nonnative<FF: PrimeField>(
         &mut self,
         x: &NonNativeTarget<FF>,
         y: &NonNativeTarget<FF>,
@@ -137,7 +151,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Returns `x % |FF|` as a `NonNativeTarget`.
-    fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
+    fn reduce<FF: PrimeField>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
         let modulus = FF::order();
         let order_target = self.constant_biguint(&modulus);
         let value = self.rem_biguint(x, &order_target);
@@ -149,12 +163,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     #[allow(dead_code)]
-    fn reduce_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
+    fn reduce_nonnative<FF: PrimeField>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
         let x_biguint = self.nonnative_to_biguint(x);
         self.reduce(&x_biguint)
     }
 
-    pub fn bool_to_nonnative<FF: Field>(&mut self, b: &BoolTarget) -> NonNativeTarget<FF> {
+    pub fn bool_to_nonnative<FF: PrimeField>(&mut self, b: &BoolTarget) -> NonNativeTarget<FF> {
         let limbs = vec![U32Target(b.target)];
         let value = BigUintTarget { limbs };
 
@@ -165,7 +179,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     // Split a nonnative field element to bits.
-    pub fn split_nonnative_to_bits<FF: Field>(
+    pub fn split_nonnative_to_bits<FF: PrimeField>(
         &mut self,
         x: &NonNativeTarget<FF>,
     ) -> Vec<BoolTarget> {
@@ -188,13 +202,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 #[derive(Debug)]
-struct NonNativeInverseGenerator<F: RichField + Extendable<D>, const D: usize, FF: Field> {
+struct NonNativeInverseGenerator<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> {
     x: NonNativeTarget<FF>,
     inv: NonNativeTarget<FF>,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize, FF: Field> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerator<F>
     for NonNativeInverseGenerator<F, D, FF>
 {
     fn dependencies(&self) -> Vec<Target> {

@@ -10,7 +10,7 @@ use num::{Integer, One};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::field_types::Field;
+use crate::field_types::{Field, PrimeField};
 
 /// The base field of the secp256k1 elliptic curve.
 ///
@@ -107,25 +107,6 @@ impl Field for Secp256K1Base {
         Some(self.exp_biguint(&(Self::order() - BigUint::one() - BigUint::one())))
     }
 
-    fn to_biguint(&self) -> BigUint {
-        let mut result = biguint_from_array(self.0);
-        if result >= Self::order() {
-            result -= Self::order();
-        }
-        result
-    }
-
-    fn from_biguint(val: BigUint) -> Self {
-        Self(
-            val.to_u64_digits()
-                .into_iter()
-                .pad_using(4, |_| 0)
-                .collect::<Vec<_>>()[..]
-                .try_into()
-                .expect("error converting to u64 array"),
-        )
-    }
-
     #[inline]
     fn from_canonical_u64(n: u64) -> Self {
         Self([n, 0, 0, 0])
@@ -143,6 +124,27 @@ impl Field for Secp256K1Base {
 
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self::from_biguint(rng.gen_biguint_below(&Self::order()))
+    }
+}
+
+impl PrimeField for Secp256K1Base {
+    fn from_biguint(val: BigUint) -> Self {
+        Self(
+            val.to_u64_digits()
+                .into_iter()
+                .pad_using(4, |_| 0)
+                .collect::<Vec<_>>()[..]
+                .try_into()
+                .expect("error converting to u64 array"),
+        )
+    }
+
+    fn to_biguint(&self) -> BigUint {
+        let mut result = biguint_from_array(self.0);
+        if result >= Self::order() {
+            result -= Self::order();
+        }
+        result
     }
 }
 

@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::extension_field::quadratic::QuadraticExtension;
 use crate::extension_field::quartic::QuarticExtension;
 use crate::extension_field::{Extendable, Frobenius};
-use crate::field_types::{Field, PrimeField};
+use crate::field_types::{Field, Field64, PrimeField};
 use crate::inversion::try_inverse_u64;
 
 const EPSILON: u64 = (1 << 32) - 1;
@@ -94,14 +94,6 @@ impl Field for GoldilocksField {
         try_inverse_u64(self)
     }
 
-    fn from_biguint(n: BigUint) -> Self {
-        Self(n.mod_floor(&Self::order()).to_u64_digits()[0])
-    }
-
-    fn to_biguint(&self) -> BigUint {
-        self.to_canonical_u64().into()
-    }
-
     #[inline]
     fn from_canonical_u64(n: u64) -> Self {
         debug_assert!(n < Self::ORDER);
@@ -124,6 +116,16 @@ impl Field for GoldilocksField {
 }
 
 impl PrimeField for GoldilocksField {
+    fn from_biguint(n: BigUint) -> Self {
+        Self(n.mod_floor(&Self::order()).to_u64_digits()[0])
+    }
+
+    fn to_biguint(&self) -> BigUint {
+        self.to_canonical_u64().into()
+    }
+}
+
+impl Field64 for GoldilocksField {
     const ORDER: u64 = 0xFFFFFFFF00000001;
 
     #[inline]

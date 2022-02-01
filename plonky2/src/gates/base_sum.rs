@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::{Field, PrimeField};
+use plonky2_field::field_types::{Field, Field64};
 use plonky2_field::packed_field::PackedField;
 
 use crate::gates::gate::Gate;
@@ -31,7 +31,7 @@ impl<const B: usize> BaseSumGate<B> {
         Self { num_limbs }
     }
 
-    pub fn new_from_config<F: PrimeField>(config: &CircuitConfig) -> Self {
+    pub fn new_from_config<F: Field64>(config: &CircuitConfig) -> Self {
         let num_limbs = F::BITS.min(config.num_routed_wires - Self::START_LIMBS);
         Self::new(num_limbs)
     }

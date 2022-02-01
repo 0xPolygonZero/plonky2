@@ -4,7 +4,6 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 
 use num::bigint::BigUint;
 use num::traits::Pow;
-use num::Integer;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -93,26 +92,6 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
             &a_pow_r_minus_1,
             a_pow_r.0[0].inverse(),
         ))
-    }
-
-    fn from_biguint(n: BigUint) -> Self {
-        let (rest, first) = n.div_rem(&F::order());
-        let (rest, second) = rest.div_rem(&F::order());
-        let (rest, third) = rest.div_rem(&F::order());
-        Self([
-            F::from_biguint(first),
-            F::from_biguint(second),
-            F::from_biguint(third),
-            F::from_biguint(rest),
-        ])
-    }
-
-    fn to_biguint(&self) -> BigUint {
-        let mut result = self.0[3].to_biguint();
-        result = result * F::order() + self.0[2].to_biguint();
-        result = result * F::order() + self.0[1].to_biguint();
-        result = result * F::order() + self.0[0].to_biguint();
-        result
     }
 
     fn from_canonical_u64(n: u64) -> Self {
