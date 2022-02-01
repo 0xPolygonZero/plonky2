@@ -57,6 +57,11 @@ impl<F: Field> PolynomialValues<F> {
         fft_with_options(coeffs, Some(rate_bits), None)
     }
 
+    pub fn coset_lde(self, rate_bits: usize) -> Self {
+        let coeffs = ifft(self).lde(rate_bits);
+        coeffs.coset_fft_with_options(F::coset_shift(), Some(rate_bits), None)
+    }
+
     pub fn degree(&self) -> usize {
         self.degree_plus_one()
             .checked_sub(1)

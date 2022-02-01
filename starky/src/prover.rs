@@ -1,6 +1,7 @@
 use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2::field::extension_field::Extendable;
+use plonky2::field::extension_field::FieldExtension;
 use plonky2::field::field_types::Field;
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
@@ -169,13 +170,13 @@ where
     let lagrange_first = {
         let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
         evals.values[0] = F::ONE;
-        evals.lde(rate_bits)
+        evals.coset_lde(rate_bits)
     };
     // Evaluation of the last Lagrange polynomial on the LDE domain.
     let lagrange_last = {
         let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
         evals.values[degree - 1] = F::ONE;
-        evals.lde(rate_bits)
+        evals.coset_lde(rate_bits)
     };
 
     let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, rate_bits);
