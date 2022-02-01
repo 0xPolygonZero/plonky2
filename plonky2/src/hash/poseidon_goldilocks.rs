@@ -8,8 +8,184 @@ use plonky2_field::goldilocks_field::GoldilocksField;
 
 use crate::hash::poseidon::{Poseidon, N_PARTIAL_ROUNDS};
 
+/// Length-2 FFT from the reals. Takes two unsigned reals. Returns two signed reals.
+#[inline(always)]
+const fn fft2r([x0, x1]: [u64; 2]) -> [i64; 2] {
+    [
+        x0 as i64 + x1 as i64,
+        x0 as i64 - x1 as i64,
+    ]
+}
+
+/// Length-2 IFFT from to reals, including normalization. Takes two signed reals. Returns two
+/// unsigned reals.
+#[inline(always)]
+const fn ifft2r([x0, x1]: [i64; 2]) -> [u64; 2] {
+    [
+        (x0 + x1) as u64 >> 1,
+        (x0 - x1) as u64 >> 1,
+    ]
+}
+
+/// Length-4 FFT from the reals. Takes four unsigned reals. Returns two reals and a complex number.
+///
+/// The returned value is (a, b, c), where a and c are real and b is a complex number. The actual
+/// FFT is [a, b, c, conjugate(b)]. To avoid redundancy, we do not compute the imaginary parts of a
+/// and c (must be 0) or the conjugate of b.
+#[inline(always)]
+const fn fft4r([x0, x1, x2, x3]: [u64; 4]) -> (i64, (i64, i64), i64) {
+    let [y0, y2] = fft2r([x0, x2]);
+    let [y1, y3] = fft2r([x1, x3]);
+    let z0 = y0 + y1;
+    let z1 = (y2, -y3);
+    let z2 = y0 - y1;
+    (z0, z1, z2)
+}
+
+/// Length-4 IFFT to the reals, including normalization. Takes two reals and a complex number.
+/// Returns four unsigned reals.
+///
+/// The argument is value is (a, b, c), where a and c are real and b is a complex number. The actual
+/// IFFT is performed on [a, b, c, d]. To avoid redundancy, this function does not accept d (must be
+/// conjugate(b) to produce real results) or the imaginary part of a and c (must be 0).
+#[inline(always)]
+const fn ifft4r((z0, z1, z2): (i64, (i64, i64), i64)) -> [u64; 4] {
+    let y0 = (z0 + z2) >> 1;
+    let y1 = (z0 - z2) >> 1;
+    let y2 = z1.0;
+    let y3 = -z1.1;
+    let [x0, x2] = ifft2r([y0, y2]);
+    let [x1, x3] = ifft2r([y1, y3]);
+    [x0, x1, x2, x3]
+}
+
+/// Augment complex number with sum and difference. For precomputation on the MDS matrix.
+const fn get_sum_diff((mr, mi): (i64, i64)) -> (i64, i64, i64, i64) {
+    let ms = mi + mr;
+    let md = mi - mr;
+    (mr, mi, ms, md)
+}
+
+/// Precompute the three length-4 FFTs on the MDS matrix.
+const fn make_mds_fft() -> ([i64; 3], [(i64, i64, i64, i64); 3], [i64; 3]) {
+    let (m0, m1, m2) = fft4r([1, 8, 2, 1]);
+    let (m4, m5, m6) = fft4r([1024, 4096, 32, 2]);
+    let (m8, m9, m10) = fft4r([65536, 256, 8, 1]);
+    (
+        [m0, m4, m8],
+        [get_sum_diff(m1), get_sum_diff(m5), get_sum_diff(m9)],
+        [m2, m6, m10],
+    )
+}
+const MDS_FFT0: [i64; 3] = make_mds_fft().0;
+const MDS_FFT1: [(i64, i64, i64, i64); 3] = make_mds_fft().1;
+const MDS_FFT2: [i64; 3] = make_mds_fft().2;
+
+/// First matrix multiplication. Inputs and results are real.
+#[inline(always)]
+const fn matmul0([x0, x1, x2]: [i64; 3]) -> [i64; 3] {
+    let [m0, m1, m2] = MDS_FFT0;
+    [
+        m0 * x0 + m2 * x1 + m1 * x2,
+        m1 * x0 + m0 * x1 + m2 * x2,
+        m2 * x0 + m1 * x1 + m0 * x2,
+    ]
+}
+
+/// Second matrix multiplication. Inputs and results are complex.
+#[inline(always)]
+const fn matmul1([(x0r, x0i), (x1r, x1i), (x2r, x2i)]: [(i64, i64); 3]) -> [(i64, i64); 3] {
+    // Complex multiplication with fewer real multiplies. See
+    // https://en.wikipedia.org/wiki/Multiplication_algorithm#Complex_multiplication_algorithm
+
+    let [(m0r, m0i, m0s, m0d), (m1r, m1i, m1s, m1d), (m2r, m2i, m2s, m2d)] = MDS_FFT1;
+
+    let [x0s, x1s, x2s] = [x0r + x0i, x1r + x1i, x2r + x2i];
+
+    let [a0, a1, a2] = [
+        m0r * x0s + m2i * x1s + m1i * x2s,
+        m1r * x0s + m0r * x1s + m2i * x2s,
+        m2r * x0s + m1r * x1s + m0r * x2s,
+    ];
+    let [b0, b1, b2] = [
+        m0d * x0r - m2s * x1r - m1s * x2r,
+        m1d * x0r + m0d * x1r - m2s * x2r,
+        m2d * x0r + m1d * x1r + m0d * x2r,
+    ];
+    let [c0, c1, c2] = [
+        m0s * x0i + m2d * x1i + m1d * x2i,
+        m1s * x0i + m0s * x1i + m2d * x2i,
+        m2s * x0i + m1s * x1i + m0s * x2i,
+    ];
+
+    [
+        (a0 - c0, a0 + b0),
+        (a1 - c1, a1 + b1),
+        (a2 - c2, a2 + b2),
+    ]
+}
+
+/// Third matrix multiplication. Inputs and results are real.
+#[inline(always)]
+const fn matmul2([x0, x1, x2]: [i64; 3]) -> [i64; 3] {
+    let [m0, m1, m2] = MDS_FFT2;
+    [
+        m0 * x0 - m2 * x1 - m1 * x2,
+        m1 * x0 + m0 * x1 - m2 * x2,
+        m2 * x0 + m1 * x1 + m0 * x2,
+    ]
+}
+
+// The fourth matrix multiplication is not done explicitly. Its results are the complex conjugates
+// of matmul1.
+
+// MDS matrix multiplication where the unreduced results fit in u64.
+#[inline(always)]
+fn mds_half(x: [u64; 12]) -> [u64; 12] {
+    let [x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11] = x;
+    // `s0`, `s2`, ..., `s8`, `s10` are real.
+    // `s3`, `s7`, `s11` are implicit as complex conjugates of `s1`, `s5`, `s9`, resp.
+    let (s0, s1, s2) = fft4r([x0, x3, x6, x9]);
+    let (s4, s5, s6) = fft4r([x1, x4, x7, x10]);
+    let (s8, s9, s10) = fft4r([x2, x5, x8, x11]);
+
+    // `t0`, `t2`, ..., `t8`, `t10` are real.
+    // `t1`, `t5`, `t9` are complex.
+    // `t3`, `t7`, `t11` are implicit as complex conjugates of `t1`, `t5`, `t9`, resp.
+    let [t0, t4, t8] = matmul0([s0, s4, s8]);
+    let [t1, t5, t9] = matmul1([s1, s5, s9]);
+    let [t2, t6, t10] = matmul2([s2, s6, s10]);
+
+    let [y0, y3, y6, y9] = ifft4r((t0, t1, t2));
+    let [y1, y4, y7, y10] = ifft4r((t4, t5, t6));
+    let [y2, y5, y8, y11] = ifft4r((t8, t9, t10));
+
+    [y0, y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11]
+}
+
+use plonky2_field::field_types::Field;
+
 #[rustfmt::skip]
 impl Poseidon for GoldilocksField {
+    #[inline(always)]
+    fn mds_layer(state: &[Self; 12]) -> [Self; 12] {
+        let mut state_hi = [0u64; 12];
+        let mut state_lo = [0u64; 12];
+        for i in 0..12 {
+            let s = state[i].0;
+            state_hi[i] = s >> 32;
+            state_lo[i] = (s as u32) as u64;
+        }
+        let mds_hi = mds_half(state_hi);
+        let mds_lo = mds_half(state_lo);
+        let mut result = [Self::default(); 12];
+        for i in 0..12 {
+            let full = mds_lo[i] as u128 + ((mds_hi[i] as u128) << 32);
+            result[i] = Self::from_noncanonical_u96((full as u64, (full >> 64) as u32));
+        }
+        result
+    }
+
     // The MDS matrix we use is the circulant matrix with first row given by the vector
     // [ 2^x for x in MDS_MATRIX_EXPS] = [1, 1, 2, 1, 8, 32, 2, 256, 4096, 8, 65536, 1024]
     //
@@ -211,61 +387,61 @@ impl Poseidon for GoldilocksField {
          0x2c3887c29246a985, 0x863ca0992eae09b0, 0xb8dee12bf8e622dc, ],
     ];
 
-    #[cfg(all(target_arch="x86_64", target_feature="avx2", target_feature="bmi2"))]
-    #[inline]
-    fn poseidon(input: [Self; 12]) -> [Self; 12] {
-        unsafe {
-            crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::poseidon(&input)
-        }
-    }
+    // #[cfg(all(target_arch="x86_64", target_feature="avx2", target_feature="bmi2"))]
+    // #[inline]
+    // fn poseidon(input: [Self; 12]) -> [Self; 12] {
+    //     unsafe {
+    //         crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::poseidon(&input)
+    //     }
+    // }
 
-    #[cfg(all(target_arch="x86_64", target_feature="avx2", target_feature="bmi2"))]
-    #[inline(always)]
-    fn constant_layer(state: &mut [Self; 12], round_ctr: usize) {
-        unsafe {
-            crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::constant_layer(state, round_ctr);
-        }
-    }
+    // #[cfg(all(target_arch="x86_64", target_feature="avx2", target_feature="bmi2"))]
+    // #[inline(always)]
+    // fn constant_layer(state: &mut [Self; 12], round_ctr: usize) {
+    //     unsafe {
+    //         crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::constant_layer(state, round_ctr);
+    //     }
+    // }
 
-    #[cfg(all(target_arch="x86_64", target_feature="avx2", target_feature="bmi2"))]
-    #[inline(always)]
-    fn sbox_layer(state: &mut [Self; 12]) {
-        unsafe {
-            crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::sbox_layer(state);
-        }
-    }
+    // #[cfg(all(target_arch="x86_64", target_feature="avx2", target_feature="bmi2"))]
+    // #[inline(always)]
+    // fn sbox_layer(state: &mut [Self; 12]) {
+    //     unsafe {
+    //         crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::sbox_layer(state);
+    //     }
+    // }
 
-    #[cfg(all(target_arch="x86_64", target_feature="avx2", target_feature="bmi2"))]
-    #[inline(always)]
-    fn mds_layer(state: &[Self; 12]) -> [Self; 12] {
-        unsafe {
-            crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::mds_layer(state)
-        }
-    }
+    // #[cfg(all(target_arch="x86_64", target_feature="avx2", target_feature="bmi2"))]
+    // #[inline(always)]
+    // fn mds_layer(state: &[Self; 12]) -> [Self; 12] {
+    //     unsafe {
+    //         crate::hash::arch::x86_64::poseidon_goldilocks_avx2_bmi2::mds_layer(state)
+    //     }
+    // }
 
-    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
-    #[inline]
-    fn poseidon(input: [Self; 12]) -> [Self; 12] {
-        unsafe {
-            crate::hash::arch::aarch64::poseidon_goldilocks_neon::poseidon(input)
-        }
-    }
+    // #[cfg(all(target_arch="aarch64", target_feature="neon"))]
+    // #[inline]
+    // fn poseidon(input: [Self; 12]) -> [Self; 12] {
+    //     unsafe {
+    //         crate::hash::arch::aarch64::poseidon_goldilocks_neon::poseidon(input)
+    //     }
+    // }
 
-    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
-    #[inline(always)]
-    fn sbox_layer(state: &mut [Self; 12]) {
-        unsafe {
-            crate::hash::arch::aarch64::poseidon_goldilocks_neon::sbox_layer(state);
-        }
-    }
+    // #[cfg(all(target_arch="aarch64", target_feature="neon"))]
+    // #[inline(always)]
+    // fn sbox_layer(state: &mut [Self; 12]) {
+    //     unsafe {
+    //         crate::hash::arch::aarch64::poseidon_goldilocks_neon::sbox_layer(state);
+    //     }
+    // }
 
-    #[cfg(all(target_arch="aarch64", target_feature="neon"))]
-    #[inline(always)]
-    fn mds_layer(state: &[Self; 12]) -> [Self; 12] {
-        unsafe {
-            crate::hash::arch::aarch64::poseidon_goldilocks_neon::mds_layer(state)
-        }
-    }
+    // #[cfg(all(target_arch="aarch64", target_feature="neon"))]
+    // #[inline(always)]
+    // fn mds_layer(state: &[Self; 12]) -> [Self; 12] {
+    //     unsafe {
+    //         crate::hash::arch::aarch64::poseidon_goldilocks_neon::mds_layer(state)
+    //     }
+    // }
 }
 
 #[cfg(test)]
