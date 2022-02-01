@@ -10,6 +10,7 @@ use plonky2::plonk::config::GenericConfig;
 use crate::config::StarkConfig;
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProofWithPublicInputs};
 
+#[allow(clippy::too_many_arguments)]
 fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     trace_cap: &MerkleCap<F, C::Hasher>,
     quotient_polys_cap: &MerkleCap<F, C::Hasher>,
@@ -61,7 +62,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .fri_query_indices)
     }
 
-    /// Computes all Fiat-Shamir challenges used in the Plonk proof.
+    /// Computes all Fiat-Shamir challenges used in the STARK proof.
     pub(crate) fn get_challenges(
         &self,
         config: &StarkConfig,
@@ -93,6 +94,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
+// TODO: Deal with the compressed stuff.
 // impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 //     CompressedProofWithPublicInputs<F, C, D>
 // {

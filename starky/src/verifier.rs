@@ -13,7 +13,7 @@ use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProof
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationVars;
 
-pub(crate) fn verify<
+pub fn verify<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
@@ -22,14 +22,14 @@ pub(crate) fn verify<
     stark: S,
     proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
     config: &StarkConfig,
-    degree_bits: usize,
 ) -> Result<()>
 where
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
 {
+    let degree_bits = log2_strict(recover_degree(&proof_with_pis.proof, config));
     let challenges = proof_with_pis.get_challenges(config, degree_bits)?;
-    verify_with_challenges(stark, proof_with_pis, challenges, config)
+    verify_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
 }
 
 pub(crate) fn verify_with_challenges<
@@ -41,6 +41,7 @@ pub(crate) fn verify_with_challenges<
     stark: S,
     proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
     challenges: StarkProofChallenges<F, D>,
+    degree_bits: usize,
     config: &StarkConfig,
 ) -> Result<()>
 where
@@ -51,9 +52,6 @@ where
         proof,
         public_inputs,
     } = proof_with_pis;
-    let degree = recover_degree(&proof, config);
-    let degree_bits = log2_strict(degree);
-
     let local_values = &proof.openings.local_values;
     let next_values = &proof.openings.local_values;
     let StarkOpeningSet {
@@ -80,17 +78,16 @@ where
             .iter()
             .map(|&alpha| F::Extension::from_basefield(alpha))
             .collect::<Vec<_>>(),
-        l_1.into(),
-        l_last.into(),
+        l_1,
+        l_last,
     );
     stark.eval_ext(vars, &mut consumer);
     let acc = consumer.accumulators();
 
-    // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
+    // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x) / (x - last)`, at zeta.
     let quotient_polys_zeta = &proof.openings.quotient_polys;
     let zeta_pow_deg = challenges.stark_zeta.exp_power_of_2(degree_bits);
     let z_h_zeta = zeta_pow_deg - F::Extension::ONE;
-    let g = F::primitive_root_of_unity(degree_bits + config.fri_config.rate_bits);
     let last = F::primitive_root_of_unity(degree_bits).inverse();
     let z_last = challenges.stark_zeta - last.into();
     // `quotient_polys_zeta` holds `num_challenges * quotient_degree_factor` evaluations.
@@ -124,7 +121,9 @@ where
     Ok(())
 }
 
-/// Evaluate the Lagrange basis `L_1` and `L_n` at a point `x`.
+/// Evaluate the Lagrange polynomials `L_1` and `L_n` at a point `x`.
+/// `L_1(x) = (x^n - 1)/(n * (x - 1))`
+/// `L_n(x) = (x^n - 1)/(n * (g * x - 1))`, with `g` the first element of the subgroup.
 fn eval_l_1_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
     let n = 1 << log_n;
     let g = F::primitive_root_of_unity(log_n);
@@ -137,6 +136,7 @@ fn eval_l_1_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
     (z_x * invs[0], z_x * invs[1])
 }
 
+/// Recover the length of the trace from a STARK proof and a STARK config.
 fn recover_degree<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     proof: &StarkProof<F, C, D>,
     config: &StarkConfig,

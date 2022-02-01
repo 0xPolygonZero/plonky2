@@ -120,6 +120,6 @@ mod tests {
             &mut TimingTree::default(),
         )?;
 
-        verify(stark, proof, &config, 5)
+        verify(stark, proof, &config)
     }
 }

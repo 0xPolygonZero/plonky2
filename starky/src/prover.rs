@@ -20,7 +20,6 @@ use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationVars;
 
-// TODO: Deal with public inputs.
 pub fn prove<F, C, S, const D: usize>(
     stark: S,
     config: &StarkConfig,
@@ -184,6 +183,7 @@ where
     let get_at_index = |comm: &PolynomialBatch<F, C, D>, i: usize| -> [F; S::COLUMNS] {
         comm.get_lde_values(i).try_into().unwrap()
     };
+    // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();
     let coset = F::cyclic_subgroup_coset_known_order(
         F::primitive_root_of_unity(degree_bits + rate_bits),
@@ -211,6 +211,8 @@ where
             stark.eval_packed_base(vars, &mut consumer);
             // TODO: Fix this once we use a genuine `PackedField`.
             let mut constraints_evals = consumer.accumulators();
+            // We divide the constraints evaluations by `Z_H(x) / x - last`, i.e., the vanishing
+            // polynomial of `H` without it's last element.
             let denominator_inv = z_h_on_coset.eval_inverse(i);
             let z_last = coset[i] - last;
             for eval in &mut constraints_evals {
