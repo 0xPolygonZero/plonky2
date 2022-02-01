@@ -3,10 +3,8 @@ use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
 use plonky2::hash::hash_types::RichField;
-use plonky2::plonk::circuit_data::CommonCircuitData;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
-use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2_util::log2_strict;
 
 use crate::config::StarkConfig;

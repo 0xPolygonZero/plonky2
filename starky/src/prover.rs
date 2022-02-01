@@ -1,7 +1,6 @@
 use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2::field::extension_field::Extendable;
-use plonky2::field::extension_field::FieldExtension;
 use plonky2::field::field_types::Field;
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;

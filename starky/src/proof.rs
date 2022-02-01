@@ -1,13 +1,11 @@
 use plonky2::field::extension_field::Extendable;
-use plonky2::field::field_types::Field;
 use plonky2::fri::oracle::PolynomialBatch;
-use plonky2::fri::proof::{CompressedFriProof, FriProof};
+use plonky2::fri::proof::{CompressedFriProof, FriChallenges, FriProof};
 use plonky2::fri::structure::{FriOpeningBatch, FriOpenings};
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::{GenericConfig, Hasher};
-use plonky2::plonk::proof::FriChallenges;
 use rayon::prelude::*;
 
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {

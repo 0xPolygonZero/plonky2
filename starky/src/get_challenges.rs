@@ -5,8 +5,7 @@ use plonky2::fri::proof::FriProof;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::challenger::Challenger;
-use plonky2::plonk::config::{GenericConfig, Hasher};
-use plonky2::plonk::proof::FriChallenges;
+use plonky2::plonk::config::GenericConfig;
 
 use crate::config::StarkConfig;
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProofWithPublicInputs};
@@ -35,45 +34,16 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
 
     openings.observe(&mut challenger);
 
-    // Scaling factor to combine polynomials.
-    let fri_alpha = challenger.get_extension_challenge::<D>();
-
-    // Recover the random betas used in the FRI reductions.
-    let fri_betas = commit_phase_merkle_caps
-        .iter()
-        .map(|cap| {
-            challenger.observe_cap(cap);
-            challenger.get_extension_challenge::<D>()
-        })
-        .collect();
-
-    challenger.observe_extension_elements(&final_poly.coeffs);
-
-    let fri_pow_response = C::InnerHasher::hash(
-        &challenger
-            .get_hash()
-            .elements
-            .iter()
-            .copied()
-            .chain(Some(pow_witness))
-            .collect::<Vec<_>>(),
-        false,
-    )
-    .elements[0];
-
-    let fri_query_indices = (0..num_fri_queries)
-        .map(|_| challenger.get_challenge().to_canonical_u64() as usize % lde_size)
-        .collect();
-
     Ok(StarkProofChallenges {
         stark_alphas,
         stark_zeta,
-        fri_challenges: FriChallenges {
-            fri_alpha,
-            fri_betas,
-            fri_pow_response,
-            fri_query_indices,
-        },
+        fri_challenges: challenger.fri_challenges::<C, D>(
+            commit_phase_merkle_caps,
+            final_poly,
+            pow_witness,
+            degree_bits,
+            &config.fri_config,
+        ),
     })
 }
 

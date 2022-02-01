@@ -3,7 +3,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::fri::oracle::PolynomialBatch;
-use crate::fri::proof::{CompressedFriProof, FriProof, FriProofTarget};
+use crate::fri::proof::{CompressedFriProof, FriChallenges, FriProof, FriProofTarget};
 use crate::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
@@ -240,19 +240,6 @@ pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> 
     pub plonk_zeta: F::Extension,
 
     pub fri_challenges: FriChallenges<F, D>,
-}
-
-pub struct FriChallenges<F: RichField + Extendable<D>, const D: usize> {
-    // Scaling factor to combine polynomials.
-    pub fri_alpha: F::Extension,
-
-    // Betas used in the FRI commit phase reductions.
-    pub fri_betas: Vec<F::Extension>,
-
-    pub fri_pow_response: F,
-
-    // Indices at which the oracle is queried in FRI.
-    pub fri_query_indices: Vec<usize>,
 }
 
 /// Coset elements that can be inferred in the FRI reduction steps.

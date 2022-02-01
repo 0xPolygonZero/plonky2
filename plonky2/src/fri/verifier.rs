@@ -4,14 +4,13 @@ use plonky2_field::field_types::Field;
 use plonky2_field::interpolation::{barycentric_weights, interpolate};
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
-use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound};
+use crate::fri::proof::{FriChallenges, FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo, FriOpenings};
 use crate::fri::{FriConfig, FriParams};
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::verify_merkle_proof;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::config::{GenericConfig, Hasher};
-use crate::plonk::proof::{FriChallenges, OpeningSet, ProofChallenges};
 use crate::util::reducing::ReducingFactor;
 use crate::util::reverse_bits;
 

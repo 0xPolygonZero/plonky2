@@ -16,7 +16,7 @@ use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::salt_size;
-use crate::plonk::proof::{FriChallenges, FriInferredElements, ProofChallenges};
+use crate::plonk::proof::{FriInferredElements, ProofChallenges};
 
 /// Evaluations and Merkle proof produced by the prover in a FRI query step.
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
@@ -361,4 +361,17 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
             pow_witness,
         }
     }
+}
+
+pub struct FriChallenges<F: RichField + Extendable<D>, const D: usize> {
+    // Scaling factor to combine polynomials.
+    pub fri_alpha: F::Extension,
+
+    // Betas used in the FRI commit phase reductions.
+    pub fri_betas: Vec<F::Extension>,
+
+    pub fri_pow_response: F,
+
+    // Indices at which the oracle is queried in FRI.
+    pub fri_query_indices: Vec<usize>,
 }

@@ -1,10 +1,9 @@
 use std::collections::HashSet;
 
-use itertools::Itertools;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::polynomial::PolynomialCoeffs;
 
-use crate::fri::proof::{CompressedFriProof, FriProof};
+use crate::fri::proof::{CompressedFriProof, FriChallenges, FriProof};
 use crate::fri::verifier::{compute_evaluation, fri_combine_initial, PrecomputedReducedOpenings};
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_tree::MerkleCap;
@@ -12,8 +11,8 @@ use crate::iop::challenger::Challenger;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::proof::{
-    CompressedProof, CompressedProofWithPublicInputs, FriChallenges, FriInferredElements,
-    OpeningSet, Proof, ProofChallenges, ProofWithPublicInputs,
+    CompressedProof, CompressedProofWithPublicInputs, FriInferredElements, OpeningSet, Proof,
+    ProofChallenges, ProofWithPublicInputs,
 };
 use crate::util::reverse_bits;
 
@@ -30,8 +29,6 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
 ) -> anyhow::Result<ProofChallenges<F, D>> {
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
-    let num_fri_queries = config.fri_config.num_query_rounds;
-    let lde_size = common_data.lde_size();
 
     let mut challenger = Challenger::<F, C::Hasher>::new();
 
@@ -51,47 +48,18 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
 
     challenger.observe_opening_set(openings);
 
-    // Scaling factor to combine polynomials.
-    let fri_alpha = challenger.get_extension_challenge::<D>();
-
-    // Recover the random betas used in the FRI reductions.
-    let fri_betas = commit_phase_merkle_caps
-        .iter()
-        .map(|cap| {
-            challenger.observe_cap(cap);
-            challenger.get_extension_challenge::<D>()
-        })
-        .collect();
-
-    challenger.observe_extension_elements(&final_poly.coeffs);
-
-    let fri_pow_response = C::InnerHasher::hash(
-        &challenger
-            .get_hash()
-            .elements
-            .iter()
-            .copied()
-            .chain(Some(pow_witness))
-            .collect_vec(),
-        false,
-    )
-    .elements[0];
-
-    let fri_query_indices = (0..num_fri_queries)
-        .map(|_| challenger.get_challenge().to_canonical_u64() as usize % lde_size)
-        .collect();
-
     Ok(ProofChallenges {
         plonk_betas,
         plonk_gammas,
         plonk_alphas,
         plonk_zeta,
-        fri_challenges: FriChallenges {
-            fri_alpha,
-            fri_betas,
-            fri_pow_response,
-            fri_query_indices,
-        },
+        fri_challenges: challenger.fri_challenges::<C, D>(
+            commit_phase_merkle_caps,
+            final_poly,
+            pow_witness,
+            common_data.degree_bits,
+            &config.fri_config,
+        ),
     })
 }
 
