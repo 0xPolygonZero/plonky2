@@ -3,7 +3,7 @@ use plonky2_field::extension_field::Extendable;
 use crate::hash::hash_types::{HashOutTarget, RichField};
 use crate::iop::challenger::RecursiveChallenger;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
+use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{OpeningSetTarget, ProofTarget, ProofWithPublicInputsTarget};
 use crate::plonk::vanishing_poly::eval_vanishing_poly_recursively;
