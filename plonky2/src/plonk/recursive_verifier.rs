@@ -16,7 +16,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn verify_proof_with_pis<C: GenericConfig<D, F = F>>(
         &mut self,
         proof_with_pis: ProofWithPublicInputsTarget<D>,
-        inner_config: &CircuitConfig,
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, C, D>,
     ) where
@@ -33,7 +32,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.verify_proof(
             proof,
             public_inputs_hash,
-            inner_config,
             inner_verifier_data,
             inner_common_data,
         );
@@ -44,7 +42,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         proof: ProofTarget<D>,
         public_inputs_hash: HashOutTarget,
-        inner_config: &CircuitConfig,
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, C, D>,
     ) where
@@ -52,7 +49,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     {
         let one = self.one_extension();
 
-        let num_challenges = inner_config.num_challenges;
+        let num_challenges = inner_common_data.config.num_challenges;
 
         let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(self);
 
@@ -228,7 +225,7 @@ mod tests {
 
         let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 4_000)?;
         let (proof, _vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, None, true, true)?;
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
         test_serialization(&proof, &cd)?;
 
         Ok(())
@@ -250,12 +247,12 @@ mod tests {
 
         // Shrink it to 2^13.
         let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, Some(13), false, false)?;
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, Some(13), false, false)?;
         assert_eq!(cd.degree_bits, 13);
 
         // Shrink it to 2^12.
         let (proof, _vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, None, true, true)?;
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
         assert_eq!(cd.degree_bits, 12);
 
         test_serialization(&proof, &cd)?;
@@ -281,16 +278,7 @@ mod tests {
         assert_eq!(cd.degree_bits, 12);
 
         // A standard recursive proof.
-        let (proof, vd, cd) = recursive_proof(
-            proof,
-            vd,
-            cd,
-            &standard_config,
-            &standard_config,
-            None,
-            false,
-            false,
-        )?;
+        let (proof, vd, cd) = recursive_proof(proof, vd, cd, &standard_config, None, false, false)?;
         assert_eq!(cd.degree_bits, 12);
 
         // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
@@ -303,16 +291,8 @@ mod tests {
             },
             ..standard_config
         };
-        let (proof, vd, cd) = recursive_proof::<F, C, C, D>(
-            proof,
-            vd,
-            cd,
-            &standard_config,
-            &high_rate_config,
-            None,
-            true,
-            true,
-        )?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &high_rate_config, None, true, true)?;
         assert_eq!(cd.degree_bits, 12);
 
         // A final proof, optimized for size.
@@ -327,16 +307,8 @@ mod tests {
             },
             ..high_rate_config
         };
-        let (proof, _vd, cd) = recursive_proof::<F, KC, C, D>(
-            proof,
-            vd,
-            cd,
-            &high_rate_config,
-            &final_config,
-            None,
-            true,
-            true,
-        )?;
+        let (proof, _vd, cd) =
+            recursive_proof::<F, KC, C, D>(proof, vd, cd, &final_config, None, true, true)?;
         assert_eq!(cd.degree_bits, 12, "final proof too large");
 
         test_serialization(&proof, &cd)?;
@@ -357,11 +329,11 @@ mod tests {
         let (proof, vd, cd) = dummy_proof::<F, PC, D>(&config, 4_000)?;
 
         let (proof, vd, cd) =
-            recursive_proof::<F, PC, PC, D>(proof, vd, cd, &config, &config, None, false, false)?;
+            recursive_proof::<F, PC, PC, D>(proof, vd, cd, &config, None, false, false)?;
         test_serialization(&proof, &cd)?;
 
         let (proof, _vd, cd) =
-            recursive_proof::<F, KC, PC, D>(proof, vd, cd, &config, &config, None, false, false)?;
+            recursive_proof::<F, KC, PC, D>(proof, vd, cd, &config, None, false, false)?;
         test_serialization(&proof, &cd)?;
 
         Ok(())
@@ -398,7 +370,6 @@ mod tests {
         inner_proof: ProofWithPublicInputs<F, InnerC, D>,
         inner_vd: VerifierOnlyCircuitData<InnerC, D>,
         inner_cd: CommonCircuitData<F, InnerC, D>,
-        inner_config: &CircuitConfig,
         config: &CircuitConfig,
         min_degree_bits: Option<usize>,
         print_gate_counts: bool,
@@ -417,14 +388,14 @@ mod tests {
         pw.set_proof_with_pis_target(&inner_proof, &pt);
 
         let inner_data = VerifierCircuitTarget {
-            constants_sigmas_cap: builder.add_virtual_cap(inner_config.fri_config.cap_height),
+            constants_sigmas_cap: builder.add_virtual_cap(inner_cd.config.fri_config.cap_height),
         };
         pw.set_cap_target(
             &inner_data.constants_sigmas_cap,
             &inner_vd.constants_sigmas_cap,
         );
 
-        builder.verify_proof_with_pis(pt, inner_config, &inner_data, &inner_cd);
+        builder.verify_proof_with_pis(pt, &inner_data, &inner_cd);
 
         if print_gate_counts {
             builder.print_gate_counts(0);
