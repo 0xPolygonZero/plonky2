@@ -124,7 +124,7 @@ where
         timing,
         "compute openings proof",
         PolynomialBatch::prove_openings(
-            &S::fri_instance(zeta, g, rate_bits),
+            &S::fri_instance(zeta, g, rate_bits, config.num_challenges),
             initial_merkle_trees,
             &mut challenger,
             &fri_params,

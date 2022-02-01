@@ -31,7 +31,6 @@ where
     [(); S::PUBLIC_INPUTS]:,
 {
     let challenges = proof_with_pis.get_challenges(config, degree_bits)?;
-    dbg!(&challenges.fri_challenges.fri_query_indices);
     verify_with_challenges(stark, proof_with_pis, challenges, config)
 }
 
@@ -115,6 +114,7 @@ where
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits).into(),
             config.fri_config.rate_bits,
+            config.num_challenges,
         ),
         &proof.openings.to_fri_openings(),
         &challenges.fri_challenges,

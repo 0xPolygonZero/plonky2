@@ -59,7 +59,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        // // Check public inputs.
+        // Check public inputs.
         // yield_constr.one_first_row(vars.local_values[0] - vars.public_inputs[Self::PI_INDEX_X0]);
         // yield_constr.one_first_row(vars.local_values[1] - vars.public_inputs[Self::PI_INDEX_X1]);
         // yield_constr.one_last_row(vars.local_values[1] - vars.public_inputs[Self::PI_INDEX_RES]);

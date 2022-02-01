@@ -67,10 +67,11 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         zeta: F::Extension,
         g: F::Extension,
         rate_bits: usize,
+        num_challenges: usize,
     ) -> FriInstanceInfo<F, D> {
         let no_blinding_oracle = FriOracleInfo { blinding: false };
         let trace_info = FriPolynomialInfo::from_range(0, 0..Self::COLUMNS);
-        let quotient_info = FriPolynomialInfo::from_range(1, 0..1 << rate_bits);
+        let quotient_info = FriPolynomialInfo::from_range(1, 0..(1 << rate_bits) * num_challenges);
         let zeta_batch = FriBatchInfo {
             point: zeta,
             polynomials: [trace_info.clone(), quotient_info].concat(),

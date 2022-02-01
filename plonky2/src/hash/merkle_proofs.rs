@@ -31,7 +31,6 @@ pub(crate) fn verify_merkle_proof<F: RichField, H: Hasher<F>>(
     merkle_cap: &MerkleCap<F, H>,
     proof: &MerkleProof<F, H>,
 ) -> Result<()> {
-    dbg!(leaf_index);
     let mut index = leaf_index;
     let mut current_digest = H::hash(&leaf_data, false);
     for &sibling_digest in proof.siblings.iter() {

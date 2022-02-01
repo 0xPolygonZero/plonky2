@@ -24,7 +24,6 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     let num_challenges = config.num_challenges;
     let num_fri_queries = config.fri_config.num_query_rounds;
     let lde_size = 1 << (degree_bits + config.fri_config.rate_bits);
-    dbg!(lde_size);
 
     let mut challenger = Challenger::<F, C::Hasher>::new();
 
