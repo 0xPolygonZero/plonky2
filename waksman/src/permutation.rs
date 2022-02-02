@@ -79,32 +79,33 @@ fn create_switch<F: RichField + Extendable<D>, const D: usize>(
 
     let chunk_size = a1.len();
 
-    let (gate, gate_index, next_copy) = builder.find_switch_gate(chunk_size);
+    todo!()
+    // let (gate, gate_index, next_copy) = builder.find_switch_gate(chunk_size);
+    //
+    // let mut c = Vec::new();
+    // let mut d = Vec::new();
+    // for e in 0..chunk_size {
+    //     builder.connect(
+    //         a1[e],
+    //         Target::wire(gate_index, gate.wire_first_input(next_copy, e)),
+    //     );
+    //     builder.connect(
+    //         a2[e],
+    //         Target::wire(gate_index, gate.wire_second_input(next_copy, e)),
+    //     );
+    //     c.push(Target::wire(
+    //         gate_index,
+    //         gate.wire_first_output(next_copy, e),
+    //     ));
+    //     d.push(Target::wire(
+    //         gate_index,
+    //         gate.wire_second_output(next_copy, e),
+    //     ));
+    // }
 
-    let mut c = Vec::new();
-    let mut d = Vec::new();
-    for e in 0..chunk_size {
-        builder.connect(
-            a1[e],
-            Target::wire(gate_index, gate.wire_first_input(next_copy, e)),
-        );
-        builder.connect(
-            a2[e],
-            Target::wire(gate_index, gate.wire_second_input(next_copy, e)),
-        );
-        c.push(Target::wire(
-            gate_index,
-            gate.wire_first_output(next_copy, e),
-        ));
-        d.push(Target::wire(
-            gate_index,
-            gate.wire_second_output(next_copy, e),
-        ));
-    }
-
-    let switch = Target::wire(gate_index, gate.wire_switch_bool(next_copy));
-
-    (switch, c, d)
+    // let switch = Target::wire(gate_index, gate.wire_switch_bool(next_copy));
+    //
+    // (switch, c, d)
 }
 
 fn assert_permutation_recursive<F: RichField + Extendable<D>, const D: usize>(

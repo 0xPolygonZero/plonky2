@@ -4,6 +4,7 @@ use plonky2_field::field_types::{Field, PrimeField};
 use plonky2_util::bits_u64;
 
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
+use crate::gates::batchable::GateRef;
 use crate::gates::multiplication_extension::MulExtensionGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};
@@ -60,7 +61,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         operation: ExtensionArithmeticOperation<F, D>,
     ) -> ExtensionTarget<D> {
-        let (gate, i) = self.find_arithmetic_gate(operation.const_0, operation.const_1);
+        let gate = ArithmeticExtensionGate::new_from_config(&self.config);
+        let (gate, i) = self.find_slot(gate, vec![operation.const_0, operation.const_1]);
         let wires_multiplicand_0 = ExtensionTarget::from_range(
             gate,
             ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(i),
@@ -83,7 +85,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         operation: ExtensionArithmeticOperation<F, D>,
     ) -> ExtensionTarget<D> {
-        let (gate, i) = self.find_mul_gate(operation.const_0);
+        let gate = MulExtensionGate::new_from_config(&self.config);
+        let (gate, i) = self.find_slot(gate, vec![operation.const_0]);
         let wires_multiplicand_0 =
             ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_ith_multiplicand_0(i));
         let wires_multiplicand_1 =

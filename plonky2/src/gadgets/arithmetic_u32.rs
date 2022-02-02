@@ -78,7 +78,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let gate = U32ArithmeticGate::<F, D>::new_from_config(&self.config);
-        let (gate_index, copy) = self.find_u32_arithmetic_gate();
+        let (gate_index, copy) = self.find_slot(gate, vec![]);
 
         self.connect(
             Target::wire(gate_index, gate.wire_ith_multiplicand_0(copy)),
@@ -138,7 +138,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         borrow: U32Target,
     ) -> (U32Target, U32Target) {
         let gate = U32SubtractionGate::<F, D>::new_from_config(&self.config);
-        let (gate_index, copy) = self.find_u32_subtraction_gate();
+        let (gate_index, copy) = self.find_slot(gate, vec![]);
 
         self.connect(Target::wire(gate_index, gate.wire_ith_input_x(copy)), x.0);
         self.connect(Target::wire(gate_index, gate.wire_ith_input_y(copy)), y.0);

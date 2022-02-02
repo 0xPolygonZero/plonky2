@@ -12,6 +12,8 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 pub trait BatchableGate<F: RichField + Extendable<D>, const D: usize>: Gate<F, D> {
+    fn num_ops(&self) -> usize;
+
     // TODO: It would be nice to have a `Parameters` associated type.
     fn fill_gate(
         &self,
@@ -21,8 +23,9 @@ pub trait BatchableGate<F: RichField + Extendable<D>, const D: usize>: Gate<F, D
     );
 }
 
+#[derive(Clone)]
 pub struct CurrentSlot<F: RichField + Extendable<D>, const D: usize> {
-    current_slot: HashMap<Vec<F>, (usize, usize)>,
+    pub current_slot: HashMap<Vec<F>, (usize, usize)>,
 }
 
 #[derive(Clone)]
@@ -76,6 +79,10 @@ pub trait MultiOpsGate<F: RichField + Extendable<D>, const D: usize>: Gate<F, D>
 impl<F: RichField + Extendable<D>, G: MultiOpsGate<F, D>, const D: usize> BatchableGate<F, D>
     for G
 {
+    fn num_ops(&self) -> usize {
+        self.num_ops()
+    }
+
     fn fill_gate(
         &self,
         params: &[F],
