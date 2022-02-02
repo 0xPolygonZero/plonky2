@@ -2,7 +2,7 @@
 //! https://eprint.iacr.org/2019/458.pdf
 
 use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::{Field, PrimeField};
+use plonky2_field::field_types::{Field, Field64};
 use unroll::unroll_for_loops;
 
 use crate::gates::gate::Gate;
@@ -35,7 +35,7 @@ fn add_u160_u128((x_lo, x_hi): (u128, u32), y: u128) -> (u128, u32) {
 }
 
 #[inline(always)]
-fn reduce_u160<F: PrimeField>((n_lo, n_hi): (u128, u32)) -> F {
+fn reduce_u160<F: Field64>((n_lo, n_hi): (u128, u32)) -> F {
     let n_lo_hi = (n_lo >> 64) as u64;
     let n_lo_lo = n_lo as u64;
     let reduced_hi: u64 = F::from_noncanonical_u96((n_lo_hi, n_hi)).to_noncanonical_u64();
@@ -148,7 +148,7 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
 ];
 
 const WIDTH: usize = SPONGE_WIDTH;
-pub trait Poseidon: PrimeField {
+pub trait Poseidon: Field64 {
     // Total number of round constants required: width of the input
     // times number of rounds.
     const N_ROUND_CONSTANTS: usize = WIDTH * N_ROUNDS;
