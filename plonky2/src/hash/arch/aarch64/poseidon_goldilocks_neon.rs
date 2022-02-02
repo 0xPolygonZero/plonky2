@@ -3,7 +3,7 @@
 use std::arch::aarch64::*;
 use std::arch::asm;
 
-use plonky2_field::field_types::PrimeField;
+use plonky2_field::field_types::Field64;
 use plonky2_field::goldilocks_field::GoldilocksField;
 use plonky2_util::branch_hint;
 use static_assertions::const_assert;

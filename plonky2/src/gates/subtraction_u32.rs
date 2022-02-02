@@ -338,7 +338,7 @@ mod tests {
 
     use anyhow::Result;
     use plonky2_field::extension_field::quartic::QuarticExtension;
-    use plonky2_field::field_types::{Field, PrimeField};
+    use plonky2_field::field_types::{Field, Field64};
     use plonky2_field::goldilocks_field::GoldilocksField;
     use rand::Rng;
 

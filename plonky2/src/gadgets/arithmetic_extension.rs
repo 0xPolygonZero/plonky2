@@ -1,6 +1,6 @@
 use plonky2_field::extension_field::FieldExtension;
 use plonky2_field::extension_field::{Extendable, OEF};
-use plonky2_field::field_types::{Field, PrimeField};
+use plonky2_field::field_types::{Field, Field64};
 use plonky2_util::bits_u64;
 
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
@@ -544,7 +544,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 /// Represents an extension arithmetic operation in the circuit. Used to memoize results.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub(crate) struct ExtensionArithmeticOperation<F: PrimeField + Extendable<D>, const D: usize> {
+pub(crate) struct ExtensionArithmeticOperation<F: Field64 + Extendable<D>, const D: usize> {
     const_0: F,
     const_1: F,
     multiplicand_0: ExtensionTarget<D>,

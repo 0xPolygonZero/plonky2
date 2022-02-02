@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::extension_field::quadratic::QuadraticExtension;
 use crate::extension_field::quartic::QuarticExtension;
 use crate::extension_field::{Extendable, Frobenius};
-use crate::field_types::{Field, PrimeField};
+use crate::field_types::{Field, Field64};
 use crate::inversion::try_inverse_u64;
 
 const EPSILON: u64 = (1 << 32) - 1;
@@ -123,7 +123,7 @@ impl Field for GoldilocksField {
     }
 }
 
-impl PrimeField for GoldilocksField {
+impl Field64 for GoldilocksField {
     const ORDER: u64 = 0xFFFFFFFF00000001;
 
     #[inline]
