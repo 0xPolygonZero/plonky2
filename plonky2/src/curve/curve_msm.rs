@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use plonky2_field::field_types::Field;
+use plonky2_field::field_types::PrimeField;
 use rayon::prelude::*;
 
 use crate::curve::curve_summation::affine_multisummation_best;

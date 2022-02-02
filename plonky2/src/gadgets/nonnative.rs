@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use num::{BigUint, Integer, One, Zero};
+use plonky2_field::field_types::PrimeField;
 use plonky2_field::{extension_field::Extendable, field_types::Field};
 use plonky2_util::ceil_div_usize;
 
@@ -34,12 +35,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x.value.clone()
     }
 
-    pub fn constant_nonnative<FF: Field>(&mut self, x: FF) -> NonNativeTarget<FF> {
+    pub fn constant_nonnative<FF: PrimeField>(&mut self, x: FF) -> NonNativeTarget<FF> {
         let x_biguint = self.constant_biguint(&x.to_biguint());
         self.biguint_to_nonnative(&x_biguint)
     }
 
-    pub fn zero_nonnative<FF: Field>(&mut self) -> NonNativeTarget<FF> {
+    pub fn zero_nonnative<FF: PrimeField>(&mut self) -> NonNativeTarget<FF> {
         self.constant_nonnative(FF::ZERO)
     }
 
@@ -62,7 +63,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn add_nonnative<FF: Field>(
+    pub fn add_nonnative<FF: PrimeField>(
         &mut self,
         a: &NonNativeTarget<FF>,
         b: &NonNativeTarget<FF>,
@@ -105,7 +106,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn add_many_nonnative<FF: Field>(
+    pub fn add_many_nonnative<FF: PrimeField>(
         &mut self,
         to_add: &[NonNativeTarget<FF>],
     ) -> NonNativeTarget<FF> {
@@ -149,7 +150,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     // Subtract two `NonNativeTarget`s.
-    pub fn sub_nonnative<FF: Field>(
+    pub fn sub_nonnative<FF: PrimeField>(
         &mut self,
         a: &NonNativeTarget<FF>,
         b: &NonNativeTarget<FF>,
@@ -177,7 +178,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         diff
     }
 
-    pub fn mul_nonnative<FF: Field>(
+    pub fn mul_nonnative<FF: PrimeField>(
         &mut self,
         a: &NonNativeTarget<FF>,
         b: &NonNativeTarget<FF>,
@@ -208,7 +209,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         prod
     }
 
-    pub fn mul_many_nonnative<FF: Field>(
+    pub fn mul_many_nonnative<FF: PrimeField>(
         &mut self,
         to_mul: &[NonNativeTarget<FF>],
     ) -> NonNativeTarget<FF> {
@@ -223,14 +224,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         accumulator
     }
 
-    pub fn neg_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
+    pub fn neg_nonnative<FF: PrimeField>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF> {
         let zero_target = self.constant_biguint(&BigUint::zero());
         let zero_ff = self.biguint_to_nonnative(&zero_target);
 
         self.sub_nonnative(&zero_ff, x)
     }
 
-    pub fn inv_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
+    pub fn inv_nonnative<FF: PrimeField>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF> {
         let num_limbs = x.value.num_limbs();
         let inv_biguint = self.add_virtual_biguint_target(num_limbs);
         let div = self.add_virtual_biguint_target(num_limbs);
@@ -307,7 +314,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 #[derive(Debug)]
-struct NonNativeAdditionGenerator<F: RichField + Extendable<D>, const D: usize, FF: Field> {
+struct NonNativeAdditionGenerator<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> {
     a: NonNativeTarget<FF>,
     b: NonNativeTarget<FF>,
     sum: NonNativeTarget<FF>,
@@ -315,7 +322,7 @@ struct NonNativeAdditionGenerator<F: RichField + Extendable<D>, const D: usize, 
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize, FF: Field> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerator<F>
     for NonNativeAdditionGenerator<F, D, FF>
 {
     fn dependencies(&self) -> Vec<Target> {
@@ -348,14 +355,15 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: Field> SimpleGenerator<F>
 }
 
 #[derive(Debug)]
-struct NonNativeMultipleAddsGenerator<F: RichField + Extendable<D>, const D: usize, FF: Field> {
+struct NonNativeMultipleAddsGenerator<F: RichField + Extendable<D>, const D: usize, FF: PrimeField>
+{
     summands: Vec<NonNativeTarget<FF>>,
     sum: NonNativeTarget<FF>,
     overflow: U32Target,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize, FF: Field> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerator<F>
     for NonNativeMultipleAddsGenerator<F, D, FF>
 {
     fn dependencies(&self) -> Vec<Target> {
@@ -398,7 +406,7 @@ struct NonNativeSubtractionGenerator<F: RichField + Extendable<D>, const D: usiz
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize, FF: Field> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerator<F>
     for NonNativeSubtractionGenerator<F, D, FF>
 {
     fn dependencies(&self) -> Vec<Target> {
@@ -439,7 +447,7 @@ struct NonNativeMultiplicationGenerator<F: RichField + Extendable<D>, const D: u
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize, FF: Field> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerator<F>
     for NonNativeMultiplicationGenerator<F, D, FF>
 {
     fn dependencies(&self) -> Vec<Target> {
@@ -470,14 +478,14 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: Field> SimpleGenerator<F>
 }
 
 #[derive(Debug)]
-struct NonNativeInverseGenerator<F: RichField + Extendable<D>, const D: usize, FF: Field> {
+struct NonNativeInverseGenerator<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> {
     x: NonNativeTarget<FF>,
     inv: BigUintTarget,
     div: BigUintTarget,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize, FF: Field> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerator<F>
     for NonNativeInverseGenerator<F, D, FF>
 {
     fn dependencies(&self) -> Vec<Target> {

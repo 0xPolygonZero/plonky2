@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::ops::Neg;
 
-use plonky2_field::field_types::Field;
+use plonky2_field::field_types::{Field, PrimeField};
 use plonky2_field::ops::Square;
 
 // To avoid implementation conflicts from associated types,
@@ -10,8 +10,8 @@ pub struct CurveScalar<C: Curve>(pub <C as Curve>::ScalarField);
 
 /// A short Weierstrass curve.
 pub trait Curve: 'static + Sync + Sized + Copy + Debug {
-    type BaseField: Field;
-    type ScalarField: Field;
+    type BaseField: PrimeField;
+    type ScalarField: PrimeField;
 
     const A: Self::BaseField;
     const B: Self::BaseField;
