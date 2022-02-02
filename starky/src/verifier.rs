@@ -126,13 +126,10 @@ where
 /// `L_1(x) = (x^n - 1)/(n * (x - 1))`
 /// `L_n(x) = (x^n - 1)/(n * (g * x - 1))`, with `g` the first element of the subgroup.
 fn eval_l_1_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
-    let n = 1 << log_n;
+    let n = F::from_canonical_usize(1 << log_n);
     let g = F::primitive_root_of_unity(log_n);
     let z_x = x.exp_power_of_2(log_n) - F::ONE;
-    let invs = F::batch_multiplicative_inverse(&[
-        F::from_canonical_usize(n) * (x - F::ONE),
-        F::from_canonical_usize(n) * (g * x - F::ONE),
-    ]);
+    let invs = F::batch_multiplicative_inverse(&[n * (x - F::ONE), n * (g * x - F::ONE)]);
 
     (z_x * invs[0], z_x * invs[1])
 }
