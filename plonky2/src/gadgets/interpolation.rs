@@ -3,7 +3,6 @@ use std::ops::Range;
 use plonky2_field::extension_field::Extendable;
 
 use crate::gates::batchable::BatchableGate;
-use crate::gates::gate::Gate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;

@@ -71,13 +71,13 @@ fn assert_permutation_2x2<F: RichField + Extendable<D>, const D: usize>(
 /// Given two input wire chunks, add a new switch to the circuit (by adding one copy to a switch
 /// gate). Returns the wire for the switch boolean, and the two output wire chunks.
 fn create_switch<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
+    _builder: &mut CircuitBuilder<F, D>,
     a1: Vec<Target>,
     a2: Vec<Target>,
 ) -> (Target, Vec<Target>, Vec<Target>) {
     assert_eq!(a1.len(), a2.len(), "Chunk size must be the same");
 
-    let chunk_size = a1.len();
+    let _chunk_size = a1.len();
 
     todo!()
     // let (gate, gate_index, next_copy) = builder.find_switch_gate(chunk_size);

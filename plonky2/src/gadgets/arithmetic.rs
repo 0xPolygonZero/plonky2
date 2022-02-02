@@ -4,7 +4,6 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::PrimeField;
 
 use crate::gates::arithmetic_base::ArithmeticGate;
-use crate::gates::batchable::GateRef;
 use crate::gates::exponentiation::ExponentiationGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::target::{BoolTarget, Target};

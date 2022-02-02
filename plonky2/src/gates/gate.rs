@@ -1,6 +1,4 @@
-use std::fmt::{Debug, Error, Formatter};
-use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::fmt::Debug;
 
 use plonky2_field::batch_util::batch_multiply_inplace;
 use plonky2_field::extension_field::{Extendable, FieldExtension};

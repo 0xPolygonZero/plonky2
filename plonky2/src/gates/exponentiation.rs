@@ -5,7 +5,7 @@ use plonky2_field::field_types::Field;
 use plonky2_field::ops::Square;
 use plonky2_field::packed_field::PackedField;
 
-use crate::gates::batchable::{BatchableGate, MultiOpsGate};
+use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -196,7 +196,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D> for Expone
         1
     }
 
-    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
+    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
         unreachable!()
     }
 }

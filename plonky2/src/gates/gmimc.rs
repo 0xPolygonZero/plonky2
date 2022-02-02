@@ -223,7 +223,7 @@ impl<F: RichField + Extendable<D> + GMiMC<WIDTH>, const D: usize, const WIDTH: u
         1
     }
 
-    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
+    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
         unreachable!()
     }
 }

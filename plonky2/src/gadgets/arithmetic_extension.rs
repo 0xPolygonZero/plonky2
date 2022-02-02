@@ -4,7 +4,6 @@ use plonky2_field::field_types::{Field, PrimeField};
 use plonky2_util::bits_u64;
 
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
-use crate::gates::batchable::GateRef;
 use crate::gates::multiplication_extension::MulExtensionGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};

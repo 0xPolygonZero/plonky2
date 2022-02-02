@@ -17,17 +17,12 @@ use crate::gadgets::arithmetic_extension::ExtensionArithmeticOperation;
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
-use crate::gates::arithmetic_u32::U32ArithmeticGate;
 use crate::gates::batchable::{BatchableGate, CurrentSlot, GateRef};
 use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{Gate, GateInstance, PrefixedGate};
 use crate::gates::gate_tree::Tree;
-use crate::gates::multiplication_extension::MulExtensionGate;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
-use crate::gates::random_access::RandomAccessGate;
-use crate::gates::subtraction_u32::U32SubtractionGate;
-use crate::gates::switch::SwitchGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{
@@ -805,50 +800,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         VerifierCircuitData {
             verifier_only,
             common,
-        }
-    }
-}
-
-/// Various gate types can contain multiple copies in a single Gate. This helper struct lets a
-/// CircuitBuilder track such gates that are currently being "filled up."
-pub struct BatchedGates<F: RichField + Extendable<D>, const D: usize> {
-    /// A map `(c0, c1) -> (g, i)` from constants `(c0,c1)` to an available arithmetic gate using
-    /// these constants with gate index `g` and already using `i` arithmetic operations.
-    pub(crate) free_arithmetic: HashMap<(F, F), (usize, usize)>,
-    pub(crate) free_base_arithmetic: HashMap<(F, F), (usize, usize)>,
-
-    pub(crate) free_mul: HashMap<F, (usize, usize)>,
-
-    /// A map `b -> (g, i)` from `b` bits to an available random access gate of that size with gate
-    /// index `g` and already using `i` random accesses.
-    pub(crate) free_random_access: HashMap<usize, (usize, usize)>,
-
-    /// `current_switch_gates[chunk_size - 1]` contains None if we have no switch gates with the value
-    /// chunk_size, and contains `(g, i, c)`, if the gate `g`, at index `i`, already contains `c` copies
-    /// of switches
-    pub(crate) current_switch_gates: Vec<Option<(SwitchGate<F, D>, usize, usize)>>,
-
-    /// The `U32ArithmeticGate` currently being filled (so new u32 arithmetic operations will be added to this gate before creating a new one)
-    pub(crate) current_u32_arithmetic_gate: Option<(usize, usize)>,
-
-    /// The `U32SubtractionGate` currently being filled (so new u32 subtraction operations will be added to this gate before creating a new one)
-    pub(crate) current_u32_subtraction_gate: Option<(usize, usize)>,
-
-    /// An available `ConstantGate` instance, if any.
-    pub(crate) free_constant: Option<(usize, usize)>,
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> BatchedGates<F, D> {
-    pub fn new() -> Self {
-        Self {
-            free_arithmetic: HashMap::new(),
-            free_base_arithmetic: HashMap::new(),
-            free_mul: HashMap::new(),
-            free_random_access: HashMap::new(),
-            current_switch_gates: Vec::new(),
-            current_u32_arithmetic_gate: None,
-            current_u32_subtraction_gate: None,
-            free_constant: None,
         }
     }
 }

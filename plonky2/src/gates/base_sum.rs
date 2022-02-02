@@ -143,7 +143,7 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> MultiOpsGate<
         1
     }
 
-    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
+    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
         unreachable!()
     }
 }
