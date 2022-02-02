@@ -53,7 +53,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         // Assert that the computed output matches the outputs in the trace.
         for i in 0..SPONGE_WIDTH {
             let out = local_values[col_permutation_output(i)];
-            yield_constr.one(state[i] - out);
+            yield_constr.constraint(state[i] - out);
         }
     }
 
@@ -80,7 +80,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         for i in 0..SPONGE_WIDTH {
             let out = local_values[col_permutation_output(i)];
             let diff = builder.sub_extension(state[i], out);
-            yield_constr.one(builder, diff);
+            yield_constr.constraint(builder, diff);
         }
     }
 }

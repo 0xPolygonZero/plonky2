@@ -197,6 +197,7 @@ where
             // TODO: Set `P` to a genuine `PackedField` here.
             let mut consumer = ConstraintConsumer::<F>::new(
                 alphas.clone(),
+                coset[i] - last,
                 lagrange_first.values[i],
                 lagrange_last.values[i],
             );
@@ -214,9 +215,8 @@ where
             // We divide the constraints evaluations by `Z_H(x) / x - last`, i.e., the vanishing
             // polynomial of `H` without it's last element.
             let denominator_inv = z_h_on_coset.eval_inverse(i);
-            let z_last = coset[i] - last;
             for eval in &mut constraints_evals {
-                *eval *= denominator_inv * z_last;
+                *eval *= denominator_inv;
             }
             constraints_evals
         })

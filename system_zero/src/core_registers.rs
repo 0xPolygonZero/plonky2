@@ -55,16 +55,16 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         let local_clock = vars.local_values[COL_CLOCK];
         let next_clock = vars.next_values[COL_CLOCK];
         let delta_clock = next_clock - local_clock;
-        yield_constr.one_first_row(local_clock);
-        yield_constr.one(delta_clock - FE::ONE);
+        yield_constr.constraint_first_row(local_clock);
+        yield_constr.constraint(delta_clock - FE::ONE);
 
         // The 16-bit table must start with 0, end with 2^16 - 1, and increment by 0 or 1.
         let local_range_16 = vars.local_values[COL_RANGE_16];
         let next_range_16 = vars.next_values[COL_RANGE_16];
         let delta_range_16 = next_range_16 - local_range_16;
-        yield_constr.one_first_row(local_range_16);
-        yield_constr.one_last_row(local_range_16 - FE::from_canonical_u64((1 << 16) - 1));
-        yield_constr.one(delta_range_16 * (delta_range_16 - FE::ONE));
+        yield_constr.constraint_first_row(local_range_16);
+        yield_constr.constraint_last_row(local_range_16 - FE::from_canonical_u64((1 << 16) - 1));
+        yield_constr.constraint(delta_range_16 * (delta_range_16 - FE::ONE));
 
         todo!()
     }

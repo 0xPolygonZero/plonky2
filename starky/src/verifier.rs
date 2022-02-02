@@ -72,24 +72,25 @@ where
     };
 
     let (l_1, l_last) = eval_l_1_and_l_last(degree_bits, challenges.stark_zeta);
+    let last = F::primitive_root_of_unity(degree_bits).inverse();
+    let z_last = challenges.stark_zeta - last.into();
     let mut consumer = ConstraintConsumer::<F::Extension>::new(
         challenges
             .stark_alphas
             .iter()
             .map(|&alpha| F::Extension::from_basefield(alpha))
             .collect::<Vec<_>>(),
+        z_last,
         l_1,
         l_last,
     );
     stark.eval_ext(vars, &mut consumer);
     let acc = consumer.accumulators();
 
-    // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x) / (x - last)`, at zeta.
+    // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
     let quotient_polys_zeta = &proof.openings.quotient_polys;
     let zeta_pow_deg = challenges.stark_zeta.exp_power_of_2(degree_bits);
     let z_h_zeta = zeta_pow_deg - F::Extension::ONE;
-    let last = F::primitive_root_of_unity(degree_bits).inverse();
-    let z_last = challenges.stark_zeta - last.into();
     // `quotient_polys_zeta` holds `num_challenges * quotient_degree_factor` evaluations.
     // Each chunk of `quotient_degree_factor` holds the evaluations of `t_0(zeta),...,t_{quotient_degree_factor-1}(zeta)`
     // where the "real" quotient polynomial is `t(X) = t_0(X) + t_1(X)*X^n + t_2(X)*X^{2n} + ...`.
@@ -99,7 +100,7 @@ where
         .chunks(1 << config.fri_config.rate_bits)
         .enumerate()
     {
-        ensure!(acc[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg) / z_last);
+        ensure!(acc[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
     }
 
     let merkle_caps = &[proof.trace_cap, proof.quotient_polys_cap];
