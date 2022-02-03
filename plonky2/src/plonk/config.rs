@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::iter::once;
 
 use plonky2_field::extension_field::quadratic::QuadraticExtension;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
@@ -33,17 +34,18 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
 
     /// Hash a message without any padding step. Note that this can enable length-extension attacks.
     /// However, it is still collision-resistant in cases where the input has a fixed length.
-    fn hash_no_pad(input: &[F]) -> Self::Hash;
+    fn hash_no_pad(input: impl IntoIterator<Item = F>) -> Self::Hash;
 
     /// Pad the message using the `pad10*1` rule, then hash it.
-    fn hash_pad(input: &[F]) -> Self::Hash {
-        let mut padded_input = input.to_vec();
-        padded_input.push(F::ONE);
-        while (padded_input.len() + 1) % SPONGE_WIDTH != 0 {
-            padded_input.push(F::ZERO);
-        }
-        padded_input.push(F::ONE);
-        Self::hash_no_pad(&padded_input)
+    fn hash_pad(input: impl IntoIterator<Item = F, IntoIter = impl ExactSizeIterator<Item = F>>) -> Self::Hash {
+        Self::hash_no_pad(input.into_iter().chain(once(F::ONE)))
+        // let mut padded_input = input.to_vec();
+        // padded_input.push(F::ONE);
+        // while (padded_input.len() + 1) % SPONGE_WIDTH != 0 {
+        //     padded_input.push(F::ZERO);
+        // }
+        // padded_input.push(F::ONE);
+        // Self::hash_no_pad(&padded_input)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash;

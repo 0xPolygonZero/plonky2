@@ -633,7 +633,7 @@ impl<F: RichField> Hasher<F> for PoseidonHash {
     type Hash = HashOut<F>;
     type Permutation = PoseidonPermutation;
 
-    fn hash_no_pad(input: &[F]) -> Self::Hash {
+    fn hash_no_pad(input: impl IntoIterator<Item = F>) -> Self::Hash {
         hash_n_to_hash_no_pad::<F, Self::Permutation>(input)
     }
 

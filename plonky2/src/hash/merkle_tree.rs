@@ -63,7 +63,7 @@ fn fill_subtree<F: RichField, H: Hasher<F>>(
 ) -> H::Hash {
     assert_eq!(leaves.len(), digests_buf.len() / 2 + 1);
     if digests_buf.is_empty() {
-        H::hash_no_pad(&leaves[0])
+        H::hash_no_pad(leaves[0].iter().copied())
     } else {
         // Layout is: left recursive output || left child digest
         //             || right child digest || right recursive output.

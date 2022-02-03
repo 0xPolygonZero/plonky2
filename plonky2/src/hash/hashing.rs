@@ -1,5 +1,7 @@
 //! Concrete instantiation of a hash function.
 
+use std::borrow::Borrow;
+
 use plonky2_field::extension_field::Extendable;
 
 use crate::hash::hash_types::RichField;
@@ -18,7 +20,7 @@ pub fn hash_or_noop<F: RichField, P: PlonkyPermutation<F>>(inputs: Vec<F>) -> Ha
     if inputs.len() <= 4 {
         HashOut::from_partial(inputs)
     } else {
-        hash_n_to_hash_no_pad::<F, P>(&inputs)
+        hash_n_to_hash_no_pad::<F, P>(inputs.into_iter())
     }
 }
 
@@ -89,14 +91,22 @@ pub trait PlonkyPermutation<F: RichField> {
 /// Hash a message without any padding step. Note that this can enable length-extension attacks.
 /// However, it is still collision-resistant in cases where the input has a fixed length.
 pub fn hash_n_to_m_no_pad<F: RichField, P: PlonkyPermutation<F>>(
-    inputs: &[F],
+    inputs: impl IntoIterator<Item = impl Borrow<F>>,
     num_outputs: usize,
 ) -> Vec<F> {
     let mut state = [F::ZERO; SPONGE_WIDTH];
 
     // Absorb all input chunks.
-    for input_chunk in inputs.chunks(SPONGE_RATE) {
-        state[..input_chunk.len()].copy_from_slice(input_chunk);
+    let mut pos = 0;
+    for input in inputs.into_iter() {
+        if pos == SPONGE_RATE {
+            state = P::permute(state);
+            pos = 0;
+        }
+        state[pos] = *input.borrow();
+        pos += 1;
+    }
+    if pos != 0 {
         state = P::permute(state);
     }
 
@@ -113,6 +123,8 @@ pub fn hash_n_to_m_no_pad<F: RichField, P: PlonkyPermutation<F>>(
     }
 }
 
-pub fn hash_n_to_hash_no_pad<F: RichField, P: PlonkyPermutation<F>>(inputs: &[F]) -> HashOut<F> {
+pub fn hash_n_to_hash_no_pad<F: RichField, P: PlonkyPermutation<F>>(
+    inputs: impl IntoIterator<Item = impl Borrow<F>>,
+) -> HashOut<F> {
     HashOut::from_vec(hash_n_to_m_no_pad::<F, P>(inputs, 4))
 }

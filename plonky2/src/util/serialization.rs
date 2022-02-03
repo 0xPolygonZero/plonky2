@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::io::{Read, Result, Write};
@@ -116,9 +117,12 @@ impl Buffer {
         ))
     }
 
-    pub fn write_field_vec<F: Field64>(&mut self, v: &[F]) -> Result<()> {
-        for &a in v {
-            self.write_field(a)?;
+    pub fn write_field_vec<F: Field64>(
+        &mut self,
+        v: impl IntoIterator<Item = impl Borrow<F>>,
+    ) -> Result<()> {
+        for a in v.into_iter() {
+            self.write_field(*a.borrow())?;
         }
         Ok(())
     }
@@ -221,7 +225,7 @@ impl Buffer {
         fitp: &FriInitialTreeProof<F, C::Hasher>,
     ) -> Result<()> {
         for (v, p) in &fitp.evals_proofs {
-            self.write_field_vec(v)?;
+            self.write_field_vec::<F>(v)?;
             self.write_merkle_proof(p)?;
         }
         Ok(())
@@ -404,7 +408,7 @@ impl Buffer {
             public_inputs,
         } = proof_with_pis;
         self.write_proof(proof)?;
-        self.write_field_vec(public_inputs)
+        self.write_field_vec::<F>(public_inputs)
     }
     pub fn read_proof_with_public_inputs<
         F: RichField + Extendable<D>,
@@ -588,7 +592,7 @@ impl Buffer {
             public_inputs,
         } = proof_with_pis;
         self.write_compressed_proof(proof)?;
-        self.write_field_vec(public_inputs)
+        self.write_field_vec::<F>(public_inputs)
     }
     pub fn read_compressed_proof_with_public_inputs<
         F: RichField + Extendable<D>,
