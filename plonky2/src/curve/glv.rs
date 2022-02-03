@@ -32,7 +32,7 @@ pub fn decompose_secp256k1_scalar(k: Secp256K1Scalar) -> (Secp256K1Scalar, Secp2
         .round()
         .to_integer();
     let c1 = Secp256K1Scalar::from_biguint(c1_biguint);
-    let c2_biguint = Ratio::new(MINUS_B1.to_biguint() * k.to_biguint(), p.clone())
+    let c2_biguint = Ratio::new(MINUS_B1.to_biguint() * k.to_biguint(), p)
         .round()
         .to_integer();
     let c2 = Secp256K1Scalar::from_biguint(c2_biguint);
