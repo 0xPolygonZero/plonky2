@@ -33,7 +33,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     challenger.observe_cap(quotient_polys_cap);
     let stark_zeta = challenger.get_extension_challenge::<D>();
 
-    openings.observe(&mut challenger);
+    challenger.observe_openings(&openings.to_fri_openings());
 
     Ok(StarkProofChallenges {
         stark_alphas,

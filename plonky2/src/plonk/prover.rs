@@ -196,7 +196,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
             common_data,
         )
     );
-    challenger.observe_opening_set(&openings);
+    challenger.observe_openings(&openings.to_fri_openings());
 
     let opening_proof = timed!(
         timing,

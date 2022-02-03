@@ -46,7 +46,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     challenger.observe_cap(quotient_polys_cap);
     let plonk_zeta = challenger.get_extension_challenge::<D>();
 
-    challenger.observe_opening_set(openings);
+    challenger.observe_openings(&openings.to_fri_openings());
 
     Ok(ProofChallenges {
         plonk_betas,

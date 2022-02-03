@@ -5,6 +5,7 @@ use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::polynomial::PolynomialCoeffs;
 
 use crate::fri::proof::FriChallenges;
+use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::FriConfig;
 use crate::hash::hash_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
@@ -14,7 +15,6 @@ use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig, GenericHashOut, Hasher};
-use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
 
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
 #[derive(Clone)]
@@ -72,29 +72,12 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
         }
     }
 
-    pub fn observe_opening_set<const D: usize>(&mut self, os: &OpeningSet<F, D>)
+    pub fn observe_openings<const D: usize>(&mut self, openings: &FriOpenings<F, D>)
     where
         F: RichField + Extendable<D>,
     {
-        let OpeningSet {
-            constants,
-            plonk_sigmas,
-            wires,
-            plonk_zs,
-            plonk_zs_right,
-            partial_products,
-            quotient_polys,
-        } = os;
-        for v in &[
-            constants,
-            plonk_sigmas,
-            wires,
-            plonk_zs,
-            plonk_zs_right,
-            partial_products,
-            quotient_polys,
-        ] {
-            self.observe_extension_elements(v);
+        for v in &openings.batches {
+            self.observe_extension_elements(&v.values);
         }
     }
 
@@ -269,26 +252,9 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         }
     }
 
-    pub fn observe_opening_set(&mut self, os: &OpeningSetTarget<D>) {
-        let OpeningSetTarget {
-            constants,
-            plonk_sigmas,
-            wires,
-            plonk_zs,
-            plonk_zs_right,
-            partial_products,
-            quotient_polys,
-        } = os;
-        for v in &[
-            constants,
-            plonk_sigmas,
-            wires,
-            plonk_zs,
-            plonk_zs_right,
-            partial_products,
-            quotient_polys,
-        ] {
-            self.observe_extension_elements(v);
+    pub fn observe_openings(&mut self, openings: &FriOpeningsTarget<D>) {
+        for v in &openings.batches {
+            self.observe_extension_elements(&v.values);
         }
     }
 
