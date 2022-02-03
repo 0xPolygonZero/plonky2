@@ -215,7 +215,6 @@ mod tests {
     use crate::util::timing::TimingTree;
 
     #[test]
-    #[ignore]
     fn test_recursive_verifier() -> Result<()> {
         init_logger();
         const D: usize = 2;
@@ -232,7 +231,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_recursive_recursive_verifier() -> Result<()> {
         init_logger();
         const D: usize = 2;
@@ -317,7 +315,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_recursive_verifier_multi_hash() -> Result<()> {
         init_logger();
         const D: usize = 2;
