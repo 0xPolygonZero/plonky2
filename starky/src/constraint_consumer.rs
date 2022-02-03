@@ -105,7 +105,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
         constraint: ExtensionTarget<D>,
     ) {
         let filtered_constraint = builder.mul_extension(constraint, self.z_last);
-        self.constraint(builder, filtered_constraint);
+        self.constraint_wrapping(builder, filtered_constraint);
     }
 
     /// Add one constraint valid on all rows.
