@@ -260,7 +260,7 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
@@ -273,7 +273,7 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
 
-        let pw = PartialWitness::new();
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let alpha = FF::rand();
@@ -283,7 +283,10 @@ mod tests {
         let manual_reduce = builder.constant_extension(manual_reduce);
 
         let mut alpha_t = ReducingFactorTarget::new(builder.constant_extension(alpha));
-        let vs_t = vs.iter().map(|&v| builder.constant(v)).collect::<Vec<_>>();
+        let vs_t = builder.add_virtual_targets(vs.len());
+        for (&v, &v_t) in vs.iter().zip(&vs_t) {
+            pw.set_target(v_t, v);
+        }
         let circuit_reduce = alpha_t.reduce_base(&vs_t, &mut builder);
 
         builder.connect_extension(manual_reduce, circuit_reduce);
@@ -302,7 +305,7 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
 
-        let pw = PartialWitness::new();
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let alpha = FF::rand();
@@ -312,10 +315,8 @@ mod tests {
         let manual_reduce = builder.constant_extension(manual_reduce);
 
         let mut alpha_t = ReducingFactorTarget::new(builder.constant_extension(alpha));
-        let vs_t = vs
-            .iter()
-            .map(|&v| builder.constant_extension(v))
-            .collect::<Vec<_>>();
+        let vs_t = builder.add_virtual_extension_targets(vs.len());
+        pw.set_extension_targets(&vs_t, &vs);
         let circuit_reduce = alpha_t.reduce(&vs_t, &mut builder);
 
         builder.connect_extension(manual_reduce, circuit_reduce);
