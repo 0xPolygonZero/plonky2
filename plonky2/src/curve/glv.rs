@@ -1,8 +1,9 @@
 use num::rational::Ratio;
 use plonky2_field::field_types::Field;
+use plonky2_field::secp256k1_base::Secp256K1Base;
 use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
-const BETA: Secp256K1Scalar = Secp256K1Scalar([
+pub const BETA: Secp256K1Base = Secp256K1Base([
     13923278643952681454,
     11308619431505398165,
     7954561588662645993,
@@ -48,7 +49,10 @@ mod tests {
     use plonky2_field::field_types::Field;
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
-    use crate::curve::glv::{decompose_secp256k1_scalar, S};
+    use crate::curve::curve_msm::msm_parallel;
+    use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
+    use crate::curve::glv::{decompose_secp256k1_scalar, BETA, S};
+    use crate::curve::secp256k1::Secp256K1;
 
     #[test]
     fn test_glv_decompose() -> Result<()> {
@@ -56,6 +60,31 @@ mod tests {
         let (k1, k2) = decompose_secp256k1_scalar(k);
 
         assert!(k1 + S * k2 == k);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_glv_mul() -> Result<()> {
+        for _ in 0..20 {
+            let k = Secp256K1Scalar::rand();
+            let (k1, k2) = decompose_secp256k1_scalar(k);
+
+            assert!(k1 + S * k2 == k);
+
+            let p = (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE)
+                .to_affine();
+            let sp = AffinePoint::<Secp256K1> {
+                x: p.x * BETA,
+                y: p.y,
+                zero: p.zero,
+            };
+
+            let kp = CurveScalar(k) * p.to_projective();
+            let glv = msm_parallel(&[k1, k2], &[p.to_projective(), sp.to_projective()], 5);
+
+            assert!(kp == glv);
+        }
 
         Ok(())
     }
