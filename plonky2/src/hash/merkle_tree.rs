@@ -93,13 +93,14 @@ fn fill_digests_buf<F: RichField, H: Hasher<F>>(
     // Special case of a tree that's all cap. The usual case will panic because we'll try to split
     // an empty slice into chunks of `0`. (We would not need this if there was a way to split into
     // `blah` chunks as opposed to chunks _of_ `blah`.)
-    if digests_buf.len() == 0 {
+    if digests_buf.is_empty() {
         debug_assert_eq!(cap_buf.len(), leaves.len());
-        cap_buf.par_iter_mut().zip(leaves).for_each(
-            |(cap_buf, leaf)| {
+        cap_buf
+            .par_iter_mut()
+            .zip(leaves)
+            .for_each(|(cap_buf, leaf)| {
                 cap_buf.write(H::hash(leaf, false));
-            }
-        );
+            });
         return;
     }
 
@@ -122,7 +123,10 @@ fn fill_digests_buf<F: RichField, H: Hasher<F>>(
 impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
     pub fn new(leaves: Vec<Vec<F>>, cap_height: usize) -> Self {
         let log2_leaves_len = log2_strict(leaves.len());
-        assert!(cap_height <= log2_leaves_len, "cap height should be at most log2(leaves.len())");
+        assert!(
+            cap_height <= log2_leaves_len,
+            "cap height should be at most log2(leaves.len())"
+        );
 
         let num_digests = 2 * (leaves.len() - (1 << cap_height));
         let mut digests = Vec::with_capacity(num_digests);
@@ -228,7 +232,7 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
 
         let log_n = 8;
-        let cap_height = log_n + 1;  // Should panic if `cap_height > len_n`.
+        let cap_height = log_n + 1; // Should panic if `cap_height > len_n`.
 
         let leaves = random_data::<F>(1 << log_n, 7);
         let _ = MerkleTree::<F, <C as GenericConfig<D>>::Hasher>::new(leaves, cap_height);
