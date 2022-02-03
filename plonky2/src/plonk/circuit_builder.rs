@@ -621,7 +621,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // those hash wires match the claimed public inputs.
         let num_public_inputs = self.public_inputs.len();
         let public_inputs_hash =
-            self.hash_n_to_hash::<C::InnerHasher>(self.public_inputs.clone(), true);
+            self.hash_n_to_hash_no_pad::<C::InnerHasher>(self.public_inputs.clone());
         let pi_gate = self.add_gate(PublicInputGate, vec![]);
         for (&hash_part, wire) in public_inputs_hash
             .elements
@@ -749,7 +749,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_cap.flatten(),
             vec![/* Add other circuit data here */],
         ];
-        let circuit_digest = C::Hasher::hash(&circuit_digest_parts.concat(), false);
+        let circuit_digest = C::Hasher::hash_no_pad(&circuit_digest_parts.concat());
 
         let common = CommonCircuitData {
             config: self.config,

@@ -18,7 +18,7 @@ pub fn hash_or_noop<F: RichField, P: PlonkyPermutation<F>>(inputs: Vec<F>) -> Ha
     if inputs.len() <= 4 {
         HashOut::from_partial(inputs)
     } else {
-        hash_n_to_hash::<F, P>(&inputs, false)
+        hash_n_to_hash_no_pad::<F, P>(&inputs)
     }
 }
 
@@ -28,34 +28,23 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         if inputs.len() <= 4 {
             HashOutTarget::from_partial(inputs, zero)
         } else {
-            self.hash_n_to_hash::<H>(inputs, false)
+            self.hash_n_to_hash_no_pad::<H>(inputs)
         }
     }
 
-    pub fn hash_n_to_hash<H: AlgebraicHasher<F>>(
+    pub fn hash_n_to_hash_no_pad<H: AlgebraicHasher<F>>(
         &mut self,
         inputs: Vec<Target>,
-        pad: bool,
     ) -> HashOutTarget {
-        HashOutTarget::from_vec(self.hash_n_to_m::<H>(inputs, 4, pad))
+        HashOutTarget::from_vec(self.hash_n_to_m_no_pad::<H>(inputs, 4))
     }
 
-    pub fn hash_n_to_m<H: AlgebraicHasher<F>>(
+    pub fn hash_n_to_m_no_pad<H: AlgebraicHasher<F>>(
         &mut self,
-        mut inputs: Vec<Target>,
+        inputs: Vec<Target>,
         num_outputs: usize,
-        pad: bool,
     ) -> Vec<Target> {
         let zero = self.zero();
-        let one = self.one();
-
-        if pad {
-            inputs.push(zero);
-            while (inputs.len() + 1) % SPONGE_WIDTH != 0 {
-                inputs.push(one);
-            }
-            inputs.push(zero);
-        }
 
         let mut state = [zero; SPONGE_WIDTH];
 
@@ -100,21 +89,10 @@ pub trait PlonkyPermutation<F: RichField> {
 /// If `pad` is enabled, the message is padded using the pad10*1 rule. In general this is required
 /// for the hash to be secure, but it can safely be disabled in certain cases, like if the input
 /// length is fixed.
-pub fn hash_n_to_m<F: RichField, P: PlonkyPermutation<F>>(
+pub fn hash_n_to_m_no_pad<F: RichField, P: PlonkyPermutation<F>>(
     inputs: &[F],
     num_outputs: usize,
-    pad: bool,
 ) -> Vec<F> {
-    if pad {
-        let mut padded_inputs = inputs.to_vec();
-        padded_inputs.push(F::ZERO);
-        while (padded_inputs.len() + 1) % SPONGE_WIDTH != 0 {
-            padded_inputs.push(F::ONE);
-        }
-        padded_inputs.push(F::ZERO);
-        return hash_n_to_m::<F, P>(&padded_inputs, num_outputs, false);
-    }
-
     let mut state = [F::ZERO; SPONGE_WIDTH];
 
     // Absorb all input chunks.
@@ -136,9 +114,6 @@ pub fn hash_n_to_m<F: RichField, P: PlonkyPermutation<F>>(
     }
 }
 
-pub fn hash_n_to_hash<F: RichField, P: PlonkyPermutation<F>>(
-    inputs: &[F],
-    pad: bool,
-) -> HashOut<F> {
-    HashOut::from_vec(hash_n_to_m::<F, P>(inputs, 4, pad))
+pub fn hash_n_to_hash_no_pad<F: RichField, P: PlonkyPermutation<F>>(inputs: &[F]) -> HashOut<F> {
+    HashOut::from_vec(hash_n_to_m_no_pad::<F, P>(inputs, 4))
 }

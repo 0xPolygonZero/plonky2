@@ -9,7 +9,7 @@ use crate::gates::gate::Gate;
 use crate::gates::poseidon::PoseidonGate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
 use crate::hash::hash_types::{HashOut, RichField};
-use crate::hash::hashing::{compress, hash_n_to_hash, PlonkyPermutation, SPONGE_WIDTH};
+use crate::hash::hashing::{compress, hash_n_to_hash_no_pad, PlonkyPermutation, SPONGE_WIDTH};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -633,8 +633,8 @@ impl<F: RichField> Hasher<F> for PoseidonHash {
     type Hash = HashOut<F>;
     type Permutation = PoseidonPermutation;
 
-    fn hash(input: &[F], pad: bool) -> Self::Hash {
-        hash_n_to_hash::<F, Self::Permutation>(input, pad)
+    fn hash_no_pad(input: &[F]) -> Self::Hash {
+        hash_n_to_hash_no_pad::<F, Self::Permutation>(input)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {

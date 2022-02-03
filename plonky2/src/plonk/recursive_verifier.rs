@@ -27,7 +27,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         } = proof_with_pis;
 
         assert_eq!(public_inputs.len(), inner_common_data.num_public_inputs);
-        let public_inputs_hash = self.hash_n_to_hash::<C::InnerHasher>(public_inputs, true);
+        let public_inputs_hash = self.hash_n_to_hash_no_pad::<C::InnerHasher>(public_inputs);
 
         self.verify_proof(
             proof,

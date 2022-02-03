@@ -114,7 +114,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut inputs = challenger.get_hash(self).elements.to_vec();
         inputs.push(proof.pow_witness);
 
-        let hash = self.hash_n_to_m::<H>(inputs, 1, false)[0];
+        let hash = self.hash_n_to_m_no_pad::<H>(inputs, 1)[0];
         self.assert_leading_zeros(
             hash,
             config.proof_of_work_bits + (64 - F::order().bits()) as u32,
