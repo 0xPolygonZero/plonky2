@@ -38,11 +38,11 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
     /// Pad the message using the `pad10*1` rule, then hash it.
     fn hash_pad(input: &[F]) -> Self::Hash {
         let mut padded_input = input.to_vec();
-        padded_input.push(F::ZERO);
+        padded_input.push(F::ONE);
         while (padded_input.len() + 1) % SPONGE_WIDTH != 0 {
-            padded_input.push(F::ONE);
+            padded_input.push(F::ZERO);
         }
-        padded_input.push(F::ZERO);
+        padded_input.push(F::ONE);
         Self::hash_no_pad(&padded_input)
     }
 

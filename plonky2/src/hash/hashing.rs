@@ -86,9 +86,8 @@ pub trait PlonkyPermutation<F: RichField> {
     fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH];
 }
 
-/// If `pad` is enabled, the message is padded using the pad10*1 rule. In general this is required
-/// for the hash to be secure, but it can safely be disabled in certain cases, like if the input
-/// length is fixed.
+/// Hash a message without any padding step. Note that this can enable length-extension attacks.
+/// However, it is still collision-resistant in cases where the input has a fixed length.
 pub fn hash_n_to_m_no_pad<F: RichField, P: PlonkyPermutation<F>>(
     inputs: &[F],
     num_outputs: usize,
