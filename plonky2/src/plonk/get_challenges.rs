@@ -65,7 +65,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
 
     challenger.observe_extension_elements(&final_poly.coeffs);
 
-    let fri_pow_response = C::InnerHasher::hash(
+    let fri_pow_response = C::InnerHasher::hash_no_pad(
         &challenger
             .get_hash()
             .elements
@@ -73,7 +73,6 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
             .copied()
             .chain(Some(pow_witness))
             .collect_vec(),
-        false,
     )
     .elements[0];
 
