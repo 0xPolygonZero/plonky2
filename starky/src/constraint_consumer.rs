@@ -104,8 +104,8 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
         builder: &mut CircuitBuilder<F, D>,
         constraint: ExtensionTarget<D>,
     ) {
-        self.constraint_acc =
-            builder.scalar_mul_add_extension(self.alpha, self.constraint_acc, constraint);
+        let filtered_constraint = builder.mul_extension(constraint, self.z_last);
+        self.constraint(builder, filtered_constraint);
     }
 
     /// Add one constraint valid on all rows.
@@ -114,8 +114,8 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
         builder: &mut CircuitBuilder<F, D>,
         constraint: ExtensionTarget<D>,
     ) {
-        let filtered_constraint = builder.mul_extension(constraint, self.z_last);
-        self.constraint(builder, filtered_constraint);
+        self.constraint_acc =
+            builder.scalar_mul_add_extension(self.alpha, self.constraint_acc, constraint);
     }
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the

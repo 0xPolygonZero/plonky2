@@ -227,16 +227,16 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 }
 
 pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> {
-    // Random values used in Plonk's permutation argument.
+    /// Random values used in Plonk's permutation argument.
     pub plonk_betas: Vec<F>,
 
-    // Random values used in Plonk's permutation argument.
+    /// Random values used in Plonk's permutation argument.
     pub plonk_gammas: Vec<F>,
 
-    // Random values used to combine PLONK constraints.
+    /// Random values used to combine PLONK constraints.
     pub plonk_alphas: Vec<F>,
 
-    // Point at which the PLONK polynomials are opened.
+    /// Point at which the PLONK polynomials are opened.
     pub plonk_zeta: F::Extension,
 
     pub fri_challenges: FriChallenges<F, D>,

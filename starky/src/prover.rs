@@ -168,13 +168,13 @@ where
     let lagrange_first = {
         let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
         evals.values[0] = F::ONE;
-        evals.coset_lde(rate_bits)
+        evals.lde_onto_coset(rate_bits)
     };
     // Evaluation of the last Lagrange polynomial on the LDE domain.
     let lagrange_last = {
         let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
         evals.values[degree - 1] = F::ONE;
-        evals.coset_lde(rate_bits)
+        evals.lde_onto_coset(rate_bits)
     };
 
     let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, rate_bits);
@@ -212,8 +212,7 @@ where
             stark.eval_packed_base(vars, &mut consumer);
             // TODO: Fix this once we use a genuine `PackedField`.
             let mut constraints_evals = consumer.accumulators();
-            // We divide the constraints evaluations by `Z_H(x) / x - last`, i.e., the vanishing
-            // polynomial of `H` without it's last element.
+            // We divide the constraints evaluations by `Z_H(x)`.
             let denominator_inv = z_h_on_coset.eval_inverse(i);
             for eval in &mut constraints_evals {
                 *eval *= denominator_inv;

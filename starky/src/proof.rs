@@ -52,10 +52,10 @@ pub struct CompressedStarkProofWithPublicInputs<
 }
 
 pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
-    // Random values used to combine PLONK constraints.
+    /// Random values used to combine STARK constraints.
     pub stark_alphas: Vec<F>,
 
-    // Point at which the PLONK polynomials are opened.
+    /// Point at which the STARK polynomials are opened.
     pub stark_zeta: F::Extension,
 
     pub fri_challenges: FriChallenges<F, D>,
@@ -66,6 +66,7 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub local_values: Vec<F::Extension>,
     pub next_values: Vec<F::Extension>,
     pub permutation_zs: Vec<F::Extension>,
+    pub permutation_zs_right: Vec<F::Extension>,
     pub quotient_polys: Vec<F::Extension>,
 }
 
@@ -86,19 +87,28 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             local_values: eval_commitment(zeta, trace_commitment),
             next_values: eval_commitment(zeta * g, trace_commitment),
             permutation_zs: vec![/*TODO*/],
+            permutation_zs_right: vec![/*TODO*/],
             quotient_polys: eval_commitment(zeta, quotient_commitment),
         }
     }
 
+    // TODO: Replace with a `observe_fri_openings` function.
     // Note: Can't implement this directly on `Challenger` as it's in a different crate.
     pub fn observe<H: Hasher<F>>(&self, challenger: &mut Challenger<F, H>) {
         let StarkOpeningSet {
             local_values,
             next_values,
             permutation_zs,
+            permutation_zs_right,
             quotient_polys,
         } = self;
-        for v in &[local_values, next_values, permutation_zs, quotient_polys] {
+        for v in &[
+            local_values,
+            next_values,
+            permutation_zs,
+            permutation_zs_right,
+            quotient_polys,
+        ] {
             challenger.observe_extension_elements(v);
         }
     }
@@ -113,7 +123,11 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             .concat(),
         };
         let zeta_right_batch = FriOpeningBatch {
-            values: self.next_values.to_vec(),
+            values: [
+                self.next_values.as_slice(),
+                self.permutation_zs_right.as_slice(),
+            ]
+            .concat(),
         };
         FriOpenings {
             batches: vec![zeta_batch, zeta_right_batch],

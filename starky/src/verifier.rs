@@ -58,6 +58,7 @@ where
         local_values,
         next_values,
         permutation_zs,
+        permutation_zs_right,
         quotient_polys,
     } = &proof.openings;
     let vars = StarkEvaluationVars {
@@ -85,7 +86,7 @@ where
         l_last,
     );
     stark.eval_ext(vars, &mut consumer);
-    let acc = consumer.accumulators();
+    let vanishing_polys_zeta = consumer.accumulators();
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
     let quotient_polys_zeta = &proof.openings.quotient_polys;
@@ -100,9 +101,10 @@ where
         .chunks(1 << config.fri_config.rate_bits)
         .enumerate()
     {
-        ensure!(acc[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
+        ensure!(vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
     }
 
+    // TODO: Permutation polynomials.
     let merkle_caps = &[proof.trace_cap, proof.quotient_polys_cap];
 
     verify_fri_proof::<F, C, D>(
@@ -139,12 +141,10 @@ fn recover_degree<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     proof: &StarkProof<F, C, D>,
     config: &StarkConfig,
 ) -> usize {
-    1 << (proof.opening_proof.query_round_proofs[0]
+    let initial_merkle_proof = &proof.opening_proof.query_round_proofs[0]
         .initial_trees_proof
         .evals_proofs[0]
-        .1
-        .siblings
-        .len()
-        + config.fri_config.cap_height
-        - config.fri_config.rate_bits)
+        .1;
+    let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
+    1 << (lde_bits - config.fri_config.rate_bits)
 }
