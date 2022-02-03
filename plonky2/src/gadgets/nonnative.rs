@@ -510,7 +510,7 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::field_types::Field;
+    use plonky2_field::field_types::{Field, PrimeField};
     use plonky2_field::secp256k1_base::Secp256K1Base;
 
     use crate::iop::witness::PartialWitness;

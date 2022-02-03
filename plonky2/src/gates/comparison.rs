@@ -520,7 +520,8 @@ mod tests {
     use std::marker::PhantomData;
 
     use anyhow::Result;
-    use plonky2_field::field_types::{Field, Field64};
+    use plonky2_field::field_types::Field;
+    use plonky2_field::field_types::PrimeField64;
     use plonky2_field::goldilocks_field::GoldilocksField;
     use rand::Rng;
 

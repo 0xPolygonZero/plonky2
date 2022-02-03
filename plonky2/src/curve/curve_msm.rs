@@ -188,6 +188,7 @@ pub(crate) fn to_digits<C: Curve>(x: &C::ScalarField, w: usize) -> Vec<usize> {
 mod tests {
     use num::BigUint;
     use plonky2_field::field_types::Field;
+    use plonky2_field::field_types::PrimeField;
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
     use crate::curve::curve_msm::{msm_execute, msm_precompute, to_digits};
