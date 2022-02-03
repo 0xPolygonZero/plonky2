@@ -2,7 +2,10 @@ use std::convert::TryInto;
 use std::marker::PhantomData;
 
 use plonky2_field::extension_field::{Extendable, FieldExtension};
+use plonky2_field::polynomial::PolynomialCoeffs;
 
+use crate::fri::proof::FriChallenges;
+use crate::fri::FriConfig;
 use crate::hash::hash_types::RichField;
 use crate::hash::hash_types::{HashOut, HashOutTarget, MerkleCapTarget};
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_RATE, SPONGE_WIDTH};
@@ -10,7 +13,7 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::config::{AlgebraicHasher, GenericHashOut, Hasher};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig, GenericHashOut, Hasher};
 use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
 
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
@@ -150,6 +153,57 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
         (0..n)
             .map(|_| self.get_extension_challenge::<D>())
             .collect()
+    }
+
+    pub fn fri_challenges<C: GenericConfig<D, F = F>, const D: usize>(
+        &mut self,
+        commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
+        final_poly: &PolynomialCoeffs<F::Extension>,
+        pow_witness: F,
+        degree_bits: usize,
+        config: &FriConfig,
+    ) -> FriChallenges<F, D>
+    where
+        F: RichField + Extendable<D>,
+    {
+        let num_fri_queries = config.num_query_rounds;
+        let lde_size = 1 << (degree_bits + config.rate_bits);
+        // Scaling factor to combine polynomials.
+        let fri_alpha = self.get_extension_challenge::<D>();
+
+        // Recover the random betas used in the FRI reductions.
+        let fri_betas = commit_phase_merkle_caps
+            .iter()
+            .map(|cap| {
+                self.observe_cap(cap);
+                self.get_extension_challenge::<D>()
+            })
+            .collect();
+
+        self.observe_extension_elements(&final_poly.coeffs);
+
+        let fri_pow_response = C::InnerHasher::hash(
+            &self
+                .get_hash()
+                .elements
+                .iter()
+                .copied()
+                .chain(Some(pow_witness))
+                .collect::<Vec<_>>(),
+            false,
+        )
+        .elements[0];
+
+        let fri_query_indices = (0..num_fri_queries)
+            .map(|_| self.get_challenge().to_canonical_u64() as usize % lde_size)
+            .collect();
+
+        FriChallenges {
+            fri_alpha,
+            fri_betas,
+            fri_pow_response,
+            fri_query_indices,
+        }
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty.

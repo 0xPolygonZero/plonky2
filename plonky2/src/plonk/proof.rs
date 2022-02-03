@@ -3,7 +3,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::fri::oracle::PolynomialBatch;
-use crate::fri::proof::{CompressedFriProof, FriProof, FriProofTarget};
+use crate::fri::proof::{CompressedFriProof, FriChallenges, FriProof, FriProofTarget};
 use crate::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
@@ -227,28 +227,19 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 }
 
 pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> {
-    // Random values used in Plonk's permutation argument.
+    /// Random values used in Plonk's permutation argument.
     pub plonk_betas: Vec<F>,
 
-    // Random values used in Plonk's permutation argument.
+    /// Random values used in Plonk's permutation argument.
     pub plonk_gammas: Vec<F>,
 
-    // Random values used to combine PLONK constraints.
+    /// Random values used to combine PLONK constraints.
     pub plonk_alphas: Vec<F>,
 
-    // Point at which the PLONK polynomials are opened.
+    /// Point at which the PLONK polynomials are opened.
     pub plonk_zeta: F::Extension,
 
-    // Scaling factor to combine polynomials.
-    pub fri_alpha: F::Extension,
-
-    // Betas used in the FRI commit phase reductions.
-    pub fri_betas: Vec<F::Extension>,
-
-    pub fri_pow_response: F,
-
-    // Indices at which the oracle is queried in FRI.
-    pub fri_query_indices: Vec<usize>,
+    pub fri_challenges: FriChallenges<F, D>,
 }
 
 /// Coset elements that can be inferred in the FRI reduction steps.

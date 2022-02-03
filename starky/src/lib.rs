@@ -8,10 +8,12 @@
 
 pub mod config;
 pub mod constraint_consumer;
+mod get_challenges;
 pub mod proof;
 pub mod prover;
 pub mod stark;
 pub mod vars;
+pub mod verifier;
 
 #[cfg(test)]
 pub mod fibonacci_stark;

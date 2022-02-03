@@ -16,18 +16,17 @@ use rayon::prelude::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::proof::{StarkOpeningSet, StarkProof};
+use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationVars;
 
-// TODO: Deal with public inputs.
 pub fn prove<F, C, S, const D: usize>(
     stark: S,
-    config: StarkConfig,
+    config: &StarkConfig,
     trace: Vec<[F; S::COLUMNS]>,
     public_inputs: [F; S::PUBLIC_INPUTS],
     timing: &mut TimingTree,
-) -> Result<StarkProof<F, C, D>>
+) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -101,7 +100,8 @@ where
             None,
         )
     );
-    challenger.observe_cap(&quotient_commitment.merkle_tree.cap);
+    let quotient_polys_cap = quotient_commitment.merkle_tree.cap.clone();
+    challenger.observe_cap(&quotient_polys_cap);
 
     let zeta = challenger.get_extension_challenge::<D>();
     // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
@@ -113,6 +113,7 @@ where
         "Opening point is in the subgroup."
     );
     let openings = StarkOpeningSet::new(zeta, g, &trace_commitment, &quotient_commitment);
+    openings.observe(&mut challenger);
 
     // TODO: Add permuation checks
     let initial_merkle_trees = &[&trace_commitment, &quotient_commitment];
@@ -122,18 +123,23 @@ where
         timing,
         "compute openings proof",
         PolynomialBatch::prove_openings(
-            &S::fri_instance(zeta, g, rate_bits),
+            &S::fri_instance(zeta, g, rate_bits, config.num_challenges),
             initial_merkle_trees,
             &mut challenger,
             &fri_params,
             timing,
         )
     );
-
-    Ok(StarkProof {
+    let proof = StarkProof {
         trace_cap,
+        quotient_polys_cap,
         openings,
         opening_proof,
+    };
+
+    Ok(StarkProofWithPublicInputs {
+        proof,
+        public_inputs: public_inputs.to_vec(),
     })
 }
 
@@ -157,27 +163,33 @@ where
     [(); S::PUBLIC_INPUTS]:,
 {
     let degree = 1 << degree_bits;
-    let points = F::two_adic_subgroup(degree_bits + rate_bits);
 
     // Evaluation of the first Lagrange polynomial on the LDE domain.
     let lagrange_first = {
         let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
         evals.values[0] = F::ONE;
-        evals.lde(rate_bits)
+        evals.lde_onto_coset(rate_bits)
     };
     // Evaluation of the last Lagrange polynomial on the LDE domain.
     let lagrange_last = {
         let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
         evals.values[degree - 1] = F::ONE;
-        evals.lde(rate_bits)
+        evals.lde_onto_coset(rate_bits)
     };
 
-    let z_h_on_coset = ZeroPolyOnCoset::new(degree_bits, rate_bits);
+    let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, rate_bits);
 
     // Retrieve the LDE values at index `i`.
     let get_at_index = |comm: &PolynomialBatch<F, C, D>, i: usize| -> [F; S::COLUMNS] {
         comm.get_lde_values(i).try_into().unwrap()
     };
+    // Last element of the subgroup.
+    let last = F::primitive_root_of_unity(degree_bits).inverse();
+    let coset = F::cyclic_subgroup_coset_known_order(
+        F::primitive_root_of_unity(degree_bits + rate_bits),
+        F::coset_shift(),
+        degree << rate_bits,
+    );
 
     let quotient_values = (0..degree << rate_bits)
         .into_par_iter()
@@ -185,17 +197,22 @@ where
             // TODO: Set `P` to a genuine `PackedField` here.
             let mut consumer = ConstraintConsumer::<F>::new(
                 alphas.clone(),
+                coset[i] - last,
                 lagrange_first.values[i],
                 lagrange_last.values[i],
             );
             let vars = StarkEvaluationVars::<F, F, { S::COLUMNS }, { S::PUBLIC_INPUTS }> {
                 local_values: &get_at_index(trace_commitment, i),
-                next_values: &get_at_index(trace_commitment, (i + 1) % (degree << rate_bits)),
+                next_values: &get_at_index(
+                    trace_commitment,
+                    (i + (1 << rate_bits)) % (degree << rate_bits),
+                ),
                 public_inputs: &public_inputs,
             };
             stark.eval_packed_base(vars, &mut consumer);
-            // TODO: Fix this once we a genuine `PackedField`.
+            // TODO: Fix this once we use a genuine `PackedField`.
             let mut constraints_evals = consumer.accumulators();
+            // We divide the constraints evaluations by `Z_H(x)`.
             let denominator_inv = z_h_on_coset.eval_inverse(i);
             for eval in &mut constraints_evals {
                 *eval *= denominator_inv;
