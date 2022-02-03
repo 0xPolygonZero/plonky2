@@ -97,16 +97,12 @@ pub fn hash_n_to_m_no_pad<F: RichField, P: PlonkyPermutation<F>>(
     let mut state = [F::ZERO; SPONGE_WIDTH];
 
     // Absorb all input chunks.
-    let mut pos = 0;
-    for input in inputs.into_iter() {
-        if pos == SPONGE_RATE {
-            state = P::permute(state);
-            pos = 0;
+    let mut inputs = inputs.into_iter().fuse();
+    while let Some(state_0) = inputs.next() {
+        state[0] = *state_0.borrow();
+        for (i, state_i) in (1..SPONGE_RATE).zip(inputs.by_ref()) {
+            state[i] = *state_i.borrow();
         }
-        state[pos] = *input.borrow();
-        pos += 1;
-    }
-    if pos != 0 {
         state = P::permute(state);
     }
 
