@@ -4,8 +4,7 @@ use plonky2::fri::proof::{CompressedFriProof, FriChallenges, FriProof};
 use plonky2::fri::structure::{FriOpeningBatch, FriOpenings};
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::merkle_tree::MerkleCap;
-use plonky2::iop::challenger::Challenger;
-use plonky2::plonk::config::{GenericConfig, Hasher};
+use plonky2::plonk::config::GenericConfig;
 use rayon::prelude::*;
 
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
@@ -89,27 +88,6 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             permutation_zs: vec![/*TODO*/],
             permutation_zs_right: vec![/*TODO*/],
             quotient_polys: eval_commitment(zeta, quotient_commitment),
-        }
-    }
-
-    // TODO: Replace with a `observe_fri_openings` function.
-    // Note: Can't implement this directly on `Challenger` as it's in a different crate.
-    pub fn observe<H: Hasher<F>>(&self, challenger: &mut Challenger<F, H>) {
-        let StarkOpeningSet {
-            local_values,
-            next_values,
-            permutation_zs,
-            permutation_zs_right,
-            quotient_polys,
-        } = self;
-        for v in &[
-            local_values,
-            next_values,
-            permutation_zs,
-            permutation_zs_right,
-            quotient_polys,
-        ] {
-            challenger.observe_extension_elements(v);
         }
     }
 

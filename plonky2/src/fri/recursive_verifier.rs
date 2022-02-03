@@ -146,7 +146,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Size of the LDE domain.
         let n = params.lde_size();
 
-        challenger.observe_opening_set(os);
+        challenger.observe_openings(&os.to_fri_openings());
 
         // Scaling factor to combine polynomials.
         let alpha = challenger.get_extension_challenge(self);

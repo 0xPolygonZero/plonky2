@@ -113,7 +113,7 @@ where
         "Opening point is in the subgroup."
     );
     let openings = StarkOpeningSet::new(zeta, g, &trace_commitment, &quotient_commitment);
-    openings.observe(&mut challenger);
+    challenger.observe_openings(&openings.to_fri_openings());
 
     // TODO: Add permuation checks
     let initial_merkle_trees = &[&trace_commitment, &quotient_commitment];
