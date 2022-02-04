@@ -83,7 +83,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
     }
 
     fn degree(&self) -> usize {
-        2
+        3
     }
 }
 
@@ -100,8 +100,8 @@ mod tests {
     use crate::stark_testing::test_stark_low_degree;
     use crate::verifier::verify;
 
-    fn fibonacci(n: usize, x0: usize, x1: usize) -> usize {
-        (0..n).fold((0, 1), |x, _| (x.1, x.0 + x.1)).1
+    fn fibonacci<F: Field>(n: usize, x0: F, x1: F) -> F {
+        (0..n).fold((x0, x1), |x, _| (x.1, x.0 + x.1)).1
     }
 
     #[test]
@@ -113,11 +113,7 @@ mod tests {
 
         let config = StarkConfig::standard_fast_config();
         let num_rows = 1 << 5;
-        let public_inputs = [
-            F::ZERO,
-            F::ONE,
-            F::from_canonical_usize(fibonacci(num_rows - 1, 0, 1)),
-        ];
+        let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
         let stark = S::new(num_rows);
         let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
         let proof = prove::<F, C, S, D>(

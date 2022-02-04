@@ -337,10 +337,10 @@ fn compute_quotient_polys<
     assert!(
         max_degree_bits <= common_data.config.fri_config.rate_bits,
         "Having constraints of degree higher than the rate is not supported yet. \
-        If we need this in the future, we can precompute the larger LDE before computing the `ListPolynomialCommitment`s."
+        If we need this in the future, we can precompute the larger LDE before computing the `PolynomialBatch`s."
     );
 
-    // We reuse the LDE computed in `ListPolynomialCommitment` and extract every `step` points to get
+    // We reuse the LDE computed in `PolynomialBatch` and extract every `step` points to get
     // an LDE matching `max_filtered_constraint_degree`.
     let step = 1 << (common_data.config.fri_config.rate_bits - max_degree_bits);
     // When opening the `Z`s polys at the "next" point in Plonk, need to look at the point `next_step`
