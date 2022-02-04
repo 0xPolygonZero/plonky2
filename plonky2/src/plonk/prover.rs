@@ -5,7 +5,7 @@ use anyhow::Result;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_field::zero_poly_coset::ZeroPolyOnCoset;
-use plonky2_util::log2_ceil;
+use plonky2_util::{ceil_div_usize, log2_ceil};
 use rayon::prelude::*;
 
 use crate::field::field_types::Field;
@@ -357,12 +357,18 @@ fn compute_quotient_polys<
     let z_h_on_coset = ZeroPolyOnCoset::new(common_data.degree_bits, quotient_degree_bits);
 
     let points_batches = points.par_chunks(BATCH_SIZE);
+    let num_batches = ceil_div_usize(points.len(), BATCH_SIZE);
     let quotient_values: Vec<Vec<F>> = points_batches
         .enumerate()
         .map(|(batch_i, xs_batch)| {
-            assert_eq!(xs_batch.len(), BATCH_SIZE);
+            // Each batch must be the same size, except the last one, which may be smaller.
+            debug_assert!(
+                xs_batch.len() == BATCH_SIZE
+                    || (batch_i == num_batches - 1 && xs_batch.len() <= BATCH_SIZE)
+            );
+
             let indices_batch: Vec<usize> =
-                (BATCH_SIZE * batch_i..BATCH_SIZE * (batch_i + 1)).collect();
+                (BATCH_SIZE * batch_i..BATCH_SIZE * batch_i + xs_batch.len()).collect();
 
             let mut shifted_xs_batch = Vec::with_capacity(xs_batch.len());
             let mut local_zs_batch = Vec::with_capacity(xs_batch.len());
