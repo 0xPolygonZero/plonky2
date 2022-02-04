@@ -97,6 +97,7 @@ mod tests {
     use starky::config::StarkConfig;
     use starky::prover::prove;
     use starky::stark::Stark;
+    use starky::stark_testing::test_stark_low_degree;
     use starky::verifier::verify;
 
     use crate::system_zero::SystemZero;
@@ -117,5 +118,17 @@ mod tests {
         let proof = prove::<F, C, S, D>(system, &config, trace, public_inputs, &mut timing)?;
 
         verify(system, proof, &config)
+    }
+
+    #[test]
+    #[ignore] // TODO
+    fn degree() -> Result<()> {
+        type F = GoldilocksField;
+        type C = PoseidonGoldilocksConfig;
+        const D: usize = 2;
+
+        type S = SystemZero<F, D>;
+        let system = S::default();
+        test_stark_low_degree(system)
     }
 }

@@ -97,7 +97,7 @@ mod tests {
     use crate::config::StarkConfig;
     use crate::fibonacci_stark::FibonacciStark;
     use crate::prover::prove;
-    use crate::stark_testing::test_low_degree;
+    use crate::stark_testing::test_stark_low_degree;
     use crate::verifier::verify;
 
     fn fibonacci(n: usize, x0: usize, x1: usize) -> usize {
@@ -141,6 +141,6 @@ mod tests {
         let config = StarkConfig::standard_fast_config();
         let num_rows = 1 << 5;
         let stark = S::new(num_rows);
-        test_low_degree(stark)
+        test_stark_low_degree(stark)
     }
 }
