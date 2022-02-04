@@ -65,7 +65,7 @@ where
 impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
     pub(crate) fn generate_permutation_unit(values: &mut [F; NUM_COLUMNS]) {
         // Load inputs.
-        let mut state = [F::ZEROS; SPONGE_WIDTH];
+        let mut state = [F::ZERO; SPONGE_WIDTH];
         for i in 0..SPONGE_WIDTH {
             state[i] = values[col_input(i)];
         }
@@ -74,7 +74,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
             F::constant_layer(&mut state, r);
 
             for i in 0..SPONGE_WIDTH {
-                let state_cubed = state[i] * state[i].square();
+                let state_cubed = state[i].cube();
                 values[col_full_1st_mid_sbox(r, i)] = state_cubed;
                 state[i] *= state_cubed.square(); // Form state ** 7.
             }
@@ -89,7 +89,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         for r in 0..N_PARTIAL_ROUNDS {
             F::constant_layer(&mut state, HALF_N_FULL_ROUNDS + r);
 
-            let state0_cubed = state[0] * state[0].square();
+            let state0_cubed = state[0].cube();
             values[col_partial_mid_sbox(r)] = state0_cubed;
             state[0] *= state0_cubed.square(); // Form state ** 7.
             values[col_partial_after_sbox(r)] = state[0];
@@ -101,7 +101,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
             F::constant_layer(&mut state, HALF_N_FULL_ROUNDS + N_PARTIAL_ROUNDS + r);
 
             for i in 0..SPONGE_WIDTH {
-                let state_cubed = state[i] * state[i].square();
+                let state_cubed = state[i].cube();
                 values[col_full_2nd_mid_sbox(r, i)] = state_cubed;
                 state[i] *= state_cubed.square(); // Form state ** 7.
             }
@@ -267,9 +267,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
 
 #[cfg(test)]
 mod tests {
-    use plonky2::field::field_types::{Field, Field64};
+    use plonky2::field::field_types::Field;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::hash::poseidon::Poseidon;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
     use starky::constraint_consumer::ConstraintConsumer;
     use starky::vars::StarkEvaluationVars;
 
@@ -311,16 +313,15 @@ mod tests {
         const D: usize = 1;
         type F = GoldilocksField;
 
-        let mut state = [F::default(); SPONGE_WIDTH];
-        for i in 0..SPONGE_WIDTH {
-            state[i] = GoldilocksField::from_noncanonical_u64(i as u64);
-        }
+        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+        let state = [F::default(); SPONGE_WIDTH].map(|_| F::rand_from_rng(&mut rng));
 
         // Get true Poseidon hash
         let target = GoldilocksField::poseidon(state);
 
         // Get result from `generate_permutation_unit`
-        let mut values = [F::default(); NUM_COLUMNS];
+        // Initialize `values` with randomness to test that the code doesn't rely on zero-filling.
+        let mut values = [F::default(); NUM_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
         for i in 0..SPONGE_WIDTH {
             values[col_input(i)] = state[i];
         }
