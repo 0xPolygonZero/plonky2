@@ -99,7 +99,7 @@ fn fill_digests_buf<F: RichField, H: Hasher<F>>(
             .par_iter_mut()
             .zip(leaves)
             .for_each(|(cap_buf, leaf)| {
-                cap_buf.write(H::hash(leaf, false));
+                cap_buf.write(H::hash_no_pad(leaf));
             });
         return;
     }
