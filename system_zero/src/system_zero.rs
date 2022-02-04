@@ -81,7 +81,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
         todo!()
     }
 
-    fn degree(&self) -> usize {
+    fn constraint_degree(&self) -> usize {
         3
     }
 }
