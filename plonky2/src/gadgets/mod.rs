@@ -4,6 +4,7 @@ pub mod arithmetic_u32;
 pub mod biguint;
 pub mod curve;
 pub mod ecdsa;
+pub mod glv;
 pub mod hash;
 pub mod interpolation;
 pub mod multiple_comparison;
