@@ -98,7 +98,7 @@ where
     // So to reconstruct `t(zeta)` we can compute `reduce_with_powers(chunk, zeta^n)` for each
     // `quotient_degree_factor`-sized chunk of the original evaluations.
     for (i, chunk) in quotient_polys_zeta
-        .chunks(stark.constraint_degree() - 1)
+        .chunks(stark.quotient_degree_factor())
         .enumerate()
     {
         ensure!(vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));

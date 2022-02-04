@@ -65,6 +65,11 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// The maximum constraint degree.
     fn constraint_degree(&self) -> usize;
 
+    /// The maximum constraint degree.
+    fn quotient_degree_factor(&self) -> usize {
+        1.max(self.constraint_degree() - 1)
+    }
+
     /// Computes the FRI instance used to prove this Stark.
     // TODO: Permutation polynomials.
     fn fri_instance(
@@ -77,7 +82,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         let no_blinding_oracle = FriOracleInfo { blinding: false };
         let trace_info = FriPolynomialInfo::from_range(0, 0..Self::COLUMNS);
         let quotient_info =
-            FriPolynomialInfo::from_range(1, 0..(self.constraint_degree() - 1) * num_challenges);
+            FriPolynomialInfo::from_range(1, 0..self.quotient_degree_factor() * num_challenges);
         let zeta_batch = FriBatchInfo {
             point: zeta,
             polynomials: [trace_info.clone(), quotient_info].concat(),

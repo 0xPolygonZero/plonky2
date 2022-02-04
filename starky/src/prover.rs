@@ -82,7 +82,7 @@ where
         .flat_map(|mut quotient_poly| {
             quotient_poly.trim();
             quotient_poly
-                .pad(degree * (stark.constraint_degree() - 1))
+                .pad(degree * stark.quotient_degree_factor())
                 .expect("Quotient has failed, the vanishing polynomial is not divisible by `Z_H");
             // Split quotient into degree-n chunks.
             quotient_poly.chunks(degree)
@@ -162,7 +162,7 @@ where
 {
     let degree = 1 << degree_bits;
 
-    let max_degree_bits = log2_ceil(stark.constraint_degree() - 1);
+    let max_degree_bits = log2_ceil(stark.quotient_degree_factor());
     assert!(
         max_degree_bits <= rate_bits,
         "Having constraints of degree higher than the rate is not supported yet."
