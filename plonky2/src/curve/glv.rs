@@ -4,7 +4,7 @@ use plonky2_field::secp256k1_base::Secp256K1Base;
 use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
 use crate::curve::curve_msm::msm_parallel;
-use crate::curve::curve_types::{ProjectivePoint, AffinePoint};
+use crate::curve::curve_types::{AffinePoint, ProjectivePoint};
 use crate::curve::secp256k1::Secp256K1;
 
 pub const BETA: Secp256K1Base = Secp256K1Base([

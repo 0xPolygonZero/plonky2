@@ -96,7 +96,7 @@ mod tests {
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{PoseidonGoldilocksConfig, GenericConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
