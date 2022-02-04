@@ -31,7 +31,21 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
     /// Permutation used in the sponge construction.
     type Permutation: PlonkyPermutation<F>;
 
-    fn hash(input: &[F], pad: bool) -> Self::Hash;
+    /// Hash a message without any padding step. Note that this can enable length-extension attacks.
+    /// However, it is still collision-resistant in cases where the input has a fixed length.
+    fn hash_no_pad(input: &[F]) -> Self::Hash;
+
+    /// Pad the message using the `pad10*1` rule, then hash it.
+    fn hash_pad(input: &[F]) -> Self::Hash {
+        let mut padded_input = input.to_vec();
+        padded_input.push(F::ONE);
+        while (padded_input.len() + 1) % SPONGE_WIDTH != 0 {
+            padded_input.push(F::ZERO);
+        }
+        padded_input.push(F::ONE);
+        Self::hash_no_pad(&padded_input)
+    }
+
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash;
 }
 

@@ -165,7 +165,7 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
 
         self.observe_extension_elements(&final_poly.coeffs);
 
-        let fri_pow_response = C::InnerHasher::hash(
+        let fri_pow_response = C::InnerHasher::hash_no_pad(
             &self
                 .get_hash()
                 .elements
@@ -173,7 +173,6 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
                 .copied()
                 .chain(Some(pow_witness))
                 .collect::<Vec<_>>(),
-            false,
         )
         .elements[0];
 
