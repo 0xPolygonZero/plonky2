@@ -83,7 +83,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
     }
 
     fn degree(&self) -> usize {
-        3
+        2
     }
 }
 
