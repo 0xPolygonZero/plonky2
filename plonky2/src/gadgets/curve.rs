@@ -329,6 +329,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_curve_random() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;

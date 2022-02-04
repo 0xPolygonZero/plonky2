@@ -92,6 +92,7 @@ mod tests {
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
     use crate::curve::curve_types::{Curve, CurveScalar};
+    use crate::curve::glv::glv_mul;
     use crate::curve::secp256k1::Secp256K1;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
@@ -117,9 +118,10 @@ mod tests {
         let scalar = Secp256K1Scalar::rand();
         let scalar_target = builder.constant_nonnative(scalar);
 
-        let randot_times_scalar = builder.curve_scalar_mul(&randot, &scalar_target);
-        let randot_glv_scalar = builder.glv_mul(&randot, &scalar_target);
-        builder.connect_affine_point(&randot_times_scalar, &randot_glv_scalar);
+        let rando_glv_scalar = glv_mul(rando.to_projective(), scalar);
+        let expected = builder.constant_affine_point(rando_glv_scalar.to_affine());
+        let actual = builder.glv_mul(&randot, &scalar_target);
+        builder.connect_affine_point(&expected, &actual);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
