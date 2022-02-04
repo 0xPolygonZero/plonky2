@@ -162,29 +162,29 @@ where
 {
     let degree = 1 << degree_bits;
 
-    let max_degree_bits = log2_ceil(stark.quotient_degree_factor());
+    let quotient_degree_bits = log2_ceil(stark.quotient_degree_factor());
     assert!(
-        max_degree_bits <= rate_bits,
+        quotient_degree_bits <= rate_bits,
         "Having constraints of degree higher than the rate is not supported yet."
     );
-    let step = 1 << (rate_bits - max_degree_bits);
+    let step = 1 << (rate_bits - quotient_degree_bits);
     // When opening the `Z`s polys at the "next" point, need to look at the point `next_step` steps away.
-    let next_step = 1 << max_degree_bits;
+    let next_step = 1 << quotient_degree_bits;
 
     // Evaluation of the first Lagrange polynomial on the LDE domain.
     let lagrange_first = {
         let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
         evals.values[0] = F::ONE;
-        evals.lde_onto_coset(max_degree_bits)
+        evals.lde_onto_coset(quotient_degree_bits)
     };
     // Evaluation of the last Lagrange polynomial on the LDE domain.
     let lagrange_last = {
         let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
         evals.values[degree - 1] = F::ONE;
-        evals.lde_onto_coset(max_degree_bits)
+        evals.lde_onto_coset(quotient_degree_bits)
     };
 
-    let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, max_degree_bits);
+    let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, quotient_degree_bits);
 
     // Retrieve the LDE values at index `i`.
     let get_at_index = |comm: &PolynomialBatch<F, C, D>, i: usize| -> [F; S::COLUMNS] {
@@ -192,9 +192,9 @@ where
     };
     // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();
-    let size = degree << max_degree_bits;
+    let size = degree << quotient_degree_bits;
     let coset = F::cyclic_subgroup_coset_known_order(
-        F::primitive_root_of_unity(degree_bits + max_degree_bits),
+        F::primitive_root_of_unity(degree_bits + quotient_degree_bits),
         F::coset_shift(),
         size,
     );
