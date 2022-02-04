@@ -81,6 +81,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
     ) {
         todo!()
     }
+
+    fn constraint_degree(&self) -> usize {
+        2
+    }
 }
 
 #[cfg(test)]
@@ -93,10 +97,11 @@ mod tests {
     use crate::config::StarkConfig;
     use crate::fibonacci_stark::FibonacciStark;
     use crate::prover::prove;
+    use crate::stark_testing::test_stark_low_degree;
     use crate::verifier::verify;
 
-    fn fibonacci(n: usize, x0: usize, x1: usize) -> usize {
-        (0..n).fold((0, 1), |x, _| (x.1, x.0 + x.1)).1
+    fn fibonacci<F: Field>(n: usize, x0: F, x1: F) -> F {
+        (0..n).fold((x0, x1), |x, _| (x.1, x.0 + x.1)).1
     }
 
     #[test]
@@ -108,11 +113,7 @@ mod tests {
 
         let config = StarkConfig::standard_fast_config();
         let num_rows = 1 << 5;
-        let public_inputs = [
-            F::ZERO,
-            F::ONE,
-            F::from_canonical_usize(fibonacci(num_rows - 1, 0, 1)),
-        ];
+        let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
         let stark = S::new(num_rows);
         let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
         let proof = prove::<F, C, S, D>(
@@ -124,5 +125,18 @@ mod tests {
         )?;
 
         verify(stark, proof, &config)
+    }
+
+    #[test]
+    fn test_fibonacci_stark_degree() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = FibonacciStark<F, D>;
+
+        let config = StarkConfig::standard_fast_config();
+        let num_rows = 1 << 5;
+        let stark = S::new(num_rows);
+        test_stark_low_degree(stark)
     }
 }

@@ -12,6 +12,7 @@ mod get_challenges;
 pub mod proof;
 pub mod prover;
 pub mod stark;
+pub mod stark_testing;
 pub mod vars;
 pub mod verifier;
 

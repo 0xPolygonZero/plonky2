@@ -98,7 +98,7 @@ where
     // So to reconstruct `t(zeta)` we can compute `reduce_with_powers(chunk, zeta^n)` for each
     // `quotient_degree_factor`-sized chunk of the original evaluations.
     for (i, chunk) in quotient_polys_zeta
-        .chunks(1 << config.fri_config.rate_bits)
+        .chunks(stark.quotient_degree_factor())
         .enumerate()
     {
         ensure!(vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
@@ -108,7 +108,7 @@ where
     let merkle_caps = &[proof.trace_cap, proof.quotient_polys_cap];
 
     verify_fri_proof::<F, C, D>(
-        &S::fri_instance(
+        &stark.fri_instance(
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits).into(),
             config.fri_config.rate_bits,

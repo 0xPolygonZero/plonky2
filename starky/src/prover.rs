@@ -11,7 +11,7 @@ use plonky2::plonk::config::GenericConfig;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
-use plonky2_util::log2_strict;
+use plonky2_util::{log2_ceil, log2_strict};
 use rayon::prelude::*;
 
 use crate::config::StarkConfig;
@@ -82,7 +82,7 @@ where
         .flat_map(|mut quotient_poly| {
             quotient_poly.trim();
             quotient_poly
-                .pad(degree << rate_bits)
+                .pad(degree * stark.quotient_degree_factor())
                 .expect("Quotient has failed, the vanishing polynomial is not divisible by `Z_H");
             // Split quotient into degree-n chunks.
             quotient_poly.chunks(degree)
@@ -123,7 +123,7 @@ where
         timing,
         "compute openings proof",
         PolynomialBatch::prove_openings(
-            &S::fri_instance(zeta, g, rate_bits, config.num_challenges),
+            &stark.fri_instance(zeta, g, rate_bits, config.num_challenges),
             initial_merkle_trees,
             &mut challenger,
             &fri_params,
@@ -145,8 +145,6 @@ where
 
 /// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
 /// where the `C_i`s are the Stark constraints.
-// TODO: This won't work for the Fibonacci example because the constraints wrap around the subgroup.
-// The denominator should be the vanishing polynomial of `H` without its last element.
 fn compute_quotient_polys<F, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &PolynomialBatch<F, C, D>,
@@ -164,34 +162,44 @@ where
 {
     let degree = 1 << degree_bits;
 
+    let quotient_degree_bits = log2_ceil(stark.quotient_degree_factor());
+    assert!(
+        quotient_degree_bits <= rate_bits,
+        "Having constraints of degree higher than the rate is not supported yet."
+    );
+    let step = 1 << (rate_bits - quotient_degree_bits);
+    // When opening the `Z`s polys at the "next" point, need to look at the point `next_step` steps away.
+    let next_step = 1 << quotient_degree_bits;
+
     // Evaluation of the first Lagrange polynomial on the LDE domain.
     let lagrange_first = {
         let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
         evals.values[0] = F::ONE;
-        evals.lde_onto_coset(rate_bits)
+        evals.lde_onto_coset(quotient_degree_bits)
     };
     // Evaluation of the last Lagrange polynomial on the LDE domain.
     let lagrange_last = {
         let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
         evals.values[degree - 1] = F::ONE;
-        evals.lde_onto_coset(rate_bits)
+        evals.lde_onto_coset(quotient_degree_bits)
     };
 
-    let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, rate_bits);
+    let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, quotient_degree_bits);
 
     // Retrieve the LDE values at index `i`.
     let get_at_index = |comm: &PolynomialBatch<F, C, D>, i: usize| -> [F; S::COLUMNS] {
-        comm.get_lde_values(i).try_into().unwrap()
+        comm.get_lde_values(i * step).try_into().unwrap()
     };
     // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();
+    let size = degree << quotient_degree_bits;
     let coset = F::cyclic_subgroup_coset_known_order(
-        F::primitive_root_of_unity(degree_bits + rate_bits),
+        F::primitive_root_of_unity(degree_bits + quotient_degree_bits),
         F::coset_shift(),
-        degree << rate_bits,
+        size,
     );
 
-    let quotient_values = (0..degree << rate_bits)
+    let quotient_values = (0..size)
         .into_par_iter()
         .map(|i| {
             // TODO: Set `P` to a genuine `PackedField` here.
@@ -203,10 +211,7 @@ where
             );
             let vars = StarkEvaluationVars::<F, F, { S::COLUMNS }, { S::PUBLIC_INPUTS }> {
                 local_values: &get_at_index(trace_commitment, i),
-                next_values: &get_at_index(
-                    trace_commitment,
-                    (i + (1 << rate_bits)) % (degree << rate_bits),
-                ),
+                next_values: &get_at_index(trace_commitment, (i + next_step) % size),
                 public_inputs: &public_inputs,
             };
             stark.eval_packed_base(vars, &mut consumer);
