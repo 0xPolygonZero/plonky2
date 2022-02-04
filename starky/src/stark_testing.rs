@@ -25,6 +25,7 @@ where
     let rate_bits = log2_ceil(stark.degree() + 1);
 
     let wire_ldes = random_low_degree_matrix::<F>(S::COLUMNS, rate_bits);
+    let size = wire_ldes.len();
     let public_inputs = F::rand_arr::<{ S::PUBLIC_INPUTS }>();
 
     let lagrange_first = {
@@ -41,17 +42,14 @@ where
     let z_h_on_coset = ZeroPolyOnCoset::<F>::new(log2_strict(WITNESS_SIZE), rate_bits);
 
     let last = F::primitive_root_of_unity(log2_strict(WITNESS_SIZE)).inverse();
-    let subgroup = F::cyclic_subgroup_known_order(
-        F::primitive_root_of_unity(log2_strict(WITNESS_SIZE) + rate_bits),
-        WITNESS_SIZE << rate_bits,
-    );
-    let n = wire_ldes.len();
+    let subgroup =
+        F::cyclic_subgroup_known_order(F::primitive_root_of_unity(log2_strict(size)), size);
     let alpha = F::rand();
-    let constraint_evals = (0..wire_ldes.len())
+    let constraint_evals = (0..size)
         .map(|i| {
             let vars = StarkEvaluationVars {
                 local_values: &wire_ldes[i].clone().try_into().unwrap(),
-                next_values: &wire_ldes[(i + (1 << rate_bits)) % n]
+                next_values: &wire_ldes[(i + (1 << rate_bits)) % size]
                     .clone()
                     .try_into()
                     .unwrap(),
