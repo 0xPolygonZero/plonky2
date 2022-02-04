@@ -41,8 +41,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn glv_mul(
         &mut self,
-        k: &NonNativeTarget<Secp256K1Scalar>,
         p: &AffinePointTarget<Secp256K1>,
+        k: &NonNativeTarget<Secp256K1Scalar>,
     ) -> AffinePointTarget<Secp256K1> {
         let (k1, k2) = self.decompose_secp256k1_scalar(k);
 
@@ -86,4 +86,44 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use anyhow::Result;
+    use plonky2_field::field_types::Field;
+    use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
+
+    use crate::curve::curve_types::{Curve, CurveScalar};
+    use crate::curve::secp256k1::Secp256K1;
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{PoseidonGoldilocksConfig, GenericConfig};
+    use crate::plonk::verifier::verify;
+
+    #[test]
+    fn test_glv() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let config = CircuitConfig::standard_ecc_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let rando =
+            (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
+        let randot = builder.constant_affine_point(rando);
+
+        let scalar = Secp256K1Scalar::rand();
+        let scalar_target = builder.constant_nonnative(scalar);
+
+        let randot_times_scalar = builder.curve_scalar_mul(&randot, &scalar_target);
+        let randot_glv_scalar = builder.glv_mul(&randot, &scalar_target);
+        builder.connect_affine_point(&randot_times_scalar, &randot_glv_scalar);
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+}
