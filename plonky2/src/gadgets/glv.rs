@@ -54,7 +54,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         };
 
         // TODO: replace with MSM
-        let part1 = self.curve_scalar_mul(&p, &k1);
+        let part1 = self.curve_scalar_mul(p, &k1);
         let part2 = self.curve_scalar_mul(&sp, &k2);
 
         self.curve_add(&part1, &part2)
