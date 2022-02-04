@@ -2,7 +2,6 @@ use anyhow::{ensure, Result};
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::Field;
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2::hash::hash_types::RichField;
 use plonky2::util::transpose;
 use plonky2_util::{log2_ceil, log2_strict};
@@ -24,8 +23,8 @@ where
 {
     let rate_bits = log2_ceil(stark.constraint_degree() + 1);
 
-    let wire_ldes = random_low_degree_matrix::<F>(S::COLUMNS, rate_bits);
-    let size = wire_ldes.len();
+    let trace_ldes = random_low_degree_matrix::<F>(S::COLUMNS, rate_bits);
+    let size = trace_ldes.len();
     let public_inputs = F::rand_arr::<{ S::PUBLIC_INPUTS }>();
 
     let lagrange_first = {
@@ -39,8 +38,6 @@ where
         evals.lde(rate_bits)
     };
 
-    let z_h_on_coset = ZeroPolyOnCoset::<F>::new(log2_strict(WITNESS_SIZE), rate_bits);
-
     let last = F::primitive_root_of_unity(log2_strict(WITNESS_SIZE)).inverse();
     let subgroup =
         F::cyclic_subgroup_known_order(F::primitive_root_of_unity(log2_strict(size)), size);
@@ -48,8 +45,8 @@ where
     let constraint_evals = (0..size)
         .map(|i| {
             let vars = StarkEvaluationVars {
-                local_values: &wire_ldes[i].clone().try_into().unwrap(),
-                next_values: &wire_ldes[(i + (1 << rate_bits)) % size]
+                local_values: &trace_ldes[i].clone().try_into().unwrap(),
+                next_values: &trace_ldes[(i + (1 << rate_bits)) % size]
                     .clone()
                     .try_into()
                     .unwrap(),
