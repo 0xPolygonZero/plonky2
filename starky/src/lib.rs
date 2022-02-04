@@ -17,3 +17,5 @@ pub mod verifier;
 
 #[cfg(test)]
 pub mod fibonacci_stark;
+#[cfg(test)]
+pub mod stark_testing;

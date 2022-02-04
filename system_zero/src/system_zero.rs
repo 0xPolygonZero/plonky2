@@ -80,6 +80,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
         self.eval_permutation_unit_recursively(builder, vars, yield_constr);
         todo!()
     }
+
+    fn degree(&self) -> usize {
+        3
+    }
 }
 
 #[cfg(test)]

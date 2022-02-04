@@ -81,6 +81,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
     ) {
         todo!()
     }
+
+    fn degree(&self) -> usize {
+        2
+    }
 }
 
 #[cfg(test)]
@@ -93,6 +97,7 @@ mod tests {
     use crate::config::StarkConfig;
     use crate::fibonacci_stark::FibonacciStark;
     use crate::prover::prove;
+    use crate::stark_testing::test_low_degree;
     use crate::verifier::verify;
 
     fn fibonacci(n: usize, x0: usize, x1: usize) -> usize {
@@ -124,5 +129,18 @@ mod tests {
         )?;
 
         verify(stark, proof, &config)
+    }
+
+    #[test]
+    fn test_fibonacci_stark_degree() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = FibonacciStark<F, D>;
+
+        let config = StarkConfig::standard_fast_config();
+        let num_rows = 1 << 5;
+        let stark = S::new(num_rows);
+        test_low_degree(stark)
     }
 }
