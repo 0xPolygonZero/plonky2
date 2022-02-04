@@ -22,7 +22,7 @@ where
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
 {
-    let rate_bits = log2_ceil(stark.degree() + 1);
+    let rate_bits = log2_ceil(stark.constraint_degree() + 1);
 
     let wire_ldes = random_low_degree_matrix::<F>(S::COLUMNS, rate_bits);
     let size = wire_ldes.len();
@@ -68,13 +68,13 @@ where
         .collect::<Vec<_>>();
 
     let constraint_eval_degree = PolynomialValues::new(constraint_evals).degree();
-    let maximum_degree = WITNESS_SIZE * stark.degree() - 1;
+    let maximum_degree = WITNESS_SIZE * stark.constraint_degree() - 1;
 
     ensure!(
         constraint_eval_degree <= maximum_degree,
         "Expected degrees at most {} * {} - 1 = {}, actual {:?}",
         WITNESS_SIZE,
-        stark.degree(),
+        stark.constraint_degree(),
         maximum_degree,
         constraint_eval_degree
     );
