@@ -12,7 +12,9 @@ pub struct ConstraintConsumer<P: PackedField> {
     alphas: Vec<P::Scalar>,
 
     /// Running sums of constraints that have been emitted so far, scaled by powers of alpha.
-    constraint_accs: Vec<P>,
+    // TODO(JN): This is pub so it can be used in a test. Once we have an API for accessing this
+    // result, it should be made private.
+    pub constraint_accs: Vec<P>,
 
     /// The evaluation of `X - g^(n-1)`.
     z_last: P,

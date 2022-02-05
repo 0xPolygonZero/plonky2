@@ -24,35 +24,56 @@ pub(crate) const COL_STACK_PTR: usize = COL_FRAME_PTR + 1;
 
 const START_PERMUTATION_UNIT: usize = COL_STACK_PTR + 1;
 
-pub(crate) const fn col_permutation_full_first(round: usize, i: usize) -> usize {
+const START_PERMUTATION_FULL_FIRST: usize = START_PERMUTATION_UNIT + SPONGE_WIDTH;
+
+pub(crate) const fn col_permutation_full_first_mid_sbox(round: usize, i: usize) -> usize {
     debug_assert!(round < poseidon::HALF_N_FULL_ROUNDS);
     debug_assert!(i < SPONGE_WIDTH);
-    START_PERMUTATION_UNIT + round * SPONGE_WIDTH + i
+    START_PERMUTATION_FULL_FIRST + 2 * round * SPONGE_WIDTH + i
+}
+
+pub(crate) const fn col_permutation_full_first_after_mds(round: usize, i: usize) -> usize {
+    debug_assert!(round < poseidon::HALF_N_FULL_ROUNDS);
+    debug_assert!(i < SPONGE_WIDTH);
+    START_PERMUTATION_FULL_FIRST + (2 * round + 1) * SPONGE_WIDTH + i
 }
 
 const START_PERMUTATION_PARTIAL: usize =
-    col_permutation_full_first(poseidon::HALF_N_FULL_ROUNDS - 1, SPONGE_WIDTH - 1) + 1;
+    col_permutation_full_first_after_mds(poseidon::HALF_N_FULL_ROUNDS - 1, SPONGE_WIDTH - 1) + 1;
 
-pub(crate) const fn col_permutation_partial(round: usize) -> usize {
+pub(crate) const fn col_permutation_partial_mid_sbox(round: usize) -> usize {
     debug_assert!(round < poseidon::N_PARTIAL_ROUNDS);
-    START_PERMUTATION_PARTIAL + round
+    START_PERMUTATION_PARTIAL + 2 * round
 }
 
-const START_PERMUTATION_FULL_SECOND: usize = COL_STACK_PTR + 1;
+pub(crate) const fn col_permutation_partial_after_sbox(round: usize) -> usize {
+    debug_assert!(round < poseidon::N_PARTIAL_ROUNDS);
+    START_PERMUTATION_PARTIAL + 2 * round + 1
+}
 
-pub(crate) const fn col_permutation_full_second(round: usize, i: usize) -> usize {
+const START_PERMUTATION_FULL_SECOND: usize =
+    col_permutation_partial_after_sbox(poseidon::N_PARTIAL_ROUNDS - 1) + 1;
+
+pub(crate) const fn col_permutation_full_second_mid_sbox(round: usize, i: usize) -> usize {
     debug_assert!(round <= poseidon::HALF_N_FULL_ROUNDS);
     debug_assert!(i < SPONGE_WIDTH);
-    START_PERMUTATION_FULL_SECOND + round * SPONGE_WIDTH + i
+    START_PERMUTATION_FULL_SECOND + 2 * round * SPONGE_WIDTH + i
+}
+
+pub(crate) const fn col_permutation_full_second_after_mds(round: usize, i: usize) -> usize {
+    debug_assert!(round <= poseidon::HALF_N_FULL_ROUNDS);
+    debug_assert!(i < SPONGE_WIDTH);
+    START_PERMUTATION_FULL_SECOND + (2 * round + 1) * SPONGE_WIDTH + i
 }
 
 pub(crate) const fn col_permutation_input(i: usize) -> usize {
-    col_permutation_full_first(0, i)
+    debug_assert!(i < SPONGE_WIDTH);
+    START_PERMUTATION_UNIT + i
 }
 
 pub(crate) const fn col_permutation_output(i: usize) -> usize {
     debug_assert!(i < SPONGE_WIDTH);
-    col_permutation_full_second(poseidon::HALF_N_FULL_ROUNDS, i)
+    col_permutation_full_second_after_mds(poseidon::HALF_N_FULL_ROUNDS - 1, i)
 }
 
 const END_PERMUTATION_UNIT: usize = col_permutation_output(SPONGE_WIDTH - 1);
