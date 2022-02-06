@@ -172,17 +172,10 @@ where
     let next_step = 1 << quotient_degree_bits;
 
     // Evaluation of the first Lagrange polynomial on the LDE domain.
-    let lagrange_first = {
-        let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
-        evals.values[0] = F::ONE;
-        evals.lde_onto_coset(quotient_degree_bits)
-    };
+    let lagrange_first = PolynomialValues::selector(degree, 0).lde_onto_coset(quotient_degree_bits);
     // Evaluation of the last Lagrange polynomial on the LDE domain.
-    let lagrange_last = {
-        let mut evals = PolynomialValues::new(vec![F::ZERO; degree]);
-        evals.values[degree - 1] = F::ONE;
-        evals.lde_onto_coset(quotient_degree_bits)
-    };
+    let lagrange_last =
+        PolynomialValues::selector(degree, degree - 1).lde_onto_coset(quotient_degree_bits);
 
     let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, quotient_degree_bits);
 

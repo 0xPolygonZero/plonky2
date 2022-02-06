@@ -27,16 +27,8 @@ where
     let size = trace_ldes.len();
     let public_inputs = F::rand_arr::<{ S::PUBLIC_INPUTS }>();
 
-    let lagrange_first = {
-        let mut evals = PolynomialValues::new(vec![F::ZERO; WITNESS_SIZE]);
-        evals.values[0] = F::ONE;
-        evals.lde(rate_bits)
-    };
-    let lagrange_last = {
-        let mut evals = PolynomialValues::new(vec![F::ZERO; WITNESS_SIZE]);
-        evals.values[WITNESS_SIZE - 1] = F::ONE;
-        evals.lde(rate_bits)
-    };
+    let lagrange_first = PolynomialValues::selector(WITNESS_SIZE, 0).lde(rate_bits);
+    let lagrange_last = PolynomialValues::selector(WITNESS_SIZE, WITNESS_SIZE - 1).lde(rate_bits);
 
     let last = F::primitive_root_of_unity(log2_strict(WITNESS_SIZE)).inverse();
     let subgroup =
