@@ -1,9 +1,11 @@
 use plonky2::field::extension_field::Extendable;
 use plonky2::fri::oracle::PolynomialBatch;
-use plonky2::fri::proof::{CompressedFriProof, FriChallenges, FriProof};
+use plonky2::fri::proof::{CompressedFriProof, FriChallenges, FriProof, FriProofTarget};
 use plonky2::fri::structure::{FriOpeningBatch, FriOpenings};
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
 use plonky2::hash::merkle_tree::MerkleCap;
+use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::iop::target::Target;
 use plonky2::plonk::config::GenericConfig;
 use rayon::prelude::*;
 
@@ -18,6 +20,13 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     pub opening_proof: FriProof<F, C::Hasher, D>,
 }
 
+pub struct StarkProofTarget<const D: usize> {
+    pub trace_cap: MerkleCapTarget,
+    pub quotient_polys_cap: MerkleCapTarget,
+    pub openings: StarkOpeningSetTarget<D>,
+    pub opening_proof: FriProofTarget<D>,
+}
+
 pub struct StarkProofWithPublicInputs<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -26,6 +35,11 @@ pub struct StarkProofWithPublicInputs<
     pub proof: StarkProof<F, C, D>,
     // TODO: Maybe make it generic over a `S: Stark` and replace with `[F; S::PUBLIC_INPUTS]`.
     pub public_inputs: Vec<F>,
+}
+
+pub struct StarkProofWithPublicInputsTarget<const D: usize> {
+    pub proof: StarkProofTarget<D>,
+    pub public_inputs: Vec<Target>,
 }
 
 pub struct CompressedStarkProof<
@@ -111,4 +125,12 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             batches: vec![zeta_batch, zeta_right_batch],
         }
     }
+}
+
+pub struct StarkOpeningSetTarget<const D: usize> {
+    pub local_values: Vec<ExtensionTarget<D>>,
+    pub next_values: Vec<ExtensionTarget<D>>,
+    pub permutation_zs: Vec<ExtensionTarget<D>>,
+    pub permutation_zs_right: Vec<ExtensionTarget<D>>,
+    pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
