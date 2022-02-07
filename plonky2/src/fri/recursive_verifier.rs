@@ -3,7 +3,8 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
 use crate::fri::proof::{
-    FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
+    FriChallengesTarget, FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget,
+    FriQueryStepTarget,
 };
 use crate::fri::structure::{FriBatchInfoTarget, FriInstanceInfoTarget, FriOpeningsTarget};
 use crate::fri::{FriConfig, FriParams};
@@ -14,12 +15,10 @@ use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
 use crate::gates::random_access::RandomAccessGate;
 use crate::hash::hash_types::MerkleCapTarget;
 use crate::hash::hash_types::RichField;
-use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::ext_target::{flatten_target, ExtensionTarget};
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
-use crate::plonk::proof::OpeningSetTarget;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
 
@@ -107,16 +106,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn fri_verify_proof_of_work<H: AlgebraicHasher<F>>(
         &mut self,
-        proof: &FriProofTarget<D>,
-        challenger: &mut RecursiveChallenger<F, H, D>,
+        fri_pow_response: Target,
         config: &FriConfig,
     ) {
-        let mut inputs = challenger.get_hash(self).elements.to_vec();
-        inputs.push(proof.pow_witness);
-
-        let hash = self.hash_n_to_m_no_pad::<H>(inputs, 1)[0];
         self.assert_leading_zeros(
-            hash,
+            fri_pow_response,
             config.proof_of_work_bits + (64 - F::order().bits()) as u32,
         );
     }
@@ -124,11 +118,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn verify_fri_proof<C: GenericConfig<D, F = F>>(
         &mut self,
         instance: &FriInstanceInfoTarget<D>,
-        // Openings of the PLONK polynomials.
-        os: &OpeningSetTarget<D>,
+        openings: &FriOpeningsTarget<D>,
+        challenges: &FriChallengesTarget<D>,
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
-        challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
         params: &FriParams,
     ) where
         C::Hasher: AlgebraicHasher<F>,
@@ -146,29 +139,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Size of the LDE domain.
         let n = params.lde_size();
 
-        challenger.observe_openings(&os.to_fri_openings());
-
-        // Scaling factor to combine polynomials.
-        let alpha = challenger.get_extension_challenge(self);
-
-        let betas = with_context!(
-            self,
-            "recover the random betas used in the FRI reductions.",
-            proof
-                .commit_phase_merkle_caps
-                .iter()
-                .map(|cap| {
-                    challenger.observe_cap(cap);
-                    challenger.get_extension_challenge(self)
-                })
-                .collect::<Vec<_>>()
-        );
-        challenger.observe_extension_elements(&proof.final_poly.0);
-
         with_context!(
             self,
             "check PoW",
-            self.fri_verify_proof_of_work::<C::Hasher>(proof, challenger, &params.config)
+            self.fri_verify_proof_of_work::<C::Hasher>(challenges.fri_pow_response, &params.config)
         );
 
         // Check that parameters are coherent.
@@ -181,7 +155,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let precomputed_reduced_evals = with_context!(
             self,
             "precompute reduced evaluations",
-            PrecomputedReducedOpeningsTarget::from_os_and_alpha(&os.to_fri_openings(), alpha, self)
+            PrecomputedReducedOpeningsTarget::from_os_and_alpha(
+                openings,
+                challenges.fri_alpha,
+                self
+            )
         );
 
         for (i, round_proof) in proof.query_round_proofs.iter().enumerate() {
@@ -201,13 +179,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 &format!("verify one (of {}) query rounds", num_queries),
                 self.fri_verifier_query_round::<C>(
                     instance,
-                    alpha,
+                    challenges,
                     &precomputed_reduced_evals,
                     initial_merkle_caps,
                     proof,
-                    challenger,
+                    challenges.fri_query_indices[i],
                     n,
-                    &betas,
                     round_proof,
                     params,
                 )
@@ -291,13 +268,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn fri_verifier_query_round<C: GenericConfig<D, F = F>>(
         &mut self,
         instance: &FriInstanceInfoTarget<D>,
-        alpha: ExtensionTarget<D>,
+        challenges: &FriChallengesTarget<D>,
         precomputed_reduced_evals: &PrecomputedReducedOpeningsTarget<D>,
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
-        challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
+        x_index: Target,
         n: usize,
-        betas: &[ExtensionTarget<D>],
         round_proof: &FriQueryRoundTarget<D>,
         params: &FriParams,
     ) where
@@ -308,7 +284,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Note that this `low_bits` decomposition permits non-canonical binary encodings. Here we
         // verify that this has a negligible impact on soundness error.
         Self::assert_noncanonical_indices_ok(&params.config);
-        let x_index = challenger.get_challenge(self);
         let mut x_index_bits = self.low_bits(x_index, n_log, F::BITS);
 
         let cap_index =
@@ -341,7 +316,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.fri_combine_initial::<C>(
                 instance,
                 &round_proof.initial_trees_proof,
-                alpha,
+                challenges.fri_alpha,
                 subgroup_x,
                 precomputed_reduced_evals,
                 params,
@@ -368,7 +343,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     x_index_within_coset_bits,
                     arity_bits,
                     evals,
-                    betas[i],
+                    challenges.fri_betas[i],
                 )
             );
 

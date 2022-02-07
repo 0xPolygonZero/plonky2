@@ -5,9 +5,9 @@ use plonky2_field::field_types::Field;
 use crate::fri::verifier::verify_fri_proof;
 use crate::hash::hash_types::RichField;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
-use crate::plonk::config::GenericConfig;
+use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::reduce_with_powers;
-use crate::plonk::proof::{ProofChallenges, ProofWithPublicInputs};
+use crate::plonk::proof::{Proof, ProofChallenges, ProofWithPublicInputs};
 use crate::plonk::vanishing_poly::eval_vanishing_poly;
 use crate::plonk::vars::EvaluationVars;
 
@@ -16,8 +16,20 @@ pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     verifier_data: &VerifierOnlyCircuitData<C, D>,
     common_data: &CommonCircuitData<F, C, D>,
 ) -> Result<()> {
-    let challenges = proof_with_pis.get_challenges(common_data)?;
-    verify_with_challenges(proof_with_pis, challenges, verifier_data, common_data)
+    ensure!(
+        proof_with_pis.public_inputs.len() == common_data.num_public_inputs,
+        "Number of public inputs doesn't match circuit data."
+    );
+    let public_inputs_hash = proof_with_pis.get_public_inputs_hash();
+    let challenges = proof_with_pis.get_challenges(public_inputs_hash, common_data)?;
+
+    verify_with_challenges(
+        proof_with_pis.proof,
+        public_inputs_hash,
+        challenges,
+        verifier_data,
+        common_data,
+    )
 }
 
 pub(crate) fn verify_with_challenges<
@@ -25,25 +37,18 @@ pub(crate) fn verify_with_challenges<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    proof_with_pis: ProofWithPublicInputs<F, C, D>,
+    proof: Proof<F, C, D>,
+    public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
     challenges: ProofChallenges<F, D>,
     verifier_data: &VerifierOnlyCircuitData<C, D>,
     common_data: &CommonCircuitData<F, C, D>,
 ) -> Result<()> {
-    assert_eq!(
-        proof_with_pis.public_inputs.len(),
-        common_data.num_public_inputs
-    );
-    let public_inputs_hash = &proof_with_pis.get_public_inputs_hash();
-
-    let ProofWithPublicInputs { proof, .. } = proof_with_pis;
-
     let local_constants = &proof.openings.constants;
     let local_wires = &proof.openings.wires;
     let vars = EvaluationVars {
         local_constants,
         local_wires,
-        public_inputs_hash,
+        public_inputs_hash: &public_inputs_hash,
     };
     let local_zs = &proof.openings.plonk_zs;
     let next_zs = &proof.openings.plonk_zs_right;

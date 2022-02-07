@@ -375,3 +375,10 @@ pub struct FriChallenges<F: RichField + Extendable<D>, const D: usize> {
     // Indices at which the oracle is queried in FRI.
     pub fri_query_indices: Vec<usize>,
 }
+
+pub struct FriChallengesTarget<const D: usize> {
+    pub fri_alpha: ExtensionTarget<D>,
+    pub fri_betas: Vec<ExtensionTarget<D>>,
+    pub fri_pow_response: Target,
+    pub fri_query_indices: Vec<Target>,
+}
