@@ -1,6 +1,3 @@
-use plonky2::hash::hashing::SPONGE_WIDTH;
-use plonky2::hash::poseidon;
-
 //// CORE REGISTERS
 
 /// A cycle counter. Starts at 0; increments by 1.
@@ -21,87 +18,91 @@ pub(crate) const COL_FRAME_PTR: usize = COL_INSTRUCTION_PTR + 1;
 pub(crate) const COL_STACK_PTR: usize = COL_FRAME_PTR + 1;
 
 //// PERMUTATION UNIT
+pub(crate) mod permutation {
+    use plonky2::hash::hashing::SPONGE_WIDTH;
+    use plonky2::hash::poseidon;
 
-const START_PERMUTATION_UNIT: usize = COL_STACK_PTR + 1;
+    const START_UNIT: usize = super::COL_STACK_PTR + 1;
 
-const START_PERMUTATION_FULL_FIRST: usize = START_PERMUTATION_UNIT + SPONGE_WIDTH;
+    const START_FULL_FIRST: usize = START_UNIT + SPONGE_WIDTH;
 
-pub(crate) const fn col_permutation_full_first_mid_sbox(round: usize, i: usize) -> usize {
-    debug_assert!(round < poseidon::HALF_N_FULL_ROUNDS);
-    debug_assert!(i < SPONGE_WIDTH);
-    START_PERMUTATION_FULL_FIRST + 2 * round * SPONGE_WIDTH + i
+    pub const fn col_full_first_mid_sbox(round: usize, i: usize) -> usize {
+        debug_assert!(round < poseidon::HALF_N_FULL_ROUNDS);
+        debug_assert!(i < SPONGE_WIDTH);
+        START_FULL_FIRST + 2 * round * SPONGE_WIDTH + i
+    }
+
+    pub const fn col_full_first_after_mds(round: usize, i: usize) -> usize {
+        debug_assert!(round < poseidon::HALF_N_FULL_ROUNDS);
+        debug_assert!(i < SPONGE_WIDTH);
+        START_FULL_FIRST + (2 * round + 1) * SPONGE_WIDTH + i
+    }
+
+    const START_PARTIAL: usize =
+        col_full_first_after_mds(poseidon::HALF_N_FULL_ROUNDS - 1, SPONGE_WIDTH - 1) + 1;
+
+    pub const fn col_partial_mid_sbox(round: usize) -> usize {
+        debug_assert!(round < poseidon::N_PARTIAL_ROUNDS);
+        START_PARTIAL + 2 * round
+    }
+
+    pub const fn col_partial_after_sbox(round: usize) -> usize {
+        debug_assert!(round < poseidon::N_PARTIAL_ROUNDS);
+        START_PARTIAL + 2 * round + 1
+    }
+
+    const START_FULL_SECOND: usize = col_partial_after_sbox(poseidon::N_PARTIAL_ROUNDS - 1) + 1;
+
+    pub const fn col_full_second_mid_sbox(round: usize, i: usize) -> usize {
+        debug_assert!(round <= poseidon::HALF_N_FULL_ROUNDS);
+        debug_assert!(i < SPONGE_WIDTH);
+        START_FULL_SECOND + 2 * round * SPONGE_WIDTH + i
+    }
+
+    pub const fn col_full_second_after_mds(round: usize, i: usize) -> usize {
+        debug_assert!(round <= poseidon::HALF_N_FULL_ROUNDS);
+        debug_assert!(i < SPONGE_WIDTH);
+        START_FULL_SECOND + (2 * round + 1) * SPONGE_WIDTH + i
+    }
+
+    pub const fn col_input(i: usize) -> usize {
+        debug_assert!(i < SPONGE_WIDTH);
+        START_UNIT + i
+    }
+
+    pub const fn col_output(i: usize) -> usize {
+        debug_assert!(i < SPONGE_WIDTH);
+        col_full_second_after_mds(poseidon::HALF_N_FULL_ROUNDS - 1, i)
+    }
+
+    pub(super) const END_UNIT: usize = col_output(SPONGE_WIDTH - 1);
 }
-
-pub(crate) const fn col_permutation_full_first_after_mds(round: usize, i: usize) -> usize {
-    debug_assert!(round < poseidon::HALF_N_FULL_ROUNDS);
-    debug_assert!(i < SPONGE_WIDTH);
-    START_PERMUTATION_FULL_FIRST + (2 * round + 1) * SPONGE_WIDTH + i
-}
-
-const START_PERMUTATION_PARTIAL: usize =
-    col_permutation_full_first_after_mds(poseidon::HALF_N_FULL_ROUNDS - 1, SPONGE_WIDTH - 1) + 1;
-
-pub(crate) const fn col_permutation_partial_mid_sbox(round: usize) -> usize {
-    debug_assert!(round < poseidon::N_PARTIAL_ROUNDS);
-    START_PERMUTATION_PARTIAL + 2 * round
-}
-
-pub(crate) const fn col_permutation_partial_after_sbox(round: usize) -> usize {
-    debug_assert!(round < poseidon::N_PARTIAL_ROUNDS);
-    START_PERMUTATION_PARTIAL + 2 * round + 1
-}
-
-const START_PERMUTATION_FULL_SECOND: usize =
-    col_permutation_partial_after_sbox(poseidon::N_PARTIAL_ROUNDS - 1) + 1;
-
-pub(crate) const fn col_permutation_full_second_mid_sbox(round: usize, i: usize) -> usize {
-    debug_assert!(round <= poseidon::HALF_N_FULL_ROUNDS);
-    debug_assert!(i < SPONGE_WIDTH);
-    START_PERMUTATION_FULL_SECOND + 2 * round * SPONGE_WIDTH + i
-}
-
-pub(crate) const fn col_permutation_full_second_after_mds(round: usize, i: usize) -> usize {
-    debug_assert!(round <= poseidon::HALF_N_FULL_ROUNDS);
-    debug_assert!(i < SPONGE_WIDTH);
-    START_PERMUTATION_FULL_SECOND + (2 * round + 1) * SPONGE_WIDTH + i
-}
-
-pub(crate) const fn col_permutation_input(i: usize) -> usize {
-    debug_assert!(i < SPONGE_WIDTH);
-    START_PERMUTATION_UNIT + i
-}
-
-pub(crate) const fn col_permutation_output(i: usize) -> usize {
-    debug_assert!(i < SPONGE_WIDTH);
-    col_permutation_full_second_after_mds(poseidon::HALF_N_FULL_ROUNDS - 1, i)
-}
-
-const END_PERMUTATION_UNIT: usize = col_permutation_output(SPONGE_WIDTH - 1);
 
 //// MEMORY UNITS
 
 //// DECOMPOSITION UNITS
+pub(crate) mod decomposition {
 
-const START_DECOMPOSITION_UNITS: usize = END_PERMUTATION_UNIT + 1;
+    const START_UNITS: usize = super::permutation::END_UNIT + 1;
 
-const NUM_DECOMPOSITION_UNITS: usize = 4;
-/// The number of bits associated with a single decomposition unit.
-const DECOMPOSITION_UNIT_BITS: usize = 32;
-/// One column for the value being decomposed, plus one column per bit.
-const DECOMPOSITION_UNIT_COLS: usize = 1 + DECOMPOSITION_UNIT_BITS;
+    const NUM_UNITS: usize = 4;
+    /// The number of bits associated with a single decomposition unit.
+    const UNIT_BITS: usize = 32;
+    /// One column for the value being decomposed, plus one column per bit.
+    const UNIT_COLS: usize = 1 + UNIT_BITS;
 
-pub(crate) const fn col_decomposition_input(unit: usize) -> usize {
-    debug_assert!(unit < NUM_DECOMPOSITION_UNITS);
-    START_DECOMPOSITION_UNITS + unit * DECOMPOSITION_UNIT_COLS
+    pub const fn col_input(unit: usize) -> usize {
+        debug_assert!(unit < NUM_UNITS);
+        START_UNITS + unit * UNIT_COLS
+    }
+
+    pub const fn col_bit(unit: usize, bit: usize) -> usize {
+        debug_assert!(unit < NUM_UNITS);
+        debug_assert!(bit < UNIT_BITS);
+        START_UNITS + unit * UNIT_COLS + 1 + bit
+    }
+
+    pub(super) const END_UNITS: usize = START_UNITS + UNIT_COLS * NUM_UNITS;
 }
 
-pub(crate) const fn col_decomposition_bit(unit: usize, bit: usize) -> usize {
-    debug_assert!(unit < NUM_DECOMPOSITION_UNITS);
-    debug_assert!(bit < DECOMPOSITION_UNIT_BITS);
-    START_DECOMPOSITION_UNITS + unit * DECOMPOSITION_UNIT_COLS + 1 + bit
-}
-
-const END_DECOMPOSITION_UNITS: usize =
-    START_DECOMPOSITION_UNITS + DECOMPOSITION_UNIT_COLS * NUM_DECOMPOSITION_UNITS;
-
-pub(crate) const NUM_COLUMNS: usize = END_DECOMPOSITION_UNITS;
+pub(crate) const NUM_COLUMNS: usize = decomposition::END_UNITS;
