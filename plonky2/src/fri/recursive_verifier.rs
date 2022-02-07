@@ -118,7 +118,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn verify_fri_proof<C: GenericConfig<D, F = F>>(
         &mut self,
         instance: &FriInstanceInfoTarget<D>,
-        os: &FriOpeningsTarget<D>,
+        openings: &FriOpeningsTarget<D>,
         challenges: &FriChallengesTarget<D>,
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
@@ -155,7 +155,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let precomputed_reduced_evals = with_context!(
             self,
             "precompute reduced evaluations",
-            PrecomputedReducedOpeningsTarget::from_os_and_alpha(os, challenges.fri_alpha, self)
+            PrecomputedReducedOpeningsTarget::from_os_and_alpha(
+                openings,
+                challenges.fri_alpha,
+                self
+            )
         );
 
         for (i, round_proof) in proof.query_round_proofs.iter().enumerate() {
