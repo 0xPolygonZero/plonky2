@@ -1,5 +1,6 @@
 use crate::fri::reduction_strategies::FriReductionStrategy;
 
+mod challenges;
 pub mod oracle;
 pub mod proof;
 pub mod prover;
@@ -7,6 +8,7 @@ pub mod recursive_verifier;
 pub mod reduction_strategies;
 pub mod structure;
 pub mod verifier;
+pub mod witness_util;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FriConfig {
