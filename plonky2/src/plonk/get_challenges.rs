@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::polynomial::PolynomialCoeffs;
 
-use crate::fri::proof::{CompressedFriProof, FriChallenges, FriProof};
+use crate::fri::proof::{CompressedFriProof, FriChallenges, FriProof, FriProofTarget};
 use crate::fri::verifier::{compute_evaluation, fri_combine_initial, PrecomputedReducedOpenings};
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
@@ -15,7 +15,8 @@ use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, FriInferredElements, OpeningSet,
-    OpeningSetTarget, Proof, ProofChallenges, ProofChallengesTarget, ProofWithPublicInputs,
+    OpeningSetTarget, Proof, ProofChallenges, ProofChallengesTarget, ProofTarget,
+    ProofWithPublicInputs, ProofWithPublicInputsTarget,
 };
 use crate::util::reverse_bits;
 
@@ -275,5 +276,46 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 inner_common_data,
             ),
         }
+    }
+}
+
+impl<const D: usize> ProofWithPublicInputsTarget<D> {
+    pub(crate) fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        public_inputs_hash: HashOutTarget,
+        inner_common_data: &CommonCircuitData<F, C, D>,
+    ) -> ProofChallengesTarget<D>
+    where
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        let ProofTarget {
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            opening_proof:
+                FriProofTarget {
+                    commit_phase_merkle_caps,
+                    final_poly,
+                    pow_witness,
+                    ..
+                },
+        } = &self.proof;
+
+        let public_inputs_hash =
+            builder.hash_n_to_hash_no_pad::<C::InnerHasher>(self.public_inputs.clone());
+
+        builder.get_challenges(
+            public_inputs_hash,
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            commit_phase_merkle_caps,
+            final_poly,
+            *pow_witness,
+            inner_common_data,
+        )
     }
 }
