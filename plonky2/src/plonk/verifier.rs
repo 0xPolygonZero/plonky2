@@ -30,9 +30,9 @@ pub(crate) fn verify_with_challenges<
     verifier_data: &VerifierOnlyCircuitData<C, D>,
     common_data: &CommonCircuitData<F, C, D>,
 ) -> Result<()> {
-    assert_eq!(
-        proof_with_pis.public_inputs.len(),
-        common_data.num_public_inputs
+    ensure!(
+        proof_with_pis.public_inputs.len() == common_data.num_public_inputs,
+        "Number of public inputs doesn't match circuit data."
     );
     let public_inputs_hash = &proof_with_pis.get_public_inputs_hash();
 

@@ -3,7 +3,9 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::fri::oracle::PolynomialBatch;
-use crate::fri::proof::{CompressedFriProof, FriChallenges, FriProof, FriProofTarget};
+use crate::fri::proof::{
+    CompressedFriProof, FriChallenges, FriChallengesTarget, FriProof, FriProofTarget,
+};
 use crate::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
@@ -240,6 +242,14 @@ pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> 
     pub plonk_zeta: F::Extension,
 
     pub fri_challenges: FriChallenges<F, D>,
+}
+
+pub(crate) struct ProofChallengesTarget<const D: usize> {
+    pub plonk_betas: Vec<Target>,
+    pub plonk_gammas: Vec<Target>,
+    pub plonk_alphas: Vec<Target>,
+    pub plonk_zeta: ExtensionTarget<D>,
+    pub fri_challenges: FriChallengesTarget<D>,
 }
 
 /// Coset elements that can be inferred in the FRI reduction steps.
