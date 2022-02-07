@@ -148,3 +148,27 @@ fn recover_degree<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
     1 << (lde_bits - config.fri_config.rate_bits)
 }
+
+#[cfg(test)]
+mod tests {
+    use plonky2::field::field_types::Field;
+    use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::polynomial::PolynomialValues;
+
+    use crate::verifier::eval_l_1_and_l_last;
+
+    #[test]
+    fn test_eval_l_1_and_l_last() {
+        type F = GoldilocksField;
+        let log_n = 5;
+        let n = 1 << log_n;
+
+        let x = F::rand(); // challenge point
+        let expected_l_first_x = PolynomialValues::selector(n, 0).ifft().eval(x);
+        let expected_l_last_x = PolynomialValues::selector(n, n - 1).ifft().eval(x);
+
+        let (l_first_x, l_last_x) = eval_l_1_and_l_last(log_n, x);
+        assert_eq!(l_first_x, expected_l_first_x);
+        assert_eq!(l_last_x, expected_l_last_x);
+    }
+}

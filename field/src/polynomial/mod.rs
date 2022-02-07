@@ -26,6 +26,17 @@ impl<F: Field> PolynomialValues<F> {
         PolynomialValues { values }
     }
 
+    pub fn zero(len: usize) -> Self {
+        Self::new(vec![F::ZERO; len])
+    }
+
+    /// Returns the polynomial whole value is one at the given index, and zero elsewhere.
+    pub fn selector(len: usize, index: usize) -> Self {
+        let mut result = Self::zero(len);
+        result.values[index] = F::ONE;
+        result
+    }
+
     /// The number of values stored.
     pub fn len(&self) -> usize {
         self.values.len()
