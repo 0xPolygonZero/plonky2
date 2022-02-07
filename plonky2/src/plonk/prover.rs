@@ -148,11 +148,10 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
         quotient_polys
             .into_par_iter()
             .flat_map(|mut quotient_poly| {
-                quotient_poly.trim();
-                quotient_poly.pad(quotient_degree).expect(
-                    "Quotient has failed, the vanishing polynomial is not divisible by `Z_H",
+                quotient_poly.trim_to_len(quotient_degree).expect(
+                    "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
                 );
-                // Split t into degree-n chunks.
+                // Split quotient into degree-n chunks.
                 quotient_poly.chunks(degree)
             })
             .collect()
