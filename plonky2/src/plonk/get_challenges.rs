@@ -75,7 +75,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<Vec<usize>> {
         Ok(self
-            .get_challenges(common_data)?
+            .get_challenges(self.get_public_inputs_hash(), common_data)?
             .fri_challenges
             .fri_query_indices)
     }
@@ -83,6 +83,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// Computes all Fiat-Shamir challenges used in the Plonk proof.
     pub(crate) fn get_challenges(
         &self,
+        public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<ProofChallenges<F, D>> {
         let Proof {
@@ -100,7 +101,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         } = &self.proof;
 
         get_challenges(
-            self.get_public_inputs_hash(),
+            public_inputs_hash,
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
@@ -119,6 +120,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// Computes all Fiat-Shamir challenges used in the Plonk proof.
     pub(crate) fn get_challenges(
         &self,
+        public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<ProofChallenges<F, D>> {
         let CompressedProof {
@@ -136,7 +138,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         } = &self.proof;
 
         get_challenges(
-            self.get_public_inputs_hash(),
+            public_inputs_hash,
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
@@ -302,9 +304,6 @@ impl<const D: usize> ProofWithPublicInputsTarget<D> {
                     ..
                 },
         } = &self.proof;
-
-        let public_inputs_hash =
-            builder.hash_n_to_hash_no_pad::<C::InnerHasher>(self.public_inputs.clone());
 
         builder.get_challenges(
             public_inputs_hash,

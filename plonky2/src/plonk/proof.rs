@@ -174,7 +174,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         self,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        let challenges = self.get_challenges(common_data)?;
+        let challenges = self.get_challenges(self.get_public_inputs_hash(), common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let decompressed_proof =
             self.proof
@@ -190,16 +190,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<()> {
-        let challenges = self.get_challenges(common_data)?;
+        let public_inputs_hash = self.get_public_inputs_hash();
+        let challenges = self.get_challenges(public_inputs_hash, common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let decompressed_proof =
             self.proof
                 .decompress(&challenges, fri_inferred_elements, &common_data.fri_params);
         verify_with_challenges(
-            ProofWithPublicInputs {
-                public_inputs: self.public_inputs,
-                proof: decompressed_proof,
-            },
+            decompressed_proof,
+            public_inputs_hash,
             challenges,
             verifier_data,
             common_data,
