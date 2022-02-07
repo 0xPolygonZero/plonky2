@@ -22,6 +22,7 @@ pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     );
     let public_inputs_hash = proof_with_pis.get_public_inputs_hash();
     let challenges = proof_with_pis.get_challenges(public_inputs_hash, common_data)?;
+
     verify_with_challenges(
         proof_with_pis.proof,
         public_inputs_hash,
