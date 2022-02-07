@@ -79,7 +79,25 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        todo!()
+        // Check public inputs.
+        let pis_constraints = [
+            builder.sub_extension(vars.local_values[0], vars.public_inputs[Self::PI_INDEX_X0]),
+            builder.sub_extension(vars.local_values[1], vars.public_inputs[Self::PI_INDEX_X1]),
+            builder.sub_extension(vars.local_values[1], vars.public_inputs[Self::PI_INDEX_RES]),
+        ];
+        yield_constr.constraint_first_row(builder, pis_constraints[0]);
+        yield_constr.constraint_first_row(builder, pis_constraints[1]);
+        yield_constr.constraint_last_row(builder, pis_constraints[2]);
+
+        // x0 <- x1
+        let first_col_constraint = builder.sub_extension(vars.next_values[0], vars.local_values[1]);
+        yield_constr.constraint(builder, first_col_constraint);
+        // x1 <- x0 + x1
+        let second_col_constraint = {
+            let tmp = builder.sub_extension(vars.next_values[1], vars.local_values[0]);
+            builder.sub_extension(tmp, vars.local_values[1])
+        };
+        yield_constr.constraint(builder, second_col_constraint);
     }
 
     fn constraint_degree(&self) -> usize {
