@@ -1,7 +1,6 @@
 use plonky2_field::extension_field::Extendable;
 
 use crate::hash::hash_types::{HashOutTarget, RichField};
-use crate::iop::challenger::RecursiveChallenger;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
@@ -52,8 +51,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         C::Hasher: AlgebraicHasher<F>,
     {
         let one = self.one_extension();
-
-        let num_challenges = inner_common_data.config.num_challenges;
 
         let local_constants = &proof.openings.constants;
         let local_wires = &proof.openings.wires;

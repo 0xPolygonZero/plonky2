@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use plonky2_field::extension_field::Extendable;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -190,6 +191,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<()> {
+        ensure!(
+            self.public_inputs.len() == common_data.num_public_inputs,
+            "Number of public inputs doesn't match circuit data."
+        );
         let public_inputs_hash = self.get_public_inputs_hash();
         let challenges = self.get_challenges(public_inputs_hash, common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);

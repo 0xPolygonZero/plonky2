@@ -6,9 +6,7 @@ use crate::fri::proof::{
     FriChallengesTarget, FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget,
     FriQueryStepTarget,
 };
-use crate::fri::structure::{
-    FriBatchInfoTarget, FriInstanceInfoTarget, FriOpenings, FriOpeningsTarget,
-};
+use crate::fri::structure::{FriBatchInfoTarget, FriInstanceInfoTarget, FriOpeningsTarget};
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::interpolation::InterpolationGate;
 use crate::gates::gate::Gate;
@@ -17,12 +15,10 @@ use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
 use crate::gates::random_access::RandomAccessGate;
 use crate::hash::hash_types::MerkleCapTarget;
 use crate::hash::hash_types::RichField;
-use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::ext_target::{flatten_target, ExtensionTarget};
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
-use crate::plonk::proof::OpeningSetTarget;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
 
