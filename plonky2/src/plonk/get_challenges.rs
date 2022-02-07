@@ -227,7 +227,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub(crate) fn get_challenges<C: GenericConfig<D, F = F>>(
+    fn get_challenges<C: GenericConfig<D, F = F>>(
         &mut self,
         public_inputs_hash: HashOutTarget,
         wires_cap: &MerkleCapTarget,
