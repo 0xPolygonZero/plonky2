@@ -80,10 +80,9 @@ where
     let all_quotient_chunks = quotient_polys
         .into_par_iter()
         .flat_map(|mut quotient_poly| {
-            quotient_poly.trim();
             quotient_poly
-                .pad(degree * stark.quotient_degree_factor())
-                .expect("Quotient has failed, the vanishing polynomial is not divisible by `Z_H");
+                .trim_to_len(degree * stark.quotient_degree_factor())
+                .expect("Quotient has failed, the vanishing polynomial is not divisible by Z_H");
             // Split quotient into degree-n chunks.
             quotient_poly.chunks(degree)
         })

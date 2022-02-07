@@ -186,9 +186,18 @@ impl<F: Field> PolynomialCoeffs<F> {
         poly
     }
 
-    /// Removes leading zero coefficients.
+    /// Removes any zero coefficients from the side associated with the highest exponents.
     pub fn trim(&mut self) {
         self.coeffs.truncate(self.degree_plus_one());
+    }
+
+    /// Removes zero coefficients from the side associated with the highest exponents, such that a
+    /// desired length is reached. Fails if a nonzero coefficient is encountered before then.
+    pub fn trim_to_len(&mut self, len: usize) -> Result<()> {
+        ensure!(self.len() >= len);
+        ensure!(self.coeffs[len..].iter().all(F::is_zero));
+        self.coeffs.truncate(len);
+        Ok(())
     }
 
     /// Removes leading zero coefficients.
