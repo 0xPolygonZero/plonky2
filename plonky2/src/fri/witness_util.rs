@@ -9,8 +9,8 @@ use crate::plonk::config::AlgebraicHasher;
 /// Set the targets in a `FriProofTarget` to their corresponding values in a `FriProof`.
 pub fn set_fri_proof_target<F, W, H, const D: usize>(
     witness: &mut W,
-    fri_proof: &FriProof<F, H, D>,
     fri_proof_target: &FriProofTarget<D>,
+    fri_proof: &FriProof<F, H, D>,
 ) where
     F: RichField + Extendable<D>,
     W: Witness<F> + ?Sized,

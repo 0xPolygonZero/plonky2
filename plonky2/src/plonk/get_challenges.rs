@@ -3,16 +3,20 @@ use std::collections::HashSet;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::polynomial::PolynomialCoeffs;
 
-use crate::fri::proof::{CompressedFriProof, FriChallenges, FriProof};
+use crate::fri::proof::{CompressedFriProof, FriChallenges, FriProof, FriProofTarget};
 use crate::fri::verifier::{compute_evaluation, fri_combine_initial, PrecomputedReducedOpenings};
-use crate::hash::hash_types::RichField;
+use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
+use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
-use crate::iop::challenger::Challenger;
+use crate::iop::challenger::{Challenger, RecursiveChallenger};
+use crate::iop::target::Target;
+use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
-use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use crate::plonk::proof::{
-    CompressedProof, CompressedProofWithPublicInputs, FriInferredElements, OpeningSet, Proof,
-    ProofChallenges, ProofWithPublicInputs,
+    CompressedProof, CompressedProofWithPublicInputs, FriInferredElements, OpeningSet,
+    OpeningSetTarget, Proof, ProofChallenges, ProofChallengesTarget, ProofTarget,
+    ProofWithPublicInputs, ProofWithPublicInputsTarget,
 };
 use crate::util::reverse_bits;
 
@@ -71,7 +75,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<Vec<usize>> {
         Ok(self
-            .get_challenges(common_data)?
+            .get_challenges(self.get_public_inputs_hash(), common_data)?
             .fri_challenges
             .fri_query_indices)
     }
@@ -79,6 +83,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// Computes all Fiat-Shamir challenges used in the Plonk proof.
     pub(crate) fn get_challenges(
         &self,
+        public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<ProofChallenges<F, D>> {
         let Proof {
@@ -96,7 +101,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         } = &self.proof;
 
         get_challenges(
-            self.get_public_inputs_hash(),
+            public_inputs_hash,
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
@@ -115,6 +120,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// Computes all Fiat-Shamir challenges used in the Plonk proof.
     pub(crate) fn get_challenges(
         &self,
+        public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<ProofChallenges<F, D>> {
         let CompressedProof {
@@ -132,7 +138,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         } = &self.proof;
 
         get_challenges(
-            self.get_public_inputs_hash(),
+            public_inputs_hash,
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
@@ -217,5 +223,98 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             }
         }
         FriInferredElements(fri_inferred_elements)
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    fn get_challenges<C: GenericConfig<D, F = F>>(
+        &mut self,
+        public_inputs_hash: HashOutTarget,
+        wires_cap: &MerkleCapTarget,
+        plonk_zs_partial_products_cap: &MerkleCapTarget,
+        quotient_polys_cap: &MerkleCapTarget,
+        openings: &OpeningSetTarget<D>,
+        commit_phase_merkle_caps: &[MerkleCapTarget],
+        final_poly: &PolynomialCoeffsExtTarget<D>,
+        pow_witness: Target,
+        inner_common_data: &CommonCircuitData<F, C, D>,
+    ) -> ProofChallengesTarget<D>
+    where
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        let config = &inner_common_data.config;
+        let num_challenges = config.num_challenges;
+
+        let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(self);
+
+        // Observe the instance.
+        let digest =
+            HashOutTarget::from_vec(self.constants(&inner_common_data.circuit_digest.elements));
+        challenger.observe_hash(&digest);
+        challenger.observe_hash(&public_inputs_hash);
+
+        challenger.observe_cap(wires_cap);
+        let plonk_betas = challenger.get_n_challenges(self, num_challenges);
+        let plonk_gammas = challenger.get_n_challenges(self, num_challenges);
+
+        challenger.observe_cap(plonk_zs_partial_products_cap);
+        let plonk_alphas = challenger.get_n_challenges(self, num_challenges);
+
+        challenger.observe_cap(quotient_polys_cap);
+        let plonk_zeta = challenger.get_extension_challenge(self);
+
+        challenger.observe_openings(&openings.to_fri_openings());
+
+        ProofChallengesTarget {
+            plonk_betas,
+            plonk_gammas,
+            plonk_alphas,
+            plonk_zeta,
+            fri_challenges: challenger.fri_challenges::<C>(
+                self,
+                commit_phase_merkle_caps,
+                final_poly,
+                pow_witness,
+                inner_common_data,
+            ),
+        }
+    }
+}
+
+impl<const D: usize> ProofWithPublicInputsTarget<D> {
+    pub(crate) fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        public_inputs_hash: HashOutTarget,
+        inner_common_data: &CommonCircuitData<F, C, D>,
+    ) -> ProofChallengesTarget<D>
+    where
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        let ProofTarget {
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            opening_proof:
+                FriProofTarget {
+                    commit_phase_merkle_caps,
+                    final_poly,
+                    pow_witness,
+                    ..
+                },
+        } = &self.proof;
+
+        builder.get_challenges(
+            public_inputs_hash,
+            wires_cap,
+            plonk_zs_partial_products_cap,
+            quotient_polys_cap,
+            openings,
+            commit_phase_merkle_caps,
+            final_poly,
+            *pow_witness,
+            inner_common_data,
+        )
     }
 }

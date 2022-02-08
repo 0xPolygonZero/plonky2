@@ -162,8 +162,8 @@ pub trait Witness<F: Field> {
     /// `ProofWithPublicInputs`.
     fn set_proof_with_pis_target<C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
-        proof_with_pis: &ProofWithPublicInputs<F, C, D>,
         proof_with_pis_target: &ProofWithPublicInputsTarget<D>,
+        proof_with_pis: &ProofWithPublicInputs<F, C, D>,
     ) where
         F: RichField + Extendable<D>,
         C::Hasher: AlgebraicHasher<F>,
@@ -182,14 +182,14 @@ pub trait Witness<F: Field> {
             self.set_target(pi_t, pi);
         }
 
-        self.set_proof_target(proof, pt);
+        self.set_proof_target(pt, proof);
     }
 
     /// Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
     fn set_proof_target<C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
-        proof: &Proof<F, C, D>,
         proof_target: &ProofTarget<D>,
+        proof: &Proof<F, C, D>,
     ) where
         F: RichField + Extendable<D>,
         C::Hasher: AlgebraicHasher<F>,
@@ -258,7 +258,7 @@ pub trait Witness<F: Field> {
             self.set_extension_target(t, x);
         }
 
-        set_fri_proof_target(self, &proof.opening_proof, &proof_target.opening_proof);
+        set_fri_proof_target(self, &proof_target.opening_proof, &proof.opening_proof);
     }
 
     fn set_wire(&mut self, wire: Wire, value: F) {

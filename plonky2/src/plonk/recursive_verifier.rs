@@ -1,11 +1,12 @@
 use plonky2_field::extension_field::Extendable;
 
 use crate::hash::hash_types::{HashOutTarget, RichField};
-use crate::iop::challenger::RecursiveChallenger;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
-use crate::plonk::proof::{OpeningSetTarget, ProofTarget, ProofWithPublicInputsTarget};
+use crate::plonk::proof::{
+    OpeningSetTarget, ProofChallengesTarget, ProofTarget, ProofWithPublicInputsTarget,
+};
 use crate::plonk::vanishing_poly::eval_vanishing_poly_recursively;
 use crate::plonk::vars::EvaluationTargets;
 use crate::util::reducing::ReducingFactorTarget;
@@ -13,7 +14,7 @@ use crate::with_context;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
-    pub fn verify_proof_with_pis<C: GenericConfig<D, F = F>>(
+    pub fn verify_proof<C: GenericConfig<D, F = F>>(
         &mut self,
         proof_with_pis: ProofWithPublicInputsTarget<D>,
         inner_verifier_data: &VerifierCircuitTarget,
@@ -21,59 +22,35 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
-        let ProofWithPublicInputsTarget {
-            proof,
-            public_inputs,
-        } = proof_with_pis;
+        assert_eq!(
+            proof_with_pis.public_inputs.len(),
+            inner_common_data.num_public_inputs
+        );
+        let public_inputs_hash =
+            self.hash_n_to_hash_no_pad::<C::InnerHasher>(proof_with_pis.public_inputs.clone());
+        let challenges = proof_with_pis.get_challenges(self, public_inputs_hash, inner_common_data);
 
-        assert_eq!(public_inputs.len(), inner_common_data.num_public_inputs);
-        let public_inputs_hash = self.hash_n_to_hash_no_pad::<C::InnerHasher>(public_inputs);
-
-        self.verify_proof(
-            proof,
+        self.verify_proof_with_challenges(
+            proof_with_pis.proof,
             public_inputs_hash,
+            challenges,
             inner_verifier_data,
             inner_common_data,
         );
     }
 
     /// Recursively verifies an inner proof.
-    pub fn verify_proof<C: GenericConfig<D, F = F>>(
+    fn verify_proof_with_challenges<C: GenericConfig<D, F = F>>(
         &mut self,
         proof: ProofTarget<D>,
         public_inputs_hash: HashOutTarget,
+        challenges: ProofChallengesTarget<D>,
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, C, D>,
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
         let one = self.one_extension();
-
-        let num_challenges = inner_common_data.config.num_challenges;
-
-        let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(self);
-
-        let (betas, gammas, alphas, zeta) =
-            with_context!(self, "observe proof and generates challenges", {
-                // Observe the instance.
-                let digest = HashOutTarget::from_vec(
-                    self.constants(&inner_common_data.circuit_digest.elements),
-                );
-                challenger.observe_hash(&digest);
-                challenger.observe_hash(&public_inputs_hash);
-
-                challenger.observe_cap(&proof.wires_cap);
-                let betas = challenger.get_n_challenges(self, num_challenges);
-                let gammas = challenger.get_n_challenges(self, num_challenges);
-
-                challenger.observe_cap(&proof.plonk_zs_partial_products_cap);
-                let alphas = challenger.get_n_challenges(self, num_challenges);
-
-                challenger.observe_cap(&proof.quotient_polys_cap);
-                let zeta = challenger.get_extension_challenge(self);
-
-                (betas, gammas, alphas, zeta)
-            });
 
         let local_constants = &proof.openings.constants;
         let local_wires = &proof.openings.wires;
@@ -87,23 +64,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let s_sigmas = &proof.openings.plonk_sigmas;
         let partial_products = &proof.openings.partial_products;
 
-        let zeta_pow_deg = self.exp_power_of_2_extension(zeta, inner_common_data.degree_bits);
+        let zeta_pow_deg =
+            self.exp_power_of_2_extension(challenges.plonk_zeta, inner_common_data.degree_bits);
         let vanishing_polys_zeta = with_context!(
             self,
             "evaluate the vanishing polynomial at our challenge point, zeta.",
             eval_vanishing_poly_recursively(
                 self,
                 inner_common_data,
-                zeta,
+                challenges.plonk_zeta,
                 zeta_pow_deg,
                 vars,
                 local_zs,
                 next_zs,
                 partial_products,
                 s_sigmas,
-                &betas,
-                &gammas,
-                &alphas,
+                &challenges.plonk_betas,
+                &challenges.plonk_gammas,
+                &challenges.plonk_alphas,
             )
         );
 
@@ -128,16 +106,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             proof.quotient_polys_cap,
         ];
 
-        let fri_instance = inner_common_data.get_fri_instance_target(self, zeta);
+        let fri_instance = inner_common_data.get_fri_instance_target(self, challenges.plonk_zeta);
         with_context!(
             self,
             "verify FRI proof",
             self.verify_fri_proof::<C>(
                 &fri_instance,
-                &proof.openings,
+                &proof.openings.to_fri_openings(),
+                &challenges.fri_challenges,
                 merkle_caps,
                 &proof.opening_proof,
-                &mut challenger,
                 &inner_common_data.fri_params,
             )
         );
@@ -382,7 +360,7 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
         let pt = builder.add_virtual_proof_with_pis(&inner_cd);
-        pw.set_proof_with_pis_target(&inner_proof, &pt);
+        pw.set_proof_with_pis_target(&pt, &inner_proof);
 
         let inner_data = VerifierCircuitTarget {
             constants_sigmas_cap: builder.add_virtual_cap(inner_cd.config.fri_config.cap_height),
@@ -392,7 +370,7 @@ mod tests {
             &inner_vd.constants_sigmas_cap,
         );
 
-        builder.verify_proof_with_pis(pt, &inner_data, &inner_cd);
+        builder.verify_proof(pt, &inner_data, &inner_cd);
 
         if print_gate_counts {
             builder.print_gate_counts(0);

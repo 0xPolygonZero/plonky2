@@ -1,9 +1,12 @@
+use anyhow::ensure;
 use plonky2_field::extension_field::Extendable;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::fri::oracle::PolynomialBatch;
-use crate::fri::proof::{CompressedFriProof, FriChallenges, FriProof, FriProofTarget};
+use crate::fri::proof::{
+    CompressedFriProof, FriChallenges, FriChallengesTarget, FriProof, FriProofTarget,
+};
 use crate::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
@@ -172,7 +175,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         self,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        let challenges = self.get_challenges(common_data)?;
+        let challenges = self.get_challenges(self.get_public_inputs_hash(), common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let decompressed_proof =
             self.proof
@@ -188,16 +191,19 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<()> {
-        let challenges = self.get_challenges(common_data)?;
+        ensure!(
+            self.public_inputs.len() == common_data.num_public_inputs,
+            "Number of public inputs doesn't match circuit data."
+        );
+        let public_inputs_hash = self.get_public_inputs_hash();
+        let challenges = self.get_challenges(public_inputs_hash, common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let decompressed_proof =
             self.proof
                 .decompress(&challenges, fri_inferred_elements, &common_data.fri_params);
         verify_with_challenges(
-            ProofWithPublicInputs {
-                public_inputs: self.public_inputs,
-                proof: decompressed_proof,
-            },
+            decompressed_proof,
+            public_inputs_hash,
             challenges,
             verifier_data,
             common_data,
@@ -240,6 +246,14 @@ pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> 
     pub plonk_zeta: F::Extension,
 
     pub fri_challenges: FriChallenges<F, D>,
+}
+
+pub(crate) struct ProofChallengesTarget<const D: usize> {
+    pub plonk_betas: Vec<Target>,
+    pub plonk_gammas: Vec<Target>,
+    pub plonk_alphas: Vec<Target>,
+    pub plonk_zeta: ExtensionTarget<D>,
+    pub fri_challenges: FriChallengesTarget<D>,
 }
 
 /// Coset elements that can be inferred in the FRI reduction steps.
