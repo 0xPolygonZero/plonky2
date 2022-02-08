@@ -4,6 +4,7 @@
 #![allow(unreachable_code)]
 #![allow(clippy::diverging_sub_expression)]
 
+mod arithmetic;
 mod column_layout;
 mod core_registers;
 mod memory;

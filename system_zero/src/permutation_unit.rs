@@ -8,10 +8,7 @@ use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsume
 use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
-use crate::column_layout::permutation::{
-    col_full_first_after_mds, col_full_first_mid_sbox, col_full_second_after_mds,
-    col_full_second_mid_sbox, col_input, col_partial_after_sbox, col_partial_mid_sbox,
-};
+use crate::column_layout::permutation::*;
 use crate::column_layout::NUM_COLUMNS;
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
 use crate::system_zero::SystemZero;

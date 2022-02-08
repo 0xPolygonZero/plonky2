@@ -9,6 +9,9 @@ use starky::stark::Stark;
 use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
+use crate::arithmetic::{
+    eval_arithmetic_unit, eval_arithmetic_unit_recursively, generate_arithmetic_unit,
+};
 use crate::column_layout::NUM_COLUMNS;
 use crate::memory::TransactionMemory;
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
@@ -34,6 +37,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         loop {
             let mut next_row = [F::ZERO; NUM_COLUMNS];
             self.generate_next_row_core_registers(&row, &mut next_row);
+            generate_arithmetic_unit(&mut next_row);
             Self::generate_permutation_unit(&mut next_row);
 
             trace.push(row);
@@ -66,6 +70,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
         P: PackedField<Scalar = FE>,
     {
         self.eval_core_registers(vars, yield_constr);
+        eval_arithmetic_unit(vars, yield_constr);
         Self::eval_permutation_unit(vars, yield_constr);
         todo!()
     }
@@ -77,6 +82,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         self.eval_core_registers_recursively(builder, vars, yield_constr);
+        eval_arithmetic_unit_recursively(builder, vars, yield_constr);
         Self::eval_permutation_unit_recursively(builder, vars, yield_constr);
         todo!()
     }
