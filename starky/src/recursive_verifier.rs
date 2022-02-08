@@ -86,8 +86,10 @@ fn verify_stark_proof_with_challenges<
             .try_into()
             .unwrap(),
     };
+    let zeta_pow_deg = builder.exp_power_of_2_extension(challenges.stark_zeta, degree_bits);
+    let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
     let (l_1, l_last) =
-        eval_l_1_and_l_last_recursively(builder, degree_bits, challenges.stark_zeta);
+        eval_l_1_and_l_last_recursively(builder, degree_bits, challenges.stark_zeta, z_h_zeta);
     let last =
         builder.constant_extension(F::Extension::primitive_root_of_unity(degree_bits).inverse());
     let z_last = builder.sub_extension(challenges.stark_zeta, last);
@@ -103,9 +105,7 @@ fn verify_stark_proof_with_challenges<
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
     let quotient_polys_zeta = &proof.openings.quotient_polys;
-    let zeta_pow_deg = builder.exp_power_of_2_extension(challenges.stark_zeta, degree_bits);
     let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
-    let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
     for (i, chunk) in quotient_polys_zeta
         .chunks(stark.quotient_degree_factor())
         .enumerate()
@@ -138,12 +138,11 @@ fn eval_l_1_and_l_last_recursively<F: RichField + Extendable<D>, const D: usize>
     builder: &mut CircuitBuilder<F, D>,
     log_n: usize,
     x: ExtensionTarget<D>,
+    z_x: ExtensionTarget<D>,
 ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
     let n = builder.constant_extension(F::Extension::from_canonical_usize(1 << log_n));
     let g = builder.constant_extension(F::Extension::primitive_root_of_unity(log_n));
-    let x_pow_n = builder.exp_power_of_2_extension(x, log_n);
     let one = builder.one_extension();
-    let z_x = builder.sub_extension(x_pow_n, one);
     let l_1_deno = builder.mul_sub_extension(n, x, n);
     let l_last_deno = builder.mul_sub_extension(g, x, one);
     let l_last_deno = builder.mul_extension(n, l_last_deno);
