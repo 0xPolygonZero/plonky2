@@ -10,7 +10,6 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::challenger::{Challenger, RecursiveChallenger};
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 
 impl<F: RichField, H: Hasher<F>> Challenger<F, H> {

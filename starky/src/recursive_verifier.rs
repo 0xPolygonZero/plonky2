@@ -5,7 +5,6 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::util::reducing::ReducingFactorTarget;
-use plonky2::with_context;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
@@ -13,7 +12,7 @@ use crate::proof::{
     StarkOpeningSetTarget, StarkProofChallengesTarget, StarkProofWithPublicInputsTarget,
 };
 use crate::stark::Stark;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
+use crate::vars::StarkEvaluationTargets;
 
 pub fn verify_stark_proof<
     F: RichField + Extendable<D>,
@@ -27,8 +26,8 @@ pub fn verify_stark_proof<
     inner_config: &StarkConfig,
 ) where
     C::Hasher: AlgebraicHasher<F>,
-    [(); { S::COLUMNS }]:,
-    [(); { S::PUBLIC_INPUTS }]:,
+    [(); S::COLUMNS]:,
+    [(); S::PUBLIC_INPUTS]:,
 {
     assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(inner_config);
@@ -59,8 +58,8 @@ fn verify_stark_proof_with_challenges<
     degree_bits: usize,
 ) where
     C::Hasher: AlgebraicHasher<F>,
-    [(); { S::COLUMNS }]:,
-    [(); { S::PUBLIC_INPUTS }]:,
+    [(); S::COLUMNS]:,
+    [(); S::PUBLIC_INPUTS]:,
 {
     let one = builder.one_extension();
 

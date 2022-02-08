@@ -101,6 +101,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn get_challenges_target<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,

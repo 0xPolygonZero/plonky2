@@ -5,11 +5,10 @@ use plonky2::fri::verifier::verify_fri_proof;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
-use plonky2_util::log2_strict;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProofWithPublicInputs};
+use crate::proof::{StarkOpeningSet, StarkProofChallenges, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationVars;
 
