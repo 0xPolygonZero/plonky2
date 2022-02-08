@@ -27,7 +27,8 @@ where
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
 {
-    let degree_bits = log2_strict(recover_degree(&proof_with_pis.proof, config));
+    ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
+    let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
     let challenges = proof_with_pis.get_challenges(config, degree_bits)?;
     verify_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
 }
@@ -110,8 +111,7 @@ where
     verify_fri_proof::<F, C, D>(
         &stark.fri_instance(
             challenges.stark_zeta,
-            F::primitive_root_of_unity(degree_bits).into(),
-            config.fri_config.rate_bits,
+            F::primitive_root_of_unity(degree_bits),
             config.num_challenges,
         ),
         &proof.openings.to_fri_openings(),
@@ -137,17 +137,6 @@ fn eval_l_1_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
 }
 
 /// Recover the length of the trace from a STARK proof and a STARK config.
-fn recover_degree<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    proof: &StarkProof<F, C, D>,
-    config: &StarkConfig,
-) -> usize {
-    let initial_merkle_proof = &proof.opening_proof.query_round_proofs[0]
-        .initial_trees_proof
-        .evals_proofs[0]
-        .1;
-    let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
-    1 << (lde_bits - config.fri_config.rate_bits)
-}
 
 #[cfg(test)]
 mod tests {

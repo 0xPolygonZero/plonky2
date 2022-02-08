@@ -275,7 +275,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 commit_phase_merkle_caps,
                 final_poly,
                 pow_witness,
-                inner_common_data,
+                &inner_common_data.config.fri_config,
             ),
         }
     }

@@ -89,9 +89,9 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         commit_phase_merkle_caps: &[MerkleCapTarget],
         final_poly: &PolynomialCoeffsExtTarget<D>,
         pow_witness: Target,
-        inner_common_data: &CommonCircuitData<F, C, D>,
+        inner_fri_config: &FriConfig,
     ) -> FriChallengesTarget<D> {
-        let num_fri_queries = inner_common_data.config.fri_config.num_query_rounds;
+        let num_fri_queries = inner_fri_config.num_query_rounds;
         // Scaling factor to combine polynomials.
         let fri_alpha = self.get_extension_challenge(builder);
 

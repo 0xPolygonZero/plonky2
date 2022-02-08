@@ -166,7 +166,7 @@ pub struct RecursiveChallenger<F: RichField + Extendable<D>, H: AlgebraicHasher<
 impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
     RecursiveChallenger<F, H, D>
 {
-    pub(crate) fn new(builder: &mut CircuitBuilder<F, D>) -> Self {
+    pub fn new(builder: &mut CircuitBuilder<F, D>) -> Self {
         let zero = builder.zero();
         RecursiveChallenger {
             sponge_state: [zero; SPONGE_WIDTH],
@@ -222,7 +222,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
             .expect("Output buffer should be non-empty")
     }
 
-    pub(crate) fn get_n_challenges(
+    pub fn get_n_challenges(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         n: usize,

@@ -1,7 +1,11 @@
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::packed_field::PackedField;
-use plonky2::fri::structure::{FriBatchInfo, FriInstanceInfo, FriOracleInfo, FriPolynomialInfo};
+use plonky2::fri::structure::{
+    FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriOracleInfo,
+    FriPolynomialInfo,
+};
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -75,8 +79,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     fn fri_instance(
         &self,
         zeta: F::Extension,
-        g: F::Extension,
-        rate_bits: usize,
+        g: F,
         num_challenges: usize,
     ) -> FriInstanceInfo<F, D> {
         let no_blinding_oracle = FriOracleInfo { blinding: false };
@@ -88,10 +91,38 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             polynomials: [trace_info.clone(), quotient_info].concat(),
         };
         let zeta_right_batch = FriBatchInfo::<F, D> {
-            point: zeta * g,
+            point: zeta.scalar_mul(g),
             polynomials: trace_info,
         };
         FriInstanceInfo {
+            oracles: vec![no_blinding_oracle; 3],
+            batches: vec![zeta_batch],
+        }
+    }
+
+    /// Computes the FRI instance used to prove this Stark.
+    // TODO: Permutation polynomials.
+    fn fri_instance_target(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        zeta: ExtensionTarget<D>,
+        g: F,
+        num_challenges: usize,
+    ) -> FriInstanceInfoTarget<D> {
+        let no_blinding_oracle = FriOracleInfo { blinding: false };
+        let trace_info = FriPolynomialInfo::from_range(0, 0..Self::COLUMNS);
+        let quotient_info =
+            FriPolynomialInfo::from_range(1, 0..self.quotient_degree_factor() * num_challenges);
+        let zeta_batch = FriBatchInfoTarget {
+            point: zeta,
+            polynomials: [trace_info.clone(), quotient_info].concat(),
+        };
+        let zeta_right = builder.mul_const_extension(g, zeta);
+        let zeta_right_batch = FriBatchInfoTarget {
+            point: zeta_right,
+            polynomials: trace_info,
+        };
+        FriInstanceInfoTarget {
             oracles: vec![no_blinding_oracle; 3],
             batches: vec![zeta_batch],
         }
