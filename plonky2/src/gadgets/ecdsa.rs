@@ -7,9 +7,13 @@ use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::RichField;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
+#[derive(Clone, Debug)]
 pub struct ECDSASecretKeyTarget<C: Curve>(NonNativeTarget<C::ScalarField>);
+
+#[derive(Clone, Debug)]
 pub struct ECDSAPublicKeyTarget<C: Curve>(AffinePointTarget<C>);
 
+#[derive(Clone, Debug)]
 pub struct ECDSASignatureTarget<C: Curve> {
     pub r: NonNativeTarget<C::ScalarField>,
     pub s: NonNativeTarget<C::ScalarField>,
