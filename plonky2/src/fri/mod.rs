@@ -30,6 +30,20 @@ impl FriConfig {
     pub fn rate(&self) -> f64 {
         1.0 / ((1 << self.rate_bits) as f64)
     }
+
+    pub fn fri_params(&self, degree_bits: usize, hiding: bool) -> FriParams {
+        let reduction_arity_bits = self.reduction_strategy.reduction_arity_bits(
+            degree_bits,
+            self.rate_bits,
+            self.num_query_rounds,
+        );
+        FriParams {
+            config: self.clone(),
+            hiding,
+            degree_bits,
+            reduction_arity_bits,
+        }
+    }
 }
 
 /// FRI parameters, including generated parameters which are specific to an instance size, in

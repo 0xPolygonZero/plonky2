@@ -114,7 +114,7 @@ where
     let openings = StarkOpeningSet::new(zeta, g, &trace_commitment, &quotient_commitment);
     challenger.observe_openings(&openings.to_fri_openings());
 
-    // TODO: Add permuation checks
+    // TODO: Add permutation checks
     let initial_merkle_trees = &[&trace_commitment, &quotient_commitment];
     let fri_params = config.fri_params(degree_bits);
 

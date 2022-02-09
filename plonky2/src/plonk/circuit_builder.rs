@@ -393,18 +393,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     fn fri_params(&self, degree_bits: usize) -> FriParams {
-        let fri_config = &self.config.fri_config;
-        let reduction_arity_bits = fri_config.reduction_strategy.reduction_arity_bits(
-            degree_bits,
-            fri_config.rate_bits,
-            fri_config.num_query_rounds,
-        );
-        FriParams {
-            config: fri_config.clone(),
-            hiding: self.config.zero_knowledge,
-            degree_bits,
-            reduction_arity_bits,
-        }
+        self.config
+            .fri_config
+            .fri_params(degree_bits, self.config.zero_knowledge)
     }
 
     /// The number of (base field) `arithmetic` operations that can be performed in a single gate.

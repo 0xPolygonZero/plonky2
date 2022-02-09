@@ -9,7 +9,8 @@ use plonky2::util::reducing::ReducingFactorTarget;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::proof::{
-    StarkOpeningSetTarget, StarkProofChallengesTarget, StarkProofWithPublicInputsTarget,
+    StarkOpeningSetTarget, StarkProofChallengesTarget, StarkProofTarget,
+    StarkProofWithPublicInputsTarget,
 };
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationTargets;
@@ -153,56 +154,59 @@ fn eval_l_1_and_l_last_recursively<F: RichField + Extendable<D>, const D: usize>
     )
 }
 
-// pub fn add_virtual_proof_with_pis<InnerC: GenericConfig<D, F = F>>(
-//     &mut self,
-//     common_data: &CommonCircuitData<F, InnerC, D>,
-// ) -> ProofWithPublicInputsTarget<D> {
-//     let proof = self.add_virtual_proof(common_data);
-//     let public_inputs = self.add_virtual_targets(common_data.num_public_inputs);
-//     ProofWithPublicInputsTarget {
-//         proof,
-//         public_inputs,
-//     }
-// }
-//
-// fn add_virtual_proof<InnerC: GenericConfig<D, F = F>>(
-//     &mut self,
-//     common_data: &CommonCircuitData<F, InnerC, D>,
-// ) -> ProofTarget<D> {
-//     let config = &common_data.config;
-//     let fri_params = &common_data.fri_params;
-//     let cap_height = fri_params.config.cap_height;
-//
-//     let num_leaves_per_oracle = &[
-//         common_data.num_preprocessed_polys(),
-//         config.num_wires,
-//         common_data.num_zs_partial_products_polys(),
-//         common_data.num_quotient_polys(),
-//     ];
-//
-//     ProofTarget {
-//         wires_cap: self.add_virtual_cap(cap_height),
-//         plonk_zs_partial_products_cap: self.add_virtual_cap(cap_height),
-//         quotient_polys_cap: self.add_virtual_cap(cap_height),
-//         openings: self.add_opening_set(common_data),
-//         opening_proof: self.add_virtual_fri_proof(num_leaves_per_oracle, fri_params),
-//     }
-// }
-//
-// fn add_opening_set<InnerC: GenericConfig<D, F = F>>(
-//     &mut self,
-//     common_data: &CommonCircuitData<F, InnerC, D>,
-// ) -> OpeningSetTarget<D> {
-//     let config = &common_data.config;
-//     let num_challenges = config.num_challenges;
-//     let total_partial_products = num_challenges * common_data.num_partial_products;
-//     OpeningSetTarget {
-//         constants: self.add_virtual_extension_targets(common_data.num_constants),
-//         plonk_sigmas: self.add_virtual_extension_targets(config.num_routed_wires),
-//         wires: self.add_virtual_extension_targets(config.num_wires),
-//         plonk_zs: self.add_virtual_extension_targets(num_challenges),
-//         plonk_zs_right: self.add_virtual_extension_targets(num_challenges),
-//         partial_products: self.add_virtual_extension_targets(total_partial_products),
-//         quotient_polys: self.add_virtual_extension_targets(common_data.num_quotient_polys()),
-//     }
-// }
+pub fn add_virtual_stark_proof_with_pis<
+    F: RichField + Extendable<D>,
+    S: Stark<F, D>,
+    const D: usize,
+>(
+    builder: &mut CircuitBuilder<F, D>,
+    stark: S,
+    config: &StarkConfig,
+    degree_bits: usize,
+) -> StarkProofWithPublicInputsTarget<D> {
+    let proof = add_virtual_stark_proof::<F, S, D>(builder, stark, config, degree_bits);
+    let public_inputs = builder.add_virtual_targets(S::PUBLIC_INPUTS);
+    StarkProofWithPublicInputsTarget {
+        proof,
+        public_inputs,
+    }
+}
+
+pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    stark: S,
+    config: &StarkConfig,
+    degree_bits: usize,
+) -> StarkProofTarget<D> {
+    let fri_params = config.fri_config.fri_params(degree_bits, false);
+    let cap_height = fri_params.config.cap_height;
+
+    let num_leaves_per_oracle = &[
+        S::COLUMNS,
+        // TODO: permutation polys
+        stark.quotient_degree_factor() * config.num_challenges,
+    ];
+
+    StarkProofTarget {
+        trace_cap: builder.add_virtual_cap(cap_height),
+        quotient_polys_cap: builder.add_virtual_cap(cap_height),
+        openings: add_stark_opening_set::<F, S, D>(builder, stark, config),
+        opening_proof: builder.add_virtual_fri_proof(num_leaves_per_oracle, &fri_params),
+    }
+}
+
+fn add_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    stark: S,
+    config: &StarkConfig,
+) -> StarkOpeningSetTarget<D> {
+    let num_challenges = config.num_challenges;
+    StarkOpeningSetTarget {
+        local_values: builder.add_virtual_extension_targets(S::COLUMNS),
+        next_values: builder.add_virtual_extension_targets(S::COLUMNS),
+        permutation_zs: vec![/*TODO*/],
+        permutation_zs_right: vec![/*TODO*/],
+        quotient_polys: builder
+            .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),
+    }
+}
