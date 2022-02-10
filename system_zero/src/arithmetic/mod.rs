@@ -41,6 +41,13 @@ pub(crate) fn eval_arithmetic_unit<F: Field, P: PackedField<Scalar = F>>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let local_values = &vars.local_values;
+
+    // Check that the operation flag values are binary.
+    for col in [IS_ADD, IS_SUB, IS_MUL, IS_DIV] {
+        let val = local_values[col];
+        yield_constr.constraint_wrapping(val * val - val);
+    }
+
     eval_addition(local_values, yield_constr);
     eval_subtraction(local_values, yield_constr);
     eval_multiplication(local_values, yield_constr);
@@ -53,6 +60,14 @@ pub(crate) fn eval_arithmetic_unit_recursively<F: RichField + Extendable<D>, con
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let local_values = &vars.local_values;
+
+    // Check that the operation flag values are binary.
+    for col in [IS_ADD, IS_SUB, IS_MUL, IS_DIV] {
+        let val = local_values[col];
+        let constraint = builder.mul_add_extension(val, val, val);
+        yield_constr.constraint_wrapping(builder, constraint);
+    }
+
     eval_addition_recursively(builder, local_values, yield_constr);
     eval_subtraction_recursively(builder, local_values, yield_constr);
     eval_multiplication_recursively(builder, local_values, yield_constr);
