@@ -42,6 +42,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
 
             trace.push(row);
             row = next_row;
+
+            // TODO: Replace with proper termination condition.
+            if trace.len() == (1 << 16) - 1 {
+                break;
+            }
         }
 
         trace.push(row);
@@ -72,7 +77,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
         self.eval_core_registers(vars, yield_constr);
         eval_arithmetic_unit(vars, yield_constr);
         Self::eval_permutation_unit(vars, yield_constr);
-        todo!()
+        // TODO: Other units
     }
 
     fn eval_ext_recursively(
@@ -84,7 +89,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
         self.eval_core_registers_recursively(builder, vars, yield_constr);
         eval_arithmetic_unit_recursively(builder, vars, yield_constr);
         Self::eval_permutation_unit_recursively(builder, vars, yield_constr);
-        todo!()
+        // TODO: Other units
     }
 
     fn constraint_degree(&self) -> usize {
@@ -109,7 +114,7 @@ mod tests {
     use crate::system_zero::SystemZero;
 
     #[test]
-    #[ignore] // TODO
+    #[ignore] // A bit slow.
     fn run() -> Result<()> {
         type F = GoldilocksField;
         type C = PoseidonGoldilocksConfig;
@@ -127,7 +132,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO
     fn degree() -> Result<()> {
         type F = GoldilocksField;
         type C = PoseidonGoldilocksConfig;
