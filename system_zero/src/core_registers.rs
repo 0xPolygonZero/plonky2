@@ -65,7 +65,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         yield_constr.constraint_last_row(local_range_16 - FE::from_canonical_u64((1 << 16) - 1));
         yield_constr.constraint(delta_range_16 * delta_range_16 - delta_range_16);
 
-        // TODO
+        // TODO constraints for stack etc.
     }
 
     pub(crate) fn eval_core_registers_recursively(
@@ -96,6 +96,6 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         let constraint = builder.mul_add_extension(delta_range_16, delta_range_16, delta_range_16);
         yield_constr.constraint(builder, constraint);
 
-        // TODO
+        // TODO constraints for stack etc.
     }
 }
