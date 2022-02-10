@@ -230,7 +230,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let windows = self.split_nonnative_to_4_bit_limbs(n);
         let m = C::ScalarField::BITS / WINDOW_SIZE;
-        for i in m..0 {
+        for i in (0..m).rev() {
             result = self.curve_double(&result);
             let window = windows[i];
 
@@ -404,6 +404,38 @@ mod tests {
         builder.curve_assert_valid(&neg_five_g_actual);
 
         builder.connect_affine_point(&neg_five_g_expected, &neg_five_g_actual);
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_curve_mul_windowed() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let config = CircuitConfig::standard_ecc_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g = Secp256K1::GENERATOR_AFFINE;
+        let five = Secp256K1Scalar::from_canonical_usize(5);
+        let neg_five = five.neg();
+        let neg_five_scalar = CurveScalar::<Secp256K1>(neg_five);
+        let neg_five_g = (neg_five_scalar * g.to_projective()).to_affine();
+        let neg_five_g_expected = builder.constant_affine_point(neg_five_g);
+        builder.curve_assert_valid(&neg_five_g_expected);
+
+        let g_target = builder.constant_affine_point(g);
+        let neg_five_target = builder.constant_nonnative(neg_five);
+        let neg_five_g_actual = builder.curve_scalar_mul_windowed(&g_target, &neg_five_target);
+        /*builder.curve_assert_valid(&neg_five_g_actual);
+
+        builder.connect_affine_point(&neg_five_g_expected, &neg_five_g_actual);*/
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
