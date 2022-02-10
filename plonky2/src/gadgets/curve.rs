@@ -165,6 +165,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         result
     }
 
+    // TODO: fix if p is the generator
     pub fn precompute_window<C: Curve>(
         &mut self,
         p: &AffinePointTarget<C>,
@@ -172,12 +173,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut multiples = Vec::new();
         multiples.push(self.constant_affine_point(C::GENERATOR_AFFINE));
         let mut cur = p.clone();
-        for _pow in 1..WINDOW_SIZE {
+        for _pow in 0..WINDOW_SIZE {
             for existing in multiples.clone() {
                 multiples.push(self.curve_add(&cur, &existing));
             }
             cur = self.curve_double(&cur);
         }
+
+        println!("SIZE OF WINDOW: {}", multiples.len());
 
         multiples
     }
@@ -422,7 +425,7 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let g = Secp256K1::GENERATOR_AFFINE;
+        let g = (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
         let five = Secp256K1Scalar::from_canonical_usize(5);
         let neg_five = five.neg();
         let neg_five_scalar = CurveScalar::<Secp256K1>(neg_five);
@@ -433,9 +436,9 @@ mod tests {
         let g_target = builder.constant_affine_point(g);
         let neg_five_target = builder.constant_nonnative(neg_five);
         let neg_five_g_actual = builder.curve_scalar_mul_windowed(&g_target, &neg_five_target);
-        /*builder.curve_assert_valid(&neg_five_g_actual);
+        builder.curve_assert_valid(&neg_five_g_actual);
 
-        builder.connect_affine_point(&neg_five_g_expected, &neg_five_g_actual);*/
+        builder.connect_affine_point(&neg_five_g_expected, &neg_five_g_actual);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
