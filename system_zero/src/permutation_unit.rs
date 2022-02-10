@@ -8,12 +8,9 @@ use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsume
 use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
-use crate::column_layout::permutation::{
-    col_full_first_after_mds, col_full_first_mid_sbox, col_full_second_after_mds,
-    col_full_second_mid_sbox, col_input, col_partial_after_sbox, col_partial_mid_sbox,
-};
-use crate::column_layout::NUM_COLUMNS;
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
+use crate::registers::permutation::*;
+use crate::registers::NUM_COLUMNS;
 use crate::system_zero::SystemZero;
 
 fn constant_layer<F, FE, P, const D2: usize>(
@@ -272,10 +269,10 @@ mod tests {
     use starky::constraint_consumer::ConstraintConsumer;
     use starky::vars::StarkEvaluationVars;
 
-    use crate::column_layout::permutation::{col_input, col_output};
-    use crate::column_layout::NUM_COLUMNS;
     use crate::permutation_unit::SPONGE_WIDTH;
     use crate::public_input_layout::NUM_PUBLIC_INPUTS;
+    use crate::registers::permutation::{col_input, col_output};
+    use crate::registers::NUM_COLUMNS;
     use crate::system_zero::SystemZero;
 
     #[test]

@@ -6,10 +6,9 @@ use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsume
 use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
-use crate::column_layout::{
-    COL_CLOCK, COL_FRAME_PTR, COL_INSTRUCTION_PTR, COL_RANGE_16, COL_STACK_PTR, NUM_COLUMNS,
-};
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
+use crate::registers::core::*;
+use crate::registers::NUM_COLUMNS;
 use crate::system_zero::SystemZero;
 
 impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
@@ -35,11 +34,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         let next_range_16 = (prev_range_16 + 1).min((1 << 16) - 1);
         next_values[COL_RANGE_16] = F::from_canonical_u64(next_range_16);
 
-        next_values[COL_INSTRUCTION_PTR] = todo!();
+        // next_values[COL_INSTRUCTION_PTR] = todo!();
 
-        next_values[COL_FRAME_PTR] = todo!();
+        // next_values[COL_FRAME_PTR] = todo!();
 
-        next_values[COL_STACK_PTR] = todo!();
+        // next_values[COL_STACK_PTR] = todo!();
     }
 
     #[inline]
@@ -64,9 +63,9 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         let delta_range_16 = next_range_16 - local_range_16;
         yield_constr.constraint_first_row(local_range_16);
         yield_constr.constraint_last_row(local_range_16 - FE::from_canonical_u64((1 << 16) - 1));
-        yield_constr.constraint(delta_range_16 * (delta_range_16 - FE::ONE));
+        yield_constr.constraint(delta_range_16 * delta_range_16 - delta_range_16);
 
-        todo!()
+        // TODO constraints for stack etc.
     }
 
     pub(crate) fn eval_core_registers_recursively(
@@ -75,6 +74,28 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         vars: StarkEvaluationTargets<D, NUM_COLUMNS, NUM_PUBLIC_INPUTS>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        todo!()
+        let one_ext = builder.one_extension();
+        let max_u16 = builder.constant(F::from_canonical_u64((1 << 16) - 1));
+        let max_u16_ext = builder.convert_to_ext(max_u16);
+
+        // The clock must start with 0, and increment by 1.
+        let local_clock = vars.local_values[COL_CLOCK];
+        let next_clock = vars.next_values[COL_CLOCK];
+        let delta_clock = builder.sub_extension(next_clock, local_clock);
+        yield_constr.constraint_first_row(builder, local_clock);
+        let constraint = builder.sub_extension(delta_clock, one_ext);
+        yield_constr.constraint(builder, constraint);
+
+        // The 16-bit table must start with 0, end with 2^16 - 1, and increment by 0 or 1.
+        let local_range_16 = vars.local_values[COL_RANGE_16];
+        let next_range_16 = vars.next_values[COL_RANGE_16];
+        let delta_range_16 = builder.sub_extension(next_range_16, local_range_16);
+        yield_constr.constraint_first_row(builder, local_range_16);
+        let constraint = builder.sub_extension(local_range_16, max_u16_ext);
+        yield_constr.constraint_last_row(builder, constraint);
+        let constraint = builder.mul_add_extension(delta_range_16, delta_range_16, delta_range_16);
+        yield_constr.constraint(builder, constraint);
+
+        // TODO constraints for stack etc.
     }
 }
