@@ -268,9 +268,6 @@ pub trait Field:
     // Rename to `from_noncanonical_biguint` and have it return `n % Self::characteristic()`.
     fn from_biguint(n: BigUint) -> Self;
 
-    // TODO: Move to a new `PrimeField` trait.
-    fn to_biguint(&self) -> BigUint;
-
     /// Returns `n`. Assumes that `n` is already in canonical form, i.e. `n < Self::order()`.
     // TODO: Should probably be unsafe.
     fn from_canonical_u64(n: u64) -> Self;
@@ -407,15 +404,13 @@ pub trait Field:
     }
 }
 
+pub trait PrimeField: Field {
+    fn to_canonical_biguint(&self) -> BigUint;
+}
+
 /// A finite field of order less than 2^64.
 pub trait Field64: Field {
     const ORDER: u64;
-
-    // TODO: Only well-defined for prime 64-bit fields. Move to a new PrimeField64 trait?
-    fn to_canonical_u64(&self) -> u64;
-
-    // TODO: Only well-defined for prime 64-bit fields. Move to a new PrimeField64 trait?
-    fn to_noncanonical_u64(&self) -> u64;
 
     /// Returns `x % Self::CHARACTERISTIC`.
     // TODO: Move to `Field`.
@@ -454,6 +449,13 @@ pub trait Field64: Field {
         // Default implementation.
         *self - Self::from_canonical_u64(rhs)
     }
+}
+
+/// A finite field of prime order less than 2^64.
+pub trait PrimeField64: PrimeField + Field64 {
+    fn to_canonical_u64(&self) -> u64;
+
+    fn to_noncanonical_u64(&self) -> u64;
 }
 
 /// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
