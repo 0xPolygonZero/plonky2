@@ -96,4 +96,18 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             batches: vec![zeta_batch],
         }
     }
+
+    /// Pairs of lists of columns that should be permutations of one another. A permutation argument
+    /// will be used for each such pair. Empty by default.
+    fn permutation_pairs(&self) -> Vec<PermutationPair> {
+        vec![]
+    }
+}
+
+/// A pair of lists of columns, `lhs` and `rhs`, that should be permutations of one another.
+/// In particular, there should exist some permutation `pi` such that for any `i`,
+/// `lhs[i] = rhs[pi(i)]`.
+pub struct PermutationPair {
+    pub lhs_columns: Vec<usize>,
+    pub rhs_columns: Vec<usize>,
 }

@@ -17,7 +17,7 @@ use rayon::prelude::*;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
-use crate::stark::Stark;
+use crate::stark::{PermutationPair, Stark};
 use crate::vars::StarkEvaluationVars;
 
 pub fn prove<F, C, S, const D: usize>(
@@ -37,7 +37,7 @@ where
     let degree = trace.len();
     let degree_bits = log2_strict(degree);
 
-    let trace_vecs = trace.into_iter().map(|row| row.to_vec()).collect_vec();
+    let trace_vecs = trace.iter().map(|row| row.to_vec()).collect_vec();
     let trace_col_major: Vec<Vec<F>> = transpose(&trace_vecs);
 
     let trace_poly_values: Vec<PolynomialValues<F>> = timed!(
@@ -67,6 +67,11 @@ where
     let trace_cap = trace_commitment.merkle_tree.cap.clone();
     let mut challenger = Challenger::new();
     challenger.observe_cap(&trace_cap);
+
+    // Permutation arguments.
+    let betas = challenger.get_n_challenges(config.num_challenges);
+    let gammas = challenger.get_n_challenges(config.num_challenges);
+    let z_polys = compute_z_polys(&stark, &trace, &betas, &gammas);
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
     let quotient_polys = compute_quotient_polys::<F, C, S, D>(
@@ -140,6 +145,71 @@ where
         proof,
         public_inputs: public_inputs.to_vec(),
     })
+}
+
+/// Compute all Z polynomials (for permutation arguments).
+fn compute_z_polys<F, S, const D: usize>(
+    stark: &S,
+    trace: &[[F; S::COLUMNS]],
+    betas: &[F],
+    gammas: &[F],
+) -> Vec<PolynomialValues<F>>
+where
+    F: RichField + Extendable<D>,
+    S: Stark<F, D>,
+{
+    let degree = trace.len();
+    let pairs = stark.permutation_pairs();
+    let zs_row_major: Vec<_> = trace
+        .into_par_iter()
+        .map(|trace_row| compute_z_polys_row::<F, S, D>(&pairs, trace_row, betas, gammas))
+        .collect();
+    let zs_col_major = transpose(&zs_row_major);
+    zs_col_major
+        .into_iter()
+        .map(|col| PolynomialValues::new(col))
+        .collect()
+}
+
+/// Compute all Z polynomials (for permutation arguments) at a single point.
+fn compute_z_polys_row<F, S, const D: usize>(
+    pairs: &[PermutationPair],
+    trace_row: &[F; S::COLUMNS],
+    betas: &[F],
+    gammas: &[F],
+) -> Vec<F>
+where
+    F: RichField + Extendable<D>,
+    S: Stark<F, D>,
+{
+    assert_eq!(betas.len(), gammas.len());
+    let num_challenges = betas.len();
+    assert_ne!(num_challenges, 0);
+
+    let num_zs = pairs.len() * num_challenges;
+    let mut numerators = Vec::with_capacity(num_zs);
+    let mut denominators = Vec::with_capacity(num_zs);
+    let denominator_invs = F::batch_multiplicative_inverse(&denominators);
+
+    for pp in pairs {
+        for (&beta, &gamma) in betas.iter().zip(gammas) {
+            let cols_to_reduced_values = |cols: &[usize]| {
+                cols.iter()
+                    .map(|&c| trace_row[c])
+                    .rev()
+                    .reduce(|acc, x| acc * beta + x)
+                    .unwrap()
+            };
+            numerators.push(cols_to_reduced_values(&pp.lhs_columns) + gamma);
+            denominators.push(cols_to_reduced_values(&pp.rhs_columns) + gamma);
+        }
+    }
+
+    numerators
+        .into_iter()
+        .zip(denominator_invs)
+        .map(|(n, d_inv)| n * d_inv)
+        .collect()
 }
 
 /// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
