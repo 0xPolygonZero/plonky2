@@ -6,10 +6,9 @@ use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsume
 use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
-use crate::column_layout::{
-    COL_CLOCK, COL_FRAME_PTR, COL_INSTRUCTION_PTR, COL_RANGE_16, COL_STACK_PTR, NUM_COLUMNS,
-};
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
+use crate::registers::core::*;
+use crate::registers::NUM_COLUMNS;
 use crate::system_zero::SystemZero;
 
 impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {

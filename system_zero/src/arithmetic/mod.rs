@@ -15,9 +15,9 @@ use crate::arithmetic::multiplication::{
 use crate::arithmetic::subtraction::{
     eval_subtraction, eval_subtraction_recursively, generate_subtraction,
 };
-use crate::column_layout::arithmetic::*;
-use crate::column_layout::NUM_COLUMNS;
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
+use crate::registers::arithmetic::*;
+use crate::registers::NUM_COLUMNS;
 
 mod addition;
 mod division;

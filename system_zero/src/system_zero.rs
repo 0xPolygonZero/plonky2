@@ -12,9 +12,9 @@ use starky::vars::StarkEvaluationVars;
 use crate::arithmetic::{
     eval_arithmetic_unit, eval_arithmetic_unit_recursively, generate_arithmetic_unit,
 };
-use crate::column_layout::NUM_COLUMNS;
 use crate::memory::TransactionMemory;
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
+use crate::registers::NUM_COLUMNS;
 
 /// We require at least 2^16 rows as it helps support efficient 16-bit range checks.
 const MIN_TRACE_ROWS: usize = 1 << 16;

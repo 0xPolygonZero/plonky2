@@ -6,8 +6,8 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-use crate::column_layout::arithmetic::*;
-use crate::column_layout::NUM_COLUMNS;
+use crate::registers::arithmetic::*;
+use crate::registers::NUM_COLUMNS;
 
 pub(crate) fn generate_subtraction<F: RichField>(values: &mut [F; NUM_COLUMNS]) {
     // TODO

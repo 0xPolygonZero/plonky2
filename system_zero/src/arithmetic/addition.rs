@@ -7,8 +7,8 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::plonk_common::reduce_with_powers_ext_recursive;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-use crate::column_layout::arithmetic::*;
-use crate::column_layout::NUM_COLUMNS;
+use crate::registers::arithmetic::*;
+use crate::registers::NUM_COLUMNS;
 
 pub(crate) fn generate_addition<F: RichField>(values: &mut [F; NUM_COLUMNS]) {
     let in_1 = values[COL_ADD_INPUT_1].to_canonical_u64();
