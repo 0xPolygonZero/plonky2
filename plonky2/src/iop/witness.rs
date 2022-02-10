@@ -201,61 +201,10 @@ pub trait Witness<F: Field> {
         );
         self.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap);
 
-        for (&t, &x) in proof_target
-            .openings
-            .wires
-            .iter()
-            .zip_eq(&proof.openings.wires)
-        {
-            self.set_extension_target(t, x);
-        }
-        for (&t, &x) in proof_target
-            .openings
-            .constants
-            .iter()
-            .zip_eq(&proof.openings.constants)
-        {
-            self.set_extension_target(t, x);
-        }
-        for (&t, &x) in proof_target
-            .openings
-            .plonk_sigmas
-            .iter()
-            .zip_eq(&proof.openings.plonk_sigmas)
-        {
-            self.set_extension_target(t, x);
-        }
-        for (&t, &x) in proof_target
-            .openings
-            .plonk_zs
-            .iter()
-            .zip_eq(&proof.openings.plonk_zs)
-        {
-            self.set_extension_target(t, x);
-        }
-        for (&t, &x) in proof_target
-            .openings
-            .plonk_zs_right
-            .iter()
-            .zip_eq(&proof.openings.plonk_zs_right)
-        {
-            self.set_extension_target(t, x);
-        }
-        for (&t, &x) in proof_target
-            .openings
-            .partial_products
-            .iter()
-            .zip_eq(&proof.openings.partial_products)
-        {
-            self.set_extension_target(t, x);
-        }
-        for (&t, &x) in proof_target
-            .openings
-            .quotient_polys
-            .iter()
-            .zip_eq(&proof.openings.quotient_polys)
-        {
-            self.set_extension_target(t, x);
+        let openings = proof.openings.to_fri_openings();
+        let openings_target = proof_target.openings.to_fri_openings();
+        for (batch, batch_target) in openings.batches.iter().zip_eq(&openings_target.batches) {
+            self.set_extension_targets(&batch_target.values, &batch.values);
         }
 
         set_fri_proof_target(self, &proof_target.opening_proof, &proof.opening_proof);

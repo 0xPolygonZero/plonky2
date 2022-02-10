@@ -1,7 +1,10 @@
+use itertools::Itertools;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::Field;
+use plonky2::fri::witness_util::set_fri_proof_target;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::iop::witness::Witness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::util::reducing::ReducingFactorTarget;
@@ -9,8 +12,8 @@ use plonky2::util::reducing::ReducingFactorTarget;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::proof::{
-    StarkOpeningSetTarget, StarkProofChallengesTarget, StarkProofTarget,
-    StarkProofWithPublicInputsTarget,
+    StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget, StarkProofTarget,
+    StarkProofWithPublicInputs, StarkProofWithPublicInputsTarget,
 };
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationTargets;
@@ -209,4 +212,51 @@ fn add_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: 
         quotient_polys: builder
             .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),
     }
+}
+
+pub fn set_startk_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
+    witness: &mut W,
+    stark_proof_with_pis_target: &StarkProofWithPublicInputsTarget<D>,
+    stark_proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
+) where
+    F: RichField + Extendable<D>,
+    C::Hasher: AlgebraicHasher<F>,
+    W: Witness<F>,
+{
+    let StarkProofWithPublicInputs {
+        proof,
+        public_inputs,
+    } = stark_proof_with_pis;
+    let StarkProofWithPublicInputsTarget {
+        proof: pt,
+        public_inputs: pi_targets,
+    } = stark_proof_with_pis_target;
+
+    // Set public inputs.
+    for (&pi_t, &pi) in pi_targets.iter().zip_eq(public_inputs) {
+        witness.set_target(pi_t, pi);
+    }
+
+    set_stark_proof_target(witness, pt, proof);
+}
+
+pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
+    witness: &mut W,
+    proof_target: &StarkProofTarget<D>,
+    proof: &StarkProof<F, C, D>,
+) where
+    F: RichField + Extendable<D>,
+    C::Hasher: AlgebraicHasher<F>,
+    W: Witness<F>,
+{
+    witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap);
+    witness.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap);
+
+    let openings = proof.openings.to_fri_openings();
+    let openings_target = proof_target.openings.to_fri_openings();
+    for (batch, batch_target) in openings.batches.iter().zip_eq(&openings_target.batches) {
+        witness.set_extension_targets(&batch_target.values, &batch.values);
+    }
+
+    set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
 }
