@@ -31,14 +31,12 @@ impl<F: Field> HashOut<F> {
         }
     }
 
-    pub fn from_partial(mut elements: Vec<F>) -> Self {
-        debug_assert!(elements.len() <= 4);
-        while elements.len() < 4 {
-            elements.push(F::ZERO);
-        }
-        Self {
-            elements: [elements[0], elements[1], elements[2], elements[3]],
-        }
+    pub fn from_partial(elements_in: &[F]) -> Self {
+        debug_assert!(elements_in.len() <= 4);
+
+        let mut elements = [F::ZERO; 4];
+        elements[0..elements_in.len()].copy_from_slice(elements_in);
+        Self { elements }
     }
 
     pub fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {

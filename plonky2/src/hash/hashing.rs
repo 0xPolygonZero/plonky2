@@ -14,11 +14,11 @@ pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 
 /// Hash the vector if necessary to reduce its length to ~256 bits. If it already fits, this is a
 /// no-op.
-pub fn hash_or_noop<F: RichField, P: PlonkyPermutation<F>>(inputs: Vec<F>) -> HashOut<F> {
+pub fn hash_or_noop<F: RichField, P: PlonkyPermutation<F>>(inputs: &[F]) -> HashOut<F> {
     if inputs.len() <= 4 {
         HashOut::from_partial(inputs)
     } else {
-        hash_n_to_hash_no_pad::<F, P>(&inputs)
+        hash_n_to_hash_no_pad::<F, P>(inputs)
     }
 }
 
