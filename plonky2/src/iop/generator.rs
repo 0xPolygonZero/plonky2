@@ -181,7 +181,7 @@ impl<F: Field> GeneratedValues<F> {
     }
 
     pub fn set_nonnative_target<FF: PrimeField>(&mut self, target: NonNativeTarget<FF>, value: FF) {
-        self.set_biguint_target(target.value, value.to_biguint())
+        self.set_biguint_target(target.value, value.to_canonical_biguint())
     }
 
     pub fn set_hash_target(&mut self, ht: HashOutTarget, value: HashOut<F>) {

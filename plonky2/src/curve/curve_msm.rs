@@ -161,7 +161,7 @@ pub(crate) fn to_digits<C: Curve>(x: &C::ScalarField, w: usize) -> Vec<usize> {
 
     // Convert x to a bool array.
     let x_canonical: Vec<_> = x
-        .to_biguint()
+        .to_canonical_biguint()
         .to_u64_digits()
         .iter()
         .cloned()
@@ -208,7 +208,7 @@ mod tests {
             0b11111111111111111111111111111111,
         ];
         let x = Secp256K1Scalar::from_biguint(BigUint::from_slice(&x_canonical));
-        assert_eq!(x.to_biguint().to_u32_digits(), x_canonical);
+        assert_eq!(x.to_canonical_biguint().to_u32_digits(), x_canonical);
         assert_eq!(
             to_digits::<Secp256K1>(&x, 17),
             vec![

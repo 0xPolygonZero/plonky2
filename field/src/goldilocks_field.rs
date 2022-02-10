@@ -120,7 +120,7 @@ impl Field for GoldilocksField {
 }
 
 impl PrimeField for GoldilocksField {
-    fn to_biguint(&self) -> BigUint {
+    fn to_canonical_biguint(&self) -> BigUint {
         self.to_canonical_u64().into()
     }
 }

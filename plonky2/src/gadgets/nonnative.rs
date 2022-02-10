@@ -36,7 +36,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn constant_nonnative<FF: PrimeField>(&mut self, x: FF) -> NonNativeTarget<FF> {
-        let x_biguint = self.constant_biguint(&x.to_biguint());
+        let x_biguint = self.constant_biguint(&x.to_canonical_biguint());
         self.biguint_to_nonnative(&x_biguint)
     }
 
@@ -339,8 +339,8 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let a = witness.get_nonnative_target(self.a.clone());
         let b = witness.get_nonnative_target(self.b.clone());
-        let a_biguint = a.to_biguint();
-        let b_biguint = b.to_biguint();
+        let a_biguint = a.to_canonical_biguint();
+        let b_biguint = b.to_canonical_biguint();
         let sum_biguint = a_biguint + b_biguint;
         let modulus = FF::order();
         let (overflow, sum_reduced) = if sum_biguint > modulus {
@@ -381,7 +381,7 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
             .collect();
         let summand_biguints: Vec<_> = summands
             .iter()
-            .map(|summand| summand.to_biguint())
+            .map(|summand| summand.to_canonical_biguint())
             .collect();
 
         let sum_biguint = summand_biguints
@@ -423,8 +423,8 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let a = witness.get_nonnative_target(self.a.clone());
         let b = witness.get_nonnative_target(self.b.clone());
-        let a_biguint = a.to_biguint();
-        let b_biguint = b.to_biguint();
+        let a_biguint = a.to_canonical_biguint();
+        let b_biguint = b.to_canonical_biguint();
 
         let modulus = FF::order();
         let (diff_biguint, overflow) = if a_biguint > b_biguint {
@@ -464,8 +464,8 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let a = witness.get_nonnative_target(self.a.clone());
         let b = witness.get_nonnative_target(self.b.clone());
-        let a_biguint = a.to_biguint();
-        let b_biguint = b.to_biguint();
+        let a_biguint = a.to_canonical_biguint();
+        let b_biguint = b.to_canonical_biguint();
 
         let prod_biguint = a_biguint * b_biguint;
 
@@ -496,8 +496,8 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
         let x = witness.get_nonnative_target(self.x.clone());
         let inv = x.inverse();
 
-        let x_biguint = x.to_biguint();
-        let inv_biguint = inv.to_biguint();
+        let x_biguint = x.to_canonical_biguint();
+        let inv_biguint = inv.to_canonical_biguint();
         let prod = x_biguint * &inv_biguint;
         let modulus = FF::order();
         let (div, _rem) = prod.div_rem(&modulus);
@@ -595,7 +595,7 @@ mod tests {
 
         let x_ff = FF::rand();
         let mut y_ff = FF::rand();
-        while y_ff.to_biguint() > x_ff.to_biguint() {
+        while y_ff.to_canonical_biguint() > x_ff.to_canonical_biguint() {
             y_ff = FF::rand();
         }
         let diff_ff = x_ff - y_ff;

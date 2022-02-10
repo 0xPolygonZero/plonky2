@@ -87,7 +87,7 @@ mod tests {
     ) -> ProjectivePoint<Secp256K1> {
         let mut g = rhs;
         let mut sum = ProjectivePoint::ZERO;
-        for limb in lhs.to_biguint().to_u64_digits().iter() {
+        for limb in lhs.to_canonical_biguint().to_u64_digits().iter() {
             for j in 0..64 {
                 if (limb >> j & 1u64) != 0u64 {
                     sum = sum + g;

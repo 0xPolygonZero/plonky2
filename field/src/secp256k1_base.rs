@@ -42,7 +42,7 @@ impl Default for Secp256K1Base {
 
 impl PartialEq for Secp256K1Base {
     fn eq(&self, other: &Self) -> bool {
-        self.to_biguint() == other.to_biguint()
+        self.to_canonical_biguint() == other.to_canonical_biguint()
     }
 }
 
@@ -50,19 +50,19 @@ impl Eq for Secp256K1Base {}
 
 impl Hash for Secp256K1Base {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.to_biguint().hash(state)
+        self.to_canonical_biguint().hash(state)
     }
 }
 
 impl Display for Secp256K1Base {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.to_biguint(), f)
+        Display::fmt(&self.to_canonical_biguint(), f)
     }
 }
 
 impl Debug for Secp256K1Base {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Debug::fmt(&self.to_biguint(), f)
+        Debug::fmt(&self.to_canonical_biguint(), f)
     }
 }
 
@@ -139,7 +139,7 @@ impl Field for Secp256K1Base {
 }
 
 impl PrimeField for Secp256K1Base {
-    fn to_biguint(&self) -> BigUint {
+    fn to_canonical_biguint(&self) -> BigUint {
         let mut result = biguint_from_array(self.0);
         if result >= Self::order() {
             result -= Self::order();
@@ -156,7 +156,7 @@ impl Neg for Secp256K1Base {
         if self.is_zero() {
             Self::ZERO
         } else {
-            Self::from_biguint(Self::order() - self.to_biguint())
+            Self::from_biguint(Self::order() - self.to_canonical_biguint())
         }
     }
 }
@@ -166,7 +166,7 @@ impl Add for Secp256K1Base {
 
     #[inline]
     fn add(self, rhs: Self) -> Self {
-        let mut result = self.to_biguint() + rhs.to_biguint();
+        let mut result = self.to_canonical_biguint() + rhs.to_canonical_biguint();
         if result >= Self::order() {
             result -= Self::order();
         }
@@ -209,7 +209,9 @@ impl Mul for Secp256K1Base {
 
     #[inline]
     fn mul(self, rhs: Self) -> Self {
-        Self::from_biguint((self.to_biguint() * rhs.to_biguint()).mod_floor(&Self::order()))
+        Self::from_biguint(
+            (self.to_canonical_biguint() * rhs.to_canonical_biguint()).mod_floor(&Self::order()),
+        )
     }
 }
 

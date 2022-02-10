@@ -405,7 +405,7 @@ pub trait Field:
 }
 
 pub trait PrimeField: Field {
-    fn to_biguint(&self) -> BigUint;
+    fn to_canonical_biguint(&self) -> BigUint;
 }
 
 /// A finite field of order less than 2^64.

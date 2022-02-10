@@ -72,7 +72,7 @@ pub trait Witness<F: Field> {
         for i in (0..target.num_limbs()).rev() {
             let limb = target.get_limb(i);
             result *= &limb_base;
-            result += self.get_target(limb.0).to_biguint();
+            result += self.get_target(limb.0).to_canonical_biguint();
         }
 
         result
