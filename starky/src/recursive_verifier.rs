@@ -124,7 +124,7 @@ fn recursively_verify_stark_proof_with_challenges<
         builder,
         challenges.stark_zeta,
         F::primitive_root_of_unity(degree_bits),
-        inner_config.num_challenges,
+        inner_config,
     );
     builder.verify_fri_proof::<C>(
         &fri_instance,

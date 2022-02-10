@@ -5,7 +5,7 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use starky::stark::Stark;
+use starky::stark::{PermutationPair, Stark};
 use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
@@ -102,6 +102,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
 
     fn constraint_degree(&self) -> usize {
         3
+    }
+
+    fn permutation_pairs(&self) -> Vec<PermutationPair> {
+        // TODO: Add permutation pairs for memory.
+        // TODO: Add permutation pairs for range checks.
+        vec![]
     }
 }
 

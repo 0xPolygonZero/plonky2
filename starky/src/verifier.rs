@@ -1,4 +1,7 @@
+use std::iter::once;
+
 use anyhow::{ensure, Result};
+use itertools::Itertools;
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
@@ -29,7 +32,7 @@ where
 {
     ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
-    let challenges = proof_with_pis.get_challenges(config, degree_bits)?;
+    let challenges = proof_with_pis.get_challenges(&stark, config, degree_bits)?;
     verify_stark_proof_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
 }
 
@@ -104,18 +107,20 @@ where
         ensure!(vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
     }
 
-    // TODO: Permutation polynomials.
-    let merkle_caps = &[proof.trace_cap, proof.quotient_polys_cap];
+    let merkle_caps = once(proof.trace_cap)
+        .chain(proof.permutation_zs_cap)
+        .chain(once(proof.quotient_polys_cap))
+        .collect_vec();
 
     verify_fri_proof::<F, C, D>(
         &stark.fri_instance(
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
-            config.num_challenges,
+            config,
         ),
         &proof.openings.to_fri_openings(),
         &challenges.fri_challenges,
-        merkle_caps,
+        &merkle_caps,
         &proof.opening_proof,
         &config.fri_params(degree_bits),
     )?;

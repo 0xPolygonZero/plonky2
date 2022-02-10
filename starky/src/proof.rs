@@ -14,11 +14,14 @@ use plonky2::plonk::config::GenericConfig;
 use rayon::prelude::*;
 
 use crate::config::StarkConfig;
+use crate::stark::PermutationChallengeSet;
 
 #[derive(Debug, Clone)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
     pub trace_cap: MerkleCap<F, C::Hasher>,
+    /// Merkle cap of LDEs of permutation Z values.
+    pub permutation_zs_cap: Option<MerkleCap<F, C::Hasher>>,
     /// Merkle cap of LDEs of trace values.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
@@ -95,6 +98,9 @@ pub struct CompressedStarkProofWithPublicInputs<
 }
 
 pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
+    /// Randomness used in any permutation arguments.
+    pub permutation_challenge_sets: Vec<PermutationChallengeSet<F>>,
+
     /// Random values used to combine STARK constraints.
     pub stark_alphas: Vec<F>,
 

@@ -1,4 +1,5 @@
 use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::fri::structure::{
     FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriOracleInfo,
@@ -7,7 +8,9 @@ use plonky2::fri::structure::{
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2_util::ceil_div_usize;
 
+use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::vars::StarkEvaluationTargets;
 use crate::vars::StarkEvaluationVars;
@@ -80,51 +83,151 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         &self,
         zeta: F::Extension,
         g: F,
-        num_challenges: usize,
+        config: &StarkConfig,
     ) -> FriInstanceInfo<F, D> {
         let no_blinding_oracle = FriOracleInfo { blinding: false };
-        let trace_info = FriPolynomialInfo::from_range(0, 0..Self::COLUMNS);
-        let quotient_info =
-            FriPolynomialInfo::from_range(1, 0..self.quotient_degree_factor() * num_challenges);
+        let mut oracle_indices = 0..;
+
+        let trace_info =
+            FriPolynomialInfo::from_range(oracle_indices.next().unwrap(), 0..Self::COLUMNS);
+
+        let permutation_zs_info = if self.uses_permutation_args() {
+            FriPolynomialInfo::from_range(
+                oracle_indices.next().unwrap(),
+                0..self.num_permutation_batches(config),
+            )
+        } else {
+            vec![]
+        };
+
+        let quotient_info = FriPolynomialInfo::from_range(
+            oracle_indices.next().unwrap(),
+            0..self.quotient_degree_factor() * config.num_challenges,
+        );
+
         let zeta_batch = FriBatchInfo {
             point: zeta,
-            polynomials: [trace_info.clone(), quotient_info].concat(),
+            polynomials: [
+                trace_info.clone(),
+                permutation_zs_info.clone(),
+                quotient_info,
+            ]
+            .concat(),
         };
-        let zeta_right_batch = FriBatchInfo::<F, D> {
+        let zeta_right_batch = FriBatchInfo {
             point: zeta.scalar_mul(g),
-            polynomials: trace_info,
+            polynomials: [trace_info, permutation_zs_info].concat(),
         };
         FriInstanceInfo {
-            oracles: vec![no_blinding_oracle; 3],
+            oracles: vec![no_blinding_oracle; oracle_indices.next().unwrap()],
             batches: vec![zeta_batch, zeta_right_batch],
         }
     }
 
     /// Computes the FRI instance used to prove this Stark.
-    // TODO: Permutation polynomials.
     fn fri_instance_target(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         zeta: ExtensionTarget<D>,
         g: F,
-        num_challenges: usize,
+        config: &StarkConfig,
     ) -> FriInstanceInfoTarget<D> {
         let no_blinding_oracle = FriOracleInfo { blinding: false };
-        let trace_info = FriPolynomialInfo::from_range(0, 0..Self::COLUMNS);
-        let quotient_info =
-            FriPolynomialInfo::from_range(1, 0..self.quotient_degree_factor() * num_challenges);
+        let mut oracle_indices = 0..;
+
+        let trace_info =
+            FriPolynomialInfo::from_range(oracle_indices.next().unwrap(), 0..Self::COLUMNS);
+
+        let permutation_zs_info = if self.uses_permutation_args() {
+            FriPolynomialInfo::from_range(
+                oracle_indices.next().unwrap(),
+                0..self.num_permutation_batches(config),
+            )
+        } else {
+            vec![]
+        };
+
+        let quotient_info = FriPolynomialInfo::from_range(
+            oracle_indices.next().unwrap(),
+            0..self.quotient_degree_factor() * config.num_challenges,
+        );
+
         let zeta_batch = FriBatchInfoTarget {
             point: zeta,
-            polynomials: [trace_info.clone(), quotient_info].concat(),
+            polynomials: [
+                trace_info.clone(),
+                permutation_zs_info.clone(),
+                quotient_info,
+            ]
+            .concat(),
         };
         let zeta_right = builder.mul_const_extension(g, zeta);
         let zeta_right_batch = FriBatchInfoTarget {
             point: zeta_right,
-            polynomials: trace_info,
+            polynomials: [trace_info, permutation_zs_info].concat(),
         };
         FriInstanceInfoTarget {
-            oracles: vec![no_blinding_oracle; 3],
+            oracles: vec![no_blinding_oracle; oracle_indices.next().unwrap()],
             batches: vec![zeta_batch, zeta_right_batch],
         }
     }
+
+    /// Pairs of lists of columns that should be permutations of one another. A permutation argument
+    /// will be used for each such pair. Empty by default.
+    fn permutation_pairs(&self) -> Vec<PermutationPair> {
+        vec![]
+    }
+
+    fn uses_permutation_args(&self) -> bool {
+        !self.permutation_pairs().is_empty()
+    }
+
+    /// The number of permutation argument instances that can be combined into a single constraint.
+    fn permutation_batch_size(&self) -> usize {
+        // The permutation argument constraints look like
+        //     Z(x) \prod(...) = Z(g x) \prod(...)
+        // where each product has a number of terms equal to the batch size. So our batch size
+        // should be one less than our constraint degree, which happens to be our quotient degree.
+        self.quotient_degree_factor()
+    }
+
+    fn num_permutation_instances(&self, config: &StarkConfig) -> usize {
+        self.permutation_pairs().len() * config.num_challenges
+    }
+
+    fn num_permutation_batches(&self, config: &StarkConfig) -> usize {
+        ceil_div_usize(
+            self.num_permutation_instances(config),
+            self.permutation_batch_size(),
+        )
+    }
+}
+
+/// A pair of lists of columns, `lhs` and `rhs`, that should be permutations of one another.
+/// In particular, there should exist some permutation `pi` such that for any `i`,
+/// `trace[lhs[i]] = pi(trace[rhs[i]])`. Here `trace` denotes the trace in column-major form, so
+/// `trace[col]` is a column vector.
+pub struct PermutationPair {
+    pub lhs_columns: Vec<usize>,
+    pub rhs_columns: Vec<usize>,
+}
+
+/// A single instance of a permutation check protocol.
+pub(crate) struct PermutationInstance<'a, F: Field> {
+    pub(crate) pair: &'a PermutationPair,
+    pub(crate) challenge: PermutationChallenge<F>,
+}
+
+/// Randomness for a single instance of a permutation check protocol.
+#[derive(Copy, Clone)]
+pub(crate) struct PermutationChallenge<F: Field> {
+    /// Randomness used to combine multiple columns into one.
+    pub(crate) beta: F,
+    /// Random offset that's added to the beta-reduced column values.
+    pub(crate) gamma: F,
+}
+
+/// Like `PermutationChallenge`, but with `num_challenges` copies to boost soundness.
+pub(crate) struct PermutationChallengeSet<F: Field> {
+    pub(crate) challenges: Vec<PermutationChallenge<F>>,
 }

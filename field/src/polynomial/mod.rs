@@ -5,6 +5,7 @@ use std::iter::Sum;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 use anyhow::{ensure, Result};
+use itertools::Itertools;
 use plonky2_util::log2_strict;
 use serde::{Deserialize, Serialize};
 
@@ -26,8 +27,12 @@ impl<F: Field> PolynomialValues<F> {
         PolynomialValues { values }
     }
 
+    pub fn constant(value: F, len: usize) -> Self {
+        Self::new(vec![value; len])
+    }
+
     pub fn zero(len: usize) -> Self {
-        Self::new(vec![F::ZERO; len])
+        Self::constant(F::ZERO, len)
     }
 
     /// Returns the polynomial whole value is one at the given index, and zero elsewhere.
@@ -82,6 +87,14 @@ impl<F: Field> PolynomialValues<F> {
 
     pub fn degree_plus_one(&self) -> usize {
         self.clone().ifft().degree_plus_one()
+    }
+
+    /// Adds `rhs * rhs_weight` to `self`. Assumes `self.len() == rhs.len()`.
+    pub fn add_assign_scaled(&mut self, rhs: &Self, rhs_weight: F) {
+        self.values
+            .iter_mut()
+            .zip_eq(&rhs.values)
+            .for_each(|(self_v, rhs_v)| *self_v += *rhs_v * rhs_weight)
     }
 }
 
