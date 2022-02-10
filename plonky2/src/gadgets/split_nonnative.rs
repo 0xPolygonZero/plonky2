@@ -87,7 +87,8 @@ mod tests {
         let x = FF::rand();
         let x_target = builder.constant_nonnative(x);
         let split = builder.split_nonnative_to_4_bit_limbs(&x_target);
-        let combined: NonNativeTarget<Secp256K1Scalar> = builder.recombine_nonnative_4_bit_limbs(split);
+        let combined: NonNativeTarget<Secp256K1Scalar> =
+            builder.recombine_nonnative_4_bit_limbs(split);
         builder.connect_nonnative(&x_target, &combined);
 
         let data = builder.build::<C>();
