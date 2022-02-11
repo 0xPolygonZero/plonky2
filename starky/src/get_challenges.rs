@@ -28,6 +28,9 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     let mut challenger = Challenger::<F, C::Hasher>::new();
 
     challenger.observe_cap(trace_cap);
+    let permutation_betas = challenger.get_n_challenges(num_challenges);
+    let permutation_gammas = challenger.get_n_challenges(num_challenges);
+
     let stark_alphas = challenger.get_n_challenges(num_challenges);
 
     challenger.observe_cap(quotient_polys_cap);
@@ -36,6 +39,8 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     challenger.observe_openings(&openings.to_fri_openings());
 
     Ok(StarkProofChallenges {
+        permutation_betas,
+        permutation_gammas,
         stark_alphas,
         stark_zeta,
         fri_challenges: challenger.fri_challenges::<C, D>(

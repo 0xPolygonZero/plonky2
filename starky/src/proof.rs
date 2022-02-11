@@ -51,6 +51,12 @@ pub struct CompressedStarkProofWithPublicInputs<
 }
 
 pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
+    /// Random values used to combine columns in a multi-column permutation argument.
+    pub permutation_betas: Vec<F>,
+
+    /// Random values used in a permutation argument.
+    pub permutation_gammas: Vec<F>,
+
     /// Random values used to combine STARK constraints.
     pub stark_alphas: Vec<F>,
 
