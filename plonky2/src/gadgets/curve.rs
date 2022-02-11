@@ -133,11 +133,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let x = self.add_nonnative(&x_if_true, &x_if_false);
         let y = self.add_nonnative(&y_if_true, &y_if_false);
-        
-        AffinePointTarget { 
-            x,
-            y,
-        }
+
+        AffinePointTarget { x, y }
     }
 
     pub fn curve_scalar_mul<C: Curve>(

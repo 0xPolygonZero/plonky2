@@ -6,7 +6,7 @@ use plonky2_field::field_types::Field64;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::exponentiation::ExponentiationGate;
 use crate::hash::hash_types::RichField;
-use crate::iop::generator::{SimpleGenerator, GeneratedValues};
+use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -328,11 +328,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn is_equal(&mut self, x: Target, y: Target) -> BoolTarget {
         let b = self.add_virtual_bool_target();
-        self.add_simple_generator(EqualityGenerator {
-            x,
-            y,
-            b,
-        });
+        self.add_simple_generator(EqualityGenerator { x, y, b });
 
         let diff = self.sub(x, y);
         let result = self.mul(b.target, diff);
@@ -351,8 +347,7 @@ struct EqualityGenerator {
     b: BoolTarget,
 }
 
-impl<F: RichField> SimpleGenerator<F> for EqualityGenerator
-{
+impl<F: RichField> SimpleGenerator<F> for EqualityGenerator {
     fn dependencies(&self) -> Vec<Target> {
         vec![self.x, self.y]
     }
