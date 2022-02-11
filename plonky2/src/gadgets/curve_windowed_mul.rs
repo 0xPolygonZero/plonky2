@@ -120,7 +120,7 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let num_points = 8;
+        let num_points = 16;
         let points: Vec<_> = (0..num_points)
             .map(|_| {
                 let g = (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE)
@@ -130,7 +130,7 @@ mod tests {
             .collect();
 
         let mut rng = rand::thread_rng();
-        let access_index = rng.gen::<usize>() % 8;
+        let access_index = rng.gen::<usize>() % num_points;
 
         let access_index_target = builder.constant(F::from_canonical_usize(access_index));
         let selected = builder.random_access_curve_points(access_index_target, points.clone());

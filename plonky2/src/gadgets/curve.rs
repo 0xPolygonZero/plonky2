@@ -4,6 +4,7 @@ use plonky2_field::field_types::Field;
 use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
 use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::RichField;
+use crate::iop::target::BoolTarget;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 /// A Target representing an affine point on the curve `C`. We use incomplete arithmetic for efficiency,
@@ -115,6 +116,23 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let y3 = self.sub_nonnative(&prod, y1);
 
         AffinePointTarget { x: x3, y: y3 }
+    }
+
+    pub fn curve_conditional_add<C: Curve>(
+        &mut self,
+        p1: &AffinePointTarget<C>,
+        p2: &AffinePointTarget<C>,
+        b: BoolTarget,
+    ) -> AffinePointTarget<C> {
+        let to_add_x = self.mul_nonnative_by_bool(&p2.x, b);
+        let to_add_y = self.mul_nonnative_by_bool(&p2.y, b);
+        let sum_x = self.add_nonnative(&p1.x, &to_add_x);
+        let sum_y = self.add_nonnative(&p1.y, &to_add_y);
+        
+        AffinePointTarget { 
+            x: sum_x,
+            y: sum_y,
+        }
     }
 
     pub fn curve_scalar_mul<C: Curve>(
@@ -288,6 +306,38 @@ mod tests {
         builder.curve_assert_valid(&g_plus_2g_actual);
 
         builder.connect_affine_point(&g_plus_2g_expected, &g_plus_2g_actual);
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_curve_conditional_add() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let config = CircuitConfig::standard_ecc_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g = Secp256K1::GENERATOR_AFFINE;
+        let double_g = g.double();
+        let g_plus_2g = (g + double_g).to_affine();
+        let g_plus_2g_expected = builder.constant_affine_point(g_plus_2g);
+
+        let g_expected = builder.constant_affine_point(g);
+        let double_g_target = builder.curve_double(&g_expected);
+        let t = builder._true();
+        let f = builder._false();
+        let g_plus_2g_actual = builder.curve_conditional_add(&g_expected, &double_g_target, t);
+        let g_actual = builder.curve_conditional_add(&g_expected, &double_g_target, f);
+
+        builder.connect_affine_point(&g_plus_2g_expected, &g_plus_2g_actual);
+        builder.connect_affine_point(&g_expected, &g_actual);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
