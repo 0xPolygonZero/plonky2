@@ -77,6 +77,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut result = self.constant_affine_point(C::GENERATOR_AFFINE);
 
         let precomputation = self.precompute_window(p);
+        let zero = self.zero();
 
         let windows = self.split_nonnative_to_4_bit_limbs(n);
         let m = C::ScalarField::BITS / WINDOW_SIZE;
@@ -85,7 +86,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let window = windows[i];
 
             let to_add = self.random_access_curve_points(window, precomputation.clone());
-            result = self.curve_add(&result, &to_add);
+            let is_zero = self.is_equal(window, zero);
+            let should_add = self.not(is_zero);
+            result = self.curve_conditional_add(&result, &to_add, should_add);
         }
 
         result
