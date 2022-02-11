@@ -64,7 +64,7 @@ pub(crate) fn eval_arithmetic_unit_recursively<F: RichField + Extendable<D>, con
     // Check that the operation flag values are binary.
     for col in [IS_ADD, IS_SUB, IS_MUL, IS_DIV] {
         let val = local_values[col];
-        let constraint = builder.mul_add_extension(val, val, val);
+        let constraint = builder.mul_sub_extension(val, val, val);
         yield_constr.constraint_wrapping(builder, constraint);
     }
 
