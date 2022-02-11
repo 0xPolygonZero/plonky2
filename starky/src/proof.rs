@@ -34,7 +34,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
             .evals_proofs[0]
             .1;
         let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
-        1 << (lde_bits - config.fri_config.rate_bits)
+        lde_bits - config.fri_config.rate_bits
     }
 }
 
@@ -52,7 +52,7 @@ impl<const D: usize> StarkProofTarget<D> {
             .evals_proofs[0]
             .1;
         let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
-        1 << (lde_bits - config.fri_config.rate_bits)
+        lde_bits - config.fri_config.rate_bits
     }
 }
 
