@@ -95,6 +95,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         AffinePointTarget { x: x3, y: y3 }
     }
 
+    pub fn curve_repeated_double<C: Curve>(&mut self, p: &AffinePointTarget<C>, n: usize) -> AffinePointTarget<C> {
+        let mut result = p.clone();
+
+        for _ in 0..n {
+            result = self.curve_double(&result);
+        }
+
+        result
+    }
+
     // Add two points, which are assumed to be non-equal.
     pub fn curve_add<C: Curve>(
         &mut self,

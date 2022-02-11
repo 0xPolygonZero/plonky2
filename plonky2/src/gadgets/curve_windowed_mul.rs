@@ -82,7 +82,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let windows = self.split_nonnative_to_4_bit_limbs(n);
         let m = C::ScalarField::BITS / WINDOW_SIZE;
         for i in (0..m).rev() {
-            result = self.curve_double(&result);
+            result = self.curve_repeated_double(&result, WINDOW_SIZE);
             let window = windows[i];
 
             let to_add = self.random_access_curve_points(window, precomputation.clone());
@@ -147,7 +147,7 @@ mod tests {
     }
 
     #[test]
-    fn test_curve_mul_windowed() -> Result<()> {
+    fn test_curve_windowed_mul() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
