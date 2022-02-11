@@ -131,7 +131,7 @@ mod tests {
             .collect();
 
         let mut rng = rand::thread_rng();
-        let mut access_index = rng.gen::<usize>() % 8;
+        let access_index = rng.gen::<usize>() % 8;
 
         let access_index_target = builder.constant(F::from_canonical_usize(access_index));
         let selected = builder.random_access_curve_points(access_index_target, points.clone());
