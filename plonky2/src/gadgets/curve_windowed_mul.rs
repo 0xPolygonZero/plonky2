@@ -98,7 +98,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             result = self.curve_repeated_double(&result, WINDOW_SIZE);
 
             let to_subtract_increased = self.curve_repeated_double(&to_subtract, WINDOW_SIZE);
-            to_subtract = self.if_affine_point(to_subtract_grows, &to_subtract_increased, &to_subtract);
+            to_subtract =
+                self.if_affine_point(to_subtract_grows, &to_subtract_increased, &to_subtract);
 
             let window = windows[i];
 
