@@ -20,8 +20,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         p: &AffinePointTarget<C>,
     ) -> Vec<AffinePointTarget<C>> {
-        let mut multiples = Vec::new();
-        multiples.push(self.constant_affine_point(C::GENERATOR_AFFINE));
+        let mut multiples = vec![self.constant_affine_point(C::GENERATOR_AFFINE)];
         let mut cur = p.clone();
         for _pow in 0..WINDOW_SIZE {
             for existing in multiples.clone() {
