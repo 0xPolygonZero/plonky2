@@ -122,10 +122,13 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let num_points = 8;
-        let points: Vec<_> = (0..num_points).map(|_| {
-            let g = (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
-            builder.constant_affine_point(g)
-        }).collect();
+        let points: Vec<_> = (0..num_points)
+            .map(|_| {
+                let g = (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE)
+                    .to_affine();
+                builder.constant_affine_point(g)
+            })
+            .collect();
 
         let mut rng = rand::thread_rng();
         let mut access_index = rng.gen::<usize>() % 8;
@@ -152,7 +155,8 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let g = (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
+        let g =
+            (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
         let five = Secp256K1Scalar::from_canonical_usize(5);
         let neg_five = five.neg();
         let neg_five_scalar = CurveScalar::<Secp256K1>(neg_five);
