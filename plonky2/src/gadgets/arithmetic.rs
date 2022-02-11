@@ -364,11 +364,7 @@ impl<F: RichField> SimpleGenerator<F> for EqualityGenerator {
         let x = witness.get_target(self.x);
         let y = witness.get_target(self.y);
 
-        let inv = if x != y {
-            (x - y).inverse()
-        } else {
-            F::ZERO
-        };
+        let inv = if x != y { (x - y).inverse() } else { F::ZERO };
 
         out_buffer.set_bool_target(self.equal, x == y);
         out_buffer.set_target(self.inv, inv);
