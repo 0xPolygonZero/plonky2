@@ -124,14 +124,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         p2: &AffinePointTarget<C>,
         b: BoolTarget,
     ) -> AffinePointTarget<C> {
-        let to_add_x = self.mul_nonnative_by_bool(&p2.x, b);
-        let to_add_y = self.mul_nonnative_by_bool(&p2.y, b);
-        let sum_x = self.add_nonnative(&p1.x, &to_add_x);
-        let sum_y = self.add_nonnative(&p1.y, &to_add_y);
+        let not_b = self.not(b);
+        let sum = self.curve_add(p1, p2);
+        let x_if_true = self.mul_nonnative_by_bool(&sum.x, b);
+        let y_if_true = self.mul_nonnative_by_bool(&sum.y, b);
+        let x_if_false = self.mul_nonnative_by_bool(&p1.x, not_b);
+        let y_if_false = self.mul_nonnative_by_bool(&p1.y, not_b);
+
+        let x = self.add_nonnative(&x_if_true, &x_if_false);
+        let y = self.add_nonnative(&y_if_true, &y_if_false);
         
         AffinePointTarget { 
-            x: sum_x,
-            y: sum_y,
+            x,
+            y,
         }
     }
 

@@ -6,7 +6,9 @@ use plonky2_field::field_types::Field64;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::exponentiation::ExponentiationGate;
 use crate::hash::hash_types::RichField;
+use crate::iop::generator::{SimpleGenerator, GeneratedValues};
 use crate::iop::target::{BoolTarget, Target};
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -322,6 +324,44 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let one = self.one();
         let res = self.sub(one, b.target);
         BoolTarget::new_unsafe(res)
+    }
+
+    pub fn is_equal(&mut self, x: Target, y: Target) -> BoolTarget {
+        let b = self.add_virtual_bool_target();
+        self.add_simple_generator(EqualityGenerator {
+            x,
+            y,
+            b,
+        });
+
+        let diff = self.sub(x, y);
+        let result = self.mul(b.target, diff);
+
+        let zero = self.zero();
+        self.connect(zero, result);
+
+        b
+    }
+}
+
+#[derive(Debug)]
+struct EqualityGenerator {
+    x: Target,
+    y: Target,
+    b: BoolTarget,
+}
+
+impl<F: RichField> SimpleGenerator<F> for EqualityGenerator
+{
+    fn dependencies(&self) -> Vec<Target> {
+        vec![self.x, self.y]
+    }
+
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        let x = witness.get_target(self.x);
+        let y = witness.get_target(self.y);
+
+        out_buffer.set_bool_target(self.b, x == y);
     }
 }
 
