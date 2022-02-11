@@ -46,6 +46,17 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
         Self::hash_no_pad(&padded_input)
     }
 
+    /// Hash the slice if necessary to reduce its length to ~256 bits. If it already fits, this is a
+    /// no-op.
+    fn hash_or_noop(inputs: &[F]) -> Self::Hash {
+        if inputs.len() <= 4 {
+            let inputs_bytes = HashOut::from_partial(inputs).to_bytes();
+            Self::Hash::from_bytes(&inputs_bytes)
+        } else {
+            Self::hash_no_pad(inputs)
+        }
+    }
+
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash;
 }
 
