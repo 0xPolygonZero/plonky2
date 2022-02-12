@@ -4,6 +4,7 @@
 
 mod arithmetic;
 mod core_registers;
+mod logic_unit;
 mod memory;
 mod permutation_unit;
 mod public_input_layout;
