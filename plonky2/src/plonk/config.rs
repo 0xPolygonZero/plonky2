@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use plonky2_field::extension_field::quadratic::QuadraticExtension;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::goldilocks_field::GoldilocksField;
+use plonky2_util::ceil_div_usize;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::hash::hash_types::HashOut;
@@ -49,8 +50,12 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
     /// Hash the slice if necessary to reduce its length to ~256 bits. If it already fits, this is a
     /// no-op.
     fn hash_or_noop(inputs: &[F]) -> Self::Hash {
-        if inputs.len() <= 4 {
-            let inputs_bytes = HashOut::from_partial(inputs).to_bytes();
+        if inputs.len() * ceil_div_usize(F::BITS, 8) <= Self::HASH_SIZE {
+            let mut inputs_bytes = inputs
+                .iter()
+                .flat_map(|x| x.to_canonical_u64().to_le_bytes())
+                .collect::<Vec<_>>();
+            inputs_bytes.resize(Self::HASH_SIZE, 0);
             Self::Hash::from_bytes(&inputs_bytes)
         } else {
             Self::hash_no_pad(inputs)
