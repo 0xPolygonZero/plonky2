@@ -69,9 +69,24 @@ where
     challenger.observe_cap(&trace_cap);
 
     // Permutation arguments.
-    let betas = challenger.get_n_challenges(config.num_challenges);
-    let gammas = challenger.get_n_challenges(config.num_challenges);
-    let z_polys = compute_z_polys(&stark, &trace, &betas, &gammas);
+    let pairs = stark.permutation_pairs();
+    let zs_cap = if !pairs.is_empty() {
+        let betas = challenger.get_n_challenges(config.num_challenges);
+        let gammas = challenger.get_n_challenges(config.num_challenges);
+        let z_polys = compute_z_polys::<F, S, D>(&pairs, &trace, &betas, &gammas);
+        let zs_commitment = timed!(
+            timing,
+            "compute Zs commitment",
+            PolynomialBatch::<F, C, D>::from_values(
+                z_polys, rate_bits, false, cap_height, timing, None
+            )
+        );
+        let zs_cap = trace_commitment.merkle_tree.cap.clone();
+        challenger.observe_cap(&zs_cap);
+        Some(zs_cap)
+    } else {
+        None
+    };
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
     let quotient_polys = compute_quotient_polys::<F, C, S, D>(
@@ -136,6 +151,7 @@ where
     );
     let proof = StarkProof {
         trace_cap,
+        zs_cap,
         quotient_polys_cap,
         openings,
         opening_proof,
@@ -149,7 +165,7 @@ where
 
 /// Compute all Z polynomials (for permutation arguments).
 fn compute_z_polys<F, S, const D: usize>(
-    stark: &S,
+    pairs: &[PermutationPair],
     trace: &[[F; S::COLUMNS]],
     betas: &[F],
     gammas: &[F],
@@ -159,7 +175,6 @@ where
     S: Stark<F, D>,
 {
     let degree = trace.len();
-    let pairs = stark.permutation_pairs();
     let zs_row_major: Vec<_> = trace
         .into_par_iter()
         .map(|trace_row| compute_z_polys_row::<F, S, D>(&pairs, trace_row, betas, gammas))

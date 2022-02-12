@@ -10,6 +10,8 @@ use rayon::prelude::*;
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
     pub trace_cap: MerkleCap<F, C::Hasher>,
+    /// Merkle cap of LDEs of permutation Z values, the STARK uses any permutation checks.
+    pub zs_cap: Option<MerkleCap<F, C::Hasher>>,
     /// Merkle cap of LDEs of trace values.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
@@ -52,10 +54,10 @@ pub struct CompressedStarkProofWithPublicInputs<
 
 pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     /// Random values used to combine columns in a multi-column permutation argument.
-    pub permutation_betas: Vec<F>,
+    pub permutation_betas: Option<Vec<F>>,
 
     /// Random values used in a permutation argument.
-    pub permutation_gammas: Vec<F>,
+    pub permutation_gammas: Option<Vec<F>>,
 
     /// Random values used to combine STARK constraints.
     pub stark_alphas: Vec<F>,

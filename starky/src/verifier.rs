@@ -28,7 +28,8 @@ where
     [(); S::PUBLIC_INPUTS]:,
 {
     let degree_bits = log2_strict(recover_degree(&proof_with_pis.proof, config));
-    let challenges = proof_with_pis.get_challenges(config, degree_bits)?;
+    let permutation_checks = !stark.permutation_pairs().is_empty();
+    let challenges = proof_with_pis.get_challenges(permutation_checks, config, degree_bits)?;
     verify_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
 }
 

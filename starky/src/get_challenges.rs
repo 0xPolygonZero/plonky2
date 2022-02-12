@@ -12,7 +12,9 @@ use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProof
 
 #[allow(clippy::too_many_arguments)]
 fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    permutation_checks: bool,
     trace_cap: &MerkleCap<F, C::Hasher>,
+    zs_cap: Option<&MerkleCap<F, C::Hasher>>,
     quotient_polys_cap: &MerkleCap<F, C::Hasher>,
     openings: &StarkOpeningSet<F, D>,
     commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
@@ -28,9 +30,14 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     let mut challenger = Challenger::<F, C::Hasher>::new();
 
     challenger.observe_cap(trace_cap);
-    let permutation_betas = challenger.get_n_challenges(num_challenges);
-    let permutation_gammas = challenger.get_n_challenges(num_challenges);
-
+    let (permutation_betas, permutation_gammas) = if permutation_checks {
+        let betas = challenger.get_n_challenges(num_challenges);
+        let gammas = challenger.get_n_challenges(num_challenges);
+        challenger.observe_cap(zs_cap.unwrap());
+        (Some(betas), Some(gammas))
+    } else {
+        (None, None)
+    };
     let stark_alphas = challenger.get_n_challenges(num_challenges);
 
     challenger.observe_cap(quotient_polys_cap);
@@ -58,11 +65,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     pub(crate) fn fri_query_indices(
         &self,
+        permutation_checks: bool,
         config: &StarkConfig,
         degree_bits: usize,
     ) -> anyhow::Result<Vec<usize>> {
         Ok(self
-            .get_challenges(config, degree_bits)?
+            .get_challenges(permutation_checks, config, degree_bits)?
             .fri_challenges
             .fri_query_indices)
     }
@@ -70,11 +78,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
     pub(crate) fn get_challenges(
         &self,
+        permutation_checks: bool,
         config: &StarkConfig,
         degree_bits: usize,
     ) -> Result<StarkProofChallenges<F, D>> {
         let StarkProof {
             trace_cap,
+            zs_cap,
             quotient_polys_cap,
             openings,
             opening_proof:
@@ -87,7 +97,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         } = &self.proof;
 
         get_challenges::<F, C, D>(
+            permutation_checks,
             trace_cap,
+            zs_cap.as_ref(),
             quotient_polys_cap,
             openings,
             commit_phase_merkle_caps,
