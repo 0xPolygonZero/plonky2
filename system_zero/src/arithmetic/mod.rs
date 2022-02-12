@@ -1,5 +1,5 @@
 use plonky2::field::extension_field::Extendable;
-use plonky2::field::field_types::Field;
+use plonky2::field::field_types::{Field, PrimeField64};
 use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -24,7 +24,7 @@ mod division;
 mod multiplication;
 mod subtraction;
 
-pub(crate) fn generate_arithmetic_unit<F: RichField>(values: &mut [F; NUM_COLUMNS]) {
+pub(crate) fn generate_arithmetic_unit<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
     if values[IS_ADD].is_one() {
         generate_addition(values);
     } else if values[IS_SUB].is_one() {
