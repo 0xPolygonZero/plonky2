@@ -26,7 +26,7 @@ in the Plonky2 directory.
 To see recursion performance, one can run this test, which generates a chain of three recursion proofs:
 
 ```sh
-RUST_LOG=debug RUSTFLAGS=-Ctarget-cpu=native cargo test --release test_recursive_recursive_verifier -- --ignored
+RUST_LOG=debug RUSTFLAGS=-Ctarget-cpu=native cargo test --release test_recursive_recursive_verifier
 ```
 
 
