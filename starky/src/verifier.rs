@@ -3,7 +3,7 @@ use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
 use plonky2::hash::hash_types::RichField;
-use plonky2::plonk::config::GenericConfig;
+use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::plonk::plonk_common::reduce_with_powers;
 use plonky2_util::log2_strict;
 
@@ -26,6 +26,7 @@ pub fn verify<
 where
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
+    [(); C::Hasher::HASH_SIZE]:,
 {
     let degree_bits = log2_strict(recover_degree(&proof_with_pis.proof, config));
     let challenges = proof_with_pis.get_challenges(config, degree_bits)?;
@@ -47,6 +48,7 @@ pub(crate) fn verify_with_challenges<
 where
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
+    [(); C::Hasher::HASH_SIZE]:,
 {
     let StarkProofWithPublicInputs {
         proof,

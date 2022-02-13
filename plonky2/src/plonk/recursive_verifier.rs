@@ -187,7 +187,9 @@ mod tests {
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::{CircuitConfig, VerifierOnlyCircuitData};
-    use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{
+        GenericConfig, Hasher, KeccakGoldilocksConfig, PoseidonGoldilocksConfig,
+    };
     use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
     use crate::plonk::prover::prove;
     use crate::util::timing::TimingTree;
@@ -322,7 +324,10 @@ mod tests {
         ProofWithPublicInputs<F, C, D>,
         VerifierOnlyCircuitData<C, D>,
         CommonCircuitData<F, C, D>,
-    )> {
+    )>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         for _ in 0..num_dummy_gates {
             builder.add_gate(NoopGate, vec![]);
@@ -356,6 +361,7 @@ mod tests {
     )>
     where
         InnerC::Hasher: AlgebraicHasher<F>,
+        [(); C::Hasher::HASH_SIZE]:,
     {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
@@ -407,7 +413,10 @@ mod tests {
     >(
         proof: &ProofWithPublicInputs<F, C, D>,
         cd: &CommonCircuitData<F, C, D>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         let proof_bytes = proof.to_bytes()?;
         info!("Proof length: {} bytes", proof_bytes.len());
         let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;
