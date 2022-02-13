@@ -20,6 +20,7 @@ use crate::registers::alu::*;
 use crate::registers::NUM_COLUMNS;
 
 mod addition;
+mod canonical;
 mod division;
 mod multiplication;
 mod subtraction;

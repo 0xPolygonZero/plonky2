@@ -10,7 +10,7 @@ const START_SHARED_COLS: usize = IS_DIV + 1;
 /// Within the ALU, there are shared columns which can be used by any arithmetic/logic
 /// circuit, depending on which one is active this cycle.
 // Can be increased as needed as other operations are implemented.
-const NUM_SHARED_COLS: usize = 3;
+const NUM_SHARED_COLS: usize = 4;
 
 const fn shared_col(i: usize) -> usize {
     debug_assert!(i < NUM_SHARED_COLS);
@@ -33,5 +33,25 @@ pub(crate) const COL_ADD_OUTPUT_1: usize = super::range_check_16::col_rc_16_inpu
 pub(crate) const COL_ADD_OUTPUT_2: usize = super::range_check_16::col_rc_16_input(1);
 /// The third 16-bit chunk of the output, based on little-endian ordering.
 pub(crate) const COL_ADD_OUTPUT_3: usize = super::range_check_16::col_rc_16_input(2);
+
+/// The first value to be multiplied; treated as an unsigned u32.
+pub(crate) const COL_MUL_ADD_INPUT_1: usize = shared_col(0);
+/// The second value to be multiplied; treated as an unsigned u32.
+pub(crate) const COL_MUL_ADD_INPUT_2: usize = shared_col(1);
+/// The value to be added to the product; treated as an unsigned u32.
+pub(crate) const COL_MUL_ADD_INPUT_3: usize = shared_col(2);
+
+/// The inverse of `u32::MAX - result_hi`, where `output_hi` is the high 32-bits of the result.
+/// See https://hackmd.io/NC-yRmmtRQSvToTHb96e8Q#Checking-element-validity
+pub(crate) const COL_MUL_ADD_RESULT_CANONICAL_INV: usize = shared_col(3);
+
+/// The first 16-bit chunk of the output, based on little-endian ordering.
+pub(crate) const COL_MUL_ADD_OUTPUT_1: usize = super::range_check_16::col_rc_16_input(0);
+/// The second 16-bit chunk of the output, based on little-endian ordering.
+pub(crate) const COL_MUL_ADD_OUTPUT_2: usize = super::range_check_16::col_rc_16_input(1);
+/// The third 16-bit chunk of the output, based on little-endian ordering.
+pub(crate) const COL_MUL_ADD_OUTPUT_3: usize = super::range_check_16::col_rc_16_input(2);
+/// The fourth 16-bit chunk of the output, based on little-endian ordering.
+pub(crate) const COL_MUL_ADD_OUTPUT_4: usize = super::range_check_16::col_rc_16_input(3);
 
 pub(super) const END: usize = super::START_ALU + NUM_SHARED_COLS;
