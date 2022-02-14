@@ -158,6 +158,22 @@ impl<F: Field> GeneratedValues<F> {
     }
 
     pub fn set_target(&mut self, target: Target, value: F) {
+        if target
+            == Target::Wire(Wire {
+                gate: 42,
+                input: 54,
+            })
+        {
+            dbg!(value);
+        }
+        if target
+            == Target::Wire(Wire {
+                gate: 41,
+                input: 34,
+            })
+        {
+            dbg!(value);
+        }
         self.target_values.push((target, value))
     }
 

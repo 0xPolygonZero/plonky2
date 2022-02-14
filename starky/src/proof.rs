@@ -16,6 +16,7 @@ use rayon::prelude::*;
 use crate::config::StarkConfig;
 
 // TODO: Permutation polynomials.
+#[derive(Debug, Clone)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
     pub trace_cap: MerkleCap<F, C::Hasher>,
@@ -56,6 +57,7 @@ impl<const D: usize> StarkProofTarget<D> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct StarkProofWithPublicInputs<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -110,6 +112,7 @@ pub(crate) struct StarkProofChallengesTarget<const D: usize> {
 }
 
 /// Purported values of each polynomial at the challenge point.
+#[derive(Debug, Clone)]
 pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub local_values: Vec<F::Extension>,
     pub next_values: Vec<F::Extension>,

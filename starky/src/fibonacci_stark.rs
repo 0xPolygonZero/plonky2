@@ -191,6 +191,7 @@ mod tests {
             public_inputs,
             &mut TimingTree::default(),
         )?;
+        verify(stark, proof.clone(), &config)?;
 
         recursive_proof::<F, C, S, C, D>(stark, proof, &config, true, true)
     }

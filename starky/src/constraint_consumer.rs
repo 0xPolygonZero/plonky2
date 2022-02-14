@@ -150,7 +150,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
         constraint: ExtensionTarget<D>,
     ) {
         let filtered_constraint = builder.mul_extension(constraint, self.lagrange_basis_first);
-        self.constraint(builder, filtered_constraint);
+        self.constraint_wrapping(builder, filtered_constraint);
     }
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
@@ -161,6 +161,6 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
         constraint: ExtensionTarget<D>,
     ) {
         let filtered_constraint = builder.mul_extension(constraint, self.lagrange_basis_last);
-        self.constraint(builder, filtered_constraint);
+        self.constraint_wrapping(builder, filtered_constraint);
     }
 }
