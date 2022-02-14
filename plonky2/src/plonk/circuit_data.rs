@@ -181,7 +181,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 }
 
 /// Circuit data required by the prover, but not the verifier.
-pub struct ProverOnlyCircuitData<
+pub(crate) struct ProverOnlyCircuitData<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
@@ -209,7 +209,7 @@ pub struct ProverOnlyCircuitData<
 
 /// Circuit data required by the verifier, but not the prover.
 #[derive(Debug)]
-pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
+pub(crate) struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
     /// A commitment to each constant polynomial and each permutation polynomial.
     pub(crate) constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
 }
