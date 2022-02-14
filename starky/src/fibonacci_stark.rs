@@ -191,13 +191,13 @@ mod tests {
         )?;
         verify(stark, proof.clone(), &config)?;
 
-        recursive_proof::<F, C, S, C, D>(stark, proof, &config, true, true)
+        recursive_proof::<F, C, S, C, D>(stark, proof, &config, true)
     }
 
     fn recursive_proof<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
-        S: Stark<F, D>,
+        S: Stark<F, D> + Copy,
         InnerC: GenericConfig<D, F = F>,
         const D: usize,
     >(
