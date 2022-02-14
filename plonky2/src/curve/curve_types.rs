@@ -3,6 +3,7 @@ use std::ops::Neg;
 
 use plonky2_field::field_types::{Field, PrimeField};
 use plonky2_field::ops::Square;
+use serde::{Deserialize, Serialize};
 
 // To avoid implementation conflicts from associated types,
 // see https://github.com/rust-lang/rust/issues/20400
@@ -36,7 +37,7 @@ pub trait Curve: 'static + Sync + Sized + Copy + Debug {
 }
 
 /// A point on a short Weierstrass curve, represented in affine coordinates.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub struct AffinePoint<C: Curve> {
     pub x: C::BaseField,
     pub y: C::BaseField,

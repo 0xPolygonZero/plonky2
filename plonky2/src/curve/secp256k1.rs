@@ -1,10 +1,11 @@
 use plonky2_field::field_types::Field;
 use plonky2_field::secp256k1_base::Secp256K1Base;
 use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
+use serde::{Deserialize, Serialize};
 
 use crate::curve::curve_types::{AffinePoint, Curve};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Secp256K1;
 
 impl Curve for Secp256K1 {
