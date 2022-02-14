@@ -23,16 +23,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         p: &AffinePointTarget<C>,
     ) -> Vec<AffinePointTarget<C>> {
-        let mut multiples = vec![self.constant_affine_point(C::GENERATOR_AFFINE)];
-        let mut cur = p.clone();
-        for _pow in 0..WINDOW_SIZE {
-            for existing in multiples.clone() {
-                multiples.push(self.curve_add(&cur, &existing));
-            }
-            cur = self.curve_double(&cur);
-        }
+        let neg = {
+            let mut g = C::GENERATOR_AFFINE;
+            g.y = -g.y;
+            self.constant_affine_point(g)
+        };
 
-        multiples
+        let mut multiples = vec![self.constant_affine_point(C::GENERATOR_AFFINE)];
+        for i in 1..1 << WINDOW_SIZE {
+            multiples.push(self.curve_add(p, &multiples[i - 1]));
+        }
+        for i in 1..1 << WINDOW_SIZE {
+            multiples[i] = self.curve_add(&neg, &multiples[i]);
+        }
+        multiples    
     }
 
     pub fn random_access_curve_points<C: Curve>(
@@ -107,8 +111,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let zero = self.zero();
 
         let windows = self.split_nonnative_to_4_bit_limbs(n);
-        let m = C::ScalarField::BITS / WINDOW_SIZE;
-        for i in (0..m).rev() {
+        for i in (0..windows.len()).rev() {
             result = self.curve_repeated_double(&result, WINDOW_SIZE);
             let window = windows[i];
 

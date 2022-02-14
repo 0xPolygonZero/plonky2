@@ -150,6 +150,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// generate the final witness (a grid of wire values), these virtual targets will go away.
     pub fn add_virtual_target(&mut self) -> Target {
         let index = self.virtual_target_index;
+
         self.virtual_target_index += 1;
         Target::VirtualTarget { index }
     }
