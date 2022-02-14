@@ -204,7 +204,6 @@ mod tests {
         inner_proof: StarkProofWithPublicInputs<F, InnerC, D>,
         inner_config: &StarkConfig,
         print_gate_counts: bool,
-        print_timing: bool,
     ) -> Result<()>
     where
         InnerC::Hasher: AlgebraicHasher<F>,
