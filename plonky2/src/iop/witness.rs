@@ -5,6 +5,7 @@ use num::{BigUint, FromPrimitive, Zero};
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 
+use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::witness_util::set_fri_proof_target;
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
@@ -201,13 +202,28 @@ pub trait Witness<F: Field> {
         );
         self.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap);
 
-        let openings = proof.openings.to_fri_openings();
-        let openings_target = proof_target.openings.to_fri_openings();
-        for (batch, batch_target) in openings.batches.iter().zip_eq(&openings_target.batches) {
-            self.set_extension_targets(&batch_target.values, &batch.values);
-        }
+        self.set_fri_openings(
+            &proof_target.openings.to_fri_openings(),
+            &proof.openings.to_fri_openings(),
+        );
 
         set_fri_proof_target(self, &proof_target.opening_proof, &proof.opening_proof);
+    }
+
+    fn set_fri_openings<const D: usize>(
+        &mut self,
+        fri_openings_target: &FriOpeningsTarget<D>,
+        fri_openings: &FriOpenings<F, D>,
+    ) where
+        F: RichField + Extendable<D>,
+    {
+        for (batch_target, batch) in fri_openings_target
+            .batches
+            .iter()
+            .zip_eq(&fri_openings.batches)
+        {
+            self.set_extension_targets(&batch_target.values, &batch.values);
+        }
     }
 
     fn set_wire(&mut self, wire: Wire, value: F) {

@@ -252,11 +252,10 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap);
     witness.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap);
 
-    let openings = proof.openings.to_fri_openings();
-    let openings_target = proof_target.openings.to_fri_openings();
-    for (batch, batch_target) in openings.batches.iter().zip_eq(&openings_target.batches) {
-        witness.set_extension_targets(&batch_target.values, &batch.values);
-    }
+    witness.set_fri_openings(
+        &proof_target.openings.to_fri_openings(),
+        &proof.openings.to_fri_openings(),
+    );
 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
 }
