@@ -183,7 +183,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::field_types::{Field, Field64};
+    use plonky2::field::field_types::{Field, PrimeField64};
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
