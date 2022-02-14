@@ -62,7 +62,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
-        let mut state: HashOutTarget = self.hash_or_noop::<H>(leaf_data);
+        // TODO: Change this when #481 lands.
+        let mut state: HashOutTarget = self.hash_n_to_hash_no_pad::<H>(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
             let mut perm_inputs = [zero; SPONGE_WIDTH];
@@ -93,7 +94,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &MerkleProofTarget,
     ) {
         let zero = self.zero();
-        let mut state: HashOutTarget = self.hash_or_noop::<H>(leaf_data);
+        // TODO: Change this when #481 lands.
+        let mut state: HashOutTarget = self.hash_n_to_hash_no_pad::<H>(leaf_data);
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
             let mut perm_inputs = [zero; SPONGE_WIDTH];
