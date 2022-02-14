@@ -114,11 +114,9 @@ mod tests {
     use plonky2::hash::hash_types::RichField;
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
+    use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::plonk::proof::ProofWithPublicInputs;
     use plonky2::util::timing::TimingTree;
-    use plonky2_util::reverse_index_bits_in_place;
 
     use crate::config::StarkConfig;
     use crate::fibonacci_stark::FibonacciStark;
@@ -236,7 +234,7 @@ mod tests {
             timing.print();
         }
 
-        data.verify(proof.clone())
+        data.verify(proof)
     }
 
     fn init_logger() {
