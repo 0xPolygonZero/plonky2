@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
 use plonky2::field::{extension_field::Extendable, field_types::Field};
+use plonky2::gates::switch::SwitchGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::Target;
@@ -71,41 +72,42 @@ fn assert_permutation_2x2<F: RichField + Extendable<D>, const D: usize>(
 /// Given two input wire chunks, add a new switch to the circuit (by adding one copy to a switch
 /// gate). Returns the wire for the switch boolean, and the two output wire chunks.
 fn create_switch<F: RichField + Extendable<D>, const D: usize>(
-    _builder: &mut CircuitBuilder<F, D>,
+    builder: &mut CircuitBuilder<F, D>,
     a1: Vec<Target>,
     a2: Vec<Target>,
 ) -> (Target, Vec<Target>, Vec<Target>) {
     assert_eq!(a1.len(), a2.len(), "Chunk size must be the same");
 
-    let _chunk_size = a1.len();
+    let chunk_size = a1.len();
 
-    todo!()
-    // let (gate, gate_index, next_copy) = builder.find_switch_gate(chunk_size);
-    //
-    // let mut c = Vec::new();
-    // let mut d = Vec::new();
-    // for e in 0..chunk_size {
-    //     builder.connect(
-    //         a1[e],
-    //         Target::wire(gate_index, gate.wire_first_input(next_copy, e)),
-    //     );
-    //     builder.connect(
-    //         a2[e],
-    //         Target::wire(gate_index, gate.wire_second_input(next_copy, e)),
-    //     );
-    //     c.push(Target::wire(
-    //         gate_index,
-    //         gate.wire_first_output(next_copy, e),
-    //     ));
-    //     d.push(Target::wire(
-    //         gate_index,
-    //         gate.wire_second_output(next_copy, e),
-    //     ));
-    // }
+    let gate = SwitchGate::new_from_config(&builder.config, chunk_size);
+    let params = vec![F::from_canonical_usize(chunk_size)];
+    let (gate_index, next_copy) = builder.find_slot(gate, &params, &[]);
 
-    // let switch = Target::wire(gate_index, gate.wire_switch_bool(next_copy));
-    //
-    // (switch, c, d)
+    let mut c = Vec::new();
+    let mut d = Vec::new();
+    for e in 0..chunk_size {
+        builder.connect(
+            a1[e],
+            Target::wire(gate_index, gate.wire_first_input(next_copy, e)),
+        );
+        builder.connect(
+            a2[e],
+            Target::wire(gate_index, gate.wire_second_input(next_copy, e)),
+        );
+        c.push(Target::wire(
+            gate_index,
+            gate.wire_first_output(next_copy, e),
+        ));
+        d.push(Target::wire(
+            gate_index,
+            gate.wire_second_output(next_copy, e),
+        ));
+    }
+
+    let switch = Target::wire(gate_index, gate.wire_switch_bool(next_copy));
+
+    (switch, c, d)
 }
 
 fn assert_permutation_recursive<F: RichField + Extendable<D>, const D: usize>(

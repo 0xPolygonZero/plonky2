@@ -569,7 +569,7 @@ mod tests {
         let mut builder = CircuitBuilder::new(config);
         type Gate = PoseidonGate<F, D>;
         let gate = Gate::new();
-        let gate_index = builder.add_gate(gate, vec![]);
+        let gate_index = builder.add_gate(gate, vec![], vec![]);
         let circuit = builder.build_prover::<C>();
 
         let permutation_inputs = (0..SPONGE_WIDTH)

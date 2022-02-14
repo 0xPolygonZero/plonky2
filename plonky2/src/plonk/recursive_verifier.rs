@@ -546,7 +546,7 @@ mod tests {
     )> {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         for _ in 0..num_dummy_gates {
-            builder.add_gate(NoopGate, vec![]);
+            builder.add_gate(NoopGate, vec![], vec![]);
         }
 
         let data = builder.build::<C>();
@@ -601,7 +601,7 @@ mod tests {
             // builder will pad to the next power of two, 2^min_degree_bits.
             let min_gates = (1 << (min_degree_bits - 1)) + 1;
             for _ in builder.num_gates()..min_gates {
-                builder.add_gate(NoopGate, vec![]);
+                builder.add_gate(NoopGate, vec![], vec![]);
             }
         }
 

@@ -22,7 +22,7 @@ pub trait BatchableGate<F: RichField + Extendable<D>, const D: usize>: Gate<F, D
     );
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CurrentSlot<F: RichField + Extendable<D>, const D: usize> {
     pub current_slot: HashMap<Vec<F>, (usize, usize)>,
 }
@@ -88,6 +88,7 @@ impl<F: RichField + Extendable<D>, G: MultiOpsGate<F, D>, const D: usize> Batcha
         current_slot: &CurrentSlot<F, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) {
+        dbg!(self.id(), &current_slot, params);
         if let Some(&(gate_index, op)) = current_slot.current_slot.get(params) {
             let zero = builder.zero();
             for i in op..self.num_ops() {

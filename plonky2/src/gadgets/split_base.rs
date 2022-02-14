@@ -16,7 +16,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// base-B limb of the element, with little-endian ordering.
     pub fn split_le_base<const B: usize>(&mut self, x: Target, num_limbs: usize) -> Vec<Target> {
         let gate_type = BaseSumGate::<B>::new(num_limbs);
-        let gate = self.add_gate(gate_type, vec![]);
+        let gate = self.add_gate(gate_type, vec![], vec![]);
         let sum = Target::wire(gate, BaseSumGate::<B>::WIRE_SUM);
         self.connect(x, sum);
 
@@ -54,7 +54,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "Not enough routed wires."
         );
         let gate_type = BaseSumGate::<2>::new_from_config::<F>(&self.config);
-        let gate_index = self.add_gate(gate_type, vec![]);
+        let gate_index = self.add_gate(gate_type, vec![], vec![]);
         for (limb, wire) in bits
             .iter()
             .zip(BaseSumGate::<2>::START_LIMBS..BaseSumGate::<2>::START_LIMBS + num_bits)

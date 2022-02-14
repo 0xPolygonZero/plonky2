@@ -23,7 +23,7 @@ use crate::plonk::vars::{
 };
 
 /// A gate for conditionally swapping input values based on a boolean.
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct SwitchGate<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) chunk_size: usize,
     pub(crate) num_copies: usize,
@@ -165,7 +165,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, 
             .map(|c| {
                 let g: Box<dyn WitnessGenerator<F>> = Box::new(SwitchGenerator::<F, D> {
                     gate_index,
-                    gate: self.clone(),
+                    gate: *self,
                     copy: c,
                 });
                 g
@@ -195,8 +195,13 @@ impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D> for Switch
         self.num_copies
     }
 
-    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
-        todo!()
+    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
+        SwitchGenerator::<F, D> {
+            gate_index,
+            gate: *self,
+            copy: i,
+        }
+        .watch_list()
     }
 }
 

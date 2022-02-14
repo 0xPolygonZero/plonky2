@@ -61,7 +61,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         operation: ExtensionArithmeticOperation<F, D>,
     ) -> ExtensionTarget<D> {
         let gate = ArithmeticExtensionGate::new_from_config(&self.config);
-        let (gate, i) = self.find_slot(gate, vec![operation.const_0, operation.const_1]);
+        let constants = vec![operation.const_0, operation.const_1];
+        let (gate, i) = self.find_slot(gate, &constants, &constants);
         let wires_multiplicand_0 = ExtensionTarget::from_range(
             gate,
             ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(i),
@@ -85,7 +86,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         operation: ExtensionArithmeticOperation<F, D>,
     ) -> ExtensionTarget<D> {
         let gate = MulExtensionGate::new_from_config(&self.config);
-        let (gate, i) = self.find_slot(gate, vec![operation.const_0]);
+        let constants = vec![operation.const_0];
+        let (gate, i) = self.find_slot(gate, &constants, &constants);
         let wires_multiplicand_0 =
             ExtensionTarget::from_range(gate, MulExtensionGate::<D>::wires_ith_multiplicand_0(i));
         let wires_multiplicand_1 =

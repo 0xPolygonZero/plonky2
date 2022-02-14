@@ -126,7 +126,7 @@ impl<F: RichField> AlgebraicHasher<F> for GMiMCHash {
         F: RichField + Extendable<D>,
     {
         let gate_type = GMiMCGate::<F, D, SPONGE_WIDTH>::new();
-        let gate = builder.add_gate(gate_type, vec![]);
+        let gate = builder.add_gate(gate_type, vec![], vec![]);
 
         let swap_wire = GMiMCGate::<F, D, SPONGE_WIDTH>::WIRE_SWAP;
         let swap_wire = Target::wire(gate, swap_wire);

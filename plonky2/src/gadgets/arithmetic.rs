@@ -79,7 +79,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn add_base_arithmetic_operation(&mut self, operation: BaseArithmeticOperation<F>) -> Target {
         let gate = ArithmeticGate::new_from_config(&self.config);
-        let (gate, i) = self.find_slot(gate, vec![operation.const_0, operation.const_1]);
+        let constants = vec![operation.const_0, operation.const_1];
+        let (gate, i) = self.find_slot(gate, &constants, &constants);
         let wires_multiplicand_0 = Target::wire(gate, ArithmeticGate::wire_ith_multiplicand_0(i));
         let wires_multiplicand_1 = Target::wire(gate, ArithmeticGate::wire_ith_multiplicand_1(i));
         let wires_addend = Target::wire(gate, ArithmeticGate::wire_ith_addend(i));
@@ -240,7 +241,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         while exp_bits_vec.len() < num_power_bits {
             exp_bits_vec.push(_false);
         }
-        let gate_index = self.add_gate(gate.clone(), vec![]);
+        let gate_index = self.add_gate(gate.clone(), vec![], vec![]);
 
         self.connect(base, Target::wire(gate_index, gate.wire_base()));
         exp_bits_vec.iter().enumerate().for_each(|(i, bit)| {

@@ -45,7 +45,7 @@ use crate::util::timing::TimingTree;
 use crate::util::{transpose, transpose_poly_values};
 
 pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
-    pub(crate) config: CircuitConfig,
+    pub config: CircuitConfig,
 
     /// The types of gates used in this circuit.
     gates: HashSet<GateRef<F, D>>,
@@ -183,7 +183,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Adds a gate to the circuit, and returns its index.
-    pub fn add_gate<G: BatchableGate<F, D>>(&mut self, gate_type: G, constants: Vec<F>) -> usize {
+    pub fn add_gate<G: BatchableGate<F, D>>(
+        &mut self,
+        gate_type: G,
+        constants: Vec<F>,
+        params: Vec<F>,
+    ) -> usize {
         // println!("{} {}", self.num_gates(), gate_type.id());
         self.check_gate_compatibility(&gate_type);
         assert_eq!(
@@ -205,6 +210,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.gate_instances.push(GateInstance {
             gate_ref,
             constants,
+            params,
         });
 
         index
@@ -303,7 +309,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // We will fill this `ConstantGate` with zero constants initially.
         // These will be overwritten by `constant` as the gate instances are filled.
         let gate = ConstantGate { num_consts };
-        let (gate, instance) = self.find_slot(gate, vec![F::ZERO; num_consts]);
+        let (gate, instance) = self.find_slot(gate, &[], &vec![F::ZERO; num_consts]);
         let target = Target::wire(gate, instance);
         self.gate_instances[gate].constants[instance] = c;
 
@@ -372,7 +378,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn find_slot<G: BatchableGate<F, D> + Clone>(
         &mut self,
         gate: G,
-        params: Vec<F>,
+        params: &[F],
+        constants: &[F],
     ) -> (usize, usize) {
         let num_gates = self.num_gates();
         let num_ops = gate.num_ops();
@@ -383,11 +390,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .or_insert(CurrentSlot {
                 current_slot: HashMap::new(),
             });
-        let slot = gate_slot.current_slot.get(&params);
+        let slot = gate_slot.current_slot.get(params);
         let res = if let Some(&s) = slot {
             s
         } else {
-            self.add_gate(gate, params.clone());
+            self.add_gate(gate, constants.to_vec(), params.to_vec());
             (num_gates, 0)
         };
         if res.1 == num_ops - 1 {
@@ -395,13 +402,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .get_mut(&gate_ref)
                 .unwrap()
                 .current_slot
-                .remove(&params);
+                .remove(params);
         } else {
             self.current_slots
                 .get_mut(&gate_ref)
                 .unwrap()
                 .current_slot
-                .insert(params, (res.0, res.1 + 1));
+                .insert(params.to_vec(), (res.0, res.1 + 1));
         }
 
         res
@@ -490,7 +497,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         while !self.gate_instances.len().is_power_of_two() {
-            self.add_gate(NoopGate, vec![]);
+            self.add_gate(NoopGate, vec![], vec![]);
         }
     }
 
@@ -507,7 +514,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // For each "regular" blinding factor, we simply add a no-op gate, and insert a random value
         // for each wire.
         for _ in 0..regular_poly_openings {
-            let gate = self.add_gate(NoopGate, vec![]);
+            let gate = self.add_gate(NoopGate, vec![], vec![]);
             for w in 0..num_wires {
                 self.add_simple_generator(RandomValueGenerator {
                     target: Target::Wire(Wire { gate, input: w }),
@@ -519,8 +526,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // enforce a copy constraint between them.
         // See https://mirprotocol.org/blog/Adding-zero-knowledge-to-Plonk-Halo
         for _ in 0..z_openings {
-            let gate_1 = self.add_gate(NoopGate, vec![]);
-            let gate_2 = self.add_gate(NoopGate, vec![]);
+            let gate_1 = self.add_gate(NoopGate, vec![], vec![]);
+            let gate_2 = self.add_gate(NoopGate, vec![], vec![]);
 
             for w in 0..num_routed_wires {
                 self.add_simple_generator(RandomValueGenerator {
@@ -634,7 +641,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // those hash wires match the claimed public inputs.
         let public_inputs_hash =
             self.hash_n_to_hash::<C::InnerHasher>(self.public_inputs.clone(), true);
-        let pi_gate = self.add_gate(PublicInputGate, vec![]);
+        let pi_gate = self.add_gate(PublicInputGate, vec![], vec![]);
         for (&hash_part, wire) in public_inputs_hash
             .elements
             .iter()
@@ -694,6 +701,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_cap: constants_sigmas_cap.clone(),
         };
 
+        let mut gens = self.generators.len();
+        for (i, g) in self.gate_instances.iter().enumerate() {
+            gens += g.gate_ref.0.generators(i, &g.constants).len();
+            dbg!(g.gate_ref.0.id(), gens);
+        }
         // Add gate generators.
         self.add_generators(
             self.gate_instances
@@ -1130,11 +1142,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     //     }
     //
     fn fill_batched_gates(&mut self) {
+        dbg!(&self.current_slots);
         let instances = self.gate_instances.clone();
         for gate in instances {
             if let Some(slot) = self.current_slots.get(&gate.gate_ref) {
                 let cloned = slot.clone();
-                gate.gate_ref.0.fill_gate(&gate.constants, &cloned, self);
+                gate.gate_ref.0.fill_gate(&gate.params, &cloned, self);
             }
         }
     }

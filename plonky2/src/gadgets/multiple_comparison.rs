@@ -25,7 +25,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut result = one;
         for i in 0..n {
             let a_le_b_gate = ComparisonGate::new(num_bits, num_chunks);
-            let a_le_b_gate_index = self.add_gate(a_le_b_gate.clone(), vec![]);
+            let a_le_b_gate_index = self.add_gate(a_le_b_gate.clone(), vec![], vec![]);
             self.connect(
                 Target::wire(a_le_b_gate_index, a_le_b_gate.wire_first_input()),
                 a[i],
@@ -37,7 +37,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let a_le_b_result = Target::wire(a_le_b_gate_index, a_le_b_gate.wire_result_bool());
 
             let b_le_a_gate = ComparisonGate::new(num_bits, num_chunks);
-            let b_le_a_gate_index = self.add_gate(b_le_a_gate.clone(), vec![]);
+            let b_le_a_gate_index = self.add_gate(b_le_a_gate.clone(), vec![], vec![]);
             self.connect(
                 Target::wire(b_le_a_gate_index, b_le_a_gate.wire_first_input()),
                 b[i],
