@@ -122,7 +122,8 @@ mod tests {
     use crate::proof::StarkProofWithPublicInputs;
     use crate::prover::prove;
     use crate::recursive_verifier::{
-        add_virtual_stark_proof_with_pis, set_startk_proof_with_pis_target, verify_stark_proof,
+        add_virtual_stark_proof_with_pis, recursively_verify_stark_proof,
+        set_startk_proof_with_pis_target,
     };
     use crate::stark::Stark;
     use crate::stark_testing::test_stark_low_degree;
@@ -217,7 +218,7 @@ mod tests {
         let pt = add_virtual_stark_proof_with_pis(&mut builder, stark, inner_config, degree_bits);
         set_startk_proof_with_pis_target(&mut pw, &pt, &inner_proof);
 
-        verify_stark_proof::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
+        recursively_verify_stark_proof::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
 
         if print_gate_counts {
             builder.print_gate_counts(0);

@@ -18,7 +18,7 @@ use crate::proof::{
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationTargets;
 
-pub fn verify_stark_proof<
+pub fn recursively_verify_stark_proof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
@@ -37,7 +37,7 @@ pub fn verify_stark_proof<
     let degree_bits = proof_with_pis.proof.recover_degree_bits(inner_config);
     let challenges = proof_with_pis.get_challenges::<F, C>(builder, inner_config, degree_bits);
 
-    verify_stark_proof_with_challenges::<F, C, S, D>(
+    recursively_verify_stark_proof_with_challenges::<F, C, S, D>(
         builder,
         stark,
         proof_with_pis,
@@ -48,7 +48,7 @@ pub fn verify_stark_proof<
 }
 
 /// Recursively verifies an inner proof.
-fn verify_stark_proof_with_challenges<
+fn recursively_verify_stark_proof_with_challenges<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
