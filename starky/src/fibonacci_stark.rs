@@ -108,7 +108,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use log::Level;
     use plonky2::field::extension_field::Extendable;
     use plonky2::field::field_types::Field;
     use plonky2::hash::hash_types::RichField;
@@ -226,14 +225,7 @@ mod tests {
         }
 
         let data = builder.build::<C>();
-
-        let mut timing = TimingTree::new("prove", Level::Debug);
-        let proof =
-            plonky2::plonk::prover::prove(&data.prover_only, &data.common, pw, &mut timing)?;
-        if print_timing {
-            timing.print();
-        }
-
+        let proof = data.prove(pw)?;
         data.verify(proof)
     }
 
