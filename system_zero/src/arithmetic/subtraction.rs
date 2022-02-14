@@ -1,5 +1,5 @@
 use plonky2::field::extension_field::Extendable;
-use plonky2::field::field_types::Field;
+use plonky2::field::field_types::{Field, PrimeField64};
 use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
@@ -9,7 +9,7 @@ use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsume
 use crate::registers::arithmetic::*;
 use crate::registers::NUM_COLUMNS;
 
-pub(crate) fn generate_subtraction<F: RichField>(values: &mut [F; NUM_COLUMNS]) {
+pub(crate) fn generate_subtraction<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
     // TODO
 }
 
