@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::hash::Hash;
 use std::ops::Neg;
 
 use plonky2_field::field_types::{Field, PrimeField};
@@ -119,6 +120,17 @@ impl<C: Curve> PartialEq for AffinePoint<C> {
 }
 
 impl<C: Curve> Eq for AffinePoint<C> {}
+
+impl<C: Curve> Hash for AffinePoint<C> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if self.zero {
+            self.zero.hash(state);
+        } else {
+            self.x.hash(state);
+            self.y.hash(state);
+        }
+    }
+}
 
 /// A point on a short Weierstrass curve, represented in projective coordinates.
 #[derive(Copy, Clone, Debug)]

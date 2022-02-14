@@ -13,7 +13,7 @@ pub struct ECDSASignature<C: Curve> {
 #[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ECDSASecretKey<C: Curve>(pub C::ScalarField);
 
-#[derive(Copy, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ECDSAPublicKey<C: Curve>(pub AffinePoint<C>);
 
 pub fn sign_message<C: Curve>(msg: C::ScalarField, sk: ECDSASecretKey<C>) -> ECDSASignature<C> {
