@@ -36,7 +36,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         for i in 1..1 << WINDOW_SIZE {
             multiples[i] = self.curve_add(&neg, &multiples[i]);
         }
-        multiples    
+        multiples
     }
 
     pub fn random_access_curve_points<C: Curve>(
