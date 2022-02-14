@@ -1,16 +1,19 @@
 use std::marker::PhantomData;
 
+use num::BigUint;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
 
-use crate::curve::curve_types::Curve;
+use crate::curve::curve_types::{Curve, CurveScalar};
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::curve::AffinePointTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::RichField;
+use crate::hash::keccak::KeccakHash;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::config::{GenericHashOut, Hasher};
 
 const WINDOW_SIZE: usize = 4;
 
@@ -85,9 +88,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         p: &AffinePointTarget<C>,
         n: &NonNativeTarget<C::ScalarField>,
     ) -> AffinePointTarget<C> {
-        let mut result = self.constant_affine_point(C::GENERATOR_AFFINE);
-        let mut to_subtract = self.constant_affine_point(C::GENERATOR_AFFINE);
-        let mut to_subtract_grows = self._true();
+        let hash_0 = KeccakHash::<25>::hash(&[F::ZERO], false);
+        let hash_0_scalar = C::ScalarField::from_biguint(BigUint::from_bytes_le(
+            &GenericHashOut::<F>::to_bytes(&hash_0),
+        ));
+        let starting_point = CurveScalar(hash_0_scalar) * C::GENERATOR_PROJECTIVE;
+        let starting_point_multiplied = {
+            let mut cur = starting_point;
+            for _ in 0..C::ScalarField::BITS {
+                cur = cur.double();
+            }
+            cur
+        };
+
+        let mut result = self.constant_affine_point(starting_point.to_affine());
 
         let precomputation = self.precompute_window(p);
         let zero = self.zero();
@@ -96,19 +110,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let m = C::ScalarField::BITS / WINDOW_SIZE;
         for i in (0..m).rev() {
             result = self.curve_repeated_double(&result, WINDOW_SIZE);
-
-            let to_subtract_increased = self.curve_repeated_double(&to_subtract, WINDOW_SIZE);
-            to_subtract =
-                self.if_affine_point(to_subtract_grows, &to_subtract_increased, &to_subtract);
-
             let window = windows[i];
 
             let to_add = self.random_access_curve_points(window, precomputation.clone());
             let is_zero = self.is_equal(window, zero);
-            to_subtract_grows = self.and(to_subtract_grows, is_zero);
             let should_add = self.not(is_zero);
             result = self.curve_conditional_add(&result, &to_add, should_add);
         }
+
+        let to_subtract = self.constant_affine_point(starting_point_multiplied.to_affine());
+        let to_add = self.curve_neg(&to_subtract);
+        result = self.curve_add(&result, &to_add);
 
         result
     }
