@@ -471,7 +471,7 @@ fn add_prods1(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 
     // a4 * b2
     cumul_lo += a4.wrapping_mul(b2) as u128;
-    cumul_hi += ((a3 as u128) * (b2 as u128)) >> 64;
+    cumul_hi += ((a4 as u128) * (b2 as u128)) >> 64;
 
     // * W
     cumul_lo *= W;
