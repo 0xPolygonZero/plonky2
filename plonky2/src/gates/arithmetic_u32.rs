@@ -239,11 +239,13 @@ impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D> for U32Ari
     }
 
     fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
-        vec![
-            Target::wire(gate_index, self.wire_ith_multiplicand_0(i)),
-            Target::wire(gate_index, self.wire_ith_multiplicand_1(i)),
-            Target::wire(gate_index, self.wire_ith_addend(i)),
-        ]
+        U32ArithmeticGenerator {
+            gate: *self,
+            gate_index,
+            i,
+            _phantom: PhantomData,
+        }
+        .dependencies()
     }
 }
 

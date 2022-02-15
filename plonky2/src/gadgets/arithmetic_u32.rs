@@ -120,7 +120,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             _ => {
                 let num_addends = to_add.len();
                 let gate = U32AddManyGate::<F, D>::new_from_config(&self.config, num_addends);
-                let (gate_index, copy) = self.find_u32_add_many_gate(num_addends);
+                let (gate_index, copy) =
+                    self.find_slot(gate, &[F::from_canonical_usize(num_addends)], &[]);
 
                 for j in 0..num_addends {
                     self.connect(
@@ -153,7 +154,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_addends = to_add.len();
 
         let gate = U32AddManyGate::<F, D>::new_from_config(&self.config, num_addends);
-        let (gate_index, copy) = self.find_u32_add_many_gate(num_addends);
+        let (gate_index, copy) = self.find_slot(gate, &[F::from_canonical_usize(num_addends)], &[]);
 
         for j in 0..num_addends {
             self.connect(
