@@ -117,7 +117,7 @@ mod tests {
     use starky::prover::prove;
     use starky::stark::Stark;
     use starky::stark_testing::test_stark_low_degree;
-    use starky::verifier::verify;
+    use starky::verifier::verify_stark_proof;
 
     use crate::system_zero::SystemZero;
 
@@ -136,7 +136,7 @@ mod tests {
         let trace = system.generate_trace();
         let proof = prove::<F, C, S, D>(system, &config, trace, public_inputs, &mut timing)?;
 
-        verify(system, proof, &config)
+        verify_stark_proof(system, proof, &config)
     }
 
     #[test]

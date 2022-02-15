@@ -15,7 +15,6 @@ use rayon::prelude::*;
 
 use crate::config::StarkConfig;
 
-// TODO: Permutation polynomials.
 #[derive(Debug, Clone)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.

@@ -29,17 +29,6 @@ impl StarkConfig {
     }
 
     pub(crate) fn fri_params(&self, degree_bits: usize) -> FriParams {
-        let fri_config = &self.fri_config;
-        let reduction_arity_bits = fri_config.reduction_strategy.reduction_arity_bits(
-            degree_bits,
-            fri_config.rate_bits,
-            fri_config.num_query_rounds,
-        );
-        FriParams {
-            config: fri_config.clone(),
-            hiding: false,
-            degree_bits,
-            reduction_arity_bits,
-        }
+        self.fri_config.fri_params(degree_bits, false)
     }
 }

@@ -35,7 +35,7 @@ pub fn recursively_verify_stark_proof<
 {
     assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(inner_config);
-    let challenges = proof_with_pis.get_challenges::<F, C>(builder, inner_config, degree_bits);
+    let challenges = proof_with_pis.get_challenges::<F, C>(builder, inner_config);
 
     recursively_verify_stark_proof_with_challenges::<F, C, S, D>(
         builder,
@@ -71,8 +71,6 @@ fn recursively_verify_stark_proof_with_challenges<
         proof,
         public_inputs,
     } = proof_with_pis;
-    let local_values = &proof.openings.local_values;
-    let next_values = &proof.openings.local_values;
     let StarkOpeningSetTarget {
         local_values,
         next_values,
@@ -181,7 +179,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     config: &StarkConfig,
     degree_bits: usize,
 ) -> StarkProofTarget<D> {
-    let fri_params = config.fri_config.fri_params(degree_bits, false);
+    let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
 
     let num_leaves_per_oracle = &[
@@ -214,7 +212,7 @@ fn add_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: 
     }
 }
 
-pub fn set_startk_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
+pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     witness: &mut W,
     stark_proof_with_pis_target: &StarkProofWithPublicInputsTarget<D>,
     stark_proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,

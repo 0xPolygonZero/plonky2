@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(incomplete_features)]
+#![allow(clippy::too_many_arguments)]
 #![feature(generic_const_exprs)]
 
 pub mod config;

@@ -96,7 +96,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         };
         FriInstanceInfo {
             oracles: vec![no_blinding_oracle; 3],
-            batches: vec![zeta_batch],
+            batches: vec![zeta_batch, zeta_right_batch],
         }
     }
 
@@ -124,7 +124,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         };
         FriInstanceInfoTarget {
             oracles: vec![no_blinding_oracle; 3],
-            batches: vec![zeta_batch],
+            batches: vec![zeta_batch, zeta_right_batch],
         }
     }
 }

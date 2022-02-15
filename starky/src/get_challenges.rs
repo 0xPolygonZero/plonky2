@@ -17,7 +17,6 @@ use crate::proof::{
     StarkProofWithPublicInputsTarget,
 };
 
-#[allow(clippy::too_many_arguments)]
 fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     trace_cap: &MerkleCap<F, C::Hasher>,
     quotient_polys_cap: &MerkleCap<F, C::Hasher>,
@@ -29,8 +28,6 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     degree_bits: usize,
 ) -> Result<StarkProofChallenges<F, D>> {
     let num_challenges = config.num_challenges;
-    let num_fri_queries = config.fri_config.num_query_rounds;
-    let lde_size = 1 << (degree_bits + config.fri_config.rate_bits);
 
     let mut challenger = Challenger::<F, C::Hasher>::new();
 
@@ -115,14 +112,11 @@ pub(crate) fn get_challenges_target<
     final_poly: &PolynomialCoeffsExtTarget<D>,
     pow_witness: Target,
     config: &StarkConfig,
-    degree_bits: usize,
 ) -> StarkProofChallengesTarget<D>
 where
     C::Hasher: AlgebraicHasher<F>,
 {
     let num_challenges = config.num_challenges;
-    let num_fri_queries = config.fri_config.num_query_rounds;
-    let lde_size = 1 << (degree_bits + config.fri_config.rate_bits);
 
     let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(builder);
 
@@ -152,7 +146,6 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
         &self,
         builder: &mut CircuitBuilder<F, D>,
         config: &StarkConfig,
-        degree_bits: usize,
     ) -> StarkProofChallengesTarget<D>
     where
         C::Hasher: AlgebraicHasher<F>,
@@ -179,7 +172,6 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
             final_poly,
             *pow_witness,
             config,
-            degree_bits,
         )
     }
 }

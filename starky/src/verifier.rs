@@ -12,7 +12,7 @@ use crate::proof::{StarkOpeningSet, StarkProofChallenges, StarkProofWithPublicIn
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationVars;
 
-pub fn verify<
+pub fn verify_stark_proof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
@@ -30,10 +30,10 @@ where
     ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
     let challenges = proof_with_pis.get_challenges(config, degree_bits)?;
-    verify_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
+    verify_stark_proof_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
 }
 
-pub(crate) fn verify_with_challenges<
+pub(crate) fn verify_stark_proof_with_challenges<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
@@ -54,8 +54,6 @@ where
         proof,
         public_inputs,
     } = proof_with_pis;
-    let local_values = &proof.openings.local_values;
-    let next_values = &proof.openings.local_values;
     let StarkOpeningSet {
         local_values,
         next_values,
