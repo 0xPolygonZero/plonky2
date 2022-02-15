@@ -662,15 +662,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let start = Instant::now();
         let rate_bits = self.config.fri_config.rate_bits;
 
-        for g in &self.gate_instances {
-            assert_eq!(
-                g.gate_ref.0.generators(0, &[F::ZERO; 100]).len(),
-                g.gate_ref.0.num_ops(),
-                "{}",
-                g.gate_ref.0.id()
-            );
-        }
-
         self.fill_batched_gates();
 
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
