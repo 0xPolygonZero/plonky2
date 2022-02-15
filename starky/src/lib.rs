@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(incomplete_features)]
+#![allow(clippy::too_many_arguments)]
 #![feature(generic_const_exprs)]
 
 pub mod config;
@@ -9,6 +10,7 @@ pub mod constraint_consumer;
 mod get_challenges;
 pub mod proof;
 pub mod prover;
+pub mod recursive_verifier;
 pub mod stark;
 pub mod stark_testing;
 pub mod vars;

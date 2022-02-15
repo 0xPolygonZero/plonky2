@@ -398,7 +398,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 "A non-negligible portion of field elements are in the range that permits non-canonical encodings. Need to do more analysis or enforce canonical encodings.");
     }
 
-    pub(crate) fn add_virtual_fri_proof(
+    pub fn add_virtual_fri_proof(
         &mut self,
         num_leaves_per_oracle: &[usize],
         params: &FriParams,

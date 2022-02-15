@@ -107,7 +107,7 @@ where
     // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
     // `g * zeta`, are not in our subgroup `H`. It suffices to check `zeta` only, since
     // `(g * zeta)^n = zeta^n`, where `n` is the order of `g`.
-    let g = F::Extension::primitive_root_of_unity(degree_bits);
+    let g = F::primitive_root_of_unity(degree_bits);
     ensure!(
         zeta.exp_power_of_2(degree_bits) != F::Extension::ONE,
         "Opening point is in the subgroup."
@@ -115,7 +115,7 @@ where
     let openings = StarkOpeningSet::new(zeta, g, &trace_commitment, &quotient_commitment);
     challenger.observe_openings(&openings.to_fri_openings());
 
-    // TODO: Add permuation checks
+    // TODO: Add permutation checks
     let initial_merkle_trees = &[&trace_commitment, &quotient_commitment];
     let fri_params = config.fri_params(degree_bits);
 
@@ -123,7 +123,7 @@ where
         timing,
         "compute openings proof",
         PolynomialBatch::prove_openings(
-            &stark.fri_instance(zeta, g, rate_bits, config.num_challenges),
+            &stark.fri_instance(zeta, g, config.num_challenges),
             initial_merkle_trees,
             &mut challenger,
             &fri_params,
