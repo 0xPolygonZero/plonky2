@@ -402,6 +402,410 @@ fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
 }
 
+#[inline(always)]
+fn add_prods0(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
+    const W: u128 = 3;
+
+    let [a0, a1, a2, a3, a4] = *a;
+    let [b0, b1, b2, b3, b4] = *b;
+
+    let mut cumul_lo: u128 = 0;
+    let mut cumul_hi: u128 = 0;
+
+    // a1 * b4
+    cumul_lo += a1.wrapping_mul(b4) as u128;
+    cumul_hi += ((a1 as u128) * (b4 as u128)) >> 64;
+
+    // a2 * b3
+    cumul_lo += a2.wrapping_mul(b3) as u128;
+    cumul_hi += ((a2 as u128) * (b3 as u128)) >> 64;
+
+    // a3 * b2
+    cumul_lo += a3.wrapping_mul(b2) as u128;
+    cumul_hi += ((a3 as u128) * (b2 as u128)) >> 64;
+
+    // a4 * b1
+    cumul_lo += a4.wrapping_mul(b1) as u128;
+    cumul_hi += ((a4 as u128) * (b1 as u128)) >> 64;
+
+    // * W
+    cumul_lo *= W;
+    cumul_hi *= W;
+
+    // a0 * b0
+    cumul_lo += a0.wrapping_mul(b0) as u128;
+    cumul_hi += ((a0 as u128) * (b0 as u128)) >> 64;
+
+    // Reduction
+    cumul_hi += cumul_lo >> 64;
+    let cumul_lo = cumul_lo as u64;
+
+    let cumul_hi = reduce128(cumul_hi).0;
+    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
+
+    res
+}
+
+#[inline(always)]
+fn add_prods1(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
+    const W: u128 = 3;
+
+    let [a0, a1, a2, a3, a4] = *a;
+    let [b0, b1, b2, b3, b4] = *b;
+
+    let mut cumul_lo: u128 = 0;
+    let mut cumul_hi: u128 = 0;
+
+    // a2 * b4
+    cumul_lo += a2.wrapping_mul(b4) as u128;
+    cumul_hi += ((a2 as u128) * (b4 as u128)) >> 64;
+
+    // a3 * b3
+    cumul_lo += a3.wrapping_mul(b3) as u128;
+    cumul_hi += ((a3 as u128) * (b3 as u128)) >> 64;
+
+    // a4 * b2
+    cumul_lo += a4.wrapping_mul(b2) as u128;
+    cumul_hi += ((a3 as u128) * (b2 as u128)) >> 64;
+
+    // * W
+    cumul_lo *= W;
+    cumul_hi *= W;
+
+    // a0 * b1
+    cumul_lo += a0.wrapping_mul(b1) as u128;
+    cumul_hi += ((a0 as u128) * (b1 as u128)) >> 64;
+
+    // a1 * b0
+    cumul_lo += a1.wrapping_mul(b0) as u128;
+    cumul_hi += ((a1 as u128) * (b0 as u128)) >> 64;
+
+    // Reduction
+    cumul_hi += cumul_lo >> 64;
+    let cumul_lo = cumul_lo as u64;
+
+    let cumul_hi = reduce128(cumul_hi).0;
+    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
+
+    res
+}
+
+#[inline(always)]
+fn add_prods2(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
+    const W: u128 = 3;
+
+    let [a0, a1, a2, a3, a4] = *a;
+    let [b0, b1, b2, b3, b4] = *b;
+
+    let mut cumul_lo: u128 = 0;
+    let mut cumul_hi: u128 = 0;
+
+    // a3 * b4
+    cumul_lo += a3.wrapping_mul(b4) as u128;
+    cumul_hi += ((a3 as u128) * (b4 as u128)) >> 64;
+
+    // a4 * b3
+    cumul_lo += a4.wrapping_mul(b3) as u128;
+    cumul_hi += ((a4 as u128) * (b3 as u128)) >> 64;
+
+    // * W
+    cumul_lo *= W;
+    cumul_hi *= W;
+
+    // a0 * b2
+    cumul_lo += a0.wrapping_mul(b2) as u128;
+    cumul_hi += ((a0 as u128) * (b2 as u128)) >> 64;
+
+    // a1 * b1
+    cumul_lo += a1.wrapping_mul(b1) as u128;
+    cumul_hi += ((a1 as u128) * (b1 as u128)) >> 64;
+
+    // a2 * b0
+    cumul_lo += a2.wrapping_mul(b0) as u128;
+    cumul_hi += ((a2 as u128) * (b0 as u128)) >> 64;
+
+    // Reduction
+    cumul_hi += cumul_lo >> 64;
+    let cumul_lo = cumul_lo as u64;
+
+    let cumul_hi = reduce128(cumul_hi).0;
+    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
+
+    res
+}
+
+#[inline(always)]
+fn add_prods3(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
+    const W: u128 = 3;
+
+    let [a0, a1, a2, a3, a4] = *a;
+    let [b0, b1, b2, b3, b4] = *b;
+
+    let mut cumul_lo: u128 = 0;
+    let mut cumul_hi: u128 = 0;
+
+    // a4 * b4
+    cumul_lo += a4.wrapping_mul(b4) as u128;
+    cumul_hi += ((a4 as u128) * (b4 as u128)) >> 64;
+
+    // * W
+    cumul_lo *= W;
+    cumul_hi *= W;
+
+    // a0 * b3
+    cumul_lo += a0.wrapping_mul(b3) as u128;
+    cumul_hi += ((a0 as u128) * (b3 as u128)) >> 64;
+
+    // a1 * b2
+    cumul_lo += a1.wrapping_mul(b2) as u128;
+    cumul_hi += ((a1 as u128) * (b2 as u128)) >> 64;
+
+    // a2 * b1
+    cumul_lo += a2.wrapping_mul(b1) as u128;
+    cumul_hi += ((a2 as u128) * (b1 as u128)) >> 64;
+
+    // a3 * b0
+    cumul_lo += a3.wrapping_mul(b0) as u128;
+    cumul_hi += ((a3 as u128) * (b0 as u128)) >> 64;
+
+    // Reduction
+    cumul_hi += cumul_lo >> 64;
+    let cumul_lo = cumul_lo as u64;
+
+    let cumul_hi = reduce128(cumul_hi).0;
+    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
+
+    res
+}
+
+#[inline(always)]
+fn add_prods4(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
+    let [a0, a1, a2, a3, a4] = *a;
+    let [b0, b1, b2, b3, b4] = *b;
+
+    let mut cumul_lo: u128 = 0;
+    let mut cumul_hi: u128 = 0;
+
+    // a0 * b4
+    cumul_lo += a0.wrapping_mul(b4) as u128;
+    cumul_hi += ((a0 as u128) * (b4 as u128)) >> 64;
+
+    // a1 * b3
+    cumul_lo += a1.wrapping_mul(b3) as u128;
+    cumul_hi += ((a1 as u128) * (b3 as u128)) >> 64;
+
+    // a2 * b2
+    cumul_lo += a2.wrapping_mul(b2) as u128;
+    cumul_hi += ((a2 as u128) * (b2 as u128)) >> 64;
+
+    // a3 * b1
+    cumul_lo += a3.wrapping_mul(b1) as u128;
+    cumul_hi += ((a3 as u128) * (b1 as u128)) >> 64;
+
+    // a4 * b0
+    cumul_lo += a4.wrapping_mul(b0) as u128;
+    cumul_hi += ((a4 as u128) * (b0 as u128)) >> 64;
+
+    // Reduction
+    cumul_hi += cumul_lo >> 64;
+    let cumul_lo = cumul_lo as u64;
+
+    let cumul_hi = reduce128(cumul_hi).0;
+    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
+
+    res
+}
+
+#[inline]
+pub fn ext5_mul(a: [u64; 5], b: [u64; 5]) -> [GoldilocksField; 5] {
+    let c0 = add_prods0(&a, &b);
+    let c1 = add_prods1(&a, &b);
+    let c2 = add_prods2(&a, &b);
+    let c3 = add_prods3(&a, &b);
+    let c4 = add_prods4(&a, &b);
+    [c0, c1, c2, c3, c4]
+}
+
+#[inline(always)]
+fn add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
+    const W: u128 = 3;
+
+    let [a0, a1, a2, a3, a4] = *a;
+
+    let mut cumul_lo: u128 = 0;
+    let mut cumul_hi: u128 = 0;
+
+    // a1 * a4
+    cumul_lo += a1.wrapping_mul(a4) as u128;
+    cumul_hi += ((a1 as u128) * (a4 as u128)) >> 64;
+
+    // a2 * a3
+    cumul_lo += a2.wrapping_mul(a3) as u128;
+    cumul_hi += ((a2 as u128) * (a3 as u128)) >> 64;
+
+    // * 2 * W
+    cumul_lo *= 2 * W;
+    cumul_hi *= 2 * W;
+
+    // a0 * a0
+    cumul_lo += a0.wrapping_mul(a0) as u128;
+    cumul_hi += ((a0 as u128) * (a0 as u128)) >> 64;
+
+    // Reduction
+    cumul_hi += cumul_lo >> 64;
+    let cumul_lo = cumul_lo as u64;
+
+    let cumul_hi = reduce128(cumul_hi).0;
+    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
+
+    res
+}
+
+#[inline(always)]
+fn add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
+    const W: u128 = 3;
+
+    let [a0, a1, a2, a3, a4] = *a;
+
+    let mut cumul_lo: u128 = 0;
+    let mut cumul_hi: u128 = 0;
+
+    // a3 * a3
+    cumul_lo += a3.wrapping_mul(a3) as u128;
+    cumul_hi += ((a3 as u128) * (a3 as u128)) >> 64;
+
+    // 2 * a2 * a4
+    cumul_lo += 2 * (a2.wrapping_mul(a4) as u128);
+    cumul_hi += 2 * (((a2 as u128) * (a4 as u128)) >> 64);
+
+    // * W
+    cumul_lo *= W;
+    cumul_hi *= W;
+
+    // 2 * a0 * a1
+    cumul_lo += 2 * (a0.wrapping_mul(a1) as u128);
+    cumul_hi += 2 * (((a0 as u128) * (a1 as u128)) >> 64);
+
+    // Reduction
+    cumul_hi += cumul_lo >> 64;
+    let cumul_lo = cumul_lo as u64;
+
+    let cumul_hi = reduce128(cumul_hi).0;
+    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
+
+    res
+}
+
+#[inline(always)]
+fn add_sqrs2(a: &[u64; 5]) -> GoldilocksField {
+    const W: u128 = 3;
+
+    let [a0, a1, a2, a3, a4] = *a;
+
+    let mut cumul_lo: u128 = 0;
+    let mut cumul_hi: u128 = 0;
+
+    // 2 * W * a3 * a4
+    cumul_lo += 2 * W * (a3.wrapping_mul(a4) as u128);
+    cumul_hi += 2 * W * (((a3 as u128) * (a4 as u128)) >> 64);
+
+    // a1 * a1
+    cumul_lo += a1.wrapping_mul(a1) as u128;
+    cumul_hi += ((a1 as u128) * (a1 as u128)) >> 64;
+
+    // 2 * a0 * a2
+    cumul_lo += 2 * (a0.wrapping_mul(a2) as u128);
+    cumul_hi += 2 * (((a0 as u128) * (a2 as u128)) >> 64);
+
+    // Reduction
+    cumul_hi += cumul_lo >> 64;
+    let cumul_lo = cumul_lo as u64;
+
+    let cumul_hi = reduce128(cumul_hi).0;
+    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
+
+    res
+}
+
+#[inline(always)]
+fn add_sqrs3(a: &[u64; 5]) -> GoldilocksField {
+    const W: u128 = 3;
+
+    let [a0, a1, a2, a3, a4] = *a;
+
+    let mut cumul_lo: u128 = 0;
+    let mut cumul_hi: u128 = 0;
+
+    // a1 * a2
+    cumul_lo += a1.wrapping_mul(a2) as u128;
+    cumul_hi += ((a1 as u128) * (a2 as u128)) >> 64;
+
+    // a0 * a3
+    cumul_lo += a0.wrapping_mul(a3) as u128;
+    cumul_hi += ((a0 as u128) * (a3 as u128)) >> 64;
+
+    // * W
+    cumul_lo *= 2;
+    cumul_hi *= 2;
+
+    // W * a4 * a4
+    cumul_lo += W * (a4.wrapping_mul(a4) as u128);
+    cumul_hi += W * (((a4 as u128) * (a4 as u128)) >> 64);
+
+    // Reduction
+    cumul_hi += cumul_lo >> 64;
+    let cumul_lo = cumul_lo as u64;
+
+    let cumul_hi = reduce128(cumul_hi).0;
+    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
+
+    res
+}
+
+#[inline(always)]
+fn add_sqrs4(a: &[u64; 5]) -> GoldilocksField {
+    let [a0, a1, a2, a3, a4] = *a;
+
+    let mut cumul_lo: u128 = 0;
+    let mut cumul_hi: u128 = 0;
+
+    // a0 * a4
+    cumul_lo += a0.wrapping_mul(a4) as u128;
+    cumul_hi += ((a0 as u128) * (a4 as u128)) >> 64;
+
+    // a1 * a3
+    cumul_lo += a1.wrapping_mul(a3) as u128;
+    cumul_hi += ((a1 as u128) * (a3 as u128)) >> 64;
+
+    // * 2
+    cumul_lo *= 2;
+    cumul_hi *= 2;
+
+    // a2 * a2
+    cumul_lo += a2.wrapping_mul(a2) as u128;
+    cumul_hi += ((a2 as u128) * (a2 as u128)) >> 64;
+
+    // Reduction
+    cumul_hi += cumul_lo >> 64;
+    let cumul_lo = cumul_lo as u64;
+
+    let cumul_hi = reduce128(cumul_hi).0;
+    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
+
+    res
+}
+
+
+#[inline]
+pub fn ext5_sqr(a: [u64; 5]) -> [GoldilocksField; 5] {
+    let c0 = add_sqrs0(&a);
+    let c1 = add_sqrs1(&a);
+    let c2 = add_sqrs2(&a);
+    let c3 = add_sqrs3(&a);
+    let c4 = add_sqrs4(&a);
+    [c0, c1, c2, c3, c4]
+}
+
 impl Frobenius<1> for GoldilocksField {}
 
 #[cfg(test)]
