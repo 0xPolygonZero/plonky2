@@ -1,9 +1,13 @@
+use itertools::Itertools;
 use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::Field;
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
-use crate::fri::proof::{FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget};
-use crate::fri::FriConfig;
+use crate::fri::proof::{
+    FriChallengesTarget, FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget,
+    FriQueryStepTarget,
+};
+use crate::fri::structure::{FriBatchInfoTarget, FriInstanceInfoTarget, FriOpeningsTarget};
+use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::interpolation::InterpolationGate;
 use crate::gates::gate::Gate;
 use crate::gates::interpolation::HighDegreeInterpolationGate;
@@ -11,14 +15,10 @@ use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;
 use crate::gates::random_access::RandomAccessGate;
 use crate::hash::hash_types::MerkleCapTarget;
 use crate::hash::hash_types::RichField;
-use crate::iop::challenger::RecursiveChallenger;
 use crate::iop::ext_target::{flatten_target, ExtensionTarget};
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
-use crate::plonk::config::{AlgebraicConfig, AlgebraicHasher, GenericConfig};
-use crate::plonk::plonk_common::PlonkPolynomials;
-use crate::plonk::proof::OpeningSetTarget;
+use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
 
@@ -32,7 +32,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         arity_bits: usize,
         evals: &[ExtensionTarget<D>],
         beta: ExtensionTarget<D>,
-        common_data: &CommonCircuitData<F, C, D>,
     ) -> ExtensionTarget<D> {
         let arity = 1 << arity_bits;
         debug_assert_eq!(evals.len(), arity);
@@ -51,7 +50,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // The answer is gotten by interpolating {(x*g^i, P(x*g^i))} and evaluating at beta.
         // `HighDegreeInterpolationGate` has degree `arity`, so we use the low-degree gate if
         // the arity is too large.
-        if arity > common_data.quotient_degree_factor {
+        if arity > self.config.max_quotient_degree_factor {
             self.interpolate_coset::<LowDegreeInterpolationGate<F, D>>(
                 arity_bits,
                 coset_start,
@@ -71,17 +70,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
     /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
     /// helpful errors.
-    fn check_recursion_config<C: GenericConfig<D, F = F>>(
-        &self,
-        max_fri_arity_bits: usize,
-        common_data: &CommonCircuitData<F, C, D>,
-    ) {
+    fn check_recursion_config<C: GenericConfig<D, F = F>>(&self, max_fri_arity_bits: usize) {
         let random_access = RandomAccessGate::<F, D>::new_from_config(
             &self.config,
             max_fri_arity_bits.max(self.config.fri_config.cap_height),
         );
         let (interpolation_wires, interpolation_routed_wires) =
-            if 1 << max_fri_arity_bits > common_data.quotient_degree_factor {
+            if 1 << max_fri_arity_bits > self.config.max_quotient_degree_factor {
                 let gate = LowDegreeInterpolationGate::<F, D>::new(max_fri_arity_bits);
                 (gate.num_wires(), gate.num_routed_wires())
             } else {
@@ -111,74 +106,48 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn fri_verify_proof_of_work<H: AlgebraicHasher<F>>(
         &mut self,
-        proof: &FriProofTarget<D>,
-        challenger: &mut RecursiveChallenger<F, H, D>,
+        fri_pow_response: Target,
         config: &FriConfig,
     ) {
-        let mut inputs = challenger.get_hash(self).elements.to_vec();
-        inputs.push(proof.pow_witness);
-
-        let hash = self.hash_n_to_m::<H>(inputs, 1, false)[0];
         self.assert_leading_zeros(
-            hash,
+            fri_pow_response,
             config.proof_of_work_bits + (64 - F::order().bits()) as u32,
         );
     }
 
-    pub fn verify_fri_proof<C: AlgebraicConfig<D, F = F>>(
+    pub fn verify_fri_proof<C: GenericConfig<D, F = F>>(
         &mut self,
-        // Openings of the PLONK polynomials.
-        os: &OpeningSetTarget<D>,
-        // Point at which the PLONK polynomials are opened.
-        zeta: ExtensionTarget<D>,
+        instance: &FriInstanceInfoTarget<D>,
+        openings: &FriOpeningsTarget<D>,
+        challenges: &FriChallengesTarget<D>,
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
-        challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
-        common_data: &CommonCircuitData<F, C, D>,
-    ) {
-        let config = &common_data.config;
-
-        if let Some(max_arity_bits) = common_data.fri_params.max_arity_bits() {
-            self.check_recursion_config(max_arity_bits, common_data);
+        params: &FriParams,
+    ) where
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        if let Some(max_arity_bits) = params.max_arity_bits() {
+            self.check_recursion_config::<C>(max_arity_bits);
         }
 
         debug_assert_eq!(
-            common_data.fri_params.final_poly_len(),
+            params.final_poly_len(),
             proof.final_poly.len(),
             "Final polynomial has wrong degree."
         );
 
         // Size of the LDE domain.
-        let n = common_data.lde_size();
-
-        challenger.observe_opening_set(os);
-
-        // Scaling factor to combine polynomials.
-        let alpha = challenger.get_extension_challenge(self);
-
-        let betas = with_context!(
-            self,
-            "recover the random betas used in the FRI reductions.",
-            proof
-                .commit_phase_merkle_caps
-                .iter()
-                .map(|cap| {
-                    challenger.observe_cap(cap);
-                    challenger.get_extension_challenge(self)
-                })
-                .collect::<Vec<_>>()
-        );
-        challenger.observe_extension_elements(&proof.final_poly.0);
+        let n = params.lde_size();
 
         with_context!(
             self,
             "check PoW",
-            self.fri_verify_proof_of_work::<C::Hasher>(proof, challenger, &config.fri_config)
+            self.fri_verify_proof_of_work::<C::Hasher>(challenges.fri_pow_response, &params.config)
         );
 
         // Check that parameters are coherent.
         debug_assert_eq!(
-            config.fri_config.num_query_rounds,
+            params.config.num_query_rounds,
             proof.query_round_proofs.len(),
             "Number of query rounds does not match config."
         );
@@ -186,11 +155,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let precomputed_reduced_evals = with_context!(
             self,
             "precompute reduced evaluations",
-            PrecomputedReducedEvalsTarget::from_os_and_alpha(
-                os,
-                alpha,
-                common_data.degree_bits,
-                zeta,
+            PrecomputedReducedOpeningsTarget::from_os_and_alpha(
+                openings,
+                challenges.fri_alpha,
                 self
             )
         );
@@ -210,17 +177,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self,
                 level,
                 &format!("verify one (of {}) query rounds", num_queries),
-                self.fri_verifier_query_round(
-                    zeta,
-                    alpha,
-                    precomputed_reduced_evals,
+                self.fri_verifier_query_round::<C>(
+                    instance,
+                    challenges,
+                    &precomputed_reduced_evals,
                     initial_merkle_caps,
                     proof,
-                    challenger,
+                    challenges.fri_query_indices[i],
                     n,
-                    &betas,
                     round_proof,
-                    common_data,
+                    params,
                 )
             );
         }
@@ -255,85 +221,73 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     fn fri_combine_initial<C: GenericConfig<D, F = F>>(
         &mut self,
+        instance: &FriInstanceInfoTarget<D>,
         proof: &FriInitialTreeProofTarget,
         alpha: ExtensionTarget<D>,
         subgroup_x: Target,
-        vanish_zeta: ExtensionTarget<D>,
-        precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
-        common_data: &CommonCircuitData<F, C, D>,
+        precomputed_reduced_evals: &PrecomputedReducedOpeningsTarget<D>,
+        params: &FriParams,
     ) -> ExtensionTarget<D> {
         assert!(D > 1, "Not implemented for D=1.");
-        let config = &common_data.config;
-        let degree_log = common_data.degree_bits;
+        let degree_log = params.degree_bits;
         debug_assert_eq!(
             degree_log,
-            common_data.config.fri_config.cap_height + proof.evals_proofs[0].1.siblings.len()
-                - config.fri_config.rate_bits
+            params.config.cap_height + proof.evals_proofs[0].1.siblings.len()
+                - params.config.rate_bits
         );
         let subgroup_x = self.convert_to_ext(subgroup_x);
         let mut alpha = ReducingFactorTarget::new(alpha);
         let mut sum = self.zero_extension();
 
-        // We will add two terms to `sum`: one for openings at `x`, and one for openings at `g x`.
-        // All polynomials are opened at `x`.
-        let single_evals = [
-            PlonkPolynomials::CONSTANTS_SIGMAS,
-            PlonkPolynomials::WIRES,
-            PlonkPolynomials::ZS_PARTIAL_PRODUCTS,
-            PlonkPolynomials::QUOTIENT,
-        ]
-        .iter()
-        .flat_map(|&p| proof.unsalted_evals(p, config.zero_knowledge))
-        .copied()
-        .collect::<Vec<_>>();
-        let single_composition_eval = alpha.reduce_base(&single_evals, self);
-        let single_numerator =
-            self.sub_extension(single_composition_eval, precomputed_reduced_evals.single);
-        sum = self.div_add_extension(single_numerator, vanish_zeta, sum);
-        alpha.reset();
-
-        // Polynomials opened at `x` and `g x`, i.e., the Zs polynomials.
-        let zs_evals = proof
-            .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
+        for (batch, reduced_openings) in instance
+            .batches
             .iter()
-            .take(common_data.zs_range().end)
-            .copied()
-            .collect::<Vec<_>>();
-        let zs_composition_eval = alpha.reduce_base(&zs_evals, self);
+            .zip(&precomputed_reduced_evals.reduced_openings_at_point)
+        {
+            let FriBatchInfoTarget { point, polynomials } = batch;
+            let evals = polynomials
+                .iter()
+                .map(|p| {
+                    let poly_blinding = instance.oracles[p.oracle_index].blinding;
+                    let salted = params.hiding && poly_blinding;
+                    proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted)
+                })
+                .collect_vec();
+            let reduced_evals = alpha.reduce_base(&evals, self);
+            let numerator = self.sub_extension(reduced_evals, *reduced_openings);
+            let denominator = self.sub_extension(subgroup_x, *point);
+            sum = alpha.shift(sum, self);
+            sum = self.div_add_extension(numerator, denominator, sum);
+        }
 
-        let zs_numerator =
-            self.sub_extension(zs_composition_eval, precomputed_reduced_evals.zs_right);
-        let zs_denominator = self.sub_extension(subgroup_x, precomputed_reduced_evals.zeta_right);
-        sum = alpha.shift(sum, self); // TODO: alpha^count could be precomputed.
-        sum = self.div_add_extension(zs_numerator, zs_denominator, sum);
-
-        sum
+        // Multiply the final polynomial by `X`, so that `final_poly` has the maximum degree for
+        // which the LDT will pass. See github.com/mir-protocol/plonky2/pull/436 for details.
+        self.mul_extension(sum, subgroup_x)
     }
 
-    fn fri_verifier_query_round<C: AlgebraicConfig<D, F = F>>(
+    fn fri_verifier_query_round<C: GenericConfig<D, F = F>>(
         &mut self,
-        zeta: ExtensionTarget<D>,
-        alpha: ExtensionTarget<D>,
-        precomputed_reduced_evals: PrecomputedReducedEvalsTarget<D>,
+        instance: &FriInstanceInfoTarget<D>,
+        challenges: &FriChallengesTarget<D>,
+        precomputed_reduced_evals: &PrecomputedReducedOpeningsTarget<D>,
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
-        challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
+        x_index: Target,
         n: usize,
-        betas: &[ExtensionTarget<D>],
         round_proof: &FriQueryRoundTarget<D>,
-        common_data: &CommonCircuitData<F, C, D>,
-    ) {
+        params: &FriParams,
+    ) where
+        C::Hasher: AlgebraicHasher<F>,
+    {
         let n_log = log2_strict(n);
 
         // Note that this `low_bits` decomposition permits non-canonical binary encodings. Here we
         // verify that this has a negligible impact on soundness error.
-        Self::assert_noncanonical_indices_ok(&common_data.config);
-        let x_index = challenger.get_challenge(self);
+        Self::assert_noncanonical_indices_ok(&params.config);
         let mut x_index_bits = self.low_bits(x_index, n_log, F::BITS);
 
-        let cap_index = self.le_sum(
-            x_index_bits[x_index_bits.len() - common_data.config.fri_config.cap_height..].iter(),
-        );
+        let cap_index =
+            self.le_sum(x_index_bits[x_index_bits.len() - params.config.cap_height..].iter());
         with_context!(
             self,
             "check FRI initial proof",
@@ -346,16 +300,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
-        let (mut subgroup_x, vanish_zeta) = with_context!(self, "compute x from its index", {
+        let mut subgroup_x = with_context!(self, "compute x from its index", {
             let g = self.constant(F::coset_shift());
             let phi = F::primitive_root_of_unity(n_log);
             let phi = self.exp_from_bits_const_base(phi, x_index_bits.iter().rev());
-            let g_ext = self.convert_to_ext(g);
-            let phi_ext = self.convert_to_ext(phi);
-            // `subgroup_x = g*phi, vanish_zeta = g*phi - zeta`
-            let subgroup_x = self.mul(g, phi);
-            let vanish_zeta = self.mul_sub_extension(g_ext, phi_ext, zeta);
-            (subgroup_x, vanish_zeta)
+            // subgroup_x = g * phi
+            self.mul(g, phi)
         });
 
         // old_eval is the last derived evaluation; it will be checked for consistency with its
@@ -363,22 +313,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut old_eval = with_context!(
             self,
             "combine initial oracles",
-            self.fri_combine_initial(
+            self.fri_combine_initial::<C>(
+                instance,
                 &round_proof.initial_trees_proof,
-                alpha,
+                challenges.fri_alpha,
                 subgroup_x,
-                vanish_zeta,
                 precomputed_reduced_evals,
-                common_data,
+                params,
             )
         );
 
-        for (i, &arity_bits) in common_data
-            .fri_params
-            .reduction_arity_bits
-            .iter()
-            .enumerate()
-        {
+        for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
             let evals = &round_proof.steps[i].evals;
 
             // Split x_index into the index of the coset x is in, and the index of x within that coset.
@@ -393,13 +338,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             old_eval = with_context!(
                 self,
                 "infer evaluation using interpolation",
-                self.compute_evaluation(
+                self.compute_evaluation::<C>(
                     subgroup_x,
                     x_index_within_coset_bits,
                     arity_bits,
                     evals,
-                    betas[i],
-                    common_data
+                    challenges.fri_betas[i],
                 )
             );
 
@@ -446,52 +390,110 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Thus ambiguous elements contribute a negligible amount to soundness error.
     ///
     /// Here we compare the probabilities as a sanity check, to verify the claim above.
-    fn assert_noncanonical_indices_ok(config: &CircuitConfig) {
+    fn assert_noncanonical_indices_ok(config: &FriConfig) {
         let num_ambiguous_elems = u64::MAX - F::ORDER + 1;
         let query_error = config.rate();
         let p_ambiguous = (num_ambiguous_elems as f64) / (F::ORDER as f64);
         assert!(p_ambiguous < query_error * 1e-5,
                 "A non-negligible portion of field elements are in the range that permits non-canonical encodings. Need to do more analysis or enforce canonical encodings.");
     }
+
+    pub(crate) fn add_virtual_fri_proof(
+        &mut self,
+        num_leaves_per_oracle: &[usize],
+        params: &FriParams,
+    ) -> FriProofTarget<D> {
+        let cap_height = params.config.cap_height;
+        let num_queries = params.config.num_query_rounds;
+        let commit_phase_merkle_caps = (0..params.reduction_arity_bits.len())
+            .map(|_| self.add_virtual_cap(cap_height))
+            .collect();
+        let query_round_proofs = (0..num_queries)
+            .map(|_| self.add_virtual_fri_query(num_leaves_per_oracle, params))
+            .collect();
+        let final_poly = self.add_virtual_poly_coeff_ext(params.final_poly_len());
+        let pow_witness = self.add_virtual_target();
+        FriProofTarget {
+            commit_phase_merkle_caps,
+            query_round_proofs,
+            final_poly,
+            pow_witness,
+        }
+    }
+
+    fn add_virtual_fri_query(
+        &mut self,
+        num_leaves_per_oracle: &[usize],
+        params: &FriParams,
+    ) -> FriQueryRoundTarget<D> {
+        let cap_height = params.config.cap_height;
+        assert!(params.lde_bits() >= cap_height);
+        let mut merkle_proof_len = params.lde_bits() - cap_height;
+
+        let initial_trees_proof =
+            self.add_virtual_fri_initial_trees_proof(num_leaves_per_oracle, merkle_proof_len);
+
+        let mut steps = vec![];
+        for &arity_bits in &params.reduction_arity_bits {
+            assert!(merkle_proof_len >= arity_bits);
+            merkle_proof_len -= arity_bits;
+            steps.push(self.add_virtual_fri_query_step(arity_bits, merkle_proof_len));
+        }
+
+        FriQueryRoundTarget {
+            initial_trees_proof,
+            steps,
+        }
+    }
+
+    fn add_virtual_fri_initial_trees_proof(
+        &mut self,
+        num_leaves_per_oracle: &[usize],
+        initial_merkle_proof_len: usize,
+    ) -> FriInitialTreeProofTarget {
+        let evals_proofs = num_leaves_per_oracle
+            .iter()
+            .map(|&num_oracle_leaves| {
+                let leaves = self.add_virtual_targets(num_oracle_leaves);
+                let merkle_proof = self.add_virtual_merkle_proof(initial_merkle_proof_len);
+                (leaves, merkle_proof)
+            })
+            .collect();
+        FriInitialTreeProofTarget { evals_proofs }
+    }
+
+    fn add_virtual_fri_query_step(
+        &mut self,
+        arity_bits: usize,
+        merkle_proof_len: usize,
+    ) -> FriQueryStepTarget<D> {
+        FriQueryStepTarget {
+            evals: self.add_virtual_extension_targets(1 << arity_bits),
+            merkle_proof: self.add_virtual_merkle_proof(merkle_proof_len),
+        }
+    }
 }
 
-#[derive(Copy, Clone)]
-struct PrecomputedReducedEvalsTarget<const D: usize> {
-    pub single: ExtensionTarget<D>,
-    pub zs_right: ExtensionTarget<D>,
-    pub zeta_right: ExtensionTarget<D>,
+/// For each opening point, holds the reduced (by `alpha`) evaluations of each polynomial that's
+/// opened at that point.
+#[derive(Clone)]
+struct PrecomputedReducedOpeningsTarget<const D: usize> {
+    reduced_openings_at_point: Vec<ExtensionTarget<D>>,
 }
 
-impl<const D: usize> PrecomputedReducedEvalsTarget<D> {
+impl<const D: usize> PrecomputedReducedOpeningsTarget<D> {
     fn from_os_and_alpha<F: RichField + Extendable<D>>(
-        os: &OpeningSetTarget<D>,
+        openings: &FriOpeningsTarget<D>,
         alpha: ExtensionTarget<D>,
-        degree_log: usize,
-        zeta: ExtensionTarget<D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
-        let mut alpha = ReducingFactorTarget::new(alpha);
-        let single = alpha.reduce(
-            &os.constants
-                .iter()
-                .chain(&os.plonk_sigmas)
-                .chain(&os.wires)
-                .chain(&os.plonk_zs)
-                .chain(&os.partial_products)
-                .chain(&os.quotient_polys)
-                .copied()
-                .collect::<Vec<_>>(),
-            builder,
-        );
-        let zs_right = alpha.reduce(&os.plonk_zs_right, builder);
-
-        let g = builder.constant_extension(F::Extension::primitive_root_of_unity(degree_log));
-        let zeta_right = builder.mul_extension(g, zeta);
-
+        let reduced_openings_at_point = openings
+            .batches
+            .iter()
+            .map(|batch| ReducingFactorTarget::new(alpha).reduce(&batch.values, builder))
+            .collect();
         Self {
-            single,
-            zs_right,
-            zeta_right,
+            reduced_openings_at_point,
         }
     }
 }

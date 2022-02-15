@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
 use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::PrimeField;
+use plonky2_field::field_types::Field64;
 
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::exponentiation::ExponentiationGate;
@@ -317,11 +317,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let x_ext = self.convert_to_ext(x);
         self.inverse_extension(x_ext).0[0]
     }
+
+    pub fn not(&mut self, b: BoolTarget) -> BoolTarget {
+        let one = self.one();
+        let res = self.sub(one, b.target);
+        BoolTarget::new_unsafe(res)
+    }
 }
 
 /// Represents a base arithmetic operation in the circuit. Used to memoize results.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub(crate) struct BaseArithmeticOperation<F: PrimeField> {
+pub(crate) struct BaseArithmeticOperation<F: Field64> {
     const_0: F,
     const_1: F,
     multiplicand_0: Target,

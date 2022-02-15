@@ -1,11 +1,12 @@
 use plonky2_field::extension_field::Extendable;
 
 use crate::hash::hash_types::{HashOutTarget, RichField};
-use crate::iop::challenger::RecursiveChallenger;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierCircuitTarget};
-use crate::plonk::config::AlgebraicConfig;
-use crate::plonk::proof::ProofWithPublicInputsTarget;
+use crate::plonk::circuit_data::{CommonCircuitData, VerifierCircuitTarget};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig};
+use crate::plonk::proof::{
+    OpeningSetTarget, ProofChallengesTarget, ProofTarget, ProofWithPublicInputsTarget,
+};
 use crate::plonk::vanishing_poly::eval_vanishing_poly_recursively;
 use crate::plonk::vars::EvaluationTargets;
 use crate::util::reducing::ReducingFactorTarget;
@@ -13,76 +14,74 @@ use crate::with_context;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Recursively verifies an inner proof.
-    pub fn add_recursive_verifier<C: AlgebraicConfig<D, F = F>>(
+    pub fn verify_proof<C: GenericConfig<D, F = F>>(
         &mut self,
         proof_with_pis: ProofWithPublicInputsTarget<D>,
-        inner_config: &CircuitConfig,
         inner_verifier_data: &VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, C, D>,
-    ) {
-        let ProofWithPublicInputsTarget {
-            proof,
-            public_inputs,
-        } = proof_with_pis;
+    ) where
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        assert_eq!(
+            proof_with_pis.public_inputs.len(),
+            inner_common_data.num_public_inputs
+        );
+        let public_inputs_hash =
+            self.hash_n_to_hash_no_pad::<C::InnerHasher>(proof_with_pis.public_inputs.clone());
+        let challenges = proof_with_pis.get_challenges(self, public_inputs_hash, inner_common_data);
+
+        self.verify_proof_with_challenges(
+            proof_with_pis.proof,
+            public_inputs_hash,
+            challenges,
+            inner_verifier_data,
+            inner_common_data,
+        );
+    }
+
+    /// Recursively verifies an inner proof.
+    fn verify_proof_with_challenges<C: GenericConfig<D, F = F>>(
+        &mut self,
+        proof: ProofTarget<D>,
+        public_inputs_hash: HashOutTarget,
+        challenges: ProofChallengesTarget<D>,
+        inner_verifier_data: &VerifierCircuitTarget,
+        inner_common_data: &CommonCircuitData<F, C, D>,
+    ) where
+        C::Hasher: AlgebraicHasher<F>,
+    {
         let one = self.one_extension();
-
-        let num_challenges = inner_config.num_challenges;
-
-        let public_inputs_hash = &self.hash_n_to_hash::<C::InnerHasher>(public_inputs, true);
-
-        let mut challenger = RecursiveChallenger::new(self);
-
-        let (betas, gammas, alphas, zeta) =
-            with_context!(self, "observe proof and generates challenges", {
-                // Observe the instance.
-                let digest = HashOutTarget::from_vec(
-                    self.constants(&inner_common_data.circuit_digest.elements),
-                );
-                challenger.observe_hash(&digest);
-                challenger.observe_hash(public_inputs_hash);
-
-                challenger.observe_cap(&proof.wires_cap);
-                let betas = challenger.get_n_challenges(self, num_challenges);
-                let gammas = challenger.get_n_challenges(self, num_challenges);
-
-                challenger.observe_cap(&proof.plonk_zs_partial_products_cap);
-                let alphas = challenger.get_n_challenges(self, num_challenges);
-
-                challenger.observe_cap(&proof.quotient_polys_cap);
-                let zeta = challenger.get_extension_challenge(self);
-
-                (betas, gammas, alphas, zeta)
-            });
 
         let local_constants = &proof.openings.constants;
         let local_wires = &proof.openings.wires;
         let vars = EvaluationTargets {
             local_constants,
             local_wires,
-            public_inputs_hash,
+            public_inputs_hash: &public_inputs_hash,
         };
         let local_zs = &proof.openings.plonk_zs;
         let next_zs = &proof.openings.plonk_zs_right;
         let s_sigmas = &proof.openings.plonk_sigmas;
         let partial_products = &proof.openings.partial_products;
 
-        let zeta_pow_deg = self.exp_power_of_2_extension(zeta, inner_common_data.degree_bits);
+        let zeta_pow_deg =
+            self.exp_power_of_2_extension(challenges.plonk_zeta, inner_common_data.degree_bits);
         let vanishing_polys_zeta = with_context!(
             self,
             "evaluate the vanishing polynomial at our challenge point, zeta.",
             eval_vanishing_poly_recursively(
                 self,
                 inner_common_data,
-                zeta,
+                challenges.plonk_zeta,
                 zeta_pow_deg,
                 vars,
                 local_zs,
                 next_zs,
                 partial_products,
                 s_sigmas,
-                &betas,
-                &gammas,
-                &alphas,
+                &challenges.plonk_betas,
+                &challenges.plonk_gammas,
+                &challenges.plonk_alphas,
             )
         );
 
@@ -107,18 +106,73 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             proof.quotient_polys_cap,
         ];
 
+        let fri_instance = inner_common_data.get_fri_instance_target(self, challenges.plonk_zeta);
         with_context!(
             self,
             "verify FRI proof",
-            self.verify_fri_proof(
-                &proof.openings,
-                zeta,
+            self.verify_fri_proof::<C>(
+                &fri_instance,
+                &proof.openings.to_fri_openings(),
+                &challenges.fri_challenges,
                 merkle_caps,
                 &proof.opening_proof,
-                &mut challenger,
-                inner_common_data,
+                &inner_common_data.fri_params,
             )
         );
+    }
+
+    pub fn add_virtual_proof_with_pis<InnerC: GenericConfig<D, F = F>>(
+        &mut self,
+        common_data: &CommonCircuitData<F, InnerC, D>,
+    ) -> ProofWithPublicInputsTarget<D> {
+        let proof = self.add_virtual_proof(common_data);
+        let public_inputs = self.add_virtual_targets(common_data.num_public_inputs);
+        ProofWithPublicInputsTarget {
+            proof,
+            public_inputs,
+        }
+    }
+
+    fn add_virtual_proof<InnerC: GenericConfig<D, F = F>>(
+        &mut self,
+        common_data: &CommonCircuitData<F, InnerC, D>,
+    ) -> ProofTarget<D> {
+        let config = &common_data.config;
+        let fri_params = &common_data.fri_params;
+        let cap_height = fri_params.config.cap_height;
+
+        let num_leaves_per_oracle = &[
+            common_data.num_preprocessed_polys(),
+            config.num_wires,
+            common_data.num_zs_partial_products_polys(),
+            common_data.num_quotient_polys(),
+        ];
+
+        ProofTarget {
+            wires_cap: self.add_virtual_cap(cap_height),
+            plonk_zs_partial_products_cap: self.add_virtual_cap(cap_height),
+            quotient_polys_cap: self.add_virtual_cap(cap_height),
+            openings: self.add_opening_set(common_data),
+            opening_proof: self.add_virtual_fri_proof(num_leaves_per_oracle, fri_params),
+        }
+    }
+
+    fn add_opening_set<InnerC: GenericConfig<D, F = F>>(
+        &mut self,
+        common_data: &CommonCircuitData<F, InnerC, D>,
+    ) -> OpeningSetTarget<D> {
+        let config = &common_data.config;
+        let num_challenges = config.num_challenges;
+        let total_partial_products = num_challenges * common_data.num_partial_products;
+        OpeningSetTarget {
+            constants: self.add_virtual_extension_targets(common_data.num_constants),
+            plonk_sigmas: self.add_virtual_extension_targets(config.num_routed_wires),
+            wires: self.add_virtual_extension_targets(config.num_wires),
+            plonk_zs: self.add_virtual_extension_targets(num_challenges),
+            plonk_zs_right: self.add_virtual_extension_targets(num_challenges),
+            partial_products: self.add_virtual_extension_targets(total_partial_products),
+            quotient_polys: self.add_virtual_extension_targets(common_data.num_quotient_polys()),
+        }
     }
 }
 
@@ -126,258 +180,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 mod tests {
     use anyhow::Result;
     use log::{info, Level};
-    use plonky2_util::log2_strict;
 
     use super::*;
-    use crate::fri::proof::{
-        FriInitialTreeProofTarget, FriProofTarget, FriQueryRoundTarget, FriQueryStepTarget,
-    };
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::fri::FriConfig;
-    use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
     use crate::gates::noop::NoopGate;
-    use crate::hash::merkle_proofs::MerkleProofTarget;
     use crate::iop::witness::{PartialWitness, Witness};
-    use crate::plonk::circuit_data::VerifierOnlyCircuitData;
+    use crate::plonk::circuit_data::{CircuitConfig, VerifierOnlyCircuitData};
     use crate::plonk::config::{
-        GMiMCGoldilocksConfig, GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig,
+        GenericConfig, Hasher, KeccakGoldilocksConfig, PoseidonGoldilocksConfig,
     };
-    use crate::plonk::proof::{
-        CompressedProofWithPublicInputs, OpeningSetTarget, Proof, ProofTarget,
-        ProofWithPublicInputs,
-    };
+    use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
     use crate::plonk::prover::prove;
     use crate::util::timing::TimingTree;
 
-    // Construct a `FriQueryRoundTarget` with the same dimensions as the ones in `proof`.
-    fn get_fri_query_round<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
-        proof: &Proof<F, C, D>,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> FriQueryRoundTarget<D> {
-        let mut query_round = FriQueryRoundTarget {
-            initial_trees_proof: FriInitialTreeProofTarget {
-                evals_proofs: vec![],
-            },
-            steps: vec![],
-        };
-        for (v, merkle_proof) in &proof.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs
-        {
-            query_round.initial_trees_proof.evals_proofs.push((
-                builder.add_virtual_targets(v.len()),
-                MerkleProofTarget {
-                    siblings: builder.add_virtual_hashes(merkle_proof.siblings.len()),
-                },
-            ));
-        }
-        for step in &proof.opening_proof.query_round_proofs[0].steps {
-            query_round.steps.push(FriQueryStepTarget {
-                evals: builder.add_virtual_extension_targets(step.evals.len()),
-                merkle_proof: MerkleProofTarget {
-                    siblings: builder.add_virtual_hashes(step.merkle_proof.siblings.len()),
-                },
-            });
-        }
-        query_round
-    }
-
-    // Construct a `ProofTarget` with the same dimensions as `proof`.
-    fn proof_to_proof_target<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
-        proof_with_pis: &ProofWithPublicInputs<F, C, D>,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> ProofWithPublicInputsTarget<D> {
-        let ProofWithPublicInputs {
-            proof,
-            public_inputs,
-        } = proof_with_pis;
-
-        let wires_cap = builder.add_virtual_cap(log2_strict(proof.wires_cap.0.len()));
-        let plonk_zs_cap =
-            builder.add_virtual_cap(log2_strict(proof.plonk_zs_partial_products_cap.0.len()));
-        let quotient_polys_cap =
-            builder.add_virtual_cap(log2_strict(proof.quotient_polys_cap.0.len()));
-
-        let openings = OpeningSetTarget {
-            constants: builder.add_virtual_extension_targets(proof.openings.constants.len()),
-            plonk_sigmas: builder.add_virtual_extension_targets(proof.openings.plonk_sigmas.len()),
-            wires: builder.add_virtual_extension_targets(proof.openings.wires.len()),
-            plonk_zs: builder.add_virtual_extension_targets(proof.openings.plonk_zs.len()),
-            plonk_zs_right: builder
-                .add_virtual_extension_targets(proof.openings.plonk_zs_right.len()),
-            partial_products: builder
-                .add_virtual_extension_targets(proof.openings.partial_products.len()),
-            quotient_polys: builder
-                .add_virtual_extension_targets(proof.openings.quotient_polys.len()),
-        };
-        let query_round_proofs = (0..proof.opening_proof.query_round_proofs.len())
-            .map(|_| get_fri_query_round(proof, builder))
-            .collect();
-        let commit_phase_merkle_caps = proof
-            .opening_proof
-            .commit_phase_merkle_caps
-            .iter()
-            .map(|r| builder.add_virtual_cap(log2_strict(r.0.len())))
-            .collect();
-        let opening_proof = FriProofTarget {
-            commit_phase_merkle_caps,
-            query_round_proofs,
-            final_poly: PolynomialCoeffsExtTarget(
-                builder.add_virtual_extension_targets(proof.opening_proof.final_poly.len()),
-            ),
-            pow_witness: builder.add_virtual_target(),
-        };
-
-        let proof = ProofTarget {
-            wires_cap,
-            plonk_zs_partial_products_cap: plonk_zs_cap,
-            quotient_polys_cap,
-            openings,
-            opening_proof,
-        };
-
-        let public_inputs = builder.add_virtual_targets(public_inputs.len());
-        ProofWithPublicInputsTarget {
-            proof,
-            public_inputs,
-        }
-    }
-
-    // Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
-    fn set_proof_target<
-        F: RichField + Extendable<D>,
-        C: AlgebraicConfig<D, F = F>,
-        const D: usize,
-    >(
-        proof: &ProofWithPublicInputs<F, C, D>,
-        pt: &ProofWithPublicInputsTarget<D>,
-        pw: &mut PartialWitness<F>,
-    ) {
-        let ProofWithPublicInputs {
-            proof,
-            public_inputs,
-        } = proof;
-        let ProofWithPublicInputsTarget {
-            proof: pt,
-            public_inputs: pi_targets,
-        } = pt;
-
-        // Set public inputs.
-        for (&pi_t, &pi) in pi_targets.iter().zip(public_inputs) {
-            pw.set_target(pi_t, pi);
-        }
-
-        pw.set_cap_target(&pt.wires_cap, &proof.wires_cap);
-        pw.set_cap_target(
-            &pt.plonk_zs_partial_products_cap,
-            &proof.plonk_zs_partial_products_cap,
-        );
-        pw.set_cap_target(&pt.quotient_polys_cap, &proof.quotient_polys_cap);
-
-        for (&t, &x) in pt.openings.wires.iter().zip(&proof.openings.wires) {
-            pw.set_extension_target(t, x);
-        }
-        for (&t, &x) in pt.openings.constants.iter().zip(&proof.openings.constants) {
-            pw.set_extension_target(t, x);
-        }
-        for (&t, &x) in pt
-            .openings
-            .plonk_sigmas
-            .iter()
-            .zip(&proof.openings.plonk_sigmas)
-        {
-            pw.set_extension_target(t, x);
-        }
-        for (&t, &x) in pt.openings.plonk_zs.iter().zip(&proof.openings.plonk_zs) {
-            pw.set_extension_target(t, x);
-        }
-        for (&t, &x) in pt
-            .openings
-            .plonk_zs_right
-            .iter()
-            .zip(&proof.openings.plonk_zs_right)
-        {
-            pw.set_extension_target(t, x);
-        }
-        for (&t, &x) in pt
-            .openings
-            .partial_products
-            .iter()
-            .zip(&proof.openings.partial_products)
-        {
-            pw.set_extension_target(t, x);
-        }
-        for (&t, &x) in pt
-            .openings
-            .quotient_polys
-            .iter()
-            .zip(&proof.openings.quotient_polys)
-        {
-            pw.set_extension_target(t, x);
-        }
-
-        let fri_proof = &proof.opening_proof;
-        let fpt = &pt.opening_proof;
-
-        pw.set_target(fpt.pow_witness, fri_proof.pow_witness);
-
-        for (&t, &x) in fpt.final_poly.0.iter().zip(&fri_proof.final_poly.coeffs) {
-            pw.set_extension_target(t, x);
-        }
-
-        for (t, x) in fpt
-            .commit_phase_merkle_caps
-            .iter()
-            .zip(&fri_proof.commit_phase_merkle_caps)
-        {
-            pw.set_cap_target(t, x);
-        }
-
-        for (qt, q) in fpt
-            .query_round_proofs
-            .iter()
-            .zip(&fri_proof.query_round_proofs)
-        {
-            for (at, a) in qt
-                .initial_trees_proof
-                .evals_proofs
-                .iter()
-                .zip(&q.initial_trees_proof.evals_proofs)
-            {
-                for (&t, &x) in at.0.iter().zip(&a.0) {
-                    pw.set_target(t, x);
-                }
-                for (&t, &x) in at.1.siblings.iter().zip(&a.1.siblings) {
-                    pw.set_hash_target(t, x);
-                }
-            }
-
-            for (st, s) in qt.steps.iter().zip(&q.steps) {
-                for (&t, &x) in st.evals.iter().zip(&s.evals) {
-                    pw.set_extension_target(t, x);
-                }
-                for (&t, &x) in st
-                    .merkle_proof
-                    .siblings
-                    .iter()
-                    .zip(&s.merkle_proof.siblings)
-                {
-                    pw.set_hash_target(t, x);
-                }
-            }
-        }
-    }
-
     #[test]
-    #[ignore]
     fn test_recursive_verifier() -> Result<()> {
         init_logger();
         const D: usize = 2;
@@ -387,14 +204,13 @@ mod tests {
 
         let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 4_000)?;
         let (proof, _vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, None, true, true)?;
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
         test_serialization(&proof, &cd)?;
 
         Ok(())
     }
 
     #[test]
-    #[ignore]
     fn test_recursive_recursive_verifier() -> Result<()> {
         init_logger();
         const D: usize = 2;
@@ -409,12 +225,12 @@ mod tests {
 
         // Shrink it to 2^13.
         let (proof, vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, Some(13), false, false)?;
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, Some(13), false, false)?;
         assert_eq!(cd.degree_bits, 13);
 
         // Shrink it to 2^12.
         let (proof, _vd, cd) =
-            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, &config, None, true, true)?;
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
         assert_eq!(cd.degree_bits, 12);
 
         test_serialization(&proof, &cd)?;
@@ -440,16 +256,7 @@ mod tests {
         assert_eq!(cd.degree_bits, 12);
 
         // A standard recursive proof.
-        let (proof, vd, cd) = recursive_proof(
-            proof,
-            vd,
-            cd,
-            &standard_config,
-            &standard_config,
-            None,
-            false,
-            false,
-        )?;
+        let (proof, vd, cd) = recursive_proof(proof, vd, cd, &standard_config, None, false, false)?;
         assert_eq!(cd.degree_bits, 12);
 
         // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
@@ -462,16 +269,8 @@ mod tests {
             },
             ..standard_config
         };
-        let (proof, vd, cd) = recursive_proof::<F, C, C, D>(
-            proof,
-            vd,
-            cd,
-            &standard_config,
-            &high_rate_config,
-            None,
-            true,
-            true,
-        )?;
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &high_rate_config, None, true, true)?;
         assert_eq!(cd.degree_bits, 12);
 
         // A final proof, optimized for size.
@@ -486,16 +285,8 @@ mod tests {
             },
             ..high_rate_config
         };
-        let (proof, _vd, cd) = recursive_proof::<F, KC, C, D>(
-            proof,
-            vd,
-            cd,
-            &high_rate_config,
-            &final_config,
-            None,
-            true,
-            true,
-        )?;
+        let (proof, _vd, cd) =
+            recursive_proof::<F, KC, C, D>(proof, vd, cd, &final_config, None, true, true)?;
         assert_eq!(cd.degree_bits, 12, "final proof too large");
 
         test_serialization(&proof, &cd)?;
@@ -504,12 +295,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_recursive_verifier_multi_hash() -> Result<()> {
         init_logger();
         const D: usize = 2;
         type PC = PoseidonGoldilocksConfig;
-        type GC = GMiMCGoldilocksConfig;
         type KC = KeccakGoldilocksConfig;
         type F = <PC as GenericConfig<D>>::F;
 
@@ -517,19 +306,11 @@ mod tests {
         let (proof, vd, cd) = dummy_proof::<F, PC, D>(&config, 4_000)?;
 
         let (proof, vd, cd) =
-            recursive_proof::<F, PC, PC, D>(proof, vd, cd, &config, &config, None, false, false)?;
-        test_serialization(&proof, &cd)?;
-
-        let (proof, vd, cd) =
-            recursive_proof::<F, GC, PC, D>(proof, vd, cd, &config, &config, None, false, false)?;
-        test_serialization(&proof, &cd)?;
-
-        let (proof, vd, cd) =
-            recursive_proof::<F, GC, GC, D>(proof, vd, cd, &config, &config, None, false, false)?;
+            recursive_proof::<F, PC, PC, D>(proof, vd, cd, &config, None, false, false)?;
         test_serialization(&proof, &cd)?;
 
         let (proof, _vd, cd) =
-            recursive_proof::<F, KC, GC, D>(proof, vd, cd, &config, &config, None, false, false)?;
+            recursive_proof::<F, KC, PC, D>(proof, vd, cd, &config, None, false, false)?;
         test_serialization(&proof, &cd)?;
 
         Ok(())
@@ -543,7 +324,10 @@ mod tests {
         ProofWithPublicInputs<F, C, D>,
         VerifierOnlyCircuitData<C, D>,
         CommonCircuitData<F, C, D>,
-    )> {
+    )>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         for _ in 0..num_dummy_gates {
             builder.add_gate(NoopGate, vec![], vec![]);
@@ -560,13 +344,12 @@ mod tests {
     fn recursive_proof<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
-        InnerC: AlgebraicConfig<D, F = F>,
+        InnerC: GenericConfig<D, F = F>,
         const D: usize,
     >(
         inner_proof: ProofWithPublicInputs<F, InnerC, D>,
         inner_vd: VerifierOnlyCircuitData<InnerC, D>,
         inner_cd: CommonCircuitData<F, InnerC, D>,
-        inner_config: &CircuitConfig,
         config: &CircuitConfig,
         min_degree_bits: Option<usize>,
         print_gate_counts: bool,
@@ -575,21 +358,25 @@ mod tests {
         ProofWithPublicInputs<F, C, D>,
         VerifierOnlyCircuitData<C, D>,
         CommonCircuitData<F, C, D>,
-    )> {
+    )>
+    where
+        InnerC::Hasher: AlgebraicHasher<F>,
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
-        let pt = proof_to_proof_target(&inner_proof, &mut builder);
-        set_proof_target(&inner_proof, &pt, &mut pw);
+        let pt = builder.add_virtual_proof_with_pis(&inner_cd);
+        pw.set_proof_with_pis_target(&pt, &inner_proof);
 
         let inner_data = VerifierCircuitTarget {
-            constants_sigmas_cap: builder.add_virtual_cap(inner_config.fri_config.cap_height),
+            constants_sigmas_cap: builder.add_virtual_cap(inner_cd.config.fri_config.cap_height),
         };
         pw.set_cap_target(
             &inner_data.constants_sigmas_cap,
             &inner_vd.constants_sigmas_cap,
         );
 
-        builder.add_recursive_verifier(pt, inner_config, &inner_data, &inner_cd);
+        builder.verify_proof(pt, &inner_data, &inner_cd);
 
         if print_gate_counts {
             builder.print_gate_counts(0);
@@ -626,7 +413,10 @@ mod tests {
     >(
         proof: &ProofWithPublicInputs<F, C, D>,
         cd: &CommonCircuitData<F, C, D>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         let proof_bytes = proof.to_bytes()?;
         info!("Proof length: {} bytes", proof_bytes.len());
         let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, cd)?;

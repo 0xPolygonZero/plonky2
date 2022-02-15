@@ -213,7 +213,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
                 );
                 g
             })
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     fn num_wires(&self) -> usize {
@@ -440,10 +440,7 @@ mod tests {
                 v1.append(&mut output_limbs_f);
             }
 
-            v0.iter()
-                .chain(v1.iter())
-                .map(|&x| x.into())
-                .collect::<Vec<_>>()
+            v0.iter().chain(v1.iter()).map(|&x| x.into()).collect()
         }
 
         let mut rng = rand::thread_rng();

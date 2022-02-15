@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
+use itertools::Itertools;
 use num::{BigUint, FromPrimitive, Zero};
 use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::Field;
+use plonky2_field::field_types::{Field, PrimeField};
 
+use crate::fri::witness_util::set_fri_proof_target;
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
@@ -14,7 +16,8 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
-use crate::plonk::config::AlgebraicHasher;
+use crate::plonk::config::{AlgebraicHasher, GenericConfig};
+use crate::plonk::proof::{Proof, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget};
 
 /// A witness holds information on the values of targets in a circuit.
 pub trait Witness<F: Field> {
@@ -59,20 +62,26 @@ pub trait Witness<F: Field> {
         panic!("not a bool")
     }
 
-    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint {
+    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint
+    where
+        F: PrimeField,
+    {
         let mut result = BigUint::zero();
 
         let limb_base = BigUint::from_u64(1 << 32u64).unwrap();
         for i in (0..target.num_limbs()).rev() {
             let limb = target.get_limb(i);
             result *= &limb_base;
-            result += self.get_target(limb.0).to_biguint();
+            result += self.get_target(limb.0).to_canonical_biguint();
         }
 
         result
     }
 
-    fn get_nonnative_target<FF: Field>(&self, target: NonNativeTarget<FF>) -> FF {
+    fn get_nonnative_target<FF: PrimeField>(&self, target: NonNativeTarget<FF>) -> FF
+    where
+        F: PrimeField,
+    {
         let val = self.get_biguint_target(target.value);
         FF::from_biguint(val)
     }
@@ -153,6 +162,109 @@ pub trait Witness<F: Field> {
         for (&lt, &l) in target.limbs.iter().zip(&value.to_u32_digits()) {
             self.set_u32_target(lt, l);
         }
+    }
+
+    /// Set the targets in a `ProofWithPublicInputsTarget` to their corresponding values in a
+    /// `ProofWithPublicInputs`.
+    fn set_proof_with_pis_target<C: GenericConfig<D, F = F>, const D: usize>(
+        &mut self,
+        proof_with_pis_target: &ProofWithPublicInputsTarget<D>,
+        proof_with_pis: &ProofWithPublicInputs<F, C, D>,
+    ) where
+        F: RichField + Extendable<D>,
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        let ProofWithPublicInputs {
+            proof,
+            public_inputs,
+        } = proof_with_pis;
+        let ProofWithPublicInputsTarget {
+            proof: pt,
+            public_inputs: pi_targets,
+        } = proof_with_pis_target;
+
+        // Set public inputs.
+        for (&pi_t, &pi) in pi_targets.iter().zip_eq(public_inputs) {
+            self.set_target(pi_t, pi);
+        }
+
+        self.set_proof_target(pt, proof);
+    }
+
+    /// Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
+    fn set_proof_target<C: GenericConfig<D, F = F>, const D: usize>(
+        &mut self,
+        proof_target: &ProofTarget<D>,
+        proof: &Proof<F, C, D>,
+    ) where
+        F: RichField + Extendable<D>,
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        self.set_cap_target(&proof_target.wires_cap, &proof.wires_cap);
+        self.set_cap_target(
+            &proof_target.plonk_zs_partial_products_cap,
+            &proof.plonk_zs_partial_products_cap,
+        );
+        self.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap);
+
+        for (&t, &x) in proof_target
+            .openings
+            .wires
+            .iter()
+            .zip_eq(&proof.openings.wires)
+        {
+            self.set_extension_target(t, x);
+        }
+        for (&t, &x) in proof_target
+            .openings
+            .constants
+            .iter()
+            .zip_eq(&proof.openings.constants)
+        {
+            self.set_extension_target(t, x);
+        }
+        for (&t, &x) in proof_target
+            .openings
+            .plonk_sigmas
+            .iter()
+            .zip_eq(&proof.openings.plonk_sigmas)
+        {
+            self.set_extension_target(t, x);
+        }
+        for (&t, &x) in proof_target
+            .openings
+            .plonk_zs
+            .iter()
+            .zip_eq(&proof.openings.plonk_zs)
+        {
+            self.set_extension_target(t, x);
+        }
+        for (&t, &x) in proof_target
+            .openings
+            .plonk_zs_right
+            .iter()
+            .zip_eq(&proof.openings.plonk_zs_right)
+        {
+            self.set_extension_target(t, x);
+        }
+        for (&t, &x) in proof_target
+            .openings
+            .partial_products
+            .iter()
+            .zip_eq(&proof.openings.partial_products)
+        {
+            self.set_extension_target(t, x);
+        }
+        for (&t, &x) in proof_target
+            .openings
+            .quotient_polys
+            .iter()
+            .zip_eq(&proof.openings.quotient_polys)
+        {
+            self.set_extension_target(t, x);
+        }
+
+        set_fri_proof_target(self, &proof_target.opening_proof, &proof.opening_proof);
     }
 
     fn set_wire(&mut self, wire: Wire, value: F) {

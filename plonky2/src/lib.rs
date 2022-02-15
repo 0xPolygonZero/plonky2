@@ -6,7 +6,6 @@
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::needless_range_loop)]
 #![allow(clippy::return_self_not_must_use)]
-#![feature(asm_sym)]
 #![feature(generic_const_exprs)]
 #![feature(specialization)]
 #![feature(stdsimd)]

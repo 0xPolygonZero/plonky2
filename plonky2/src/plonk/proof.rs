@@ -1,9 +1,16 @@
+use anyhow::ensure;
 use plonky2_field::extension_field::Extendable;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::fri::commitment::PolynomialBatchCommitment;
-use crate::fri::proof::{CompressedFriProof, FriProof, FriProofTarget};
+use crate::fri::oracle::PolynomialBatch;
+use crate::fri::proof::{
+    CompressedFriProof, FriChallenges, FriChallengesTarget, FriProof, FriProofTarget,
+};
+use crate::fri::structure::{
+    FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
+};
+use crate::fri::FriParams;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
@@ -28,6 +35,7 @@ pub struct Proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     pub opening_proof: FriProof<F, C::Hasher, D>,
 }
 
+#[derive(Debug)]
 pub struct ProofTarget<const D: usize> {
     pub wires_cap: MerkleCapTarget,
     pub plonk_zs_partial_products_cap: MerkleCapTarget,
@@ -38,11 +46,7 @@ pub struct ProofTarget<const D: usize> {
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> Proof<F, C, D> {
     /// Compress the proof.
-    pub fn compress(
-        self,
-        indices: &[usize],
-        common_data: &CommonCircuitData<F, C, D>,
-    ) -> CompressedProof<F, C, D> {
+    pub fn compress(self, indices: &[usize], params: &FriParams) -> CompressedProof<F, C, D> {
         let Proof {
             wires_cap,
             plonk_zs_partial_products_cap,
@@ -56,7 +60,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> P
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
             openings,
-            opening_proof: opening_proof.compress(indices, common_data),
+            opening_proof: opening_proof.compress::<C>(indices, params),
         }
     }
 }
@@ -80,7 +84,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         common_data: &CommonCircuitData<F, C, D>,
     ) -> anyhow::Result<CompressedProofWithPublicInputs<F, C, D>> {
         let indices = self.fri_query_indices(common_data)?;
-        let compressed_proof = self.proof.compress(&indices, common_data);
+        let compressed_proof = self.proof.compress(&indices, &common_data.fri_params);
         Ok(CompressedProofWithPublicInputs {
             public_inputs: self.public_inputs,
             proof: compressed_proof,
@@ -90,7 +94,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub(crate) fn get_public_inputs_hash(
         &self,
     ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash {
-        C::InnerHasher::hash(self.public_inputs.clone(), true)
+        C::InnerHasher::hash_no_pad(&self.public_inputs)
     }
 
     pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -133,8 +137,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         self,
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,
-        common_data: &CommonCircuitData<F, C, D>,
-    ) -> Proof<F, C, D> {
+        params: &FriParams,
+    ) -> Proof<F, C, D>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         let CompressedProof {
             wires_cap,
             plonk_zs_partial_products_cap,
@@ -148,7 +155,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
             openings,
-            opening_proof: opening_proof.decompress(challenges, fri_inferred_elements, common_data),
+            opening_proof: opening_proof.decompress::<C>(challenges, fri_inferred_elements, params),
         }
     }
 }
@@ -170,12 +177,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub fn decompress(
         self,
         common_data: &CommonCircuitData<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        let challenges = self.get_challenges(common_data)?;
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
+        let challenges = self.get_challenges(self.get_public_inputs_hash(), common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let decompressed_proof =
             self.proof
-                .decompress(&challenges, fri_inferred_elements, common_data);
+                .decompress(&challenges, fri_inferred_elements, &common_data.fri_params);
         Ok(ProofWithPublicInputs {
             public_inputs: self.public_inputs,
             proof: decompressed_proof,
@@ -186,17 +196,23 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         self,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         common_data: &CommonCircuitData<F, C, D>,
-    ) -> anyhow::Result<()> {
-        let challenges = self.get_challenges(common_data)?;
+    ) -> anyhow::Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
+        ensure!(
+            self.public_inputs.len() == common_data.num_public_inputs,
+            "Number of public inputs doesn't match circuit data."
+        );
+        let public_inputs_hash = self.get_public_inputs_hash();
+        let challenges = self.get_challenges(public_inputs_hash, common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let decompressed_proof =
             self.proof
-                .decompress(&challenges, fri_inferred_elements, common_data);
+                .decompress(&challenges, fri_inferred_elements, &common_data.fri_params);
         verify_with_challenges(
-            ProofWithPublicInputs {
-                public_inputs: self.public_inputs,
-                proof: decompressed_proof,
-            },
+            decompressed_proof,
+            public_inputs_hash,
             challenges,
             verifier_data,
             common_data,
@@ -206,7 +222,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub(crate) fn get_public_inputs_hash(
         &self,
     ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash {
-        C::InnerHasher::hash(self.public_inputs.clone(), true)
+        C::InnerHasher::hash_no_pad(&self.public_inputs)
     }
 
     pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -226,28 +242,27 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 }
 
 pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> {
-    // Random values used in Plonk's permutation argument.
+    /// Random values used in Plonk's permutation argument.
     pub plonk_betas: Vec<F>,
 
-    // Random values used in Plonk's permutation argument.
+    /// Random values used in Plonk's permutation argument.
     pub plonk_gammas: Vec<F>,
 
-    // Random values used to combine PLONK constraints.
+    /// Random values used to combine PLONK constraints.
     pub plonk_alphas: Vec<F>,
 
-    // Point at which the PLONK polynomials are opened.
+    /// Point at which the PLONK polynomials are opened.
     pub plonk_zeta: F::Extension,
 
-    // Scaling factor to combine polynomials.
-    pub fri_alpha: F::Extension,
+    pub fri_challenges: FriChallenges<F, D>,
+}
 
-    // Betas used in the FRI commit phase reductions.
-    pub fri_betas: Vec<F::Extension>,
-
-    pub fri_pow_response: F,
-
-    // Indices at which the oracle is queried in FRI.
-    pub fri_query_indices: Vec<usize>,
+pub(crate) struct ProofChallengesTarget<const D: usize> {
+    pub plonk_betas: Vec<Target>,
+    pub plonk_gammas: Vec<Target>,
+    pub plonk_alphas: Vec<Target>,
+    pub plonk_zeta: ExtensionTarget<D>,
+    pub fri_challenges: FriChallengesTarget<D>,
 }
 
 /// Coset elements that can be inferred in the FRI reduction steps.
@@ -255,6 +270,7 @@ pub(crate) struct FriInferredElements<F: RichField + Extendable<D>, const D: usi
     pub Vec<F::Extension>,
 );
 
+#[derive(Debug)]
 pub struct ProofWithPublicInputsTarget<const D: usize> {
     pub proof: ProofTarget<D>,
     pub public_inputs: Vec<Target>,
@@ -274,33 +290,53 @@ pub struct OpeningSet<F: RichField + Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
     pub fn new<C: GenericConfig<D, F = F>>(
-        z: F::Extension,
+        zeta: F::Extension,
         g: F::Extension,
-        constants_sigmas_commitment: &PolynomialBatchCommitment<F, C, D>,
-        wires_commitment: &PolynomialBatchCommitment<F, C, D>,
-        zs_partial_products_commitment: &PolynomialBatchCommitment<F, C, D>,
-        quotient_polys_commitment: &PolynomialBatchCommitment<F, C, D>,
+        constants_sigmas_commitment: &PolynomialBatch<F, C, D>,
+        wires_commitment: &PolynomialBatch<F, C, D>,
+        zs_partial_products_commitment: &PolynomialBatch<F, C, D>,
+        quotient_polys_commitment: &PolynomialBatch<F, C, D>,
         common_data: &CommonCircuitData<F, C, D>,
     ) -> Self {
-        let eval_commitment = |z: F::Extension, c: &PolynomialBatchCommitment<F, C, D>| {
+        let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
             c.polynomials
                 .par_iter()
                 .map(|p| p.to_extension().eval(z))
                 .collect::<Vec<_>>()
         };
-        let constants_sigmas_eval = eval_commitment(z, constants_sigmas_commitment);
-        let zs_partial_products_eval = eval_commitment(z, zs_partial_products_commitment);
+        let constants_sigmas_eval = eval_commitment(zeta, constants_sigmas_commitment);
+        let zs_partial_products_eval = eval_commitment(zeta, zs_partial_products_commitment);
         Self {
             constants: constants_sigmas_eval[common_data.constants_range()].to_vec(),
             plonk_sigmas: constants_sigmas_eval[common_data.sigmas_range()].to_vec(),
-            wires: eval_commitment(z, wires_commitment),
+            wires: eval_commitment(zeta, wires_commitment),
             plonk_zs: zs_partial_products_eval[common_data.zs_range()].to_vec(),
-            plonk_zs_right: eval_commitment(g * z, zs_partial_products_commitment)
+            plonk_zs_right: eval_commitment(g * zeta, zs_partial_products_commitment)
                 [common_data.zs_range()]
             .to_vec(),
             partial_products: zs_partial_products_eval[common_data.partial_products_range()]
                 .to_vec(),
-            quotient_polys: eval_commitment(z, quotient_polys_commitment),
+            quotient_polys: eval_commitment(zeta, quotient_polys_commitment),
+        }
+    }
+
+    pub(crate) fn to_fri_openings(&self) -> FriOpenings<F, D> {
+        let zeta_batch = FriOpeningBatch {
+            values: [
+                self.constants.as_slice(),
+                self.plonk_sigmas.as_slice(),
+                self.wires.as_slice(),
+                self.plonk_zs.as_slice(),
+                self.partial_products.as_slice(),
+                self.quotient_polys.as_slice(),
+            ]
+            .concat(),
+        };
+        let zeta_right_batch = FriOpeningBatch {
+            values: self.plonk_zs_right.clone(),
+        };
+        FriOpenings {
+            batches: vec![zeta_batch, zeta_right_batch],
         }
     }
 }
@@ -315,6 +351,28 @@ pub struct OpeningSetTarget<const D: usize> {
     pub plonk_zs_right: Vec<ExtensionTarget<D>>,
     pub partial_products: Vec<ExtensionTarget<D>>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
+}
+
+impl<const D: usize> OpeningSetTarget<D> {
+    pub(crate) fn to_fri_openings(&self) -> FriOpeningsTarget<D> {
+        let zeta_batch = FriOpeningBatchTarget {
+            values: [
+                self.constants.as_slice(),
+                self.plonk_sigmas.as_slice(),
+                self.wires.as_slice(),
+                self.plonk_zs.as_slice(),
+                self.partial_products.as_slice(),
+                self.quotient_polys.as_slice(),
+            ]
+            .concat(),
+        };
+        let zeta_right_batch = FriOpeningBatchTarget {
+            values: self.plonk_zs_right.clone(),
+        };
+        FriOpeningsTarget {
+            batches: vec![zeta_batch, zeta_right_batch],
+        }
+    }
 }
 
 #[cfg(test)]

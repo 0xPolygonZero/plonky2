@@ -57,7 +57,10 @@ pub(crate) fn decompress_merkle_proofs<F: RichField, H: Hasher<F>>(
     compressed_proofs: &[MerkleProof<F, H>],
     height: usize,
     cap_height: usize,
-) -> Vec<MerkleProof<F, H>> {
+) -> Vec<MerkleProof<F, H>>
+where
+    [(); H::HASH_SIZE]:,
+{
     let num_leaves = 1 << height;
     let compressed_proofs = compressed_proofs.to_vec();
     let mut decompressed_proofs = Vec::with_capacity(compressed_proofs.len());
@@ -66,7 +69,7 @@ pub(crate) fn decompress_merkle_proofs<F: RichField, H: Hasher<F>>(
 
     for (&i, v) in leaves_indices.iter().zip(leaves_data) {
         // Observe the leaves.
-        seen.insert(i + num_leaves, H::hash(v.to_vec(), false));
+        seen.insert(i + num_leaves, H::hash_or_noop(v));
     }
 
     // Iterators over the siblings.

@@ -6,8 +6,8 @@ pub(crate) mod marking;
 pub(crate) mod partial_products;
 pub mod reducing;
 pub mod serialization;
-pub(crate) mod strided_view;
-pub(crate) mod timing;
+pub mod strided_view;
+pub mod timing;
 
 pub(crate) fn transpose_poly_values<F: Field>(polys: Vec<PolynomialValues<F>>) -> Vec<Vec<F>> {
     let poly_values = polys.into_iter().map(|p| p.values).collect::<Vec<_>>();
@@ -99,7 +99,18 @@ mod tests {
     }
 
     #[test]
-    fn test_reverse_index_bits_in_place() {
+    fn test_reverse_index_bits_in_place_trivial() {
+        let mut arr1: Vec<u64> = vec![10];
+        reverse_index_bits_in_place(&mut arr1);
+        assert_eq!(arr1, vec![10]);
+
+        let mut arr2: Vec<u64> = vec![10, 20];
+        reverse_index_bits_in_place(&mut arr2);
+        assert_eq!(arr2, vec![10, 20]);
+    }
+
+    #[test]
+    fn test_reverse_index_bits_in_place_small() {
         let mut arr4: Vec<u64> = vec![10, 20, 30, 40];
         reverse_index_bits_in_place(&mut arr4);
         assert_eq!(arr4, vec![10, 30, 20, 40]);
@@ -126,5 +137,27 @@ mod tests {
         ];
         reverse_index_bits_in_place(&mut arr256);
         assert_eq!(arr256, output256);
+    }
+
+    #[test]
+    fn test_reverse_index_bits_in_place_big_even() {
+        let mut arr: Vec<u64> = (0..1 << 16).collect();
+        let target = reverse_index_bits(&arr);
+        reverse_index_bits_in_place(&mut arr);
+        assert_eq!(arr, target);
+        reverse_index_bits_in_place(&mut arr);
+        let range: Vec<u64> = (0..1 << 16).collect();
+        assert_eq!(arr, range);
+    }
+
+    #[test]
+    fn test_reverse_index_bits_in_place_big_odd() {
+        let mut arr: Vec<u64> = (0..1 << 17).collect();
+        let target = reverse_index_bits(&arr);
+        reverse_index_bits_in_place(&mut arr);
+        assert_eq!(arr, target);
+        reverse_index_bits_in_place(&mut arr);
+        let range: Vec<u64> = (0..1 << 17).collect();
+        assert_eq!(arr, range);
     }
 }

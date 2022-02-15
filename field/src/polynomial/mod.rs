@@ -26,17 +26,28 @@ impl<F: Field> PolynomialValues<F> {
         PolynomialValues { values }
     }
 
+    pub fn zero(len: usize) -> Self {
+        Self::new(vec![F::ZERO; len])
+    }
+
+    /// Returns the polynomial whole value is one at the given index, and zero elsewhere.
+    pub fn selector(len: usize, index: usize) -> Self {
+        let mut result = Self::zero(len);
+        result.values[index] = F::ONE;
+        result
+    }
+
     /// The number of values stored.
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.values.len()
     }
 
-    pub fn ifft(&self) -> PolynomialCoeffs<F> {
+    pub fn ifft(self) -> PolynomialCoeffs<F> {
         ifft(self)
     }
 
     /// Returns the polynomial whose evaluation on the coset `shift*H` is `self`.
-    pub fn coset_ifft(&self, shift: F) -> PolynomialCoeffs<F> {
+    pub fn coset_ifft(self, shift: F) -> PolynomialCoeffs<F> {
         let mut shifted_coeffs = self.ifft();
         shifted_coeffs
             .coeffs
@@ -52,9 +63,15 @@ impl<F: Field> PolynomialValues<F> {
         polys.into_iter().map(|p| p.lde(rate_bits)).collect()
     }
 
-    pub fn lde(&self, rate_bits: usize) -> Self {
+    pub fn lde(self, rate_bits: usize) -> Self {
         let coeffs = ifft(self).lde(rate_bits);
-        fft_with_options(&coeffs, Some(rate_bits), None)
+        fft_with_options(coeffs, Some(rate_bits), None)
+    }
+
+    /// Low-degree extend `Self` (seen as evaluations over the subgroup) onto a coset.
+    pub fn lde_onto_coset(self, rate_bits: usize) -> Self {
+        let coeffs = ifft(self).lde(rate_bits);
+        coeffs.coset_fft_with_options(F::coset_shift(), Some(rate_bits), None)
     }
 
     pub fn degree(&self) -> usize {
@@ -64,7 +81,7 @@ impl<F: Field> PolynomialValues<F> {
     }
 
     pub fn degree_plus_one(&self) -> usize {
-        self.ifft().degree_plus_one()
+        self.clone().ifft().degree_plus_one()
     }
 }
 
@@ -180,12 +197,21 @@ impl<F: Field> PolynomialCoeffs<F> {
         poly
     }
 
-    /// Removes leading zero coefficients.
+    /// Removes any leading zero coefficients.
     pub fn trim(&mut self) {
         self.coeffs.truncate(self.degree_plus_one());
     }
 
-    /// Removes leading zero coefficients.
+    /// Removes some leading zero coefficients, such that a desired length is reached. Fails if a
+    /// nonzero coefficient is encountered before then.
+    pub fn trim_to_len(&mut self, len: usize) -> Result<()> {
+        ensure!(self.len() >= len);
+        ensure!(self.coeffs[len..].iter().all(F::is_zero));
+        self.coeffs.truncate(len);
+        Ok(())
+    }
+
+    /// Removes any leading zero coefficients.
     pub fn trimmed(&self) -> Self {
         let coeffs = self.coeffs[..self.degree_plus_one()].to_vec();
         Self { coeffs }
@@ -213,12 +239,12 @@ impl<F: Field> PolynomialCoeffs<F> {
         Self::new(self.trimmed().coeffs.into_iter().rev().collect())
     }
 
-    pub fn fft(&self) -> PolynomialValues<F> {
+    pub fn fft(self) -> PolynomialValues<F> {
         fft(self)
     }
 
     pub fn fft_with_options(
-        &self,
+        self,
         zero_factor: Option<usize>,
         root_table: Option<&FftRootTable<F>>,
     ) -> PolynomialValues<F> {
@@ -386,7 +412,7 @@ impl<F: Field> Mul for &PolynomialCoeffs<F> {
             .zip(b_evals.values)
             .map(|(pa, pb)| pa * pb)
             .collect();
-        ifft(&mul_evals.into())
+        ifft(mul_evals.into())
     }
 }
 
@@ -454,7 +480,7 @@ mod tests {
         let n = 1 << k;
         let evals = PolynomialValues::new(F::rand_vec(n));
         let shift = F::rand();
-        let coeffs = evals.coset_ifft(shift);
+        let coeffs = evals.clone().coset_ifft(shift);
 
         let generator = F::primitive_root_of_unity(k);
         let naive_coset_evals = F::cyclic_subgroup_coset_known_order(generator, shift, n)

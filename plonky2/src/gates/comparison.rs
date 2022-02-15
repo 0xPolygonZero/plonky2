@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::{Field, PrimeField};
+use plonky2_field::field_types::{Field, Field64};
 use plonky2_field::packed_field::PackedField;
 use plonky2_util::{bits_u64, ceil_div_usize};
 
@@ -24,7 +24,7 @@ use crate::plonk::vars::{
 
 /// A gate for checking that one value is less than or equal to another.
 #[derive(Clone, Debug)]
-pub struct ComparisonGate<F: PrimeField + Extendable<D>, const D: usize> {
+pub struct ComparisonGate<F: Field64 + Extendable<D>, const D: usize> {
     pub(crate) num_bits: usize,
     pub(crate) num_chunks: usize,
     _phantom: PhantomData<F>,
@@ -541,7 +541,8 @@ mod tests {
     use std::marker::PhantomData;
 
     use anyhow::Result;
-    use plonky2_field::field_types::{Field, PrimeField};
+    use plonky2_field::field_types::Field;
+    use plonky2_field::field_types::PrimeField64;
     use plonky2_field::goldilocks_field::GoldilocksField;
     use rand::Rng;
 
@@ -679,7 +680,7 @@ mod tests {
             v.append(&mut intermediate_values);
             v.append(&mut msd_bits);
 
-            v.iter().map(|&x| x.into()).collect::<Vec<_>>()
+            v.iter().map(|&x| x.into()).collect()
         };
 
         let mut rng = rand::thread_rng();

@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use num::{BigUint, Integer};
+use num::{BigUint, Integer, Zero};
 use plonky2_field::extension_field::Extendable;
 
 use crate::gadgets::arithmetic_u32::U32Target;
@@ -31,6 +31,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let limbs = limb_values.iter().map(|&l| self.constant_u32(l)).collect();
 
         BigUintTarget { limbs }
+    }
+
+    pub fn zero_biguint(&mut self) -> BigUintTarget {
+        self.constant_biguint(&BigUint::zero())
     }
 
     pub fn connect_biguint(&mut self, lhs: &BigUintTarget, rhs: &BigUintTarget) {
@@ -76,9 +80,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget {
-        let limbs = (0..num_limbs)
-            .map(|_| self.add_virtual_u32_target())
-            .collect();
+        let limbs = self.add_virtual_u32_targets(num_limbs);
 
         BigUintTarget { limbs }
     }
@@ -143,8 +145,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut combined_limbs = vec![];
         let mut carry = self.zero_u32();
         for summands in &mut to_add {
-            summands.push(carry);
-            let (new_result, new_carry) = self.add_many_u32(summands);
+            let (new_result, new_carry) = self.add_u32s_with_carry(summands, carry);
             combined_limbs.push(new_result);
             carry = new_carry;
         }
@@ -152,6 +153,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         BigUintTarget {
             limbs: combined_limbs,
+        }
+    }
+
+    pub fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget {
+        let t = b.target;
+
+        BigUintTarget {
+            limbs: a
+                .limbs
+                .iter()
+                .map(|&l| U32Target(self.mul(l.0, t)))
+                .collect(),
         }
     }
 

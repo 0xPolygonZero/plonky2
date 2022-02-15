@@ -1,9 +1,14 @@
+use std::marker::PhantomData;
+
 use plonky2_field::extension_field::Extendable;
 
+use crate::gates::add_many_u32::U32AddManyGate;
 use crate::gates::arithmetic_u32::U32ArithmeticGate;
 use crate::gates::subtraction_u32::U32SubtractionGate;
 use crate::hash::hash_types::RichField;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::Target;
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 #[derive(Clone, Copy, Debug)]
@@ -113,16 +118,55 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             1 => (to_add[0], self.zero_u32()),
             2 => self.add_u32(to_add[0], to_add[1]),
             _ => {
-                let (mut low, mut carry) = self.add_u32(to_add[0], to_add[1]);
-                for i in 2..to_add.len() {
-                    let (new_low, new_carry) = self.add_u32(to_add[i], low);
-                    let (combined_carry, _zero) = self.add_u32(carry, new_carry);
-                    low = new_low;
-                    carry = combined_carry;
+                let num_addends = to_add.len();
+                let gate = U32AddManyGate::<F, D>::new_from_config(&self.config, num_addends);
+                let (gate_index, copy) = self.find_u32_add_many_gate(num_addends);
+
+                for j in 0..num_addends {
+                    self.connect(
+                        Target::wire(gate_index, gate.wire_ith_op_jth_addend(copy, j)),
+                        to_add[j].0,
+                    );
                 }
-                (low, carry)
+                let zero = self.zero();
+                self.connect(Target::wire(gate_index, gate.wire_ith_carry(copy)), zero);
+
+                let output_low =
+                    U32Target(Target::wire(gate_index, gate.wire_ith_output_result(copy)));
+                let output_high =
+                    U32Target(Target::wire(gate_index, gate.wire_ith_output_carry(copy)));
+
+                (output_low, output_high)
             }
         }
+    }
+
+    pub fn add_u32s_with_carry(
+        &mut self,
+        to_add: &[U32Target],
+        carry: U32Target,
+    ) -> (U32Target, U32Target) {
+        if to_add.len() == 1 {
+            return self.add_u32(to_add[0], carry);
+        }
+
+        let num_addends = to_add.len();
+
+        let gate = U32AddManyGate::<F, D>::new_from_config(&self.config, num_addends);
+        let (gate_index, copy) = self.find_u32_add_many_gate(num_addends);
+
+        for j in 0..num_addends {
+            self.connect(
+                Target::wire(gate_index, gate.wire_ith_op_jth_addend(copy, j)),
+                to_add[j].0,
+            );
+        }
+        self.connect(Target::wire(gate_index, gate.wire_ith_carry(copy)), carry.0);
+
+        let output = U32Target(Target::wire(gate_index, gate.wire_ith_output_result(copy)));
+        let output_carry = U32Target(Target::wire(gate_index, gate.wire_ith_output_carry(copy)));
+
+        (output, output_carry)
     }
 
     pub fn mul_u32(&mut self, a: U32Target, b: U32Target) -> (U32Target, U32Target) {
@@ -151,5 +195,77 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let output_borrow = U32Target(Target::wire(gate_index, gate.wire_ith_output_borrow(copy)));
 
         (output_result, output_borrow)
+    }
+}
+
+#[derive(Debug)]
+struct SplitToU32Generator<F: RichField + Extendable<D>, const D: usize> {
+    x: Target,
+    low: U32Target,
+    high: U32Target,
+    _phantom: PhantomData<F>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for SplitToU32Generator<F, D>
+{
+    fn dependencies(&self) -> Vec<Target> {
+        vec![self.x]
+    }
+
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        let x = witness.get_target(self.x);
+        let x_u64 = x.to_canonical_u64();
+        let low = x_u64 as u32;
+        let high = (x_u64 >> 32) as u32;
+
+        out_buffer.set_u32_target(self.low, low);
+        out_buffer.set_u32_target(self.high, high);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+    use rand::{thread_rng, Rng};
+
+    use crate::iop::witness::PartialWitness;
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::verifier::verify;
+
+    #[test]
+    pub fn test_add_many_u32s() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        const NUM_ADDENDS: usize = 15;
+
+        let config = CircuitConfig::standard_recursion_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let mut rng = thread_rng();
+        let mut to_add = Vec::new();
+        let mut sum = 0u64;
+        for _ in 0..NUM_ADDENDS {
+            let x: u32 = rng.gen();
+            sum += x as u64;
+            to_add.push(builder.constant_u32(x));
+        }
+        let carry = builder.zero_u32();
+        let (result_low, result_high) = builder.add_u32s_with_carry(&to_add, carry);
+        let expected_low = builder.constant_u32((sum % (1 << 32)) as u32);
+        let expected_high = builder.constant_u32((sum >> 32) as u32);
+
+        builder.connect_u32(result_low, expected_low);
+        builder.connect_u32(result_high, expected_high);
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw).unwrap();
+        verify(proof, &data.verifier_only, &data.common)
     }
 }

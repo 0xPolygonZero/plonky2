@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use plonky2_field::extension_field::{flatten, unflatten, Extendable};
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_util::reverse_index_bits_in_place;
@@ -23,9 +24,12 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
     timing: &mut TimingTree,
-) -> FriProof<F, C::Hasher, D> {
-    let n = lde_polynomial_values.values.len();
-    assert_eq!(lde_polynomial_coeffs.coeffs.len(), n);
+) -> FriProof<F, C::Hasher, D>
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
+    let n = lde_polynomial_values.len();
+    assert_eq!(lde_polynomial_coeffs.len(), n);
 
     // Commit phase
     let (trees, final_coeffs) = timed!(
@@ -67,13 +71,15 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
 ) -> (
     Vec<MerkleTree<F, C::Hasher>>,
     PolynomialCoeffs<F::Extension>,
-) {
+)
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
     let mut trees = Vec::new();
 
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
-    let num_reductions = fri_params.reduction_arity_bits.len();
-    for i in 0..num_reductions {
-        let arity = 1 << fri_params.reduction_arity_bits[i];
+    for arity_bits in &fri_params.reduction_arity_bits {
+        let arity = 1 << arity_bits;
 
         reverse_index_bits_in_place(&mut values.values);
         let chunked_values = values
@@ -115,14 +121,13 @@ fn fri_proof_of_work<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     (0..=F::NEG_ONE.to_canonical_u64())
         .into_par_iter()
         .find_any(|&i| {
-            C::InnerHasher::hash(
-                current_hash
+            C::InnerHasher::hash_no_pad(
+                &current_hash
                     .elements
                     .iter()
                     .copied()
                     .chain(Some(F::from_canonical_u64(i)))
-                    .collect(),
-                false,
+                    .collect_vec(),
             )
             .elements[0]
                 .to_canonical_u64()

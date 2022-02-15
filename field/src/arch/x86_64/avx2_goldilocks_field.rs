@@ -5,7 +5,7 @@ use std::iter::{Product, Sum};
 use std::mem::transmute;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use crate::field_types::{Field, PrimeField};
+use crate::field_types::{Field, Field64};
 use crate::goldilocks_field::GoldilocksField;
 use crate::ops::Square;
 use crate::packed_field::PackedField;
@@ -510,7 +510,7 @@ unsafe fn interleave2(x: __m256i, y: __m256i) -> (__m256i, __m256i) {
 #[cfg(test)]
 mod tests {
     use crate::arch::x86_64::avx2_goldilocks_field::Avx2GoldilocksField;
-    use crate::field_types::PrimeField;
+    use crate::field_types::Field64;
     use crate::goldilocks_field::GoldilocksField;
     use crate::ops::Square;
     use crate::packed_field::PackedField;

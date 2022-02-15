@@ -7,6 +7,7 @@
 #![allow(clippy::return_self_not_must_use)]
 #![feature(generic_const_exprs)]
 #![feature(specialization)]
+#![feature(stdsimd)]
 
 pub(crate) mod arch;
 pub mod batch_util;
@@ -23,6 +24,7 @@ pub mod packed_field;
 pub mod polynomial;
 pub mod secp256k1_base;
 pub mod secp256k1_scalar;
+pub mod zero_poly_coset;
 
 #[cfg(test)]
 mod field_testing;

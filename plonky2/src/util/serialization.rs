@@ -3,7 +3,7 @@ use std::io::Cursor;
 use std::io::{Read, Result, Write};
 
 use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::PrimeField;
+use plonky2_field::field_types::{Field64, PrimeField64};
 use plonky2_field::polynomial::PolynomialCoeffs;
 
 use crate::fri::proof::{
@@ -53,10 +53,10 @@ impl Buffer {
         Ok(u32::from_le_bytes(buf))
     }
 
-    fn write_field<F: PrimeField>(&mut self, x: F) -> Result<()> {
+    fn write_field<F: PrimeField64>(&mut self, x: F) -> Result<()> {
         self.0.write_all(&x.to_canonical_u64().to_le_bytes())
     }
-    fn read_field<F: PrimeField>(&mut self) -> Result<F> {
+    fn read_field<F: Field64>(&mut self) -> Result<F> {
         let mut buf = [0; std::mem::size_of::<u64>()];
         self.0.read_exact(&mut buf)?;
         Ok(F::from_canonical_u64(u64::from_le_bytes(
@@ -116,13 +116,13 @@ impl Buffer {
         ))
     }
 
-    pub fn write_field_vec<F: PrimeField>(&mut self, v: &[F]) -> Result<()> {
+    pub fn write_field_vec<F: PrimeField64>(&mut self, v: &[F]) -> Result<()> {
         for &a in v {
             self.write_field(a)?;
         }
         Ok(())
     }
-    pub fn read_field_vec<F: PrimeField>(&mut self, length: usize) -> Result<Vec<F>> {
+    pub fn read_field_vec<F: Field64>(&mut self, length: usize) -> Result<Vec<F>> {
         (0..length)
             .map(|_| self.read_field())
             .collect::<Result<Vec<_>>>()
@@ -172,9 +172,8 @@ impl Buffer {
         let wires = self.read_field_ext_vec::<F, D>(config.num_wires)?;
         let plonk_zs = self.read_field_ext_vec::<F, D>(config.num_challenges)?;
         let plonk_zs_right = self.read_field_ext_vec::<F, D>(config.num_challenges)?;
-        let partial_products = self.read_field_ext_vec::<F, D>(
-            common_data.num_partial_products.0 * config.num_challenges,
-        )?;
+        let partial_products = self
+            .read_field_ext_vec::<F, D>(common_data.num_partial_products * config.num_challenges)?;
         let quotient_polys = self.read_field_ext_vec::<F, D>(
             common_data.quotient_degree_factor * config.num_challenges,
         )?;
@@ -248,7 +247,7 @@ impl Buffer {
         evals_proofs.push((wires_v, wires_p));
 
         let zs_partial_v =
-            self.read_field_vec(config.num_challenges * (1 + common_data.num_partial_products.0))?;
+            self.read_field_vec(config.num_challenges * (1 + common_data.num_partial_products))?;
         let zs_partial_p = self.read_merkle_proof()?;
         evals_proofs.push((zs_partial_v, zs_partial_p));
 

@@ -1,6 +1,7 @@
 use plonky2_field::batch_util::batch_add_inplace;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
+use plonky2_field::zero_poly_coset::ZeroPolyOnCoset;
 
 use crate::gates::gate::PrefixedGate;
 use crate::hash::hash_types::RichField;
@@ -10,7 +11,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common;
-use crate::plonk::plonk_common::{eval_l_1_recursively, ZeroPolyOnCoset};
+use crate::plonk::plonk_common::eval_l_1_recursively;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 use crate::util::partial_products::{check_partial_products, check_partial_products_recursively};
 use crate::util::reducing::ReducingFactorTarget;
@@ -37,7 +38,7 @@ pub(crate) fn eval_vanishing_poly<
     alphas: &[F],
 ) -> Vec<F::Extension> {
     let max_degree = common_data.quotient_degree_factor;
-    let (num_prods, _final_num_prod) = common_data.num_partial_products;
+    let num_prods = common_data.num_partial_products;
 
     let constraint_terms =
         evaluate_gate_constraints(&common_data.gates, common_data.num_gate_constraints, vars);
@@ -123,7 +124,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<
     assert_eq!(s_sigmas_batch.len(), n);
 
     let max_degree = common_data.quotient_degree_factor;
-    let (num_prods, _final_num_prod) = common_data.num_partial_products;
+    let num_prods = common_data.num_partial_products;
 
     let num_gate_constraints = common_data.num_gate_constraints;
 
@@ -302,7 +303,7 @@ pub(crate) fn eval_vanishing_poly_recursively<
     alphas: &[Target],
 ) -> Vec<ExtensionTarget<D>> {
     let max_degree = common_data.quotient_degree_factor;
-    let (num_prods, _final_num_prod) = common_data.num_partial_products;
+    let num_prods = common_data.num_partial_products;
 
     let constraint_terms = with_context!(
         builder,

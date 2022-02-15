@@ -107,14 +107,6 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
         ])
     }
 
-    fn to_biguint(&self) -> BigUint {
-        let mut result = self.0[3].to_biguint();
-        result = result * F::order() + self.0[2].to_biguint();
-        result = result * F::order() + self.0[1].to_biguint();
-        result = result * F::order() + self.0[0].to_biguint();
-        result
-    }
-
     fn from_canonical_u64(n: u64) -> Self {
         F::from_canonical_u64(n).into()
     }

@@ -456,7 +456,7 @@ mod tests {
                     .take(gate.num_points() - 2)
                     .flat_map(|ff| ff.0),
             );
-            v.iter().map(|&x| x.into()).collect::<Vec<_>>()
+            v.iter().map(|&x| x.into()).collect()
         }
 
         // Get a working row for LowDegreeInterpolationGate.

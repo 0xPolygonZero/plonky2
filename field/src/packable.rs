@@ -12,7 +12,29 @@ impl<F: Field> Packable for F {
     default type Packing = Self;
 }
 
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
+#[cfg(all(
+    target_arch = "x86_64",
+    target_feature = "avx2",
+    not(all(
+        target_feature = "avx512bw",
+        target_feature = "avx512cd",
+        target_feature = "avx512dq",
+        target_feature = "avx512f",
+        target_feature = "avx512vl"
+    ))
+))]
 impl Packable for crate::goldilocks_field::GoldilocksField {
     type Packing = crate::arch::x86_64::avx2_goldilocks_field::Avx2GoldilocksField;
+}
+
+#[cfg(all(
+    target_arch = "x86_64",
+    target_feature = "avx512bw",
+    target_feature = "avx512cd",
+    target_feature = "avx512dq",
+    target_feature = "avx512f",
+    target_feature = "avx512vl"
+))]
+impl Packable for crate::goldilocks_field::GoldilocksField {
+    type Packing = crate::arch::x86_64::avx512_goldilocks_field::Avx512GoldilocksField;
 }

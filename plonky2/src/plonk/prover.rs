@@ -1,20 +1,23 @@
 use std::mem::swap;
 
+use anyhow::ensure;
 use anyhow::Result;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use plonky2_util::log2_ceil;
+use plonky2_field::zero_poly_coset::ZeroPolyOnCoset;
+use plonky2_util::{ceil_div_usize, log2_ceil};
 use rayon::prelude::*;
 
-use crate::fri::commitment::PolynomialBatchCommitment;
+use crate::field::field_types::Field;
+use crate::fri::oracle::PolynomialBatch;
 use crate::hash::hash_types::RichField;
 use crate::iop::challenger::Challenger;
 use crate::iop::generator::generate_partial_witness;
 use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::plonk::config::{GenericConfig, Hasher};
-use crate::plonk::plonk_common::PlonkPolynomials;
-use crate::plonk::plonk_common::ZeroPolyOnCoset;
+use crate::plonk::plonk_common::PlonkOracle;
+use crate::plonk::proof::OpeningSet;
 use crate::plonk::proof::{Proof, ProofWithPublicInputs};
 use crate::plonk::vanishing_poly::eval_vanishing_poly_base_batch;
 use crate::plonk::vars::EvaluationVarsBaseBatch;
@@ -28,7 +31,10 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     common_data: &CommonCircuitData<F, C, D>,
     inputs: PartialWitness<F>,
     timing: &mut TimingTree,
-) -> Result<ProofWithPublicInputs<F, C, D>> {
+) -> Result<ProofWithPublicInputs<F, C, D>>
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
@@ -41,7 +47,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     );
 
     let public_inputs = partition_witness.get_targets(&prover_data.public_inputs);
-    let public_inputs_hash = C::InnerHasher::hash(public_inputs.clone(), true);
+    let public_inputs_hash = C::InnerHasher::hash_no_pad(&public_inputs);
 
     if cfg!(debug_assertions) {
         // Display the marked targets for debugging purposes.
@@ -69,10 +75,10 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     let wires_commitment = timed!(
         timing,
         "compute wires commitment",
-        PolynomialBatchCommitment::from_values(
+        PolynomialBatch::from_values(
             wires_values,
             config.fri_config.rate_bits,
-            config.zero_knowledge & PlonkPolynomials::WIRES.blinding,
+            config.zero_knowledge && PlonkOracle::WIRES.blinding,
             config.fri_config.cap_height,
             timing,
             prover_data.fft_root_table.as_ref(),
@@ -109,10 +115,10 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     let partial_products_and_zs_commitment = timed!(
         timing,
         "commit to partial products and Z's",
-        PolynomialBatchCommitment::from_values(
+        PolynomialBatch::from_values(
             zs_partial_products,
             config.fri_config.rate_bits,
-            config.zero_knowledge & PlonkPolynomials::ZS_PARTIAL_PRODUCTS.blinding,
+            config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
             config.fri_config.cap_height,
             timing,
             prover_data.fft_root_table.as_ref(),
@@ -145,11 +151,10 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
         quotient_polys
             .into_par_iter()
             .flat_map(|mut quotient_poly| {
-                quotient_poly.trim();
-                quotient_poly.pad(quotient_degree).expect(
-                    "Quotient has failed, the vanishing polynomial is not divisible by `Z_H",
+                quotient_poly.trim_to_len(quotient_degree).expect(
+                    "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
                 );
-                // Split t into degree-n chunks.
+                // Split quotient into degree-n chunks.
                 quotient_poly.chunks(degree)
             })
             .collect()
@@ -158,10 +163,10 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     let quotient_polys_commitment = timed!(
         timing,
         "commit to quotient polys",
-        PolynomialBatchCommitment::from_coeffs(
+        PolynomialBatch::from_coeffs(
             all_quotient_poly_chunks,
             config.fri_config.rate_bits,
-            config.zero_knowledge & PlonkPolynomials::QUOTIENT.blinding,
+            config.zero_knowledge && PlonkOracle::QUOTIENT.blinding,
             config.fri_config.cap_height,
             timing,
             prover_data.fft_root_table.as_ref(),
@@ -171,20 +176,43 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     challenger.observe_cap(&quotient_polys_commitment.merkle_tree.cap);
 
     let zeta = challenger.get_extension_challenge::<D>();
+    // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
+    // `g * zeta`, are not in our subgroup `H`. It suffices to check `zeta` only, since
+    // `(g * zeta)^n = zeta^n`, where `n` is the order of `g`.
+    let g = F::Extension::primitive_root_of_unity(common_data.degree_bits);
+    ensure!(
+        zeta.exp_power_of_2(common_data.degree_bits) != F::Extension::ONE,
+        "Opening point is in the subgroup."
+    );
 
-    let (opening_proof, openings) = timed!(
+    let openings = timed!(
+        timing,
+        "construct the opening set",
+        OpeningSet::new(
+            zeta,
+            g,
+            &prover_data.constants_sigmas_commitment,
+            &wires_commitment,
+            &partial_products_and_zs_commitment,
+            &quotient_polys_commitment,
+            common_data,
+        )
+    );
+    challenger.observe_openings(&openings.to_fri_openings());
+
+    let opening_proof = timed!(
         timing,
         "compute opening proofs",
-        PolynomialBatchCommitment::open_plonk(
+        PolynomialBatch::prove_openings(
+            &common_data.get_fri_instance(zeta),
             &[
                 &prover_data.constants_sigmas_commitment,
                 &wires_commitment,
                 &partial_products_and_zs_commitment,
                 &quotient_polys_commitment,
             ],
-            zeta,
             &mut challenger,
-            common_data,
+            &common_data.fri_params,
             timing,
         )
     );
@@ -244,7 +272,7 @@ fn wires_permutation_partial_products_and_zs<
     let degree = common_data.quotient_degree_factor;
     let subgroup = &prover_data.subgroup;
     let k_is = &common_data.k_is;
-    let (num_prods, _final_num_prod) = common_data.num_partial_products;
+    let num_prods = common_data.num_partial_products;
     let all_quotient_chunk_products = subgroup
         .par_iter()
         .enumerate()
@@ -300,44 +328,49 @@ fn compute_quotient_polys<
     common_data: &CommonCircuitData<F, C, D>,
     prover_data: &'a ProverOnlyCircuitData<F, C, D>,
     public_inputs_hash: &<<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
-    wires_commitment: &'a PolynomialBatchCommitment<F, C, D>,
-    zs_partial_products_commitment: &'a PolynomialBatchCommitment<F, C, D>,
+    wires_commitment: &'a PolynomialBatch<F, C, D>,
+    zs_partial_products_commitment: &'a PolynomialBatch<F, C, D>,
     betas: &[F],
     gammas: &[F],
     alphas: &[F],
 ) -> Vec<PolynomialCoeffs<F>> {
     let num_challenges = common_data.config.num_challenges;
-    let max_degree_bits = log2_ceil(common_data.quotient_degree_factor);
+    let quotient_degree_bits = log2_ceil(common_data.quotient_degree_factor);
     assert!(
-        max_degree_bits <= common_data.config.fri_config.rate_bits,
+        quotient_degree_bits <= common_data.config.fri_config.rate_bits,
         "Having constraints of degree higher than the rate is not supported yet. \
-        If we need this in the future, we can precompute the larger LDE before computing the `ListPolynomialCommitment`s."
+        If we need this in the future, we can precompute the larger LDE before computing the `PolynomialBatch`s."
     );
 
-    // We reuse the LDE computed in `ListPolynomialCommitment` and extract every `step` points to get
+    // We reuse the LDE computed in `PolynomialBatch` and extract every `step` points to get
     // an LDE matching `max_filtered_constraint_degree`.
-    let step = 1 << (common_data.config.fri_config.rate_bits - max_degree_bits);
+    let step = 1 << (common_data.config.fri_config.rate_bits - quotient_degree_bits);
     // When opening the `Z`s polys at the "next" point in Plonk, need to look at the point `next_step`
     // steps away since we work on an LDE of degree `max_filtered_constraint_degree`.
-    let next_step = 1 << max_degree_bits;
+    let next_step = 1 << quotient_degree_bits;
 
-    let points = F::two_adic_subgroup(common_data.degree_bits + max_degree_bits);
+    let points = F::two_adic_subgroup(common_data.degree_bits + quotient_degree_bits);
     let lde_size = points.len();
 
     // Retrieve the LDE values at index `i`.
-    let get_at_index = |comm: &'a PolynomialBatchCommitment<F, C, D>, i: usize| -> &'a [F] {
-        comm.get_lde_values(i * step)
-    };
+    let get_at_index =
+        |comm: &'a PolynomialBatch<F, C, D>, i: usize| -> &'a [F] { comm.get_lde_values(i * step) };
 
-    let z_h_on_coset = ZeroPolyOnCoset::new(common_data.degree_bits, max_degree_bits);
+    let z_h_on_coset = ZeroPolyOnCoset::new(common_data.degree_bits, quotient_degree_bits);
 
     let points_batches = points.par_chunks(BATCH_SIZE);
+    let num_batches = ceil_div_usize(points.len(), BATCH_SIZE);
     let quotient_values: Vec<Vec<F>> = points_batches
         .enumerate()
         .map(|(batch_i, xs_batch)| {
-            assert_eq!(xs_batch.len(), BATCH_SIZE);
+            // Each batch must be the same size, except the last one, which may be smaller.
+            debug_assert!(
+                xs_batch.len() == BATCH_SIZE
+                    || (batch_i == num_batches - 1 && xs_batch.len() <= BATCH_SIZE)
+            );
+
             let indices_batch: Vec<usize> =
-                (BATCH_SIZE * batch_i..BATCH_SIZE * (batch_i + 1)).collect();
+                (BATCH_SIZE * batch_i..BATCH_SIZE * batch_i + xs_batch.len()).collect();
 
             let mut shifted_xs_batch = Vec::with_capacity(xs_batch.len());
             let mut local_zs_batch = Vec::with_capacity(xs_batch.len());
@@ -379,17 +412,17 @@ fn compute_quotient_polys<
             // NB (JN): I'm not sure how (in)efficient the below is. It needs measuring.
             let mut local_constants_batch =
                 vec![F::ZERO; xs_batch.len() * local_constants_batch_refs[0].len()];
-            for (i, constants) in local_constants_batch_refs.iter().enumerate() {
-                for (j, &constant) in constants.iter().enumerate() {
-                    local_constants_batch[i + j * xs_batch.len()] = constant;
+            for i in 0..local_constants_batch_refs[0].len() {
+                for (j, constants) in local_constants_batch_refs.iter().enumerate() {
+                    local_constants_batch[i * xs_batch.len() + j] = constants[i];
                 }
             }
 
             let mut local_wires_batch =
                 vec![F::ZERO; xs_batch.len() * local_wires_batch_refs[0].len()];
-            for (i, wires) in local_wires_batch_refs.iter().enumerate() {
-                for (j, &wire) in wires.iter().enumerate() {
-                    local_wires_batch[i + j * xs_batch.len()] = wire;
+            for i in 0..local_wires_batch_refs[0].len() {
+                for (j, wires) in local_wires_batch_refs.iter().enumerate() {
+                    local_wires_batch[i * xs_batch.len() + j] = wires[i];
                 }
             }
 

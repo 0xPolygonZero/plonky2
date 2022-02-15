@@ -2,14 +2,14 @@
 //! https://eprint.iacr.org/2019/458.pdf
 
 use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::{Field, PrimeField};
+use plonky2_field::field_types::{Field, PrimeField64};
 use unroll::unroll_for_loops;
 
 use crate::gates::gate::Gate;
 use crate::gates::poseidon::PoseidonGate;
 use crate::gates::poseidon_mds::PoseidonMdsGate;
 use crate::hash::hash_types::{HashOut, RichField};
-use crate::hash::hashing::{compress, hash_n_to_hash, PlonkyPermutation, SPONGE_WIDTH};
+use crate::hash::hashing::{compress, hash_n_to_hash_no_pad, PlonkyPermutation, SPONGE_WIDTH};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -21,10 +21,10 @@ use crate::plonk::config::{AlgebraicHasher, Hasher};
 //
 // NB: Changing any of these values will require regenerating all of
 // the precomputed constant arrays in this file.
-pub(crate) const HALF_N_FULL_ROUNDS: usize = 4;
+pub const HALF_N_FULL_ROUNDS: usize = 4;
 pub(crate) const N_FULL_ROUNDS_TOTAL: usize = 2 * HALF_N_FULL_ROUNDS;
-pub(crate) const N_PARTIAL_ROUNDS: usize = 22;
-pub(crate) const N_ROUNDS: usize = N_FULL_ROUNDS_TOTAL + N_PARTIAL_ROUNDS;
+pub const N_PARTIAL_ROUNDS: usize = 22;
+pub const N_ROUNDS: usize = N_FULL_ROUNDS_TOTAL + N_PARTIAL_ROUNDS;
 const MAX_WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :)
 
 #[inline(always)]
@@ -35,7 +35,7 @@ fn add_u160_u128((x_lo, x_hi): (u128, u32), y: u128) -> (u128, u32) {
 }
 
 #[inline(always)]
-fn reduce_u160<F: PrimeField>((n_lo, n_hi): (u128, u32)) -> F {
+fn reduce_u160<F: PrimeField64>((n_lo, n_hi): (u128, u32)) -> F {
     let n_lo_hi = (n_lo >> 64) as u64;
     let n_lo_lo = n_lo as u64;
     let reduced_hi: u64 = F::from_noncanonical_u96((n_lo_hi, n_hi)).to_noncanonical_u64();
@@ -148,7 +148,7 @@ pub const ALL_ROUND_CONSTANTS: [u64; MAX_WIDTH * N_ROUNDS]  = [
 ];
 
 const WIDTH: usize = SPONGE_WIDTH;
-pub trait Poseidon: PrimeField {
+pub trait Poseidon: PrimeField64 {
     // Total number of round constants required: width of the input
     // times number of rounds.
     const N_ROUND_CONSTANTS: usize = WIDTH * N_ROUNDS;
@@ -633,8 +633,8 @@ impl<F: RichField> Hasher<F> for PoseidonHash {
     type Hash = HashOut<F>;
     type Permutation = PoseidonPermutation;
 
-    fn hash(input: Vec<F>, pad: bool) -> Self::Hash {
-        hash_n_to_hash::<F, Self::Permutation>(input, pad)
+    fn hash_no_pad(input: &[F]) -> Self::Hash {
+        hash_n_to_hash_no_pad::<F, Self::Permutation>(input)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {

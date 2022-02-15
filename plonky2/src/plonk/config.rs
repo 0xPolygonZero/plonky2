@@ -5,7 +5,6 @@ use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::goldilocks_field::GoldilocksField;
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::hash::gmimc::GMiMCHash;
 use crate::hash::hash_types::HashOut;
 use crate::hash::hash_types::RichField;
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
@@ -32,7 +31,39 @@ pub trait Hasher<F: RichField>: Sized + Clone + Debug + Eq + PartialEq {
     /// Permutation used in the sponge construction.
     type Permutation: PlonkyPermutation<F>;
 
-    fn hash(input: Vec<F>, pad: bool) -> Self::Hash;
+    /// Hash a message without any padding step. Note that this can enable length-extension attacks.
+    /// However, it is still collision-resistant in cases where the input has a fixed length.
+    fn hash_no_pad(input: &[F]) -> Self::Hash;
+
+    /// Pad the message using the `pad10*1` rule, then hash it.
+    fn hash_pad(input: &[F]) -> Self::Hash {
+        let mut padded_input = input.to_vec();
+        padded_input.push(F::ONE);
+        while (padded_input.len() + 1) % SPONGE_WIDTH != 0 {
+            padded_input.push(F::ZERO);
+        }
+        padded_input.push(F::ONE);
+        Self::hash_no_pad(&padded_input)
+    }
+
+    /// Hash the slice if necessary to reduce its length to ~256 bits. If it already fits, this is a
+    /// no-op.
+    fn hash_or_noop(inputs: &[F]) -> Self::Hash
+    where
+        [(); Self::HASH_SIZE]:,
+    {
+        if inputs.len() <= 4 {
+            let mut inputs_bytes = [0u8; Self::HASH_SIZE];
+            for i in 0..inputs.len() {
+                inputs_bytes[i * 8..(i + 1) * 8]
+                    .copy_from_slice(&inputs[i].to_canonical_u64().to_le_bytes());
+            }
+            Self::Hash::from_bytes(&inputs_bytes)
+        } else {
+            Self::hash_no_pad(inputs)
+        }
+    }
+
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash;
 }
 
@@ -66,43 +97,14 @@ pub trait GenericConfig<const D: usize>:
     type InnerHasher: AlgebraicHasher<Self::F>;
 }
 
-/// Configuration trait for "algebraic" configurations, i.e., those using an algebraic hash function
-/// in Merkle trees.
-/// Same as `GenericConfig` trait but with `InnerHasher: AlgebraicHasher<F>`.
-pub trait AlgebraicConfig<const D: usize>:
-    Debug + Clone + Sync + Sized + Send + Eq + PartialEq
-{
-    type F: RichField + Extendable<D, Extension = Self::FE>;
-    type FE: FieldExtension<D, BaseField = Self::F>;
-    type Hasher: AlgebraicHasher<Self::F>;
-    type InnerHasher: AlgebraicHasher<Self::F>;
-}
-
-impl<A: AlgebraicConfig<D>, const D: usize> GenericConfig<D> for A {
-    type F = <Self as AlgebraicConfig<D>>::F;
-    type FE = <Self as AlgebraicConfig<D>>::FE;
-    type Hasher = <Self as AlgebraicConfig<D>>::Hasher;
-    type InnerHasher = <Self as AlgebraicConfig<D>>::InnerHasher;
-}
-
 /// Configuration using Poseidon over the Goldilocks field.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct PoseidonGoldilocksConfig;
-impl AlgebraicConfig<2> for PoseidonGoldilocksConfig {
+impl GenericConfig<2> for PoseidonGoldilocksConfig {
     type F = GoldilocksField;
     type FE = QuadraticExtension<Self::F>;
     type Hasher = PoseidonHash;
     type InnerHasher = PoseidonHash;
-}
-
-/// Configuration using GMiMC over the Goldilocks field.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct GMiMCGoldilocksConfig;
-impl AlgebraicConfig<2> for GMiMCGoldilocksConfig {
-    type F = GoldilocksField;
-    type FE = QuadraticExtension<Self::F>;
-    type Hasher = GMiMCHash;
-    type InnerHasher = GMiMCHash;
 }
 
 /// Configuration using truncated Keccak over the Goldilocks field.

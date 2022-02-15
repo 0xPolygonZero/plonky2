@@ -355,7 +355,8 @@ mod tests {
 
     use anyhow::Result;
     use plonky2_field::extension_field::quartic::QuarticExtension;
-    use plonky2_field::field_types::{Field, PrimeField};
+    use plonky2_field::field_types::Field;
+    use plonky2_field::field_types::PrimeField64;
     use plonky2_field::goldilocks_field::GoldilocksField;
     use rand::Rng;
 
@@ -433,10 +434,7 @@ mod tests {
                 v1.append(&mut output_limbs);
             }
 
-            v0.iter()
-                .chain(v1.iter())
-                .map(|&x| x.into())
-                .collect::<Vec<_>>()
+            v0.iter().chain(v1.iter()).map(|&x| x.into()).collect()
         }
 
         let mut rng = rand::thread_rng();

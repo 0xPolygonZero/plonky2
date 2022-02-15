@@ -4,15 +4,13 @@ use plonky2_field::field_types::Field;
 use plonky2_field::interpolation::{barycentric_weights, interpolate};
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
-use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound};
-use crate::fri::FriConfig;
+use crate::fri::proof::{FriChallenges, FriInitialTreeProof, FriProof, FriQueryRound};
+use crate::fri::structure::{FriBatchInfo, FriInstanceInfo, FriOpenings};
+use crate::fri::{FriConfig, FriParams};
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::verify_merkle_proof;
 use crate::hash::merkle_tree::MerkleCap;
-use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::{GenericConfig, Hasher};
-use crate::plonk::plonk_common::PlonkPolynomials;
-use crate::plonk::proof::{OpeningSet, ProofChallenges};
 use crate::util::reducing::ReducingFactor;
 use crate::util::reverse_bits;
 
@@ -58,52 +56,51 @@ pub(crate) fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: us
     Ok(())
 }
 
-pub(crate) fn verify_fri_proof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
-    // Openings of the PLONK polynomials.
-    os: &OpeningSet<F, D>,
-    challenges: &ProofChallenges<F, D>,
+pub fn verify_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    instance: &FriInstanceInfo<F, D>,
+    openings: &FriOpenings<F, D>,
+    challenges: &FriChallenges<F, D>,
     initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
     proof: &FriProof<F, C::Hasher, D>,
-    common_data: &CommonCircuitData<F, C, D>,
-) -> Result<()> {
-    let config = &common_data.config;
+    params: &FriParams,
+) -> Result<()>
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
     ensure!(
-        common_data.fri_params.final_poly_len() == proof.final_poly.len(),
+        params.final_poly_len() == proof.final_poly.len(),
         "Final polynomial has wrong degree."
     );
 
     // Size of the LDE domain.
-    let n = common_data.lde_size();
+    let n = params.lde_size();
 
     // Check PoW.
-    fri_verify_proof_of_work(challenges.fri_pow_response, &config.fri_config)?;
+    fri_verify_proof_of_work(challenges.fri_pow_response, &params.config)?;
 
     // Check that parameters are coherent.
     ensure!(
-        config.fri_config.num_query_rounds == proof.query_round_proofs.len(),
+        params.config.num_query_rounds == proof.query_round_proofs.len(),
         "Number of query rounds does not match config."
     );
 
     let precomputed_reduced_evals =
-        PrecomputedReducedEvals::from_os_and_alpha(os, challenges.fri_alpha);
+        PrecomputedReducedOpenings::from_os_and_alpha(openings, challenges.fri_alpha);
     for (&x_index, round_proof) in challenges
         .fri_query_indices
         .iter()
         .zip(&proof.query_round_proofs)
     {
         fri_verifier_query_round::<F, C, D>(
+            instance,
             challenges,
-            precomputed_reduced_evals,
+            &precomputed_reduced_evals,
             initial_merkle_caps,
             proof,
             x_index,
             n,
             round_proof,
-            common_data,
+            params,
         )?;
     }
 
@@ -114,7 +111,10 @@ fn fri_verify_initial_proof<F: RichField, H: Hasher<F>>(
     x_index: usize,
     proof: &FriInitialTreeProof<F, H>,
     initial_merkle_caps: &[MerkleCap<F, H>],
-) -> Result<()> {
+) -> Result<()>
+where
+    [(); H::HASH_SIZE]:,
+{
     for ((evals, merkle_proof), cap) in proof.evals_proofs.iter().zip(initial_merkle_caps) {
         verify_merkle_proof::<F, H>(evals.clone(), x_index, cap, merkle_proof)?;
     }
@@ -127,51 +127,42 @@ pub(crate) fn fri_combine_initial<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
+    instance: &FriInstanceInfo<F, D>,
     proof: &FriInitialTreeProof<F, C::Hasher>,
     alpha: F::Extension,
-    zeta: F::Extension,
     subgroup_x: F,
-    precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
-    common_data: &CommonCircuitData<F, C, D>,
+    precomputed_reduced_evals: &PrecomputedReducedOpenings<F, D>,
+    params: &FriParams,
 ) -> F::Extension {
-    let config = &common_data.config;
     assert!(D > 1, "Not implemented for D=1.");
-    let degree_log = common_data.degree_bits;
     let subgroup_x = F::Extension::from_basefield(subgroup_x);
     let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;
 
-    // We will add two terms to `sum`: one for openings at `x`, and one for openings at `g x`.
-    // All polynomials are opened at `x`.
-    let single_evals = [
-        PlonkPolynomials::CONSTANTS_SIGMAS,
-        PlonkPolynomials::WIRES,
-        PlonkPolynomials::ZS_PARTIAL_PRODUCTS,
-        PlonkPolynomials::QUOTIENT,
-    ]
-    .iter()
-    .flat_map(|&p| proof.unsalted_evals(p, config.zero_knowledge))
-    .map(|&e| F::Extension::from_basefield(e));
-    let single_composition_eval = alpha.reduce(single_evals);
-    let single_numerator = single_composition_eval - precomputed_reduced_evals.single;
-    let single_denominator = subgroup_x - zeta;
-    sum += single_numerator / single_denominator;
-    alpha.reset();
-
-    // Z polynomials have an additional opening at `g x`.
-    let zs_evals = proof
-        .unsalted_evals(PlonkPolynomials::ZS_PARTIAL_PRODUCTS, config.zero_knowledge)
+    for (batch, reduced_openings) in instance
+        .batches
         .iter()
-        .map(|&e| F::Extension::from_basefield(e))
-        .take(common_data.zs_range().end);
-    let zs_composition_eval = alpha.reduce(zs_evals);
-    let zeta_right = F::Extension::primitive_root_of_unity(degree_log) * zeta;
-    let zs_numerator = zs_composition_eval - precomputed_reduced_evals.zs_right;
-    let zs_denominator = subgroup_x - zeta_right;
-    sum = alpha.shift(sum);
-    sum += zs_numerator / zs_denominator;
+        .zip(&precomputed_reduced_evals.reduced_openings_at_point)
+    {
+        let FriBatchInfo { point, polynomials } = batch;
+        let evals = polynomials
+            .iter()
+            .map(|p| {
+                let poly_blinding = instance.oracles[p.oracle_index].blinding;
+                let salted = params.hiding && poly_blinding;
+                proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted)
+            })
+            .map(F::Extension::from_basefield);
+        let reduced_evals = alpha.reduce(evals);
+        let numerator = reduced_evals - *reduced_openings;
+        let denominator = subgroup_x - *point;
+        sum = alpha.shift(sum);
+        sum += numerator / denominator;
+    }
 
-    sum
+    // Multiply the final polynomial by `X`, so that `final_poly` has the maximum degree for
+    // which the LDT will pass. See github.com/mir-protocol/plonky2/pull/436 for details.
+    sum * subgroup_x
 }
 
 fn fri_verifier_query_round<
@@ -179,15 +170,19 @@ fn fri_verifier_query_round<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    challenges: &ProofChallenges<F, D>,
-    precomputed_reduced_evals: PrecomputedReducedEvals<F, D>,
+    instance: &FriInstanceInfo<F, D>,
+    challenges: &FriChallenges<F, D>,
+    precomputed_reduced_evals: &PrecomputedReducedOpenings<F, D>,
     initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
     proof: &FriProof<F, C::Hasher, D>,
     mut x_index: usize,
     n: usize,
     round_proof: &FriQueryRound<F, C::Hasher, D>,
-    common_data: &CommonCircuitData<F, C, D>,
-) -> Result<()> {
+    params: &FriParams,
+) -> Result<()>
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
     fri_verify_initial_proof::<F, C::Hasher>(
         x_index,
         &round_proof.initial_trees_proof,
@@ -200,21 +195,16 @@ fn fri_verifier_query_round<
 
     // old_eval is the last derived evaluation; it will be checked for consistency with its
     // committed "parent" value in the next iteration.
-    let mut old_eval = fri_combine_initial(
+    let mut old_eval = fri_combine_initial::<F, C, D>(
+        instance,
         &round_proof.initial_trees_proof,
         challenges.fri_alpha,
-        challenges.plonk_zeta,
         subgroup_x,
         precomputed_reduced_evals,
-        common_data,
+        params,
     );
 
-    for (i, &arity_bits) in common_data
-        .fri_params
-        .reduction_arity_bits
-        .iter()
-        .enumerate()
-    {
+    for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
         let arity = 1 << arity_bits;
         let evals = &round_proof.steps[i].evals;
 
@@ -257,28 +247,22 @@ fn fri_verifier_query_round<
     Ok(())
 }
 
-/// Holds the reduced (by `alpha`) evaluations at `zeta` for the polynomial opened just at
-/// zeta, for `Z` at zeta and for `Z` at `g*zeta`.
-#[derive(Copy, Clone, Debug)]
-pub(crate) struct PrecomputedReducedEvals<F: RichField + Extendable<D>, const D: usize> {
-    pub single: F::Extension,
-    pub zs_right: F::Extension,
+/// For each opening point, holds the reduced (by `alpha`) evaluations of each polynomial that's
+/// opened at that point.
+#[derive(Clone, Debug)]
+pub(crate) struct PrecomputedReducedOpenings<F: RichField + Extendable<D>, const D: usize> {
+    pub reduced_openings_at_point: Vec<F::Extension>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> PrecomputedReducedEvals<F, D> {
-    pub(crate) fn from_os_and_alpha(os: &OpeningSet<F, D>, alpha: F::Extension) -> Self {
-        let mut alpha = ReducingFactor::new(alpha);
-        let single = alpha.reduce(
-            os.constants
-                .iter()
-                .chain(&os.plonk_sigmas)
-                .chain(&os.wires)
-                .chain(&os.plonk_zs)
-                .chain(&os.partial_products)
-                .chain(&os.quotient_polys),
-        );
-        let zs_right = alpha.reduce(os.plonk_zs_right.iter());
-
-        Self { single, zs_right }
+impl<F: RichField + Extendable<D>, const D: usize> PrecomputedReducedOpenings<F, D> {
+    pub(crate) fn from_os_and_alpha(openings: &FriOpenings<F, D>, alpha: F::Extension) -> Self {
+        let reduced_openings_at_point = openings
+            .batches
+            .iter()
+            .map(|batch| ReducingFactor::new(alpha).reduce(batch.values.iter()))
+            .collect();
+        Self {
+            reduced_openings_at_point,
+        }
     }
 }

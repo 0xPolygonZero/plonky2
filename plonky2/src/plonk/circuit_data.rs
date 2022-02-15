@@ -5,16 +5,23 @@ use anyhow::Result;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::fft::FftRootTable;
 
-use crate::fri::commitment::PolynomialBatchCommitment;
+use crate::field::field_types::Field;
+use crate::fri::oracle::PolynomialBatch;
 use crate::fri::reduction_strategies::FriReductionStrategy;
+use crate::fri::structure::{
+    FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriPolynomialInfo,
+};
 use crate::fri::{FriConfig, FriParams};
 use crate::gates::gate::PrefixedGate;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
+use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGenerator;
 use crate::iop::target::Target;
 use crate::iop::witness::PartialWitness;
+use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::plonk_common::{PlonkOracle, FRI_ORACLES};
 use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
@@ -34,21 +41,19 @@ pub struct CircuitConfig {
     /// `degree / |F|`.
     pub num_challenges: usize,
     pub zero_knowledge: bool,
-
+    /// A cap on the quotient polynomial's degree factor. The actual degree factor is derived
+    /// systematically, but will never exceed this value.
+    pub max_quotient_degree_factor: usize,
     pub fri_config: FriConfig,
 }
 
 impl Default for CircuitConfig {
     fn default() -> Self {
-        CircuitConfig::standard_recursion_config()
+        Self::standard_recursion_config()
     }
 }
 
 impl CircuitConfig {
-    pub fn rate(&self) -> f64 {
-        1.0 / ((1 << self.fri_config.rate_bits) as f64)
-    }
-
     pub fn num_advice_wires(&self) -> usize {
         self.num_wires - self.num_routed_wires
     }
@@ -63,6 +68,7 @@ impl CircuitConfig {
             security_bits: 100,
             num_challenges: 2,
             zero_knowledge: false,
+            max_quotient_degree_factor: 8,
             fri_config: FriConfig {
                 rate_bits: 3,
                 cap_height: 4,
@@ -70,6 +76,13 @@ impl CircuitConfig {
                 reduction_strategy: FriReductionStrategy::ConstantArityBits(4, 5),
                 num_query_rounds: 28,
             },
+        }
+    }
+
+    pub fn standard_ecc_config() -> Self {
+        Self {
+            num_wires: 136,
+            ..Self::standard_recursion_config()
         }
     }
 
@@ -91,7 +104,10 @@ pub struct CircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     CircuitData<F, C, D>
 {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         prove(
             &self.prover_only,
             &self.common,
@@ -100,14 +116,20 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         )
     }
 
-    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         verify(proof_with_pis, &self.verifier_only, &self.common)
     }
 
     pub fn verify_compressed(
         &self,
         compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 }
@@ -131,7 +153,10 @@ pub struct ProverCircuitData<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ProverCircuitData<F, C, D>
 {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         prove(
             &self.prover_only,
             &self.common,
@@ -155,14 +180,20 @@ pub struct VerifierCircuitData<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     VerifierCircuitData<F, C, D>
 {
-    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         verify(proof_with_pis, &self.verifier_only, &self.common)
     }
 
     pub fn verify_compressed(
         &self,
         compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 }
@@ -178,7 +209,7 @@ pub(crate) struct ProverOnlyCircuitData<
     /// they watch.
     pub generator_indices_by_watches: BTreeMap<usize, Vec<usize>>,
     /// Commitments to the constants polynomials and sigma polynomials.
-    pub constants_sigmas_commitment: PolynomialBatchCommitment<F, C, D>,
+    pub constants_sigmas_commitment: PolynomialBatch<F, C, D>,
     /// The transpose of the list of sigma polynomials.
     pub sigmas: Vec<Vec<F>>,
     /// Subgroup of order `degree`.
@@ -228,12 +259,13 @@ pub struct CommonCircuitData<
 
     pub(crate) num_virtual_targets: usize,
 
+    pub(crate) num_public_inputs: usize,
+
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
     pub(crate) k_is: Vec<F>,
 
-    /// The number of partial products needed to compute the `Z` polynomials and
-    /// the number of original elements consumed in `partial_products()`.
-    pub(crate) num_partial_products: (usize, usize),
+    /// The number of partial products needed to compute the `Z` polynomials.
+    pub(crate) num_partial_products: usize,
 
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
@@ -285,6 +317,103 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// Range of the partial products polynomials in the `zs_partial_products_commitment`.
     pub fn partial_products_range(&self) -> RangeFrom<usize> {
         self.config.num_challenges..
+    }
+
+    pub(crate) fn get_fri_instance(&self, zeta: F::Extension) -> FriInstanceInfo<F, D> {
+        // All polynomials are opened at zeta.
+        let zeta_batch = FriBatchInfo {
+            point: zeta,
+            polynomials: self.fri_all_polys(),
+        };
+
+        // The Z polynomials are also opened at g * zeta.
+        let g = F::Extension::primitive_root_of_unity(self.degree_bits);
+        let zeta_right = g * zeta;
+        let zeta_right_batch = FriBatchInfo {
+            point: zeta_right,
+            polynomials: self.fri_zs_polys(),
+        };
+
+        let openings = vec![zeta_batch, zeta_right_batch];
+        FriInstanceInfo {
+            oracles: FRI_ORACLES.to_vec(),
+            batches: openings,
+        }
+    }
+
+    pub(crate) fn get_fri_instance_target(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        zeta: ExtensionTarget<D>,
+    ) -> FriInstanceInfoTarget<D> {
+        // All polynomials are opened at zeta.
+        let zeta_batch = FriBatchInfoTarget {
+            point: zeta,
+            polynomials: self.fri_all_polys(),
+        };
+
+        // The Z polynomials are also opened at g * zeta.
+        let g = F::primitive_root_of_unity(self.degree_bits);
+        let zeta_right = builder.mul_const_extension(g, zeta);
+        let zeta_right_batch = FriBatchInfoTarget {
+            point: zeta_right,
+            polynomials: self.fri_zs_polys(),
+        };
+
+        let openings = vec![zeta_batch, zeta_right_batch];
+        FriInstanceInfoTarget {
+            oracles: FRI_ORACLES.to_vec(),
+            batches: openings,
+        }
+    }
+
+    fn fri_preprocessed_polys(&self) -> Vec<FriPolynomialInfo> {
+        FriPolynomialInfo::from_range(
+            PlonkOracle::CONSTANTS_SIGMAS.index,
+            0..self.num_preprocessed_polys(),
+        )
+    }
+
+    pub(crate) fn num_preprocessed_polys(&self) -> usize {
+        self.sigmas_range().end
+    }
+
+    fn fri_wire_polys(&self) -> Vec<FriPolynomialInfo> {
+        let num_wire_polys = self.config.num_wires;
+        FriPolynomialInfo::from_range(PlonkOracle::WIRES.index, 0..num_wire_polys)
+    }
+
+    fn fri_zs_partial_products_polys(&self) -> Vec<FriPolynomialInfo> {
+        FriPolynomialInfo::from_range(
+            PlonkOracle::ZS_PARTIAL_PRODUCTS.index,
+            0..self.num_zs_partial_products_polys(),
+        )
+    }
+
+    pub(crate) fn num_zs_partial_products_polys(&self) -> usize {
+        self.config.num_challenges * (1 + self.num_partial_products)
+    }
+
+    fn fri_zs_polys(&self) -> Vec<FriPolynomialInfo> {
+        FriPolynomialInfo::from_range(PlonkOracle::ZS_PARTIAL_PRODUCTS.index, self.zs_range())
+    }
+
+    fn fri_quotient_polys(&self) -> Vec<FriPolynomialInfo> {
+        FriPolynomialInfo::from_range(PlonkOracle::QUOTIENT.index, 0..self.num_quotient_polys())
+    }
+
+    pub(crate) fn num_quotient_polys(&self) -> usize {
+        self.config.num_challenges * self.quotient_degree_factor
+    }
+
+    fn fri_all_polys(&self) -> Vec<FriPolynomialInfo> {
+        [
+            self.fri_preprocessed_polys(),
+            self.fri_wire_polys(),
+            self.fri_zs_partial_products_polys(),
+            self.fri_quotient_polys(),
+        ]
+        .concat()
     }
 }
 

@@ -264,17 +264,28 @@ pub trait Field:
         subgroup.into_iter().map(|x| x * shift).collect()
     }
 
-    // TODO: move these to a new `PrimeField` trait (for all prime fields, not just 64-bit ones)
+    // TODO: The current behavior for composite fields doesn't seem natural or useful.
+    // Rename to `from_noncanonical_biguint` and have it return `n % Self::characteristic()`.
     fn from_biguint(n: BigUint) -> Self;
 
-    fn to_biguint(&self) -> BigUint;
-
+    /// Returns `n`. Assumes that `n` is already in canonical form, i.e. `n < Self::order()`.
+    // TODO: Should probably be unsafe.
     fn from_canonical_u64(n: u64) -> Self;
 
+    /// Returns `n`. Assumes that `n` is already in canonical form, i.e. `n < Self::order()`.
+    // TODO: Should probably be unsafe.
     fn from_canonical_u32(n: u32) -> Self {
         Self::from_canonical_u64(n as u64)
     }
 
+    /// Returns `n`. Assumes that `n` is already in canonical form, i.e. `n < Self::order()`.
+    // TODO: Should probably be unsafe.
+    fn from_canonical_u16(n: u16) -> Self {
+        Self::from_canonical_u64(n as u64)
+    }
+
+    /// Returns `n`. Assumes that `n` is already in canonical form, i.e. `n < Self::order()`.
+    // TODO: Should probably be unsafe.
     fn from_canonical_usize(n: usize) -> Self {
         Self::from_canonical_u64(n as u64)
     }
@@ -283,11 +294,11 @@ pub trait Field:
         Self::from_canonical_u64(b as u64)
     }
 
-    /// Returns `n % Self::CHARACTERISTIC`.
+    /// Returns `n % Self::characteristic()`.
     fn from_noncanonical_u128(n: u128) -> Self;
 
-    /// Returns `n % Self::CHARACTERISTIC`. May be cheaper than from_noncanonical_u128 when we know
-    /// that n < 2 ** 96.
+    /// Returns `n % Self::characteristic()`. May be cheaper than from_noncanonical_u128 when we know
+    /// that `n < 2 ** 96`.
     #[inline]
     fn from_noncanonical_u96((n_lo, n_hi): (u64, u32)) -> Self {
         // Default implementation.
@@ -399,22 +410,26 @@ pub trait Field:
     }
 }
 
-/// A finite field of prime order less than 2^64.
 pub trait PrimeField: Field {
+    fn to_canonical_biguint(&self) -> BigUint;
+}
+
+/// A finite field of order less than 2^64.
+pub trait Field64: Field {
     const ORDER: u64;
 
-    fn to_canonical_u64(&self) -> u64;
-
-    fn to_noncanonical_u64(&self) -> u64;
-
+    /// Returns `x % Self::CHARACTERISTIC`.
+    // TODO: Move to `Field`.
     fn from_noncanonical_u64(n: u64) -> Self;
 
     #[inline]
+    // TODO: Move to `Field`.
     fn add_one(&self) -> Self {
         unsafe { self.add_canonical_u64(1) }
     }
 
     #[inline]
+    // TODO: Move to `Field`.
     fn sub_one(&self) -> Self {
         unsafe { self.sub_canonical_u64(1) }
     }
@@ -423,6 +438,7 @@ pub trait PrimeField: Field {
     /// Equivalent to *self + Self::from_canonical_u64(rhs), but may be cheaper. The caller must
     /// ensure that 0 <= rhs < Self::ORDER. The function may return incorrect results if this
     /// precondition is not met. It is marked unsafe for this reason.
+    // TODO: Move to `Field`.
     #[inline]
     unsafe fn add_canonical_u64(&self, rhs: u64) -> Self {
         // Default implementation.
@@ -433,11 +449,19 @@ pub trait PrimeField: Field {
     /// Equivalent to *self - Self::from_canonical_u64(rhs), but may be cheaper. The caller must
     /// ensure that 0 <= rhs < Self::ORDER. The function may return incorrect results if this
     /// precondition is not met. It is marked unsafe for this reason.
+    // TODO: Move to `Field`.
     #[inline]
     unsafe fn sub_canonical_u64(&self, rhs: u64) -> Self {
         // Default implementation.
         *self - Self::from_canonical_u64(rhs)
     }
+}
+
+/// A finite field of prime order less than 2^64.
+pub trait PrimeField64: PrimeField + Field64 {
+    fn to_canonical_u64(&self) -> u64;
+
+    fn to_noncanonical_u64(&self) -> u64;
 }
 
 /// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.

@@ -17,7 +17,7 @@ pub struct MerkleProof<F: RichField, H: Hasher<F>> {
     pub siblings: Vec<H::Hash>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MerkleProofTarget {
     /// The Merkle digest of each sibling subtree, staying from the bottommost layer.
     pub siblings: Vec<HashOutTarget>,
@@ -30,9 +30,12 @@ pub(crate) fn verify_merkle_proof<F: RichField, H: Hasher<F>>(
     leaf_index: usize,
     merkle_cap: &MerkleCap<F, H>,
     proof: &MerkleProof<F, H>,
-) -> Result<()> {
+) -> Result<()>
+where
+    [(); H::HASH_SIZE]:,
+{
     let mut index = leaf_index;
-    let mut current_digest = H::hash(leaf_data, false);
+    let mut current_digest = H::hash_or_noop(&leaf_data);
     for &sibling_digest in proof.siblings.iter() {
         let bit = index & 1;
         index >>= 1;

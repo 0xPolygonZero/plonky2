@@ -104,29 +104,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let AffinePointTarget { x: x2, y: y2 } = p2;
 
         let u = self.sub_nonnative(y2, y1);
-        let uu = self.mul_nonnative(&u, &u);
         let v = self.sub_nonnative(x2, x1);
-        let vv = self.mul_nonnative(&v, &v);
-        let vvv = self.mul_nonnative(&v, &vv);
-        let r = self.mul_nonnative(&vv, x1);
-        let diff = self.sub_nonnative(&uu, &vvv);
-        let r2 = self.add_nonnative(&r, &r);
-        let a = self.sub_nonnative(&diff, &r2);
-        let x3 = self.mul_nonnative(&v, &a);
+        let v_inv = self.inv_nonnative(&v);
+        let s = self.mul_nonnative(&u, &v_inv);
+        let s_squared = self.mul_nonnative(&s, &s);
+        let x_sum = self.add_nonnative(x2, x1);
+        let x3 = self.sub_nonnative(&s_squared, &x_sum);
+        let x_diff = self.sub_nonnative(x1, &x3);
+        let prod = self.mul_nonnative(&s, &x_diff);
+        let y3 = self.sub_nonnative(&prod, y1);
 
-        let r_a = self.sub_nonnative(&r, &a);
-        let y3_first = self.mul_nonnative(&u, &r_a);
-        let y3_second = self.mul_nonnative(&vvv, y1);
-        let y3 = self.sub_nonnative(&y3_first, &y3_second);
-
-        let z3_inv = self.inv_nonnative(&vvv);
-        let x3_norm = self.mul_nonnative(&x3, &z3_inv);
-        let y3_norm = self.mul_nonnative(&y3, &z3_inv);
-
-        AffinePointTarget {
-            x: x3_norm,
-            y: y3_norm,
-        }
+        AffinePointTarget { x: x3, y: y3 }
     }
 
     pub fn curve_scalar_mul<C: Curve>(
@@ -134,11 +122,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         p: &AffinePointTarget<C>,
         n: &NonNativeTarget<C::ScalarField>,
     ) -> AffinePointTarget<C> {
-        let one = self.constant_nonnative(C::BaseField::ONE);
-
         let bits = self.split_nonnative_to_bits(n);
-        let bits_as_base: Vec<NonNativeTarget<C::BaseField>> =
-            bits.iter().map(|b| self.bool_to_nonnative(b)).collect();
 
         let rando = (CurveScalar(C::ScalarField::rand()) * C::GENERATOR_PROJECTIVE).to_affine();
         let randot = self.constant_affine_point(rando);
@@ -149,15 +133,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut two_i_times_p = self.add_virtual_affine_point_target();
         self.connect_affine_point(p, &two_i_times_p);
 
-        for bit in bits_as_base.iter() {
-            let not_bit = self.sub_nonnative(&one, bit);
+        for &bit in bits.iter() {
+            let not_bit = self.not(bit);
 
             let result_plus_2_i_p = self.curve_add(&result, &two_i_times_p);
 
-            let new_x_if_bit = self.mul_nonnative(bit, &result_plus_2_i_p.x);
-            let new_x_if_not_bit = self.mul_nonnative(&not_bit, &result.x);
-            let new_y_if_bit = self.mul_nonnative(bit, &result_plus_2_i_p.y);
-            let new_y_if_not_bit = self.mul_nonnative(&not_bit, &result.y);
+            let new_x_if_bit = self.mul_nonnative_by_bool(&result_plus_2_i_p.x, bit);
+            let new_x_if_not_bit = self.mul_nonnative_by_bool(&result.x, not_bit);
+            let new_y_if_bit = self.mul_nonnative_by_bool(&result_plus_2_i_p.y, bit);
+            let new_y_if_not_bit = self.mul_nonnative_by_bool(&result.y, not_bit);
 
             let new_x = self.add_nonnative(&new_x_if_bit, &new_x_if_not_bit);
             let new_y = self.add_nonnative(&new_y_if_bit, &new_y_if_not_bit);
@@ -177,6 +161,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Neg;
+
     use anyhow::Result;
     use plonky2_field::field_types::Field;
     use plonky2_field::secp256k1_base::Secp256K1Base;
@@ -196,7 +182,7 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
-        let config = CircuitConfig::standard_recursion_config();
+        let config = CircuitConfig::standard_ecc_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -221,7 +207,7 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
-        let config = CircuitConfig::standard_recursion_config();
+        let config = CircuitConfig::standard_ecc_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -248,7 +234,7 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
-        let config = CircuitConfig::standard_recursion_config();
+        let config = CircuitConfig::standard_ecc_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -285,7 +271,7 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
-        let config = CircuitConfig::standard_recursion_config();
+        let config = CircuitConfig::standard_ecc_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -316,27 +302,25 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
-        let config = CircuitConfig {
-            num_routed_wires: 33,
-            ..CircuitConfig::standard_recursion_config()
-        };
+        let config = CircuitConfig::standard_ecc_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let g = Secp256K1::GENERATOR_AFFINE;
         let five = Secp256K1Scalar::from_canonical_usize(5);
-        let five_scalar = CurveScalar::<Secp256K1>(five);
-        let five_g = (five_scalar * g.to_projective()).to_affine();
-        let five_g_expected = builder.constant_affine_point(five_g);
-        builder.curve_assert_valid(&five_g_expected);
+        let neg_five = five.neg();
+        let neg_five_scalar = CurveScalar::<Secp256K1>(neg_five);
+        let neg_five_g = (neg_five_scalar * g.to_projective()).to_affine();
+        let neg_five_g_expected = builder.constant_affine_point(neg_five_g);
+        builder.curve_assert_valid(&neg_five_g_expected);
 
         let g_target = builder.constant_affine_point(g);
-        let five_target = builder.constant_nonnative(five);
-        let five_g_actual = builder.curve_scalar_mul(&g_target, &five_target);
-        builder.curve_assert_valid(&five_g_actual);
+        let neg_five_target = builder.constant_nonnative(neg_five);
+        let neg_five_g_actual = builder.curve_scalar_mul(&g_target, &neg_five_target);
+        builder.curve_assert_valid(&neg_five_g_actual);
 
-        builder.connect_affine_point(&five_g_expected, &five_g_actual);
+        builder.connect_affine_point(&neg_five_g_expected, &neg_five_g_actual);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
@@ -345,16 +329,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_curve_random() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
-        let config = CircuitConfig {
-            num_routed_wires: 33,
-            ..CircuitConfig::standard_recursion_config()
-        };
+        let config = CircuitConfig::standard_ecc_config();
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);

@@ -1,15 +1,14 @@
-use plonky2_field::field_types::{Field, PrimeField};
+use plonky2_field::field_types::{Field, PrimeField64};
 use plonky2_field::goldilocks_field::GoldilocksField;
 use rand::Rng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::hash::gmimc::GMiMC;
 use crate::hash::poseidon::Poseidon;
 use crate::iop::target::Target;
 use crate::plonk::config::GenericHashOut;
 
 /// A prime order field with the features we need to use it as a base field in our argument system.
-pub trait RichField: PrimeField + GMiMC<12> + Poseidon {}
+pub trait RichField: PrimeField64 + Poseidon {}
 
 impl RichField for GoldilocksField {}
 
@@ -32,14 +31,10 @@ impl<F: Field> HashOut<F> {
         }
     }
 
-    pub fn from_partial(mut elements: Vec<F>) -> Self {
-        debug_assert!(elements.len() <= 4);
-        while elements.len() < 4 {
-            elements.push(F::ZERO);
-        }
-        Self {
-            elements: [elements[0], elements[1], elements[2], elements[3]],
-        }
+    pub fn from_partial(elements_in: &[F]) -> Self {
+        let mut elements = [F::ZERO; 4];
+        elements[0..elements_in.len()].copy_from_slice(elements_in);
+        Self { elements }
     }
 
     pub fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
@@ -94,25 +89,21 @@ impl<F: Field> Default for HashOut<F> {
 /// Represents a ~256 bit hash output.
 #[derive(Copy, Clone, Debug)]
 pub struct HashOutTarget {
-    pub(crate) elements: [Target; 4],
+    pub elements: [Target; 4],
 }
 
 impl HashOutTarget {
-    pub(crate) fn from_vec(elements: Vec<Target>) -> Self {
+    pub fn from_vec(elements: Vec<Target>) -> Self {
         debug_assert!(elements.len() == 4);
         Self {
             elements: elements.try_into().unwrap(),
         }
     }
 
-    pub(crate) fn from_partial(mut elements: Vec<Target>, zero: Target) -> Self {
-        debug_assert!(elements.len() <= 4);
-        while elements.len() < 4 {
-            elements.push(zero);
-        }
-        Self {
-            elements: [elements[0], elements[1], elements[2], elements[3]],
-        }
+    pub fn from_partial(elements_in: &[Target], zero: Target) -> Self {
+        let mut elements = [zero; 4];
+        elements[0..elements_in.len()].copy_from_slice(elements_in);
+        Self { elements }
     }
 }
 
@@ -122,6 +113,18 @@ pub struct MerkleCapTarget(pub Vec<HashOutTarget>);
 /// Hash consisting of a byte array.
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub struct BytesHash<const N: usize>(pub [u8; N]);
+
+impl<const N: usize> BytesHash<N> {
+    pub fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+        let mut buf = [0; N];
+        rng.fill_bytes(&mut buf);
+        Self(buf)
+    }
+
+    pub fn rand() -> Self {
+        Self::rand_from_rng(&mut rand::thread_rng())
+    }
+}
 
 impl<F: RichField, const N: usize> GenericHashOut<F> for BytesHash<N> {
     fn to_bytes(&self) -> Vec<u8> {

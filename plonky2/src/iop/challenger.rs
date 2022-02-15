@@ -11,7 +11,6 @@ use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericHashOut, Hasher};
-use crate::plonk::proof::{OpeningSet, OpeningSetTarget};
 
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
 #[derive(Clone)]
@@ -66,32 +65,6 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
     {
         for element in elements {
             self.observe_extension_element(element);
-        }
-    }
-
-    pub fn observe_opening_set<const D: usize>(&mut self, os: &OpeningSet<F, D>)
-    where
-        F: RichField + Extendable<D>,
-    {
-        let OpeningSet {
-            constants,
-            plonk_sigmas,
-            wires,
-            plonk_zs,
-            plonk_zs_right,
-            partial_products,
-            quotient_polys,
-        } = os;
-        for v in &[
-            constants,
-            plonk_sigmas,
-            wires,
-            plonk_zs,
-            plonk_zs_right,
-            partial_products,
-            quotient_polys,
-        ] {
-            self.observe_extension_elements(v);
         }
     }
 
@@ -212,29 +185,6 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
     pub(crate) fn observe_elements(&mut self, targets: &[Target]) {
         for &target in targets {
             self.observe_element(target);
-        }
-    }
-
-    pub fn observe_opening_set(&mut self, os: &OpeningSetTarget<D>) {
-        let OpeningSetTarget {
-            constants,
-            plonk_sigmas,
-            wires,
-            plonk_zs,
-            plonk_zs_right,
-            partial_products,
-            quotient_polys,
-        } = os;
-        for v in &[
-            constants,
-            plonk_sigmas,
-            wires,
-            plonk_zs,
-            plonk_zs_right,
-            partial_products,
-            quotient_polys,
-        ] {
-            self.observe_extension_elements(v);
         }
     }
 

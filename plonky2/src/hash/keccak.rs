@@ -56,9 +56,9 @@ impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
     type Hash = BytesHash<N>;
     type Permutation = KeccakPermutation;
 
-    fn hash(input: Vec<F>, _pad: bool) -> Self::Hash {
+    fn hash_no_pad(input: &[F]) -> Self::Hash {
         let mut buffer = Buffer::new(Vec::new());
-        buffer.write_field_vec(&input).unwrap();
+        buffer.write_field_vec(input).unwrap();
         let mut arr = [0; N];
         let hash_bytes = keccak(buffer.bytes()).0;
         arr.copy_from_slice(&hash_bytes[..N]);

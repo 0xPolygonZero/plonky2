@@ -1,8 +1,24 @@
 # Plonky2
 
-Plonky2 is an implementation of recursive arguments based on Plonk and FRI. It uses FRI to check systems of polynomial constraints, similar to the DEEP-ALI method described in the [DEEP-FRI](https://arxiv.org/abs/1903.12243) paper. It is the successor of [plonky](https://github.com/mir-protocol/plonky), which was based on Plonk and Halo.
+Plonky2 is a SNARK implementation based on techniques from PLONK and FRI. It is the successor of [Plonky](https://github.com/mir-protocol/plonky), which was based on PLONK and Halo.
 
-Plonky2 is largely focused on recursion performance. We use custom gates to mitigate the bottlenecks of FRI verification, such as hashing and interpolation. We also encode witness data in a ~64 bit field, so field operations take just a few cycles. To achieve 128-bit security, we repeat certain checks, and run certain parts of the argument in an extension field.
+Plonky2 is built for speed, and features a highly efficient recursive circuit. On a Macbook Pro, recursive proofs can be generated in about 170 ms.
+
+
+## Documentation
+
+For more details about the Plonky2 argument system, see this [writeup](plonky2.pdf).
+
+
+## Building
+
+Plonky2 requires a recent nightly toolchain, although we plan to transition to stable in the future.
+
+To use a nightly toolchain for Plonky2 by default, you can run
+```
+rustup override set nightly
+```
+in the Plonky2 directory.
 
 
 ## Running
@@ -10,8 +26,15 @@ Plonky2 is largely focused on recursion performance. We use custom gates to miti
 To see recursion performance, one can run this test, which generates a chain of three recursion proofs:
 
 ```sh
-RUST_LOG=debug RUSTFLAGS=-Ctarget-cpu=native cargo test --release test_recursive_recursive_verifier -- --ignored
+RUST_LOG=debug RUSTFLAGS=-Ctarget-cpu=native cargo test --release test_recursive_recursive_verifier
 ```
+
+
+## Jemalloc
+
+By default, Plonky2 uses the [Jemalloc](http://jemalloc.net) memory allocator due to its superior performance. Currently, it changes the default allocator of any binary to which it is linked. You can disable this behavior by removing the corresponding lines in [`plonky2/src/lib.rs`](https://github.com/mir-protocol/plonky2/blob/main/plonky2/src/lib.rs).
+
+Jemalloc is known to cause crashes when a binary compiled for x86 is run on an Apple silicon-based Mac under [Rosetta 2](https://support.apple.com/en-us/HT211861). If you are experiencing crashes on your Apple silicon Mac, run `rustc --print target-libdir`. The output should contain `aarch64-apple-darwin`. If the output contains `x86_64-apple-darwin`, then you are running the Rust toolchain for x86; we recommend switching to the native ARM version.
 
 
 ## Copyright
@@ -21,5 +44,5 @@ Plonky2 was developed by Polygon Zero (formerly Mir). While we plan to adopt an 
 
 ## Disclaimer
 
-This code has not been thoroughly reviewed or tested, and should not be used in any production systems.
+This code has not yet been audited, and should not be used in any production systems.
 
