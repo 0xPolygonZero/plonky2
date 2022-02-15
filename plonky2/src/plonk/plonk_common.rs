@@ -138,7 +138,7 @@ where
     sum
 }
 
-pub(crate) fn reduce_with_powers_ext_recursive<F: RichField + Extendable<D>, const D: usize>(
+pub fn reduce_with_powers_ext_recursive<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     terms: &[ExtensionTarget<D>],
     alpha: Target,

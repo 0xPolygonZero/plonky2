@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use plonky2_field::field_types::Field;
+use plonky2_field::field_types::PrimeField;
 use rayon::prelude::*;
 
 use crate::curve::curve_summation::affine_multisummation_best;
@@ -160,7 +161,7 @@ pub(crate) fn to_digits<C: Curve>(x: &C::ScalarField, w: usize) -> Vec<usize> {
 
     // Convert x to a bool array.
     let x_canonical: Vec<_> = x
-        .to_biguint()
+        .to_canonical_biguint()
         .to_u64_digits()
         .iter()
         .cloned()
@@ -187,6 +188,7 @@ pub(crate) fn to_digits<C: Curve>(x: &C::ScalarField, w: usize) -> Vec<usize> {
 mod tests {
     use num::BigUint;
     use plonky2_field::field_types::Field;
+    use plonky2_field::field_types::PrimeField;
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
     use crate::curve::curve_msm::{msm_execute, msm_precompute, to_digits};
@@ -206,7 +208,7 @@ mod tests {
             0b11111111111111111111111111111111,
         ];
         let x = Secp256K1Scalar::from_biguint(BigUint::from_slice(&x_canonical));
-        assert_eq!(x.to_biguint().to_u32_digits(), x_canonical);
+        assert_eq!(x.to_canonical_biguint().to_u32_digits(), x_canonical);
         assert_eq!(
             to_digits::<Secp256K1>(&x, 17),
             vec![

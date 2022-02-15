@@ -1,8 +1,10 @@
 use std::fmt::Debug;
+use std::hash::Hash;
 use std::ops::Neg;
 
-use plonky2_field::field_types::Field;
+use plonky2_field::field_types::{Field, PrimeField};
 use plonky2_field::ops::Square;
+use serde::{Deserialize, Serialize};
 
 // To avoid implementation conflicts from associated types,
 // see https://github.com/rust-lang/rust/issues/20400
@@ -10,8 +12,8 @@ pub struct CurveScalar<C: Curve>(pub <C as Curve>::ScalarField);
 
 /// A short Weierstrass curve.
 pub trait Curve: 'static + Sync + Sized + Copy + Debug {
-    type BaseField: Field;
-    type ScalarField: Field;
+    type BaseField: PrimeField;
+    type ScalarField: PrimeField;
 
     const A: Self::BaseField;
     const B: Self::BaseField;
@@ -36,7 +38,7 @@ pub trait Curve: 'static + Sync + Sized + Copy + Debug {
 }
 
 /// A point on a short Weierstrass curve, represented in affine coordinates.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize)]
 pub struct AffinePoint<C: Curve> {
     pub x: C::BaseField,
     pub y: C::BaseField,
@@ -118,6 +120,17 @@ impl<C: Curve> PartialEq for AffinePoint<C> {
 }
 
 impl<C: Curve> Eq for AffinePoint<C> {}
+
+impl<C: Curve> Hash for AffinePoint<C> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if self.zero {
+            self.zero.hash(state);
+        } else {
+            self.x.hash(state);
+            self.y.hash(state);
+        }
+    }
+}
 
 /// A point on a short Weierstrass curve, represented in projective coordinates.
 #[derive(Copy, Clone, Debug)]
@@ -261,9 +274,9 @@ impl<C: Curve> Neg for ProjectivePoint<C> {
 }
 
 pub fn base_to_scalar<C: Curve>(x: C::BaseField) -> C::ScalarField {
-    C::ScalarField::from_biguint(x.to_biguint())
+    C::ScalarField::from_biguint(x.to_canonical_biguint())
 }
 
 pub fn scalar_to_base<C: Curve>(x: C::ScalarField) -> C::BaseField {
-    C::BaseField::from_biguint(x.to_biguint())
+    C::BaseField::from_biguint(x.to_canonical_biguint())
 }

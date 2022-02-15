@@ -3,7 +3,7 @@ use std::io::Cursor;
 use std::io::{Read, Result, Write};
 
 use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::Field64;
+use plonky2_field::field_types::{Field64, PrimeField64};
 use plonky2_field::polynomial::PolynomialCoeffs;
 
 use crate::fri::proof::{
@@ -53,7 +53,7 @@ impl Buffer {
         Ok(u32::from_le_bytes(buf))
     }
 
-    fn write_field<F: Field64>(&mut self, x: F) -> Result<()> {
+    fn write_field<F: PrimeField64>(&mut self, x: F) -> Result<()> {
         self.0.write_all(&x.to_canonical_u64().to_le_bytes())
     }
     fn read_field<F: Field64>(&mut self) -> Result<F> {
@@ -116,7 +116,7 @@ impl Buffer {
         ))
     }
 
-    pub fn write_field_vec<F: Field64>(&mut self, v: &[F]) -> Result<()> {
+    pub fn write_field_vec<F: PrimeField64>(&mut self, v: &[F]) -> Result<()> {
         for &a in v {
             self.write_field(a)?;
         }

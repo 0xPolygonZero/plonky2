@@ -138,7 +138,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,
         params: &FriParams,
-    ) -> Proof<F, C, D> {
+    ) -> Proof<F, C, D>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         let CompressedProof {
             wires_cap,
             plonk_zs_partial_products_cap,
@@ -174,7 +177,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub fn decompress(
         self,
         common_data: &CommonCircuitData<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         let challenges = self.get_challenges(self.get_public_inputs_hash(), common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let decompressed_proof =
@@ -190,7 +196,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         self,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         common_data: &CommonCircuitData<F, C, D>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         ensure!(
             self.public_inputs.len() == common_data.num_public_inputs,
             "Number of public inputs doesn't match circuit data."

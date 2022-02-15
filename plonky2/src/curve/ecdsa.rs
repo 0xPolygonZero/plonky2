@@ -1,13 +1,19 @@
+use serde::{Deserialize, Serialize};
+
 use crate::curve::curve_msm::msm_parallel;
 use crate::curve::curve_types::{base_to_scalar, AffinePoint, Curve, CurveScalar};
 use crate::field::field_types::Field;
 
+#[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ECDSASignature<C: Curve> {
     pub r: C::ScalarField,
     pub s: C::ScalarField,
 }
 
+#[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ECDSASecretKey<C: Curve>(pub C::ScalarField);
+
+#[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ECDSAPublicKey<C: Curve>(pub AffinePoint<C>);
 
 pub fn sign_message<C: Curve>(msg: C::ScalarField, sk: ECDSASecretKey<C>) -> ECDSASignature<C> {

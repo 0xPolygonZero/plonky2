@@ -95,10 +95,6 @@ impl<F: Extendable<2>> Field for QuadraticExtension<F> {
         Self([F::from_biguint(low), F::from_biguint(high)])
     }
 
-    fn to_biguint(&self) -> BigUint {
-        self.0[0].to_biguint() + F::order() * self.0[1].to_biguint()
-    }
-
     fn from_canonical_u64(n: u64) -> Self {
         F::from_canonical_u64(n).into()
     }

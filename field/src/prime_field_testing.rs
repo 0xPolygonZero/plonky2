@@ -1,4 +1,4 @@
-use crate::field_types::Field64;
+use crate::field_types::PrimeField64;
 
 /// Generates a series of non-negative integers less than `modulus` which cover a range of
 /// interesting test values.
@@ -19,7 +19,7 @@ pub fn test_inputs(modulus: u64) -> Vec<u64> {
 /// word_bits)` and panic if the two resulting vectors differ.
 pub fn run_unaryop_test_cases<F, UnaryOp, ExpectedOp>(op: UnaryOp, expected_op: ExpectedOp)
 where
-    F: Field64,
+    F: PrimeField64,
     UnaryOp: Fn(F) -> F,
     ExpectedOp: Fn(u64) -> u64,
 {
@@ -43,7 +43,7 @@ where
 /// Apply the binary functions `op` and `expected_op` to each pair of inputs.
 pub fn run_binaryop_test_cases<F, BinaryOp, ExpectedOp>(op: BinaryOp, expected_op: ExpectedOp)
 where
-    F: Field64,
+    F: PrimeField64,
     BinaryOp: Fn(F, F) -> F,
     ExpectedOp: Fn(u64, u64) -> u64,
 {

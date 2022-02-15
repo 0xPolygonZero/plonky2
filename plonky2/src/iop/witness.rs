@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use itertools::Itertools;
 use num::{BigUint, FromPrimitive, Zero};
 use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::Field;
+use plonky2_field::field_types::{Field, PrimeField};
 
 use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::witness_util::set_fri_proof_target;
@@ -63,20 +63,26 @@ pub trait Witness<F: Field> {
         panic!("not a bool")
     }
 
-    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint {
+    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint
+    where
+        F: PrimeField,
+    {
         let mut result = BigUint::zero();
 
         let limb_base = BigUint::from_u64(1 << 32u64).unwrap();
         for i in (0..target.num_limbs()).rev() {
             let limb = target.get_limb(i);
             result *= &limb_base;
-            result += self.get_target(limb.0).to_biguint();
+            result += self.get_target(limb.0).to_canonical_biguint();
         }
 
         result
     }
 
-    fn get_nonnative_target<FF: Field>(&self, target: NonNativeTarget<FF>) -> FF {
+    fn get_nonnative_target<FF: PrimeField>(&self, target: NonNativeTarget<FF>) -> FF
+    where
+        F: PrimeField,
+    {
         let val = self.get_biguint_target(target.value);
         FF::from_biguint(val)
     }

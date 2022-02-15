@@ -15,7 +15,10 @@ pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     proof_with_pis: ProofWithPublicInputs<F, C, D>,
     verifier_data: &VerifierOnlyCircuitData<C, D>,
     common_data: &CommonCircuitData<F, C, D>,
-) -> Result<()> {
+) -> Result<()>
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
     ensure!(
         proof_with_pis.public_inputs.len() == common_data.num_public_inputs,
         "Number of public inputs doesn't match circuit data."
@@ -42,7 +45,10 @@ pub(crate) fn verify_with_challenges<
     challenges: ProofChallenges<F, D>,
     verifier_data: &VerifierOnlyCircuitData<C, D>,
     common_data: &CommonCircuitData<F, C, D>,
-) -> Result<()> {
+) -> Result<()>
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
     let local_constants = &proof.openings.constants;
     let local_wires = &proof.openings.wires;
     let vars = EvaluationVars {

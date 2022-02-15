@@ -12,21 +12,11 @@ pub(crate) const SPONGE_RATE: usize = 8;
 pub(crate) const SPONGE_CAPACITY: usize = 4;
 pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 
-/// Hash the vector if necessary to reduce its length to ~256 bits. If it already fits, this is a
-/// no-op.
-pub fn hash_or_noop<F: RichField, P: PlonkyPermutation<F>>(inputs: Vec<F>) -> HashOut<F> {
-    if inputs.len() <= 4 {
-        HashOut::from_partial(inputs)
-    } else {
-        hash_n_to_hash_no_pad::<F, P>(&inputs)
-    }
-}
-
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn hash_or_noop<H: AlgebraicHasher<F>>(&mut self, inputs: Vec<Target>) -> HashOutTarget {
         let zero = self.zero();
         if inputs.len() <= 4 {
-            HashOutTarget::from_partial(inputs, zero)
+            HashOutTarget::from_partial(&inputs, zero)
         } else {
             self.hash_n_to_hash_no_pad::<H>(inputs)
         }

@@ -31,7 +31,10 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     common_data: &CommonCircuitData<F, C, D>,
     inputs: PartialWitness<F>,
     timing: &mut TimingTree,
-) -> Result<ProofWithPublicInputs<F, C, D>> {
+) -> Result<ProofWithPublicInputs<F, C, D>>
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();

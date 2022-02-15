@@ -9,9 +9,19 @@ use starky::stark::Stark;
 use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
-use crate::column_layout::NUM_COLUMNS;
+use crate::arithmetic::{
+    eval_arithmetic_unit, eval_arithmetic_unit_recursively, generate_arithmetic_unit,
+};
+use crate::core_registers::{
+    eval_core_registers, eval_core_registers_recursively, generate_first_row_core_registers,
+    generate_next_row_core_registers,
+};
 use crate::memory::TransactionMemory;
+use crate::permutation_unit::{
+    eval_permutation_unit, eval_permutation_unit_recursively, generate_permutation_unit,
+};
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
+use crate::registers::NUM_COLUMNS;
 
 /// We require at least 2^16 rows as it helps support efficient 16-bit range checks.
 const MIN_TRACE_ROWS: usize = 1 << 16;
@@ -26,18 +36,25 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         let memory = TransactionMemory::default();
 
         let mut row = [F::ZERO; NUM_COLUMNS];
-        self.generate_first_row_core_registers(&mut row);
-        Self::generate_permutation_unit(&mut row);
+        generate_first_row_core_registers(&mut row);
+        generate_arithmetic_unit(&mut row);
+        generate_permutation_unit(&mut row);
 
         let mut trace = Vec::with_capacity(MIN_TRACE_ROWS);
 
         loop {
             let mut next_row = [F::ZERO; NUM_COLUMNS];
-            self.generate_next_row_core_registers(&row, &mut next_row);
-            Self::generate_permutation_unit(&mut next_row);
+            generate_next_row_core_registers(&row, &mut next_row);
+            generate_arithmetic_unit(&mut next_row);
+            generate_permutation_unit(&mut next_row);
 
             trace.push(row);
             row = next_row;
+
+            // TODO: Replace with proper termination condition.
+            if trace.len() == (1 << 16) - 1 {
+                break;
+            }
         }
 
         trace.push(row);
@@ -65,9 +82,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        self.eval_core_registers(vars, yield_constr);
-        Self::eval_permutation_unit(vars, yield_constr);
-        todo!()
+        eval_core_registers(vars, yield_constr);
+        eval_arithmetic_unit(vars, yield_constr);
+        eval_permutation_unit::<F, FE, P, D2>(vars, yield_constr);
+        // TODO: Other units
     }
 
     fn eval_ext_recursively(
@@ -76,9 +94,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
         vars: StarkEvaluationTargets<D, NUM_COLUMNS, NUM_PUBLIC_INPUTS>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        self.eval_core_registers_recursively(builder, vars, yield_constr);
-        Self::eval_permutation_unit_recursively(builder, vars, yield_constr);
-        todo!()
+        eval_core_registers_recursively(builder, vars, yield_constr);
+        eval_arithmetic_unit_recursively(builder, vars, yield_constr);
+        eval_permutation_unit_recursively(builder, vars, yield_constr);
+        // TODO: Other units
     }
 
     fn constraint_degree(&self) -> usize {
@@ -103,7 +122,7 @@ mod tests {
     use crate::system_zero::SystemZero;
 
     #[test]
-    #[ignore] // TODO
+    #[ignore] // A bit slow.
     fn run() -> Result<()> {
         type F = GoldilocksField;
         type C = PoseidonGoldilocksConfig;
@@ -121,7 +140,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO
     fn degree() -> Result<()> {
         type F = GoldilocksField;
         type C = PoseidonGoldilocksConfig;
