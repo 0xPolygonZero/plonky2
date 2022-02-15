@@ -143,7 +143,8 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
 
     /// Number of operations performed by the gate.
     fn num_ops(&self) -> usize {
-        self.generators(0, &[F::ZERO; 100]).len()
+        self.generators(0, &vec![F::ZERO; self.num_constants()])
+            .len()
     }
 }
 
@@ -177,6 +178,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Debug for GateRef<F, D> {
     }
 }
 
+/// Map between gate parameters and available slots.
 #[derive(Clone, Debug)]
 pub struct CurrentSlot<F: RichField + Extendable<D>, const D: usize> {
     pub current_slot: HashMap<Vec<F>, (usize, usize)>,

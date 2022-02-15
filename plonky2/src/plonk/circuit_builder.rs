@@ -81,6 +81,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// Memoized results of `arithmetic_extension` calls.
     pub(crate) arithmetic_results: HashMap<ExtensionArithmeticOperation<F, D>, ExtensionTarget<D>>,
 
+    /// Map between gate type and the current gate of this type with available slots.
     current_slots: HashMap<GateRef<F, D>, CurrentSlot<F, D>>,
 }
 
@@ -211,7 +212,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         constants: Vec<F>,
         params: Vec<F>,
     ) -> usize {
-        // println!("{} {}", self.num_gates(), gate_type.id());
         self.check_gate_compatibility(&gate_type);
         assert_eq!(
             gate_type.num_constants(),
@@ -397,6 +397,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         })
     }
 
+    /// Find an available slot, of the form `(gate_index, op)` for gate `G`.
     pub fn find_slot<G: Gate<F, D> + Clone>(
         &mut self,
         gate: G,
@@ -420,12 +421,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             (num_gates, 0)
         };
         if res.1 == num_ops - 1 {
+            // We've filled up the slots at this index.
             self.current_slots
                 .get_mut(&gate_ref)
                 .unwrap()
                 .current_slot
                 .remove(params);
         } else {
+            // Increment the slot operation index.
             self.current_slots
                 .get_mut(&gate_ref)
                 .unwrap()
@@ -737,6 +740,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_cap: constants_sigmas_cap.clone(),
         };
 
+        // Map between gates where not all generators are used and the gate's number of used generators.
         let incomplete_gates = self
             .current_slots
             .values()
@@ -750,6 +754,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .enumerate()
                 .flat_map(|(index, gate)| {
                     let mut gens = gate.gate_ref.0.generators(index, &gate.constants);
+                    // Remove unused generators, if any.
                     if let Some(&op) = incomplete_gates.get(&index) {
                         gens.drain(op..);
                     }

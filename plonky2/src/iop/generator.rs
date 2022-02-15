@@ -91,11 +91,6 @@ pub(crate) fn generate_partial_witness<
         pending_generator_indices = next_pending_generator_indices;
     }
 
-    for i in 0..generator_is_expired.len() {
-        if !generator_is_expired[i] {
-            dbg!(i);
-        }
-    }
     assert_eq!(
         remaining_generators, 0,
         "{} generators weren't run",
