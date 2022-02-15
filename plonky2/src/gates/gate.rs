@@ -142,10 +142,13 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
 
     fn num_constraints(&self) -> usize;
 
+    /// Number of operations performed by the gate.
     fn num_ops(&self) -> usize;
 
+    /// Dependencies (inputs) for the i-th operation.
     fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target>;
 
+    /// Fill the dependencies of the
     fn fill_gate(
         &self,
         params: &[F],

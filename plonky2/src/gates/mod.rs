@@ -7,7 +7,6 @@ pub mod arithmetic_extension;
 pub mod arithmetic_u32;
 pub mod assert_le;
 pub mod base_sum;
-pub mod batchable;
 pub mod comparison;
 pub mod constant;
 pub mod exponentiation;

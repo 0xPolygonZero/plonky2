@@ -662,6 +662,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let start = Instant::now();
         let rate_bits = self.config.fri_config.rate_bits;
 
+        for g in &self.gate_instances {
+            assert_eq!(
+                g.gate_ref.0.generators(0, &[F::ZERO; 100]).len(),
+                g.gate_ref.0.num_ops(),
+                "{}",
+                g.gate_ref.0.id()
+            );
+        }
+
         self.fill_batched_gates();
 
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
@@ -739,11 +748,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_cap: constants_sigmas_cap.clone(),
         };
 
-        let mut gens = self.generators.len();
-        for (i, g) in self.gate_instances.iter().enumerate() {
-            gens += g.gate_ref.0.generators(i, &g.constants).len();
-            dbg!(g.gate_ref.0.id(), gens);
-        }
         // Add gate generators.
         self.add_generators(
             self.gate_instances

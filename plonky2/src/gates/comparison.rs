@@ -321,16 +321,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ComparisonGate
     }
 }
 
-// impl<F: Richfield + Extendable<d>, const D: usize> Singleopgate<f, d> for multiopsgate<f, d> {
-//     fn num_ops(&self) -> usize {
-//         1
-//     }
-//
-//     fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
-//         unreachable!()
-//     }
-// }
-
 impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
     for ComparisonGate<F, D>
 {
