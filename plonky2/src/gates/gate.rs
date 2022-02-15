@@ -12,7 +12,6 @@ use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGenerator;
-use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
@@ -143,26 +142,8 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     fn num_constraints(&self) -> usize;
 
     /// Number of operations performed by the gate.
-    fn num_ops(&self) -> usize;
-
-    /// Dependencies (inputs) for the i-th operation.
-    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target>;
-
-    /// Fill the dependencies of the
-    fn fill_gate(
-        &self,
-        params: &[F],
-        current_slot: &CurrentSlot<F, D>,
-        builder: &mut CircuitBuilder<F, D>,
-    ) {
-        if let Some(&(gate_index, op)) = current_slot.current_slot.get(params) {
-            let zero = builder.zero();
-            for i in op..self.num_ops() {
-                for dep in self.dependencies_ith_op(gate_index, i) {
-                    builder.connect(dep, zero);
-                }
-            }
-        }
+    fn num_ops(&self) -> usize {
+        self.generators(0, &[F::ZERO; 100]).len()
     }
 }
 

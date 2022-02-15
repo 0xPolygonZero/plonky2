@@ -164,14 +164,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
     fn num_constraints(&self) -> usize {
         self.num_input_limbs * (1 + self.aux_limbs_per_input_limb())
     }
-
-    fn num_ops(&self) -> usize {
-        1
-    }
-
-    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
-        unreachable!()
-    }
 }
 
 #[derive(Debug)]

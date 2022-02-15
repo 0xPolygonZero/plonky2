@@ -201,14 +201,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
         // point-value pairs, plus D constraints for the evaluation value.
         self.num_points() * D + D
     }
-
-    fn num_ops(&self) -> usize {
-        1
-    }
-
-    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
-        unreachable!()
-    }
 }
 
 #[derive(Debug)]

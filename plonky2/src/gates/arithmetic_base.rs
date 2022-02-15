@@ -149,18 +149,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticGate
     fn num_constraints(&self) -> usize {
         self.num_ops
     }
-
-    fn num_ops(&self) -> usize {
-        self.num_ops
-    }
-
-    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
-        vec![
-            Target::wire(gate_index, Self::wire_ith_multiplicand_0(i)),
-            Target::wire(gate_index, Self::wire_ith_multiplicand_1(i)),
-            Target::wire(gate_index, Self::wire_ith_addend(i)),
-        ]
-    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for ArithmeticGate {

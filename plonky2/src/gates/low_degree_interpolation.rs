@@ -292,14 +292,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
         // to check power constraints for evaluation point and shift.
         self.num_points() * D + D + (D + 1) * (self.num_points() - 2)
     }
-
-    fn num_ops(&self) -> usize {
-        1
-    }
-
-    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
-        unreachable!()
-    }
 }
 
 #[derive(Debug)]

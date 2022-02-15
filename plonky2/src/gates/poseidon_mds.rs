@@ -195,14 +195,6 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
     fn num_constraints(&self) -> usize {
         SPONGE_WIDTH * D
     }
-
-    fn num_ops(&self) -> usize {
-        1
-    }
-
-    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
-        unreachable!()
-    }
 }
 
 #[derive(Clone, Debug)]

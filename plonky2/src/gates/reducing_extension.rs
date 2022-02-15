@@ -164,14 +164,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingExtens
     fn num_constraints(&self) -> usize {
         D * self.num_coeffs
     }
-
-    fn num_ops(&self) -> usize {
-        1
-    }
-
-    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
-        unreachable!()
-    }
 }
 
 #[derive(Debug)]

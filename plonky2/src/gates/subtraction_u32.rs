@@ -219,20 +219,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32Subtraction
     fn num_constraints(&self) -> usize {
         self.num_ops * (3 + Self::num_limbs())
     }
-
-    fn num_ops(&self) -> usize {
-        self.num_ops
-    }
-
-    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
-        U32SubtractionGenerator {
-            gate: *self,
-            gate_index,
-            i,
-            _phantom: Default::default(),
-        }
-        .dependencies()
-    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>

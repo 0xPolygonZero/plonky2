@@ -240,14 +240,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<
     fn num_constraints(&self) -> usize {
         (self.vec_size + 1) * (2 + D)
     }
-
-    fn num_ops(&self) -> usize {
-        1
-    }
-
-    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
-        unreachable!()
-    }
 }
 
 #[derive(Debug)]

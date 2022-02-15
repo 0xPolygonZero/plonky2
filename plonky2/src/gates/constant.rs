@@ -111,14 +111,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     fn num_constraints(&self) -> usize {
         self.num_consts
     }
-
-    fn num_ops(&self) -> usize {
-        self.num_consts
-    }
-
-    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
-        vec![]
-    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for ConstantGate {

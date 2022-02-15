@@ -662,8 +662,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let start = Instant::now();
         let rate_bits = self.config.fri_config.rate_bits;
 
-        self.fill_batched_gates();
-
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
         // those hash wires match the claimed public inputs.
         let num_public_inputs = self.public_inputs.len();
@@ -739,12 +737,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_cap: constants_sigmas_cap.clone(),
         };
 
+        let incomplete_gates = self
+            .current_slots
+            .values()
+            .flat_map(|current_slot| current_slot.current_slot.values().copied())
+            .collect::<HashMap<_, _>>();
+
         // Add gate generators.
         self.add_generators(
             self.gate_instances
                 .iter()
                 .enumerate()
-                .flat_map(|(index, gate)| gate.gate_ref.0.generators(index, &gate.constants))
+                .flat_map(|(index, gate)| {
+                    let mut gens = gate.gate_ref.0.generators(index, &gate.constants);
+                    if let Some(&op) = incomplete_gates.get(&index) {
+                        gens.drain(op..);
+                    }
+                    gens
+                })
                 .collect(),
         );
 
@@ -853,18 +863,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         VerifierCircuitData {
             verifier_only,
             common,
-        }
-    }
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    fn fill_batched_gates(&mut self) {
-        let instances = self.gate_instances.clone();
-        for gate in instances {
-            if let Some(slot) = self.current_slots.get(&gate.gate_ref) {
-                let cloned = slot.clone();
-                gate.gate_ref.0.fill_gate(&gate.params, &cloned, self);
-            }
         }
     }
 }

@@ -278,14 +278,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
     fn num_constraints(&self) -> usize {
         4 + 5 * self.num_chunks
     }
-
-    fn num_ops(&self) -> usize {
-        1
-    }
-
-    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
-        unreachable!()
-    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>

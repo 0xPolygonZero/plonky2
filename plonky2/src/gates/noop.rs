@@ -4,7 +4,6 @@ use crate::gates::gate::Gate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGenerator;
-use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
 
@@ -54,14 +53,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
 
     fn num_constraints(&self) -> usize {
         0
-    }
-
-    fn num_ops(&self) -> usize {
-        0
-    }
-
-    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
-        unreachable!()
     }
 }
 

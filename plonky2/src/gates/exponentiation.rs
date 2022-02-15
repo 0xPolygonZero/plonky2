@@ -188,14 +188,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
     fn num_constraints(&self) -> usize {
         self.num_power_bits + 1
     }
-
-    fn num_ops(&self) -> usize {
-        1
-    }
-
-    fn dependencies_ith_op(&self, _gate_index: usize, _i: usize) -> Vec<Target> {
-        unreachable!()
-    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>

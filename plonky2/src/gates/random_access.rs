@@ -228,19 +228,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         let constraints_per_copy = self.bits + 2;
         self.num_copies * constraints_per_copy
     }
-
-    fn num_ops(&self) -> usize {
-        self.num_copies
-    }
-
-    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
-        RandomAccessGenerator {
-            gate_index,
-            gate: *self,
-            copy: i,
-        }
-        .dependencies()
-    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>

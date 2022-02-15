@@ -187,19 +187,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, 
     fn num_constraints(&self) -> usize {
         4 * self.num_copies * self.chunk_size
     }
-
-    fn num_ops(&self) -> usize {
-        self.num_copies
-    }
-
-    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target> {
-        SwitchGenerator::<F, D> {
-            gate_index,
-            gate: *self,
-            copy: i,
-        }
-        .watch_list()
-    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for SwitchGate<F, D> {
