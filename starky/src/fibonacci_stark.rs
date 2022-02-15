@@ -114,7 +114,9 @@ mod tests {
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::plonk::config::{
+        AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig,
+    };
     use plonky2::util::timing::TimingTree;
 
     use crate::config::StarkConfig;
@@ -210,6 +212,7 @@ mod tests {
         InnerC::Hasher: AlgebraicHasher<F>,
         [(); S::COLUMNS]:,
         [(); S::PUBLIC_INPUTS]:,
+        [(); C::Hasher::HASH_SIZE]:,
     {
         let circuit_config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
