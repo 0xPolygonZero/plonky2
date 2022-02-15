@@ -407,6 +407,14 @@ fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
 }
 
+#[inline(always)]
+fn reduce256(x_lo: u128, x_hi: u128) -> GoldilocksField {
+    // Reduction
+    let lo = x_lo as u64;
+    let hi = reduce128(x_hi + (x_lo >> 64)).0;
+    reduce128(((hi as u128) << 64) + (lo as u128))
+}
+
 /*
  * The functions add_prods[0-4] and add_sqrs[0-4] are helper functions
  * for computing products and squares for the quintic extension over the
@@ -450,14 +458,7 @@ fn add_prods0(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     cumul_lo += a0.wrapping_mul(b0) as u128;
     cumul_hi += ((a0 as u128) * (b0 as u128)) >> 64;
 
-    // Reduction
-    cumul_hi += cumul_lo >> 64;
-    let cumul_lo = cumul_lo as u64;
-
-    let cumul_hi = reduce128(cumul_hi).0;
-    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
-
-    res
+    reduce256(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -496,14 +497,7 @@ fn add_prods1(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     cumul_lo += a1.wrapping_mul(b0) as u128;
     cumul_hi += ((a1 as u128) * (b0 as u128)) >> 64;
 
-    // Reduction
-    cumul_hi += cumul_lo >> 64;
-    let cumul_lo = cumul_lo as u64;
-
-    let cumul_hi = reduce128(cumul_hi).0;
-    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
-
-    res
+    reduce256(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -542,14 +536,7 @@ fn add_prods2(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     cumul_lo += a2.wrapping_mul(b0) as u128;
     cumul_hi += ((a2 as u128) * (b0 as u128)) >> 64;
 
-    // Reduction
-    cumul_hi += cumul_lo >> 64;
-    let cumul_lo = cumul_lo as u64;
-
-    let cumul_hi = reduce128(cumul_hi).0;
-    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
-
-    res
+    reduce256(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -588,14 +575,7 @@ fn add_prods3(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     cumul_lo += a3.wrapping_mul(b0) as u128;
     cumul_hi += ((a3 as u128) * (b0 as u128)) >> 64;
 
-    // Reduction
-    cumul_hi += cumul_lo >> 64;
-    let cumul_lo = cumul_lo as u64;
-
-    let cumul_hi = reduce128(cumul_hi).0;
-    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
-
-    res
+    reduce256(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -628,14 +608,7 @@ fn add_prods4(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     cumul_lo += a4.wrapping_mul(b0) as u128;
     cumul_hi += ((a4 as u128) * (b0 as u128)) >> 64;
 
-    // Reduction
-    cumul_hi += cumul_lo >> 64;
-    let cumul_lo = cumul_lo as u64;
-
-    let cumul_hi = reduce128(cumul_hi).0;
-    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
-
-    res
+    reduce256(cumul_lo, cumul_hi)
 }
 
 /// Multiply a and b considered as elements of GF(p^5).
@@ -676,14 +649,7 @@ fn add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
     cumul_lo += a0.wrapping_mul(a0) as u128;
     cumul_hi += ((a0 as u128) * (a0 as u128)) >> 64;
 
-    // Reduction
-    cumul_hi += cumul_lo >> 64;
-    let cumul_lo = cumul_lo as u64;
-
-    let cumul_hi = reduce128(cumul_hi).0;
-    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
-
-    res
+    reduce256(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -713,14 +679,7 @@ fn add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
     cumul_lo += 2 * (a0.wrapping_mul(a1) as u128);
     cumul_hi += 2 * (((a0 as u128) * (a1 as u128)) >> 64);
 
-    // Reduction
-    cumul_hi += cumul_lo >> 64;
-    let cumul_lo = cumul_lo as u64;
-
-    let cumul_hi = reduce128(cumul_hi).0;
-    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
-
-    res
+    reduce256(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -746,14 +705,7 @@ fn add_sqrs2(a: &[u64; 5]) -> GoldilocksField {
     cumul_lo += 2 * (a0.wrapping_mul(a2) as u128);
     cumul_hi += 2 * (((a0 as u128) * (a2 as u128)) >> 64);
 
-    // Reduction
-    cumul_hi += cumul_lo >> 64;
-    let cumul_lo = cumul_lo as u64;
-
-    let cumul_hi = reduce128(cumul_hi).0;
-    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
-
-    res
+    reduce256(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -783,14 +735,7 @@ fn add_sqrs3(a: &[u64; 5]) -> GoldilocksField {
     cumul_lo += W * (a4.wrapping_mul(a4) as u128);
     cumul_hi += W * (((a4 as u128) * (a4 as u128)) >> 64);
 
-    // Reduction
-    cumul_hi += cumul_lo >> 64;
-    let cumul_lo = cumul_lo as u64;
-
-    let cumul_hi = reduce128(cumul_hi).0;
-    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
-
-    res
+    reduce256(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -818,14 +763,7 @@ fn add_sqrs4(a: &[u64; 5]) -> GoldilocksField {
     cumul_lo += a2.wrapping_mul(a2) as u128;
     cumul_hi += ((a2 as u128) * (a2 as u128)) >> 64;
 
-    // Reduction
-    cumul_hi += cumul_lo >> 64;
-    let cumul_lo = cumul_lo as u64;
-
-    let cumul_hi = reduce128(cumul_hi).0;
-    let res = reduce128(((cumul_hi as u128) << 64) + (cumul_lo as u128));
-
-    res
+    reduce256(cumul_lo, cumul_hi)
 }
 
 /// Square a considered as an element of GF(p^5).
