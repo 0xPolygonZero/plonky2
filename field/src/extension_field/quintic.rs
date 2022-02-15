@@ -263,7 +263,7 @@ mod tests {
     mod goldilocks {
         use crate::{test_field_arithmetic, test_field_extension};
 
-        test_field_extension!(crate::goldilocks_field::GoldilocksField, 4);
+        test_field_extension!(crate::goldilocks_field::GoldilocksField, 5);
         test_field_arithmetic!(
             crate::extension_field::quintic::QuinticExtension<
                 crate::goldilocks_field::GoldilocksField,
