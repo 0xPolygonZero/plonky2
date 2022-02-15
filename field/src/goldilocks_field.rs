@@ -334,8 +334,13 @@ impl Extendable<5> for GoldilocksField {
         Self(1750907431983753016),
     ];
 
-    const EXT_POWER_OF_TWO_GENERATOR: [Self; 5] =
-        [Self::POWER_OF_TWO_GENERATOR, Self(0), Self(0), Self(0), Self(0)];
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 5] = [
+        Self::POWER_OF_TWO_GENERATOR,
+        Self(0),
+        Self(0),
+        Self(0),
+        Self(0),
+    ];
 }
 
 /// Fast addition modulo ORDER for x86-64.

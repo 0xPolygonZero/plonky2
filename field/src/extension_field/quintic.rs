@@ -83,9 +83,10 @@ impl<F: Extendable<5>> Field for QuinticExtension<F> {
         }
 
         // Writing 'a' for self:
-        let d = self.frobenius();  // d = a^p
+        let d = self.frobenius(); // d = a^p
         let e = d * d.frobenius(); // e = a^(p + p^2)
         let f = e * e.repeated_frobenius(2); // f = a^(p + p^2 + p^3 + p^4)
+
         // f contains a^(r-1) and g = a^r is in the base field.
         let g = *self * f;
         debug_assert!(FieldExtension::<5>::is_in_basefield(&g));
