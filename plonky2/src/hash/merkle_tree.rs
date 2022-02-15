@@ -60,10 +60,13 @@ fn capacity_up_to_mut<T>(v: &mut Vec<T>, len: usize) -> &mut [MaybeUninit<T>] {
 fn fill_subtree<F: RichField, H: Hasher<F>>(
     digests_buf: &mut [MaybeUninit<H::Hash>],
     leaves: &[Vec<F>],
-) -> H::Hash {
+) -> H::Hash
+where
+    [(); H::HASH_SIZE]:,
+{
     assert_eq!(leaves.len(), digests_buf.len() / 2 + 1);
     if digests_buf.is_empty() {
-        H::hash_no_pad(&leaves[0])
+        H::hash_or_noop(&leaves[0])
     } else {
         // Layout is: left recursive output || left child digest
         //             || right child digest || right recursive output.
@@ -89,7 +92,9 @@ fn fill_digests_buf<F: RichField, H: Hasher<F>>(
     cap_buf: &mut [MaybeUninit<H::Hash>],
     leaves: &[Vec<F>],
     cap_height: usize,
-) {
+) where
+    [(); H::HASH_SIZE]:,
+{
     // Special case of a tree that's all cap. The usual case will panic because we'll try to split
     // an empty slice into chunks of `0`. (We would not need this if there was a way to split into
     // `blah` chunks as opposed to chunks _of_ `blah`.)
@@ -99,7 +104,7 @@ fn fill_digests_buf<F: RichField, H: Hasher<F>>(
             .par_iter_mut()
             .zip(leaves)
             .for_each(|(cap_buf, leaf)| {
-                cap_buf.write(H::hash_no_pad(leaf));
+                cap_buf.write(H::hash_or_noop(leaf));
             });
         return;
     }
@@ -121,7 +126,10 @@ fn fill_digests_buf<F: RichField, H: Hasher<F>>(
 }
 
 impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
-    pub fn new(leaves: Vec<Vec<F>>, cap_height: usize) -> Self {
+    pub fn new(leaves: Vec<Vec<F>>, cap_height: usize) -> Self
+    where
+        [(); H::HASH_SIZE]:,
+    {
         let log2_leaves_len = log2_strict(leaves.len());
         assert!(
             cap_height <= log2_leaves_len,
@@ -208,14 +216,13 @@ mod tests {
         (0..n).map(|_| F::rand_vec(k)).collect()
     }
 
-    fn verify_all_leaves<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn verify_all_leaves<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         leaves: Vec<Vec<F>>,
         cap_height: usize,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         let tree = MerkleTree::<F, C::Hasher>::new(leaves.clone(), cap_height);
         for (i, leaf) in leaves.into_iter().enumerate() {
             let proof = tree.prove(i);

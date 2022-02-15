@@ -245,7 +245,10 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,
         params: &FriParams,
-    ) -> FriProof<F, H, D> {
+    ) -> FriProof<F, H, D>
+    where
+        [(); H::HASH_SIZE]:,
+    {
         let CompressedFriProof {
             commit_phase_merkle_caps,
             query_round_proofs,

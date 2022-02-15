@@ -24,7 +24,10 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
     timing: &mut TimingTree,
-) -> FriProof<F, C::Hasher, D> {
+) -> FriProof<F, C::Hasher, D>
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
     let n = lde_polynomial_values.len();
     assert_eq!(lde_polynomial_coeffs.len(), n);
 
@@ -68,7 +71,10 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
 ) -> (
     Vec<MerkleTree<F, C::Hasher>>,
     PolynomialCoeffs<F::Extension>,
-) {
+)
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
     let mut trees = Vec::new();
 
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
