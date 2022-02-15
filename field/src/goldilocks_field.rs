@@ -407,8 +407,17 @@ fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
 }
 
+/*
+ * The functions add_prods[0-4] and add_sqrs[0-4] are helper functions
+ * for computing products and squares for the quintic extension over the
+ * Goldilocks field. They are faster than the generic method because all
+ * reductions are delayed until the end which means only one is necessary.
+ */
+
 #[inline(always)]
 fn add_prods0(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
+    // Computes c0 = a0 * b0 + w * (a1 * b4 + a2 * b3 + a3 * b2 + a4 * b1)
+
     const W: u128 = 3;
 
     let [a0, a1, a2, a3, a4] = *a;
@@ -453,6 +462,8 @@ fn add_prods0(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 
 #[inline(always)]
 fn add_prods1(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
+    // Computes c1 = a0 * b1 + a1 * b0 + w * (a2 * b4 + a3 * b3 + a4 * b2);
+
     const W: u128 = 3;
 
     let [a0, a1, a2, a3, a4] = *a;
@@ -497,6 +508,8 @@ fn add_prods1(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 
 #[inline(always)]
 fn add_prods2(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
+    // Computes c2 = a0 * b2 + a1 * b1 + a2 * b0 + w * (a3 * b4 + a4 * b3);
+
     const W: u128 = 3;
 
     let [a0, a1, a2, a3, a4] = *a;
@@ -541,6 +554,8 @@ fn add_prods2(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 
 #[inline(always)]
 fn add_prods3(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
+    // Computes c3 = a0 * b3 + a1 * b2 + a2 * b1 + a3 * b0 + w * a4 * b4;
+
     const W: u128 = 3;
 
     let [a0, a1, a2, a3, a4] = *a;
@@ -585,6 +600,8 @@ fn add_prods3(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 
 #[inline(always)]
 fn add_prods4(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
+    // Computes c4 = a0 * b4 + a1 * b3 + a2 * b2 + a3 * b1 + a4 * b0;
+
     let [a0, a1, a2, a3, a4] = *a;
     let [b0, b1, b2, b3, b4] = *b;
 
@@ -621,6 +638,7 @@ fn add_prods4(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     res
 }
 
+/// Multiply a and b considered as elements of GF(p^5).
 #[inline]
 pub fn ext5_mul(a: [u64; 5], b: [u64; 5]) -> [GoldilocksField; 5] {
     let c0 = add_prods0(&a, &b);
@@ -633,6 +651,8 @@ pub fn ext5_mul(a: [u64; 5], b: [u64; 5]) -> [GoldilocksField; 5] {
 
 #[inline(always)]
 fn add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
+    // Compute c0 = a0^2 + 2 * w * (a1 * a4 + a2 * a3);
+
     const W: u128 = 3;
 
     let [a0, a1, a2, a3, a4] = *a;
@@ -668,6 +688,8 @@ fn add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
 
 #[inline(always)]
 fn add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
+    // Compute c1 = 2 * a0 * a1 + 2 * w * a2 * a4 + w * a3 * a3;
+
     const W: u128 = 3;
 
     let [a0, a1, a2, a3, a4] = *a;
@@ -703,6 +725,8 @@ fn add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
 
 #[inline(always)]
 fn add_sqrs2(a: &[u64; 5]) -> GoldilocksField {
+    // Compute c2 = 2 * a0 * a2 + a1 * a1 + 2 * w * a4 * a3;
+
     const W: u128 = 3;
 
     let [a0, a1, a2, a3, a4] = *a;
@@ -734,6 +758,8 @@ fn add_sqrs2(a: &[u64; 5]) -> GoldilocksField {
 
 #[inline(always)]
 fn add_sqrs3(a: &[u64; 5]) -> GoldilocksField {
+    // Compute c3 = 2 * a0 * a3 + 2 * a1 * a2 + w * a4 * a4;
+
     const W: u128 = 3;
 
     let [a0, a1, a2, a3, a4] = *a;
@@ -769,6 +795,8 @@ fn add_sqrs3(a: &[u64; 5]) -> GoldilocksField {
 
 #[inline(always)]
 fn add_sqrs4(a: &[u64; 5]) -> GoldilocksField {
+    // Compute c4 = 2 * a0 * a4 + 2 * a1 * a3 + a2 * a2;
+
     let [a0, a1, a2, a3, a4] = *a;
 
     let mut cumul_lo: u128 = 0;
@@ -800,7 +828,7 @@ fn add_sqrs4(a: &[u64; 5]) -> GoldilocksField {
     res
 }
 
-
+/// Square a considered as an element of GF(p^5).
 #[inline]
 pub fn ext5_sqr(a: [u64; 5]) -> [GoldilocksField; 5] {
     let c0 = add_sqrs0(&a);
