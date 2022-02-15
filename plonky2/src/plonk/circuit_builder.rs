@@ -18,9 +18,8 @@ use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
-use crate::gates::batchable::{BatchableGate, CurrentSlot, GateRef};
 use crate::gates::constant::ConstantGate;
-use crate::gates::gate::{Gate, GateInstance, PrefixedGate};
+use crate::gates::gate::{CurrentSlot, Gate, GateInstance, GateRef, PrefixedGate};
 use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
@@ -206,7 +205,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Adds a gate to the circuit, and returns its index.
-    pub fn add_gate<G: BatchableGate<F, D>>(
+    pub fn add_gate<G: Gate<F, D>>(
         &mut self,
         gate_type: G,
         constants: Vec<F>,
@@ -398,7 +397,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         })
     }
 
-    pub fn find_slot<G: BatchableGate<F, D> + Clone>(
+    pub fn find_slot<G: Gate<F, D> + Clone>(
         &mut self,
         gate: G,
         params: &[F],

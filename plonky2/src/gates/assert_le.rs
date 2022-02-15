@@ -5,7 +5,6 @@ use plonky2_field::field_types::{Field, Field64};
 use plonky2_field::packed_field::PackedField;
 use plonky2_util::{bits_u64, ceil_div_usize};
 
-use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -279,9 +278,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
     fn num_constraints(&self) -> usize {
         4 + 5 * self.num_chunks
     }
-}
 
-impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D> for AssertLessThanGate<F, D> {
     fn num_ops(&self) -> usize {
         1
     }

@@ -4,7 +4,6 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::{Field, Field64};
 use plonky2_field::packed_field::PackedField;
 
-use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
@@ -135,10 +134,7 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> fo
     fn num_constraints(&self) -> usize {
         1 + self.num_limbs
     }
-}
-impl<F: RichField + Extendable<D>, const D: usize, const B: usize> MultiOpsGate<F, D>
-    for BaseSumGate<B>
-{
+
     fn num_ops(&self) -> usize {
         1
     }

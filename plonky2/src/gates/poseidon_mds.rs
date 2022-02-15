@@ -6,7 +6,6 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_field::extension_field::FieldExtension;
 use plonky2_field::field_types::Field;
 
-use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -196,10 +195,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
     fn num_constraints(&self) -> usize {
         SPONGE_WIDTH * D
     }
-}
-impl<F: RichField + Extendable<D> + Poseidon, const D: usize> MultiOpsGate<F, D>
-    for PoseidonMdsGate<F, D>
-{
+
     fn num_ops(&self) -> usize {
         1
     }

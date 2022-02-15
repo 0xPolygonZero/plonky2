@@ -5,7 +5,6 @@ use plonky2_util::ceil_div_usize;
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
-use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -270,9 +269,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
     fn num_constraints(&self) -> usize {
         self.num_ops * (3 + Self::num_limbs())
     }
-}
 
-impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D> for U32AddManyGate<F, D> {
     fn num_ops(&self) -> usize {
         self.num_ops
     }

@@ -1,6 +1,5 @@
 use plonky2_field::extension_field::Extendable;
 
-use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
@@ -56,9 +55,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
     fn num_constraints(&self) -> usize {
         0
     }
-}
 
-impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D> for NoopGate {
     fn num_ops(&self) -> usize {
         1
     }

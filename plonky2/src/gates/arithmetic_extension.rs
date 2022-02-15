@@ -3,7 +3,6 @@ use std::ops::Range;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::extension_field::FieldExtension;
 
-use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -157,11 +156,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
     fn num_constraints(&self) -> usize {
         self.num_ops * D
     }
-}
 
-impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D>
-    for ArithmeticExtensionGate<D>
-{
     fn num_ops(&self) -> usize {
         self.num_ops
     }

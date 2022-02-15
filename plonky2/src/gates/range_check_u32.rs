@@ -4,7 +4,6 @@ use plonky2_util::ceil_div_usize;
 
 use crate::field::extension_field::Extendable;
 use crate::field::field_types::Field;
-use crate::gates::batchable::MultiOpsGate;
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
@@ -165,9 +164,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
     fn num_constraints(&self) -> usize {
         self.num_input_limbs * (1 + self.aux_limbs_per_input_limb())
     }
-}
 
-impl<F: RichField + Extendable<D>, const D: usize> MultiOpsGate<F, D> for U32RangeCheckGate<F, D> {
     fn num_ops(&self) -> usize {
         1
     }

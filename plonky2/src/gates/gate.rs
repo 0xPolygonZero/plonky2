@@ -1,15 +1,18 @@
-use std::fmt::Debug;
+use std::collections::HashMap;
+use std::fmt::{Debug, Error, Formatter};
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 use plonky2_field::batch_util::batch_multiply_inplace;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 
-use crate::gates::batchable::GateRef;
 use crate::gates::gate_tree::Tree;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGenerator;
+use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
@@ -138,37 +141,62 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     fn degree(&self) -> usize;
 
     fn num_constraints(&self) -> usize;
+
+    fn num_ops(&self) -> usize;
+
+    fn dependencies_ith_op(&self, gate_index: usize, i: usize) -> Vec<Target>;
+
+    fn fill_gate(
+        &self,
+        params: &[F],
+        current_slot: &CurrentSlot<F, D>,
+        builder: &mut CircuitBuilder<F, D>,
+    ) {
+        if let Some(&(gate_index, op)) = current_slot.current_slot.get(params) {
+            let zero = builder.zero();
+            for i in op..self.num_ops() {
+                for dep in self.dependencies_ith_op(gate_index, i) {
+                    builder.connect(dep, zero);
+                }
+            }
+        }
+    }
 }
 
-// /// A wrapper around an `Rc<Gate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
-// #[derive(Clone)]
-// pub struct GateRef<F: RichField + Extendable<D>, const D: usize>(pub(crate) Arc<dyn Gate<F, D>>);
-//
-// impl<F: RichField + Extendable<D>, const D: usize> GateRef<F, D> {
-//     pub fn new<G: Gate<F, D>>(gate: G) -> GateRef<F, D> {
-//         GateRef(Arc::new(gate))
-//     }
-// }
-//
-// impl<F: RichField + Extendable<D>, const D: usize> PartialEq for GateRef<F, D> {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.0.id() == other.0.id()
-//     }
-// }
-//
-// impl<F: RichField + Extendable<D>, const D: usize> Hash for GateRef<F, D> {
-//     fn hash<H: Hasher>(&self, state: &mut H) {
-//         self.0.id().hash(state)
-//     }
-// }
-//
-// impl<F: RichField + Extendable<D>, const D: usize> Eq for GateRef<F, D> {}
-//
-// impl<F: RichField + Extendable<D>, const D: usize> Debug for GateRef<F, D> {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-//         write!(f, "{}", self.0.id())
-//     }
-// }
+/// A wrapper around an `Rc<Gate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
+#[derive(Clone)]
+pub struct GateRef<F: RichField + Extendable<D>, const D: usize>(pub(crate) Arc<dyn Gate<F, D>>);
+
+impl<F: RichField + Extendable<D>, const D: usize> GateRef<F, D> {
+    pub fn new<G: Gate<F, D>>(gate: G) -> GateRef<F, D> {
+        GateRef(Arc::new(gate))
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> PartialEq for GateRef<F, D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.id() == other.0.id()
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> Hash for GateRef<F, D> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.id().hash(state)
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> Eq for GateRef<F, D> {}
+
+impl<F: RichField + Extendable<D>, const D: usize> Debug for GateRef<F, D> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}", self.0.id())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CurrentSlot<F: RichField + Extendable<D>, const D: usize> {
+    pub current_slot: HashMap<Vec<F>, (usize, usize)>,
+}
 
 /// A gate along with any constants used to configure it.
 #[derive(Clone)]
