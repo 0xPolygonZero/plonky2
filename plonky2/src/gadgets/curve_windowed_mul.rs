@@ -92,7 +92,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         p: &AffinePointTarget<C>,
         n: &NonNativeTarget<C::ScalarField>,
     ) -> AffinePointTarget<C> {
-        let hash_0 = KeccakHash::<25>::hash(&[F::ZERO], false);
+        let hash_0 = KeccakHash::<25>::hash_no_pad(&[F::ZERO]);
         let hash_0_scalar = C::ScalarField::from_biguint(BigUint::from_bytes_le(
             &GenericHashOut::<F>::to_bytes(&hash_0),
         ));

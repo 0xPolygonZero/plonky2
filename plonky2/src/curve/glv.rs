@@ -1,6 +1,6 @@
 use num::rational::Ratio;
 use num::BigUint;
-use plonky2_field::field_types::Field;
+use plonky2_field::field_types::{Field, PrimeField};
 use plonky2_field::secp256k1_base::Secp256K1Base;
 use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
@@ -35,13 +35,19 @@ pub fn decompose_secp256k1_scalar(
     k: Secp256K1Scalar,
 ) -> (Secp256K1Scalar, Secp256K1Scalar, bool, bool) {
     let p = Secp256K1Scalar::order();
-    let c1_biguint = Ratio::new(B2.to_biguint() * k.to_biguint(), p.clone())
-        .round()
-        .to_integer();
+    let c1_biguint = Ratio::new(
+        B2.to_canonical_biguint() * k.to_canonical_biguint(),
+        p.clone(),
+    )
+    .round()
+    .to_integer();
     let c1 = Secp256K1Scalar::from_biguint(c1_biguint);
-    let c2_biguint = Ratio::new(MINUS_B1.to_biguint() * k.to_biguint(), p.clone())
-        .round()
-        .to_integer();
+    let c2_biguint = Ratio::new(
+        MINUS_B1.to_canonical_biguint() * k.to_canonical_biguint(),
+        p.clone(),
+    )
+    .round()
+    .to_integer();
     let c2 = Secp256K1Scalar::from_biguint(c2_biguint);
 
     let k1_raw = k - c1 * A1 - c2 * A2;
@@ -49,15 +55,15 @@ pub fn decompose_secp256k1_scalar(
     debug_assert!(k1_raw + S * k2_raw == k);
 
     let two = BigUint::from_slice(&[2]);
-    let k1_neg = k1_raw.to_biguint() > p.clone() / two.clone();
+    let k1_neg = k1_raw.to_canonical_biguint() > p.clone() / two.clone();
     let k1 = if k1_neg {
-        Secp256K1Scalar::from_biguint(p.clone() - k1_raw.to_biguint())
+        Secp256K1Scalar::from_biguint(p.clone() - k1_raw.to_canonical_biguint())
     } else {
         k1_raw
     };
-    let k2_neg = k2_raw.to_biguint() > p.clone() / two;
+    let k2_neg = k2_raw.to_canonical_biguint() > p.clone() / two;
     let k2 = if k2_neg {
-        Secp256K1Scalar::from_biguint(p - k2_raw.to_biguint())
+        Secp256K1Scalar::from_biguint(p - k2_raw.to_canonical_biguint())
     } else {
         k2_raw
     };

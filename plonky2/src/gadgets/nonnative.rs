@@ -31,7 +31,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn nonnative_to_biguint<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> BigUintTarget {
+    pub fn nonnative_to_canonical_biguint<FF: Field>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+    ) -> BigUintTarget {
         x.value.clone()
     }
 
@@ -118,7 +121,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn if_nonnative<FF: Field>(
+    pub fn if_nonnative<FF: PrimeField>(
         &mut self,
         b: BoolTarget,
         x: &NonNativeTarget<FF>,
@@ -300,7 +303,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn reduce_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
-        let x_biguint = self.nonnative_to_biguint(x);
+        let x_biguint = self.nonnative_to_canonical_biguint(x);
         self.reduce(&x_biguint)
     }
 
