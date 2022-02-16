@@ -206,12 +206,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Adds a gate to the circuit, and returns its index.
-    pub fn add_gate<G: Gate<F, D>>(
-        &mut self,
-        gate_type: G,
-        constants: Vec<F>,
-        params: Vec<F>,
-    ) -> usize {
+    pub fn add_gate<G: Gate<F, D>>(&mut self, gate_type: G, constants: Vec<F>) -> usize {
         self.check_gate_compatibility(&gate_type);
         assert_eq!(
             gate_type.num_constants(),
@@ -232,7 +227,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.gate_instances.push(GateInstance {
             gate_ref,
             constants,
-            params,
         });
 
         index
@@ -417,7 +411,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let res = if let Some(&s) = slot {
             s
         } else {
-            self.add_gate(gate, constants.to_vec(), params.to_vec());
+            self.add_gate(gate, constants.to_vec());
             (num_gates, 0)
         };
         if res.1 == num_ops - 1 {
@@ -523,7 +517,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         while !self.gate_instances.len().is_power_of_two() {
-            self.add_gate(NoopGate, vec![], vec![]);
+            self.add_gate(NoopGate, vec![]);
         }
     }
 
@@ -540,7 +534,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // For each "regular" blinding factor, we simply add a no-op gate, and insert a random value
         // for each wire.
         for _ in 0..regular_poly_openings {
-            let gate = self.add_gate(NoopGate, vec![], vec![]);
+            let gate = self.add_gate(NoopGate, vec![]);
             for w in 0..num_wires {
                 self.add_simple_generator(RandomValueGenerator {
                     target: Target::Wire(Wire { gate, input: w }),
@@ -552,8 +546,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // enforce a copy constraint between them.
         // See https://mirprotocol.org/blog/Adding-zero-knowledge-to-Plonk-Halo
         for _ in 0..z_openings {
-            let gate_1 = self.add_gate(NoopGate, vec![], vec![]);
-            let gate_2 = self.add_gate(NoopGate, vec![], vec![]);
+            let gate_1 = self.add_gate(NoopGate, vec![]);
+            let gate_2 = self.add_gate(NoopGate, vec![]);
 
             for w in 0..num_routed_wires {
                 self.add_simple_generator(RandomValueGenerator {
@@ -670,7 +664,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_public_inputs = self.public_inputs.len();
         let public_inputs_hash =
             self.hash_n_to_hash_no_pad::<C::InnerHasher>(self.public_inputs.clone());
-        let pi_gate = self.add_gate(PublicInputGate, vec![], vec![]);
+        let pi_gate = self.add_gate(PublicInputGate, vec![]);
         for (&hash_part, wire) in public_inputs_hash
             .elements
             .iter()

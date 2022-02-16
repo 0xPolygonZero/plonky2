@@ -20,7 +20,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let gate_type = BaseSumGate::<2>::new_from_config::<F>(&self.config);
         let k = ceil_div_usize(num_bits, gate_type.num_limbs);
         let gates = (0..k)
-            .map(|_| self.add_gate(gate_type, vec![], vec![]))
+            .map(|_| self.add_gate(gate_type, vec![]))
             .collect::<Vec<_>>();
 
         let mut bits = Vec::with_capacity(num_bits);

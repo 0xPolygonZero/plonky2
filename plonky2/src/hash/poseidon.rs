@@ -269,7 +269,7 @@ pub trait Poseidon: PrimeField64 {
         // If we have enough routed wires, we will use PoseidonMdsGate.
         let mds_gate = PoseidonMdsGate::<Self, D>::new();
         if builder.config.num_routed_wires >= mds_gate.num_wires() {
-            let index = builder.add_gate(mds_gate, vec![], vec![]);
+            let index = builder.add_gate(mds_gate, vec![]);
             for i in 0..WIDTH {
                 let input_wire = PoseidonMdsGate::<Self, D>::wires_input(i);
                 builder.connect_extension(state[i], ExtensionTarget::from_range(index, input_wire));
@@ -652,7 +652,7 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
         F: RichField + Extendable<D>,
     {
         let gate_type = PoseidonGate::<F, D>::new();
-        let gate = builder.add_gate(gate_type, vec![], vec![]);
+        let gate = builder.add_gate(gate_type, vec![]);
 
         let swap_wire = PoseidonGate::<F, D>::WIRE_SWAP;
         let swap_wire = Target::wire(gate, swap_wire);

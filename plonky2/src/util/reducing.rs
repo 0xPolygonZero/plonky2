@@ -132,7 +132,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         reversed_terms.reverse();
         for chunk in reversed_terms.chunks_exact(max_coeffs_len) {
             let gate = ReducingGate::new(max_coeffs_len);
-            let gate_index = builder.add_gate(gate.clone(), vec![], vec![]);
+            let gate_index = builder.add_gate(gate.clone(), vec![]);
 
             builder.connect_extension(
                 self.base,
@@ -182,7 +182,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         reversed_terms.reverse();
         for chunk in reversed_terms.chunks_exact(max_coeffs_len) {
             let gate = ReducingExtensionGate::new(max_coeffs_len);
-            let gate_index = builder.add_gate(gate.clone(), vec![], vec![]);
+            let gate_index = builder.add_gate(gate.clone(), vec![]);
 
             builder.connect_extension(
                 self.base,

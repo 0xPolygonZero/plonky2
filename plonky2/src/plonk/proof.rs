@@ -411,7 +411,7 @@ mod tests {
         let comp_zt = builder.mul(xt, yt);
         builder.connect(zt, comp_zt);
         for _ in 0..100 {
-            builder.add_gate(NoopGate, vec![], vec![]);
+            builder.add_gate(NoopGate, vec![]);
         }
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;

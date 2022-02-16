@@ -241,7 +241,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         while exp_bits_vec.len() < num_power_bits {
             exp_bits_vec.push(_false);
         }
-        let gate_index = self.add_gate(gate.clone(), vec![], vec![]);
+        let gate_index = self.add_gate(gate.clone(), vec![]);
 
         self.connect(base, Target::wire(gate_index, gate.wire_base()));
         exp_bits_vec.iter().enumerate().for_each(|(i, bit)| {

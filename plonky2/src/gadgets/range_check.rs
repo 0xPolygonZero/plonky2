@@ -47,7 +47,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn range_check_u32(&mut self, vals: Vec<U32Target>) {
         let num_input_limbs = vals.len();
         let gate = U32RangeCheckGate::<F, D>::new(num_input_limbs);
-        let gate_index = self.add_gate(gate, vec![], vec![]);
+        let gate_index = self.add_gate(gate, vec![]);
 
         for i in 0..num_input_limbs {
             self.connect(

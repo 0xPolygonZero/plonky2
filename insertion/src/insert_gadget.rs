@@ -27,7 +27,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderInsert<F, D>
         v: Vec<ExtensionTarget<D>>,
     ) -> Vec<ExtensionTarget<D>> {
         let gate = InsertionGate::new(v.len());
-        let gate_index = self.add_gate(gate.clone(), vec![], vec![]);
+        let gate_index = self.add_gate(gate.clone(), vec![]);
 
         v.iter().enumerate().for_each(|(i, &val)| {
             self.connect_extension(
