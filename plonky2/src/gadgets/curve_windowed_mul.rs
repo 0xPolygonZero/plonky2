@@ -18,18 +18,18 @@ use crate::plonk::config::{GenericHashOut, Hasher};
 const WINDOW_SIZE: usize = 4;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    // TODO: fix if p is the generator
     pub fn precompute_window<C: Curve>(
         &mut self,
         p: &AffinePointTarget<C>,
     ) -> Vec<AffinePointTarget<C>> {
+        let g = (CurveScalar(C::ScalarField::rand()) * C::GENERATOR_PROJECTIVE).to_affine();
         let neg = {
-            let mut g = C::GENERATOR_AFFINE;
-            g.y = -g.y;
-            self.constant_affine_point(g)
+            let mut neg = g;
+            neg.y = -neg.y;
+            self.constant_affine_point(neg)
         };
 
-        let mut multiples = vec![self.constant_affine_point(C::GENERATOR_AFFINE)];
+        let mut multiples = vec![self.constant_affine_point(g)];
         for i in 1..1 << WINDOW_SIZE {
             multiples.push(self.curve_add(p, &multiples[i - 1]));
         }

@@ -63,6 +63,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    pub fn add_virtual_nonnative_target_sized<FF: Field>(
+        &mut self,
+        num_limbs: usize,
+    ) -> NonNativeTarget<FF> {
+        let value = self.add_virtual_biguint_target(num_limbs);
+
+        NonNativeTarget {
+            value,
+            _phantom: PhantomData,
+        }
+    }
+
     pub fn add_nonnative<FF: PrimeField>(
         &mut self,
         a: &NonNativeTarget<FF>,

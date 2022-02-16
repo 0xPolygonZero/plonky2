@@ -71,6 +71,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    pub fn curve_conditional_neg<C: Curve>(
+        &mut self,
+        p: &AffinePointTarget<C>,
+        b: BoolTarget,
+    ) -> AffinePointTarget<C> {
+        let not_b = self.not(b);
+        let neg = self.curve_neg(p);
+        let x_if_true = self.mul_nonnative_by_bool(&neg.x, b);
+        let y_if_true = self.mul_nonnative_by_bool(&neg.y, b);
+        let x_if_false = self.mul_nonnative_by_bool(&p.x, not_b);
+        let y_if_false = self.mul_nonnative_by_bool(&p.y, not_b);
+
+        let x = self.add_nonnative(&x_if_true, &x_if_false);
+        let y = self.add_nonnative(&y_if_true, &y_if_false);
+
+        AffinePointTarget { x, y }
+    }
+
     pub fn curve_double<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C> {
         let AffinePointTarget { x, y } = p;
         let double_y = self.add_nonnative(y, y);

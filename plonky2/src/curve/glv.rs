@@ -1,4 +1,5 @@
 use num::rational::Ratio;
+use num::BigUint;
 use plonky2_field::field_types::Field;
 use plonky2_field::secp256k1_base::Secp256K1Base;
 use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
@@ -30,26 +31,46 @@ const A2: Secp256K1Scalar = Secp256K1Scalar([6323353552219852760, 14980988506747
 
 const B2: Secp256K1Scalar = Secp256K1Scalar([16747920425669159701, 3496713202691238861, 0, 0]);
 
-pub fn decompose_secp256k1_scalar(k: Secp256K1Scalar) -> (Secp256K1Scalar, Secp256K1Scalar) {
+pub fn decompose_secp256k1_scalar(
+    k: Secp256K1Scalar,
+) -> (Secp256K1Scalar, Secp256K1Scalar, bool, bool) {
     let p = Secp256K1Scalar::order();
     let c1_biguint = Ratio::new(B2.to_biguint() * k.to_biguint(), p.clone())
         .round()
         .to_integer();
     let c1 = Secp256K1Scalar::from_biguint(c1_biguint);
-    let c2_biguint = Ratio::new(MINUS_B1.to_biguint() * k.to_biguint(), p)
+    let c2_biguint = Ratio::new(MINUS_B1.to_biguint() * k.to_biguint(), p.clone())
         .round()
         .to_integer();
     let c2 = Secp256K1Scalar::from_biguint(c2_biguint);
 
-    let k1 = k - c1 * A1 - c2 * A2;
-    let k2 = c1 * MINUS_B1 - c2 * B2;
-    debug_assert!(k1 + S * k2 == k);
-    (k1, k2)
+    let k1_raw = k - c1 * A1 - c2 * A2;
+    let k2_raw = c1 * MINUS_B1 - c2 * B2;
+    debug_assert!(k1_raw + S * k2_raw == k);
+
+    let two = BigUint::from_slice(&[2]);
+    let k1_neg = k1_raw.to_biguint() > p.clone() / two.clone();
+    let k1 = if k1_neg {
+        Secp256K1Scalar::from_biguint(p.clone() - k1_raw.to_biguint())
+    } else {
+        k1_raw
+    };
+    let k2_neg = k2_raw.to_biguint() > p.clone() / two.clone();
+    let k2 = if k2_neg {
+        Secp256K1Scalar::from_biguint(p.clone() - k2_raw.to_biguint())
+    } else {
+        k2_raw
+    };
+
+    (k1, k2, k1_neg, k2_neg)
 }
 
 pub fn glv_mul(p: ProjectivePoint<Secp256K1>, k: Secp256K1Scalar) -> ProjectivePoint<Secp256K1> {
-    let (k1, k2) = decompose_secp256k1_scalar(k);
-    assert!(k1 + S * k2 == k);
+    let (k1, k2, k1_neg, k2_neg) = decompose_secp256k1_scalar(k);
+    let one = Secp256K1Scalar::ONE;
+    /*let m1 = if k1_neg { -one } else { one };
+    let m2 = if k2_neg { -one } else { one };
+    assert!(k1 * m1 + S * k2 * m2 == k);*/
 
     let p_affine = p.to_affine();
     let sp = AffinePoint::<Secp256K1> {
@@ -58,7 +79,10 @@ pub fn glv_mul(p: ProjectivePoint<Secp256K1>, k: Secp256K1Scalar) -> ProjectiveP
         zero: p_affine.zero,
     };
 
-    msm_parallel(&[k1, k2], &[p, sp.to_projective()], 5)
+    let first = if k1_neg { p.neg() } else { p };
+    let second = if k2_neg { sp.to_projective().neg() } else { sp.to_projective() };
+
+    msm_parallel(&[k1, k2], &[first, second], 5)
 }
 
 #[cfg(test)]
@@ -74,9 +98,12 @@ mod tests {
     #[test]
     fn test_glv_decompose() -> Result<()> {
         let k = Secp256K1Scalar::rand();
-        let (k1, k2) = decompose_secp256k1_scalar(k);
+        let (k1, k2, k1_neg, k2_neg) = decompose_secp256k1_scalar(k);
+        let one = Secp256K1Scalar::ONE;
+        let m1 = if k1_neg { -one } else { one };
+        let m2 = if k2_neg { -one } else { one };
 
-        assert!(k1 + S * k2 == k);
+        assert!(k1 * m1 + S * k2 * m2 == k);
 
         Ok(())
     }

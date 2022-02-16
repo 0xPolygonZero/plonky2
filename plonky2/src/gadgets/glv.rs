@@ -10,7 +10,7 @@ use crate::gadgets::curve::AffinePointTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::RichField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
-use crate::iop::target::Target;
+use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -25,18 +25,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> (
         NonNativeTarget<Secp256K1Scalar>,
         NonNativeTarget<Secp256K1Scalar>,
+        BoolTarget,
+        BoolTarget,
     ) {
-        let k1 = self.add_virtual_nonnative_target::<Secp256K1Scalar>();
-        let k2 = self.add_virtual_nonnative_target::<Secp256K1Scalar>();
+        let k1 = self.add_virtual_nonnative_target_sized::<Secp256K1Scalar>(4);
+        let k2 = self.add_virtual_nonnative_target_sized::<Secp256K1Scalar>(4);
+        let k1_neg = self.add_virtual_bool_target();
+        let k2_neg = self.add_virtual_bool_target();
 
         self.add_simple_generator(GLVDecompositionGenerator::<F, D> {
             k: k.clone(),
             k1: k1.clone(),
             k2: k2.clone(),
+            k1_neg: k1_neg.clone(),
+            k2_neg: k2_neg.clone(),
             _phantom: PhantomData,
         });
 
-        (k1, k2)
+        (k1, k2, k1_neg, k2_neg)
     }
 
     pub fn glv_mul(
@@ -44,7 +50,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         p: &AffinePointTarget<Secp256K1>,
         k: &NonNativeTarget<Secp256K1Scalar>,
     ) -> AffinePointTarget<Secp256K1> {
-        let (k1, k2) = self.decompose_secp256k1_scalar(k);
+        let (k1, k2, k1_neg, k2_neg) = self.decompose_secp256k1_scalar(k);
 
         let beta = self.secp256k1_glv_beta();
         let beta_px = self.mul_nonnative(&beta, &p.x);
@@ -54,9 +60,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         };
 
         let part1 = self.curve_scalar_mul_windowed(p, &k1);
+        let part1_neg = self.curve_conditional_neg(&part1, k1_neg);
         let part2 = self.curve_scalar_mul_windowed(&sp, &k2);
+        let part2_neg = self.curve_conditional_neg(&part2, k2_neg);
 
-        self.curve_add(&part1, &part2)
+        self.curve_add(&part1_neg, &part2_neg)
     }
 }
 
@@ -65,6 +73,8 @@ struct GLVDecompositionGenerator<F: RichField + Extendable<D>, const D: usize> {
     k: NonNativeTarget<Secp256K1Scalar>,
     k1: NonNativeTarget<Secp256K1Scalar>,
     k2: NonNativeTarget<Secp256K1Scalar>,
+    k1_neg: BoolTarget,
+    k2_neg: BoolTarget,
     _phantom: PhantomData<F>,
 }
 
@@ -77,10 +87,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let k = witness.get_nonnative_target(self.k.clone());
-        let (k1, k2) = decompose_secp256k1_scalar(k);
+        let (k1, k2, k1_neg, k2_neg) = decompose_secp256k1_scalar(k);
 
         out_buffer.set_nonnative_target(self.k1.clone(), k1);
         out_buffer.set_nonnative_target(self.k2.clone(), k2);
+        out_buffer.set_bool_target(self.k1_neg.clone(), k1_neg);
+        out_buffer.set_bool_target(self.k2_neg.clone(), k2_neg);
     }
 }
 
@@ -100,7 +112,7 @@ mod tests {
     use crate::plonk::verifier::verify;
 
     #[test]
-    fn test_glv() -> Result<()> {
+    fn test_glv_gadget() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
