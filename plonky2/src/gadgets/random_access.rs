@@ -10,13 +10,15 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Checks that a `Target` matches a vector at a non-deterministic index.
     /// Note: `access_index` is not range-checked.
-    pub fn random_access(&mut self, access_index: Target, claimed_element: Target, v: Vec<Target>) {
+    pub fn random_access(&mut self, access_index: Target, v: Vec<Target>) -> Target {
         let vec_size = v.len();
         let bits = log2_strict(vec_size);
         debug_assert!(vec_size > 0);
         if vec_size == 1 {
-            return self.connect(claimed_element, v[0]);
+            return v[0];
         }
+        let claimed_element = self.add_virtual_target();
+
         let dummy_gate = RandomAccessGate::<F, D>::new_from_config(&self.config, bits);
         let (gate_index, copy) = self.find_slot(dummy_gate, &[], &[]);
 
@@ -34,6 +36,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             claimed_element,
             Target::wire(gate_index, dummy_gate.wire_claimed_element(copy)),
         );
+
+        claimed_element
     }
 
     /// Checks that an `ExtensionTarget` matches a vector at a non-deterministic index.
@@ -41,16 +45,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn random_access_extension(
         &mut self,
         access_index: Target,
-        claimed_element: ExtensionTarget<D>,
         v: Vec<ExtensionTarget<D>>,
-    ) {
-        for i in 0..D {
-            self.random_access(
-                access_index,
-                claimed_element.0[i],
-                v.iter().map(|et| et.0[i]).collect(),
-            );
-        }
+    ) -> ExtensionTarget<D> {
+        let v: Vec<_> = (0..D)
+            .map(|i| self.random_access(access_index, v.iter().map(|et| et.0[i]).collect()))
+            .collect();
+
+        ExtensionTarget(v.try_into().unwrap())
     }
 }
 
@@ -80,7 +81,8 @@ mod tests {
         for i in 0..len {
             let it = builder.constant(F::from_canonical_usize(i));
             let elem = builder.constant_extension(vec[i]);
-            builder.random_access_extension(it, elem, v.clone());
+            let res = builder.random_access_extension(it, v.clone());
+            builder.connect_extension(elem, res);
         }
 
         let data = builder.build::<C>();

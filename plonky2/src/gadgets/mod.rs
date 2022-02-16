@@ -16,3 +16,4 @@ pub mod range_check;
 pub mod select;
 pub mod split_base;
 pub(crate) mod split_join;
+pub mod split_nonnative;

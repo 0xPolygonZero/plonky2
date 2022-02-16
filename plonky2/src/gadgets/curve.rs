@@ -1,10 +1,17 @@
+use std::marker::PhantomData;
+
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
 
 use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
+use crate::gadgets::arithmetic_u32::U32Target;
+use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::RichField;
+use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
+
+const WINDOW_SIZE: usize = 4;
 
 /// A Target representing an affine point on the curve `C`. We use incomplete arithmetic for efficiency,
 /// so we assume these points are not zero.
@@ -154,6 +161,82 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Subtract off result's intial value of `rando`.
         let neg_r = self.curve_neg(&randot);
         result = self.curve_add(&result, &neg_r);
+
+        result
+    }
+
+    pub fn precompute_window<C: Curve>(
+        &mut self,
+        p: &AffinePointTarget<C>,
+    ) -> Vec<AffinePointTarget<C>> {
+        let mut multiples = Vec::new();
+        multiples.push(self.constant_affine_point(C::GENERATOR_AFFINE));
+        let mut cur = p.clone();
+        for _pow in 1..WINDOW_SIZE {
+            for existing in multiples.clone() {
+                multiples.push(self.curve_add(&cur, &existing));
+            }
+            cur = self.curve_double(&cur);
+        }
+
+        multiples
+    }
+
+    pub fn random_access_curve_points<C: Curve>(
+        &mut self,
+        access_index: Target,
+        v: Vec<AffinePointTarget<C>>,
+    ) -> AffinePointTarget<C> {
+        let num_limbs = v[0].x.value.num_limbs();
+        let x_limbs: Vec<Vec<_>> = (0..num_limbs)
+            .map(|i| v.iter().map(|p| p.x.value.limbs[i].0).collect())
+            .collect();
+        let y_limbs: Vec<Vec<_>> = (0..num_limbs)
+            .map(|i| v.iter().map(|p| p.y.value.limbs[i].0).collect())
+            .collect();
+
+        let selected_x_limbs: Vec<_> = x_limbs
+            .iter()
+            .map(|limbs| U32Target(self.random_access(access_index, limbs.clone())))
+            .collect();
+        let selected_y_limbs: Vec<_> = y_limbs
+            .iter()
+            .map(|limbs| U32Target(self.random_access(access_index, limbs.clone())))
+            .collect();
+
+        let x = NonNativeTarget {
+            value: BigUintTarget {
+                limbs: selected_x_limbs,
+            },
+            _phantom: PhantomData,
+        };
+        let y = NonNativeTarget {
+            value: BigUintTarget {
+                limbs: selected_y_limbs,
+            },
+            _phantom: PhantomData,
+        };
+        AffinePointTarget { x, y }
+    }
+
+    pub fn curve_scalar_mul_windowed<C: Curve>(
+        &mut self,
+        p: &AffinePointTarget<C>,
+        n: &NonNativeTarget<C::ScalarField>,
+    ) -> AffinePointTarget<C> {
+        let mut result = self.constant_affine_point(C::GENERATOR_AFFINE);
+
+        let precomputation = self.precompute_window(p);
+
+        let windows = self.split_nonnative_to_4_bit_limbs(n);
+        let m = C::ScalarField::BITS / WINDOW_SIZE;
+        for i in m..0 {
+            result = self.curve_double(&result);
+            let window = windows[i];
+
+            let to_add = self.random_access_curve_points(window, precomputation.clone());
+            result = self.curve_add(&result, &to_add);
+        }
 
         result
     }

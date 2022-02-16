@@ -78,11 +78,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let index = self.le_sum(leaf_index_bits[proof.siblings.len()..].iter().copied());
 
         for i in 0..4 {
-            self.random_access(
-                index,
-                state.elements[i],
-                merkle_cap.0.iter().map(|h| h.elements[i]).collect(),
-            );
+            let result =
+                self.random_access(index, merkle_cap.0.iter().map(|h| h.elements[i]).collect());
+            self.connect(result, state.elements[i]);
         }
     }
 
@@ -110,11 +108,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         for i in 0..4 {
-            self.random_access(
+            let result = self.random_access(
                 cap_index,
-                state.elements[i],
                 merkle_cap.0.iter().map(|h| h.elements[i]).collect(),
             );
+            self.connect(result, state.elements[i]);
         }
     }
 
