@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::fri::proof::{
@@ -14,7 +15,7 @@ use plonky2::plonk::config::GenericConfig;
 use rayon::prelude::*;
 
 use crate::config::StarkConfig;
-use crate::stark::PermutationChallengeSet;
+use crate::permutation::PermutationChallengeSet;
 
 #[derive(Debug, Clone)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
@@ -43,6 +44,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
 
 pub struct StarkProofTarget<const D: usize> {
     pub trace_cap: MerkleCapTarget,
+    pub permutation_zs_cap: Option<MerkleCapTarget>,
     pub quotient_polys_cap: MerkleCapTarget,
     pub openings: StarkOpeningSetTarget<D>,
     pub opening_proof: FriProofTarget<D>,
@@ -121,8 +123,8 @@ pub(crate) struct StarkProofChallengesTarget<const D: usize> {
 pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub local_values: Vec<F::Extension>,
     pub next_values: Vec<F::Extension>,
-    pub permutation_zs: Vec<F::Extension>,
-    pub permutation_zs_right: Vec<F::Extension>,
+    pub permutation_zs: Option<Vec<F::Extension>>,
+    pub permutation_zs_right: Option<Vec<F::Extension>>,
     pub quotient_polys: Vec<F::Extension>,
 }
 
@@ -131,6 +133,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         zeta: F::Extension,
         g: F,
         trace_commitment: &PolynomialBatch<F, C, D>,
+        permutation_zs_commitment: Option<&PolynomialBatch<F, C, D>>,
         quotient_commitment: &PolynomialBatch<F, C, D>,
     ) -> Self {
         let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
@@ -139,30 +142,33 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .map(|p| p.to_extension().eval(z))
                 .collect::<Vec<_>>()
         };
+        let zeta_right = zeta.scalar_mul(g);
         Self {
             local_values: eval_commitment(zeta, trace_commitment),
-            next_values: eval_commitment(zeta.scalar_mul(g), trace_commitment),
-            permutation_zs: vec![/*TODO*/],
-            permutation_zs_right: vec![/*TODO*/],
+            next_values: eval_commitment(zeta_right, trace_commitment),
+            permutation_zs: permutation_zs_commitment.map(|c| eval_commitment(zeta, c)),
+            permutation_zs_right: permutation_zs_commitment.map(|c| eval_commitment(zeta_right, c)),
             quotient_polys: eval_commitment(zeta, quotient_commitment),
         }
     }
 
     pub(crate) fn to_fri_openings(&self) -> FriOpenings<F, D> {
         let zeta_batch = FriOpeningBatch {
-            values: [
-                self.local_values.as_slice(),
-                self.quotient_polys.as_slice(),
-                self.permutation_zs.as_slice(),
-            ]
-            .concat(),
+            values: self
+                .local_values
+                .iter()
+                .chain(self.permutation_zs.iter().flatten())
+                .chain(&self.quotient_polys)
+                .copied()
+                .collect_vec(),
         };
         let zeta_right_batch = FriOpeningBatch {
-            values: [
-                self.next_values.as_slice(),
-                self.permutation_zs_right.as_slice(),
-            ]
-            .concat(),
+            values: self
+                .next_values
+                .iter()
+                .chain(self.permutation_zs_right.iter().flatten())
+                .copied()
+                .collect_vec(),
         };
         FriOpenings {
             batches: vec![zeta_batch, zeta_right_batch],

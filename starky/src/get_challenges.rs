@@ -8,15 +8,12 @@ use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 
 use crate::config::StarkConfig;
-use crate::proof::{
-    StarkOpeningSet, StarkOpeningSetTarget, StarkProof, StarkProofChallenges,
-    StarkProofChallengesTarget, StarkProofTarget, StarkProofWithPublicInputs,
-    StarkProofWithPublicInputsTarget,
-};
-use crate::stark::{PermutationChallenge, PermutationChallengeSet, Stark};
+use crate::permutation::get_n_permutation_challenge_sets;
+use crate::proof::*;
+use crate::stark::Stark;
 
 fn get_challenges<F, C, S, const D: usize>(
     stark: &S,
@@ -138,6 +135,7 @@ pub(crate) fn get_challenges_target<
 >(
     builder: &mut CircuitBuilder<F, D>,
     trace_cap: &MerkleCapTarget,
+    permutation_zs_cap: Option<&MerkleCapTarget>,
     quotient_polys_cap: &MerkleCapTarget,
     openings: &StarkOpeningSetTarget<D>,
     commit_phase_merkle_caps: &[MerkleCapTarget],
@@ -184,6 +182,7 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
     {
         let StarkProofTarget {
             trace_cap,
+            permutation_zs_cap,
             quotient_polys_cap,
             openings,
             opening_proof:
@@ -198,6 +197,7 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
         get_challenges_target::<F, C, D>(
             builder,
             trace_cap,
+            permutation_zs_cap.as_ref(),
             quotient_polys_cap,
             openings,
             commit_phase_merkle_caps,
@@ -315,31 +315,3 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
 //         FriInferredElements(fri_inferred_elements)
 //     }
 // }
-
-fn get_permutation_challenge<F: RichField, H: Hasher<F>>(
-    challenger: &mut Challenger<F, H>,
-) -> PermutationChallenge<F> {
-    let beta = challenger.get_challenge();
-    let gamma = challenger.get_challenge();
-    PermutationChallenge { beta, gamma }
-}
-
-fn get_permutation_challenge_set<F: RichField, H: Hasher<F>>(
-    challenger: &mut Challenger<F, H>,
-    num_challenges: usize,
-) -> PermutationChallengeSet<F> {
-    let challenges = (0..num_challenges)
-        .map(|_| get_permutation_challenge(challenger))
-        .collect();
-    PermutationChallengeSet { challenges }
-}
-
-pub(crate) fn get_n_permutation_challenge_sets<F: RichField, H: Hasher<F>>(
-    challenger: &mut Challenger<F, H>,
-    num_challenges: usize,
-    num_sets: usize,
-) -> Vec<PermutationChallengeSet<F>> {
-    (0..num_sets)
-        .map(|_| get_permutation_challenge_set(challenger, num_challenges))
-        .collect()
-}

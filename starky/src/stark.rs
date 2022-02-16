@@ -1,5 +1,4 @@
 use plonky2::field::extension_field::{Extendable, FieldExtension};
-use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::fri::structure::{
     FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriOracleInfo,
@@ -12,6 +11,7 @@ use plonky2_util::ceil_div_usize;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::permutation::PermutationPair;
 use crate::vars::StarkEvaluationTargets;
 use crate::vars::StarkEvaluationVars;
 
@@ -78,7 +78,6 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     }
 
     /// Computes the FRI instance used to prove this Stark.
-    // TODO: Permutation polynomials.
     fn fri_instance(
         &self,
         zeta: F::Extension,
@@ -201,33 +200,4 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             self.permutation_batch_size(),
         )
     }
-}
-
-/// A pair of lists of columns, `lhs` and `rhs`, that should be permutations of one another.
-/// In particular, there should exist some permutation `pi` such that for any `i`,
-/// `trace[lhs[i]] = pi(trace[rhs[i]])`. Here `trace` denotes the trace in column-major form, so
-/// `trace[col]` is a column vector.
-pub struct PermutationPair {
-    pub lhs_columns: Vec<usize>,
-    pub rhs_columns: Vec<usize>,
-}
-
-/// A single instance of a permutation check protocol.
-pub(crate) struct PermutationInstance<'a, F: Field> {
-    pub(crate) pair: &'a PermutationPair,
-    pub(crate) challenge: PermutationChallenge<F>,
-}
-
-/// Randomness for a single instance of a permutation check protocol.
-#[derive(Copy, Clone)]
-pub(crate) struct PermutationChallenge<F: Field> {
-    /// Randomness used to combine multiple columns into one.
-    pub(crate) beta: F,
-    /// Random offset that's added to the beta-reduced column values.
-    pub(crate) gamma: F,
-}
-
-/// Like `PermutationChallenge`, but with `num_challenges` copies to boost soundness.
-pub(crate) struct PermutationChallengeSet<F: Field> {
-    pub(crate) challenges: Vec<PermutationChallenge<F>>,
 }

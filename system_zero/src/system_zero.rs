@@ -5,7 +5,8 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use starky::stark::{PermutationPair, Stark};
+use starky::permutation::PermutationPair;
+use starky::stark::Stark;
 use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
