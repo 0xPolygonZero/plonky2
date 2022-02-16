@@ -639,6 +639,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
         let start = Instant::now();
         let rate_bits = self.config.fri_config.rate_bits;
+        let cap_height = self.config.fri_config.cap_height;
 
         // Hash the public inputs, and route them to a `PublicInputGate` which will enforce that
         // those hash wires match the claimed public inputs.
@@ -664,7 +665,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let degree_bits = log2_strict(degree);
         let fri_params = self.fri_params(degree_bits);
         assert!(
-            fri_params.total_arities() <= degree_bits - self.config.fri_config.cap_height,
+            fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
             "FRI total reduction arity is too large.",
         );
 
@@ -705,7 +706,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants_sigmas_vecs,
             rate_bits,
             PlonkOracle::CONSTANTS_SIGMAS.blinding,
-            self.config.fri_config.cap_height,
+            cap_height,
             &mut timing,
             Some(&fft_root_table),
         );

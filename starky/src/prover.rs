@@ -41,8 +41,10 @@ where
     let degree = trace.len();
     let degree_bits = log2_strict(degree);
     let fri_params = config.fri_params(degree_bits);
+    let rate_bits = config.fri_config.rate_bits;
+    let cap_height = config.fri_config.cap_height;
     assert!(
-        fri_params.total_arities() <= degree_bits - config.fri_config.cap_height,
+        fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
         "FRI total reduction arity is too large.",
     );
 
@@ -58,8 +60,6 @@ where
             .collect()
     );
 
-    let rate_bits = config.fri_config.rate_bits;
-    let cap_height = config.fri_config.cap_height;
     let trace_commitment = timed!(
         timing,
         "compute trace commitment",
