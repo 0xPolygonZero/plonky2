@@ -37,8 +37,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             k: k.clone(),
             k1: k1.clone(),
             k2: k2.clone(),
-            k1_neg: k1_neg.clone(),
-            k2_neg: k2_neg.clone(),
+            k1_neg,
+            k2_neg,
             _phantom: PhantomData,
         });
 
@@ -91,8 +91,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
         out_buffer.set_nonnative_target(self.k1.clone(), k1);
         out_buffer.set_nonnative_target(self.k2.clone(), k2);
-        out_buffer.set_bool_target(self.k1_neg.clone(), k1_neg);
-        out_buffer.set_bool_target(self.k2_neg.clone(), k2_neg);
+        out_buffer.set_bool_target(self.k1_neg, k1_neg);
+        out_buffer.set_bool_target(self.k2_neg, k2_neg);
     }
 }
 

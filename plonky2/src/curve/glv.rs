@@ -55,9 +55,9 @@ pub fn decompose_secp256k1_scalar(
     } else {
         k1_raw
     };
-    let k2_neg = k2_raw.to_biguint() > p.clone() / two.clone();
+    let k2_neg = k2_raw.to_biguint() > p.clone() / two;
     let k2 = if k2_neg {
-        Secp256K1Scalar::from_biguint(p.clone() - k2_raw.to_biguint())
+        Secp256K1Scalar::from_biguint(p - k2_raw.to_biguint())
     } else {
         k2_raw
     };
@@ -67,8 +67,8 @@ pub fn decompose_secp256k1_scalar(
 
 pub fn glv_mul(p: ProjectivePoint<Secp256K1>, k: Secp256K1Scalar) -> ProjectivePoint<Secp256K1> {
     let (k1, k2, k1_neg, k2_neg) = decompose_secp256k1_scalar(k);
-    let one = Secp256K1Scalar::ONE;
-    /*let m1 = if k1_neg { -one } else { one };
+    /*let one = Secp256K1Scalar::ONE;
+    let m1 = if k1_neg { -one } else { one };
     let m2 = if k2_neg { -one } else { one };
     assert!(k1 * m1 + S * k2 * m2 == k);*/
 
@@ -80,7 +80,11 @@ pub fn glv_mul(p: ProjectivePoint<Secp256K1>, k: Secp256K1Scalar) -> ProjectiveP
     };
 
     let first = if k1_neg { p.neg() } else { p };
-    let second = if k2_neg { sp.to_projective().neg() } else { sp.to_projective() };
+    let second = if k2_neg {
+        sp.to_projective().neg()
+    } else {
+        sp.to_projective()
+    };
 
     msm_parallel(&[k1, k2], &[first, second], 5)
 }
