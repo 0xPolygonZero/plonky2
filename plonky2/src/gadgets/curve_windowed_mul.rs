@@ -9,7 +9,7 @@ use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::curve::AffinePointTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::RichField;
-use crate::iop::target::Target;
+use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 const WINDOW_SIZE: usize = 4;
@@ -69,12 +69,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         AffinePointTarget { x, y }
     }
 
+    pub fn if_affine_point<C: Curve>(
+        &mut self,
+        b: BoolTarget,
+        p1: &AffinePointTarget<C>,
+        p2: &AffinePointTarget<C>,
+    ) -> AffinePointTarget<C> {
+        let new_x = self.if_nonnative(b, &p1.x, &p2.x);
+        let new_y = self.if_nonnative(b, &p1.y, &p2.y);
+        AffinePointTarget { x: new_x, y: new_y }
+    }
+
     pub fn curve_scalar_mul_windowed<C: Curve>(
         &mut self,
         p: &AffinePointTarget<C>,
         n: &NonNativeTarget<C::ScalarField>,
     ) -> AffinePointTarget<C> {
         let mut result = self.constant_affine_point(C::GENERATOR_AFFINE);
+        let mut to_subtract = self.constant_affine_point(C::GENERATOR_AFFINE);
+        let mut to_subtract_grows = self._true();
 
         let precomputation = self.precompute_window(p);
         let zero = self.zero();
@@ -83,10 +96,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let m = C::ScalarField::BITS / WINDOW_SIZE;
         for i in (0..m).rev() {
             result = self.curve_repeated_double(&result, WINDOW_SIZE);
+
+            let to_subtract_increased = self.curve_repeated_double(&to_subtract, WINDOW_SIZE);
+            to_subtract = self.if_affine_point(to_subtract_grows, &to_subtract_increased, &to_subtract);
+
             let window = windows[i];
 
             let to_add = self.random_access_curve_points(window, precomputation.clone());
             let is_zero = self.is_equal(window, zero);
+            to_subtract_grows = self.and(to_subtract_grows, is_zero);
             let should_add = self.not(is_zero);
             result = self.curve_conditional_add(&result, &to_add, should_add);
         }
@@ -173,6 +191,7 @@ mod tests {
 
         builder.connect_affine_point(&neg_five_g_expected, &neg_five_g_actual);
 
+        println!("NUM GATES: {}", builder.num_gates());
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 

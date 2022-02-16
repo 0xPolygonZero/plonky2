@@ -326,6 +326,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         BoolTarget::new_unsafe(res)
     }
 
+    pub fn and(&mut self, b1: BoolTarget, b2: BoolTarget) -> BoolTarget {
+        BoolTarget::new_unsafe(self.mul(b1.target, b2.target))
+    }
+
+    pub fn _if(&mut self, b: BoolTarget, x: Target, y: Target) -> Target {
+        let not_b = self.not(b);
+        let maybe_x = self.mul(b.target, x);
+        self.mul_add(not_b.target, y, maybe_x)
+    }
+
     pub fn is_equal(&mut self, x: Target, y: Target) -> BoolTarget {
         let zero = self.zero();
 
