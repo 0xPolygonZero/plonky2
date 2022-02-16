@@ -664,7 +664,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let degree_bits = log2_strict(degree);
         let fri_params = self.fri_params(degree_bits);
         assert!(
-            fri_params.total_arities() <= degree_bits,
+            fri_params.total_arities() <= degree_bits - self.config.fri_config.cap_height,
             "FRI total reduction arity is too large.",
         );
 

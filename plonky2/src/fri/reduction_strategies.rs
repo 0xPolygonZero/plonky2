@@ -8,11 +8,12 @@ pub enum FriReductionStrategy {
     /// Specifies the exact sequence of arities (expressed in bits) to use.
     Fixed(Vec<usize>),
 
-    /// `ConstantArityBits(arity_bits, final_poly_bits)` applies reductions of arity `2^arity_bits`
-    /// until the polynomial degree is `2^final_poly_bits` or less. This tends to work well in the
-    /// recursive setting, as it avoids needing multiple configurations of gates used in FRI
-    /// verification, such as `InterpolationGate`.
-    ConstantArityBits(usize, usize),
+    /// `ConstantArityBits(arity_bits, final_poly_bits, cap_height)` applies reductions of arity `2^arity_bits`
+    /// until the polynomial degree is less than or equal to `2^final_poly_bits` or until any further
+    /// `arity_bits`-reduction makes the polynomial degree smaller than `2^cap_height` (which would make FRI fail).
+    /// This tends to work well in the recursive setting, as it avoids needing multiple configurations
+    /// of gates used in FRI verification, such as `InterpolationGate`.
+    ConstantArityBits(usize, usize, usize),
 
     /// `MinSize(opt_max_arity_bits)` searches for an optimal sequence of reduction arities, with an
     /// optional max `arity_bits`. If this proof will have recursive proofs on top of it, a max
@@ -31,12 +32,12 @@ impl FriReductionStrategy {
         match self {
             FriReductionStrategy::Fixed(reduction_arity_bits) => reduction_arity_bits.to_vec(),
 
-            FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
+            &FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits, cap_height) => {
                 let mut result = Vec::new();
-                while degree_bits > *final_poly_bits {
-                    result.push(*arity_bits);
-                    assert!(degree_bits >= *arity_bits);
-                    degree_bits -= *arity_bits;
+                while degree_bits > final_poly_bits && degree_bits - arity_bits >= cap_height {
+                    result.push(arity_bits);
+                    assert!(degree_bits >= arity_bits);
+                    degree_bits -= arity_bits;
                 }
                 result.shrink_to_fit();
                 result

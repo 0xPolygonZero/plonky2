@@ -37,6 +37,11 @@ where
 {
     let degree = trace.len();
     let degree_bits = log2_strict(degree);
+    let fri_params = config.fri_params(degree_bits);
+    assert!(
+        fri_params.total_arities() <= degree_bits - config.fri_config.cap_height,
+        "FRI total reduction arity is too large.",
+    );
 
     let trace_vecs = trace.into_iter().map(|row| row.to_vec()).collect_vec();
     let trace_col_major: Vec<Vec<F>> = transpose(&trace_vecs);
@@ -117,7 +122,6 @@ where
 
     // TODO: Add permutation checks
     let initial_merkle_trees = &[&trace_commitment, &quotient_commitment];
-    let fri_params = config.fri_params(degree_bits);
 
     let opening_proof = timed!(
         timing,

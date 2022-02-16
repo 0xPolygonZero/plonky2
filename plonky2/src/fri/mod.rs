@@ -67,7 +67,7 @@ pub struct FriParams {
 }
 
 impl FriParams {
-    pub(crate) fn total_arities(&self) -> usize {
+    pub fn total_arities(&self) -> usize {
         self.reduction_arity_bits.iter().sum()
     }
 
