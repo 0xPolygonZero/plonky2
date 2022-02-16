@@ -1,3 +1,5 @@
+use std::iter::once;
+
 use itertools::Itertools;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::Field;
@@ -103,6 +105,7 @@ fn recursively_verify_stark_proof_with_challenges<
         l_last,
     );
     stark.eval_ext_recursively(builder, vars, &mut consumer);
+    // TODO: Add in constraints for permutation arguments.
     let vanishing_polys_zeta = consumer.accumulators();
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
@@ -117,20 +120,22 @@ fn recursively_verify_stark_proof_with_challenges<
         builder.connect_extension(vanishing_polys_zeta[i], computed_vanishing_poly);
     }
 
-    // TODO: Permutation polynomials.
-    let merkle_caps = &[proof.trace_cap, proof.quotient_polys_cap];
+    let merkle_caps = once(proof.trace_cap)
+        .chain(proof.permutation_zs_cap)
+        .chain(once(proof.quotient_polys_cap))
+        .collect_vec();
 
     let fri_instance = stark.fri_instance_target(
         builder,
         challenges.stark_zeta,
         F::primitive_root_of_unity(degree_bits),
-        inner_config.num_challenges,
+        inner_config,
     );
     builder.verify_fri_proof::<C>(
         &fri_instance,
         &proof.openings.to_fri_openings(),
         &challenges.fri_challenges,
-        merkle_caps,
+        &merkle_caps,
         &proof.opening_proof,
         &inner_config.fri_params(degree_bits),
     );
@@ -188,8 +193,15 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
         stark.quotient_degree_factor() * config.num_challenges,
     ];
 
+    let permutation_zs_cap = if stark.uses_permutation_args() {
+        Some(builder.add_virtual_cap(cap_height))
+    } else {
+        None
+    };
+
     StarkProofTarget {
         trace_cap: builder.add_virtual_cap(cap_height),
+        permutation_zs_cap,
         quotient_polys_cap: builder.add_virtual_cap(cap_height),
         openings: add_stark_opening_set::<F, S, D>(builder, stark, config),
         opening_proof: builder.add_virtual_fri_proof(num_leaves_per_oracle, &fri_params),
