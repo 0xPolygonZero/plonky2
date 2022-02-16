@@ -10,7 +10,7 @@ pub enum FriReductionStrategy {
 
     /// `ConstantArityBits(arity_bits, final_poly_bits, cap_height)` applies reductions of arity `2^arity_bits`
     /// until the polynomial degree is less than or equal to `2^final_poly_bits` or until any further
-    /// `arity_bits`-reduction makes the polynomial degree smaller than `2^cap_height` (which would make FRI fail).
+    /// `arity_bits`-reduction makes the last FRI tree have height less than `cap_height`.
     /// This tends to work well in the recursive setting, as it avoids needing multiple configurations
     /// of gates used in FRI verification, such as `InterpolationGate`.
     ConstantArityBits(usize, usize, usize),
@@ -34,7 +34,9 @@ impl FriReductionStrategy {
 
             &FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits, cap_height) => {
                 let mut result = Vec::new();
-                while degree_bits > final_poly_bits && degree_bits - arity_bits >= cap_height {
+                while degree_bits > final_poly_bits
+                    && degree_bits + rate_bits - arity_bits >= cap_height
+                {
                     result.push(arity_bits);
                     assert!(degree_bits >= arity_bits);
                     degree_bits -= arity_bits;
