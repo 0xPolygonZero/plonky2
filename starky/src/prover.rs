@@ -1,3 +1,5 @@
+use std::iter::once;
+
 use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2::field::extension_field::Extendable;
@@ -16,6 +18,7 @@ use rayon::prelude::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
+use crate::permutation::compute_permutation_z_polys;
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationVars;
@@ -43,7 +46,7 @@ where
         "FRI total reduction arity is too large.",
     );
 
-    let trace_vecs = trace.into_iter().map(|row| row.to_vec()).collect_vec();
+    let trace_vecs = trace.iter().map(|row| row.to_vec()).collect_vec();
     let trace_col_major: Vec<Vec<F>> = transpose(&trace_vecs);
 
     let trace_poly_values: Vec<PolynomialValues<F>> = timed!(
@@ -61,7 +64,9 @@ where
         timing,
         "compute trace commitment",
         PolynomialBatch::<F, C, D>::from_values(
-            trace_poly_values,
+            // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+            // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+            trace_poly_values.clone(),
             rate_bits,
             false,
             cap_height,
@@ -73,6 +78,36 @@ where
     let trace_cap = trace_commitment.merkle_tree.cap.clone();
     let mut challenger = Challenger::new();
     challenger.observe_cap(&trace_cap);
+
+    // Permutation arguments.
+    let permutation_zs_commitment = if stark.uses_permutation_args() {
+        let permutation_z_polys = compute_permutation_z_polys::<F, C, S, D>(
+            &stark,
+            config,
+            &mut challenger,
+            &trace_poly_values,
+        );
+        timed!(
+            timing,
+            "compute permutation Z commitments",
+            Some(PolynomialBatch::from_values(
+                permutation_z_polys,
+                rate_bits,
+                false,
+                config.fri_config.cap_height,
+                timing,
+                None,
+            ))
+        )
+    } else {
+        None
+    };
+    let permutation_zs_cap = permutation_zs_commitment
+        .as_ref()
+        .map(|commit| commit.merkle_tree.cap.clone());
+    for cap in &permutation_zs_cap {
+        challenger.observe_cap(cap);
+    }
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
     let quotient_polys = compute_quotient_polys::<F, C, S, D>(
@@ -117,18 +152,26 @@ where
         zeta.exp_power_of_2(degree_bits) != F::Extension::ONE,
         "Opening point is in the subgroup."
     );
-    let openings = StarkOpeningSet::new(zeta, g, &trace_commitment, &quotient_commitment);
+    let openings = StarkOpeningSet::new(
+        zeta,
+        g,
+        &trace_commitment,
+        permutation_zs_commitment.as_ref(),
+        &quotient_commitment,
+    );
     challenger.observe_openings(&openings.to_fri_openings());
 
-    // TODO: Add permutation checks
-    let initial_merkle_trees = &[&trace_commitment, &quotient_commitment];
+    let initial_merkle_trees = once(&trace_commitment)
+        .chain(permutation_zs_commitment.as_ref())
+        .chain(once(&quotient_commitment))
+        .collect_vec();
 
     let opening_proof = timed!(
         timing,
         "compute openings proof",
         PolynomialBatch::prove_openings(
-            &stark.fri_instance(zeta, g, config.num_challenges),
-            initial_merkle_trees,
+            &stark.fri_instance(zeta, g, config),
+            &initial_merkle_trees,
             &mut challenger,
             &fri_params,
             timing,
@@ -136,6 +179,7 @@ where
     );
     let proof = StarkProof {
         trace_cap,
+        permutation_zs_cap,
         quotient_polys_cap,
         openings,
         opening_proof,
@@ -212,6 +256,7 @@ where
                 public_inputs: &public_inputs,
             };
             stark.eval_packed_base(vars, &mut consumer);
+            // TODO: Add in constraints for permutation arguments.
             // TODO: Fix this once we use a genuine `PackedField`.
             let mut constraints_evals = consumer.accumulators();
             // We divide the constraints evaluations by `Z_H(x)`.
