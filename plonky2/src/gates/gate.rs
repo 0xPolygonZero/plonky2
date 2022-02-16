@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -123,6 +124,8 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         }
     }
 
+    /// The generators used to populate the witness.
+    /// Note: This should return exactly 1 generator per operation in the gate.
     fn generators(
         &self,
         gate_index: usize,
@@ -139,6 +142,12 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     fn degree(&self) -> usize;
 
     fn num_constraints(&self) -> usize;
+
+    /// Number of operations performed by the gate.
+    fn num_ops(&self) -> usize {
+        self.generators(0, &vec![F::ZERO; self.num_constants()])
+            .len()
+    }
 }
 
 /// A wrapper around an `Rc<Gate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
@@ -171,7 +180,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Debug for GateRef<F, D> {
     }
 }
 
+/// Map between gate parameters and available slots.
+/// An available slot is of the form `(gate_index, op)`, meaning the current available slot
+/// is at gate index `gate_index` in the `op`-th operation.
+#[derive(Clone, Debug, Default)]
+pub struct CurrentSlot<F: RichField + Extendable<D>, const D: usize> {
+    pub current_slot: HashMap<Vec<F>, (usize, usize)>,
+}
+
 /// A gate along with any constants used to configure it.
+#[derive(Clone)]
 pub struct GateInstance<F: RichField + Extendable<D>, const D: usize> {
     pub gate_ref: GateRef<F, D>,
     pub constants: Vec<F>,

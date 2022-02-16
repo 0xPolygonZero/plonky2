@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
 use plonky2_field::packed_field::PackedField;
@@ -26,12 +24,14 @@ pub struct ConstantGate {
 }
 
 impl ConstantGate {
-    pub fn consts_inputs(&self) -> Range<usize> {
-        0..self.num_consts
+    pub fn const_input(&self, i: usize) -> usize {
+        debug_assert!(i < self.num_consts);
+        i
     }
 
-    pub fn wires_outputs(&self) -> Range<usize> {
-        0..self.num_consts
+    pub fn wire_output(&self, i: usize) -> usize {
+        debug_assert!(i < self.num_consts);
+        i
     }
 }
 
@@ -41,9 +41,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
-        self.consts_inputs()
-            .zip(self.wires_outputs())
-            .map(|(con, out)| vars.local_constants[con] - vars.local_wires[out])
+        (0..self.num_consts)
+            .map(|i| {
+                vars.local_constants[self.const_input(i)] - vars.local_wires[self.wire_output(i)]
+            })
             .collect()
     }
 
@@ -64,10 +65,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        self.consts_inputs()
-            .zip(self.wires_outputs())
-            .map(|(con, out)| {
-                builder.sub_extension(vars.local_constants[con], vars.local_wires[out])
+        (0..self.num_consts)
+            .map(|i| {
+                builder.sub_extension(
+                    vars.local_constants[self.const_input(i)],
+                    vars.local_wires[self.wire_output(i)],
+                )
             })
             .collect()
     }
@@ -77,12 +80,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
         gate_index: usize,
         local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = ConstantGenerator {
-            gate_index,
-            gate: *self,
-            constants: local_constants[self.consts_inputs()].to_vec(),
-        };
-        vec![Box::new(gen.adapter())]
+        (0..self.num_consts)
+            .map(|i| {
+                let g: Box<dyn WitnessGenerator<F>> = Box::new(
+                    ConstantGenerator {
+                        gate_index,
+                        gate: *self,
+                        i,
+                        constant: local_constants[self.const_input(i)],
+                    }
+                    .adapter(),
+                );
+                g
+            })
+            .collect()
     }
 
     fn num_wires(&self) -> usize {
@@ -108,11 +119,9 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
         vars: EvaluationVarsBasePacked<P>,
         mut yield_constr: StridedConstraintConsumer<P>,
     ) {
-        yield_constr.many(
-            self.consts_inputs()
-                .zip(self.wires_outputs())
-                .map(|(con, out)| vars.local_constants[con] - vars.local_wires[out]),
-        );
+        yield_constr.many((0..self.num_consts).map(|i| {
+            vars.local_constants[self.const_input(i)] - vars.local_wires[self.wire_output(i)]
+        }));
     }
 }
 
@@ -120,7 +129,8 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
 struct ConstantGenerator<F: Field> {
     gate_index: usize,
     gate: ConstantGate,
-    constants: Vec<F>,
+    i: usize,
+    constant: F,
 }
 
 impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
@@ -129,13 +139,11 @@ impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
     }
 
     fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        for (con, out) in self.gate.consts_inputs().zip(self.gate.wires_outputs()) {
-            let wire = Wire {
-                gate: self.gate_index,
-                input: out,
-            };
-            out_buffer.set_wire(wire, self.constants[con]);
-        }
+        let wire = Wire {
+            gate: self.gate_index,
+            input: self.gate.wire_output(self.i),
+        };
+        out_buffer.set_wire(wire, self.constant);
     }
 }
 
