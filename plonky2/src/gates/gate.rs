@@ -124,6 +124,8 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         }
     }
 
+    /// The generators used to populate the witness.
+    /// Note: This should return exactly 1 generator per operation in the gate.
     fn generators(
         &self,
         gate_index: usize,
@@ -179,7 +181,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Debug for GateRef<F, D> {
 }
 
 /// Map between gate parameters and available slots.
-#[derive(Clone, Debug)]
+/// An available slot is of the form `(gate_index, op)`, meaning the current available slot
+/// is at gate index `gate_index` in the `op`-th operation.
+#[derive(Clone, Debug, Default)]
 pub struct CurrentSlot<F: RichField + Extendable<D>, const D: usize> {
     pub current_slot: HashMap<Vec<F>, (usize, usize)>,
 }

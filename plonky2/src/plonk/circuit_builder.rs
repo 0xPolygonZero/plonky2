@@ -391,7 +391,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         })
     }
 
-    /// Find an available slot, of the form `(gate_index, op)` for gate `G`.
+    /// Find an available slot, of the form `(gate_index, op)` for gate `G` using parameters `params`
+    /// and constants `constants`. Parameters are any data used to differentiate which gate should be
+    /// used for the given operation.
     pub fn find_slot<G: Gate<F, D> + Clone>(
         &mut self,
         gate: G,
@@ -401,36 +403,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_gates = self.num_gates();
         let num_ops = gate.num_ops();
         let gate_ref = GateRef::new(gate.clone());
-        let gate_slot = self
-            .current_slots
-            .entry(gate_ref.clone())
-            .or_insert(CurrentSlot {
-                current_slot: HashMap::new(),
-            });
+        let gate_slot = self.current_slots.entry(gate_ref.clone()).or_default();
         let slot = gate_slot.current_slot.get(params);
-        let res = if let Some(&s) = slot {
+        let (gate_idx, slot_idx) = if let Some(&s) = slot {
             s
         } else {
             self.add_gate(gate, constants.to_vec());
             (num_gates, 0)
         };
-        if res.1 == num_ops - 1 {
+        let current_slot = &mut self.current_slots.get_mut(&gate_ref).unwrap().current_slot;
+        if slot_idx == num_ops - 1 {
             // We've filled up the slots at this index.
-            self.current_slots
-                .get_mut(&gate_ref)
-                .unwrap()
-                .current_slot
-                .remove(params);
+            current_slot.remove(params);
         } else {
             // Increment the slot operation index.
-            self.current_slots
-                .get_mut(&gate_ref)
-                .unwrap()
-                .current_slot
-                .insert(params.to_vec(), (res.0, res.1 + 1));
+            current_slot.insert(params.to_vec(), (gate_idx, slot_idx + 1));
         }
 
-        res
+        (gate_idx, slot_idx)
     }
 
     fn fri_params(&self, degree_bits: usize) -> FriParams {
