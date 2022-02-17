@@ -125,9 +125,10 @@ fn permutation_reduced_polys<F: Field>(
     trace_poly_values: &[PolynomialValues<F>],
     degree: usize,
 ) -> (PolynomialValues<F>, PolynomialValues<F>) {
-    let PermutationInstance { pair, challenge } = instance;
-    let PermutationPair { column_pairs } = pair;
-    let PermutationChallenge { beta, gamma } = challenge;
+    let PermutationInstance {
+        pair: PermutationPair { column_pairs },
+        challenge: PermutationChallenge { beta, gamma },
+    } = instance;
 
     let mut reduced_lhs = PolynomialValues::constant(*gamma, degree);
     let mut reduced_rhs = PolynomialValues::constant(*gamma, degree);
