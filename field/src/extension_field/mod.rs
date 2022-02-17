@@ -68,6 +68,8 @@ pub trait Extendable<const D: usize>: Field + Sized {
 
     const DTH_ROOT: Self;
 
+    /// Chosen so that when raised to the power `(p^D - 1) >> F::Extension::TWO_ADICITY)`
+    /// we obtain F::EXT_POWER_OF_TWO_GENERATOR.
     const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; D];
 
     /// Chosen so that when raised to the power `1<<(Self::TWO_ADICITY-Self::BaseField::TWO_ADICITY)`,

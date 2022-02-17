@@ -83,7 +83,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let gate = U32ArithmeticGate::<F, D>::new_from_config(&self.config);
-        let (gate_index, copy) = self.find_u32_arithmetic_gate();
+        let (gate_index, copy) = self.find_slot(gate, &[], &[]);
 
         self.connect(
             Target::wire(gate_index, gate.wire_ith_multiplicand_0(copy)),
@@ -120,7 +120,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             _ => {
                 let num_addends = to_add.len();
                 let gate = U32AddManyGate::<F, D>::new_from_config(&self.config, num_addends);
-                let (gate_index, copy) = self.find_u32_add_many_gate(num_addends);
+                let (gate_index, copy) =
+                    self.find_slot(gate, &[F::from_canonical_usize(num_addends)], &[]);
 
                 for j in 0..num_addends {
                     self.connect(
@@ -153,7 +154,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let num_addends = to_add.len();
 
         let gate = U32AddManyGate::<F, D>::new_from_config(&self.config, num_addends);
-        let (gate_index, copy) = self.find_u32_add_many_gate(num_addends);
+        let (gate_index, copy) = self.find_slot(gate, &[F::from_canonical_usize(num_addends)], &[]);
 
         for j in 0..num_addends {
             self.connect(
@@ -182,7 +183,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         borrow: U32Target,
     ) -> (U32Target, U32Target) {
         let gate = U32SubtractionGate::<F, D>::new_from_config(&self.config);
-        let (gate_index, copy) = self.find_u32_subtraction_gate();
+        let (gate_index, copy) = self.find_slot(gate, &[], &[]);
 
         self.connect(Target::wire(gate_index, gate.wire_ith_input_x(copy)), x.0);
         self.connect(Target::wire(gate_index, gate.wire_ith_input_y(copy)), y.0);

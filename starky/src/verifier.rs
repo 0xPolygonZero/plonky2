@@ -1,19 +1,21 @@
+use std::iter::once;
+
 use anyhow::{ensure, Result};
+use itertools::Itertools;
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
 use plonky2::hash::hash_types::RichField;
-use plonky2::plonk::config::GenericConfig;
+use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::plonk::plonk_common::reduce_with_powers;
-use plonky2_util::log2_strict;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProofWithPublicInputs};
+use crate::proof::{StarkOpeningSet, StarkProofChallenges, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationVars;
 
-pub fn verify<
+pub fn verify_stark_proof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
@@ -26,13 +28,15 @@ pub fn verify<
 where
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
+    [(); C::Hasher::HASH_SIZE]:,
 {
-    let degree_bits = log2_strict(recover_degree(&proof_with_pis.proof, config));
-    let challenges = proof_with_pis.get_challenges(config, degree_bits)?;
-    verify_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
+    ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
+    let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
+    let challenges = proof_with_pis.get_challenges(&stark, config, degree_bits)?;
+    verify_stark_proof_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
 }
 
-pub(crate) fn verify_with_challenges<
+pub(crate) fn verify_stark_proof_with_challenges<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
@@ -47,13 +51,12 @@ pub(crate) fn verify_with_challenges<
 where
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
+    [(); C::Hasher::HASH_SIZE]:,
 {
     let StarkProofWithPublicInputs {
         proof,
         public_inputs,
     } = proof_with_pis;
-    let local_values = &proof.openings.local_values;
-    let next_values = &proof.openings.local_values;
     let StarkOpeningSet {
         local_values,
         next_values,
@@ -86,6 +89,7 @@ where
         l_last,
     );
     stark.eval_ext(vars, &mut consumer);
+    // TODO: Add in constraints for permutation arguments.
     let vanishing_polys_zeta = consumer.accumulators();
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
@@ -104,19 +108,20 @@ where
         ensure!(vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
     }
 
-    // TODO: Permutation polynomials.
-    let merkle_caps = &[proof.trace_cap, proof.quotient_polys_cap];
+    let merkle_caps = once(proof.trace_cap)
+        .chain(proof.permutation_zs_cap)
+        .chain(once(proof.quotient_polys_cap))
+        .collect_vec();
 
     verify_fri_proof::<F, C, D>(
         &stark.fri_instance(
             challenges.stark_zeta,
-            F::primitive_root_of_unity(degree_bits).into(),
-            config.fri_config.rate_bits,
-            config.num_challenges,
+            F::primitive_root_of_unity(degree_bits),
+            config,
         ),
         &proof.openings.to_fri_openings(),
         &challenges.fri_challenges,
-        merkle_caps,
+        &merkle_caps,
         &proof.opening_proof,
         &config.fri_params(degree_bits),
     )?;
@@ -137,17 +142,6 @@ fn eval_l_1_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
 }
 
 /// Recover the length of the trace from a STARK proof and a STARK config.
-fn recover_degree<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    proof: &StarkProof<F, C, D>,
-    config: &StarkConfig,
-) -> usize {
-    let initial_merkle_proof = &proof.opening_proof.query_round_proofs[0]
-        .initial_trees_proof
-        .evals_proofs[0]
-        .1;
-    let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
-    1 << (lde_bits - config.fri_config.rate_bits)
-}
 
 #[cfg(test)]
 mod tests {

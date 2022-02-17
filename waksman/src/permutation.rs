@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
 use plonky2::field::{extension_field::Extendable, field_types::Field};
+use plonky2::gates::switch::SwitchGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::Target;
@@ -79,7 +80,9 @@ fn create_switch<F: RichField + Extendable<D>, const D: usize>(
 
     let chunk_size = a1.len();
 
-    let (gate, gate_index, next_copy) = builder.find_switch_gate(chunk_size);
+    let gate = SwitchGate::new_from_config(&builder.config, chunk_size);
+    let params = vec![F::from_canonical_usize(chunk_size)];
+    let (gate_index, next_copy) = builder.find_slot(gate, &params, &[]);
 
     let mut c = Vec::new();
     let mut d = Vec::new();

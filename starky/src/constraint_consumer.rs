@@ -80,10 +80,10 @@ impl<P: PackedField> ConstraintConsumer<P> {
 
 pub struct RecursiveConstraintConsumer<F: RichField + Extendable<D>, const D: usize> {
     /// A random value used to combine multiple constraints into one.
-    alpha: Target,
+    alphas: Vec<Target>,
 
     /// A running sum of constraints that have been emitted so far, scaled by powers of alpha.
-    constraint_acc: ExtensionTarget<D>,
+    constraint_accs: Vec<ExtensionTarget<D>>,
 
     /// The evaluation of `X - g^(n-1)`.
     z_last: ExtensionTarget<D>,
@@ -100,6 +100,27 @@ pub struct RecursiveConstraintConsumer<F: RichField + Extendable<D>, const D: us
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F, D> {
+    pub fn new(
+        zero: ExtensionTarget<D>,
+        alphas: Vec<Target>,
+        z_last: ExtensionTarget<D>,
+        lagrange_basis_first: ExtensionTarget<D>,
+        lagrange_basis_last: ExtensionTarget<D>,
+    ) -> Self {
+        Self {
+            constraint_accs: vec![zero; alphas.len()],
+            alphas,
+            z_last,
+            lagrange_basis_first,
+            lagrange_basis_last,
+            _phantom: Default::default(),
+        }
+    }
+
+    pub fn accumulators(self) -> Vec<ExtensionTarget<D>> {
+        self.constraint_accs
+    }
+
     /// Add one constraint valid on all rows except the last.
     pub fn constraint(
         &mut self,
@@ -116,8 +137,9 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
         builder: &mut CircuitBuilder<F, D>,
         constraint: ExtensionTarget<D>,
     ) {
-        self.constraint_acc =
-            builder.scalar_mul_add_extension(self.alpha, self.constraint_acc, constraint);
+        for (&alpha, acc) in self.alphas.iter().zip(&mut self.constraint_accs) {
+            *acc = builder.scalar_mul_add_extension(alpha, *acc, constraint);
+        }
     }
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
@@ -128,7 +150,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
         constraint: ExtensionTarget<D>,
     ) {
         let filtered_constraint = builder.mul_extension(constraint, self.lagrange_basis_first);
-        self.constraint(builder, filtered_constraint);
+        self.constraint_wrapping(builder, filtered_constraint);
     }
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
@@ -139,6 +161,6 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
         constraint: ExtensionTarget<D>,
     ) {
         let filtered_constraint = builder.mul_extension(constraint, self.lagrange_basis_last);
-        self.constraint(builder, filtered_constraint);
+        self.constraint_wrapping(builder, filtered_constraint);
     }
 }

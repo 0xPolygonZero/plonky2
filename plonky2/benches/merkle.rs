@@ -1,3 +1,5 @@
+#![feature(generic_const_exprs)]
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::hash_types::RichField;
@@ -9,7 +11,10 @@ use tynm::type_name;
 
 const ELEMS_PER_LEAF: usize = 135;
 
-pub(crate) fn bench_merkle_tree<F: RichField, H: Hasher<F>>(c: &mut Criterion) {
+pub(crate) fn bench_merkle_tree<F: RichField, H: Hasher<F>>(c: &mut Criterion)
+where
+    [(); H::HASH_SIZE]:,
+{
     let mut group = c.benchmark_group(&format!(
         "merkle-tree<{}, {}>",
         type_name::<F>(),

@@ -327,11 +327,11 @@ impl Extendable<5> for GoldilocksField {
     const DTH_ROOT: Self = Self(1041288259238279555);
 
     const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 5] = [
-        Self(1931274660132142120),
-        Self(1092386509894096633),
-        Self(1605533804202809407),
-        Self(14704369562396645516),
-        Self(1750907431983753016),
+        Self(2899034827742553394),
+        Self(13012057356839176729),
+        Self(14593811582388663055),
+        Self(7722900811313895436),
+        Self(4557222484695340057),
     ];
 
     const EXT_POWER_OF_TWO_GENERATOR: [Self; 5] = [

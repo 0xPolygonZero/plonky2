@@ -5,6 +5,7 @@ use num::{BigUint, FromPrimitive, Zero};
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::{Field, PrimeField};
 
+use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::witness_util::set_fri_proof_target;
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
@@ -207,64 +208,28 @@ pub trait Witness<F: Field> {
         );
         self.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap);
 
-        for (&t, &x) in proof_target
-            .openings
-            .wires
-            .iter()
-            .zip_eq(&proof.openings.wires)
-        {
-            self.set_extension_target(t, x);
-        }
-        for (&t, &x) in proof_target
-            .openings
-            .constants
-            .iter()
-            .zip_eq(&proof.openings.constants)
-        {
-            self.set_extension_target(t, x);
-        }
-        for (&t, &x) in proof_target
-            .openings
-            .plonk_sigmas
-            .iter()
-            .zip_eq(&proof.openings.plonk_sigmas)
-        {
-            self.set_extension_target(t, x);
-        }
-        for (&t, &x) in proof_target
-            .openings
-            .plonk_zs
-            .iter()
-            .zip_eq(&proof.openings.plonk_zs)
-        {
-            self.set_extension_target(t, x);
-        }
-        for (&t, &x) in proof_target
-            .openings
-            .plonk_zs_right
-            .iter()
-            .zip_eq(&proof.openings.plonk_zs_right)
-        {
-            self.set_extension_target(t, x);
-        }
-        for (&t, &x) in proof_target
-            .openings
-            .partial_products
-            .iter()
-            .zip_eq(&proof.openings.partial_products)
-        {
-            self.set_extension_target(t, x);
-        }
-        for (&t, &x) in proof_target
-            .openings
-            .quotient_polys
-            .iter()
-            .zip_eq(&proof.openings.quotient_polys)
-        {
-            self.set_extension_target(t, x);
-        }
+        self.set_fri_openings(
+            &proof_target.openings.to_fri_openings(),
+            &proof.openings.to_fri_openings(),
+        );
 
         set_fri_proof_target(self, &proof_target.opening_proof, &proof.opening_proof);
+    }
+
+    fn set_fri_openings<const D: usize>(
+        &mut self,
+        fri_openings_target: &FriOpeningsTarget<D>,
+        fri_openings: &FriOpenings<F, D>,
+    ) where
+        F: RichField + Extendable<D>,
+    {
+        for (batch_target, batch) in fri_openings_target
+            .batches
+            .iter()
+            .zip_eq(&fri_openings.batches)
+        {
+            self.set_extension_targets(&batch_target.values, &batch.values);
+        }
     }
 
     fn set_wire(&mut self, wire: Wire, value: F) {

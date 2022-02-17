@@ -5,6 +5,7 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use starky::permutation::PermutationPair;
 use starky::stark::Stark;
 use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
@@ -103,6 +104,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
     fn constraint_degree(&self) -> usize {
         3
     }
+
+    fn permutation_pairs(&self) -> Vec<PermutationPair> {
+        // TODO: Add permutation pairs for memory.
+        // TODO: Add permutation pairs for range checks.
+        vec![]
+    }
 }
 
 #[cfg(test)]
@@ -117,7 +124,7 @@ mod tests {
     use starky::prover::prove;
     use starky::stark::Stark;
     use starky::stark_testing::test_stark_low_degree;
-    use starky::verifier::verify;
+    use starky::verifier::verify_stark_proof;
 
     use crate::system_zero::SystemZero;
 
@@ -136,7 +143,7 @@ mod tests {
         let trace = system.generate_trace();
         let proof = prove::<F, C, S, D>(system, &config, trace, public_inputs, &mut timing)?;
 
-        verify(system, proof, &config)
+        verify_stark_proof(system, proof, &config)
     }
 
     #[test]

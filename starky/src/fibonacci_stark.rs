@@ -67,9 +67,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
         yield_constr
             .constraint_last_row(vars.local_values[1] - vars.public_inputs[Self::PI_INDEX_RES]);
 
-        // x0 <- x1
+        // x0' <- x1
         yield_constr.constraint(vars.next_values[0] - vars.local_values[1]);
-        // x1 <- x0 + x1
+        // x1' <- x0 + x1
         yield_constr.constraint(vars.next_values[1] - vars.local_values[0] - vars.local_values[1]);
     }
 
@@ -79,7 +79,25 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        todo!()
+        // Check public inputs.
+        let pis_constraints = [
+            builder.sub_extension(vars.local_values[0], vars.public_inputs[Self::PI_INDEX_X0]),
+            builder.sub_extension(vars.local_values[1], vars.public_inputs[Self::PI_INDEX_X1]),
+            builder.sub_extension(vars.local_values[1], vars.public_inputs[Self::PI_INDEX_RES]),
+        ];
+        yield_constr.constraint_first_row(builder, pis_constraints[0]);
+        yield_constr.constraint_first_row(builder, pis_constraints[1]);
+        yield_constr.constraint_last_row(builder, pis_constraints[2]);
+
+        // x0' <- x1
+        let first_col_constraint = builder.sub_extension(vars.next_values[0], vars.local_values[1]);
+        yield_constr.constraint(builder, first_col_constraint);
+        // x1' <- x0 + x1
+        let second_col_constraint = {
+            let tmp = builder.sub_extension(vars.next_values[1], vars.local_values[0]);
+            builder.sub_extension(tmp, vars.local_values[1])
+        };
+        yield_constr.constraint(builder, second_col_constraint);
     }
 
     fn constraint_degree(&self) -> usize {
@@ -90,15 +108,28 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use plonky2::field::extension_field::Extendable;
     use plonky2::field::field_types::Field;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::hash::hash_types::RichField;
+    use plonky2::iop::witness::PartialWitness;
+    use plonky2::plonk::circuit_builder::CircuitBuilder;
+    use plonky2::plonk::circuit_data::CircuitConfig;
+    use plonky2::plonk::config::{
+        AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig,
+    };
     use plonky2::util::timing::TimingTree;
 
     use crate::config::StarkConfig;
     use crate::fibonacci_stark::FibonacciStark;
+    use crate::proof::StarkProofWithPublicInputs;
     use crate::prover::prove;
+    use crate::recursive_verifier::{
+        add_virtual_stark_proof_with_pis, recursively_verify_stark_proof,
+        set_stark_proof_with_pis_target,
+    };
+    use crate::stark::Stark;
     use crate::stark_testing::test_stark_low_degree;
-    use crate::verifier::verify;
+    use crate::verifier::verify_stark_proof;
 
     fn fibonacci<F: Field>(n: usize, x0: F, x1: F) -> F {
         (0..n).fold((x0, x1), |x, _| (x.1, x.0 + x.1)).1
@@ -124,7 +155,7 @@ mod tests {
             &mut TimingTree::default(),
         )?;
 
-        verify(stark, proof, &config)
+        verify_stark_proof(stark, proof, &config)
     }
 
     #[test]
@@ -134,9 +165,73 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         type S = FibonacciStark<F, D>;
 
-        let config = StarkConfig::standard_fast_config();
         let num_rows = 1 << 5;
         let stark = S::new(num_rows);
         test_stark_low_degree(stark)
+    }
+
+    #[test]
+    fn test_recursive_stark_verifier() -> Result<()> {
+        init_logger();
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = FibonacciStark<F, D>;
+
+        let config = StarkConfig::standard_fast_config();
+        let num_rows = 1 << 5;
+        let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
+        let stark = S::new(num_rows);
+        let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
+        let proof = prove::<F, C, S, D>(
+            stark,
+            &config,
+            trace,
+            public_inputs,
+            &mut TimingTree::default(),
+        )?;
+        verify_stark_proof(stark, proof.clone(), &config)?;
+
+        recursive_proof::<F, C, S, C, D>(stark, proof, &config, true)
+    }
+
+    fn recursive_proof<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        S: Stark<F, D> + Copy,
+        InnerC: GenericConfig<D, F = F>,
+        const D: usize,
+    >(
+        stark: S,
+        inner_proof: StarkProofWithPublicInputs<F, InnerC, D>,
+        inner_config: &StarkConfig,
+        print_gate_counts: bool,
+    ) -> Result<()>
+    where
+        InnerC::Hasher: AlgebraicHasher<F>,
+        [(); S::COLUMNS]:,
+        [(); S::PUBLIC_INPUTS]:,
+        [(); C::Hasher::HASH_SIZE]:,
+    {
+        let circuit_config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
+        let mut pw = PartialWitness::new();
+        let degree_bits = inner_proof.proof.recover_degree_bits(inner_config);
+        let pt = add_virtual_stark_proof_with_pis(&mut builder, stark, inner_config, degree_bits);
+        set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof);
+
+        recursively_verify_stark_proof::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
+
+        if print_gate_counts {
+            builder.print_gate_counts(0);
+        }
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw)?;
+        data.verify(proof)
+    }
+
+    fn init_logger() {
+        let _ = env_logger::builder().format_timestamp(None).try_init();
     }
 }
