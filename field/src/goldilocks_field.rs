@@ -435,19 +435,19 @@ fn add_prods0(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     let mut cumul_hi: u128 = 0;
 
     // a1 * b4
-    cumul_lo += a1.wrapping_mul(b4) as u128;
+    cumul_lo += ((a1 as u128) * (b4 as u128)) as u64 as u128;
     cumul_hi += ((a1 as u128) * (b4 as u128)) >> 64;
 
     // a2 * b3
-    cumul_lo += a2.wrapping_mul(b3) as u128;
+    cumul_lo += ((a2 as u128) * (b3 as u128)) as u64 as u128;
     cumul_hi += ((a2 as u128) * (b3 as u128)) >> 64;
 
     // a3 * b2
-    cumul_lo += a3.wrapping_mul(b2) as u128;
+    cumul_lo += ((a3 as u128) * (b2 as u128)) as u64 as u128;
     cumul_hi += ((a3 as u128) * (b2 as u128)) >> 64;
 
     // a4 * b1
-    cumul_lo += a4.wrapping_mul(b1) as u128;
+    cumul_lo += ((a4 as u128) * (b1 as u128)) as u64 as u128;
     cumul_hi += ((a4 as u128) * (b1 as u128)) >> 64;
 
     // * W
@@ -455,7 +455,7 @@ fn add_prods0(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     cumul_hi *= W;
 
     // a0 * b0
-    cumul_lo += a0.wrapping_mul(b0) as u128;
+    cumul_lo += ((a0 as u128) * (b0 as u128)) as u64 as u128;
     cumul_hi += ((a0 as u128) * (b0 as u128)) >> 64;
 
     reduce256(cumul_lo, cumul_hi)
@@ -474,15 +474,15 @@ fn add_prods1(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     let mut cumul_hi: u128 = 0;
 
     // a2 * b4
-    cumul_lo += a2.wrapping_mul(b4) as u128;
+    cumul_lo += ((a2 as u128) * (b4 as u128)) as u64 as u128;
     cumul_hi += ((a2 as u128) * (b4 as u128)) >> 64;
 
     // a3 * b3
-    cumul_lo += a3.wrapping_mul(b3) as u128;
+    cumul_lo += ((a3 as u128) * (b3 as u128)) as u64 as u128;
     cumul_hi += ((a3 as u128) * (b3 as u128)) >> 64;
 
     // a4 * b2
-    cumul_lo += a4.wrapping_mul(b2) as u128;
+    cumul_lo += ((a4 as u128) * (b2 as u128)) as u64 as u128;
     cumul_hi += ((a4 as u128) * (b2 as u128)) >> 64;
 
     // * W
@@ -490,11 +490,11 @@ fn add_prods1(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     cumul_hi *= W;
 
     // a0 * b1
-    cumul_lo += a0.wrapping_mul(b1) as u128;
+    cumul_lo += ((a0 as u128) * (b1 as u128)) as u64 as u128;
     cumul_hi += ((a0 as u128) * (b1 as u128)) >> 64;
 
     // a1 * b0
-    cumul_lo += a1.wrapping_mul(b0) as u128;
+    cumul_lo += ((a1 as u128) * (b0 as u128)) as u64 as u128;
     cumul_hi += ((a1 as u128) * (b0 as u128)) >> 64;
 
     reduce256(cumul_lo, cumul_hi)
@@ -513,11 +513,11 @@ fn add_prods2(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     let mut cumul_hi: u128 = 0;
 
     // a3 * b4
-    cumul_lo += a3.wrapping_mul(b4) as u128;
+    cumul_lo += ((a3 as u128) * (b4 as u128)) as u64 as u128;
     cumul_hi += ((a3 as u128) * (b4 as u128)) >> 64;
 
     // a4 * b3
-    cumul_lo += a4.wrapping_mul(b3) as u128;
+    cumul_lo += ((a4 as u128) * (b3 as u128)) as u64 as u128;
     cumul_hi += ((a4 as u128) * (b3 as u128)) >> 64;
 
     // * W
@@ -525,15 +525,15 @@ fn add_prods2(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     cumul_hi *= W;
 
     // a0 * b2
-    cumul_lo += a0.wrapping_mul(b2) as u128;
+    cumul_lo += ((a0 as u128) * (b2 as u128)) as u64 as u128;
     cumul_hi += ((a0 as u128) * (b2 as u128)) >> 64;
 
     // a1 * b1
-    cumul_lo += a1.wrapping_mul(b1) as u128;
+    cumul_lo += ((a1 as u128) * (b1 as u128)) as u64 as u128;
     cumul_hi += ((a1 as u128) * (b1 as u128)) >> 64;
 
     // a2 * b0
-    cumul_lo += a2.wrapping_mul(b0) as u128;
+    cumul_lo += ((a2 as u128) * (b0 as u128)) as u64 as u128;
     cumul_hi += ((a2 as u128) * (b0 as u128)) >> 64;
 
     reduce256(cumul_lo, cumul_hi)
@@ -552,7 +552,7 @@ fn add_prods3(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     let mut cumul_hi: u128 = 0;
 
     // a4 * b4
-    cumul_lo += a4.wrapping_mul(b4) as u128;
+    cumul_lo += ((a4 as u128) * (b4 as u128)) as u64 as u128;
     cumul_hi += ((a4 as u128) * (b4 as u128)) >> 64;
 
     // * W
@@ -560,19 +560,19 @@ fn add_prods3(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     cumul_hi *= W;
 
     // a0 * b3
-    cumul_lo += a0.wrapping_mul(b3) as u128;
+    cumul_lo += ((a0 as u128) * (b3 as u128)) as u64 as u128;
     cumul_hi += ((a0 as u128) * (b3 as u128)) >> 64;
 
     // a1 * b2
-    cumul_lo += a1.wrapping_mul(b2) as u128;
+    cumul_lo += ((a1 as u128) * (b2 as u128)) as u64 as u128;
     cumul_hi += ((a1 as u128) * (b2 as u128)) >> 64;
 
     // a2 * b1
-    cumul_lo += a2.wrapping_mul(b1) as u128;
+    cumul_lo += ((a2 as u128) * (b1 as u128)) as u64 as u128;
     cumul_hi += ((a2 as u128) * (b1 as u128)) >> 64;
 
     // a3 * b0
-    cumul_lo += a3.wrapping_mul(b0) as u128;
+    cumul_lo += ((a3 as u128) * (b0 as u128)) as u64 as u128;
     cumul_hi += ((a3 as u128) * (b0 as u128)) >> 64;
 
     reduce256(cumul_lo, cumul_hi)
@@ -589,23 +589,23 @@ fn add_prods4(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     let mut cumul_hi: u128 = 0;
 
     // a0 * b4
-    cumul_lo += a0.wrapping_mul(b4) as u128;
+    cumul_lo += ((a0 as u128) * (b4 as u128)) as u64 as u128;
     cumul_hi += ((a0 as u128) * (b4 as u128)) >> 64;
 
     // a1 * b3
-    cumul_lo += a1.wrapping_mul(b3) as u128;
+    cumul_lo += ((a1 as u128) * (b3 as u128)) as u64 as u128;
     cumul_hi += ((a1 as u128) * (b3 as u128)) >> 64;
 
     // a2 * b2
-    cumul_lo += a2.wrapping_mul(b2) as u128;
+    cumul_lo += ((a2 as u128) * (b2 as u128)) as u64 as u128;
     cumul_hi += ((a2 as u128) * (b2 as u128)) >> 64;
 
     // a3 * b1
-    cumul_lo += a3.wrapping_mul(b1) as u128;
+    cumul_lo += ((a3 as u128) * (b1 as u128)) as u64 as u128;
     cumul_hi += ((a3 as u128) * (b1 as u128)) >> 64;
 
     // a4 * b0
-    cumul_lo += a4.wrapping_mul(b0) as u128;
+    cumul_lo += ((a4 as u128) * (b0 as u128)) as u64 as u128;
     cumul_hi += ((a4 as u128) * (b0 as u128)) >> 64;
 
     reduce256(cumul_lo, cumul_hi)
@@ -634,11 +634,11 @@ fn add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
     let mut cumul_hi: u128 = 0;
 
     // a1 * a4
-    cumul_lo += a1.wrapping_mul(a4) as u128;
+    cumul_lo += ((a1 as u128) * (a4 as u128)) as u64 as u128;
     cumul_hi += ((a1 as u128) * (a4 as u128)) >> 64;
 
     // a2 * a3
-    cumul_lo += a2.wrapping_mul(a3) as u128;
+    cumul_lo += ((a2 as u128) * (a3 as u128)) as u64 as u128;
     cumul_hi += ((a2 as u128) * (a3 as u128)) >> 64;
 
     // * 2 * W
@@ -646,7 +646,7 @@ fn add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
     cumul_hi *= 2 * W;
 
     // a0 * a0
-    cumul_lo += a0.wrapping_mul(a0) as u128;
+    cumul_lo += ((a0 as u128) * (a0 as u128)) as u64 as u128;
     cumul_hi += ((a0 as u128) * (a0 as u128)) >> 64;
 
     reduce256(cumul_lo, cumul_hi)
@@ -664,11 +664,11 @@ fn add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
     let mut cumul_hi: u128 = 0;
 
     // a3 * a3
-    cumul_lo += a3.wrapping_mul(a3) as u128;
+    cumul_lo += ((a3 as u128) * (a3 as u128)) as u64 as u128;
     cumul_hi += ((a3 as u128) * (a3 as u128)) >> 64;
 
     // 2 * a2 * a4
-    cumul_lo += 2 * (a2.wrapping_mul(a4) as u128);
+    cumul_lo += 2 * (((a2 as u128) * (a4 as u128)) as u64) as u128;
     cumul_hi += 2 * (((a2 as u128) * (a4 as u128)) >> 64);
 
     // * W
@@ -676,7 +676,7 @@ fn add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
     cumul_hi *= W;
 
     // 2 * a0 * a1
-    cumul_lo += 2 * (a0.wrapping_mul(a1) as u128);
+    cumul_lo += 2 * (((a0 as u128) * (a1 as u128)) as u64) as u128;
     cumul_hi += 2 * (((a0 as u128) * (a1 as u128)) >> 64);
 
     reduce256(cumul_lo, cumul_hi)
@@ -694,15 +694,15 @@ fn add_sqrs2(a: &[u64; 5]) -> GoldilocksField {
     let mut cumul_hi: u128 = 0;
 
     // 2 * W * a3 * a4
-    cumul_lo += 2 * W * (a3.wrapping_mul(a4) as u128);
+    cumul_lo += 2 * W * (((a3 as u128) * (a4 as u128)) as u64) as u128;
     cumul_hi += 2 * W * (((a3 as u128) * (a4 as u128)) >> 64);
 
     // a1 * a1
-    cumul_lo += a1.wrapping_mul(a1) as u128;
+    cumul_lo += ((a1 as u128) * (a1 as u128)) as u64 as u128;
     cumul_hi += ((a1 as u128) * (a1 as u128)) >> 64;
 
     // 2 * a0 * a2
-    cumul_lo += 2 * (a0.wrapping_mul(a2) as u128);
+    cumul_lo += 2 * (((a0 as u128) * (a2 as u128)) as u64) as u128;
     cumul_hi += 2 * (((a0 as u128) * (a2 as u128)) >> 64);
 
     reduce256(cumul_lo, cumul_hi)
@@ -720,11 +720,11 @@ fn add_sqrs3(a: &[u64; 5]) -> GoldilocksField {
     let mut cumul_hi: u128 = 0;
 
     // a1 * a2
-    cumul_lo += a1.wrapping_mul(a2) as u128;
+    cumul_lo += ((a1 as u128) * (a2 as u128)) as u64 as u128;
     cumul_hi += ((a1 as u128) * (a2 as u128)) >> 64;
 
     // a0 * a3
-    cumul_lo += a0.wrapping_mul(a3) as u128;
+    cumul_lo += ((a0 as u128) * (a3 as u128)) as u64 as u128;
     cumul_hi += ((a0 as u128) * (a3 as u128)) >> 64;
 
     // * W
@@ -732,7 +732,7 @@ fn add_sqrs3(a: &[u64; 5]) -> GoldilocksField {
     cumul_hi *= 2;
 
     // W * a4 * a4
-    cumul_lo += W * (a4.wrapping_mul(a4) as u128);
+    cumul_lo += W * (((a4 as u128) * (a4 as u128)) as u64) as u128;
     cumul_hi += W * (((a4 as u128) * (a4 as u128)) >> 64);
 
     reduce256(cumul_lo, cumul_hi)
@@ -748,11 +748,11 @@ fn add_sqrs4(a: &[u64; 5]) -> GoldilocksField {
     let mut cumul_hi: u128 = 0;
 
     // a0 * a4
-    cumul_lo += a0.wrapping_mul(a4) as u128;
+    cumul_lo += ((a0 as u128) * (a4 as u128)) as u64 as u128;
     cumul_hi += ((a0 as u128) * (a4 as u128)) >> 64;
 
     // a1 * a3
-    cumul_lo += a1.wrapping_mul(a3) as u128;
+    cumul_lo += ((a1 as u128) * (a3 as u128)) as u64 as u128;
     cumul_hi += ((a1 as u128) * (a3 as u128)) >> 64;
 
     // * 2
@@ -760,7 +760,7 @@ fn add_sqrs4(a: &[u64; 5]) -> GoldilocksField {
     cumul_hi *= 2;
 
     // a2 * a2
-    cumul_lo += a2.wrapping_mul(a2) as u128;
+    cumul_lo += ((a2 as u128) * (a2 as u128)) as u64 as u128;
     cumul_hi += ((a2 as u128) * (a2 as u128)) >> 64;
 
     reduce256(cumul_lo, cumul_hi)
