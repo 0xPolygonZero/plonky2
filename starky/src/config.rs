@@ -22,7 +22,7 @@ impl StarkConfig {
                 rate_bits: 1,
                 cap_height: 4,
                 proof_of_work_bits: 10,
-                reduction_strategy: FriReductionStrategy::ConstantArityBits(4, 5, 4),
+                reduction_strategy: FriReductionStrategy::ConstantArityBits(4, 5),
                 num_query_rounds: 90,
             },
         }

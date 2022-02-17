@@ -35,6 +35,7 @@ impl FriConfig {
         let reduction_arity_bits = self.reduction_strategy.reduction_arity_bits(
             degree_bits,
             self.rate_bits,
+            self.cap_height,
             self.num_query_rounds,
         );
         FriParams {
