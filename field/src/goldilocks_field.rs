@@ -415,6 +415,19 @@ fn reduce256(x_lo: u128, x_hi: u128) -> GoldilocksField {
     reduce128(((hi as u128) << 64) + (lo as u128))
 }
 
+
+#[inline(always)]
+fn reduce192(x_lo: u128, x_hi: u64) -> GoldilocksField {
+    // Reduction
+    let lo = x_lo as u64;
+    let (mut hi, cy) = x_hi.overflowing_add((x_lo >> 64) as u64);
+    if cy {
+        branch_hint(); // A carry is exceedingly rare. It is faster to branch.
+        hi = reduce128((1u128 << 64) + hi as u128).0;
+    }
+    reduce128(((hi as u128) << 64) + (lo as u128))
+}
+
 /*
  * The functions add_prods[0-4] and add_sqrs[0-4] are helper functions
  * for computing products and squares for the quintic extension over the
@@ -432,33 +445,34 @@ fn add_prods0(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     let [b0, b1, b2, b3, b4] = *b;
 
     let mut cumul_lo: u128 = 0;
-    let mut cumul_hi: u128 = 0;
+    let mut cumul_hi: u64 = 0;
+    let mut cy;
 
     // a1 * b4
-    cumul_lo += ((a1 as u128) * (b4 as u128)) as u64 as u128;
-    cumul_hi += ((a1 as u128) * (b4 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (b4 as u128));
+    cumul_hi += cy as u64;
 
     // a2 * b3
-    cumul_lo += ((a2 as u128) * (b3 as u128)) as u64 as u128;
-    cumul_hi += ((a2 as u128) * (b3 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a2 as u128) * (b3 as u128));
+    cumul_hi += cy as u64;
 
     // a3 * b2
-    cumul_lo += ((a3 as u128) * (b2 as u128)) as u64 as u128;
-    cumul_hi += ((a3 as u128) * (b2 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a3 as u128) * (b2 as u128));
+    cumul_hi += cy as u64;
 
     // a4 * b1
-    cumul_lo += ((a4 as u128) * (b1 as u128)) as u64 as u128;
-    cumul_hi += ((a4 as u128) * (b1 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a4 as u128) * (b1 as u128));
+    cumul_hi += cy as u64;
 
     // * W
     cumul_lo *= W;
-    cumul_hi *= W;
+    cumul_hi *= W as u64;
 
     // a0 * b0
-    cumul_lo += ((a0 as u128) * (b0 as u128)) as u64 as u128;
-    cumul_hi += ((a0 as u128) * (b0 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b0 as u128));
+    cumul_hi += cy as u64;
 
-    reduce256(cumul_lo, cumul_hi)
+    reduce192(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -471,33 +485,34 @@ fn add_prods1(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     let [b0, b1, b2, b3, b4] = *b;
 
     let mut cumul_lo: u128 = 0;
-    let mut cumul_hi: u128 = 0;
+    let mut cumul_hi: u64 = 0;
+    let mut cy;
 
     // a2 * b4
-    cumul_lo += ((a2 as u128) * (b4 as u128)) as u64 as u128;
-    cumul_hi += ((a2 as u128) * (b4 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a2 as u128) * (b4 as u128));
+    cumul_hi += cy as u64;
 
     // a3 * b3
-    cumul_lo += ((a3 as u128) * (b3 as u128)) as u64 as u128;
-    cumul_hi += ((a3 as u128) * (b3 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a3 as u128) * (b3 as u128));
+    cumul_hi += cy as u64;
 
     // a4 * b2
-    cumul_lo += ((a4 as u128) * (b2 as u128)) as u64 as u128;
-    cumul_hi += ((a4 as u128) * (b2 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a4 as u128) * (b2 as u128));
+    cumul_hi += cy as u64;
 
     // * W
     cumul_lo *= W;
-    cumul_hi *= W;
+    cumul_hi *= W as u64;
 
     // a0 * b1
-    cumul_lo += ((a0 as u128) * (b1 as u128)) as u64 as u128;
-    cumul_hi += ((a0 as u128) * (b1 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b1 as u128));
+    cumul_hi += cy as u64;
 
     // a1 * b0
-    cumul_lo += ((a1 as u128) * (b0 as u128)) as u64 as u128;
-    cumul_hi += ((a1 as u128) * (b0 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (b0 as u128));
+    cumul_hi += cy as u64;
 
-    reduce256(cumul_lo, cumul_hi)
+    reduce192(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -510,33 +525,34 @@ fn add_prods2(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     let [b0, b1, b2, b3, b4] = *b;
 
     let mut cumul_lo: u128 = 0;
-    let mut cumul_hi: u128 = 0;
+    let mut cumul_hi: u64 = 0;
+    let mut cy;
 
     // a3 * b4
-    cumul_lo += ((a3 as u128) * (b4 as u128)) as u64 as u128;
-    cumul_hi += ((a3 as u128) * (b4 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a3 as u128) * (b4 as u128));
+    cumul_hi += cy as u64;
 
     // a4 * b3
-    cumul_lo += ((a4 as u128) * (b3 as u128)) as u64 as u128;
-    cumul_hi += ((a4 as u128) * (b3 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a4 as u128) * (b3 as u128));
+    cumul_hi += cy as u64;
 
     // * W
     cumul_lo *= W;
-    cumul_hi *= W;
+    cumul_hi *= W as u64;
 
     // a0 * b2
-    cumul_lo += ((a0 as u128) * (b2 as u128)) as u64 as u128;
-    cumul_hi += ((a0 as u128) * (b2 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b2 as u128));
+    cumul_hi += cy as u64;
 
     // a1 * b1
-    cumul_lo += ((a1 as u128) * (b1 as u128)) as u64 as u128;
-    cumul_hi += ((a1 as u128) * (b1 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (b1 as u128));
+    cumul_hi += cy as u64;
 
     // a2 * b0
-    cumul_lo += ((a2 as u128) * (b0 as u128)) as u64 as u128;
-    cumul_hi += ((a2 as u128) * (b0 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a2 as u128) * (b0 as u128));
+    cumul_hi += cy as u64;
 
-    reduce256(cumul_lo, cumul_hi)
+    reduce192(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -549,33 +565,34 @@ fn add_prods3(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     let [b0, b1, b2, b3, b4] = *b;
 
     let mut cumul_lo: u128 = 0;
-    let mut cumul_hi: u128 = 0;
+    let mut cumul_hi: u64 = 0;
+    let mut cy;
 
     // a4 * b4
-    cumul_lo += ((a4 as u128) * (b4 as u128)) as u64 as u128;
-    cumul_hi += ((a4 as u128) * (b4 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a4 as u128) * (b4 as u128));
+    cumul_hi += cy as u64;
 
     // * W
     cumul_lo *= W;
-    cumul_hi *= W;
+    cumul_hi *= W as u64;
 
     // a0 * b3
-    cumul_lo += ((a0 as u128) * (b3 as u128)) as u64 as u128;
-    cumul_hi += ((a0 as u128) * (b3 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b3 as u128));
+    cumul_hi += cy as u64;
 
     // a1 * b2
-    cumul_lo += ((a1 as u128) * (b2 as u128)) as u64 as u128;
-    cumul_hi += ((a1 as u128) * (b2 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (b2 as u128));
+    cumul_hi += cy as u64;
 
     // a2 * b1
-    cumul_lo += ((a2 as u128) * (b1 as u128)) as u64 as u128;
-    cumul_hi += ((a2 as u128) * (b1 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a2 as u128) * (b1 as u128));
+    cumul_hi += cy as u64;
 
     // a3 * b0
-    cumul_lo += ((a3 as u128) * (b0 as u128)) as u64 as u128;
-    cumul_hi += ((a3 as u128) * (b0 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a3 as u128) * (b0 as u128));
+    cumul_hi += cy as u64;
 
-    reduce256(cumul_lo, cumul_hi)
+    reduce192(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -586,29 +603,30 @@ fn add_prods4(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     let [b0, b1, b2, b3, b4] = *b;
 
     let mut cumul_lo: u128 = 0;
-    let mut cumul_hi: u128 = 0;
+    let mut cumul_hi: u64 = 0;
+    let mut cy;
 
     // a0 * b4
-    cumul_lo += ((a0 as u128) * (b4 as u128)) as u64 as u128;
-    cumul_hi += ((a0 as u128) * (b4 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b4 as u128));
+    cumul_hi += cy as u64;
 
     // a1 * b3
-    cumul_lo += ((a1 as u128) * (b3 as u128)) as u64 as u128;
-    cumul_hi += ((a1 as u128) * (b3 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (b3 as u128));
+    cumul_hi += cy as u64;
 
     // a2 * b2
-    cumul_lo += ((a2 as u128) * (b2 as u128)) as u64 as u128;
-    cumul_hi += ((a2 as u128) * (b2 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a2 as u128) * (b2 as u128));
+    cumul_hi += cy as u64;
 
     // a3 * b1
-    cumul_lo += ((a3 as u128) * (b1 as u128)) as u64 as u128;
-    cumul_hi += ((a3 as u128) * (b1 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a3 as u128) * (b1 as u128));
+    cumul_hi += cy as u64;
 
     // a4 * b0
-    cumul_lo += ((a4 as u128) * (b0 as u128)) as u64 as u128;
-    cumul_hi += ((a4 as u128) * (b0 as u128)) >> 64;
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a4 as u128) * (b0 as u128));
+    cumul_hi += cy as u64;
 
-    reduce256(cumul_lo, cumul_hi)
+    reduce192(cumul_lo, cumul_hi)
 }
 
 /// Multiply a and b considered as elements of GF(p^5).
