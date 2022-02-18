@@ -40,6 +40,13 @@ where
 {
     let degree = trace.len();
     let degree_bits = log2_strict(degree);
+    let fri_params = config.fri_params(degree_bits);
+    let rate_bits = config.fri_config.rate_bits;
+    let cap_height = config.fri_config.cap_height;
+    assert!(
+        fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
+        "FRI total reduction arity is too large.",
+    );
 
     let trace_vecs = trace.iter().map(|row| row.to_vec()).collect_vec();
     let trace_col_major: Vec<Vec<F>> = transpose(&trace_vecs);
@@ -53,8 +60,6 @@ where
             .collect()
     );
 
-    let rate_bits = config.fri_config.rate_bits;
-    let cap_height = config.fri_config.cap_height;
     let trace_commitment = timed!(
         timing,
         "compute trace commitment",
@@ -160,7 +165,6 @@ where
         .chain(permutation_zs_commitment.as_ref())
         .chain(once(&quotient_commitment))
         .collect_vec();
-    let fri_params = config.fri_params(degree_bits);
 
     let opening_proof = timed!(
         timing,
