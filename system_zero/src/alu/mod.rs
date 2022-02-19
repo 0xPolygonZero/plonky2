@@ -7,16 +7,16 @@ use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsume
 use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
-use crate::arithmetic::addition::{eval_addition, eval_addition_recursively, generate_addition};
-use crate::arithmetic::division::{eval_division, eval_division_recursively, generate_division};
-use crate::arithmetic::multiplication::{
+use crate::alu::addition::{eval_addition, eval_addition_recursively, generate_addition};
+use crate::alu::division::{eval_division, eval_division_recursively, generate_division};
+use crate::alu::multiplication::{
     eval_multiplication, eval_multiplication_recursively, generate_multiplication,
 };
-use crate::arithmetic::subtraction::{
+use crate::alu::subtraction::{
     eval_subtraction, eval_subtraction_recursively, generate_subtraction,
 };
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
-use crate::registers::arithmetic::*;
+use crate::registers::alu::*;
 use crate::registers::NUM_COLUMNS;
 
 mod addition;
@@ -24,7 +24,7 @@ mod division;
 mod multiplication;
 mod subtraction;
 
-pub(crate) fn generate_arithmetic_unit<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
+pub(crate) fn generate_alu<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
     if values[IS_ADD].is_one() {
         generate_addition(values);
     } else if values[IS_SUB].is_one() {
@@ -36,7 +36,7 @@ pub(crate) fn generate_arithmetic_unit<F: PrimeField64>(values: &mut [F; NUM_COL
     }
 }
 
-pub(crate) fn eval_arithmetic_unit<F: Field, P: PackedField<Scalar = F>>(
+pub(crate) fn eval_alu<F: Field, P: PackedField<Scalar = F>>(
     vars: StarkEvaluationVars<F, P, NUM_COLUMNS, NUM_PUBLIC_INPUTS>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
@@ -54,7 +54,7 @@ pub(crate) fn eval_arithmetic_unit<F: Field, P: PackedField<Scalar = F>>(
     eval_division(local_values, yield_constr);
 }
 
-pub(crate) fn eval_arithmetic_unit_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_alu_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     vars: StarkEvaluationTargets<D, NUM_COLUMNS, NUM_PUBLIC_INPUTS>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,

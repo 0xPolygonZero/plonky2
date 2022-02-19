@@ -10,9 +10,7 @@ use starky::stark::Stark;
 use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
-use crate::arithmetic::{
-    eval_arithmetic_unit, eval_arithmetic_unit_recursively, generate_arithmetic_unit,
-};
+use crate::alu::{eval_alu, eval_alu_recursively, generate_alu};
 use crate::core_registers::{
     eval_core_registers, eval_core_registers_recursively, generate_first_row_core_registers,
     generate_next_row_core_registers,
@@ -38,7 +36,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
 
         let mut row = [F::ZERO; NUM_COLUMNS];
         generate_first_row_core_registers(&mut row);
-        generate_arithmetic_unit(&mut row);
+        generate_alu(&mut row);
         generate_permutation_unit(&mut row);
 
         let mut trace = Vec::with_capacity(MIN_TRACE_ROWS);
@@ -46,7 +44,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         loop {
             let mut next_row = [F::ZERO; NUM_COLUMNS];
             generate_next_row_core_registers(&row, &mut next_row);
-            generate_arithmetic_unit(&mut next_row);
+            generate_alu(&mut next_row);
             generate_permutation_unit(&mut next_row);
 
             trace.push(row);
@@ -84,7 +82,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
         P: PackedField<Scalar = FE>,
     {
         eval_core_registers(vars, yield_constr);
-        eval_arithmetic_unit(vars, yield_constr);
+        eval_alu(vars, yield_constr);
         eval_permutation_unit::<F, FE, P, D2>(vars, yield_constr);
         // TODO: Other units
     }
@@ -96,7 +94,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         eval_core_registers_recursively(builder, vars, yield_constr);
-        eval_arithmetic_unit_recursively(builder, vars, yield_constr);
+        eval_alu_recursively(builder, vars, yield_constr);
         eval_permutation_unit_recursively(builder, vars, yield_constr);
         // TODO: Other units
     }
