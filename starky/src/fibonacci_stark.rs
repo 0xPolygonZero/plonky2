@@ -68,9 +68,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
             .constraint_last_row(vars.local_values[1] - vars.public_inputs[Self::PI_INDEX_RES]);
 
         // x0' <- x1
-        yield_constr.constraint(vars.next_values[0] - vars.local_values[1]);
+        yield_constr.constraint_transition(vars.next_values[0] - vars.local_values[1]);
         // x1' <- x0 + x1
-        yield_constr.constraint(vars.next_values[1] - vars.local_values[0] - vars.local_values[1]);
+        yield_constr.constraint_transition(
+            vars.next_values[1] - vars.local_values[0] - vars.local_values[1],
+        );
     }
 
     fn eval_ext_recursively(
@@ -91,13 +93,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
 
         // x0' <- x1
         let first_col_constraint = builder.sub_extension(vars.next_values[0], vars.local_values[1]);
-        yield_constr.constraint(builder, first_col_constraint);
+        yield_constr.constraint_transition(builder, first_col_constraint);
         // x1' <- x0 + x1
         let second_col_constraint = {
             let tmp = builder.sub_extension(vars.next_values[1], vars.local_values[0]);
             builder.sub_extension(tmp, vars.local_values[1])
         };
-        yield_constr.constraint(builder, second_col_constraint);
+        yield_constr.constraint_transition(builder, second_col_constraint);
     }
 
     fn constraint_degree(&self) -> usize {

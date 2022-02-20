@@ -127,8 +127,7 @@ pub(crate) fn eval_permutation_unit<F, FE, P, const D: usize>(
 
         for i in 0..SPONGE_WIDTH {
             let state_cubed = state[i] * state[i].square();
-            yield_constr
-                .constraint_wrapping(state_cubed - local_values[col_full_first_mid_sbox(r, i)]);
+            yield_constr.constraint(state_cubed - local_values[col_full_first_mid_sbox(r, i)]);
             let state_cubed = local_values[col_full_first_mid_sbox(r, i)];
             state[i] *= state_cubed.square(); // Form state ** 7.
         }
@@ -136,8 +135,7 @@ pub(crate) fn eval_permutation_unit<F, FE, P, const D: usize>(
         state = mds_layer(state);
 
         for i in 0..SPONGE_WIDTH {
-            yield_constr
-                .constraint_wrapping(state[i] - local_values[col_full_first_after_mds(r, i)]);
+            yield_constr.constraint(state[i] - local_values[col_full_first_after_mds(r, i)]);
             state[i] = local_values[col_full_first_after_mds(r, i)];
         }
     }
@@ -146,10 +144,10 @@ pub(crate) fn eval_permutation_unit<F, FE, P, const D: usize>(
         state = constant_layer(state, HALF_N_FULL_ROUNDS + r);
 
         let state0_cubed = state[0] * state[0].square();
-        yield_constr.constraint_wrapping(state0_cubed - local_values[col_partial_mid_sbox(r)]);
+        yield_constr.constraint(state0_cubed - local_values[col_partial_mid_sbox(r)]);
         let state0_cubed = local_values[col_partial_mid_sbox(r)];
         state[0] *= state0_cubed.square(); // Form state ** 7.
-        yield_constr.constraint_wrapping(state[0] - local_values[col_partial_after_sbox(r)]);
+        yield_constr.constraint(state[0] - local_values[col_partial_after_sbox(r)]);
         state[0] = local_values[col_partial_after_sbox(r)];
 
         state = mds_layer(state);
@@ -160,8 +158,7 @@ pub(crate) fn eval_permutation_unit<F, FE, P, const D: usize>(
 
         for i in 0..SPONGE_WIDTH {
             let state_cubed = state[i] * state[i].square();
-            yield_constr
-                .constraint_wrapping(state_cubed - local_values[col_full_second_mid_sbox(r, i)]);
+            yield_constr.constraint(state_cubed - local_values[col_full_second_mid_sbox(r, i)]);
             let state_cubed = local_values[col_full_second_mid_sbox(r, i)];
             state[i] *= state_cubed.square(); // Form state ** 7.
         }
@@ -169,8 +166,7 @@ pub(crate) fn eval_permutation_unit<F, FE, P, const D: usize>(
         state = mds_layer(state);
 
         for i in 0..SPONGE_WIDTH {
-            yield_constr
-                .constraint_wrapping(state[i] - local_values[col_full_second_after_mds(r, i)]);
+            yield_constr.constraint(state[i] - local_values[col_full_second_after_mds(r, i)]);
             state[i] = local_values[col_full_second_after_mds(r, i)];
         }
     }
@@ -197,7 +193,7 @@ pub(crate) fn eval_permutation_unit_recursively<F: RichField + Extendable<D>, co
             let state_cubed = builder.cube_extension(state[i]);
             let diff =
                 builder.sub_extension(state_cubed, local_values[col_full_first_mid_sbox(r, i)]);
-            yield_constr.constraint_wrapping(builder, diff);
+            yield_constr.constraint(builder, diff);
             let state_cubed = local_values[col_full_first_mid_sbox(r, i)];
             state[i] = builder.mul_many_extension(&[state[i], state_cubed, state_cubed]);
             // Form state ** 7.
@@ -208,7 +204,7 @@ pub(crate) fn eval_permutation_unit_recursively<F: RichField + Extendable<D>, co
         for i in 0..SPONGE_WIDTH {
             let diff =
                 builder.sub_extension(state[i], local_values[col_full_first_after_mds(r, i)]);
-            yield_constr.constraint_wrapping(builder, diff);
+            yield_constr.constraint(builder, diff);
             state[i] = local_values[col_full_first_after_mds(r, i)];
         }
     }
@@ -218,11 +214,11 @@ pub(crate) fn eval_permutation_unit_recursively<F: RichField + Extendable<D>, co
 
         let state0_cubed = builder.cube_extension(state[0]);
         let diff = builder.sub_extension(state0_cubed, local_values[col_partial_mid_sbox(r)]);
-        yield_constr.constraint_wrapping(builder, diff);
+        yield_constr.constraint(builder, diff);
         let state0_cubed = local_values[col_partial_mid_sbox(r)];
         state[0] = builder.mul_many_extension(&[state[0], state0_cubed, state0_cubed]); // Form state ** 7.
         let diff = builder.sub_extension(state[0], local_values[col_partial_after_sbox(r)]);
-        yield_constr.constraint_wrapping(builder, diff);
+        yield_constr.constraint(builder, diff);
         state[0] = local_values[col_partial_after_sbox(r)];
 
         state = F::mds_layer_recursive(builder, &state);
@@ -239,7 +235,7 @@ pub(crate) fn eval_permutation_unit_recursively<F: RichField + Extendable<D>, co
             let state_cubed = builder.cube_extension(state[i]);
             let diff =
                 builder.sub_extension(state_cubed, local_values[col_full_second_mid_sbox(r, i)]);
-            yield_constr.constraint_wrapping(builder, diff);
+            yield_constr.constraint(builder, diff);
             let state_cubed = local_values[col_full_second_mid_sbox(r, i)];
             state[i] = builder.mul_many_extension(&[state[i], state_cubed, state_cubed]);
             // Form state ** 7.
@@ -250,7 +246,7 @@ pub(crate) fn eval_permutation_unit_recursively<F: RichField + Extendable<D>, co
         for i in 0..SPONGE_WIDTH {
             let diff =
                 builder.sub_extension(state[i], local_values[col_full_second_after_mds(r, i)]);
-            yield_constr.constraint_wrapping(builder, diff);
+            yield_constr.constraint(builder, diff);
             state[i] = local_values[col_full_second_after_mds(r, i)];
         }
     }

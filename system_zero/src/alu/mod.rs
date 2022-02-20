@@ -45,7 +45,7 @@ pub(crate) fn eval_alu<F: Field, P: PackedField<Scalar = F>>(
     // Check that the operation flag values are binary.
     for col in [IS_ADD, IS_SUB, IS_MUL, IS_DIV] {
         let val = local_values[col];
-        yield_constr.constraint_wrapping(val * val - val);
+        yield_constr.constraint(val * val - val);
     }
 
     eval_addition(local_values, yield_constr);
@@ -65,7 +65,7 @@ pub(crate) fn eval_alu_recursively<F: RichField + Extendable<D>, const D: usize>
     for col in [IS_ADD, IS_SUB, IS_MUL, IS_DIV] {
         let val = local_values[col];
         let constraint = builder.mul_sub_extension(val, val, val);
-        yield_constr.constraint_wrapping(builder, constraint);
+        yield_constr.constraint(builder, constraint);
     }
 
     eval_addition_recursively(builder, local_values, yield_constr);
