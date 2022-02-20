@@ -1,4 +1,4 @@
-pub(crate) mod arithmetic;
+pub(crate) mod alu;
 pub(crate) mod boolean;
 pub(crate) mod core;
 pub(crate) mod logic;
@@ -8,8 +8,8 @@ pub(crate) mod permutation;
 pub(crate) mod range_check_16;
 pub(crate) mod range_check_degree;
 
-const START_ARITHMETIC: usize = 0;
-const START_BOOLEAN: usize = arithmetic::END;
+const START_ALU: usize = 0;
+const START_BOOLEAN: usize = alu::END;
 const START_CORE: usize = boolean::END;
 const START_LOGIC: usize = core::END;
 const START_LOOKUP: usize = logic::END;

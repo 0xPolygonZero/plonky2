@@ -7,7 +7,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::plonk_common::reduce_with_powers_ext_recursive;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-use crate::registers::arithmetic::*;
+use crate::registers::alu::*;
 use crate::registers::NUM_COLUMNS;
 
 pub(crate) fn generate_addition<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {

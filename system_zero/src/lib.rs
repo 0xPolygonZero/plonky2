@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-mod arithmetic;
+mod alu;
 mod core_registers;
 mod memory;
 mod permutation_unit;
