@@ -7,13 +7,11 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_util::assume;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-use crate::alu::canonical::{
-    combine_u16s_check_canonical, combine_u16s_check_canonical_circuit, compute_canonical_inv,
-};
+use crate::alu::canonical::*;
 use crate::registers::alu::*;
 use crate::registers::NUM_COLUMNS;
 
-pub(crate) fn generate_multiplication<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
+pub(crate) fn generate_mul_add<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
     let factor_0 = values[COL_MUL_ADD_FACTOR_0].to_canonical_u64();
     let factor_1 = values[COL_MUL_ADD_FACTOR_1].to_canonical_u64();
     let addend = values[COL_MUL_ADD_ADDEND].to_canonical_u64();
@@ -34,7 +32,7 @@ pub(crate) fn generate_multiplication<F: PrimeField64>(values: &mut [F; NUM_COLU
     values[COL_MUL_ADD_OUTPUT_3] = F::from_canonical_u16((output >> 48) as u16);
 }
 
-pub(crate) fn eval_multiplication<F: Field, P: PackedField<Scalar = F>>(
+pub(crate) fn eval_mul_add<F: Field, P: PackedField<Scalar = F>>(
     local_values: &[P; NUM_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
@@ -60,7 +58,7 @@ pub(crate) fn eval_multiplication<F: Field, P: PackedField<Scalar = F>>(
     yield_constr.constraint(computed_output - output);
 }
 
-pub(crate) fn eval_multiplication_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_mul_add_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     local_values: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,

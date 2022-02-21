@@ -9,9 +9,7 @@ use starky::vars::StarkEvaluationVars;
 
 use crate::alu::addition::{eval_addition, eval_addition_recursively, generate_addition};
 use crate::alu::division::{eval_division, eval_division_recursively, generate_division};
-use crate::alu::multiplication::{
-    eval_multiplication, eval_multiplication_recursively, generate_multiplication,
-};
+use crate::alu::mul_add::{eval_mul_add, eval_mul_add_recursively, generate_mul_add};
 use crate::alu::subtraction::{
     eval_subtraction, eval_subtraction_recursively, generate_subtraction,
 };
@@ -22,7 +20,7 @@ use crate::registers::NUM_COLUMNS;
 mod addition;
 mod canonical;
 mod division;
-mod multiplication;
+mod mul_add;
 mod subtraction;
 
 pub(crate) fn generate_alu<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
@@ -31,7 +29,7 @@ pub(crate) fn generate_alu<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
     } else if values[IS_SUB].is_one() {
         generate_subtraction(values);
     } else if values[IS_MUL].is_one() {
-        generate_multiplication(values);
+        generate_mul_add(values);
     } else if values[IS_DIV].is_one() {
         generate_division(values);
     }
@@ -51,7 +49,7 @@ pub(crate) fn eval_alu<F: Field, P: PackedField<Scalar = F>>(
 
     eval_addition(local_values, yield_constr);
     eval_subtraction(local_values, yield_constr);
-    eval_multiplication(local_values, yield_constr);
+    eval_mul_add(local_values, yield_constr);
     eval_division(local_values, yield_constr);
 }
 
@@ -71,6 +69,6 @@ pub(crate) fn eval_alu_recursively<F: RichField + Extendable<D>, const D: usize>
 
     eval_addition_recursively(builder, local_values, yield_constr);
     eval_subtraction_recursively(builder, local_values, yield_constr);
-    eval_multiplication_recursively(builder, local_values, yield_constr);
+    eval_mul_add_recursively(builder, local_values, yield_constr);
     eval_division_recursively(builder, local_values, yield_constr);
 }
