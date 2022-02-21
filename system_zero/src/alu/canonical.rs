@@ -28,7 +28,7 @@ pub(crate) fn compute_canonical_inv<F: Field>(value_to_check: u64) -> F {
 /// Adds constraints to require that a list of four `u16`s, in little-endian order, represent a
 /// canonical field element, i.e. that their combined value is less than `|F|`. Returns their
 /// combined value.
-pub(crate) fn eval_u16s_canonical_check<F: Field, P: PackedField<Scalar = F>>(
+pub(crate) fn combine_u16s_check_canonical<F: Field, P: PackedField<Scalar = F>>(
     limb_0_u16: P,
     limb_1_u16: P,
     limb_2_u16: P,
@@ -39,13 +39,13 @@ pub(crate) fn eval_u16s_canonical_check<F: Field, P: PackedField<Scalar = F>>(
     let base = F::from_canonical_u32(1 << 16);
     let limb_0_u32 = limb_0_u16 + limb_1_u16 * base;
     let limb_1_u32 = limb_2_u16 + limb_3_u16 * base;
-    eval_u32s_canonical_check(limb_0_u32, limb_1_u32, inverse, yield_constr)
+    combine_u32s_check_canonical(limb_0_u32, limb_1_u32, inverse, yield_constr)
 }
 
 /// Adds constraints to require that a list of four `u16`s, in little-endian order, represent a
 /// canonical field element, i.e. that their combined value is less than `|F|`. Returns their
 /// combined value.
-pub(crate) fn eval_u16s_canonical_check_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn combine_u16s_check_canonical_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     limb_0_u16: ExtensionTarget<D>,
     limb_1_u16: ExtensionTarget<D>,
@@ -57,12 +57,12 @@ pub(crate) fn eval_u16s_canonical_check_circuit<F: RichField + Extendable<D>, co
     let base = F::from_canonical_u32(1 << 16);
     let limb_0_u32 = builder.mul_const_add_extension(base, limb_1_u16, limb_0_u16);
     let limb_1_u32 = builder.mul_const_add_extension(base, limb_3_u16, limb_2_u16);
-    eval_u32s_canonical_check_circuit(builder, limb_0_u32, limb_1_u32, inverse, yield_constr)
+    combine_u32s_check_canonical_circuit(builder, limb_0_u32, limb_1_u32, inverse, yield_constr)
 }
 
 /// Adds constraints to require that a pair of `u32`s, in little-endian order, represent a canonical
 /// field element, i.e. that their combined value is less than `|F|`. Returns their combined value.
-pub(crate) fn eval_u32s_canonical_check<F: Field, P: PackedField<Scalar = F>>(
+pub(crate) fn combine_u32s_check_canonical<F: Field, P: PackedField<Scalar = F>>(
     limb_0_u32: P,
     limb_1_u32: P,
     inverse: P,
@@ -85,7 +85,7 @@ pub(crate) fn eval_u32s_canonical_check<F: Field, P: PackedField<Scalar = F>>(
 
 /// Adds constraints to require that a pair of `u32`s, in little-endian order, represent a canonical
 /// field element, i.e. that their combined value is less than `|F|`. Returns their combined value.
-pub(crate) fn eval_u32s_canonical_check_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn combine_u32s_check_canonical_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     limb_0_u32: ExtensionTarget<D>,
     limb_1_u32: ExtensionTarget<D>,

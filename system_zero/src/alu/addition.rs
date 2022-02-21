@@ -11,14 +11,14 @@ use crate::registers::alu::*;
 use crate::registers::NUM_COLUMNS;
 
 pub(crate) fn generate_addition<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
-    let in_1 = values[COL_ADD_INPUT_1].to_canonical_u64();
-    let in_2 = values[COL_ADD_INPUT_2].to_canonical_u64();
-    let in_3 = values[COL_ADD_INPUT_3].to_canonical_u64();
+    let in_1 = values[COL_ADD_INPUT_0].to_canonical_u64();
+    let in_2 = values[COL_ADD_INPUT_1].to_canonical_u64();
+    let in_3 = values[COL_ADD_INPUT_2].to_canonical_u64();
     let output = in_1 + in_2 + in_3;
 
-    values[COL_ADD_OUTPUT_1] = F::from_canonical_u16(output as u16);
-    values[COL_ADD_OUTPUT_2] = F::from_canonical_u16((output >> 16) as u16);
-    values[COL_ADD_OUTPUT_3] = F::from_canonical_u16((output >> 32) as u16);
+    values[COL_ADD_OUTPUT_0] = F::from_canonical_u16(output as u16);
+    values[COL_ADD_OUTPUT_1] = F::from_canonical_u16((output >> 16) as u16);
+    values[COL_ADD_OUTPUT_2] = F::from_canonical_u16((output >> 32) as u16);
 }
 
 pub(crate) fn eval_addition<F: Field, P: PackedField<Scalar = F>>(
@@ -26,12 +26,12 @@ pub(crate) fn eval_addition<F: Field, P: PackedField<Scalar = F>>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let is_add = local_values[IS_ADD];
-    let in_1 = local_values[COL_ADD_INPUT_1];
-    let in_2 = local_values[COL_ADD_INPUT_2];
-    let in_3 = local_values[COL_ADD_INPUT_3];
-    let out_1 = local_values[COL_ADD_OUTPUT_1];
-    let out_2 = local_values[COL_ADD_OUTPUT_2];
-    let out_3 = local_values[COL_ADD_OUTPUT_3];
+    let in_1 = local_values[COL_ADD_INPUT_0];
+    let in_2 = local_values[COL_ADD_INPUT_1];
+    let in_3 = local_values[COL_ADD_INPUT_2];
+    let out_1 = local_values[COL_ADD_OUTPUT_0];
+    let out_2 = local_values[COL_ADD_OUTPUT_1];
+    let out_3 = local_values[COL_ADD_OUTPUT_2];
 
     let weight_2 = F::from_canonical_u64(1 << 16);
     let weight_3 = F::from_canonical_u64(1 << 32);
@@ -50,12 +50,12 @@ pub(crate) fn eval_addition_recursively<F: RichField + Extendable<D>, const D: u
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let is_add = local_values[IS_ADD];
-    let in_1 = local_values[COL_ADD_INPUT_1];
-    let in_2 = local_values[COL_ADD_INPUT_2];
-    let in_3 = local_values[COL_ADD_INPUT_3];
-    let out_1 = local_values[COL_ADD_OUTPUT_1];
-    let out_2 = local_values[COL_ADD_OUTPUT_2];
-    let out_3 = local_values[COL_ADD_OUTPUT_3];
+    let in_1 = local_values[COL_ADD_INPUT_0];
+    let in_2 = local_values[COL_ADD_INPUT_1];
+    let in_3 = local_values[COL_ADD_INPUT_2];
+    let out_1 = local_values[COL_ADD_OUTPUT_0];
+    let out_2 = local_values[COL_ADD_OUTPUT_1];
+    let out_3 = local_values[COL_ADD_OUTPUT_2];
 
     let limb_base = builder.constant(F::from_canonical_u64(1 << 16));
     // Note that this can't overflow. Since each output limb has been range checked as 16-bits,
