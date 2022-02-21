@@ -14,8 +14,8 @@ use crate::registers::NUM_COLUMNS;
 
 pub(crate) fn generate_multiplication<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
     let in_1 = values[COL_MUL_ADD_INPUT_1].to_canonical_u64();
-    let in_2 = values[COL_MUL_ADD_INPUT_1].to_canonical_u64();
-    let in_3 = values[COL_MUL_ADD_INPUT_1].to_canonical_u64();
+    let in_2 = values[COL_MUL_ADD_INPUT_2].to_canonical_u64();
+    let in_3 = values[COL_MUL_ADD_INPUT_3].to_canonical_u64();
     let output = in_1 * in_2 + in_3;
 
     values[COL_MUL_ADD_OUTPUT_1] = F::from_canonical_u16(output as u16);
