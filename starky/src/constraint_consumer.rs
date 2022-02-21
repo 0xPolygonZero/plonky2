@@ -53,12 +53,12 @@ impl<P: PackedField> ConstraintConsumer<P> {
     }
 
     /// Add one constraint valid on all rows except the last.
-    pub fn constraint(&mut self, constraint: P) {
-        self.constraint_wrapping(constraint * self.z_last);
+    pub fn constraint_transition(&mut self, constraint: P) {
+        self.constraint(constraint * self.z_last);
     }
 
     /// Add one constraint on all rows.
-    pub fn constraint_wrapping(&mut self, constraint: P) {
+    pub fn constraint(&mut self, constraint: P) {
         for (&alpha, acc) in self.alphas.iter().zip(&mut self.constraint_accs) {
             *acc *= alpha;
             *acc += constraint;
@@ -68,13 +68,13 @@ impl<P: PackedField> ConstraintConsumer<P> {
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// first row of the trace.
     pub fn constraint_first_row(&mut self, constraint: P) {
-        self.constraint_wrapping(constraint * self.lagrange_basis_first);
+        self.constraint(constraint * self.lagrange_basis_first);
     }
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// last row of the trace.
     pub fn constraint_last_row(&mut self, constraint: P) {
-        self.constraint_wrapping(constraint * self.lagrange_basis_last);
+        self.constraint(constraint * self.lagrange_basis_last);
     }
 }
 
@@ -122,17 +122,17 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
     }
 
     /// Add one constraint valid on all rows except the last.
-    pub fn constraint(
+    pub fn constraint_transition(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         constraint: ExtensionTarget<D>,
     ) {
         let filtered_constraint = builder.mul_extension(constraint, self.z_last);
-        self.constraint_wrapping(builder, filtered_constraint);
+        self.constraint(builder, filtered_constraint);
     }
 
     /// Add one constraint valid on all rows.
-    pub fn constraint_wrapping(
+    pub fn constraint(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         constraint: ExtensionTarget<D>,
@@ -150,7 +150,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
         constraint: ExtensionTarget<D>,
     ) {
         let filtered_constraint = builder.mul_extension(constraint, self.lagrange_basis_first);
-        self.constraint_wrapping(builder, filtered_constraint);
+        self.constraint(builder, filtered_constraint);
     }
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
@@ -161,6 +161,6 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
         constraint: ExtensionTarget<D>,
     ) {
         let filtered_constraint = builder.mul_extension(constraint, self.lagrange_basis_last);
-        self.constraint_wrapping(builder, filtered_constraint);
+        self.constraint(builder, filtered_constraint);
     }
 }

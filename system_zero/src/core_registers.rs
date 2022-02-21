@@ -49,7 +49,7 @@ pub(crate) fn eval_core_registers<F: Field, P: PackedField<Scalar = F>>(
     let next_clock = vars.next_values[COL_CLOCK];
     let delta_clock = next_clock - local_clock;
     yield_constr.constraint_first_row(local_clock);
-    yield_constr.constraint(delta_clock - F::ONE);
+    yield_constr.constraint_transition(delta_clock - F::ONE);
 
     // The 16-bit table must start with 0, end with 2^16 - 1, and increment by 0 or 1.
     let local_range_16 = vars.local_values[COL_RANGE_16];
@@ -57,7 +57,7 @@ pub(crate) fn eval_core_registers<F: Field, P: PackedField<Scalar = F>>(
     let delta_range_16 = next_range_16 - local_range_16;
     yield_constr.constraint_first_row(local_range_16);
     yield_constr.constraint_last_row(local_range_16 - F::from_canonical_u64((1 << 16) - 1));
-    yield_constr.constraint(delta_range_16 * delta_range_16 - delta_range_16);
+    yield_constr.constraint_transition(delta_range_16 * delta_range_16 - delta_range_16);
 
     // TODO constraints for stack etc.
 }
@@ -77,7 +77,7 @@ pub(crate) fn eval_core_registers_recursively<F: RichField + Extendable<D>, cons
     let delta_clock = builder.sub_extension(next_clock, local_clock);
     yield_constr.constraint_first_row(builder, local_clock);
     let constraint = builder.sub_extension(delta_clock, one_ext);
-    yield_constr.constraint(builder, constraint);
+    yield_constr.constraint_transition(builder, constraint);
 
     // The 16-bit table must start with 0, end with 2^16 - 1, and increment by 0 or 1.
     let local_range_16 = vars.local_values[COL_RANGE_16];
@@ -87,7 +87,7 @@ pub(crate) fn eval_core_registers_recursively<F: RichField + Extendable<D>, cons
     let constraint = builder.sub_extension(local_range_16, max_u16_ext);
     yield_constr.constraint_last_row(builder, constraint);
     let constraint = builder.mul_add_extension(delta_range_16, delta_range_16, delta_range_16);
-    yield_constr.constraint(builder, constraint);
+    yield_constr.constraint_transition(builder, constraint);
 
     // TODO constraints for stack etc.
 }

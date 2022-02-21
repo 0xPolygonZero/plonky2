@@ -41,7 +41,7 @@ pub(crate) fn eval_addition<F: Field, P: PackedField<Scalar = F>>(
 
     let computed_out = in_1 + in_2 + in_3;
 
-    yield_constr.constraint_wrapping(is_add * (out - computed_out));
+    yield_constr.constraint(is_add * (out - computed_out));
 }
 
 pub(crate) fn eval_addition_recursively<F: RichField + Extendable<D>, const D: usize>(
@@ -66,5 +66,5 @@ pub(crate) fn eval_addition_recursively<F: RichField + Extendable<D>, const D: u
 
     let diff = builder.sub_extension(out, computed_out);
     let filtered_diff = builder.mul_extension(is_add, diff);
-    yield_constr.constraint_wrapping(builder, filtered_diff);
+    yield_constr.constraint(builder, filtered_diff);
 }
