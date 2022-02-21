@@ -18,9 +18,13 @@ use rayon::prelude::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::permutation::compute_permutation_z_polys;
+use crate::permutation::PermutationCheckData;
+use crate::permutation::{
+    compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
+};
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
+use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
 pub fn prove<F, C, S, const D: usize>(
@@ -80,28 +84,41 @@ where
     challenger.observe_cap(&trace_cap);
 
     // Permutation arguments.
-    let permutation_zs_commitment = if stark.uses_permutation_args() {
+    let permutation_zs_commitment_challenges = if stark.uses_permutation_args() {
+        let permutation_challenge_sets = get_n_permutation_challenge_sets(
+            &mut challenger,
+            config.num_challenges,
+            stark.permutation_batch_size(),
+        );
         let permutation_z_polys = compute_permutation_z_polys::<F, C, S, D>(
             &stark,
             config,
             &mut challenger,
             &trace_poly_values,
+            &permutation_challenge_sets,
         );
+
         timed!(
             timing,
             "compute permutation Z commitments",
-            Some(PolynomialBatch::from_values(
-                permutation_z_polys,
-                rate_bits,
-                false,
-                config.fri_config.cap_height,
-                timing,
-                None,
+            Some((
+                PolynomialBatch::from_values(
+                    permutation_z_polys,
+                    rate_bits,
+                    false,
+                    config.fri_config.cap_height,
+                    timing,
+                    None,
+                ),
+                permutation_challenge_sets
             ))
         )
     } else {
         None
     };
+    let permutation_zs_commitment = permutation_zs_commitment_challenges
+        .as_ref()
+        .map(|(comm, _)| comm);
     let permutation_zs_cap = permutation_zs_commitment
         .as_ref()
         .map(|commit| commit.merkle_tree.cap.clone());
@@ -113,10 +130,11 @@ where
     let quotient_polys = compute_quotient_polys::<F, C, S, D>(
         &stark,
         &trace_commitment,
+        &permutation_zs_commitment_challenges,
         public_inputs,
         alphas,
         degree_bits,
-        rate_bits,
+        config,
     );
     let all_quotient_chunks = quotient_polys
         .into_par_iter()
@@ -156,13 +174,13 @@ where
         zeta,
         g,
         &trace_commitment,
-        permutation_zs_commitment.as_ref(),
+        permutation_zs_commitment,
         &quotient_commitment,
     );
     challenger.observe_openings(&openings.to_fri_openings());
 
     let initial_merkle_trees = once(&trace_commitment)
-        .chain(permutation_zs_commitment.as_ref())
+        .chain(permutation_zs_commitment)
         .chain(once(&quotient_commitment))
         .collect_vec();
 
@@ -196,10 +214,14 @@ where
 fn compute_quotient_polys<F, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &PolynomialBatch<F, C, D>,
+    permutation_zs_commitment_challenges: &Option<(
+        PolynomialBatch<F, C, D>,
+        Vec<PermutationChallengeSet<F>>,
+    )>,
     public_inputs: [F; S::PUBLIC_INPUTS],
     alphas: Vec<F>,
     degree_bits: usize,
-    rate_bits: usize,
+    config: &StarkConfig,
 ) -> Vec<PolynomialCoeffs<F>>
 where
     F: RichField + Extendable<D>,
@@ -209,6 +231,7 @@ where
     [(); S::PUBLIC_INPUTS]:,
 {
     let degree = 1 << degree_bits;
+    let rate_bits = config.fri_config.rate_bits;
 
     let quotient_degree_bits = log2_ceil(stark.quotient_degree_factor());
     assert!(
@@ -255,7 +278,22 @@ where
                 next_values: &get_at_index(trace_commitment, (i + next_step) % size),
                 public_inputs: &public_inputs,
             };
-            stark.eval_packed_base(vars, &mut consumer);
+            let permutation_check_data = permutation_zs_commitment_challenges.as_ref().map(
+                |(permutation_zs_commitment, permutation_challenge_sets)| PermutationCheckData {
+                    local_zs: get_at_index(&permutation_zs_commitment, i).to_vec(),
+                    next_zs: get_at_index(&permutation_zs_commitment, (i + next_step) % size)
+                        .to_vec(),
+                    permutation_challenge_sets: permutation_challenge_sets.to_vec(),
+                },
+            );
+            eval_vanishing_poly::<F, F, C, S, D, 1>(
+                stark,
+                config,
+                vars,
+                permutation_check_data,
+                &mut consumer,
+            );
+            // stark.eval_packed_base(vars, &mut consumer);
             // TODO: Add in constraints for permutation arguments.
             // TODO: Fix this once we use a genuine `PackedField`.
             let mut constraints_evals = consumer.accumulators();

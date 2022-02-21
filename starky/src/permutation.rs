@@ -2,7 +2,7 @@
 
 use itertools::Itertools;
 use plonky2::field::batch_util::batch_multiply_inplace;
-use plonky2::field::extension_field::Extendable;
+use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
@@ -11,7 +11,9 @@ use plonky2::plonk::config::{GenericConfig, Hasher};
 use rayon::prelude::*;
 
 use crate::config::StarkConfig;
+use crate::constraint_consumer::ConstraintConsumer;
 use crate::stark::Stark;
+use crate::vars::StarkEvaluationVars;
 
 /// A pair of lists of columns, `lhs` and `rhs`, that should be permutations of one another.
 /// In particular, there should exist some permutation `pi` such that for any `i`,
@@ -39,6 +41,7 @@ pub(crate) struct PermutationChallenge<F: Field> {
 }
 
 /// Like `PermutationChallenge`, but with `num_challenges` copies to boost soundness.
+#[derive(Clone)]
 pub(crate) struct PermutationChallengeSet<F: Field> {
     pub(crate) challenges: Vec<PermutationChallenge<F>>,
 }
@@ -49,6 +52,7 @@ pub(crate) fn compute_permutation_z_polys<F, C, S, const D: usize>(
     config: &StarkConfig,
     challenger: &mut Challenger<F, C::Hasher>,
     trace_poly_values: &[PolynomialValues<F>],
+    permutation_challenge_sets: &[PermutationChallengeSet<F>],
 ) -> Vec<PolynomialValues<F>>
 where
     F: RichField + Extendable<D>,
@@ -56,12 +60,6 @@ where
     S: Stark<F, D>,
 {
     let permutation_pairs = stark.permutation_pairs();
-    let permutation_challenge_sets = get_n_permutation_challenge_sets(
-        challenger,
-        config.num_challenges,
-        stark.permutation_batch_size(),
-    );
-
     let permutation_batches = get_permutation_batches(
         &permutation_pairs,
         &permutation_challenge_sets,
@@ -191,4 +189,64 @@ pub(crate) fn get_permutation_batches<'a, F: Field>(
                 .collect_vec()
         })
         .collect()
+}
+
+// TODO: Use slices.
+pub struct PermutationCheckData<F: Field, FE: FieldExtension<D2, BaseField = F>, const D2: usize> {
+    pub(crate) local_zs: Vec<FE>,
+    pub(crate) next_zs: Vec<FE>,
+    pub(crate) permutation_challenge_sets: Vec<PermutationChallengeSet<F>>,
+}
+
+pub(crate) fn eval_permutation_checks<F, FE, C, S, const D: usize, const D2: usize>(
+    stark: &S,
+    config: &StarkConfig,
+    vars: StarkEvaluationVars<FE, FE, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
+    local_zs: &[FE],
+    next_zs: &[FE],
+    consumer: &mut ConstraintConsumer<FE>,
+    permutation_challenge_sets: &[PermutationChallengeSet<F>],
+) where
+    F: RichField + Extendable<D>,
+    FE: FieldExtension<D2, BaseField = F>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+    [(); S::COLUMNS]:,
+    [(); S::PUBLIC_INPUTS]:,
+{
+    // TODO: Z_1 check.
+    let permutation_pairs = stark.permutation_pairs();
+
+    let permutation_batches = get_permutation_batches(
+        &permutation_pairs,
+        permutation_challenge_sets,
+        config.num_challenges,
+        stark.permutation_batch_size(),
+    );
+
+    // Each zs value corresponds to a permutation batch.
+    for (i, instances) in permutation_batches.iter().enumerate() {
+        // Z(gx) * down = Z x  * up
+        let (reduced_lhs, reduced_rhs): (Vec<FE>, Vec<FE>) = instances
+            .iter()
+            .map(|instance| {
+                let PermutationInstance {
+                    pair: PermutationPair { column_pairs },
+                    challenge: PermutationChallenge { beta, gamma },
+                } = instance;
+                column_pairs.iter().rev().fold(
+                    (FE::from_basefield(*gamma), FE::from_basefield(*gamma)),
+                    |(lhs, rhs), &(i, j)| {
+                        (
+                            lhs.scalar_mul(*beta) + vars.local_values[i],
+                            rhs.scalar_mul(*beta) + vars.local_values[j],
+                        )
+                    },
+                )
+            })
+            .unzip();
+        let constraint = next_zs[i] * reduced_rhs.into_iter().product()
+            - local_zs[i] * reduced_lhs.into_iter().product();
+        consumer.constraint(constraint);
+    }
 }
