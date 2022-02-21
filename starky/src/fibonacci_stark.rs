@@ -2,16 +2,21 @@ use std::marker::PhantomData;
 
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::packed_field::PackedField;
+use plonky2::fri::structure::{FriInstanceInfo, FriInstanceInfoTarget};
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
+use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// Toy STARK system used for testing.
-/// Computes a Fibonacci sequence with state `[x0, x1]` using the state transition
-/// `x0 <- x1, x1 <- x0 + x1`.
+/// Computes a Fibonacci sequence with state `[x0, x1, i, j]` using the state transition
+/// `x0' <- x1, x1' <- x0 + x1, i' <- i+1, j' <- j+1`.
+/// Note: The `i, j` columns are used to test the permutation argument.
 #[derive(Copy, Clone)]
 struct FibonacciStark<F: RichField + Extendable<D>, const D: usize> {
     num_rows: usize,
@@ -34,21 +39,25 @@ impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
         }
     }
 
-    /// Generate the trace using `x0, x1` as inital state values.
+    /// Generate the trace using `x0, x1, 0, 1` as initial state values.
     fn generate_trace(&self, x0: F, x1: F) -> Vec<[F; Self::COLUMNS]> {
-        (0..self.num_rows)
-            .scan([x0, x1], |acc, _| {
+        let mut trace = (0..self.num_rows)
+            .scan([x0, x1, F::ZERO, F::ONE], |acc, _| {
                 let tmp = *acc;
                 acc[0] = tmp[1];
                 acc[1] = tmp[0] + tmp[1];
+                acc[2] = tmp[2] + F::ONE;
+                acc[3] = tmp[3] + F::ONE;
                 Some(tmp)
             })
-            .collect()
+            .collect::<Vec<_>>();
+        trace[self.num_rows - 1][3] = F::ZERO;
+        trace
     }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStark<F, D> {
-    const COLUMNS: usize = 2;
+    const COLUMNS: usize = 4;
     const PUBLIC_INPUTS: usize = 3;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
@@ -104,6 +113,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
 
     fn constraint_degree(&self) -> usize {
         2
+    }
+
+    fn permutation_pairs(&self) -> Vec<PermutationPair> {
+        vec![PermutationPair {
+            column_pairs: vec![(2, 3)],
+        }]
     }
 }
 

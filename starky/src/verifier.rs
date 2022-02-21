@@ -11,8 +11,10 @@ use plonky2::plonk::plonk_common::reduce_with_powers;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
+use crate::permutation::PermutationCheckData;
 use crate::proof::{StarkOpeningSet, StarkProofChallenges, StarkProofWithPublicInputs};
 use crate::stark::Stark;
+use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
 pub fn verify_stark_proof<
@@ -88,7 +90,19 @@ where
         l_1,
         l_last,
     );
-    stark.eval_ext(vars, &mut consumer);
+    // stark.eval_ext(vars, &mut consumer);
+    let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckData {
+        local_zs: permutation_zs.as_ref().unwrap().clone(),
+        next_zs: permutation_zs_right.as_ref().unwrap().clone(),
+        permutation_challenge_sets: challenges.permutation_challenge_sets,
+    });
+    eval_vanishing_poly::<F, F::Extension, C, S, D, D>(
+        &stark,
+        config,
+        vars,
+        permutation_data,
+        &mut consumer,
+    );
     // TODO: Add in constraints for permutation arguments.
     let vanishing_polys_zeta = consumer.accumulators();
 

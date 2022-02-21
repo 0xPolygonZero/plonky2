@@ -211,10 +211,10 @@ where
 
 /// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
 /// where the `C_i`s are the Stark constraints.
-fn compute_quotient_polys<F, C, S, const D: usize>(
+fn compute_quotient_polys<'a, F, C, S, const D: usize>(
     stark: &S,
-    trace_commitment: &PolynomialBatch<F, C, D>,
-    permutation_zs_commitment_challenges: &Option<(
+    trace_commitment: &'a PolynomialBatch<F, C, D>,
+    permutation_zs_commitment_challenges: &'a Option<(
         PolynomialBatch<F, C, D>,
         Vec<PermutationChallengeSet<F>>,
     )>,
@@ -251,9 +251,8 @@ where
     let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, quotient_degree_bits);
 
     // Retrieve the LDE values at index `i`.
-    let get_at_index = |comm: &PolynomialBatch<F, C, D>, i: usize| -> [F; S::COLUMNS] {
-        comm.get_lde_values(i * step).try_into().unwrap()
-    };
+    let get_at_index =
+        |comm: &'a PolynomialBatch<F, C, D>, i: usize| -> &'a [F] { comm.get_lde_values(i * step) };
     // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();
     let size = degree << quotient_degree_bits;
@@ -274,8 +273,10 @@ where
                 lagrange_last.values[i],
             );
             let vars = StarkEvaluationVars::<F, F, { S::COLUMNS }, { S::PUBLIC_INPUTS }> {
-                local_values: &get_at_index(trace_commitment, i),
-                next_values: &get_at_index(trace_commitment, (i + next_step) % size),
+                local_values: &get_at_index(trace_commitment, i).try_into().unwrap(),
+                next_values: &get_at_index(trace_commitment, (i + next_step) % size)
+                    .try_into()
+                    .unwrap(),
                 public_inputs: &public_inputs,
             };
             let permutation_check_data = permutation_zs_commitment_challenges.as_ref().map(
