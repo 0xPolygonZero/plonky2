@@ -62,26 +62,12 @@ where
         stark.permutation_batch_size(),
     );
 
-    // Get a list of instances of our batch-permutation argument. These are permutation arguments
-    // where the same `Z(x)` polynomial is used to check more than one permutation.
-    // Before batching, each permutation pair leads to `num_challenges` permutation arguments, so we
-    // start with the cartesian product of `permutation_pairs` and `0..num_challenges`. Then we
-    // chunk these arguments based on our batch size.
-    let permutation_batches = permutation_pairs
-        .iter()
-        .cartesian_product(0..config.num_challenges)
-        .chunks(stark.permutation_batch_size())
-        .into_iter()
-        .map(|batch| {
-            batch
-                .enumerate()
-                .map(|(i, (pair, chal))| {
-                    let challenge = permutation_challenge_sets[i].challenges[chal];
-                    PermutationInstance { pair, challenge }
-                })
-                .collect_vec()
-        })
-        .collect_vec();
+    let permutation_batches = get_permutation_batches(
+        &permutation_pairs,
+        &permutation_challenge_sets,
+        config.num_challenges,
+        stark.permutation_batch_size(),
+    );
 
     permutation_batches
         .into_par_iter()
@@ -176,5 +162,33 @@ pub(crate) fn get_n_permutation_challenge_sets<F: RichField, H: Hasher<F>>(
 ) -> Vec<PermutationChallengeSet<F>> {
     (0..num_sets)
         .map(|_| get_permutation_challenge_set(challenger, num_challenges))
+        .collect()
+}
+
+/// Get a list of instances of our batch-permutation argument. These are permutation arguments
+/// where the same `Z(x)` polynomial is used to check more than one permutation.
+/// Before batching, each permutation pair leads to `num_challenges` permutation arguments, so we
+/// start with the cartesian product of `permutation_pairs` and `0..num_challenges`. Then we
+/// chunk these arguments based on our batch size.
+pub(crate) fn get_permutation_batches<'a, F: Field>(
+    permutation_pairs: &'a [PermutationPair],
+    permutation_challenge_sets: &[PermutationChallengeSet<F>],
+    num_challenges: usize,
+    batch_size: usize,
+) -> Vec<Vec<PermutationInstance<'a, F>>> {
+    permutation_pairs
+        .iter()
+        .cartesian_product(0..num_challenges)
+        .chunks(batch_size)
+        .into_iter()
+        .map(|batch| {
+            batch
+                .enumerate()
+                .map(|(i, (pair, chal))| {
+                    let challenge = permutation_challenge_sets[i].challenges[chal];
+                    PermutationInstance { pair, challenge }
+                })
+                .collect_vec()
+        })
         .collect()
 }
