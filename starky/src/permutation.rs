@@ -264,7 +264,12 @@ pub(crate) fn eval_permutation_checks<F, FE, C, S, const D: usize, const D2: usi
         next_zs,
         permutation_challenge_sets,
     } = permutation_data;
-    // TODO: Z_1 check.
+
+    // Check that Z(1) = 1;
+    for &z in &local_zs {
+        consumer.constraint_first_row(z - FE::ONE);
+    }
+
     let permutation_pairs = stark.permutation_pairs();
 
     let permutation_batches = get_permutation_batches(
@@ -326,7 +331,14 @@ pub(crate) fn eval_permutation_checks_recursively<F, S, const D: usize>(
         next_zs,
         permutation_challenge_sets,
     } = permutation_data;
-    // TODO: Z_1 check.
+
+    let one = builder.one_extension();
+    // Check that Z(1) = 1;
+    for &z in &local_zs {
+        let z_1 = builder.sub_extension(z, one);
+        consumer.constraint_first_row(builder, z_1);
+    }
+
     let permutation_pairs = stark.permutation_pairs();
 
     let permutation_batches = get_permutation_batches(
