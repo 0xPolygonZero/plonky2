@@ -294,8 +294,6 @@ where
                 permutation_check_data,
                 &mut consumer,
             );
-            // stark.eval_packed_base(vars, &mut consumer);
-            // TODO: Add in constraints for permutation arguments.
             // TODO: Fix this once we use a genuine `PackedField`.
             let mut constraints_evals = consumer.accumulators();
             // We divide the constraints evaluations by `Z_H(x)`.

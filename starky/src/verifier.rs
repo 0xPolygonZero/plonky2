@@ -102,7 +102,6 @@ where
         permutation_data,
         &mut consumer,
     );
-    // TODO: Add in constraints for permutation arguments.
     let vanishing_polys_zeta = consumer.accumulators();
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
