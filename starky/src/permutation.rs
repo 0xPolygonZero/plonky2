@@ -11,6 +11,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::util::reducing::{ReducingFactor, ReducingFactorTarget};
 use rayon::prelude::*;
 
 use crate::config::StarkConfig;
@@ -283,19 +284,15 @@ pub(crate) fn eval_permutation_checks<F, FE, C, S, const D: usize, const D2: usi
                     pair: PermutationPair { column_pairs },
                     challenge: PermutationChallenge { beta, gamma },
                 } = instance;
-                let mut reduced =
-                    column_pairs
-                        .iter()
-                        .rev()
-                        .fold((FE::ZERO, FE::ZERO), |(lhs, rhs), &(i, j)| {
-                            (
-                                lhs.scalar_mul(*beta) + vars.local_values[i],
-                                rhs.scalar_mul(*beta) + vars.local_values[j],
-                            )
-                        });
-                reduced.0 += FE::from_basefield(*gamma);
-                reduced.1 += FE::from_basefield(*gamma);
-                reduced
+                let mut factor = ReducingFactor::new(*beta);
+                let (lhs, rhs): (Vec<_>, Vec<_>) = column_pairs
+                    .iter()
+                    .map(|&(i, j)| (vars.local_values[i], vars.local_values[j]))
+                    .unzip();
+                (
+                    factor.reduce_ext(lhs.into_iter()) + FE::from_basefield(*gamma),
+                    factor.reduce_ext(rhs.into_iter()) + FE::from_basefield(*gamma),
+                )
             })
             .unzip();
         let constraint = next_zs[i] * reduced_rhs.into_iter().product()
@@ -353,19 +350,17 @@ pub(crate) fn eval_permutation_checks_recursively<F, S, const D: usize>(
                     let zero = builder.zero_extension();
                     let beta_ext = builder.convert_to_ext(*beta);
                     let gamma_ext = builder.convert_to_ext(*gamma);
-                    let mut reduced =
-                        column_pairs
-                            .iter()
-                            .rev()
-                            .fold((zero, zero), |(lhs, rhs), &(i, j)| {
-                                (
-                                    builder.mul_add_extension(lhs, beta_ext, vars.local_values[i]),
-                                    builder.mul_add_extension(rhs, beta_ext, vars.local_values[j]),
-                                )
-                            });
-                    reduced.0 = builder.add_extension(reduced.0, gamma_ext);
-                    reduced.1 = builder.add_extension(reduced.1, gamma_ext);
-                    reduced
+                    let mut factor = ReducingFactorTarget::new(beta_ext);
+                    let (lhs, rhs): (Vec<_>, Vec<_>) = column_pairs
+                        .iter()
+                        .map(|&(i, j)| (vars.local_values[i], vars.local_values[j]))
+                        .unzip();
+                    let reduced_lhs = factor.reduce(&lhs, builder);
+                    let reduced_rhs = factor.reduce(&rhs, builder);
+                    (
+                        builder.add_extension(reduced_lhs, gamma_ext),
+                        builder.add_extension(reduced_rhs, gamma_ext),
+                    )
                 })
                 .unzip();
         let reduced_lhs_product = builder.mul_many_extension(&reduced_lhs);
