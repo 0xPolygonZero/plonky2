@@ -1,4 +1,3 @@
-use anyhow::Result;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::polynomial::PolynomialCoeffs;
 use plonky2::fri::proof::{FriProof, FriProofTarget};
@@ -28,7 +27,7 @@ fn get_challenges<F, C, S, const D: usize>(
     pow_witness: F,
     config: &StarkConfig,
     degree_bits: usize,
-) -> Result<StarkProofChallenges<F, D>>
+) -> StarkProofChallenges<F, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -40,20 +39,15 @@ where
 
     challenger.observe_cap(trace_cap);
 
-    let permutation_challenge_sets = if stark.uses_permutation_args() {
-        get_n_permutation_challenge_sets(
+    let permutation_challenge_sets = permutation_zs_cap.map(|permutation_zs_cap| {
+        let tmp = get_n_permutation_challenge_sets(
             &mut challenger,
             num_challenges,
             stark.permutation_batch_size(),
-        )
-    } else {
-        vec![]
-    };
-    if stark.uses_permutation_args() {
-        let cap =
-            permutation_zs_cap.ok_or_else(|| anyhow::Error::msg("expected permutation_zs_cap"));
-        challenger.observe_cap(cap?);
-    }
+        );
+        challenger.observe_cap(permutation_zs_cap);
+        tmp
+    });
 
     let stark_alphas = challenger.get_n_challenges(num_challenges);
 
@@ -62,7 +56,7 @@ where
 
     challenger.observe_openings(&openings.to_fri_openings());
 
-    Ok(StarkProofChallenges {
+    StarkProofChallenges {
         permutation_challenge_sets,
         stark_alphas,
         stark_zeta,
@@ -73,7 +67,7 @@ where
             degree_bits,
             &config.fri_config,
         ),
-    })
+    }
 }
 
 impl<F, C, const D: usize> StarkProofWithPublicInputs<F, C, D>
@@ -86,11 +80,10 @@ where
         stark: &S,
         config: &StarkConfig,
         degree_bits: usize,
-    ) -> anyhow::Result<Vec<usize>> {
-        Ok(self
-            .get_challenges(stark, config, degree_bits)?
+    ) -> Vec<usize> {
+        self.get_challenges(stark, config, degree_bits)
             .fri_challenges
-            .fri_query_indices)
+            .fri_query_indices
     }
 
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
@@ -99,7 +92,7 @@ where
         stark: &S,
         config: &StarkConfig,
         degree_bits: usize,
-    ) -> Result<StarkProofChallenges<F, D>> {
+    ) -> StarkProofChallenges<F, D> {
         let StarkProof {
             trace_cap,
             permutation_zs_cap,
@@ -146,7 +139,7 @@ pub(crate) fn get_challenges_target<
     final_poly: &PolynomialCoeffsExtTarget<D>,
     pow_witness: Target,
     config: &StarkConfig,
-) -> Result<StarkProofChallengesTarget<D>>
+) -> StarkProofChallengesTarget<D>
 where
     C::Hasher: AlgebraicHasher<F>,
 {
@@ -156,21 +149,16 @@ where
 
     challenger.observe_cap(trace_cap);
 
-    let permutation_challenge_sets = if stark.uses_permutation_args() {
-        get_n_permutation_challenge_sets_target(
+    let permutation_challenge_sets = permutation_zs_cap.map(|permutation_zs_cap| {
+        let tmp = get_n_permutation_challenge_sets_target(
             builder,
             &mut challenger,
             num_challenges,
             stark.permutation_batch_size(),
-        )
-    } else {
-        vec![]
-    };
-    if stark.uses_permutation_args() {
-        let cap =
-            permutation_zs_cap.ok_or_else(|| anyhow::Error::msg("expected permutation_zs_cap"));
-        challenger.observe_cap(cap?);
-    }
+        );
+        challenger.observe_cap(permutation_zs_cap);
+        tmp
+    });
 
     let stark_alphas = challenger.get_n_challenges(builder, num_challenges);
 
@@ -179,7 +167,7 @@ where
 
     challenger.observe_openings(&openings.to_fri_openings());
 
-    Ok(StarkProofChallengesTarget {
+    StarkProofChallengesTarget {
         permutation_challenge_sets,
         stark_alphas,
         stark_zeta,
@@ -190,7 +178,7 @@ where
             pow_witness,
             &config.fri_config,
         ),
-    })
+    }
 }
 
 impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
@@ -203,7 +191,7 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
         stark: &S,
         config: &StarkConfig,
-    ) -> Result<StarkProofChallengesTarget<D>>
+    ) -> StarkProofChallengesTarget<D>
     where
         C::Hasher: AlgebraicHasher<F>,
     {

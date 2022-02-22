@@ -13,7 +13,7 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 /// Toy STARK system used for testing.
 /// Computes a Fibonacci sequence with state `[x0, x1, i, j]` using the state transition
 /// `x0' <- x1, x1' <- x0 + x1, i' <- i+1, j' <- j+1`.
-/// Note: The `i, j` columns are used to test the permutation argument.
+/// Note: The `i, j` columns are only used to test the permutation argument.
 #[derive(Copy, Clone)]
 struct FibonacciStark<F: RichField + Extendable<D>, const D: usize> {
     num_rows: usize,
@@ -48,7 +48,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
                 Some(tmp)
             })
             .collect::<Vec<_>>();
-        trace[self.num_rows - 1][3] = F::ZERO;
+        trace[self.num_rows - 1][3] = F::ZERO; // So that column 2 and 3 are permutation of one another.
         trace
     }
 }
@@ -234,7 +234,7 @@ mod tests {
         let pt = add_virtual_stark_proof_with_pis(&mut builder, stark, inner_config, degree_bits);
         set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof);
 
-        recursively_verify_stark_proof::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config)?;
+        recursively_verify_stark_proof::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
 
         if print_gate_counts {
             builder.print_gate_counts(0);

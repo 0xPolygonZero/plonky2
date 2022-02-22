@@ -34,7 +34,7 @@ where
 {
     ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
-    let challenges = proof_with_pis.get_challenges(&stark, config, degree_bits)?;
+    let challenges = proof_with_pis.get_challenges(&stark, config, degree_bits);
     verify_stark_proof_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
 }
 
@@ -93,7 +93,7 @@ where
     let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckData {
         local_zs: permutation_zs.as_ref().unwrap().clone(),
         next_zs: permutation_zs_right.as_ref().unwrap().clone(),
-        permutation_challenge_sets: challenges.permutation_challenge_sets,
+        permutation_challenge_sets: challenges.permutation_challenge_sets.unwrap(),
     });
     eval_vanishing_poly::<F, F::Extension, C, S, D, D>(
         &stark,

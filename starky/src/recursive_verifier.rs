@@ -1,6 +1,5 @@
 use std::iter::once;
 
-use anyhow::Result;
 use itertools::Itertools;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::Field;
@@ -33,15 +32,14 @@ pub fn recursively_verify_stark_proof<
     stark: S,
     proof_with_pis: StarkProofWithPublicInputsTarget<D>,
     inner_config: &StarkConfig,
-) -> Result<()>
-where
+) where
     C::Hasher: AlgebraicHasher<F>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
 {
     assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(inner_config);
-    let challenges = proof_with_pis.get_challenges::<F, C, S>(builder, &stark, inner_config)?;
+    let challenges = proof_with_pis.get_challenges::<F, C, S>(builder, &stark, inner_config);
 
     recursively_verify_stark_proof_with_challenges::<F, C, S, D>(
         builder,
@@ -51,8 +49,6 @@ where
         inner_config,
         degree_bits,
     );
-
-    Ok(())
 }
 
 /// Recursively verifies an inner proof.
@@ -115,7 +111,7 @@ fn recursively_verify_stark_proof_with_challenges<
         .then(|| PermutationCheckDataTarget {
             local_zs: permutation_zs.as_ref().unwrap().clone(),
             next_zs: permutation_zs_right.as_ref().unwrap().clone(),
-            permutation_challenge_sets: challenges.permutation_challenge_sets,
+            permutation_challenge_sets: challenges.permutation_challenge_sets.unwrap(),
         });
     eval_vanishing_poly_recursively::<F, C, S, D>(
         builder,
