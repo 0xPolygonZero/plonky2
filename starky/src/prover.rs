@@ -84,7 +84,7 @@ where
     challenger.observe_cap(&trace_cap);
 
     // Permutation arguments.
-    let permutation_zs_commitment_challenges = if stark.uses_permutation_args() {
+    let permutation_zs_commitment_challenges = stark.uses_permutation_args().then(|| {
         let permutation_challenge_sets = get_n_permutation_challenge_sets(
             &mut challenger,
             config.num_challenges,
@@ -101,7 +101,7 @@ where
         timed!(
             timing,
             "compute permutation Z commitments",
-            Some((
+            (
                 PolynomialBatch::from_values(
                     permutation_z_polys,
                     rate_bits,
@@ -111,11 +111,9 @@ where
                     None,
                 ),
                 permutation_challenge_sets
-            ))
+            )
         )
-    } else {
-        None
-    };
+    });
     let permutation_zs_commitment = permutation_zs_commitment_challenges
         .as_ref()
         .map(|(comm, _)| comm);
