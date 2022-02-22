@@ -281,8 +281,8 @@ where
             };
             let permutation_check_data = permutation_zs_commitment_challenges.as_ref().map(
                 |(permutation_zs_commitment, permutation_challenge_sets)| PermutationCheckData {
-                    local_zs: get_at_index(&permutation_zs_commitment, i).to_vec(),
-                    next_zs: get_at_index(&permutation_zs_commitment, (i + next_step) % size)
+                    local_zs: get_at_index(permutation_zs_commitment, i).to_vec(),
+                    next_zs: get_at_index(permutation_zs_commitment, (i + next_step) % size)
                         .to_vec(),
                     permutation_challenge_sets: permutation_challenge_sets.to_vec(),
                 },

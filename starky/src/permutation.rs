@@ -62,7 +62,7 @@ where
     let permutation_pairs = stark.permutation_pairs();
     let permutation_batches = get_permutation_batches(
         &permutation_pairs,
-        &permutation_challenge_sets,
+        permutation_challenge_sets,
         config.num_challenges,
         stark.permutation_batch_size(),
     );
@@ -234,15 +234,19 @@ pub(crate) fn eval_permutation_checks<F, FE, C, S, const D: usize, const D2: usi
                     pair: PermutationPair { column_pairs },
                     challenge: PermutationChallenge { beta, gamma },
                 } = instance;
-                column_pairs.iter().rev().fold(
-                    (FE::from_basefield(*gamma), FE::from_basefield(*gamma)),
-                    |(lhs, rhs), &(i, j)| {
-                        (
-                            lhs.scalar_mul(*beta) + vars.local_values[i],
-                            rhs.scalar_mul(*beta) + vars.local_values[j],
-                        )
-                    },
-                )
+                let mut reduced =
+                    column_pairs
+                        .iter()
+                        .rev()
+                        .fold((FE::ZERO, FE::ZERO), |(lhs, rhs), &(i, j)| {
+                            (
+                                lhs.scalar_mul(*beta) + vars.local_values[i],
+                                rhs.scalar_mul(*beta) + vars.local_values[j],
+                            )
+                        });
+                reduced.0 += FE::from_basefield(*gamma);
+                reduced.1 += FE::from_basefield(*gamma);
+                reduced
             })
             .unzip();
         let constraint = next_zs[i] * reduced_rhs.into_iter().product()

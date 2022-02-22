@@ -3,6 +3,7 @@
 #![allow(unused_variables)]
 #![allow(incomplete_features)]
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
 #![feature(generic_const_exprs)]
 
 pub mod config;
