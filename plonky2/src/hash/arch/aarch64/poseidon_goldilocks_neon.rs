@@ -98,7 +98,7 @@ unsafe fn sub_with_wraparound_lsr32(a: u64, b: u64) -> u64 {
     let mut b_hi = b >> 32;
     // Make sure that LLVM emits two separate instructions for the shift and the subtraction. This
     // reduces pressure on the execution units with access to the flags, as they are no longer
-    // responsible for othe shift. The hack is to inserts a fake computation between the two
+    // responsible for the shift. The hack is to insert a fake computation between the two
     // instructions with an `asm` block to make LLVM think that they can't be merged.
     asm!(
         "/* {0} */", // Make Rust think we're using the register.
