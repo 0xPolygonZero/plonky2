@@ -15,6 +15,7 @@ use crate::extension_field::quintic::QuinticExtension;
 use crate::extension_field::{Extendable, Frobenius};
 use crate::field_types::{Field, Field64, PrimeField, PrimeField64};
 use crate::inversion::try_inverse_u64;
+use crate::ops::Square;
 
 const EPSILON: u64 = (1 << 32) - 1;
 
@@ -343,6 +344,25 @@ impl Extendable<5> for GoldilocksField {
     ];
 }
 
+impl Mul for QuinticExtension<GoldilocksField> {
+    #[inline]
+    fn mul(self, rhs: Self) -> Self {
+        let Self([a0, a1, a2, a3, a4]) = self;
+        let Self([b0, b1, b2, b3, b4]) = rhs;
+        let c = ext5_mul([a0.0, a1.0, a2.0, a3.0, a4.0], [b0.0, b1.0, b2.0, b3.0, b4.0]);
+        Self(c)
+    }
+}
+
+impl Square for QuinticExtension<GoldilocksField> {
+    #[inline]
+    fn square(&self) -> Self {
+        let Self([a0, a1, a2, a3, a4]) = self;
+        let c = ext5_sqr([a0.0, a1.0, a2.0, a3.0, a4.0]);
+        Self(c)
+    }
+}
+
 /// Fast addition modulo ORDER for x86-64.
 /// This function is marked unsafe for the following reasons:
 ///   - It is only correct if x + y < 2**64 + ORDER = 0x1ffffffff00000001.
@@ -405,14 +425,6 @@ fn reduce128(x: u128) -> GoldilocksField {
 #[inline]
 fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
-}
-
-#[inline(always)]
-fn reduce256(x_lo: u128, x_hi: u128) -> GoldilocksField {
-    // Reduction
-    let lo = x_lo as u64;
-    let hi = reduce128(x_hi + (x_lo >> 64)).0;
-    reduce128(((hi as u128) << 64) + (lo as u128))
 }
 
 
@@ -565,8 +577,6 @@ fn add_prods2(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 fn add_prods3(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     // Computes c3 = a0 * b3 + a1 * b2 + a2 * b1 + a3 * b0 + w * a4 * b4;
 
-    const W: u128 = 3;
-
     let [a0, a1, a2, a3, a4] = *a;
     let [b0, b1, b2, b3, b4] = *b;
 
@@ -633,8 +643,8 @@ fn add_prods4(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 }
 
 /// Multiply a and b considered as elements of GF(p^5).
-#[inline]
-pub fn ext5_mul(a: [u64; 5], b: [u64; 5]) -> [GoldilocksField; 5] {
+#[inline(always)]
+fn ext5_mul(a: [u64; 5], b: [u64; 5]) -> [GoldilocksField; 5] {
     let c0 = add_prods0(&a, &b);
     let c1 = add_prods1(&a, &b);
     let c2 = add_prods2(&a, &b);
@@ -748,8 +758,6 @@ fn add_sqrs2(a: &[u64; 5]) -> GoldilocksField {
 fn add_sqrs3(a: &[u64; 5]) -> GoldilocksField {
     // Compute c3 = 2 * a0 * a3 + 2 * a1 * a2 + w * a4 * a4;
 
-    const W: u128 = 3;
-
     let [a0, a1, a2, a3, a4] = *a;
 
     let mut cumul_lo: u128;
@@ -806,8 +814,8 @@ fn add_sqrs4(a: &[u64; 5]) -> GoldilocksField {
 }
 
 /// Square a considered as an element of GF(p^5).
-#[inline]
-pub fn ext5_sqr(a: [u64; 5]) -> [GoldilocksField; 5] {
+#[inline(always)]
+fn ext5_sqr(a: [u64; 5]) -> [GoldilocksField; 5] {
     let c0 = add_sqrs0(&a);
     let c1 = add_sqrs1(&a);
     let c2 = add_sqrs2(&a);

@@ -173,84 +173,10 @@ pub(crate) fn bench_field<F: Field>(c: &mut Criterion) {
     );
 }
 
-use rand::{thread_rng, Rng};
-use plonky2::field::goldilocks_field::{ext5_mul, ext5_sqr};
-
-fn rand_u64<R: Rng>(rng: &mut R) -> u64 {
-    rng.gen_range(0 .. 0xFFFFFFFFFFFFFFFF)
-}
-
-fn rand_u64_5<R: Rng>(rng: &mut R) -> [u64; 5] {
-    [rand_u64(rng), rand_u64(rng), rand_u64(rng), rand_u64(rng), rand_u64(rng)]
-}
-
-fn from_goldi(a: &[GoldilocksField; 5]) -> [u64; 5] {
-    [a[0].0, a[1].0, a[2].0, a[3].0, a[4].0]
-}
-
 fn criterion_benchmark(c: &mut Criterion) {
     bench_field::<GoldilocksField>(c);
     bench_field::<QuarticExtension<GoldilocksField>>(c);
     bench_field::<QuinticExtension<GoldilocksField>>(c);
-
-    let mut rng = thread_rng();
-
-    c.bench_function("ext5_mul-throughput", |b| {
-        b.iter_batched(
-            || (rand_u64_5(&mut rng), rand_u64_5(&mut rng), rand_u64_5(&mut rng), rand_u64_5(&mut rng)),
-            |(mut x, mut y, mut z, mut w)| {
-                for _ in 0..25 {
-                    let (xx, yy, zz, ww) = (ext5_mul(x, y), ext5_mul(y, z), ext5_mul(z, w), ext5_mul(w, x));
-                    (x, y, z, w) = (from_goldi(&xx), from_goldi(&yy), from_goldi(&zz), from_goldi(&ww));
-                }
-                (x, y, z, w)
-            },
-            BatchSize::SmallInput,
-        )
-    });
-
-    c.bench_function("ext5_mul-latency", |b| {
-        b.iter_batched(
-            || rand_u64_5(&mut rng),
-            |mut x| {
-                for _ in 0..100 {
-                    let y = ext5_mul(x, x);
-                    x = from_goldi(&y);
-                }
-                x
-            },
-            BatchSize::SmallInput,
-        )
-    });
-
-    c.bench_function("ext5_sqr-throughput", |b| {
-        b.iter_batched(
-            || (rand_u64_5(&mut rng), rand_u64_5(&mut rng), rand_u64_5(&mut rng), rand_u64_5(&mut rng)),
-            |(mut x, mut y, mut z, mut w)| {
-                for _ in 0..25 {
-                    let (xx, yy, zz, ww) = (ext5_sqr(x), ext5_sqr(y), ext5_sqr(z), ext5_sqr(w));
-                    (x, y, z, w) = (from_goldi(&xx), from_goldi(&yy), from_goldi(&zz), from_goldi(&ww));
-                }
-                (x, y, z, w)
-            },
-            BatchSize::SmallInput,
-        )
-    });
-
-    c.bench_function("ext5_sqr-latency", |b| {
-        b.iter_batched(
-            || rand_u64_5(&mut rng),
-            |mut x| {
-                for _ in 0..100 {
-                    let y = ext5_sqr(x);
-                    x = from_goldi(&y);
-                }
-                x
-            },
-            BatchSize::SmallInput,
-        )
-    });
-
 }
 
 criterion_group!(benches, criterion_benchmark);
