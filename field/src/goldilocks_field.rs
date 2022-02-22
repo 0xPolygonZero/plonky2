@@ -427,17 +427,17 @@ fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
 }
 
-
+// FIXME: reduce132 should be marked unsafe, or the type of x_hi
+// changed, since the argument x_hi is assumed to actually fit in a
+// u32.
 #[inline(always)]
-fn reduce192(x_lo: u128, x_hi: u64) -> GoldilocksField {
-    // Reduction
-    let lo = x_lo as u64;
-    let (mut hi, cy) = x_hi.overflowing_add((x_lo >> 64) as u64);
-    if cy {
-        branch_hint(); // A carry is exceedingly rare. It is faster to branch.
-        hi = reduce128((1u128 << 64) + hi as u128).0;
-    }
-    reduce128(((hi as u128) << 64) + (lo as u128))
+fn reduce160(x_lo: u128, x_hi: u64) -> GoldilocksField {
+    debug_assert!(x_hi < (1 << 32) - 1);
+
+    // for t = 1 .. 2^32-1, t*2^128 % p == p - (t << 32)
+    let hi = 0xFFFFFFFF00000001u64 - (x_hi << 32);
+    // hi is not reduced if x_hi was 0.
+    reduce128(x_lo as u128) + GoldilocksField::from_noncanonical_u64(hi)
 }
 
 /*
@@ -490,7 +490,7 @@ fn add_prods0(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b0 as u128));
     cumul_hi += cy as u64;
 
-    reduce192(cumul_lo, cumul_hi)
+    reduce160(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -530,7 +530,7 @@ fn add_prods1(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (b0 as u128));
     cumul_hi += cy as u64;
 
-    reduce192(cumul_lo, cumul_hi)
+    reduce160(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -570,7 +570,7 @@ fn add_prods2(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a2 as u128) * (b0 as u128));
     cumul_hi += cy as u64;
 
-    reduce192(cumul_lo, cumul_hi)
+    reduce160(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -606,7 +606,7 @@ fn add_prods3(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a3 as u128) * (b0 as u128));
     cumul_hi += cy as u64;
 
-    reduce192(cumul_lo, cumul_hi)
+    reduce160(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -639,7 +639,7 @@ fn add_prods4(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a4 as u128) * (b0 as u128));
     cumul_hi += cy as u64;
 
-    reduce192(cumul_lo, cumul_hi)
+    reduce160(cumul_lo, cumul_hi)
 }
 
 /// Multiply a and b considered as elements of GF(p^5).
@@ -688,7 +688,7 @@ fn add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (a0 as u128));
     cumul_hi += cy as u64;
 
-    reduce192(cumul_lo, cumul_hi)
+    reduce160(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -721,7 +721,7 @@ fn add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add(prod);
     cumul_hi += cy as u64 + top_bit;
 
-    reduce192(cumul_lo, cumul_hi)
+    reduce160(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -751,7 +751,7 @@ fn add_sqrs2(a: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add(prod);
     cumul_hi += cy as u64 + top_bit;
 
-    reduce192(cumul_lo, cumul_hi)
+    reduce160(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -781,7 +781,7 @@ fn add_sqrs3(a: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add(prod);
     cumul_hi = 3 * cumul_hi + cy as u64 + over;
 
-    reduce192(cumul_lo, cumul_hi)
+    reduce160(cumul_lo, cumul_hi)
 }
 
 #[inline(always)]
@@ -810,7 +810,7 @@ fn add_sqrs4(a: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a2 as u128) * (a2 as u128));
     cumul_hi += cy as u64;
 
-    reduce192(cumul_lo, cumul_hi)
+    reduce160(cumul_lo, cumul_hi)
 }
 
 /// Square a considered as an element of GF(p^5).
