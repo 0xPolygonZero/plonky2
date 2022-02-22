@@ -1,5 +1,6 @@
 use std::iter::once;
 
+use anyhow::Result;
 use itertools::Itertools;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::Field;
@@ -13,11 +14,13 @@ use plonky2::util::reducing::ReducingFactorTarget;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
+use crate::permutation::PermutationCheckDataTarget;
 use crate::proof::{
     StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget, StarkProofTarget,
     StarkProofWithPublicInputs, StarkProofWithPublicInputsTarget,
 };
 use crate::stark::Stark;
+use crate::vanishing_poly::eval_vanishing_poly_recursively;
 use crate::vars::StarkEvaluationTargets;
 
 pub fn recursively_verify_stark_proof<
@@ -30,14 +33,15 @@ pub fn recursively_verify_stark_proof<
     stark: S,
     proof_with_pis: StarkProofWithPublicInputsTarget<D>,
     inner_config: &StarkConfig,
-) where
+) -> Result<()>
+where
     C::Hasher: AlgebraicHasher<F>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
 {
     assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(inner_config);
-    let challenges = proof_with_pis.get_challenges::<F, C>(builder, inner_config);
+    let challenges = proof_with_pis.get_challenges::<F, C, S>(builder, &stark, inner_config)?;
 
     recursively_verify_stark_proof_with_challenges::<F, C, S, D>(
         builder,
@@ -47,6 +51,8 @@ pub fn recursively_verify_stark_proof<
         inner_config,
         degree_bits,
     );
+
+    Ok(())
 }
 
 /// Recursively verifies an inner proof.
@@ -104,8 +110,21 @@ fn recursively_verify_stark_proof_with_challenges<
         l_1,
         l_last,
     );
-    stark.eval_ext_recursively(builder, vars, &mut consumer);
-    // TODO: Add in constraints for permutation arguments.
+    let permutation_data = stark
+        .uses_permutation_args()
+        .then(|| PermutationCheckDataTarget {
+            local_zs: permutation_zs.as_ref().unwrap().clone(),
+            next_zs: permutation_zs_right.as_ref().unwrap().clone(),
+            permutation_challenge_sets: challenges.permutation_challenge_sets,
+        });
+    eval_vanishing_poly_recursively::<F, C, S, D>(
+        builder,
+        &stark,
+        inner_config,
+        vars,
+        permutation_data,
+        &mut consumer,
+    );
     let vanishing_polys_zeta = consumer.accumulators();
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
@@ -222,10 +241,12 @@ fn add_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: 
     StarkOpeningSetTarget {
         local_values: builder.add_virtual_extension_targets(S::COLUMNS),
         next_values: builder.add_virtual_extension_targets(S::COLUMNS),
-        permutation_zs: builder
-            .add_virtual_extension_targets(stark.num_permutation_batches(config)),
-        permutation_zs_right: builder
-            .add_virtual_extension_targets(stark.num_permutation_batches(config)),
+        permutation_zs: stark
+            .uses_permutation_args()
+            .then(|| builder.add_virtual_extension_targets(stark.num_permutation_batches(config))),
+        permutation_zs_right: stark
+            .uses_permutation_args()
+            .then(|| builder.add_virtual_extension_targets(stark.num_permutation_batches(config))),
         quotient_polys: builder
             .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),
     }

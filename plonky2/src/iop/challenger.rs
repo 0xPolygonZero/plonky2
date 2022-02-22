@@ -208,7 +208,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         }
     }
 
-    pub(crate) fn get_challenge(&mut self, builder: &mut CircuitBuilder<F, D>) -> Target {
+    pub fn get_challenge(&mut self, builder: &mut CircuitBuilder<F, D>) -> Target {
         self.absorb_buffered_inputs(builder);
 
         if self.output_buffer.is_empty() {

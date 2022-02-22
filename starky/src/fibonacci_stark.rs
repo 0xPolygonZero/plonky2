@@ -234,7 +234,7 @@ mod tests {
         let pt = add_virtual_stark_proof_with_pis(&mut builder, stark, inner_config, degree_bits);
         set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof);
 
-        recursively_verify_stark_proof::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
+        recursively_verify_stark_proof::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config)?;
 
         if print_gate_counts {
             builder.print_gate_counts(0);

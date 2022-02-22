@@ -90,7 +90,6 @@ where
         l_1,
         l_last,
     );
-    // stark.eval_ext(vars, &mut consumer);
     let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckData {
         local_zs: permutation_zs.as_ref().unwrap().clone(),
         next_zs: permutation_zs_right.as_ref().unwrap().clone(),

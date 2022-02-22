@@ -113,6 +113,7 @@ pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: us
 }
 
 pub(crate) struct StarkProofChallengesTarget<const D: usize> {
+    pub permutation_challenge_sets: Vec<PermutationChallengeSet<Target>>,
     pub stark_alphas: Vec<Target>,
     pub stark_zeta: ExtensionTarget<D>,
     pub fri_challenges: FriChallengesTarget<D>,
@@ -179,27 +180,29 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
 pub struct StarkOpeningSetTarget<const D: usize> {
     pub local_values: Vec<ExtensionTarget<D>>,
     pub next_values: Vec<ExtensionTarget<D>>,
-    pub permutation_zs: Vec<ExtensionTarget<D>>,
-    pub permutation_zs_right: Vec<ExtensionTarget<D>>,
+    pub permutation_zs: Option<Vec<ExtensionTarget<D>>>,
+    pub permutation_zs_right: Option<Vec<ExtensionTarget<D>>>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
 
 impl<const D: usize> StarkOpeningSetTarget<D> {
     pub(crate) fn to_fri_openings(&self) -> FriOpeningsTarget<D> {
         let zeta_batch = FriOpeningBatchTarget {
-            values: [
-                self.local_values.as_slice(),
-                self.quotient_polys.as_slice(),
-                self.permutation_zs.as_slice(),
-            ]
-            .concat(),
+            values: self
+                .local_values
+                .iter()
+                .chain(self.permutation_zs.iter().flatten())
+                .chain(&self.quotient_polys)
+                .copied()
+                .collect_vec(),
         };
         let zeta_right_batch = FriOpeningBatchTarget {
-            values: [
-                self.next_values.as_slice(),
-                self.permutation_zs_right.as_slice(),
-            ]
-            .concat(),
+            values: self
+                .next_values
+                .iter()
+                .chain(self.permutation_zs_right.iter().flatten())
+                .copied()
+                .collect_vec(),
         };
         FriOpeningsTarget {
             batches: vec![zeta_batch, zeta_right_batch],
