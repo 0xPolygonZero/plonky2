@@ -681,8 +681,9 @@ fn add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
     let over1;
     let over2;
     (cumul_lo, over1) = u128_times_2(cumul_lo);
+    cumul_hi = 2 * cumul_hi + over1;
     (cumul_lo, over2) = u128_times_3(cumul_lo);
-    cumul_hi = cumul_hi * 2 * W as u64 + over1 + over2;
+    cumul_hi = cumul_hi * W as u64 + over2;
 
     // a0 * a0
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (a0 as u128));
@@ -779,7 +780,7 @@ fn add_sqrs3(a: &[u64; 5]) -> GoldilocksField {
     // W * a4 * a4
     let (prod, over) = u128_times_3((a4 as u128) * (a4 as u128));
     (cumul_lo, cy) = cumul_lo.overflowing_add(prod);
-    cumul_hi = 3 * cumul_hi + cy as u64 + over;
+    cumul_hi += cy as u64 + over;
 
     reduce160(cumul_lo, cumul_hi)
 }
@@ -821,6 +822,7 @@ fn ext5_sqr(a: [u64; 5]) -> [GoldilocksField; 5] {
     let c2 = add_sqrs2(&a);
     let c3 = add_sqrs3(&a);
     let c4 = add_sqrs4(&a);
+
     [c0, c1, c2, c3, c4]
 }
 
