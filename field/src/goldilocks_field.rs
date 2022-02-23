@@ -435,9 +435,22 @@ fn reduce160(x_lo: u128, x_hi: u64) -> GoldilocksField {
     debug_assert!(x_hi < (1 << 32) - 1);
 
     // for t = 1 .. 2^32-1, t*2^128 % p == p - (t << 32)
-    let hi = 0xFFFFFFFF00000001u64 - (x_hi << 32);
+    let hi = GoldilocksField::ORDER - (x_hi << 32);
     // hi is not reduced if x_hi was 0.
-    reduce128(x_lo as u128) + GoldilocksField::from_noncanonical_u64(hi)
+    let (lo, cy) = x_lo.overflowing_add(hi as u128);
+    if cy {
+        // cy = true is very rare. The only way it can happen is if
+        // x_lo is at least 2^128 - (2^64 - 2^63), i.e.
+        // 0xFFFFFFFF FFFFFFFF 80000000 00000000
+        // which for randomly distributed values will only happen with
+        // probability about 2^-64.
+        branch_hint();
+        let lo = reduce128(lo).0;
+        let cy_red = GoldilocksField::ORDER - (1u64 << 32);
+        reduce128(lo as u128 + cy_red as u128)
+    } else {
+        reduce128(lo)
+    }
 }
 
 /*
