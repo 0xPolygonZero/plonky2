@@ -349,7 +349,10 @@ impl Mul for QuinticExtension<GoldilocksField> {
     fn mul(self, rhs: Self) -> Self {
         let Self([a0, a1, a2, a3, a4]) = self;
         let Self([b0, b1, b2, b3, b4]) = rhs;
-        let c = ext5_mul([a0.0, a1.0, a2.0, a3.0, a4.0], [b0.0, b1.0, b2.0, b3.0, b4.0]);
+        let c = ext5_mul(
+            [a0.0, a1.0, a2.0, a3.0, a4.0],
+            [b0.0, b1.0, b2.0, b3.0, b4.0],
+        );
         Self(c)
     }
 }
