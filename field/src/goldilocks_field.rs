@@ -427,7 +427,7 @@ fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
 }
 
-// FIXME: reduce132 should be marked unsafe, or the type of x_hi
+// FIXME: reduce160 should be marked unsafe, or the type of x_hi
 // changed, since the argument x_hi is assumed to actually fit in a
 // u32.
 #[inline(always)]
@@ -461,7 +461,7 @@ fn reduce160(x_lo: u128, x_hi: u64) -> GoldilocksField {
  */
 
 #[inline(always)]
-fn u128_times_3(x: u128) -> (u128, u64) {
+fn u128_times_w(x: u128) -> (u128, u64) {
     let (s, cy) = x.overflowing_add(x << 1);
     (s, (x >> 127) as u64 + cy as u64)
 }
@@ -470,7 +470,7 @@ fn u128_times_3(x: u128) -> (u128, u64) {
 fn add_prods0(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     // Computes c0 = a0 * b0 + w * (a1 * b4 + a2 * b3 + a3 * b2 + a4 * b1)
 
-    const W: u128 = 3;
+    const W: u64 = <GoldilocksField as Extendable<5>>::W.0;
 
     let [a0, a1, a2, a3, a4] = *a;
     let [b0, b1, b2, b3, b4] = *b;
@@ -496,8 +496,8 @@ fn add_prods0(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 
     // * W
     let over;
-    (cumul_lo, over) = u128_times_3(cumul_lo);
-    cumul_hi = cumul_hi * W as u64 + over;
+    (cumul_lo, over) = u128_times_w(cumul_lo);
+    cumul_hi = W * cumul_hi + over;
 
     // a0 * b0
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b0 as u128));
@@ -510,7 +510,7 @@ fn add_prods0(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 fn add_prods1(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     // Computes c1 = a0 * b1 + a1 * b0 + w * (a2 * b4 + a3 * b3 + a4 * b2);
 
-    const W: u128 = 3;
+    const W: u64 = <GoldilocksField as Extendable<5>>::W.0;
 
     let [a0, a1, a2, a3, a4] = *a;
     let [b0, b1, b2, b3, b4] = *b;
@@ -532,8 +532,8 @@ fn add_prods1(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 
     // * W
     let over;
-    (cumul_lo, over) = u128_times_3(cumul_lo);
-    cumul_hi = cumul_hi * W as u64 + over;
+    (cumul_lo, over) = u128_times_w(cumul_lo);
+    cumul_hi = W * cumul_hi + over;
 
     // a0 * b1
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b1 as u128));
@@ -550,7 +550,7 @@ fn add_prods1(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 fn add_prods2(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     // Computes c2 = a0 * b2 + a1 * b1 + a2 * b0 + w * (a3 * b4 + a4 * b3);
 
-    const W: u128 = 3;
+    const W: u64 = <GoldilocksField as Extendable<5>>::W.0;
 
     let [a0, a1, a2, a3, a4] = *a;
     let [b0, b1, b2, b3, b4] = *b;
@@ -568,8 +568,8 @@ fn add_prods2(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 
     // * W
     let over;
-    (cumul_lo, over) = u128_times_3(cumul_lo);
-    cumul_hi = cumul_hi * W as u64 + over;
+    (cumul_lo, over) = u128_times_w(cumul_lo);
+    cumul_hi = W * cumul_hi + over;
 
     // a0 * b2
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b2 as u128));
@@ -597,11 +597,11 @@ fn add_prods3(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     let mut cumul_hi: u64;
     let mut cy;
 
-    // W * a4 * b4
+    // a4 * b4
     cumul_lo = (a4 as u128) * (b4 as u128);
 
     // * W
-    (cumul_lo, cumul_hi) = u128_times_3(cumul_lo);
+    (cumul_lo, cumul_hi) = u128_times_w(cumul_lo);
 
     // a0 * b3
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b3 as u128));
@@ -675,7 +675,7 @@ fn u128_times_2(x: u128) -> (u128, u64) {
 fn add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
     // Compute c0 = a0^2 + 2 * w * (a1 * a4 + a2 * a3);
 
-    const W: u128 = 3;
+    const W: u64 = <GoldilocksField as Extendable<5>>::W.0;
 
     let [a0, a1, a2, a3, a4] = *a;
 
@@ -695,8 +695,8 @@ fn add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
     let over2;
     (cumul_lo, over1) = u128_times_2(cumul_lo);
     cumul_hi = 2 * cumul_hi + over1;
-    (cumul_lo, over2) = u128_times_3(cumul_lo);
-    cumul_hi = cumul_hi * W as u64 + over2;
+    (cumul_lo, over2) = u128_times_w(cumul_lo);
+    cumul_hi = W * cumul_hi + over2;
 
     // a0 * a0
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (a0 as u128));
@@ -709,7 +709,7 @@ fn add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
 fn add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
     // Compute c1 = 2 * a0 * a1 + 2 * w * a2 * a4 + w * a3 * a3;
 
-    const W: u128 = 3;
+    const W: u64 = <GoldilocksField as Extendable<5>>::W.0;
 
     let [a0, a1, a2, a3, a4] = *a;
 
@@ -727,8 +727,8 @@ fn add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
 
     // * W
     let over;
-    (cumul_lo, over) = u128_times_3(cumul_lo);
-    cumul_hi = cumul_hi * W as u64 + over;
+    (cumul_lo, over) = u128_times_w(cumul_lo);
+    cumul_hi = W * cumul_hi + over;
 
     // 2 * a0 * a1
     let (prod, top_bit) = u128_times_2((a0 as u128) * (a1 as u128));
@@ -742,7 +742,7 @@ fn add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
 fn add_sqrs2(a: &[u64; 5]) -> GoldilocksField {
     // Compute c2 = 2 * a0 * a2 + a1 * a1 + 2 * w * a4 * a3;
 
-    const W: u128 = 3;
+    const W: u64 = <GoldilocksField as Extendable<5>>::W.0;
 
     let [a0, a1, a2, a3, a4] = *a;
 
@@ -753,8 +753,8 @@ fn add_sqrs2(a: &[u64; 5]) -> GoldilocksField {
     // 2 * W * a3 * a4
     let over;
     (cumul_lo, cumul_hi) = u128_times_2((a3 as u128) * (a4 as u128));
-    (cumul_lo, over) = u128_times_3(cumul_lo);
-    cumul_hi = cumul_hi * W as u64 + over;
+    (cumul_lo, over) = u128_times_w(cumul_lo);
+    cumul_hi = W * cumul_hi + over;
 
     // a1 * a1
     (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (a1 as u128));
@@ -791,7 +791,7 @@ fn add_sqrs3(a: &[u64; 5]) -> GoldilocksField {
     cumul_hi = 2 * cumul_hi + over;
 
     // W * a4 * a4
-    let (prod, over) = u128_times_3((a4 as u128) * (a4 as u128));
+    let (prod, over) = u128_times_w((a4 as u128) * (a4 as u128));
     (cumul_lo, cy) = cumul_lo.overflowing_add(prod);
     cumul_hi += cy as u64 + over;
 
