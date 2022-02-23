@@ -285,7 +285,8 @@ where
                     permutation_challenge_sets: permutation_challenge_sets.to_vec(),
                 },
             );
-            eval_vanishing_poly::<F, F, C, S, D, 1>(
+            // TODO: Use packed field for F.
+            eval_vanishing_poly::<F, F, F, C, S, D, 1>(
                 stark,
                 config,
                 vars,

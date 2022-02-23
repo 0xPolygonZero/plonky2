@@ -1,4 +1,5 @@
 use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::GenericConfig;
@@ -12,7 +13,7 @@ use crate::permutation::{
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
-pub(crate) fn eval_vanishing_poly<F, FE, C, S, const D: usize, const D2: usize>(
+pub(crate) fn eval_vanishing_poly<F, FE, P, C, S, const D: usize, const D2: usize>(
     stark: &S,
     config: &StarkConfig,
     vars: StarkEvaluationVars<FE, FE, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
@@ -21,6 +22,7 @@ pub(crate) fn eval_vanishing_poly<F, FE, C, S, const D: usize, const D2: usize>(
 ) where
     F: RichField + Extendable<D>,
     FE: FieldExtension<D2, BaseField = F>,
+    P: PackedField<Scalar = FE>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
