@@ -9,7 +9,9 @@ use plonky2_util::{assume, branch_hint};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::extension_field::goldilocks_field::{ext5_mul, ext5_sqr};
+use crate::extension_field::goldilocks_field::{
+    ext2_mul, ext2_sqr, ext5_mul, ext5_sqr
+};
 use crate::extension_field::quadratic::QuadraticExtension;
 use crate::extension_field::quartic::QuarticExtension;
 use crate::extension_field::quintic::QuinticExtension;
@@ -299,6 +301,25 @@ impl Extendable<2> for GoldilocksField {
         [Self(18081566051660590251), Self(16121475356294670766)];
 
     const EXT_POWER_OF_TWO_GENERATOR: [Self; 2] = [Self(0), Self(15659105665374529263)];
+}
+
+impl Mul for QuadraticExtension<GoldilocksField> {
+    #[inline]
+    fn mul(self, rhs: Self) -> Self {
+        let Self([a0, a1]) = self;
+        let Self([b0, b1]) = rhs;
+        let c = ext2_mul([a0.0, a1.0], [b0.0, b1.0]);
+        Self(c)
+    }
+}
+
+impl Square for QuadraticExtension<GoldilocksField> {
+    #[inline]
+    fn square(&self) -> Self {
+        let Self([a0, a1]) = self;
+        let c = ext2_sqr([a0.0, a1.0]);
+        Self(c)
+    }
 }
 
 impl Extendable<4> for GoldilocksField {

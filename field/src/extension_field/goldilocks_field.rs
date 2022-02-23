@@ -51,6 +51,99 @@ fn u128_times_3(x: u128) -> (u128, u64) {
 }
 
 #[inline(always)]
+fn u128_times_7(x: u128) -> (u128, u64) {
+    let (d, br) = (x << 3).overflowing_sub(x);
+    // TODO: Check that subtracting the borrow can't underflow
+    (d, (x >> (128 - 3)) as u64 - br as u64)
+}
+
+/*
+ * Quadratic multiplication and squaring
+ */
+
+#[inline(always)]
+fn ext2_add_prods0(a: &[u64; 2], b: &[u64; 2]) -> GoldilocksField {
+    // Computes a0 * b0 + W * a1 * b1;
+    let [a0, a1] = *a;
+    let [b0, b1] = *b;
+
+    let mut cumul_lo: u128;
+    let mut cumul_hi: u64;
+    let cy;
+
+    // W * a1 * b1
+    (cumul_lo, cumul_hi) = u128_times_7((a1 as u128) * (b1 as u128));
+
+    // a0 * b0
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b0 as u128));
+    cumul_hi += cy as u64;
+
+    reduce160(cumul_lo, cumul_hi)
+}
+
+#[inline(always)]
+fn ext2_add_prods1(a: &[u64; 2], b: &[u64; 2]) -> GoldilocksField {
+    // Computes a0 * b1 + a1 * b0;
+    let [a0, a1] = *a;
+    let [b0, b1] = *b;
+
+    let mut cumul_lo: u128;
+    let cumul_hi: u64;
+    let cy;
+
+    // a0 * b1
+    cumul_lo = (a0 as u128) * (b1 as u128);
+
+    // a1 * b0
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (b0 as u128));
+    cumul_hi = cy as u64;
+
+    reduce160(cumul_lo, cumul_hi)
+}
+
+/// Multiply a and b considered as elements of GF(p^2).
+#[inline(always)]
+pub(crate) fn ext2_mul(a: [u64; 2], b: [u64; 2]) -> [GoldilocksField; 2] {
+    let c0 = ext2_add_prods0(&a, &b);
+    let c1 = ext2_add_prods1(&a, &b);
+    [c0, c1]
+}
+
+#[inline(always)]
+pub(crate) fn ext2_add_sqrs0(a: &[u64; 2]) -> GoldilocksField {
+    let [a0, a1] = *a;
+
+    let mut cumul_lo: u128;
+    let mut cumul_hi: u64;
+    let cy;
+
+    // W * a1 * a1
+    (cumul_lo, cumul_hi) = u128_times_7((a1 as u128) * (a1 as u128));
+
+    // a0 * a0
+    (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (a0 as u128));
+    cumul_hi += cy as u64;
+
+    reduce160(cumul_lo, cumul_hi)
+}
+
+#[inline(always)]
+pub(crate) fn ext2_sqr(a: [u64; 2]) -> [GoldilocksField; 2] {
+    let [a0, a1] = a;
+
+    let c0 = ext2_add_sqrs0(&a);
+    let (t, cy) = u128_times_2((a0 as u128) * (a1 as u128));
+    let c1 = reduce160(t, cy as u64);
+
+    [c0, c1]
+}
+
+
+/*
+ * Quintic multiplication and squaring
+ */
+
+#[inline(always)]
 fn ext5_add_prods0(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     // Computes c0 = a0 * b0 + w * (a1 * b4 + a2 * b3 + a3 * b2 + a4 * b1)
 

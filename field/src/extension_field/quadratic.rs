@@ -170,7 +170,7 @@ impl<F: Extendable<2>> Mul for QuadraticExtension<F> {
     type Output = Self;
 
     #[inline]
-    fn mul(self, rhs: Self) -> Self {
+    default fn mul(self, rhs: Self) -> Self {
         let Self([a0, a1]) = self;
         let Self([b0, b1]) = rhs;
 
@@ -190,7 +190,7 @@ impl<F: Extendable<2>> MulAssign for QuadraticExtension<F> {
 
 impl<F: Extendable<2>> Square for QuadraticExtension<F> {
     #[inline(always)]
-    fn square(&self) -> Self {
+    default fn square(&self) -> Self {
         // Specialising mul reduces the computation of c1 from 2 muls
         // and one add to one mul and a shift
 
