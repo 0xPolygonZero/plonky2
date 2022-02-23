@@ -10,7 +10,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::extension_field::goldilocks_field::{
-    ext2_mul, ext2_sqr, ext4_mul, ext4_sqr, ext5_mul, ext5_sqr
+    ext2_mul, ext2_sqr, ext4_mul, ext4_sqr, ext5_mul, ext5_sqr,
 };
 use crate::extension_field::quadratic::QuadraticExtension;
 use crate::extension_field::quartic::QuarticExtension;
@@ -346,10 +346,7 @@ impl Mul for QuarticExtension<GoldilocksField> {
     fn mul(self, rhs: Self) -> Self {
         let Self([a0, a1, a2, a3]) = self;
         let Self([b0, b1, b2, b3]) = rhs;
-        let c = ext4_mul(
-            [a0.0, a1.0, a2.0, a3.0],
-            [b0.0, b1.0, b2.0, b3.0],
-        );
+        let c = ext4_mul([a0.0, a1.0, a2.0, a3.0], [b0.0, b1.0, b2.0, b3.0]);
         Self(c)
     }
 }

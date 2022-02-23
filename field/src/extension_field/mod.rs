@@ -3,10 +3,10 @@ use std::convert::TryInto;
 use crate::field_types::Field;
 
 pub mod algebra;
+pub mod goldilocks_field;
 pub mod quadratic;
 pub mod quartic;
 pub mod quintic;
-pub mod goldilocks_field;
 
 /// Optimal extension field trait.
 /// A degree `d` field extension is optimal if there exists a base field element `W`,

@@ -1,8 +1,8 @@
 use plonky2_util::branch_hint;
 
 use crate::extension_field::Extendable;
-use crate::goldilocks_field::{GoldilocksField, reduce128};
 use crate::field_types::Field64;
+use crate::goldilocks_field::{reduce128, GoldilocksField};
 
 // FIXME: reduce160 should be marked unsafe, or the type of x_hi
 // changed, since the argument x_hi is assumed to actually fit in a
@@ -178,7 +178,6 @@ fn ext4_add_prods0(a: &[u64; 4], b: &[u64; 4]) -> GoldilocksField {
     reduce160(cumul_lo, cumul_hi)
 }
 
-
 #[inline(always)]
 fn ext4_add_prods1(a: &[u64; 4], b: &[u64; 4]) -> GoldilocksField {
     // Computes c1 = a0 * b1 + a1 * b0 + W * (a2 * b3 + a3 * b2);
@@ -285,7 +284,6 @@ pub(crate) fn ext4_mul(a: [u64; 4], b: [u64; 4]) -> [GoldilocksField; 4] {
     let c3 = ext4_add_prods3(&a, &b);
     [c0, c1, c2, c3]
 }
-
 
 #[inline(always)]
 fn ext4_add_sqrs0(a: &[u64; 4]) -> GoldilocksField {
@@ -405,7 +403,6 @@ pub(crate) fn ext4_sqr(a: [u64; 4]) -> [GoldilocksField; 4] {
 
     [c0, c1, c2, c3]
 }
-
 
 /*
  * Quintic multiplication and squaring
