@@ -16,7 +16,6 @@ use crate::vars::StarkEvaluationTargets;
 use crate::vars::StarkEvaluationVars;
 
 /// Represents a STARK system.
-// TODO: Add a `constraint_degree` fn that returns the maximum constraint degree.
 pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// The total number of columns in the trace.
     const COLUMNS: usize;

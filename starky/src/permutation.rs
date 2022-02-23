@@ -2,16 +2,23 @@
 
 use itertools::Itertools;
 use plonky2::field::batch_util::batch_multiply_inplace;
-use plonky2::field::extension_field::Extendable;
+use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
+use plonky2::field::packed_field::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
-use plonky2::iop::challenger::Challenger;
-use plonky2::plonk::config::{GenericConfig, Hasher};
+use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
+use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::iop::target::Target;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::util::reducing::{ReducingFactor, ReducingFactorTarget};
 use rayon::prelude::*;
 
 use crate::config::StarkConfig;
+use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::stark::Stark;
+use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// A pair of lists of columns, `lhs` and `rhs`, that should be permutations of one another.
 /// In particular, there should exist some permutation `pi` such that for any `i`,
@@ -24,31 +31,32 @@ pub struct PermutationPair {
 }
 
 /// A single instance of a permutation check protocol.
-pub(crate) struct PermutationInstance<'a, F: Field> {
+pub(crate) struct PermutationInstance<'a, T: Copy> {
     pub(crate) pair: &'a PermutationPair,
-    pub(crate) challenge: PermutationChallenge<F>,
+    pub(crate) challenge: PermutationChallenge<T>,
 }
 
 /// Randomness for a single instance of a permutation check protocol.
 #[derive(Copy, Clone)]
-pub(crate) struct PermutationChallenge<F: Field> {
+pub(crate) struct PermutationChallenge<T: Copy> {
     /// Randomness used to combine multiple columns into one.
-    pub(crate) beta: F,
+    pub(crate) beta: T,
     /// Random offset that's added to the beta-reduced column values.
-    pub(crate) gamma: F,
+    pub(crate) gamma: T,
 }
 
 /// Like `PermutationChallenge`, but with `num_challenges` copies to boost soundness.
-pub(crate) struct PermutationChallengeSet<F: Field> {
-    pub(crate) challenges: Vec<PermutationChallenge<F>>,
+#[derive(Clone)]
+pub(crate) struct PermutationChallengeSet<T: Copy> {
+    pub(crate) challenges: Vec<PermutationChallenge<T>>,
 }
 
 /// Compute all Z polynomials (for permutation arguments).
 pub(crate) fn compute_permutation_z_polys<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
-    challenger: &mut Challenger<F, C::Hasher>,
     trace_poly_values: &[PolynomialValues<F>],
+    permutation_challenge_sets: &[PermutationChallengeSet<F>],
 ) -> Vec<PolynomialValues<F>>
 where
     F: RichField + Extendable<D>,
@@ -56,32 +64,12 @@ where
     S: Stark<F, D>,
 {
     let permutation_pairs = stark.permutation_pairs();
-    let permutation_challenge_sets = get_n_permutation_challenge_sets(
-        challenger,
+    let permutation_batches = get_permutation_batches(
+        &permutation_pairs,
+        permutation_challenge_sets,
         config.num_challenges,
         stark.permutation_batch_size(),
     );
-
-    // Get a list of instances of our batch-permutation argument. These are permutation arguments
-    // where the same `Z(x)` polynomial is used to check more than one permutation.
-    // Before batching, each permutation pair leads to `num_challenges` permutation arguments, so we
-    // start with the cartesian product of `permutation_pairs` and `0..num_challenges`. Then we
-    // chunk these arguments based on our batch size.
-    let permutation_batches = permutation_pairs
-        .iter()
-        .cartesian_product(0..config.num_challenges)
-        .chunks(stark.permutation_batch_size())
-        .into_iter()
-        .map(|batch| {
-            batch
-                .enumerate()
-                .map(|(i, (pair, chal))| {
-                    let challenge = permutation_challenge_sets[i].challenges[chal];
-                    PermutationInstance { pair, challenge }
-                })
-                .collect_vec()
-        })
-        .collect_vec();
 
     permutation_batches
         .into_par_iter()
@@ -177,4 +165,222 @@ pub(crate) fn get_n_permutation_challenge_sets<F: RichField, H: Hasher<F>>(
     (0..num_sets)
         .map(|_| get_permutation_challenge_set(challenger, num_challenges))
         .collect()
+}
+
+fn get_permutation_challenge_target<
+    F: RichField + Extendable<D>,
+    H: AlgebraicHasher<F>,
+    const D: usize,
+>(
+    builder: &mut CircuitBuilder<F, D>,
+    challenger: &mut RecursiveChallenger<F, H, D>,
+) -> PermutationChallenge<Target> {
+    let beta = challenger.get_challenge(builder);
+    let gamma = challenger.get_challenge(builder);
+    PermutationChallenge { beta, gamma }
+}
+
+fn get_permutation_challenge_set_target<
+    F: RichField + Extendable<D>,
+    H: AlgebraicHasher<F>,
+    const D: usize,
+>(
+    builder: &mut CircuitBuilder<F, D>,
+    challenger: &mut RecursiveChallenger<F, H, D>,
+    num_challenges: usize,
+) -> PermutationChallengeSet<Target> {
+    let challenges = (0..num_challenges)
+        .map(|_| get_permutation_challenge_target(builder, challenger))
+        .collect();
+    PermutationChallengeSet { challenges }
+}
+
+pub(crate) fn get_n_permutation_challenge_sets_target<
+    F: RichField + Extendable<D>,
+    H: AlgebraicHasher<F>,
+    const D: usize,
+>(
+    builder: &mut CircuitBuilder<F, D>,
+    challenger: &mut RecursiveChallenger<F, H, D>,
+    num_challenges: usize,
+    num_sets: usize,
+) -> Vec<PermutationChallengeSet<Target>> {
+    (0..num_sets)
+        .map(|_| get_permutation_challenge_set_target(builder, challenger, num_challenges))
+        .collect()
+}
+
+/// Get a list of instances of our batch-permutation argument. These are permutation arguments
+/// where the same `Z(x)` polynomial is used to check more than one permutation.
+/// Before batching, each permutation pair leads to `num_challenges` permutation arguments, so we
+/// start with the cartesian product of `permutation_pairs` and `0..num_challenges`. Then we
+/// chunk these arguments based on our batch size.
+pub(crate) fn get_permutation_batches<'a, T: Copy>(
+    permutation_pairs: &'a [PermutationPair],
+    permutation_challenge_sets: &[PermutationChallengeSet<T>],
+    num_challenges: usize,
+    batch_size: usize,
+) -> Vec<Vec<PermutationInstance<'a, T>>> {
+    permutation_pairs
+        .iter()
+        .cartesian_product(0..num_challenges)
+        .chunks(batch_size)
+        .into_iter()
+        .map(|batch| {
+            batch
+                .enumerate()
+                .map(|(i, (pair, chal))| {
+                    let challenge = permutation_challenge_sets[i].challenges[chal];
+                    PermutationInstance { pair, challenge }
+                })
+                .collect_vec()
+        })
+        .collect()
+}
+
+// TODO: Use slices.
+pub struct PermutationCheckVars<F: Field, FE: FieldExtension<D2, BaseField = F>, const D2: usize> {
+    pub(crate) local_zs: Vec<FE>,
+    pub(crate) next_zs: Vec<FE>,
+    pub(crate) permutation_challenge_sets: Vec<PermutationChallengeSet<F>>,
+}
+
+pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
+    stark: &S,
+    config: &StarkConfig,
+    vars: StarkEvaluationVars<FE, FE, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
+    permutation_data: PermutationCheckVars<F, FE, D2>,
+    consumer: &mut ConstraintConsumer<FE>,
+) where
+    F: RichField + Extendable<D>,
+    FE: FieldExtension<D2, BaseField = F>,
+    P: PackedField<Scalar = FE>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+    [(); S::COLUMNS]:,
+    [(); S::PUBLIC_INPUTS]:,
+{
+    let PermutationCheckVars {
+        local_zs,
+        next_zs,
+        permutation_challenge_sets,
+    } = permutation_data;
+
+    // Check that Z(1) = 1;
+    for &z in &local_zs {
+        consumer.constraint_first_row(z - FE::ONE);
+    }
+
+    let permutation_pairs = stark.permutation_pairs();
+
+    let permutation_batches = get_permutation_batches(
+        &permutation_pairs,
+        &permutation_challenge_sets,
+        config.num_challenges,
+        stark.permutation_batch_size(),
+    );
+
+    // Each zs value corresponds to a permutation batch.
+    for (i, instances) in permutation_batches.iter().enumerate() {
+        // Z(gx) * down = Z x  * up
+        let (reduced_lhs, reduced_rhs): (Vec<FE>, Vec<FE>) = instances
+            .iter()
+            .map(|instance| {
+                let PermutationInstance {
+                    pair: PermutationPair { column_pairs },
+                    challenge: PermutationChallenge { beta, gamma },
+                } = instance;
+                let mut factor = ReducingFactor::new(*beta);
+                let (lhs, rhs): (Vec<_>, Vec<_>) = column_pairs
+                    .iter()
+                    .map(|&(i, j)| (vars.local_values[i], vars.local_values[j]))
+                    .unzip();
+                (
+                    factor.reduce_ext(lhs.into_iter()) + FE::from_basefield(*gamma),
+                    factor.reduce_ext(rhs.into_iter()) + FE::from_basefield(*gamma),
+                )
+            })
+            .unzip();
+        let constraint = next_zs[i] * reduced_rhs.into_iter().product()
+            - local_zs[i] * reduced_lhs.into_iter().product();
+        consumer.constraint(constraint);
+    }
+}
+
+// TODO: Use slices.
+pub struct PermutationCheckDataTarget<const D: usize> {
+    pub(crate) local_zs: Vec<ExtensionTarget<D>>,
+    pub(crate) next_zs: Vec<ExtensionTarget<D>>,
+    pub(crate) permutation_challenge_sets: Vec<PermutationChallengeSet<Target>>,
+}
+
+pub(crate) fn eval_permutation_checks_recursively<F, S, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    stark: &S,
+    config: &StarkConfig,
+    vars: StarkEvaluationTargets<D, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
+    permutation_data: PermutationCheckDataTarget<D>,
+    consumer: &mut RecursiveConstraintConsumer<F, D>,
+) where
+    F: RichField + Extendable<D>,
+    S: Stark<F, D>,
+    [(); S::COLUMNS]:,
+    [(); S::PUBLIC_INPUTS]:,
+{
+    let PermutationCheckDataTarget {
+        local_zs,
+        next_zs,
+        permutation_challenge_sets,
+    } = permutation_data;
+
+    let one = builder.one_extension();
+    // Check that Z(1) = 1;
+    for &z in &local_zs {
+        let z_1 = builder.sub_extension(z, one);
+        consumer.constraint_first_row(builder, z_1);
+    }
+
+    let permutation_pairs = stark.permutation_pairs();
+
+    let permutation_batches = get_permutation_batches(
+        &permutation_pairs,
+        &permutation_challenge_sets,
+        config.num_challenges,
+        stark.permutation_batch_size(),
+    );
+
+    // Each zs value corresponds to a permutation batch.
+    for (i, instances) in permutation_batches.iter().enumerate() {
+        let (reduced_lhs, reduced_rhs): (Vec<ExtensionTarget<D>>, Vec<ExtensionTarget<D>>) =
+            instances
+                .iter()
+                .map(|instance| {
+                    let PermutationInstance {
+                        pair: PermutationPair { column_pairs },
+                        challenge: PermutationChallenge { beta, gamma },
+                    } = instance;
+                    let beta_ext = builder.convert_to_ext(*beta);
+                    let gamma_ext = builder.convert_to_ext(*gamma);
+                    let mut factor = ReducingFactorTarget::new(beta_ext);
+                    let (lhs, rhs): (Vec<_>, Vec<_>) = column_pairs
+                        .iter()
+                        .map(|&(i, j)| (vars.local_values[i], vars.local_values[j]))
+                        .unzip();
+                    let reduced_lhs = factor.reduce(&lhs, builder);
+                    let reduced_rhs = factor.reduce(&rhs, builder);
+                    (
+                        builder.add_extension(reduced_lhs, gamma_ext),
+                        builder.add_extension(reduced_rhs, gamma_ext),
+                    )
+                })
+                .unzip();
+        let reduced_lhs_product = builder.mul_many_extension(&reduced_lhs);
+        let reduced_rhs_product = builder.mul_many_extension(&reduced_rhs);
+        // constraint = next_zs[i] * reduced_rhs_product - local_zs[i] * reduced_lhs_product
+        let constraint = {
+            let tmp = builder.mul_extension(local_zs[i], reduced_lhs_product);
+            builder.mul_sub_extension(next_zs[i], reduced_rhs_product, tmp)
+        };
+        consumer.constraint(builder, constraint)
+    }
 }

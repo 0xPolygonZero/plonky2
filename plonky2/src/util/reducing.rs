@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 use plonky2_field::polynomial::PolynomialCoeffs;
 
@@ -35,6 +35,11 @@ impl<F: Field> ReducingFactor<F> {
         self.base * x
     }
 
+    fn mul_ext<FE: FieldExtension<D, BaseField = F>, const D: usize>(&mut self, x: FE) -> FE {
+        self.count += 1;
+        x.scalar_mul(self.base)
+    }
+
     fn mul_poly(&mut self, p: &mut PolynomialCoeffs<F>) {
         self.count += 1;
         *p *= self.base;
@@ -43,6 +48,14 @@ impl<F: Field> ReducingFactor<F> {
     pub fn reduce(&mut self, iter: impl DoubleEndedIterator<Item = impl Borrow<F>>) -> F {
         iter.rev()
             .fold(F::ZERO, |acc, x| self.mul(acc) + *x.borrow())
+    }
+
+    pub fn reduce_ext<FE: FieldExtension<D, BaseField = F>, const D: usize>(
+        &mut self,
+        iter: impl DoubleEndedIterator<Item = impl Borrow<FE>>,
+    ) -> FE {
+        iter.rev()
+            .fold(FE::ZERO, |acc, x| self.mul_ext(acc) + *x.borrow())
     }
 
     pub fn reduce_polys(

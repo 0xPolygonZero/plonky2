@@ -11,8 +11,10 @@ use plonky2::plonk::plonk_common::reduce_with_powers;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
+use crate::permutation::PermutationCheckVars;
 use crate::proof::{StarkOpeningSet, StarkProofChallenges, StarkProofWithPublicInputs};
 use crate::stark::Stark;
+use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
 pub fn verify_stark_proof<
@@ -32,7 +34,7 @@ where
 {
     ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
-    let challenges = proof_with_pis.get_challenges(&stark, config, degree_bits)?;
+    let challenges = proof_with_pis.get_challenges(&stark, config, degree_bits);
     verify_stark_proof_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
 }
 
@@ -53,6 +55,7 @@ where
     [(); S::PUBLIC_INPUTS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
+    check_permutation_options(&stark, &proof_with_pis, &challenges)?;
     let StarkProofWithPublicInputs {
         proof,
         public_inputs,
@@ -88,8 +91,18 @@ where
         l_1,
         l_last,
     );
-    stark.eval_ext(vars, &mut consumer);
-    // TODO: Add in constraints for permutation arguments.
+    let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
+        local_zs: permutation_zs.as_ref().unwrap().clone(),
+        next_zs: permutation_zs_right.as_ref().unwrap().clone(),
+        permutation_challenge_sets: challenges.permutation_challenge_sets.unwrap(),
+    });
+    eval_vanishing_poly::<F, F::Extension, F::Extension, C, S, D, D>(
+        &stark,
+        config,
+        vars,
+        permutation_data,
+        &mut consumer,
+    );
     let vanishing_polys_zeta = consumer.accumulators();
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
@@ -141,7 +154,32 @@ fn eval_l_1_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
     (z_x * invs[0], z_x * invs[1])
 }
 
-/// Recover the length of the trace from a STARK proof and a STARK config.
+/// Utility function to check that all permutation data wrapped in `Option`s are `Some` iff
+/// the Stark uses a permutation argument.
+fn check_permutation_options<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+    const D: usize,
+>(
+    stark: &S,
+    proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
+    challenges: &StarkProofChallenges<F, D>,
+) -> Result<()> {
+    let options_is_some = [
+        proof_with_pis.proof.permutation_zs_cap.is_some(),
+        proof_with_pis.proof.openings.permutation_zs.is_some(),
+        proof_with_pis.proof.openings.permutation_zs_right.is_some(),
+        challenges.permutation_challenge_sets.is_some(),
+    ];
+    ensure!(
+        options_is_some
+            .into_iter()
+            .all(|b| b == stark.uses_permutation_args()),
+        "Permutation data doesn't match with Stark configuration."
+    );
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {
