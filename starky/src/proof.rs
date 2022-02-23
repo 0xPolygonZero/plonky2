@@ -32,6 +32,7 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {
+    /// Recover the length of the trace from a STARK proof and a STARK config.
     pub(crate) fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
         let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
             .initial_trees_proof
@@ -51,6 +52,7 @@ pub struct StarkProofTarget<const D: usize> {
 }
 
 impl<const D: usize> StarkProofTarget<D> {
+    /// Recover the length of the trace from a STARK proof and a STARK config.
     pub(crate) fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
         let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
             .initial_trees_proof

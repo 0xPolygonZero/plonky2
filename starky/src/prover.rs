@@ -18,7 +18,7 @@ use rayon::prelude::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::permutation::PermutationCheckData;
+use crate::permutation::PermutationCheckVars;
 use crate::permutation::{
     compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
 };
@@ -93,26 +93,23 @@ where
         let permutation_z_polys = compute_permutation_z_polys::<F, C, S, D>(
             &stark,
             config,
-            &mut challenger,
             &trace_poly_values,
             &permutation_challenge_sets,
         );
 
-        timed!(
+        let permutation_zs_commitment = timed!(
             timing,
             "compute permutation Z commitments",
-            (
-                PolynomialBatch::from_values(
-                    permutation_z_polys,
-                    rate_bits,
-                    false,
-                    config.fri_config.cap_height,
-                    timing,
-                    None,
-                ),
-                permutation_challenge_sets
+            PolynomialBatch::from_values(
+                permutation_z_polys,
+                rate_bits,
+                false,
+                config.fri_config.cap_height,
+                timing,
+                None,
             )
-        )
+        );
+        (permutation_zs_commitment, permutation_challenge_sets)
     });
     let permutation_zs_commitment = permutation_zs_commitment_challenges
         .as_ref()
@@ -251,6 +248,8 @@ where
     // Retrieve the LDE values at index `i`.
     let get_at_index =
         |comm: &'a PolynomialBatch<F, C, D>, i: usize| -> &'a [F] { comm.get_lde_values(i * step) };
+    let get_trace_at_index = |i| get_at_index(trace_commitment, i).try_into().unwrap();
+
     // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();
     let size = degree << quotient_degree_bits;
@@ -271,21 +270,20 @@ where
                 lagrange_last.values[i],
             );
             let vars = StarkEvaluationVars::<F, F, { S::COLUMNS }, { S::PUBLIC_INPUTS }> {
-                local_values: &get_at_index(trace_commitment, i).try_into().unwrap(),
-                next_values: &get_at_index(trace_commitment, (i + next_step) % size)
-                    .try_into()
-                    .unwrap(),
+                local_values: &get_trace_at_index(i),
+                next_values: &get_trace_at_index((i + next_step) % size),
                 public_inputs: &public_inputs,
             };
             let permutation_check_data = permutation_zs_commitment_challenges.as_ref().map(
-                |(permutation_zs_commitment, permutation_challenge_sets)| PermutationCheckData {
+                |(permutation_zs_commitment, permutation_challenge_sets)| PermutationCheckVars {
                     local_zs: get_at_index(permutation_zs_commitment, i).to_vec(),
                     next_zs: get_at_index(permutation_zs_commitment, (i + next_step) % size)
                         .to_vec(),
                     permutation_challenge_sets: permutation_challenge_sets.to_vec(),
                 },
             );
-            eval_vanishing_poly::<F, F, C, S, D, 1>(
+            // TODO: Use packed field for F.
+            eval_vanishing_poly::<F, F, F, C, S, D, 1>(
                 stark,
                 config,
                 vars,

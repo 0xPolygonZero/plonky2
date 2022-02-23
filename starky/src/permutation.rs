@@ -4,6 +4,7 @@ use itertools::Itertools;
 use plonky2::field::batch_util::batch_multiply_inplace;
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
+use plonky2::field::packed_field::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
@@ -54,7 +55,6 @@ pub(crate) struct PermutationChallengeSet<T: Copy> {
 pub(crate) fn compute_permutation_z_polys<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
-    challenger: &mut Challenger<F, C::Hasher>,
     trace_poly_values: &[PolynomialValues<F>],
     permutation_challenge_sets: &[PermutationChallengeSet<F>],
 ) -> Vec<PolynomialValues<F>>
@@ -239,27 +239,28 @@ pub(crate) fn get_permutation_batches<'a, T: Copy>(
 }
 
 // TODO: Use slices.
-pub struct PermutationCheckData<F: Field, FE: FieldExtension<D2, BaseField = F>, const D2: usize> {
+pub struct PermutationCheckVars<F: Field, FE: FieldExtension<D2, BaseField = F>, const D2: usize> {
     pub(crate) local_zs: Vec<FE>,
     pub(crate) next_zs: Vec<FE>,
     pub(crate) permutation_challenge_sets: Vec<PermutationChallengeSet<F>>,
 }
 
-pub(crate) fn eval_permutation_checks<F, FE, C, S, const D: usize, const D2: usize>(
+pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
     stark: &S,
     config: &StarkConfig,
     vars: StarkEvaluationVars<FE, FE, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
-    permutation_data: PermutationCheckData<F, FE, D2>,
+    permutation_data: PermutationCheckVars<F, FE, D2>,
     consumer: &mut ConstraintConsumer<FE>,
 ) where
     F: RichField + Extendable<D>,
     FE: FieldExtension<D2, BaseField = F>,
+    P: PackedField<Scalar = FE>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
 {
-    let PermutationCheckData {
+    let PermutationCheckVars {
         local_zs,
         next_zs,
         permutation_challenge_sets,
@@ -350,7 +351,6 @@ pub(crate) fn eval_permutation_checks_recursively<F, S, const D: usize>(
 
     // Each zs value corresponds to a permutation batch.
     for (i, instances) in permutation_batches.iter().enumerate() {
-        // Z(gx) * down = Z x  * up
         let (reduced_lhs, reduced_rhs): (Vec<ExtensionTarget<D>>, Vec<ExtensionTarget<D>>) =
             instances
                 .iter()
@@ -359,7 +359,6 @@ pub(crate) fn eval_permutation_checks_recursively<F, S, const D: usize>(
                         pair: PermutationPair { column_pairs },
                         challenge: PermutationChallenge { beta, gamma },
                     } = instance;
-                    let zero = builder.zero_extension();
                     let beta_ext = builder.convert_to_ext(*beta);
                     let gamma_ext = builder.convert_to_ext(*gamma);
                     let mut factor = ReducingFactorTarget::new(beta_ext);

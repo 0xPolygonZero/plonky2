@@ -1,5 +1,6 @@
 use std::iter::once;
 
+use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::Field;
@@ -69,6 +70,7 @@ fn recursively_verify_stark_proof_with_challenges<
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
 {
+    check_permutation_options(&stark, &proof_with_pis, &challenges).unwrap();
     let one = builder.one_extension();
 
     let StarkProofWithPublicInputsTarget {
@@ -202,18 +204,14 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
 
-    let num_leaves_per_oracle = if stark.uses_permutation_args() {
-        vec![
-            S::COLUMNS,
-            stark.num_permutation_batches(config),
-            stark.quotient_degree_factor() * config.num_challenges,
-        ]
-    } else {
-        vec![
-            S::COLUMNS,
-            stark.quotient_degree_factor() * config.num_challenges,
-        ]
-    };
+    let num_leaves_per_oracle = once(S::COLUMNS)
+        .chain(
+            stark
+                .uses_permutation_args()
+                .then(|| stark.num_permutation_batches(config)),
+        )
+        .chain(once(stark.quotient_degree_factor() * config.num_challenges))
+        .collect_vec();
 
     let permutation_zs_cap = stark
         .uses_permutation_args()
@@ -298,4 +296,26 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     }
 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
+}
+
+/// Utility function to check that all permutation data wrapped in `Option`s are `Some` iff
+/// the Stark uses a permutation argument.
+fn check_permutation_options<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
+    stark: &S,
+    proof_with_pis: &StarkProofWithPublicInputsTarget<D>,
+    challenges: &StarkProofChallengesTarget<D>,
+) -> Result<()> {
+    let options_is_some = [
+        proof_with_pis.proof.permutation_zs_cap.is_some(),
+        proof_with_pis.proof.openings.permutation_zs.is_some(),
+        proof_with_pis.proof.openings.permutation_zs_right.is_some(),
+        challenges.permutation_challenge_sets.is_some(),
+    ];
+    ensure!(
+        options_is_some
+            .into_iter()
+            .all(|b| b == stark.uses_permutation_args()),
+        "Permutation data doesn't match with Stark configuration."
+    );
+    Ok(())
 }
