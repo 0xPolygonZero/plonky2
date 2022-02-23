@@ -245,7 +245,10 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,
         params: &FriParams,
-    ) -> FriProof<F, H, D> {
+    ) -> FriProof<F, H, D>
+    where
+        [(); H::HASH_SIZE]:,
+    {
         let CompressedFriProof {
             commit_phase_merkle_caps,
             query_round_proofs,
@@ -253,10 +256,10 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
             pow_witness,
             ..
         } = self;
-        let ProofChallenges {
+        let FriChallenges {
             fri_query_indices: indices,
             ..
-        } = challenges;
+        } = &challenges.fri_challenges;
         let mut fri_inferred_elements = fri_inferred_elements.0.into_iter();
         let cap_height = params.config.cap_height;
         let reduction_arity_bits = &params.reduction_arity_bits;
@@ -361,4 +364,24 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
             pow_witness,
         }
     }
+}
+
+pub struct FriChallenges<F: RichField + Extendable<D>, const D: usize> {
+    // Scaling factor to combine polynomials.
+    pub fri_alpha: F::Extension,
+
+    // Betas used in the FRI commit phase reductions.
+    pub fri_betas: Vec<F::Extension>,
+
+    pub fri_pow_response: F,
+
+    // Indices at which the oracle is queried in FRI.
+    pub fri_query_indices: Vec<usize>,
+}
+
+pub struct FriChallengesTarget<const D: usize> {
+    pub fri_alpha: ExtensionTarget<D>,
+    pub fri_betas: Vec<ExtensionTarget<D>>,
+    pub fri_pow_response: Target,
+    pub fri_query_indices: Vec<Target>,
 }

@@ -5,6 +5,7 @@ use std::iter::Sum;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 use anyhow::{ensure, Result};
+use itertools::Itertools;
 use plonky2_util::log2_strict;
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +25,21 @@ pub struct PolynomialValues<F: Field> {
 impl<F: Field> PolynomialValues<F> {
     pub fn new(values: Vec<F>) -> Self {
         PolynomialValues { values }
+    }
+
+    pub fn constant(value: F, len: usize) -> Self {
+        Self::new(vec![value; len])
+    }
+
+    pub fn zero(len: usize) -> Self {
+        Self::constant(F::ZERO, len)
+    }
+
+    /// Returns the polynomial whole value is one at the given index, and zero elsewhere.
+    pub fn selector(len: usize, index: usize) -> Self {
+        let mut result = Self::zero(len);
+        result.values[index] = F::ONE;
+        result
     }
 
     /// The number of values stored.
@@ -57,6 +73,12 @@ impl<F: Field> PolynomialValues<F> {
         fft_with_options(coeffs, Some(rate_bits), None)
     }
 
+    /// Low-degree extend `Self` (seen as evaluations over the subgroup) onto a coset.
+    pub fn lde_onto_coset(self, rate_bits: usize) -> Self {
+        let coeffs = ifft(self).lde(rate_bits);
+        coeffs.coset_fft_with_options(F::coset_shift(), Some(rate_bits), None)
+    }
+
     pub fn degree(&self) -> usize {
         self.degree_plus_one()
             .checked_sub(1)
@@ -65,6 +87,14 @@ impl<F: Field> PolynomialValues<F> {
 
     pub fn degree_plus_one(&self) -> usize {
         self.clone().ifft().degree_plus_one()
+    }
+
+    /// Adds `rhs * rhs_weight` to `self`. Assumes `self.len() == rhs.len()`.
+    pub fn add_assign_scaled(&mut self, rhs: &Self, rhs_weight: F) {
+        self.values
+            .iter_mut()
+            .zip_eq(&rhs.values)
+            .for_each(|(self_v, rhs_v)| *self_v += *rhs_v * rhs_weight)
     }
 }
 
@@ -180,12 +210,21 @@ impl<F: Field> PolynomialCoeffs<F> {
         poly
     }
 
-    /// Removes leading zero coefficients.
+    /// Removes any leading zero coefficients.
     pub fn trim(&mut self) {
         self.coeffs.truncate(self.degree_plus_one());
     }
 
-    /// Removes leading zero coefficients.
+    /// Removes some leading zero coefficients, such that a desired length is reached. Fails if a
+    /// nonzero coefficient is encountered before then.
+    pub fn trim_to_len(&mut self, len: usize) -> Result<()> {
+        ensure!(self.len() >= len);
+        ensure!(self.coeffs[len..].iter().all(F::is_zero));
+        self.coeffs.truncate(len);
+        Ok(())
+    }
+
+    /// Removes any leading zero coefficients.
     pub fn trimmed(&self) -> Self {
         let coeffs = self.coeffs[..self.degree_plus_one()].to_vec();
         Self { coeffs }

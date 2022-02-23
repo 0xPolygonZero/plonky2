@@ -1,10 +1,11 @@
 use plonky2_field::field_types::Field;
 use plonky2_field::secp256k1_base::Secp256K1Base;
 use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
+use serde::{Deserialize, Serialize};
 
 use crate::curve::curve_types::{AffinePoint, Curve};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Secp256K1;
 
 impl Curve for Secp256K1 {
@@ -40,6 +41,7 @@ const SECP256K1_GENERATOR_Y: Secp256K1Base = Secp256K1Base([
 mod tests {
     use num::BigUint;
     use plonky2_field::field_types::Field;
+    use plonky2_field::field_types::PrimeField;
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
     use crate::curve::curve_types::{AffinePoint, Curve, ProjectivePoint};
@@ -86,7 +88,7 @@ mod tests {
     ) -> ProjectivePoint<Secp256K1> {
         let mut g = rhs;
         let mut sum = ProjectivePoint::ZERO;
-        for limb in lhs.to_biguint().to_u64_digits().iter() {
+        for limb in lhs.to_canonical_biguint().to_u64_digits().iter() {
             for j in 0..64 {
                 if (limb >> j & 1u64) != 0u64 {
                     sum = sum + g;

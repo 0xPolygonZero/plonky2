@@ -16,7 +16,7 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate which can perform a weighted multiplication, i.e. `result = c0 x y`. If the config
 /// supports enough routed wires, it can support several such operations in one gate.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MulExtensionGate<const D: usize> {
     /// Number of multiplications performed by the gate.
     pub num_ops: usize,
@@ -125,7 +125,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for MulExtensionGa
                 );
                 g
             })
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     fn num_wires(&self) -> usize {

@@ -1,5 +1,6 @@
 use crate::fri::reduction_strategies::FriReductionStrategy;
 
+mod challenges;
 pub mod oracle;
 pub mod proof;
 pub mod prover;
@@ -7,6 +8,7 @@ pub mod recursive_verifier;
 pub mod reduction_strategies;
 pub mod structure;
 pub mod verifier;
+pub mod witness_util;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FriConfig {
@@ -27,6 +29,21 @@ pub struct FriConfig {
 impl FriConfig {
     pub fn rate(&self) -> f64 {
         1.0 / ((1 << self.rate_bits) as f64)
+    }
+
+    pub fn fri_params(&self, degree_bits: usize, hiding: bool) -> FriParams {
+        let reduction_arity_bits = self.reduction_strategy.reduction_arity_bits(
+            degree_bits,
+            self.rate_bits,
+            self.cap_height,
+            self.num_query_rounds,
+        );
+        FriParams {
+            config: self.clone(),
+            hiding,
+            degree_bits,
+            reduction_arity_bits,
+        }
     }
 }
 
@@ -51,7 +68,7 @@ pub struct FriParams {
 }
 
 impl FriParams {
-    pub(crate) fn total_arities(&self) -> usize {
+    pub fn total_arities(&self) -> usize {
         self.reduction_arity_bits.iter().sum()
     }
 

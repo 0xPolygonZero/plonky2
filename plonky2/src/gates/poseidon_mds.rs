@@ -51,8 +51,12 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
         let mut res = ExtensionAlgebra::ZERO;
 
         for i in 0..SPONGE_WIDTH {
-            let coeff = F::Extension::from_canonical_u64(1 << <F as Poseidon>::MDS_MATRIX_EXPS[i]);
+            let coeff = F::Extension::from_canonical_u64(<F as Poseidon>::MDS_MATRIX_CIRC[i]);
             res += v[(i + r) % SPONGE_WIDTH].scalar_mul(coeff);
+        }
+        {
+            let coeff = F::Extension::from_canonical_u64(<F as Poseidon>::MDS_MATRIX_DIAG[r]);
+            res += v[r].scalar_mul(coeff);
         }
 
         res
@@ -69,9 +73,15 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
 
         for i in 0..SPONGE_WIDTH {
             let coeff = builder.constant_extension(F::Extension::from_canonical_u64(
-                1 << <F as Poseidon>::MDS_MATRIX_EXPS[i],
+                <F as Poseidon>::MDS_MATRIX_CIRC[i],
             ));
             res = builder.scalar_mul_add_ext_algebra(coeff, v[(i + r) % SPONGE_WIDTH], res);
+        }
+        {
+            let coeff = builder.constant_extension(F::Extension::from_canonical_u64(
+                <F as Poseidon>::MDS_MATRIX_DIAG[r],
+            ));
+            res = builder.scalar_mul_add_ext_algebra(coeff, v[r], res);
         }
 
         res

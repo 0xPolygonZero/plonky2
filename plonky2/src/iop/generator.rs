@@ -3,14 +3,14 @@ use std::marker::PhantomData;
 
 use num::BigUint;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::Field;
+use plonky2_field::field_types::{Field, PrimeField};
 
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::target::Target;
+use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartialWitness, PartitionWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
@@ -161,12 +161,17 @@ impl<F: Field> GeneratedValues<F> {
         self.target_values.push((target, value))
     }
 
-    fn set_u32_target(&mut self, target: U32Target, value: u32) {
+    pub fn set_bool_target(&mut self, target: BoolTarget, value: bool) {
+        self.set_target(target.target, F::from_bool(value))
+    }
+
+    pub fn set_u32_target(&mut self, target: U32Target, value: u32) {
         self.set_target(target.0, F::from_canonical_u32(value))
     }
 
     pub fn set_biguint_target(&mut self, target: BigUintTarget, value: BigUint) {
         let mut limbs = value.to_u32_digits();
+
         assert!(target.num_limbs() >= limbs.len());
 
         limbs.resize(target.num_limbs(), 0);
@@ -175,8 +180,8 @@ impl<F: Field> GeneratedValues<F> {
         }
     }
 
-    pub fn set_nonnative_target<FF: Field>(&mut self, target: NonNativeTarget<FF>, value: FF) {
-        self.set_biguint_target(target.value, value.to_biguint())
+    pub fn set_nonnative_target<FF: PrimeField>(&mut self, target: NonNativeTarget<FF>, value: FF) {
+        self.set_biguint_target(target.value, value.to_canonical_biguint())
     }
 
     pub fn set_hash_target(&mut self, ht: HashOutTarget, value: HashOut<F>) {

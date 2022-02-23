@@ -49,7 +49,7 @@ pub struct CircuitConfig {
 
 impl Default for CircuitConfig {
     fn default() -> Self {
-        CircuitConfig::standard_recursion_config()
+        Self::standard_recursion_config()
     }
 }
 
@@ -79,6 +79,13 @@ impl CircuitConfig {
         }
     }
 
+    pub fn standard_ecc_config() -> Self {
+        Self {
+            num_wires: 136,
+            ..Self::standard_recursion_config()
+        }
+    }
+
     pub fn standard_recursion_zk_config() -> Self {
         CircuitConfig {
             zero_knowledge: true,
@@ -97,7 +104,10 @@ pub struct CircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     CircuitData<F, C, D>
 {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         prove(
             &self.prover_only,
             &self.common,
@@ -106,14 +116,20 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         )
     }
 
-    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         verify(proof_with_pis, &self.verifier_only, &self.common)
     }
 
     pub fn verify_compressed(
         &self,
         compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 }
@@ -137,7 +153,10 @@ pub struct ProverCircuitData<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ProverCircuitData<F, C, D>
 {
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
+    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         prove(
             &self.prover_only,
             &self.common,
@@ -161,14 +180,20 @@ pub struct VerifierCircuitData<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     VerifierCircuitData<F, C, D>
 {
-    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         verify(proof_with_pis, &self.verifier_only, &self.common)
     }
 
     pub fn verify_compressed(
         &self,
         compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 }

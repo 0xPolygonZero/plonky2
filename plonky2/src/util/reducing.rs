@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use plonky2_field::extension_field::Extendable;
+use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 use plonky2_field::polynomial::PolynomialCoeffs;
 
@@ -35,6 +35,11 @@ impl<F: Field> ReducingFactor<F> {
         self.base * x
     }
 
+    fn mul_ext<FE: FieldExtension<D, BaseField = F>, const D: usize>(&mut self, x: FE) -> FE {
+        self.count += 1;
+        x.scalar_mul(self.base)
+    }
+
     fn mul_poly(&mut self, p: &mut PolynomialCoeffs<F>) {
         self.count += 1;
         *p *= self.base;
@@ -43,6 +48,14 @@ impl<F: Field> ReducingFactor<F> {
     pub fn reduce(&mut self, iter: impl DoubleEndedIterator<Item = impl Borrow<F>>) -> F {
         iter.rev()
             .fold(F::ZERO, |acc, x| self.mul(acc) + *x.borrow())
+    }
+
+    pub fn reduce_ext<FE: FieldExtension<D, BaseField = F>, const D: usize>(
+        &mut self,
+        iter: impl DoubleEndedIterator<Item = impl Borrow<FE>>,
+    ) -> FE {
+        iter.rev()
+            .fold(FE::ZERO, |acc, x| self.mul_ext(acc) + *x.borrow())
     }
 
     pub fn reduce_polys(
@@ -132,7 +145,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         reversed_terms.reverse();
         for chunk in reversed_terms.chunks_exact(max_coeffs_len) {
             let gate = ReducingGate::new(max_coeffs_len);
-            let gate_index = builder.add_gate(gate.clone(), Vec::new());
+            let gate_index = builder.add_gate(gate.clone(), vec![]);
 
             builder.connect_extension(
                 self.base,
@@ -182,7 +195,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
         reversed_terms.reverse();
         for chunk in reversed_terms.chunks_exact(max_coeffs_len) {
             let gate = ReducingExtensionGate::new(max_coeffs_len);
-            let gate_index = builder.add_gate(gate.clone(), Vec::new());
+            let gate_index = builder.add_gate(gate.clone(), vec![]);
 
             builder.connect_extension(
                 self.base,
@@ -260,7 +273,7 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
@@ -273,7 +286,7 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
 
-        let pw = PartialWitness::new();
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let alpha = FF::rand();
@@ -283,7 +296,10 @@ mod tests {
         let manual_reduce = builder.constant_extension(manual_reduce);
 
         let mut alpha_t = ReducingFactorTarget::new(builder.constant_extension(alpha));
-        let vs_t = vs.iter().map(|&v| builder.constant(v)).collect::<Vec<_>>();
+        let vs_t = builder.add_virtual_targets(vs.len());
+        for (&v, &v_t) in vs.iter().zip(&vs_t) {
+            pw.set_target(v_t, v);
+        }
         let circuit_reduce = alpha_t.reduce_base(&vs_t, &mut builder);
 
         builder.connect_extension(manual_reduce, circuit_reduce);
@@ -302,7 +318,7 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
 
-        let pw = PartialWitness::new();
+        let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let alpha = FF::rand();
@@ -312,10 +328,8 @@ mod tests {
         let manual_reduce = builder.constant_extension(manual_reduce);
 
         let mut alpha_t = ReducingFactorTarget::new(builder.constant_extension(alpha));
-        let vs_t = vs
-            .iter()
-            .map(|&v| builder.constant_extension(v))
-            .collect::<Vec<_>>();
+        let vs_t = builder.add_virtual_extension_targets(vs.len());
+        pw.set_extension_targets(&vs_t, &vs);
         let circuit_reduce = alpha_t.reduce(&vs_t, &mut builder);
 
         builder.connect_extension(manual_reduce, circuit_reduce);

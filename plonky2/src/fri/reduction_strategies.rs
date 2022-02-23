@@ -9,9 +9,10 @@ pub enum FriReductionStrategy {
     Fixed(Vec<usize>),
 
     /// `ConstantArityBits(arity_bits, final_poly_bits)` applies reductions of arity `2^arity_bits`
-    /// until the polynomial degree is `2^final_poly_bits` or less. This tends to work well in the
-    /// recursive setting, as it avoids needing multiple configurations of gates used in FRI
-    /// verification, such as `InterpolationGate`.
+    /// until the polynomial degree is less than or equal to `2^final_poly_bits` or until any further
+    /// `arity_bits`-reduction makes the last FRI tree have height less than `cap_height`.
+    /// This tends to work well in the recursive setting, as it avoids needing multiple configurations
+    /// of gates used in FRI verification, such as `InterpolationGate`.
     ConstantArityBits(usize, usize),
 
     /// `MinSize(opt_max_arity_bits)` searches for an optimal sequence of reduction arities, with an
@@ -26,17 +27,20 @@ impl FriReductionStrategy {
         &self,
         mut degree_bits: usize,
         rate_bits: usize,
+        cap_height: usize,
         num_queries: usize,
     ) -> Vec<usize> {
         match self {
             FriReductionStrategy::Fixed(reduction_arity_bits) => reduction_arity_bits.to_vec(),
 
-            FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
+            &FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
                 let mut result = Vec::new();
-                while degree_bits > *final_poly_bits {
-                    result.push(*arity_bits);
-                    assert!(degree_bits >= *arity_bits);
-                    degree_bits -= *arity_bits;
+                while degree_bits > final_poly_bits
+                    && degree_bits + rate_bits - arity_bits >= cap_height
+                {
+                    result.push(arity_bits);
+                    assert!(degree_bits >= arity_bits);
+                    degree_bits -= arity_bits;
                 }
                 result.shrink_to_fit();
                 result

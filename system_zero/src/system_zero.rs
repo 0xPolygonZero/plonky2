@@ -5,17 +5,27 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use starky::permutation::PermutationPair;
 use starky::stark::Stark;
 use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
-use crate::column_layout::NUM_COLUMNS;
+use crate::alu::{eval_alu, eval_alu_recursively, generate_alu};
+use crate::core_registers::{
+    eval_core_registers, eval_core_registers_recursively, generate_first_row_core_registers,
+    generate_next_row_core_registers,
+};
 use crate::memory::TransactionMemory;
+use crate::permutation_unit::{
+    eval_permutation_unit, eval_permutation_unit_recursively, generate_permutation_unit,
+};
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
+use crate::registers::NUM_COLUMNS;
 
 /// We require at least 2^16 rows as it helps support efficient 16-bit range checks.
 const MIN_TRACE_ROWS: usize = 1 << 16;
 
+#[derive(Copy, Clone)]
 pub struct SystemZero<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
@@ -25,18 +35,25 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         let memory = TransactionMemory::default();
 
         let mut row = [F::ZERO; NUM_COLUMNS];
-        self.generate_first_row_core_registers(&mut row);
-        self.generate_permutation_unit(&mut row);
+        generate_first_row_core_registers(&mut row);
+        generate_alu(&mut row);
+        generate_permutation_unit(&mut row);
 
         let mut trace = Vec::with_capacity(MIN_TRACE_ROWS);
 
         loop {
             let mut next_row = [F::ZERO; NUM_COLUMNS];
-            self.generate_next_row_core_registers(&row, &mut next_row);
-            self.generate_permutation_unit(&mut next_row);
+            generate_next_row_core_registers(&row, &mut next_row);
+            generate_alu(&mut next_row);
+            generate_permutation_unit(&mut next_row);
 
             trace.push(row);
             row = next_row;
+
+            // TODO: Replace with proper termination condition.
+            if trace.len() == (1 << 16) - 1 {
+                break;
+            }
         }
 
         trace.push(row);
@@ -64,9 +81,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        self.eval_core_registers(vars, yield_constr);
-        self.eval_permutation_unit(vars, yield_constr);
-        todo!()
+        eval_core_registers(vars, yield_constr);
+        eval_alu(vars, yield_constr);
+        eval_permutation_unit::<F, FE, P, D2>(vars, yield_constr);
+        // TODO: Other units
     }
 
     fn eval_ext_recursively(
@@ -75,35 +93,65 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
         vars: StarkEvaluationTargets<D, NUM_COLUMNS, NUM_PUBLIC_INPUTS>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        self.eval_core_registers_recursively(builder, vars, yield_constr);
-        self.eval_permutation_unit_recursively(builder, vars, yield_constr);
-        todo!()
+        eval_core_registers_recursively(builder, vars, yield_constr);
+        eval_alu_recursively(builder, vars, yield_constr);
+        eval_permutation_unit_recursively(builder, vars, yield_constr);
+        // TODO: Other units
+    }
+
+    fn constraint_degree(&self) -> usize {
+        3
+    }
+
+    fn permutation_pairs(&self) -> Vec<PermutationPair> {
+        // TODO: Add permutation pairs for memory.
+        // TODO: Add permutation pairs for range checks.
+        vec![]
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Result;
     use log::Level;
+    use plonky2::field::field_types::Field;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
     use plonky2::util::timing::TimingTree;
     use starky::config::StarkConfig;
     use starky::prover::prove;
+    use starky::stark::Stark;
+    use starky::stark_testing::test_stark_low_degree;
+    use starky::verifier::verify_stark_proof;
 
     use crate::system_zero::SystemZero;
 
     #[test]
-    #[ignore] // TODO
-    fn run() {
+    #[ignore] // A bit slow.
+    fn run() -> Result<()> {
         type F = GoldilocksField;
         type C = PoseidonGoldilocksConfig;
         const D: usize = 2;
 
         type S = SystemZero<F, D>;
         let system = S::default();
+        let public_inputs = [F::ZERO; S::PUBLIC_INPUTS];
         let config = StarkConfig::standard_fast_config();
         let mut timing = TimingTree::new("prove", Level::Debug);
         let trace = system.generate_trace();
-        prove::<F, C, S, D>(system, config, trace, &mut timing);
+        let proof = prove::<F, C, S, D>(system, &config, trace, public_inputs, &mut timing)?;
+
+        verify_stark_proof(system, proof, &config)
+    }
+
+    #[test]
+    fn degree() -> Result<()> {
+        type F = GoldilocksField;
+        type C = PoseidonGoldilocksConfig;
+        const D: usize = 2;
+
+        type S = SystemZero<F, D>;
+        let system = S::default();
+        test_stark_low_degree(system)
     }
 }

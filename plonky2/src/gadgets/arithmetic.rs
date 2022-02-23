@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 
 use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::PrimeField;
+use plonky2_field::field_types::Field64;
 
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::exponentiation::ExponentiationGate;
@@ -78,7 +78,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     fn add_base_arithmetic_operation(&mut self, operation: BaseArithmeticOperation<F>) -> Target {
-        let (gate, i) = self.find_base_arithmetic_gate(operation.const_0, operation.const_1);
+        let gate = ArithmeticGate::new_from_config(&self.config);
+        let constants = vec![operation.const_0, operation.const_1];
+        let (gate, i) = self.find_slot(gate, &constants, &constants);
         let wires_multiplicand_0 = Target::wire(gate, ArithmeticGate::wire_ith_multiplicand_0(i));
         let wires_multiplicand_1 = Target::wire(gate, ArithmeticGate::wire_ith_multiplicand_1(i));
         let wires_addend = Target::wire(gate, ArithmeticGate::wire_ith_addend(i));
@@ -315,11 +317,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let x_ext = self.convert_to_ext(x);
         self.inverse_extension(x_ext).0[0]
     }
+
+    pub fn not(&mut self, b: BoolTarget) -> BoolTarget {
+        let one = self.one();
+        let res = self.sub(one, b.target);
+        BoolTarget::new_unsafe(res)
+    }
 }
 
 /// Represents a base arithmetic operation in the circuit. Used to memoize results.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub(crate) struct BaseArithmeticOperation<F: PrimeField> {
+pub(crate) struct BaseArithmeticOperation<F: Field64> {
     const_0: F,
     const_1: F,
     multiplicand_0: Target,

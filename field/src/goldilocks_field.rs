@@ -11,8 +11,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::extension_field::quadratic::QuadraticExtension;
 use crate::extension_field::quartic::QuarticExtension;
+use crate::extension_field::quintic::QuinticExtension;
 use crate::extension_field::{Extendable, Frobenius};
-use crate::field_types::{Field, PrimeField};
+use crate::field_types::{Field, Field64, PrimeField, PrimeField64};
 use crate::inversion::try_inverse_u64;
 
 const EPSILON: u64 = (1 << 32) - 1;
@@ -98,10 +99,6 @@ impl Field for GoldilocksField {
         Self(n.mod_floor(&Self::order()).to_u64_digits()[0])
     }
 
-    fn to_biguint(&self) -> BigUint {
-        self.to_canonical_u64().into()
-    }
-
     #[inline]
     fn from_canonical_u64(n: u64) -> Self {
         debug_assert!(n < Self::ORDER);
@@ -124,21 +121,13 @@ impl Field for GoldilocksField {
 }
 
 impl PrimeField for GoldilocksField {
+    fn to_canonical_biguint(&self) -> BigUint {
+        self.to_canonical_u64().into()
+    }
+}
+
+impl Field64 for GoldilocksField {
     const ORDER: u64 = 0xFFFFFFFF00000001;
-
-    #[inline]
-    fn to_canonical_u64(&self) -> u64 {
-        let mut c = self.0;
-        // We only need one condition subtraction, since 2 * ORDER would not fit in a u64.
-        if c >= Self::ORDER {
-            c -= Self::ORDER;
-        }
-        c
-    }
-
-    fn to_noncanonical_u64(&self) -> u64 {
-        self.0
-    }
 
     #[inline]
     fn from_noncanonical_u64(n: u64) -> Self {
@@ -157,6 +146,22 @@ impl PrimeField for GoldilocksField {
         let (res_wrapped, borrow) = self.0.overflowing_sub(rhs);
         // Sub EPSILON * carry cannot underflow unless rhs is not in canonical form.
         Self(res_wrapped - EPSILON * (borrow as u64))
+    }
+}
+
+impl PrimeField64 for GoldilocksField {
+    #[inline]
+    fn to_canonical_u64(&self) -> u64 {
+        let mut c = self.0;
+        // We only need one condition subtraction, since 2 * ORDER would not fit in a u64.
+        if c >= Self::ORDER {
+            c -= Self::ORDER;
+        }
+        c
+    }
+
+    fn to_noncanonical_u64(&self) -> u64 {
+        self.0
     }
 }
 
@@ -311,6 +316,31 @@ impl Extendable<4> for GoldilocksField {
 
     const EXT_POWER_OF_TWO_GENERATOR: [Self; 4] =
         [Self(0), Self(0), Self(0), Self(12587610116473453104)];
+}
+
+impl Extendable<5> for GoldilocksField {
+    type Extension = QuinticExtension<Self>;
+
+    const W: Self = Self(3);
+
+    // DTH_ROOT = W^((ORDER - 1)/5)
+    const DTH_ROOT: Self = Self(1041288259238279555);
+
+    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 5] = [
+        Self(2899034827742553394),
+        Self(13012057356839176729),
+        Self(14593811582388663055),
+        Self(7722900811313895436),
+        Self(4557222484695340057),
+    ];
+
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 5] = [
+        Self::POWER_OF_TWO_GENERATOR,
+        Self(0),
+        Self(0),
+        Self(0),
+        Self(0),
+    ];
 }
 
 /// Fast addition modulo ORDER for x86-64.

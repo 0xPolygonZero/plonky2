@@ -8,54 +8,85 @@ use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 pub struct ConstraintConsumer<P: PackedField> {
-    /// A random value used to combine multiple constraints into one.
-    alpha: P::Scalar,
+    /// Random values used to combine multiple constraints into one.
+    alphas: Vec<P::Scalar>,
 
-    /// A running sum of constraints that have been emitted so far, scaled by powers of alpha.
-    constraint_acc: P,
+    /// Running sums of constraints that have been emitted so far, scaled by powers of alpha.
+    // TODO(JN): This is pub so it can be used in a test. Once we have an API for accessing this
+    // result, it should be made private.
+    pub constraint_accs: Vec<P>,
+
+    /// The evaluation of `X - g^(n-1)`.
+    z_last: P,
 
     /// The evaluation of the Lagrange basis polynomial which is nonzero at the point associated
     /// with the first trace row, and zero at other points in the subgroup.
-    lagrange_basis_first: P::Scalar,
+    lagrange_basis_first: P,
 
     /// The evaluation of the Lagrange basis polynomial which is nonzero at the point associated
     /// with the last trace row, and zero at other points in the subgroup.
-    lagrange_basis_last: P::Scalar,
+    lagrange_basis_last: P,
 }
 
 impl<P: PackedField> ConstraintConsumer<P> {
-    /// Add one constraint.
-    pub fn one(&mut self, constraint: P) {
-        self.constraint_acc *= self.alpha;
-        self.constraint_acc += constraint;
+    pub fn new(
+        alphas: Vec<P::Scalar>,
+        z_last: P,
+        lagrange_basis_first: P,
+        lagrange_basis_last: P,
+    ) -> Self {
+        Self {
+            constraint_accs: vec![P::ZEROS; alphas.len()],
+            alphas,
+            z_last,
+            lagrange_basis_first,
+            lagrange_basis_last,
+        }
     }
 
-    /// Add a series of constraints.
-    pub fn many(&mut self, constraints: impl IntoIterator<Item = P>) {
-        constraints
+    // TODO: Do this correctly.
+    pub fn accumulators(self) -> Vec<P::Scalar> {
+        self.constraint_accs
             .into_iter()
-            .for_each(|constraint| self.one(constraint));
+            .map(|acc| acc.as_slice()[0])
+            .collect()
+    }
+
+    /// Add one constraint valid on all rows except the last.
+    pub fn constraint_transition(&mut self, constraint: P) {
+        self.constraint(constraint * self.z_last);
+    }
+
+    /// Add one constraint on all rows.
+    pub fn constraint(&mut self, constraint: P) {
+        for (&alpha, acc) in self.alphas.iter().zip(&mut self.constraint_accs) {
+            *acc *= alpha;
+            *acc += constraint;
+        }
     }
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// first row of the trace.
-    pub fn one_first_row(&mut self, constraint: P) {
-        self.one(constraint * self.lagrange_basis_first);
+    pub fn constraint_first_row(&mut self, constraint: P) {
+        self.constraint(constraint * self.lagrange_basis_first);
     }
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// last row of the trace.
-    pub fn one_last_row(&mut self, constraint: P) {
-        self.one(constraint * self.lagrange_basis_last);
+    pub fn constraint_last_row(&mut self, constraint: P) {
+        self.constraint(constraint * self.lagrange_basis_last);
     }
 }
 
 pub struct RecursiveConstraintConsumer<F: RichField + Extendable<D>, const D: usize> {
     /// A random value used to combine multiple constraints into one.
-    alpha: Target,
+    alphas: Vec<Target>,
 
     /// A running sum of constraints that have been emitted so far, scaled by powers of alpha.
-    constraint_acc: ExtensionTarget<D>,
+    constraint_accs: Vec<ExtensionTarget<D>>,
+
+    /// The evaluation of `X - g^(n-1)`.
+    z_last: ExtensionTarget<D>,
 
     /// The evaluation of the Lagrange basis polynomial which is nonzero at the point associated
     /// with the first trace row, and zero at other points in the subgroup.
@@ -69,42 +100,67 @@ pub struct RecursiveConstraintConsumer<F: RichField + Extendable<D>, const D: us
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F, D> {
-    /// Add one constraint.
-    pub fn one(&mut self, builder: &mut CircuitBuilder<F, D>, constraint: ExtensionTarget<D>) {
-        self.constraint_acc =
-            builder.scalar_mul_add_extension(self.alpha, self.constraint_acc, constraint);
+    pub fn new(
+        zero: ExtensionTarget<D>,
+        alphas: Vec<Target>,
+        z_last: ExtensionTarget<D>,
+        lagrange_basis_first: ExtensionTarget<D>,
+        lagrange_basis_last: ExtensionTarget<D>,
+    ) -> Self {
+        Self {
+            constraint_accs: vec![zero; alphas.len()],
+            alphas,
+            z_last,
+            lagrange_basis_first,
+            lagrange_basis_last,
+            _phantom: Default::default(),
+        }
     }
 
-    /// Add a series of constraints.
-    pub fn many(
+    pub fn accumulators(self) -> Vec<ExtensionTarget<D>> {
+        self.constraint_accs
+    }
+
+    /// Add one constraint valid on all rows except the last.
+    pub fn constraint_transition(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
-        constraints: impl IntoIterator<Item = ExtensionTarget<D>>,
+        constraint: ExtensionTarget<D>,
     ) {
-        constraints
-            .into_iter()
-            .for_each(|constraint| self.one(builder, constraint));
+        let filtered_constraint = builder.mul_extension(constraint, self.z_last);
+        self.constraint(builder, filtered_constraint);
+    }
+
+    /// Add one constraint valid on all rows.
+    pub fn constraint(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+        constraint: ExtensionTarget<D>,
+    ) {
+        for (&alpha, acc) in self.alphas.iter().zip(&mut self.constraint_accs) {
+            *acc = builder.scalar_mul_add_extension(alpha, *acc, constraint);
+        }
     }
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// first row of the trace.
-    pub fn one_first_row(
+    pub fn constraint_first_row(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         constraint: ExtensionTarget<D>,
     ) {
         let filtered_constraint = builder.mul_extension(constraint, self.lagrange_basis_first);
-        self.one(builder, filtered_constraint);
+        self.constraint(builder, filtered_constraint);
     }
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// last row of the trace.
-    pub fn one_last_row(
+    pub fn constraint_last_row(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         constraint: ExtensionTarget<D>,
     ) {
         let filtered_constraint = builder.mul_extension(constraint, self.lagrange_basis_last);
-        self.one(builder, filtered_constraint);
+        self.constraint(builder, filtered_constraint);
     }
 }

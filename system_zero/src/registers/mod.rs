@@ -1,0 +1,20 @@
+pub(crate) mod alu;
+pub(crate) mod boolean;
+pub(crate) mod core;
+pub(crate) mod logic;
+pub(crate) mod lookup;
+pub(crate) mod memory;
+pub(crate) mod permutation;
+pub(crate) mod range_check_16;
+pub(crate) mod range_check_degree;
+
+const START_ALU: usize = 0;
+const START_BOOLEAN: usize = alu::END;
+const START_CORE: usize = boolean::END;
+const START_LOGIC: usize = core::END;
+const START_LOOKUP: usize = logic::END;
+const START_MEMORY: usize = lookup::END;
+const START_PERMUTATION: usize = memory::END;
+const START_RANGE_CHECK_16: usize = permutation::END;
+const START_RANGE_CHECK_DEGREE: usize = range_check_16::END;
+pub(crate) const NUM_COLUMNS: usize = range_check_degree::END;

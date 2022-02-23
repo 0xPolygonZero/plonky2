@@ -1,6 +1,7 @@
 use std::ops::Mul;
 
 use plonky2_field::field_types::Field;
+use plonky2_field::field_types::PrimeField;
 
 use crate::curve::curve_types::{Curve, CurveScalar, ProjectivePoint};
 
@@ -88,7 +89,7 @@ fn to_digits<C: Curve>(x: &C::ScalarField) -> Vec<u64> {
     );
     let digits_per_u64 = 64 / WINDOW_BITS;
     let mut digits = Vec::with_capacity(digits_per_scalar::<C>());
-    for limb in x.to_biguint().to_u64_digits() {
+    for limb in x.to_canonical_biguint().to_u64_digits() {
         for j in 0..digits_per_u64 {
             digits.push((limb >> (j * WINDOW_BITS) as u64) % BASE as u64);
         }

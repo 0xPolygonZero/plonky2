@@ -1,9 +1,12 @@
+use anyhow::ensure;
 use plonky2_field::extension_field::Extendable;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::fri::oracle::PolynomialBatch;
-use crate::fri::proof::{CompressedFriProof, FriProof, FriProofTarget};
+use crate::fri::proof::{
+    CompressedFriProof, FriChallenges, FriChallengesTarget, FriProof, FriProofTarget,
+};
 use crate::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
@@ -91,7 +94,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub(crate) fn get_public_inputs_hash(
         &self,
     ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash {
-        C::InnerHasher::hash(&self.public_inputs, true)
+        C::InnerHasher::hash_no_pad(&self.public_inputs)
     }
 
     pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -135,7 +138,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         challenges: &ProofChallenges<F, D>,
         fri_inferred_elements: FriInferredElements<F, D>,
         params: &FriParams,
-    ) -> Proof<F, C, D> {
+    ) -> Proof<F, C, D>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         let CompressedProof {
             wires_cap,
             plonk_zs_partial_products_cap,
@@ -171,8 +177,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub fn decompress(
         self,
         common_data: &CommonCircuitData<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        let challenges = self.get_challenges(common_data)?;
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
+        let challenges = self.get_challenges(self.get_public_inputs_hash(), common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let decompressed_proof =
             self.proof
@@ -187,17 +196,23 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         self,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         common_data: &CommonCircuitData<F, C, D>,
-    ) -> anyhow::Result<()> {
-        let challenges = self.get_challenges(common_data)?;
+    ) -> anyhow::Result<()>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
+        ensure!(
+            self.public_inputs.len() == common_data.num_public_inputs,
+            "Number of public inputs doesn't match circuit data."
+        );
+        let public_inputs_hash = self.get_public_inputs_hash();
+        let challenges = self.get_challenges(public_inputs_hash, common_data)?;
         let fri_inferred_elements = self.get_inferred_elements(&challenges, common_data);
         let decompressed_proof =
             self.proof
                 .decompress(&challenges, fri_inferred_elements, &common_data.fri_params);
         verify_with_challenges(
-            ProofWithPublicInputs {
-                public_inputs: self.public_inputs,
-                proof: decompressed_proof,
-            },
+            decompressed_proof,
+            public_inputs_hash,
             challenges,
             verifier_data,
             common_data,
@@ -207,7 +222,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub(crate) fn get_public_inputs_hash(
         &self,
     ) -> <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash {
-        C::InnerHasher::hash(&self.public_inputs, true)
+        C::InnerHasher::hash_no_pad(&self.public_inputs)
     }
 
     pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -227,28 +242,27 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 }
 
 pub(crate) struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> {
-    // Random values used in Plonk's permutation argument.
+    /// Random values used in Plonk's permutation argument.
     pub plonk_betas: Vec<F>,
 
-    // Random values used in Plonk's permutation argument.
+    /// Random values used in Plonk's permutation argument.
     pub plonk_gammas: Vec<F>,
 
-    // Random values used to combine PLONK constraints.
+    /// Random values used to combine PLONK constraints.
     pub plonk_alphas: Vec<F>,
 
-    // Point at which the PLONK polynomials are opened.
+    /// Point at which the PLONK polynomials are opened.
     pub plonk_zeta: F::Extension,
 
-    // Scaling factor to combine polynomials.
-    pub fri_alpha: F::Extension,
+    pub fri_challenges: FriChallenges<F, D>,
+}
 
-    // Betas used in the FRI commit phase reductions.
-    pub fri_betas: Vec<F::Extension>,
-
-    pub fri_pow_response: F,
-
-    // Indices at which the oracle is queried in FRI.
-    pub fri_query_indices: Vec<usize>,
+pub(crate) struct ProofChallengesTarget<const D: usize> {
+    pub plonk_betas: Vec<Target>,
+    pub plonk_gammas: Vec<Target>,
+    pub plonk_alphas: Vec<Target>,
+    pub plonk_zeta: ExtensionTarget<D>,
+    pub fri_challenges: FriChallengesTarget<D>,
 }
 
 /// Coset elements that can be inferred in the FRI reduction steps.

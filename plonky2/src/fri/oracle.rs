@@ -12,7 +12,7 @@ use crate::fri::FriParams;
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
-use crate::plonk::config::GenericConfig;
+use crate::plonk::config::{GenericConfig, Hasher};
 use crate::timed;
 use crate::util::reducing::ReducingFactor;
 use crate::util::reverse_bits;
@@ -43,7 +43,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         cap_height: usize,
         timing: &mut TimingTree,
         fft_root_table: Option<&FftRootTable<F>>,
-    ) -> Self {
+    ) -> Self
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         let coeffs = timed!(
             timing,
             "IFFT",
@@ -68,7 +71,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         cap_height: usize,
         timing: &mut TimingTree,
         fft_root_table: Option<&FftRootTable<F>>,
-    ) -> Self {
+    ) -> Self
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         let degree = polynomials[0].len();
         let lde_values = timed!(
             timing,
@@ -127,13 +133,16 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     /// Produces a batch opening proof.
-    pub(crate) fn prove_openings(
+    pub fn prove_openings(
         instance: &FriInstanceInfo<F, D>,
         oracles: &[&Self],
         challenger: &mut Challenger<F, C::Hasher>,
         fri_params: &FriParams,
         timing: &mut TimingTree,
-    ) -> FriProof<F, C::Hasher, D> {
+    ) -> FriProof<F, C::Hasher, D>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
         assert!(D > 1, "Not implemented for D=1.");
         let alpha = challenger.get_extension_challenge::<D>();
         let mut alpha = ReducingFactor::new(alpha);

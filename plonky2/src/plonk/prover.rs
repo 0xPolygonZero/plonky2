@@ -4,7 +4,8 @@ use anyhow::ensure;
 use anyhow::Result;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use plonky2_util::log2_ceil;
+use plonky2_field::zero_poly_coset::ZeroPolyOnCoset;
+use plonky2_util::{ceil_div_usize, log2_ceil};
 use rayon::prelude::*;
 
 use crate::field::field_types::Field;
@@ -15,7 +16,7 @@ use crate::iop::generator::generate_partial_witness;
 use crate::iop::witness::{MatrixWitness, PartialWitness, Witness};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
 use crate::plonk::config::{GenericConfig, Hasher};
-use crate::plonk::plonk_common::{PlonkOracle, ZeroPolyOnCoset};
+use crate::plonk::plonk_common::PlonkOracle;
 use crate::plonk::proof::OpeningSet;
 use crate::plonk::proof::{Proof, ProofWithPublicInputs};
 use crate::plonk::vanishing_poly::eval_vanishing_poly_base_batch;
@@ -30,7 +31,10 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     common_data: &CommonCircuitData<F, C, D>,
     inputs: PartialWitness<F>,
     timing: &mut TimingTree,
-) -> Result<ProofWithPublicInputs<F, C, D>> {
+) -> Result<ProofWithPublicInputs<F, C, D>>
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
     let config = &common_data.config;
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
@@ -43,7 +47,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     );
 
     let public_inputs = partition_witness.get_targets(&prover_data.public_inputs);
-    let public_inputs_hash = C::InnerHasher::hash(&public_inputs, true);
+    let public_inputs_hash = C::InnerHasher::hash_no_pad(&public_inputs);
 
     if cfg!(debug_assertions) {
         // Display the marked targets for debugging purposes.
@@ -147,11 +151,10 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
         quotient_polys
             .into_par_iter()
             .flat_map(|mut quotient_poly| {
-                quotient_poly.trim();
-                quotient_poly.pad(quotient_degree).expect(
-                    "Quotient has failed, the vanishing polynomial is not divisible by `Z_H",
+                quotient_poly.trim_to_len(quotient_degree).expect(
+                    "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
                 );
-                // Split t into degree-n chunks.
+                // Split quotient into degree-n chunks.
                 quotient_poly.chunks(degree)
             })
             .collect()
@@ -195,7 +198,7 @@ pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
             common_data,
         )
     );
-    challenger.observe_opening_set(&openings);
+    challenger.observe_openings(&openings.to_fri_openings());
 
     let opening_proof = timed!(
         timing,
@@ -332,36 +335,42 @@ fn compute_quotient_polys<
     alphas: &[F],
 ) -> Vec<PolynomialCoeffs<F>> {
     let num_challenges = common_data.config.num_challenges;
-    let max_degree_bits = log2_ceil(common_data.quotient_degree_factor);
+    let quotient_degree_bits = log2_ceil(common_data.quotient_degree_factor);
     assert!(
-        max_degree_bits <= common_data.config.fri_config.rate_bits,
+        quotient_degree_bits <= common_data.config.fri_config.rate_bits,
         "Having constraints of degree higher than the rate is not supported yet. \
-        If we need this in the future, we can precompute the larger LDE before computing the `ListPolynomialCommitment`s."
+        If we need this in the future, we can precompute the larger LDE before computing the `PolynomialBatch`s."
     );
 
-    // We reuse the LDE computed in `ListPolynomialCommitment` and extract every `step` points to get
+    // We reuse the LDE computed in `PolynomialBatch` and extract every `step` points to get
     // an LDE matching `max_filtered_constraint_degree`.
-    let step = 1 << (common_data.config.fri_config.rate_bits - max_degree_bits);
+    let step = 1 << (common_data.config.fri_config.rate_bits - quotient_degree_bits);
     // When opening the `Z`s polys at the "next" point in Plonk, need to look at the point `next_step`
     // steps away since we work on an LDE of degree `max_filtered_constraint_degree`.
-    let next_step = 1 << max_degree_bits;
+    let next_step = 1 << quotient_degree_bits;
 
-    let points = F::two_adic_subgroup(common_data.degree_bits + max_degree_bits);
+    let points = F::two_adic_subgroup(common_data.degree_bits + quotient_degree_bits);
     let lde_size = points.len();
 
     // Retrieve the LDE values at index `i`.
     let get_at_index =
         |comm: &'a PolynomialBatch<F, C, D>, i: usize| -> &'a [F] { comm.get_lde_values(i * step) };
 
-    let z_h_on_coset = ZeroPolyOnCoset::new(common_data.degree_bits, max_degree_bits);
+    let z_h_on_coset = ZeroPolyOnCoset::new(common_data.degree_bits, quotient_degree_bits);
 
     let points_batches = points.par_chunks(BATCH_SIZE);
+    let num_batches = ceil_div_usize(points.len(), BATCH_SIZE);
     let quotient_values: Vec<Vec<F>> = points_batches
         .enumerate()
         .map(|(batch_i, xs_batch)| {
-            assert_eq!(xs_batch.len(), BATCH_SIZE);
+            // Each batch must be the same size, except the last one, which may be smaller.
+            debug_assert!(
+                xs_batch.len() == BATCH_SIZE
+                    || (batch_i == num_batches - 1 && xs_batch.len() <= BATCH_SIZE)
+            );
+
             let indices_batch: Vec<usize> =
-                (BATCH_SIZE * batch_i..BATCH_SIZE * (batch_i + 1)).collect();
+                (BATCH_SIZE * batch_i..BATCH_SIZE * batch_i + xs_batch.len()).collect();
 
             let mut shifted_xs_batch = Vec::with_capacity(xs_batch.len());
             let mut local_zs_batch = Vec::with_capacity(xs_batch.len());

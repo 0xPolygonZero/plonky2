@@ -4,14 +4,13 @@ use plonky2_field::field_types::Field;
 use plonky2_field::interpolation::{barycentric_weights, interpolate};
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
-use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound};
+use crate::fri::proof::{FriChallenges, FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo, FriOpenings};
 use crate::fri::{FriConfig, FriParams};
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::verify_merkle_proof;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::config::{GenericConfig, Hasher};
-use crate::plonk::proof::{OpeningSet, ProofChallenges};
 use crate::util::reducing::ReducingFactor;
 use crate::util::reverse_bits;
 
@@ -57,19 +56,17 @@ pub(crate) fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: us
     Ok(())
 }
 
-pub(crate) fn verify_fri_proof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
+pub fn verify_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     instance: &FriInstanceInfo<F, D>,
-    // Openings of the PLONK polynomials.
-    os: &OpeningSet<F, D>,
-    challenges: &ProofChallenges<F, D>,
+    openings: &FriOpenings<F, D>,
+    challenges: &FriChallenges<F, D>,
     initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
     proof: &FriProof<F, C::Hasher, D>,
     params: &FriParams,
-) -> Result<()> {
+) -> Result<()>
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
     ensure!(
         params.final_poly_len() == proof.final_poly.len(),
         "Final polynomial has wrong degree."
@@ -88,7 +85,7 @@ pub(crate) fn verify_fri_proof<
     );
 
     let precomputed_reduced_evals =
-        PrecomputedReducedOpenings::from_os_and_alpha(&os.to_fri_openings(), challenges.fri_alpha);
+        PrecomputedReducedOpenings::from_os_and_alpha(openings, challenges.fri_alpha);
     for (&x_index, round_proof) in challenges
         .fri_query_indices
         .iter()
@@ -114,7 +111,10 @@ fn fri_verify_initial_proof<F: RichField, H: Hasher<F>>(
     x_index: usize,
     proof: &FriInitialTreeProof<F, H>,
     initial_merkle_caps: &[MerkleCap<F, H>],
-) -> Result<()> {
+) -> Result<()>
+where
+    [(); H::HASH_SIZE]:,
+{
     for ((evals, merkle_proof), cap) in proof.evals_proofs.iter().zip(initial_merkle_caps) {
         verify_merkle_proof::<F, H>(evals.clone(), x_index, cap, merkle_proof)?;
     }
@@ -171,7 +171,7 @@ fn fri_verifier_query_round<
     const D: usize,
 >(
     instance: &FriInstanceInfo<F, D>,
-    challenges: &ProofChallenges<F, D>,
+    challenges: &FriChallenges<F, D>,
     precomputed_reduced_evals: &PrecomputedReducedOpenings<F, D>,
     initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
     proof: &FriProof<F, C::Hasher, D>,
@@ -179,7 +179,10 @@ fn fri_verifier_query_round<
     n: usize,
     round_proof: &FriQueryRound<F, C::Hasher, D>,
     params: &FriParams,
-) -> Result<()> {
+) -> Result<()>
+where
+    [(); C::Hasher::HASH_SIZE]:,
+{
     fri_verify_initial_proof::<F, C::Hasher>(
         x_index,
         &round_proof.initial_trees_proof,

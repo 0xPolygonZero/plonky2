@@ -404,7 +404,7 @@ mod tests {
             v.extend(equality_dummy_vals);
             v.extend(insert_here_vals);
 
-            v.iter().map(|&x| x.into()).collect::<Vec<_>>()
+            v.iter().map(|&x| x.into()).collect()
         }
 
         let orig_vec = vec![FF::rand(); 3];
