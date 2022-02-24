@@ -16,6 +16,10 @@ pub struct ECDSASecretKey<C: Curve>(pub C::ScalarField);
 #[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ECDSAPublicKey<C: Curve>(pub AffinePoint<C>);
 
+pub fn secret_to_public<C: Curve>(sk: ECDSASecretKey<C>) -> ECDSAPublicKey<C> {
+    ECDSAPublicKey((CurveScalar(sk.0) * C::GENERATOR_PROJECTIVE).to_affine())
+}
+
 pub fn sign_message<C: Curve>(msg: C::ScalarField, sk: ECDSASecretKey<C>) -> ECDSASignature<C> {
     let (k, rr) = {
         let mut k = C::ScalarField::rand();
@@ -57,8 +61,7 @@ pub fn verify_message<C: Curve>(
 
 #[cfg(test)]
 mod tests {
-    use crate::curve::curve_types::{Curve, CurveScalar};
-    use crate::curve::ecdsa::{sign_message, verify_message, ECDSAPublicKey, ECDSASecretKey};
+    use crate::curve::ecdsa::{secret_to_public, sign_message, verify_message, ECDSASecretKey};
     use crate::curve::secp256k1::Secp256K1;
     use crate::field::field_types::Field;
     use crate::field::secp256k1_scalar::Secp256K1Scalar;
@@ -68,8 +71,8 @@ mod tests {
         type C = Secp256K1;
 
         let msg = Secp256K1Scalar::rand();
-        let sk = ECDSASecretKey(Secp256K1Scalar::rand());
-        let pk = ECDSAPublicKey((CurveScalar(sk.0) * C::GENERATOR_PROJECTIVE).to_affine());
+        let sk = ECDSASecretKey::<C>(Secp256K1Scalar::rand());
+        let pk = secret_to_public(sk);
 
         let sig = sign_message(msg, sk);
         let result = verify_message(msg, sig, pk);
