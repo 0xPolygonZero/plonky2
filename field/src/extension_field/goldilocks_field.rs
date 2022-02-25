@@ -152,7 +152,7 @@ pub(crate) fn ext2_sqr(a: [u64; 2]) -> [GoldilocksField; 2] {
 }
 
 /*
- * Quadratic multiplication and squaring
+ * Quartic multiplication and squaring
  */
 
 #[inline(always)]
