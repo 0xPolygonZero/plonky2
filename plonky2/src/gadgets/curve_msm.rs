@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use num::BigUint;
 use plonky2_field::extension_field::Extendable;
 
@@ -29,17 +27,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let hash_0_scalar = C::ScalarField::from_biguint(BigUint::from_bytes_le(
             &GenericHashOut::<F>::to_bytes(&hash_0),
         ));
-        let starting_point = CurveScalar(hash_0_scalar) * C::GENERATOR_PROJECTIVE;
-        let starting_point_t = self.constant_affine_point(starting_point.to_affine());
-        let neg = {
-            let mut neg = starting_point.to_affine();
+        let rando = (CurveScalar(hash_0_scalar) * C::GENERATOR_PROJECTIVE).to_affine();
+        let rando_t = self.constant_affine_point(rando);
+        let neg_rando = {
+            let mut neg = rando;
             neg.y = -neg.y;
             self.constant_affine_point(neg)
         };
 
         let mut precomputation = vec![p.clone(); 16];
-        let mut cur_p = starting_point_t.clone();
-        let mut cur_q = starting_point_t.clone();
+        let mut cur_p = rando_t.clone();
+        let mut cur_q = rando_t.clone();
         for i in 0..4 {
             precomputation[i] = cur_p.clone();
             precomputation[4 * i] = cur_q.clone();
@@ -47,8 +45,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             cur_q = self.curve_add(&cur_q, q);
         }
         for i in 1..4 {
-            precomputation[i] = self.curve_add(&precomputation[i], &neg);
-            precomputation[4 * i] = self.curve_add(&precomputation[4 * i], &neg);
+            precomputation[i] = self.curve_add(&precomputation[i], &neg_rando);
+            precomputation[4 * i] = self.curve_add(&precomputation[4 * i], &neg_rando);
         }
         for i in 1..4 {
             for j in 1..4 {
@@ -59,10 +57,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let four = self.constant(F::from_canonical_usize(4));
         let starting_point_multiplied =
-            (0..C::ScalarField::BITS).fold(starting_point, |acc, _| acc.double());
+            (0..C::ScalarField::BITS).fold(rando, |acc, _| acc.double());
 
         let zero = self.zero();
-        let mut result = self.constant_affine_point(starting_point.to_affine());
+        let mut result = rando_t;
         for (limb_n, limb_m) in limbs_n.into_iter().zip(limbs_m).rev() {
             result = self.curve_repeated_double(&result, 2);
             let index = self.mul_add(four, limb_m, limb_n);
@@ -71,7 +69,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let should_add = self.not(is_zero);
             result = self.curve_conditional_add(&result, &r, should_add);
         }
-        let to_subtract = self.constant_affine_point(starting_point_multiplied.to_affine());
+        let to_subtract = self.constant_affine_point(starting_point_multiplied);
         let to_add = self.curve_neg(&to_subtract);
         result = self.curve_add(&result, &to_add);
 
@@ -81,7 +79,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::Neg;
 
     use anyhow::Result;
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
@@ -96,7 +93,7 @@ mod tests {
     use crate::plonk::verifier::verify;
 
     #[test]
-    fn test_yo() -> Result<()> {
+    fn test_curve_msm() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -136,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ya() -> Result<()> {
+    fn test_naive_msm() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
