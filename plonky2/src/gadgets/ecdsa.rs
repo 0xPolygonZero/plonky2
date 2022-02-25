@@ -35,8 +35,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let u2 = self.mul_nonnative(&r, &c);
 
         let g = self.constant_affine_point(C::GENERATOR_AFFINE);
-        let point1 = self.curve_scalar_mul(&g, &u1);
-        let point2 = self.curve_scalar_mul(&pk.0, &u2);
+        let point1 = self.curve_scalar_mul_windowed(&g, &u1);
+        let point2 = self.curve_scalar_mul_windowed(&pk.0, &u2);
         let point = self.curve_add(&point1, &point2);
 
         let x = NonNativeTarget::<C::ScalarField> {
@@ -97,6 +97,7 @@ mod tests {
 
         builder.verify_message(msg_target, sig_target, pk_target);
 
+        dbg!(builder.num_gates());
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)

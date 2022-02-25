@@ -5,6 +5,7 @@ pub mod biguint;
 pub mod curve;
 pub mod curve_windowed_mul;
 // pub mod curve_msm;
+pub mod curve_msm;
 pub mod ecdsa;
 pub mod glv;
 pub mod hash;
