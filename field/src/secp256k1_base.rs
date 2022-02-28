@@ -257,7 +257,19 @@ impl Secp256K1Base {
 
 #[cfg(test)]
 mod tests {
+    use crate::field_types::Field;
+    use crate::ops::Square;
+    use crate::secp256k1_base::Secp256K1Base;
     use crate::test_field_arithmetic;
 
     test_field_arithmetic!(crate::secp256k1_base::Secp256K1Base);
+
+    #[test]
+    fn test_sqrt() {
+        type F = Secp256K1Base;
+
+        let x = F::rand();
+        let x_square_sqrt = x.square().sqrt();
+        assert!((x == x_square_sqrt) || (x == -x_square_sqrt));
+    }
 }
