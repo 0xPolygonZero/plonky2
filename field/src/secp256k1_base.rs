@@ -11,6 +11,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::field_types::{Field, PrimeField};
+use crate::ops::Square;
 
 /// The base field of the secp256k1 elliptic curve.
 ///
@@ -245,9 +246,12 @@ impl DivAssign for Secp256K1Base {
 }
 
 impl Secp256K1Base {
-    /// Computes a square root using the formula `√x = x^(p-1)/4` which holds when `p%4==3`.
+    /// Computes a square root using the formula `√x = x^(p+1)/4` which holds when `p%4==3`.
+    /// Panics if not a square.
     pub fn sqrt(self) -> Self {
-        self.exp_biguint(&((Self::order() + BigUint::one()) / BigUint::from(4u64)))
+        let sqrt = self.exp_biguint(&((Self::order() + BigUint::one()) / BigUint::from(4u64)));
+        assert_eq!(sqrt.square(), self, "Square root does not exist.");
+        sqrt
     }
 }
 
