@@ -245,6 +245,7 @@ impl DivAssign for Secp256K1Base {
 }
 
 impl Secp256K1Base {
+    /// Computes a square root using the formula `√x = x^(p-1)/4` which holds when `p%4==3`.
     pub fn sqrt(self) -> Self {
         self.exp_biguint(&((Self::order() + BigUint::one()) / BigUint::from(4u64)))
     }
