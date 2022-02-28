@@ -10,7 +10,7 @@ use crate::goldilocks_field::{reduce128, GoldilocksField};
 //
 // FIXME: Need a test that triggers the carry branch
 #[inline(always)]
-fn reduce160_old(x_lo: u128, x_hi: u64) -> GoldilocksField {
+fn reduce160(x_lo: u128, x_hi: u64) -> GoldilocksField {
     debug_assert!(x_hi < (1 << 32) - 1);
 
     // for t = 1 .. 2^32-1, t*2^128 % p == p - (t << 32)
@@ -29,25 +29,6 @@ fn reduce160_old(x_lo: u128, x_hi: u64) -> GoldilocksField {
         reduce128(lo as u128 + cy_red as u128)
     } else {
         reduce128(lo)
-    }
-}
-
-#[inline(always)]
-fn reduce160(x_lo: u128, x_hi: u64) -> GoldilocksField {
-    debug_assert!(x_hi < (1 << 32) - 1);
-
-    let hi_64_bits = (x_hi << 32) + ((x_lo >> 96) as u64);
-    let middle_32_bits = (x_lo >> 64) as u32;
-    let lo_64_bits = x_lo as u64;
-
-    match lo_64_bits.checked_sub(hi_64_bits) {
-        //Some(res) => reduce128((middle_32_bits as u128) << 64 + res as u128),
-        Some(res) => GoldilocksField::from_noncanonical_u96((res, middle_32_bits)),
-        None => {
-            branch_hint();
-            let middle_64_bits = GoldilocksField::ORDER - 1 + (middle_32_bits as u64);
-            reduce128((lo_64_bits as u128) << 64 + middle_64_bits as u128)
-        }
     }
 }
 
