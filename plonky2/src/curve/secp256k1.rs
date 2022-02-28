@@ -40,7 +40,7 @@ const SECP256K1_GENERATOR_Y: Secp256K1Base = Secp256K1Base([
 ]);
 
 impl AffinePoint<Secp256K1> {
-    /// Returns an affine point with x-coordinate `x`.
+    /// Returns an affine point with x-coordinate `x` and parity matching `recovery_id`.
     pub fn lift_x(x: Secp256K1Base, recovery_id: RecoveryId) -> Self {
         let y = (x.cube() + Secp256K1::A * x + Secp256K1::B).sqrt();
         let odd = y.to_canonical_biguint().is_odd();
