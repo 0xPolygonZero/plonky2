@@ -24,6 +24,13 @@ pub fn secret_to_public<C: Curve>(sk: ECDSASecretKey<C>) -> ECDSAPublicKey<C> {
     ECDSAPublicKey((CurveScalar(sk.0) * C::GENERATOR_PROJECTIVE).to_affine())
 }
 
+/// Flag to indicate the y-coordinate parity of the `R=kG` affine curve point computed in ECDSA.
+#[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum RecoveryId {
+    Even,
+    Odd,
+}
+
 pub fn sign_message<C: Curve>(
     msg: C::ScalarField,
     sk: ECDSASecretKey<C>,
@@ -71,12 +78,7 @@ pub fn verify_message<C: Curve>(
     r == x
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub enum RecoveryId {
-    Even,
-    Odd,
-}
-
+/// Recover the public key associated with the private key used to sign a message.
 // TODO: Check for overflow, see https://crypto.stackexchange.com/a/18138.
 pub fn recover_public_key(
     msg: Secp256K1Scalar,
