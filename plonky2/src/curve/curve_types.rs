@@ -2,14 +2,9 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::Neg;
 
-use num::Integer;
 use plonky2_field::field_types::{Field, PrimeField};
 use plonky2_field::ops::Square;
-use plonky2_field::secp256k1_base::Secp256K1Base;
 use serde::{Deserialize, Serialize};
-
-use crate::curve::ecdsa::RecoveryId;
-use crate::curve::secp256k1::Secp256K1;
 
 // To avoid implementation conflicts from associated types,
 // see https://github.com/rust-lang/rust/issues/20400
