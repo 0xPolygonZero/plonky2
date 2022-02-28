@@ -8,10 +8,10 @@ use crate::hash::hash_types::RichField;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 #[derive(Clone, Debug)]
-pub struct ECDSASecretKeyTarget<C: Curve>(NonNativeTarget<C::ScalarField>);
+pub struct ECDSASecretKeyTarget<C: Curve>(pub NonNativeTarget<C::ScalarField>);
 
 #[derive(Clone, Debug)]
-pub struct ECDSAPublicKeyTarget<C: Curve>(AffinePointTarget<C>);
+pub struct ECDSAPublicKeyTarget<C: Curve>(pub AffinePointTarget<C>);
 
 #[derive(Clone, Debug)]
 pub struct ECDSASignatureTarget<C: Curve> {
