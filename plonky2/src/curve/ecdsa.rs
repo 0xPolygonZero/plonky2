@@ -1,7 +1,11 @@
+use num::Integer;
+use plonky2_field::field_types::PrimeField;
+use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 use serde::{Deserialize, Serialize};
 
 use crate::curve::curve_msm::msm_parallel;
-use crate::curve::curve_types::{base_to_scalar, AffinePoint, Curve, CurveScalar};
+use crate::curve::curve_types::{base_to_scalar, scalar_to_base, AffinePoint, Curve, CurveScalar};
+use crate::curve::secp256k1::Secp256K1;
 use crate::field::field_types::Field;
 
 #[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -20,7 +24,10 @@ pub fn secret_to_public<C: Curve>(sk: ECDSASecretKey<C>) -> ECDSAPublicKey<C> {
     ECDSAPublicKey((CurveScalar(sk.0) * C::GENERATOR_PROJECTIVE).to_affine())
 }
 
-pub fn sign_message<C: Curve>(msg: C::ScalarField, sk: ECDSASecretKey<C>) -> ECDSASignature<C> {
+pub fn sign_message<C: Curve>(
+    msg: C::ScalarField,
+    sk: ECDSASecretKey<C>,
+) -> (ECDSASignature<C>, RecoveryId) {
     let (k, rr) = {
         let mut k = C::ScalarField::rand();
         let mut rr = (CurveScalar(k) * C::GENERATOR_PROJECTIVE).to_affine();
@@ -30,11 +37,16 @@ pub fn sign_message<C: Curve>(msg: C::ScalarField, sk: ECDSASecretKey<C>) -> ECD
         }
         (k, rr)
     };
+    let recovery_id = if rr.y.to_canonical_biguint().is_odd() {
+        RecoveryId::Odd
+    } else {
+        RecoveryId::Even
+    };
     let r = base_to_scalar::<C>(rr.x);
 
     let s = k.inverse() * (msg + r * sk.0);
 
-    ECDSASignature { r, s }
+    (ECDSASignature { r, s }, recovery_id)
 }
 
 pub fn verify_message<C: Curve>(
@@ -59,9 +71,34 @@ pub fn verify_message<C: Curve>(
     r == x
 }
 
+#[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum RecoveryId {
+    Even,
+    Odd,
+}
+
+// TODO: Check for overflow, see https://crypto.stackexchange.com/a/18138.
+pub fn recover_public_key(
+    msg: Secp256K1Scalar,
+    sig: ECDSASignature<Secp256K1>,
+    recovery_id: RecoveryId,
+) -> ECDSAPublicKey<Secp256K1> {
+    let ECDSASignature { r, s } = sig;
+    let r_scalar = scalar_to_base::<Secp256K1>(r);
+    let point = AffinePoint::<Secp256K1>::lift_x(r_scalar, recovery_id);
+    let r_inv = r.inverse();
+    let u1 = s * r_inv;
+    let u2 = -msg * r_inv;
+
+    let g = Secp256K1::GENERATOR_PROJECTIVE;
+    ECDSAPublicKey(msm_parallel(&[u1, u2], &[point.to_projective(), g], 5).to_affine())
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::curve::ecdsa::{secret_to_public, sign_message, verify_message, ECDSASecretKey};
+    use crate::curve::ecdsa::{
+        recover_public_key, secret_to_public, sign_message, verify_message, ECDSASecretKey,
+    };
     use crate::curve::secp256k1::Secp256K1;
     use crate::field::field_types::Field;
     use crate::field::secp256k1_scalar::Secp256K1Scalar;
@@ -74,8 +111,21 @@ mod tests {
         let sk = ECDSASecretKey::<C>(Secp256K1Scalar::rand());
         let pk = secret_to_public(sk);
 
-        let sig = sign_message(msg, sk);
+        let (sig, _) = sign_message(msg, sk);
         let result = verify_message(msg, sig, pk);
         assert!(result);
+    }
+
+    #[test]
+    fn test_ecdsa_ecrecover() {
+        type C = Secp256K1;
+
+        let msg = Secp256K1Scalar::rand();
+        let sk = ECDSASecretKey::<C>(Secp256K1Scalar::rand());
+        let pk = secret_to_public(sk);
+        let (sig, rid) = sign_message(msg, sk);
+        let recovered_pk = recover_public_key(msg, sig, rid);
+
+        assert_eq!(pk, recovered_pk);
     }
 }

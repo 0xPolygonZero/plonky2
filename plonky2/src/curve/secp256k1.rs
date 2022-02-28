@@ -1,9 +1,11 @@
-use plonky2_field::field_types::Field;
+use num::Integer;
+use plonky2_field::field_types::{Field, PrimeField};
 use plonky2_field::secp256k1_base::Secp256K1Base;
 use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 use serde::{Deserialize, Serialize};
 
 use crate::curve::curve_types::{AffinePoint, Curve};
+use crate::curve::ecdsa::RecoveryId;
 
 #[derive(Debug, Copy, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Secp256K1;
@@ -36,6 +38,22 @@ const SECP256K1_GENERATOR_Y: Secp256K1Base = Secp256K1Base([
     0x5DA4FBFC0E1108A8,
     0x483ADA7726A3C465,
 ]);
+
+impl AffinePoint<Secp256K1> {
+    pub fn lift_x(x: Secp256K1Base, recovery_id: RecoveryId) -> Self {
+        let y = (x.cube() + Secp256K1::A * x + Secp256K1::B).sqrt();
+        let odd = y.to_canonical_biguint().is_odd();
+        if (recovery_id == RecoveryId::Odd) == odd {
+            Self { x, y, zero: false }
+        } else {
+            Self {
+                x,
+                y: -y,
+                zero: false,
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

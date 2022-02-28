@@ -85,7 +85,7 @@ mod tests {
 
         let pk_target = ECDSAPublicKeyTarget(builder.constant_affine_point(pk.0));
 
-        let sig = sign_message(msg, sk);
+        let (sig, _) = sign_message(msg, sk);
 
         let ECDSASignature { r, s } = sig;
         let r_target = builder.constant_nonnative(r);

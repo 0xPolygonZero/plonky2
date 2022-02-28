@@ -244,6 +244,12 @@ impl DivAssign for Secp256K1Base {
     }
 }
 
+impl Secp256K1Base {
+    pub fn sqrt(self) -> Self {
+        self.exp_biguint(&((Self::order() + BigUint::one()) / BigUint::from(4u64)))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::test_field_arithmetic;
