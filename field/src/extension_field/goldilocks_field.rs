@@ -1,7 +1,8 @@
 use plonky2_util::branch_hint;
+use static_assertions::const_assert;
 
 use crate::extension_field::Extendable;
-use crate::field_types::{Field64, Field};
+use crate::field_types::Field64;
 use crate::goldilocks_field::{reduce128, GoldilocksField};
 
 /// Reduce the value x_lo + x_hi * 2^128 to an element in the
@@ -99,6 +100,9 @@ fn ext2_add_prods1(a: &[u64; 2], b: &[u64; 2]) -> GoldilocksField {
 /// Multiply a and b considered as elements of GF(p^2).
 #[inline(always)]
 pub(crate) fn ext2_mul(a: [u64; 2], b: [u64; 2]) -> [GoldilocksField; 2] {
+    // The code above assumes the quadratic extension generator is 7.
+    const_assert!(<GoldilocksField as Extendable<2>>::W.0 == 7u64);
+
     let c0 = ext2_add_prods0(&a, &b);
     let c1 = ext2_add_prods1(&a, &b);
     [c0, c1]
@@ -122,6 +126,9 @@ pub(crate) fn ext2_add_sqrs0(a: &[u64; 2]) -> GoldilocksField {
 
 #[inline(always)]
 pub(crate) fn ext2_sqr(a: [u64; 2]) -> [GoldilocksField; 2] {
+    // The code above assumes the quadratic extension generator is 7.
+    const_assert!(<GoldilocksField as Extendable<2>>::W.0 == 7u64);
+
     let [a0, a1] = a;
 
     let c0 = ext2_add_sqrs0(&a);
@@ -260,6 +267,9 @@ fn ext4_add_prods3(a: &[u64; 4], b: &[u64; 4]) -> GoldilocksField {
 /// Multiply a and b considered as elements of GF(p^4).
 #[inline(always)]
 pub(crate) fn ext4_mul(a: [u64; 4], b: [u64; 4]) -> [GoldilocksField; 4] {
+    // The code above assumes the quartic extension generator is 7.
+    const_assert!(<GoldilocksField as Extendable<4>>::W.0 == 7u64);
+
     let c0 = ext4_add_prods0(&a, &b);
     let c1 = ext4_add_prods1(&a, &b);
     let c2 = ext4_add_prods2(&a, &b);
@@ -369,6 +379,9 @@ fn ext4_add_sqrs3(a: &[u64; 4]) -> GoldilocksField {
 /// Square a considered as an element of GF(p^4).
 #[inline(always)]
 pub(crate) fn ext4_sqr(a: [u64; 4]) -> [GoldilocksField; 4] {
+    // The code above assumes the quartic extension generator is 7.
+    const_assert!(<GoldilocksField as Extendable<4>>::W.0 == 7u64);
+
     let c0 = ext4_add_sqrs0(&a);
     let c1 = ext4_add_sqrs1(&a);
     let c2 = ext4_add_sqrs2(&a);
@@ -560,6 +573,9 @@ fn ext5_add_prods4(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 /// Multiply a and b considered as elements of GF(p^5).
 #[inline(always)]
 pub(crate) fn ext5_mul(a: [u64; 5], b: [u64; 5]) -> [GoldilocksField; 5] {
+    // The code above assumes the quartic extension generator is 3.
+    const_assert!(<GoldilocksField as Extendable<5>>::W.0 == 3u64);
+
     let c0 = ext5_add_prods0(&a, &b);
     let c1 = ext5_add_prods1(&a, &b);
     let c2 = ext5_add_prods2(&a, &b);
@@ -717,6 +733,9 @@ fn ext5_add_sqrs4(a: &[u64; 5]) -> GoldilocksField {
 /// Square a considered as an element of GF(p^5).
 #[inline(always)]
 pub(crate) fn ext5_sqr(a: [u64; 5]) -> [GoldilocksField; 5] {
+    // The code above assumes the quartic extension generator is 3.
+    const_assert!(<GoldilocksField as Extendable<5>>::W.0 == 3u64);
+
     let c0 = ext5_add_sqrs0(&a);
     let c1 = ext5_add_sqrs1(&a);
     let c2 = ext5_add_sqrs2(&a);
