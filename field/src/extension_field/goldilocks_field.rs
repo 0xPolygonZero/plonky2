@@ -733,18 +733,20 @@ mod tests {
 
         assert_eq!(
             reduce160(0xFFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_u128, 0u32),
-            GoldilocksField(0xFFFFFFFE_00000000_u64));
+            GoldilocksField(0xFFFFFFFE_00000000_u64)
+        );
+        assert_eq!(reduce160(0u128, 0xFFFFFFFFu32), GoldilocksField::ONE);
         assert_eq!(
-            reduce160(0u128, 0xFFFFFFFFu32),
-            GoldilocksField::ONE);
+            reduce160(0xFFFFFFFF_00000000_u128, 0xFFFFFFFF_u32),
+            GoldilocksField::ZERO
+        );
         assert_eq!(
-            reduce160(0xFFFFFFFF_00000000u128, 0xFFFFFFFFu32),
-            GoldilocksField::ZERO);
-        assert_eq!(
-            reduce160(0xFFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_u128, 0xFFFFFFFFu32),
-            GoldilocksField(0xFFFFFFFE_00000001u64));
+            reduce160(0xFFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_u128, 0xFFFFFFFF_u32),
+            GoldilocksField(0xFFFFFFFE_00000001_u64)
+        );
         assert_eq!(
             reduce160(0xFFFFFFFF_FFFFFFFF_80000000_00000000_u128, 1u32),
-            GoldilocksField(0x7FFFFFFD00000001u64));
+            GoldilocksField(0x7FFFFFFD00000001_u64)
+        );
     }
 }
