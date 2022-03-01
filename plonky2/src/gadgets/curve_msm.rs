@@ -29,11 +29,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         ));
         let rando = (CurveScalar(hash_0_scalar) * C::GENERATOR_PROJECTIVE).to_affine();
         let rando_t = self.constant_affine_point(rando);
-        let neg_rando = {
-            let mut neg = rando;
-            neg.y = -neg.y;
-            self.constant_affine_point(neg)
-        };
+        let neg_rando = self.constant_affine_point(-rando);
 
         let mut precomputation = vec![p.clone(); 16];
         let mut cur_p = rando_t.clone();
@@ -56,8 +52,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let four = self.constant(F::from_canonical_usize(4));
-        let starting_point_multiplied =
-            (0..C::ScalarField::BITS).fold(rando, |acc, _| acc.double());
 
         let zero = self.zero();
         let mut result = rando_t;
@@ -69,8 +63,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let should_add = self.not(is_zero);
             result = self.curve_conditional_add(&result, &r, should_add);
         }
-        let to_subtract = self.constant_affine_point(starting_point_multiplied);
-        let to_add = self.curve_neg(&to_subtract);
+        let starting_point_multiplied =
+            (0..C::ScalarField::BITS).fold(rando, |acc, _| acc.double());
+        let to_add = self.constant_affine_point(-starting_point_multiplied);
         result = self.curve_add(&result, &to_add);
 
         result
