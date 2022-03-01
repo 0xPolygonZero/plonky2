@@ -35,12 +35,13 @@ pub(crate) fn reduce160(x_lo: u128, x_hi: u32) -> GoldilocksField {
  * reductions are delayed until the end which means only one is necessary.
  */
 
-/// Return a, b such that a + b*2^128 = 3*x with a < 2^128 and b < 2^32.
+/// Return a, b such that a + b*2^128 = 2*x with a < 2^128 and b < 2^32.
 #[inline(always)]
-fn u128_times_2(x: u128) -> (u128, u64) {
-    (x << 1, (x >> 127) as u64)
+fn u128_times_2(x: u128) -> (u128, u32) {
+    (x << 1, (x >> 127) as u32)
 }
 
+/// Return a, b such that a + b*2^128 = 3*x with a < 2^128 and b < 2^32.
 #[inline(always)]
 fn u128_times_3(x: u128) -> (u128, u32) {
     let (s, cy) = x.overflowing_add(x << 1);
@@ -114,7 +115,7 @@ pub(crate) fn ext2_add_sqrs0(a: &[u64; 2]) -> GoldilocksField {
 
     // a0 * a0
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (a0 as u128));
-    cumul_hi += cy as u64;
+    cumul_hi += cy as u32;
 
     reduce160(cumul_lo, cumul_hi)
 }
@@ -125,7 +126,7 @@ pub(crate) fn ext2_sqr(a: [u64; 2]) -> [GoldilocksField; 2] {
 
     let c0 = ext2_add_sqrs0(&a);
     let (t, cy) = u128_times_2((a0 as u128) * (a1 as u128));
-    let c1 = reduce160(t, cy as u64);
+    let c1 = reduce160(t, cy as u32);
 
     [c0, c1]
 }
@@ -270,7 +271,7 @@ pub(crate) fn ext4_mul(a: [u64; 4], b: [u64; 4]) -> [GoldilocksField; 4] {
 fn ext4_add_sqrs0(a: &[u64; 4]) -> GoldilocksField {
     // Compute c0 = a0^2 + w * (2 * a1 * a3 + a2^2);
 
-    const W: u64 = <GoldilocksField as Extendable<4>>::W.0;
+    const W: u32 = <GoldilocksField as Extendable<4>>::W.0 as u32;
 
     let [a0, a1, a2, a3] = *a;
 
@@ -283,7 +284,7 @@ fn ext4_add_sqrs0(a: &[u64; 4]) -> GoldilocksField {
 
     // a2 * a2
     (cumul_lo, cy) = cumul_lo.overflowing_add((a2 as u128) * (a2 as u128));
-    let mut cumul_hi = over + cy as u64;
+    let mut cumul_hi = over + cy as u32;
 
     // * W
     (cumul_lo, over) = u128_times_7(cumul_lo);
@@ -291,7 +292,7 @@ fn ext4_add_sqrs0(a: &[u64; 4]) -> GoldilocksField {
 
     // a0 * a0
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (a0 as u128));
-    cumul_hi += cy as u64;
+    cumul_hi += cy as u32;
 
     reduce160(cumul_lo, cumul_hi)
 }
@@ -309,7 +310,7 @@ fn ext4_add_sqrs1(a: &[u64; 4]) -> GoldilocksField {
 
     // a0 * a1
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (a1 as u128));
-    cumul_hi += cy as u64;
+    cumul_hi += cy as u32;
 
     // * 2
     let over;
@@ -332,12 +333,12 @@ fn ext4_add_sqrs2(a: &[u64; 4]) -> GoldilocksField {
 
     // a1 * a1
     (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (a1 as u128));
-    cumul_hi += cy as u64;
+    cumul_hi += cy as u32;
 
     // 2 * a0 * a2
     let (lo, over) = u128_times_2((a0 as u128) * (a2 as u128));
     (cumul_lo, cy) = cumul_lo.overflowing_add(lo);
-    cumul_hi += over + cy as u64;
+    cumul_hi += over + cy as u32;
 
     reduce160(cumul_lo, cumul_hi)
 }
@@ -355,7 +356,7 @@ fn ext4_add_sqrs3(a: &[u64; 4]) -> GoldilocksField {
 
     // a1 * a2
     (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (a2 as u128));
-    let mut cumul_hi = cy as u64;
+    let mut cumul_hi = cy as u32;
 
     // * 2
     let over;
@@ -571,7 +572,7 @@ pub(crate) fn ext5_mul(a: [u64; 5], b: [u64; 5]) -> [GoldilocksField; 5] {
 fn ext5_add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
     // Compute c0 = a0^2 + 2 * w * (a1 * a4 + a2 * a3);
 
-    const W: u64 = <GoldilocksField as Extendable<5>>::W.0;
+    const W: u32 = <GoldilocksField as Extendable<5>>::W.0 as u32;
 
     let [a0, a1, a2, a3, a4] = *a;
 
@@ -582,7 +583,7 @@ fn ext5_add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
 
     // a2 * a3
     (cumul_lo, cy) = cumul_lo.overflowing_add((a2 as u128) * (a3 as u128));
-    let mut cumul_hi = cy as u64;
+    let mut cumul_hi = cy as u32;
 
     // * 2 * W
     let over1;
@@ -594,7 +595,7 @@ fn ext5_add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
 
     // a0 * a0
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (a0 as u128));
-    cumul_hi += cy as u64;
+    cumul_hi += cy as u32;
 
     reduce160(cumul_lo, cumul_hi)
 }
@@ -603,7 +604,7 @@ fn ext5_add_sqrs0(a: &[u64; 5]) -> GoldilocksField {
 fn ext5_add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
     // Compute c1 = 2 * a0 * a1 + 2 * w * a2 * a4 + w * a3 * a3;
 
-    const W: u64 = <GoldilocksField as Extendable<5>>::W.0;
+    const W: u32 = <GoldilocksField as Extendable<5>>::W.0 as u32;
 
     let [a0, a1, a2, a3, a4] = *a;
 
@@ -615,7 +616,7 @@ fn ext5_add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
     // 2 * a2 * a4
     let (prod, top_bit) = u128_times_2((a2 as u128) * (a4 as u128));
     (cumul_lo, cy) = cumul_lo.overflowing_add(prod);
-    let mut cumul_hi = cy as u64 + top_bit;
+    let mut cumul_hi = cy as u32 + top_bit;
 
     // * W
     let over;
@@ -625,7 +626,7 @@ fn ext5_add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
     // 2 * a0 * a1
     let (prod, top_bit) = u128_times_2((a0 as u128) * (a1 as u128));
     (cumul_lo, cy) = cumul_lo.overflowing_add(prod);
-    cumul_hi += cy as u64 + top_bit;
+    cumul_hi += cy as u32 + top_bit;
 
     reduce160(cumul_lo, cumul_hi)
 }
@@ -634,7 +635,7 @@ fn ext5_add_sqrs1(a: &[u64; 5]) -> GoldilocksField {
 fn ext5_add_sqrs2(a: &[u64; 5]) -> GoldilocksField {
     // Compute c2 = 2 * a0 * a2 + a1 * a1 + 2 * w * a4 * a3;
 
-    const W: u64 = <GoldilocksField as Extendable<5>>::W.0;
+    const W: u32 = <GoldilocksField as Extendable<5>>::W.0 as u32;
 
     let [a0, a1, a2, a3, a4] = *a;
 
@@ -648,12 +649,12 @@ fn ext5_add_sqrs2(a: &[u64; 5]) -> GoldilocksField {
 
     // a1 * a1
     (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (a1 as u128));
-    cumul_hi += cy as u64;
+    cumul_hi += cy as u32;
 
     // 2 * a0 * a2
     let (prod, top_bit) = u128_times_2((a0 as u128) * (a2 as u128));
     (cumul_lo, cy) = cumul_lo.overflowing_add(prod);
-    cumul_hi += cy as u64 + top_bit;
+    cumul_hi += cy as u32 + top_bit;
 
     reduce160(cumul_lo, cumul_hi)
 }
@@ -671,7 +672,7 @@ fn ext5_add_sqrs3(a: &[u64; 5]) -> GoldilocksField {
 
     // a0 * a3
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (a3 as u128));
-    let mut cumul_hi = cy as u64;
+    let mut cumul_hi = cy as u32;
 
     // * 2
     let over;
@@ -681,7 +682,7 @@ fn ext5_add_sqrs3(a: &[u64; 5]) -> GoldilocksField {
     // W * a4 * a4
     let (prod, over) = u128_times_3((a4 as u128) * (a4 as u128));
     (cumul_lo, cy) = cumul_lo.overflowing_add(prod);
-    cumul_hi += cy as u64 + over;
+    cumul_hi += cy as u32 + over;
 
     reduce160(cumul_lo, cumul_hi)
 }
@@ -699,7 +700,7 @@ fn ext5_add_sqrs4(a: &[u64; 5]) -> GoldilocksField {
 
     // a1 * a3
     (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (a3 as u128));
-    let mut cumul_hi = cy as u64;
+    let mut cumul_hi = cy as u32;
 
     // * 2
     let over;
@@ -708,7 +709,7 @@ fn ext5_add_sqrs4(a: &[u64; 5]) -> GoldilocksField {
 
     // a2 * a2
     (cumul_lo, cy) = cumul_lo.overflowing_add((a2 as u128) * (a2 as u128));
-    cumul_hi += cy as u64;
+    cumul_hi += cy as u32;
 
     reduce160(cumul_lo, cumul_hi)
 }
