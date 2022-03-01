@@ -5,10 +5,8 @@ use crate::extension_field::Extendable;
 use crate::field_types::Field64;
 use crate::goldilocks_field::{reduce128, GoldilocksField};
 
-// FIXME: Need a test that triggers the carry branch
 #[inline(always)]
-fn reduce160(x_lo: u128, x_hi: u32) -> GoldilocksField {
-
+pub(crate) fn reduce160(x_lo: u128, x_hi: u32) -> GoldilocksField {
     // for t = 1 .. 2^32-1, t*2^128 % p == p - (t << 32)
     let hi = <GoldilocksField as Field64>::ORDER - ((x_hi as u64) << 32);
     // hi is not reduced if x_hi was 0.
@@ -431,4 +429,34 @@ pub(crate) fn ext5_mul(a: [u64; 5], b: [u64; 5]) -> [GoldilocksField; 5] {
     let c3 = ext5_add_prods3(&a, &b);
     let c4 = ext5_add_prods4(&a, &b);
     [c0, c1, c2, c3, c4]
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::extension_field::goldilocks_field::reduce160;
+    use crate::field_types::Field;
+    use crate::goldilocks_field::GoldilocksField;
+
+    #[test]
+    fn test_reduce160() {
+        assert_eq!(reduce160(0u128, 0u32), GoldilocksField::ZERO);
+        assert_eq!(reduce160(1u128, 0u32), GoldilocksField::ONE);
+
+        assert_eq!(
+            reduce160(0xFFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_u128, 0u32),
+            GoldilocksField(0xFFFFFFFE_00000000_u64));
+        assert_eq!(
+            reduce160(0u128, 0xFFFFFFFFu32),
+            GoldilocksField::ONE);
+        assert_eq!(
+            reduce160(0xFFFFFFFF_00000000u128, 0xFFFFFFFFu32),
+            GoldilocksField::ZERO);
+        assert_eq!(
+            reduce160(0xFFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_u128, 0xFFFFFFFFu32),
+            GoldilocksField(0xFFFFFFFE_00000001u64));
+        assert_eq!(
+            reduce160(0xFFFFFFFF_FFFFFFFF_80000000_00000000_u128, 1u32),
+            GoldilocksField(0x7FFFFFFD00000001u64));
+    }
 }
