@@ -2,12 +2,14 @@ use std::marker::PhantomData;
 
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::packed_field::PackedField;
+use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
+use crate::util::trace_rows_to_poly_values;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// Toy STARK system used for testing.
@@ -37,8 +39,8 @@ impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
     }
 
     /// Generate the trace using `x0, x1, 0, 1` as initial state values.
-    fn generate_trace(&self, x0: F, x1: F) -> Vec<[F; Self::COLUMNS]> {
-        let mut trace = (0..self.num_rows)
+    fn generate_trace(&self, x0: F, x1: F) -> Vec<PolynomialValues<F>> {
+        let mut trace_rows = (0..self.num_rows)
             .scan([x0, x1, F::ZERO, F::ONE], |acc, _| {
                 let tmp = *acc;
                 acc[0] = tmp[1];
@@ -48,8 +50,8 @@ impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
                 Some(tmp)
             })
             .collect::<Vec<_>>();
-        trace[self.num_rows - 1][3] = F::ZERO; // So that column 2 and 3 are permutation of one another.
-        trace
+        trace_rows[self.num_rows - 1][3] = F::ZERO; // So that column 2 and 3 are permutation of one another.
+        trace_rows_to_poly_values(trace_rows)
     }
 }
 
@@ -113,9 +115,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
     }
 
     fn permutation_pairs(&self) -> Vec<PermutationPair> {
-        vec![PermutationPair {
-            column_pairs: vec![(2, 3)],
-        }]
+        vec![PermutationPair::singletons(2, 3)]
     }
 }
 
