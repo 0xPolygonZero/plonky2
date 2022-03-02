@@ -19,6 +19,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.constant_nonnative(BETA)
     }
 
+    // TODO: Add decomposition check.
     pub fn decompose_secp256k1_scalar(
         &mut self,
         k: &NonNativeTarget<Secp256K1Scalar>,
@@ -59,12 +60,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             y: p.y.clone(),
         };
 
-        let part1 = self.curve_scalar_mul_windowed(p, &k1);
-        let part1_neg = self.curve_conditional_neg(&part1, k1_neg);
-        let part2 = self.curve_scalar_mul_windowed(&sp, &k2);
-        let part2_neg = self.curve_conditional_neg(&part2, k2_neg);
-
-        self.curve_add(&part1_neg, &part2_neg)
+        // let part1 = self.curve_scalar_mul_windowed(p, &k1);
+        // let part1_neg = self.curve_conditional_neg(&part1, k1_neg);
+        // let part2 = self.curve_scalar_mul_windowed(&sp, &k2);
+        // let part2_neg = self.curve_conditional_neg(&part2, k2_neg);
+        //
+        // self.curve_add(&part1_neg, &part2_neg)
+        // dbg!(k1.value.limbs.len());
+        // dbg!(k2.value.limbs.len());
+        let p_neg = self.curve_conditional_neg(&p, k1_neg);
+        let sp_neg = self.curve_conditional_neg(&sp, k2_neg);
+        // let yo = self.curve_scalar_mul_windowed(&p_neg, &k1);
+        // let ya = self.curve_scalar_mul_windowed(&sp_neg, &k2);
+        // dbg!(&yo);
+        // dbg!(&ya);
+        // self.connect_affine_point(&part1_neg, &yo);
+        // self.connect_affine_point(&part2_neg, &ya);
+        self.curve_msm(&p_neg, &sp_neg, &k1, &k2)
+        // self.curve_add(&yo, &ya)
     }
 }
 
@@ -105,7 +118,7 @@ mod tests {
     use crate::curve::curve_types::{Curve, CurveScalar};
     use crate::curve::glv::glv_mul;
     use crate::curve::secp256k1::Secp256K1;
-    use crate::iop::witness::PartialWitness;
+    use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
@@ -134,6 +147,43 @@ mod tests {
         let actual = builder.glv_mul(&randot, &scalar_target);
         builder.connect_affine_point(&expected, &actual);
 
+        dbg!(builder.num_gates());
+        let data = builder.build::<C>();
+        let proof = data.prove(pw).unwrap();
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    fn test_wtf() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let config = CircuitConfig::standard_ecc_config();
+
+        let mut pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let rando =
+            (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
+        let randot = builder.constant_affine_point(rando);
+
+        let scalar = Secp256K1Scalar::rand();
+        let scalar_target = builder.constant_nonnative(scalar);
+
+        let tr = builder.add_virtual_bool_target();
+        pw.set_bool_target(tr, false);
+
+        let randotneg = builder.curve_conditional_neg(&randot, tr);
+        let y = builder.curve_scalar_mul_windowed(&randotneg, &scalar_target);
+
+        let yy = builder.curve_scalar_mul_windowed(&randot, &scalar_target);
+        let yy = builder.curve_conditional_neg(&yy, tr);
+
+        builder.connect_affine_point(&y, &yy);
+
+        dbg!(builder.num_gates());
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
