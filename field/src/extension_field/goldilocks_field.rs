@@ -95,7 +95,8 @@ fn ext2_add_prods1(a: &[u64; 2], b: &[u64; 2]) -> GoldilocksField {
 /// Multiply a and b considered as elements of GF(p^2).
 #[inline(always)]
 pub(crate) fn ext2_mul(a: [u64; 2], b: [u64; 2]) -> [GoldilocksField; 2] {
-    // The code above assumes the quadratic extension generator is 7.
+    // The code in ext2_add_prods[01] assumes the quadratic extension
+    // generator is 7.
     const_assert!(<GoldilocksField as Extendable<2>>::W.0 == 7u64);
 
     let c0 = ext2_add_prods0(&a, &b);
@@ -232,7 +233,8 @@ fn ext4_add_prods3(a: &[u64; 4], b: &[u64; 4]) -> GoldilocksField {
 /// Multiply a and b considered as elements of GF(p^4).
 #[inline(always)]
 pub(crate) fn ext4_mul(a: [u64; 4], b: [u64; 4]) -> [GoldilocksField; 4] {
-    // The code above assumes the quartic extension generator is 7.
+    // The code in ext4_add_prods[0-3] assumes the quartic extension
+    // generator is 7.
     const_assert!(<GoldilocksField as Extendable<4>>::W.0 == 7u64);
 
     let c0 = ext4_add_prods0(&a, &b);
@@ -425,7 +427,8 @@ fn ext5_add_prods4(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
 /// Multiply a and b considered as elements of GF(p^5).
 #[inline(always)]
 pub(crate) fn ext5_mul(a: [u64; 5], b: [u64; 5]) -> [GoldilocksField; 5] {
-    // The code above assumes the quintic extension generator is 3.
+    // The code in ext5_add_prods[0-4] assumes the quintic extension
+    // generator is 3.
     const_assert!(<GoldilocksField as Extendable<5>>::W.0 == 3u64);
 
     let c0 = ext5_add_prods0(&a, &b);
@@ -448,21 +451,21 @@ mod tests {
         assert_eq!(reduce160(1u128, 0u32), GoldilocksField::ONE);
 
         assert_eq!(
-            reduce160(0xFFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_u128, 0u32),
-            GoldilocksField(0xFFFFFFFE_00000000_u64)
+            reduce160(0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_u128, 0u32),
+            GoldilocksField(0xFFFF_FFFE_0000_0000_u64)
         );
-        assert_eq!(reduce160(0u128, 0xFFFFFFFFu32), GoldilocksField::ONE);
+        assert_eq!(reduce160(0u128, 0xFFFF_FFFFu32), GoldilocksField::ONE);
         assert_eq!(
-            reduce160(0xFFFFFFFF_00000000_u128, 0xFFFFFFFF_u32),
+            reduce160(0xFFFF_FFFF_0000_0000_u128, 0xFFFF_FFFF_u32),
             GoldilocksField::ZERO
         );
         assert_eq!(
-            reduce160(0xFFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_u128, 0xFFFFFFFF_u32),
-            GoldilocksField(0xFFFFFFFE_00000001_u64)
+            reduce160(0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_u128, 0xFFFF_FFFF_u32),
+            GoldilocksField(0xFFFF_FFFE_0000_0001_u64)
         );
         assert_eq!(
-            reduce160(0xFFFFFFFF_FFFFFFFF_80000000_00000000_u128, 1u32),
-            GoldilocksField(0x7FFFFFFD00000001_u64)
+            reduce160(0xFFFF_FFFF_FFFF_FFFF_8000_0000_0000_0000_u128, 1u32),
+            GoldilocksField(0x7FFF_FFFD_0000_0001_u64)
         );
     }
 }
