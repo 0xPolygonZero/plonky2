@@ -8,14 +8,14 @@ use crate::curve::curve_msm::msm_parallel;
 use crate::curve::curve_types::{AffinePoint, ProjectivePoint};
 use crate::curve::secp256k1::Secp256K1;
 
-pub const BETA: Secp256K1Base = Secp256K1Base([
+pub const GLV_BETA: Secp256K1Base = Secp256K1Base([
     13923278643952681454,
     11308619431505398165,
     7954561588662645993,
     8856726876819556112,
 ]);
 
-const S: Secp256K1Scalar = Secp256K1Scalar([
+pub const GLV_S: Secp256K1Scalar = Secp256K1Scalar([
     16069571880186789234,
     1310022930574435960,
     11900229862571533402,
@@ -52,7 +52,7 @@ pub fn decompose_secp256k1_scalar(
 
     let k1_raw = k - c1 * A1 - c2 * A2;
     let k2_raw = c1 * MINUS_B1 - c2 * B2;
-    debug_assert!(k1_raw + S * k2_raw == k);
+    debug_assert!(k1_raw + GLV_S * k2_raw == k);
 
     let two = BigUint::from_slice(&[2]);
     let k1_neg = k1_raw.to_canonical_biguint() > p.clone() / two.clone();
@@ -80,7 +80,7 @@ pub fn glv_mul(p: ProjectivePoint<Secp256K1>, k: Secp256K1Scalar) -> ProjectiveP
 
     let p_affine = p.to_affine();
     let sp = AffinePoint::<Secp256K1> {
-        x: p_affine.x * BETA,
+        x: p_affine.x * GLV_BETA,
         y: p_affine.y,
         zero: p_affine.zero,
     };
@@ -102,7 +102,7 @@ mod tests {
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
     use crate::curve::curve_types::{Curve, CurveScalar};
-    use crate::curve::glv::{decompose_secp256k1_scalar, glv_mul, S};
+    use crate::curve::glv::{decompose_secp256k1_scalar, glv_mul, GLV_S};
     use crate::curve::secp256k1::Secp256K1;
 
     #[test]
@@ -113,7 +113,7 @@ mod tests {
         let m1 = if k1_neg { -one } else { one };
         let m2 = if k2_neg { -one } else { one };
 
-        assert!(k1 * m1 + S * k2 * m2 == k);
+        assert!(k1 * m1 + GLV_S * k2 * m2 == k);
 
         Ok(())
     }

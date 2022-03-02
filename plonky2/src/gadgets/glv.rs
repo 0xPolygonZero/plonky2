@@ -4,7 +4,7 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_field::secp256k1_base::Secp256K1Base;
 use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
-use crate::curve::glv::{decompose_secp256k1_scalar, BETA};
+use crate::curve::glv::{decompose_secp256k1_scalar, GLV_BETA, GLV_S};
 use crate::curve::secp256k1::Secp256K1;
 use crate::gadgets::curve::AffinePointTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
@@ -16,7 +16,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn secp256k1_glv_beta(&mut self) -> NonNativeTarget<Secp256K1Base> {
-        self.constant_nonnative(BETA)
+        self.constant_nonnative(GLV_BETA)
     }
 
     // TODO: Add decomposition check.
@@ -43,7 +43,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             _phantom: PhantomData,
         });
 
-        // debug_assert!(k1_raw + S * k2_raw == k);
+        // Check that `k1_raw + GLV_S * k2_raw == k`.
+        let k1_raw = self.nonnative_conditional_neg(&k1, k1_neg);
+        let k2_raw = self.nonnative_conditional_neg(&k2, k2_neg);
+        let s = self.constant_nonnative(GLV_S);
+        let mut should_be_k = self.mul_nonnative(&s, &k2_raw);
+        should_be_k = self.add_nonnative(&should_be_k, &k1_raw);
+        self.connect_nonnative(&should_be_k, &k);
 
         (k1, k2, k1_neg, k2_neg)
     }

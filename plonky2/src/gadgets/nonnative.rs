@@ -338,6 +338,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         result
     }
+
+    pub fn nonnative_conditional_neg<FF: PrimeField>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+        b: BoolTarget,
+    ) -> NonNativeTarget<FF> {
+        let not_b = self.not(b);
+        let neg = self.neg_nonnative(x);
+        let x_if_true = self.mul_nonnative_by_bool(&neg, b);
+        let x_if_false = self.mul_nonnative_by_bool(x, not_b);
+
+        self.add_nonnative(&x_if_true, &x_if_false)
+    }
 }
 
 #[derive(Debug)]
