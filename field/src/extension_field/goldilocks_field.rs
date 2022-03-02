@@ -460,7 +460,10 @@ mod tests {
             GoldilocksField::ZERO
         );
         assert_eq!(
-            reduce160(0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_u128, 0xFFFF_FFFF_u32),
+            reduce160(
+                0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_u128,
+                0xFFFF_FFFF_u32
+            ),
             GoldilocksField(0xFFFF_FFFE_0000_0001_u64)
         );
         assert_eq!(
