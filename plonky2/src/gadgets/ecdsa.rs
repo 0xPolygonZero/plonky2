@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
 
+use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
+
 use crate::curve::curve_types::Curve;
+use crate::curve::secp256k1::Secp256K1;
 use crate::field::extension_field::Extendable;
 use crate::gadgets::curve::AffinePointTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
@@ -20,11 +23,11 @@ pub struct ECDSASignatureTarget<C: Curve> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn verify_message<C: Curve>(
+    pub fn verify_message(
         &mut self,
-        msg: NonNativeTarget<C::ScalarField>,
-        sig: ECDSASignatureTarget<C>,
-        pk: ECDSAPublicKeyTarget<C>,
+        msg: NonNativeTarget<Secp256K1Scalar>,
+        sig: ECDSASignatureTarget<Secp256K1>,
+        pk: ECDSAPublicKeyTarget<Secp256K1>,
     ) {
         let ECDSASignatureTarget { r, s } = sig;
 
@@ -34,12 +37,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let u1 = self.mul_nonnative(&msg, &c);
         let u2 = self.mul_nonnative(&r, &c);
 
-        let g = self.constant_affine_point(C::GENERATOR_AFFINE);
-        let point1 = self.curve_scalar_mul_windowed(&g, &u1);
-        let point2 = self.curve_scalar_mul_windowed(&pk.0, &u2);
+        let point1 = self.fixed_base_curve_mul(&Secp256K1::GENERATOR_AFFINE, &u1);
+        let point2 = self.glv_mul(&pk.0, &u2);
         let point = self.curve_add(&point1, &point2);
 
-        let x = NonNativeTarget::<C::ScalarField> {
+        let x = NonNativeTarget::<Secp256K1Scalar> {
             value: point.x.value,
             _phantom: PhantomData,
         };
