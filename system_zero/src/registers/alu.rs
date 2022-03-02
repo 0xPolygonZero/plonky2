@@ -34,6 +34,19 @@ pub(crate) const COL_ADD_OUTPUT_1: usize = super::range_check_16::col_rc_16_inpu
 /// The third 16-bit chunk of the output, based on little-endian ordering.
 pub(crate) const COL_ADD_OUTPUT_2: usize = super::range_check_16::col_rc_16_input(2);
 
+/// Inputs for subtraction; the second value is subtracted from the
+/// first; inputs treated as an unsigned u32.
+pub(crate) const COL_SUB_INPUT_0: usize = shared_col(0);
+pub(crate) const COL_SUB_INPUT_1: usize = shared_col(1);
+
+// FIXME: Check whether comment above for addition outputs applies here too.
+/// The first 16-bit chunk of the output, based on little-endian ordering.
+pub(crate) const COL_SUB_OUTPUT_0: usize = super::range_check_16::col_rc_16_input(0);
+/// The second 16-bit chunk of the output, based on little-endian ordering.
+pub(crate) const COL_SUB_OUTPUT_1: usize = super::range_check_16::col_rc_16_input(1);
+/// The borrow output
+pub(crate) const COL_SUB_OUTPUT_2: usize = super::boolean::col_bit(2);
+
 /// The first value to be multiplied; treated as an unsigned u32.
 pub(crate) const COL_MUL_ADD_FACTOR_0: usize = shared_col(0);
 /// The second value to be multiplied; treated as an unsigned u32.
