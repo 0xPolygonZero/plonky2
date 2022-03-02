@@ -454,7 +454,7 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
         let b_biguint = b.to_canonical_biguint();
 
         let modulus = FF::order();
-        let (diff_biguint, overflow) = if a_biguint > b_biguint {
+        let (diff_biguint, overflow) = if a_biguint >= b_biguint {
             (a_biguint - b_biguint, false)
         } else {
             (modulus + a_biguint - b_biguint, true)

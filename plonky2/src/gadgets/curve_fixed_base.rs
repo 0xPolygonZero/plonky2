@@ -11,6 +11,8 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{GenericHashOut, Hasher};
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    /// Do windowed fixed-base scalar multiplication, using a 4-bit window.
+    // TODO: Benchmark other window sizes.
     pub fn fixed_base_curve_mul<C: Curve>(
         &mut self,
         base: &AffinePoint<C>,

@@ -89,6 +89,68 @@ pub(crate) fn generate_partial_witness<
         }
 
         pending_generator_indices = next_pending_generator_indices;
+        // for t in [
+        //     Target::VirtualTarget { index: 57934 },
+        //     Target::VirtualTarget { index: 57935 },
+        //     Target::VirtualTarget { index: 57936 },
+        //     Target::VirtualTarget { index: 57937 },
+        //     Target::VirtualTarget { index: 57938 },
+        //     Target::VirtualTarget { index: 57939 },
+        //     Target::VirtualTarget { index: 57940 },
+        //     Target::VirtualTarget { index: 57941 },
+        // ] {
+        //     if let Some(v) = witness.try_get_target(t) {
+        //         println!("a {}", v);
+        //     }
+        // }
+        // for t in [
+        //     Target::VirtualTarget { index: 57952 },
+        //     Target::VirtualTarget { index: 57953 },
+        //     Target::VirtualTarget { index: 57954 },
+        //     Target::VirtualTarget { index: 57955 },
+        //     Target::VirtualTarget { index: 57956 },
+        //     Target::VirtualTarget { index: 57957 },
+        //     Target::VirtualTarget { index: 57958 },
+        //     Target::VirtualTarget { index: 57959 },
+        // ] {
+        //     if let Some(v) = witness.try_get_target(t) {
+        //         println!("b {}", v);
+        //     }
+        // }
+        //
+        // let t = Target::Wire(Wire {
+        //     gate: 141_857,
+        //     input: 8,
+        // });
+        // if let Some(v) = witness.try_get_target(t) {
+        //     println!("prod_exp {}", v);
+        // }
+        // let t = Target::Wire(Wire {
+        //     gate: 141_863,
+        //     input: 22,
+        // });
+        // if let Some(v) = witness.try_get_target(t) {
+        //     println!("prod act {}", v);
+        // }
+        // let t = Target::Wire(Wire { gate: 9, input: 3 });
+        // if let Some(v) = witness.try_get_target(t) {
+        //     println!("modulus {}", v);
+        // }
+        // let t = Target::VirtualTarget { index: 57_976 };
+        // if let Some(v) = witness.try_get_target(t) {
+        //     println!("overflow {}", v);
+        // }
+        // let t = Target::Wire(Wire {
+        //     gate: 141_885,
+        //     input: 8,
+        // });
+        // if let Some(v) = witness.try_get_target(t) {
+        //     println!("mod time ov {}", v);
+        // }
+        // let t = Target::VirtualTarget { index: 57_968 };
+        // if let Some(v) = witness.try_get_target(t) {
+        //     println!("prod {}", v);
+        // }
     }
 
     assert_eq!(
