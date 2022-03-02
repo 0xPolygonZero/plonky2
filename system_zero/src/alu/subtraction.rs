@@ -21,7 +21,7 @@ pub(crate) fn generate_subtraction<F: PrimeField64>(values: &mut [F; NUM_COLUMNS
 
     values[COL_SUB_OUTPUT_0] = F::from_canonical_u16(diff as u16);
     values[COL_SUB_OUTPUT_1] = F::from_canonical_u16((diff >> 16) as u16);
-    values[COL_SUB_OUTPUT_2] = F::from_canonical_u16(br as u16);
+    values[COL_SUB_OUTPUT_BORROW] = F::from_canonical_u16(br as u16);
 }
 
 pub(crate) fn eval_subtraction<F: Field, P: PackedField<Scalar = F>>(
@@ -33,7 +33,7 @@ pub(crate) fn eval_subtraction<F: Field, P: PackedField<Scalar = F>>(
     let in_2 = local_values[COL_SUB_INPUT_1];
     let out_1 = local_values[COL_SUB_OUTPUT_0];
     let out_2 = local_values[COL_SUB_OUTPUT_1];
-    let out_br = local_values[COL_SUB_OUTPUT_2];
+    let out_br = local_values[COL_SUB_OUTPUT_BORROW];
 
     let base = F::from_canonical_u64(1 << 16);
     let base_sqr = F::from_canonical_u64(1 << 32);
@@ -48,7 +48,8 @@ pub(crate) fn eval_subtraction<F: Field, P: PackedField<Scalar = F>>(
     // subtract in_1; the result then should be zero.
     yield_constr.constraint(is_sub * ((out + in_2) - in_1));
 
-    yield_constr.constraint(is_sub * out_br * (P::ONES - out_br));
+    // We don't need to check that out_br is in {0, 1} because it's
+    // checked by boolean::col_bit(2) in the ALU.
 }
 
 pub(crate) fn eval_subtraction_recursively<F: RichField + Extendable<D>, const D: usize>(
@@ -61,7 +62,7 @@ pub(crate) fn eval_subtraction_recursively<F: RichField + Extendable<D>, const D
     let in_2 = local_values[COL_SUB_INPUT_1];
     let out_1 = local_values[COL_SUB_OUTPUT_0];
     let out_2 = local_values[COL_SUB_OUTPUT_1];
-    let out_br = local_values[COL_SUB_OUTPUT_2];
+    let out_br = local_values[COL_SUB_OUTPUT_BORROW];
 
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << 16));
     let base_sqr = builder.constant_extension(F::Extension::from_canonical_u64(1 << 32));
@@ -81,13 +82,4 @@ pub(crate) fn eval_subtraction_recursively<F: RichField + Extendable<D>, const D
     let filtered_diff = builder.mul_extension(is_sub, diff);
 
     yield_constr.constraint(builder, filtered_diff);
-
-    let one = builder.one_extension();
-    // not_out_br = 1 - out_br
-    let not_out_br = builder.sub_extension(one, out_br);
-    // br = out_br * (1 - out_br)
-    let br = builder.mul_extension(out_br, not_out_br);
-    // filtered_br = is_sub * out_br * (1 - out_br)
-    let filtered_br = builder.mul_extension(is_sub, br);
-    yield_constr.constraint(builder, filtered_br);
 }
