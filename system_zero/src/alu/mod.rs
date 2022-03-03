@@ -28,7 +28,7 @@ pub(crate) fn generate_alu<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
         generate_addition(values);
     } else if values[IS_SUB].is_one() {
         generate_subtraction(values);
-    } else if values[IS_MUL].is_one() {
+    } else if values[IS_MUL_ADD].is_one() {
         generate_mul_add(values);
     } else if values[IS_DIV].is_one() {
         generate_division(values);
@@ -42,7 +42,7 @@ pub(crate) fn eval_alu<F: Field, P: PackedField<Scalar = F>>(
     let local_values = &vars.local_values;
 
     // Check that the operation flag values are binary.
-    for col in [IS_ADD, IS_SUB, IS_MUL, IS_DIV] {
+    for col in [IS_ADD, IS_SUB, IS_MUL_ADD, IS_DIV] {
         let val = local_values[col];
         yield_constr.constraint(val * val - val);
     }
@@ -61,7 +61,7 @@ pub(crate) fn eval_alu_recursively<F: RichField + Extendable<D>, const D: usize>
     let local_values = &vars.local_values;
 
     // Check that the operation flag values are binary.
-    for col in [IS_ADD, IS_SUB, IS_MUL, IS_DIV] {
+    for col in [IS_ADD, IS_SUB, IS_MUL_ADD, IS_DIV] {
         let val = local_values[col];
         let constraint = builder.mul_sub_extension(val, val, val);
         yield_constr.constraint(builder, constraint);
