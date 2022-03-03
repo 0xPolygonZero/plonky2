@@ -15,6 +15,7 @@ pub mod cosets;
 pub mod extension_field;
 pub mod fft;
 pub mod field_types;
+pub mod goldilocks_extensions;
 pub mod goldilocks_field;
 pub mod interpolation;
 mod inversion;

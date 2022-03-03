@@ -3,7 +3,6 @@ use std::convert::TryInto;
 use crate::field_types::Field;
 
 pub mod algebra;
-pub mod goldilocks_field;
 pub mod quadratic;
 pub mod quartic;
 pub mod quintic;

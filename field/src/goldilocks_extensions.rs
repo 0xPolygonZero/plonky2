@@ -1,7 +1,108 @@
+use std::ops::Mul;
+
 use static_assertions::const_assert;
 
-use crate::extension_field::Extendable;
+use crate::extension_field::quadratic::QuadraticExtension;
+use crate::extension_field::quartic::QuarticExtension;
+use crate::extension_field::quintic::QuinticExtension;
+use crate::extension_field::{Extendable, Frobenius};
+use crate::field_types::Field;
 use crate::goldilocks_field::{reduce160, GoldilocksField};
+
+impl Frobenius<1> for GoldilocksField {}
+
+impl Extendable<2> for GoldilocksField {
+    type Extension = QuadraticExtension<Self>;
+
+    // Verifiable in Sage with
+    // `R.<x> = GF(p)[]; assert (x^2 - 7).is_irreducible()`.
+    const W: Self = Self(7);
+
+    // DTH_ROOT = W^((ORDER - 1)/2)
+    const DTH_ROOT: Self = Self(18446744069414584320);
+
+    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 2] =
+        [Self(18081566051660590251), Self(16121475356294670766)];
+
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 2] = [Self(0), Self(15659105665374529263)];
+}
+
+impl Mul for QuadraticExtension<GoldilocksField> {
+    #[inline]
+    fn mul(self, rhs: Self) -> Self {
+        let Self([a0, a1]) = self;
+        let Self([b0, b1]) = rhs;
+        let c = ext2_mul([a0.0, a1.0], [b0.0, b1.0]);
+        Self(c)
+    }
+}
+
+impl Extendable<4> for GoldilocksField {
+    type Extension = QuarticExtension<Self>;
+
+    const W: Self = Self(7);
+
+    // DTH_ROOT = W^((ORDER - 1)/4)
+    const DTH_ROOT: Self = Self(281474976710656);
+
+    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 4] = [
+        Self(5024755240244648895),
+        Self(13227474371289740625),
+        Self(3912887029498544536),
+        Self(3900057112666848848),
+    ];
+
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 4] =
+        [Self(0), Self(0), Self(0), Self(12587610116473453104)];
+}
+
+impl Mul for QuarticExtension<GoldilocksField> {
+    #[inline]
+    fn mul(self, rhs: Self) -> Self {
+        let Self([a0, a1, a2, a3]) = self;
+        let Self([b0, b1, b2, b3]) = rhs;
+        let c = ext4_mul([a0.0, a1.0, a2.0, a3.0], [b0.0, b1.0, b2.0, b3.0]);
+        Self(c)
+    }
+}
+
+impl Extendable<5> for GoldilocksField {
+    type Extension = QuinticExtension<Self>;
+
+    const W: Self = Self(3);
+
+    // DTH_ROOT = W^((ORDER - 1)/5)
+    const DTH_ROOT: Self = Self(1041288259238279555);
+
+    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 5] = [
+        Self(2899034827742553394),
+        Self(13012057356839176729),
+        Self(14593811582388663055),
+        Self(7722900811313895436),
+        Self(4557222484695340057),
+    ];
+
+    const EXT_POWER_OF_TWO_GENERATOR: [Self; 5] = [
+        Self::POWER_OF_TWO_GENERATOR,
+        Self(0),
+        Self(0),
+        Self(0),
+        Self(0),
+    ];
+}
+
+impl Mul for QuinticExtension<GoldilocksField> {
+    #[inline]
+    fn mul(self, rhs: Self) -> Self {
+        let Self([a0, a1, a2, a3, a4]) = self;
+        let Self([b0, b1, b2, b3, b4]) = rhs;
+        let c = ext5_mul(
+            [a0.0, a1.0, a2.0, a3.0, a4.0],
+            [b0.0, b1.0, b2.0, b3.0, b4.0],
+        );
+        Self(c)
+    }
+}
 
 /*
  * The functions extD_add_prods[0-4] are helper functions for
