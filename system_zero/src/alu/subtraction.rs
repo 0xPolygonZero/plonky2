@@ -4,7 +4,6 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::plonk_common::reduce_with_powers_ext_recursive;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 use crate::registers::alu::*;
@@ -64,10 +63,8 @@ pub(crate) fn eval_subtraction_recursively<F: RichField + Extendable<D>, const D
     let out_2 = local_values[COL_SUB_OUTPUT_1];
     let out_br = local_values[COL_SUB_OUTPUT_BORROW];
 
-    let base = builder.constant_extension(
-        F::Extension::from_canonical_u64(1 << 16));
-    let base_sqr = builder.constant_extension(
-        F::Extension::from_canonical_u64(1 << 32));
+    let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << 16));
+    let base_sqr = builder.constant_extension(F::Extension::from_canonical_u64(1 << 32));
 
     // rhs = out_1 + base * out_2
     let rhs = builder.mul_add_extension(out_2, base, out_1);
