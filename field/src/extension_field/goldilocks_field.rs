@@ -2,13 +2,13 @@ use plonky2_util::branch_hint;
 use static_assertions::const_assert;
 
 use crate::extension_field::Extendable;
-use crate::field_types::Field64;
-use crate::goldilocks_field::{reduce128, GoldilocksField};
+use crate::field_types::{Field, Field64};
+use crate::goldilocks_field::GoldilocksField;
 
 /// Reduce the value x_lo + x_hi * 2^128 to an element in the
 /// Goldilocks field.
 #[inline(always)]
-pub(crate) fn reduce160(x_lo: u128, x_hi: u32) -> GoldilocksField {
+fn reduce160(x_lo: u128, x_hi: u32) -> GoldilocksField {
     // If t is in {1, ..., 2^32-1},  then t*2^128 % p == p - (t << 32)
     let hi = <GoldilocksField as Field64>::ORDER - ((x_hi as u64) << 32);
 
@@ -21,11 +21,11 @@ pub(crate) fn reduce160(x_lo: u128, x_hi: u32) -> GoldilocksField {
         // which for randomly distributed values will only happen with
         // probability about 2^-64.
         branch_hint();
-        let lo = reduce128(lo).0;
+        let lo = GoldilocksField::from_noncanonical_u128(lo).0;
         let cy_red = <GoldilocksField as Field64>::ORDER - (1u64 << 32);
-        reduce128(lo as u128 + cy_red as u128)
+        GoldilocksField::from_noncanonical_u128(lo as u128 + cy_red as u128)
     } else {
-        reduce128(lo)
+        GoldilocksField::from_noncanonical_u128(lo)
     }
 }
 

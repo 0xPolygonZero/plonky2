@@ -421,7 +421,7 @@ unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
 /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
 /// field order and `2^64`.
 #[inline]
-pub(crate) fn reduce128(x: u128) -> GoldilocksField {
+fn reduce128(x: u128) -> GoldilocksField {
     let (x_lo, x_hi) = split(x); // This is a no-op
     let x_hi_hi = x_hi >> 32;
     let x_hi_lo = x_hi & EPSILON;
