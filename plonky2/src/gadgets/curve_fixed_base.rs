@@ -75,6 +75,7 @@ mod tests {
     use crate::plonk::verifier::verify;
 
     #[test]
+    #[ignore]
     fn test_fixed_base() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
