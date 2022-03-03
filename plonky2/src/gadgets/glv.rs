@@ -49,7 +49,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let s = self.constant_nonnative(GLV_S);
         let mut should_be_k = self.mul_nonnative(&s, &k2_raw);
         should_be_k = self.add_nonnative(&should_be_k, &k1_raw);
-        self.connect_nonnative(&should_be_k, &k);
+        self.connect_nonnative(&should_be_k, k);
 
         (k1, k2, k1_neg, k2_neg)
     }
@@ -68,7 +68,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             y: p.y.clone(),
         };
 
-        let p_neg = self.curve_conditional_neg(&p, k1_neg);
+        let p_neg = self.curve_conditional_neg(p, k1_neg);
         let sp_neg = self.curve_conditional_neg(&sp, k2_neg);
         self.curve_msm(&p_neg, &sp_neg, &k1.value, &k2.value)
     }

@@ -18,8 +18,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         base: &AffinePoint<C>,
         scalar: &NonNativeTarget<C::ScalarField>,
     ) -> AffinePointTarget<C> {
-        let doubled_base = (0..scalar.value.limbs.len() * 8).scan(base.clone(), |acc, _| {
-            let tmp = acc.clone();
+        let doubled_base = (0..scalar.value.limbs.len() * 8).scan(*base, |acc, _| {
+            let tmp = *acc;
             for _ in 0..4 {
                 *acc = acc.double();
             }
@@ -34,11 +34,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         ));
         let rando = (CurveScalar(hash_0_scalar) * C::GENERATOR_PROJECTIVE).to_affine();
         let zero = self.zero();
-        let mut result = self.constant_affine_point(rando.clone());
+        let mut result = self.constant_affine_point(rando);
         for (limb, point) in bits.into_iter().zip(doubled_base) {
             let mul_point = (0..16)
                 .scan(AffinePoint::ZERO, |acc, _| {
-                    let tmp = acc.clone();
+                    let tmp = *acc;
                     *acc = (point + *acc).to_affine();
                     Some(tmp)
                 })
