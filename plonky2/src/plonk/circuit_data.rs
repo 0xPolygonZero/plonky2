@@ -86,6 +86,13 @@ impl CircuitConfig {
         }
     }
 
+    pub fn wide_ecc_config() -> Self {
+        Self {
+            num_wires: 234,
+            ..Self::standard_recursion_config()
+        }
+    }
+
     pub fn standard_recursion_zk_config() -> Self {
         CircuitConfig {
             zero_knowledge: true,

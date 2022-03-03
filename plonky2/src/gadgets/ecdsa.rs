@@ -74,7 +74,15 @@ mod tests {
 
         type Curve = Secp256K1;
 
-        let config = CircuitConfig::standard_ecc_config();
+        const WIDE: bool = true;
+
+        let config = if WIDE {
+            // < 2^16 gates.
+            CircuitConfig::wide_ecc_config()
+        } else {
+            // < 2^17 gates.
+            CircuitConfig::standard_ecc_config()
+        };
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
