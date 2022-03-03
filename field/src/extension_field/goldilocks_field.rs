@@ -1,33 +1,7 @@
-use plonky2_util::branch_hint;
 use static_assertions::const_assert;
 
 use crate::extension_field::Extendable;
-use crate::field_types::{Field, Field64};
-use crate::goldilocks_field::GoldilocksField;
-
-/// Reduce the value x_lo + x_hi * 2^128 to an element in the
-/// Goldilocks field.
-#[inline(always)]
-fn reduce160(x_lo: u128, x_hi: u32) -> GoldilocksField {
-    // If t is in {1, ..., 2^32-1},  then t*2^128 % p == p - (t << 32)
-    let hi = <GoldilocksField as Field64>::ORDER - ((x_hi as u64) << 32);
-
-    // hi is not reduced if x_hi was 0, but that doesn't matter.
-    let (lo, cy) = x_lo.overflowing_add(hi as u128);
-    if cy {
-        // cy = true is very rare. The only way it can happen is if
-        // x_lo is at least 2^128 - (2^64 - 2^63), i.e.
-        // 0xFFFFFFFF FFFFFFFF 80000000 00000000
-        // which for randomly distributed values will only happen with
-        // probability about 2^-64.
-        branch_hint();
-        let lo = GoldilocksField::from_noncanonical_u128(lo).0;
-        let cy_red = <GoldilocksField as Field64>::ORDER - (1u64 << 32);
-        GoldilocksField::from_noncanonical_u128(lo as u128 + cy_red as u128)
-    } else {
-        GoldilocksField::from_noncanonical_u128(lo)
-    }
-}
+use crate::goldilocks_field::{reduce160, GoldilocksField};
 
 /*
  * The functions extD_add_prods[0-4] are helper functions for
@@ -71,7 +45,7 @@ fn ext2_add_prods0(a: &[u64; 2], b: &[u64; 2]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b0 as u128));
     cumul_hi += cy as u32;
 
-    reduce160(cumul_lo, cumul_hi)
+    unsafe { reduce160(cumul_lo, cumul_hi) }
 }
 
 #[inline(always)]
@@ -89,7 +63,7 @@ fn ext2_add_prods1(a: &[u64; 2], b: &[u64; 2]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (b0 as u128));
     let cumul_hi = cy as u32;
 
-    reduce160(cumul_lo, cumul_hi)
+    unsafe { reduce160(cumul_lo, cumul_hi) }
 }
 
 /// Multiply a and b considered as elements of GF(p^2).
@@ -139,7 +113,7 @@ fn ext4_add_prods0(a: &[u64; 4], b: &[u64; 4]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b0 as u128));
     cumul_hi += cy as u32;
 
-    reduce160(cumul_lo, cumul_hi)
+    unsafe { reduce160(cumul_lo, cumul_hi) }
 }
 
 #[inline(always)]
@@ -173,7 +147,7 @@ fn ext4_add_prods1(a: &[u64; 4], b: &[u64; 4]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (b0 as u128));
     cumul_hi += cy as u32;
 
-    reduce160(cumul_lo, cumul_hi)
+    unsafe { reduce160(cumul_lo, cumul_hi) }
 }
 
 #[inline(always)]
@@ -200,7 +174,7 @@ fn ext4_add_prods2(a: &[u64; 4], b: &[u64; 4]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a2 as u128) * (b0 as u128));
     cumul_hi += cy as u32;
 
-    reduce160(cumul_lo, cumul_hi)
+    unsafe { reduce160(cumul_lo, cumul_hi) }
 }
 
 #[inline(always)]
@@ -227,7 +201,7 @@ fn ext4_add_prods3(a: &[u64; 4], b: &[u64; 4]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a3 as u128) * (b0 as u128));
     cumul_hi += cy as u32;
 
-    reduce160(cumul_lo, cumul_hi)
+    unsafe { reduce160(cumul_lo, cumul_hi) }
 }
 
 /// Multiply a and b considered as elements of GF(p^4).
@@ -283,7 +257,7 @@ fn ext5_add_prods0(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a0 as u128) * (b0 as u128));
     cumul_hi += cy as u32;
 
-    reduce160(cumul_lo, cumul_hi)
+    unsafe { reduce160(cumul_lo, cumul_hi) }
 }
 
 #[inline(always)]
@@ -321,7 +295,7 @@ fn ext5_add_prods1(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a1 as u128) * (b0 as u128));
     cumul_hi += cy as u32;
 
-    reduce160(cumul_lo, cumul_hi)
+    unsafe { reduce160(cumul_lo, cumul_hi) }
 }
 
 #[inline(always)]
@@ -359,7 +333,7 @@ fn ext5_add_prods2(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a2 as u128) * (b0 as u128));
     cumul_hi += cy as u32;
 
-    reduce160(cumul_lo, cumul_hi)
+    unsafe { reduce160(cumul_lo, cumul_hi) }
 }
 
 #[inline(always)]
@@ -390,7 +364,7 @@ fn ext5_add_prods3(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a3 as u128) * (b0 as u128));
     cumul_hi += cy as u32;
 
-    reduce160(cumul_lo, cumul_hi)
+    unsafe { reduce160(cumul_lo, cumul_hi) }
 }
 
 #[inline(always)]
@@ -421,7 +395,7 @@ fn ext5_add_prods4(a: &[u64; 5], b: &[u64; 5]) -> GoldilocksField {
     (cumul_lo, cy) = cumul_lo.overflowing_add((a4 as u128) * (b0 as u128));
     cumul_hi += cy as u32;
 
-    reduce160(cumul_lo, cumul_hi)
+    unsafe { reduce160(cumul_lo, cumul_hi) }
 }
 
 /// Multiply a and b considered as elements of GF(p^5).
@@ -437,38 +411,4 @@ pub(crate) fn ext5_mul(a: [u64; 5], b: [u64; 5]) -> [GoldilocksField; 5] {
     let c3 = ext5_add_prods3(&a, &b);
     let c4 = ext5_add_prods4(&a, &b);
     [c0, c1, c2, c3, c4]
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::extension_field::goldilocks_field::reduce160;
-    use crate::field_types::Field;
-    use crate::goldilocks_field::GoldilocksField;
-
-    #[test]
-    fn test_reduce160() {
-        assert_eq!(reduce160(0u128, 0u32), GoldilocksField::ZERO);
-        assert_eq!(reduce160(1u128, 0u32), GoldilocksField::ONE);
-
-        assert_eq!(
-            reduce160(0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_u128, 0u32),
-            GoldilocksField(0xFFFF_FFFE_0000_0000_u64)
-        );
-        assert_eq!(reduce160(0u128, 0xFFFF_FFFFu32), GoldilocksField::ONE);
-        assert_eq!(
-            reduce160(0xFFFF_FFFF_0000_0000_u128, 0xFFFF_FFFF_u32),
-            GoldilocksField::ZERO
-        );
-        assert_eq!(
-            reduce160(
-                0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_u128,
-                0xFFFF_FFFF_u32
-            ),
-            GoldilocksField(0xFFFF_FFFE_0000_0001_u64)
-        );
-        assert_eq!(
-            reduce160(0xFFFF_FFFF_FFFF_FFFF_8000_0000_0000_0000_u128, 1u32),
-            GoldilocksField(0x7FFF_FFFD_0000_0001_u64)
-        );
-    }
 }

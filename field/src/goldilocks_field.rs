@@ -441,6 +441,35 @@ fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
 }
 
+/// Reduce the value x_lo + x_hi * 2^128 to an element in the
+/// Goldilocks field.
+///
+/// This function is marked 'unsafe' because correctness relies on the
+/// unchecked assumption that x < 2^160 - 2^128 + 2^96. Further,
+/// performance may degrade as x_hi increases beyond 2**40 or so.
+#[inline(always)]
+pub(crate) unsafe fn reduce160(x_lo: u128, x_hi: u32) -> GoldilocksField {
+    let x_hi = (x_lo >> 96) as u64 + ((x_hi as u64) << 32); // shld to form x_hi
+    let x_mid = (x_lo >> 64) as u32; // shr to form x_mid
+    let x_lo = x_lo as u64;
+
+    // sub + jc (should fuse)
+    let (mut t0, borrow) = x_lo.overflowing_sub(x_hi);
+    if borrow {
+        // The maximum possible value of x is (2^64 - 1)^2 * 4 * 7 < 2^133,
+        // so x_hi < 2^37. A borrow will happen roughly one in 134 million
+        // times, so it's best to branch.
+        branch_hint();
+        // NB: this assumes that x < 2^160 - 2^128 + 2^96.
+        t0 -= EPSILON; // Cannot underflow if x_hi is canonical.
+    }
+    // imul
+    let t1 = (x_mid as u64) * EPSILON;
+    // add, sbb, add
+    let t2 = add_no_canonicalize_trashing_input(t0, t1);
+    GoldilocksField(t2)
+}
+
 impl Frobenius<1> for GoldilocksField {}
 
 #[cfg(test)]
