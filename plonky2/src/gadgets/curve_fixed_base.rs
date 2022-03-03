@@ -11,7 +11,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{GenericHashOut, Hasher};
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Do windowed fixed-base scalar multiplication, using a 4-bit window.
+    /// Compute windowed fixed-base scalar multiplication, using a 4-bit window.
     pub fn fixed_base_curve_mul<C: Curve>(
         &mut self,
         base: AffinePoint<C>,
@@ -38,7 +38,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut result = self.constant_affine_point(rando);
         // `s * P = sum s_i * P_i` with `P_i = (16^i) * P` and `s = sum s_i * (16^i)`.
         for (limb, point) in limbs.into_iter().zip(scaled_base) {
-            // Holds `t * P_i` for `p=0..16`.
+            // `muls_point[t] = t * P_i` for `t=0..16`.
             let muls_point = (0..16)
                 .scan(AffinePoint::ZERO, |acc, _| {
                     let tmp = *acc;
