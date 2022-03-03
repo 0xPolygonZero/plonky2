@@ -11,7 +11,10 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{GenericHashOut, Hasher};
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    /// Computes `n*p + m*q`.
+    /// Computes `n*p + m*q` using windowed MSM, with a 2-bit window.
+    /// See Algorithm 9.23 in Handbook of Elliptic and Hyperelliptic Curve Cryptography for a
+    /// description.
+    /// Note: Doesn't work if `p == q`.
     pub fn curve_msm<C: Curve>(
         &mut self,
         p: &AffinePointTarget<C>,
@@ -32,6 +35,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let rando_t = self.constant_affine_point(rando);
         let neg_rando = self.constant_affine_point(-rando);
 
+        // Precomputes `precomputation[i + 4*j] = i*p + j*q` for `i,j=0..4`.
         let mut precomputation = vec![p.clone(); 16];
         let mut cur_p = rando_t.clone();
         let mut cur_q = rando_t.clone();

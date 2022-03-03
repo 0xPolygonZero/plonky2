@@ -19,7 +19,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.constant_nonnative(GLV_BETA)
     }
 
-    // TODO: Add decomposition check.
     pub fn decompose_secp256k1_scalar(
         &mut self,
         k: &NonNativeTarget<Secp256K1Scalar>,
