@@ -225,7 +225,7 @@ impl<F: Extendable<5>> MulAssign for QuinticExtension<F> {
 
 impl<F: Extendable<5>> Square for QuinticExtension<F> {
     #[inline(always)]
-    default fn square(&self) -> Self {
+    fn square(&self) -> Self {
         let Self([a0, a1, a2, a3, a4]) = *self;
         let w = <Self as OEF<5>>::W;
         let double_w = <Self as OEF<5>>::W.double();

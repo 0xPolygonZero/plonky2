@@ -16,7 +16,6 @@ use crate::extension_field::quintic::QuinticExtension;
 use crate::extension_field::{Extendable, Frobenius};
 use crate::field_types::{Field, Field64, PrimeField, PrimeField64};
 use crate::inversion::try_inverse_u64;
-use crate::ops::Square;
 
 const EPSILON: u64 = (1 << 32) - 1;
 
@@ -311,8 +310,6 @@ impl Mul for QuadraticExtension<GoldilocksField> {
     }
 }
 
-impl Square for QuadraticExtension<GoldilocksField> {}
-
 impl Extendable<4> for GoldilocksField {
     type Extension = QuarticExtension<Self>;
 
@@ -341,8 +338,6 @@ impl Mul for QuarticExtension<GoldilocksField> {
         Self(c)
     }
 }
-
-impl Square for QuarticExtension<GoldilocksField> {}
 
 impl Extendable<5> for GoldilocksField {
     type Extension = QuinticExtension<Self>;
@@ -381,8 +376,6 @@ impl Mul for QuinticExtension<GoldilocksField> {
         Self(c)
     }
 }
-
-impl Square for QuinticExtension<GoldilocksField> {}
 
 /// Fast addition modulo ORDER for x86-64.
 /// This function is marked unsafe for the following reasons:

@@ -223,7 +223,7 @@ impl<F: Extendable<4>> MulAssign for QuarticExtension<F> {
 
 impl<F: Extendable<4>> Square for QuarticExtension<F> {
     #[inline(always)]
-    default fn square(&self) -> Self {
+    fn square(&self) -> Self {
         let Self([a0, a1, a2, a3]) = *self;
         let w = <Self as OEF<4>>::W;
 

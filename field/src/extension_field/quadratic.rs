@@ -190,7 +190,7 @@ impl<F: Extendable<2>> MulAssign for QuadraticExtension<F> {
 
 impl<F: Extendable<2>> Square for QuadraticExtension<F> {
     #[inline(always)]
-    default fn square(&self) -> Self {
+    fn square(&self) -> Self {
         // Specialising mul reduces the computation of c1 from 2 muls
         // and one add to one mul and a shift
 
