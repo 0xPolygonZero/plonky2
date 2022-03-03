@@ -201,7 +201,7 @@ impl<F: Extendable<5>> Mul for QuinticExtension<F> {
     type Output = Self;
 
     #[inline]
-    fn mul(self, rhs: Self) -> Self {
+    default fn mul(self, rhs: Self) -> Self {
         let Self([a0, a1, a2, a3, a4]) = self;
         let Self([b0, b1, b2, b3, b4]) = rhs;
         let w = <Self as OEF<5>>::W;

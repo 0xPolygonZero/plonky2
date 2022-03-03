@@ -12,3 +12,4 @@ num = { version = "0.4", features = [ "rand" ] }
 rand = "0.8.4"
 serde = { version = "1.0", features = ["derive"] }
 unroll = "0.1.5"
+static_assertions = "1.1.0"
