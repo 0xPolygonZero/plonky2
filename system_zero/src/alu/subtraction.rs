@@ -38,13 +38,10 @@ pub(crate) fn eval_subtraction<F: Field, P: PackedField<Scalar = F>>(
     let base = F::from_canonical_u64(1 << 16);
     let base_sqr = F::from_canonical_u64(1 << 32);
 
-    // Note that this can't overflow. Since each output limb has been
-    // range checked as 16-bits
-    let out_diff = out_1 + out_2 * base;
     let out_br = out_br * base_sqr;
-
     let lhs = (out_br + in_1) - in_2;
-    let rhs = out_diff;
+    let rhs = out_1 + out_2 * base;
+
     yield_constr.constraint(is_sub * (lhs - rhs));
 
     // We don't need to check that out_br is in {0, 1} because it's
@@ -66,12 +63,12 @@ pub(crate) fn eval_subtraction_recursively<F: RichField + Extendable<D>, const D
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << 16));
     let base_sqr = builder.constant_extension(F::Extension::from_canonical_u64(1 << 32));
 
+    // lhs = (out_br + in_1) - in_2
+    let lhs = builder.add_extension(out_br, in_1);
+    let lhs = builder.sub_extension(lhs, in_2);
+
     // rhs = out_1 + base * out_2
     let rhs = builder.mul_add_extension(out_2, base, out_1);
-
-    // lhs = (out_br + in_2) - in_1
-    let lhs = builder.add_extension(out_br, in_2);
-    let lhs = builder.sub_extension(lhs, in_1);
 
     // filtered_diff = is_sub * (lhs - rhs)
     let diff = builder.sub_extension(lhs, rhs);
