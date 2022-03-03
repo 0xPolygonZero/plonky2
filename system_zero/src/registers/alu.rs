@@ -45,7 +45,7 @@ pub(crate) const COL_SUB_OUTPUT_0: usize = super::range_check_16::col_rc_16_inpu
 /// The second 16-bit chunk of the output, based on little-endian ordering.
 pub(crate) const COL_SUB_OUTPUT_1: usize = super::range_check_16::col_rc_16_input(1);
 /// The borrow output
-pub(crate) const COL_SUB_OUTPUT_BORROW: usize = super::boolean::col_bit(2);
+pub(crate) const COL_SUB_OUTPUT_BORROW: usize = super::boolean::col_bit(0);
 
 /// The first value to be multiplied; treated as an unsigned u32.
 pub(crate) const COL_MUL_ADD_FACTOR_0: usize = shared_col(0);

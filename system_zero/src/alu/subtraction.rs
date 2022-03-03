@@ -4,6 +4,7 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::plonk_common::reduce_with_powers_ext_recursive;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 use crate::registers::alu::*;
@@ -37,19 +38,18 @@ pub(crate) fn eval_subtraction<F: Field, P: PackedField<Scalar = F>>(
 
     let base = F::from_canonical_u64(1 << 16);
     let base_sqr = F::from_canonical_u64(1 << 32);
+
     // Note that this can't overflow. Since each output limb has been
     // range checked as 16-bits
-    let out = (out_br * base_sqr + out_1) - out_2 * base;
+    let out_diff = out_1 + out_2 * base;
+    let out_br = out_br * base_sqr;
 
-    // NB: Not clear how to compute in_1 - in_2 in one expression for
-    // PackedFields: If in_1 < in_2 then the sign extension will
-    // happen inside the big field, which is probably wrong. Instead,
-    // we *first* subtract in_2 from the expected output, and then
-    // subtract in_1; the result then should be zero.
-    yield_constr.constraint(is_sub * ((out + in_2) - in_1));
+    let lhs = (out_br + in_1) - in_2;
+    let rhs = out_diff;
+    yield_constr.constraint(is_sub * (lhs - rhs));
 
     // We don't need to check that out_br is in {0, 1} because it's
-    // checked by boolean::col_bit(2) in the ALU.
+    // checked by boolean::col_bit(0) in the ALU.
 }
 
 pub(crate) fn eval_subtraction_recursively<F: RichField + Extendable<D>, const D: usize>(
@@ -64,21 +64,20 @@ pub(crate) fn eval_subtraction_recursively<F: RichField + Extendable<D>, const D
     let out_2 = local_values[COL_SUB_OUTPUT_1];
     let out_br = local_values[COL_SUB_OUTPUT_BORROW];
 
-    let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << 16));
-    let base_sqr = builder.constant_extension(F::Extension::from_canonical_u64(1 << 32));
+    let base = builder.constant_extension(
+        F::Extension::from_canonical_u64(1 << 16));
+    let base_sqr = builder.constant_extension(
+        F::Extension::from_canonical_u64(1 << 32));
 
-    // Note that this can't overflow. Since each output limb has been
-    // range checked as 16-bits.
+    // rhs = out_1 + base * out_2
+    let rhs = builder.mul_add_extension(out_2, base, out_1);
 
-    let t0 = builder.mul_add_extension(out_br, base_sqr, out_1);
-    let t1 = builder.mul_extension(out_2, base);
-    // out = (out_br * 2^32 + out_1) - out_2 * 2^16
-    let out = builder.sub_extension(t0, t1);
+    // lhs = (out_br + in_2) - in_1
+    let lhs = builder.add_extension(out_br, in_2);
+    let lhs = builder.sub_extension(lhs, in_1);
 
-    // diff = (out + in_2) - in_1
-    let diff = builder.add_extension(out, in_2);
-    let diff = builder.sub_extension(diff, in_1);
-    // filtered_diff = is_sub * ((out + in_2) - in_1)
+    // filtered_diff = is_sub * (lhs - rhs)
+    let diff = builder.sub_extension(lhs, rhs);
     let filtered_diff = builder.mul_extension(is_sub, diff);
 
     yield_constr.constraint(builder, filtered_diff);
