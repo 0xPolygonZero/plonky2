@@ -15,10 +15,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     // TODO: Benchmark other window sizes.
     pub fn fixed_base_curve_mul<C: Curve>(
         &mut self,
-        base: &AffinePoint<C>,
+        base: AffinePoint<C>,
         scalar: &NonNativeTarget<C::ScalarField>,
     ) -> AffinePointTarget<C> {
-        let doubled_base = (0..scalar.value.limbs.len() * 8).scan(*base, |acc, _| {
+        let doubled_base = (0..scalar.value.limbs.len() * 8).scan(base, |acc, _| {
             let tmp = *acc;
             for _ in 0..4 {
                 *acc = acc.double();
@@ -91,7 +91,7 @@ mod tests {
         let n_target = builder.add_virtual_nonnative_target::<Secp256K1Scalar>();
         pw.set_biguint_target(&n_target.value, &n.to_canonical_biguint());
 
-        let res_target = builder.fixed_base_curve_mul(&g, &n_target);
+        let res_target = builder.fixed_base_curve_mul(g, &n_target);
         builder.curve_assert_valid(&res_target);
 
         builder.connect_affine_point(&res_target, &res_expected);

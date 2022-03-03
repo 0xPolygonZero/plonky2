@@ -37,7 +37,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let u1 = self.mul_nonnative(&msg, &c);
         let u2 = self.mul_nonnative(&r, &c);
 
-        let point1 = self.fixed_base_curve_mul(&Secp256K1::GENERATOR_AFFINE, &u1);
+        let point1 = self.fixed_base_curve_mul(Secp256K1::GENERATOR_AFFINE, &u1);
         let point2 = self.glv_mul(&pk.0, &u2);
         let point = self.curve_add(&point1, &point2);
 
