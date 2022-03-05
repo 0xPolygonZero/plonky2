@@ -69,7 +69,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let p_neg = self.curve_conditional_neg(p, k1_neg);
         let sp_neg = self.curve_conditional_neg(&sp, k2_neg);
-        self.curve_msm(&p_neg, &sp_neg, &k1.value, &k2.value)
+        self.curve_msm(&p_neg, &sp_neg, &k1, &k2)
     }
 }
 

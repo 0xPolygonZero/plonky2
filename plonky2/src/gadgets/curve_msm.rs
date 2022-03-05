@@ -3,8 +3,8 @@ use plonky2_field::extension_field::Extendable;
 
 use crate::curve::curve_types::{Curve, CurveScalar};
 use crate::field::field_types::Field;
-use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::curve::AffinePointTarget;
+use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::RichField;
 use crate::hash::keccak::KeccakHash;
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -19,11 +19,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         p: &AffinePointTarget<C>,
         q: &AffinePointTarget<C>,
-        n: &BigUintTarget,
-        m: &BigUintTarget,
+        n: &NonNativeTarget<C::ScalarField>,
+        m: &NonNativeTarget<C::ScalarField>,
     ) -> AffinePointTarget<C> {
-        let limbs_n = self.split_biguint_to_2_bit_limbs(n);
-        let limbs_m = self.split_biguint_to_2_bit_limbs(m);
+        let limbs_n = self.split_nonnative_to_2_bit_limbs(n);
+        let limbs_m = self.split_nonnative_to_2_bit_limbs(m);
         assert_eq!(limbs_n.len(), limbs_m.len());
         let num_limbs = limbs_n.len();
 
@@ -119,7 +119,7 @@ mod tests {
         let n_target = builder.constant_nonnative(n);
         let m_target = builder.constant_nonnative(m);
 
-        let res_target = builder.curve_msm(&p_target, &q_target, &n_target.value, &m_target.value);
+        let res_target = builder.curve_msm(&p_target, &q_target, &n_target, &m_target);
         builder.curve_assert_valid(&res_target);
 
         builder.connect_affine_point(&res_target, &res_expected);

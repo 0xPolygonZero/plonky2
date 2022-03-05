@@ -65,24 +65,12 @@ mod tests {
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;
 
-    #[test]
-    #[ignore]
-    fn test_ecdsa_circuit() -> Result<()> {
+    fn test_ecdsa_circuit_with_config(config: CircuitConfig) -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
         type Curve = Secp256K1;
-
-        const WIDE: bool = true;
-
-        let config = if WIDE {
-            // < 2^16 gates.
-            CircuitConfig::wide_ecc_config()
-        } else {
-            // < 2^17 gates.
-            CircuitConfig::standard_ecc_config()
-        };
 
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -111,5 +99,17 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)
+    }
+
+    #[test]
+    #[ignore]
+    fn test_ecdsa_circuit_narrow() -> Result<()> {
+        test_ecdsa_circuit_with_config(CircuitConfig::standard_ecc_config())
+    }
+
+    #[test]
+    #[ignore]
+    fn test_ecdsa_circuit_wide() -> Result<()> {
+        test_ecdsa_circuit_with_config(CircuitConfig::wide_ecc_config())
     }
 }

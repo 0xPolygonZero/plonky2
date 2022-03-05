@@ -35,8 +35,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    pub fn split_biguint_to_2_bit_limbs(&mut self, val: &BigUintTarget) -> Vec<Target> {
-        val.limbs
+    pub fn split_nonnative_to_2_bit_limbs<FF: Field>(
+        &mut self,
+        val: &NonNativeTarget<FF>,
+    ) -> Vec<Target> {
+        val.value
+            .limbs
             .iter()
             .flat_map(|&l| self.split_le_base::<4>(l.0, 16))
             .collect()
