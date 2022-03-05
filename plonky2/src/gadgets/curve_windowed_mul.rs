@@ -44,12 +44,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         access_index: Target,
         v: Vec<AffinePointTarget<C>>,
     ) -> AffinePointTarget<C> {
-        let num_limbs = v[0].x.value.num_limbs();
+        let num_limbs = C::BaseField::BITS / 32;
+        let zero = self.zero_u32();
         let x_limbs: Vec<Vec<_>> = (0..num_limbs)
-            .map(|i| v.iter().map(|p| p.x.value.limbs[i].0).collect())
+            .map(|i| {
+                v.iter()
+                    .map(|p| p.x.value.limbs.get(i).unwrap_or(&zero).0)
+                    .collect()
+            })
             .collect();
         let y_limbs: Vec<Vec<_>> = (0..num_limbs)
-            .map(|i| v.iter().map(|p| p.y.value.limbs[i].0).collect())
+            .map(|i| {
+                v.iter()
+                    .map(|p| p.y.value.limbs.get(i).unwrap_or(&zero).0)
+                    .collect()
+            })
             .collect();
 
         let selected_x_limbs: Vec<_> = x_limbs

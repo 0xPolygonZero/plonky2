@@ -70,7 +70,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     marked_targets: Vec<MarkedTargets<D>>,
 
     /// Generators used to generate the witness.
-    generators: Vec<Box<dyn WitnessGenerator<F>>>,
+    pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
 
     constants_to_targets: HashMap<F, Target>,
     targets_to_constants: HashMap<Target, F>,

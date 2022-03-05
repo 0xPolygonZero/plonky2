@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::iter::repeat;
 
 use itertools::Itertools;
 use num::{BigUint, FromPrimitive, Zero};
@@ -160,7 +161,11 @@ pub trait Witness<F: Field> {
     }
 
     fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) {
-        for (&lt, &l) in target.limbs.iter().zip(&value.to_u32_digits()) {
+        for (&lt, l) in target
+            .limbs
+            .iter()
+            .zip(value.to_u32_digits().into_iter().chain(repeat(0)))
+        {
             self.set_u32_target(lt, l);
         }
     }
