@@ -47,11 +47,15 @@ pub(crate) fn eval_division<F: Field, P: PackedField<Scalar = F>>(
     let quotient_1 = local_values[COL_DIV_OUTPUT_QUOT_1];
     let remainder_0 = local_values[COL_DIV_OUTPUT_REM_0];
     let remainder_1 = local_values[COL_DIV_OUTPUT_REM_1];
+    let divisor_inv = local_values[COL_DIV_DIVISOR_INV];
+    let divisor_rem_diff_m1_0 = local_values[COL_DIV_DIVISOR_REM_DIFF_M1_0];
+    let divisor_rem_diff_m1_1 = local_values[COL_DIV_DIVISOR_REM_DIFF_M1_1];
 
     let base = F::from_canonical_u64(1 << 16);
 
     let quotient = quotient_0 + quotient_1 * base;
     let remainder = remainder_0 + remainder_1 * base;
+    let divisor_rem_diff_m1 = divisor_rem_diff_m1_0 + divisor_rem_diff_m1_1 * base;
 
     // If dividend is nonzero, the constraint is
     // dividend = divisor * quotient + remainder
@@ -59,17 +63,19 @@ pub(crate) fn eval_division<F: Field, P: PackedField<Scalar = F>>(
     // If dividend is zero, the constraint is
     // quotient = 0 and remainder = u32::MAX.
     let u32_max = P::from(F::from_canonical_u32(u32::MAX));
-    // FIXME: This isn't the right way to encode (quotient = 0) AND
-    // (remainder = u32::MAX)
-    let zero_divisor_constr = quotient + (u32_max - remainder);
+    let zero_divisor_constr = (remainder - quotient) - u32_max;
 
-    // FIXME: Calculate these using inverse of divisor?
-    let divisor_is_nonzero = P::ONES;
-    let divisor_is_zero = P::ZEROS;
+    // Selector variable
+    let divisor_is_nonzero = divisor * divisor_inv - P::ONES;
+    let divisor_is_zero = divisor;
+    yield_constr.constraint(is_div * divisor_is_nonzero * nonzero_divisor_constr);
+    yield_constr.constraint(is_div * divisor_is_zero * zero_divisor_constr);
 
-    yield_constr.constraint(
-        is_div * (divisor_is_nonzero * nonzero_divisor_constr
-                  + divisor_is_zero * zero_divisor_constr));
+    // Finally, ensure that `remainder < quotient`. We know that `divisor_rem_diff_m1` fits in a
+    // `u32` because we've range-checked it. Now assert that either the divisor is zero or `divisor
+    // - remainder - 1 == divisor_rem_diff_m1`.
+    let divisor_rem_diff_constr = divisor - remainder - P::ONES - divisor_rem_diff_m1;
+    yield_constr.constraint(is_div * divisor_is_zero * divisor_rem_diff_constr);
 }
 
 pub(crate) fn eval_division_recursively<F: RichField + Extendable<D>, const D: usize>(
