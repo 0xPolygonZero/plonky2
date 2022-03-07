@@ -56,8 +56,7 @@ where
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Verifies that the given leaf data is present at the given index in the Merkle tree with the
     /// given cap. The index is given by it's little-endian bits.
-    #[cfg(test)]
-    pub(crate) fn verify_merkle_proof<H: AlgebraicHasher<F>>(
+    pub fn verify_merkle_proof<H: AlgebraicHasher<F>>(
         &mut self,
         leaf_data: Vec<Target>,
         leaf_index_bits: &[BoolTarget],
