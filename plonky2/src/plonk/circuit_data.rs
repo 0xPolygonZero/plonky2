@@ -180,7 +180,7 @@ pub struct VerifierCircuitData<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub(crate) verifier_only: VerifierOnlyCircuitData<C, D>,
+    pub verifier_only: VerifierOnlyCircuitData<C, D>,
     pub common: CommonCircuitData<F, C, D>,
 }
 
@@ -234,9 +234,9 @@ pub(crate) struct ProverOnlyCircuitData<
 
 /// Circuit data required by the verifier, but not the prover.
 #[derive(Debug, Clone)]
-pub(crate) struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
+pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
+    pub constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
 }
 
 /// Circuit data required by both the prover and the verifier.
