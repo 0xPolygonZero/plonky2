@@ -96,9 +96,9 @@ impl CircuitConfig {
 
 /// Circuit data required by the prover or the verifier.
 pub struct CircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    pub(crate) prover_only: ProverOnlyCircuitData<F, C, D>,
-    pub(crate) verifier_only: VerifierOnlyCircuitData<C, D>,
-    pub(crate) common: CommonCircuitData<F, C, D>,
+    pub prover_only: ProverOnlyCircuitData<F, C, D>,
+    pub verifier_only: VerifierOnlyCircuitData<C, D>,
+    pub common: CommonCircuitData<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
