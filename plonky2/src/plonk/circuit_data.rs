@@ -246,7 +246,7 @@ pub struct CommonCircuitData<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub(crate) config: CircuitConfig,
+    pub config: CircuitConfig,
 
     pub(crate) fri_params: FriParams,
 
