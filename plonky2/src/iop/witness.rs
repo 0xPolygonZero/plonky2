@@ -26,6 +26,12 @@ pub trait Witness<F: Field> {
 
     fn set_target(&mut self, target: Target, value: F);
 
+    fn set_targets(&mut self, targets: &[Target], values: &[F]) {
+        for (&t, &v) in targets.iter().zip_eq(values) {
+            self.set_target(t, v);
+        }
+    }
+
     fn get_target(&self, target: Target) -> F {
         self.try_get_target(target).unwrap()
     }
