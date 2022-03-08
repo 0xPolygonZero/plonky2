@@ -36,7 +36,7 @@ pub(crate) fn eval_mul_add<F: Field, P: PackedField<Scalar = F>>(
     local_values: &[P; NUM_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let is_mul = local_values[IS_MUL];
+    let is_mul = local_values[IS_MUL_ADD];
     let factor_0 = local_values[COL_MUL_ADD_FACTOR_0];
     let factor_1 = local_values[COL_MUL_ADD_FACTOR_1];
     let addend = local_values[COL_MUL_ADD_ADDEND];
@@ -63,7 +63,7 @@ pub(crate) fn eval_mul_add_recursively<F: RichField + Extendable<D>, const D: us
     local_values: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let is_mul = local_values[IS_MUL];
+    let is_mul = local_values[IS_MUL_ADD];
     let factor_0 = local_values[COL_MUL_ADD_FACTOR_0];
     let factor_1 = local_values[COL_MUL_ADD_FACTOR_1];
     let addend = local_values[COL_MUL_ADD_ADDEND];
