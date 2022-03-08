@@ -96,9 +96,9 @@ impl CircuitConfig {
 
 /// Circuit data required by the prover or the verifier.
 pub struct CircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    pub prover_only: ProverOnlyCircuitData<F, C, D>,
-    pub verifier_only: VerifierOnlyCircuitData<C, D>,
-    pub common: CommonCircuitData<F, C, D>,
+    pub(crate) prover_only: ProverOnlyCircuitData<F, C, D>,
+    pub(crate) verifier_only: VerifierOnlyCircuitData<C, D>,
+    pub(crate) common: CommonCircuitData<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -131,6 +131,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         [(); C::Hasher::HASH_SIZE]:,
     {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
+    }
+
+    pub fn to_verifier_data(&self) -> VerifierCircuitData<F, C, D> {
+        VerifierCircuitData {
+            verifier_only: self.verifier_only.clone(),
+            common: self.common.clone(),
+        }
     }
 }
 
@@ -226,14 +233,14 @@ pub(crate) struct ProverOnlyCircuitData<
 }
 
 /// Circuit data required by the verifier, but not the prover.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
     /// A commitment to each constant polynomial and each permutation polynomial.
     pub(crate) constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
 }
 
 /// Circuit data required by both the prover and the verifier.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CommonCircuitData<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
