@@ -12,7 +12,6 @@
 
 pub use plonky2_field as field;
 
-pub mod curve;
 pub mod fri;
 pub mod gadgets;
 pub mod gates;

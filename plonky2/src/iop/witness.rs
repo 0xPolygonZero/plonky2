@@ -1,16 +1,12 @@
 use std::collections::HashMap;
-use std::iter::repeat;
 
 use itertools::Itertools;
-use num::{BigUint, FromPrimitive, Zero};
 use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::{Field, PrimeField};
+use plonky2_field::field_types::Field;
 
 use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::witness_util::set_fri_proof_target;
 use crate::gadgets::arithmetic_u32::U32Target;
-use crate::gadgets::biguint::BigUintTarget;
-use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::HashOutTarget;
 use crate::hash::hash_types::RichField;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
@@ -62,30 +58,6 @@ pub trait Witness<F: Field> {
             return true;
         }
         panic!("not a bool")
-    }
-
-    fn get_biguint_target(&self, target: BigUintTarget) -> BigUint
-    where
-        F: PrimeField,
-    {
-        let mut result = BigUint::zero();
-
-        let limb_base = BigUint::from_u64(1 << 32u64).unwrap();
-        for i in (0..target.num_limbs()).rev() {
-            let limb = target.get_limb(i);
-            result *= &limb_base;
-            result += self.get_target(limb.0).to_canonical_biguint();
-        }
-
-        result
-    }
-
-    fn get_nonnative_target<FF: PrimeField>(&self, target: NonNativeTarget<FF>) -> FF
-    where
-        F: PrimeField,
-    {
-        let val = self.get_biguint_target(target.value);
-        FF::from_biguint(val)
     }
 
     fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {
@@ -158,16 +130,6 @@ pub trait Witness<F: Field> {
 
     fn set_u32_target(&mut self, target: U32Target, value: u32) {
         self.set_target(target.0, F::from_canonical_u32(value))
-    }
-
-    fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) {
-        for (&lt, l) in target
-            .limbs
-            .iter()
-            .zip(value.to_u32_digits().into_iter().chain(repeat(0)))
-        {
-            self.set_u32_target(lt, l);
-        }
     }
 
     /// Set the targets in a `ProofWithPublicInputsTarget` to their corresponding values in a
