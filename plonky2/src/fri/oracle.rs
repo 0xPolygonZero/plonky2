@@ -1,6 +1,8 @@
+use itertools::Itertools;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::fft::FftRootTable;
 use plonky2_field::field_types::Field;
+use plonky2_field::packed_field::PackedField;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 use rayon::prelude::*;
@@ -126,10 +128,38 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .collect()
     }
 
-    pub fn get_lde_values(&self, index: usize) -> &[F] {
+    /// Fetches LDE values at the `index * step`th point.
+    pub fn get_lde_values(&self, index: usize, step: usize) -> &[F] {
+        let index = index * step;
         let index = reverse_bits(index, self.degree_log + self.rate_bits);
         let slice = &self.merkle_tree.leaves[index];
         &slice[..slice.len() - if self.blinding { SALT_SIZE } else { 0 }]
+    }
+
+    /// Like `get_lde_values`, but fetches LDE values from a batch of `P::WIDTH` points, and returns
+    /// packed values.
+    pub fn get_lde_values_packed<P>(&self, index_start: usize, step: usize) -> Vec<P>
+    where
+        P: PackedField<Scalar = F>,
+    {
+        let row_wise = (0..P::WIDTH)
+            .map(|i| self.get_lde_values(index_start + i, step))
+            .collect_vec();
+
+        // This is essentially a transpose, but we will not use the generic transpose method as we
+        // want inner lists to be of type P, not Vecs which would involve allocation.
+        let leaf_size = row_wise[0].len();
+        (0..leaf_size)
+            .map(|j| {
+                let mut packed = P::ZEROS;
+                packed
+                    .as_slice_mut()
+                    .iter_mut()
+                    .zip(&row_wise)
+                    .for_each(|(packed_i, row_i)| *packed_i = row_i[j]);
+                packed
+            })
+            .collect_vec()
     }
 
     /// Produces a batch opening proof.

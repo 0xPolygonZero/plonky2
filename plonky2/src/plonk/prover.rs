@@ -352,10 +352,6 @@ fn compute_quotient_polys<
     let points = F::two_adic_subgroup(common_data.degree_bits + quotient_degree_bits);
     let lde_size = points.len();
 
-    // Retrieve the LDE values at index `i`.
-    let get_at_index =
-        |comm: &'a PolynomialBatch<F, C, D>, i: usize| -> &'a [F] { comm.get_lde_values(i * step) };
-
     let z_h_on_coset = ZeroPolyOnCoset::new(common_data.degree_bits, quotient_degree_bits);
 
     let points_batches = points.par_chunks(BATCH_SIZE);
@@ -384,15 +380,17 @@ fn compute_quotient_polys<
             for (&i, &x) in indices_batch.iter().zip(xs_batch) {
                 let shifted_x = F::coset_shift() * x;
                 let i_next = (i + next_step) % lde_size;
-                let local_constants_sigmas =
-                    get_at_index(&prover_data.constants_sigmas_commitment, i);
+                let local_constants_sigmas = prover_data
+                    .constants_sigmas_commitment
+                    .get_lde_values(i, step);
                 let local_constants = &local_constants_sigmas[common_data.constants_range()];
                 let s_sigmas = &local_constants_sigmas[common_data.sigmas_range()];
-                let local_wires = get_at_index(wires_commitment, i);
-                let local_zs_partial_products = get_at_index(zs_partial_products_commitment, i);
+                let local_wires = wires_commitment.get_lde_values(i, step);
+                let local_zs_partial_products =
+                    zs_partial_products_commitment.get_lde_values(i, step);
                 let local_zs = &local_zs_partial_products[common_data.zs_range()];
-                let next_zs =
-                    &get_at_index(zs_partial_products_commitment, i_next)[common_data.zs_range()];
+                let next_zs = &zs_partial_products_commitment.get_lde_values(i_next, step)
+                    [common_data.zs_range()];
                 let partial_products =
                     &local_zs_partial_products[common_data.partial_products_range()];
 
