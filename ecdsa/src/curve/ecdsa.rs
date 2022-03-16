@@ -1,8 +1,8 @@
+use plonky2_field::field_types::Field;
 use serde::{Deserialize, Serialize};
 
 use crate::curve::curve_msm::msm_parallel;
 use crate::curve::curve_types::{base_to_scalar, AffinePoint, Curve, CurveScalar};
-use crate::field::field_types::Field;
 
 #[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ECDSASignature<C: Curve> {
@@ -57,11 +57,12 @@ pub fn verify_message<C: Curve>(
 
 #[cfg(test)]
 mod tests {
+    use plonky2_field::field_types::Field;
+    use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
+
     use crate::curve::curve_types::{Curve, CurveScalar};
     use crate::curve::ecdsa::{sign_message, verify_message, ECDSAPublicKey, ECDSASecretKey};
     use crate::curve::secp256k1::Secp256K1;
-    use crate::field::field_types::Field;
-    use crate::field::secp256k1_scalar::Secp256K1Scalar;
 
     #[test]
     fn test_ecdsa_native() {

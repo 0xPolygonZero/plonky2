@@ -1,14 +1,14 @@
 use std::marker::PhantomData;
 
 use num::{BigUint, Integer, Zero};
+use plonky2::gadgets::arithmetic_u32::U32Target;
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
+use plonky2::iop::target::{BoolTarget, Target};
+use plonky2::iop::witness::{PartitionWitness, Witness};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_field::extension_field::Extendable;
-
-use crate::gadgets::arithmetic_u32::U32Target;
-use crate::hash::hash_types::RichField;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator};
-use crate::iop::target::{BoolTarget, Target};
-use crate::iop::witness::{PartitionWitness, Witness};
-use crate::plonk::circuit_builder::CircuitBuilder;
+use plonky2_field::field_types::PrimeField;
 
 #[derive(Clone, Debug)]
 pub struct BigUintTarget {
@@ -25,19 +25,67 @@ impl BigUintTarget {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn constant_biguint(&mut self, value: &BigUint) -> BigUintTarget {
+pub trait CircuitBuilderBiguint<F: RichField + Extendable<D>, const D: usize> {
+    fn constant_biguint(&mut self, value: &BigUint) -> BigUintTarget;
+
+    fn zero_biguint(&mut self) -> BigUintTarget;
+
+    fn connect_biguint(&mut self, lhs: &BigUintTarget, rhs: &BigUintTarget);
+
+    fn pad_biguints(
+        &mut self,
+        a: &BigUintTarget,
+        b: &BigUintTarget,
+    ) -> (BigUintTarget, BigUintTarget);
+
+    fn cmp_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BoolTarget;
+
+    fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget;
+
+    /// Add two `BigUintTarget`s.
+    fn add_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
+
+    /// Subtract two `BigUintTarget`s. We assume that the first is larger than the second.
+    fn sub_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
+
+    fn mul_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
+
+    fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget;
+
+    /// Returns x * y + z. This is no more efficient than mul-then-add; it's purely for convenience (only need to call one CircuitBuilder function).
+    fn mul_add_biguint(
+        &mut self,
+        x: &BigUintTarget,
+        y: &BigUintTarget,
+        z: &BigUintTarget,
+    ) -> BigUintTarget;
+
+    fn div_rem_biguint(
+        &mut self,
+        a: &BigUintTarget,
+        b: &BigUintTarget,
+    ) -> (BigUintTarget, BigUintTarget);
+
+    fn div_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
+
+    fn rem_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
+    for CircuitBuilder<F, D>
+{
+    fn constant_biguint(&mut self, value: &BigUint) -> BigUintTarget {
         let limb_values = value.to_u32_digits();
         let limbs = limb_values.iter().map(|&l| self.constant_u32(l)).collect();
 
         BigUintTarget { limbs }
     }
 
-    pub fn zero_biguint(&mut self) -> BigUintTarget {
+    fn zero_biguint(&mut self) -> BigUintTarget {
         self.constant_biguint(&BigUint::zero())
     }
 
-    pub fn connect_biguint(&mut self, lhs: &BigUintTarget, rhs: &BigUintTarget) {
+    fn connect_biguint(&mut self, lhs: &BigUintTarget, rhs: &BigUintTarget) {
         let min_limbs = lhs.num_limbs().min(rhs.num_limbs());
         for i in 0..min_limbs {
             self.connect_u32(lhs.get_limb(i), rhs.get_limb(i));
@@ -51,7 +99,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn pad_biguints(
+    fn pad_biguints(
         &mut self,
         a: &BigUintTarget,
         b: &BigUintTarget,
@@ -73,20 +121,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn cmp_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BoolTarget {
+    fn cmp_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BoolTarget {
         let (a, b) = self.pad_biguints(a, b);
 
         self.list_le_u32(a.limbs, b.limbs)
     }
 
-    pub fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget {
+    fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget {
         let limbs = self.add_virtual_u32_targets(num_limbs);
 
         BigUintTarget { limbs }
     }
 
-    // Add two `BigUintTarget`s.
-    pub fn add_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
+    fn add_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
         let num_limbs = a.num_limbs().max(b.num_limbs());
 
         let mut combined_limbs = vec![];
@@ -110,8 +157,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    // Subtract two `BigUintTarget`s. We assume that the first is larger than the second.
-    pub fn sub_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
+    fn sub_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
         let (a, b) = self.pad_biguints(a, b);
         let num_limbs = a.limbs.len();
 
@@ -130,7 +176,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn mul_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
+    fn mul_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
         let total_limbs = a.limbs.len() + b.limbs.len();
 
         let mut to_add = vec![vec![]; total_limbs];
@@ -156,7 +202,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget {
+    fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget {
         let t = b.target;
 
         BigUintTarget {
@@ -168,8 +214,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    // Returns x * y + z. This is no more efficient than mul-then-add; it's purely for convenience (only need to call one CircuitBuilder function).
-    pub fn mul_add_biguint(
+    fn mul_add_biguint(
         &mut self,
         x: &BigUintTarget,
         y: &BigUintTarget,
@@ -179,7 +224,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.add_biguint(&prod, z)
     }
 
-    pub fn div_rem_biguint(
+    fn div_rem_biguint(
         &mut self,
         a: &BigUintTarget,
         b: &BigUintTarget,
@@ -212,14 +257,53 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (div, rem)
     }
 
-    pub fn div_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
+    fn div_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
         let (div, _rem) = self.div_rem_biguint(a, b);
         div
     }
 
-    pub fn rem_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
+    fn rem_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
         let (_div, rem) = self.div_rem_biguint(a, b);
         rem
+    }
+}
+
+pub fn witness_get_biguint_target<W: Witness<F>, F: PrimeField>(
+    witness: &W,
+    bt: BigUintTarget,
+) -> BigUint {
+    let base = BigUint::from(1usize << 32);
+    bt.limbs
+        .into_iter()
+        .rev()
+        .fold(BigUint::zero(), |acc, limb| {
+            acc * &base + witness.get_target(limb.0).to_canonical_biguint()
+        })
+}
+
+pub fn witness_set_biguint_target<W: Witness<F>, F: PrimeField>(
+    witness: &mut W,
+    target: &BigUintTarget,
+    value: &BigUint,
+) {
+    let mut limbs = value.to_u32_digits();
+    assert!(target.num_limbs() >= limbs.len());
+    limbs.resize(target.num_limbs(), 0);
+    for i in 0..target.num_limbs() {
+        witness.set_u32_target(target.limbs[i], limbs[i]);
+    }
+}
+
+pub fn buffer_set_biguint_target<F: PrimeField>(
+    buffer: &mut GeneratedValues<F>,
+    target: &BigUintTarget,
+    value: &BigUint,
+) {
+    let mut limbs = value.to_u32_digits();
+    assert!(target.num_limbs() >= limbs.len());
+    limbs.resize(target.num_limbs(), 0);
+    for i in 0..target.num_limbs() {
+        buffer.set_u32_target(target.get_limb(i), limbs[i]);
     }
 }
 
@@ -245,12 +329,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let a = witness.get_biguint_target(self.a.clone());
-        let b = witness.get_biguint_target(self.b.clone());
+        let a = witness_get_biguint_target(witness, self.a.clone());
+        let b = witness_get_biguint_target(witness, self.b.clone());
         let (div, rem) = a.div_rem(&b);
 
-        out_buffer.set_biguint_target(self.div.clone(), div);
-        out_buffer.set_biguint_target(self.rem.clone(), rem);
+        buffer_set_biguint_target(out_buffer, &self.div, &div);
+        buffer_set_biguint_target(out_buffer, &self.rem, &rem);
     }
 }
 
@@ -258,14 +342,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 mod tests {
     use anyhow::Result;
     use num::{BigUint, FromPrimitive, Integer};
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::{
+        iop::witness::PartialWitness,
+        plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig},
+    };
     use rand::Rng;
 
-    use crate::iop::witness::Witness;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::{
-        iop::witness::PartialWitness,
-        plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, verifier::verify},
-    };
+    use crate::gadgets::biguint::{witness_set_biguint_target, CircuitBuilderBiguint};
 
     #[test]
     fn test_biguint_add() -> Result<()> {
@@ -288,13 +372,13 @@ mod tests {
         let expected_z = builder.add_virtual_biguint_target(expected_z_value.to_u32_digits().len());
         builder.connect_biguint(&z, &expected_z);
 
-        pw.set_biguint_target(&x, &x_value);
-        pw.set_biguint_target(&y, &y_value);
-        pw.set_biguint_target(&expected_z, &expected_z_value);
+        witness_set_biguint_target(&mut pw, &x, &x_value);
+        witness_set_biguint_target(&mut pw, &y, &y_value);
+        witness_set_biguint_target(&mut pw, &expected_z, &expected_z_value);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]
@@ -324,7 +408,7 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]
@@ -348,13 +432,13 @@ mod tests {
         let expected_z = builder.add_virtual_biguint_target(expected_z_value.to_u32_digits().len());
         builder.connect_biguint(&z, &expected_z);
 
-        pw.set_biguint_target(&x, &x_value);
-        pw.set_biguint_target(&y, &y_value);
-        pw.set_biguint_target(&expected_z, &expected_z_value);
+        witness_set_biguint_target(&mut pw, &x, &x_value);
+        witness_set_biguint_target(&mut pw, &y, &y_value);
+        witness_set_biguint_target(&mut pw, &expected_z, &expected_z_value);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]
@@ -380,7 +464,7 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]
@@ -413,6 +497,6 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 }

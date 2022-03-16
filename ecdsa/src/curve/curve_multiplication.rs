@@ -36,6 +36,7 @@ impl<C: Curve> ProjectivePoint<C> {
         MultiplicationPrecomputation { powers }
     }
 
+    #[must_use]
     pub fn mul_with_precomputation(
         &self,
         scalar: C::ScalarField,

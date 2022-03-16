@@ -1,18 +1,40 @@
 use std::marker::PhantomData;
 
 use itertools::Itertools;
+use plonky2::gadgets::arithmetic_u32::U32Target;
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::target::Target;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
 
-use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
-use crate::hash::hash_types::RichField;
-use crate::iop::target::Target;
-use crate::plonk::circuit_builder::CircuitBuilder;
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn split_u32_to_4_bit_limbs(&mut self, val: U32Target) -> Vec<Target> {
+pub trait CircuitBuilderSplit<F: RichField + Extendable<D>, const D: usize> {
+    fn split_u32_to_4_bit_limbs(&mut self, val: U32Target) -> Vec<Target>;
+
+    fn split_nonnative_to_4_bit_limbs<FF: Field>(
+        &mut self,
+        val: &NonNativeTarget<FF>,
+    ) -> Vec<Target>;
+
+    fn split_nonnative_to_2_bit_limbs<FF: Field>(
+        &mut self,
+        val: &NonNativeTarget<FF>,
+    ) -> Vec<Target>;
+
+    // Note: assumes its inputs are 4-bit limbs, and does not range-check.
+    fn recombine_nonnative_4_bit_limbs<FF: Field>(
+        &mut self,
+        limbs: Vec<Target>,
+    ) -> NonNativeTarget<FF>;
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSplit<F, D>
+    for CircuitBuilder<F, D>
+{
+    fn split_u32_to_4_bit_limbs(&mut self, val: U32Target) -> Vec<Target> {
         let two_bit_limbs = self.split_le_base::<4>(val.0, 16);
         let four = self.constant(F::from_canonical_usize(4));
         let combined_limbs = two_bit_limbs
@@ -24,7 +46,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         combined_limbs
     }
 
-    pub fn split_nonnative_to_4_bit_limbs<FF: Field>(
+    fn split_nonnative_to_4_bit_limbs<FF: Field>(
         &mut self,
         val: &NonNativeTarget<FF>,
     ) -> Vec<Target> {
@@ -35,7 +57,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    pub fn split_nonnative_to_2_bit_limbs<FF: Field>(
+    fn split_nonnative_to_2_bit_limbs<FF: Field>(
         &mut self,
         val: &NonNativeTarget<FF>,
     ) -> Vec<Target> {
@@ -47,7 +69,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     // Note: assumes its inputs are 4-bit limbs, and does not range-check.
-    pub fn recombine_nonnative_4_bit_limbs<FF: Field>(
+    fn recombine_nonnative_4_bit_limbs<FF: Field>(
         &mut self,
         limbs: Vec<Target>,
     ) -> NonNativeTarget<FF> {
@@ -74,15 +96,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use plonky2::iop::witness::PartialWitness;
+    use plonky2::plonk::circuit_builder::CircuitBuilder;
+    use plonky2::plonk::circuit_data::CircuitConfig;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2_field::field_types::Field;
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
-    use crate::gadgets::nonnative::NonNativeTarget;
-    use crate::iop::witness::PartialWitness;
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::verifier::verify;
+    use crate::gadgets::nonnative::{CircuitBuilderNonNative, NonNativeTarget};
+    use crate::gadgets::split_nonnative::CircuitBuilderSplit;
 
     #[test]
     fn test_split_nonnative() -> Result<()> {
@@ -104,6 +126,6 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 }

@@ -1,13 +1,10 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-use num::BigUint;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
-use plonky2_field::field_types::{Field, PrimeField};
+use plonky2_field::field_types::Field;
 
 use crate::gadgets::arithmetic_u32::U32Target;
-use crate::gadgets::biguint::BigUintTarget;
-use crate::gadgets::nonnative::NonNativeTarget;
 use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
@@ -167,21 +164,6 @@ impl<F: Field> GeneratedValues<F> {
 
     pub fn set_u32_target(&mut self, target: U32Target, value: u32) {
         self.set_target(target.0, F::from_canonical_u32(value))
-    }
-
-    pub fn set_biguint_target(&mut self, target: BigUintTarget, value: BigUint) {
-        let mut limbs = value.to_u32_digits();
-
-        assert!(target.num_limbs() >= limbs.len());
-
-        limbs.resize(target.num_limbs(), 0);
-        for i in 0..target.num_limbs() {
-            self.set_u32_target(target.get_limb(i), limbs[i]);
-        }
-    }
-
-    pub fn set_nonnative_target<FF: PrimeField>(&mut self, target: NonNativeTarget<FF>, value: FF) {
-        self.set_biguint_target(target.value, value.to_canonical_biguint())
     }
 
     pub fn set_hash_target(&mut self, ht: HashOutTarget, value: HashOut<F>) {
