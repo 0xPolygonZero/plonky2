@@ -73,12 +73,12 @@ pub fn permuted_cols_v2<F: PrimeField64>(inputs: &[F], table: &[F]) -> (Vec<F>, 
 
     // We will canonicalize the elements of sorted_inputs and sorted_table once upfront, then use
     // `to_noncanonical_u64` when comparing elements later.
-    let mut sorted_inputs = inputs
+    let sorted_inputs = inputs
         .iter()
         .map(|x| x.to_canonical())
         .sorted_unstable_by_key(|x| x.to_noncanonical_u64())
         .collect_vec();
-    let mut sorted_table = table
+    let sorted_table = table
         .iter()
         .map(|x| x.to_canonical())
         .sorted_unstable_by_key(|x| x.to_noncanonical_u64())
@@ -114,6 +114,7 @@ pub fn permuted_cols_v2<F: PrimeField64>(inputs: &[F], table: &[F]) -> (Vec<F>, 
         }
     }
 
+    #[allow(clippy::needless_range_loop)] // indexing is just more natural here
     for jj in j..n {
         unused_table_vals.push(sorted_table[jj]);
     }
