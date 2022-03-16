@@ -15,6 +15,7 @@ use crate::hash::merkle_proofs::MerkleProof;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::{GenericConfig, GenericHashOut, Hasher};
+use crate::plonk::plonk_common::salt_size;
 use crate::plonk::proof::{
     CompressedProof, CompressedProofWithPublicInputs, OpeningSet, Proof, ProofWithPublicInputs,
 };
@@ -235,6 +236,7 @@ impl Buffer {
         common_data: &CommonCircuitData<F, C, D>,
     ) -> Result<FriInitialTreeProof<F, C::Hasher>> {
         let config = &common_data.config;
+        let salt = salt_size(common_data.fri_params.hiding);
         let mut evals_proofs = Vec::with_capacity(4);
 
         let constants_sigmas_v =
@@ -242,17 +244,18 @@ impl Buffer {
         let constants_sigmas_p = self.read_merkle_proof()?;
         evals_proofs.push((constants_sigmas_v, constants_sigmas_p));
 
-        let wires_v = self.read_field_vec(config.num_wires)?;
+        let wires_v = self.read_field_vec(config.num_wires + salt)?;
         let wires_p = self.read_merkle_proof()?;
         evals_proofs.push((wires_v, wires_p));
 
-        let zs_partial_v =
-            self.read_field_vec(config.num_challenges * (1 + common_data.num_partial_products))?;
+        let zs_partial_v = self.read_field_vec(
+            config.num_challenges * (1 + common_data.num_partial_products) + salt,
+        )?;
         let zs_partial_p = self.read_merkle_proof()?;
         evals_proofs.push((zs_partial_v, zs_partial_p));
 
         let quotient_v =
-            self.read_field_vec(config.num_challenges * common_data.quotient_degree_factor)?;
+            self.read_field_vec(config.num_challenges * common_data.quotient_degree_factor + salt)?;
         let quotient_p = self.read_merkle_proof()?;
         evals_proofs.push((quotient_v, quotient_p));
 
