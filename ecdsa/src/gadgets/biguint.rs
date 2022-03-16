@@ -42,17 +42,17 @@ pub trait CircuitBuilderBiguint<F: RichField + Extendable<D>, const D: usize> {
 
     fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget;
 
-    // Add two `BigUintTarget`s.
+    /// Add two `BigUintTarget`s.
     fn add_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
 
-    // Subtract two `BigUintTarget`s. We assume that the first is larger than the second.
+    /// Subtract two `BigUintTarget`s. We assume that the first is larger than the second.
     fn sub_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
 
     fn mul_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
 
     fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget;
 
-    // Returns x * y + z. This is no more efficient than mul-then-add; it's purely for convenience (only need to call one CircuitBuilder function).
+    /// Returns x * y + z. This is no more efficient than mul-then-add; it's purely for convenience (only need to call one CircuitBuilder function).
     fn mul_add_biguint(
         &mut self,
         x: &BigUintTarget,
@@ -133,7 +133,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
         BigUintTarget { limbs }
     }
 
-    // Add two `BigUintTarget`s.
     fn add_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
         let num_limbs = a.num_limbs().max(b.num_limbs());
 
@@ -158,7 +157,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
         }
     }
 
-    // Subtract two `BigUintTarget`s. We assume that the first is larger than the second.
     fn sub_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
         let (a, b) = self.pad_biguints(a, b);
         let num_limbs = a.limbs.len();
@@ -216,7 +214,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
         }
     }
 
-    // Returns x * y + z. This is no more efficient than mul-then-add; it's purely for convenience (only need to call one CircuitBuilder function).
     fn mul_add_biguint(
         &mut self,
         x: &BigUintTarget,

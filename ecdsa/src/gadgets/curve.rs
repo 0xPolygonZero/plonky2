@@ -50,7 +50,7 @@ pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
         n: usize,
     ) -> AffinePointTarget<C>;
 
-    // Add two points, which are assumed to be non-equal.
+    /// Add two points, which are assumed to be non-equal.
     fn curve_add<C: Curve>(
         &mut self,
         p1: &AffinePointTarget<C>,
@@ -169,7 +169,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         result
     }
 
-    // Add two points, which are assumed to be non-equal.
     fn curve_add<C: Curve>(
         &mut self,
         p1: &AffinePointTarget<C>,
