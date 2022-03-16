@@ -4,6 +4,9 @@
 //! - https://zcash.github.io/halo2/design/proving-system/lookup.html
 //! - https://www.youtube.com/watch?v=YlTt12s7vGE&t=5237s
 
+use std::cmp::Ordering;
+
+use itertools::Itertools;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::{Field, PrimeField64};
 use plonky2::field::packed_field::PackedField;
@@ -30,7 +33,7 @@ pub(crate) fn generate_lookups<F: PrimeField64>(trace_cols: &mut [Vec<F>]) {
 
 /// Given an input column and a table column, generate the permuted input and permuted table columns
 /// used in the Halo2 permutation argument.
-pub(crate) fn permuted_cols<F: PrimeField64>(inputs: &[F], table: &[F]) -> (Vec<F>, Vec<F>) {
+pub fn permuted_cols<F: PrimeField64>(inputs: &[F], table: &[F]) -> (Vec<F>, Vec<F>) {
     let n = inputs.len();
 
     // In the permuted inputs, copies of the same value must be grouped together. We accomplish this
@@ -63,6 +66,65 @@ pub(crate) fn permuted_cols<F: PrimeField64>(inputs: &[F], table: &[F]) -> (Vec<
     );
 
     (permuted_inputs, permuted_table)
+}
+
+pub fn permuted_cols_v2<F: PrimeField64>(inputs: &[F], table: &[F]) -> (Vec<F>, Vec<F>) {
+    let n = inputs.len();
+
+    // We will canonicalize the elements of sorted_inputs and sorted_table once upfront, then use
+    // `to_noncanonical_u64` when comparing elements later.
+    let mut sorted_inputs = inputs
+        .iter()
+        .map(|x| x.to_canonical())
+        .sorted_unstable_by_key(|x| x.to_noncanonical_u64())
+        .collect_vec();
+    let mut sorted_table = table
+        .iter()
+        .map(|x| x.to_canonical())
+        .sorted_unstable_by_key(|x| x.to_noncanonical_u64())
+        .collect_vec();
+
+    let mut unused_table_inds = Vec::with_capacity(n);
+    let mut unused_table_vals = Vec::with_capacity(n);
+    let mut permuted_table = vec![F::ZERO; n];
+    let mut i = 0;
+    let mut j = 0;
+    while (j < n) && (i < n) {
+        match sorted_inputs[i]
+            .to_noncanonical_u64()
+            .cmp(&sorted_table[j].to_noncanonical_u64())
+        {
+            Ordering::Greater => {
+                unused_table_vals.push(sorted_table[j]);
+                j += 1;
+            }
+            Ordering::Less => {
+                if let Some(x) = unused_table_vals.pop() {
+                    permuted_table[i] = x;
+                } else {
+                    unused_table_inds.push(i);
+                }
+                i += 1;
+            }
+            Ordering::Equal => {
+                permuted_table[i] = sorted_table[j];
+                i += 1;
+                j += 1;
+            }
+        }
+    }
+
+    for jj in j..n {
+        unused_table_vals.push(sorted_table[jj]);
+    }
+    for ii in i..n {
+        unused_table_inds.push(ii);
+    }
+    for (ind, val) in unused_table_inds.into_iter().zip_eq(unused_table_vals) {
+        permuted_table[ind] = val;
+    }
+
+    (sorted_inputs, permuted_table)
 }
 
 pub(crate) fn eval_lookups<F: Field, P: PackedField<Scalar = F>>(

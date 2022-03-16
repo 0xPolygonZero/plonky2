@@ -5,7 +5,7 @@ use std::iter::repeat;
 /// Converts a slice to a "hash bag", i.e. a `HashMap` whose values correspond to the number of
 /// times each value appears in the given `Vec`.
 pub(crate) fn create_hash_bag<T: Eq + Hash + Clone>(values: &[T]) -> HashMap<T, usize> {
-    let mut counts = HashMap::new();
+    let mut counts = HashMap::with_capacity(values.len());
     for v in values {
         counts.entry(v.clone()).and_modify(|c| *c += 1).or_insert(1);
     }
