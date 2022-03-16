@@ -24,6 +24,7 @@ pub mod random_access;
 pub mod range_check_u32;
 pub mod reducing;
 pub mod reducing_extension;
+pub(crate) mod selectors;
 pub mod subtraction_u32;
 pub mod switch;
 pub mod util;

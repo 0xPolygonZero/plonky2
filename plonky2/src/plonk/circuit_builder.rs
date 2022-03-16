@@ -23,6 +23,7 @@ use crate::gates::gate::{CurrentSlot, Gate, GateInstance, GateRef, PrefixedGate}
 use crate::gates::gate_tree::Tree;
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
+use crate::gates::selectors::compute_selectors;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::iop::ext_target::ExtensionTarget;
@@ -669,7 +670,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "FRI total reduction arity is too large.",
         );
 
-        let gates = self.gates.iter().cloned().collect();
+        let gates = self.gates.iter().cloned().collect::<Vec<_>>();
+        for g in &gates {
+            println!("{} {}", g.0.id(), g.0.num_constants());
+        }
+        dbg!(compute_selectors(
+            gates.clone(),
+            &self.gate_instances,
+            self.config.max_quotient_degree_factor + 1
+        ));
         let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
         let prefixed_gates = PrefixedGate::from_tree(gate_tree);
 
