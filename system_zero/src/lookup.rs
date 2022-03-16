@@ -19,7 +19,6 @@ use starky::vars::StarkEvaluationVars;
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
 use crate::registers::lookup::*;
 use crate::registers::NUM_COLUMNS;
-use crate::util::{create_hash_bag, flatten_hash_bag};
 
 pub(crate) fn generate_lookups<F: PrimeField64>(trace_cols: &mut [Vec<F>]) {
     for i in 0..NUM_LOOKUPS {
@@ -36,43 +35,15 @@ pub(crate) fn generate_lookups<F: PrimeField64>(trace_cols: &mut [Vec<F>]) {
 pub fn permuted_cols<F: PrimeField64>(inputs: &[F], table: &[F]) -> (Vec<F>, Vec<F>) {
     let n = inputs.len();
 
-    // In the permuted inputs, copies of the same value must be grouped together. We accomplish this
-    // by building a hash-based bag (aka multiset) from the inputs, then flattening it.
-    let input_bag = create_hash_bag(inputs);
-    let permuted_inputs = flatten_hash_bag(&input_bag);
+    // The permuted inputs do not have to be ordered, but we found that sorting was faster than
+    // hash-based grouping. We also sort the table, as this helps us identify "unused" table
+    // elements efficiently.
 
-    // Enumerate tables values that do not appear in the input list.
-    let mut unused_table_vals = table.iter().filter(|v| !input_bag.contains_key(v)).copied();
+    // To compare elements, e.g. for sorting, we first need them in canonical form. It would be
+    // wasteful to canonicalize in each comparison, as a single element may be involved in many
+    // comparisons. So we will canonicalize once upfront, then use `to_noncanonical_u64` when
+    // comparing elements.
 
-    // Build the permuted table while enumerating permuted inputs. If a permuted input is a repeat,
-    // we place an unused table value, otherwise we place the permuted input value.
-    let mut permuted_table = Vec::with_capacity(n);
-    permuted_table.push(permuted_inputs[0]);
-    for i in 1..n {
-        let is_repeat = permuted_inputs[i] == permuted_inputs[i - 1];
-        permuted_table.push(if is_repeat {
-            unused_table_vals
-                .next()
-                .expect("No more unused table values; this should never happen")
-        } else {
-            permuted_inputs[i]
-        });
-    }
-
-    assert_eq!(
-        unused_table_vals.next(),
-        None,
-        "Extra unused table values; this means some value(s) were not in the table"
-    );
-
-    (permuted_inputs, permuted_table)
-}
-
-pub fn permuted_cols_v2<F: PrimeField64>(inputs: &[F], table: &[F]) -> (Vec<F>, Vec<F>) {
-    let n = inputs.len();
-
-    // We will canonicalize the elements of sorted_inputs and sorted_table once upfront, then use
-    // `to_noncanonical_u64` when comparing elements later.
     let sorted_inputs = inputs
         .iter()
         .map(|x| x.to_canonical())
@@ -90,10 +61,9 @@ pub fn permuted_cols_v2<F: PrimeField64>(inputs: &[F], table: &[F]) -> (Vec<F>, 
     let mut i = 0;
     let mut j = 0;
     while (j < n) && (i < n) {
-        match sorted_inputs[i]
-            .to_noncanonical_u64()
-            .cmp(&sorted_table[j].to_noncanonical_u64())
-        {
+        let input_val = sorted_inputs[i].to_noncanonical_u64();
+        let table_val = sorted_table[j].to_noncanonical_u64();
+        match input_val.cmp(&table_val) {
             Ordering::Greater => {
                 unused_table_vals.push(sorted_table[j]);
                 j += 1;
@@ -137,9 +107,9 @@ pub(crate) fn eval_lookups<F: Field, P: PackedField<Scalar = F>>(
         let next_perm_table = vars.next_values[col_permuted_table(i)];
         let next_perm_input = vars.next_values[col_permuted_input(i)];
 
-        // A "vertical" diff between this permuted input and the one in the previous row.
+        // A "vertical" diff between the local and next permuted inputs.
         let diff_input_prev = next_perm_input - local_perm_input;
-        // A "horizontal" diff between this permuted input and the associated permuted table value.
+        // A "horizontal" diff between the next permuted input and permuted table value.
         let diff_input_table = next_perm_input - next_perm_table;
 
         yield_constr.constraint(diff_input_prev * diff_input_table);
@@ -161,9 +131,9 @@ pub(crate) fn eval_lookups_recursively<F: RichField + Extendable<D>, const D: us
         let next_perm_table = vars.next_values[col_permuted_table(i)];
         let next_perm_input = vars.next_values[col_permuted_input(i)];
 
-        // A "vertical" diff between this permuted input and the one in the previous row.
+        // A "vertical" diff between the local and next permuted inputs.
         let diff_input_prev = builder.sub_extension(next_perm_input, local_perm_input);
-        // A "horizontal" diff between this permuted input and the associated permuted table value.
+        // A "horizontal" diff between the next permuted input and permuted table value.
         let diff_input_table = builder.sub_extension(next_perm_input, next_perm_table);
 
         let diff_product = builder.mul_extension(diff_input_prev, diff_input_table);
