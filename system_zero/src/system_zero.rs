@@ -1,11 +1,12 @@
 use std::marker::PhantomData;
 
-use itertools::Itertools;
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::packed_field::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::timed;
+use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use starky::permutation::PermutationPair;
@@ -67,20 +68,42 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
     }
 
     fn generate_trace(&self) -> Vec<PolynomialValues<F>> {
+        let mut timing = TimingTree::new("generate trace", log::Level::Debug);
+
         // Generate the witness, except for permuted columns in the lookup argument.
-        let trace_rows = self.generate_trace_rows();
+        let trace_rows = timed!(
+            &mut timing,
+            "generate trace rows",
+            self.generate_trace_rows()
+        );
 
         // Transpose from row-wise to column-wise.
-        let trace_row_vecs = trace_rows.iter().map(|row| row.to_vec()).collect_vec();
-        let mut trace_col_vecs: Vec<Vec<F>> = transpose(&trace_row_vecs);
+        let trace_row_vecs: Vec<_> = timed!(
+            &mut timing,
+            "convert to Vecs",
+            trace_rows.into_iter().map(|row| row.to_vec()).collect()
+        );
+        let mut trace_col_vecs: Vec<Vec<F>> =
+            timed!(&mut timing, "transpose", transpose(&trace_row_vecs));
 
         // Generate permuted columns in the lookup argument.
-        generate_lookups(&mut trace_col_vecs);
+        timed!(
+            &mut timing,
+            "generate lookup columns",
+            generate_lookups(&mut trace_col_vecs)
+        );
 
-        trace_col_vecs
-            .into_iter()
-            .map(|column| PolynomialValues::new(column))
-            .collect()
+        let trace_polys = timed!(
+            &mut timing,
+            "convert to PolynomialValues",
+            trace_col_vecs
+                .into_iter()
+                .map(|column| PolynomialValues::new(column))
+                .collect()
+        );
+
+        timing.print();
+        trace_polys
     }
 }
 
@@ -166,6 +189,8 @@ mod tests {
 
     #[test]
     fn run() -> Result<()> {
+        init_logger();
+
         type F = GoldilocksField;
         type C = PoseidonGoldilocksConfig;
         const D: usize = 2;
@@ -190,5 +215,9 @@ mod tests {
         type S = SystemZero<F, D>;
         let system = S::default();
         test_stark_low_degree(system)
+    }
+
+    fn init_logger() {
+        let _ = env_logger::builder().format_timestamp(None).try_init();
     }
 }
