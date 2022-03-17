@@ -24,72 +24,139 @@ pub(crate) fn generate_division<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) 
     let dividend = values[COL_DIV_INPUT_DIVIDEND].to_canonical_u64() as u32;
     let divisor = values[COL_DIV_INPUT_DIVISOR].to_canonical_u64() as u32;
 
-    let (quo, rem) = if divisor == 0 {
-        (0u32, u32::MAX)
-    } else {
-        (dividend / divisor, dividend % divisor)
-    };
+    if divisor == 0 {
+        // Outputs
+        values[COL_DIV_OUTPUT_QUOT_0] = F::ZERO;
+        values[COL_DIV_OUTPUT_QUOT_1] = F::ZERO;
+        values[COL_DIV_OUTPUT_REM_0] = F::from_canonical_u16(u16::MAX);
+        values[COL_DIV_OUTPUT_REM_1] = F::from_canonical_u16(u16::MAX);
 
-    values[COL_DIV_OUTPUT_QUOT_0] = F::from_canonical_u16(quo as u16);
-    values[COL_DIV_OUTPUT_QUOT_1] = F::from_canonical_u16((quo >> 16) as u16);
-    values[COL_DIV_OUTPUT_REM_0] = F::from_canonical_u16(rem as u16);
-    values[COL_DIV_OUTPUT_REM_1] = F::from_canonical_u16((rem >> 16) as u16);
+        // Temporaries
+        values[COL_DIV_DIV_REM_DIFF_M1_0] = F::ZERO;
+        values[COL_DIV_DIV_REM_DIFF_M1_1] = F::ZERO;
+        values[COL_DIV_DIV_INV] = F::ZERO;
+        values[COL_DIV_DIV_DIV_INV] = F::ZERO;
+    } else {
+        let quo = dividend / divisor;
+        let rem = dividend % divisor;
+
+        let div_rem_diff_m1 = divisor - rem - 1;
+
+        // Outputs
+        values[COL_DIV_OUTPUT_QUOT_0] = F::from_canonical_u16(quo as u16);
+        values[COL_DIV_OUTPUT_QUOT_1] = F::from_canonical_u16((quo >> 16) as u16);
+        values[COL_DIV_OUTPUT_REM_0] = F::from_canonical_u16(rem as u16);
+        values[COL_DIV_OUTPUT_REM_1] = F::from_canonical_u16((rem >> 16) as u16);
+
+        // Temporaries
+        values[COL_DIV_DIV_REM_DIFF_M1_0] = F::from_canonical_u16(div_rem_diff_m1 as u16);
+        values[COL_DIV_DIV_REM_DIFF_M1_1] = F::from_canonical_u16((div_rem_diff_m1 >> 16) as u16);
+        values[COL_DIV_DIV_INV] = F::from_canonical_u32(divisor).inverse();
+        values[COL_DIV_DIV_DIV_INV] = F::ONE;
+    }
 }
 
 pub(crate) fn eval_division<F: Field, P: PackedField<Scalar = F>>(
-    local_values: &[P; NUM_COLUMNS],
+    lv: &[P; NUM_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let is_div = local_values[IS_DIV];
-    let dividend = local_values[COL_DIV_INPUT_DIVIDEND];
-    let divisor = local_values[COL_DIV_INPUT_DIVISOR];
-    let quotient_0 = local_values[COL_DIV_OUTPUT_QUOT_0];
-    let quotient_1 = local_values[COL_DIV_OUTPUT_QUOT_1];
-    let remainder_0 = local_values[COL_DIV_OUTPUT_REM_0];
-    let remainder_1 = local_values[COL_DIV_OUTPUT_REM_1];
-    let divisor_inv = local_values[COL_DIV_DIVISOR_INV];
-    let divisor_rem_diff_m1_0 = local_values[COL_DIV_DIVISOR_REM_DIFF_M1_0];
-    let divisor_rem_diff_m1_1 = local_values[COL_DIV_DIVISOR_REM_DIFF_M1_1];
-
     let base = F::from_canonical_u64(1 << 16);
-
-    let quotient = quotient_0 + quotient_1 * base;
-    let remainder = remainder_0 + remainder_1 * base;
-    let divisor_rem_diff_m1 = divisor_rem_diff_m1_0 + divisor_rem_diff_m1_1 * base;
-
-    // If dividend is nonzero, the constraint is
-    // dividend = divisor * quotient + remainder
-    let nonzero_divisor_constr = (divisor * quotient + remainder) - dividend;
-    // If dividend is zero, the constraint is
-    // quotient = 0 and remainder = u32::MAX.
     let u32_max = P::from(F::from_canonical_u32(u32::MAX));
-    let zero_divisor_constr = (remainder - quotient) - u32_max;
 
-    // Selector variable
-    let divisor_is_nonzero = divisor * divisor_inv - P::ONES;
-    let divisor_is_zero = divisor;
-    yield_constr.constraint(is_div * divisor_is_nonzero * nonzero_divisor_constr);
-    yield_constr.constraint(is_div * divisor_is_zero * zero_divisor_constr);
+    // Filter
+    let is_div = lv[IS_DIV];
 
-    // Finally, ensure that `remainder < quotient`. We know that `divisor_rem_diff_m1` fits in a
-    // `u32` because we've range-checked it. Now assert that either the divisor is zero or `divisor
-    // - remainder - 1 == divisor_rem_diff_m1`.
-    let divisor_rem_diff_constr = divisor - remainder - P::ONES - divisor_rem_diff_m1;
-    yield_constr.constraint(is_div * divisor_is_zero * divisor_rem_diff_constr);
+    // Inputs
+    let dividend = lv[COL_DIV_INPUT_DIVIDEND];
+    let divisor = lv[COL_DIV_INPUT_DIVISOR];
+
+    // Outputs
+    let quotient = lv[COL_DIV_OUTPUT_QUOT_0] + lv[COL_DIV_OUTPUT_QUOT_1] * base;
+    let remainder = lv[COL_DIV_OUTPUT_REM_0] + lv[COL_DIV_OUTPUT_REM_1] * base;
+
+    // Temporaries
+    let div_inv = lv[COL_DIV_DIV_INV];
+    let div_div_inv = lv[COL_DIV_DIV_DIV_INV];
+    let div_rem_diff_m1 = lv[COL_DIV_DIV_REM_DIFF_M1_0] + lv[COL_DIV_DIV_REM_DIFF_M1_1] * base;
+
+    // Constraints
+    yield_constr.constraint(is_div * (divisor * div_inv - div_div_inv));
+    yield_constr.constraint(is_div * (div_div_inv - F::ONE) * (remainder - quotient - u32_max));
+    yield_constr.constraint(is_div * divisor * (div_div_inv - F::ONE));
+    yield_constr.constraint(is_div * div_inv * (div_div_inv - F::ONE));
+    yield_constr.constraint(is_div * (quotient + remainder * div_inv - div_inv * dividend));
+    yield_constr.constraint(is_div * divisor * (divisor - remainder - F::ONE - div_rem_diff_m1));
 }
 
 pub(crate) fn eval_division_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    local_values: &[ExtensionTarget<D>; NUM_COLUMNS],
+    lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let is_div = local_values[IS_DIV];
-    let dividend = local_values[COL_DIV_INPUT_DIVIDEND];
-    let divisor = local_values[COL_DIV_INPUT_DIVISOR];
-    let quotient_0 = local_values[COL_DIV_OUTPUT_QUOT_0];
-    let quotient_1 = local_values[COL_DIV_OUTPUT_QUOT_1];
-    let remainder_0 = local_values[COL_DIV_OUTPUT_REM_0];
-    let remainder_1 = local_values[COL_DIV_OUTPUT_REM_1];
+    let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << 16));
+    let u32_max = builder.constant_extension(F::Extension::from_canonical_u32(u32::MAX));
+    let one = builder.constant_extension(F::Extension::ONE);
 
-    // TODO
+    // Filter
+    let is_div = lv[IS_DIV];
+
+    // Inputs
+    let dividend = lv[COL_DIV_INPUT_DIVIDEND];
+    let divisor = lv[COL_DIV_INPUT_DIVISOR];
+
+    // Outputs
+    let quotient =
+        builder.mul_add_extension(lv[COL_DIV_OUTPUT_QUOT_1], base, lv[COL_DIV_OUTPUT_QUOT_0]);
+    let remainder =
+        builder.mul_add_extension(lv[COL_DIV_OUTPUT_REM_1], base, lv[COL_DIV_OUTPUT_REM_0]);
+
+    // Temporaries
+    let div_inv = lv[COL_DIV_DIV_INV];
+    let div_div_inv = lv[COL_DIV_DIV_DIV_INV];
+    let div_rem_diff_m1 = builder.mul_add_extension(
+        lv[COL_DIV_DIV_REM_DIFF_M1_1],
+        base,
+        lv[COL_DIV_DIV_REM_DIFF_M1_0],
+    );
+
+    // Constraints
+    let constr6 = builder.mul_sub_extension(divisor, div_inv, div_div_inv);
+    let constr7 = {
+        let t = builder.sub_extension(div_div_inv, one);
+        let u = builder.sub_extension(remainder, quotient);
+        let v = builder.sub_extension(u, u32_max);
+        builder.mul_extension(t, v)
+    };
+    let constr8 = {
+        let t = builder.sub_extension(div_div_inv, one);
+        builder.mul_extension(divisor, t)
+    };
+    let constr9 = {
+        let t = builder.sub_extension(div_div_inv, one);
+        builder.mul_extension(div_inv, t)
+    };
+    let constr10 = {
+        let t = builder.sub_extension(remainder, dividend);
+        builder.mul_add_extension(t, div_inv, quotient)
+    };
+    let constr11 = {
+        let t = builder.sub_extension(divisor, remainder);
+        let u = builder.add_extension(one, div_rem_diff_m1);
+        let v = builder.sub_extension(t, u);
+        builder.mul_extension(divisor, v)
+    };
+
+    let constr6 = builder.mul_extension(is_div, constr6);
+    let constr7 = builder.mul_extension(is_div, constr7);
+    let constr8 = builder.mul_extension(is_div, constr8);
+    let constr9 = builder.mul_extension(is_div, constr9);
+    let constr10 = builder.mul_extension(is_div, constr10);
+    let constr11 = builder.mul_extension(is_div, constr11);
+
+    yield_constr.constraint(builder, constr6);
+    yield_constr.constraint(builder, constr7);
+    yield_constr.constraint(builder, constr8);
+    yield_constr.constraint(builder, constr9);
+    yield_constr.constraint(builder, constr10);
+    yield_constr.constraint(builder, constr11);
 }
