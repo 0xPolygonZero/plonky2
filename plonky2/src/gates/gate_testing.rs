@@ -152,7 +152,7 @@ where
     let evals = gate.eval_unfiltered(vars);
 
     let vars_t = EvaluationTargets {
-        local_constants: &constants_t,
+        local_constants: constants_t,
         local_wires: &wires_t,
         public_inputs_hash: &public_inputs_hash_t,
     };

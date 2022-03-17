@@ -218,14 +218,14 @@ impl<'a, P: PackedField> ExactSizeIterator for EvaluationVarsBaseBatchIterPacked
 }
 
 impl<'a, const D: usize> EvaluationTargets<'a, D> {
-    pub fn remove_prefix(&mut self, prefix: &[bool]) {
-        self.local_constants = &self.local_constants[prefix.len()..];
+    pub fn remove_prefix(&mut self, selector_index: usize) {
+        self.local_constants.remove(selector_index);
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct EvaluationTargets<'a, const D: usize> {
-    pub local_constants: &'a [ExtensionTarget<D>],
+    pub local_constants: Vec<ExtensionTarget<D>>,
     pub local_wires: &'a [ExtensionTarget<D>],
     pub public_inputs_hash: &'a HashOutTarget,
 }

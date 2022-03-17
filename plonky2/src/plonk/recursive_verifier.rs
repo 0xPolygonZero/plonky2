@@ -53,7 +53,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     {
         let one = self.one_extension();
 
-        let local_constants = &proof.openings.constants;
+        let local_constants = proof.openings.constants.clone();
         let local_wires = &proof.openings.wires;
         let vars = EvaluationTargets {
             local_constants,
@@ -230,6 +230,7 @@ mod tests {
         let (proof, vd, cd) =
             recursive_proof::<F, C, C, D>(proof, vd, cd, &config, Some(13), false, false)?;
         assert_eq!(cd.degree_bits, 13);
+        test_serialization(&proof, &cd)?;
 
         // Shrink it to 2^12.
         let (proof, _vd, cd) =
@@ -403,7 +404,7 @@ mod tests {
             timing.print();
         }
 
-        data.verify(proof.clone())?;
+        // data.verify(proof.clone())?;
 
         Ok((proof, data.verifier_only, data.common))
     }

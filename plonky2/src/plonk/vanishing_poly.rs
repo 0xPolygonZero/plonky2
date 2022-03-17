@@ -275,21 +275,21 @@ pub fn evaluate_gate_constraints_recursively<
     common_data: &CommonCircuitData<F, C, D>,
     vars: EvaluationTargets<D>,
 ) -> Vec<ExtensionTarget<D>> {
-    todo!();
-    // let mut all_gate_constraints = vec![builder.zero_extension(); num_gate_constraints];
-    // for gate in gates {
-    //     with_context!(
-    //         builder,
-    //         &format!("evaluate {} constraints", gate.gate.0.id()),
-    //         gate.gate.0.eval_filtered_recursively(
-    //             builder,
-    //             vars,
-    //             &gate.prefix,
-    //             &mut all_gate_constraints
-    //         )
-    //     );
-    // }
-    // all_gate_constraints
+    let mut all_gate_constraints = vec![builder.zero_extension(); common_data.num_gate_constraints];
+    for (i, gate) in common_data.gates.iter().enumerate() {
+        with_context!(
+            builder,
+            &format!("evaluate {} constraints", gate.0.id()),
+            gate.0.eval_filtered_recursively(
+                builder,
+                vars.clone(),
+                common_data.selector_indices[i],
+                common_data.combination_nums[i],
+                &mut all_gate_constraints
+            )
+        );
+    }
+    all_gate_constraints
 }
 
 /// Evaluate the vanishing polynomial at `x`. In this context, the vanishing polynomial is a random
@@ -322,7 +322,7 @@ pub(crate) fn eval_vanishing_poly_recursively<
     let constraint_terms = with_context!(
         builder,
         "evaluate gate constraints",
-        evaluate_gate_constraints_recursively(builder, common_data, vars,)
+        evaluate_gate_constraints_recursively(builder, common_data, vars.clone())
     );
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
