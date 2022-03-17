@@ -445,7 +445,7 @@ mod tests {
         };
 
         let vars = EvaluationVars {
-            local_constants: &[],
+            local_constants: vec![],
             local_wires: &get_wires(multiplicands_0, multiplicands_1, addends),
             public_inputs_hash: &HashOut::rand(),
         };

@@ -49,7 +49,7 @@ pub(crate) fn verify_with_challenges<
 where
     [(); C::Hasher::HASH_SIZE]:,
 {
-    let local_constants = &proof.openings.constants;
+    let local_constants = proof.openings.constants.clone();
     let local_wires = &proof.openings.wires;
     let vars = EvaluationVars {
         local_constants,

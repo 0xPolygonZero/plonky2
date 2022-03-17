@@ -38,7 +38,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     ) {
         // Note that this method uses `yield_constr` instead of returning its constraints.
         // `yield_constr` abstracts out the underlying memory layout.
-        let local_constants = &vars_base
+        let local_constants = vars_base
             .local_constants
             .iter()
             .map(|c| F::Extension::from_basefield(*c))
@@ -80,9 +80,18 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>>;
 
-    fn eval_filtered(&self, mut vars: EvaluationVars<F, D>, prefix: &[bool]) -> Vec<F::Extension> {
-        let filter = compute_filter(prefix, vars.local_constants);
-        vars.remove_prefix(prefix);
+    fn eval_filtered(
+        &self,
+        mut vars: EvaluationVars<F, D>,
+        selector_index: usize,
+        combination_num: usize,
+    ) -> Vec<F::Extension> {
+        let filter = compute_filter(
+            selector_index,
+            combination_num,
+            vars.local_constants[selector_index],
+        );
+        vars.remove_prefix(selector_index);
         self.eval_unfiltered(vars)
             .into_iter()
             .map(|c| filter * c)
@@ -94,13 +103,20 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     fn eval_filtered_base_batch(
         &self,
         mut vars_batch: EvaluationVarsBaseBatch<F>,
-        prefix: &[bool],
+        selector_index: usize,
+        combination_num: usize,
     ) -> Vec<F> {
         let filters: Vec<_> = vars_batch
             .iter()
-            .map(|vars| compute_filter(prefix, vars.local_constants))
+            .map(|vars| {
+                compute_filter(
+                    selector_index,
+                    combination_num,
+                    vars.local_constants[selector_index],
+                )
+            })
             .collect();
-        vars_batch.remove_prefix(prefix);
+        vars_batch.remove_prefix(selector_index);
         let mut res_batch = self.eval_unfiltered_base_batch(vars_batch);
         for res_chunk in res_batch.chunks_exact_mut(filters.len()) {
             batch_multiply_inplace(res_chunk, &filters);
@@ -213,11 +229,10 @@ impl<F: RichField + Extendable<D>, const D: usize> PrefixedGate<F, D> {
 
 /// A gate's filter is computed as `prod b_i*c_i + (1-b_i)*(1-c_i)`, with `(b_i)` the prefix and
 /// `(c_i)` the local constants, which is one if the prefix of `constants` matches `prefix`.
-fn compute_filter<'a, K: Field, T: IntoIterator<Item = &'a K>>(prefix: &[bool], constants: T) -> K {
-    prefix
-        .iter()
-        .zip(constants)
-        .map(|(&b, &c)| if b { c } else { K::ONE - c })
+fn compute_filter<'a, K: Field>(selector_index: usize, combination_num: usize, constant: K) -> K {
+    (0..combination_num)
+        .filter(|&i| i != selector_index)
+        .map(|i| K::from_canonical_usize(i) - constant)
         .product()
 }
 

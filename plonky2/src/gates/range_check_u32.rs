@@ -292,7 +292,7 @@ mod tests {
         };
 
         let vars = EvaluationVars {
-            local_constants: &[],
+            local_constants: vec![],
             local_wires: &get_wires(input_limbs),
             public_inputs_hash: &HashOut::rand(),
         };

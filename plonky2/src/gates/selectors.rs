@@ -8,9 +8,8 @@ pub(crate) fn compute_selectors<F: RichField + Extendable<D>, const D: usize>(
     mut gates: Vec<GateRef<F, D>>,
     instances: &[GateInstance<F, D>],
     max_degree: usize,
-) {
+) -> (Vec<PolynomialValues<F>>, Vec<usize>, Vec<usize>) {
     let n = instances.len();
-    gates.sort_unstable_by_key(|g| g.0.degree());
 
     let mut combinations = Vec::new();
     let mut pos = 0;
@@ -25,16 +24,41 @@ pub(crate) fn compute_selectors<F: RichField + Extendable<D>, const D: usize>(
     }
 
     let num_constants_polynomials =
-        0.max(gates.iter().map(|g| g.0.num_constants()).max().unwrap() - combinations.len() - 1);
+        0.max(gates.iter().map(|g| g.0.num_constants()).max().unwrap() - combinations.len() + 1);
     let mut polynomials =
         vec![PolynomialValues::zero(n); combinations.len() + num_constants_polynomials];
 
     let index = |id| gates.iter().position(|g| g.0.id() == id).unwrap();
     let combination = |i| combinations.iter().position(|&(a, _)| a <= i).unwrap();
 
+    let selector_indices = gates
+        .iter()
+        .map(|g| combination(index(g.0.id())))
+        .collect::<Vec<_>>();
+    let combination_nums = selector_indices
+        .iter()
+        .map(|&i| combinations[i].1 - combinations[i].0)
+        .collect();
+
     for (j, g) in instances.iter().enumerate() {
-        let i = index(g.gate_ref.0.id());
+        let GateInstance {
+            gate_ref,
+            constants,
+        } = g;
+        let i = index(gate_ref.0.id());
         let comb = combination(i);
-        polynomials[comb].values[j] = i - combinations[comb].0;
+        polynomials[comb].values[j] = F::from_canonical_usize(i - combinations[comb].0);
+        let mut k = 0;
+        let mut constant_ind = 0;
+        while k < constants.len() {
+            if constant_ind == comb {
+                constant_ind += 1;
+            } else {
+                polynomials[constant_ind].values[j] = constants[k];
+                constant_ind += 1;
+                k += 1;
+            }
+        }
     }
+    (polynomials, selector_indices, combination_nums)
 }

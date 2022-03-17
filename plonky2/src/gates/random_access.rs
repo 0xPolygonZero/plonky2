@@ -413,7 +413,7 @@ mod tests {
             .map(|(l, &i)| l[i])
             .collect();
         let good_vars = EvaluationVars {
-            local_constants: &[],
+            local_constants: vec![],
             local_wires: &get_wires(
                 bits,
                 lists.clone(),
@@ -424,7 +424,7 @@ mod tests {
         };
         let bad_claimed_elements = F::rand_vec(4);
         let bad_vars = EvaluationVars {
-            local_constants: &[],
+            local_constants: vec![],
             local_wires: &get_wires(bits, lists, access_indices, bad_claimed_elements),
             public_inputs_hash: &HashOut::rand(),
         };

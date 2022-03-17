@@ -602,7 +602,7 @@ mod tests {
             _phantom: PhantomData,
         };
         let less_than_vars = EvaluationVars {
-            local_constants: &[],
+            local_constants: vec![],
             local_wires: &get_wires(first_input, second_input),
             public_inputs_hash: &HashOut::rand(),
         };
@@ -620,7 +620,7 @@ mod tests {
             _phantom: PhantomData,
         };
         let equal_vars = EvaluationVars {
-            local_constants: &[],
+            local_constants: vec![],
             local_wires: &get_wires(first_input, first_input),
             public_inputs_hash: &HashOut::rand(),
         };

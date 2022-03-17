@@ -670,34 +670,34 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "FRI total reduction arity is too large.",
         );
 
-        let gates = self.gates.iter().cloned().collect::<Vec<_>>();
-        for g in &gates {
-            println!("{} {}", g.0.id(), g.0.num_constants());
-        }
-        dbg!(compute_selectors(
+        let mut gates = self.gates.iter().cloned().collect::<Vec<_>>();
+        gates.sort_unstable_by_key(|g| g.0.degree());
+        let (constant_vecs, selector_indices, combination_nums) = compute_selectors(
             gates.clone(),
             &self.gate_instances,
-            self.config.max_quotient_degree_factor + 1
-        ));
-        let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
-        let prefixed_gates = PrefixedGate::from_tree(gate_tree);
-
-        // `quotient_degree_factor` has to be between `max_filtered_constraint_degree-1` and `1<<rate_bits`.
-        // We find the value that minimizes `num_partial_product + quotient_degree_factor`.
-        let min_quotient_degree_factor = (max_filtered_constraint_degree - 1).max(2);
-        let max_quotient_degree_factor = self.config.max_quotient_degree_factor.min(1 << rate_bits);
-        let quotient_degree_factor = (min_quotient_degree_factor..=max_quotient_degree_factor)
-            .min_by_key(|&q| num_partial_products(self.config.num_routed_wires, q) + q)
-            .unwrap();
+            self.config.max_quotient_degree_factor + 1,
+        );
+        let num_constants = constant_vecs.len();
+        // let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
+        // let prefixed_gates = PrefixedGate::from_tree(gate_tree);
+        //
+        // // `quotient_degree_factor` has to be between `max_filtered_constraint_degree-1` and `1<<rate_bits`.
+        // // We find the value that minimizes `num_partial_product + quotient_degree_factor`.
+        // let min_quotient_degree_factor = (max_filtered_constraint_degree - 1).max(2);
+        // let max_quotient_degree_factor = self.config.max_quotient_degree_factor.min(1 << rate_bits);
+        // let quotient_degree_factor = (min_quotient_degree_factor..=max_quotient_degree_factor)
+        //     .min_by_key(|&q| num_partial_products(self.config.num_routed_wires, q) + q)
+        //     .unwrap();
+        let quotient_degree_factor = self.config.max_quotient_degree_factor;
         debug!("Quotient degree factor set to: {}.", quotient_degree_factor);
 
         let subgroup = F::two_adic_subgroup(degree_bits);
 
-        let constant_vecs = timed!(
-            timing,
-            "generate constant polynomials",
-            self.constant_polys(&prefixed_gates, num_constants)
-        );
+        // let constant_vecs = timed!(
+        //     timing,
+        //     "generate constant polynomials",
+        //     self.constant_polys(&prefixed_gates, num_constants)
+        // );
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let (sigma_vecs, forest) = timed!(
@@ -777,11 +777,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             fft_root_table: Some(fft_root_table),
         };
 
-        // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
-        // sort by ID to make the ordering deterministic.
-        let mut gates = self.gates.iter().cloned().collect::<Vec<_>>();
-        gates.sort_unstable_by_key(|gate| gate.0.id());
-
         let num_gate_constraints = gates
             .iter()
             .map(|gate| gate.0.num_constraints())
@@ -802,7 +797,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             config: self.config,
             fri_params,
             degree_bits,
-            gates: prefixed_gates,
+            gates,
+            selector_indices,
+            combination_nums,
             quotient_degree_factor,
             num_gate_constraints,
             num_constants,

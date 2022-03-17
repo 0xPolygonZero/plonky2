@@ -12,7 +12,7 @@ use crate::fri::structure::{
     FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriPolynomialInfo,
 };
 use crate::fri::{FriConfig, FriParams};
-use crate::gates::gate::PrefixedGate;
+use crate::gates::gate::{Gate, GateRef, PrefixedGate};
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
@@ -246,7 +246,10 @@ pub struct CommonCircuitData<
     pub(crate) degree_bits: usize,
 
     /// The types of gates used in this circuit, along with their prefixes.
-    pub(crate) gates: Vec<PrefixedGate<F, D>>,
+    pub(crate) gates: Vec<GateRef<F, D>>,
+
+    pub(crate) selector_indices: Vec<usize>,
+    pub(crate) combination_nums: Vec<usize>,
 
     /// The degree of the PLONK quotient polynomial.
     pub(crate) quotient_degree_factor: usize,
@@ -290,7 +293,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub fn constraint_degree(&self) -> usize {
         self.gates
             .iter()
-            .map(|g| g.gate.0.degree())
+            .map(|g| g.0.degree())
             .max()
             .expect("No gates?")
     }
