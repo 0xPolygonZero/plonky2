@@ -201,7 +201,7 @@ impl<F: Extendable<4>> Mul for QuarticExtension<F> {
     type Output = Self;
 
     #[inline]
-    fn mul(self, rhs: Self) -> Self {
+    default fn mul(self, rhs: Self) -> Self {
         let Self([a0, a1, a2, a3]) = self;
         let Self([b0, b1, b2, b3]) = rhs;
 

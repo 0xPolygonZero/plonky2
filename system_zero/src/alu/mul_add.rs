@@ -36,7 +36,7 @@ pub(crate) fn eval_mul_add<F: Field, P: PackedField<Scalar = F>>(
     local_values: &[P; NUM_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let is_mul = local_values[IS_MUL];
+    let is_mul = local_values[IS_MUL_ADD];
     let factor_0 = local_values[COL_MUL_ADD_FACTOR_0];
     let factor_1 = local_values[COL_MUL_ADD_FACTOR_1];
     let addend = local_values[COL_MUL_ADD_ADDEND];
@@ -47,6 +47,7 @@ pub(crate) fn eval_mul_add<F: Field, P: PackedField<Scalar = F>>(
     let result_canonical_inv = local_values[COL_MUL_ADD_RESULT_CANONICAL_INV];
 
     let computed_output = factor_0 * factor_1 + addend;
+    // TODO: Needs to be filtered by IS_MUL_ADD.
     let output = combine_u16s_check_canonical(
         output_1,
         output_2,
@@ -55,7 +56,7 @@ pub(crate) fn eval_mul_add<F: Field, P: PackedField<Scalar = F>>(
         result_canonical_inv,
         yield_constr,
     );
-    yield_constr.constraint(computed_output - output);
+    yield_constr.constraint(is_mul * (computed_output - output));
 }
 
 pub(crate) fn eval_mul_add_recursively<F: RichField + Extendable<D>, const D: usize>(
@@ -63,7 +64,7 @@ pub(crate) fn eval_mul_add_recursively<F: RichField + Extendable<D>, const D: us
     local_values: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let is_mul = local_values[IS_MUL];
+    let is_mul = local_values[IS_MUL_ADD];
     let factor_0 = local_values[COL_MUL_ADD_FACTOR_0];
     let factor_1 = local_values[COL_MUL_ADD_FACTOR_1];
     let addend = local_values[COL_MUL_ADD_ADDEND];
@@ -74,6 +75,7 @@ pub(crate) fn eval_mul_add_recursively<F: RichField + Extendable<D>, const D: us
     let result_canonical_inv = local_values[COL_MUL_ADD_RESULT_CANONICAL_INV];
 
     let computed_output = builder.mul_add_extension(factor_0, factor_1, addend);
+    // TODO: Needs to be filtered by IS_MUL_ADD.
     let output = combine_u16s_check_canonical_circuit(
         builder,
         output_1,
@@ -84,5 +86,6 @@ pub(crate) fn eval_mul_add_recursively<F: RichField + Extendable<D>, const D: us
         yield_constr,
     );
     let diff = builder.sub_extension(computed_output, output);
+    let filtered_diff = builder.mul_extension(is_mul, diff);
     yield_constr.constraint(builder, diff);
 }

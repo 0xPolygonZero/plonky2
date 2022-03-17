@@ -2,8 +2,8 @@
 
 pub(crate) const IS_ADD: usize = super::START_ALU;
 pub(crate) const IS_SUB: usize = IS_ADD + 1;
-pub(crate) const IS_MUL: usize = IS_SUB + 1;
-pub(crate) const IS_DIV: usize = IS_MUL + 1;
+pub(crate) const IS_MUL_ADD: usize = IS_SUB + 1;
+pub(crate) const IS_DIV: usize = IS_MUL_ADD + 1;
 
 const START_SHARED_COLS: usize = IS_DIV + 1;
 
