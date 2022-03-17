@@ -16,9 +16,6 @@ use crate::registers::NUM_COLUMNS;
 /// 2^32 - 1 (which is not a valid remainder for any nonzero D) and
 /// the quotient is set to zero.  In particular, no overflow is
 /// possible.
-///
-/// FIXME: Should the quotient be set to zero on division-by-zero, or
-/// something else?
 
 pub(crate) fn generate_division<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
     let dividend = values[COL_DIV_INPUT_DIVIDEND].to_canonical_u64() as u32;
