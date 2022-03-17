@@ -30,6 +30,14 @@ pub struct PermutationPair {
     pub column_pairs: Vec<(usize, usize)>,
 }
 
+impl PermutationPair {
+    pub fn singletons(lhs: usize, rhs: usize) -> Self {
+        Self {
+            column_pairs: vec![(lhs, rhs)],
+        }
+    }
+}
+
 /// A single instance of a permutation check protocol.
 pub(crate) struct PermutationInstance<'a, T: Copy> {
     pub(crate) pair: &'a PermutationPair,

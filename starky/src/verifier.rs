@@ -118,7 +118,10 @@ where
         .chunks(stark.quotient_degree_factor())
         .enumerate()
     {
-        ensure!(vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
+        ensure!(
+            vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg),
+            "Mismatch between evaluation and opening of quotient polynomial"
+        );
     }
 
     let merkle_caps = once(proof.trace_cap)

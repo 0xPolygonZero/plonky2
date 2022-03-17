@@ -95,7 +95,7 @@ impl Field for GoldilocksField {
         Self(n.mod_floor(&Self::order()).to_u64_digits()[0])
     }
 
-    #[inline]
+    #[inline(always)]
     fn from_canonical_u64(n: u64) -> Self {
         debug_assert!(n < Self::ORDER);
         Self(n)
@@ -156,6 +156,7 @@ impl PrimeField64 for GoldilocksField {
         c
     }
 
+    #[inline(always)]
     fn to_noncanonical_u64(&self) -> u64 {
         self.0
     }

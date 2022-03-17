@@ -30,7 +30,7 @@ use crate::vars::StarkEvaluationVars;
 pub fn prove<F, C, S, const D: usize>(
     stark: S,
     config: &StarkConfig,
-    trace: Vec<[F; S::COLUMNS]>,
+    trace_poly_values: Vec<PolynomialValues<F>>,
     public_inputs: [F; S::PUBLIC_INPUTS],
     timing: &mut TimingTree,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
@@ -42,7 +42,7 @@ where
     [(); S::PUBLIC_INPUTS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
-    let degree = trace.len();
+    let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
     let fri_params = config.fri_params(degree_bits);
     let rate_bits = config.fri_config.rate_bits;
@@ -50,18 +50,6 @@ where
     assert!(
         fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
         "FRI total reduction arity is too large.",
-    );
-
-    let trace_vecs = trace.iter().map(|row| row.to_vec()).collect_vec();
-    let trace_col_major: Vec<Vec<F>> = transpose(&trace_vecs);
-
-    let trace_poly_values: Vec<PolynomialValues<F>> = timed!(
-        timing,
-        "compute trace polynomials",
-        trace_col_major
-            .par_iter()
-            .map(|column| PolynomialValues::new(column.clone()))
-            .collect()
     );
 
     let trace_commitment = timed!(
