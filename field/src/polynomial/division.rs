@@ -58,9 +58,9 @@ impl<F: Field> PolynomialCoeffs<F> {
                 let cur_q_degree = remainder.degree_plus_one() - b_degree_plus_1;
                 quotient.coeffs[cur_q_degree] = cur_q_coeff;
 
-                for (i, &div_coeff) in b.coeffs.iter().enumerate() {
-                    remainder.coeffs[cur_q_degree + i] -= cur_q_coeff * div_coeff;
-                }
+                remainder.coeffs[cur_q_degree..(cur_q_degree + b.coeffs.len())]
+                    .iter_mut()
+                    .for_each(|div_coeff| *div_coeff -= cur_q_coeff * *div_coeff);
                 remainder.trim();
             }
             (quotient, remainder)

@@ -65,7 +65,7 @@ where
     let compressed_proofs = compressed_proofs.to_vec();
     let mut decompressed_proofs = Vec::with_capacity(compressed_proofs.len());
     // Holds the already seen nodes in the tree along with their value.
-    let mut seen = HashMap::new();
+    let mut seen = HashMap::with_capacity((height + 1 - cap_height) * leaves_indices.len());
 
     for (&i, v) in leaves_indices.iter().zip(leaves_data) {
         // Observe the leaves.
