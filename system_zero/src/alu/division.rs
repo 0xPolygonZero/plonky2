@@ -164,7 +164,6 @@ pub(crate) fn eval_division_recursively<F: RichField + Extendable<D>, const D: u
     yield_constr.constraint(builder, constr11);
 }
 
-
 #[cfg(test)]
 mod tests {
     use plonky2::field::field_types::Field;
@@ -173,8 +172,8 @@ mod tests {
     use rand_chacha::ChaCha8Rng;
     use starky::constraint_consumer::ConstraintConsumer;
 
-    use crate::registers::NUM_COLUMNS;
     use super::*;
+    use crate::registers::NUM_COLUMNS;
 
     #[test]
     fn generate_eval_consistency_not_div() {
