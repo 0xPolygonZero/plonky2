@@ -170,7 +170,7 @@ impl<F: Extendable<2>> Mul for QuadraticExtension<F> {
     type Output = Self;
 
     #[inline]
-    fn mul(self, rhs: Self) -> Self {
+    default fn mul(self, rhs: Self) -> Self {
         let Self([a0, a1]) = self;
         let Self([b0, b1]) = rhs;
 

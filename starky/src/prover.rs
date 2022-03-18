@@ -18,15 +18,19 @@ use rayon::prelude::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::permutation::compute_permutation_z_polys;
+use crate::permutation::PermutationCheckVars;
+use crate::permutation::{
+    compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
+};
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
+use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
 pub fn prove<F, C, S, const D: usize>(
     stark: S,
     config: &StarkConfig,
-    trace: Vec<[F; S::COLUMNS]>,
+    trace_poly_values: Vec<PolynomialValues<F>>,
     public_inputs: [F; S::PUBLIC_INPUTS],
     timing: &mut TimingTree,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
@@ -38,23 +42,16 @@ where
     [(); S::PUBLIC_INPUTS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
-    let degree = trace.len();
+    let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
-
-    let trace_vecs = trace.iter().map(|row| row.to_vec()).collect_vec();
-    let trace_col_major: Vec<Vec<F>> = transpose(&trace_vecs);
-
-    let trace_poly_values: Vec<PolynomialValues<F>> = timed!(
-        timing,
-        "compute trace polynomials",
-        trace_col_major
-            .par_iter()
-            .map(|column| PolynomialValues::new(column.clone()))
-            .collect()
-    );
-
+    let fri_params = config.fri_params(degree_bits);
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
+    assert!(
+        fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
+        "FRI total reduction arity is too large.",
+    );
+
     let trace_commitment = timed!(
         timing,
         "compute trace commitment",
@@ -75,28 +72,36 @@ where
     challenger.observe_cap(&trace_cap);
 
     // Permutation arguments.
-    let permutation_zs_commitment = if stark.uses_permutation_args() {
+    let permutation_zs_commitment_challenges = stark.uses_permutation_args().then(|| {
+        let permutation_challenge_sets = get_n_permutation_challenge_sets(
+            &mut challenger,
+            config.num_challenges,
+            stark.permutation_batch_size(),
+        );
         let permutation_z_polys = compute_permutation_z_polys::<F, C, S, D>(
             &stark,
             config,
-            &mut challenger,
             &trace_poly_values,
+            &permutation_challenge_sets,
         );
-        timed!(
+
+        let permutation_zs_commitment = timed!(
             timing,
             "compute permutation Z commitments",
-            Some(PolynomialBatch::from_values(
+            PolynomialBatch::from_values(
                 permutation_z_polys,
                 rate_bits,
                 false,
                 config.fri_config.cap_height,
                 timing,
                 None,
-            ))
-        )
-    } else {
-        None
-    };
+            )
+        );
+        (permutation_zs_commitment, permutation_challenge_sets)
+    });
+    let permutation_zs_commitment = permutation_zs_commitment_challenges
+        .as_ref()
+        .map(|(comm, _)| comm);
     let permutation_zs_cap = permutation_zs_commitment
         .as_ref()
         .map(|commit| commit.merkle_tree.cap.clone());
@@ -108,10 +113,11 @@ where
     let quotient_polys = compute_quotient_polys::<F, C, S, D>(
         &stark,
         &trace_commitment,
+        &permutation_zs_commitment_challenges,
         public_inputs,
         alphas,
         degree_bits,
-        rate_bits,
+        config,
     );
     let all_quotient_chunks = quotient_polys
         .into_par_iter()
@@ -151,16 +157,15 @@ where
         zeta,
         g,
         &trace_commitment,
-        permutation_zs_commitment.as_ref(),
+        permutation_zs_commitment,
         &quotient_commitment,
     );
     challenger.observe_openings(&openings.to_fri_openings());
 
     let initial_merkle_trees = once(&trace_commitment)
-        .chain(permutation_zs_commitment.as_ref())
+        .chain(permutation_zs_commitment)
         .chain(once(&quotient_commitment))
         .collect_vec();
-    let fri_params = config.fri_params(degree_bits);
 
     let opening_proof = timed!(
         timing,
@@ -189,13 +194,17 @@ where
 
 /// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
 /// where the `C_i`s are the Stark constraints.
-fn compute_quotient_polys<F, C, S, const D: usize>(
+fn compute_quotient_polys<'a, F, C, S, const D: usize>(
     stark: &S,
-    trace_commitment: &PolynomialBatch<F, C, D>,
+    trace_commitment: &'a PolynomialBatch<F, C, D>,
+    permutation_zs_commitment_challenges: &'a Option<(
+        PolynomialBatch<F, C, D>,
+        Vec<PermutationChallengeSet<F>>,
+    )>,
     public_inputs: [F; S::PUBLIC_INPUTS],
     alphas: Vec<F>,
     degree_bits: usize,
-    rate_bits: usize,
+    config: &StarkConfig,
 ) -> Vec<PolynomialCoeffs<F>>
 where
     F: RichField + Extendable<D>,
@@ -205,6 +214,7 @@ where
     [(); S::PUBLIC_INPUTS]:,
 {
     let degree = 1 << degree_bits;
+    let rate_bits = config.fri_config.rate_bits;
 
     let quotient_degree_bits = log2_ceil(stark.quotient_degree_factor());
     assert!(
@@ -224,9 +234,10 @@ where
     let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, quotient_degree_bits);
 
     // Retrieve the LDE values at index `i`.
-    let get_at_index = |comm: &PolynomialBatch<F, C, D>, i: usize| -> [F; S::COLUMNS] {
-        comm.get_lde_values(i * step).try_into().unwrap()
-    };
+    let get_at_index =
+        |comm: &'a PolynomialBatch<F, C, D>, i: usize| -> &'a [F] { comm.get_lde_values(i * step) };
+    let get_trace_at_index = |i| get_at_index(trace_commitment, i).try_into().unwrap();
+
     // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();
     let size = degree << quotient_degree_bits;
@@ -247,12 +258,26 @@ where
                 lagrange_last.values[i],
             );
             let vars = StarkEvaluationVars::<F, F, { S::COLUMNS }, { S::PUBLIC_INPUTS }> {
-                local_values: &get_at_index(trace_commitment, i),
-                next_values: &get_at_index(trace_commitment, (i + next_step) % size),
+                local_values: &get_trace_at_index(i),
+                next_values: &get_trace_at_index((i + next_step) % size),
                 public_inputs: &public_inputs,
             };
-            stark.eval_packed_base(vars, &mut consumer);
-            // TODO: Add in constraints for permutation arguments.
+            let permutation_check_data = permutation_zs_commitment_challenges.as_ref().map(
+                |(permutation_zs_commitment, permutation_challenge_sets)| PermutationCheckVars {
+                    local_zs: get_at_index(permutation_zs_commitment, i).to_vec(),
+                    next_zs: get_at_index(permutation_zs_commitment, (i + next_step) % size)
+                        .to_vec(),
+                    permutation_challenge_sets: permutation_challenge_sets.to_vec(),
+                },
+            );
+            // TODO: Use packed field for F.
+            eval_vanishing_poly::<F, F, F, C, S, D, 1>(
+                stark,
+                config,
+                vars,
+                permutation_check_data,
+                &mut consumer,
+            );
             // TODO: Fix this once we use a genuine `PackedField`.
             let mut constraints_evals = consumer.accumulators();
             // We divide the constraints evaluations by `Z_H(x)`.

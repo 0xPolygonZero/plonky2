@@ -2,16 +2,20 @@ use std::marker::PhantomData;
 
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::packed_field::PackedField;
+use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::permutation::PermutationPair;
 use crate::stark::Stark;
+use crate::util::trace_rows_to_poly_values;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// Toy STARK system used for testing.
-/// Computes a Fibonacci sequence with state `[x0, x1]` using the state transition
-/// `x0 <- x1, x1 <- x0 + x1`.
+/// Computes a Fibonacci sequence with state `[x0, x1, i, j]` using the state transition
+/// `x0' <- x1, x1' <- x0 + x1, i' <- i+1, j' <- j+1`.
+/// Note: The `i, j` columns are only used to test the permutation argument.
 #[derive(Copy, Clone)]
 struct FibonacciStark<F: RichField + Extendable<D>, const D: usize> {
     num_rows: usize,
@@ -34,21 +38,25 @@ impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
         }
     }
 
-    /// Generate the trace using `x0, x1` as inital state values.
-    fn generate_trace(&self, x0: F, x1: F) -> Vec<[F; Self::COLUMNS]> {
-        (0..self.num_rows)
-            .scan([x0, x1], |acc, _| {
+    /// Generate the trace using `x0, x1, 0, 1` as initial state values.
+    fn generate_trace(&self, x0: F, x1: F) -> Vec<PolynomialValues<F>> {
+        let mut trace_rows = (0..self.num_rows)
+            .scan([x0, x1, F::ZERO, F::ONE], |acc, _| {
                 let tmp = *acc;
                 acc[0] = tmp[1];
                 acc[1] = tmp[0] + tmp[1];
+                acc[2] = tmp[2] + F::ONE;
+                acc[3] = tmp[3] + F::ONE;
                 Some(tmp)
             })
-            .collect()
+            .collect::<Vec<_>>();
+        trace_rows[self.num_rows - 1][3] = F::ZERO; // So that column 2 and 3 are permutation of one another.
+        trace_rows_to_poly_values(trace_rows)
     }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStark<F, D> {
-    const COLUMNS: usize = 2;
+    const COLUMNS: usize = 4;
     const PUBLIC_INPUTS: usize = 3;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
@@ -68,9 +76,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
             .constraint_last_row(vars.local_values[1] - vars.public_inputs[Self::PI_INDEX_RES]);
 
         // x0' <- x1
-        yield_constr.constraint(vars.next_values[0] - vars.local_values[1]);
+        yield_constr.constraint_transition(vars.next_values[0] - vars.local_values[1]);
         // x1' <- x0 + x1
-        yield_constr.constraint(vars.next_values[1] - vars.local_values[0] - vars.local_values[1]);
+        yield_constr.constraint_transition(
+            vars.next_values[1] - vars.local_values[0] - vars.local_values[1],
+        );
     }
 
     fn eval_ext_recursively(
@@ -91,17 +101,21 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
 
         // x0' <- x1
         let first_col_constraint = builder.sub_extension(vars.next_values[0], vars.local_values[1]);
-        yield_constr.constraint(builder, first_col_constraint);
+        yield_constr.constraint_transition(builder, first_col_constraint);
         // x1' <- x0 + x1
         let second_col_constraint = {
             let tmp = builder.sub_extension(vars.next_values[1], vars.local_values[0]);
             builder.sub_extension(tmp, vars.local_values[1])
         };
-        yield_constr.constraint(builder, second_col_constraint);
+        yield_constr.constraint_transition(builder, second_col_constraint);
     }
 
     fn constraint_degree(&self) -> usize {
         2
+    }
+
+    fn permutation_pairs(&self) -> Vec<PermutationPair> {
+        vec![PermutationPair::singletons(2, 3)]
     }
 }
 

@@ -32,6 +32,7 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {
+    /// Recover the length of the trace from a STARK proof and a STARK config.
     pub(crate) fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
         let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
             .initial_trees_proof
@@ -51,6 +52,7 @@ pub struct StarkProofTarget<const D: usize> {
 }
 
 impl<const D: usize> StarkProofTarget<D> {
+    /// Recover the length of the trace from a STARK proof and a STARK config.
     pub(crate) fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
         let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
             .initial_trees_proof
@@ -101,7 +103,7 @@ pub struct CompressedStarkProofWithPublicInputs<
 
 pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     /// Randomness used in any permutation arguments.
-    pub permutation_challenge_sets: Vec<PermutationChallengeSet<F>>,
+    pub permutation_challenge_sets: Option<Vec<PermutationChallengeSet<F>>>,
 
     /// Random values used to combine STARK constraints.
     pub stark_alphas: Vec<F>,
@@ -113,6 +115,7 @@ pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: us
 }
 
 pub(crate) struct StarkProofChallengesTarget<const D: usize> {
+    pub permutation_challenge_sets: Option<Vec<PermutationChallengeSet<Target>>>,
     pub stark_alphas: Vec<Target>,
     pub stark_zeta: ExtensionTarget<D>,
     pub fri_challenges: FriChallengesTarget<D>,
@@ -179,27 +182,29 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
 pub struct StarkOpeningSetTarget<const D: usize> {
     pub local_values: Vec<ExtensionTarget<D>>,
     pub next_values: Vec<ExtensionTarget<D>>,
-    pub permutation_zs: Vec<ExtensionTarget<D>>,
-    pub permutation_zs_right: Vec<ExtensionTarget<D>>,
+    pub permutation_zs: Option<Vec<ExtensionTarget<D>>>,
+    pub permutation_zs_right: Option<Vec<ExtensionTarget<D>>>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
 
 impl<const D: usize> StarkOpeningSetTarget<D> {
     pub(crate) fn to_fri_openings(&self) -> FriOpeningsTarget<D> {
         let zeta_batch = FriOpeningBatchTarget {
-            values: [
-                self.local_values.as_slice(),
-                self.quotient_polys.as_slice(),
-                self.permutation_zs.as_slice(),
-            ]
-            .concat(),
+            values: self
+                .local_values
+                .iter()
+                .chain(self.permutation_zs.iter().flatten())
+                .chain(&self.quotient_polys)
+                .copied()
+                .collect_vec(),
         };
         let zeta_right_batch = FriOpeningBatchTarget {
-            values: [
-                self.next_values.as_slice(),
-                self.permutation_zs_right.as_slice(),
-            ]
-            .concat(),
+            values: self
+                .next_values
+                .iter()
+                .chain(self.permutation_zs_right.iter().flatten())
+                .copied()
+                .collect_vec(),
         };
         FriOpeningsTarget {
             batches: vec![zeta_batch, zeta_right_batch],

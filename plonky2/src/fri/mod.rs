@@ -35,6 +35,7 @@ impl FriConfig {
         let reduction_arity_bits = self.reduction_strategy.reduction_arity_bits(
             degree_bits,
             self.rate_bits,
+            self.cap_height,
             self.num_query_rounds,
         );
         FriParams {
@@ -67,7 +68,7 @@ pub struct FriParams {
 }
 
 impl FriParams {
-    pub(crate) fn total_arities(&self) -> usize {
+    pub fn total_arities(&self) -> usize {
         self.reduction_arity_bits.iter().sum()
     }
 

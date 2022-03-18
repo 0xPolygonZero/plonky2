@@ -9,10 +9,6 @@ use plonky2_util::{assume, branch_hint};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::extension_field::quadratic::QuadraticExtension;
-use crate::extension_field::quartic::QuarticExtension;
-use crate::extension_field::quintic::QuinticExtension;
-use crate::extension_field::{Extendable, Frobenius};
 use crate::field_types::{Field, Field64, PrimeField, PrimeField64};
 use crate::inversion::try_inverse_u64;
 
@@ -99,7 +95,7 @@ impl Field for GoldilocksField {
         Self(n.mod_floor(&Self::order()).to_u64_digits()[0])
     }
 
-    #[inline]
+    #[inline(always)]
     fn from_canonical_u64(n: u64) -> Self {
         debug_assert!(n < Self::ORDER);
         Self(n)
@@ -160,6 +156,7 @@ impl PrimeField64 for GoldilocksField {
         c
     }
 
+    #[inline(always)]
     fn to_noncanonical_u64(&self) -> u64 {
         self.0
     }
@@ -283,66 +280,6 @@ impl DivAssign for GoldilocksField {
     }
 }
 
-impl Extendable<2> for GoldilocksField {
-    type Extension = QuadraticExtension<Self>;
-
-    // Verifiable in Sage with
-    // `R.<x> = GF(p)[]; assert (x^2 - 7).is_irreducible()`.
-    const W: Self = Self(7);
-
-    // DTH_ROOT = W^((ORDER - 1)/2)
-    const DTH_ROOT: Self = Self(18446744069414584320);
-
-    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 2] =
-        [Self(18081566051660590251), Self(16121475356294670766)];
-
-    const EXT_POWER_OF_TWO_GENERATOR: [Self; 2] = [Self(0), Self(15659105665374529263)];
-}
-
-impl Extendable<4> for GoldilocksField {
-    type Extension = QuarticExtension<Self>;
-
-    const W: Self = Self(7);
-
-    // DTH_ROOT = W^((ORDER - 1)/4)
-    const DTH_ROOT: Self = Self(281474976710656);
-
-    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 4] = [
-        Self(5024755240244648895),
-        Self(13227474371289740625),
-        Self(3912887029498544536),
-        Self(3900057112666848848),
-    ];
-
-    const EXT_POWER_OF_TWO_GENERATOR: [Self; 4] =
-        [Self(0), Self(0), Self(0), Self(12587610116473453104)];
-}
-
-impl Extendable<5> for GoldilocksField {
-    type Extension = QuinticExtension<Self>;
-
-    const W: Self = Self(3);
-
-    // DTH_ROOT = W^((ORDER - 1)/5)
-    const DTH_ROOT: Self = Self(1041288259238279555);
-
-    const EXT_MULTIPLICATIVE_GROUP_GENERATOR: [Self; 5] = [
-        Self(2899034827742553394),
-        Self(13012057356839176729),
-        Self(14593811582388663055),
-        Self(7722900811313895436),
-        Self(4557222484695340057),
-    ];
-
-    const EXT_POWER_OF_TWO_GENERATOR: [Self; 5] = [
-        Self::POWER_OF_TWO_GENERATOR,
-        Self(0),
-        Self(0),
-        Self(0),
-        Self(0),
-    ];
-}
-
 /// Fast addition modulo ORDER for x86-64.
 /// This function is marked unsafe for the following reasons:
 ///   - It is only correct if x + y < 2**64 + ORDER = 0x1ffffffff00000001.
@@ -407,7 +344,34 @@ fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
 }
 
-impl Frobenius<1> for GoldilocksField {}
+/// Reduce the value x_lo + x_hi * 2^128 to an element in the
+/// Goldilocks field.
+///
+/// This function is marked 'unsafe' because correctness relies on the
+/// unchecked assumption that x < 2^160 - 2^128 + 2^96. Further,
+/// performance may degrade as x_hi increases beyond 2**40 or so.
+#[inline(always)]
+pub(crate) unsafe fn reduce160(x_lo: u128, x_hi: u32) -> GoldilocksField {
+    let x_hi = (x_lo >> 96) as u64 + ((x_hi as u64) << 32); // shld to form x_hi
+    let x_mid = (x_lo >> 64) as u32; // shr to form x_mid
+    let x_lo = x_lo as u64;
+
+    // sub + jc (should fuse)
+    let (mut t0, borrow) = x_lo.overflowing_sub(x_hi);
+    if borrow {
+        // The maximum possible value of x is (2^64 - 1)^2 * 4 * 7 < 2^133,
+        // so x_hi < 2^37. A borrow will happen roughly one in 134 million
+        // times, so it's best to branch.
+        branch_hint();
+        // NB: this assumes that x < 2^160 - 2^128 + 2^96.
+        t0 -= EPSILON; // Cannot underflow if x_hi is canonical.
+    }
+    // imul
+    let t1 = (x_mid as u64) * EPSILON;
+    // add, sbb, add
+    let t2 = add_no_canonicalize_trashing_input(t0, t1);
+    GoldilocksField(t2)
+}
 
 #[cfg(test)]
 mod tests {
