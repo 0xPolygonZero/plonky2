@@ -71,8 +71,8 @@ pub(crate) const COL_DIV_INPUT_DIVIDEND: usize = shared_col(0);
 /// Divisor for division, as an unsigned u32
 pub(crate) const COL_DIV_INPUT_DIVISOR: usize = shared_col(1);
 /// Inverse of the divisor in the prime field (or an arbitrary value if one does not exist).
-pub(crate) const COL_DIV_DIV_INV: usize = shared_col(2);
-pub(crate) const COL_DIV_DIV_DIV_INV: usize = shared_col(3);
+pub(crate) const COL_DIV_INVDIVISOR: usize = shared_col(2);
+pub(crate) const COL_DIV_NONZERO_DIVISOR: usize = shared_col(3);
 
 /// The first 16-bit chunk of the quotient, based on little-endian ordering.
 pub(crate) const COL_DIV_OUTPUT_QUOT_0: usize = super::range_check_16::col_rc_16_input(0);
@@ -84,8 +84,8 @@ pub(crate) const COL_DIV_OUTPUT_REM_0: usize = super::range_check_16::col_rc_16_
 pub(crate) const COL_DIV_OUTPUT_REM_1: usize = super::range_check_16::col_rc_16_input(3);
 
 /// The first 16-bit chunk of a temporary value (divisor - remainder - 1).
-pub(crate) const COL_DIV_DIV_REM_DIFF_M1_0: usize = super::range_check_16::col_rc_16_input(4);
+pub(crate) const COL_DIV_RANGE_CHECKED_TMP_0: usize = super::range_check_16::col_rc_16_input(4);
 /// The second 16-bit chunk of a temporary value (divisor - remainder - 1).
-pub(crate) const COL_DIV_DIV_REM_DIFF_M1_1: usize = super::range_check_16::col_rc_16_input(5);
+pub(crate) const COL_DIV_RANGE_CHECKED_TMP_1: usize = super::range_check_16::col_rc_16_input(5);
 
 pub(super) const END: usize = START_SHARED_COLS + NUM_SHARED_COLS;
