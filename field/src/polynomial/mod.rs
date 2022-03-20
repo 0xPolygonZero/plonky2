@@ -526,9 +526,9 @@ mod tests {
     fn test_inv_mod_xn() {
         type F = GoldilocksField;
         let mut rng = thread_rng();
-        let a_deg = rng.gen_range(1..1_000);
+        let a_deg = rng.gen_range(0..1_000);
         let n = rng.gen_range(1..1_000);
-        let mut a = PolynomialCoeffs::new(F::rand_vec(a_deg));
+        let mut a = PolynomialCoeffs::new(F::rand_vec(a_deg + 1));
         if a.coeffs[0].is_zero() {
             a.coeffs[0] = F::ONE; // First coefficient needs to be nonzero.
         }
