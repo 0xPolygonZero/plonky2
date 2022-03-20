@@ -4,6 +4,8 @@
 
 mod alu;
 mod core_registers;
+pub mod env;
+mod generate;
 pub mod lookup;
 mod memory;
 mod permutation_unit;
