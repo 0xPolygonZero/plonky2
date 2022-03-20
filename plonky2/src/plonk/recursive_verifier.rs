@@ -53,7 +53,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     {
         let one = self.one_extension();
 
-        let local_constants = proof.openings.constants.clone();
+        let local_constants = &proof.openings.constants;
         let local_wires = &proof.openings.wires;
         let vars = EvaluationTargets {
             local_constants,
@@ -404,7 +404,7 @@ mod tests {
             timing.print();
         }
 
-        // data.verify(proof.clone())?;
+        data.verify(proof.clone())?;
 
         Ok((proof, data.verifier_only, data.common))
     }

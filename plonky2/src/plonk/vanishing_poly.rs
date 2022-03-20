@@ -322,7 +322,7 @@ pub(crate) fn eval_vanishing_poly_recursively<
     let constraint_terms = with_context!(
         builder,
         "evaluate gate constraints",
-        evaluate_gate_constraints_recursively(builder, common_data, vars.clone())
+        evaluate_gate_constraints_recursively(builder, common_data, vars,)
     );
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
