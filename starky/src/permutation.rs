@@ -246,19 +246,23 @@ pub(crate) fn get_permutation_batches<'a, T: Copy>(
         .collect()
 }
 
-// TODO: Use slices.
-pub struct PermutationCheckVars<F: Field, FE: FieldExtension<D2, BaseField = F>, const D2: usize> {
-    pub(crate) local_zs: Vec<FE>,
-    pub(crate) next_zs: Vec<FE>,
+pub struct PermutationCheckVars<F, FE, P, const D2: usize>
+where
+    F: Field,
+    FE: FieldExtension<D2, BaseField = F>,
+    P: PackedField<Scalar = FE>,
+{
+    pub(crate) local_zs: Vec<P>,
+    pub(crate) next_zs: Vec<P>,
     pub(crate) permutation_challenge_sets: Vec<PermutationChallengeSet<F>>,
 }
 
 pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
     stark: &S,
     config: &StarkConfig,
-    vars: StarkEvaluationVars<FE, FE, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
-    permutation_data: PermutationCheckVars<F, FE, D2>,
-    consumer: &mut ConstraintConsumer<FE>,
+    vars: StarkEvaluationVars<FE, P, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
+    permutation_data: PermutationCheckVars<F, FE, P, D2>,
+    consumer: &mut ConstraintConsumer<P>,
 ) where
     F: RichField + Extendable<D>,
     FE: FieldExtension<D2, BaseField = F>,
@@ -291,7 +295,7 @@ pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: 
     // Each zs value corresponds to a permutation batch.
     for (i, instances) in permutation_batches.iter().enumerate() {
         // Z(gx) * down = Z x  * up
-        let (reduced_lhs, reduced_rhs): (Vec<FE>, Vec<FE>) = instances
+        let (reduced_lhs, reduced_rhs): (Vec<P>, Vec<P>) = instances
             .iter()
             .map(|instance| {
                 let PermutationInstance {
@@ -309,13 +313,12 @@ pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: 
                 )
             })
             .unzip();
-        let constraint = next_zs[i] * reduced_rhs.into_iter().product()
-            - local_zs[i] * reduced_lhs.into_iter().product();
+        let constraint = next_zs[i] * reduced_rhs.into_iter().product::<P>()
+            - local_zs[i] * reduced_lhs.into_iter().product::<P>();
         consumer.constraint(constraint);
     }
 }
 
-// TODO: Use slices.
 pub struct PermutationCheckDataTarget<const D: usize> {
     pub(crate) local_zs: Vec<ExtensionTarget<D>>,
     pub(crate) next_zs: Vec<ExtensionTarget<D>>,

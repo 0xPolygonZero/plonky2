@@ -16,9 +16,9 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 pub(crate) fn eval_vanishing_poly<F, FE, P, C, S, const D: usize, const D2: usize>(
     stark: &S,
     config: &StarkConfig,
-    vars: StarkEvaluationVars<FE, FE, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
-    permutation_data: Option<PermutationCheckVars<F, FE, D2>>,
-    consumer: &mut ConstraintConsumer<FE>,
+    vars: StarkEvaluationVars<FE, P, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
+    permutation_data: Option<PermutationCheckVars<F, FE, P, D2>>,
+    consumer: &mut ConstraintConsumer<P>,
 ) where
     F: RichField + Extendable<D>,
     FE: FieldExtension<D2, BaseField = F>,

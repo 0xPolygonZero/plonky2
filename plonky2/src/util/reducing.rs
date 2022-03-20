@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
+use plonky2_field::packed_field::PackedField;
 use plonky2_field::polynomial::PolynomialCoeffs;
 
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
@@ -35,9 +36,14 @@ impl<F: Field> ReducingFactor<F> {
         self.base * x
     }
 
-    fn mul_ext<FE: FieldExtension<D, BaseField = F>, const D: usize>(&mut self, x: FE) -> FE {
+    fn mul_ext<FE, P, const D: usize>(&mut self, x: P) -> P
+    where
+        FE: FieldExtension<D, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
         self.count += 1;
-        x.scalar_mul(self.base)
+        // TODO: Would like to use `FE::scalar_mul`, but it doesn't work with Packed currently.
+        x * FE::from_basefield(self.base)
     }
 
     fn mul_poly(&mut self, p: &mut PolynomialCoeffs<F>) {
@@ -50,12 +56,16 @@ impl<F: Field> ReducingFactor<F> {
             .fold(F::ZERO, |acc, x| self.mul(acc) + *x.borrow())
     }
 
-    pub fn reduce_ext<FE: FieldExtension<D, BaseField = F>, const D: usize>(
+    pub fn reduce_ext<FE, P, const D: usize>(
         &mut self,
-        iter: impl DoubleEndedIterator<Item = impl Borrow<FE>>,
-    ) -> FE {
+        iter: impl DoubleEndedIterator<Item = impl Borrow<P>>,
+    ) -> P
+    where
+        FE: FieldExtension<D, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
         iter.rev()
-            .fold(FE::ZERO, |acc, x| self.mul_ext(acc) + *x.borrow())
+            .fold(P::ZEROS, |acc, x| self.mul_ext(acc) + *x.borrow())
     }
 
     pub fn reduce_polys(
