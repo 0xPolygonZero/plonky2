@@ -1,0 +1,11 @@
+[package]
+name = "plonky2_state_trie"
+description = "State trie API"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+plonky2 = { path = "../plonky2" }
+anyhow = "1.0.40"
+itertools = "0.10.0"
+primitive-types = "0.11.1"
