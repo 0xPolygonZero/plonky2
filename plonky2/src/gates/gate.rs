@@ -38,7 +38,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     ) {
         // Note that this method uses `yield_constr` instead of returning its constraints.
         // `yield_constr` abstracts out the underlying memory layout.
-        let local_constants = vars_base
+        let local_constants = &vars_base
             .local_constants
             .iter()
             .map(|c| F::Extension::from_basefield(*c))
@@ -91,7 +91,6 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             combination_num,
             vars.local_constants[selector_index],
         );
-        vars.remove_prefix(selector_index);
         self.eval_unfiltered(vars)
             .into_iter()
             .map(|c| filter * c)
@@ -116,7 +115,6 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
                 )
             })
             .collect();
-        vars_batch.remove_prefix(selector_index);
         let mut res_batch = self.eval_unfiltered_base_batch(vars_batch);
         for res_chunk in res_batch.chunks_exact_mut(filters.len()) {
             batch_multiply_inplace(res_chunk, &filters);
@@ -139,7 +137,6 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             combination_num,
             vars.local_constants[selector_index],
         );
-        vars.remove_prefix(selector_index);
         let my_constraints = self.eval_unfiltered_recursively(builder, vars);
         for (acc, c) in combined_gate_constraints.iter_mut().zip(my_constraints) {
             *acc = builder.mul_add_extension(filter, c, *acc);

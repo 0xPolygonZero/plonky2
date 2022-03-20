@@ -9,9 +9,9 @@ use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
 use crate::iop::ext_target::{ExtensionAlgebraTarget, ExtensionTarget};
 use crate::util::strided_view::PackedStridedView;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct EvaluationVars<'a, F: RichField + Extendable<D>, const D: usize> {
-    pub local_constants: Vec<F::Extension>,
+    pub local_constants: &'a [F::Extension],
     pub local_wires: &'a [F::Extension],
     pub public_inputs_hash: &'a HashOut<F>,
 }
@@ -19,10 +19,10 @@ pub struct EvaluationVars<'a, F: RichField + Extendable<D>, const D: usize> {
 /// A batch of evaluation vars, in the base field.
 /// Wires and constants are stored in an evaluation point-major order (that is, wire 0 for all
 /// evaluation points, then wire 1 for all points, and so on).
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct EvaluationVarsBaseBatch<'a, F: Field> {
     batch_size: usize,
-    pub local_constants: Vec<F>,
+    pub local_constants: &'a [F],
     pub local_wires: &'a [F],
     pub public_inputs_hash: &'a HashOut<F>,
 }
@@ -54,10 +54,6 @@ impl<'a, F: RichField + Extendable<D>, const D: usize> EvaluationVars<'a, F, D> 
         let arr = self.local_wires[wire_range].try_into().unwrap();
         ExtensionAlgebra::from_basefield_array(arr)
     }
-
-    pub fn remove_prefix(&mut self, selector_index: usize) {
-        self.local_constants.remove(selector_index);
-    }
 }
 
 impl<'a, F: Field> EvaluationVarsBaseBatch<'a, F> {
@@ -71,16 +67,10 @@ impl<'a, F: Field> EvaluationVarsBaseBatch<'a, F> {
         assert_eq!(local_wires.len() % batch_size, 0);
         Self {
             batch_size,
-            local_constants: local_constants.to_vec(),
+            local_constants,
             local_wires,
             public_inputs_hash,
         }
-    }
-
-    pub fn remove_prefix(&mut self, selector_index: usize) {
-        let mut v = self.local_constants[..self.len() * selector_index].to_vec();
-        v.extend(&self.local_constants[self.len() * (selector_index + 1)..]);
-        self.local_constants = v;
     }
 
     pub fn len(&self) -> usize {
@@ -91,7 +81,7 @@ impl<'a, F: Field> EvaluationVarsBaseBatch<'a, F> {
         // We cannot implement `Index` as `EvaluationVarsBase` is a struct, not a reference.
         assert!(index < self.len());
         let local_constants =
-            PackedStridedView::new(self.local_constants.clone(), self.len(), index);
+            PackedStridedView::new(self.local_constants.to_vec(), self.len(), index);
         let local_wires = PackedStridedView::new(self.local_wires.to_vec(), self.len(), index);
         EvaluationVarsBase {
             local_constants,
@@ -217,13 +207,7 @@ impl<'a, P: PackedField> ExactSizeIterator for EvaluationVarsBaseBatchIterPacked
     }
 }
 
-impl<'a, const D: usize> EvaluationTargets<'a, D> {
-    pub fn remove_prefix(&mut self, selector_index: usize) {
-        todo!()
-    }
-}
-
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct EvaluationTargets<'a, const D: usize> {
     pub local_constants: &'a [ExtensionTarget<D>],
     pub local_wires: &'a [ExtensionTarget<D>],
