@@ -86,7 +86,6 @@ pub(crate) fn eval_division<F: Field, P: PackedField<Scalar = F>>(
     yield_constr.constraint(is_div * (divisor * divinv - div_divinv));
     yield_constr.constraint(is_div * (div_divinv - F::ONE) * (remainder - quotient - u32_max));
     yield_constr.constraint(is_div * divisor * (div_divinv - F::ONE));
-    yield_constr.constraint(is_div * divinv * (div_divinv - F::ONE));
     yield_constr.constraint(is_div * (quotient + remainder * divinv - divinv * dividend));
     yield_constr.constraint(is_div * divisor * (divisor - remainder - F::ONE - div_rem_diff_m1));
 }
@@ -135,14 +134,10 @@ pub(crate) fn eval_division_recursively<F: RichField + Extendable<D>, const D: u
         builder.mul_extension(divisor, t)
     };
     let constr9 = {
-        let t = builder.sub_extension(div_divinv, one);
-        builder.mul_extension(divinv, t)
-    };
-    let constr10 = {
         let t = builder.sub_extension(remainder, dividend);
         builder.mul_add_extension(t, divinv, quotient)
     };
-    let constr11 = {
+    let constr10 = {
         let t = builder.sub_extension(divisor, remainder);
         let u = builder.add_extension(one, div_rem_diff_m1);
         let v = builder.sub_extension(t, u);
@@ -154,14 +149,12 @@ pub(crate) fn eval_division_recursively<F: RichField + Extendable<D>, const D: u
     let constr8 = builder.mul_extension(is_div, constr8);
     let constr9 = builder.mul_extension(is_div, constr9);
     let constr10 = builder.mul_extension(is_div, constr10);
-    let constr11 = builder.mul_extension(is_div, constr11);
 
     yield_constr.constraint(builder, constr6);
     yield_constr.constraint(builder, constr7);
     yield_constr.constraint(builder, constr8);
     yield_constr.constraint(builder, constr9);
     yield_constr.constraint(builder, constr10);
-    yield_constr.constraint(builder, constr11);
 }
 
 #[cfg(test)]

@@ -7,9 +7,8 @@ A5. 0 <= divisor_rem_diff_m1 <= u32::MAX
 A6. divisor * div_inverse = div_div_inverse
 A7. (div_div_inverse - 1) * (remainder - quotient - u32::MAX) = 0
 A8. divisor * (div_div_inverse - 1) = 0
-A9. div_inverse * (div_div_inverse - 1) = 0
-A10. div_inverse * dividend = quotient + remainder * div_inverse
-A11. divisor * (divisor - remainder - 1 - divisor_rem_diff_m1) = 0
+A9. div_inverse * dividend = quotient + remainder * div_inverse
+A10. divisor * (divisor - remainder - 1 - divisor_rem_diff_m1) = 0
 
 Constraints B:
 B1. 0 <= dividend <= u32::MAX
@@ -32,11 +31,11 @@ B3. Assume divisor = 0. Then div_div_inverse = 0 by A6. div_div_inverse - 1 ≠ 
 
 B4. Assume divisor = 0. Then div_div_inverse = 0 by A6. div_div_inverse - 1 ≠ 0, so remainder - quotient = u32::MAX by A7. quotient >= 0 by A3, so remainder < u32::MAX would imply remainder - quotient < u32::MAX. Hence, remainder = u32::MAX.
 
-B5. Assume divisor ≠ 0. By A8, div_div_inverse = 1. By A6, div_inverse = divisor^-1. Multiplying both sides of A10 by divisor, dividend = quotient * divisor + remainder.
+B5. Assume divisor ≠ 0. By A8, div_div_inverse = 1. By A6, div_inverse = divisor^-1. Multiplying both sides of A9 by divisor, dividend = quotient * divisor + remainder.
 
 B6. Follows from A3.
 
-B7. 0 <= remainder by A4. Assume divisor ≠ 0. Then divisor_rem_diff_m1 = divisor - remainder - 1 by A11. If remainder >= divisor, then divisor - remainder - 1 < 0, contradicting A5. Hence remainder < divisor.
+B7. 0 <= remainder by A4. Assume divisor ≠ 0. Then divisor_rem_diff_m1 = divisor - remainder - 1 by A10. If remainder >= divisor, then divisor - remainder - 1 < 0, contradicting A5. Hence remainder < divisor.
 
 
 
@@ -66,11 +65,9 @@ The remainder is by cases:
 
     A8. Trivial since divisor = 0.
 
-    A9. By our choice, div_inverse = 0.
+    A9. By our choice, div_inverse = 0. quotient = 0 by B3.
 
-    A10. By our choice, div_inverse = 0. quotient = 0 by B3.
-
-    A11. Trivial since divisor = 0.
+    A10. Trivial since divisor = 0.
 
 
 (divisor ≠ 0)
@@ -87,8 +84,6 @@ The remainder is by cases:
 
     A8. div_div_inverse = 1 by choice, so div_div_inverse - 1 = 0.
 
-    A9. div_div_inverse = 1 by choice, so div_div_inverse - 1 = 0.
+    A9. From B5, dividend = quotient * divisor + remainder. Since divisor ≠ 0, div_inverse = divisor^-1 by choice. Multiplying both sides by div_inverse, dividend * div_inverse = quotient * divisor * div_inverse + remainder * div_inverse = quotient + remainder * div_inverse.
 
-    A10. From B5, dividend = quotient * divisor + remainder. Since divisor ≠ 0, div_inverse = divisor^-1 by choice. Multiplying both sides by div_inverse, dividend * div_inverse = quotient * divisor * div_inverse + remainder * div_inverse = quotient + remainder * div_inverse.
-
-    A11. By our choice of divisor_rem_diff_m1 = divisor - remainder - 1.
+    A10. By our choice of divisor_rem_diff_m1 = divisor - remainder - 1.
