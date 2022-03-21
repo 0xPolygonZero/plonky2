@@ -86,7 +86,13 @@ impl<F: Field> PolynomialCoeffs<F> {
 
     /// Computes the inverse of `self` modulo `x^n`.
     pub fn inv_mod_xn(&self, n: usize) -> Self {
+        assert!(n > 0, "`n` needs to be nonzero");
         assert!(self.coeffs[0].is_nonzero(), "Inverse doesn't exist.");
+
+        // If polynomial is constant, return the inverse of the constant.
+        if self.degree_plus_one() == 1 {
+            return Self::new(vec![self.coeffs[0].inverse()]);
+        }
 
         let h = if self.len() < n {
             self.padded(n)
