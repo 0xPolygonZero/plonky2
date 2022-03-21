@@ -534,9 +534,7 @@ mod tests {
         }
         let b = a.inv_mod_xn(n);
         let mut m = &a * &b;
-        if m.coeffs.len() > n {
-            m.coeffs.drain(n..);
-        }
+        m.coeffs.truncate(n);
         m.trim();
         assert_eq!(
             m,
