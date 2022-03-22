@@ -1,4 +1,4 @@
-Constraints A:
+Constraints A (implemented in code):
 A1. dividend ∈ {0, …, u32::MAX}
 A2. divisor ∈ {0, …, u32::MAX}
 A3. quotient ∈ {0, …, u32::MAX}
@@ -10,7 +10,7 @@ A8. divisor * (div_div_inverse - 1) = 0
 A9. div_inverse * dividend = quotient + remainder * div_inverse
 A10. divisor * (divisor - remainder - 1 - divisor_rem_diff_m1) = 0
 
-Constraints B:
+Constraints B (intuitive division):
 B1. dividend ∈ {0, …, u32::MAX}
 B2. divisor ∈ {0, …, u32::MAX}
 B3. divisor = 0 => quotient = 0
@@ -80,9 +80,9 @@ The remainder is by cases:
 
     A4. By B7, remainder ∈ {0, …, divisor - 1}, and by B2, divisor ∈ {0, …, u32::MAX}, implying that remainder ∈ {0, …, u32::MAX - 1}.
 
-    A5. We've set divisor_rem_diff_m1 = divisor - remainder - 1. remainder ∈ {0, …, divisor - 1}, so divisor - remainder ∈ {1, …, divisor} and  divisor - remainder - 1 = divisor_rem_diff_m1 ∈ {0, …, divisor - 1}. From B2, divisor ∈ {0, …, u32::MAX}, so divisor_rem_diff_m1 ∈ {0, …, u32::MAX - 1} as desired.
+    A5. We've set divisor_rem_diff_m1 = divisor - remainder - 1. remainder ∈ {0, …, divisor - 1}, so divisor - remainder ∈ {1, …, divisor} and divisor - remainder - 1 = divisor_rem_diff_m1 ∈ {0, …, divisor - 1}. From B2, divisor ∈ {0, …, u32::MAX}, so divisor_rem_diff_m1 ∈ {0, …, u32::MAX - 1} as desired.
 
-    A6. div_inverse = divisor^-1 by choice, so divisor * div_inverse = 1. div_div_inverse by choice.
+    A6. div_inverse = divisor^-1 by choice, so divisor * div_inverse = 1. div_div_inverse = 1 by choice.
 
     A7. div_div_inverse = 1 by choice, so div_div_inverse - 1 = 0.
 

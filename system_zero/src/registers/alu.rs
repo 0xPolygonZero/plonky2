@@ -70,8 +70,9 @@ pub(crate) const COL_MUL_ADD_OUTPUT_3: usize = super::range_check_16::col_rc_16_
 pub(crate) const COL_DIV_INPUT_DIVIDEND: usize = shared_col(0);
 /// Divisor for division, as an unsigned u32
 pub(crate) const COL_DIV_INPUT_DIVISOR: usize = shared_col(1);
-/// Inverse of the divisor in the prime field (or an arbitrary value if one does not exist).
+/// Inverse of divisor, if one exists, and 0 otherwise
 pub(crate) const COL_DIV_INVDIVISOR: usize = shared_col(2);
+/// 1 if divisor is nonzero and 0 otherwise
 pub(crate) const COL_DIV_NONZERO_DIVISOR: usize = shared_col(3);
 
 /// The first 16-bit chunk of the quotient, based on little-endian ordering.
