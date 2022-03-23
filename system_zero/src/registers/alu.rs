@@ -66,4 +66,27 @@ pub(crate) const COL_MUL_ADD_OUTPUT_2: usize = super::range_check_16::col_rc_16_
 /// The fourth 16-bit chunk of the output, based on little-endian ordering.
 pub(crate) const COL_MUL_ADD_OUTPUT_3: usize = super::range_check_16::col_rc_16_input(3);
 
-pub(super) const END: usize = super::START_ALU + NUM_SHARED_COLS;
+/// Dividend for division, as an unsigned u32
+pub(crate) const COL_DIV_INPUT_DIVIDEND: usize = shared_col(0);
+/// Divisor for division, as an unsigned u32
+pub(crate) const COL_DIV_INPUT_DIVISOR: usize = shared_col(1);
+/// Inverse of divisor, if one exists, and 0 otherwise
+pub(crate) const COL_DIV_INVDIVISOR: usize = shared_col(2);
+/// 1 if divisor is nonzero and 0 otherwise
+pub(crate) const COL_DIV_NONZERO_DIVISOR: usize = shared_col(3);
+
+/// The first 16-bit chunk of the quotient, based on little-endian ordering.
+pub(crate) const COL_DIV_OUTPUT_QUOT_0: usize = super::range_check_16::col_rc_16_input(0);
+/// The second 16-bit chunk of the quotient, based on little-endian ordering.
+pub(crate) const COL_DIV_OUTPUT_QUOT_1: usize = super::range_check_16::col_rc_16_input(1);
+/// The first 16-bit chunk of the remainder, based on little-endian ordering.
+pub(crate) const COL_DIV_OUTPUT_REM_0: usize = super::range_check_16::col_rc_16_input(2);
+/// The second 16-bit chunk of the remainder, based on little-endian ordering.
+pub(crate) const COL_DIV_OUTPUT_REM_1: usize = super::range_check_16::col_rc_16_input(3);
+
+/// The first 16-bit chunk of a temporary value (divisor - remainder - 1).
+pub(crate) const COL_DIV_RANGE_CHECKED_TMP_0: usize = super::range_check_16::col_rc_16_input(4);
+/// The second 16-bit chunk of a temporary value (divisor - remainder - 1).
+pub(crate) const COL_DIV_RANGE_CHECKED_TMP_1: usize = super::range_check_16::col_rc_16_input(5);
+
+pub(super) const END: usize = START_SHARED_COLS + NUM_SHARED_COLS;
