@@ -86,13 +86,14 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         gate_index: usize,
         selector_index: usize,
         combination_range: (usize, usize),
+        num_selectors: usize,
     ) -> Vec<F::Extension> {
         let filter = compute_filter(
             gate_index,
             combination_range,
             vars.local_constants[selector_index],
         );
-        vars.remove_prefix(prefix);
+        vars.remove_prefix(num_selectors);
         self.eval_unfiltered(vars)
             .into_iter()
             .map(|c| filter * c)
@@ -107,6 +108,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         gate_index: usize,
         selector_index: usize,
         combination_range: (usize, usize),
+        num_selectors: usize,
     ) -> Vec<F> {
         let filters: Vec<_> = vars_batch
             .iter()
@@ -118,7 +120,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
                 )
             })
             .collect();
-        vars_batch.remove_prefix(prefix);
+        vars_batch.remove_prefix(num_selectors);
         let mut res_batch = self.eval_unfiltered_base_batch(vars_batch);
         for res_chunk in res_batch.chunks_exact_mut(filters.len()) {
             batch_multiply_inplace(res_chunk, &filters);
@@ -131,17 +133,19 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         &self,
         builder: &mut CircuitBuilder<F, D>,
         mut vars: EvaluationTargets<D>,
+        gate_index: usize,
         selector_index: usize,
         combination_range: (usize, usize),
         combined_gate_constraints: &mut [ExtensionTarget<D>],
+        num_selectors: usize,
     ) {
         let filter = compute_filter_recursively(
             builder,
-            selector_index,
+            gate_index,
             combination_range,
             vars.local_constants[selector_index],
         );
-        vars.remove_prefix(prefix);
+        vars.remove_prefix(num_selectors);
         let my_constraints = self.eval_unfiltered_recursively(builder, vars);
         for (acc, c) in combined_gate_constraints.iter_mut().zip(my_constraints) {
             *acc = builder.mul_add_extension(filter, c, *acc);
@@ -244,18 +248,20 @@ fn compute_filter<'a, K: Field>(
 ) -> K {
     (combination_range.0..combination_range.1)
         .filter(|&i| i != gate_index)
+        .chain(Some(u32::MAX as usize))
         .map(|i| K::from_canonical_usize(i) - constant)
         .product()
 }
 
 fn compute_filter_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    selector_index: usize,
+    gate_index: usize,
     combination_range: (usize, usize),
     constant: ExtensionTarget<D>,
 ) -> ExtensionTarget<D> {
     let v = (combination_range.0..combination_range.1)
-        .filter(|&i| i != selector_index)
+        .filter(|&i| i != gate_index)
+        .chain(Some(u32::MAX as usize))
         .map(|i| builder.constant_extension(F::Extension::from_canonical_usize(i)))
         .collect::<Vec<_>>();
     let v = v

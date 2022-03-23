@@ -676,12 +676,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut gates = self.gates.iter().cloned().collect::<Vec<_>>();
         gates.sort_unstable_by_key(|g| g.0.degree());
         dbg!(&gates);
-        let (constant_vecs, selector_indices, combination_nums) = compute_selectors(
-            gates.clone(),
-            &self.gate_instances,
-            self.config.max_quotient_degree_factor + 1,
-        );
-        dbg!(&constant_vecs, &selector_indices, &combination_nums);
+        let (constant_vecs, selector_indices, combination_ranges, num_selectors) =
+            compute_selectors(
+                gates.clone(),
+                &self.gate_instances,
+                self.config.max_quotient_degree_factor + 1,
+            );
+        dbg!(&constant_vecs, &selector_indices, &combination_ranges);
         let num_constants = constant_vecs.len();
         // let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
         // let prefixed_gates = PrefixedGate::from_tree(gate_tree);
@@ -805,6 +806,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             gates,
             selector_indices,
             combination_ranges,
+            num_selectors,
             quotient_degree_factor,
             num_gate_constraints,
             num_constants,

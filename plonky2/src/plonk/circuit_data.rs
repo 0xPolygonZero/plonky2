@@ -250,6 +250,7 @@ pub struct CommonCircuitData<
 
     pub(crate) selector_indices: Vec<usize>,
     pub(crate) combination_ranges: Vec<(usize, usize)>,
+    pub(crate) num_selectors: usize,
 
     /// The degree of the PLONK quotient polynomial.
     pub(crate) quotient_degree_factor: usize,
