@@ -32,7 +32,6 @@ pub fn test_low_degree<F: RichField + Extendable<D>, G: Gate<F, D>, const D: usi
         .iter()
         .zip(constant_ldes.iter())
         .map(|(local_wires, local_constants)| EvaluationVars {
-            selector_index: usize::MAX,
             local_constants,
             local_wires,
             public_inputs_hash,
@@ -111,15 +110,9 @@ where
     let public_inputs_hash = HashOut::rand();
 
     // Batch of 1.
-    let vars_base_batch = EvaluationVarsBaseBatch::new(
-        usize::MAX,
-        1,
-        &constants_base,
-        &wires_base,
-        &public_inputs_hash,
-    );
+    let vars_base_batch =
+        EvaluationVarsBaseBatch::new(1, &constants_base, &wires_base, &public_inputs_hash);
     let vars = EvaluationVars {
-        selector_index: usize::MAX,
         local_constants: &constants,
         local_wires: &wires,
         public_inputs_hash: &public_inputs_hash,
@@ -152,7 +145,6 @@ where
     pw.set_hash_target(public_inputs_hash_t, public_inputs_hash);
 
     let vars = EvaluationVars {
-        selector_index: usize::MAX,
         local_constants: &constants,
         local_wires: &wires,
         public_inputs_hash: &public_inputs_hash,
@@ -160,7 +152,6 @@ where
     let evals = gate.eval_unfiltered(vars);
 
     let vars_t = EvaluationTargets {
-        selector_index: usize::MAX,
         local_constants: &constants_t,
         local_wires: &wires_t,
         public_inputs_hash: &public_inputs_hash_t,

@@ -602,7 +602,6 @@ mod tests {
             _phantom: PhantomData,
         };
         let less_than_vars = EvaluationVars {
-            selector_index: usize::MAX,
             local_constants: &[],
             local_wires: &get_wires(first_input, second_input),
             public_inputs_hash: &HashOut::rand(),
@@ -621,7 +620,6 @@ mod tests {
             _phantom: PhantomData,
         };
         let equal_vars = EvaluationVars {
-            selector_index: usize::MAX,
             local_constants: &[],
             local_wires: &get_wires(first_input, first_input),
             public_inputs_hash: &HashOut::rand(),

@@ -50,7 +50,6 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             .collect::<Vec<_>>();
         let public_inputs_hash = &vars_base.public_inputs_hash;
         let vars = EvaluationVars {
-            selector_index: vars_base.selector_index,
             local_constants,
             local_wires,
             public_inputs_hash,
@@ -93,7 +92,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             combination_range,
             vars.local_constants[selector_index],
         );
-        vars.selector_index = selector_index;
+        vars.remove_prefix(prefix);
         self.eval_unfiltered(vars)
             .into_iter()
             .map(|c| filter * c)
@@ -119,7 +118,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
                 )
             })
             .collect();
-        vars_batch.selector_index = selector_index;
+        vars_batch.remove_prefix(prefix);
         let mut res_batch = self.eval_unfiltered_base_batch(vars_batch);
         for res_chunk in res_batch.chunks_exact_mut(filters.len()) {
             batch_multiply_inplace(res_chunk, &filters);
@@ -142,7 +141,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             combination_range,
             vars.local_constants[selector_index],
         );
-        vars.selector_index = selector_index;
+        vars.remove_prefix(prefix);
         let my_constraints = self.eval_unfiltered_recursively(builder, vars);
         for (acc, c) in combined_gate_constraints.iter_mut().zip(my_constraints) {
             *acc = builder.mul_add_extension(filter, c, *acc);

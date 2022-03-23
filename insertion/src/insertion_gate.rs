@@ -415,7 +415,6 @@ mod tests {
             _phantom: PhantomData,
         };
         let vars = EvaluationVars {
-            selector_index: usize::MAX,
             local_constants: &[],
             local_wires: &get_wires(orig_vec, insertion_index, element_to_insert),
             public_inputs_hash: &HashOut::rand(),

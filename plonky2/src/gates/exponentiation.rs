@@ -394,7 +394,6 @@ mod tests {
         };
 
         let vars = EvaluationVars {
-            selector_index: usize::MAX,
             local_constants: &[],
             local_wires: &get_wires(base, power as u64),
             public_inputs_hash: &HashOut::rand(),

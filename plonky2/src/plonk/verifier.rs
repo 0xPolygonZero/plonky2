@@ -52,7 +52,6 @@ where
     let local_constants = &proof.openings.constants;
     let local_wires = &proof.openings.wires;
     let vars = EvaluationVars {
-        selector_index: usize::MAX,
         local_constants,
         local_wires,
         public_inputs_hash: &public_inputs_hash,

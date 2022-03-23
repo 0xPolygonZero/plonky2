@@ -40,7 +40,7 @@ pub(crate) fn eval_vanishing_poly<
     let max_degree = common_data.quotient_degree_factor;
     let num_prods = common_data.num_partial_products;
 
-    let constraint_terms = evaluate_gate_constraints(common_data, vars.clone());
+    let constraint_terms = evaluate_gate_constraints(common_data, vars);
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::new();
@@ -127,8 +127,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<
 
     let num_gate_constraints = common_data.num_gate_constraints;
 
-    let constraint_terms_batch =
-        evaluate_gate_constraints_base_batch(&common_data, vars_batch.clone());
+    let constraint_terms_batch = evaluate_gate_constraints_base_batch(&common_data, vars_batch);
     debug_assert!(constraint_terms_batch.len() == n * num_gate_constraints);
 
     let num_challenges = common_data.config.num_challenges;

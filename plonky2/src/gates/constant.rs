@@ -42,7 +42,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         (0..self.num_consts)
-            .map(|i| vars.get_constant(self.const_input(i)) - vars.local_wires[self.wire_output(i)])
+            .map(|i| {
+                vars.local_constants[self.const_input(i)] - vars.local_wires[self.wire_output(i)]
+            })
             .collect()
     }
 
@@ -66,7 +68,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
         (0..self.num_consts)
             .map(|i| {
                 builder.sub_extension(
-                    vars.get_constant(self.const_input(i)),
+                    vars.local_constants[self.const_input(i)],
                     vars.local_wires[self.wire_output(i)],
                 )
             })
