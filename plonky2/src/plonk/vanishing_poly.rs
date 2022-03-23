@@ -219,8 +219,9 @@ pub fn evaluate_gate_constraints<
     for (i, gate) in common_data.gates.iter().enumerate() {
         let gate_constraints = gate.0.eval_filtered(
             vars.clone(),
+            i,
             common_data.selector_indices[i],
-            common_data.combination_nums[i],
+            common_data.combination_ranges[i],
         );
         for (i, c) in gate_constraints.into_iter().enumerate() {
             debug_assert!(
@@ -250,8 +251,9 @@ pub fn evaluate_gate_constraints_base_batch<
     for (i, gate) in common_data.gates.iter().enumerate() {
         let gate_constraints_batch = gate.0.eval_filtered_base_batch(
             vars_batch.clone(),
+            i,
             common_data.selector_indices[i],
-            common_data.combination_nums[i],
+            common_data.combination_ranges[i],
         );
         debug_assert!(
             gate_constraints_batch.len() <= constraints_batch.len(),
@@ -284,7 +286,7 @@ pub fn evaluate_gate_constraints_recursively<
                 builder,
                 vars.clone(),
                 common_data.selector_indices[i],
-                common_data.combination_nums[i],
+                common_data.combination_ranges[i],
                 &mut all_gate_constraints
             )
         );

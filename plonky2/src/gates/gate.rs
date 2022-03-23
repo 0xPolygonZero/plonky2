@@ -84,12 +84,13 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     fn eval_filtered(
         &self,
         mut vars: EvaluationVars<F, D>,
+        gate_index: usize,
         selector_index: usize,
-        combination_num: usize,
+        combination_range: (usize, usize),
     ) -> Vec<F::Extension> {
         let filter = compute_filter(
-            selector_index,
-            combination_num,
+            gate_index,
+            combination_range,
             vars.local_constants[selector_index],
         );
         vars.selector_index = selector_index;
@@ -104,15 +105,16 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     fn eval_filtered_base_batch(
         &self,
         mut vars_batch: EvaluationVarsBaseBatch<F>,
+        gate_index: usize,
         selector_index: usize,
-        combination_num: usize,
+        combination_range: (usize, usize),
     ) -> Vec<F> {
         let filters: Vec<_> = vars_batch
             .iter()
             .map(|vars| {
                 compute_filter(
-                    selector_index,
-                    combination_num,
+                    gate_index,
+                    combination_range,
                     vars.local_constants[selector_index],
                 )
             })
@@ -131,13 +133,13 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         builder: &mut CircuitBuilder<F, D>,
         mut vars: EvaluationTargets<D>,
         selector_index: usize,
-        combination_num: usize,
+        combination_range: (usize, usize),
         combined_gate_constraints: &mut [ExtensionTarget<D>],
     ) {
         let filter = compute_filter_recursively(
             builder,
             selector_index,
-            combination_num,
+            combination_range,
             vars.local_constants[selector_index],
         );
         vars.selector_index = selector_index;
@@ -236,9 +238,13 @@ impl<F: RichField + Extendable<D>, const D: usize> PrefixedGate<F, D> {
 
 /// A gate's filter is computed as `prod b_i*c_i + (1-b_i)*(1-c_i)`, with `(b_i)` the prefix and
 /// `(c_i)` the local constants, which is one if the prefix of `constants` matches `prefix`.
-fn compute_filter<'a, K: Field>(selector_index: usize, combination_num: usize, constant: K) -> K {
-    (0..combination_num)
-        .filter(|&i| i != selector_index)
+fn compute_filter<'a, K: Field>(
+    gate_index: usize,
+    combination_range: (usize, usize),
+    constant: K,
+) -> K {
+    (combination_range.0..combination_range.1)
+        .filter(|&i| i != gate_index)
         .map(|i| K::from_canonical_usize(i) - constant)
         .product()
 }
@@ -246,10 +252,10 @@ fn compute_filter<'a, K: Field>(selector_index: usize, combination_num: usize, c
 fn compute_filter_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     selector_index: usize,
-    combination_num: usize,
+    combination_range: (usize, usize),
     constant: ExtensionTarget<D>,
 ) -> ExtensionTarget<D> {
-    let v = (0..combination_num)
+    let v = (combination_range.0..combination_range.1)
         .filter(|&i| i != selector_index)
         .map(|i| builder.constant_extension(F::Extension::from_canonical_usize(i)))
         .collect::<Vec<_>>();

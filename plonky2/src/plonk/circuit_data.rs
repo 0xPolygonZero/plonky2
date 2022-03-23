@@ -249,7 +249,7 @@ pub struct CommonCircuitData<
     pub(crate) gates: Vec<GateRef<F, D>>,
 
     pub(crate) selector_indices: Vec<usize>,
-    pub(crate) combination_nums: Vec<usize>,
+    pub(crate) combination_ranges: Vec<(usize, usize)>,
 
     /// The degree of the PLONK quotient polynomial.
     pub(crate) quotient_degree_factor: usize,

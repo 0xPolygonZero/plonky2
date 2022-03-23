@@ -8,7 +8,7 @@ pub(crate) fn compute_selectors<F: RichField + Extendable<D>, const D: usize>(
     mut gates: Vec<GateRef<F, D>>,
     instances: &[GateInstance<F, D>],
     max_degree: usize,
-) -> (Vec<PolynomialValues<F>>, Vec<usize>, Vec<usize>) {
+) -> (Vec<PolynomialValues<F>>, Vec<usize>, Vec<(usize, usize)>) {
     let n = instances.len();
 
     let mut combinations = Vec::new();
@@ -29,15 +29,20 @@ pub(crate) fn compute_selectors<F: RichField + Extendable<D>, const D: usize>(
         vec![PolynomialValues::zero(n); combinations.len() + num_constants_polynomials];
 
     let index = |id| gates.iter().position(|g| g.0.id() == id).unwrap();
-    let combination = |i| combinations.iter().position(|&(a, _)| a <= i).unwrap();
+    let combination = |i| {
+        combinations
+            .iter()
+            .position(|&(a, b)| a <= i && i < b)
+            .unwrap()
+    };
 
     let selector_indices = gates
         .iter()
         .map(|g| combination(index(g.0.id())))
         .collect::<Vec<_>>();
-    let combination_nums = selector_indices
+    let combination_ranges = selector_indices
         .iter()
-        .map(|&i| combinations[i].1 - combinations[i].0)
+        .map(|&i| (combinations[i].0, combinations[i].1))
         .collect();
 
     for (j, g) in instances.iter().enumerate() {
@@ -47,7 +52,7 @@ pub(crate) fn compute_selectors<F: RichField + Extendable<D>, const D: usize>(
         } = g;
         let i = index(gate_ref.0.id());
         let comb = combination(i);
-        polynomials[comb].values[j] = F::from_canonical_usize(i - combinations[comb].0);
+        polynomials[comb].values[j] = F::from_canonical_usize(i);
         let mut k = 0;
         let mut constant_ind = 0;
         while k < constants.len() {
@@ -60,5 +65,5 @@ pub(crate) fn compute_selectors<F: RichField + Extendable<D>, const D: usize>(
             }
         }
     }
-    (polynomials, selector_indices, combination_nums)
+    (polynomials, selector_indices, combination_ranges)
 }

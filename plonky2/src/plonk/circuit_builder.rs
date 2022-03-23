@@ -804,7 +804,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             degree_bits,
             gates,
             selector_indices,
-            combination_nums,
+            combination_ranges,
             quotient_degree_factor,
             num_gate_constraints,
             num_constants,
