@@ -130,48 +130,48 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
         constraints
     }
 
-    fn eval_unfiltered_base_one(
-        &self,
-        vars: EvaluationVarsBase<F>,
-        mut yield_constr: StridedConstraintConsumer<F>,
-    ) {
-        for i in 0..self.num_ops {
-            let addends: Vec<F> = (0..self.num_addends)
-                .map(|j| vars.local_wires[self.wire_ith_op_jth_addend(i, j)])
-                .collect();
-            let carry = vars.local_wires[self.wire_ith_carry(i)];
-
-            let computed_output = addends.iter().fold(F::ZERO, |x, &y| x + y) + carry;
-
-            let output_result = vars.local_wires[self.wire_ith_output_result(i)];
-            let output_carry = vars.local_wires[self.wire_ith_output_carry(i)];
-
-            let base = F::from_canonical_u64(1 << 32u64);
-            let combined_output = output_carry * base + output_result;
-
-            yield_constr.one(combined_output - computed_output);
-
-            let mut combined_result_limbs = F::ZERO;
-            let mut combined_carry_limbs = F::ZERO;
-            let base = F::from_canonical_u64(1u64 << Self::limb_bits());
-            for j in (0..Self::num_limbs()).rev() {
-                let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
-                let max_limb = 1 << Self::limb_bits();
-                let product = (0..max_limb)
-                    .map(|x| this_limb - F::from_canonical_usize(x))
-                    .product();
-                yield_constr.one(product);
-
-                if j < Self::num_result_limbs() {
-                    combined_result_limbs = base * combined_result_limbs + this_limb;
-                } else {
-                    combined_carry_limbs = base * combined_carry_limbs + this_limb;
-                }
-            }
-            yield_constr.one(combined_result_limbs - output_result);
-            yield_constr.one(combined_carry_limbs - output_carry);
-        }
-    }
+    // fn eval_unfiltered_base_one(
+    //     &self,
+    //     vars: EvaluationVarsBase<F>,
+    //     mut yield_constr: StridedConstraintConsumer<F>,
+    // ) {
+    //     for i in 0..self.num_ops {
+    //         let addends: Vec<F> = (0..self.num_addends)
+    //             .map(|j| vars.local_wires[self.wire_ith_op_jth_addend(i, j)])
+    //             .collect();
+    //         let carry = vars.local_wires[self.wire_ith_carry(i)];
+    //
+    //         let computed_output = addends.iter().fold(F::ZERO, |x, &y| x + y) + carry;
+    //
+    //         let output_result = vars.local_wires[self.wire_ith_output_result(i)];
+    //         let output_carry = vars.local_wires[self.wire_ith_output_carry(i)];
+    //
+    //         let base = F::from_canonical_u64(1 << 32u64);
+    //         let combined_output = output_carry * base + output_result;
+    //
+    //         yield_constr.one(combined_output - computed_output);
+    //
+    //         let mut combined_result_limbs = F::ZERO;
+    //         let mut combined_carry_limbs = F::ZERO;
+    //         let base = F::from_canonical_u64(1u64 << Self::limb_bits());
+    //         for j in (0..Self::num_limbs()).rev() {
+    //             let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
+    //             let max_limb = 1 << Self::limb_bits();
+    //             let product = (0..max_limb)
+    //                 .map(|x| this_limb - F::from_canonical_usize(x))
+    //                 .product();
+    //             yield_constr.one(product);
+    //
+    //             if j < Self::num_result_limbs() {
+    //                 combined_result_limbs = base * combined_result_limbs + this_limb;
+    //             } else {
+    //                 combined_carry_limbs = base * combined_carry_limbs + this_limb;
+    //             }
+    //         }
+    //         yield_constr.one(combined_result_limbs - output_result);
+    //         yield_constr.one(combined_carry_limbs - output_carry);
+    //     }
+    // }
 
     fn eval_unfiltered_recursively(
         &self,
@@ -448,6 +448,7 @@ mod tests {
         };
 
         let vars = EvaluationVars {
+            selector_index: usize::MAX,
             local_constants: &[],
             local_wires: &get_wires(addends, carries),
             public_inputs_hash: &HashOut::rand(),

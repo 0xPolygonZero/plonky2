@@ -42,23 +42,21 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
         (0..self.num_consts)
-            .map(|i| {
-                vars.local_constants[self.const_input(i)] - vars.local_wires[self.wire_output(i)]
-            })
+            .map(|i| vars.get_constant(self.const_input(i)) - vars.local_wires[self.wire_output(i)])
             .collect()
     }
 
-    fn eval_unfiltered_base_one(
-        &self,
-        _vars: EvaluationVarsBase<F>,
-        _yield_constr: StridedConstraintConsumer<F>,
-    ) {
-        panic!("use eval_unfiltered_base_packed instead");
-    }
+    // fn eval_unfiltered_base_one(
+    //     &self,
+    //     _vars: EvaluationVarsBase<F>,
+    //     _yield_constr: StridedConstraintConsumer<F>,
+    // ) {
+    //     panic!("use eval_unfiltered_base_packed instead");
+    // }
 
-    fn eval_unfiltered_base_batch(&self, vars_base: EvaluationVarsBaseBatch<F>) -> Vec<F> {
-        self.eval_unfiltered_base_batch_packed(vars_base)
-    }
+    // fn eval_unfiltered_base_batch(&self, vars_base: EvaluationVarsBaseBatch<F>) -> Vec<F> {
+    //     self.eval_unfiltered_base_batch_packed(vars_base)
+    // }
 
     fn eval_unfiltered_recursively(
         &self,
@@ -68,7 +66,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
         (0..self.num_consts)
             .map(|i| {
                 builder.sub_extension(
-                    vars.local_constants[self.const_input(i)],
+                    vars.get_constant(self.const_input(i)),
                     vars.local_wires[self.wire_output(i)],
                 )
             })
@@ -113,17 +111,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for ConstantGate {
-    fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
-        &self,
-        vars: EvaluationVarsBasePacked<P>,
-        mut yield_constr: StridedConstraintConsumer<P>,
-    ) {
-        yield_constr.many((0..self.num_consts).map(|i| {
-            vars.local_constants[self.const_input(i)] - vars.local_wires[self.wire_output(i)]
-        }));
-    }
-}
+// impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for ConstantGate {
+//     fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
+//         &self,
+//         vars: EvaluationVarsBasePacked<P>,
+//         mut yield_constr: StridedConstraintConsumer<P>,
+//     ) {
+//         yield_constr.many((0..self.num_consts).map(|i| {
+//             vars.get_constant(self.const_input(i)) - vars.local_wires[self.wire_output(i)]
+//         }));
+//     }
+// }
 
 #[derive(Debug)]
 struct ConstantGenerator<F: Field> {

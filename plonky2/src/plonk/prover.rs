@@ -427,6 +427,7 @@ fn compute_quotient_polys<
             }
 
             let vars_batch = EvaluationVarsBaseBatch::new(
+                usize::MAX,
                 xs_batch.len(),
                 &local_constants_batch,
                 &local_wires_batch,

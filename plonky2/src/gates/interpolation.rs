@@ -352,6 +352,7 @@ mod tests {
         let eval_point = FF::rand();
         let gate = HighDegreeInterpolationGate::<F, D>::new(1);
         let vars = EvaluationVars {
+            selector_index: usize::MAX,
             local_constants: &[],
             local_wires: &get_wires(&gate, shift, coeffs, eval_point),
             public_inputs_hash: &HashOut::rand(),

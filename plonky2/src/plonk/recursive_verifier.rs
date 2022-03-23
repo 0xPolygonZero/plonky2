@@ -56,6 +56,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let local_constants = &proof.openings.constants;
         let local_wires = &proof.openings.wires;
         let vars = EvaluationTargets {
+            selector_index: usize::MAX,
             local_constants,
             local_wires,
             public_inputs_hash: &public_inputs_hash,

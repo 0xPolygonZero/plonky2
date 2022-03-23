@@ -52,7 +52,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for MulExtensionGa
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
-        let const_0 = vars.local_constants[0];
+        let const_0 = vars.get_constant(0);
 
         let mut constraints = Vec::new();
         for i in 0..self.num_ops {
@@ -67,29 +67,29 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for MulExtensionGa
         constraints
     }
 
-    fn eval_unfiltered_base_one(
-        &self,
-        vars: EvaluationVarsBase<F>,
-        mut yield_constr: StridedConstraintConsumer<F>,
-    ) {
-        let const_0 = vars.local_constants[0];
-
-        for i in 0..self.num_ops {
-            let multiplicand_0 = vars.get_local_ext(Self::wires_ith_multiplicand_0(i));
-            let multiplicand_1 = vars.get_local_ext(Self::wires_ith_multiplicand_1(i));
-            let output = vars.get_local_ext(Self::wires_ith_output(i));
-            let computed_output = (multiplicand_0 * multiplicand_1).scalar_mul(const_0);
-
-            yield_constr.many((output - computed_output).to_basefield_array());
-        }
-    }
+    // fn eval_unfiltered_base_one(
+    //     &self,
+    //     vars: EvaluationVarsBase<F>,
+    //     mut yield_constr: StridedConstraintConsumer<F>,
+    // ) {
+    //     let const_0 = vars.get_constant(0);
+    //
+    //     for i in 0..self.num_ops {
+    //         let multiplicand_0 = vars.get_local_ext(Self::wires_ith_multiplicand_0(i));
+    //         let multiplicand_1 = vars.get_local_ext(Self::wires_ith_multiplicand_1(i));
+    //         let output = vars.get_local_ext(Self::wires_ith_output(i));
+    //         let computed_output = (multiplicand_0 * multiplicand_1).scalar_mul(const_0);
+    //
+    //         yield_constr.many((output - computed_output).to_basefield_array());
+    //     }
+    // }
 
     fn eval_unfiltered_recursively(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        let const_0 = vars.local_constants[0];
+        let const_0 = vars.get_constant(0);
 
         let mut constraints = Vec::new();
         for i in 0..self.num_ops {

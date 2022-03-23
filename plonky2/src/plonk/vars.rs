@@ -1,4 +1,5 @@
 use std::ops::Range;
+use std::os::unix::raw::uid_t;
 
 use plonky2_field::extension_field::algebra::ExtensionAlgebra;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
@@ -11,6 +12,7 @@ use crate::util::strided_view::PackedStridedView;
 
 #[derive(Debug, Copy, Clone)]
 pub struct EvaluationVars<'a, F: RichField + Extendable<D>, const D: usize> {
+    pub selector_index: usize,
     pub local_constants: &'a [F::Extension],
     pub local_wires: &'a [F::Extension],
     pub public_inputs_hash: &'a HashOut<F>,
@@ -21,6 +23,7 @@ pub struct EvaluationVars<'a, F: RichField + Extendable<D>, const D: usize> {
 /// evaluation points, then wire 1 for all points, and so on).
 #[derive(Debug, Copy, Clone)]
 pub struct EvaluationVarsBaseBatch<'a, F: Field> {
+    pub selector_index: usize,
     batch_size: usize,
     pub local_constants: &'a [F],
     pub local_wires: &'a [F],
@@ -30,6 +33,7 @@ pub struct EvaluationVarsBaseBatch<'a, F: Field> {
 /// A view into `EvaluationVarsBaseBatch` for a particular evaluation point. Does not copy the data.
 #[derive(Debug, Copy, Clone)]
 pub struct EvaluationVarsBase<'a, F: Field> {
+    pub selector_index: usize,
     pub local_constants: PackedStridedView<'a, F>,
     pub local_wires: PackedStridedView<'a, F>,
     pub public_inputs_hash: &'a HashOut<F>,
@@ -40,12 +44,22 @@ pub struct EvaluationVarsBase<'a, F: Field> {
 // have packed extension fields.
 #[derive(Debug, Copy, Clone)]
 pub struct EvaluationVarsBasePacked<'a, P: PackedField> {
+    pub selector_index: usize,
     pub local_constants: PackedStridedView<'a, P>,
     pub local_wires: PackedStridedView<'a, P>,
     pub public_inputs_hash: &'a HashOut<P::Scalar>,
 }
+impl<'a, P: PackedField> EvaluationVarsBasePacked<'a, P> {
+    pub fn get_constant(&self, i: usize) -> P {
+        self.local_constants[if i < self.selector_index { i } else { i + 1 }]
+    }
+}
 
 impl<'a, F: RichField + Extendable<D>, const D: usize> EvaluationVars<'a, F, D> {
+    pub fn get_constant(&self, i: usize) -> F::Extension {
+        self.local_constants[if i < self.selector_index { i } else { i + 1 }]
+    }
+
     pub fn get_local_ext_algebra(
         &self,
         wire_range: Range<usize>,
@@ -58,6 +72,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize> EvaluationVars<'a, F, D> 
 
 impl<'a, F: Field> EvaluationVarsBaseBatch<'a, F> {
     pub fn new(
+        selector_index: usize,
         batch_size: usize,
         local_constants: &'a [F],
         local_wires: &'a [F],
@@ -66,6 +81,7 @@ impl<'a, F: Field> EvaluationVarsBaseBatch<'a, F> {
         assert_eq!(local_constants.len() % batch_size, 0);
         assert_eq!(local_wires.len() % batch_size, 0);
         Self {
+            selector_index,
             batch_size,
             local_constants,
             local_wires,
@@ -80,10 +96,10 @@ impl<'a, F: Field> EvaluationVarsBaseBatch<'a, F> {
     pub fn view(&self, index: usize) -> EvaluationVarsBase<'a, F> {
         // We cannot implement `Index` as `EvaluationVarsBase` is a struct, not a reference.
         assert!(index < self.len());
-        let local_constants =
-            PackedStridedView::new(self.local_constants.to_vec(), self.len(), index);
-        let local_wires = PackedStridedView::new(self.local_wires.to_vec(), self.len(), index);
+        let local_constants = PackedStridedView::new(self.local_constants, self.len(), index);
+        let local_wires = PackedStridedView::new(self.local_wires, self.len(), index);
         EvaluationVarsBase {
+            selector_index: self.selector_index,
             local_constants,
             local_wires,
             public_inputs_hash: self.public_inputs_hash,
@@ -91,7 +107,7 @@ impl<'a, F: Field> EvaluationVarsBaseBatch<'a, F> {
     }
 
     pub fn iter(&self) -> EvaluationVarsBaseBatchIter<'a, F> {
-        EvaluationVarsBaseBatchIter::new(self.clone())
+        EvaluationVarsBaseBatchIter::new(*self)
     }
 
     pub fn pack<P: PackedField<Scalar = F>>(
@@ -102,16 +118,17 @@ impl<'a, F: Field> EvaluationVarsBaseBatch<'a, F> {
     ) {
         let n_leftovers = self.len() % P::WIDTH;
         (
-            EvaluationVarsBaseBatchIterPacked::new_with_start(self.clone(), 0),
-            EvaluationVarsBaseBatchIterPacked::new_with_start(
-                self.clone(),
-                self.len() - n_leftovers,
-            ),
+            EvaluationVarsBaseBatchIterPacked::new_with_start(*self, 0),
+            EvaluationVarsBaseBatchIterPacked::new_with_start(*self, self.len() - n_leftovers),
         )
     }
 }
 
 impl<'a, F: Field> EvaluationVarsBase<'a, F> {
+    pub fn get_constant(&self, i: usize) -> F {
+        self.local_constants[if i < self.selector_index { i } else { i + 1 }]
+    }
+
     pub fn get_local_ext<const D: usize>(&self, wire_range: Range<usize>) -> F::Extension
     where
         F: RichField + Extendable<D>,
@@ -151,6 +168,7 @@ impl<'a, F: Field> Iterator for EvaluationVarsBaseBatchIter<'a, F> {
 /// Note: if the length of `EvaluationVarsBaseBatch` is not a multiple of `P::WIDTH`, then the
 /// leftovers at the end are ignored.
 pub struct EvaluationVarsBaseBatchIterPacked<'a, P: PackedField> {
+    selector_index: usize,
     /// Index to yield next, in units of `P::Scalar`. E.g. if `P::WIDTH == 4`, then we will yield
     /// the vars for points `i`, `i + 1`, `i + 2`, and `i + 3`, packed.
     i: usize,
@@ -164,6 +182,7 @@ impl<'a, P: PackedField> EvaluationVarsBaseBatchIterPacked<'a, P> {
     ) -> Self {
         assert!(start <= vars_batch.len());
         EvaluationVarsBaseBatchIterPacked {
+            selector_index: vars_batch.selector_index,
             i: start,
             vars_batch,
         }
@@ -175,16 +194,14 @@ impl<'a, P: PackedField> Iterator for EvaluationVarsBaseBatchIterPacked<'a, P> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.i + P::WIDTH <= self.vars_batch.len() {
             let local_constants = PackedStridedView::new(
-                self.vars_batch.local_constants.to_vec(),
+                self.vars_batch.local_constants,
                 self.vars_batch.len(),
                 self.i,
             );
-            let local_wires = PackedStridedView::new(
-                self.vars_batch.local_wires.to_vec(),
-                self.vars_batch.len(),
-                self.i,
-            );
+            let local_wires =
+                PackedStridedView::new(self.vars_batch.local_wires, self.vars_batch.len(), self.i);
             let res = EvaluationVarsBasePacked {
+                selector_index: self.selector_index,
                 local_constants,
                 local_wires,
                 public_inputs_hash: self.vars_batch.public_inputs_hash,
@@ -209,12 +226,17 @@ impl<'a, P: PackedField> ExactSizeIterator for EvaluationVarsBaseBatchIterPacked
 
 #[derive(Copy, Clone)]
 pub struct EvaluationTargets<'a, const D: usize> {
+    pub selector_index: usize,
     pub local_constants: &'a [ExtensionTarget<D>],
     pub local_wires: &'a [ExtensionTarget<D>],
     pub public_inputs_hash: &'a HashOutTarget,
 }
 
 impl<'a, const D: usize> EvaluationTargets<'a, D> {
+    pub fn get_constant(&self, i: usize) -> ExtensionTarget<D> {
+        self.local_constants[if i < self.selector_index { i } else { i + 1 }]
+    }
+
     pub fn get_local_ext_algebra(&self, wire_range: Range<usize>) -> ExtensionAlgebraTarget<D> {
         debug_assert_eq!(wire_range.len(), D);
         let arr = self.local_wires[wire_range].try_into().unwrap();

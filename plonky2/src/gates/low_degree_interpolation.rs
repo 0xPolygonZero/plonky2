@@ -453,6 +453,7 @@ mod tests {
         let eval_point = FF::rand();
         let gate = LowDegreeInterpolationGate::<F, D>::new(subgroup_bits);
         let vars = EvaluationVars {
+            selector_index: usize::MAX,
             local_constants: &[],
             local_wires: &get_wires(&gate, shift, coeffs, eval_point),
             public_inputs_hash: &HashOut::rand(),

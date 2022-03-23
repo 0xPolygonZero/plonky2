@@ -152,7 +152,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<
         let partial_products = partial_products_batch[k];
         let s_sigmas = s_sigmas_batch[k];
 
-        let constraint_terms = PackedStridedView::new(constraint_terms_batch.clone(), n, k);
+        let constraint_terms = PackedStridedView::new(&constraint_terms_batch, n, k);
 
         let l1_x = z_h_on_coset.eval_l1(index, x);
         for i in 0..num_challenges {

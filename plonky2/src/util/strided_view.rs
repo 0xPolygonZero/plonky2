@@ -46,7 +46,7 @@ impl<'a, P: PackedField> PackedStridedView<'a, P> {
     // end of the same allocated object'; the UB results even if the pointer is not dereferenced.
 
     #[inline]
-    pub fn new(data: Vec<P::Scalar>, stride: usize, offset: usize) -> Self {
+    pub fn new(data: &'a [P::Scalar], stride: usize, offset: usize) -> Self {
         assert!(
             stride >= P::WIDTH,
             "stride (got {}) must be at least P::WIDTH ({})",
