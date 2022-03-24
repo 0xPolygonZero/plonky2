@@ -51,16 +51,16 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub config: CircuitConfig,
 
     /// The types of gates used in this circuit.
-    gates: HashSet<GateRef<F, D>>,
+    pub(crate) gates: HashSet<GateRef<F, D>>,
 
     /// The concrete placement of each gate.
     pub(crate) gate_instances: Vec<GateInstance<F, D>>,
 
     /// Targets to be made public.
-    public_inputs: Vec<Target>,
+    pub(crate) public_inputs: Vec<Target>,
 
     /// The next available index for a `VirtualTarget`.
-    virtual_target_index: usize,
+    pub(crate) virtual_target_index: usize,
 
     copy_constraints: Vec<CopyConstraint>,
 
@@ -68,10 +68,10 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     context_log: ContextTree,
 
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
-    marked_targets: Vec<MarkedTargets<D>>,
+    pub(crate) marked_targets: Vec<MarkedTargets<D>>,
 
     /// Generators used to generate the witness.
-    generators: Vec<Box<dyn WitnessGenerator<F>>>,
+    pub(crate) generators: Vec<Box<dyn WitnessGenerator<F>>>,
 
     constants_to_targets: HashMap<F, Target>,
     targets_to_constants: HashMap<Target, F>,
@@ -83,7 +83,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) arithmetic_results: HashMap<ExtensionArithmeticOperation<F, D>, ExtensionTarget<D>>,
 
     /// Map between gate type and the current gate of this type with available slots.
-    current_slots: HashMap<GateRef<F, D>, CurrentSlot<F, D>>,
+    pub(crate) current_slots: HashMap<GateRef<F, D>, CurrentSlot<F, D>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -424,7 +424,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (gate_idx, slot_idx)
     }
 
-    fn fri_params(&self, degree_bits: usize) -> FriParams {
+    pub(crate) fn fri_params(&self, degree_bits: usize) -> FriParams {
         self.config
             .fri_config
             .fri_params(degree_bits, self.config.zero_knowledge)
@@ -493,7 +493,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn blind_and_pad(&mut self) {
+    pub(crate) fn blind_and_pad(&mut self) {
         if self.config.zero_knowledge {
             self.blind();
         }
@@ -580,7 +580,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> (Vec<PolynomialValues<F>>, Forest) {
+    pub(crate) fn sigma_vecs(
+        &self,
+        k_is: &[F],
+        subgroup: &[F],
+    ) -> (Vec<PolynomialValues<F>>, Forest) {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
         let config = &self.config;
@@ -637,9 +641,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     where
         [(); C::Hasher::HASH_SIZE]:,
     {
-        for g in &self.gate_instances {
-            dbg!(&g.gate_ref.0.id());
-        }
         let mut timing = TimingTree::new("preprocess", Level::Trace);
         let start = Instant::now();
         let rate_bits = self.config.fri_config.rate_bits;
@@ -675,14 +676,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut gates = self.gates.iter().cloned().collect::<Vec<_>>();
         gates.sort_unstable_by_key(|g| g.0.degree());
-        dbg!(&gates);
         let (constant_vecs, selector_indices, combination_ranges, num_selectors) =
             compute_selectors(
                 gates.clone(),
                 &self.gate_instances,
                 self.config.max_quotient_degree_factor + 1,
             );
-        dbg!(&constant_vecs, &selector_indices, &combination_ranges);
+        // dbg!(&constant_vecs, &selector_indices, &combination_ranges);
         let num_constants = constant_vecs.len();
         // let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
         // let prefixed_gates = PrefixedGate::from_tree(gate_tree);

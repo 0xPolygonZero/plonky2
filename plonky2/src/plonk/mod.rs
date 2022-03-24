@@ -1,6 +1,7 @@
 pub mod circuit_builder;
 pub mod circuit_data;
 pub mod config;
+pub mod constest;
 pub(crate) mod copy_constraint;
 mod get_challenges;
 pub(crate) mod permutation_argument;

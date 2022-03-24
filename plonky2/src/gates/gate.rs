@@ -93,6 +93,13 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             combination_range,
             vars.local_constants[selector_index],
         );
+        // println!(
+        //     "{} {:?} {} {}",
+        //     self.id(),
+        //     combination_range,
+        //     gate_index,
+        //     self.degree()
+        // );
         vars.remove_prefix(num_selectors);
         self.eval_unfiltered(vars)
             .into_iter()

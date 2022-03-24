@@ -21,7 +21,7 @@ pub(crate) fn compute_selectors<F: RichField + Extendable<D>, const D: usize>(
 
     while pos < gates.len() {
         let mut i = 0;
-        while (pos + i < gates.len()) && (i + gates[pos + i].0.degree() <= max_degree) {
+        while (pos + i < gates.len()) && (i + gates[pos + i].0.degree() + 1 <= max_degree) {
             i += 1;
         }
         combinations.push((pos, pos + i));
