@@ -262,7 +262,6 @@ mod tests {
 
     use crate::iop::witness::Witness;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::constest::check_constraints;
     use crate::{
         iop::witness::PartialWitness,
         plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, verifier::verify},
@@ -353,7 +352,6 @@ mod tests {
         pw.set_biguint_target(&y, &y_value);
         pw.set_biguint_target(&expected_z, &expected_z_value);
 
-        // check_constraints::<F, C, D>(builder, pw)
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         verify(proof, &data.verifier_only, &data.common)

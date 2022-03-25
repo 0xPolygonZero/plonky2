@@ -224,13 +224,11 @@ mod tests {
         // Start with a degree 2^14 proof
         let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, 16_000)?;
         assert_eq!(cd.degree_bits, 14);
-        test_serialization(&proof, &cd)?;
 
         // Shrink it to 2^13.
         let (proof, vd, cd) =
             recursive_proof::<F, C, C, D>(proof, vd, cd, &config, Some(13), false, false)?;
         assert_eq!(cd.degree_bits, 13);
-        test_serialization(&proof, &cd)?;
 
         // Shrink it to 2^12.
         let (proof, _vd, cd) =

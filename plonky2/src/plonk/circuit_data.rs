@@ -12,7 +12,7 @@ use crate::fri::structure::{
     FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriPolynomialInfo,
 };
 use crate::fri::{FriConfig, FriParams};
-use crate::gates::gate::{Gate, GateRef, PrefixedGate};
+use crate::gates::gate::GateRef;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;

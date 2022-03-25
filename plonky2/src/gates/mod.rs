@@ -11,7 +11,6 @@ pub mod comparison;
 pub mod constant;
 pub mod exponentiation;
 pub mod gate;
-pub mod gate_tree;
 pub mod interpolation;
 pub mod low_degree_interpolation;
 pub mod multiplication_extension;

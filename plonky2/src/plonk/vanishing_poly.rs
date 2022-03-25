@@ -3,7 +3,6 @@ use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 use plonky2_field::zero_poly_coset::ZeroPolyOnCoset;
 
-use crate::gates::gate::{Gate, GateRef, PrefixedGate};
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
@@ -127,7 +126,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<
 
     let num_gate_constraints = common_data.num_gate_constraints;
 
-    let constraint_terms_batch = evaluate_gate_constraints_base_batch(&common_data, vars_batch);
+    let constraint_terms_batch = evaluate_gate_constraints_base_batch(common_data, vars_batch);
     debug_assert!(constraint_terms_batch.len() == n * num_gate_constraints);
 
     let num_challenges = common_data.config.num_challenges;
@@ -250,7 +249,7 @@ pub fn evaluate_gate_constraints_base_batch<
     let mut constraints_batch = vec![F::ZERO; common_data.num_gate_constraints * vars_batch.len()];
     for (i, gate) in common_data.gates.iter().enumerate() {
         let gate_constraints_batch = gate.0.eval_filtered_base_batch(
-            vars_batch.clone(),
+            vars_batch,
             i,
             common_data.selector_indices[i],
             common_data.combination_ranges[i],

@@ -7,7 +7,6 @@ use plonky2_field::batch_util::batch_multiply_inplace;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 
-use crate::gates::gate_tree::Tree;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
@@ -93,13 +92,6 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             combination_range,
             vars.local_constants[selector_index],
         );
-        // println!(
-        //     "{} {:?} {} {}",
-        //     self.id(),
-        //     combination_range,
-        //     gate_index,
-        //     self.degree()
-        // );
         vars.remove_prefix(num_selectors);
         self.eval_unfiltered(vars)
             .into_iter()
@@ -237,18 +229,9 @@ pub struct PrefixedGate<F: RichField + Extendable<D>, const D: usize> {
     pub prefix: Vec<bool>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> PrefixedGate<F, D> {
-    pub fn from_tree(tree: Tree<GateRef<F, D>>) -> Vec<Self> {
-        tree.traversal()
-            .into_iter()
-            .map(|(gate, prefix)| PrefixedGate { gate, prefix })
-            .collect()
-    }
-}
-
 /// A gate's filter is computed as `prod b_i*c_i + (1-b_i)*(1-c_i)`, with `(b_i)` the prefix and
 /// `(c_i)` the local constants, which is one if the prefix of `constants` matches `prefix`.
-fn compute_filter<'a, K: Field>(
+fn compute_filter<K: Field>(
     gate_index: usize,
     combination_range: (usize, usize),
     constant: K,

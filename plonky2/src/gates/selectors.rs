@@ -5,7 +5,7 @@ use crate::gates::gate::{GateInstance, GateRef};
 use crate::hash::hash_types::RichField;
 
 pub(crate) fn compute_selectors<F: RichField + Extendable<D>, const D: usize>(
-    mut gates: Vec<GateRef<F, D>>,
+    gates: Vec<GateRef<F, D>>,
     instances: &[GateInstance<F, D>],
     max_degree: usize,
 ) -> (
@@ -21,13 +21,12 @@ pub(crate) fn compute_selectors<F: RichField + Extendable<D>, const D: usize>(
 
     while pos < gates.len() {
         let mut i = 0;
-        while (pos + i < gates.len()) && (i + gates[pos + i].0.degree() + 1 <= max_degree) {
+        while (pos + i < gates.len()) && (i + gates[pos + i].0.degree() < max_degree) {
             i += 1;
         }
         combinations.push((pos, pos + i));
         pos += i;
     }
-    dbg!(&combinations);
     let bad = F::from_canonical_usize(u32::MAX as usize);
 
     let num_constants_polynomials = gates.iter().map(|g| g.0.num_constants()).max().unwrap();

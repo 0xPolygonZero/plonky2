@@ -21,7 +21,7 @@ pub struct EvaluationVars<'a, F: RichField + Extendable<D>, const D: usize> {
 /// evaluation points, then wire 1 for all points, and so on).
 #[derive(Debug, Copy, Clone)]
 pub struct EvaluationVarsBaseBatch<'a, F: Field> {
-    pub(crate) batch_size: usize,
+    batch_size: usize,
     pub local_constants: &'a [F],
     pub local_wires: &'a [F],
     pub public_inputs_hash: &'a HashOut<F>,

@@ -19,8 +19,7 @@ use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::constant::ConstantGate;
-use crate::gates::gate::{CurrentSlot, Gate, GateInstance, GateRef, PrefixedGate};
-use crate::gates::gate_tree::Tree;
+use crate::gates::gate::{CurrentSlot, Gate, GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
 use crate::gates::selectors::compute_selectors;
@@ -45,22 +44,22 @@ use crate::util::context_tree::ContextTree;
 use crate::util::marking::{Markable, MarkedTargets};
 use crate::util::partial_products::num_partial_products;
 use crate::util::timing::TimingTree;
-use crate::util::{transpose, transpose_poly_values};
+use crate::util::transpose_poly_values;
 
 pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub config: CircuitConfig,
 
     /// The types of gates used in this circuit.
-    pub(crate) gates: HashSet<GateRef<F, D>>,
+    gates: HashSet<GateRef<F, D>>,
 
     /// The concrete placement of each gate.
     pub(crate) gate_instances: Vec<GateInstance<F, D>>,
 
     /// Targets to be made public.
-    pub(crate) public_inputs: Vec<Target>,
+    public_inputs: Vec<Target>,
 
     /// The next available index for a `VirtualTarget`.
-    pub(crate) virtual_target_index: usize,
+    virtual_target_index: usize,
 
     copy_constraints: Vec<CopyConstraint>,
 
@@ -68,10 +67,10 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     context_log: ContextTree,
 
     /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
-    pub(crate) marked_targets: Vec<MarkedTargets<D>>,
+    marked_targets: Vec<MarkedTargets<D>>,
 
     /// Generators used to generate the witness.
-    pub(crate) generators: Vec<Box<dyn WitnessGenerator<F>>>,
+    generators: Vec<Box<dyn WitnessGenerator<F>>>,
 
     constants_to_targets: HashMap<F, Target>,
     targets_to_constants: HashMap<Target, F>,
@@ -83,7 +82,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) arithmetic_results: HashMap<ExtensionArithmeticOperation<F, D>, ExtensionTarget<D>>,
 
     /// Map between gate type and the current gate of this type with available slots.
-    pub(crate) current_slots: HashMap<GateRef<F, D>, CurrentSlot<F, D>>,
+    current_slots: HashMap<GateRef<F, D>, CurrentSlot<F, D>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -424,7 +423,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (gate_idx, slot_idx)
     }
 
-    pub(crate) fn fri_params(&self, degree_bits: usize) -> FriParams {
+    fn fri_params(&self, degree_bits: usize) -> FriParams {
         self.config
             .fri_config
             .fri_params(degree_bits, self.config.zero_knowledge)
@@ -493,7 +492,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub(crate) fn blind_and_pad(&mut self) {
+    fn blind_and_pad(&mut self) {
         if self.config.zero_knowledge {
             self.blind();
         }
@@ -552,39 +551,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn constant_polys(
-        &self,
-        gates: &[PrefixedGate<F, D>],
-        num_constants: usize,
-    ) -> Vec<PolynomialValues<F>> {
-        let constants_per_gate = self
-            .gate_instances
-            .iter()
-            .map(|gate| {
-                let prefix = &gates
-                    .iter()
-                    .find(|g| g.gate.0.id() == gate.gate_ref.0.id())
-                    .unwrap()
-                    .prefix;
-                let mut prefixed_constants = Vec::with_capacity(num_constants);
-                prefixed_constants.extend(prefix.iter().map(|&b| if b { F::ONE } else { F::ZERO }));
-                prefixed_constants.extend_from_slice(&gate.constants);
-                prefixed_constants.resize(num_constants, F::ZERO);
-                prefixed_constants
-            })
-            .collect::<Vec<_>>();
-
-        transpose(&constants_per_gate)
-            .into_iter()
-            .map(PolynomialValues::new)
-            .collect()
-    }
-
-    pub(crate) fn sigma_vecs(
-        &self,
-        k_is: &[F],
-        subgroup: &[F],
-    ) -> (Vec<PolynomialValues<F>>, Forest) {
+    fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> (Vec<PolynomialValues<F>>, Forest) {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
         let config = &self.config;
@@ -682,28 +649,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 &self.gate_instances,
                 self.config.max_quotient_degree_factor + 1,
             );
-        // dbg!(&constant_vecs, &selector_indices, &combination_ranges);
         let num_constants = constant_vecs.len();
-        // let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
-        // let prefixed_gates = PrefixedGate::from_tree(gate_tree);
-        //
-        // // `quotient_degree_factor` has to be between `max_filtered_constraint_degree-1` and `1<<rate_bits`.
-        // // We find the value that minimizes `num_partial_product + quotient_degree_factor`.
-        // let min_quotient_degree_factor = (max_filtered_constraint_degree - 1).max(2);
-        // let max_quotient_degree_factor = self.config.max_quotient_degree_factor.min(1 << rate_bits);
-        // let quotient_degree_factor = (min_quotient_degree_factor..=max_quotient_degree_factor)
-        //     .min_by_key(|&q| num_partial_products(self.config.num_routed_wires, q) + q)
-        //     .unwrap();
         let quotient_degree_factor = self.config.max_quotient_degree_factor;
         debug!("Quotient degree factor set to: {}.", quotient_degree_factor);
 
         let subgroup = F::two_adic_subgroup(degree_bits);
-
-        // let constant_vecs = timed!(
-        //     timing,
-        //     "generate constant polynomials",
-        //     self.constant_polys(&prefixed_gates, num_constants)
-        // );
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let (sigma_vecs, forest) = timed!(
