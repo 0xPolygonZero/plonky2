@@ -667,11 +667,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let quotient_degree_factor = self.config.max_quotient_degree_factor;
         let mut gates = self.gates.iter().cloned().collect::<Vec<_>>();
         gates.sort_unstable_by_key(|g| (g.0.degree(), g.0.id()));
-        let (mut constant_vecs, selectors_info) = selector_polynomials(
-            gates.clone(),
-            &self.gate_instances,
-            quotient_degree_factor + 1,
-        );
+        let (mut constant_vecs, selectors_info) =
+            selector_polynomials(&gates, &self.gate_instances, quotient_degree_factor + 1);
         constant_vecs.extend(self.constant_polys());
         let num_constants = constant_vecs.len();
 

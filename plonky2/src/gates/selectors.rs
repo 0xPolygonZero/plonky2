@@ -20,8 +20,16 @@ pub(crate) struct SelectorsInfo {
 /// Partition the gates into (the smallest amount of) groups `{ G_i }`, such that for each group `G`
 /// `|G| + max_{g in G} g.degree() <= max_degree`. These groups are constructed greedily from
 /// the list of gates sorted by degree.
+/// We build a selector polynomial `S_i` for each group `G_i`, with
+/// ```
+/// S_i[j] =
+///     if j-th row gate=g_k in G_i
+///         k
+///     else
+///         UNUSED_SELECTOR
+/// ```
 pub(crate) fn selector_polynomials<F: RichField + Extendable<D>, const D: usize>(
-    gates: Vec<GateRef<F, D>>,
+    gates: &[GateRef<F, D>],
     instances: &[GateInstance<F, D>],
     max_degree: usize,
 ) -> (Vec<PolynomialValues<F>>, SelectorsInfo) {
