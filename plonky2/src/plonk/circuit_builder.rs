@@ -22,7 +22,7 @@ use crate::gates::constant::ConstantGate;
 use crate::gates::gate::{CurrentSlot, Gate, GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
-use crate::gates::selectors::compute_selectors;
+use crate::gates::selectors::selector_polynomials;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::iop::ext_target::ExtensionTarget;
@@ -44,7 +44,7 @@ use crate::util::context_tree::ContextTree;
 use crate::util::marking::{Markable, MarkedTargets};
 use crate::util::partial_products::num_partial_products;
 use crate::util::timing::TimingTree;
-use crate::util::transpose_poly_values;
+use crate::util::{transpose, transpose_poly_values};
 
 pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub config: CircuitConfig,
@@ -551,6 +551,29 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    fn constant_polys(&self) -> Vec<PolynomialValues<F>> {
+        let max_constants = self
+            .gates
+            .iter()
+            .map(|g| g.0.num_constants())
+            .max()
+            .unwrap();
+        transpose(
+            &self
+                .gate_instances
+                .iter()
+                .map(|g| {
+                    let mut consts = g.constants.clone();
+                    consts.resize(max_constants, F::ZERO);
+                    consts
+                })
+                .collect::<Vec<_>>(),
+        )
+        .into_iter()
+        .map(PolynomialValues::new)
+        .collect()
+    }
+
     fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> (Vec<PolynomialValues<F>>, Forest) {
         let degree = self.gate_instances.len();
         let degree_log = log2_strict(degree);
@@ -641,17 +664,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "FRI total reduction arity is too large.",
         );
 
-        let mut gates = self.gates.iter().cloned().collect::<Vec<_>>();
-        gates.sort_unstable_by_key(|g| g.0.degree());
-        let (constant_vecs, selector_indices, combination_ranges, num_selectors) =
-            compute_selectors(
-                gates.clone(),
-                &self.gate_instances,
-                self.config.max_quotient_degree_factor + 1,
-            );
-        let num_constants = constant_vecs.len();
         let quotient_degree_factor = self.config.max_quotient_degree_factor;
-        debug!("Quotient degree factor set to: {}.", quotient_degree_factor);
+        let mut gates = self.gates.iter().cloned().collect::<Vec<_>>();
+        gates.sort_unstable_by_key(|g| (g.0.degree(), g.0.id()));
+        let (mut constant_vecs, selectors_info) = selector_polynomials(
+            gates.clone(),
+            &self.gate_instances,
+            quotient_degree_factor + 1,
+        );
+        constant_vecs.extend(self.constant_polys());
+        let num_constants = constant_vecs.len();
 
         let subgroup = F::two_adic_subgroup(degree_bits);
 
@@ -754,9 +776,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             fri_params,
             degree_bits,
             gates,
-            selector_indices,
-            combination_ranges,
-            num_selectors,
+            selectors_info,
             quotient_degree_factor,
             num_gate_constraints,
             num_constants,

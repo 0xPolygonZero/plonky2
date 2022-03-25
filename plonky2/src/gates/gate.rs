@@ -7,6 +7,7 @@ use plonky2_field::batch_util::batch_multiply_inplace;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 
+use crate::gates::selectors::UNUSED_SELECTOR;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
@@ -84,12 +85,12 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         mut vars: EvaluationVars<F, D>,
         gate_index: usize,
         selector_index: usize,
-        combination_range: (usize, usize),
+        group_range: (usize, usize),
         num_selectors: usize,
     ) -> Vec<F::Extension> {
         let filter = compute_filter(
             gate_index,
-            combination_range,
+            group_range,
             vars.local_constants[selector_index],
         );
         vars.remove_prefix(num_selectors);
@@ -106,7 +107,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         mut vars_batch: EvaluationVarsBaseBatch<F>,
         gate_index: usize,
         selector_index: usize,
-        combination_range: (usize, usize),
+        group_range: (usize, usize),
         num_selectors: usize,
     ) -> Vec<F> {
         let filters: Vec<_> = vars_batch
@@ -114,7 +115,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             .map(|vars| {
                 compute_filter(
                     gate_index,
-                    combination_range,
+                    group_range,
                     vars.local_constants[selector_index],
                 )
             })
@@ -134,14 +135,14 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         mut vars: EvaluationTargets<D>,
         gate_index: usize,
         selector_index: usize,
-        combination_range: (usize, usize),
-        combined_gate_constraints: &mut [ExtensionTarget<D>],
+        group_range: (usize, usize),
         num_selectors: usize,
+        combined_gate_constraints: &mut [ExtensionTarget<D>],
     ) {
         let filter = compute_filter_recursively(
             builder,
             gate_index,
-            combination_range,
+            group_range,
             vars.local_constants[selector_index],
         );
         vars.remove_prefix(num_selectors);
@@ -229,34 +230,30 @@ pub struct PrefixedGate<F: RichField + Extendable<D>, const D: usize> {
     pub prefix: Vec<bool>,
 }
 
-/// A gate's filter is computed as `prod b_i*c_i + (1-b_i)*(1-c_i)`, with `(b_i)` the prefix and
-/// `(c_i)` the local constants, which is one if the prefix of `constants` matches `prefix`.
-fn compute_filter<K: Field>(
-    gate_index: usize,
-    combination_range: (usize, usize),
-    constant: K,
-) -> K {
-    (combination_range.0..combination_range.1)
+/// A gate's filter designed so that it is non-zero if `s = gate_index`.
+fn compute_filter<K: Field>(gate_index: usize, group_range: (usize, usize), s: K) -> K {
+    debug_assert!((group_range.0 <= gate_index) && (gate_index < group_range.1));
+    (group_range.0..group_range.1)
         .filter(|&i| i != gate_index)
-        .chain(Some(u32::MAX as usize))
-        .map(|i| K::from_canonical_usize(i) - constant)
+        .chain(Some(UNUSED_SELECTOR))
+        .map(|i| K::from_canonical_usize(i) - s)
         .product()
 }
 
 fn compute_filter_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     gate_index: usize,
-    combination_range: (usize, usize),
-    constant: ExtensionTarget<D>,
+    group_range: (usize, usize),
+    s: ExtensionTarget<D>,
 ) -> ExtensionTarget<D> {
-    let v = (combination_range.0..combination_range.1)
+    debug_assert!((group_range.0 <= gate_index) && (gate_index < group_range.1));
+    let v = (group_range.0..group_range.1)
         .filter(|&i| i != gate_index)
-        .chain(Some(u32::MAX as usize))
-        .map(|i| builder.constant_extension(F::Extension::from_canonical_usize(i)))
-        .collect::<Vec<_>>();
-    let v = v
-        .into_iter()
-        .map(|x| builder.sub_extension(x, constant))
+        .chain(Some(UNUSED_SELECTOR))
+        .map(|i| {
+            let c = builder.constant_extension(F::Extension::from_canonical_usize(i));
+            builder.sub_extension(c, s)
+        })
         .collect::<Vec<_>>();
     builder.mul_many_extension(&v)
 }

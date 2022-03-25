@@ -13,6 +13,7 @@ use crate::fri::structure::{
 };
 use crate::fri::{FriConfig, FriParams};
 use crate::gates::gate::GateRef;
+use crate::gates::selectors::SelectorsInfo;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
@@ -248,9 +249,8 @@ pub struct CommonCircuitData<
     /// The types of gates used in this circuit, along with their prefixes.
     pub(crate) gates: Vec<GateRef<F, D>>,
 
-    pub(crate) selector_indices: Vec<usize>,
-    pub(crate) combination_ranges: Vec<(usize, usize)>,
-    pub(crate) num_selectors: usize,
+    /// Information on the circuit's selector polynomials.
+    pub(crate) selectors_info: SelectorsInfo,
 
     /// The degree of the PLONK quotient polynomial.
     pub(crate) quotient_degree_factor: usize,

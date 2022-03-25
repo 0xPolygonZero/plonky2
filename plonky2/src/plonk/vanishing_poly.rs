@@ -215,12 +215,13 @@ pub fn evaluate_gate_constraints<
 ) -> Vec<F::Extension> {
     let mut constraints = vec![F::Extension::ZERO; common_data.num_gate_constraints];
     for (i, gate) in common_data.gates.iter().enumerate() {
+        let selector_index = common_data.selectors_info.selector_indices[i];
         let gate_constraints = gate.0.eval_filtered(
             vars,
             i,
-            common_data.selector_indices[i],
-            common_data.combination_ranges[i],
-            common_data.num_selectors,
+            selector_index,
+            common_data.selectors_info.groups[selector_index],
+            common_data.selectors_info.num_selectors,
         );
         for (i, c) in gate_constraints.into_iter().enumerate() {
             debug_assert!(
@@ -248,12 +249,13 @@ pub fn evaluate_gate_constraints_base_batch<
 ) -> Vec<F> {
     let mut constraints_batch = vec![F::ZERO; common_data.num_gate_constraints * vars_batch.len()];
     for (i, gate) in common_data.gates.iter().enumerate() {
+        let selector_index = common_data.selectors_info.selector_indices[i];
         let gate_constraints_batch = gate.0.eval_filtered_base_batch(
             vars_batch,
             i,
-            common_data.selector_indices[i],
-            common_data.combination_ranges[i],
-            common_data.num_selectors,
+            selector_index,
+            common_data.selectors_info.groups[selector_index],
+            common_data.selectors_info.num_selectors,
         );
         debug_assert!(
             gate_constraints_batch.len() <= constraints_batch.len(),
@@ -279,6 +281,7 @@ pub fn evaluate_gate_constraints_recursively<
 ) -> Vec<ExtensionTarget<D>> {
     let mut all_gate_constraints = vec![builder.zero_extension(); common_data.num_gate_constraints];
     for (i, gate) in common_data.gates.iter().enumerate() {
+        let selector_index = common_data.selectors_info.selector_indices[i];
         with_context!(
             builder,
             &format!("evaluate {} constraints", gate.0.id()),
@@ -286,10 +289,10 @@ pub fn evaluate_gate_constraints_recursively<
                 builder,
                 vars,
                 i,
-                common_data.selector_indices[i],
-                common_data.combination_ranges[i],
+                selector_index,
+                common_data.selectors_info.groups[selector_index],
+                common_data.selectors_info.num_selectors,
                 &mut all_gate_constraints,
-                common_data.num_selectors
             )
         );
     }

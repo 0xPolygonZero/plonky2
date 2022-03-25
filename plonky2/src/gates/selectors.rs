@@ -4,74 +4,73 @@ use plonky2_field::polynomial::PolynomialValues;
 use crate::gates::gate::{GateInstance, GateRef};
 use crate::hash::hash_types::RichField;
 
-pub(crate) fn compute_selectors<F: RichField + Extendable<D>, const D: usize>(
+/// Placeholder value to indicate that a gate doesn't use a selector polynomial.
+pub(crate) const UNUSED_SELECTOR: usize = u32::MAX as usize;
+
+#[derive(Debug, Clone)]
+pub(crate) struct SelectorsInfo {
+    pub(crate) selector_indices: Vec<usize>,
+    pub(crate) groups: Vec<(usize, usize)>,
+    pub(crate) num_selectors: usize,
+}
+
+/// Returns the selector polynomials and related information.
+///
+/// Selector polynomials are computed as follows:
+/// Partition the gates into (the smallest amount of) groups `{ G_i }`, such that for each group `G`
+/// `|G| + max_{g in G} g.degree() <= max_degree`. These groups are constructed greedily from
+/// the list of gates sorted by degree.
+pub(crate) fn selector_polynomials<F: RichField + Extendable<D>, const D: usize>(
     gates: Vec<GateRef<F, D>>,
     instances: &[GateInstance<F, D>],
     max_degree: usize,
-) -> (
-    Vec<PolynomialValues<F>>,
-    Vec<usize>,
-    Vec<(usize, usize)>,
-    usize,
-) {
+) -> (Vec<PolynomialValues<F>>, SelectorsInfo) {
     let n = instances.len();
 
-    let mut combinations = Vec::new();
+    // Greedily construct the groups.
+    let mut groups = Vec::new();
     let mut pos = 0;
-
     while pos < gates.len() {
         let mut i = 0;
         while (pos + i < gates.len()) && (i + gates[pos + i].0.degree() < max_degree) {
             i += 1;
         }
-        combinations.push((pos, pos + i));
+        groups.push((pos, pos + i));
         pos += i;
     }
-    let bad = F::from_canonical_usize(u32::MAX as usize);
-
-    let num_constants_polynomials = gates.iter().map(|g| g.0.num_constants()).max().unwrap();
-    let mut polynomials =
-        vec![PolynomialValues::zero(n); combinations.len() + num_constants_polynomials];
 
     let index = |id| gates.iter().position(|g| g.0.id() == id).unwrap();
-    let combination = |i| {
-        combinations
-            .iter()
-            .position(|&(a, b)| a <= i && i < b)
-            .unwrap()
-    };
+    let group = |i| groups.iter().position(|&(a, b)| a <= i && i < b).unwrap();
 
+    // `selector_indices[i] = j` iff the `i`-th gate uses the `j`-th selector polynomial.
     let selector_indices = gates
         .iter()
-        .map(|g| combination(index(g.0.id())))
+        .map(|g| group(index(g.0.id())))
         .collect::<Vec<_>>();
-    let combination_ranges = selector_indices
-        .iter()
-        .map(|&i| (combinations[i].0, combinations[i].1))
-        .collect();
 
+    // Placeholder value to indicate that a gate doesn't use a selector polynomial.
+    let unused = F::from_canonical_usize(UNUSED_SELECTOR);
+
+    let mut polynomials = vec![PolynomialValues::zero(n); groups.len()];
     for (j, g) in instances.iter().enumerate() {
-        let GateInstance {
-            gate_ref,
-            constants,
-        } = g;
+        let GateInstance { gate_ref, .. } = g;
         let i = index(gate_ref.0.id());
-        let comb = combination(i);
-        polynomials[comb].values[j] = F::from_canonical_usize(i);
-
-        for combis in (0..combinations.len()).filter(|&combis| combis != comb) {
-            polynomials[combis].values[j] = bad;
-        }
-
-        for k in 0..constants.len() {
-            polynomials[combinations.len() + k].values[j] = constants[k];
+        let gr = group(i);
+        for g in 0..groups.len() {
+            polynomials[g].values[j] = if g == gr {
+                F::from_canonical_usize(i)
+            } else {
+                unused
+            };
         }
     }
 
     (
         polynomials,
-        selector_indices,
-        combination_ranges,
-        combinations.len(),
+        SelectorsInfo {
+            selector_indices,
+            num_selectors: groups.len(),
+            groups,
+        },
     )
 }
