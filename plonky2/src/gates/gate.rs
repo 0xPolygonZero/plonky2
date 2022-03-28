@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::hash::{Hash, Hasher};
+use std::ops::Range;
 use std::sync::Arc;
 
 use plonky2_field::batch_util::batch_multiply_inplace;
@@ -85,13 +86,14 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         mut vars: EvaluationVars<F, D>,
         gate_index: usize,
         selector_index: usize,
-        group_range: (usize, usize),
+        group_range: Range<usize>,
         num_selectors: usize,
     ) -> Vec<F::Extension> {
         let filter = compute_filter(
             gate_index,
             group_range,
             vars.local_constants[selector_index],
+            num_selectors > 1,
         );
         vars.remove_prefix(num_selectors);
         self.eval_unfiltered(vars)
@@ -107,7 +109,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         mut vars_batch: EvaluationVarsBaseBatch<F>,
         gate_index: usize,
         selector_index: usize,
-        group_range: (usize, usize),
+        group_range: Range<usize>,
         num_selectors: usize,
     ) -> Vec<F> {
         let filters: Vec<_> = vars_batch
@@ -115,8 +117,9 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             .map(|vars| {
                 compute_filter(
                     gate_index,
-                    group_range,
+                    group_range.clone(),
                     vars.local_constants[selector_index],
+                    num_selectors > 1,
                 )
             })
             .collect();
@@ -135,7 +138,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         mut vars: EvaluationTargets<D>,
         gate_index: usize,
         selector_index: usize,
-        group_range: (usize, usize),
+        group_range: Range<usize>,
         num_selectors: usize,
         combined_gate_constraints: &mut [ExtensionTarget<D>],
     ) {
@@ -144,6 +147,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             gate_index,
             group_range,
             vars.local_constants[selector_index],
+            num_selectors > 1,
         );
         vars.remove_prefix(num_selectors);
         let my_constraints = self.eval_unfiltered_recursively(builder, vars);
@@ -231,11 +235,16 @@ pub struct PrefixedGate<F: RichField + Extendable<D>, const D: usize> {
 }
 
 /// A gate's filter designed so that it is non-zero if `s = gate_index`.
-fn compute_filter<K: Field>(gate_index: usize, group_range: (usize, usize), s: K) -> K {
-    debug_assert!((group_range.0 <= gate_index) && (gate_index < group_range.1));
-    (group_range.0..group_range.1)
+fn compute_filter<K: Field>(
+    gate_index: usize,
+    group_range: Range<usize>,
+    s: K,
+    many_selector: bool,
+) -> K {
+    debug_assert!(group_range.contains(&gate_index));
+    group_range
         .filter(|&i| i != gate_index)
-        .chain(Some(UNUSED_SELECTOR))
+        .chain(many_selector.then(|| UNUSED_SELECTOR))
         .map(|i| K::from_canonical_usize(i) - s)
         .product()
 }
@@ -243,13 +252,14 @@ fn compute_filter<K: Field>(gate_index: usize, group_range: (usize, usize), s: K
 fn compute_filter_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     gate_index: usize,
-    group_range: (usize, usize),
+    group_range: Range<usize>,
     s: ExtensionTarget<D>,
+    many_selectors: bool,
 ) -> ExtensionTarget<D> {
-    debug_assert!((group_range.0 <= gate_index) && (gate_index < group_range.1));
-    let v = (group_range.0..group_range.1)
+    debug_assert!(group_range.contains(&gate_index));
+    let v = group_range
         .filter(|&i| i != gate_index)
-        .chain(Some(UNUSED_SELECTOR))
+        .chain(many_selectors.then(|| UNUSED_SELECTOR))
         .map(|i| {
             let c = builder.constant_extension(F::Extension::from_canonical_usize(i));
             builder.sub_extension(c, s)

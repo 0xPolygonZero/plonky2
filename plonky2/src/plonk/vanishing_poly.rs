@@ -220,7 +220,7 @@ pub fn evaluate_gate_constraints<
             vars,
             i,
             selector_index,
-            common_data.selectors_info.groups[selector_index],
+            common_data.selectors_info.groups[selector_index].clone(),
             common_data.selectors_info.num_selectors,
         );
         for (i, c) in gate_constraints.into_iter().enumerate() {
@@ -254,7 +254,7 @@ pub fn evaluate_gate_constraints_base_batch<
             vars_batch,
             i,
             selector_index,
-            common_data.selectors_info.groups[selector_index],
+            common_data.selectors_info.groups[selector_index].clone(),
             common_data.selectors_info.num_selectors,
         );
         debug_assert!(
@@ -290,7 +290,7 @@ pub fn evaluate_gate_constraints_recursively<
                 vars,
                 i,
                 selector_index,
-                common_data.selectors_info.groups[selector_index],
+                common_data.selectors_info.groups[selector_index].clone(),
                 common_data.selectors_info.num_selectors,
                 &mut all_gate_constraints,
             )
