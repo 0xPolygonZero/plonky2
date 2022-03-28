@@ -199,7 +199,61 @@ impl<T> Matrix<T> {
     ///
     /// This function may re-use memory but is not required to do so.
     pub fn transpose(self) -> Self {
-        todo!();
+        let height = self.height;
+        let width = self.width;
+
+        let initializer_fn = |res: &mut Matrix<MaybeUninit<T>>| {
+            // We're essentially moving all contents of `self` to `res`. We need to ensure that they
+            // don't get dropped when `self` gets dropped, so we wrap them in `ManuallyDrop`.
+            let mut me = self.manually_drop_elements();
+
+            // Important that we don't panic here. We've disabled the destructors of all our
+            // elements, so they won't be called if we have to unwind, potentially causing a leak.
+
+            // Easy optimization: ensure the larger loop is outside.
+            unsafe {
+                if width >= height {
+                    for i in 0..width {
+                        for j in 0..height {
+                            // SAFETY: The indices are valid. The pointee of `in_ref` is not used
+                            // again (so we're effectively just moving it).
+                            // idk why `in_ref` has to be `mut`, but `ManuallyDrop::take` requires
+                            // it.
+                            let in_ref = me.get_unchecked_mut(j).get_unchecked_mut(i);
+                            let out_ref = res.get_unchecked_mut(i).get_unchecked_mut(j);
+                            out_ref.write(ManuallyDrop::take(in_ref));
+                        }
+                    }
+                } else {
+                    for j in 0..height {
+                        for i in 0..width {
+                            // SAFETY: see above.
+                            let in_ref = me.get_unchecked_mut(j).get_unchecked_mut(i);
+                            let out_ref = res.get_unchecked_mut(i).get_unchecked_mut(j);
+                            out_ref.write(ManuallyDrop::take(in_ref));
+                        }
+                    }
+                };
+            }
+        };
+
+        unsafe {
+            // SAFETY: The closure initializes every element.
+            Self::new_with(width, height, initializer_fn)
+        }
+    }
+
+    /// Wrap elements of the matrix in `ManuallyDrop`, preventing their drop code being run when
+    /// the matrix is dropped.
+    ///
+    /// Although this function is safe, it can cause memory leaks. To avoid them, ensure that all
+    /// resources are correctly dropped in some other way.
+    fn manually_drop_elements(self) -> Matrix<ManuallyDrop<T>> {
+        // Prevent `self` from getting dropped.
+        // Warning: must ensure that we can't crash before making a new Matrix or we will leak!
+        let me = ManuallyDrop::new(self);
+        // SAFETY: The pointers and sizes are valid, as element size and alignment does not change.
+        unsafe { Matrix::from_raw(me.data.cast(), me.height, me.width) }
     }
 }
 
@@ -267,7 +321,7 @@ impl<T, R: IntoIterator<Item = T>> FromIterator<R> for Matrix<T> {
         let mut buf: Vec<T> = first_row.into_iter().collect();
         // We will check that every row contains `width` elements.
         let width = buf.len();
-        let mut height = 0;
+        let mut height = 1;
         for row in iter {
             let old_len = buf.len();
             buf.extend(row);
@@ -281,5 +335,207 @@ impl<T, R: IntoIterator<Item = T>> FromIterator<R> for Matrix<T> {
 
         // Unflatten the buffer into a matrix
         Self::from_flat_vec(height, width, buf)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const HEIGHT: usize = 3;
+    const WIDTH: usize = 5;
+
+    fn check_matrix(m: Matrix<u64>) {
+        assert_eq!(m.height(), HEIGHT);
+        assert_eq!(m.width(), WIDTH);
+        for i in 0..HEIGHT {
+            for j in 0..WIDTH {
+                assert_eq!(m[i][j], (WIDTH * i + j) as u64);
+            }
+        }
+    }
+
+    #[test]
+    fn test_from_raw() {
+        let buf: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
+        let m: Matrix<u64> = unsafe {
+            Matrix::from_raw(Box::into_raw(buf.into_boxed_slice()).cast(), HEIGHT, WIDTH)
+        };
+        check_matrix(m);
+    }
+
+    #[test]
+    fn test_from_flat_vec() {
+        let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
+        let m = Matrix::from_flat_vec(HEIGHT, WIDTH, v);
+        check_matrix(m);
+    }
+
+    #[test]
+    fn test_new_uninit() {
+        let m: Matrix<MaybeUninit<u64>> = Matrix::new_uninit(HEIGHT, WIDTH);
+        assert_eq!(m.height(), HEIGHT);
+        assert_eq!(m.width(), WIDTH);
+    }
+
+    #[test]
+    fn test_assume_init() {
+        let mut m = Matrix::new_uninit(HEIGHT, WIDTH);
+        for i in 0..HEIGHT {
+            for j in 0..WIDTH {
+                m[i][j].write((WIDTH * i + j) as u64);
+            }
+        }
+        let m = unsafe { m.assume_init() };
+        check_matrix(m);
+    }
+
+    #[test]
+    fn test_clone() {
+        let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
+        let m = Matrix::from_flat_vec(HEIGHT, WIDTH, v);
+        let m = m.clone();
+        check_matrix(m);
+    }
+
+    #[test]
+    fn test_new_with() {
+        let m = unsafe {
+            Matrix::new_with(HEIGHT, WIDTH, |res| {
+                for i in 0..HEIGHT {
+                    for j in 0..WIDTH {
+                        res[i][j].write((WIDTH * i + j) as u64);
+                    }
+                }
+            })
+        };
+        check_matrix(m);
+    }
+
+    #[test]
+    fn test_from_iter() {
+        let m = Matrix::from_iter((0..HEIGHT)
+                                  .map(|i| (WIDTH * i..WIDTH * (i + 1))
+                                  .map(|i| i as u64)));
+        check_matrix(m);
+    }
+
+    #[test]
+    fn test_iter() {
+        let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
+        let m = Matrix::from_flat_vec(HEIGHT, WIDTH, v);
+        let m_iter: Vec<_> = m.iter().collect();
+        assert_eq!(m_iter.len(), HEIGHT);
+        assert!(m_iter.iter().map(|row| row.len() == WIDTH).all(|x| x));
+        let m_iter = m_iter.into_iter().map(|row| row.iter()).flatten().copied();
+        assert!((0..(HEIGHT * WIDTH) as u64).into_iter().eq(m_iter));
+    }
+
+    #[test]
+    fn test_iter_mut() {
+        let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
+        let mut m = Matrix::from_flat_vec(HEIGHT, WIDTH, v);
+        let m_iter: Vec<_> = m.iter_mut().collect();
+        assert_eq!(m_iter.len(), HEIGHT);
+        assert!(m_iter.iter().map(|row| row.len() == WIDTH).all(|x| x));
+        let m_iter = m_iter.into_iter().map(|row| row.iter()).flatten().copied();
+        assert!((0..(HEIGHT * WIDTH) as u64).into_iter().eq(m_iter));
+    }
+
+    #[test]
+    fn test_size() {
+        let m: Matrix<MaybeUninit<u64>> = Matrix::new_uninit(HEIGHT, WIDTH);
+        assert_eq!(m.size(), HEIGHT * WIDTH);
+    }
+
+    #[test]
+    fn test_transpose() {
+        let m = unsafe {
+            Matrix::new_with(WIDTH, HEIGHT, |res| {
+                for i in 0..HEIGHT {
+                    for j in 0..WIDTH {
+                        res[j][i].write((WIDTH * i + j) as u64);
+                    }
+                }
+            })
+        };
+        let m = m.transpose();
+        check_matrix(m);
+    }
+
+    #[test]
+    fn test_get() {
+        let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
+        let m = Matrix::from_flat_vec(HEIGHT, WIDTH, v);
+        for i in 0..HEIGHT {
+            let target: Vec<_> = (i * WIDTH..(i + 1) * WIDTH).map(|x| x as u64).collect();
+            let result = m.get(i).unwrap().to_vec();
+            assert_eq!(target, result);
+        }
+        assert_eq!(m.get(HEIGHT), None);
+    }
+
+    #[test]
+    fn test_get_mut() {
+        let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
+        let mut m = Matrix::from_flat_vec(HEIGHT, WIDTH, v);
+        for i in 0..HEIGHT {
+            let target: Vec<_> = (i * WIDTH..(i + 1) * WIDTH).map(|x| x as u64).collect();
+            let result = m.get_mut(i).unwrap().to_vec();
+            assert_eq!(target, result);
+        }
+        assert_eq!(m.get_mut(HEIGHT), None);
+    }
+
+    #[test]
+    fn test_get_unchecked() {
+        let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
+        let m = Matrix::from_flat_vec(HEIGHT, WIDTH, v);
+        for i in 0..HEIGHT {
+            let target: Vec<_> = (i * WIDTH..(i + 1) * WIDTH).map(|x| x as u64).collect();
+            let result = unsafe { m.get_unchecked(i) } .to_vec();
+            assert_eq!(target, result);
+        }
+    }
+
+    #[test]
+    fn test_get_unchecked_mut() {
+        let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
+        let mut m = Matrix::from_flat_vec(HEIGHT, WIDTH, v);
+        for i in 0..HEIGHT {
+            let target: Vec<_> = (i * WIDTH..(i + 1) * WIDTH).map(|x| x as u64).collect();
+            let result = unsafe { m.get_unchecked_mut(i) }.to_vec();
+            assert_eq!(target, result);
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_out_of_bounds() {
+        let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
+        let m = Matrix::from_flat_vec(HEIGHT, WIDTH, v);
+        let _ = &m[HEIGHT];
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_mut_out_of_bounds() {
+        let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
+        let mut m = Matrix::from_flat_vec(HEIGHT, WIDTH, v);
+        let _ = &mut m[HEIGHT];
+    }
+
+    #[test]
+    fn test_as_flat() {
+        let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
+        let m = Matrix::from_flat_vec(HEIGHT, WIDTH, v.clone());
+        assert_eq!(m.as_flat().to_vec(), v);
+    }
+
+    #[test]
+    fn test_as_flat_mut() {
+        let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
+        let mut m = Matrix::from_flat_vec(HEIGHT, WIDTH, v.clone());
+        assert_eq!(m.as_flat_mut().to_vec(), v);
     }
 }
