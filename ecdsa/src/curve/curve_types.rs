@@ -78,6 +78,7 @@ impl<C: Curve> AffinePoint<C> {
         affine_points.iter().map(Self::to_projective).collect()
     }
 
+    #[must_use]
     pub fn double(&self) -> Self {
         let AffinePoint { x: x1, y: y1, zero } = *self;
 
@@ -187,6 +188,7 @@ impl<C: Curve> ProjectivePoint<C> {
     }
 
     // From https://www.hyperelliptic.org/EFD/g1p/data/shortw/projective/doubling/dbl-2007-bl
+    #[must_use]
     pub fn double(&self) -> Self {
         let Self { x, y, z } = *self;
         if z == C::BaseField::ZERO {
@@ -222,6 +224,7 @@ impl<C: Curve> ProjectivePoint<C> {
             .collect()
     }
 
+    #[must_use]
     pub fn neg(&self) -> Self {
         Self {
             x: self.x,

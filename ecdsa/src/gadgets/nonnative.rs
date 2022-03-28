@@ -1,17 +1,19 @@
 use std::marker::PhantomData;
 
 use num::{BigUint, Integer, One, Zero};
+use plonky2::gadgets::arithmetic_u32::U32Target;
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
+use plonky2::iop::target::{BoolTarget, Target};
+use plonky2::iop::witness::PartitionWitness;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_field::field_types::PrimeField;
 use plonky2_field::{extension_field::Extendable, field_types::Field};
 use plonky2_util::ceil_div_usize;
 
-use crate::gadgets::arithmetic_u32::U32Target;
-use crate::gadgets::biguint::BigUintTarget;
-use crate::hash::hash_types::RichField;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator};
-use crate::iop::target::{BoolTarget, Target};
-use crate::iop::witness::{PartitionWitness, Witness};
-use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::gadgets::biguint::{
+    buffer_set_biguint_target, witness_get_biguint_target, BigUintTarget, CircuitBuilderBiguint,
+};
 
 #[derive(Clone, Debug)]
 pub struct NonNativeTarget<FF: Field> {
@@ -19,33 +21,131 @@ pub struct NonNativeTarget<FF: Field> {
     pub(crate) _phantom: PhantomData<FF>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+pub trait CircuitBuilderNonNative<F: RichField + Extendable<D>, const D: usize> {
     fn num_nonnative_limbs<FF: Field>() -> usize {
         ceil_div_usize(FF::BITS, 32)
     }
 
-    pub fn biguint_to_nonnative<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
+    fn biguint_to_nonnative<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF>;
+
+    fn nonnative_to_canonical_biguint<FF: Field>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+    ) -> BigUintTarget;
+
+    fn constant_nonnative<FF: PrimeField>(&mut self, x: FF) -> NonNativeTarget<FF>;
+
+    fn zero_nonnative<FF: PrimeField>(&mut self) -> NonNativeTarget<FF>;
+
+    // Assert that two NonNativeTarget's, both assumed to be in reduced form, are equal.
+    fn connect_nonnative<FF: Field>(
+        &mut self,
+        lhs: &NonNativeTarget<FF>,
+        rhs: &NonNativeTarget<FF>,
+    );
+
+    fn add_virtual_nonnative_target<FF: Field>(&mut self) -> NonNativeTarget<FF>;
+
+    fn add_virtual_nonnative_target_sized<FF: Field>(
+        &mut self,
+        num_limbs: usize,
+    ) -> NonNativeTarget<FF>;
+
+    fn add_nonnative<FF: PrimeField>(
+        &mut self,
+        a: &NonNativeTarget<FF>,
+        b: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF>;
+
+    fn mul_nonnative_by_bool<FF: Field>(
+        &mut self,
+        a: &NonNativeTarget<FF>,
+        b: BoolTarget,
+    ) -> NonNativeTarget<FF>;
+
+    fn if_nonnative<FF: PrimeField>(
+        &mut self,
+        b: BoolTarget,
+        x: &NonNativeTarget<FF>,
+        y: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF>;
+
+    fn add_many_nonnative<FF: PrimeField>(
+        &mut self,
+        to_add: &[NonNativeTarget<FF>],
+    ) -> NonNativeTarget<FF>;
+
+    // Subtract two `NonNativeTarget`s.
+    fn sub_nonnative<FF: PrimeField>(
+        &mut self,
+        a: &NonNativeTarget<FF>,
+        b: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF>;
+
+    fn mul_nonnative<FF: PrimeField>(
+        &mut self,
+        a: &NonNativeTarget<FF>,
+        b: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF>;
+
+    fn mul_many_nonnative<FF: PrimeField>(
+        &mut self,
+        to_mul: &[NonNativeTarget<FF>],
+    ) -> NonNativeTarget<FF>;
+
+    fn neg_nonnative<FF: PrimeField>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF>;
+
+    fn inv_nonnative<FF: PrimeField>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF>;
+
+    /// Returns `x % |FF|` as a `NonNativeTarget`.
+    fn reduce<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF>;
+
+    fn reduce_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF>;
+
+    fn bool_to_nonnative<FF: Field>(&mut self, b: &BoolTarget) -> NonNativeTarget<FF>;
+
+    // Split a nonnative field element to bits.
+    fn split_nonnative_to_bits<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> Vec<BoolTarget>;
+
+    fn nonnative_conditional_neg<FF: PrimeField>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+        b: BoolTarget,
+    ) -> NonNativeTarget<FF>;
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
+    for CircuitBuilder<F, D>
+{
+    fn num_nonnative_limbs<FF: Field>() -> usize {
+        ceil_div_usize(FF::BITS, 32)
+    }
+
+    fn biguint_to_nonnative<FF: Field>(&mut self, x: &BigUintTarget) -> NonNativeTarget<FF> {
         NonNativeTarget {
             value: x.clone(),
             _phantom: PhantomData,
         }
     }
 
-    pub fn nonnative_to_biguint<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> BigUintTarget {
+    fn nonnative_to_canonical_biguint<FF: Field>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+    ) -> BigUintTarget {
         x.value.clone()
     }
 
-    pub fn constant_nonnative<FF: PrimeField>(&mut self, x: FF) -> NonNativeTarget<FF> {
+    fn constant_nonnative<FF: PrimeField>(&mut self, x: FF) -> NonNativeTarget<FF> {
         let x_biguint = self.constant_biguint(&x.to_canonical_biguint());
         self.biguint_to_nonnative(&x_biguint)
     }
 
-    pub fn zero_nonnative<FF: PrimeField>(&mut self) -> NonNativeTarget<FF> {
+    fn zero_nonnative<FF: PrimeField>(&mut self) -> NonNativeTarget<FF> {
         self.constant_nonnative(FF::ZERO)
     }
 
     // Assert that two NonNativeTarget's, both assumed to be in reduced form, are equal.
-    pub fn connect_nonnative<FF: Field>(
+    fn connect_nonnative<FF: Field>(
         &mut self,
         lhs: &NonNativeTarget<FF>,
         rhs: &NonNativeTarget<FF>,
@@ -53,7 +153,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect_biguint(&lhs.value, &rhs.value);
     }
 
-    pub fn add_virtual_nonnative_target<FF: Field>(&mut self) -> NonNativeTarget<FF> {
+    fn add_virtual_nonnative_target<FF: Field>(&mut self) -> NonNativeTarget<FF> {
         let num_limbs = Self::num_nonnative_limbs::<FF>();
         let value = self.add_virtual_biguint_target(num_limbs);
 
@@ -63,7 +163,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn add_nonnative<FF: PrimeField>(
+    fn add_virtual_nonnative_target_sized<FF: Field>(
+        &mut self,
+        num_limbs: usize,
+    ) -> NonNativeTarget<FF> {
+        let value = self.add_virtual_biguint_target(num_limbs);
+
+        NonNativeTarget {
+            value,
+            _phantom: PhantomData,
+        }
+    }
+
+    fn add_nonnative<FF: PrimeField>(
         &mut self,
         a: &NonNativeTarget<FF>,
         b: &NonNativeTarget<FF>,
@@ -95,7 +207,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         sum
     }
 
-    pub fn mul_nonnative_by_bool<FF: Field>(
+    fn mul_nonnative_by_bool<FF: Field>(
         &mut self,
         a: &NonNativeTarget<FF>,
         b: BoolTarget,
@@ -106,7 +218,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn add_many_nonnative<FF: PrimeField>(
+    fn if_nonnative<FF: PrimeField>(
+        &mut self,
+        b: BoolTarget,
+        x: &NonNativeTarget<FF>,
+        y: &NonNativeTarget<FF>,
+    ) -> NonNativeTarget<FF> {
+        let not_b = self.not(b);
+        let maybe_x = self.mul_nonnative_by_bool(x, b);
+        let maybe_y = self.mul_nonnative_by_bool(y, not_b);
+        self.add_nonnative(&maybe_x, &maybe_y)
+    }
+
+    fn add_many_nonnative<FF: PrimeField>(
         &mut self,
         to_add: &[NonNativeTarget<FF>],
     ) -> NonNativeTarget<FF> {
@@ -150,7 +274,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     // Subtract two `NonNativeTarget`s.
-    pub fn sub_nonnative<FF: PrimeField>(
+    fn sub_nonnative<FF: PrimeField>(
         &mut self,
         a: &NonNativeTarget<FF>,
         b: &NonNativeTarget<FF>,
@@ -178,7 +302,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         diff
     }
 
-    pub fn mul_nonnative<FF: PrimeField>(
+    fn mul_nonnative<FF: PrimeField>(
         &mut self,
         a: &NonNativeTarget<FF>,
         b: &NonNativeTarget<FF>,
@@ -209,7 +333,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         prod
     }
 
-    pub fn mul_many_nonnative<FF: PrimeField>(
+    fn mul_many_nonnative<FF: PrimeField>(
         &mut self,
         to_mul: &[NonNativeTarget<FF>],
     ) -> NonNativeTarget<FF> {
@@ -218,26 +342,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         let mut accumulator = self.mul_nonnative(&to_mul[0], &to_mul[1]);
-        for i in 2..to_mul.len() {
-            accumulator = self.mul_nonnative(&accumulator, &to_mul[i]);
+        for t in to_mul.iter().skip(2) {
+            accumulator = self.mul_nonnative(&accumulator, t);
         }
         accumulator
     }
 
-    pub fn neg_nonnative<FF: PrimeField>(
-        &mut self,
-        x: &NonNativeTarget<FF>,
-    ) -> NonNativeTarget<FF> {
+    fn neg_nonnative<FF: PrimeField>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
         let zero_target = self.constant_biguint(&BigUint::zero());
         let zero_ff = self.biguint_to_nonnative(&zero_target);
 
         self.sub_nonnative(&zero_ff, x)
     }
 
-    pub fn inv_nonnative<FF: PrimeField>(
-        &mut self,
-        x: &NonNativeTarget<FF>,
-    ) -> NonNativeTarget<FF> {
+    fn inv_nonnative<FF: PrimeField>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
         let num_limbs = x.value.num_limbs();
         let inv_biguint = self.add_virtual_biguint_target(num_limbs);
         let div = self.add_virtual_biguint_target(num_limbs);
@@ -275,12 +393,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn reduce_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
-        let x_biguint = self.nonnative_to_biguint(x);
+    fn reduce_nonnative<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> NonNativeTarget<FF> {
+        let x_biguint = self.nonnative_to_canonical_biguint(x);
         self.reduce(&x_biguint)
     }
 
-    pub fn bool_to_nonnative<FF: Field>(&mut self, b: &BoolTarget) -> NonNativeTarget<FF> {
+    fn bool_to_nonnative<FF: Field>(&mut self, b: &BoolTarget) -> NonNativeTarget<FF> {
         let limbs = vec![U32Target(b.target)];
         let value = BigUintTarget { limbs };
 
@@ -291,10 +409,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     // Split a nonnative field element to bits.
-    pub fn split_nonnative_to_bits<FF: Field>(
-        &mut self,
-        x: &NonNativeTarget<FF>,
-    ) -> Vec<BoolTarget> {
+    fn split_nonnative_to_bits<FF: Field>(&mut self, x: &NonNativeTarget<FF>) -> Vec<BoolTarget> {
         let num_limbs = x.value.num_limbs();
         let mut result = Vec::with_capacity(num_limbs * 32);
 
@@ -310,6 +425,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         result
+    }
+
+    fn nonnative_conditional_neg<FF: PrimeField>(
+        &mut self,
+        x: &NonNativeTarget<FF>,
+        b: BoolTarget,
+    ) -> NonNativeTarget<FF> {
+        let not_b = self.not(b);
+        let neg = self.neg_nonnative(x);
+        let x_if_true = self.mul_nonnative_by_bool(&neg, b);
+        let x_if_false = self.mul_nonnative_by_bool(x, not_b);
+
+        self.add_nonnative(&x_if_true, &x_if_false)
     }
 }
 
@@ -337,8 +465,8 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let a = witness.get_nonnative_target(self.a.clone());
-        let b = witness.get_nonnative_target(self.b.clone());
+        let a = FF::from_biguint(witness_get_biguint_target(witness, self.a.value.clone()));
+        let b = FF::from_biguint(witness_get_biguint_target(witness, self.b.value.clone()));
         let a_biguint = a.to_canonical_biguint();
         let b_biguint = b.to_canonical_biguint();
         let sum_biguint = a_biguint + b_biguint;
@@ -349,7 +477,7 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
             (false, sum_biguint)
         };
 
-        out_buffer.set_biguint_target(self.sum.value.clone(), sum_reduced);
+        buffer_set_biguint_target(out_buffer, &self.sum.value, &sum_reduced);
         out_buffer.set_bool_target(self.overflow, overflow);
     }
 }
@@ -377,7 +505,9 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
         let summands: Vec<_> = self
             .summands
             .iter()
-            .map(|summand| witness.get_nonnative_target(summand.clone()))
+            .map(|summand| {
+                FF::from_biguint(witness_get_biguint_target(witness, summand.value.clone()))
+            })
             .collect();
         let summand_biguints: Vec<_> = summands
             .iter()
@@ -392,7 +522,7 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
         let (overflow_biguint, sum_reduced) = sum_biguint.div_rem(&modulus);
         let overflow = overflow_biguint.to_u64_digits()[0] as u32;
 
-        out_buffer.set_biguint_target(self.sum.value.clone(), sum_reduced);
+        buffer_set_biguint_target(out_buffer, &self.sum.value, &sum_reduced);
         out_buffer.set_u32_target(self.overflow, overflow);
     }
 }
@@ -421,19 +551,19 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let a = witness.get_nonnative_target(self.a.clone());
-        let b = witness.get_nonnative_target(self.b.clone());
+        let a = FF::from_biguint(witness_get_biguint_target(witness, self.a.value.clone()));
+        let b = FF::from_biguint(witness_get_biguint_target(witness, self.b.value.clone()));
         let a_biguint = a.to_canonical_biguint();
         let b_biguint = b.to_canonical_biguint();
 
         let modulus = FF::order();
-        let (diff_biguint, overflow) = if a_biguint > b_biguint {
+        let (diff_biguint, overflow) = if a_biguint >= b_biguint {
             (a_biguint - b_biguint, false)
         } else {
             (modulus + a_biguint - b_biguint, true)
         };
 
-        out_buffer.set_biguint_target(self.diff.value.clone(), diff_biguint);
+        buffer_set_biguint_target(out_buffer, &self.diff.value, &diff_biguint);
         out_buffer.set_bool_target(self.overflow, overflow);
     }
 }
@@ -462,8 +592,8 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let a = witness.get_nonnative_target(self.a.clone());
-        let b = witness.get_nonnative_target(self.b.clone());
+        let a = FF::from_biguint(witness_get_biguint_target(witness, self.a.value.clone()));
+        let b = FF::from_biguint(witness_get_biguint_target(witness, self.b.value.clone()));
         let a_biguint = a.to_canonical_biguint();
         let b_biguint = b.to_canonical_biguint();
 
@@ -472,8 +602,8 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
         let modulus = FF::order();
         let (overflow_biguint, prod_reduced) = prod_biguint.div_rem(&modulus);
 
-        out_buffer.set_biguint_target(self.prod.value.clone(), prod_reduced);
-        out_buffer.set_biguint_target(self.overflow.clone(), overflow_biguint);
+        buffer_set_biguint_target(out_buffer, &self.prod.value, &prod_reduced);
+        buffer_set_biguint_target(out_buffer, &self.overflow, &overflow_biguint);
     }
 }
 
@@ -493,7 +623,7 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let x = witness.get_nonnative_target(self.x.clone());
+        let x = FF::from_biguint(witness_get_biguint_target(witness, self.x.value.clone()));
         let inv = x.inverse();
 
         let x_biguint = x.to_canonical_biguint();
@@ -502,22 +632,22 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
         let modulus = FF::order();
         let (div, _rem) = prod.div_rem(&modulus);
 
-        out_buffer.set_biguint_target(self.div.clone(), div);
-        out_buffer.set_biguint_target(self.inv.clone(), inv_biguint);
+        buffer_set_biguint_target(out_buffer, &self.div, &div);
+        buffer_set_biguint_target(out_buffer, &self.inv, &inv_biguint);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use plonky2::iop::witness::PartialWitness;
+    use plonky2::plonk::circuit_builder::CircuitBuilder;
+    use plonky2::plonk::circuit_data::CircuitConfig;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2_field::field_types::{Field, PrimeField};
     use plonky2_field::secp256k1_base::Secp256K1Base;
 
-    use crate::iop::witness::PartialWitness;
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::verifier::verify;
+    use crate::gadgets::nonnative::CircuitBuilderNonNative;
 
     #[test]
     fn test_nonnative_add() -> Result<()> {
@@ -543,7 +673,7 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]
@@ -583,7 +713,7 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]
@@ -613,7 +743,7 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]
@@ -639,7 +769,7 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]
@@ -663,7 +793,7 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]
@@ -687,6 +817,6 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 }

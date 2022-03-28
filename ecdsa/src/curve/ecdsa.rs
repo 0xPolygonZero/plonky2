@@ -1,8 +1,8 @@
+use plonky2_field::field_types::Field;
 use serde::{Deserialize, Serialize};
 
 use crate::curve::curve_msm::msm_parallel;
 use crate::curve::curve_types::{base_to_scalar, AffinePoint, Curve, CurveScalar};
-use crate::field::field_types::Field;
 
 #[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ECDSASignature<C: Curve> {
@@ -13,12 +13,14 @@ pub struct ECDSASignature<C: Curve> {
 #[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ECDSASecretKey<C: Curve>(pub C::ScalarField);
 
+impl<C: Curve> ECDSASecretKey<C> {
+    pub fn to_public(&self) -> ECDSAPublicKey<C> {
+        ECDSAPublicKey((CurveScalar(self.0) * C::GENERATOR_PROJECTIVE).to_affine())
+    }
+}
+
 #[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ECDSAPublicKey<C: Curve>(pub AffinePoint<C>);
-
-pub fn secret_to_public<C: Curve>(sk: ECDSASecretKey<C>) -> ECDSAPublicKey<C> {
-    ECDSAPublicKey((CurveScalar(sk.0) * C::GENERATOR_PROJECTIVE).to_affine())
-}
 
 pub fn sign_message<C: Curve>(msg: C::ScalarField, sk: ECDSASecretKey<C>) -> ECDSASignature<C> {
     let (k, rr) = {
@@ -61,10 +63,11 @@ pub fn verify_message<C: Curve>(
 
 #[cfg(test)]
 mod tests {
-    use crate::curve::ecdsa::{secret_to_public, sign_message, verify_message, ECDSASecretKey};
+    use plonky2_field::field_types::Field;
+    use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
+
+    use crate::curve::ecdsa::{sign_message, verify_message, ECDSASecretKey};
     use crate::curve::secp256k1::Secp256K1;
-    use crate::field::field_types::Field;
-    use crate::field::secp256k1_scalar::Secp256K1Scalar;
 
     #[test]
     fn test_ecdsa_native() {
@@ -72,7 +75,7 @@ mod tests {
 
         let msg = Secp256K1Scalar::rand();
         let sk = ECDSASecretKey::<C>(Secp256K1Scalar::rand());
-        let pk = secret_to_public(sk);
+        let pk = sk.to_public();
 
         let sig = sign_message(msg, sk);
         let result = verify_message(msg, sig, pk);

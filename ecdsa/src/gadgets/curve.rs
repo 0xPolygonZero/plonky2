@@ -1,10 +1,11 @@
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::target::BoolTarget;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
 
 use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
-use crate::gadgets::nonnative::NonNativeTarget;
-use crate::hash::hash_types::RichField;
-use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::gadgets::nonnative::{CircuitBuilderNonNative, NonNativeTarget};
 
 /// A Target representing an affine point on the curve `C`. We use incomplete arithmetic for efficiency,
 /// so we assume these points are not zero.
@@ -20,11 +21,60 @@ impl<C: Curve> AffinePointTarget<C> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn constant_affine_point<C: Curve>(
+pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
+    fn constant_affine_point<C: Curve>(&mut self, point: AffinePoint<C>) -> AffinePointTarget<C>;
+
+    fn connect_affine_point<C: Curve>(
         &mut self,
-        point: AffinePoint<C>,
-    ) -> AffinePointTarget<C> {
+        lhs: &AffinePointTarget<C>,
+        rhs: &AffinePointTarget<C>,
+    );
+
+    fn add_virtual_affine_point_target<C: Curve>(&mut self) -> AffinePointTarget<C>;
+
+    fn curve_assert_valid<C: Curve>(&mut self, p: &AffinePointTarget<C>);
+
+    fn curve_neg<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C>;
+
+    fn curve_conditional_neg<C: Curve>(
+        &mut self,
+        p: &AffinePointTarget<C>,
+        b: BoolTarget,
+    ) -> AffinePointTarget<C>;
+
+    fn curve_double<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C>;
+
+    fn curve_repeated_double<C: Curve>(
+        &mut self,
+        p: &AffinePointTarget<C>,
+        n: usize,
+    ) -> AffinePointTarget<C>;
+
+    /// Add two points, which are assumed to be non-equal.
+    fn curve_add<C: Curve>(
+        &mut self,
+        p1: &AffinePointTarget<C>,
+        p2: &AffinePointTarget<C>,
+    ) -> AffinePointTarget<C>;
+
+    fn curve_conditional_add<C: Curve>(
+        &mut self,
+        p1: &AffinePointTarget<C>,
+        p2: &AffinePointTarget<C>,
+        b: BoolTarget,
+    ) -> AffinePointTarget<C>;
+
+    fn curve_scalar_mul<C: Curve>(
+        &mut self,
+        p: &AffinePointTarget<C>,
+        n: &NonNativeTarget<C::ScalarField>,
+    ) -> AffinePointTarget<C>;
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
+    for CircuitBuilder<F, D>
+{
+    fn constant_affine_point<C: Curve>(&mut self, point: AffinePoint<C>) -> AffinePointTarget<C> {
         debug_assert!(!point.zero);
         AffinePointTarget {
             x: self.constant_nonnative(point.x),
@@ -32,7 +82,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn connect_affine_point<C: Curve>(
+    fn connect_affine_point<C: Curve>(
         &mut self,
         lhs: &AffinePointTarget<C>,
         rhs: &AffinePointTarget<C>,
@@ -41,14 +91,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect_nonnative(&lhs.y, &rhs.y);
     }
 
-    pub fn add_virtual_affine_point_target<C: Curve>(&mut self) -> AffinePointTarget<C> {
+    fn add_virtual_affine_point_target<C: Curve>(&mut self) -> AffinePointTarget<C> {
         let x = self.add_virtual_nonnative_target();
         let y = self.add_virtual_nonnative_target();
 
         AffinePointTarget { x, y }
     }
 
-    pub fn curve_assert_valid<C: Curve>(&mut self, p: &AffinePointTarget<C>) {
+    fn curve_assert_valid<C: Curve>(&mut self, p: &AffinePointTarget<C>) {
         let a = self.constant_nonnative(C::A);
         let b = self.constant_nonnative(C::B);
 
@@ -62,7 +112,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect_nonnative(&y_squared, &rhs);
     }
 
-    pub fn curve_neg<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C> {
+    fn curve_neg<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C> {
         let neg_y = self.neg_nonnative(&p.y);
         AffinePointTarget {
             x: p.x.clone(),
@@ -70,7 +120,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn curve_double<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C> {
+    fn curve_conditional_neg<C: Curve>(
+        &mut self,
+        p: &AffinePointTarget<C>,
+        b: BoolTarget,
+    ) -> AffinePointTarget<C> {
+        AffinePointTarget {
+            x: p.x.clone(),
+            y: self.nonnative_conditional_neg(&p.y, b),
+        }
+    }
+
+    fn curve_double<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C> {
         let AffinePointTarget { x, y } = p;
         let double_y = self.add_nonnative(y, y);
         let inv_double_y = self.inv_nonnative(&double_y);
@@ -94,8 +155,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         AffinePointTarget { x: x3, y: y3 }
     }
 
-    // Add two points, which are assumed to be non-equal.
-    pub fn curve_add<C: Curve>(
+    fn curve_repeated_double<C: Curve>(
+        &mut self,
+        p: &AffinePointTarget<C>,
+        n: usize,
+    ) -> AffinePointTarget<C> {
+        let mut result = p.clone();
+
+        for _ in 0..n {
+            result = self.curve_double(&result);
+        }
+
+        result
+    }
+
+    fn curve_add<C: Curve>(
         &mut self,
         p1: &AffinePointTarget<C>,
         p2: &AffinePointTarget<C>,
@@ -117,7 +191,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         AffinePointTarget { x: x3, y: y3 }
     }
 
-    pub fn curve_scalar_mul<C: Curve>(
+    fn curve_conditional_add<C: Curve>(
+        &mut self,
+        p1: &AffinePointTarget<C>,
+        p2: &AffinePointTarget<C>,
+        b: BoolTarget,
+    ) -> AffinePointTarget<C> {
+        let not_b = self.not(b);
+        let sum = self.curve_add(p1, p2);
+        let x_if_true = self.mul_nonnative_by_bool(&sum.x, b);
+        let y_if_true = self.mul_nonnative_by_bool(&sum.y, b);
+        let x_if_false = self.mul_nonnative_by_bool(&p1.x, not_b);
+        let y_if_false = self.mul_nonnative_by_bool(&p1.y, not_b);
+
+        let x = self.add_nonnative(&x_if_true, &x_if_false);
+        let y = self.add_nonnative(&y_if_true, &y_if_false);
+
+        AffinePointTarget { x, y }
+    }
+
+    fn curve_scalar_mul<C: Curve>(
         &mut self,
         p: &AffinePointTarget<C>,
         n: &NonNativeTarget<C::ScalarField>,
@@ -164,17 +257,18 @@ mod tests {
     use std::ops::Neg;
 
     use anyhow::Result;
+    use plonky2::iop::witness::PartialWitness;
+    use plonky2::plonk::circuit_builder::CircuitBuilder;
+    use plonky2::plonk::circuit_data::CircuitConfig;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2_field::field_types::Field;
     use plonky2_field::secp256k1_base::Secp256K1Base;
     use plonky2_field::secp256k1_scalar::Secp256K1Scalar;
 
     use crate::curve::curve_types::{AffinePoint, Curve, CurveScalar};
     use crate::curve::secp256k1::Secp256K1;
-    use crate::iop::witness::PartialWitness;
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::verifier::verify;
+    use crate::gadgets::curve::CircuitBuilderCurve;
+    use crate::gadgets::nonnative::CircuitBuilderNonNative;
 
     #[test]
     fn test_curve_point_is_valid() -> Result<()> {
@@ -197,7 +291,7 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]
@@ -225,7 +319,7 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
-        verify(proof, &data.verifier_only, &data.common).unwrap();
+        data.verify(proof).unwrap()
     }
 
     #[test]
@@ -262,7 +356,7 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]
@@ -292,7 +386,39 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
+    }
+
+    #[test]
+    fn test_curve_conditional_add() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let config = CircuitConfig::standard_ecc_config();
+
+        let pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let g = Secp256K1::GENERATOR_AFFINE;
+        let double_g = g.double();
+        let g_plus_2g = (g + double_g).to_affine();
+        let g_plus_2g_expected = builder.constant_affine_point(g_plus_2g);
+
+        let g_expected = builder.constant_affine_point(g);
+        let double_g_target = builder.curve_double(&g_expected);
+        let t = builder._true();
+        let f = builder._false();
+        let g_plus_2g_actual = builder.curve_conditional_add(&g_expected, &double_g_target, t);
+        let g_actual = builder.curve_conditional_add(&g_expected, &double_g_target, f);
+
+        builder.connect_affine_point(&g_plus_2g_expected, &g_plus_2g_actual);
+        builder.connect_affine_point(&g_expected, &g_actual);
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw).unwrap();
+
+        data.verify(proof)
     }
 
     #[test]
@@ -307,7 +433,7 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let g = Secp256K1::GENERATOR_AFFINE;
+        let g = Secp256K1::GENERATOR_PROJECTIVE.to_affine();
         let five = Secp256K1Scalar::from_canonical_usize(5);
         let neg_five = five.neg();
         let neg_five_scalar = CurveScalar::<Secp256K1>(neg_five);
@@ -325,10 +451,11 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 
     #[test]
+    #[ignore]
     fn test_curve_random() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
@@ -351,6 +478,6 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
 
-        verify(proof, &data.verifier_only, &data.common)
+        data.verify(proof)
     }
 }

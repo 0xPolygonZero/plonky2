@@ -6,7 +6,9 @@ use plonky2_field::field_types::Field64;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::exponentiation::ExponentiationGate;
 use crate::hash::hash_types::RichField;
+use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
+use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -322,6 +324,60 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let one = self.one();
         let res = self.sub(one, b.target);
         BoolTarget::new_unsafe(res)
+    }
+
+    pub fn and(&mut self, b1: BoolTarget, b2: BoolTarget) -> BoolTarget {
+        BoolTarget::new_unsafe(self.mul(b1.target, b2.target))
+    }
+
+    pub fn _if(&mut self, b: BoolTarget, x: Target, y: Target) -> Target {
+        let not_b = self.not(b);
+        let maybe_x = self.mul(b.target, x);
+        self.mul_add(not_b.target, y, maybe_x)
+    }
+
+    pub fn is_equal(&mut self, x: Target, y: Target) -> BoolTarget {
+        let zero = self.zero();
+
+        let equal = self.add_virtual_bool_target();
+        let not_equal = self.not(equal);
+        let inv = self.add_virtual_target();
+        self.add_simple_generator(EqualityGenerator { x, y, equal, inv });
+
+        let diff = self.sub(x, y);
+        let not_equal_check = self.mul(equal.target, diff);
+
+        let diff_normalized = self.mul(diff, inv);
+        let equal_check = self.sub(diff_normalized, not_equal.target);
+
+        self.connect(not_equal_check, zero);
+        self.connect(equal_check, zero);
+
+        equal
+    }
+}
+
+#[derive(Debug)]
+struct EqualityGenerator {
+    x: Target,
+    y: Target,
+    equal: BoolTarget,
+    inv: Target,
+}
+
+impl<F: RichField> SimpleGenerator<F> for EqualityGenerator {
+    fn dependencies(&self) -> Vec<Target> {
+        vec![self.x, self.y]
+    }
+
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        let x = witness.get_target(self.x);
+        let y = witness.get_target(self.y);
+
+        let inv = if x != y { (x - y).inverse() } else { F::ZERO };
+
+        out_buffer.set_bool_target(self.equal, x == y);
+        out_buffer.set_target(self.inv, inv);
     }
 }
 
