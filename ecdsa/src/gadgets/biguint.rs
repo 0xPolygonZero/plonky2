@@ -272,12 +272,11 @@ pub fn witness_get_biguint_target<W: Witness<F>, F: PrimeField>(
     witness: &W,
     bt: BigUintTarget,
 ) -> BigUint {
-    let base = BigUint::from(1usize << 32);
     bt.limbs
         .into_iter()
         .rev()
         .fold(BigUint::zero(), |acc, limb| {
-            acc * &base + witness.get_target(limb.0).to_canonical_biguint()
+            (acc << 32) + witness.get_target(limb.0).to_canonical_biguint()
         })
 }
 

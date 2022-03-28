@@ -70,7 +70,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     marked_targets: Vec<MarkedTargets<D>>,
 
     /// Generators used to generate the witness.
-    pub generators: Vec<Box<dyn WitnessGenerator<F>>>,
+    generators: Vec<Box<dyn WitnessGenerator<F>>>,
 
     constants_to_targets: HashMap<F, Target>,
     targets_to_constants: HashMap<Target, F>,
@@ -150,7 +150,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// generate the final witness (a grid of wire values), these virtual targets will go away.
     pub fn add_virtual_target(&mut self) -> Target {
         let index = self.virtual_target_index;
-
         self.virtual_target_index += 1;
         Target::VirtualTarget { index }
     }
