@@ -391,6 +391,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::redundant_clone)]
     fn test_clone() {
         let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
         let m = Matrix::from_flat_vec(HEIGHT, WIDTH, v);
@@ -426,7 +427,7 @@ mod tests {
         let m_iter: Vec<_> = m.iter().collect();
         assert_eq!(m_iter.len(), HEIGHT);
         assert!(m_iter.iter().map(|row| row.len() == WIDTH).all(|x| x));
-        let m_iter = m_iter.into_iter().map(|row| row.iter()).flatten().copied();
+        let m_iter = m_iter.into_iter().flat_map(|row| row.iter()).copied();
         assert!((0..(HEIGHT * WIDTH) as u64).into_iter().eq(m_iter));
     }
 
@@ -437,7 +438,7 @@ mod tests {
         let m_iter: Vec<_> = m.iter_mut().collect();
         assert_eq!(m_iter.len(), HEIGHT);
         assert!(m_iter.iter().map(|row| row.len() == WIDTH).all(|x| x));
-        let m_iter = m_iter.into_iter().map(|row| row.iter()).flatten().copied();
+        let m_iter = m_iter.into_iter().flat_map(|row| row.iter()).copied();
         assert!((0..(HEIGHT * WIDTH) as u64).into_iter().eq(m_iter));
     }
 
