@@ -414,9 +414,8 @@ mod tests {
 
     #[test]
     fn test_from_iter() {
-        let m = Matrix::from_iter((0..HEIGHT)
-                                  .map(|i| (WIDTH * i..WIDTH * (i + 1))
-                                  .map(|i| i as u64)));
+        let m =
+            Matrix::from_iter((0..HEIGHT).map(|i| (WIDTH * i..WIDTH * (i + 1)).map(|i| i as u64)));
         check_matrix(m);
     }
 
@@ -493,7 +492,7 @@ mod tests {
         let m = Matrix::from_flat_vec(HEIGHT, WIDTH, v);
         for i in 0..HEIGHT {
             let target: Vec<_> = (i * WIDTH..(i + 1) * WIDTH).map(|x| x as u64).collect();
-            let result = unsafe { m.get_unchecked(i) } .to_vec();
+            let result = unsafe { m.get_unchecked(i) }.to_vec();
             assert_eq!(target, result);
         }
     }
