@@ -326,7 +326,7 @@ impl<F: Field> SimpleGenerator<F> for NonzeroTestGenerator {
     }
 }
 
-/// Generator used fill an extra constant.
+/// Generator used to fill an extra constant.
 #[derive(Debug, Clone)]
 pub struct ConstantGenerator<F: Field> {
     pub gate_index: usize,
