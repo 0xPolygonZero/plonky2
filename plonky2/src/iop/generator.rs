@@ -8,7 +8,6 @@ use plonky2_field::field_types::{Field, PrimeField};
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
-use crate::gates::gate::Gate;
 use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
@@ -327,6 +326,7 @@ impl<F: Field> SimpleGenerator<F> for NonzeroTestGenerator {
     }
 }
 
+/// Generator used fill an extra constant.
 #[derive(Debug, Clone)]
 pub struct ConstantGenerator<F: Field> {
     pub gate_index: usize,

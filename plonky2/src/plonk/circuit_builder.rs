@@ -2,7 +2,6 @@ use std::cmp::max;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Instant;
 
-use itertools::{EitherOrBoth, Itertools};
 use log::{debug, info, Level};
 use plonky2_field::cosets::get_unique_coset_shifts;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
@@ -85,8 +84,8 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// Map between gate type and the current gate of this type with available slots.
     current_slots: HashMap<GateRef<F, D>, CurrentSlot<F, D>>,
 
-    /// gate_index, constant_index, target_index, ConstantGen
-    constants_slots: Vec<ConstantGenerator<F>>,
+    /// List of constant generators used to fill the constant wires.
+    constant_generators: Vec<ConstantGenerator<F>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -106,7 +105,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             arithmetic_results: HashMap::new(),
             targets_to_constants: HashMap::new(),
             current_slots: HashMap::new(),
-            constants_slots: Vec::new(),
+            constant_generators: Vec::new(),
         };
         builder.check_config();
         builder
@@ -213,22 +212,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Adds a gate to the circuit, and returns its index.
     pub fn add_gate<G: Gate<F, D>>(&mut self, gate_type: G, mut constants: Vec<F>) -> usize {
         self.check_gate_compatibility(&gate_type);
-        // assert_eq!(
-        //     gate_type.num_constants(),
-        //     constants.len(),
-        //     "Number of constants doesn't match."
-        // );
 
-        assert!(constants.len() <= gate_type.num_constants());
+        assert!(
+            constants.len() <= gate_type.num_constants(),
+            "Too many constants."
+        );
         constants.resize(gate_type.num_constants(), F::ZERO);
 
         let index = self.gate_instances.len();
 
-        self.constants_slots
+        self.constant_generators
             .extend(gate_type.extra_constants(index));
-        // for const_gen in gate_type.extra_constants() {
-        //     self.constants_slots.push((index, ci, ti, gen));
-        // }
 
         // Note that we can't immediately add this gate's generators, because the list of constants
         // could be modified later, i.e. in the case of `ConstantGate`. We will add them later in
@@ -664,8 +658,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.connect(hash_part, Target::wire(pi_gate, wire))
         }
 
-        // Fill constants
-        while self.constants_to_targets.len() > self.constants_slots.len() {
+        // Make sure we have enough constant generators. If not, add a `ConstantGate`.
+        while self.constants_to_targets.len() > self.constant_generators.len() {
             self.add_gate(
                 ConstantGate {
                     num_consts: self.config.num_constants,
@@ -673,19 +667,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 vec![],
             );
         }
-        dbg!(self.constants_to_targets.len(), self.constants_slots.len());
 
+        // For each constant-target pair used in the circuit, use a constant generator to fill this target.
         for ((c, t), mut const_gen) in self
             .constants_to_targets
             .clone()
             .into_iter()
-            .zip(self.constants_slots.clone())
+            .zip(self.constant_generators.clone())
         {
+            // Set the constant in the constant polynomial.
             self.gate_instances[const_gen.gate_index].constants[const_gen.constant_index] = c;
-            self.generate_copy(
+            // Generate a copy between the target and the routable wire.
+            self.connect(
                 Target::wire(const_gen.gate_index, const_gen.target_index),
                 t,
             );
+            // Set the constant in the generator (it's initially set with a dummy value).
             const_gen.set_constant(c);
             self.add_simple_generator(const_gen);
         }
