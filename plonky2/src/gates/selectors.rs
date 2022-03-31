@@ -13,7 +13,12 @@ pub(crate) const UNUSED_SELECTOR: usize = u32::MAX as usize;
 pub(crate) struct SelectorsInfo {
     pub(crate) selector_indices: Vec<usize>,
     pub(crate) groups: Vec<Range<usize>>,
-    pub(crate) num_selectors: usize,
+}
+
+impl SelectorsInfo {
+    pub fn num_selectors(&self) -> usize {
+        self.groups.len()
+    }
 }
 
 /// Returns the selector polynomials and related information.
@@ -51,7 +56,6 @@ pub(crate) fn selector_polynomials<F: RichField + Extendable<D>, const D: usize>
             SelectorsInfo {
                 selector_indices: vec![0; num_gates],
                 groups: vec![0..num_gates],
-                num_selectors: 1,
             },
         );
     }
@@ -101,7 +105,6 @@ pub(crate) fn selector_polynomials<F: RichField + Extendable<D>, const D: usize>
         polynomials,
         SelectorsInfo {
             selector_indices,
-            num_selectors: groups.len(),
             groups,
         },
     )
