@@ -321,14 +321,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return target;
         }
 
-        let num_consts = self.config.constant_gate_size;
-        // We will fill this `ConstantGate` with zero constants initially.
-        // These will be overwritten by `constant` as the gate instances are filled.
-        let gate = ConstantGate { num_consts };
-        let (gate, instance) = self.find_slot(gate, &[], &vec![F::ZERO; num_consts]);
-        let target = Target::wire(gate, instance);
-        self.gate_instances[gate].constants[instance] = c;
-
+        let target = self.add_virtual_target();
         self.constants_to_targets.insert(c, target);
         self.targets_to_constants.insert(target, c);
 

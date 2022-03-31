@@ -86,7 +86,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let min_wires = random_access.num_wires().max(interpolation_wires);
         let min_routed_wires = random_access
-            .num_routed_wires()
+            .num_ram_wires()
             .max(interpolation_routed_wires);
 
         assert!(
