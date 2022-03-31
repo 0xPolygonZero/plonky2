@@ -2,6 +2,7 @@ use std::cmp::max;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Instant;
 
+use itertools::{EitherOrBoth, Itertools};
 use log::{debug, info, Level};
 use plonky2_field::cosets::get_unique_coset_shifts;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
@@ -83,6 +84,9 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
 
     /// Map between gate type and the current gate of this type with available slots.
     current_slots: HashMap<GateRef<F, D>, CurrentSlot<F, D>>,
+
+    /// gate_index, constant_index, target_index
+    constants_slots: Vec<(usize, usize, usize)>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -102,6 +106,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             arithmetic_results: HashMap::new(),
             targets_to_constants: HashMap::new(),
             current_slots: HashMap::new(),
+            constants_slots: Vec::new(),
         };
         builder.check_config();
         builder
@@ -206,15 +211,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Adds a gate to the circuit, and returns its index.
-    pub fn add_gate<G: Gate<F, D>>(&mut self, gate_type: G, constants: Vec<F>) -> usize {
+    pub fn add_gate<G: Gate<F, D>>(&mut self, gate_type: G, mut constants: Vec<F>) -> usize {
         self.check_gate_compatibility(&gate_type);
-        assert_eq!(
-            gate_type.num_constants(),
-            constants.len(),
-            "Number of constants doesn't match."
-        );
+        // assert_eq!(
+        //     gate_type.num_constants(),
+        //     constants.len(),
+        //     "Number of constants doesn't match."
+        // );
+
+        assert!(constants.len() <= gate_type.num_constants());
+        constants.resize(gate_type.num_constants(), F::ZERO);
 
         let index = self.gate_instances.len();
+
+        for (ci, ti) in gate_type.extra_constants() {
+            self.constants_slots.push((index, ci, ti));
+        }
 
         // Note that we can't immediately add this gate's generators, because the list of constants
         // could be modified later, i.e. in the case of `ConstantGate`. We will add them later in
@@ -239,6 +251,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             gate.id(),
             gate.num_wires(),
             self.config.num_wires
+        );
+        assert!(
+            gate.num_constants() <= self.config.num_constants,
+            "{:?} requires {} constants, but our CircuitConfig has only {}",
+            gate.id(),
+            gate.num_constants(),
+            self.config.num_constants
         );
     }
 
@@ -641,6 +660,28 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .zip(PublicInputGate::wires_public_inputs_hash())
         {
             self.connect(hash_part, Target::wire(pi_gate, wire))
+        }
+
+        // Fill constants
+        while self.constants_to_targets.len() > self.constants_slots.len() {
+            dbg!("lfg");
+            self.add_gate(
+                ConstantGate {
+                    num_consts: self.config.num_constants,
+                },
+                vec![],
+            );
+        }
+        dbg!(self.constants_to_targets.len(), self.constants_slots.len());
+
+        for ((c, t), (gate_index, const_wire, target_wire)) in self
+            .constants_to_targets
+            .clone()
+            .into_iter()
+            .zip(self.constants_slots.clone())
+        {
+            self.gate_instances[gate_index].constants[const_wire] = c;
+            self.generate_copy(Target::wire(gate_index, target_wire), t);
         }
 
         info!(

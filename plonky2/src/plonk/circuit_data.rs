@@ -64,7 +64,7 @@ impl CircuitConfig {
         Self {
             num_wires: 135,
             num_routed_wires: 80,
-            num_constants: 5,
+            num_constants: 2,
             use_base_arithmetic_gate: true,
             security_bits: 100,
             num_challenges: 2,

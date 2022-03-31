@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::ops::Range;
 
 use itertools::Itertools;
 use plonky2_field::extension_field::Extendable;
@@ -20,6 +21,7 @@ use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use crate::with_context;
 
 /// A gate for checking that a particular element of a list matches a given value.
 #[derive(Copy, Clone, Debug)]
@@ -70,7 +72,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
         (2 + self.vec_size()) * copy + 2 + i
     }
 
-    pub(crate) fn num_ram_wires(&self) -> usize {
+    fn num_ram_wires(&self) -> usize {
         (2 + self.vec_size()) * self.num_copies
     }
 
@@ -79,7 +81,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
         self.num_ram_wires() + i
     }
 
-    fn num_routed_wires(&self) -> usize {
+    pub fn num_routed_wires(&self) -> usize {
         self.num_ram_wires() + self.num_extra_constants
     }
 
@@ -216,7 +218,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         gate_index: usize,
         local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let constants = local_constants[..self.num_extra_constants].to_vec();
         (0..self.num_copies)
             .map(|copy| {
                 let g: Box<dyn WitnessGenerator<F>> = Box::new(
@@ -224,12 +225,23 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
                         gate_index,
                         gate: *self,
                         copy,
-                        constants: constants.to_vec(),
                     }
                     .adapter(),
                 );
                 g
             })
+            .chain((0..self.num_extra_constants).map(|i| {
+                let g: Box<dyn WitnessGenerator<F>> = Box::new(
+                    RandomAccessExtraConstantsGenerator {
+                        gate_index,
+                        gate: *self,
+                        i,
+                        constant: local_constants[i],
+                    }
+                    .adapter(),
+                );
+                g
+            }))
             .collect()
     }
 
@@ -238,7 +250,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
     }
 
     fn num_constants(&self) -> usize {
-        0
+        self.num_extra_constants
     }
 
     fn degree(&self) -> usize {
@@ -247,7 +259,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
 
     fn num_constraints(&self) -> usize {
         let constraints_per_copy = self.bits + 2;
-        self.num_copies * constraints_per_copy
+        self.num_copies * constraints_per_copy + self.num_extra_constants
+    }
+
+    fn num_ops(&self) -> usize {
+        self.num_copies
+    }
+
+    fn extra_constants(&self) -> Vec<(usize, usize)> {
+        (0..self.num_extra_constants)
+            .map(|i| (i, self.wire_extra_constant(i)))
+            .collect()
     }
 }
 
@@ -303,7 +325,6 @@ struct RandomAccessGenerator<F: RichField + Extendable<D>, const D: usize> {
     gate_index: usize,
     gate: RandomAccessGate<F, D>,
     copy: usize,
-    constants: Vec<F>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
@@ -349,10 +370,30 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             let bit = F::from_bool(((access_index >> i) & 1) != 0);
             set_local_wire(self.gate.wire_bit(i, copy), bit);
         }
+    }
+}
 
-        for (i, &c) in self.constants.iter().enumerate() {
-            set_local_wire(self.gate.wire_extra_constant(i), c);
-        }
+#[derive(Debug)]
+struct RandomAccessExtraConstantsGenerator<F: RichField + Extendable<D>, const D: usize> {
+    gate_index: usize,
+    gate: RandomAccessGate<F, D>,
+    i: usize,
+    constant: F,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+    for RandomAccessExtraConstantsGenerator<F, D>
+{
+    fn dependencies(&self) -> Vec<Target> {
+        Vec::new()
+    }
+
+    fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        let wire = Wire {
+            gate: self.gate_index,
+            input: self.gate.wire_extra_constant(self.i),
+        };
+        out_buffer.set_wire(wire, self.constant);
     }
 }
 

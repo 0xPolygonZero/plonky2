@@ -180,6 +180,10 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         self.generators(0, &vec![F::ZERO; self.num_constants()])
             .len()
     }
+
+    fn extra_constants(&self) -> Vec<(usize, usize)> {
+        vec![]
+    }
 }
 
 /// A wrapper around an `Rc<Gate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
