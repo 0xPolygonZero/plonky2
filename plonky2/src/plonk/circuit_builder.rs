@@ -19,10 +19,10 @@ use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::constant::ConstantGate;
-use crate::gates::gate::{CurrentSlot, Gate, GateInstance, GateRef, PrefixedGate};
-use crate::gates::gate_tree::Tree;
+use crate::gates::gate::{CurrentSlot, Gate, GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
+use crate::gates::selectors::selector_polynomials;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::iop::ext_target::ExtensionTarget;
@@ -551,32 +551,27 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn constant_polys(
-        &self,
-        gates: &[PrefixedGate<F, D>],
-        num_constants: usize,
-    ) -> Vec<PolynomialValues<F>> {
-        let constants_per_gate = self
-            .gate_instances
+    fn constant_polys(&self) -> Vec<PolynomialValues<F>> {
+        let max_constants = self
+            .gates
             .iter()
-            .map(|gate| {
-                let prefix = &gates
-                    .iter()
-                    .find(|g| g.gate.0.id() == gate.gate_ref.0.id())
-                    .unwrap()
-                    .prefix;
-                let mut prefixed_constants = Vec::with_capacity(num_constants);
-                prefixed_constants.extend(prefix.iter().map(|&b| if b { F::ONE } else { F::ZERO }));
-                prefixed_constants.extend_from_slice(&gate.constants);
-                prefixed_constants.resize(num_constants, F::ZERO);
-                prefixed_constants
-            })
-            .collect::<Vec<_>>();
-
-        transpose(&constants_per_gate)
-            .into_iter()
-            .map(PolynomialValues::new)
-            .collect()
+            .map(|g| g.0.num_constants())
+            .max()
+            .unwrap();
+        transpose(
+            &self
+                .gate_instances
+                .iter()
+                .map(|g| {
+                    let mut consts = g.constants.clone();
+                    consts.resize(max_constants, F::ZERO);
+                    consts
+                })
+                .collect::<Vec<_>>(),
+        )
+        .into_iter()
+        .map(PolynomialValues::new)
+        .collect()
     }
 
     fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> (Vec<PolynomialValues<F>>, Forest) {
@@ -669,26 +664,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "FRI total reduction arity is too large.",
         );
 
-        let gates = self.gates.iter().cloned().collect();
-        let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
-        let prefixed_gates = PrefixedGate::from_tree(gate_tree);
-
-        // `quotient_degree_factor` has to be between `max_filtered_constraint_degree-1` and `1<<rate_bits`.
-        // We find the value that minimizes `num_partial_product + quotient_degree_factor`.
-        let min_quotient_degree_factor = (max_filtered_constraint_degree - 1).max(2);
-        let max_quotient_degree_factor = self.config.max_quotient_degree_factor.min(1 << rate_bits);
-        let quotient_degree_factor = (min_quotient_degree_factor..=max_quotient_degree_factor)
-            .min_by_key(|&q| num_partial_products(self.config.num_routed_wires, q) + q)
-            .unwrap();
-        debug!("Quotient degree factor set to: {}.", quotient_degree_factor);
+        let quotient_degree_factor = self.config.max_quotient_degree_factor;
+        let mut gates = self.gates.iter().cloned().collect::<Vec<_>>();
+        // Gates need to be sorted by their degrees (and ID to make the ordering deterministic) to compute the selector polynomials.
+        gates.sort_unstable_by_key(|g| (g.0.degree(), g.0.id()));
+        let (mut constant_vecs, selectors_info) =
+            selector_polynomials(&gates, &self.gate_instances, quotient_degree_factor + 1);
+        constant_vecs.extend(self.constant_polys());
+        let num_constants = constant_vecs.len();
 
         let subgroup = F::two_adic_subgroup(degree_bits);
-
-        let constant_vecs = timed!(
-            timing,
-            "generate constant polynomials",
-            self.constant_polys(&prefixed_gates, num_constants)
-        );
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let (sigma_vecs, forest) = timed!(
@@ -768,11 +753,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             fft_root_table: Some(fft_root_table),
         };
 
-        // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
-        // sort by ID to make the ordering deterministic.
-        let mut gates = self.gates.iter().cloned().collect::<Vec<_>>();
-        gates.sort_unstable_by_key(|gate| gate.0.id());
-
         let num_gate_constraints = gates
             .iter()
             .map(|gate| gate.0.num_constraints())
@@ -793,7 +773,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             config: self.config,
             fri_params,
             degree_bits,
-            gates: prefixed_gates,
+            gates,
+            selectors_info,
             quotient_degree_factor,
             num_gate_constraints,
             num_constants,
