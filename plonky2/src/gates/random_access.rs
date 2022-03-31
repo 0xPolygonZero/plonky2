@@ -11,7 +11,9 @@ use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::generator::{
+    ConstantGenerator, GeneratedValues, SimpleGenerator, WitnessGenerator,
+};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -230,18 +232,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
                 );
                 g
             })
-            .chain((0..self.num_extra_constants).map(|i| {
-                let g: Box<dyn WitnessGenerator<F>> = Box::new(
-                    RandomAccessExtraConstantsGenerator {
-                        gate_index,
-                        gate: *self,
-                        i,
-                        constant: local_constants[i],
-                    }
-                    .adapter(),
-                );
-                g
-            }))
+            // .chain((0..self.num_extra_constants).map(|i| {
+            //     let g: Box<dyn WitnessGenerator<F>> = Box::new(
+            //         RandomAccessExtraConstantsGenerator {
+            //             gate_index,
+            //             gate: *self,
+            //             i,
+            //             constant: local_constants[i],
+            //         }
+            //         .adapter(),
+            //     );
+            //     g
+            // }))
             .collect()
     }
 
@@ -266,9 +268,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         self.num_copies
     }
 
-    fn extra_constants(&self) -> Vec<(usize, usize)> {
+    fn extra_constants(&self, gate_index: usize) -> Vec<ConstantGenerator<F>> {
         (0..self.num_extra_constants)
-            .map(|i| (i, self.wire_extra_constant(i)))
+            .map(|i| ConstantGenerator::new(gate_index, i, self.wire_extra_constant(i), F::ZERO))
             .collect()
     }
 }
@@ -440,6 +442,7 @@ mod tests {
             lists: Vec<Vec<F>>,
             access_indices: Vec<usize>,
             claimed_elements: Vec<F>,
+            constants: &[F],
         ) -> Vec<FF> {
             let num_copies = lists.len();
             let vec_size = lists[0].len();
@@ -458,6 +461,7 @@ mod tests {
                     bit_vals.push(F::from_bool(((access_index >> i) & 1) != 0));
                 }
             }
+            v.extend(constants);
             v.extend(bit_vals);
 
             v.iter().map(|&x| x.into()).collect()
@@ -478,6 +482,7 @@ mod tests {
             num_extra_constants: 1,
             _phantom: PhantomData,
         };
+        let constants = F::rand_vec(gate.num_constants());
 
         let good_claimed_elements = lists
             .iter()
@@ -485,19 +490,26 @@ mod tests {
             .map(|(l, &i)| l[i])
             .collect();
         let good_vars = EvaluationVars {
-            local_constants: &[],
+            local_constants: &constants.iter().map(|&x| x.into()).collect::<Vec<_>>(),
             local_wires: &get_wires(
                 bits,
                 lists.clone(),
                 access_indices.clone(),
                 good_claimed_elements,
+                &constants,
             ),
             public_inputs_hash: &HashOut::rand(),
         };
         let bad_claimed_elements = F::rand_vec(4);
         let bad_vars = EvaluationVars {
-            local_constants: &[],
-            local_wires: &get_wires(bits, lists, access_indices, bad_claimed_elements),
+            local_constants: &constants.iter().map(|&x| x.into()).collect::<Vec<_>>(),
+            local_wires: &get_wires(
+                bits,
+                lists,
+                access_indices,
+                bad_claimed_elements,
+                &constants,
+            ),
             public_inputs_hash: &HashOut::rand(),
         };
 

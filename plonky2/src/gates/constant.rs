@@ -9,7 +9,9 @@ use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use crate::iop::generator::{
+    ConstantGenerator, GeneratedValues, SimpleGenerator, WitnessGenerator,
+};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::PartitionWitness;
@@ -82,20 +84,21 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
         gate_index: usize,
         local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        (0..self.num_consts)
-            .map(|i| {
-                let g: Box<dyn WitnessGenerator<F>> = Box::new(
-                    ConstantGenerator {
-                        gate_index,
-                        gate: *self,
-                        i,
-                        constant: local_constants[self.const_input(i)],
-                    }
-                    .adapter(),
-                );
-                g
-            })
-            .collect()
+        // (0..self.num_consts)
+        //     .map(|i| {
+        //         let g: Box<dyn WitnessGenerator<F>> = Box::new(
+        //             ConstantGenerator {
+        //                 gate_index,
+        //                 gate: *self,
+        //                 i,
+        //                 constant: local_constants[self.const_input(i)],
+        //             }
+        //             .adapter(),
+        //         );
+        //         g
+        //     })
+        //     .collect()
+        vec![]
     }
 
     fn num_wires(&self) -> usize {
@@ -114,9 +117,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
         self.num_consts
     }
 
-    fn extra_constants(&self) -> Vec<(usize, usize)> {
+    fn extra_constants(&self, gate_index: usize) -> Vec<ConstantGenerator<F>> {
         (0..self.num_consts)
-            .map(|i| (self.const_input(i), self.wire_output(i)))
+            .map(|i| {
+                ConstantGenerator::new(
+                    gate_index,
+                    self.const_input(i),
+                    self.wire_output(i),
+                    F::ZERO,
+                )
+            })
             .collect()
     }
 }
@@ -133,27 +143,27 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
     }
 }
 
-#[derive(Debug)]
-struct ConstantGenerator<F: Field> {
-    gate_index: usize,
-    gate: ConstantGate,
-    i: usize,
-    constant: F,
-}
+// #[derive(Debug)]
+// struct ConstantGenerator<F: Field> {
+//     gate_index: usize,
+//     gate: ConstantGate,
+//     i: usize,
+//     constant: F,
+// }
 
-impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
-    fn dependencies(&self) -> Vec<Target> {
-        Vec::new()
-    }
-
-    fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let wire = Wire {
-            gate: self.gate_index,
-            input: self.gate.wire_output(self.i),
-        };
-        out_buffer.set_wire(wire, self.constant);
-    }
-}
+// impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
+//     fn dependencies(&self) -> Vec<Target> {
+//         Vec::new()
+//     }
+//
+//     fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+//         let wire = Wire {
+//             gate: self.gate_index,
+//             input: self.gate.wire_output(self.i),
+//         };
+//         out_buffer.set_wire(wire, self.constant);
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

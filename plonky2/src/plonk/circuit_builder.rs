@@ -28,7 +28,7 @@ use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{
-    CopyGenerator, RandomValueGenerator, SimpleGenerator, WitnessGenerator,
+    ConstantGenerator, CopyGenerator, RandomValueGenerator, SimpleGenerator, WitnessGenerator,
 };
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
@@ -85,8 +85,8 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// Map between gate type and the current gate of this type with available slots.
     current_slots: HashMap<GateRef<F, D>, CurrentSlot<F, D>>,
 
-    /// gate_index, constant_index, target_index
-    constants_slots: Vec<(usize, usize, usize)>,
+    /// gate_index, constant_index, target_index, ConstantGen
+    constants_slots: Vec<ConstantGenerator<F>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -224,9 +224,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let index = self.gate_instances.len();
 
-        for (ci, ti) in gate_type.extra_constants() {
-            self.constants_slots.push((index, ci, ti));
-        }
+        self.constants_slots
+            .extend(gate_type.extra_constants(index));
+        // for const_gen in gate_type.extra_constants() {
+        //     self.constants_slots.push((index, ci, ti, gen));
+        // }
 
         // Note that we can't immediately add this gate's generators, because the list of constants
         // could be modified later, i.e. in the case of `ConstantGate`. We will add them later in
@@ -664,7 +666,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Fill constants
         while self.constants_to_targets.len() > self.constants_slots.len() {
-            dbg!("lfg");
             self.add_gate(
                 ConstantGate {
                     num_consts: self.config.num_constants,
@@ -674,14 +675,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
         dbg!(self.constants_to_targets.len(), self.constants_slots.len());
 
-        for ((c, t), (gate_index, const_wire, target_wire)) in self
+        for ((c, t), mut const_gen) in self
             .constants_to_targets
             .clone()
             .into_iter()
             .zip(self.constants_slots.clone())
         {
-            self.gate_instances[gate_index].constants[const_wire] = c;
-            self.generate_copy(Target::wire(gate_index, target_wire), t);
+            self.gate_instances[const_gen.gate_index].constants[const_gen.constant_index] = c;
+            self.generate_copy(
+                Target::wire(const_gen.gate_index, const_gen.target_index),
+                t,
+            );
+            const_gen.set_constant(c);
+            self.add_simple_generator(const_gen);
         }
 
         info!(

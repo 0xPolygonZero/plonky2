@@ -8,6 +8,7 @@ use plonky2_field::field_types::{Field, PrimeField};
 use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::biguint::BigUintTarget;
 use crate::gadgets::nonnative::NonNativeTarget;
+use crate::gates::gate::Gate;
 use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
@@ -323,5 +324,40 @@ impl<F: Field> SimpleGenerator<F> for NonzeroTestGenerator {
         };
 
         out_buffer.set_target(self.dummy, dummy_value);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ConstantGenerator<F: Field> {
+    pub gate_index: usize,
+    pub constant_index: usize,
+    pub target_index: usize,
+    pub constant: F,
+}
+
+impl<F: Field> ConstantGenerator<F> {
+    pub fn new(gate_index: usize, constant_index: usize, target_index: usize, constant: F) -> Self {
+        ConstantGenerator {
+            gate_index,
+            constant_index,
+            target_index,
+            constant,
+        }
+    }
+
+    pub fn set_constant(&mut self, c: F) {
+        self.constant = c;
+    }
+}
+impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
+    fn dependencies(&self) -> Vec<Target> {
+        vec![]
+    }
+
+    fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+        out_buffer.set_target(
+            Target::wire(self.gate_index, self.target_index),
+            self.constant,
+        );
     }
 }

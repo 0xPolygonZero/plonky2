@@ -12,7 +12,7 @@ use crate::gates::selectors::UNUSED_SELECTOR;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::WitnessGenerator;
+use crate::iop::generator::{ConstantGenerator, WitnessGenerator};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
@@ -181,7 +181,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             .len()
     }
 
-    fn extra_constants(&self) -> Vec<(usize, usize)> {
+    fn extra_constants(&self, _gate_index: usize) -> Vec<ConstantGenerator<F>> {
         vec![]
     }
 }
