@@ -1,9 +1,7 @@
 use std::iter::{DoubleEndedIterator, ExactSizeIterator, FusedIterator, Iterator};
-use std::marker::PhantomData;
 use std::mem::{ManuallyDrop, MaybeUninit};
 use std::ops::{Index, IndexMut};
 use std::ptr;
-use std::slice;
 
 /// Calculates the number of elements in a matrix with the given height and width, panicking on
 /// overflow.
@@ -11,81 +9,60 @@ fn size_checked(height: usize, width: usize) -> usize {
     height.checked_mul(width).expect("memory overflow")
 }
 
-/// Returns an uninitialized `Vec` of lenth `len`.
-fn uninit_vec<T>(len: usize) -> Vec<MaybeUninit<T>> {
-    let mut res: Vec<MaybeUninit<T>> = Vec::with_capacity(len);
+/// Returns an uninitialized boxed slice of lenth `len`.
+fn uninit_box<T>(len: usize) -> Box<[MaybeUninit<T>]> {
+    let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(len);
+    debug_assert_eq!(buf.capacity(), len);
     unsafe {
-        // SAFETY: `with_capacity` guarantees that `res.capacity() == len`, so we're not violating
+        // SAFETY: `with_capacity` guarantees that `buf.capacity() == len`, so we're not violating
         // memory rules. `MaybeUninit` doesn't need initialization, so the values are already valid.
-        debug_assert_eq!(res.capacity(), len);
-        res.set_len(len);
+        buf.set_len(len);
     }
-    res
+    buf.into_boxed_slice()
 }
 
 /// A non-resizeable matrix.
 pub struct Matrix<T> {
-    data: *mut T,
+    data: Box<[T]>,
     height: usize,
     width: usize,
-    _phantom: PhantomData<T>,
 }
 
 impl<T> Matrix<T> {
-    /// Creates a `Matrix<T>` directly from the raw components of another matrix. The matrix takes
-    /// ownership of `data` and becomes responsible for deallocating it.
-    ///
-    /// # Safety
-    ///
-    /// This is unsafe because a number of invariants are assumed and not checked:
-    /// * `height * width * size_of::<T>()` must not overflow `usize`.
-    /// * `data` must be correctly aligned.
-    /// * `data` must point to the start of an allocation (i.e., returned by `std::alloc::alloc` or
-    ///   similar), and that allocation must hold exactly `height * width` instances of `T`.
-    /// * All `height * width` elements pointed to by `data` must be correctly initialized.
-    ///
-    /// Note that these invariants hold when `data` was allocated by a `Vec<T>` whose length and
-    /// capacity both equal `height * width` (and the latter does not overflow).
-    pub unsafe fn from_raw(data: *mut T, height: usize, width: usize) -> Self {
-        Matrix {
+    /// Creates a `Matrix<T>` from a boxed slice. The boxed slice is interpreted as a storing the
+    /// matrix in a row-major order. In other words, `data` is split into contiguous chunks, with
+    /// each chunk treated as a row of the matrix.
+    pub fn from_flat_box(height: usize, width: usize, data: Box<[T]>) -> Self {
+        // NB: We ask for the height _and_ the width to handle edge cases when `data.len() == 0`.
+
+        let size = size_checked(height, width);
+        assert_eq!(
+            size,
+            data.len(),
+            "matrix dimensions do not match boxed slice length"
+        );
+
+        Self {
             data,
             height,
             width,
-            _phantom: PhantomData,
         }
     }
 
     /// Creates a `Matrix<T>` from a vector. The vector is interpreted as a storing the matrix in a
     /// row-major order. In other words, `v` is split into contiguous chunks, with each chunk
     /// treated as a row of the matrix.
+    ///
+    /// This is a convenience wrapper of `from_flat_box`.
     pub fn from_flat_vec(height: usize, width: usize, v: Vec<T>) -> Self {
-        // NB: We ask for the height _and_ the width to handle edge cases when `v.len() == 0`.
-
-        let size = size_checked(height, width);
-        assert_eq!(
-            size,
-            v.len(),
-            "matrix dimensions do not match vector length"
-        );
-
-        // Get the buffer as a box. This is guaranteed to drop excess capacity; this is important
-        // because to correctly deallocate memory we need to know its allocated size.
-        let buf = v.into_boxed_slice();
-
-        // SAFETY: The pointer comes from a vector with `len()` and `capacity()` both equal to
-        // `height * width`. We can assume ownership of the memory since `Box::into_raw`
-        // relinguishes it.
-        unsafe { Self::from_raw(Box::into_raw(buf).cast(), height, width) }
+        Self::from_flat_box(height, width, v.into_boxed_slice())
     }
 
     /// Creates an uninitialized matrix of specified height and width.
     pub fn new_uninit(height: usize, width: usize) -> Matrix<MaybeUninit<T>> {
         let size = size_checked(height, width);
-        let buf_vec = uninit_vec::<T>(size);
-
-        // We don't need `buf_vec.capacity() == size` for safety, it to prevents reallocation.
-        debug_assert_eq!(buf_vec.capacity(), size);
-        Matrix::from_flat_vec(height, width, buf_vec)
+        let buf_box = uninit_box::<T>(size);
+        Matrix::from_flat_box(height, width, buf_box)
     }
 
     /// Creates a new matrix with a specified height and width, initialized with a provided closure.
@@ -109,51 +86,43 @@ impl<T> Matrix<T> {
     }
 
     /// The height of the matrix.
-    pub const fn height(&self) -> usize {
+    pub fn height(&self) -> usize {
         self.height
     }
 
     /// The width of the matrix.
-    pub const fn width(&self) -> usize {
+    pub fn width(&self) -> usize {
         self.width
     }
 
     /// The total size of the matrix, in terms of instances of `T`.
-    pub const fn size(&self) -> usize {
-        self.height * self.width
+    pub fn size(&self) -> usize {
+        debug_assert_eq!(self.height * self.width, self.data.len());
+        self.data.len()
     }
 
     /// Get a reference to the matrix as a row-major slice.
     pub fn as_flat(&self) -> &[T] {
-        // SAFETY: self.data is correctly aligned and of length `self.size()`.
-        unsafe { slice::from_raw_parts(self.data, self.size()) }
+        &self.data
     }
 
     /// Get a mutable reference to the matrix as a row-major slice.
     pub fn as_flat_mut(&mut self) -> &mut [T] {
-        // SAFETY: self.data is correctly aligned and of length `self.size()`.
-        unsafe { slice::from_raw_parts_mut(self.data, self.size()) }
+        &mut self.data
     }
 
     /// Get a reference to a row of the matrix as a slice, returning `None` if out of bounds.
     pub fn get(&self, index: usize) -> Option<&[T]> {
-        if index < self.height {
-            // SAFETY: we just verified that `index` is valid.
-            Some(unsafe { self.get_unchecked(index) })
-        } else {
-            None
-        }
+        self.as_flat()
+            .get(index * self.width..(index + 1) * self.width)
     }
 
     /// Get a mutable reference to a row of the matrix as a slice, returning `None` if out of
     /// bounds.
     pub fn get_mut(&mut self, index: usize) -> Option<&mut [T]> {
-        if index < self.height {
-            // SAFETY: we just verified that `index` is valid.
-            Some(unsafe { self.get_unchecked_mut(index) })
-        } else {
-            None
-        }
+        let width = self.width; // borrow checker is not very smart
+        self.as_flat_mut()
+            .get_mut(index * width..(index + 1) * width)
     }
 
     /// Get a reference to a row of the matrix as a slice, without bounds checks.
@@ -163,8 +132,7 @@ impl<T> Matrix<T> {
     /// The `index` must be valid, i.e. `index < matrix.height()`.
     pub unsafe fn get_unchecked(&self, index: usize) -> &[T] {
         self.as_flat()
-            .get_unchecked(index * self.width..)
-            .get_unchecked(..self.width)
+            .get_unchecked(index * self.width..(index + 1) * self.width)
     }
 
     /// Get a mutable reference to a row of the matrix as a slice, without bounds checks.
@@ -173,10 +141,9 @@ impl<T> Matrix<T> {
     ///
     /// The `index` must be valid, i.e. `index < matrix.height()`.
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut [T] {
-        let width = self.width;
+        let width = self.width; // borrow checker again
         self.as_flat_mut()
-            .get_unchecked_mut(index * width..)
-            .get_unchecked_mut(..width)
+            .get_unchecked_mut(index * width..(index + 1) * width)
     }
 
     /// Iterate over all rows of the matrix as references.
@@ -243,17 +210,55 @@ impl<T> Matrix<T> {
         }
     }
 
+    /// Transmute each element of the matrix from `T` to `U`.
+    ///
+    /// # Safety
+    ///
+    /// Due to interactions with the allocator, this method has stricter requirements than the
+    /// `mem::transmute` function in the library.
+    ///
+    /// Same as `mem::transmute`:
+    /// - `T` and `U` must have the same size.
+    /// - All elements of the matrix must be safe to interpret bitwise as `U`.
+    ///
+    /// Furthermore:
+    /// - `T` and `U` must have the same alignment.
+    unsafe fn transmute<U>(self) -> Matrix<U> {
+        let Matrix {
+            data,
+            height,
+            width,
+        } = self;
+        let size = data.len();
+
+        let ptr: *mut [T] = Box::into_raw(data);
+        // Warning: we cannot panic from now until we've constructed another box. The buffer is
+        // currently not owned by any object, so it would leak if we have to unwind the stack.
+
+        // Rust inexplicably can't cast to a fat pointer (??) so we cast to a thin pointer to `U`,
+        // then we construct a fat pointer to `U`. (lol)
+        let ptr: *mut U = ptr.cast::<U>();
+        let ptr: *mut [U] = ptr::slice_from_raw_parts_mut(ptr, size);
+
+        // SAFETY: The caller guarantees that the preconditions hold.
+        let data: Box<[U]> = Box::from_raw(ptr);
+
+        Matrix {
+            data,
+            height,
+            width,
+        }
+    }
+
     /// Wrap elements of the matrix in `ManuallyDrop`, preventing their drop code being run when
     /// the matrix is dropped.
     ///
     /// Although this function is safe, it can cause memory leaks. To avoid them, ensure that all
     /// resources are correctly dropped in some other way.
     fn manually_drop_elements(self) -> Matrix<ManuallyDrop<T>> {
-        // Prevent `self` from getting dropped.
-        // Warning: must ensure that we can't crash before making a new Matrix or we will leak!
-        let me = ManuallyDrop::new(self);
-        // SAFETY: The pointers and sizes are valid, as element size and alignment does not change.
-        unsafe { Matrix::from_raw(me.data.cast(), me.height, me.width) }
+        // SAFETY: `ManuallyDrop<T>` has the same layout as `T`. `T` can be safely reinterpreted as
+        // `ManuallyDrop<T>`.
+        unsafe { self.transmute::<ManuallyDrop<T>>() }
     }
 }
 
@@ -266,26 +271,16 @@ impl<T> Matrix<MaybeUninit<T>> {
     /// All elements of the matrix must have been correctly initialized, such that they can be
     /// safely transmuted to `T`.
     pub unsafe fn assume_init(self) -> Matrix<T> {
-        // Prevent `self` from getting dropped.
-        // Warning: must ensure that we can't crash before making a new Matrix or we will leak!
-        let me = ManuallyDrop::new(self);
-        Matrix::from_raw(me.data.cast(), me.height, me.width)
+        // SAFETY: `MaybeUninit<T>` has the same layout as `T`. `MaybeUninit<T>` can be safely
+        // reinterpreted as `T` when initialized. The caller guarantees that initialization took
+        // place.
+        self.transmute::<T>()
     }
 }
 
 impl<T: Clone> Clone for Matrix<T> {
     fn clone(&self) -> Self {
         Self::from_flat_vec(self.height, self.width, self.as_flat().to_vec())
-    }
-}
-
-impl<T> Drop for Matrix<T> {
-    fn drop(&mut self) {
-        let sized_data = ptr::slice_from_raw_parts_mut(self.data, self.size());
-        unsafe {
-            // Transfer ownership to a `Box`, which will deallocate when dropped.
-            Box::from_raw(sized_data);
-        }
     }
 }
 
@@ -353,15 +348,6 @@ mod tests {
                 assert_eq!(m[i][j], (WIDTH * i + j) as u64);
             }
         }
-    }
-
-    #[test]
-    fn test_from_raw() {
-        let buf: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
-        let m: Matrix<u64> = unsafe {
-            Matrix::from_raw(Box::into_raw(buf.into_boxed_slice()).cast(), HEIGHT, WIDTH)
-        };
-        check_matrix(m);
     }
 
     #[test]
