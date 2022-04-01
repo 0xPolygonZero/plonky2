@@ -8,6 +8,7 @@ use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
 use crate::alu::addition::{eval_addition, eval_addition_recursively, generate_addition};
+use crate::alu::bitand::{eval_bitand, eval_bitand_recursively, generate_bitand};
 use crate::alu::division::{eval_division, eval_division_recursively, generate_division};
 use crate::alu::mul_add::{eval_mul_add, eval_mul_add_recursively, generate_mul_add};
 use crate::alu::subtraction::{
@@ -18,6 +19,7 @@ use crate::registers::alu::*;
 use crate::registers::NUM_COLUMNS;
 
 mod addition;
+mod bitand;
 mod canonical;
 mod division;
 mod mul_add;
@@ -32,6 +34,8 @@ pub(crate) fn generate_alu<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
         generate_mul_add(values);
     } else if values[IS_DIV].is_one() {
         generate_division(values);
+    } else if values[IS_BITAND].is_one() {
+        generate_bitand(values);
     }
 }
 
@@ -42,7 +46,7 @@ pub(crate) fn eval_alu<F: Field, P: PackedField<Scalar = F>>(
     let local_values = &vars.local_values;
 
     // Check that the operation flag values are binary.
-    for col in [IS_ADD, IS_SUB, IS_MUL_ADD, IS_DIV] {
+    for col in [IS_ADD, IS_SUB, IS_MUL_ADD, IS_DIV, IS_BITAND] {
         let val = local_values[col];
         yield_constr.constraint(val * val - val);
     }
@@ -51,6 +55,7 @@ pub(crate) fn eval_alu<F: Field, P: PackedField<Scalar = F>>(
     eval_subtraction(local_values, yield_constr);
     eval_mul_add(local_values, yield_constr);
     eval_division(local_values, yield_constr);
+    eval_bitand(local_values, yield_constr);
 }
 
 pub(crate) fn eval_alu_recursively<F: RichField + Extendable<D>, const D: usize>(
@@ -61,7 +66,7 @@ pub(crate) fn eval_alu_recursively<F: RichField + Extendable<D>, const D: usize>
     let local_values = &vars.local_values;
 
     // Check that the operation flag values are binary.
-    for col in [IS_ADD, IS_SUB, IS_MUL_ADD, IS_DIV] {
+    for col in [IS_ADD, IS_SUB, IS_MUL_ADD, IS_DIV, IS_BITAND] {
         let val = local_values[col];
         let constraint = builder.mul_sub_extension(val, val, val);
         yield_constr.constraint(builder, constraint);
@@ -71,4 +76,5 @@ pub(crate) fn eval_alu_recursively<F: RichField + Extendable<D>, const D: usize>
     eval_subtraction_recursively(builder, local_values, yield_constr);
     eval_mul_add_recursively(builder, local_values, yield_constr);
     eval_division_recursively(builder, local_values, yield_constr);
+    eval_bitand_recursively(builder, local_values, yield_constr);
 }
