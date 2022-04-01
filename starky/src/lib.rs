@@ -1,6 +1,3 @@
-// TODO: Remove these when crate is closer to being finished.
-#![allow(dead_code)]
-#![allow(unused_variables)]
 #![allow(incomplete_features)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]

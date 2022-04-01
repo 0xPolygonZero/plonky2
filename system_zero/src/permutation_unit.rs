@@ -269,7 +269,6 @@ mod tests {
 
     #[test]
     fn generate_eval_consistency() {
-        const D: usize = 1;
         type F = GoldilocksField;
 
         let mut values = [F::default(); NUM_COLUMNS];
@@ -295,7 +294,6 @@ mod tests {
 
     #[test]
     fn poseidon_result() {
-        const D: usize = 1;
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);

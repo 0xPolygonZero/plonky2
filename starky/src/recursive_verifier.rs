@@ -126,9 +126,8 @@ fn recursively_verify_stark_proof_with_challenges<
     let vanishing_polys_zeta = consumer.accumulators();
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
-    let quotient_polys_zeta = &proof.openings.quotient_polys;
     let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
-    for (i, chunk) in quotient_polys_zeta
+    for (i, chunk) in quotient_polys
         .chunks(stark.quotient_degree_factor())
         .enumerate()
     {
