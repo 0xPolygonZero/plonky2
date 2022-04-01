@@ -106,7 +106,6 @@ where
     let vanishing_polys_zeta = consumer.accumulators();
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
-    let quotient_polys_zeta = &proof.openings.quotient_polys;
     let zeta_pow_deg = challenges.stark_zeta.exp_power_of_2(degree_bits);
     let z_h_zeta = zeta_pow_deg - F::Extension::ONE;
     // `quotient_polys_zeta` holds `num_challenges * quotient_degree_factor` evaluations.
@@ -114,7 +113,7 @@ where
     // where the "real" quotient polynomial is `t(X) = t_0(X) + t_1(X)*X^n + t_2(X)*X^{2n} + ...`.
     // So to reconstruct `t(zeta)` we can compute `reduce_with_powers(chunk, zeta^n)` for each
     // `quotient_degree_factor`-sized chunk of the original evaluations.
-    for (i, chunk) in quotient_polys_zeta
+    for (i, chunk) in quotient_polys
         .chunks(stark.quotient_degree_factor())
         .enumerate()
     {

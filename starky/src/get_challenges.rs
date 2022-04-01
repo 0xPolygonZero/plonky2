@@ -75,6 +75,8 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
+    // TODO: Should be used later in compression?
+    #![allow(dead_code)]
     pub(crate) fn fri_query_indices<S: Stark<F, D>>(
         &self,
         stark: &S,

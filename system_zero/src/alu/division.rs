@@ -170,7 +170,6 @@ mod tests {
 
     #[test]
     fn generate_eval_consistency_not_div() {
-        const D: usize = 1;
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
@@ -193,7 +192,6 @@ mod tests {
 
     #[test]
     fn generate_eval_consistency_div() {
-        const D: usize = 1;
         type F = GoldilocksField;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);

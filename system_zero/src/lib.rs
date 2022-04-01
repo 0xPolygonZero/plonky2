@@ -1,7 +1,3 @@
-// TODO: Remove these when crate is closer to being finished.
-#![allow(dead_code)]
-#![allow(unused_variables)]
-
 mod alu;
 mod core_registers;
 pub mod lookup;
