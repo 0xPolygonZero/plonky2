@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::packed_field::PackedField;
 
@@ -6,7 +8,7 @@ use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::{ConstantGenerator, WitnessGenerator};
+use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
@@ -95,17 +97,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
         self.num_consts
     }
 
-    fn extra_constants(&self, gate_index: usize) -> Vec<ConstantGenerator<F>> {
-        (0..self.num_consts)
-            .map(|i| {
-                ConstantGenerator::new(
-                    gate_index,
-                    self.const_input(i),
-                    self.wire_output(i),
-                    F::ZERO,
-                )
-            })
-            .collect()
+    fn extra_constant_wires(&self) -> Range<usize> {
+        0..self.num_consts
     }
 }
 
