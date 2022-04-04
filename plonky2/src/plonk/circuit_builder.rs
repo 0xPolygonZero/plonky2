@@ -222,7 +222,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let gate_index = self.gate_instances.len();
 
         self.constant_generators
-            .extend(gate_type.extra_constant_wires().enumerate().map(
+            .extend(gate_type.extra_constant_wires().into_iter().map(
                 |(constant_index, wire_index)| ConstantGenerator {
                     gate_index,
                     constant_index,

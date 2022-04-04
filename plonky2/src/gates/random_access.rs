@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-use std::ops::Range;
 
 use itertools::Itertools;
 use plonky2_field::extension_field::Extendable;
@@ -254,9 +253,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         self.num_copies * constraints_per_copy + self.num_extra_constants
     }
 
-    fn extra_constant_wires(&self) -> Range<usize> {
-        let start = self.start_extra_constants();
-        start..(start + self.num_extra_constants)
+    fn extra_constant_wires(&self) -> Vec<(usize, usize)> {
+        (0..self.num_extra_constants)
+            .map(|i| (i, self.wire_extra_constant(i)))
+            .collect()
     }
 }
 

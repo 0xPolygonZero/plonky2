@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::packed_field::PackedField;
 
@@ -97,8 +95,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
         self.num_consts
     }
 
-    fn extra_constant_wires(&self) -> Range<usize> {
-        0..self.num_consts
+    fn extra_constant_wires(&self) -> Vec<(usize, usize)> {
+        (0..self.num_consts)
+            .map(|i| (self.const_input(i), self.wire_output(i)))
+            .collect()
     }
 }
 

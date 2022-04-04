@@ -181,9 +181,13 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             .len()
     }
 
-    /// Routed wire indices that can be used to store extra constants.
-    fn extra_constant_wires(&self) -> Range<usize> {
-        0..0
+    /// Enables gates to store some "routed constants", if they have both unused constants and
+    /// unused routed wires.
+    ///
+    /// Each entry in the returned `Vec` has the form `(constant_index, wire_index)`. `wire_index`
+    /// must correspond to a *routed* wire.
+    fn extra_constant_wires(&self) -> Vec<(usize, usize)> {
+        vec![]
     }
 }
 
