@@ -223,10 +223,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         self.constant_generators
             .extend(gate_type.extra_constant_wires().enumerate().map(
-                |(constant_index, input_index)| ConstantGenerator {
+                |(constant_index, wire_index)| ConstantGenerator {
                     gate_index,
                     constant_index,
-                    input_index,
+                    wire_index,
                     constant: F::ZERO, // Placeholder; will be replaced later.
                 },
             ));
@@ -685,7 +685,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             // Set the constant in the constant polynomial.
             self.gate_instances[const_gen.gate_index].constants[const_gen.constant_index] = c;
             // Generate a copy between the target and the routable wire.
-            self.connect(Target::wire(const_gen.gate_index, const_gen.input_index), t);
+            self.connect(Target::wire(const_gen.gate_index, const_gen.wire_index), t);
             // Set the constant in the generator (it's initially set with a dummy value).
             const_gen.set_constant(c);
             self.add_simple_generator(const_gen);

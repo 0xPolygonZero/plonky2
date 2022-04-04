@@ -331,7 +331,7 @@ impl<F: Field> SimpleGenerator<F> for NonzeroTestGenerator {
 pub(crate) struct ConstantGenerator<F: Field> {
     pub gate_index: usize,
     pub constant_index: usize,
-    pub input_index: usize,
+    pub wire_index: usize,
     pub constant: F,
 }
 
@@ -348,7 +348,7 @@ impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
 
     fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         out_buffer.set_target(
-            Target::wire(self.gate_index, self.input_index),
+            Target::wire(self.gate_index, self.wire_index),
             self.constant,
         );
     }
