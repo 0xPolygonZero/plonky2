@@ -219,10 +219,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         constants.resize(gate_type.num_constants(), F::ZERO);
 
-        let index = self.gate_instances.len();
+        let gate_index = self.gate_instances.len();
 
         self.constant_generators
-            .extend(gate_type.extra_constants(index));
+            .extend(gate_type.extra_constant_wires().into_iter().map(
+                |(constant_index, wire_index)| ConstantGenerator {
+                    gate_index,
+                    constant_index,
+                    wire_index,
+                    constant: F::ZERO, // Placeholder; will be replaced later.
+                },
+            ));
 
         // Note that we can't immediately add this gate's generators, because the list of constants
         // could be modified later, i.e. in the case of `ConstantGate`. We will add them later in
@@ -237,7 +244,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants,
         });
 
-        index
+        gate_index
     }
 
     fn check_gate_compatibility<G: Gate<F, D>>(&self, gate: &G) {
@@ -678,10 +685,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             // Set the constant in the constant polynomial.
             self.gate_instances[const_gen.gate_index].constants[const_gen.constant_index] = c;
             // Generate a copy between the target and the routable wire.
-            self.connect(
-                Target::wire(const_gen.gate_index, const_gen.target_index),
-                t,
-            );
+            self.connect(Target::wire(const_gen.gate_index, const_gen.wire_index), t);
             // Set the constant in the generator (it's initially set with a dummy value).
             const_gen.set_constant(c);
             self.add_simple_generator(const_gen);

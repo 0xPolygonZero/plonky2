@@ -10,9 +10,7 @@ use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::{
-    ConstantGenerator, GeneratedValues, SimpleGenerator, WitnessGenerator,
-};
+use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
 use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
@@ -77,17 +75,17 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
         (2 + self.vec_size()) * copy + 2 + i
     }
 
-    fn num_ram_wires(&self) -> usize {
+    fn start_extra_constants(&self) -> usize {
         (2 + self.vec_size()) * self.num_copies
     }
 
     fn wire_extra_constant(&self, i: usize) -> usize {
         debug_assert!(i < self.num_extra_constants);
-        self.num_ram_wires() + i
+        self.start_extra_constants() + i
     }
 
     pub fn num_routed_wires(&self) -> usize {
-        self.num_ram_wires() + self.num_extra_constants
+        self.start_extra_constants() + self.num_extra_constants
     }
 
     /// An intermediate wire where the prover gives the (purported) binary decomposition of the
@@ -255,9 +253,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         self.num_copies * constraints_per_copy + self.num_extra_constants
     }
 
-    fn extra_constants(&self, gate_index: usize) -> Vec<ConstantGenerator<F>> {
+    fn extra_constant_wires(&self) -> Vec<(usize, usize)> {
         (0..self.num_extra_constants)
-            .map(|i| ConstantGenerator::new(gate_index, i, self.wire_extra_constant(i), F::ZERO))
+            .map(|i| (i, self.wire_extra_constant(i)))
             .collect()
     }
 }
