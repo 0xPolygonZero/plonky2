@@ -26,14 +26,16 @@ use crate::plonk::vars::{
 pub(crate) struct RandomAccessGate<F: RichField + Extendable<D>, const D: usize> {
     pub bits: usize,
     pub num_copies: usize,
+    pub num_extra_constants: usize,
     _phantom: PhantomData<F>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
-    fn new(num_copies: usize, bits: usize) -> Self {
+    fn new(num_copies: usize, bits: usize, num_extra_constants: usize) -> Self {
         Self {
             bits,
             num_copies,
+            num_extra_constants,
             _phantom: PhantomData,
         }
     }
@@ -45,7 +47,12 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
             // Need `(2 + vec_size + bits) * num_copies` wires
             config.num_wires / (2 + vec_size + bits),
         );
-        Self::new(max_copies, bits)
+        let max_extra_constants = config.num_routed_wires - (2 + vec_size) * max_copies;
+        Self::new(
+            max_copies,
+            bits,
+            max_extra_constants.min(config.num_constants),
+        )
     }
 
     fn vec_size(&self) -> usize {
@@ -68,12 +75,17 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
         (2 + self.vec_size()) * copy + 2 + i
     }
 
-    fn start_of_intermediate_wires(&self) -> usize {
+    fn start_extra_constants(&self) -> usize {
         (2 + self.vec_size()) * self.num_copies
     }
 
-    pub(crate) fn num_routed_wires(&self) -> usize {
-        self.start_of_intermediate_wires()
+    fn wire_extra_constant(&self, i: usize) -> usize {
+        debug_assert!(i < self.num_extra_constants);
+        self.start_extra_constants() + i
+    }
+
+    pub fn num_routed_wires(&self) -> usize {
+        self.start_extra_constants() + self.num_extra_constants
     }
 
     /// An intermediate wire where the prover gives the (purported) binary decomposition of the
@@ -81,7 +93,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
     pub fn wire_bit(&self, i: usize, copy: usize) -> usize {
         debug_assert!(i < self.bits);
         debug_assert!(copy < self.num_copies);
-        self.start_of_intermediate_wires() + copy * self.bits + i
+        self.num_routed_wires() + copy * self.bits + i
     }
 }
 
@@ -128,6 +140,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
             debug_assert_eq!(list_items.len(), 1);
             constraints.push(list_items[0] - claimed_element);
         }
+
+        constraints.extend(
+            (0..self.num_extra_constants)
+                .map(|i| vars.local_constants[i] - vars.local_wires[self.wire_extra_constant(i)]),
+        );
 
         constraints
     }
@@ -189,6 +206,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
             constraints.push(builder.sub_extension(list_items[0], claimed_element));
         }
 
+        constraints.extend((0..self.num_extra_constants).map(|i| {
+            builder.sub_extension(
+                vars.local_constants[i],
+                vars.local_wires[self.wire_extra_constant(i)],
+            )
+        }));
+
         constraints
     }
 
@@ -217,7 +241,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
     }
 
     fn num_constants(&self) -> usize {
-        0
+        self.num_extra_constants
     }
 
     fn degree(&self) -> usize {
@@ -226,7 +250,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
 
     fn num_constraints(&self) -> usize {
         let constraints_per_copy = self.bits + 2;
-        self.num_copies * constraints_per_copy
+        self.num_copies * constraints_per_copy + self.num_extra_constants
+    }
+
+    fn extra_constant_wires(&self) -> Vec<(usize, usize)> {
+        (0..self.num_extra_constants)
+            .map(|i| (i, self.wire_extra_constant(i)))
+            .collect()
     }
 }
 
@@ -270,6 +300,10 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
             debug_assert_eq!(list_items.len(), 1);
             yield_constr.one(list_items[0] - claimed_element);
         }
+        yield_constr.many(
+            (0..self.num_extra_constants)
+                .map(|i| vars.local_constants[i] - vars.local_wires[self.wire_extra_constant(i)]),
+        );
     }
 }
 
@@ -344,7 +378,7 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        test_low_degree::<GoldilocksField, _, 4>(RandomAccessGate::new(4, 4));
+        test_low_degree::<GoldilocksField, _, 4>(RandomAccessGate::new(4, 4, 1));
     }
 
     #[test]
@@ -352,7 +386,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        test_eval_fns::<F, C, _, D>(RandomAccessGate::new(4, 4))
+        test_eval_fns::<F, C, _, D>(RandomAccessGate::new(4, 4, 1))
     }
 
     #[test]
@@ -369,6 +403,7 @@ mod tests {
             lists: Vec<Vec<F>>,
             access_indices: Vec<usize>,
             claimed_elements: Vec<F>,
+            constants: &[F],
         ) -> Vec<FF> {
             let num_copies = lists.len();
             let vec_size = lists[0].len();
@@ -387,6 +422,7 @@ mod tests {
                     bit_vals.push(F::from_bool(((access_index >> i) & 1) != 0));
                 }
             }
+            v.extend(constants);
             v.extend(bit_vals);
 
             v.iter().map(|&x| x.into()).collect()
@@ -404,8 +440,10 @@ mod tests {
         let gate = RandomAccessGate::<F, D> {
             bits,
             num_copies,
+            num_extra_constants: 1,
             _phantom: PhantomData,
         };
+        let constants = F::rand_vec(gate.num_constants());
 
         let good_claimed_elements = lists
             .iter()
@@ -413,19 +451,26 @@ mod tests {
             .map(|(l, &i)| l[i])
             .collect();
         let good_vars = EvaluationVars {
-            local_constants: &[],
+            local_constants: &constants.iter().map(|&x| x.into()).collect::<Vec<_>>(),
             local_wires: &get_wires(
                 bits,
                 lists.clone(),
                 access_indices.clone(),
                 good_claimed_elements,
+                &constants,
             ),
             public_inputs_hash: &HashOut::rand(),
         };
         let bad_claimed_elements = F::rand_vec(4);
         let bad_vars = EvaluationVars {
-            local_constants: &[],
-            local_wires: &get_wires(bits, lists, access_indices, bad_claimed_elements),
+            local_constants: &constants.iter().map(|&x| x.into()).collect::<Vec<_>>(),
+            local_wires: &get_wires(
+                bits,
+                lists,
+                access_indices,
+                bad_claimed_elements,
+                &constants,
+            ),
             public_inputs_hash: &HashOut::rand(),
         };
 

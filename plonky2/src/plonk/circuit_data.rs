@@ -33,7 +33,7 @@ use crate::util::timing::TimingTree;
 pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
-    pub constant_gate_size: usize,
+    pub num_constants: usize,
     /// Whether to use a dedicated gate for base field arithmetic, rather than using a single gate
     /// for both base field and extension field arithmetic.
     pub use_base_arithmetic_gate: bool,
@@ -64,7 +64,7 @@ impl CircuitConfig {
         Self {
             num_wires: 135,
             num_routed_wires: 80,
-            constant_gate_size: 5,
+            num_constants: 2,
             use_base_arithmetic_gate: true,
             security_bits: 100,
             num_challenges: 2,
