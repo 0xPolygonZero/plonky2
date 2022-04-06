@@ -4,7 +4,6 @@ use std::marker::PhantomData;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 
-use crate::gadgets::arithmetic_u32::U32Target;
 use crate::hash::hash_types::{HashOut, HashOutTarget, RichField};
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
@@ -160,10 +159,6 @@ impl<F: Field> GeneratedValues<F> {
 
     pub fn set_bool_target(&mut self, target: BoolTarget, value: bool) {
         self.set_target(target.target, F::from_bool(value))
-    }
-
-    pub fn set_u32_target(&mut self, target: U32Target, value: u32) {
-        self.set_target(target.0, F::from_canonical_u32(value))
     }
 
     pub fn set_hash_target(&mut self, ht: HashOutTarget, value: HashOut<F>) {

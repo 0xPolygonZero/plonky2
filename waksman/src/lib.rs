@@ -6,5 +6,6 @@
 #![allow(clippy::return_self_not_must_use)]
 
 pub mod bimap;
+pub mod gates;
 pub mod permutation;
 pub mod sorting;

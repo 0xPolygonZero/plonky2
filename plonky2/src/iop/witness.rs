@@ -6,7 +6,6 @@ use plonky2_field::field_types::Field;
 
 use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::witness_util::set_fri_proof_target;
-use crate::gadgets::arithmetic_u32::U32Target;
 use crate::hash::hash_types::HashOutTarget;
 use crate::hash::hash_types::RichField;
 use crate::hash::hash_types::{HashOut, MerkleCapTarget};
@@ -126,10 +125,6 @@ pub trait Witness<F: Field> {
 
     fn set_bool_target(&mut self, target: BoolTarget, value: bool) {
         self.set_target(target.target, F::from_bool(value))
-    }
-
-    fn set_u32_target(&mut self, target: U32Target, value: u32) {
-        self.set_target(target.0, F::from_canonical_u32(value))
     }
 
     /// Set the targets in a `ProofWithPublicInputsTarget` to their corresponding values in a

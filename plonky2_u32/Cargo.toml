@@ -1,18 +1,15 @@
 [package]
-name = "plonky2_ecdsa"
+name = "plonky2_u32"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.40"
+rand = "0.8.4"
+num = { version = "0.4", features = [ "rand" ] }
+itertools = "0.10.0"
 plonky2 = { path = "../plonky2" }
 plonky2_util = { path = "../util" }
 plonky2_field = { path = "../field" }
-plonky2_u32 = { path = "../plonky2_u32" }
-num = "0.4.0"
-itertools = "0.10.0"
-rayon = "1.5.1"
-serde = { version = "1.0", features = ["derive"] }
-anyhow = "1.0.40"
-rand = "0.8.4"

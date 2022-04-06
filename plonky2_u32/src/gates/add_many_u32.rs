@@ -1,21 +1,20 @@
 use std::marker::PhantomData;
 
 use itertools::unfold;
+use plonky2::gates::gate::Gate;
+use plonky2::gates::util::StridedConstraintConsumer;
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use plonky2::iop::target::Target;
+use plonky2::iop::wire::Wire;
+use plonky2::iop::witness::{PartitionWitness, Witness};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::circuit_data::CircuitConfig;
+use plonky2::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use plonky2_field::extension_field::Extendable;
+use plonky2_field::field_types::Field;
 use plonky2_util::ceil_div_usize;
-
-use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
-use crate::gates::gate::Gate;
-use crate::gates::util::StridedConstraintConsumer;
-use crate::hash::hash_types::RichField;
-use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::iop::target::Target;
-use crate::iop::wire::Wire;
-use crate::iop::witness::{PartitionWitness, Witness};
-use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::CircuitConfig;
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 const LOG2_MAX_NUM_ADDENDS: usize = 4;
 const MAX_NUM_ADDENDS: usize = 16;
@@ -349,17 +348,17 @@ mod tests {
 
     use anyhow::Result;
     use itertools::unfold;
+    use plonky2::gates::gate::Gate;
+    use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
+    use plonky2::hash::hash_types::HashOut;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::plonk::vars::EvaluationVars;
+    use plonky2_field::extension_field::quartic::QuarticExtension;
+    use plonky2_field::field_types::Field;
+    use plonky2_field::goldilocks_field::GoldilocksField;
     use rand::Rng;
 
-    use crate::field::extension_field::quartic::QuarticExtension;
-    use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::add_many_u32::U32AddManyGate;
-    use crate::gates::gate::Gate;
-    use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use crate::hash::hash_types::HashOut;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::vars::EvaluationVars;
 
     #[test]
     fn low_degree() {

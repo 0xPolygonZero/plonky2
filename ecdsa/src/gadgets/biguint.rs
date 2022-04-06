@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use num::{BigUint, Integer, Zero};
-use plonky2::gadgets::arithmetic_u32::U32Target;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::{BoolTarget, Target};
@@ -9,6 +8,9 @@ use plonky2::iop::witness::{PartitionWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::PrimeField;
+use plonky2_u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
+use plonky2_u32::gadgets::multiple_comparison::list_le_u32_circuit;
+use plonky2_u32::witness::{generated_values_set_u32_target, witness_set_u32_target};
 
 #[derive(Clone, Debug)]
 pub struct BigUintTarget {
@@ -124,7 +126,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
     fn cmp_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BoolTarget {
         let (a, b) = self.pad_biguints(a, b);
 
-        self.list_le_u32(a.limbs, b.limbs)
+        list_le_u32_circuit(self, a.limbs, b.limbs)
     }
 
     fn add_virtual_biguint_target(&mut self, num_limbs: usize) -> BigUintTarget {
@@ -289,7 +291,7 @@ pub fn witness_set_biguint_target<W: Witness<F>, F: PrimeField>(
     assert!(target.num_limbs() >= limbs.len());
     limbs.resize(target.num_limbs(), 0);
     for i in 0..target.num_limbs() {
-        witness.set_u32_target(target.limbs[i], limbs[i]);
+        witness_set_u32_target(witness, target.limbs[i], limbs[i]);
     }
 }
 
@@ -302,7 +304,7 @@ pub fn buffer_set_biguint_target<F: PrimeField>(
     assert!(target.num_limbs() >= limbs.len());
     limbs.resize(target.num_limbs(), 0);
     for i in 0..target.num_limbs() {
-        buffer.set_u32_target(target.get_limb(i), limbs[i]);
+        generated_values_set_u32_target(buffer, target.get_limb(i), limbs[i]);
     }
 }
 

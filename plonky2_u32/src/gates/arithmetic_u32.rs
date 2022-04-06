@@ -1,25 +1,24 @@
 use std::marker::PhantomData;
 
 use itertools::unfold;
-use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::Field;
-use plonky2_field::packed_field::PackedField;
-
-use crate::gates::gate::Gate;
-use crate::gates::packed_util::PackedEvaluableBase;
-use crate::gates::util::StridedConstraintConsumer;
-use crate::hash::hash_types::RichField;
-use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::iop::target::Target;
-use crate::iop::wire::Wire;
-use crate::iop::witness::{PartitionWitness, Witness};
-use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::CircuitConfig;
-use crate::plonk::vars::{
+use plonky2::gates::gate::Gate;
+use plonky2::gates::packed_util::PackedEvaluableBase;
+use plonky2::gates::util::StridedConstraintConsumer;
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use plonky2::iop::target::Target;
+use plonky2::iop::wire::Wire;
+use plonky2::iop::witness::{PartitionWitness, Witness};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::circuit_data::CircuitConfig;
+use plonky2::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
 };
+use plonky2_field::extension_field::Extendable;
+use plonky2_field::field_types::Field;
+use plonky2_field::packed_field::PackedField;
 
 /// A gate to perform a basic mul-add on 32-bit values (we assume they are range-checked beforehand).
 #[derive(Copy, Clone, Debug)]
@@ -349,16 +348,16 @@ mod tests {
     use std::marker::PhantomData;
 
     use anyhow::Result;
+    use plonky2::gates::gate::Gate;
+    use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
+    use plonky2::hash::hash_types::HashOut;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::plonk::vars::EvaluationVars;
     use plonky2_field::field_types::Field;
     use plonky2_field::goldilocks_field::GoldilocksField;
     use rand::Rng;
 
     use crate::gates::arithmetic_u32::U32ArithmeticGate;
-    use crate::gates::gate::Gate;
-    use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use crate::hash::hash_types::HashOut;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::vars::EvaluationVars;
 
     #[test]
     fn low_degree() {

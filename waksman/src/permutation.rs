@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
 use plonky2::field::{extension_field::Extendable, field_types::Field};
-use plonky2::gates::switch::SwitchGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::Target;
@@ -10,6 +9,7 @@ use plonky2::iop::witness::{PartitionWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::bimap::bimap_from_lists;
+use crate::gates::switch::SwitchGate;
 
 /// Assert that two lists of expressions evaluate to permutations of one another.
 pub fn assert_permutation<F: RichField + Extendable<D>, const D: usize>(
