@@ -8,7 +8,7 @@ use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
 use crate::alu::addition::{eval_addition, eval_addition_recursively, generate_addition};
-use crate::alu::bitand::{eval_bitand, eval_bitand_recursively, generate_bitand};
+use crate::alu::bitops::{eval_bitand, eval_bitand_recursively, generate_bitand};
 use crate::alu::division::{eval_division, eval_division_recursively, generate_division};
 use crate::alu::mul_add::{eval_mul_add, eval_mul_add_recursively, generate_mul_add};
 use crate::alu::subtraction::{
@@ -19,7 +19,7 @@ use crate::registers::alu::*;
 use crate::registers::NUM_COLUMNS;
 
 mod addition;
-mod bitand;
+mod bitops;
 mod canonical;
 mod division;
 mod mul_add;
