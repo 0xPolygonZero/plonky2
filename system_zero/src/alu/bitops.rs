@@ -105,6 +105,8 @@ where
         .sum()
 }
 
+/// Apply `func` to each pair (lhs[i], rhs[i]) then pass the resulting
+/// list to `binary_to_u32`.
 fn bitwise_mapreduce<F, P>(
     func: fn(P, P) -> P,
     lhs: [P; 32],
@@ -120,6 +122,7 @@ where
             .map(|(b0, b1)| func(b0, b1)))
 }
 
+/// As for `binary_to_u32` but uses `builder`.
 fn binary_to_u32_recursively<F, const D: usize, I>(
     builder: &mut CircuitBuilder<F, D>,
     bits: I
@@ -137,15 +140,18 @@ where
     builder.add_many_extension(&terms)
 }
 
-fn bitwise_mapreduce_recursively<F, const D: usize>(
+/// As for `bitwise_mapreduce` but uses `builder`.
+fn bitwise_mapreduce_recursively<F, const D: usize, Func>(
     builder: &mut CircuitBuilder<F, D>,
-    func: fn(&mut CircuitBuilder<F, D>, ExtensionTarget<D>, ExtensionTarget<D>) -> ExtensionTarget<D>,
+    func: Func,
     lhs: [ExtensionTarget<D>; 32],
     rhs: [ExtensionTarget<D>; 32]
 ) -> ExtensionTarget<D>
 where
-    F: RichField + Extendable<D>
+    F: RichField + Extendable<D>,
+    Func: Fn(&mut CircuitBuilder<F, D>, ExtensionTarget<D>, ExtensionTarget<D>) -> ExtensionTarget<D>,
 {
+    // TODO: Try to get something like the following to work:
     // let terms = lhs
     //     .into_iter()
     //     .zip(rhs.into_iter())
@@ -157,6 +163,10 @@ where
     binary_to_u32_recursively(builder, terms.into_iter())
 }
 
+/// Use the `COL_BIT_DECOMP_INPUT_[AB]_{LO,HI}_*` registers to read
+/// bits from `values`, apply `bitop` to the reconstructed u32's (both
+/// lo and hi, for 64 bits total), and write the result to the
+/// `COL_BITOP_OUTPUT_*` registers.
 fn generate_bitop<F: PrimeField64>(
     bitop: fn(u32, u32) -> u32,
     values: &mut [F; NUM_COLUMNS]
@@ -176,19 +186,27 @@ fn generate_bitop<F: PrimeField64>(
     let out_hi = bitop(in_a_hi, in_b_hi);
 
     // Output in base 2^16.
-    values[COL_BITAND_OUTPUT_0] = F::from_canonical_u16(out_lo as u16);
-    values[COL_BITAND_OUTPUT_1] = F::from_canonical_u16((out_lo >> 16) as u16);
-    values[COL_BITAND_OUTPUT_2] = F::from_canonical_u16(out_hi as u16);
-    values[COL_BITAND_OUTPUT_3] = F::from_canonical_u16((out_hi >> 16) as u16);
+    values[COL_BITOP_OUTPUT_0] = F::from_canonical_u16(out_lo as u16);
+    values[COL_BITOP_OUTPUT_1] = F::from_canonical_u16((out_lo >> 16) as u16);
+    values[COL_BITOP_OUTPUT_2] = F::from_canonical_u16(out_hi as u16);
+    values[COL_BITOP_OUTPUT_3] = F::from_canonical_u16((out_hi >> 16) as u16);
 }
 
+/// Verify a `bitop_instr` instruction.
+///
+/// Read the bits from the `COL_BIT_DECOMP_INPUT_[AB]_{LO,HI}_*`
+/// registers in `lv` ("local values"), and use `bitop` build the
+/// expected outputs. Yield constraints in `yield_constr` that force
+/// the expected outputs to match the values in the
+/// `COL_BITOP_OUTPUT_*` registers of `lv`.
 fn eval_bitop<F: Field, P: PackedField<Scalar = F>>(
+    bitop_instr: usize,
     bitop: fn(P, P) -> P,
     lv: &[P; NUM_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     // Filter
-    let is_bitand = lv[IS_BITAND];
+    let is_bitop = lv[bitop_instr];
 
     // Inputs
     let input_a_lo_bits = COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS.map(|r| lv[r]);
@@ -198,26 +216,31 @@ fn eval_bitop<F: Field, P: PackedField<Scalar = F>>(
 
     // Output
     let base = F::from_canonical_u64(1 << 16);
-    let output_lo = lv[COL_BITAND_OUTPUT_0] + lv[COL_BITAND_OUTPUT_1] * base;
-    let output_hi = lv[COL_BITAND_OUTPUT_2] + lv[COL_BITAND_OUTPUT_3] * base;
+    let output_lo = lv[COL_BITOP_OUTPUT_0] + lv[COL_BITOP_OUTPUT_1] * base;
+    let output_hi = lv[COL_BITOP_OUTPUT_2] + lv[COL_BITOP_OUTPUT_3] * base;
 
     let output_lo_expected = bitwise_mapreduce(
         bitop, input_a_lo_bits, input_b_lo_bits);
-    yield_constr.constraint(is_bitand * (output_lo - output_lo_expected));
+    yield_constr.constraint(is_bitop * (output_lo - output_lo_expected));
 
     let output_hi_expected = bitwise_mapreduce(
         bitop, input_a_hi_bits, input_b_hi_bits);
-    yield_constr.constraint(is_bitand * (output_hi - output_hi_expected));
+    yield_constr.constraint(is_bitop * (output_hi - output_hi_expected));
 }
 
-fn eval_bitop_recursively<F: RichField + Extendable<D>, const D: usize>(
+/// As for `eval_bitop`, but build with `builder`.
+fn eval_bitop_recursively<F: RichField + Extendable<D>, const D: usize, Func>(
+    bitop_instr: usize,
+    bitop: Func,
     builder: &mut CircuitBuilder<F, D>,
-    bitop: fn(&mut CircuitBuilder<F, D>, ExtensionTarget<D>, ExtensionTarget<D>) -> ExtensionTarget<D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-) {
+)
+where
+    Func: Fn(&mut CircuitBuilder<F, D>, ExtensionTarget<D>, ExtensionTarget<D>) -> ExtensionTarget<D> + Copy
+{
     // Filter
-    let is_bitand = lv[IS_BITAND];
+    let is_bitop = lv[bitop_instr];
 
     // Inputs
     let input_a_lo_bits = COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS.map(|r| lv[r]);
@@ -228,33 +251,41 @@ fn eval_bitop_recursively<F: RichField + Extendable<D>, const D: usize>(
     // Output
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << 16));
     let output_lo = builder.mul_add_extension(
-        lv[COL_BITAND_OUTPUT_1], base, lv[COL_BITAND_OUTPUT_0]);
+        lv[COL_BITOP_OUTPUT_1], base, lv[COL_BITOP_OUTPUT_0]);
     let output_hi = builder.mul_add_extension(
-        lv[COL_BITAND_OUTPUT_3], base, lv[COL_BITAND_OUTPUT_2]);
+        lv[COL_BITOP_OUTPUT_3], base, lv[COL_BITOP_OUTPUT_2]);
 
     let output_lo_expected = bitwise_mapreduce_recursively(
         builder, bitop, input_a_lo_bits, input_b_lo_bits);
 
     let tmp = builder.sub_extension(output_lo, output_lo_expected);
-    let out_lo_constr = builder.mul_extension(is_bitand, tmp);
+    let out_lo_constr = builder.mul_extension(is_bitop, tmp);
     yield_constr.constraint(builder, out_lo_constr);
 
     let output_hi_expected = bitwise_mapreduce_recursively(
         builder, bitop, input_a_hi_bits, input_b_hi_bits);
     let tmp = builder.sub_extension(output_hi, output_hi_expected);
-    let out_hi_constr = builder.mul_extension(is_bitand, tmp);
+    let out_hi_constr = builder.mul_extension(is_bitop, tmp);
     yield_constr.constraint(builder, out_hi_constr);
 }
 
+///
+/// Bitwise AND
+///
 pub(crate) fn generate_bitand<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
-    generate_bitop(bitand_raw, values);
+    generate_bitop(
+        |x, y| x & y,
+        values);
 }
 
 pub(crate) fn eval_bitand<F: Field, P: PackedField<Scalar = F>>(
     lv: &[P; NUM_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    eval_bitop(bitand_packed, lv, yield_constr);
+    eval_bitop(
+        IS_BITAND,
+        |b0, b1| b0 * b1,
+        lv, yield_constr);
 }
 
 pub(crate) fn eval_bitand_recursively<F: RichField + Extendable<D>, const D: usize>(
@@ -262,91 +293,118 @@ pub(crate) fn eval_bitand_recursively<F: RichField + Extendable<D>, const D: usi
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    eval_bitop_recursively(builder, bitand_recursively, lv, yield_constr);
+    eval_bitop_recursively(
+        IS_BITAND,
+        |bldr, b0, b1| bldr.mul_extension(b0, b1),
+        builder, lv, yield_constr);
 }
 
-fn bitand_raw(x: u32, y: u32) -> u32
-{
-    x & y
+///
+/// Bitwise Inclusive OR
+///
+pub(crate) fn generate_bitior<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
+    generate_bitop(
+        |x, y| x | y,
+        values);
 }
 
-fn bitand_packed<F, P>(b0: P, b1: P) -> P
-where
-    F: Field,
-    P: PackedField<Scalar = F>
-{
-    b0 * b1
+pub(crate) fn eval_bitior<F: Field, P: PackedField<Scalar = F>>(
+    lv: &[P; NUM_COLUMNS],
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    eval_bitop(
+        IS_BITIOR,
+        |b0, b1| b0 + b1 - b0 * b1,
+        lv, yield_constr);
 }
 
-fn bitand_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_bitior_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    b0: ExtensionTarget<D>,
-    b1: ExtensionTarget<D>
-) -> ExtensionTarget<D>
-{
-    builder.mul_extension(b0, b1)
+    lv: &[ExtensionTarget<D>; NUM_COLUMNS],
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    eval_bitop_recursively(
+        IS_BITIOR,
+        |bldr, b0, b1| {
+            let t1 = bldr.add_extension(b0, b1);
+            let t2 = bldr.mul_extension(b0, b1);
+            bldr.sub_extension(t1, t2)
+        },
+        builder, lv, yield_constr);
 }
 
-fn bitior<F, P>(b0: P, b1: P) -> P
-where
-    F: Field,
-    P: PackedField<Scalar = F>
-{
-    b0 + b1 - b0 * b1
+///
+/// Bitwise eXclusive OR
+///
+pub(crate) fn generate_bitxor<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
+    generate_bitop(
+        |x, y| x ^ y,
+        values);
 }
 
-fn bitior_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_bitxor<F: Field, P: PackedField<Scalar = F>>(
+    lv: &[P; NUM_COLUMNS],
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    eval_bitop(
+        IS_BITXOR,
+        |b0, b1| b0 + b1 - b0 * b1 * F::TWO,
+        lv, yield_constr);
+}
+
+pub(crate) fn eval_bitxor_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    b0: ExtensionTarget<D>,
-    b1: ExtensionTarget<D>
-) -> ExtensionTarget<D>
-{
-    builder.sub_extension(
-        builder.add_extension(b0, b1),
-        builder.mul_extension(b0, b1))
+    lv: &[ExtensionTarget<D>; NUM_COLUMNS],
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    eval_bitop_recursively(
+        IS_BITXOR,
+        |bldr, b0, b1| {
+            let t1 = bldr.add_extension(b0, b1);
+            let t2 = bldr.mul_extension(b0, b1);
+            let t3 = bldr.mul_const_extension(F::TWO, t2);
+            bldr.sub_extension(t1, t3)
+        },
+        builder, lv, yield_constr);
 }
 
-fn bitxor<F, P>(b0: P, b1: P) -> P
-where
-    F: Field,
-    P: PackedField<Scalar = F>
-{
-    b0 + b1 - b0 * b1 * F::TWO
+///
+/// Bitwise ANDNOT
+///
+pub(crate) fn generate_bitandnot<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
+    generate_bitop(
+        |x, y| x & !y,
+        values);
 }
 
-fn bitxor_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_bitandnot<F: Field, P: PackedField<Scalar = F>>(
+    lv: &[P; NUM_COLUMNS],
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    eval_bitop(
+        IS_BITANDNOT,
+        |b0, b1| b0 * (P::ONES - b1),
+        lv, yield_constr);
+}
+
+pub(crate) fn eval_bitandnot_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    b0: ExtensionTarget<D>,
-    b1: ExtensionTarget<D>
-) -> ExtensionTarget<D>
-{
-    builder.sub_extension(
-        builder.add_extension(b0, b1),
-        builder.mul_const_extension(
-            F::TWO,
-            builder.mul_extension(b0, b1)))
+    lv: &[ExtensionTarget<D>; NUM_COLUMNS],
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    eval_bitop_recursively(
+        IS_BITANDNOT,
+        |bldr, b0, b1| {
+            let one = bldr.one_extension();
+            let t1 = bldr.sub_extension(one, b1);
+            bldr.mul_extension(b0, t1)
+        },
+        builder, lv, yield_constr);
 }
 
-fn bitandnot<F, P>(b0: P, b1: P) -> P
-where
-    F: Field,
-    P: PackedField<Scalar = F>
-{
-    b0 * (P::ONES - b1)
-}
+/*
 
-fn bitandnot_recursively<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    b0: ExtensionTarget<D>,
-    b1: ExtensionTarget<D>
-) -> ExtensionTarget<D>
-{
-    builder.mul_extension(
-        b0,
-        builder.sub_extension(
-            builder.one_extension(),
-            b1))
-}
+// Not yet clear how to incorporate unary bit operations into the above.
 
 fn bitnot<F, P>(b: P) -> P
 where
@@ -361,7 +419,7 @@ fn bitnot_recursively<F: RichField + Extendable<D>, const D: usize>(
     b: ExtensionTarget<D>,
 ) -> ExtensionTarget<D>
 {
-    builder.sub_extension(
-        builder.one_extension(),
-        b)
+    let one = builder.one_extension();
+    builder.sub_extension(one, b)
 }
+*/

@@ -5,8 +5,11 @@ pub(crate) const IS_SUB: usize = IS_ADD + 1;
 pub(crate) const IS_MUL_ADD: usize = IS_SUB + 1;
 pub(crate) const IS_DIV: usize = IS_MUL_ADD + 1;
 pub(crate) const IS_BITAND: usize = IS_DIV + 1;
+pub(crate) const IS_BITIOR: usize = IS_BITAND + 1;
+pub(crate) const IS_BITXOR: usize = IS_BITIOR + 1;
+pub(crate) const IS_BITANDNOT: usize = IS_BITXOR + 1;
 
-const START_SHARED_COLS: usize = IS_BITAND + 1;
+const START_SHARED_COLS: usize = IS_BITANDNOT + 1;
 
 /// Within the ALU, there are shared columns which can be used by any arithmetic/logic
 /// circuit, depending on which one is active this cycle.
@@ -228,12 +231,12 @@ pub(crate) const COL_BIT_DECOMP_INPUT_B_HI_30: usize = shared_col(126);
 pub(crate) const COL_BIT_DECOMP_INPUT_B_HI_31: usize = shared_col(127);
 
 /// The first 16-bit chunk of the output, based on little-endian ordering.
-pub(crate) const COL_BITAND_OUTPUT_0: usize = super::range_check_16::col_rc_16_input(0);
+pub(crate) const COL_BITOP_OUTPUT_0: usize = super::range_check_16::col_rc_16_input(0);
 /// The second 16-bit chunk of the output, based on little-endian ordering.
-pub(crate) const COL_BITAND_OUTPUT_1: usize = super::range_check_16::col_rc_16_input(1);
+pub(crate) const COL_BITOP_OUTPUT_1: usize = super::range_check_16::col_rc_16_input(1);
 /// The third 16-bit chunk of the output, based on little-endian ordering.
-pub(crate) const COL_BITAND_OUTPUT_2: usize = super::range_check_16::col_rc_16_input(2);
+pub(crate) const COL_BITOP_OUTPUT_2: usize = super::range_check_16::col_rc_16_input(2);
 /// The fourth 16-bit chunk of the output, based on little-endian ordering.
-pub(crate) const COL_BITAND_OUTPUT_3: usize = super::range_check_16::col_rc_16_input(3);
+pub(crate) const COL_BITOP_OUTPUT_3: usize = super::range_check_16::col_rc_16_input(3);
 
 pub(super) const END: usize = START_SHARED_COLS + NUM_SHARED_COLS;
