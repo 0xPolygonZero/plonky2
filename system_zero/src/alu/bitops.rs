@@ -236,3 +236,84 @@ pub(crate) fn eval_bitop_recursively<F: RichField + Extendable<D>, const D: usiz
         yield_constr,
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use plonky2::field::field_types::Field;
+    use plonky2::field::goldilocks_field::GoldilocksField;
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha8Rng;
+    use starky::constraint_consumer::ConstraintConsumer;
+
+    use super::*;
+    use crate::registers::NUM_COLUMNS;
+
+    #[test]
+    fn generate_eval_consistency_not_bitop() {
+        type F = GoldilocksField;
+
+        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+        let mut values = [F::default(); NUM_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
+
+        // if `IS_bitop == 0`, then the constraints should be met even
+        // if all values are garbage.
+        for bitop in [IS_BITAND, IS_BITIOR, IS_BITXOR, IS_BITANDNOT] {
+            values[bitop] = F::ZERO;
+        }
+
+        let mut constrant_consumer = ConstraintConsumer::new(
+            vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+            GoldilocksField::ONE,
+        );
+        eval_bitop(&values, &mut constrant_consumer);
+        for &acc in &constrant_consumer.constraint_accs {
+            assert_eq!(acc, GoldilocksField::ZERO);
+        }
+    }
+
+    #[test]
+    fn generate_eval_consistency_bitop() {
+        type F = GoldilocksField;
+
+        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+        let mut values = [F::default(); NUM_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
+
+        const BITOPS: [usize; 4] = [IS_BITAND, IS_BITIOR, IS_BITXOR, IS_BITANDNOT];
+        for bitop in BITOPS {
+            // Reset all the instruction registers
+            for op in BITOPS {
+                values[op] = F::ZERO;
+            }
+            // set `IS_bitop == 1` and ensure all constraints are satisfied.
+            values[bitop] = F::ONE;
+
+            // Set inputs to random binary values
+            let all_bin_regs = COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS
+                .into_iter()
+                .chain(COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS)
+                .chain(COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS)
+                .chain(COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS);
+
+            for reg in all_bin_regs {
+                values[reg] = F::from_canonical_u32(rng.gen::<u32>() & 1);
+            }
+
+            generate_bitop(&mut values, bitop);
+
+            let mut constrant_consumer = ConstraintConsumer::new(
+                vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+            );
+            eval_bitop(&values, &mut constrant_consumer);
+            for &acc in &constrant_consumer.constraint_accs {
+                assert_eq!(acc, GoldilocksField::ZERO);
+            }
+        }
+    }
+
+    // TODO: test eval_division_recursively.
+}
