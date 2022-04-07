@@ -1,3 +1,5 @@
+mod allocator;
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use itertools::Itertools;
 use plonky2::field::field_types::Field;

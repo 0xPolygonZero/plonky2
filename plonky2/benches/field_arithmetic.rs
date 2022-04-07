@@ -1,3 +1,5 @@
+mod allocator;
+
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use plonky2::field::extension_field::quadratic::QuadraticExtension;
 use plonky2::field::extension_field::quartic::QuarticExtension;
