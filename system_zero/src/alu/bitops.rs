@@ -9,8 +9,8 @@ use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsume
 use crate::registers::alu::*;
 use crate::registers::NUM_COLUMNS;
 
-/// Interpret the first 32 elements of `bits` as bits from low to high
-/// of a u32 and return \sum_i bits[i] 2^i as an element of P.
+/// Interpret the 32 elements of `bits` as bits from low to high of a
+/// u32 and return \sum_i bits[i] 2^i as an element of P.
 fn binary_to_u32<F, P>(bits: [P; 32]) -> P
 where
     F: Field,
@@ -69,6 +69,7 @@ fn generate_bitop_32<F: PrimeField64>(
 /// lo and hi, for 64 bits total), and write the result to the
 /// `COL_BITOP_OUTPUT_*` registers.
 pub(crate) fn generate_bitop<F: PrimeField64>(values: &mut [F; NUM_COLUMNS], bitop: usize) {
+    // Generate lo half
     generate_bitop_32(
         values,
         bitop,
@@ -77,6 +78,7 @@ pub(crate) fn generate_bitop<F: PrimeField64>(values: &mut [F; NUM_COLUMNS], bit
         COL_BITOP_OUTPUT_0,
         COL_BITOP_OUTPUT_1,
     );
+    // Generate hi half
     generate_bitop_32(
         values,
         bitop,
@@ -95,7 +97,7 @@ fn eval_bitop_32<F: Field, P: PackedField<Scalar = F>>(
     output_1_reg: usize,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    // Filter
+    // Filters
     let is_and = lv[IS_BITAND];
     let is_ior = lv[IS_BITIOR];
     let is_xor = lv[IS_BITXOR];
@@ -126,6 +128,7 @@ pub(crate) fn eval_bitop<F: Field, P: PackedField<Scalar = F>>(
     lv: &[P; NUM_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    // Constraint for lo half
     eval_bitop_32(
         lv,
         COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS,
@@ -134,6 +137,7 @@ pub(crate) fn eval_bitop<F: Field, P: PackedField<Scalar = F>>(
         COL_BITOP_OUTPUT_1,
         yield_constr,
     );
+    // Constraint for hi half
     eval_bitop_32(
         lv,
         COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS,
@@ -154,7 +158,7 @@ fn eval_bitop_32_recursively<F: RichField + Extendable<D>, const D: usize>(
     output_1_reg: usize,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    // Filter
+    // Filters
     let is_and = lv[IS_BITAND];
     let is_ior = lv[IS_BITIOR];
     let is_xor = lv[IS_BITXOR];
@@ -211,6 +215,7 @@ pub(crate) fn eval_bitop_recursively<F: RichField + Extendable<D>, const D: usiz
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    // Recursive constraint for lo half
     eval_bitop_32_recursively(
         builder,
         lv,
@@ -220,6 +225,7 @@ pub(crate) fn eval_bitop_recursively<F: RichField + Extendable<D>, const D: usiz
         COL_BITOP_OUTPUT_1,
         yield_constr,
     );
+    // Recursive constraint for hi half
     eval_bitop_32_recursively(
         builder,
         lv,
