@@ -87,5 +87,5 @@ pub(crate) fn eval_mul_add_recursively<F: RichField + Extendable<D>, const D: us
     );
     let diff = builder.sub_extension(computed_output, output);
     let filtered_diff = builder.mul_extension(is_mul, diff);
-    yield_constr.constraint(builder, diff);
+    yield_constr.constraint(builder, filtered_diff);
 }

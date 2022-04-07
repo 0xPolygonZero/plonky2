@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::hash::{Hash, Hasher};
+use std::ops::Range;
 use std::sync::Arc;
 
 use plonky2_field::batch_util::batch_multiply_inplace;
 use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 
-use crate::gates::gate_tree::Tree;
+use crate::gates::selectors::UNUSED_SELECTOR;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
@@ -80,9 +81,21 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>>;
 
-    fn eval_filtered(&self, mut vars: EvaluationVars<F, D>, prefix: &[bool]) -> Vec<F::Extension> {
-        let filter = compute_filter(prefix, vars.local_constants);
-        vars.remove_prefix(prefix);
+    fn eval_filtered(
+        &self,
+        mut vars: EvaluationVars<F, D>,
+        gate_index: usize,
+        selector_index: usize,
+        group_range: Range<usize>,
+        num_selectors: usize,
+    ) -> Vec<F::Extension> {
+        let filter = compute_filter(
+            gate_index,
+            group_range,
+            vars.local_constants[selector_index],
+            num_selectors > 1,
+        );
+        vars.remove_prefix(num_selectors);
         self.eval_unfiltered(vars)
             .into_iter()
             .map(|c| filter * c)
@@ -94,13 +107,23 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     fn eval_filtered_base_batch(
         &self,
         mut vars_batch: EvaluationVarsBaseBatch<F>,
-        prefix: &[bool],
+        gate_index: usize,
+        selector_index: usize,
+        group_range: Range<usize>,
+        num_selectors: usize,
     ) -> Vec<F> {
         let filters: Vec<_> = vars_batch
             .iter()
-            .map(|vars| compute_filter(prefix, vars.local_constants))
+            .map(|vars| {
+                compute_filter(
+                    gate_index,
+                    group_range.clone(),
+                    vars.local_constants[selector_index],
+                    num_selectors > 1,
+                )
+            })
             .collect();
-        vars_batch.remove_prefix(prefix);
+        vars_batch.remove_prefix(num_selectors);
         let mut res_batch = self.eval_unfiltered_base_batch(vars_batch);
         for res_chunk in res_batch.chunks_exact_mut(filters.len()) {
             batch_multiply_inplace(res_chunk, &filters);
@@ -113,11 +136,20 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         &self,
         builder: &mut CircuitBuilder<F, D>,
         mut vars: EvaluationTargets<D>,
-        prefix: &[bool],
+        gate_index: usize,
+        selector_index: usize,
+        group_range: Range<usize>,
+        num_selectors: usize,
         combined_gate_constraints: &mut [ExtensionTarget<D>],
     ) {
-        let filter = compute_filter_recursively(builder, prefix, vars.local_constants);
-        vars.remove_prefix(prefix);
+        let filter = compute_filter_recursively(
+            builder,
+            gate_index,
+            group_range,
+            vars.local_constants[selector_index],
+            num_selectors > 1,
+        );
+        vars.remove_prefix(num_selectors);
         let my_constraints = self.eval_unfiltered_recursively(builder, vars);
         for (acc, c) in combined_gate_constraints.iter_mut().zip(my_constraints) {
             *acc = builder.mul_add_extension(filter, c, *acc);
@@ -147,6 +179,15 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     fn num_ops(&self) -> usize {
         self.generators(0, &vec![F::ZERO; self.num_constants()])
             .len()
+    }
+
+    /// Enables gates to store some "routed constants", if they have both unused constants and
+    /// unused routed wires.
+    ///
+    /// Each entry in the returned `Vec` has the form `(constant_index, wire_index)`. `wire_index`
+    /// must correspond to a *routed* wire.
+    fn extra_constant_wires(&self) -> Vec<(usize, usize)> {
+        vec![]
     }
 }
 
@@ -202,42 +243,36 @@ pub struct PrefixedGate<F: RichField + Extendable<D>, const D: usize> {
     pub prefix: Vec<bool>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> PrefixedGate<F, D> {
-    pub fn from_tree(tree: Tree<GateRef<F, D>>) -> Vec<Self> {
-        tree.traversal()
-            .into_iter()
-            .map(|(gate, prefix)| PrefixedGate { gate, prefix })
-            .collect()
-    }
-}
-
-/// A gate's filter is computed as `prod b_i*c_i + (1-b_i)*(1-c_i)`, with `(b_i)` the prefix and
-/// `(c_i)` the local constants, which is one if the prefix of `constants` matches `prefix`.
-fn compute_filter<'a, K: Field, T: IntoIterator<Item = &'a K>>(prefix: &[bool], constants: T) -> K {
-    prefix
-        .iter()
-        .zip(constants)
-        .map(|(&b, &c)| if b { c } else { K::ONE - c })
+/// A gate's filter designed so that it is non-zero if `s = gate_index`.
+fn compute_filter<K: Field>(
+    gate_index: usize,
+    group_range: Range<usize>,
+    s: K,
+    many_selector: bool,
+) -> K {
+    debug_assert!(group_range.contains(&gate_index));
+    group_range
+        .filter(|&i| i != gate_index)
+        .chain(many_selector.then(|| UNUSED_SELECTOR))
+        .map(|i| K::from_canonical_usize(i) - s)
         .product()
 }
 
 fn compute_filter_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    prefix: &[bool],
-    constants: &[ExtensionTarget<D>],
+    gate_index: usize,
+    group_range: Range<usize>,
+    s: ExtensionTarget<D>,
+    many_selectors: bool,
 ) -> ExtensionTarget<D> {
-    let one = builder.one_extension();
-    let v = prefix
-        .iter()
-        .enumerate()
-        .map(|(i, &b)| {
-            if b {
-                constants[i]
-            } else {
-                builder.sub_extension(one, constants[i])
-            }
+    debug_assert!(group_range.contains(&gate_index));
+    let v = group_range
+        .filter(|&i| i != gate_index)
+        .chain(many_selectors.then(|| UNUSED_SELECTOR))
+        .map(|i| {
+            let c = builder.constant_extension(F::Extension::from_canonical_usize(i));
+            builder.sub_extension(c, s)
         })
         .collect::<Vec<_>>();
-
     builder.mul_many_extension(&v)
 }

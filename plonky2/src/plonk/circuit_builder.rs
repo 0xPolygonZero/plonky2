@@ -19,15 +19,15 @@ use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
 use crate::gates::constant::ConstantGate;
-use crate::gates::gate::{CurrentSlot, Gate, GateInstance, GateRef, PrefixedGate};
-use crate::gates::gate_tree::Tree;
+use crate::gates::gate::{CurrentSlot, Gate, GateInstance, GateRef};
 use crate::gates::noop::NoopGate;
 use crate::gates::public_input::PublicInputGate;
+use crate::gates::selectors::selector_polynomials;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::MerkleProofTarget;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{
-    CopyGenerator, RandomValueGenerator, SimpleGenerator, WitnessGenerator,
+    ConstantGenerator, CopyGenerator, RandomValueGenerator, SimpleGenerator, WitnessGenerator,
 };
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
@@ -83,6 +83,9 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
 
     /// Map between gate type and the current gate of this type with available slots.
     current_slots: HashMap<GateRef<F, D>, CurrentSlot<F, D>>,
+
+    /// List of constant generators used to fill the constant wires.
+    constant_generators: Vec<ConstantGenerator<F>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -102,6 +105,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             arithmetic_results: HashMap::new(),
             targets_to_constants: HashMap::new(),
             current_slots: HashMap::new(),
+            constant_generators: Vec::new(),
         };
         builder.check_config();
         builder
@@ -206,15 +210,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Adds a gate to the circuit, and returns its index.
-    pub fn add_gate<G: Gate<F, D>>(&mut self, gate_type: G, constants: Vec<F>) -> usize {
+    pub fn add_gate<G: Gate<F, D>>(&mut self, gate_type: G, mut constants: Vec<F>) -> usize {
         self.check_gate_compatibility(&gate_type);
-        assert_eq!(
-            gate_type.num_constants(),
-            constants.len(),
-            "Number of constants doesn't match."
-        );
 
-        let index = self.gate_instances.len();
+        assert!(
+            constants.len() <= gate_type.num_constants(),
+            "Too many constants."
+        );
+        constants.resize(gate_type.num_constants(), F::ZERO);
+
+        let gate_index = self.gate_instances.len();
+
+        self.constant_generators
+            .extend(gate_type.extra_constant_wires().into_iter().map(
+                |(constant_index, wire_index)| ConstantGenerator {
+                    gate_index,
+                    constant_index,
+                    wire_index,
+                    constant: F::ZERO, // Placeholder; will be replaced later.
+                },
+            ));
 
         // Note that we can't immediately add this gate's generators, because the list of constants
         // could be modified later, i.e. in the case of `ConstantGate`. We will add them later in
@@ -229,7 +244,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants,
         });
 
-        index
+        gate_index
     }
 
     fn check_gate_compatibility<G: Gate<F, D>>(&self, gate: &G) {
@@ -239,6 +254,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             gate.id(),
             gate.num_wires(),
             self.config.num_wires
+        );
+        assert!(
+            gate.num_constants() <= self.config.num_constants,
+            "{:?} requires {} constants, but our CircuitConfig has only {}",
+            gate.id(),
+            gate.num_constants(),
+            self.config.num_constants
         );
     }
 
@@ -321,14 +343,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return target;
         }
 
-        let num_consts = self.config.constant_gate_size;
-        // We will fill this `ConstantGate` with zero constants initially.
-        // These will be overwritten by `constant` as the gate instances are filled.
-        let gate = ConstantGate { num_consts };
-        let (gate, instance) = self.find_slot(gate, &[], &vec![F::ZERO; num_consts]);
-        let target = Target::wire(gate, instance);
-        self.gate_instances[gate].constants[instance] = c;
-
+        let target = self.add_virtual_target();
         self.constants_to_targets.insert(c, target);
         self.targets_to_constants.insert(target, c);
 
@@ -551,32 +566,27 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    fn constant_polys(
-        &self,
-        gates: &[PrefixedGate<F, D>],
-        num_constants: usize,
-    ) -> Vec<PolynomialValues<F>> {
-        let constants_per_gate = self
-            .gate_instances
+    fn constant_polys(&self) -> Vec<PolynomialValues<F>> {
+        let max_constants = self
+            .gates
             .iter()
-            .map(|gate| {
-                let prefix = &gates
-                    .iter()
-                    .find(|g| g.gate.0.id() == gate.gate_ref.0.id())
-                    .unwrap()
-                    .prefix;
-                let mut prefixed_constants = Vec::with_capacity(num_constants);
-                prefixed_constants.extend(prefix.iter().map(|&b| if b { F::ONE } else { F::ZERO }));
-                prefixed_constants.extend_from_slice(&gate.constants);
-                prefixed_constants.resize(num_constants, F::ZERO);
-                prefixed_constants
-            })
-            .collect::<Vec<_>>();
-
-        transpose(&constants_per_gate)
-            .into_iter()
-            .map(PolynomialValues::new)
-            .collect()
+            .map(|g| g.0.num_constants())
+            .max()
+            .unwrap();
+        transpose(
+            &self
+                .gate_instances
+                .iter()
+                .map(|g| {
+                    let mut consts = g.constants.clone();
+                    consts.resize(max_constants, F::ZERO);
+                    consts
+                })
+                .collect::<Vec<_>>(),
+        )
+        .into_iter()
+        .map(PolynomialValues::new)
+        .collect()
     }
 
     fn sigma_vecs(&self, k_is: &[F], subgroup: &[F]) -> (Vec<PolynomialValues<F>>, Forest) {
@@ -655,6 +665,32 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.connect(hash_part, Target::wire(pi_gate, wire))
         }
 
+        // Make sure we have enough constant generators. If not, add a `ConstantGate`.
+        while self.constants_to_targets.len() > self.constant_generators.len() {
+            self.add_gate(
+                ConstantGate {
+                    num_consts: self.config.num_constants,
+                },
+                vec![],
+            );
+        }
+
+        // For each constant-target pair used in the circuit, use a constant generator to fill this target.
+        for ((c, t), mut const_gen) in self
+            .constants_to_targets
+            .clone()
+            .into_iter()
+            .zip(self.constant_generators.clone())
+        {
+            // Set the constant in the constant polynomial.
+            self.gate_instances[const_gen.gate_index].constants[const_gen.constant_index] = c;
+            // Generate a copy between the target and the routable wire.
+            self.connect(Target::wire(const_gen.gate_index, const_gen.wire_index), t);
+            // Set the constant in the generator (it's initially set with a dummy value).
+            const_gen.set_constant(c);
+            self.add_simple_generator(const_gen);
+        }
+
         info!(
             "Degree before blinding & padding: {}",
             self.gate_instances.len()
@@ -669,26 +705,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "FRI total reduction arity is too large.",
         );
 
-        let gates = self.gates.iter().cloned().collect();
-        let (gate_tree, max_filtered_constraint_degree, num_constants) = Tree::from_gates(gates);
-        let prefixed_gates = PrefixedGate::from_tree(gate_tree);
-
-        // `quotient_degree_factor` has to be between `max_filtered_constraint_degree-1` and `1<<rate_bits`.
-        // We find the value that minimizes `num_partial_product + quotient_degree_factor`.
-        let min_quotient_degree_factor = (max_filtered_constraint_degree - 1).max(2);
-        let max_quotient_degree_factor = self.config.max_quotient_degree_factor.min(1 << rate_bits);
-        let quotient_degree_factor = (min_quotient_degree_factor..=max_quotient_degree_factor)
-            .min_by_key(|&q| num_partial_products(self.config.num_routed_wires, q) + q)
-            .unwrap();
-        debug!("Quotient degree factor set to: {}.", quotient_degree_factor);
+        let quotient_degree_factor = self.config.max_quotient_degree_factor;
+        let mut gates = self.gates.iter().cloned().collect::<Vec<_>>();
+        // Gates need to be sorted by their degrees (and ID to make the ordering deterministic) to compute the selector polynomials.
+        gates.sort_unstable_by_key(|g| (g.0.degree(), g.0.id()));
+        let (mut constant_vecs, selectors_info) =
+            selector_polynomials(&gates, &self.gate_instances, quotient_degree_factor + 1);
+        constant_vecs.extend(self.constant_polys());
+        let num_constants = constant_vecs.len();
 
         let subgroup = F::two_adic_subgroup(degree_bits);
-
-        let constant_vecs = timed!(
-            timing,
-            "generate constant polynomials",
-            self.constant_polys(&prefixed_gates, num_constants)
-        );
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
         let (sigma_vecs, forest) = timed!(
@@ -768,11 +794,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             fft_root_table: Some(fft_root_table),
         };
 
-        // The HashSet of gates will have a non-deterministic order. When converting to a Vec, we
-        // sort by ID to make the ordering deterministic.
-        let mut gates = self.gates.iter().cloned().collect::<Vec<_>>();
-        gates.sort_unstable_by_key(|gate| gate.0.id());
-
         let num_gate_constraints = gates
             .iter()
             .map(|gate| gate.0.num_constraints())
@@ -793,7 +814,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             config: self.config,
             fri_params,
             degree_bits,
-            gates: prefixed_gates,
+            gates,
+            selectors_info,
             quotient_degree_factor,
             num_gate_constraints,
             num_constants,

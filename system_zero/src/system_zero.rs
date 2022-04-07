@@ -39,6 +39,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
     /// Generate the rows of the trace. Note that this does not generate the permuted columns used
     /// in our lookup arguments, as those are computed after transposing to column-wise form.
     fn generate_trace_rows(&self) -> Vec<[F; NUM_COLUMNS]> {
+        #[allow(unused)] // TODO
         let memory = TransactionMemory::default();
 
         let mut row = [F::ZERO; NUM_COLUMNS];
@@ -67,7 +68,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SystemZero<F, D> {
         trace
     }
 
-    fn generate_trace(&self) -> Vec<PolynomialValues<F>> {
+    pub fn generate_trace(&self) -> Vec<PolynomialValues<F>> {
         let mut timing = TimingTree::new("generate trace", log::Level::Debug);
 
         // Generate the witness, except for permuted columns in the lookup argument.
@@ -209,7 +210,6 @@ mod tests {
     #[test]
     fn degree() -> Result<()> {
         type F = GoldilocksField;
-        type C = PoseidonGoldilocksConfig;
         const D: usize = 2;
 
         type S = SystemZero<F, D>;

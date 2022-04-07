@@ -263,7 +263,6 @@ where
         .map(|i_start| {
             let i_next_start = (i_start + next_step) % size;
             let i_range = i_start..i_start + P::WIDTH;
-            let i_next_range = i_next_start..i_next_start + P::WIDTH;
 
             let x = *P::from_slice(&coset[i_range.clone()]);
             let z_last = x - last;

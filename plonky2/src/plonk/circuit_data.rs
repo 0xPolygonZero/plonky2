@@ -12,7 +12,8 @@ use crate::fri::structure::{
     FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriPolynomialInfo,
 };
 use crate::fri::{FriConfig, FriParams};
-use crate::gates::gate::PrefixedGate;
+use crate::gates::gate::GateRef;
+use crate::gates::selectors::SelectorsInfo;
 use crate::hash::hash_types::{MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
@@ -32,7 +33,7 @@ use crate::util::timing::TimingTree;
 pub struct CircuitConfig {
     pub num_wires: usize,
     pub num_routed_wires: usize,
-    pub constant_gate_size: usize,
+    pub num_constants: usize,
     /// Whether to use a dedicated gate for base field arithmetic, rather than using a single gate
     /// for both base field and extension field arithmetic.
     pub use_base_arithmetic_gate: bool,
@@ -63,7 +64,7 @@ impl CircuitConfig {
         Self {
             num_wires: 135,
             num_routed_wires: 80,
-            constant_gate_size: 5,
+            num_constants: 2,
             use_base_arithmetic_gate: true,
             security_bits: 100,
             num_challenges: 2,
@@ -253,7 +254,10 @@ pub struct CommonCircuitData<
     pub(crate) degree_bits: usize,
 
     /// The types of gates used in this circuit, along with their prefixes.
-    pub(crate) gates: Vec<PrefixedGate<F, D>>,
+    pub(crate) gates: Vec<GateRef<F, D>>,
+
+    /// Information on the circuit's selector polynomials.
+    pub(crate) selectors_info: SelectorsInfo,
 
     /// The degree of the PLONK quotient polynomial.
     pub(crate) quotient_degree_factor: usize,
@@ -297,7 +301,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub fn constraint_degree(&self) -> usize {
         self.gates
             .iter()
-            .map(|g| g.gate.0.degree())
+            .map(|g| g.0.degree())
             .max()
             .expect("No gates?")
     }

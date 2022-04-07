@@ -1,5 +1,4 @@
 use plonky2_field::extension_field::Extendable;
-use plonky2_field::field_types::Field;
 use plonky2_field::packed_field::PackedField;
 
 use crate::gates::gate::Gate;
@@ -7,10 +6,7 @@ use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::iop::target::Target;
-use crate::iop::wire::Wire;
-use crate::iop::witness::PartitionWitness;
+use crate::iop::generator::WitnessGenerator;
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
@@ -77,23 +73,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
 
     fn generators(
         &self,
-        gate_index: usize,
-        local_constants: &[F],
+        _gate_index: usize,
+        _local_constants: &[F],
     ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        (0..self.num_consts)
-            .map(|i| {
-                let g: Box<dyn WitnessGenerator<F>> = Box::new(
-                    ConstantGenerator {
-                        gate_index,
-                        gate: *self,
-                        i,
-                        constant: local_constants[self.const_input(i)],
-                    }
-                    .adapter(),
-                );
-                g
-            })
-            .collect()
+        vec![]
     }
 
     fn num_wires(&self) -> usize {
@@ -111,6 +94,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ConstantGate {
     fn num_constraints(&self) -> usize {
         self.num_consts
     }
+
+    fn extra_constant_wires(&self) -> Vec<(usize, usize)> {
+        (0..self.num_consts)
+            .map(|i| (self.const_input(i), self.wire_output(i)))
+            .collect()
+    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for ConstantGate {
@@ -122,28 +111,6 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
         yield_constr.many((0..self.num_consts).map(|i| {
             vars.local_constants[self.const_input(i)] - vars.local_wires[self.wire_output(i)]
         }));
-    }
-}
-
-#[derive(Debug)]
-struct ConstantGenerator<F: Field> {
-    gate_index: usize,
-    gate: ConstantGate,
-    i: usize,
-    constant: F,
-}
-
-impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
-    fn dependencies(&self) -> Vec<Target> {
-        Vec::new()
-    }
-
-    fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let wire = Wire {
-            gate: self.gate_index,
-            input: self.gate.wire_output(self.i),
-        };
-        out_buffer.set_wire(wire, self.constant);
     }
 }
 
@@ -159,7 +126,7 @@ mod tests {
 
     #[test]
     fn low_degree() {
-        let num_consts = CircuitConfig::standard_recursion_config().constant_gate_size;
+        let num_consts = CircuitConfig::standard_recursion_config().num_constants;
         let gate = ConstantGate { num_consts };
         test_low_degree::<GoldilocksField, _, 2>(gate)
     }
@@ -169,7 +136,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        let num_consts = CircuitConfig::standard_recursion_config().constant_gate_size;
+        let num_consts = CircuitConfig::standard_recursion_config().num_constants;
         let gate = ConstantGate { num_consts };
         test_eval_fns::<F, C, _, D>(gate)
     }

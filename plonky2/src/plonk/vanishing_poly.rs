@@ -3,7 +3,6 @@ use plonky2_field::extension_field::{Extendable, FieldExtension};
 use plonky2_field::field_types::Field;
 use plonky2_field::zero_poly_coset::ZeroPolyOnCoset;
 
-use crate::gates::gate::PrefixedGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
@@ -40,8 +39,7 @@ pub(crate) fn eval_vanishing_poly<
     let max_degree = common_data.quotient_degree_factor;
     let num_prods = common_data.num_partial_products;
 
-    let constraint_terms =
-        evaluate_gate_constraints(&common_data.gates, common_data.num_gate_constraints, vars);
+    let constraint_terms = evaluate_gate_constraints(common_data, vars);
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
     let mut vanishing_z_1_terms = Vec::new();
@@ -128,8 +126,7 @@ pub(crate) fn eval_vanishing_poly_base_batch<
 
     let num_gate_constraints = common_data.num_gate_constraints;
 
-    let constraint_terms_batch =
-        evaluate_gate_constraints_base_batch(&common_data.gates, num_gate_constraints, vars_batch);
+    let constraint_terms_batch = evaluate_gate_constraints_base_batch(common_data, vars_batch);
     debug_assert!(constraint_terms_batch.len() == n * num_gate_constraints);
 
     let num_challenges = common_data.config.num_challenges;
@@ -208,17 +205,27 @@ pub(crate) fn eval_vanishing_poly_base_batch<
 /// `num_gate_constraints` is the largest number of constraints imposed by any gate. It is not
 /// strictly necessary, but it helps performance by ensuring that we allocate a vector with exactly
 /// the capacity that we need.
-pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
-    gates: &[PrefixedGate<F, D>],
-    num_gate_constraints: usize,
+pub fn evaluate_gate_constraints<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    common_data: &CommonCircuitData<F, C, D>,
     vars: EvaluationVars<F, D>,
 ) -> Vec<F::Extension> {
-    let mut constraints = vec![F::Extension::ZERO; num_gate_constraints];
-    for gate in gates {
-        let gate_constraints = gate.gate.0.eval_filtered(vars, &gate.prefix);
+    let mut constraints = vec![F::Extension::ZERO; common_data.num_gate_constraints];
+    for (i, gate) in common_data.gates.iter().enumerate() {
+        let selector_index = common_data.selectors_info.selector_indices[i];
+        let gate_constraints = gate.0.eval_filtered(
+            vars,
+            i,
+            selector_index,
+            common_data.selectors_info.groups[selector_index].clone(),
+            common_data.selectors_info.num_selectors(),
+        );
         for (i, c) in gate_constraints.into_iter().enumerate() {
             debug_assert!(
-                i < num_gate_constraints,
+                i < common_data.num_gate_constraints,
                 "num_constraints() gave too low of a number"
             );
             constraints[i] += c;
@@ -232,17 +239,24 @@ pub fn evaluate_gate_constraints<F: RichField + Extendable<D>, const D: usize>(
 /// Returns a vector of `num_gate_constraints * vars_batch.len()` field elements. The constraints
 /// corresponding to `vars_batch[i]` are found in `result[i], result[vars_batch.len() + i],
 /// result[2 * vars_batch.len() + i], ...`.
-pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const D: usize>(
-    gates: &[PrefixedGate<F, D>],
-    num_gate_constraints: usize,
+pub fn evaluate_gate_constraints_base_batch<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    common_data: &CommonCircuitData<F, C, D>,
     vars_batch: EvaluationVarsBaseBatch<F>,
 ) -> Vec<F> {
-    let mut constraints_batch = vec![F::ZERO; num_gate_constraints * vars_batch.len()];
-    for gate in gates {
-        let gate_constraints_batch = gate
-            .gate
-            .0
-            .eval_filtered_base_batch(vars_batch, &gate.prefix);
+    let mut constraints_batch = vec![F::ZERO; common_data.num_gate_constraints * vars_batch.len()];
+    for (i, gate) in common_data.gates.iter().enumerate() {
+        let selector_index = common_data.selectors_info.selector_indices[i];
+        let gate_constraints_batch = gate.0.eval_filtered_base_batch(
+            vars_batch,
+            i,
+            selector_index,
+            common_data.selectors_info.groups[selector_index].clone(),
+            common_data.selectors_info.num_selectors(),
+        );
         debug_assert!(
             gate_constraints_batch.len() <= constraints_batch.len(),
             "num_constraints() gave too low of a number"
@@ -256,22 +270,29 @@ pub fn evaluate_gate_constraints_base_batch<F: RichField + Extendable<D>, const 
     constraints_batch
 }
 
-pub fn evaluate_gate_constraints_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub fn evaluate_gate_constraints_recursively<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     builder: &mut CircuitBuilder<F, D>,
-    gates: &[PrefixedGate<F, D>],
-    num_gate_constraints: usize,
+    common_data: &CommonCircuitData<F, C, D>,
     vars: EvaluationTargets<D>,
 ) -> Vec<ExtensionTarget<D>> {
-    let mut all_gate_constraints = vec![builder.zero_extension(); num_gate_constraints];
-    for gate in gates {
+    let mut all_gate_constraints = vec![builder.zero_extension(); common_data.num_gate_constraints];
+    for (i, gate) in common_data.gates.iter().enumerate() {
+        let selector_index = common_data.selectors_info.selector_indices[i];
         with_context!(
             builder,
-            &format!("evaluate {} constraints", gate.gate.0.id()),
-            gate.gate.0.eval_filtered_recursively(
+            &format!("evaluate {} constraints", gate.0.id()),
+            gate.0.eval_filtered_recursively(
                 builder,
                 vars,
-                &gate.prefix,
-                &mut all_gate_constraints
+                i,
+                selector_index,
+                common_data.selectors_info.groups[selector_index].clone(),
+                common_data.selectors_info.num_selectors(),
+                &mut all_gate_constraints,
             )
         );
     }
@@ -308,12 +329,7 @@ pub(crate) fn eval_vanishing_poly_recursively<
     let constraint_terms = with_context!(
         builder,
         "evaluate gate constraints",
-        evaluate_gate_constraints_recursively(
-            builder,
-            &common_data.gates,
-            common_data.num_gate_constraints,
-            vars,
-        )
+        evaluate_gate_constraints_recursively(builder, common_data, vars,)
     );
 
     // The L_1(x) (Z(x) - 1) vanishing terms.

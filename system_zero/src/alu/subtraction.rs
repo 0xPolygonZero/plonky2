@@ -16,12 +16,9 @@ pub(crate) fn generate_subtraction<F: PrimeField64>(values: &mut [F; NUM_COLUMNS
     // in_1 - in_2 == diff - br*2^32
     let (diff, br) = in_1.overflowing_sub(in_2);
 
-    let diff_1 = F::from_canonical_u16(diff as u16);
-    let diff_2 = F::from_canonical_u16((diff >> 16) as u16);
-
     values[COL_SUB_OUTPUT_0] = F::from_canonical_u16(diff as u16);
     values[COL_SUB_OUTPUT_1] = F::from_canonical_u16((diff >> 16) as u16);
-    values[COL_SUB_OUTPUT_BORROW] = F::from_canonical_u16(br as u16);
+    values[COL_SUB_OUTPUT_BORROW] = F::from_bool(br);
 }
 
 pub(crate) fn eval_subtraction<F: Field, P: PackedField<Scalar = F>>(
@@ -61,6 +58,7 @@ pub(crate) fn eval_subtraction_recursively<F: RichField + Extendable<D>, const D
     let out_br = local_values[COL_SUB_OUTPUT_BORROW];
 
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << 16));
+    #[allow(unused)] // TODO
     let base_sqr = builder.constant_extension(F::Extension::from_canonical_u64(1 << 32));
 
     // lhs = (out_br + in_1) - in_2
