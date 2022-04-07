@@ -4,6 +4,7 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::plonk_common::reduce_with_powers_ext_recursive;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 use crate::registers::alu::*;
@@ -22,29 +23,12 @@ where
         .sum()
 }
 
-/// As for `binary_to_u32` but uses `builder`.
-fn binary_to_u32_recursively<F, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    bits: [ExtensionTarget<D>; 32],
-) -> ExtensionTarget<D>
-where
-    F: RichField + Extendable<D>,
-{
-    let terms = bits
-        .into_iter()
-        .enumerate()
-        .map(|(i, b)| builder.mul_const_extension(F::from_canonical_u64(1u64 << i), b))
-        .collect::<Vec<_>>();
-    builder.add_many_extension(&terms)
-}
-
 fn generate_bitop_32<F: PrimeField64>(
     values: &mut [F; NUM_COLUMNS],
     bitop: usize,
     input_a_regs: [usize; 32],
     input_b_regs: [usize; 32],
-    output_0_reg: usize,
-    output_1_reg: usize,
+    output_reg: usize,
 ) {
     let a_bits = input_a_regs.map(|r| values[r]);
     let b_bits = input_b_regs.map(|r| values[r]);
@@ -60,8 +44,7 @@ fn generate_bitop_32<F: PrimeField64>(
         _ => panic!("unrecognized bitop instruction code"),
     };
 
-    values[output_0_reg] = F::from_canonical_u16(out as u16);
-    values[output_1_reg] = F::from_canonical_u16((out >> 16) as u16);
+    values[output_reg] = F::from_canonical_u32(out);
 }
 
 /// Use the `COL_BIT_DECOMP_INPUT_[AB]_{LO,HI}_*` registers to read
@@ -76,7 +59,6 @@ pub(crate) fn generate_bitop<F: PrimeField64>(values: &mut [F; NUM_COLUMNS], bit
         COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS,
         COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS,
         COL_BITOP_OUTPUT_0,
-        COL_BITOP_OUTPUT_1,
     );
     // Generate hi half
     generate_bitop_32(
@@ -84,8 +66,7 @@ pub(crate) fn generate_bitop<F: PrimeField64>(values: &mut [F; NUM_COLUMNS], bit
         bitop,
         COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS,
         COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS,
-        COL_BITOP_OUTPUT_2,
-        COL_BITOP_OUTPUT_3,
+        COL_BITOP_OUTPUT_1,
     );
 }
 
@@ -93,8 +74,7 @@ fn eval_bitop_32<F: Field, P: PackedField<Scalar = F>>(
     lv: &[P; NUM_COLUMNS],
     input_a_regs: [usize; 32],
     input_b_regs: [usize; 32],
-    output_0_reg: usize,
-    output_1_reg: usize,
+    output_reg: usize,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     // Filters
@@ -107,9 +87,13 @@ fn eval_bitop_32<F: Field, P: PackedField<Scalar = F>>(
     let a_bits = input_a_regs.map(|r| lv[r]);
     let b_bits = input_b_regs.map(|r| lv[r]);
 
+    // Ensure that the inputs are bits
+    let inst_constr = is_and + is_ior + is_xor + is_andnot;
+    a_bits.map(|v| yield_constr.constraint(inst_constr * v * (P::ONES - v)));
+    b_bits.map(|v| yield_constr.constraint(inst_constr * v * (P::ONES - v)));
+
     // Output
-    let base = F::from_canonical_u64(1 << 16);
-    let output = lv[output_0_reg] + lv[output_1_reg] * base;
+    let output = lv[output_reg];
 
     let a = binary_to_u32(a_bits);
     let b = binary_to_u32(b_bits);
@@ -134,7 +118,6 @@ pub(crate) fn eval_bitop<F: Field, P: PackedField<Scalar = F>>(
         COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS,
         COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS,
         COL_BITOP_OUTPUT_0,
-        COL_BITOP_OUTPUT_1,
         yield_constr,
     );
     // Constraint for hi half
@@ -142,10 +125,24 @@ pub(crate) fn eval_bitop<F: Field, P: PackedField<Scalar = F>>(
         lv,
         COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS,
         COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS,
-        COL_BITOP_OUTPUT_2,
-        COL_BITOP_OUTPUT_3,
+        COL_BITOP_OUTPUT_1,
         yield_constr,
     );
+}
+
+fn constrain_all_to_bits<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    filter: ExtensionTarget<D>,
+    vals: &[ExtensionTarget<D>]
+) {
+    for v in vals.into_iter() {
+        let one = builder.one_extension();
+        let t0 = builder.sub_extension(one, *v);
+        let t1 = builder.mul_extension(*v, t0);
+        let t2 = builder.mul_extension(filter, t1);
+        yield_constr.constraint(builder, t2)
+    };
 }
 
 /// As for `eval_bitop`, but build with `builder`.
@@ -154,8 +151,7 @@ fn eval_bitop_32_recursively<F: RichField + Extendable<D>, const D: usize>(
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     input_a_regs: [usize; 32],
     input_b_regs: [usize; 32],
-    output_0_reg: usize,
-    output_1_reg: usize,
+    output_reg: usize,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     // Filters
@@ -168,16 +164,21 @@ fn eval_bitop_32_recursively<F: RichField + Extendable<D>, const D: usize>(
     let a_bits = input_a_regs.map(|r| lv[r]);
     let b_bits = input_b_regs.map(|r| lv[r]);
 
-    // Output
-    let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << 16));
-    let output = builder.mul_add_extension(lv[output_1_reg], base, lv[output_0_reg]);
+    // Ensure that the inputs are bits
+    let inst_constr = builder.add_many_extension(&[is_and, is_ior, is_xor, is_andnot]);
+    constrain_all_to_bits(builder, yield_constr, inst_constr, &a_bits);
+    constrain_all_to_bits(builder, yield_constr, inst_constr, &b_bits);
 
-    let a = binary_to_u32_recursively(builder, a_bits);
-    let b = binary_to_u32_recursively(builder, b_bits);
+    // Output
+    let output = lv[output_reg];
+
+    let limb_base = builder.constant(F::TWO);
+    let a = reduce_with_powers_ext_recursive(builder, &a_bits, limb_base);
+    let b = reduce_with_powers_ext_recursive(builder, &b_bits, limb_base);
     let a_and_b_bits = a_bits
         .zip(b_bits)
         .map(|(b0, b1)| builder.mul_extension(b0, b1));
-    let a_and_b = binary_to_u32_recursively(builder, a_and_b_bits);
+    let a_and_b = reduce_with_powers_ext_recursive(builder, &a_and_b_bits, limb_base);
 
     let and_constr = {
         let t = builder.sub_extension(a_and_b, output);
@@ -222,7 +223,6 @@ pub(crate) fn eval_bitop_recursively<F: RichField + Extendable<D>, const D: usiz
         COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS,
         COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS,
         COL_BITOP_OUTPUT_0,
-        COL_BITOP_OUTPUT_1,
         yield_constr,
     );
     // Recursive constraint for hi half
@@ -231,8 +231,7 @@ pub(crate) fn eval_bitop_recursively<F: RichField + Extendable<D>, const D: usiz
         lv,
         COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS,
         COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS,
-        COL_BITOP_OUTPUT_2,
-        COL_BITOP_OUTPUT_3,
+        COL_BITOP_OUTPUT_1,
         yield_constr,
     );
 }
@@ -311,6 +310,50 @@ mod tests {
             eval_bitop(&values, &mut constrant_consumer);
             for &acc in &constrant_consumer.constraint_accs {
                 assert_eq!(acc, GoldilocksField::ZERO);
+            }
+        }
+    }
+
+    #[test]
+    fn generate_eval_consistency_bit_inputs() {
+        type F = GoldilocksField;
+
+        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+        let mut values = [F::default(); NUM_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
+
+        const BITOPS: [usize; 4] = [IS_BITAND, IS_BITIOR, IS_BITXOR, IS_BITANDNOT];
+        for bitop in BITOPS {
+            // Reset all the instruction registers
+            for op in BITOPS {
+                values[op] = F::ZERO;
+            }
+            // set `IS_bitop == 1` and ensure all constraints are satisfied.
+            values[bitop] = F::ONE;
+
+            // Set inputs to random binary values
+            let all_bin_regs = COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS
+                .into_iter()
+                .chain(COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS)
+                .chain(COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS)
+                .chain(COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS);
+
+            for reg in all_bin_regs {
+                values[reg] = F::from_canonical_u32(rng.gen::<u32>() & 1);
+            }
+            // Make first "bit" non-binary.
+            values[COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS[0]] = F::TWO;
+
+            generate_bitop(&mut values, bitop);
+
+            let mut constrant_consumer = ConstraintConsumer::new(
+                vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+            );
+            eval_bitop(&values, &mut constrant_consumer);
+            for &acc in &constrant_consumer.constraint_accs {
+                assert_ne!(acc, GoldilocksField::ZERO);
             }
         }
     }
