@@ -9,3 +9,14 @@ pub mod bimap;
 pub mod gates;
 pub mod permutation;
 pub mod sorting;
+
+#[cfg(test)]
+mod tests {
+    // Set up Jemalloc for testing
+    #[cfg(not(target_env = "msvc"))]
+    use jemallocator::Jemalloc;
+
+    #[cfg(not(target_env = "msvc"))]
+    #[global_allocator]
+    static GLOBAL: Jemalloc = Jemalloc;
+}

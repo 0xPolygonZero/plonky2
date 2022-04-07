@@ -13,3 +13,6 @@ bimap = "0.6.1"
 itertools = "0.10.0"
 rand = "0.8.4"
 array_tool = "1.0.3"
+
+[target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
+jemallocator = "0.3.2"
