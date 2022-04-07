@@ -1,19 +1,18 @@
 use std::marker::PhantomData;
 
+use plonky2::gates::gate::Gate;
+use plonky2::gates::util::StridedConstraintConsumer;
+use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
+use plonky2::iop::target::Target;
+use plonky2::iop::witness::{PartitionWitness, Witness};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
+use plonky2::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use plonky2_field::extension_field::Extendable;
+use plonky2_field::field_types::Field;
 use plonky2_util::ceil_div_usize;
-
-use crate::field::extension_field::Extendable;
-use crate::field::field_types::Field;
-use crate::gates::gate::Gate;
-use crate::gates::util::StridedConstraintConsumer;
-use crate::hash::hash_types::RichField;
-use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator};
-use crate::iop::target::Target;
-use crate::iop::witness::{PartitionWitness, Witness};
-use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
-use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 
 /// A gate which can decompose a number into base B little-endian limbs.
 #[derive(Copy, Clone, Debug)]
@@ -220,18 +219,18 @@ mod tests {
 
     use anyhow::Result;
     use itertools::unfold;
+    use plonky2::gates::gate::Gate;
+    use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
+    use plonky2::hash::hash_types::HashOut;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::plonk::vars::EvaluationVars;
+    use plonky2_field::extension_field::quartic::QuarticExtension;
+    use plonky2_field::field_types::Field;
+    use plonky2_field::goldilocks_field::GoldilocksField;
     use plonky2_util::ceil_div_usize;
     use rand::Rng;
 
-    use crate::field::extension_field::quartic::QuarticExtension;
-    use crate::field::field_types::Field;
-    use crate::field::goldilocks_field::GoldilocksField;
-    use crate::gates::gate::Gate;
-    use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::range_check_u32::U32RangeCheckGate;
-    use crate::hash::hash_types::HashOut;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::plonk::vars::EvaluationVars;
 
     #[test]
     fn low_degree() {

@@ -14,7 +14,6 @@ use crate::fri::oracle::PolynomialBatch;
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::arithmetic::BaseArithmeticOperation;
 use crate::gadgets::arithmetic_extension::ExtensionArithmeticOperation;
-use crate::gadgets::arithmetic_u32::U32Target;
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
@@ -360,11 +359,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         } else {
             self._false()
         }
-    }
-
-    /// Returns a U32Target for the value `c`, which is assumed to be at most 32 bits.
-    pub fn constant_u32(&mut self, c: u32) -> U32Target {
-        U32Target(self.constant(F::from_canonical_u32(c)))
     }
 
     /// If the given target is a constant (i.e. it was created by the `constant(F)` method), returns

@@ -1,9 +1,7 @@
 pub mod arithmetic;
 pub mod arithmetic_extension;
-pub mod arithmetic_u32;
 pub mod hash;
 pub mod interpolation;
-pub mod multiple_comparison;
 pub mod polynomial;
 pub mod random_access;
 pub mod range_check;

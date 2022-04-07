@@ -1,7 +1,5 @@
 use plonky2_field::extension_field::Extendable;
 
-use crate::gadgets::arithmetic_u32::U32Target;
-use crate::gates::range_check_u32::U32RangeCheckGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
@@ -42,19 +40,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect(x, comp_x);
 
         (low, high)
-    }
-
-    pub fn range_check_u32(&mut self, vals: Vec<U32Target>) {
-        let num_input_limbs = vals.len();
-        let gate = U32RangeCheckGate::<F, D>::new(num_input_limbs);
-        let gate_index = self.add_gate(gate, vec![]);
-
-        for i in 0..num_input_limbs {
-            self.connect(
-                Target::wire(gate_index, gate.wire_ith_input_limb(i)),
-                vals[i].0,
-            );
-        }
     }
 
     pub fn assert_bool(&mut self, b: BoolTarget) {

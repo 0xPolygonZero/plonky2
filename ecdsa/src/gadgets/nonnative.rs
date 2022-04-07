@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use num::{BigUint, Integer, One, Zero};
-use plonky2::gadgets::arithmetic_u32::U32Target;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::{BoolTarget, Target};
@@ -9,6 +8,9 @@ use plonky2::iop::witness::PartitionWitness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_field::field_types::PrimeField;
 use plonky2_field::{extension_field::Extendable, field_types::Field};
+use plonky2_u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
+use plonky2_u32::gadgets::range_check::range_check_u32_circuit;
+use plonky2_u32::witness::generated_values_set_u32_target;
 use plonky2_util::ceil_div_usize;
 
 use crate::gadgets::biguint::{
@@ -249,8 +251,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
             _phantom: PhantomData,
         });
 
-        self.range_check_u32(sum.value.limbs.clone());
-        self.range_check_u32(vec![overflow]);
+        range_check_u32_circuit(self, sum.value.limbs.clone());
+        range_check_u32_circuit(self, vec![overflow]);
 
         let sum_expected = summands
             .iter()
@@ -290,7 +292,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
             _phantom: PhantomData,
         });
 
-        self.range_check_u32(diff.value.limbs.clone());
+        range_check_u32_circuit(self, diff.value.limbs.clone());
         self.assert_bool(overflow);
 
         let diff_plus_b = self.add_biguint(&diff.value, &b.value);
@@ -321,8 +323,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNative<F, D>
             _phantom: PhantomData,
         });
 
-        self.range_check_u32(prod.value.limbs.clone());
-        self.range_check_u32(overflow.limbs.clone());
+        range_check_u32_circuit(self, prod.value.limbs.clone());
+        range_check_u32_circuit(self, overflow.limbs.clone());
 
         let prod_expected = self.mul_biguint(&a.value, &b.value);
 
@@ -523,7 +525,7 @@ impl<F: RichField + Extendable<D>, const D: usize, FF: PrimeField> SimpleGenerat
         let overflow = overflow_biguint.to_u64_digits()[0] as u32;
 
         buffer_set_biguint_target(out_buffer, &self.sum.value, &sum_reduced);
-        out_buffer.set_u32_target(self.overflow, overflow);
+        generated_values_set_u32_target(out_buffer, self.overflow, overflow);
     }
 }
 

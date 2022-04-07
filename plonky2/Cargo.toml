@@ -13,7 +13,6 @@ default-run = "generate_constants"
 [dependencies]
 plonky2_field = { path = "../field" }
 plonky2_util = { path = "../util" }
-array_tool = "1.0.3"
 env_logger = "0.9.0"
 log = "0.4.14"
 itertools = "0.10.0"
