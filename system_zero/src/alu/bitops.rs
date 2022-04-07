@@ -11,463 +11,222 @@ use crate::registers::NUM_COLUMNS;
 
 /// Interpret the first 32 elements of `bits` as bits from low to high
 /// of a u32 and return \sum_i bits[i] 2^i as an element of P.
-///
-/// TODO: This should probably raise an error if there are more than
-/// 32 elements in `bits`.
-fn binary_to_u32<F, P, I>(bits: I) -> P
+fn binary_to_u32<F, P>(bits: [P; 32]) -> P
 where
     F: Field,
     P: PackedField<Scalar = F>,
-    I: IntoIterator<Item = P>,
 {
     bits.into_iter()
         .enumerate()
-        .take(32)
         .map(|(i, b)| b * F::from_canonical_u64(1u64 << i))
         .sum()
 }
 
-/// Apply `func` to each pair (lhs[i], rhs[i]) then pass the resulting
-/// list to `binary_to_u32`.
-fn bitwise_mapreduce<F, P>(func: fn(P, P) -> P, lhs: [P; 32], rhs: [P; 32]) -> P
-where
-    F: Field,
-    P: PackedField<Scalar = F>,
-{
-    binary_to_u32(
-        lhs.into_iter()
-            .zip(rhs.into_iter())
-            .map(|(b0, b1)| func(b0, b1)),
-    )
-}
-
 /// As for `binary_to_u32` but uses `builder`.
-fn binary_to_u32_recursively<F, const D: usize, I>(
+fn binary_to_u32_recursively<F, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    bits: I,
+    bits: [ExtensionTarget<D>; 32],
 ) -> ExtensionTarget<D>
 where
     F: RichField + Extendable<D>,
-    I: Iterator<Item = ExtensionTarget<D>>,
 {
     let terms = bits
+        .into_iter()
         .enumerate()
         .map(|(i, b)| builder.mul_const_extension(F::from_canonical_u64(1u64 << i), b))
         .collect::<Vec<_>>();
     builder.add_many_extension(&terms)
 }
 
-/// As for `bitwise_mapreduce` but uses `builder`.
-fn bitwise_mapreduce_recursively<F, const D: usize, Func>(
-    builder: &mut CircuitBuilder<F, D>,
-    func: Func,
-    lhs: [ExtensionTarget<D>; 32],
-    rhs: [ExtensionTarget<D>; 32],
-) -> ExtensionTarget<D>
-where
-    F: RichField + Extendable<D>,
-    Func:
-        Fn(&mut CircuitBuilder<F, D>, ExtensionTarget<D>, ExtensionTarget<D>) -> ExtensionTarget<D>,
-{
-    // TODO: Try to get something like the following to work:
-    // let terms = lhs
-    //     .into_iter()
-    //     .zip(rhs.into_iter())
-    //     .map(|(b0, b1)| func(builder, b0, b1));
-    let mut terms = Vec::with_capacity(32);
-    for (b0, b1) in lhs.into_iter().zip(rhs.into_iter()) {
-        terms.push(func(builder, b0, b1));
-    }
-    binary_to_u32_recursively(builder, terms.into_iter())
+fn generate_bitop_32<F: PrimeField64>(
+    values: &mut [F; NUM_COLUMNS],
+    bitop: usize,
+    input_a_regs: [usize; 32],
+    input_b_regs: [usize; 32],
+    output_0_reg: usize,
+    output_1_reg: usize,
+) {
+    let a_bits = input_a_regs.map(|r| values[r]);
+    let b_bits = input_b_regs.map(|r| values[r]);
+
+    let a = binary_to_u32(a_bits).to_canonical_u64() as u32;
+    let b = binary_to_u32(b_bits).to_canonical_u64() as u32;
+
+    let out = match bitop {
+        IS_BITAND => a & b,
+        IS_BITIOR => a | b,
+        IS_BITXOR => a ^ b,
+        IS_BITANDNOT => a & !b,
+        _ => panic!("unrecognized bitop instruction code"),
+    };
+
+    values[output_0_reg] = F::from_canonical_u16(out as u16);
+    values[output_1_reg] = F::from_canonical_u16((out >> 16) as u16);
 }
 
 /// Use the `COL_BIT_DECOMP_INPUT_[AB]_{LO,HI}_*` registers to read
 /// bits from `values`, apply `bitop` to the reconstructed u32's (both
 /// lo and hi, for 64 bits total), and write the result to the
 /// `COL_BITOP_OUTPUT_*` registers.
-fn generate_bitop<F: PrimeField64>(bitop: fn(u32, u32) -> u32, values: &mut [F; NUM_COLUMNS]) {
-    // Inputs A and B, each as two digits in base 2^32
-    let input_a_lo_bits = COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS.map(|r| values[r]);
-    let input_a_hi_bits = COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS.map(|r| values[r]);
-    let input_b_lo_bits = COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS.map(|r| values[r]);
-    let input_b_hi_bits = COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS.map(|r| values[r]);
-
-    let in_a_lo = binary_to_u32(input_a_lo_bits).to_canonical_u64() as u32;
-    let in_b_lo = binary_to_u32(input_b_lo_bits).to_canonical_u64() as u32;
-    let in_a_hi = binary_to_u32(input_a_hi_bits).to_canonical_u64() as u32;
-    let in_b_hi = binary_to_u32(input_b_hi_bits).to_canonical_u64() as u32;
-
-    let out_lo = bitop(in_a_lo, in_b_lo);
-    let out_hi = bitop(in_a_hi, in_b_hi);
-
-    // Output in base 2^16.
-    values[COL_BITOP_OUTPUT_0] = F::from_canonical_u16(out_lo as u16);
-    values[COL_BITOP_OUTPUT_1] = F::from_canonical_u16((out_lo >> 16) as u16);
-    values[COL_BITOP_OUTPUT_2] = F::from_canonical_u16(out_hi as u16);
-    values[COL_BITOP_OUTPUT_3] = F::from_canonical_u16((out_hi >> 16) as u16);
+pub(crate) fn generate_bitop<F: PrimeField64>(values: &mut [F; NUM_COLUMNS], bitop: usize) {
+    generate_bitop_32(
+        values,
+        bitop,
+        COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS,
+        COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS,
+        COL_BITOP_OUTPUT_0,
+        COL_BITOP_OUTPUT_1,
+    );
+    generate_bitop_32(
+        values,
+        bitop,
+        COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS,
+        COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS,
+        COL_BITOP_OUTPUT_2,
+        COL_BITOP_OUTPUT_3,
+    );
 }
 
-/// Verify a `bitop_instr` instruction.
-///
-/// Read the bits from the `COL_BIT_DECOMP_INPUT_[AB]_{LO,HI}_*`
-/// registers in `lv` ("local values"), and use `bitop` build the
-/// expected outputs. Yield constraints in `yield_constr` that force
-/// the expected outputs to match the values in the
-/// `COL_BITOP_OUTPUT_*` registers of `lv`.
-fn eval_bitop<F: Field, P: PackedField<Scalar = F>>(
-    bitop_instr: usize,
-    bitop: fn(P, P) -> P,
+fn eval_bitop_32<F: Field, P: PackedField<Scalar = F>>(
     lv: &[P; NUM_COLUMNS],
+    input_a_regs: [usize; 32],
+    input_b_regs: [usize; 32],
+    output_0_reg: usize,
+    output_1_reg: usize,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     // Filter
-    let is_bitop = lv[bitop_instr];
+    let is_and = lv[IS_BITAND];
+    let is_ior = lv[IS_BITIOR];
+    let is_xor = lv[IS_BITXOR];
+    let is_andnot = lv[IS_BITANDNOT];
 
     // Inputs
-    let input_a_lo_bits = COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS.map(|r| lv[r]);
-    let input_a_hi_bits = COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS.map(|r| lv[r]);
-    let input_b_lo_bits = COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS.map(|r| lv[r]);
-    let input_b_hi_bits = COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS.map(|r| lv[r]);
+    let a_bits = input_a_regs.map(|r| lv[r]);
+    let b_bits = input_a_regs.map(|r| lv[r]);
 
     // Output
     let base = F::from_canonical_u64(1 << 16);
-    let output_lo = lv[COL_BITOP_OUTPUT_0] + lv[COL_BITOP_OUTPUT_1] * base;
-    let output_hi = lv[COL_BITOP_OUTPUT_2] + lv[COL_BITOP_OUTPUT_3] * base;
+    let output = lv[output_0_reg] + lv[output_1_reg] * base;
 
-    let output_lo_expected = bitwise_mapreduce(bitop, input_a_lo_bits, input_b_lo_bits);
-    yield_constr.constraint(is_bitop * (output_lo - output_lo_expected));
+    let a = binary_to_u32(a_bits);
+    let b = binary_to_u32(b_bits);
+    let a_and_b = binary_to_u32(a_bits.zip(b_bits).map(|(b0, b1)| b0 * b1));
 
-    let output_hi_expected = bitwise_mapreduce(bitop, input_a_hi_bits, input_b_hi_bits);
-    yield_constr.constraint(is_bitop * (output_hi - output_hi_expected));
+    let constraint = is_and * (a_and_b - output)
+        + is_ior * (a + b - a_and_b - output)
+        + is_xor * (a + b - a_and_b * F::TWO - output)
+        + is_andnot * (a - a_and_b - output);
+
+    yield_constr.constraint(constraint);
+}
+
+/// Verify an AND, IOR, XOR, or ANDNOT  instruction.
+pub(crate) fn eval_bitop<F: Field, P: PackedField<Scalar = F>>(
+    lv: &[P; NUM_COLUMNS],
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    eval_bitop_32(
+        lv,
+        COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS,
+        COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS,
+        COL_BITOP_OUTPUT_0,
+        COL_BITOP_OUTPUT_1,
+        yield_constr,
+    );
+    eval_bitop_32(
+        lv,
+        COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS,
+        COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS,
+        COL_BITOP_OUTPUT_2,
+        COL_BITOP_OUTPUT_3,
+        yield_constr,
+    );
 }
 
 /// As for `eval_bitop`, but build with `builder`.
-fn eval_bitop_recursively<F: RichField + Extendable<D>, const D: usize, Func>(
-    bitop_instr: usize,
-    bitop: Func,
+fn eval_bitop_32_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
+    input_a_regs: [usize; 32],
+    input_b_regs: [usize; 32],
+    output_0_reg: usize,
+    output_1_reg: usize,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-) where
-    Func: Fn(&mut CircuitBuilder<F, D>, ExtensionTarget<D>, ExtensionTarget<D>) -> ExtensionTarget<D>
-        + Copy,
-{
+) {
     // Filter
-    let is_bitop = lv[bitop_instr];
+    let is_and = lv[IS_BITAND];
+    let is_ior = lv[IS_BITIOR];
+    let is_xor = lv[IS_BITXOR];
+    let is_andnot = lv[IS_BITANDNOT];
 
     // Inputs
-    let input_a_lo_bits = COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS.map(|r| lv[r]);
-    let input_a_hi_bits = COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS.map(|r| lv[r]);
-    let input_b_lo_bits = COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS.map(|r| lv[r]);
-    let input_b_hi_bits = COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS.map(|r| lv[r]);
+    let a_bits = input_a_regs.map(|r| lv[r]);
+    let b_bits = input_a_regs.map(|r| lv[r]);
 
     // Output
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << 16));
-    let output_lo = builder.mul_add_extension(lv[COL_BITOP_OUTPUT_1], base, lv[COL_BITOP_OUTPUT_0]);
-    let output_hi = builder.mul_add_extension(lv[COL_BITOP_OUTPUT_3], base, lv[COL_BITOP_OUTPUT_2]);
+    let output = builder.mul_add_extension(lv[output_1_reg], base, lv[output_0_reg]);
 
-    let output_lo_expected =
-        bitwise_mapreduce_recursively(builder, bitop, input_a_lo_bits, input_b_lo_bits);
+    let a = binary_to_u32_recursively(builder, a_bits);
+    let b = binary_to_u32_recursively(builder, b_bits);
+    let a_and_b_bits = a_bits
+        .zip(b_bits)
+        .map(|(b0, b1)| builder.mul_extension(b0, b1));
+    let a_and_b = binary_to_u32_recursively(builder, a_and_b_bits);
 
-    let tmp = builder.sub_extension(output_lo, output_lo_expected);
-    let out_lo_constr = builder.mul_extension(is_bitop, tmp);
-    yield_constr.constraint(builder, out_lo_constr);
+    let and_constr = {
+        let t = builder.sub_extension(a_and_b, output);
+        builder.mul_extension(t, is_and)
+    };
 
-    let output_hi_expected =
-        bitwise_mapreduce_recursively(builder, bitop, input_a_hi_bits, input_b_hi_bits);
-    let tmp = builder.sub_extension(output_hi, output_hi_expected);
-    let out_hi_constr = builder.mul_extension(is_bitop, tmp);
-    yield_constr.constraint(builder, out_hi_constr);
+    let ior_constr = {
+        let t0 = builder.add_extension(a, b);
+        let t1 = builder.sub_extension(t0, a_and_b);
+        let t2 = builder.sub_extension(t1, output);
+        builder.mul_extension(t2, is_ior)
+    };
+
+    let xor_constr = {
+        let t0 = builder.add_extension(a, b);
+        let t1 = builder.mul_const_extension(F::TWO, a_and_b);
+        let t2 = builder.sub_extension(t0, t1);
+        let t3 = builder.sub_extension(t2, output);
+        builder.mul_extension(t3, is_xor)
+    };
+
+    let andnot_constr = {
+        let t0 = builder.sub_extension(a, a_and_b);
+        let t1 = builder.sub_extension(t0, output);
+        builder.mul_extension(t1, is_andnot)
+    };
+
+    let constr = builder.add_many_extension(&[and_constr, ior_constr, xor_constr, andnot_constr]);
+    yield_constr.constraint(builder, constr);
 }
 
-///
-/// Bitwise AND
-///
-pub(crate) fn generate_bitand<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
-    generate_bitop(|x, y| x & y, values);
-}
-
-pub(crate) fn eval_bitand<F: Field, P: PackedField<Scalar = F>>(
-    lv: &[P; NUM_COLUMNS],
-    yield_constr: &mut ConstraintConsumer<P>,
-) {
-    eval_bitop(IS_BITAND, |b0, b1| b0 * b1, lv, yield_constr);
-}
-
-pub(crate) fn eval_bitand_recursively<F: RichField + Extendable<D>, const D: usize>(
+/// As for `eval_bitop` but with a builder.
+pub(crate) fn eval_bitop_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    eval_bitop_recursively(
-        IS_BITAND,
-        |bldr, b0, b1| bldr.mul_extension(b0, b1),
+    eval_bitop_32_recursively(
         builder,
         lv,
+        COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS,
+        COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS,
+        COL_BITOP_OUTPUT_0,
+        COL_BITOP_OUTPUT_1,
         yield_constr,
     );
-}
-
-///
-/// Bitwise Inclusive OR
-///
-pub(crate) fn generate_bitior<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
-    generate_bitop(|x, y| x | y, values);
-}
-
-pub(crate) fn eval_bitior<F: Field, P: PackedField<Scalar = F>>(
-    lv: &[P; NUM_COLUMNS],
-    yield_constr: &mut ConstraintConsumer<P>,
-) {
-    eval_bitop(IS_BITIOR, |b0, b1| b0 + b1 - b0 * b1, lv, yield_constr);
-}
-
-pub(crate) fn eval_bitior_recursively<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    lv: &[ExtensionTarget<D>; NUM_COLUMNS],
-    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-) {
-    eval_bitop_recursively(
-        IS_BITIOR,
-        |bldr, b0, b1| {
-            let t1 = bldr.add_extension(b0, b1);
-            let t2 = bldr.mul_extension(b0, b1);
-            bldr.sub_extension(t1, t2)
-        },
+    eval_bitop_32_recursively(
         builder,
         lv,
+        COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS,
+        COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS,
+        COL_BITOP_OUTPUT_2,
+        COL_BITOP_OUTPUT_3,
         yield_constr,
     );
 }
-
-///
-/// Bitwise eXclusive OR
-///
-pub(crate) fn generate_bitxor<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
-    generate_bitop(|x, y| x ^ y, values);
-}
-
-pub(crate) fn eval_bitxor<F: Field, P: PackedField<Scalar = F>>(
-    lv: &[P; NUM_COLUMNS],
-    yield_constr: &mut ConstraintConsumer<P>,
-) {
-    eval_bitop(
-        IS_BITXOR,
-        |b0, b1| b0 + b1 - b0 * b1 * F::TWO,
-        lv,
-        yield_constr,
-    );
-}
-
-pub(crate) fn eval_bitxor_recursively<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    lv: &[ExtensionTarget<D>; NUM_COLUMNS],
-    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-) {
-    eval_bitop_recursively(
-        IS_BITXOR,
-        |bldr, b0, b1| {
-            let t1 = bldr.add_extension(b0, b1);
-            let t2 = bldr.mul_extension(b0, b1);
-            let t3 = bldr.mul_const_extension(F::TWO, t2);
-            bldr.sub_extension(t1, t3)
-        },
-        builder,
-        lv,
-        yield_constr,
-    );
-}
-
-///
-/// Bitwise ANDNOT
-///
-pub(crate) fn generate_bitandnot<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
-    generate_bitop(|x, y| x & !y, values);
-}
-
-pub(crate) fn eval_bitandnot<F: Field, P: PackedField<Scalar = F>>(
-    lv: &[P; NUM_COLUMNS],
-    yield_constr: &mut ConstraintConsumer<P>,
-) {
-    eval_bitop(IS_BITANDNOT, |b0, b1| b0 * (P::ONES - b1), lv, yield_constr);
-}
-
-pub(crate) fn eval_bitandnot_recursively<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    lv: &[ExtensionTarget<D>; NUM_COLUMNS],
-    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-) {
-    eval_bitop_recursively(
-        IS_BITANDNOT,
-        |bldr, b0, b1| {
-            let one = bldr.one_extension();
-            let t1 = bldr.sub_extension(one, b1);
-            bldr.mul_extension(b0, t1)
-        },
-        builder,
-        lv,
-        yield_constr,
-    );
-}
-
-/*
-
-// Not yet clear how to incorporate unary bit operations into the above.
-
-fn bitnot<F, P>(b: P) -> P
-where
-    F: Field,
-    P: PackedField<Scalar = F>
-{
-    P::ONES - b
-}
-
-fn bitnot_recursively<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    b: ExtensionTarget<D>,
-) -> ExtensionTarget<D>
-{
-    let one = builder.one_extension();
-    builder.sub_extension(one, b)
-}
-*/
-
-const COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS: [usize; 32] = [
-    COL_BIT_DECOMP_INPUT_A_LO_00,
-    COL_BIT_DECOMP_INPUT_A_LO_01,
-    COL_BIT_DECOMP_INPUT_A_LO_02,
-    COL_BIT_DECOMP_INPUT_A_LO_03,
-    COL_BIT_DECOMP_INPUT_A_LO_04,
-    COL_BIT_DECOMP_INPUT_A_LO_05,
-    COL_BIT_DECOMP_INPUT_A_LO_06,
-    COL_BIT_DECOMP_INPUT_A_LO_07,
-    COL_BIT_DECOMP_INPUT_A_LO_08,
-    COL_BIT_DECOMP_INPUT_A_LO_09,
-    COL_BIT_DECOMP_INPUT_A_LO_10,
-    COL_BIT_DECOMP_INPUT_A_LO_11,
-    COL_BIT_DECOMP_INPUT_A_LO_12,
-    COL_BIT_DECOMP_INPUT_A_LO_13,
-    COL_BIT_DECOMP_INPUT_A_LO_14,
-    COL_BIT_DECOMP_INPUT_A_LO_15,
-    COL_BIT_DECOMP_INPUT_A_LO_16,
-    COL_BIT_DECOMP_INPUT_A_LO_17,
-    COL_BIT_DECOMP_INPUT_A_LO_18,
-    COL_BIT_DECOMP_INPUT_A_LO_19,
-    COL_BIT_DECOMP_INPUT_A_LO_20,
-    COL_BIT_DECOMP_INPUT_A_LO_21,
-    COL_BIT_DECOMP_INPUT_A_LO_22,
-    COL_BIT_DECOMP_INPUT_A_LO_23,
-    COL_BIT_DECOMP_INPUT_A_LO_24,
-    COL_BIT_DECOMP_INPUT_A_LO_25,
-    COL_BIT_DECOMP_INPUT_A_LO_26,
-    COL_BIT_DECOMP_INPUT_A_LO_27,
-    COL_BIT_DECOMP_INPUT_A_LO_28,
-    COL_BIT_DECOMP_INPUT_A_LO_29,
-    COL_BIT_DECOMP_INPUT_A_LO_30,
-    COL_BIT_DECOMP_INPUT_A_LO_31,
-];
-
-const COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS: [usize; 32] = [
-    COL_BIT_DECOMP_INPUT_A_HI_00,
-    COL_BIT_DECOMP_INPUT_A_HI_01,
-    COL_BIT_DECOMP_INPUT_A_HI_02,
-    COL_BIT_DECOMP_INPUT_A_HI_03,
-    COL_BIT_DECOMP_INPUT_A_HI_04,
-    COL_BIT_DECOMP_INPUT_A_HI_05,
-    COL_BIT_DECOMP_INPUT_A_HI_06,
-    COL_BIT_DECOMP_INPUT_A_HI_07,
-    COL_BIT_DECOMP_INPUT_A_HI_08,
-    COL_BIT_DECOMP_INPUT_A_HI_09,
-    COL_BIT_DECOMP_INPUT_A_HI_10,
-    COL_BIT_DECOMP_INPUT_A_HI_11,
-    COL_BIT_DECOMP_INPUT_A_HI_12,
-    COL_BIT_DECOMP_INPUT_A_HI_13,
-    COL_BIT_DECOMP_INPUT_A_HI_14,
-    COL_BIT_DECOMP_INPUT_A_HI_15,
-    COL_BIT_DECOMP_INPUT_A_HI_16,
-    COL_BIT_DECOMP_INPUT_A_HI_17,
-    COL_BIT_DECOMP_INPUT_A_HI_18,
-    COL_BIT_DECOMP_INPUT_A_HI_19,
-    COL_BIT_DECOMP_INPUT_A_HI_20,
-    COL_BIT_DECOMP_INPUT_A_HI_21,
-    COL_BIT_DECOMP_INPUT_A_HI_22,
-    COL_BIT_DECOMP_INPUT_A_HI_23,
-    COL_BIT_DECOMP_INPUT_A_HI_24,
-    COL_BIT_DECOMP_INPUT_A_HI_25,
-    COL_BIT_DECOMP_INPUT_A_HI_26,
-    COL_BIT_DECOMP_INPUT_A_HI_27,
-    COL_BIT_DECOMP_INPUT_A_HI_28,
-    COL_BIT_DECOMP_INPUT_A_HI_29,
-    COL_BIT_DECOMP_INPUT_A_HI_30,
-    COL_BIT_DECOMP_INPUT_A_HI_31,
-];
-
-const COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS: [usize; 32] = [
-    COL_BIT_DECOMP_INPUT_B_LO_00,
-    COL_BIT_DECOMP_INPUT_B_LO_01,
-    COL_BIT_DECOMP_INPUT_B_LO_02,
-    COL_BIT_DECOMP_INPUT_B_LO_03,
-    COL_BIT_DECOMP_INPUT_B_LO_04,
-    COL_BIT_DECOMP_INPUT_B_LO_05,
-    COL_BIT_DECOMP_INPUT_B_LO_06,
-    COL_BIT_DECOMP_INPUT_B_LO_07,
-    COL_BIT_DECOMP_INPUT_B_LO_08,
-    COL_BIT_DECOMP_INPUT_B_LO_09,
-    COL_BIT_DECOMP_INPUT_B_LO_10,
-    COL_BIT_DECOMP_INPUT_B_LO_11,
-    COL_BIT_DECOMP_INPUT_B_LO_12,
-    COL_BIT_DECOMP_INPUT_B_LO_13,
-    COL_BIT_DECOMP_INPUT_B_LO_14,
-    COL_BIT_DECOMP_INPUT_B_LO_15,
-    COL_BIT_DECOMP_INPUT_B_LO_16,
-    COL_BIT_DECOMP_INPUT_B_LO_17,
-    COL_BIT_DECOMP_INPUT_B_LO_18,
-    COL_BIT_DECOMP_INPUT_B_LO_19,
-    COL_BIT_DECOMP_INPUT_B_LO_20,
-    COL_BIT_DECOMP_INPUT_B_LO_21,
-    COL_BIT_DECOMP_INPUT_B_LO_22,
-    COL_BIT_DECOMP_INPUT_B_LO_23,
-    COL_BIT_DECOMP_INPUT_B_LO_24,
-    COL_BIT_DECOMP_INPUT_B_LO_25,
-    COL_BIT_DECOMP_INPUT_B_LO_26,
-    COL_BIT_DECOMP_INPUT_B_LO_27,
-    COL_BIT_DECOMP_INPUT_B_LO_28,
-    COL_BIT_DECOMP_INPUT_B_LO_29,
-    COL_BIT_DECOMP_INPUT_B_LO_30,
-    COL_BIT_DECOMP_INPUT_B_LO_31,
-];
-
-const COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS: [usize; 32] = [
-    COL_BIT_DECOMP_INPUT_B_HI_00,
-    COL_BIT_DECOMP_INPUT_B_HI_01,
-    COL_BIT_DECOMP_INPUT_B_HI_02,
-    COL_BIT_DECOMP_INPUT_B_HI_03,
-    COL_BIT_DECOMP_INPUT_B_HI_04,
-    COL_BIT_DECOMP_INPUT_B_HI_05,
-    COL_BIT_DECOMP_INPUT_B_HI_06,
-    COL_BIT_DECOMP_INPUT_B_HI_07,
-    COL_BIT_DECOMP_INPUT_B_HI_08,
-    COL_BIT_DECOMP_INPUT_B_HI_09,
-    COL_BIT_DECOMP_INPUT_B_HI_10,
-    COL_BIT_DECOMP_INPUT_B_HI_11,
-    COL_BIT_DECOMP_INPUT_B_HI_12,
-    COL_BIT_DECOMP_INPUT_B_HI_13,
-    COL_BIT_DECOMP_INPUT_B_HI_14,
-    COL_BIT_DECOMP_INPUT_B_HI_15,
-    COL_BIT_DECOMP_INPUT_B_HI_16,
-    COL_BIT_DECOMP_INPUT_B_HI_17,
-    COL_BIT_DECOMP_INPUT_B_HI_18,
-    COL_BIT_DECOMP_INPUT_B_HI_19,
-    COL_BIT_DECOMP_INPUT_B_HI_20,
-    COL_BIT_DECOMP_INPUT_B_HI_21,
-    COL_BIT_DECOMP_INPUT_B_HI_22,
-    COL_BIT_DECOMP_INPUT_B_HI_23,
-    COL_BIT_DECOMP_INPUT_B_HI_24,
-    COL_BIT_DECOMP_INPUT_B_HI_25,
-    COL_BIT_DECOMP_INPUT_B_HI_26,
-    COL_BIT_DECOMP_INPUT_B_HI_27,
-    COL_BIT_DECOMP_INPUT_B_HI_28,
-    COL_BIT_DECOMP_INPUT_B_HI_29,
-    COL_BIT_DECOMP_INPUT_B_HI_30,
-    COL_BIT_DECOMP_INPUT_B_HI_31,
-];
