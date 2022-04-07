@@ -9,7 +9,7 @@ edition = "2021"
 plonky2 = { path = "../plonky2" }
 plonky2_util = { path = "../util" }
 plonky2_field = { path = "../field" }
-plonky2_u32 = { path = "../plonky2_u32" }
+plonky2_u32 = { path = "../u32" }
 num = "0.4.0"
 itertools = "0.10.0"
 rayon = "1.5.1"
