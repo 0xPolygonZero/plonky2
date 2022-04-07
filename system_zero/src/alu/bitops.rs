@@ -103,7 +103,7 @@ fn eval_bitop_32<F: Field, P: PackedField<Scalar = F>>(
 
     // Inputs
     let a_bits = input_a_regs.map(|r| lv[r]);
-    let b_bits = input_a_regs.map(|r| lv[r]);
+    let b_bits = input_b_regs.map(|r| lv[r]);
 
     // Output
     let base = F::from_canonical_u64(1 << 16);
@@ -162,7 +162,7 @@ fn eval_bitop_32_recursively<F: RichField + Extendable<D>, const D: usize>(
 
     // Inputs
     let a_bits = input_a_regs.map(|r| lv[r]);
-    let b_bits = input_a_regs.map(|r| lv[r]);
+    let b_bits = input_b_regs.map(|r| lv[r]);
 
     // Output
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << 16));
