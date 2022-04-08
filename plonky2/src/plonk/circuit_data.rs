@@ -104,9 +104,9 @@ impl CircuitConfig {
 
 /// Circuit data required by the prover or the verifier.
 pub struct CircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    pub(crate) prover_only: ProverOnlyCircuitData<F, C, D>,
-    pub(crate) verifier_only: VerifierOnlyCircuitData<C, D>,
-    pub(crate) common: CommonCircuitData<F, C, D>,
+    pub prover_only: ProverOnlyCircuitData<F, C, D>,
+    pub verifier_only: VerifierOnlyCircuitData<C, D>,
+    pub common: CommonCircuitData<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -154,8 +154,8 @@ pub struct ProverCircuitData<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub(crate) prover_only: ProverOnlyCircuitData<F, C, D>,
-    pub(crate) common: CommonCircuitData<F, C, D>,
+    pub prover_only: ProverOnlyCircuitData<F, C, D>,
+    pub common: CommonCircuitData<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -181,8 +181,8 @@ pub struct VerifierCircuitData<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub(crate) verifier_only: VerifierOnlyCircuitData<C, D>,
-    pub(crate) common: CommonCircuitData<F, C, D>,
+    pub verifier_only: VerifierOnlyCircuitData<C, D>,
+    pub common: CommonCircuitData<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -207,7 +207,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 }
 
 /// Circuit data required by the prover, but not the verifier.
-pub(crate) struct ProverOnlyCircuitData<
+pub struct ProverOnlyCircuitData<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
@@ -235,9 +235,9 @@ pub(crate) struct ProverOnlyCircuitData<
 
 /// Circuit data required by the verifier, but not the prover.
 #[derive(Debug)]
-pub(crate) struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
+pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
+    pub constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
 }
 
 /// Circuit data required by both the prover and the verifier.
@@ -247,40 +247,40 @@ pub struct CommonCircuitData<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub(crate) config: CircuitConfig,
+    pub config: CircuitConfig,
 
-    pub(crate) fri_params: FriParams,
+    pub fri_params: FriParams,
 
-    pub(crate) degree_bits: usize,
+    pub degree_bits: usize,
 
     /// The types of gates used in this circuit, along with their prefixes.
-    pub(crate) gates: Vec<GateRef<F, D>>,
+    pub gates: Vec<GateRef<F, D>>,
 
     /// Information on the circuit's selector polynomials.
     pub(crate) selectors_info: SelectorsInfo,
 
     /// The degree of the PLONK quotient polynomial.
-    pub(crate) quotient_degree_factor: usize,
+    pub quotient_degree_factor: usize,
 
     /// The largest number of constraints imposed by any gate.
-    pub(crate) num_gate_constraints: usize,
+    pub num_gate_constraints: usize,
 
     /// The number of constant wires.
-    pub(crate) num_constants: usize,
+    pub num_constants: usize,
 
-    pub(crate) num_virtual_targets: usize,
+    pub num_virtual_targets: usize,
 
-    pub(crate) num_public_inputs: usize,
+    pub num_public_inputs: usize,
 
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
-    pub(crate) k_is: Vec<F>,
+    pub k_is: Vec<F>,
 
     /// The number of partial products needed to compute the `Z` polynomials.
-    pub(crate) num_partial_products: usize,
+    pub num_partial_products: usize,
 
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
-    pub(crate) circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash,
+    pub circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -434,5 +434,5 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 /// dynamic, at least not without setting a maximum wire count and paying for the worst case.
 pub struct VerifierCircuitTarget {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_cap: MerkleCapTarget,
+    pub constants_sigmas_cap: MerkleCapTarget,
 }
