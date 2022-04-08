@@ -27,14 +27,7 @@ mod subtraction;
 
 // TODO: This probably belongs in a more easily accessible location.
 const ALL_OPERATIONS: [usize; 8] = [
-    IS_ADD,
-    IS_SUB,
-    IS_MUL_ADD,
-    IS_DIV,
-    IS_AND,
-    IS_IOR,
-    IS_XOR,
-    IS_ANDNOT,
+    IS_ADD, IS_SUB, IS_MUL_ADD, IS_DIV, IS_AND, IS_IOR, IS_XOR, IS_ANDNOT,
 ];
 
 pub(crate) fn generate_alu<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {

@@ -134,15 +134,15 @@ fn constrain_all_to_bits<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     filter: ExtensionTarget<D>,
-    vals: &[ExtensionTarget<D>]
+    vals: &[ExtensionTarget<D>],
 ) {
-    for v in vals.into_iter() {
+    for v in vals.iter() {
         let one = builder.one_extension();
         let t0 = builder.sub_extension(one, *v);
         let t1 = builder.mul_extension(*v, t0);
         let t2 = builder.mul_extension(filter, t1);
         yield_constr.constraint(builder, t2)
-    };
+    }
 }
 
 /// As for `eval_bitop`, but build with `builder`.
