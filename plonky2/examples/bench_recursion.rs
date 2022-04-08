@@ -42,8 +42,8 @@ struct Options {
     seed: Option<u64>,
 
     /// Number of compute threads to use (defaults to number of cores)
-    #[structopt(long)]
-    threads: Option<usize>,
+    #[structopt(long, parse(try_from_str = parse_range_usize))]
+    threads: Option<RangeInclusive<usize>>,
 
     /// Gate count of the inner proof. Can be a single value or rust style
     /// ranges.
@@ -221,22 +221,31 @@ fn main() -> Result<()> {
     let rng = ChaCha8Rng::seed_from_u64(rng_seed);
     // TODO: Use `rng` to create deterministic runs
 
-    // Initialize Rayon thread pool
-    if let Some(threads) = options.threads {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build_global()
-            .context("Failed to build thread pool.")?;
-    }
-    info!(
-        "Using {} compute threads on {} cores",
-        rayon::current_num_threads(),
-        num_cpus::get()
-    );
+
+    let num_cpus = num_cpus::get();
+    let threads = options.threads.unwrap_or(num_cpus..=num_cpus);
 
     let config = CircuitConfig::standard_recursion_config();
     for inner_size in options.inner_size {
-        benchmark(&config, inner_size)?;
+        // Since the `inner_size` is most likely to be and unbounded range, we
+        // make that the outer iterator.
+        // TODO: log 2 inner size.
+
+        for threads in threads.clone() {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .context("Failed to build thread pool.")?
+                .install(|| {
+                    info!(
+                        "Using {} compute threads on {} cores",
+                        rayon::current_num_threads(),
+                        num_cpus
+                    );
+                    // Run the benchmark
+                    benchmark(&config, inner_size)
+                });
+        }
     }
 
     Ok(())
