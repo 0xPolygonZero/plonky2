@@ -33,6 +33,8 @@ jemallocator = "0.3.2"
 [dev-dependencies]
 criterion = "0.3.5"
 tynm = "0.1.6"
+structopt = "0.3.26"
+num_cpus = "1.13.1"
 
 [[bench]]
 name = "field_arithmetic"
@@ -56,8 +58,4 @@ harness = false
 
 [[bench]]
 name = "reverse_index_bits"
-harness = false
-
-[[bench]]
-name = "recursion"
 harness = false
