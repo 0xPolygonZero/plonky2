@@ -1,3 +1,5 @@
+#![feature(array_zip)]
+
 mod alu;
 mod core_registers;
 pub mod lookup;
