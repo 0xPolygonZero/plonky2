@@ -32,10 +32,19 @@ use plonky2_field::extension_field::Extendable;
 use rand::{rngs::OsRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use structopt::StructOpt;
+use log::LevelFilter;
 
 #[derive(Clone, StructOpt, Debug)]
 #[structopt(name = "bench_recursion")]
 struct Options {
+    /// Verbose mode (-v, -vv, -vvv, etc.)
+    #[structopt(short, long, parse(from_occurrences))]
+    verbose: usize,
+
+    /// Apply an env_filter compatible log filter
+    #[structopt(long, env, default_value)]
+    log_filter: String,
+
     /// Random seed for deterministic runs.
     /// If not specified a new seed is generated from OS entropy.
     #[structopt(long, parse(try_from_str = parse_hex_u64))]
@@ -214,7 +223,16 @@ fn main() -> Result<()> {
     let options = Options::from_args_safe()?;
 
     // Initialize logging
-    let _ = env_logger::builder().format_timestamp(None).try_init();
+    let mut builder = env_logger::Builder::from_default_env();
+    builder.parse_filters(&options.log_filter);
+    builder.format_timestamp(None);
+    match options.verbose {
+        0 => &mut builder,
+        1 => builder.filter_level(LevelFilter::Info),
+        2 => builder.filter_level(LevelFilter::Debug),
+        _ => builder.filter_level(LevelFilter::Trace),
+    };
+    builder.try_init()?;
 
     // Initialize randomness source
     let rng_seed = options.seed.unwrap_or_else(|| OsRng::default().next_u64());
