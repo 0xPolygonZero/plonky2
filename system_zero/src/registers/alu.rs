@@ -4,12 +4,12 @@ pub(crate) const IS_ADD: usize = super::START_ALU;
 pub(crate) const IS_SUB: usize = IS_ADD + 1;
 pub(crate) const IS_MUL_ADD: usize = IS_SUB + 1;
 pub(crate) const IS_DIV: usize = IS_MUL_ADD + 1;
-pub(crate) const IS_BITAND: usize = IS_DIV + 1;
-pub(crate) const IS_BITIOR: usize = IS_BITAND + 1;
-pub(crate) const IS_BITXOR: usize = IS_BITIOR + 1;
-pub(crate) const IS_BITANDNOT: usize = IS_BITXOR + 1;
+pub(crate) const IS_AND: usize = IS_DIV + 1;
+pub(crate) const IS_IOR: usize = IS_AND + 1;
+pub(crate) const IS_XOR: usize = IS_IOR + 1;
+pub(crate) const IS_ANDNOT: usize = IS_XOR + 1;
 
-const START_SHARED_COLS: usize = IS_BITANDNOT + 1;
+const START_SHARED_COLS: usize = IS_ANDNOT + 1;
 
 /// Within the ALU, there are shared columns which can be used by any arithmetic/logic
 /// circuit, depending on which one is active this cycle.

@@ -31,10 +31,10 @@ const ALL_OPERATIONS: [usize; 8] = [
     IS_SUB,
     IS_MUL_ADD,
     IS_DIV,
-    IS_BITAND,
-    IS_BITIOR,
-    IS_BITXOR,
-    IS_BITANDNOT,
+    IS_AND,
+    IS_IOR,
+    IS_XOR,
+    IS_ANDNOT,
 ];
 
 pub(crate) fn generate_alu<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
@@ -46,14 +46,14 @@ pub(crate) fn generate_alu<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
         generate_mul_add(values);
     } else if values[IS_DIV].is_one() {
         generate_division(values);
-    } else if values[IS_BITAND].is_one() {
-        generate_bitop(values, IS_BITAND);
-    } else if values[IS_BITIOR].is_one() {
-        generate_bitop(values, IS_BITIOR);
-    } else if values[IS_BITXOR].is_one() {
-        generate_bitop(values, IS_BITXOR);
-    } else if values[IS_BITANDNOT].is_one() {
-        generate_bitop(values, IS_BITANDNOT);
+    } else if values[IS_AND].is_one() {
+        generate_bitop(values, IS_AND);
+    } else if values[IS_IOR].is_one() {
+        generate_bitop(values, IS_IOR);
+    } else if values[IS_XOR].is_one() {
+        generate_bitop(values, IS_XOR);
+    } else if values[IS_ANDNOT].is_one() {
+        generate_bitop(values, IS_ANDNOT);
     }
 }
 

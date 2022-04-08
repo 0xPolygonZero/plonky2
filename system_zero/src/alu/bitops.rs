@@ -37,10 +37,10 @@ fn generate_bitop_32<F: PrimeField64>(
     let b = binary_to_u32(b_bits).to_canonical_u64() as u32;
 
     let out = match bitop {
-        IS_BITAND => a & b,
-        IS_BITIOR => a | b,
-        IS_BITXOR => a ^ b,
-        IS_BITANDNOT => a & !b,
+        IS_AND => a & b,
+        IS_IOR => a | b,
+        IS_XOR => a ^ b,
+        IS_ANDNOT => a & !b,
         _ => panic!("unrecognized bitop instruction code"),
     };
 
@@ -78,10 +78,10 @@ fn eval_bitop_32<F: Field, P: PackedField<Scalar = F>>(
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     // Filters
-    let is_and = lv[IS_BITAND];
-    let is_ior = lv[IS_BITIOR];
-    let is_xor = lv[IS_BITXOR];
-    let is_andnot = lv[IS_BITANDNOT];
+    let is_and = lv[IS_AND];
+    let is_ior = lv[IS_IOR];
+    let is_xor = lv[IS_XOR];
+    let is_andnot = lv[IS_ANDNOT];
 
     // Inputs
     let a_bits = input_a_regs.map(|r| lv[r]);
@@ -155,10 +155,10 @@ fn eval_bitop_32_recursively<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     // Filters
-    let is_and = lv[IS_BITAND];
-    let is_ior = lv[IS_BITIOR];
-    let is_xor = lv[IS_BITXOR];
-    let is_andnot = lv[IS_BITANDNOT];
+    let is_and = lv[IS_AND];
+    let is_ior = lv[IS_IOR];
+    let is_xor = lv[IS_XOR];
+    let is_andnot = lv[IS_ANDNOT];
 
     // Inputs
     let a_bits = input_a_regs.map(|r| lv[r]);
@@ -256,7 +256,7 @@ mod tests {
 
         // if `IS_bitop == 0`, then the constraints should be met even
         // if all values are garbage.
-        for bitop in [IS_BITAND, IS_BITIOR, IS_BITXOR, IS_BITANDNOT] {
+        for bitop in [IS_AND, IS_IOR, IS_XOR, IS_ANDNOT] {
             values[bitop] = F::ZERO;
         }
 
@@ -279,7 +279,7 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
         let mut values = [F::default(); NUM_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
 
-        const BITOPS: [usize; 4] = [IS_BITAND, IS_BITIOR, IS_BITXOR, IS_BITANDNOT];
+        const BITOPS: [usize; 4] = [IS_AND, IS_IOR, IS_XOR, IS_ANDNOT];
         for bitop in BITOPS {
             // Reset all the instruction registers
             for op in BITOPS {
@@ -321,7 +321,7 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
         let mut values = [F::default(); NUM_COLUMNS].map(|_| F::rand_from_rng(&mut rng));
 
-        const BITOPS: [usize; 4] = [IS_BITAND, IS_BITIOR, IS_BITXOR, IS_BITANDNOT];
+        const BITOPS: [usize; 4] = [IS_AND, IS_IOR, IS_XOR, IS_ANDNOT];
         for bitop in BITOPS {
             // Reset all the instruction registers
             for op in BITOPS {
