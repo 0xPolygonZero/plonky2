@@ -36,19 +36,20 @@ use structopt::StructOpt;
 #[derive(Clone, StructOpt, Debug)]
 #[structopt(name = "bench_recursion")]
 struct Options {
-    /// Random seed for deterministic random number generation.
-    /// If not specified a seed is generated from OS entropy.
+    /// Random seed for deterministic runs.
+    /// If not specified a new seed is generated from OS entropy.
     #[structopt(long, parse(try_from_str = parse_hex_u64))]
     seed: Option<u64>,
 
-    /// Number of compute threads to use (defaults to number of cores)
+    /// Number of compute threads to use. Defaults to number of cores. Can be a single
+    /// value or a rust style range.
     #[structopt(long, parse(try_from_str = parse_range_usize))]
     threads: Option<RangeInclusive<usize>>,
 
-    /// Gate count of the inner proof. Can be a single value or rust style
-    /// ranges.
-    #[structopt(long, default_value="16000", parse(try_from_str = parse_range_usize))]
-    inner_size: RangeInclusive<usize>,
+    /// Log2 gate count of the inner proof. Can be a single value or a rust style
+    /// range.
+    #[structopt(long, default_value="14", parse(try_from_str = parse_range_usize))]
+    size: RangeInclusive<usize>,
 }
 
 /// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
@@ -218,19 +219,17 @@ fn main() -> Result<()> {
     // Initialize randomness source
     let rng_seed = options.seed.unwrap_or_else(|| OsRng::default().next_u64());
     info!("Using random seed {rng_seed:16x}");
-    let rng = ChaCha8Rng::seed_from_u64(rng_seed);
+    let _rng = ChaCha8Rng::seed_from_u64(rng_seed);
     // TODO: Use `rng` to create deterministic runs
-
 
     let num_cpus = num_cpus::get();
     let threads = options.threads.unwrap_or(num_cpus..=num_cpus);
 
     let config = CircuitConfig::standard_recursion_config();
-    for inner_size in options.inner_size {
-        // Since the `inner_size` is most likely to be and unbounded range, we
+    for log2_inner_size in options.size {
+        // Since the `size` is most likely to be and unbounded range, so we
         // make that the outer iterator.
-        // TODO: log 2 inner size.
-
+        let inner_size = 1 << log2_inner_size;
         for threads in threads.clone() {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(threads)
