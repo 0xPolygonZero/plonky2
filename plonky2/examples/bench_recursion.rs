@@ -1,13 +1,14 @@
 // HACK: Ideally this would live in `benches/`, but `cargo bench` doesn't allow
 // custom CLI argument parsing (even with harness disabled). We could also have
-// put it in `src/bin/`, but then we wouldn't have access to `[dev-dependencies]`.
+// put it in `src/bin/`, but then we wouldn't have access to
+// `[dev-dependencies]`.
 
 #![feature(generic_const_exprs)]
 
-use anyhow::Result;
+use std::{ops::RangeInclusive, str::FromStr};
+
+use anyhow::{Context as _, Result};
 use log::{info, Level};
-use plonky2::plonk::circuit_data::VerifierCircuitTarget;
-use plonky2::plonk::config::AlgebraicHasher;
 use plonky2::{
     fri::{reduction_strategies::FriReductionStrategy, FriConfig},
     gates::noop::NoopGate,
@@ -15,20 +16,22 @@ use plonky2::{
     iop::witness::{PartialWitness, Witness},
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnlyCircuitData},
-        config::{GenericConfig, Hasher, KeccakGoldilocksConfig, PoseidonGoldilocksConfig},
+        circuit_data::{
+            CircuitConfig, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
+        },
+        config::{
+            AlgebraicHasher, GenericConfig, Hasher, KeccakGoldilocksConfig,
+            PoseidonGoldilocksConfig,
+        },
         proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs},
         prover::prove,
     },
     util::timing::TimingTree,
 };
 use plonky2_field::extension_field::Extendable;
-use structopt::StructOpt;
-use rand::rngs::OsRng;
-use anyhow::Context as _;
-use rand::RngCore;
-use rand::SeedableRng;
+use rand::{rngs::OsRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
+use structopt::StructOpt;
 
 #[derive(Clone, StructOpt, Debug)]
 #[structopt(name = "bench_recursion")]
@@ -42,9 +45,10 @@ struct Options {
     #[structopt(long)]
     threads: Option<usize>,
 
-    /// Gate count of the inner proof.
-    #[structopt(long, default_value="16000")]
-    inner_size: usize,
+    /// Gate count of the inner proof. Can be a single value or rust style
+    /// ranges.
+    #[structopt(long, default_value="16000", parse(try_from_str = parse_range_usize))]
+    inner_size: RangeInclusive<usize>,
 }
 
 /// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
@@ -115,9 +119,10 @@ where
     }
 
     if let Some(min_degree_bits) = min_degree_bits {
-        // We don't want to pad all the way up to 2^min_degree_bits, as the builder will add a
-        // few special gates afterward. So just pad to 2^(min_degree_bits - 1) + 1. Then the
-        // builder will pad to the next power of two, 2^min_degree_bits.
+        // We don't want to pad all the way up to 2^min_degree_bits, as the builder will
+        // add a few special gates afterward. So just pad to 2^(min_degree_bits
+        // - 1) + 1. Then the builder will pad to the next power of two,
+        // 2^min_degree_bits.
         let min_gates = (1 << (min_degree_bits - 1)) + 1;
         for _ in builder.num_gates()..min_gates {
             builder.add_gate(NoopGate, vec![]);
@@ -175,16 +180,28 @@ fn benchmark(config: &CircuitConfig, inner_size: usize) -> Result<()> {
 
     // Start with a degree 2^14 proof
     let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, inner_size)?;
-    info!("Initial proof degree {} = 2^{}", cd.degree(), cd.degree_bits);
+    info!(
+        "Initial proof degree {} = 2^{}",
+        cd.degree(),
+        cd.degree_bits
+    );
 
     // Recursively verify the proof
     let (proof, vd, cd) =
         recursive_proof::<F, C, C, D>(proof, vd, cd, &config, Some(13), false, false)?;
-    info!("Single recursion proof degree {} = 2^{}", cd.degree(), cd.degree_bits);
+    info!(
+        "Single recursion proof degree {} = 2^{}",
+        cd.degree(),
+        cd.degree_bits
+    );
 
     // Shrink it to 2^12.
     let (proof, _vd, cd) = recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
-    info!("Double recursion proof degree {} = 2^{}", cd.degree(), cd.degree_bits);
+    info!(
+        "Double recursion proof degree {} = 2^{}",
+        cd.degree(),
+        cd.degree_bits
+    );
 
     test_serialization(&proof, &cd)?;
 
@@ -218,8 +235,10 @@ fn main() -> Result<()> {
     );
 
     let config = CircuitConfig::standard_recursion_config();
-    benchmark(&config, options.inner_size)?;
- 
+    for inner_size in options.inner_size {
+        benchmark(&config, inner_size)?;
+    }
+
     Ok(())
 }
 
@@ -227,4 +246,25 @@ fn main() -> Result<()> {
 fn parse_hex_u64(src: &str) -> Result<u64, std::num::ParseIntError> {
     let src = src.strip_prefix("0x").unwrap_or(src);
     u64::from_str_radix(src, 16)
+}
+
+#[must_use]
+fn parse_range_usize(src: &str) -> Result<RangeInclusive<usize>, std::num::ParseIntError> {
+    if let Some(index) = src.find("..=") {
+        let left = usize::from_str(&src[..index])?;
+        let right = usize::from_str(&src[(index + 3)..])?;
+        Ok(RangeInclusive::new(left, right))
+    } else if let Some(index) = src.find("..") {
+        let left = usize::from_str(&src[..index])?;
+        let right = &src[(index + 2)..];
+        let right = if right.is_empty() {
+            usize::MAX
+        } else {
+            usize::from_str(right)?
+        };
+        Ok(RangeInclusive::new(left, right - 1))
+    } else {
+        let value = usize::from_str(src)?;
+        Ok(RangeInclusive::new(value, value))
+    }
 }
