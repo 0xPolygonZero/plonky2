@@ -89,8 +89,8 @@ fn eval_bitop_32<F: Field, P: PackedField<Scalar = F>>(
 
     // Ensure that the inputs are bits
     let inst_constr = is_and + is_ior + is_xor + is_andnot;
-    a_bits.map(|v| yield_constr.constraint(inst_constr * v * (P::ONES - v)));
-    b_bits.map(|v| yield_constr.constraint(inst_constr * v * (P::ONES - v)));
+    a_bits.map(|v| yield_constr.constraint(inst_constr * (v * v - v)));
+    b_bits.map(|v| yield_constr.constraint(inst_constr * (v * v - v)));
 
     // Output
     let output = lv[output_reg];
@@ -137,11 +137,9 @@ fn constrain_all_to_bits<F: RichField + Extendable<D>, const D: usize>(
     vals: &[ExtensionTarget<D>],
 ) {
     for v in vals.iter() {
-        let one = builder.one_extension();
-        let t0 = builder.sub_extension(one, *v);
-        let t1 = builder.mul_extension(*v, t0);
-        let t2 = builder.mul_extension(filter, t1);
-        yield_constr.constraint(builder, t2)
+        let t0 = builder.mul_sub_extension(*v, *v, *v);
+        let t1 = builder.mul_extension(filter, t0);
+        yield_constr.constraint(builder, t1)
     }
 }
 
