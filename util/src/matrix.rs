@@ -9,7 +9,7 @@ fn size_checked(height: usize, width: usize) -> usize {
     height.checked_mul(width).expect("memory overflow")
 }
 
-/// Returns an uninitialized boxed slice of lenth `len`.
+/// Returns an uninitialized boxed slice of length `len`.
 fn uninit_box<T>(len: usize) -> Box<[MaybeUninit<T>]> {
     let mut buf: Vec<MaybeUninit<T>> = Vec::with_capacity(len);
     debug_assert_eq!(buf.capacity(), len);
@@ -22,6 +22,7 @@ fn uninit_box<T>(len: usize) -> Box<[MaybeUninit<T>]> {
 }
 
 /// A non-resizeable matrix.
+#[derive(Clone)]
 pub struct Matrix<T> {
     data: Box<[T]>,
     height: usize,
@@ -63,26 +64,6 @@ impl<T> Matrix<T> {
         let size = size_checked(height, width);
         let buf_box = uninit_box::<T>(size);
         Matrix::from_flat_box(height, width, buf_box)
-    }
-
-    /// Creates a new matrix with a specified height and width, initialized with a provided closure.
-    ///
-    /// This function allocates an uninitialized matrix of with a given `height` and `width`. A
-    /// reference to this uninitialized array is passed to the user-provided closure, which is
-    /// responsible for initializing all elements.
-    ///
-    /// # Safety
-    ///
-    /// This function is unsafe as `f` must initialization on every element of the matrix.
-    pub unsafe fn new_with<F: FnOnce(&mut Matrix<MaybeUninit<T>>)>(
-        height: usize,
-        width: usize,
-        f: F,
-    ) -> Self {
-        let mut res = Self::new_uninit(height, width);
-        f(&mut res);
-        // SAFETY: it's up to the user to ensure that `f` correctly initializes `res`.
-        res.assume_init()
     }
 
     /// The height of the matrix.
@@ -169,44 +150,44 @@ impl<T> Matrix<T> {
         let height = self.height;
         let width = self.width;
 
-        let initializer_fn = |res: &mut Matrix<MaybeUninit<T>>| {
-            // We're essentially moving all contents of `self` to `res`. We need to ensure that they
-            // don't get dropped when `self` gets dropped, so we wrap them in `ManuallyDrop`.
-            let mut me = self.manually_drop_elements();
+        let mut res = Matrix::new_uninit(width, height);
 
-            // Important that we don't panic here. We've disabled the destructors of all our
-            // elements, so they won't be called if we have to unwind, potentially causing a leak.
+        // We're essentially moving all contents of `self` to `res`. We need to ensure that they
+        // don't get dropped when `self` gets dropped, so we wrap them in `ManuallyDrop`.
+        let mut me = self.manually_drop_elements();
 
-            // Easy optimization: ensure the larger loop is outside.
-            unsafe {
-                if width >= height {
-                    for i in 0..width {
-                        for j in 0..height {
-                            // SAFETY: The indices are valid. The pointee of `in_ref` is not used
-                            // again (so we're effectively just moving it).
-                            // idk why `in_ref` has to be `mut`, but `ManuallyDrop::take` requires
-                            // it.
-                            let in_ref = me.get_unchecked_mut(j).get_unchecked_mut(i);
-                            let out_ref = res.get_unchecked_mut(i).get_unchecked_mut(j);
-                            out_ref.write(ManuallyDrop::take(in_ref));
-                        }
-                    }
-                } else {
+        // Important that we don't panic here. We've disabled the destructors of all our
+        // elements, so they won't be called if we have to unwind, potentially causing a leak.
+
+        // Easy optimization: ensure the larger loop is outside.
+        unsafe {
+            if width >= height {
+                for i in 0..width {
                     for j in 0..height {
-                        for i in 0..width {
-                            // SAFETY: see above.
-                            let in_ref = me.get_unchecked_mut(j).get_unchecked_mut(i);
-                            let out_ref = res.get_unchecked_mut(i).get_unchecked_mut(j);
-                            out_ref.write(ManuallyDrop::take(in_ref));
-                        }
+                        // SAFETY: The indices are valid. The pointee of `in_ref` is not used
+                        // again (so we're effectively just moving it).
+                        // idk why `in_ref` has to be `mut`, but `ManuallyDrop::take` requires
+                        // it.
+                        let in_ref = me.get_unchecked_mut(j).get_unchecked_mut(i);
+                        let out_ref = res.get_unchecked_mut(i).get_unchecked_mut(j);
+                        out_ref.write(ManuallyDrop::take(in_ref));
                     }
-                };
-            }
-        };
+                }
+            } else {
+                for j in 0..height {
+                    for i in 0..width {
+                        // SAFETY: see above.
+                        let in_ref = me.get_unchecked_mut(j).get_unchecked_mut(i);
+                        let out_ref = res.get_unchecked_mut(i).get_unchecked_mut(j);
+                        out_ref.write(ManuallyDrop::take(in_ref));
+                    }
+                }
+            };
+        }
 
         unsafe {
-            // SAFETY: The closure initializes every element.
-            Self::new_with(width, height, initializer_fn)
+            // SAFETY: All elements are initialized above.
+            res.assume_init()
         }
     }
 
@@ -275,12 +256,6 @@ impl<T> Matrix<MaybeUninit<T>> {
         // reinterpreted as `T` when initialized. The caller guarantees that initialization took
         // place.
         self.transmute::<T>()
-    }
-}
-
-impl<T: Clone> Clone for Matrix<T> {
-    fn clone(&self) -> Self {
-        Self::from_flat_vec(self.height, self.width, self.as_flat().to_vec())
     }
 }
 
@@ -377,29 +352,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::redundant_clone)]
-    fn test_clone() {
-        let v: Vec<u64> = (0..(HEIGHT * WIDTH) as u64).into_iter().collect();
-        let m = Matrix::from_flat_vec(HEIGHT, WIDTH, v);
-        let m = m.clone();
-        check_matrix(m);
-    }
-
-    #[test]
-    fn test_new_with() {
-        let m = unsafe {
-            Matrix::new_with(HEIGHT, WIDTH, |res| {
-                for i in 0..HEIGHT {
-                    for j in 0..WIDTH {
-                        res[i][j].write((WIDTH * i + j) as u64);
-                    }
-                }
-            })
-        };
-        check_matrix(m);
-    }
-
-    #[test]
     fn test_from_iter() {
         let m =
             Matrix::from_iter((0..HEIGHT).map(|i| (WIDTH * i..WIDTH * (i + 1)).map(|i| i as u64)));
@@ -436,14 +388,14 @@ mod tests {
 
     #[test]
     fn test_transpose() {
-        let m = unsafe {
-            Matrix::new_with(WIDTH, HEIGHT, |res| {
-                for i in 0..HEIGHT {
-                    for j in 0..WIDTH {
-                        res[j][i].write((WIDTH * i + j) as u64);
-                    }
+        let m = {
+            let mut m = Matrix::new_uninit(WIDTH, HEIGHT);
+            for i in 0..HEIGHT {
+                for j in 0..WIDTH {
+                    m[j][i].write((WIDTH * i + j) as u64);
                 }
-            })
+            }
+            unsafe { m.assume_init() }
         };
         let m = m.transpose();
         check_matrix(m);
