@@ -11,6 +11,11 @@ use crate::alu::addition::{eval_addition, eval_addition_recursively, generate_ad
 use crate::alu::bitops::{eval_bitop, eval_bitop_recursively, generate_bitop};
 use crate::alu::division::{eval_division, eval_division_recursively, generate_division};
 use crate::alu::mul_add::{eval_mul_add, eval_mul_add_recursively, generate_mul_add};
+use crate::alu::rotate_shift::{
+    eval_rotate_left, eval_rotate_left_recursively,
+    eval_shift_left, eval_shift_left_recursively,
+    generate_rotate_shift,
+};
 use crate::alu::subtraction::{
     eval_subtraction, eval_subtraction_recursively, generate_subtraction,
 };
@@ -23,11 +28,14 @@ mod bitops;
 mod canonical;
 mod division;
 mod mul_add;
+mod rotate_shift;
 mod subtraction;
 
 // TODO: This probably belongs in a more easily accessible location.
-const ALL_OPERATIONS: [usize; 8] = [
+const ALL_OPERATIONS: [usize; 13] = [
     IS_ADD, IS_SUB, IS_MUL_ADD, IS_DIV, IS_AND, IS_IOR, IS_XOR, IS_ANDNOT,
+    IS_ROTATE_LEFT, IS_SHIFT_LEFT, IS_ROTATE_RIGHT, IS_SHIFT_RIGHT,
+    IS_ARITH_SHIFT_RIGHT,
 ];
 
 pub(crate) fn generate_alu<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
@@ -47,6 +55,14 @@ pub(crate) fn generate_alu<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
         generate_bitop(values, IS_XOR);
     } else if values[IS_ANDNOT].is_one() {
         generate_bitop(values, IS_ANDNOT);
+    } else if values[IS_ROTATE_LEFT].is_one() {
+        generate_rotate_shift(values, IS_ROTATE_LEFT);
+    } else if values[IS_ROTATE_RIGHT].is_one() {
+        generate_rotate_shift(values, IS_ROTATE_RIGHT);
+    } else if values[IS_SHIFT_LEFT].is_one() {
+        generate_rotate_shift(values, IS_SHIFT_LEFT);
+    } else if values[IS_SHIFT_RIGHT].is_one() {
+        generate_rotate_shift(values, IS_SHIFT_RIGHT);
     }
 }
 
@@ -67,6 +83,8 @@ pub(crate) fn eval_alu<F: Field, P: PackedField<Scalar = F>>(
     eval_mul_add(local_values, yield_constr);
     eval_division(local_values, yield_constr);
     eval_bitop(local_values, yield_constr);
+    eval_rotate_left(local_values, yield_constr);
+    eval_shift_left(local_values, yield_constr);
 }
 
 pub(crate) fn eval_alu_recursively<F: RichField + Extendable<D>, const D: usize>(
@@ -88,4 +106,6 @@ pub(crate) fn eval_alu_recursively<F: RichField + Extendable<D>, const D: usize>
     eval_mul_add_recursively(builder, local_values, yield_constr);
     eval_division_recursively(builder, local_values, yield_constr);
     eval_bitop_recursively(builder, local_values, yield_constr);
+    eval_rotate_left_recursively(builder, local_values, yield_constr);
+    eval_shift_left_recursively(builder, local_values, yield_constr);
 }
