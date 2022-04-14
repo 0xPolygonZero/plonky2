@@ -23,10 +23,7 @@ use crate::registers::NUM_COLUMNS;
 /// - two auxiliary values, one each for Y_lo and Y_hi, used to prove that Y_lo and
 ///   Y_hi are valid Goldilocks elements.
 
-pub(crate) fn generate_rotate_shift<F: PrimeField64>(
-    values: &mut [F; NUM_COLUMNS],
-    op: usize,
-) {
+pub(crate) fn generate_rotate_shift<F: PrimeField64>(values: &mut [F; NUM_COLUMNS], op: usize) {
     // input_{lo,hi} are the 32-bit lo and hi words of the input
     let input_lo = values[COL_ROTATE_SHIFT_INPUT_LO].to_canonical_u64();
     let input_hi = values[COL_ROTATE_SHIFT_INPUT_HI].to_canonical_u64();
@@ -40,9 +37,7 @@ pub(crate) fn generate_rotate_shift<F: PrimeField64>(
     // for right ops.
     let exp_bits = COL_ROTATE_SHIFT_EXP_BITS.map(|r| values[r].to_canonical_u64());
 
-    let is_right_op = op == IS_ROTATE_RIGHT
-        || op == IS_SHIFT_RIGHT
-        || op == IS_ARITH_SHIFT_RIGHT;
+    let is_right_op = op == IS_ROTATE_RIGHT || op == IS_SHIFT_RIGHT || op == IS_ARITH_SHIFT_RIGHT;
     let exp: u64 = [0, 1, 2, 3, 4].map(|i| exp_bits[i] << i).into_iter().sum();
     let delta_mod32 = if is_right_op { (32u64 - exp) % 32 } else { exp };
     let top_bit = values[COL_ROTATE_SHIFT_DELTA_DIV32].to_canonical_u64();
@@ -160,8 +155,7 @@ pub(crate) fn eval_rotate_shift<F: Field, P: PackedField<Scalar = F>>(
 
     let one = P::ONES;
     // c[i-1] = 2^(2^i) - 1
-    let c = [1, 2, 3, 4]
-        .map(|i| P::from(F::from_canonical_u64(1u64 << (1u32 << i))) - P::ONES);
+    let c = [1, 2, 3, 4].map(|i| P::from(F::from_canonical_u64(1u64 << (1u32 << i))) - P::ONES);
 
     let constr1 = (exp_bits[0] + one) * (c[0] * exp_bits[1] + one);
     yield_constr.constraint(filter * (constr1 - pow_exp_aux_0));
@@ -216,7 +210,15 @@ pub(crate) fn eval_rotate_shift<F: Field, P: PackedField<Scalar = F>>(
     yield_constr.constraint(filter * (shifted_lo_expected - shifted_lo));
     yield_constr.constraint(filter * (shifted_hi_expected - shifted_hi));
 
-    (top_bit, shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi)
+    (
+        top_bit,
+        shifted_lo_0,
+        shifted_lo_1,
+        shifted_hi_0,
+        shifted_hi_1,
+        output_lo,
+        output_hi,
+    )
 }
 
 pub(crate) fn eval_rotate_left<F: Field, P: PackedField<Scalar = F>>(
@@ -226,7 +228,8 @@ pub(crate) fn eval_rotate_left<F: Field, P: PackedField<Scalar = F>>(
     let is_rol = lv[IS_ROTATE_LEFT];
     let one = P::ONES;
 
-    let (delta_ge32, shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi) = eval_rotate_shift(lv, yield_constr, is_rol);
+    let (delta_ge32, shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi) =
+        eval_rotate_shift(lv, yield_constr, is_rol);
 
     // Intuitively we want to do this (which works when delta <= 32):
     //let lo_constr = shifted_hi_1 + shifted_lo_0 - output_lo;
@@ -236,11 +239,9 @@ pub(crate) fn eval_rotate_left<F: Field, P: PackedField<Scalar = F>>(
     // Otherwise delta_bits[5] == 1, so 32 <= delta < 64 and we need
     // to swap the constraints for the hi and lo halves; hence we use
     // the bottom term which is the top term from hi_constr.
-    let lo_constr =
-        (one - delta_ge32) * (shifted_hi_1 + shifted_lo_0 - output_lo)
+    let lo_constr = (one - delta_ge32) * (shifted_hi_1 + shifted_lo_0 - output_lo)
         + delta_ge32 * (shifted_lo_1 + shifted_hi_0 - output_lo);
-    let hi_constr =
-        (one - delta_ge32) * (shifted_lo_1 + shifted_hi_0 - output_hi)
+    let hi_constr = (one - delta_ge32) * (shifted_lo_1 + shifted_hi_0 - output_hi)
         + delta_ge32 * (shifted_hi_1 + shifted_lo_0 - output_hi);
     yield_constr.constraint(is_rol * lo_constr);
     yield_constr.constraint(is_rol * hi_constr);
@@ -253,17 +254,16 @@ pub(crate) fn eval_rotate_right<F: Field, P: PackedField<Scalar = F>>(
     let is_ror = lv[IS_ROTATE_RIGHT];
     let one = P::ONES;
 
-    let (delta_ge32, shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi) = eval_rotate_shift(lv, yield_constr, is_ror);
+    let (delta_ge32, shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi) =
+        eval_rotate_shift(lv, yield_constr, is_ror);
 
     // Intuitively we want to do this (which works when delta <= 32):
     // let lo_constr = shifted_lo_1 + shifted_hi_0 - output_lo;
     // let hi_constr = shifted_hi_1 + shifted_lo_0 - output_hi;
 
-    let lo_constr =
-        (one - delta_ge32) * (shifted_lo_1 + shifted_hi_0 - output_lo)
+    let lo_constr = (one - delta_ge32) * (shifted_lo_1 + shifted_hi_0 - output_lo)
         + delta_ge32 * (shifted_hi_1 + shifted_lo_0 - output_lo);
-    let hi_constr =
-        (one - delta_ge32) * (shifted_hi_1 + shifted_lo_0 - output_hi)
+    let hi_constr = (one - delta_ge32) * (shifted_hi_1 + shifted_lo_0 - output_hi)
         + delta_ge32 * (shifted_lo_1 + shifted_hi_0 - output_hi);
     yield_constr.constraint(is_ror * lo_constr);
     yield_constr.constraint(is_ror * hi_constr);
@@ -276,17 +276,16 @@ pub(crate) fn eval_shift_left<F: Field, P: PackedField<Scalar = F>>(
     let is_shl = lv[IS_SHIFT_LEFT];
     let one = P::ONES;
 
-    let (delta_ge32, shifted_lo_0, shifted_lo_1, shifted_hi_0, _shifted_hi_1, output_lo, output_hi) = eval_rotate_shift(lv, yield_constr, is_shl);
+    let (delta_ge32, shifted_lo_0, shifted_lo_1, shifted_hi_0, _shifted_hi_1, output_lo, output_hi) =
+        eval_rotate_shift(lv, yield_constr, is_shl);
 
     // Intuitively we want to do this (which works when delta <= 32):
     //let lo_constr = shifted_lo_0 - output_lo;
     //let hi_constr = shifted_lo_1 + shifted_hi_0 - output_hi;
 
     let lo_constr =
-        (one - delta_ge32) * (shifted_lo_0 - output_lo)
-        + delta_ge32 * (P::ZEROS - output_lo);
-    let hi_constr =
-        (one - delta_ge32) * (shifted_lo_1 + shifted_hi_0 - output_hi)
+        (one - delta_ge32) * (shifted_lo_0 - output_lo) + delta_ge32 * (P::ZEROS - output_lo);
+    let hi_constr = (one - delta_ge32) * (shifted_lo_1 + shifted_hi_0 - output_hi)
         + delta_ge32 * (shifted_lo_0 - output_hi);
     yield_constr.constraint(is_shl * lo_constr);
     yield_constr.constraint(is_shl * hi_constr);
@@ -299,18 +298,17 @@ pub(crate) fn eval_shift_right<F: Field, P: PackedField<Scalar = F>>(
     let is_shl = lv[IS_SHIFT_LEFT];
     let one = P::ONES;
 
-    let (delta_ge32, _shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi) = eval_rotate_shift(lv, yield_constr, is_shl);
+    let (delta_ge32, _shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi) =
+        eval_rotate_shift(lv, yield_constr, is_shl);
 
     // Intuitively we want to do this (which works when delta <= 32):
     //let lo_constr = shifted_lo_1 + shifted_hi_0 - output_hi;
     //let hi_constr = shifted_hi_1 - output_lo;
 
-    let lo_constr =
-        (one - delta_ge32) * (shifted_lo_1 + shifted_hi_0 - output_lo)
+    let lo_constr = (one - delta_ge32) * (shifted_lo_1 + shifted_hi_0 - output_lo)
         + delta_ge32 * (shifted_hi_1 - output_lo);
     let hi_constr =
-        (one - delta_ge32) * (shifted_hi_1 - output_hi)
-        + delta_ge32 * (P::ZEROS - output_hi);
+        (one - delta_ge32) * (shifted_hi_1 - output_hi) + delta_ge32 * (P::ZEROS - output_hi);
     yield_constr.constraint(is_shl * lo_constr);
     yield_constr.constraint(is_shl * hi_constr);
 }
@@ -320,7 +318,15 @@ pub(crate) fn eval_rotate_shift_recursively<F: RichField + Extendable<D>, const 
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     filter: ExtensionTarget<D>,
-) -> (ExtensionTarget<D>, ExtensionTarget<D>, ExtensionTarget<D>, ExtensionTarget<D>, ExtensionTarget<D>, ExtensionTarget<D>, ExtensionTarget<D>) {
+) -> (
+    ExtensionTarget<D>,
+    ExtensionTarget<D>,
+    ExtensionTarget<D>,
+    ExtensionTarget<D>,
+    ExtensionTarget<D>,
+    ExtensionTarget<D>,
+    ExtensionTarget<D>,
+) {
     // Input
     let input_lo = lv[COL_ROTATE_SHIFT_INPUT_LO];
     let input_hi = lv[COL_ROTATE_SHIFT_INPUT_HI];
@@ -352,8 +358,7 @@ pub(crate) fn eval_rotate_shift_recursively<F: RichField + Extendable<D>, const 
 
     let one = builder.one_extension();
     // c[i-1] = 2^(2^i) - 1
-    let c = [1, 2, 3, 4]
-        .map(|i| F::from_canonical_u64(1u64 << (1u32 << i)) - F::ONE);
+    let c = [1, 2, 3, 4].map(|i| F::from_canonical_u64(1u64 << (1u32 << i)) - F::ONE);
 
     let constr1 = {
         let t0 = builder.add_extension(exp_bits[0], one);
@@ -428,7 +433,15 @@ pub(crate) fn eval_rotate_shift_recursively<F: RichField + Extendable<D>, const 
     };
     yield_constr.constraint(builder, shifted_hi_valid);
 
-    (top_bit, shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi)
+    (
+        top_bit,
+        shifted_lo_0,
+        shifted_lo_1,
+        shifted_hi_0,
+        shifted_hi_1,
+        output_lo,
+        output_hi,
+    )
 }
 
 pub(crate) fn eval_rotate_left_recursively<F: RichField + Extendable<D>, const D: usize>(
@@ -438,7 +451,8 @@ pub(crate) fn eval_rotate_left_recursively<F: RichField + Extendable<D>, const D
 ) {
     let is_rol = lv[IS_ROTATE_LEFT];
 
-    let (delta_ge32, shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi) = eval_rotate_shift_recursively(builder, lv, yield_constr, is_rol);
+    let (delta_ge32, shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi) =
+        eval_rotate_shift_recursively(builder, lv, yield_constr, is_rol);
 
     let one = builder.one_extension();
     let s0 = builder.add_extension(shifted_hi_1, shifted_lo_0);
@@ -474,7 +488,8 @@ pub(crate) fn eval_rotate_right_recursively<F: RichField + Extendable<D>, const 
 ) {
     let is_ror = lv[IS_ROTATE_RIGHT];
 
-    let (delta_ge32, shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi) = eval_rotate_shift_recursively(builder, lv, yield_constr, is_ror);
+    let (delta_ge32, shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi) =
+        eval_rotate_shift_recursively(builder, lv, yield_constr, is_ror);
 
     let one = builder.one_extension();
     let s0 = builder.add_extension(shifted_hi_1, shifted_lo_0);
@@ -510,7 +525,8 @@ pub(crate) fn eval_shift_left_recursively<F: RichField + Extendable<D>, const D:
 ) {
     let is_shl = lv[IS_SHIFT_LEFT];
 
-    let (delta_ge32, shifted_lo_0, shifted_lo_1, shifted_hi_0, _shifted_hi_1, output_lo, output_hi) = eval_rotate_shift_recursively(builder, lv, yield_constr, is_shl);
+    let (delta_ge32, shifted_lo_0, shifted_lo_1, shifted_hi_0, _shifted_hi_1, output_lo, output_hi) =
+        eval_rotate_shift_recursively(builder, lv, yield_constr, is_shl);
 
     let one = builder.one_extension();
     let c = builder.sub_extension(one, delta_ge32);
@@ -544,7 +560,8 @@ pub(crate) fn eval_shift_right_recursively<F: RichField + Extendable<D>, const D
 ) {
     let is_shr = lv[IS_SHIFT_RIGHT];
 
-    let (delta_ge32, _shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi) = eval_rotate_shift_recursively(builder, lv, yield_constr, is_shr);
+    let (delta_ge32, _shifted_lo_0, shifted_lo_1, shifted_hi_0, shifted_hi_1, output_lo, output_hi) =
+        eval_rotate_shift_recursively(builder, lv, yield_constr, is_shr);
 
     let one = builder.one_extension();
     let c = builder.sub_extension(one, delta_ge32);

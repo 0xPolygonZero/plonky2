@@ -115,10 +115,14 @@ const fn gen_bitop_nbit_input_regs<const N: usize>(start: usize) -> [usize; N] {
     regs
 }
 
-pub(crate) const COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS: [usize; 32] = gen_bitop_nbit_input_regs::<32>(0);
-pub(crate) const COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS: [usize; 32] = gen_bitop_nbit_input_regs::<32>(32);
-pub(crate) const COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS: [usize; 32] = gen_bitop_nbit_input_regs::<32>(64);
-pub(crate) const COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS: [usize; 32] = gen_bitop_nbit_input_regs::<32>(96);
+pub(crate) const COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS: [usize; 32] =
+    gen_bitop_nbit_input_regs::<32>(0);
+pub(crate) const COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS: [usize; 32] =
+    gen_bitop_nbit_input_regs::<32>(32);
+pub(crate) const COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS: [usize; 32] =
+    gen_bitop_nbit_input_regs::<32>(64);
+pub(crate) const COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS: [usize; 32] =
+    gen_bitop_nbit_input_regs::<32>(96);
 
 /// The first 32-bit chunk of the output, based on little-endian ordering.
 pub(crate) const COL_BITOP_OUTPUT_0: usize = shared_col(128);
@@ -160,6 +164,5 @@ pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_HI_AUX_1: usize = shared_col(1
 pub(crate) const COL_ROTATE_SHIFT_OUTPUT_0: usize = shared_col(20);
 /// The second 32-bit chunk of the output, based on little-endian ordering.
 pub(crate) const COL_ROTATE_SHIFT_OUTPUT_1: usize = shared_col(21);
-
 
 pub(super) const END: usize = START_SHARED_COLS + NUM_SHARED_COLS;

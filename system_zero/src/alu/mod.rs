@@ -12,11 +12,9 @@ use crate::alu::bitops::{eval_bitop, eval_bitop_recursively, generate_bitop};
 use crate::alu::division::{eval_division, eval_division_recursively, generate_division};
 use crate::alu::mul_add::{eval_mul_add, eval_mul_add_recursively, generate_mul_add};
 use crate::alu::rotate_shift::{
-    eval_rotate_left, eval_rotate_left_recursively,
-    eval_rotate_right, eval_rotate_right_recursively,
-    eval_shift_left, eval_shift_left_recursively,
-    eval_shift_right, eval_shift_right_recursively,
-    generate_rotate_shift,
+    eval_rotate_left, eval_rotate_left_recursively, eval_rotate_right,
+    eval_rotate_right_recursively, eval_shift_left, eval_shift_left_recursively, eval_shift_right,
+    eval_shift_right_recursively, generate_rotate_shift,
 };
 use crate::alu::subtraction::{
     eval_subtraction, eval_subtraction_recursively, generate_subtraction,
@@ -35,8 +33,18 @@ mod subtraction;
 
 // TODO: This probably belongs in a more easily accessible location.
 const ALL_OPERATIONS: [usize; 13] = [
-    IS_ADD, IS_SUB, IS_MUL_ADD, IS_DIV, IS_AND, IS_IOR, IS_XOR, IS_ANDNOT,
-    IS_ROTATE_LEFT, IS_SHIFT_LEFT, IS_ROTATE_RIGHT, IS_SHIFT_RIGHT,
+    IS_ADD,
+    IS_SUB,
+    IS_MUL_ADD,
+    IS_DIV,
+    IS_AND,
+    IS_IOR,
+    IS_XOR,
+    IS_ANDNOT,
+    IS_ROTATE_LEFT,
+    IS_SHIFT_LEFT,
+    IS_ROTATE_RIGHT,
+    IS_SHIFT_RIGHT,
     IS_ARITH_SHIFT_RIGHT,
 ];
 
