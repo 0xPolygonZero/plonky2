@@ -11,7 +11,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::util::reducing::ReducingFactorTarget;
 
 pub(crate) const FRI_ORACLES: [FriOracleInfo; 4] = [
-    PlonkOracle::CONSTANTS_SIGMAS.as_fri_oracle(),
+    PlonkOracle::CONSTANTS_SIGMAS_TABLES.as_fri_oracle(),
     PlonkOracle::WIRES.as_fri_oracle(),
     PlonkOracle::ZS_PARTIAL_PRODUCTS.as_fri_oracle(),
     PlonkOracle::QUOTIENT.as_fri_oracle(),
@@ -25,7 +25,7 @@ pub struct PlonkOracle {
 }
 
 impl PlonkOracle {
-    pub const CONSTANTS_SIGMAS: PlonkOracle = PlonkOracle {
+    pub const CONSTANTS_SIGMAS_TABLES: PlonkOracle = PlonkOracle {
         index: 0,
         blinding: false,
     };

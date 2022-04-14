@@ -8,6 +8,7 @@ pub mod plonk_common;
 pub mod proof;
 pub mod prover;
 pub mod recursive_verifier;
+pub mod table;
 pub(crate) mod vanishing_poly;
 pub mod vars;
 pub mod verifier;

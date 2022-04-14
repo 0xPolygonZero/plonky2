@@ -38,6 +38,7 @@ use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkOracle;
+use crate::plonk::table::Table;
 use crate::timed;
 use crate::util::context_tree::ContextTree;
 use crate::util::marking::{Markable, MarkedTargets};
@@ -85,6 +86,8 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
 
     /// List of constant generators used to fill the constant wires.
     constant_generators: Vec<ConstantGenerator<F>>,
+
+    pub(crate) tables: Vec<Table<F>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -105,6 +108,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             targets_to_constants: HashMap::new(),
             current_slots: HashMap::new(),
             constant_generators: Vec::new(),
+            tables: Vec::new(),
         };
         builder.check_config();
         builder
@@ -717,23 +721,30 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.sigma_vecs(&k_is, &subgroup)
         );
 
+        let tables = self
+            .tables
+            .iter()
+            .map(|table| table.to_vec(degree).into())
+            .collect::<Vec<_>>();
+
         // Precompute FFT roots.
         let max_fft_points = 1 << (degree_bits + max(rate_bits, log2_ceil(quotient_degree_factor)));
         let fft_root_table = fft_root_table(max_fft_points);
 
-        let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
+        let constants_sigmas_tables_vecs =
+            [constant_vecs, sigma_vecs.clone(), tables.clone()].concat();
         let constants_sigmas_commitment = PolynomialBatch::from_values(
-            constants_sigmas_vecs,
+            constants_sigmas_tables_vecs,
             rate_bits,
-            PlonkOracle::CONSTANTS_SIGMAS.blinding,
+            PlonkOracle::CONSTANTS_SIGMAS_TABLES.blinding,
             cap_height,
             &mut timing,
             Some(&fft_root_table),
         );
 
-        let constants_sigmas_cap = constants_sigmas_commitment.merkle_tree.cap.clone();
+        let constants_sigmas_tables_cap = constants_sigmas_commitment.merkle_tree.cap.clone();
         let verifier_only = VerifierOnlyCircuitData {
-            constants_sigmas_cap: constants_sigmas_cap.clone(),
+            constants_sigmas_tables_cap: constants_sigmas_tables_cap.clone(),
         };
 
         // Map between gates where not all generators are used and the gate's number of used generators.
@@ -781,6 +792,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             generator_indices_by_watches,
             constants_sigmas_commitment,
             sigmas: transpose_poly_values(sigma_vecs),
+            tables: transpose_poly_values(tables),
             subgroup,
             public_inputs: self.public_inputs,
             marked_targets: self.marked_targets,
@@ -799,7 +811,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // TODO: This should also include an encoding of gate constraints.
         let circuit_digest_parts = [
-            constants_sigmas_cap.flatten(),
+            constants_sigmas_tables_cap.flatten(),
             vec![/* Add other circuit data here */],
         ];
         let circuit_digest = C::Hasher::hash_no_pad(&circuit_digest_parts.concat());
@@ -817,6 +829,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             num_public_inputs,
             k_is,
             num_partial_products,
+            num_tables: self.tables.len(),
             circuit_digest,
         };
 

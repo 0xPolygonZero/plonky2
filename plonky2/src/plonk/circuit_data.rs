@@ -220,6 +220,8 @@ pub(crate) struct ProverOnlyCircuitData<
     pub constants_sigmas_commitment: PolynomialBatch<F, C, D>,
     /// The transpose of the list of sigma polynomials.
     pub sigmas: Vec<Vec<F>>,
+    /// The transpose of the list of table polynomials.
+    pub tables: Vec<Vec<F>>,
     /// Subgroup of order `degree`.
     pub subgroup: Vec<F>,
     /// Targets to be made public.
@@ -237,7 +239,7 @@ pub(crate) struct ProverOnlyCircuitData<
 #[derive(Debug)]
 pub(crate) struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
+    pub(crate) constants_sigmas_tables_cap: MerkleCap<C::F, C::Hasher>,
 }
 
 /// Circuit data required by both the prover and the verifier.
@@ -278,6 +280,8 @@ pub struct CommonCircuitData<
     /// The number of partial products needed to compute the `Z` polynomials.
     pub(crate) num_partial_products: usize,
 
+    pub(crate) num_tables: usize,
+
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
     pub(crate) circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash,
@@ -310,14 +314,19 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         self.quotient_degree_factor * self.degree()
     }
 
-    /// Range of the constants polynomials in the `constants_sigmas_commitment`.
+    /// Range of the constants polynomials in the `constants_sigmas_tables_commitment`.
     pub fn constants_range(&self) -> Range<usize> {
         0..self.num_constants
     }
 
-    /// Range of the sigma polynomials in the `constants_sigmas_commitment`.
+    /// Range of the sigma polynomials in the `constants_sigmas_tables_commitment`.
     pub fn sigmas_range(&self) -> Range<usize> {
         self.num_constants..self.num_constants + self.config.num_routed_wires
+    }
+
+    /// Range of the sigma polynomials in the `constants_sigmas_tables_commitment`.
+    pub fn tables_range(&self) -> Range<usize> {
+        self.sigmas_range().end..self.sigmas_range().end + self.num_tables
     }
 
     /// Range of the `z`s polynomials in the `zs_partial_products_commitment`.
@@ -380,13 +389,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     fn fri_preprocessed_polys(&self) -> Vec<FriPolynomialInfo> {
         FriPolynomialInfo::from_range(
-            PlonkOracle::CONSTANTS_SIGMAS.index,
+            PlonkOracle::CONSTANTS_SIGMAS_TABLES.index,
             0..self.num_preprocessed_polys(),
         )
     }
 
     pub(crate) fn num_preprocessed_polys(&self) -> usize {
-        self.sigmas_range().end
+        self.tables_range().end
     }
 
     fn fri_wire_polys(&self) -> Vec<FriPolynomialInfo> {

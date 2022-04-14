@@ -567,6 +567,7 @@ mod tests {
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::table::Table;
     use crate::plonk::verifier::verify;
 
     #[test]
@@ -643,6 +644,10 @@ mod tests {
 
         let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
+        builder.add_table(Table::VectorWithPadding {
+            v: F::rand_vec(3),
+            padding_value: F::ZERO,
+        });
 
         let xt =
             ExtensionAlgebraTarget(builder.add_virtual_extension_targets(D).try_into().unwrap());

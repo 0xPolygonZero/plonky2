@@ -281,6 +281,7 @@ pub struct ProofWithPublicInputsTarget<const D: usize> {
 pub struct OpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub constants: Vec<F::Extension>,
     pub plonk_sigmas: Vec<F::Extension>,
+    pub tables: Vec<F::Extension>,
     pub wires: Vec<F::Extension>,
     pub plonk_zs: Vec<F::Extension>,
     pub plonk_zs_right: Vec<F::Extension>,
@@ -292,7 +293,7 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
     pub fn new<C: GenericConfig<D, F = F>>(
         zeta: F::Extension,
         g: F::Extension,
-        constants_sigmas_commitment: &PolynomialBatch<F, C, D>,
+        constants_sigmas_tables_commitment: &PolynomialBatch<F, C, D>,
         wires_commitment: &PolynomialBatch<F, C, D>,
         zs_partial_products_commitment: &PolynomialBatch<F, C, D>,
         quotient_polys_commitment: &PolynomialBatch<F, C, D>,
@@ -304,11 +305,13 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
                 .map(|p| p.to_extension().eval(z))
                 .collect::<Vec<_>>()
         };
-        let constants_sigmas_eval = eval_commitment(zeta, constants_sigmas_commitment);
+        let constants_sigmas_tables_eval =
+            eval_commitment(zeta, constants_sigmas_tables_commitment);
         let zs_partial_products_eval = eval_commitment(zeta, zs_partial_products_commitment);
         Self {
-            constants: constants_sigmas_eval[common_data.constants_range()].to_vec(),
-            plonk_sigmas: constants_sigmas_eval[common_data.sigmas_range()].to_vec(),
+            constants: constants_sigmas_tables_eval[common_data.constants_range()].to_vec(),
+            plonk_sigmas: constants_sigmas_tables_eval[common_data.sigmas_range()].to_vec(),
+            tables: constants_sigmas_tables_eval[common_data.tables_range()].to_vec(),
             wires: eval_commitment(zeta, wires_commitment),
             plonk_zs: zs_partial_products_eval[common_data.zs_range()].to_vec(),
             plonk_zs_right: eval_commitment(g * zeta, zs_partial_products_commitment)
@@ -325,6 +328,7 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
             values: [
                 self.constants.as_slice(),
                 self.plonk_sigmas.as_slice(),
+                self.tables.as_slice(),
                 self.wires.as_slice(),
                 self.plonk_zs.as_slice(),
                 self.partial_products.as_slice(),

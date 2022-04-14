@@ -375,7 +375,7 @@ mod tests {
         };
         pw.set_cap_target(
             &inner_data.constants_sigmas_cap,
-            &inner_vd.constants_sigmas_cap,
+            &inner_vd.constants_sigmas_tables_cap,
         );
 
         builder.verify_proof(pt, &inner_data, &inner_cd);

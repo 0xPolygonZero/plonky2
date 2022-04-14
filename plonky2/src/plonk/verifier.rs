@@ -94,7 +94,7 @@ where
     }
 
     let merkle_caps = &[
-        verifier_data.constants_sigmas_cap.clone(),
+        verifier_data.constants_sigmas_tables_cap.clone(),
         proof.wires_cap,
         proof.plonk_zs_partial_products_cap,
         proof.quotient_polys_cap,

@@ -170,6 +170,7 @@ impl Buffer {
         let config = &common_data.config;
         let constants = self.read_field_ext_vec::<F, D>(common_data.num_constants)?;
         let plonk_sigmas = self.read_field_ext_vec::<F, D>(config.num_routed_wires)?;
+        let tables = self.read_field_ext_vec::<F, D>(common_data.num_tables)?;
         let wires = self.read_field_ext_vec::<F, D>(config.num_wires)?;
         let plonk_zs = self.read_field_ext_vec::<F, D>(config.num_challenges)?;
         let plonk_zs_right = self.read_field_ext_vec::<F, D>(config.num_challenges)?;
@@ -181,6 +182,7 @@ impl Buffer {
         Ok(OpeningSet {
             constants,
             plonk_sigmas,
+            tables,
             wires,
             plonk_zs,
             plonk_zs_right,

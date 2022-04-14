@@ -16,6 +16,9 @@ pub(crate) fn transpose_poly_values<F: Field>(polys: Vec<PolynomialValues<F>>) -
 
 pub fn transpose<F: Field>(matrix: &[Vec<F>]) -> Vec<Vec<F>> {
     let l = matrix.len();
+    if l == 0 {
+        return vec![];
+    }
     let w = matrix[0].len();
 
     let mut transposed = vec![vec![]; w];
