@@ -5,10 +5,10 @@
 
 #![feature(generic_const_exprs)]
 
-use std::{ops::RangeInclusive, str::FromStr};
+use std::{num::ParseIntError, ops::RangeInclusive, str::FromStr};
 
 use anyhow::{Context as _, Result};
-use log::{info, Level};
+use log::{info, Level, LevelFilter};
 use plonky2::{
     fri::{reduction_strategies::FriReductionStrategy, FriConfig},
     gates::noop::NoopGate,
@@ -32,7 +32,6 @@ use plonky2_field::extension_field::Extendable;
 use rand::{rngs::OsRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use structopt::StructOpt;
-use log::LevelFilter;
 
 #[derive(Clone, StructOpt, Debug)]
 #[structopt(name = "bench_recursion")]
@@ -269,26 +268,27 @@ fn main() -> Result<()> {
 }
 
 #[must_use]
-fn parse_hex_u64(src: &str) -> Result<u64, std::num::ParseIntError> {
+fn parse_hex_u64(src: &str) -> Result<u64, ParseIntError> {
     let src = src.strip_prefix("0x").unwrap_or(src);
     u64::from_str_radix(src, 16)
 }
 
 #[must_use]
-fn parse_range_usize(src: &str) -> Result<RangeInclusive<usize>, std::num::ParseIntError> {
-    if let Some(index) = src.find("..=") {
-        let left = usize::from_str(&src[..index])?;
-        let right = usize::from_str(&src[(index + 3)..])?;
-        Ok(RangeInclusive::new(left, right))
-    } else if let Some(index) = src.find("..") {
-        let left = usize::from_str(&src[..index])?;
-        let right = &src[(index + 2)..];
-        let right = if right.is_empty() {
-            usize::MAX
-        } else {
-            usize::from_str(right)?
-        };
-        Ok(RangeInclusive::new(left, right - 1))
+fn parse_range_usize(src: &str) -> Result<RangeInclusive<usize>, ParseIntError> {
+    if let Some((left, right)) = src.split_once("..=") {
+        Ok(RangeInclusive::new(
+            usize::from_str(left)?,
+            usize::from_str(right)?,
+        ))
+    } else if let Some((left, right)) = src.split_once("..") {
+        Ok(RangeInclusive::new(
+            usize::from_str(left)?,
+            if right.is_empty() {
+                usize::MAX
+            } else {
+                usize::from_str(right)?.saturating_sub(1)
+            },
+        ))
     } else {
         let value = usize::from_str(src)?;
         Ok(RangeInclusive::new(value, value))
