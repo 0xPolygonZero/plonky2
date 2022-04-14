@@ -125,24 +125,30 @@ pub(crate) const COL_BITOP_OUTPUT_0: usize = shared_col(128);
 /// The second 32-bit chunk of the output, based on little-endian ordering.
 pub(crate) const COL_BITOP_OUTPUT_1: usize = shared_col(129);
 
-/// Value to be rotated or shifted, low 32 bits
+/// Input value to be rotated or shifted, low 32 bits
 pub(crate) const COL_ROTATE_SHIFT_INPUT_LO: usize = shared_col(0);
-/// Value to be rotated or shifted, hi 32 bits
+/// Input value to be rotated or shifted, high 32 bits
 pub(crate) const COL_ROTATE_SHIFT_INPUT_HI: usize = shared_col(1);
-/// Number of bits by which to rotate/shift, as u32
-pub(crate) const COL_ROTATE_SHIFT_DELTA_BITS: [usize; 6] = gen_bitop_nbit_input_regs::<6>(2);
-pub(crate) const COL_ROTATE_SHIFT_POW_DELTA_AUX_0: usize = shared_col(8);
-pub(crate) const COL_ROTATE_SHIFT_POW_DELTA_AUX_1: usize = shared_col(9);
-pub(crate) const COL_ROTATE_SHIFT_POW_DELTA_AUX_2: usize = shared_col(10);
-pub(crate) const COL_ROTATE_SHIFT_POW_DELTA_MOD32: usize = shared_col(11);
+/// Bit decomposition of EXP, which is DELTA mod 32 for left
+/// rotate/shift; bit decomposition of (32 - DELTA mod 32) mod 32 for
+/// right rotate/shift.
+pub(crate) const COL_ROTATE_SHIFT_EXP_BITS: [usize; 5] = gen_bitop_nbit_input_regs::<5>(2);
+/// Top bit of the 6-bit value DELTA; also interpreted as DELTA >= 32.
+pub(crate) const COL_ROTATE_SHIFT_DELTA_DIV32: usize = shared_col(7);
 
-/// low 32 bits of INPUT_LO * 2^(DELTA mod 32)
+/// POW_EXP = 2^EXP, the AUX_i vars are helpers.
+pub(crate) const COL_ROTATE_SHIFT_POW_EXP_AUX_0: usize = shared_col(8);
+pub(crate) const COL_ROTATE_SHIFT_POW_EXP_AUX_1: usize = shared_col(9);
+pub(crate) const COL_ROTATE_SHIFT_POW_EXP_AUX_2: usize = shared_col(10);
+pub(crate) const COL_ROTATE_SHIFT_POW_EXP: usize = shared_col(11);
+
+/// low 32 bits of INPUT_LO * 2^EXP
 pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_LO_0: usize = shared_col(12);
-/// high 32 bits of INPUT_LO * 2^(DELTA mod 32)
+/// high 32 bits of INPUT_LO * 2^EXP
 pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_LO_1: usize = shared_col(13);
-/// low 32 bits of INPUT_HI * 2^(DELTA mod 32)
+/// low 32 bits of INPUT_HI * 2^EXP
 pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_HI_0: usize = shared_col(14);
-/// high 32 bits of INPUT_HI * 2^(DELTA mod 32)
+/// high 32 bits of INPUT_HI * 2^EXP
 pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_HI_1: usize = shared_col(15);
 
 pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_LO_AUX_0: usize = shared_col(16);
