@@ -7,7 +7,7 @@
 
 use std::{num::ParseIntError, ops::RangeInclusive, str::FromStr};
 
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, anyhow};
 use log::{info, Level, LevelFilter};
 use plonky2::{
     gates::noop::NoopGate,
@@ -62,14 +62,21 @@ struct Options {
     size: RangeInclusive<usize>,
 }
 
-/// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
+/// Creates a dummy proof which should have `2 ** log2_size` rows.
 fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     config: &CircuitConfig,
-    num_dummy_gates: usize,
+    log2_size: usize,
 ) -> Result<ProofTuple<F, C, D>>
 where
     [(); C::Hasher::HASH_SIZE]:,
 {
+    // 'size' is in degree, but we want number of noop gates. A non-zero amount of padding will be added and size will be rounded to the next power of two. To hit our target size, we go just under the previous power of two and hope padding is less than half the proof.
+    let num_dummy_gates = match log2_size {
+        0 => return Err(anyhow!("size must be at least 1")),
+        1 => 0,
+        2 => 1,
+        n => (1 << (n - 1)) + 1,
+    };
     info!("Constructing inner proof with {} gates", num_dummy_gates);
     let mut builder = CircuitBuilder::<F, D>::new(config.clone());
     for _ in 0..num_dummy_gates {
@@ -175,13 +182,13 @@ where
     Ok(())
 }
 
-fn benchmark(config: &CircuitConfig, inner_size: usize) -> Result<()> {
+fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;
 
     // Start with a dummy proof of specified size
-    let inner = dummy_proof::<F, C, D>(config, inner_size)?;
+    let inner = dummy_proof::<F, C, D>(config, log2_inner_size)?;
     let (_, _, cd) = &inner;
     info!(
         "Initial proof degree {} = 2^{}",
@@ -239,9 +246,7 @@ fn main() -> Result<()> {
 
     let config = CircuitConfig::standard_recursion_config();
     for log2_inner_size in options.size {
-        // Since the `size` is most likely to be and unbounded range, so we
-        // make that the outer iterator.
-        let inner_size = 1 << log2_inner_size;
+        // Since the `size` is most likely to be and unbounded range we make that the outer iterator.
         for threads in threads.clone() {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(threads)
@@ -254,7 +259,7 @@ fn main() -> Result<()> {
                         num_cpus
                     );
                     // Run the benchmark
-                    benchmark(&config, inner_size)
+                    benchmark(&config, log2_inner_size)
                 })?;
         }
     }
