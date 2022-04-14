@@ -10,18 +10,25 @@ use crate::alu::bitops::constrain_all_to_bits;
 use crate::registers::alu::*;
 use crate::registers::NUM_COLUMNS;
 
-/// ROTATE LEFT
+/// ROTATE and SHIFT instructions
 ///
-/// The input is
+/// To rotate a 64bit value by DELTA bit positions, the input is
 ///
-/// - a 64-bit integer X to be rotated, given as high and low 32-bit words X_lo
-///   and X_hi.
-/// - a 32-bit integer D giving the number of bits to rotate
-/// - D mod 32 and D mod 64
-/// - two 64-bit integers, Y_lo and Y_hi, with Y_lo being the high and low 32-bit
-///   words of the value  2^{D'} * X_lo where D' = D (mod 32); similarly for Y_hi
-/// - two auxiliary values, one each for Y_lo and Y_hi, used to prove that Y_lo and
-///   Y_hi are valid Goldilocks elements.
+/// - a 64-bit integer X to be rotated/shifted, given as high and low 32-bit
+///   words X_lo and X_hi.
+/// - a 32-bit integer EXP (given as its 5 bits) which is either DELTA
+///   mod 32, if the operation direction is left, or (32 - DELTA mod 32)
+///   mod 32 if the operation direction is right.
+/// - a single bit DELTA_DIV32 which is 1 if DELTA is >= 32 and 0 otherwise
+/// - the value POW_EXP = 2^EXP, as well as three auxiliary values POW_EXP_AUX_[012]
+///   to verify that POW_EXP == 2^EXP
+/// - two 64-bit integers, DISPLACED_INPUT_LO and DISPLACED_INPUT_HI,
+///   with DISPLACED_INPUT_LO being the high and low 32-bit words of
+///   the value 2^EXP * X_lo; similarly for DISPLACED_INPUT_HI.
+/// - two 64-bit auxiliary values DISPLACED_INPUT_{LO,HI}_AUX, one
+///   each for DISPLACED_INPUT_LO and DISPLACED_INPUT_HI, used to prove
+///   that DISPLACED_INPUT_LO and DISPLACED_INPUT_HI are valid
+///   Goldilocks elements.
 
 pub(crate) fn generate_rotate_shift<F: PrimeField64>(values: &mut [F; NUM_COLUMNS], op: usize) {
     // input_{lo,hi} are the 32-bit lo and hi words of the input
