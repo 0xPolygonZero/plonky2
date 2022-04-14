@@ -249,38 +249,38 @@ pub struct CommonCircuitData<
 > {
     pub config: CircuitConfig,
 
-    pub fri_params: FriParams,
+    pub(crate) fri_params: FriParams,
 
     pub degree_bits: usize,
 
     /// The types of gates used in this circuit, along with their prefixes.
-    pub gates: Vec<GateRef<F, D>>,
+    pub(crate) gates: Vec<GateRef<F, D>>,
 
     /// Information on the circuit's selector polynomials.
     pub(crate) selectors_info: SelectorsInfo,
 
     /// The degree of the PLONK quotient polynomial.
-    pub quotient_degree_factor: usize,
+    pub(crate) quotient_degree_factor: usize,
 
     /// The largest number of constraints imposed by any gate.
-    pub num_gate_constraints: usize,
+    pub(crate) num_gate_constraints: usize,
 
     /// The number of constant wires.
-    pub num_constants: usize,
+    pub(crate) num_constants: usize,
 
-    pub num_virtual_targets: usize,
+    pub(crate) num_virtual_targets: usize,
 
-    pub num_public_inputs: usize,
+    pub(crate) num_public_inputs: usize,
 
     /// The `{k_i}` valued used in `S_ID_i` in Plonk's permutation argument.
-    pub k_is: Vec<F>,
+    pub(crate) k_is: Vec<F>,
 
     /// The number of partial products needed to compute the `Z` polynomials.
-    pub num_partial_products: usize,
+    pub(crate) num_partial_products: usize,
 
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
-    pub circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash,
+    pub(crate) circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
