@@ -82,10 +82,14 @@ where
     for _ in 0..num_dummy_gates {
         builder.add_gate(NoopGate, vec![]);
     }
+    builder.print_gate_counts(0);
 
     let data = builder.build::<C>();
     let inputs = PartialWitness::new();
-    let proof = data.prove(inputs)?;
+
+    let mut timing = TimingTree::new("prove", Level::Debug);
+    let proof = prove(&data.prover_only, &data.common, inputs, &mut timing)?;
+    timing.print();
     data.verify(proof.clone())?;
 
     Ok((proof, data.verifier_only, data.common))
@@ -100,8 +104,6 @@ fn recursive_proof<
     inner: &ProofTuple<F, InnerC, D>,
     config: &CircuitConfig,
     min_degree_bits: Option<usize>,
-    print_gate_counts: bool,
-    print_timing: bool,
 ) -> Result<ProofTuple<F, C, D>>
 where
     InnerC::Hasher: AlgebraicHasher<F>,
@@ -122,10 +124,7 @@ where
     );
 
     builder.verify_proof(pt, &inner_data, inner_cd);
-
-    if print_gate_counts {
-        builder.print_gate_counts(0);
-    }
+    builder.print_gate_counts(0);
 
     if let Some(min_degree_bits) = min_degree_bits {
         // We don't want to pad all the way up to 2^min_degree_bits, as the builder will
@@ -142,9 +141,7 @@ where
 
     let mut timing = TimingTree::new("prove", Level::Debug);
     let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
-    if print_timing {
-        timing.print();
-    }
+    timing.print();
 
     data.verify(proof.clone())?;
 
@@ -197,7 +194,7 @@ fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
     );
 
     // Recursively verify the proof
-    let middle = recursive_proof::<F, C, C, D>(&inner, config, Some(13), false, false)?;
+    let middle = recursive_proof::<F, C, C, D>(&inner, config, None)?;
     let (_, _, cd) = &middle;
     info!(
         "Single recursion proof degree {} = 2^{}",
@@ -206,7 +203,7 @@ fn benchmark(config: &CircuitConfig, log2_inner_size: usize) -> Result<()> {
     );
 
     // Add a second layer of recursion to shrink the proof size further
-    let outer = recursive_proof::<F, C, C, D>(&middle, config, None, true, true)?;
+    let outer = recursive_proof::<F, C, C, D>(&middle, config, None)?;
     let (proof, _, cd) = &outer;
     info!(
         "Double recursion proof degree {} = 2^{}",
