@@ -10,7 +10,6 @@ use std::{num::ParseIntError, ops::RangeInclusive, str::FromStr};
 use anyhow::{Context as _, Result};
 use log::{info, Level, LevelFilter};
 use plonky2::{
-    fri::{reduction_strategies::FriReductionStrategy, FriConfig},
     gates::noop::NoopGate,
     hash::hash_types::RichField,
     iop::witness::{PartialWitness, Witness},
@@ -19,10 +18,7 @@ use plonky2::{
         circuit_data::{
             CircuitConfig, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
         },
-        config::{
-            AlgebraicHasher, GenericConfig, Hasher, KeccakGoldilocksConfig,
-            PoseidonGoldilocksConfig,
-        },
+        config::{AlgebraicHasher, GenericConfig, Hasher, PoseidonGoldilocksConfig},
         proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs},
         prover::prove,
     },
@@ -32,6 +28,12 @@ use plonky2_field::extension_field::Extendable;
 use rand::{rngs::OsRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use structopt::StructOpt;
+
+type ProofTuple<F, C, const D: usize> = (
+    ProofWithPublicInputs<F, C, D>,
+    VerifierOnlyCircuitData<C, D>,
+    CommonCircuitData<F, C, D>,
+);
 
 #[derive(Clone, StructOpt, Debug)]
 #[structopt(name = "bench_recursion")]
@@ -64,11 +66,7 @@ struct Options {
 fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     config: &CircuitConfig,
     num_dummy_gates: usize,
-) -> Result<(
-    ProofWithPublicInputs<F, C, D>,
-    VerifierOnlyCircuitData<C, D>,
-    CommonCircuitData<F, C, D>,
-)>
+) -> Result<ProofTuple<F, C, D>>
 where
     [(); C::Hasher::HASH_SIZE]:,
 {
@@ -92,26 +90,21 @@ fn recursive_proof<
     InnerC: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    inner_proof: ProofWithPublicInputs<F, InnerC, D>,
-    inner_vd: VerifierOnlyCircuitData<InnerC, D>,
-    inner_cd: CommonCircuitData<F, InnerC, D>,
+    inner: &ProofTuple<F, InnerC, D>,
     config: &CircuitConfig,
     min_degree_bits: Option<usize>,
     print_gate_counts: bool,
     print_timing: bool,
-) -> Result<(
-    ProofWithPublicInputs<F, C, D>,
-    VerifierOnlyCircuitData<C, D>,
-    CommonCircuitData<F, C, D>,
-)>
+) -> Result<ProofTuple<F, C, D>>
 where
     InnerC::Hasher: AlgebraicHasher<F>,
     [(); C::Hasher::HASH_SIZE]:,
 {
+    let (inner_proof, inner_vd, inner_cd) = inner;
     let mut builder = CircuitBuilder::<F, D>::new(config.clone());
     let mut pw = PartialWitness::new();
-    let pt = builder.add_virtual_proof_with_pis(&inner_cd);
-    pw.set_proof_with_pis_target(&pt, &inner_proof);
+    let pt = builder.add_virtual_proof_with_pis(inner_cd);
+    pw.set_proof_with_pis_target(&pt, inner_proof);
 
     let inner_data = VerifierCircuitTarget {
         constants_sigmas_cap: builder.add_virtual_cap(inner_cd.config.fri_config.cap_height),
@@ -121,7 +114,7 @@ where
         &inner_vd.constants_sigmas_cap,
     );
 
-    builder.verify_proof(pt, &inner_data, &inner_cd);
+    builder.verify_proof(pt, &inner_data, inner_cd);
 
     if print_gate_counts {
         builder.print_gate_counts(0);
@@ -187,8 +180,9 @@ fn benchmark(config: &CircuitConfig, inner_size: usize) -> Result<()> {
     type C = PoseidonGoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;
 
-    // Start with a degree 2^14 proof
-    let (proof, vd, cd) = dummy_proof::<F, C, D>(&config, inner_size)?;
+    // Start with a dummy proof of specified size
+    let inner = dummy_proof::<F, C, D>(config, inner_size)?;
+    let (_, _, cd) = &inner;
     info!(
         "Initial proof degree {} = 2^{}",
         cd.degree(),
@@ -196,23 +190,24 @@ fn benchmark(config: &CircuitConfig, inner_size: usize) -> Result<()> {
     );
 
     // Recursively verify the proof
-    let (proof, vd, cd) =
-        recursive_proof::<F, C, C, D>(proof, vd, cd, &config, Some(13), false, false)?;
+    let middle = recursive_proof::<F, C, C, D>(&inner, config, Some(13), false, false)?;
+    let (_, _, cd) = &middle;
     info!(
         "Single recursion proof degree {} = 2^{}",
         cd.degree(),
         cd.degree_bits
     );
 
-    // Shrink it to 2^12.
-    let (proof, _vd, cd) = recursive_proof::<F, C, C, D>(proof, vd, cd, &config, None, true, true)?;
+    // Add a second layer of recursion to shrink the proof size further
+    let outer = recursive_proof::<F, C, C, D>(&middle, config, None, true, true)?;
+    let (proof, _, cd) = &outer;
     info!(
         "Double recursion proof degree {} = 2^{}",
         cd.degree(),
         cd.degree_bits
     );
 
-    test_serialization(&proof, &cd)?;
+    test_serialization(proof, cd)?;
 
     Ok(())
 }
@@ -260,20 +255,18 @@ fn main() -> Result<()> {
                     );
                     // Run the benchmark
                     benchmark(&config, inner_size)
-                });
+                })?;
         }
     }
 
     Ok(())
 }
 
-#[must_use]
 fn parse_hex_u64(src: &str) -> Result<u64, ParseIntError> {
     let src = src.strip_prefix("0x").unwrap_or(src);
     u64::from_str_radix(src, 16)
 }
 
-#[must_use]
 fn parse_range_usize(src: &str) -> Result<RangeInclusive<usize>, ParseIntError> {
     if let Some((left, right)) = src.split_once("..=") {
         Ok(RangeInclusive::new(
