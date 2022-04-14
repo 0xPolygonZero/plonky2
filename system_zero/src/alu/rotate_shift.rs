@@ -109,7 +109,7 @@ pub(crate) fn generate_rotate_shift<F: PrimeField64>(values: &mut [F; NUM_COLUMN
     values[COL_ROTATE_SHIFT_OUTPUT_1] = F::from_canonical_u32((output >> 32) as u32);
 }
 
-pub(crate) fn eval_rotate_shift<F: Field, P: PackedField<Scalar = F>>(
+fn eval_rotate_shift<F: Field, P: PackedField<Scalar = F>>(
     lv: &[P; NUM_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
     filter: P,
@@ -320,7 +320,7 @@ pub(crate) fn eval_shift_right<F: Field, P: PackedField<Scalar = F>>(
     yield_constr.constraint(is_shl * hi_constr);
 }
 
-pub(crate) fn eval_rotate_shift_recursively<F: RichField + Extendable<D>, const D: usize>(
+fn eval_rotate_shift_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
