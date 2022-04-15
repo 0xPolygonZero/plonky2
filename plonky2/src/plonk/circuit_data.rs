@@ -104,9 +104,9 @@ impl CircuitConfig {
 
 /// Circuit data required by the prover or the verifier.
 pub struct CircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    pub(crate) prover_only: ProverOnlyCircuitData<F, C, D>,
-    pub(crate) verifier_only: VerifierOnlyCircuitData<C, D>,
-    pub(crate) common: CommonCircuitData<F, C, D>,
+    pub prover_only: ProverOnlyCircuitData<F, C, D>,
+    pub verifier_only: VerifierOnlyCircuitData<C, D>,
+    pub common: CommonCircuitData<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -154,8 +154,8 @@ pub struct ProverCircuitData<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub(crate) prover_only: ProverOnlyCircuitData<F, C, D>,
-    pub(crate) common: CommonCircuitData<F, C, D>,
+    pub prover_only: ProverOnlyCircuitData<F, C, D>,
+    pub common: CommonCircuitData<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -181,8 +181,8 @@ pub struct VerifierCircuitData<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub(crate) verifier_only: VerifierOnlyCircuitData<C, D>,
-    pub(crate) common: CommonCircuitData<F, C, D>,
+    pub verifier_only: VerifierOnlyCircuitData<C, D>,
+    pub common: CommonCircuitData<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -207,7 +207,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 }
 
 /// Circuit data required by the prover, but not the verifier.
-pub(crate) struct ProverOnlyCircuitData<
+pub struct ProverOnlyCircuitData<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
@@ -235,9 +235,9 @@ pub(crate) struct ProverOnlyCircuitData<
 
 /// Circuit data required by the verifier, but not the prover.
 #[derive(Debug)]
-pub(crate) struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
+pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
+    pub constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
 }
 
 /// Circuit data required by both the prover and the verifier.
@@ -247,11 +247,11 @@ pub struct CommonCircuitData<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub(crate) config: CircuitConfig,
+    pub config: CircuitConfig,
 
     pub(crate) fri_params: FriParams,
 
-    pub(crate) degree_bits: usize,
+    pub degree_bits: usize,
 
     /// The types of gates used in this circuit, along with their prefixes.
     pub(crate) gates: Vec<GateRef<F, D>>,
@@ -434,5 +434,5 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 /// dynamic, at least not without setting a maximum wire count and paying for the worst case.
 pub struct VerifierCircuitTarget {
     /// A commitment to each constant polynomial and each permutation polynomial.
-    pub(crate) constants_sigmas_cap: MerkleCapTarget,
+    pub constants_sigmas_cap: MerkleCapTarget,
 }
