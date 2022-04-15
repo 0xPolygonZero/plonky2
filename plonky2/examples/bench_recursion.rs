@@ -7,7 +7,7 @@
 
 use std::{num::ParseIntError, ops::RangeInclusive, str::FromStr};
 
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{anyhow, Context as _, Result};
 use log::{info, Level, LevelFilter};
 use plonky2::{
     gates::noop::NoopGate,
