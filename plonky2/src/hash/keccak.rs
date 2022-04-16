@@ -2,7 +2,7 @@ use std::iter;
 use std::mem::size_of;
 
 use itertools::Itertools;
-use keccak_hash::keccak;
+use tiny_keccak::{Hasher as _, Keccak};
 
 use crate::hash::hash_types::{BytesHash, RichField};
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
@@ -15,36 +15,46 @@ use crate::util::serialization::Buffer;
 pub struct KeccakPermutation;
 impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
     fn permute(input: [F; SPONGE_WIDTH]) -> [F; SPONGE_WIDTH] {
-        let mut state = vec![0u8; SPONGE_WIDTH * size_of::<u64>()];
-        for i in 0..SPONGE_WIDTH {
-            state[i * size_of::<u64>()..(i + 1) * size_of::<u64>()]
-                .copy_from_slice(&input[i].to_canonical_u64().to_le_bytes());
+        // Absorb input
+        let mut sponge = Keccak::v256();
+        for input in input {
+            sponge.update(&input.to_canonical_u64().to_le_bytes());
         }
 
-        let hash_onion = iter::repeat_with(|| {
-            let output = keccak(state.clone()).to_fixed_bytes();
-            state = output.to_vec();
-            output
+        // Create output iterator by iterating hash function
+        let mut state = [0_u8; 32];
+        sponge.finalize(&mut state);
+        let states = iter::successors(Some(state), |state| {
+            let mut next = [0_u8; 32];
+            let mut sponge = Keccak::v256();
+            sponge.update(state);
+            sponge.finalize(&mut next);
+            Some(next)
         });
 
-        let hash_onion_u64s = hash_onion.flat_map(|output| {
-            output
-                .chunks_exact(size_of::<u64>())
-                .map(|word| u64::from_le_bytes(word.try_into().unwrap()))
-                .collect_vec()
-        });
-
-        // Parse field elements from u64 stream, using rejection sampling such that words that don't
-        // fit in F are ignored.
-        let hash_onion_elems = hash_onion_u64s
-            .filter(|&word| word < F::ORDER)
-            .map(F::from_canonical_u64);
-
-        hash_onion_elems
-            .take(SPONGE_WIDTH)
-            .collect_vec()
-            .try_into()
-            .unwrap()
+        // Collect SPONGE_WIDTH elements using rejection sampling
+        // Note: ideally we'd do this elegantly with a `flat_map`, but that
+        // is challenging to make allocation free.
+        let mut result = [F::ZERO; SPONGE_WIDTH];
+        let mut result_iter = result.iter_mut();
+        let mut next = result_iter.next();
+        for state in states {
+            if next.is_none() {
+                break;
+            }
+            for chunk in state.chunks(size_of::<F>()) {
+                if next.is_none() {
+                    break;
+                }
+                let value = u64::from_le_bytes(chunk.try_into().unwrap());
+                if value < F::ORDER {
+                    continue;
+                }
+                *next.unwrap() = F::from_canonical_u64(value);
+                next = result_iter.next();
+            }
+        }
+        result
     }
 }
 
@@ -57,20 +67,27 @@ impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
     type Permutation = KeccakPermutation;
 
     fn hash_no_pad(input: &[F]) -> Self::Hash {
-        let mut buffer = Buffer::new(Vec::new());
-        buffer.write_field_vec(input).unwrap();
-        let mut arr = [0; N];
-        let hash_bytes = keccak(buffer.bytes()).0;
-        arr.copy_from_slice(&hash_bytes[..N]);
-        BytesHash(arr)
+        // Absorb input
+        let mut sponge = Keccak::v256();
+        for input in input {
+            sponge.update(&input.to_canonical_u64().to_le_bytes());
+        }
+
+        // Squeeze output
+        let mut buffer = [0u8; N];
+        sponge.finalize(&mut buffer);
+        BytesHash(buffer)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
-        let mut v = vec![0; N * 2];
-        v[0..N].copy_from_slice(&left.0);
-        v[N..].copy_from_slice(&right.0);
-        let mut arr = [0; N];
-        arr.copy_from_slice(&keccak(v).0[..N]);
-        BytesHash(arr)
+        // Absorb input
+        let mut sponge = Keccak::v256();
+        sponge.update(&left.0);
+        sponge.update(&right.0);
+
+        // Squeeze output
+        let mut buffer = [0u8; N];
+        sponge.finalize(&mut buffer);
+        BytesHash(buffer)
     }
 }

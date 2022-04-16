@@ -1,6 +1,8 @@
 use std::io::Read;
 use std::iter;
+
 use blake3::Hasher as Blake3Hasher;
+
 use crate::hash::hash_types::{BytesHash, RichField};
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
 use crate::plonk::config::Hasher;
@@ -12,7 +14,7 @@ impl<F: RichField> PlonkyPermutation<F> for Blake3Permutation {
         // Absorb input
         let mut sponge = Blake3Hasher::new();
         for input in input {
-            sponge.update(&input.to_noncanonical_u64().to_le_bytes());
+            sponge.update(&input.to_canonical_u64().to_le_bytes());
         }
 
         // Create output iterator using rejection sampling
@@ -46,7 +48,7 @@ impl<F: RichField, const N: usize> Hasher<F> for Blake3Hash<N> {
         // Absorb input
         let mut sponge = Blake3Hasher::new();
         for input in input {
-            sponge.update(&input.to_noncanonical_u64().to_le_bytes());
+            sponge.update(&input.to_canonical_u64().to_le_bytes());
         }
 
         // Squeeze output
