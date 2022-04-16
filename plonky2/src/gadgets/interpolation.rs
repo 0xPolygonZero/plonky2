@@ -111,6 +111,7 @@ mod tests {
     use plonky2_field::extension_field::FieldExtension;
     use plonky2_field::field_types::Field;
     use plonky2_field::interpolation::interpolant;
+    use plonky2_field::ops::Rand;
 
     use crate::gates::interpolation::HighDegreeInterpolationGate;
     use crate::gates::low_degree_interpolation::LowDegreeInterpolationGate;

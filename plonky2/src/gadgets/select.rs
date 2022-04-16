@@ -42,6 +42,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 mod tests {
     use anyhow::Result;
     use plonky2_field::field_types::Field;
+    use plonky2_field::ops::Rand;
 
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;

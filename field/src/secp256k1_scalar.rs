@@ -12,6 +12,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::field_types::{Field, PrimeField};
+use crate::ops::Rand;
 
 /// The base field of the secp256k1 elliptic curve.
 ///
@@ -141,7 +142,9 @@ impl Field for Secp256K1Scalar {
     fn from_noncanonical_u96(n: (u64, u32)) -> Self {
         Self([n.0, n.1 as u64, 0, 0])
     }
+}
 
+impl Rand for Secp256K1Scalar {
     fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
         Self::from_biguint(rng.gen_biguint_below(&Self::order()))
     }

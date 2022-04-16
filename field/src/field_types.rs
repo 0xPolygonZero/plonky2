@@ -6,12 +6,11 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use num::bigint::BigUint;
 use num::{Integer, One, ToPrimitive, Zero};
 use plonky2_util::bits_u64;
-use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::extension_field::Frobenius;
-use crate::ops::Square;
+use crate::ops::{Square, Rand};
 
 /// A finite field.
 pub trait Field:
@@ -38,6 +37,7 @@ pub trait Field:
     + Sync
     + Serialize
     + DeserializeOwned
+    + Rand
 {
     const ZERO: Self;
     const ONE: Self;
@@ -306,8 +306,6 @@ pub trait Field:
         Self::from_noncanonical_u128(n)
     }
 
-    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self;
-
     fn exp_power_of_2(&self, power_log: usize) -> Self {
         let mut res = *self;
         for _ in 0..power_log {
@@ -383,18 +381,6 @@ pub trait Field:
             base: *self,
             current: Self::ONE,
         }
-    }
-
-    fn rand() -> Self {
-        Self::rand_from_rng(&mut rand::thread_rng())
-    }
-
-    fn rand_arr<const N: usize>() -> [Self; N] {
-        Self::rand_vec(N).try_into().unwrap()
-    }
-
-    fn rand_vec(n: usize) -> Vec<Self> {
-        (0..n).map(|_| Self::rand()).collect()
     }
 
     /// Representative `g` of the coset used in FRI, so that LDEs in FRI are done over `gH`.

@@ -281,6 +281,7 @@ impl<const D: usize> ReducingFactorTarget<D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use plonky2_field::ops::Rand;
 
     use super::*;
     use crate::iop::witness::{PartialWitness, Witness};

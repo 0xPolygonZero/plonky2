@@ -458,6 +458,7 @@ mod tests {
     use plonky2_field::field_types::Field;
     use plonky2_field::field_types::PrimeField64;
     use plonky2_field::goldilocks_field::GoldilocksField;
+    use plonky2_field::ops::Rand;
     use rand::Rng;
 
     use crate::gates::assert_le::AssertLessThanGate;

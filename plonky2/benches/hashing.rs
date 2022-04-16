@@ -3,6 +3,7 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::ops::Rand;
 use plonky2::hash::blake3::Blake3Hash;
 use plonky2::hash::hash_types::{BytesHash, RichField};
 use plonky2::hash::hashing::SPONGE_WIDTH;

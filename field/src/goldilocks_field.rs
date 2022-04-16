@@ -10,6 +10,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::field_types::{Field, Field64, PrimeField, PrimeField64};
+use crate::ops::Rand;
 use crate::inversion::try_inverse_u64;
 
 const EPSILON: u64 = (1 << 32) - 1;
@@ -105,14 +106,16 @@ impl Field for GoldilocksField {
         reduce128(n)
     }
 
-    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
-        Self::from_canonical_u64(rng.gen_range(0..Self::ORDER))
-    }
-
     #[inline]
     fn multiply_accumulate(&self, x: Self, y: Self) -> Self {
         // u64 + u64 * u64 cannot overflow.
         reduce128((self.0 as u128) + (x.0 as u128) * (y.0 as u128))
+    }
+}
+
+impl Rand for GoldilocksField {
+    fn rand_from_rng<R: Rng>(rng: &mut R) -> Self {
+        Self::from_canonical_u64(rng.gen_range(0..Self::ORDER))
     }
 }
 

@@ -379,6 +379,7 @@ impl<const D: usize> OpeningSetTarget<D> {
 mod tests {
     use anyhow::Result;
     use plonky2_field::field_types::Field;
+    use plonky2_field::ops::Rand;
 
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::gates::noop::NoopGate;

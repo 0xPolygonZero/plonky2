@@ -291,6 +291,7 @@ mod tests {
     use anyhow::Result;
     use plonky2_field::field_types::Field;
     use plonky2_field::goldilocks_field::GoldilocksField;
+    use plonky2_field::ops::Rand;
     use plonky2_util::log2_ceil;
     use rand::Rng;
 

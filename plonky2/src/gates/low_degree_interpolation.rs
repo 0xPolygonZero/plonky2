@@ -389,6 +389,7 @@ mod tests {
     use plonky2_field::extension_field::quadratic::QuadraticExtension;
     use plonky2_field::field_types::Field;
     use plonky2_field::goldilocks_field::GoldilocksField;
+    use plonky2_field::ops::Rand;
     use plonky2_field::polynomial::PolynomialCoeffs;
 
     use crate::gadgets::interpolation::InterpolationGate;
