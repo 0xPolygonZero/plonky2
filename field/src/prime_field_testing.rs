@@ -130,7 +130,7 @@ macro_rules! test_prime_field_arithmetic {
 
                 assert_eq!(zero.try_inverse(), None);
 
-                let inputs = crate::prime_field_testing::test_inputs(modulus);
+                let inputs = $crate::prime_field_testing::test_inputs(modulus);
 
                 for x in inputs {
                     if x != 0 {
