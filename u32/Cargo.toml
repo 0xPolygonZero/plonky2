@@ -13,6 +13,3 @@ itertools = "0.10.0"
 plonky2 = { path = "../plonky2" }
 plonky2_util = { path = "../util" }
 plonky2_field = { path = "../field" }
-
-[target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
-jemallocator = "0.3.2"
