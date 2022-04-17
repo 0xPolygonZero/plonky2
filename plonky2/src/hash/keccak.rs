@@ -47,7 +47,7 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation {
                     break;
                 }
                 let value = u64::from_le_bytes(chunk.try_into().unwrap());
-                if value < F::ORDER {
+                if value >= F::ORDER {
                     continue;
                 }
                 *next.unwrap() = F::from_canonical_u64(value);

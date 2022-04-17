@@ -4,11 +4,11 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::field::ops::Rand;
-use plonky2::hash::blake3::Blake3Hash;
+use plonky2::hash::blake3::{Blake3Hash, Blake3Permutation};
 use plonky2::hash::hash_types::{BytesHash, RichField};
 use plonky2::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
-use plonky2::hash::keccak::KeccakHash;
-use plonky2::hash::poseidon::{Poseidon, PoseidonHash};
+use plonky2::hash::keccak::{KeccakHash, KeccakPermutation};
+use plonky2::hash::poseidon::{Poseidon, PoseidonHash, PoseidonPermutation};
 use plonky2::plonk::config::Hasher;
 use tynm::type_name;
 
@@ -37,6 +37,19 @@ where
     }
 }
 
+fn bench_permutation<F: RichField, H: PlonkyPermutation<F>>(c: &mut Criterion) {
+    c.bench_function(
+        &format!("{}::permute<{}>", type_name::<H>(), type_name::<F>()),
+        |b| {
+            b.iter_batched(
+                || F::rand_arr::<SPONGE_WIDTH>(),
+                |input| H::permute(input),
+                BatchSize::SmallInput,
+            )
+        },
+    );
+}
+
 fn bench_poseidon<F: RichField>(c: &mut Criterion) {
     c.bench_function(
         &format!("poseidon<{}, {}>", type_name::<F>(), SPONGE_WIDTH),
@@ -54,6 +67,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     bench_hasher::<GoldilocksField, PoseidonHash>(c);
     bench_hasher::<GoldilocksField, KeccakHash<32>>(c);
     bench_hasher::<GoldilocksField, Blake3Hash<32>>(c);
+    bench_permutation::<GoldilocksField, PoseidonPermutation>(c);
+    bench_permutation::<GoldilocksField, KeccakPermutation>(c);
+    bench_permutation::<GoldilocksField, Blake3Permutation>(c);
     bench_poseidon::<GoldilocksField>(c);
 }
 

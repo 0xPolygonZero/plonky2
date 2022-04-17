@@ -1,7 +1,5 @@
 use std::ops::Mul;
 use rand::Rng;
-use std::convert::TryInto;
-use std::fmt::Debug;
 
 pub trait Square {
     fn square(&self) -> Self;
@@ -20,9 +18,15 @@ pub trait Rand: Sized {
         Self::rand_from_rng(&mut rand::thread_rng())
     }
 
-    fn rand_arr<const N: usize>() -> [Self; N] where Self: Debug {
-        // TODO: Implement allocation free
-        Self::rand_vec(N).try_into().unwrap()
+    fn rand_arr<const N: usize>() -> [Self; N] where Self: Default + Copy {
+        // TODO: Use array MaybeUninit when stable for dependently typed arrays.
+        // then we can drop the Default + Copy requirement.
+        let mut result = [Self::default(); N];
+        let mut rng = rand::thread_rng();
+        for result in &mut result[..] {
+            *result = Self::rand_from_rng(&mut rng);
+        }
+        result
     }
 
     fn rand_vec(n: usize) -> Vec<Self> {
