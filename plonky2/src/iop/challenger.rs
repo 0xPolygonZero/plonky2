@@ -274,7 +274,6 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
 
 #[cfg(test)]
 mod tests {
-    use plonky2_field::field_types::Field;
     use plonky2_field::ops::Rand;
 
     use crate::iop::challenger::{Challenger, RecursiveChallenger};

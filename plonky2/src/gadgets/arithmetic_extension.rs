@@ -560,7 +560,6 @@ pub(crate) struct ExtensionArithmeticOperation<F: Field64 + Extendable<D>, const
 mod tests {
     use anyhow::Result;
     use plonky2_field::extension_field::algebra::ExtensionAlgebra;
-    use plonky2_field::field_types::Field;
     use plonky2_field::ops::Rand;
 
     use crate::iop::ext_target::ExtensionAlgebraTarget;

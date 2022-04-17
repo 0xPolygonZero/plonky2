@@ -41,7 +41,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2_field::field_types::Field;
     use plonky2_field::ops::Rand;
 
     use crate::iop::witness::{PartialWitness, Witness};

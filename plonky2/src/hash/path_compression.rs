@@ -115,7 +115,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use plonky2_field::field_types::Field;
     use plonky2_field::ops::Rand;
     use rand::{thread_rng, Rng};
 

@@ -5,10 +5,10 @@ use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::field::ops::Rand;
 use plonky2::hash::blake3::{Blake3Hash, Blake3Permutation};
-use plonky2::hash::hash_types::{BytesHash, RichField};
+use plonky2::hash::hash_types::RichField;
 use plonky2::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
 use plonky2::hash::keccak::{KeccakHash, KeccakPermutation};
-use plonky2::hash::poseidon::{Poseidon, PoseidonHash, PoseidonPermutation};
+use plonky2::hash::poseidon::{PoseidonHash, PoseidonPermutation};
 use plonky2::plonk::config::Hasher;
 use tynm::type_name;
 

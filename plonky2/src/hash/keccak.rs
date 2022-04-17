@@ -1,13 +1,11 @@
 use std::iter;
 use std::mem::size_of;
 
-use itertools::Itertools;
 use tiny_keccak::{Hasher as _, Keccak};
 
 use crate::hash::hash_types::{BytesHash, RichField};
 use crate::hash::hashing::{PlonkyPermutation, SPONGE_WIDTH};
 use crate::plonk::config::Hasher;
-use crate::util::serialization::Buffer;
 
 /// Keccak-256 pseudo-permutation (not necessarily one-to-one) used in the challenger.
 /// A state `input: [F; 12]` is sent to the field representation of `H(input) || H(H(input)) || H(H(H(input)))`
