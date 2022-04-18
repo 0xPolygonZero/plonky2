@@ -23,6 +23,7 @@ pub(crate) fn bench_ldes<F: Field>(c: &mut Criterion) {
 
     let mut group = c.benchmark_group(&format!("lde<{}>", type_name::<F>()));
 
+    #[allow(clippy::single_element_loop)]
     for size_log in [16] {
         let orig_size = 1 << (size_log - RATE_BITS);
         let lde_size = 1 << size_log;
