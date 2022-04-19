@@ -2,12 +2,9 @@ use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
 
 use crate::hash::hash_types::RichField;
+use crate::iop::target::Target;
+use crate::iop::wire::Wire;
 use crate::plonk::circuit_builder::CircuitBuilder;
-
-// pub enum Table<FN: Fn(F) -> F, F: Field> {
-//     Iterative { initial_value: F, f: FN },
-//     Vector { v: Vec<F>, padding_value: F },
-// }
 
 pub enum Table<F: Field> {
     Inductive { initial_value: F, f: fn(F) -> F },
@@ -47,6 +44,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let table_index = self.tables.len();
         self.tables.push(table);
         table_index
+    }
+
+    pub fn lookup_in_table(&mut self, wire: Wire, table: usize) {
+        self.lookups.push((wire.input, table));
     }
 }
 

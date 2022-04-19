@@ -563,6 +563,8 @@ mod tests {
     use plonky2_field::field_types::Field;
 
     use crate::iop::ext_target::ExtensionAlgebraTarget;
+    use crate::iop::target::Target;
+    use crate::iop::wire::Wire;
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
@@ -644,7 +646,8 @@ mod tests {
 
         let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        builder.add_table(Table::VectorWithPadding {
+
+        let table = builder.add_table(Table::VectorWithPadding {
             v: F::rand_vec(3),
             padding_value: F::ZERO,
         });
@@ -656,6 +659,9 @@ mod tests {
         let zt =
             ExtensionAlgebraTarget(builder.add_virtual_extension_targets(D).try_into().unwrap());
         let comp_zt = builder.mul_ext_algebra(xt, yt);
+        if let Target::Wire(wire) = comp_zt.0[0].0[0] {
+            builder.lookup_in_table(wire, table);
+        }
         for i in 0..D {
             builder.connect_extension(zt.0[i], comp_zt.0[i]);
         }

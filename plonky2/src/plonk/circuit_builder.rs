@@ -88,6 +88,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     constant_generators: Vec<ConstantGenerator<F>>,
 
     pub(crate) tables: Vec<Table<F>>,
+    pub(crate) lookups: Vec<(usize, usize)>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -109,6 +110,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             current_slots: HashMap::new(),
             constant_generators: Vec::new(),
             tables: Vec::new(),
+            lookups: Vec::new(),
         };
         builder.check_config();
         builder
@@ -721,6 +723,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.sigma_vecs(&k_is, &subgroup)
         );
 
+        let num_tables = self.tables.len();
+        assert_eq!(
+            self.lookups
+                .iter()
+                .fold(vec![0; num_tables], |mut acc, (_, i)| {
+                    acc[*i] |= 1;
+                    acc
+                })
+                .into_iter()
+                .sum::<usize>(),
+            num_tables,
+            "Some tables are not used."
+        );
         let tables = self
             .tables
             .iter()
@@ -829,7 +844,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             num_public_inputs,
             k_is,
             num_partial_products,
-            num_tables: self.tables.len(),
+            num_tables,
             circuit_digest,
         };
 
