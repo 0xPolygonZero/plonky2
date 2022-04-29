@@ -61,6 +61,8 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
 
     /// Evaluate constraints at a vector of points from the degree `D` extension field. This is like
     /// `eval_ext`, except in the context of a recursive circuit.
+    /// Note: constraints must be added through`yeld_constr.constraint(builder, constraint)` in the 
+    /// same order as they are given in `eval_packed_generic`.
     fn eval_ext_recursively(
         &self,
         builder: &mut CircuitBuilder<F, D>,
