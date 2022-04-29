@@ -53,7 +53,7 @@ pub struct StarkProofTarget<const D: usize> {
 
 impl<const D: usize> StarkProofTarget<D> {
     /// Recover the length of the trace from a STARK proof and a STARK config.
-    pub(crate) fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
+    pub fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
         let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
             .initial_trees_proof
             .evals_proofs[0]
