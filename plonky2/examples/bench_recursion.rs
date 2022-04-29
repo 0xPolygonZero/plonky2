@@ -3,6 +3,7 @@
 // put it in `src/bin/`, but then we wouldn't have access to
 // `[dev-dependencies]`.
 
+#![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 
 use std::{num::ParseIntError, ops::RangeInclusive, str::FromStr};
