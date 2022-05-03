@@ -23,12 +23,11 @@ in the Plonky2 directory.
 
 ## Running
 
-To see recursion performance, one can run this test, which generates a chain of three recursion proofs:
+To see recursion performance, one can run this bench, which generates a chain of three recursion proofs:
 
 ```sh
-RUST_LOG=debug RUSTFLAGS=-Ctarget-cpu=native cargo test --release test_recursive_recursive_verifier
+RUSTFLAGS=-Ctarget-cpu=native cargo run --release --example bench_recursion -- -vv
 ```
-
 
 ## Jemalloc
 

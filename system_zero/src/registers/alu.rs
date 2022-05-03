@@ -4,13 +4,17 @@ pub(crate) const IS_ADD: usize = super::START_ALU;
 pub(crate) const IS_SUB: usize = IS_ADD + 1;
 pub(crate) const IS_MUL_ADD: usize = IS_SUB + 1;
 pub(crate) const IS_DIV: usize = IS_MUL_ADD + 1;
+pub(crate) const IS_AND: usize = IS_DIV + 1;
+pub(crate) const IS_IOR: usize = IS_AND + 1;
+pub(crate) const IS_XOR: usize = IS_IOR + 1;
+pub(crate) const IS_ANDNOT: usize = IS_XOR + 1;
 
-const START_SHARED_COLS: usize = IS_DIV + 1;
+const START_SHARED_COLS: usize = IS_ANDNOT + 1;
 
 /// Within the ALU, there are shared columns which can be used by any arithmetic/logic
 /// circuit, depending on which one is active this cycle.
 // Can be increased as needed as other operations are implemented.
-const NUM_SHARED_COLS: usize = 4;
+const NUM_SHARED_COLS: usize = 130;
 
 const fn shared_col(i: usize) -> usize {
     debug_assert!(i < NUM_SHARED_COLS);
@@ -88,5 +92,31 @@ pub(crate) const COL_DIV_OUTPUT_REM_1: usize = super::range_check_16::col_rc_16_
 pub(crate) const COL_DIV_RANGE_CHECKED_TMP_0: usize = super::range_check_16::col_rc_16_input(4);
 /// The second 16-bit chunk of a temporary value (divisor - remainder - 1).
 pub(crate) const COL_DIV_RANGE_CHECKED_TMP_1: usize = super::range_check_16::col_rc_16_input(5);
+
+///
+/// Bitwise logic operations
+///
+
+/// Bit decomposition of 64-bit values, as 32-bit low and high halves.
+
+const fn gen_bitop_32bit_input_regs(start: usize) -> [usize; 32] {
+    let mut regs = [0usize; 32];
+    let mut i = 0;
+    while i < 32 {
+        regs[i] = shared_col(start + i);
+        i += 1;
+    }
+    regs
+}
+
+pub(crate) const COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS: [usize; 32] = gen_bitop_32bit_input_regs(0);
+pub(crate) const COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS: [usize; 32] = gen_bitop_32bit_input_regs(32);
+pub(crate) const COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS: [usize; 32] = gen_bitop_32bit_input_regs(64);
+pub(crate) const COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS: [usize; 32] = gen_bitop_32bit_input_regs(96);
+
+/// The first 32-bit chunk of the output, based on little-endian ordering.
+pub(crate) const COL_BITOP_OUTPUT_0: usize = shared_col(128);
+/// The second 32-bit chunk of the output, based on little-endian ordering.
+pub(crate) const COL_BITOP_OUTPUT_1: usize = shared_col(129);
 
 pub(super) const END: usize = START_SHARED_COLS + NUM_SHARED_COLS;

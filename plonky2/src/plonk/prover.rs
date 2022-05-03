@@ -26,7 +26,7 @@ use crate::util::partial_products::{partial_products_and_z_gx, quotient_chunk_pr
 use crate::util::timing::TimingTree;
 use crate::util::transpose;
 
-pub(crate) fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+pub fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, C, D>,
     common_data: &CommonCircuitData<F, C, D>,
     inputs: PartialWitness<F>,
