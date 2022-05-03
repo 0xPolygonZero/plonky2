@@ -1,6 +1,8 @@
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 
+mod allocator;
+
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::hash_types::{BytesHash, RichField};

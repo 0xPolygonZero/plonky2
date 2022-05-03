@@ -31,7 +31,15 @@ RUSTFLAGS=-Ctarget-cpu=native cargo run --release --example bench_recursion -- -
 
 ## Jemalloc
 
-By default, Plonky2 uses the [Jemalloc](http://jemalloc.net) memory allocator due to its superior performance. Currently, it changes the default allocator of any binary to which it is linked. You can disable this behavior by removing the corresponding lines in [`plonky2/src/lib.rs`](https://github.com/mir-protocol/plonky2/blob/main/plonky2/src/lib.rs).
+Plonky2 prefers the [Jemalloc](http://jemalloc.net) memory allocator due to its superior performance. To use it, include `jemallocator = "0.3.2"` in`Cargo.toml`and add the following lines
+to your `main.rs`:
+
+```rust
+use jemallocator::Jemalloc;
+
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+```
 
 Jemalloc is known to cause crashes when a binary compiled for x86 is run on an Apple silicon-based Mac under [Rosetta 2](https://support.apple.com/en-us/HT211861). If you are experiencing crashes on your Apple silicon Mac, run `rustc --print target-libdir`. The output should contain `aarch64-apple-darwin`. If the output contains `x86_64-apple-darwin`, then you are running the Rust toolchain for x86; we recommend switching to the native ARM version.
 

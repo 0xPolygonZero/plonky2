@@ -1,3 +1,5 @@
+mod allocator;
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use plonky2::field::field_types::Field;
 use plonky2::field::goldilocks_field::GoldilocksField;
