@@ -68,14 +68,12 @@ where
         quotient_polys,
     } = &proof.openings;
     let vars = StarkEvaluationVars {
-        local_values: &local_values.to_vec().try_into().unwrap(),
-        next_values: &next_values.to_vec().try_into().unwrap(),
+        local_values: &local_values,
+        next_values: &next_values,
         public_inputs: &public_inputs
             .into_iter()
             .map(F::Extension::from_basefield)
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap(),
+            .collect::<Vec<_>>(),
     };
 
     let (l_1, l_last) = eval_l_1_and_l_last(degree_bits, challenges.stark_zeta);

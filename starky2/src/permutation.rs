@@ -260,7 +260,7 @@ where
 pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
     stark: &S,
     config: &StarkConfig,
-    vars: StarkEvaluationVars<FE, P, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
+    vars: StarkEvaluationVars<FE, P>,
     permutation_data: PermutationCheckVars<F, FE, P, D2>,
     consumer: &mut ConstraintConsumer<P>,
 ) where
@@ -269,8 +269,6 @@ pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: 
     P: PackedField<Scalar = FE>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     let PermutationCheckVars {
         local_zs,

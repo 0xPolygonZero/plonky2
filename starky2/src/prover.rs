@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-use plonky2::field::extension_field::Extendable;
+use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed_field::PackedField;
@@ -20,7 +20,7 @@ use plonky2_util::{log2_ceil, log2_strict};
 use rayon::prelude::*;
 
 use crate::config::StarkConfig;
-use crate::constraint_consumer::ConstraintConsumer;
+use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::permutation::PermutationCheckVars;
 use crate::permutation::{
     compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
@@ -28,7 +28,7 @@ use crate::permutation::{
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
-use crate::vars::StarkEvaluationVars;
+use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub enum Table {
     Cpu = 0,
@@ -38,8 +38,67 @@ pub enum Table {
 struct CpuStark<F, const D: usize> {
     f: PhantomData<F>,
 }
+
+impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
+    const COLUMNS: usize = 0;
+    const PUBLIC_INPUTS: usize = 0;
+
+    fn eval_packed_generic<FE, P, const D2: usize>(
+        &self,
+        vars: StarkEvaluationVars<FE, P>,
+        yield_constr: &mut ConstraintConsumer<P>,
+    ) where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+        todo!()
+    }
+
+    fn eval_ext_recursively(
+        &self,
+        builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+        vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    ) {
+        todo!()
+    }
+
+    fn constraint_degree(&self) -> usize {
+        todo!()
+    }
+}
+
 struct KeccakStark<F, const D: usize> {
     f: PhantomData<F>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F, D> {
+    const COLUMNS: usize = 0;
+    const PUBLIC_INPUTS: usize = 0;
+
+    fn eval_packed_generic<FE, P, const D2: usize>(
+        &self,
+        vars: StarkEvaluationVars<FE, P>,
+        yield_constr: &mut ConstraintConsumer<P>,
+    ) where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+        todo!()
+    }
+
+    fn eval_ext_recursively(
+        &self,
+        builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+        vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    ) {
+        todo!()
+    }
+
+    fn constraint_degree(&self) -> usize {
+        todo!()
+    }
 }
 
 pub struct AllStarks<F: RichField + Extendable<D>, const D: usize> {
@@ -78,7 +137,7 @@ pub fn prove<F, C, S, const D: usize>(
     cross_table_lookups: Vec<CrossTableLookup>,
     public_inputs: Vec<Vec<F>>,
     timing: &mut TimingTree,
-) -> Result<StarkProofWithPublicInputs<F, C, D>>
+) -> Result<Vec<StarkProofWithPublicInputs<F, C, D>>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -128,16 +187,35 @@ where
         challenger.observe_cap(cap);
     }
 
-    todo!()
+    let cpu_proof = do_rest(
+        &all_starks.cpu,
+        config,
+        &trace_poly_values[Table::Cpu as usize],
+        &trace_commitments[Table::Cpu as usize],
+        &public_inputs[Table::Cpu as usize],
+        &mut challenger,
+        timing,
+    )?;
+    let keccak_proof = do_rest(
+        &all_starks.keccak,
+        config,
+        &trace_poly_values[Table::Keccak as usize],
+        &trace_commitments[Table::Keccak as usize],
+        &public_inputs[Table::Keccak as usize],
+        &mut challenger,
+        timing,
+    )?;
+
+    Ok(vec![cpu_proof, keccak_proof])
 }
 
 fn do_rest<F, C, S, const D: usize>(
-    stark: S,
+    stark: &S,
     config: &StarkConfig,
-    trace_poly_values: Vec<PolynomialValues<F>>,
-    trace_commitment: PolynomialBatch<F, C, D>,
+    trace_poly_values: &[PolynomialValues<F>],
+    trace_commitment: &PolynomialBatch<F, C, D>,
     // lookup info
-    public_inputs: [F; S::PUBLIC_INPUTS],
+    public_inputs: &[F],
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
@@ -147,8 +225,8 @@ where
     S: Stark<F, D>,
     [(); <<F as Packable>::Packing>::WIDTH]:,
     [(); C::Hasher::HASH_SIZE]:,
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
+    // [(); S::COLUMNS]:,
+    // [(); S::PUBLIC_INPUTS]:,
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
@@ -247,7 +325,7 @@ where
     );
     challenger.observe_openings(&openings.to_fri_openings());
 
-    let initial_merkle_trees = once(&trace_commitment)
+    let initial_merkle_trees = once(trace_commitment)
         .chain(permutation_zs_commitment)
         .chain(once(&quotient_commitment))
         .collect_vec();
@@ -264,7 +342,7 @@ where
         )
     );
     let proof = StarkProof {
-        trace_cap: trace_commitment.merkle_tree.cap,
+        trace_cap: trace_commitment.merkle_tree.cap.clone(),
         permutation_zs_cap,
         quotient_polys_cap,
         openings,
@@ -301,7 +379,7 @@ fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
         PolynomialBatch<F, C, D>,
         Vec<PermutationChallengeSet<F>>,
     )>,
-    public_inputs: [F; S::PUBLIC_INPUTS],
+    public_inputs: &[F],
     alphas: Vec<F>,
     degree_bits: usize,
     config: &StarkConfig,
@@ -311,9 +389,6 @@ where
     P: PackedField<Scalar = F>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
-    [(); P::WIDTH]:,
 {
     let degree = 1 << degree_bits;
     let rate_bits = config.fri_config.rate_bits;
@@ -336,12 +411,8 @@ where
     let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, quotient_degree_bits);
 
     // Retrieve the LDE values at index `i`.
-    let get_trace_values_packed = |i_start| -> [P; S::COLUMNS] {
-        trace_commitment
-            .get_lde_values_packed(i_start, step)
-            .try_into()
-            .unwrap()
-    };
+    let get_trace_values_packed =
+        |i_start| -> Vec<P> { trace_commitment.get_lde_values_packed(i_start, step) };
 
     // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();

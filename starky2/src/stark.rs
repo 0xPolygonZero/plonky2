@@ -30,7 +30,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// constraints over `F`.
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: StarkEvaluationVars<FE, P>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
@@ -39,7 +39,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// Evaluate constraints at a vector of points from the base field `F`.
     fn eval_packed_base<P: PackedField<Scalar = F>>(
         &self,
-        vars: StarkEvaluationVars<F, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: StarkEvaluationVars<F, P>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) {
         self.eval_packed_generic(vars, yield_constr)
@@ -48,12 +48,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// Evaluate constraints at a single point from the degree `D` extension field.
     fn eval_ext(
         &self,
-        vars: StarkEvaluationVars<
-            F::Extension,
-            F::Extension,
-            { Self::COLUMNS },
-            { Self::PUBLIC_INPUTS },
-        >,
+        vars: StarkEvaluationVars<F::Extension, F::Extension>,
         yield_constr: &mut ConstraintConsumer<F::Extension>,
     ) {
         self.eval_packed_generic(vars, yield_constr)
