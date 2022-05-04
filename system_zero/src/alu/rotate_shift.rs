@@ -165,9 +165,7 @@ fn constrain_pow_exp<F: Field, P: PackedField<Scalar = F>>(
 /// satisfies the condition (v_lo == 0 OR v_hi != 2^32-1), which uses
 /// the structure of Goldilocks to check that v has the right form.
 /// The formula is:
-///
-///     v_lo * (one - aux * (u32_max - v_hi)) == 0
-///
+///   v_lo * (one - aux * (u32_max - v_hi)) == 0
 /// where aux = (m32_max - v_hi)^-1 if it exists.
 fn constrain_shifted_are_valid<F: Field, P: PackedField<Scalar = F>>(
     lv: &[P; NUM_COLUMNS],
