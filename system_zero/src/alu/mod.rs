@@ -31,23 +31,6 @@ mod mul_add;
 mod rotate_shift;
 mod subtraction;
 
-// TODO: This probably belongs in a more easily accessible location.
-const ALL_OPERATIONS: [usize; 13] = [
-    IS_ADD,
-    IS_SUB,
-    IS_MUL_ADD,
-    IS_DIV,
-    IS_AND,
-    IS_IOR,
-    IS_XOR,
-    IS_ANDNOT,
-    IS_ROTATE_LEFT,
-    IS_SHIFT_LEFT,
-    IS_ROTATE_RIGHT,
-    IS_SHIFT_RIGHT,
-    IS_ARITH_SHIFT_RIGHT,
-];
-
 pub(crate) fn generate_alu<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
     if values[IS_ADD].is_one() {
         generate_addition(values);
@@ -73,6 +56,8 @@ pub(crate) fn generate_alu<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
         generate_rotate_shift(values, IS_SHIFT_LEFT);
     } else if values[IS_SHIFT_RIGHT].is_one() {
         generate_rotate_shift(values, IS_SHIFT_RIGHT);
+    } else {
+        todo!("the requested operation has not yet been implemented");
     }
 }
 

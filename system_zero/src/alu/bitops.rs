@@ -12,7 +12,7 @@ use crate::registers::NUM_COLUMNS;
 
 /// Interpret the N <= 32 elements of `bits` as bits from low to high of a
 /// u32 and return \sum_i bits[i] 2^i as an element of P.
-pub(crate) fn binary_to_u32<const N: usize, F, P>(bits: [P; N]) -> P
+pub(crate) fn binary_to_u32<F, P>(bits: [P; 32]) -> P
 where
     F: Field,
     P: PackedField<Scalar = F>,

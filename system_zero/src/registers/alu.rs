@@ -15,6 +15,23 @@ pub(crate) const IS_SHIFT_LEFT: usize = IS_ROTATE_RIGHT + 1;
 pub(crate) const IS_SHIFT_RIGHT: usize = IS_SHIFT_LEFT + 1;
 pub(crate) const IS_ARITH_SHIFT_RIGHT: usize = IS_SHIFT_RIGHT + 1;
 
+pub(crate) const ALL_OPERATIONS: [usize; 14] = [
+    IS_ADD,
+    IS_SUB,
+    IS_MUL_ADD,
+    IS_DIV,
+    IS_AND,
+    IS_IOR,
+    IS_XOR,
+    IS_ANDNOT,
+    IS_NOT,
+    IS_ROTATE_LEFT,
+    IS_ROTATE_RIGHT,
+    IS_SHIFT_LEFT,
+    IS_SHIFT_RIGHT,
+    IS_ARITH_SHIFT_RIGHT,
+];
+
 const START_SHARED_COLS: usize = IS_ARITH_SHIFT_RIGHT + 1;
 
 /// Within the ALU, there are shared columns which can be used by any arithmetic/logic
@@ -147,18 +164,18 @@ pub(crate) const COL_ROTATE_SHIFT_POW_EXP_AUX_2: usize = shared_col(10);
 pub(crate) const COL_ROTATE_SHIFT_POW_EXP: usize = shared_col(11);
 
 /// low 32 bits of INPUT_LO * 2^EXP
-pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_LO_0: usize = shared_col(12);
+pub(crate) const COL_ROTATE_SHIFT_INPUT_LO_DISPLACED_0: usize = shared_col(12);
 /// high 32 bits of INPUT_LO * 2^EXP
-pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_LO_1: usize = shared_col(13);
+pub(crate) const COL_ROTATE_SHIFT_INPUT_LO_DISPLACED_1: usize = shared_col(13);
 /// low 32 bits of INPUT_HI * 2^EXP
-pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_HI_0: usize = shared_col(14);
+pub(crate) const COL_ROTATE_SHIFT_INPUT_HI_DISPLACED_0: usize = shared_col(14);
 /// high 32 bits of INPUT_HI * 2^EXP
-pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_HI_1: usize = shared_col(15);
+pub(crate) const COL_ROTATE_SHIFT_INPUT_HI_DISPLACED_1: usize = shared_col(15);
 
-pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_LO_AUX_0: usize = shared_col(16);
-pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_LO_AUX_1: usize = shared_col(17);
-pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_HI_AUX_0: usize = shared_col(18);
-pub(crate) const COL_ROTATE_SHIFT_DISPLACED_INPUT_HI_AUX_1: usize = shared_col(19);
+pub(crate) const COL_ROTATE_SHIFT_INPUT_LO_DISPLACED_AUX_0: usize = shared_col(16);
+pub(crate) const COL_ROTATE_SHIFT_INPUT_LO_DISPLACED_AUX_1: usize = shared_col(17);
+pub(crate) const COL_ROTATE_SHIFT_INPUT_HI_DISPLACED_AUX_0: usize = shared_col(18);
+pub(crate) const COL_ROTATE_SHIFT_INPUT_HI_DISPLACED_AUX_1: usize = shared_col(19);
 
 /// The first 32-bit chunk of the output, based on little-endian ordering.
 pub(crate) const COL_ROTATE_SHIFT_OUTPUT_0: usize = shared_col(20);
