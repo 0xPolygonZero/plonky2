@@ -57,7 +57,7 @@ pub(crate) fn generate_alu<F: PrimeField64>(values: &mut [F; NUM_COLUMNS]) {
     } else if values[IS_SHIFT_RIGHT].is_one() {
         generate_rotate_shift(values, IS_SHIFT_RIGHT);
     } else {
-        todo!("the requested operation has not yet been implemented");
+        //todo!("the requested operation has not yet been implemented");
     }
 }
 
