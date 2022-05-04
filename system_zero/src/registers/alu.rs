@@ -8,8 +8,31 @@ pub(crate) const IS_AND: usize = IS_DIV + 1;
 pub(crate) const IS_IOR: usize = IS_AND + 1;
 pub(crate) const IS_XOR: usize = IS_IOR + 1;
 pub(crate) const IS_ANDNOT: usize = IS_XOR + 1;
+pub(crate) const IS_NOT: usize = IS_ANDNOT + 1;
+pub(crate) const IS_ROTATE_LEFT: usize = IS_NOT + 1;
+pub(crate) const IS_ROTATE_RIGHT: usize = IS_ROTATE_LEFT + 1;
+pub(crate) const IS_SHIFT_LEFT: usize = IS_ROTATE_RIGHT + 1;
+pub(crate) const IS_SHIFT_RIGHT: usize = IS_SHIFT_LEFT + 1;
+pub(crate) const IS_ARITH_SHIFT_RIGHT: usize = IS_SHIFT_RIGHT + 1;
 
-const START_SHARED_COLS: usize = IS_ANDNOT + 1;
+pub(crate) const ALL_OPERATIONS: [usize; 14] = [
+    IS_ADD,
+    IS_SUB,
+    IS_MUL_ADD,
+    IS_DIV,
+    IS_AND,
+    IS_IOR,
+    IS_XOR,
+    IS_ANDNOT,
+    IS_NOT,
+    IS_ROTATE_LEFT,
+    IS_ROTATE_RIGHT,
+    IS_SHIFT_LEFT,
+    IS_SHIFT_RIGHT,
+    IS_ARITH_SHIFT_RIGHT,
+];
+
+const START_SHARED_COLS: usize = IS_ARITH_SHIFT_RIGHT + 1;
 
 /// Within the ALU, there are shared columns which can be used by any arithmetic/logic
 /// circuit, depending on which one is active this cycle.
@@ -99,24 +122,64 @@ pub(crate) const COL_DIV_RANGE_CHECKED_TMP_1: usize = super::range_check_16::col
 
 /// Bit decomposition of 64-bit values, as 32-bit low and high halves.
 
-const fn gen_bitop_32bit_input_regs(start: usize) -> [usize; 32] {
-    let mut regs = [0usize; 32];
+const fn gen_bitop_nbit_input_regs<const N: usize>(start: usize) -> [usize; N] {
+    let mut regs = [0usize; N];
     let mut i = 0;
-    while i < 32 {
+    while i < N {
         regs[i] = shared_col(start + i);
         i += 1;
     }
     regs
 }
 
-pub(crate) const COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS: [usize; 32] = gen_bitop_32bit_input_regs(0);
-pub(crate) const COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS: [usize; 32] = gen_bitop_32bit_input_regs(32);
-pub(crate) const COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS: [usize; 32] = gen_bitop_32bit_input_regs(64);
-pub(crate) const COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS: [usize; 32] = gen_bitop_32bit_input_regs(96);
+pub(crate) const COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS: [usize; 32] =
+    gen_bitop_nbit_input_regs::<32>(0);
+pub(crate) const COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS: [usize; 32] =
+    gen_bitop_nbit_input_regs::<32>(32);
+pub(crate) const COL_BIT_DECOMP_INPUT_B_LO_BIN_REGS: [usize; 32] =
+    gen_bitop_nbit_input_regs::<32>(64);
+pub(crate) const COL_BIT_DECOMP_INPUT_B_HI_BIN_REGS: [usize; 32] =
+    gen_bitop_nbit_input_regs::<32>(96);
 
 /// The first 32-bit chunk of the output, based on little-endian ordering.
 pub(crate) const COL_BITOP_OUTPUT_0: usize = shared_col(128);
 /// The second 32-bit chunk of the output, based on little-endian ordering.
 pub(crate) const COL_BITOP_OUTPUT_1: usize = shared_col(129);
+
+/// Input value to be rotated or shifted, low 32 bits
+pub(crate) const COL_ROTATE_SHIFT_INPUT_LO: usize = shared_col(0);
+/// Input value to be rotated or shifted, high 32 bits
+pub(crate) const COL_ROTATE_SHIFT_INPUT_HI: usize = shared_col(1);
+/// Bit decomposition of EXP, which is DELTA mod 32 for left
+/// rotate/shift; bit decomposition of (32 - DELTA mod 32) mod 32 for
+/// right rotate/shift.
+pub(crate) const COL_ROTATE_SHIFT_EXP_BITS: [usize; 5] = gen_bitop_nbit_input_regs::<5>(2);
+/// Top bit of the 6-bit value DELTA; also interpreted as DELTA >= 32.
+pub(crate) const COL_ROTATE_SHIFT_DELTA_DIV32: usize = shared_col(7);
+
+/// POW_EXP = 2^EXP, the AUX_i vars are helpers.
+pub(crate) const COL_ROTATE_SHIFT_POW_EXP_AUX_0: usize = shared_col(8);
+pub(crate) const COL_ROTATE_SHIFT_POW_EXP_AUX_1: usize = shared_col(9);
+pub(crate) const COL_ROTATE_SHIFT_POW_EXP_AUX_2: usize = shared_col(10);
+pub(crate) const COL_ROTATE_SHIFT_POW_EXP: usize = shared_col(11);
+
+/// low 32 bits of INPUT_LO * 2^EXP
+pub(crate) const COL_ROTATE_SHIFT_INPUT_LO_DISPLACED_0: usize = shared_col(12);
+/// high 32 bits of INPUT_LO * 2^EXP
+pub(crate) const COL_ROTATE_SHIFT_INPUT_LO_DISPLACED_1: usize = shared_col(13);
+/// low 32 bits of INPUT_HI * 2^EXP
+pub(crate) const COL_ROTATE_SHIFT_INPUT_HI_DISPLACED_0: usize = shared_col(14);
+/// high 32 bits of INPUT_HI * 2^EXP
+pub(crate) const COL_ROTATE_SHIFT_INPUT_HI_DISPLACED_1: usize = shared_col(15);
+
+pub(crate) const COL_ROTATE_SHIFT_INPUT_LO_DISPLACED_AUX_0: usize = shared_col(16);
+pub(crate) const COL_ROTATE_SHIFT_INPUT_LO_DISPLACED_AUX_1: usize = shared_col(17);
+pub(crate) const COL_ROTATE_SHIFT_INPUT_HI_DISPLACED_AUX_0: usize = shared_col(18);
+pub(crate) const COL_ROTATE_SHIFT_INPUT_HI_DISPLACED_AUX_1: usize = shared_col(19);
+
+/// The first 32-bit chunk of the output, based on little-endian ordering.
+pub(crate) const COL_ROTATE_SHIFT_OUTPUT_0: usize = shared_col(20);
+/// The second 32-bit chunk of the output, based on little-endian ordering.
+pub(crate) const COL_ROTATE_SHIFT_OUTPUT_1: usize = shared_col(21);
 
 pub(super) const END: usize = START_SHARED_COLS + NUM_SHARED_COLS;

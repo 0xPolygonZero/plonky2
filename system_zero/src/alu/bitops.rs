@@ -10,9 +10,9 @@ use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsume
 use crate::registers::alu::*;
 use crate::registers::NUM_COLUMNS;
 
-/// Interpret the 32 elements of `bits` as bits from low to high of a
+/// Interpret the N <= 32 elements of `bits` as bits from low to high of a
 /// u32 and return \sum_i bits[i] 2^i as an element of P.
-fn binary_to_u32<F, P>(bits: [P; 32]) -> P
+pub(crate) fn binary_to_u32<F, P>(bits: [P; 32]) -> P
 where
     F: Field,
     P: PackedField<Scalar = F>,
@@ -130,7 +130,7 @@ pub(crate) fn eval_bitop<F: Field, P: PackedField<Scalar = F>>(
     );
 }
 
-fn constrain_all_to_bits<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn constrain_all_to_bits<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     filter: ExtensionTarget<D>,
