@@ -30,7 +30,7 @@ use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
-enum Table {
+pub enum Table {
     Cpu = 0,
     Keccak = 1,
 }
@@ -42,12 +42,12 @@ struct KeccakStark<F, const D: usize> {
     f: PhantomData<F>,
 }
 
-struct AllStarks<F: RichField + Extendable<D>, const D: usize> {
+pub struct AllStarks<F: RichField + Extendable<D>, const D: usize> {
     cpu: CpuStark<F, D>,
     keccak: KeccakStark<F, D>,
 }
 
-struct CrossTableLookup {
+pub struct CrossTableLookup {
     looking_table: Table,
     looking_columns: Vec<usize>,
     looked_table: usize,
@@ -63,10 +63,10 @@ impl CrossTableLookup {
     ) -> Self {
         assert_eq!(looking_columns.len(), looked_columns.len());
         Self {
-            looking_table: looking_table,
-            looking_columns: looking_columns,
-            looked_table: looked_table,
-            looked_columns: looked_columns,
+            looking_table,
+            looking_columns,
+            looked_table,
+            looked_columns,
         }
     }
 }
@@ -121,154 +121,43 @@ where
 
     let trace_caps = trace_commitments
         .iter()
-        .map(|c| c.merkle_tree.cap)
+        .map(|c| c.merkle_tree.cap.clone())
         .collect::<Vec<_>>();
-    let mut challenger = Challenger::new();
+    let mut challenger = Challenger::<F, C::Hasher>::new();
     for cap in &trace_caps {
         challenger.observe_cap(cap);
     }
 
-    let permutation_zs_commitment_challenges = (0..num_starks)
-        .map(|i| {
-            permutation_challenges(
-                all_starks.stark(i),
-                &trace_poly_values[i],
-                config,
-                &mut challenger,
-                timing,
-            )
-        })
-        .collect::<Vec<_>>();
-
-    let permutation_zs_commitment = permutation_zs_commitment_challenges
-        .iter()
-        .map(|pzcc| pzcc.map(|(comm, _)| comm))
-        .collect::<Vec<_>>();
-    let permutation_zs_cap = permutation_zs_commitment
-        .iter()
-        .map(|pzc| pzc.as_ref().map(|commit| commit.merkle_tree.cap.clone()))
-        .collect::<Vec<_>>();
-    for cap in &permutation_zs_cap {
-        challenger.observe_cap(cap);
-    }
-
-    // let alphas = challenger.get_n_challenges(config.num_challenges);
-    // let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
-    //     &stark,
-    //     &trace_commitment,
-    //     &permutation_zs_commitment_challenges,
-    //     public_inputs,
-    //     alphas,
-    //     degree_bits,
-    //     config,
-    // );
-    // let all_quotient_chunks = quotient_polys
-    //     .into_par_iter()
-    //     .flat_map(|mut quotient_poly| {
-    //         quotient_poly
-    //             .trim_to_len(degree * stark.quotient_degree_factor())
-    //             .expect("Quotient has failed, the vanishing polynomial is not divisible by Z_H");
-    //         // Split quotient into degree-n chunks.
-    //         quotient_poly.chunks(degree)
-    //     })
-    //     .collect();
-    // let quotient_commitment = timed!(
-    //     timing,
-    //     "compute quotient commitment",
-    //     PolynomialBatch::from_coeffs(
-    //         all_quotient_chunks,
-    //         rate_bits,
-    //         false,
-    //         config.fri_config.cap_height,
-    //         timing,
-    //         None,
-    //     )
-    // );
-    // let quotient_polys_cap = quotient_commitment.merkle_tree.cap.clone();
-    // challenger.observe_cap(&quotient_polys_cap);
-    //
-    // let zeta = challenger.get_extension_challenge::<D>();
-    // // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
-    // // `g * zeta`, are not in our subgroup `H`. It suffices to check `zeta` only, since
-    // // `(g * zeta)^n = zeta^n`, where `n` is the order of `g`.
-    // let g = F::primitive_root_of_unity(degree_bits);
-    // ensure!(
-    //     zeta.exp_power_of_2(degree_bits) != F::Extension::ONE,
-    //     "Opening point is in the subgroup."
-    // );
-    // let openings = StarkOpeningSet::new(
-    //     zeta,
-    //     g,
-    //     &trace_commitment,
-    //     permutation_zs_commitment,
-    //     &quotient_commitment,
-    // );
-    // challenger.observe_openings(&openings.to_fri_openings());
-    //
-    // let initial_merkle_trees = once(&trace_commitment)
-    //     .chain(permutation_zs_commitment)
-    //     .chain(once(&quotient_commitment))
-    //     .collect_vec();
-    //
-    // let opening_proof = timed!(
-    //     timing,
-    //     "compute openings proof",
-    //     PolynomialBatch::prove_openings(
-    //         &stark.fri_instance(zeta, g, config),
-    //         &initial_merkle_trees,
-    //         &mut challenger,
-    //         &fri_params,
-    //         timing,
-    //     )
-    // );
-    // let proof = StarkProof {
-    //     trace_cap,
-    //     permutation_zs_cap,
-    //     quotient_polys_cap,
-    //     openings,
-    //     opening_proof,
-    // };
-    //
-    // Ok(StarkProofWithPublicInputs {
-    //     proof,
-    //     public_inputs: public_inputs.to_vec(),
-    // })
     todo!()
 }
 
-fn add_cross_table_lookup_columns(
+fn do_rest<F, C, S, const D: usize>(
+    stark: S,
     config: &StarkConfig,
-    trace_poly_values: Vec<Vec<PolynomialValues<F>>>,
-    cross_table_lookups: Vec<CrossTableLookup>,
-) {
-    for cross_table_lookup in cross_table_lookups {
-        let CrossTableLookup {
-            looking_table: source_table,
-            looking_columns: source_columns,
-            looked_table: target_table,
-            looked_columns: target_columns,
-        } = cross_table_lookup;
-    }
-}
-
-fn permutation_challenges<'a, F, P, C, S, const D: usize>(
-    stark: &S,
-    trace_poly_values: &[PolynomialValues<F>],
-    config: &StarkConfig,
-    challenger: &mut Challenger<F, C::InnerHasher>,
+    trace_poly_values: Vec<PolynomialValues<F>>,
+    trace_commitment: PolynomialBatch<F, C, D>,
+    // lookup info
+    public_inputs: [F; S::PUBLIC_INPUTS],
+    challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
-) -> Option<(PolynomialBatch<F, C, D>, Vec<PermutationChallengeSet<F>>)>
+) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
     F: RichField + Extendable<D>,
-    P: PackedField<Scalar = F>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
+    [(); <<F as Packable>::Packing>::WIDTH]:,
+    [(); C::Hasher::HASH_SIZE]:,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
-    [(); P::WIDTH]:,
 {
+    let degree = trace_poly_values[0].len();
+    let degree_bits = log2_strict(degree);
+    let fri_params = config.fri_params(degree_bits);
+    let rate_bits = config.fri_config.rate_bits;
+    let cap_height = config.fri_config.cap_height;
+
     // Permutation arguments.
-    stark.uses_permutation_args().then(|| {
+    let permutation_zs_commitment_challenges = stark.uses_permutation_args().then(|| {
         let permutation_challenge_sets = get_n_permutation_challenge_sets(
             challenger,
             config.num_challenges,
@@ -294,7 +183,113 @@ where
             )
         );
         (permutation_zs_commitment, permutation_challenge_sets)
+    });
+    let permutation_zs_commitment = permutation_zs_commitment_challenges
+        .as_ref()
+        .map(|(comm, _)| comm);
+    let permutation_zs_cap = permutation_zs_commitment
+        .as_ref()
+        .map(|commit| commit.merkle_tree.cap.clone());
+    for cap in &permutation_zs_cap {
+        challenger.observe_cap(cap);
+    }
+
+    let alphas = challenger.get_n_challenges(config.num_challenges);
+    let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
+        &stark,
+        &trace_commitment,
+        &permutation_zs_commitment_challenges,
+        public_inputs,
+        alphas,
+        degree_bits,
+        config,
+    );
+    let all_quotient_chunks = quotient_polys
+        .into_par_iter()
+        .flat_map(|mut quotient_poly| {
+            quotient_poly
+                .trim_to_len(degree * stark.quotient_degree_factor())
+                .expect("Quotient has failed, the vanishing polynomial is not divisible by Z_H");
+            // Split quotient into degree-n chunks.
+            quotient_poly.chunks(degree)
+        })
+        .collect();
+    let quotient_commitment = timed!(
+        timing,
+        "compute quotient commitment",
+        PolynomialBatch::from_coeffs(
+            all_quotient_chunks,
+            rate_bits,
+            false,
+            config.fri_config.cap_height,
+            timing,
+            None,
+        )
+    );
+    let quotient_polys_cap = quotient_commitment.merkle_tree.cap.clone();
+    challenger.observe_cap(&quotient_polys_cap);
+
+    let zeta = challenger.get_extension_challenge::<D>();
+    // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
+    // `g * zeta`, are not in our subgroup `H`. It suffices to check `zeta` only, since
+    // `(g * zeta)^n = zeta^n`, where `n` is the order of `g`.
+    let g = F::primitive_root_of_unity(degree_bits);
+    ensure!(
+        zeta.exp_power_of_2(degree_bits) != F::Extension::ONE,
+        "Opening point is in the subgroup."
+    );
+    let openings = StarkOpeningSet::new(
+        zeta,
+        g,
+        &trace_commitment,
+        permutation_zs_commitment,
+        &quotient_commitment,
+    );
+    challenger.observe_openings(&openings.to_fri_openings());
+
+    let initial_merkle_trees = once(&trace_commitment)
+        .chain(permutation_zs_commitment)
+        .chain(once(&quotient_commitment))
+        .collect_vec();
+
+    let opening_proof = timed!(
+        timing,
+        "compute openings proof",
+        PolynomialBatch::prove_openings(
+            &stark.fri_instance(zeta, g, config),
+            &initial_merkle_trees,
+            challenger,
+            &fri_params,
+            timing,
+        )
+    );
+    let proof = StarkProof {
+        trace_cap: trace_commitment.merkle_tree.cap,
+        permutation_zs_cap,
+        quotient_polys_cap,
+        openings,
+        opening_proof,
+    };
+
+    Ok(StarkProofWithPublicInputs {
+        proof,
+        public_inputs: public_inputs.to_vec(),
     })
+}
+
+fn add_cross_table_lookup_columns<F: Field>(
+    config: &StarkConfig,
+    trace_poly_values: Vec<Vec<PolynomialValues<F>>>,
+    cross_table_lookups: Vec<CrossTableLookup>,
+) {
+    for cross_table_lookup in cross_table_lookups {
+        let CrossTableLookup {
+            looking_table: source_table,
+            looking_columns: source_columns,
+            looked_table: target_table,
+            looked_columns: target_columns,
+        } = cross_table_lookup;
+    }
 }
 
 /// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
