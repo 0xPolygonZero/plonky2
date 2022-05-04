@@ -11,6 +11,7 @@ use plonky2::iop::witness::Witness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::util::reducing::ReducingFactorTarget;
+use plonky2::with_context;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
@@ -40,7 +41,11 @@ pub fn recursively_verify_stark_proof<
 {
     assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(inner_config);
-    let challenges = proof_with_pis.get_challenges::<F, C, S>(builder, &stark, inner_config);
+    let challenges = with_context!(
+        builder,
+        "compute challenges",
+        proof_with_pis.get_challenges::<F, C, S>(builder, &stark, inner_config)
+    );
 
     recursively_verify_stark_proof_with_challenges::<F, C, S, D>(
         builder,
@@ -94,6 +99,7 @@ fn recursively_verify_stark_proof_with_challenges<
             .try_into()
             .unwrap(),
     };
+
     let zeta_pow_deg = builder.exp_power_of_2_extension(challenges.stark_zeta, degree_bits);
     let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
     let (l_1, l_last) =
@@ -101,6 +107,7 @@ fn recursively_verify_stark_proof_with_challenges<
     let last =
         builder.constant_extension(F::Extension::primitive_root_of_unity(degree_bits).inverse());
     let z_last = builder.sub_extension(challenges.stark_zeta, last);
+
     let mut consumer = RecursiveConstraintConsumer::<F, D>::new(
         builder.zero_extension(),
         challenges.stark_alphas,
@@ -108,6 +115,7 @@ fn recursively_verify_stark_proof_with_challenges<
         l_1,
         l_last,
     );
+
     let permutation_data = stark
         .uses_permutation_args()
         .then(|| PermutationCheckDataTarget {
@@ -115,13 +123,18 @@ fn recursively_verify_stark_proof_with_challenges<
             next_zs: permutation_zs_right.as_ref().unwrap().clone(),
             permutation_challenge_sets: challenges.permutation_challenge_sets.unwrap(),
         });
-    eval_vanishing_poly_recursively::<F, C, S, D>(
+
+    with_context!(
         builder,
-        &stark,
-        inner_config,
-        vars,
-        permutation_data,
-        &mut consumer,
+        "evaluate vanishing polynomial",
+        eval_vanishing_poly_recursively::<F, C, S, D>(
+            builder,
+            &stark,
+            inner_config,
+            vars,
+            permutation_data,
+            &mut consumer,
+        )
     );
     let vanishing_polys_zeta = consumer.accumulators();
 

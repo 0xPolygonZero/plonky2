@@ -27,12 +27,14 @@ serde_cbor = "0.11.1"
 keccak-hash = "0.8.0"
 static_assertions = "1.1.0"
 
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-jemallocator = "0.3.2"
-
 [dev-dependencies]
 criterion = "0.3.5"
 tynm = "0.1.6"
+structopt = "0.3.26"
+num_cpus = "1.13.1"
+
+[target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
+jemallocator = "0.3.2"
 
 [[bench]]
 name = "field_arithmetic"

@@ -1,3 +1,5 @@
+mod allocator;
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use plonky2::field::field_types::Field;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -21,7 +23,7 @@ pub(crate) fn bench_ldes<F: Field>(c: &mut Criterion) {
 
     let mut group = c.benchmark_group(&format!("lde<{}>", type_name::<F>()));
 
-    for size_log in [16] {
+    for size_log in [13, 14, 15, 16] {
         let orig_size = 1 << (size_log - RATE_BITS);
         let lde_size = 1 << size_log;
 
