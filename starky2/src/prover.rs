@@ -22,6 +22,7 @@ use rayon::prelude::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookups::{cross_table_lookup_zs, LookupData};
 use crate::permutation::PermutationCheckVars;
 use crate::permutation::{
     compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
@@ -379,94 +380,6 @@ where
         proof,
         public_inputs: public_inputs.to_vec(),
     })
-}
-
-/// Lookup data for one table.
-#[derive(Clone)]
-struct LookupData<F: Field> {
-    zs_beta_gammas: Vec<(PolynomialValues<F>, F, F)>,
-}
-
-impl<F: Field> Default for LookupData<F> {
-    fn default() -> Self {
-        Self {
-            zs_beta_gammas: Vec::new(),
-        }
-    }
-}
-
-impl<F: Field> LookupData<F> {
-    fn is_empty(&self) -> bool {
-        self.zs_beta_gammas.is_empty()
-    }
-
-    fn z_polys(&self) -> Vec<PolynomialValues<F>> {
-        self.zs_beta_gammas
-            .iter()
-            .map(|(p, _, _)| p.clone())
-            .collect()
-    }
-}
-
-fn cross_table_lookup_zs<F: RichField, C: GenericConfig<D, F = F>, const D: usize>(
-    config: &StarkConfig,
-    trace_poly_values: &[Vec<PolynomialValues<F>>],
-    cross_table_lookups: &[CrossTableLookup<F>],
-    challenger: &mut Challenger<F, C::Hasher>,
-) -> Vec<LookupData<F>> {
-    cross_table_lookups.iter().fold(
-        vec![LookupData::default(); trace_poly_values.len()],
-        |mut acc, cross_table_lookup| {
-            let CrossTableLookup {
-                looking_table,
-                looking_columns,
-                looked_table,
-                looked_columns,
-                ..
-            } = cross_table_lookup;
-
-            for _ in 0..config.num_challenges {
-                let beta = challenger.get_challenge();
-                let gamma = challenger.get_challenge();
-                let z_looking = partial_products(
-                    &trace_poly_values[*looking_table as usize],
-                    &looking_columns,
-                    beta,
-                    gamma,
-                );
-                let z_looked = partial_products(
-                    &trace_poly_values[*looked_table as usize],
-                    &looked_columns,
-                    beta,
-                    gamma,
-                );
-
-                acc[*looking_table as usize]
-                    .zs_beta_gammas
-                    .push((z_looking, beta, gamma));
-                acc[*looked_table as usize]
-                    .zs_beta_gammas
-                    .push((z_looked, beta, gamma));
-            }
-            acc
-        },
-    )
-}
-
-fn partial_products<F: Field>(
-    trace: &[PolynomialValues<F>],
-    columns: &[usize],
-    beta: F,
-    gamma: F,
-) -> PolynomialValues<F> {
-    let mut partial_prod = F::ONE;
-    let mut res = Vec::new();
-    for i in 0..trace[0].len() {
-        partial_prod *=
-            gamma + reduce_with_powers(columns.iter().map(|&j| &trace[i].values[j]), beta);
-        res.push(partial_prod);
-    }
-    res.into()
 }
 
 /// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
