@@ -13,6 +13,7 @@ use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::{GenericConfig, Hasher};
+use plonky2::plonk::plonk_common::reduce_with_powers;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
@@ -30,6 +31,7 @@ use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
+#[derive(Copy, Clone)]
 pub enum Table {
     Cpu = 0,
     Keccak = 1,
@@ -106,19 +108,21 @@ pub struct AllStarks<F: RichField + Extendable<D>, const D: usize> {
     keccak: KeccakStark<F, D>,
 }
 
-pub struct CrossTableLookup {
+pub struct CrossTableLookup<F: Field> {
     looking_table: Table,
     looking_columns: Vec<usize>,
     looked_table: usize,
     looked_columns: Vec<usize>,
+    default: F,
 }
 
-impl CrossTableLookup {
+impl<F: Field> CrossTableLookup<F> {
     pub fn new(
         looking_table: Table,
         looking_columns: Vec<usize>,
         looked_table: usize,
         looked_columns: Vec<usize>,
+        default: F,
     ) -> Self {
         assert_eq!(looking_columns.len(), looked_columns.len());
         Self {
@@ -126,6 +130,7 @@ impl CrossTableLookup {
             looking_columns,
             looked_table,
             looked_columns,
+            default,
         }
     }
 }
@@ -134,7 +139,7 @@ pub fn prove<F, C, S, const D: usize>(
     all_starks: AllStarks<F, D>,
     config: &StarkConfig,
     trace_poly_values: Vec<Vec<PolynomialValues<F>>>,
-    cross_table_lookups: Vec<CrossTableLookup>,
+    cross_table_lookups: Vec<CrossTableLookup<F>>,
     public_inputs: Vec<Vec<F>>,
     timing: &mut TimingTree,
 ) -> Result<Vec<StarkProofWithPublicInputs<F, C, D>>>
@@ -186,6 +191,9 @@ where
     for cap in &trace_caps {
         challenger.observe_cap(cap);
     }
+
+    let lookup_zs_commitments =
+        cross_table_lookup_commitments(&trace_poly_values, &cross_table_lookups);
 
     let cpu_proof = do_rest(
         &all_starks.cpu,
@@ -355,19 +363,57 @@ where
     })
 }
 
-fn add_cross_table_lookup_columns<F: Field>(
-    config: &StarkConfig,
-    trace_poly_values: Vec<Vec<PolynomialValues<F>>>,
-    cross_table_lookups: Vec<CrossTableLookup>,
-) {
-    for cross_table_lookup in cross_table_lookups {
-        let CrossTableLookup {
-            looking_table: source_table,
-            looking_columns: source_columns,
-            looked_table: target_table,
-            looked_columns: target_columns,
-        } = cross_table_lookup;
+fn cross_table_lookup_commitments<F: Field>(
+    trace_poly_values: &[Vec<PolynomialValues<F>>],
+    cross_table_lookups: &[CrossTableLookup<F>],
+) -> Vec<Vec<PolynomialValues<F>>> {
+    cross_table_lookups.iter().fold(
+        vec![vec![]; trace_poly_values.len()],
+        |mut acc, cross_table_lookup| {
+            let CrossTableLookup {
+                looking_table,
+                looking_columns,
+                looked_table,
+                looked_columns,
+                default,
+            } = cross_table_lookup;
+
+            let beta = F::ONE; // TODO
+            let gamma = F::ONE; // TODO
+            let z_looking = partial_products(
+                &trace_poly_values[*looking_table as usize],
+                &looking_columns,
+                beta,
+                gamma,
+            );
+            let z_looked = partial_products(
+                &trace_poly_values[*looked_table as usize],
+                &looked_columns,
+                beta,
+                gamma,
+            );
+
+            acc[*looking_table as usize].push(z_looking);
+            acc[*looked_table as usize].push(z_looked);
+            acc
+        },
+    )
+}
+
+fn partial_products<F: Field>(
+    trace: &[PolynomialValues<F>],
+    columns: &[usize],
+    beta: F,
+    gamma: F,
+) -> PolynomialValues<F> {
+    let mut partial_prod = F::ONE;
+    let mut res = Vec::new();
+    for i in 0..trace[0].len() {
+        partial_prod *=
+            gamma + reduce_with_powers(columns.iter().map(|&j| &trace[i].values[j]), beta);
+        res.push(partial_prod);
     }
+    res.into()
 }
 
 /// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
