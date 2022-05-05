@@ -108,7 +108,7 @@ where
     let permutation_zs_cap = permutation_zs_commitment
         .as_ref()
         .map(|commit| commit.merkle_tree.cap.clone());
-    for cap in &permutation_zs_cap {
+    if let Some(cap) = &permutation_zs_cap {
         challenger.observe_cap(cap);
     }
 

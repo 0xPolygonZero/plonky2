@@ -192,14 +192,14 @@ where
         challenger.observe_cap(cap);
     }
 
-    let lookup_zs_commitments =
-        cross_table_lookup_commitments(&trace_poly_values, &cross_table_lookups);
+    let lookup_zs = cross_table_lookup_commitments(&trace_poly_values, &cross_table_lookups);
 
     let cpu_proof = do_rest(
         &all_starks.cpu,
         config,
         &trace_poly_values[Table::Cpu as usize],
         &trace_commitments[Table::Cpu as usize],
+        &lookup_zs[Table::Cpu as usize],
         &public_inputs[Table::Cpu as usize],
         &mut challenger,
         timing,
@@ -209,6 +209,7 @@ where
         config,
         &trace_poly_values[Table::Keccak as usize],
         &trace_commitments[Table::Keccak as usize],
+        &lookup_zs[Table::Keccak as usize],
         &public_inputs[Table::Keccak as usize],
         &mut challenger,
         timing,
@@ -222,7 +223,7 @@ fn do_rest<F, C, S, const D: usize>(
     config: &StarkConfig,
     trace_poly_values: &[PolynomialValues<F>],
     trace_commitment: &PolynomialBatch<F, C, D>,
-    // lookup info
+    lookup_zs: &[PolynomialValues<F>],
     public_inputs: &[F],
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
@@ -243,48 +244,72 @@ where
     let cap_height = config.fri_config.cap_height;
 
     // Permutation arguments.
-    let permutation_zs_commitment_challenges = stark.uses_permutation_args().then(|| {
-        let permutation_challenge_sets = get_n_permutation_challenge_sets(
+    let permutation_challenges = stark.uses_permutation_args().then(|| {
+        get_n_permutation_challenge_sets(
             challenger,
             config.num_challenges,
             stark.permutation_batch_size(),
-        );
-        let permutation_z_polys = compute_permutation_z_polys::<F, C, S, D>(
-            &stark,
-            config,
-            &trace_poly_values,
-            &permutation_challenge_sets,
-        );
-
-        let permutation_zs_commitment = timed!(
-            timing,
-            "compute permutation Z commitments",
-            PolynomialBatch::from_values(
-                permutation_z_polys,
-                rate_bits,
-                false,
-                config.fri_config.cap_height,
-                timing,
-                None,
-            )
-        );
-        (permutation_zs_commitment, permutation_challenge_sets)
+        )
     });
-    let permutation_zs_commitment = permutation_zs_commitment_challenges
-        .as_ref()
-        .map(|(comm, _)| comm);
-    let permutation_zs_cap = permutation_zs_commitment
+    let permutation_zs = permutation_challenges.as_ref().map(|challenges| {
+        compute_permutation_z_polys::<F, C, S, D>(&stark, config, &trace_poly_values, challenges)
+    });
+
+    // if let Some((permutation_z_polys, _)) = permutation_zs_challenges {
+    //     if lookup_zs.is_empty() {
+    //         PolynomialBatch::from_values(
+    //             permutation_z_polys,
+    //             rate_bits,
+    //             false,
+    //             config.fri_config.cap_height,
+    //             timing,
+    //             None,
+    //         )
+    //     } else {
+    //     }
+    // }
+
+    let z_polys = match (permutation_zs, lookup_zs.is_empty()) {
+        (None, true) => lookup_zs.to_vec(),
+        (None, false) => vec![],
+        (Some(mut permutation_zs), true) => {
+            permutation_zs.extend(lookup_zs.to_vec());
+            permutation_zs
+        }
+        (Some(permutation_zs), false) => permutation_zs,
+    };
+
+    let permutation_lookup_zs_commitment = (!z_polys.is_empty()).then(|| {
+        PolynomialBatch::from_values(
+            z_polys,
+            rate_bits,
+            false,
+            config.fri_config.cap_height,
+            timing,
+            None,
+        )
+    });
+    let permutation_zs_cap = permutation_lookup_zs_commitment
         .as_ref()
         .map(|commit| commit.merkle_tree.cap.clone());
-    for cap in &permutation_zs_cap {
+    if let Some(cap) = &permutation_zs_cap {
         challenger.observe_cap(cap);
     }
+
+    let zipped = if let (Some(x), Some(y)) = (
+        permutation_lookup_zs_commitment.as_ref(),
+        permutation_challenges.as_ref(),
+    ) {
+        Some((x, y))
+    } else {
+        None
+    };
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
     let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
         &stark,
         &trace_commitment,
-        &permutation_zs_commitment_challenges,
+        zipped,
         public_inputs,
         alphas,
         degree_bits,
@@ -324,17 +349,18 @@ where
         zeta.exp_power_of_2(degree_bits) != F::Extension::ONE,
         "Opening point is in the subgroup."
     );
+
     let openings = StarkOpeningSet::new(
         zeta,
         g,
         &trace_commitment,
-        permutation_zs_commitment,
+        permutation_lookup_zs_commitment.as_ref(),
         &quotient_commitment,
     );
     challenger.observe_openings(&openings.to_fri_openings());
 
     let initial_merkle_trees = once(trace_commitment)
-        .chain(permutation_zs_commitment)
+        .chain(&permutation_lookup_zs_commitment)
         .chain(once(&quotient_commitment))
         .collect_vec();
 
@@ -378,8 +404,8 @@ fn cross_table_lookup_commitments<F: Field>(
                 default,
             } = cross_table_lookup;
 
-            let beta = F::ONE; // TODO
-            let gamma = F::ONE; // TODO
+            let beta = F::ONE; // TODO num_challenges times
+            let gamma = F::ONE; // TODO num_challenges times
             let z_looking = partial_products(
                 &trace_poly_values[*looking_table as usize],
                 &looking_columns,
@@ -421,9 +447,9 @@ fn partial_products<F: Field>(
 fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &'a PolynomialBatch<F, C, D>,
-    permutation_zs_commitment_challenges: &'a Option<(
-        PolynomialBatch<F, C, D>,
-        Vec<PermutationChallengeSet<F>>,
+    permutation_zs_commitment_challenges: Option<(
+        &'a PolynomialBatch<F, C, D>,
+        &'a Vec<PermutationChallengeSet<F>>,
     )>,
     public_inputs: &[F],
     alphas: Vec<F>,
