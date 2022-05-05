@@ -192,7 +192,12 @@ where
         challenger.observe_cap(cap);
     }
 
-    let lookup_zs = cross_table_lookup_commitments(&trace_poly_values, &cross_table_lookups);
+    let lookup_zs = cross_table_lookup_zs::<F, C, D>(
+        config,
+        &trace_poly_values,
+        &cross_table_lookups,
+        &mut challenger,
+    );
 
     let cpu_proof = do_rest(
         &all_starks.cpu,
@@ -223,7 +228,7 @@ fn do_rest<F, C, S, const D: usize>(
     config: &StarkConfig,
     trace_poly_values: &[PolynomialValues<F>],
     trace_commitment: &PolynomialBatch<F, C, D>,
-    lookup_zs: &[PolynomialValues<F>],
+    lookup_data: &LookupData<F>,
     public_inputs: &[F],
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
@@ -255,25 +260,11 @@ where
         compute_permutation_z_polys::<F, C, S, D>(&stark, config, &trace_poly_values, challenges)
     });
 
-    // if let Some((permutation_z_polys, _)) = permutation_zs_challenges {
-    //     if lookup_zs.is_empty() {
-    //         PolynomialBatch::from_values(
-    //             permutation_z_polys,
-    //             rate_bits,
-    //             false,
-    //             config.fri_config.cap_height,
-    //             timing,
-    //             None,
-    //         )
-    //     } else {
-    //     }
-    // }
-
-    let z_polys = match (permutation_zs, lookup_zs.is_empty()) {
-        (None, true) => lookup_zs.to_vec(),
+    let z_polys = match (permutation_zs, lookup_data.is_empty()) {
+        (None, true) => lookup_data.z_polys(),
         (None, false) => vec![],
         (Some(mut permutation_zs), true) => {
-            permutation_zs.extend(lookup_zs.to_vec());
+            permutation_zs.extend(lookup_data.z_polys());
             permutation_zs
         }
         (Some(permutation_zs), false) => permutation_zs,
@@ -310,6 +301,7 @@ where
         &stark,
         &trace_commitment,
         zipped,
+        lookup_data,
         public_inputs,
         alphas,
         degree_bits,
@@ -389,38 +381,73 @@ where
     })
 }
 
-fn cross_table_lookup_commitments<F: Field>(
+/// Lookup data for one table.
+#[derive(Clone)]
+struct LookupData<F: Field> {
+    zs_beta_gammas: Vec<(PolynomialValues<F>, F, F)>,
+}
+
+impl<F: Field> Default for LookupData<F> {
+    fn default() -> Self {
+        Self {
+            zs_beta_gammas: Vec::new(),
+        }
+    }
+}
+
+impl<F: Field> LookupData<F> {
+    fn is_empty(&self) -> bool {
+        self.zs_beta_gammas.is_empty()
+    }
+
+    fn z_polys(&self) -> Vec<PolynomialValues<F>> {
+        self.zs_beta_gammas
+            .iter()
+            .map(|(p, _, _)| p.clone())
+            .collect()
+    }
+}
+
+fn cross_table_lookup_zs<F: RichField, C: GenericConfig<D, F = F>, const D: usize>(
+    config: &StarkConfig,
     trace_poly_values: &[Vec<PolynomialValues<F>>],
     cross_table_lookups: &[CrossTableLookup<F>],
-) -> Vec<Vec<PolynomialValues<F>>> {
+    challenger: &mut Challenger<F, C::Hasher>,
+) -> Vec<LookupData<F>> {
     cross_table_lookups.iter().fold(
-        vec![vec![]; trace_poly_values.len()],
+        vec![LookupData::default(); trace_poly_values.len()],
         |mut acc, cross_table_lookup| {
             let CrossTableLookup {
                 looking_table,
                 looking_columns,
                 looked_table,
                 looked_columns,
-                default,
+                ..
             } = cross_table_lookup;
 
-            let beta = F::ONE; // TODO num_challenges times
-            let gamma = F::ONE; // TODO num_challenges times
-            let z_looking = partial_products(
-                &trace_poly_values[*looking_table as usize],
-                &looking_columns,
-                beta,
-                gamma,
-            );
-            let z_looked = partial_products(
-                &trace_poly_values[*looked_table as usize],
-                &looked_columns,
-                beta,
-                gamma,
-            );
+            for _ in 0..config.num_challenges {
+                let beta = challenger.get_challenge();
+                let gamma = challenger.get_challenge();
+                let z_looking = partial_products(
+                    &trace_poly_values[*looking_table as usize],
+                    &looking_columns,
+                    beta,
+                    gamma,
+                );
+                let z_looked = partial_products(
+                    &trace_poly_values[*looked_table as usize],
+                    &looked_columns,
+                    beta,
+                    gamma,
+                );
 
-            acc[*looking_table as usize].push(z_looking);
-            acc[*looked_table as usize].push(z_looked);
+                acc[*looking_table as usize]
+                    .zs_beta_gammas
+                    .push((z_looking, beta, gamma));
+                acc[*looked_table as usize]
+                    .zs_beta_gammas
+                    .push((z_looked, beta, gamma));
+            }
             acc
         },
     )
@@ -451,6 +478,7 @@ fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
         &'a PolynomialBatch<F, C, D>,
         &'a Vec<PermutationChallengeSet<F>>,
     )>,
+    lookup_data: &LookupData<F>,
     public_inputs: &[F],
     alphas: Vec<F>,
     degree_bits: usize,
