@@ -8,7 +8,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
-pub struct AllStarks<F: RichField + Extendable<D>, const D: usize> {
+pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
     pub cpu: CpuStark<F, D>,
     pub keccak: KeccakStark<F, D>,
 }

@@ -8,7 +8,7 @@ use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
 use plonky2::util::reducing::ReducingFactor;
 
-use crate::all_starks::Table;
+use crate::all_stark::Table;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::permutation::PermutationChallenge;

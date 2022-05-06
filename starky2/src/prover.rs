@@ -18,7 +18,7 @@ use plonky2::util::transpose;
 use plonky2_util::{log2_ceil, log2_strict};
 use rayon::prelude::*;
 
-use crate::all_starks::{AllStarks, Table};
+use crate::all_stark::{AllStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cross_table_lookups::{
@@ -34,7 +34,7 @@ use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
 pub fn prove<F, C, S, const D: usize>(
-    all_starks: AllStarks<F, D>,
+    all_starks: AllStark<F, D>,
     config: &StarkConfig,
     trace_poly_values: Vec<Vec<PolynomialValues<F>>>,
     cross_table_lookups: Vec<CrossTableLookup>,
