@@ -7,7 +7,7 @@ pub mod config;
 pub mod constraint_consumer;
 pub mod cross_table_lookups;
 mod get_challenges;
-pub mod mock_stark;
+// pub mod mock_stark;
 pub mod permutation;
 pub mod proof;
 pub mod prover;

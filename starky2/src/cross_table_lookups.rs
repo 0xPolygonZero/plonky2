@@ -1,4 +1,4 @@
-use plonky2::field::extension_field::FieldExtension;
+use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
@@ -6,14 +6,19 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
+use plonky2::util::reducing::ReducingFactor;
 
 use crate::config::StarkConfig;
+use crate::constraint_consumer::ConstraintConsumer;
+use crate::permutation::PermutationChallenge;
 use crate::prover::CrossTableLookup;
+use crate::stark::Stark;
+use crate::vars::StarkEvaluationVars;
 
 /// Lookup data for one table.
 #[derive(Clone)]
 pub struct LookupData<F: Field> {
-    zs_beta_gammas: Vec<(PolynomialValues<F>, F, F)>,
+    pub zs_beta_gammas: Vec<(PolynomialValues<F>, F, F, Vec<usize>)>,
 }
 
 impl<F: Field> Default for LookupData<F> {
@@ -32,7 +37,7 @@ impl<F: Field> LookupData<F> {
     pub fn z_polys(&self) -> Vec<PolynomialValues<F>> {
         self.zs_beta_gammas
             .iter()
-            .map(|(p, _, _)| p.clone())
+            .map(|(p, _, _, _)| p.clone())
             .collect()
     }
 }
@@ -70,12 +75,18 @@ pub fn cross_table_lookup_zs<F: RichField, C: GenericConfig<D, F = F>, const D: 
                     gamma,
                 );
 
-                acc[*looking_table as usize]
-                    .zs_beta_gammas
-                    .push((z_looking, beta, gamma));
-                acc[*looked_table as usize]
-                    .zs_beta_gammas
-                    .push((z_looked, beta, gamma));
+                acc[*looking_table as usize].zs_beta_gammas.push((
+                    z_looking,
+                    beta,
+                    gamma,
+                    looking_columns.clone(),
+                ));
+                acc[*looked_table as usize].zs_beta_gammas.push((
+                    z_looked,
+                    beta,
+                    gamma,
+                    looked_columns.clone(),
+                ));
             }
             acc
         },
@@ -104,16 +115,15 @@ where
     FE: FieldExtension<D2, BaseField = F>,
     P: PackedField<Scalar = FE>,
 {
-    pub(crate) local_zs: Vec<P>,
-    pub(crate) next_zs: Vec<P>,
-    pub(crate) permutation_challenge_sets: Vec<PermutationChallengeSet<F>>,
+    pub(crate) local_z: P,
+    pub(crate) next_z: P,
+    pub(crate) challenges: PermutationChallenge<F>,
+    pub(crate) columns: Vec<usize>,
 }
 
-pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
-    stark: &S,
-    config: &StarkConfig,
+pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
     vars: StarkEvaluationVars<FE, P>,
-    permutation_data: PermutationCheckVars<F, FE, P, D2>,
+    lookup_data: &[CTLCheckVars<F, FE, P, D2>],
     consumer: &mut ConstraintConsumer<P>,
 ) where
     F: RichField + Extendable<D>,
@@ -122,49 +132,21 @@ pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: 
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
-    let PermutationCheckVars {
-        local_zs,
-        next_zs,
-        permutation_challenge_sets,
-    } = permutation_data;
+    for lookup_datum in lookup_data {
+        let CTLCheckVars {
+            local_z,
+            next_z,
+            challenges,
+            columns,
+        } = lookup_datum;
+        let mut factor = ReducingFactor::new(challenges.beta);
+        let mut combine = |v: &[P]| -> P {
+            factor.reduce_ext(columns.iter().map(|&i| v[i])) + FE::from_basefield(challenges.gamma)
+        };
 
-    // Check that Z(1) = 1;
-    for &z in &local_zs {
-        consumer.constraint_first_row(z - FE::ONE);
-    }
-
-    let permutation_pairs = stark.permutation_pairs();
-
-    let permutation_batches = get_permutation_batches(
-        &permutation_pairs,
-        &permutation_challenge_sets,
-        config.num_challenges,
-        stark.permutation_batch_size(),
-    );
-
-    // Each zs value corresponds to a permutation batch.
-    for (i, instances) in permutation_batches.iter().enumerate() {
-        // Z(gx) * down = Z x  * up
-        let (reduced_lhs, reduced_rhs): (Vec<P>, Vec<P>) = instances
-            .iter()
-            .map(|instance| {
-                let PermutationInstance {
-                    pair: PermutationPair { column_pairs },
-                    challenge: PermutationChallenge { beta, gamma },
-                } = instance;
-                let mut factor = ReducingFactor::new(*beta);
-                let (lhs, rhs): (Vec<_>, Vec<_>) = column_pairs
-                    .iter()
-                    .map(|&(i, j)| (vars.local_values[i], vars.local_values[j]))
-                    .unzip();
-                (
-                    factor.reduce_ext(lhs.into_iter()) + FE::from_basefield(*gamma),
-                    factor.reduce_ext(rhs.into_iter()) + FE::from_basefield(*gamma),
-                )
-            })
-            .unzip();
-        let constraint = next_zs[i] * reduced_rhs.into_iter().product::<P>()
-            - local_zs[i] * reduced_lhs.into_iter().product::<P>();
-        consumer.constraint(constraint);
+        // Check value of `Z(1)`
+        consumer.constraint_first_row(*local_z - combine(vars.local_values));
+        // Check `Z(gw) = combination * Z(w)`
+        consumer.constraint_transition(*next_z - *local_z * combine(vars.next_values));
     }
 }

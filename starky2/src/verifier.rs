@@ -99,6 +99,7 @@ where
         config,
         vars,
         permutation_data,
+        &[/*TODO*/],
         &mut consumer,
     );
     let vanishing_polys_zeta = consumer.accumulators();

@@ -13,7 +13,6 @@ use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::{GenericConfig, Hasher};
-use plonky2::plonk::plonk_common::reduce_with_powers;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
@@ -22,11 +21,11 @@ use rayon::prelude::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookups::{cross_table_lookup_zs, LookupData};
-use crate::permutation::PermutationCheckVars;
+use crate::cross_table_lookups::{cross_table_lookup_zs, CTLCheckVars, LookupData};
 use crate::permutation::{
     compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
 };
+use crate::permutation::{PermutationChallenge, PermutationCheckVars};
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
@@ -48,8 +47,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P>,
-        yield_constr: &mut ConstraintConsumer<P>,
+        _vars: StarkEvaluationVars<FE, P>,
+        _yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
@@ -59,9 +58,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
 
     fn eval_ext_recursively(
         &self,
-        builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
-        yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+        _builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+        _vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         todo!()
     }
@@ -81,8 +80,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P>,
-        yield_constr: &mut ConstraintConsumer<P>,
+        _vars: StarkEvaluationVars<FE, P>,
+        _yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
@@ -92,9 +91,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
 
     fn eval_ext_recursively(
         &self,
-        builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
-        yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+        _builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+        _vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         todo!()
     }
@@ -110,11 +109,11 @@ pub struct AllStarks<F: RichField + Extendable<D>, const D: usize> {
 }
 
 pub struct CrossTableLookup<F: Field> {
-    looking_table: Table,
-    looking_columns: Vec<usize>,
-    looked_table: usize,
-    looked_columns: Vec<usize>,
-    default: F,
+    pub looking_table: Table,
+    pub looking_columns: Vec<usize>,
+    pub looked_table: usize,
+    pub looked_columns: Vec<usize>,
+    pub default: F,
 }
 
 impl<F: Field> CrossTableLookup<F> {
@@ -247,7 +246,7 @@ where
     let degree_bits = log2_strict(degree);
     let fri_params = config.fri_params(degree_bits);
     let rate_bits = config.fri_config.rate_bits;
-    let cap_height = config.fri_config.cap_height;
+    let _cap_height = config.fri_config.cap_height;
 
     // Permutation arguments.
     let permutation_challenges = stark.uses_permutation_args().then(|| {
@@ -258,8 +257,9 @@ where
         )
     });
     let permutation_zs = permutation_challenges.as_ref().map(|challenges| {
-        compute_permutation_z_polys::<F, C, S, D>(&stark, config, &trace_poly_values, challenges)
+        compute_permutation_z_polys::<F, C, S, D>(stark, config, trace_poly_values, challenges)
     });
+    let num_permutation_zs = permutation_zs.as_ref().map(|v| v.len()).unwrap_or(0);
 
     let z_polys = match (permutation_zs, lookup_data.is_empty()) {
         (None, true) => lookup_data.z_polys(),
@@ -288,6 +288,7 @@ where
         challenger.observe_cap(cap);
     }
 
+    // TODO: if no permutation but lookup, this is wrong.
     let zipped = if let (Some(x), Some(y)) = (
         permutation_lookup_zs_commitment.as_ref(),
         permutation_challenges.as_ref(),
@@ -299,13 +300,14 @@ where
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
     let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
-        &stark,
-        &trace_commitment,
+        stark,
+        trace_commitment,
         zipped,
         lookup_data,
         public_inputs,
         alphas,
         degree_bits,
+        num_permutation_zs,
         config,
     );
     let all_quotient_chunks = quotient_polys
@@ -346,7 +348,7 @@ where
     let openings = StarkOpeningSet::new(
         zeta,
         g,
-        &trace_commitment,
+        trace_commitment,
         permutation_lookup_zs_commitment.as_ref(),
         &quotient_commitment,
     );
@@ -395,6 +397,7 @@ fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     public_inputs: &[F],
     alphas: Vec<F>,
     degree_bits: usize,
+    num_permutation_zs: usize,
     config: &StarkConfig,
 ) -> Vec<PolynomialCoeffs<F>>
 where
@@ -459,20 +462,47 @@ where
             let vars = StarkEvaluationVars {
                 local_values: &get_trace_values_packed(i_start),
                 next_values: &get_trace_values_packed(i_next_start),
-                public_inputs: &public_inputs,
+                public_inputs,
             };
             let permutation_check_data = permutation_zs_commitment_challenges.as_ref().map(
                 |(permutation_zs_commitment, permutation_challenge_sets)| PermutationCheckVars {
-                    local_zs: permutation_zs_commitment.get_lde_values_packed(i_start, step),
-                    next_zs: permutation_zs_commitment.get_lde_values_packed(i_next_start, step),
+                    local_zs: permutation_zs_commitment.get_lde_values_packed(i_start, step)
+                        [..num_permutation_zs]
+                        .to_vec(),
+                    next_zs: permutation_zs_commitment.get_lde_values_packed(i_next_start, step)
+                        [..num_permutation_zs]
+                        .to_vec(),
                     permutation_challenge_sets: permutation_challenge_sets.to_vec(),
                 },
             );
+            let lookup_check_data = lookup_data
+                .zs_beta_gammas
+                .iter()
+                .enumerate()
+                .map(
+                    |(i, (_, beta, gamma, columns))| CTLCheckVars::<F, F, P, 1> {
+                        local_z: permutation_zs_commitment_challenges
+                            .unwrap()
+                            .0
+                            .get_lde_values_packed(i_start, step)[num_permutation_zs + i],
+                        next_z: permutation_zs_commitment_challenges
+                            .unwrap()
+                            .0
+                            .get_lde_values_packed(i_next_start, step)[num_permutation_zs + i],
+                        challenges: PermutationChallenge {
+                            beta: *beta,
+                            gamma: *gamma,
+                        },
+                        columns: columns.to_vec(),
+                    },
+                )
+                .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, P, C, S, D, 1>(
                 stark,
                 config,
                 vars,
                 permutation_check_data,
+                &lookup_check_data,
                 &mut consumer,
             );
             let mut constraints_evals = consumer.accumulators();
