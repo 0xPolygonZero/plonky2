@@ -5,7 +5,7 @@
 
 pub mod config;
 pub mod constraint_consumer;
-pub mod cross_table_lookups;
+pub mod cross_table_lookup;
 mod get_challenges;
 // pub mod mock_stark;
 pub mod all_stark;
