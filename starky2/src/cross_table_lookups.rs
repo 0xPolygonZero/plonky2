@@ -64,13 +64,13 @@ pub fn cross_table_lookup_zs<F: RichField, C: GenericConfig<D, F = F>, const D: 
                 let gamma = challenger.get_challenge();
                 let z_looking = partial_products(
                     &trace_poly_values[*looking_table as usize],
-                    &looking_columns,
+                    looking_columns,
                     beta,
                     gamma,
                 );
                 let z_looked = partial_products(
                     &trace_poly_values[*looked_table as usize],
-                    &looked_columns,
+                    looked_columns,
                     beta,
                     gamma,
                 );
@@ -103,7 +103,7 @@ fn partial_products<F: Field>(
     let mut res = Vec::new();
     for i in 0..trace[0].len() {
         partial_prod *=
-            gamma + reduce_with_powers(columns.iter().map(|&j| &trace[i].values[j]), beta);
+            gamma + reduce_with_powers(columns.iter().map(|&j| &trace[j].values[i]), beta);
         res.push(partial_prod);
     }
     res.into()

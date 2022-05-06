@@ -345,6 +345,7 @@ where
         "Opening point is in the subgroup."
     );
 
+    // TODO: Add openings of lookup Z polynomials.
     let openings = StarkOpeningSet::new(
         zeta,
         g,

@@ -68,8 +68,8 @@ where
         quotient_polys,
     } = &proof.openings;
     let vars = StarkEvaluationVars {
-        local_values: &local_values,
-        next_values: &next_values,
+        local_values,
+        next_values,
         public_inputs: &public_inputs
             .into_iter()
             .map(F::Extension::from_basefield)
