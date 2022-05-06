@@ -8,12 +8,36 @@ use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
 use plonky2::util::reducing::ReducingFactor;
 
+use crate::all_starks::Table;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::permutation::PermutationChallenge;
-use crate::prover::CrossTableLookup;
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationVars;
+
+pub struct CrossTableLookup {
+    pub looking_table: Table,
+    pub looking_columns: Vec<usize>,
+    pub looked_table: usize,
+    pub looked_columns: Vec<usize>,
+}
+
+impl CrossTableLookup {
+    pub fn new(
+        looking_table: Table,
+        looking_columns: Vec<usize>,
+        looked_table: usize,
+        looked_columns: Vec<usize>,
+    ) -> Self {
+        assert_eq!(looking_columns.len(), looked_columns.len());
+        Self {
+            looking_table,
+            looking_columns,
+            looked_table,
+            looked_columns,
+        }
+    }
+}
 
 /// Lookup data for one table.
 #[derive(Clone)]
@@ -45,7 +69,7 @@ impl<F: Field> LookupData<F> {
 pub fn cross_table_lookup_zs<F: RichField, C: GenericConfig<D, F = F>, const D: usize>(
     config: &StarkConfig,
     trace_poly_values: &[Vec<PolynomialValues<F>>],
-    cross_table_lookups: &[CrossTableLookup<F>],
+    cross_table_lookups: &[CrossTableLookup],
     challenger: &mut Challenger<F, C::Hasher>,
 ) -> Vec<LookupData<F>> {
     cross_table_lookups.iter().fold(

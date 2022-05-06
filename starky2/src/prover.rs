@@ -1,9 +1,8 @@
 use std::iter::once;
-use std::marker::PhantomData;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::Field;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed_field::PackedField;
@@ -19,9 +18,12 @@ use plonky2::util::transpose;
 use plonky2_util::{log2_ceil, log2_strict};
 use rayon::prelude::*;
 
+use crate::all_starks::{AllStarks, Table};
 use crate::config::StarkConfig;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookups::{cross_table_lookup_zs, CTLCheckVars, LookupData};
+use crate::constraint_consumer::ConstraintConsumer;
+use crate::cross_table_lookups::{
+    cross_table_lookup_zs, CTLCheckVars, CrossTableLookup, LookupData,
+};
 use crate::permutation::{
     compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
 };
@@ -29,117 +31,13 @@ use crate::permutation::{PermutationChallenge, PermutationCheckVars};
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
-
-#[derive(Copy, Clone)]
-pub enum Table {
-    Cpu = 0,
-    Keccak = 1,
-}
-
-struct CpuStark<F, const D: usize> {
-    f: PhantomData<F>,
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
-    const COLUMNS: usize = 0;
-    const PUBLIC_INPUTS: usize = 0;
-
-    fn eval_packed_generic<FE, P, const D2: usize>(
-        &self,
-        _vars: StarkEvaluationVars<FE, P>,
-        _yield_constr: &mut ConstraintConsumer<P>,
-    ) where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
-    {
-        todo!()
-    }
-
-    fn eval_ext_recursively(
-        &self,
-        _builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        _vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
-        _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-    ) {
-        todo!()
-    }
-
-    fn constraint_degree(&self) -> usize {
-        todo!()
-    }
-}
-
-struct KeccakStark<F, const D: usize> {
-    f: PhantomData<F>,
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F, D> {
-    const COLUMNS: usize = 0;
-    const PUBLIC_INPUTS: usize = 0;
-
-    fn eval_packed_generic<FE, P, const D2: usize>(
-        &self,
-        _vars: StarkEvaluationVars<FE, P>,
-        _yield_constr: &mut ConstraintConsumer<P>,
-    ) where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
-    {
-        todo!()
-    }
-
-    fn eval_ext_recursively(
-        &self,
-        _builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        _vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
-        _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-    ) {
-        todo!()
-    }
-
-    fn constraint_degree(&self) -> usize {
-        todo!()
-    }
-}
-
-pub struct AllStarks<F: RichField + Extendable<D>, const D: usize> {
-    cpu: CpuStark<F, D>,
-    keccak: KeccakStark<F, D>,
-}
-
-pub struct CrossTableLookup<F: Field> {
-    pub looking_table: Table,
-    pub looking_columns: Vec<usize>,
-    pub looked_table: usize,
-    pub looked_columns: Vec<usize>,
-    pub default: F,
-}
-
-impl<F: Field> CrossTableLookup<F> {
-    pub fn new(
-        looking_table: Table,
-        looking_columns: Vec<usize>,
-        looked_table: usize,
-        looked_columns: Vec<usize>,
-        default: F,
-    ) -> Self {
-        assert_eq!(looking_columns.len(), looked_columns.len());
-        Self {
-            looking_table,
-            looking_columns,
-            looked_table,
-            looked_columns,
-            default,
-        }
-    }
-}
+use crate::vars::StarkEvaluationVars;
 
 pub fn prove<F, C, S, const D: usize>(
     all_starks: AllStarks<F, D>,
     config: &StarkConfig,
     trace_poly_values: Vec<Vec<PolynomialValues<F>>>,
-    cross_table_lookups: Vec<CrossTableLookup<F>>,
+    cross_table_lookups: Vec<CrossTableLookup>,
     public_inputs: Vec<Vec<F>>,
     timing: &mut TimingTree,
 ) -> Result<Vec<StarkProofWithPublicInputs<F, C, D>>>
@@ -199,7 +97,7 @@ where
         &mut challenger,
     );
 
-    let cpu_proof = do_rest(
+    let cpu_proof = prove_single_table(
         &all_starks.cpu,
         config,
         &trace_poly_values[Table::Cpu as usize],
@@ -209,7 +107,7 @@ where
         &mut challenger,
         timing,
     )?;
-    let keccak_proof = do_rest(
+    let keccak_proof = prove_single_table(
         &all_starks.keccak,
         config,
         &trace_poly_values[Table::Keccak as usize],
@@ -223,7 +121,7 @@ where
     Ok(vec![cpu_proof, keccak_proof])
 }
 
-fn do_rest<F, C, S, const D: usize>(
+fn prove_single_table<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
     trace_poly_values: &[PolynomialValues<F>],
