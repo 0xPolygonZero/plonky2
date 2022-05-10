@@ -18,7 +18,7 @@ use crate::vars::StarkEvaluationVars;
 pub struct CrossTableLookup {
     pub looking_table: Table,
     pub looking_columns: Vec<usize>,
-    pub looked_table: usize,
+    pub looked_table: Table,
     pub looked_columns: Vec<usize>,
 }
 
@@ -26,7 +26,7 @@ impl CrossTableLookup {
     pub fn new(
         looking_table: Table,
         looking_columns: Vec<usize>,
-        looked_table: usize,
+        looked_table: Table,
         looked_columns: Vec<usize>,
     ) -> Self {
         assert_eq!(looking_columns.len(), looked_columns.len());
