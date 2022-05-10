@@ -248,6 +248,8 @@ where
         trace_commitment,
         permutation_lookup_zs_commitment.as_ref(),
         &quotient_commitment,
+        degree_bits,
+        stark.num_permutation_batches(config),
     );
     challenger.observe_openings(&openings.to_fri_openings());
 
