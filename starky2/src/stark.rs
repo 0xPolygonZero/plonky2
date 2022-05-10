@@ -1,4 +1,5 @@
 use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
 use plonky2::fri::structure::{
     FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriOracleInfo,
@@ -78,6 +79,8 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         &self,
         zeta: F::Extension,
         g: F,
+        degree_bits: usize,
+        num_ctl_zs: usize,
         config: &StarkConfig,
     ) -> FriInstanceInfo<F, D> {
         let no_blinding_oracle = FriOracleInfo { blinding: false };
@@ -86,14 +89,16 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         let trace_info =
             FriPolynomialInfo::from_range(oracle_indices.next().unwrap(), 0..Self::COLUMNS);
 
-        let permutation_zs_info = if self.uses_permutation_args() {
-            FriPolynomialInfo::from_range(
-                oracle_indices.next().unwrap(),
-                0..self.num_permutation_batches(config),
-            )
-        } else {
-            vec![]
-        };
+        let num_permutation_batches = self.num_permutation_batches(config);
+        let permutation_lookup_index = oracle_indices.next().unwrap();
+        let permutation_lookup_zs_info = FriPolynomialInfo::from_range(
+            permutation_lookup_index,
+            0..num_permutation_batches + num_ctl_zs,
+        );
+        let lookup_zs_info = FriPolynomialInfo::from_range(
+            permutation_lookup_index,
+            num_permutation_batches..num_permutation_batches + num_ctl_zs,
+        );
 
         let quotient_info = FriPolynomialInfo::from_range(
             oracle_indices.next().unwrap(),
@@ -104,18 +109,22 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             point: zeta,
             polynomials: [
                 trace_info.clone(),
-                permutation_zs_info.clone(),
+                permutation_lookup_zs_info.clone(),
                 quotient_info,
             ]
             .concat(),
         };
         let zeta_right_batch = FriBatchInfo {
             point: zeta.scalar_mul(g),
-            polynomials: [trace_info, permutation_zs_info].concat(),
+            polynomials: [trace_info, permutation_lookup_zs_info].concat(),
+        };
+        let lookup_batch = FriBatchInfo {
+            point: F::Extension::primitive_root_of_unity(degree_bits).inverse(),
+            polynomials: lookup_zs_info,
         };
         FriInstanceInfo {
             oracles: vec![no_blinding_oracle; oracle_indices.next().unwrap()],
-            batches: vec![zeta_batch, zeta_right_batch],
+            batches: vec![zeta_batch, zeta_right_batch, lookup_batch],
         }
     }
 

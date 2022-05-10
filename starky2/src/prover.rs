@@ -159,14 +159,12 @@ where
     });
     let num_permutation_zs = permutation_zs.as_ref().map(|v| v.len()).unwrap_or(0);
 
-    let z_polys = match (permutation_zs, lookup_data.is_empty()) {
-        (None, true) => lookup_data.z_polys(),
-        (None, false) => vec![],
-        (Some(mut permutation_zs), true) => {
+    let z_polys = match permutation_zs {
+        None => lookup_data.z_polys(),
+        Some(mut permutation_zs) => {
             permutation_zs.extend(lookup_data.z_polys());
             permutation_zs
         }
-        (Some(permutation_zs), false) => permutation_zs,
     };
 
     let permutation_lookup_zs_commitment = (!z_polys.is_empty()).then(|| {
@@ -262,7 +260,7 @@ where
         timing,
         "compute openings proof",
         PolynomialBatch::prove_openings(
-            &stark.fri_instance(zeta, g, config),
+            &stark.fri_instance(zeta, g, degree_bits, lookup_data.len(), config),
             &initial_merkle_trees,
             challenger,
             &fri_params,

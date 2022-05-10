@@ -54,6 +54,10 @@ impl<F: Field> Default for LookupData<F> {
 }
 
 impl<F: Field> LookupData<F> {
+    pub fn len(&self) -> usize {
+        self.zs_beta_gammas.len()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.zs_beta_gammas.is_empty()
     }

@@ -131,6 +131,8 @@ where
         &stark.fri_instance(
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
+            degree_bits,
+            todo!(),
             config,
         ),
         &proof.openings.to_fri_openings(),
