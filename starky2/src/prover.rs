@@ -21,9 +21,7 @@ use rayon::prelude::*;
 use crate::all_stark::{AllStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::cross_table_lookup::{
-    cross_table_lookup_zs, CTLCheckVars, CrossTableLookup, LookupData,
-};
+use crate::cross_table_lookup::{cross_table_lookup_zs, CTLCheckVars, LookupData};
 use crate::permutation::{
     compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
 };

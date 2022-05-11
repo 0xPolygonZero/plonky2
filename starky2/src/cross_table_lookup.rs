@@ -1,3 +1,4 @@
+use anyhow::{ensure, Result};
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::field::packed_field::PackedField;
@@ -12,6 +13,7 @@ use crate::all_stark::Table;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::permutation::PermutationChallenge;
+use crate::proof::StarkProofWithPublicInputs;
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationVars;
 
@@ -169,4 +171,41 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, C, S, const D: usize, con
         // Check `Z(gw) = combination * Z(w)`
         consumer.constraint_transition(*next_z - *local_z * combine(vars.next_values));
     }
+}
+
+pub(crate) fn verify_cross_table_lookups<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    cross_table_lookups: Vec<CrossTableLookup>,
+    proofs: &[&StarkProofWithPublicInputs<F, C, D>],
+    challenges: PermutationChallenge<F>,
+    config: &StarkConfig,
+) -> Result<()> {
+    let degrees_bits = proofs
+        .iter()
+        .map(|p| p.proof.recover_degree_bits(config))
+        .collect::<Vec<_>>();
+    let mut lookup_zs_openings = proofs
+        .iter()
+        .map(|p| p.proof.openings.lookup_zs_last.iter())
+        .collect::<Vec<_>>();
+    for CrossTableLookup {
+        looking_table,
+        looked_table,
+        ..
+    } in cross_table_lookups
+    {
+        let looking_degree = 1 << degrees_bits[looking_table as usize];
+        let looked_degree = 1 << degrees_bits[looked_table as usize];
+        let looking_z = *lookup_zs_openings[looking_table as usize].next().unwrap();
+        let looked_z = *lookup_zs_openings[looked_table as usize].next().unwrap();
+        ensure!(
+            looking_z == looked_z * challenges.gamma.exp_u64(looking_degree - looked_degree),
+            "Cross-table lookup verification failed."
+        );
+    }
+
+    Ok(())
 }

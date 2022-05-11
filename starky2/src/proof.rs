@@ -1,6 +1,5 @@
 use itertools::Itertools;
 use plonky2::field::extension_field::{Extendable, FieldExtension};
-use plonky2::field::field_types::Field;
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::fri::proof::{
     CompressedFriProof, FriChallenges, FriChallengesTarget, FriProof, FriProofTarget,
@@ -147,7 +146,7 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub next_values: Vec<F::Extension>,
     pub permutation_lookup_zs: Option<Vec<F::Extension>>,
     pub permutation_lookup_zs_right: Option<Vec<F::Extension>>,
-    pub lookup_zs_last: Vec<F::Extension>,
+    pub lookup_zs_last: Vec<F>,
     pub quotient_polys: Vec<F::Extension>,
 }
 
@@ -167,6 +166,12 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .map(|p| p.to_extension().eval(z))
                 .collect::<Vec<_>>()
         };
+        let eval_commitment_base = |z: F, c: &PolynomialBatch<F, C, D>| {
+            c.polynomials
+                .par_iter()
+                .map(|p| p.eval(z))
+                .collect::<Vec<_>>()
+        };
         let zeta_right = zeta.scalar_mul(g);
         Self {
             local_values: eval_commitment(zeta, trace_commitment),
@@ -177,10 +182,8 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .map(|c| eval_commitment(zeta_right, c)),
             lookup_zs_last: permutation_lookup_zs_commitment
                 .map(|c| {
-                    eval_commitment(
-                        F::Extension::primitive_root_of_unity(degree_bits).inverse(),
-                        c,
-                    )[num_permutation_zs..]
+                    eval_commitment_base(F::primitive_root_of_unity(degree_bits).inverse(), c)
+                        [num_permutation_zs..]
                         .to_vec()
                 })
                 .unwrap_or_default(),
@@ -210,7 +213,12 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
 
         if !self.lookup_zs_last.is_empty() {
             batches.push(FriOpeningBatch {
-                values: self.lookup_zs_last.clone(),
+                values: self
+                    .lookup_zs_last
+                    .iter()
+                    .copied()
+                    .map(F::Extension::from_basefield)
+                    .collect(),
             });
         }
 

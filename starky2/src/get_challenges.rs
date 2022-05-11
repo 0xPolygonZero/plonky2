@@ -77,8 +77,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         all_stark: &AllStark<F, D>,
         config: &StarkConfig,
     ) -> AllProofChallenges<F, D> {
-        let num_challenges = config.num_challenges;
-
         let mut challenger = Challenger::<F, C::Hasher>::new();
 
         for proof in self.proofs() {

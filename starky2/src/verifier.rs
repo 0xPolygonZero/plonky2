@@ -12,6 +12,7 @@ use plonky2::plonk::plonk_common::reduce_with_powers;
 use crate::all_stark::{AllStark, KeccakStark};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
+use crate::cross_table_lookup::verify_cross_table_lookups;
 use crate::permutation::PermutationCheckVars;
 use crate::proof::{
     AllProof, AllProofChallenges, StarkOpeningSet, StarkProofChallenges, StarkProofWithPublicInputs,
@@ -35,16 +36,22 @@ where
         ctl_challenges,
     } = all_proof.get_challenges(&all_stark, config);
 
-    // Verify CTL
+    let AllStark {
+        cpu_stark,
+        keccak_stark,
+        cross_table_lookups,
+    } = all_stark;
 
-    verify_stark_proof_with_challenges(
-        all_stark.cpu_stark,
-        all_proof.cpu_proof,
-        cpu_challenges,
+    verify_cross_table_lookups(
+        cross_table_lookups,
+        &all_proof.proofs(),
+        ctl_challenges,
         config,
     )?;
+
+    verify_stark_proof_with_challenges(cpu_stark, all_proof.cpu_proof, cpu_challenges, config)?;
     verify_stark_proof_with_challenges(
-        all_stark.keccak_stark,
+        keccak_stark,
         all_proof.keccak_proof,
         keccak_challenges,
         config,
