@@ -28,19 +28,18 @@ use crate::permutation::{
     compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
 };
 use crate::permutation::{PermutationChallenge, PermutationCheckVars};
-use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
+use crate::proof::{AllProof, StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
 pub fn prove<F, C, S, const D: usize>(
-    all_starks: AllStark<F, D>,
+    all_stark: AllStark<F, D>,
     config: &StarkConfig,
     trace_poly_values: Vec<Vec<PolynomialValues<F>>>,
-    cross_table_lookups: Vec<CrossTableLookup>,
     public_inputs: Vec<Vec<F>>,
     timing: &mut TimingTree,
-) -> Result<Vec<StarkProofWithPublicInputs<F, C, D>>>
+) -> Result<AllProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -93,12 +92,12 @@ where
     let lookup_zs = cross_table_lookup_zs::<F, C, D>(
         config,
         &trace_poly_values,
-        &cross_table_lookups,
+        &all_stark.cross_table_lookups,
         &mut challenger,
     );
 
     let cpu_proof = prove_single_table(
-        &all_starks.cpu,
+        &all_stark.cpu_stark,
         config,
         &trace_poly_values[Table::Cpu as usize],
         &trace_commitments[Table::Cpu as usize],
@@ -108,7 +107,7 @@ where
         timing,
     )?;
     let keccak_proof = prove_single_table(
-        &all_starks.keccak,
+        &all_stark.keccak_stark,
         config,
         &trace_poly_values[Table::Keccak as usize],
         &trace_commitments[Table::Keccak as usize],
@@ -118,7 +117,10 @@ where
         timing,
     )?;
 
-    Ok(vec![cpu_proof, keccak_proof])
+    Ok(AllProof {
+        cpu_proof,
+        keccak_proof,
+    })
 }
 
 fn prove_single_table<F, C, S, const D: usize>(
@@ -375,26 +377,24 @@ where
                 },
             );
             let lookup_check_data = lookup_data
-                .zs_beta_gammas
+                .zs_columns
                 .iter()
                 .enumerate()
-                .map(
-                    |(i, (_, beta, gamma, columns))| CTLCheckVars::<F, F, P, 1> {
-                        local_z: permutation_zs_commitment_challenges
-                            .unwrap()
-                            .0
-                            .get_lde_values_packed(i_start, step)[num_permutation_zs + i],
-                        next_z: permutation_zs_commitment_challenges
-                            .unwrap()
-                            .0
-                            .get_lde_values_packed(i_next_start, step)[num_permutation_zs + i],
-                        challenges: PermutationChallenge {
-                            beta: *beta,
-                            gamma: *gamma,
-                        },
-                        columns: columns.to_vec(),
+                .map(|(i, (_, columns))| CTLCheckVars::<F, F, P, 1> {
+                    local_z: permutation_zs_commitment_challenges
+                        .unwrap()
+                        .0
+                        .get_lde_values_packed(i_start, step)[num_permutation_zs + i],
+                    next_z: permutation_zs_commitment_challenges
+                        .unwrap()
+                        .0
+                        .get_lde_values_packed(i_next_start, step)[num_permutation_zs + i],
+                    challenges: PermutationChallenge {
+                        beta: lookup_data.beta,
+                        gamma: lookup_data.gamma,
                     },
-                )
+                    columns: columns.to_vec(),
+                })
                 .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, P, C, S, D, 1>(
                 stark,

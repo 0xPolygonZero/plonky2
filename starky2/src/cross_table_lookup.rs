@@ -42,31 +42,30 @@ impl CrossTableLookup {
 /// Lookup data for one table.
 #[derive(Clone)]
 pub struct LookupData<F: Field> {
-    pub zs_beta_gammas: Vec<(PolynomialValues<F>, F, F, Vec<usize>)>,
-}
-
-impl<F: Field> Default for LookupData<F> {
-    fn default() -> Self {
-        Self {
-            zs_beta_gammas: Vec::new(),
-        }
-    }
+    pub beta: F,
+    pub gamma: F,
+    pub zs_columns: Vec<(PolynomialValues<F>, Vec<usize>)>,
 }
 
 impl<F: Field> LookupData<F> {
+    pub fn new(beta: F, gamma: F) -> Self {
+        Self {
+            beta,
+            gamma,
+            zs_columns: vec![],
+        }
+    }
+
     pub fn len(&self) -> usize {
-        self.zs_beta_gammas.len()
+        self.zs_columns.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.zs_beta_gammas.is_empty()
+        self.zs_columns.is_empty()
     }
 
     pub fn z_polys(&self) -> Vec<PolynomialValues<F>> {
-        self.zs_beta_gammas
-            .iter()
-            .map(|(p, _, _, _)| p.clone())
-            .collect()
+        self.zs_columns.iter().map(|(p, _)| p.clone()).collect()
     }
 }
 
@@ -76,20 +75,19 @@ pub fn cross_table_lookup_zs<F: RichField, C: GenericConfig<D, F = F>, const D: 
     cross_table_lookups: &[CrossTableLookup],
     challenger: &mut Challenger<F, C::Hasher>,
 ) -> Vec<LookupData<F>> {
+    let beta = challenger.get_challenge();
+    let gamma = challenger.get_challenge();
     cross_table_lookups.iter().fold(
-        vec![LookupData::default(); trace_poly_values.len()],
+        vec![LookupData::new(beta, gamma); trace_poly_values.len()],
         |mut acc, cross_table_lookup| {
             let CrossTableLookup {
                 looking_table,
                 looking_columns,
                 looked_table,
                 looked_columns,
-                ..
             } = cross_table_lookup;
 
             for _ in 0..config.num_challenges {
-                let beta = challenger.get_challenge();
-                let gamma = challenger.get_challenge();
                 let z_looking = partial_products(
                     &trace_poly_values[*looking_table as usize],
                     looking_columns,
@@ -103,18 +101,12 @@ pub fn cross_table_lookup_zs<F: RichField, C: GenericConfig<D, F = F>, const D: 
                     gamma,
                 );
 
-                acc[*looking_table as usize].zs_beta_gammas.push((
-                    z_looking,
-                    beta,
-                    gamma,
-                    looking_columns.clone(),
-                ));
-                acc[*looked_table as usize].zs_beta_gammas.push((
-                    z_looked,
-                    beta,
-                    gamma,
-                    looked_columns.clone(),
-                ));
+                acc[*looking_table as usize]
+                    .zs_columns
+                    .push((z_looking, looking_columns.clone()));
+                acc[*looked_table as usize]
+                    .zs_columns
+                    .push((z_looked, looked_columns.clone()));
             }
             acc
         },

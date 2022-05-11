@@ -9,14 +9,16 @@ use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 
+use crate::all_stark::AllStark;
 use crate::config::StarkConfig;
 use crate::permutation::{
-    get_n_permutation_challenge_sets, get_n_permutation_challenge_sets_target,
+    get_n_permutation_challenge_sets, get_n_permutation_challenge_sets_target, PermutationChallenge,
 };
 use crate::proof::*;
 use crate::stark::Stark;
 
 fn get_challenges<F, C, S, const D: usize>(
+    challenger: &mut Challenger<F, C::Hasher>,
     stark: &S,
     trace_cap: &MerkleCap<F, C::Hasher>,
     permutation_zs_cap: Option<&MerkleCap<F, C::Hasher>>,
@@ -35,13 +37,11 @@ where
 {
     let num_challenges = config.num_challenges;
 
-    let mut challenger = Challenger::<F, C::Hasher>::new();
-
     challenger.observe_cap(trace_cap);
 
     let permutation_challenge_sets = permutation_zs_cap.map(|permutation_zs_cap| {
         let tmp = get_n_permutation_challenge_sets(
-            &mut challenger,
+            challenger,
             num_challenges,
             stark.permutation_batch_size(),
         );
@@ -70,6 +70,42 @@ where
     }
 }
 
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
+    /// Computes all Fiat-Shamir challenges used in the STARK proof.
+    pub(crate) fn get_challenges(
+        &self,
+        all_stark: &AllStark<F, D>,
+        config: &StarkConfig,
+    ) -> AllProofChallenges<F, D> {
+        let num_challenges = config.num_challenges;
+
+        let mut challenger = Challenger::<F, C::Hasher>::new();
+
+        for proof in self.proofs() {
+            challenger.observe_cap(&proof.proof.trace_cap);
+        }
+
+        let ctl_challenges = PermutationChallenge {
+            beta: challenger.get_challenge(),
+            gamma: challenger.get_challenge(),
+        };
+
+        AllProofChallenges {
+            cpu_challenges: self.cpu_proof.get_challenges(
+                &mut challenger,
+                &all_stark.cpu_stark,
+                config,
+            ),
+            keccak_challenges: self.keccak_proof.get_challenges(
+                &mut challenger,
+                &all_stark.keccak_stark,
+                config,
+            ),
+            ctl_challenges,
+        }
+    }
+}
+
 impl<F, C, const D: usize> StarkProofWithPublicInputs<F, C, D>
 where
     F: RichField + Extendable<D>,
@@ -81,9 +117,9 @@ where
         &self,
         stark: &S,
         config: &StarkConfig,
-        degree_bits: usize,
     ) -> Vec<usize> {
-        self.get_challenges(stark, config, degree_bits)
+        let mut challenger = Challenger::new();
+        self.get_challenges(&mut challenger, stark, config)
             .fri_challenges
             .fri_query_indices
     }
@@ -91,10 +127,12 @@ where
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
     pub(crate) fn get_challenges<S: Stark<F, D>>(
         &self,
+        challenger: &mut Challenger<F, C::Hasher>,
         stark: &S,
         config: &StarkConfig,
-        degree_bits: usize,
     ) -> StarkProofChallenges<F, D> {
+        let degree_bits = self.proof.recover_degree_bits(config);
+
         let StarkProof {
             trace_cap,
             permutation_zs_cap,
@@ -110,6 +148,7 @@ where
         } = &self.proof;
 
         get_challenges::<F, C, S, D>(
+            challenger,
             stark,
             trace_cap,
             permutation_zs_cap.as_ref(),

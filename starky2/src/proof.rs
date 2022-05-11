@@ -16,7 +16,25 @@ use plonky2::plonk::config::GenericConfig;
 use rayon::prelude::*;
 
 use crate::config::StarkConfig;
-use crate::permutation::PermutationChallengeSet;
+use crate::permutation::{PermutationChallenge, PermutationChallengeSet};
+
+#[derive(Debug, Clone)]
+pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+    pub cpu_proof: StarkProofWithPublicInputs<F, C, D>,
+    pub keccak_proof: StarkProofWithPublicInputs<F, C, D>,
+}
+
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
+    pub fn proofs(&self) -> [&StarkProofWithPublicInputs<F, C, D>; 2] {
+        [&self.cpu_proof, &self.keccak_proof]
+    }
+}
+
+pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usize> {
+    pub cpu_challenges: StarkProofChallenges<F, D>,
+    pub keccak_challenges: StarkProofChallenges<F, D>,
+    pub ctl_challenges: PermutationChallenge<F>,
+}
 
 #[derive(Debug, Clone)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {

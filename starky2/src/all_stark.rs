@@ -5,12 +5,14 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::CrossTableLookup;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
-    pub cpu: CpuStark<F, D>,
-    pub keccak: KeccakStark<F, D>,
+    pub cpu_stark: CpuStark<F, D>,
+    pub keccak_stark: KeccakStark<F, D>,
+    pub cross_table_lookups: Vec<CrossTableLookup>,
 }
 
 pub struct CpuStark<F, const D: usize> {

@@ -9,34 +9,68 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
+use crate::all_stark::{AllStark, KeccakStark};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::permutation::PermutationCheckVars;
-use crate::proof::{StarkOpeningSet, StarkProofChallenges, StarkProofWithPublicInputs};
+use crate::proof::{
+    AllProof, AllProofChallenges, StarkOpeningSet, StarkProofChallenges, StarkProofWithPublicInputs,
+};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
-pub fn verify_stark_proof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
-    const D: usize,
->(
-    stark: S,
-    proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
+pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    all_stark: AllStark<F, D>,
+    all_proof: AllProof<F, C, D>,
     config: &StarkConfig,
 ) -> Result<()>
 where
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
+    [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
-    ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
-    let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
-    let challenges = proof_with_pis.get_challenges(&stark, config, degree_bits);
-    verify_stark_proof_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
+    let AllProofChallenges {
+        cpu_challenges,
+        keccak_challenges,
+        ctl_challenges,
+    } = all_proof.get_challenges(&all_stark, config);
+
+    // Verify CTL
+
+    verify_stark_proof_with_challenges(
+        all_stark.cpu_stark,
+        all_proof.cpu_proof,
+        cpu_challenges,
+        config,
+    )?;
+    verify_stark_proof_with_challenges(
+        all_stark.keccak_stark,
+        all_proof.keccak_proof,
+        keccak_challenges,
+        config,
+    )
 }
+
+// pub fn verify_stark_proof<
+//     F: RichField + Extendable<D>,
+//     C: GenericConfig<D, F = F>,
+//     S: Stark<F, D>,
+//     const D: usize,
+// >(
+//     stark: S,
+//     proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
+//     config: &StarkConfig,
+// ) -> Result<()>
+// where
+//     [(); S::COLUMNS]:,
+//     [(); S::PUBLIC_INPUTS]:,
+//     [(); C::Hasher::HASH_SIZE]:,
+// {
+//     ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
+//     let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
+//     let challenges = proof_with_pis.get_challenges(&stark, config, degree_bits);
+//     verify_stark_proof_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
+// }
 
 pub(crate) fn verify_stark_proof_with_challenges<
     F: RichField + Extendable<D>,
@@ -47,7 +81,6 @@ pub(crate) fn verify_stark_proof_with_challenges<
     stark: S,
     proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
     challenges: StarkProofChallenges<F, D>,
-    degree_bits: usize,
     config: &StarkConfig,
 ) -> Result<()>
 where
@@ -77,6 +110,7 @@ where
             .collect::<Vec<_>>(),
     };
 
+    let degree_bits = proof.recover_degree_bits(config);
     let (l_1, l_last) = eval_l_1_and_l_last(degree_bits, challenges.stark_zeta);
     let last = F::primitive_root_of_unity(degree_bits).inverse();
     let z_last = challenges.stark_zeta - last.into();
