@@ -1,5 +1,7 @@
 //! Permutation arguments.
 
+use std::fmt::Debug;
+
 use itertools::Itertools;
 use plonky2::field::batch_util::batch_multiply_inplace;
 use plonky2::field::extension_field::{Extendable, FieldExtension};

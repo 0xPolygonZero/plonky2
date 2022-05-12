@@ -122,8 +122,9 @@ fn partial_products<F: Field>(
     gamma: F,
 ) -> PolynomialValues<F> {
     let mut partial_prod = F::ONE;
-    let mut res = Vec::new();
-    for i in 0..trace[0].len() {
+    let degree = trace[0].len();
+    let mut res = Vec::with_capacity(degree);
+    for i in 0..degree {
         partial_prod *=
             gamma + reduce_with_powers(columns.iter().map(|&j| &trace[j].values[i]), beta);
         res.push(partial_prod);

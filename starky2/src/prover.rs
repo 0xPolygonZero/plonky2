@@ -31,8 +31,8 @@ use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
-pub fn prove<F, C, S, const D: usize>(
-    all_stark: AllStark<F, D>,
+pub fn prove<F, C, const D: usize>(
+    all_stark: &AllStark<F, D>,
     config: &StarkConfig,
     trace_poly_values: Vec<Vec<PolynomialValues<F>>>,
     public_inputs: Vec<Vec<F>>,
@@ -48,15 +48,8 @@ where
     debug_assert_eq!(num_starks, trace_poly_values.len());
     debug_assert_eq!(num_starks, public_inputs.len());
 
-    let degree = trace_poly_values[0].len();
-    let degree_bits = log2_strict(degree);
-    let fri_params = config.fri_params(degree_bits);
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
-    assert!(
-        fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
-        "FRI total reduction arity is too large.",
-    );
 
     let trace_commitments = timed!(
         timing,
@@ -144,7 +137,11 @@ where
     let degree_bits = log2_strict(degree);
     let fri_params = config.fri_params(degree_bits);
     let rate_bits = config.fri_config.rate_bits;
-    let _cap_height = config.fri_config.cap_height;
+    let cap_height = config.fri_config.cap_height;
+    assert!(
+        fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
+        "FRI total reduction arity is too large.",
+    );
 
     // Permutation arguments.
     let permutation_challenges = stark.uses_permutation_args().then(|| {
@@ -167,7 +164,7 @@ where
         }
     };
 
-    let permutation_lookup_zs_commitment = (!z_polys.is_empty()).then(|| {
+    let permutation_ctl_zs_commitment = (!z_polys.is_empty()).then(|| {
         PolynomialBatch::from_values(
             z_polys,
             rate_bits,
@@ -177,28 +174,31 @@ where
             None,
         )
     });
-    let permutation_zs_cap = permutation_lookup_zs_commitment
+    let permutation_zs_cap = permutation_ctl_zs_commitment
         .as_ref()
         .map(|commit| commit.merkle_tree.cap.clone());
     if let Some(cap) = &permutation_zs_cap {
         challenger.observe_cap(cap);
     }
 
-    // TODO: if no permutation but lookup, this is wrong.
-    let zipped = if let (Some(x), Some(y)) = (
-        permutation_lookup_zs_commitment.as_ref(),
-        permutation_challenges.as_ref(),
-    ) {
-        Some((x, y))
-    } else {
-        None
-    };
-
     let alphas = challenger.get_n_challenges(config.num_challenges);
+    test_it(
+        stark,
+        trace_commitment,
+        permutation_ctl_zs_commitment.as_ref(),
+        permutation_challenges.as_ref(),
+        lookup_data,
+        public_inputs,
+        alphas.clone(),
+        degree_bits,
+        num_permutation_zs,
+        config,
+    );
     let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
         stark,
         trace_commitment,
-        zipped,
+        permutation_ctl_zs_commitment.as_ref(),
+        permutation_challenges.as_ref(),
         lookup_data,
         public_inputs,
         alphas,
@@ -246,7 +246,7 @@ where
         zeta,
         g,
         trace_commitment,
-        permutation_lookup_zs_commitment.as_ref(),
+        permutation_ctl_zs_commitment.as_ref(),
         &quotient_commitment,
         degree_bits,
         stark.num_permutation_batches(config),
@@ -254,7 +254,7 @@ where
     challenger.observe_openings(&openings.to_fri_openings());
 
     let initial_merkle_trees = once(trace_commitment)
-        .chain(&permutation_lookup_zs_commitment)
+        .chain(&permutation_ctl_zs_commitment)
         .chain(once(&quotient_commitment))
         .collect_vec();
 
@@ -288,10 +288,8 @@ where
 fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &'a PolynomialBatch<F, C, D>,
-    permutation_zs_commitment_challenges: Option<(
-        &'a PolynomialBatch<F, C, D>,
-        &'a Vec<GrandProductChallengeSet<F>>,
-    )>,
+    permutation_ctl_zs_commitment: Option<&'a PolynomialBatch<F, C, D>>,
+    permutation_challenges: Option<&'a Vec<GrandProductChallengeSet<F>>>,
     lookup_data: &LookupData<F>,
     public_inputs: &[F],
     alphas: Vec<F>,
@@ -363,29 +361,32 @@ where
                 next_values: &get_trace_values_packed(i_next_start),
                 public_inputs,
             };
-            let permutation_check_data = permutation_zs_commitment_challenges.as_ref().map(
-                |(permutation_zs_commitment, permutation_challenge_sets)| PermutationCheckVars {
-                    local_zs: permutation_zs_commitment.get_lde_values_packed(i_start, step)
-                        [..num_permutation_zs]
-                        .to_vec(),
-                    next_zs: permutation_zs_commitment.get_lde_values_packed(i_next_start, step)
-                        [..num_permutation_zs]
-                        .to_vec(),
-                    permutation_challenge_sets: permutation_challenge_sets.to_vec(),
-                },
-            );
+            let permutation_check_data =
+                if let (Some(permutation_zs_commitment), Some(permutation_challenge_sets)) =
+                    (permutation_ctl_zs_commitment, permutation_challenges)
+                {
+                    Some(PermutationCheckVars {
+                        local_zs: permutation_zs_commitment.get_lde_values_packed(i_start, step)
+                            [..num_permutation_zs]
+                            .to_vec(),
+                        next_zs: permutation_zs_commitment
+                            .get_lde_values_packed(i_next_start, step)[..num_permutation_zs]
+                            .to_vec(),
+                        permutation_challenge_sets: permutation_challenge_sets.to_vec(),
+                    })
+                } else {
+                    None
+                };
             let lookup_check_data = lookup_data
                 .zs_columns
                 .iter()
                 .enumerate()
                 .map(|(i, (_, columns))| CTLCheckVars::<F, F, P, 1> {
-                    local_z: permutation_zs_commitment_challenges
+                    local_z: permutation_ctl_zs_commitment
                         .unwrap()
-                        .0
                         .get_lde_values_packed(i_start, step)[num_permutation_zs + i],
-                    next_z: permutation_zs_commitment_challenges
+                    next_z: permutation_ctl_zs_commitment
                         .unwrap()
-                        .0
                         .get_lde_values_packed(i_next_start, step)[num_permutation_zs + i],
                     challenges: lookup_data.challenges.challenges[i % config.num_challenges],
                     columns,
@@ -414,4 +415,105 @@ where
         .map(PolynomialValues::new)
         .map(|values| values.coset_ifft(F::coset_shift()))
         .collect()
+}
+
+fn test_it<'a, F, C, S, const D: usize>(
+    stark: &S,
+    trace_commitment: &'a PolynomialBatch<F, C, D>,
+    permutation_ctl_zs_commitment: Option<&'a PolynomialBatch<F, C, D>>,
+    permutation_challenges: Option<&'a Vec<GrandProductChallengeSet<F>>>,
+    lookup_data: &LookupData<F>,
+    public_inputs: &[F],
+    alphas: Vec<F>,
+    degree_bits: usize,
+    num_permutation_zs: usize,
+    config: &StarkConfig,
+) where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+{
+    let degree = 1 << degree_bits;
+
+    // Evaluation of the first Lagrange polynomial on the LDE domain.
+    let lagrange_first = PolynomialValues::selector(degree, 0);
+    // Evaluation of the last Lagrange polynomial on the LDE domain.
+    let lagrange_last = PolynomialValues::selector(degree, degree - 1);
+
+    let subgroup = F::two_adic_subgroup(degree_bits);
+
+    // Retrieve the LDE values at index `i`.
+    let get_comm_values = |comm: &PolynomialBatch<F, C, D>, i| -> Vec<F> {
+        comm.polynomials
+            .iter()
+            .map(|poly| poly.eval(subgroup[i]))
+            .collect()
+    };
+
+    // Last element of the subgroup.
+    let last = F::primitive_root_of_unity(degree_bits).inverse();
+
+    let constraint_values = (0..degree)
+        .map(|i| {
+            let i_next = (i + 1) % degree;
+
+            let x = subgroup[i];
+            let z_last = x - last;
+            let lagrange_basis_first = lagrange_first.values[i];
+            let lagrange_basis_last = lagrange_last.values[i];
+
+            let mut consumer = ConstraintConsumer::new(
+                alphas.clone(),
+                z_last,
+                lagrange_basis_first,
+                lagrange_basis_last,
+            );
+            let vars = StarkEvaluationVars {
+                local_values: &get_comm_values(trace_commitment, i),
+                next_values: &get_comm_values(trace_commitment, i_next),
+                public_inputs,
+            };
+            let permutation_check_data =
+                if let (Some(permutation_zs_commitment), Some(permutation_challenge_sets)) =
+                    (permutation_ctl_zs_commitment, permutation_challenges)
+                {
+                    Some(PermutationCheckVars {
+                        local_zs: get_comm_values(permutation_zs_commitment, i)
+                            [..num_permutation_zs]
+                            .to_vec(),
+                        next_zs: get_comm_values(permutation_zs_commitment, i_next)
+                            [..num_permutation_zs]
+                            .to_vec(),
+                        permutation_challenge_sets: permutation_challenge_sets.to_vec(),
+                    })
+                } else {
+                    None
+                };
+            let lookup_check_data = lookup_data
+                .zs_columns
+                .iter()
+                .enumerate()
+                .map(|(iii, (_, columns))| CTLCheckVars::<F, F, F, 1> {
+                    local_z: get_comm_values(permutation_ctl_zs_commitment.unwrap(), i)
+                        [num_permutation_zs + iii],
+                    next_z: get_comm_values(permutation_ctl_zs_commitment.unwrap(), i_next)
+                        [num_permutation_zs + iii],
+                    challenges: lookup_data.challenges.challenges[iii % config.num_challenges],
+                    columns,
+                })
+                .collect::<Vec<_>>();
+            eval_vanishing_poly::<F, F, F, C, S, D, 1>(
+                stark,
+                config,
+                vars,
+                permutation_check_data,
+                &lookup_check_data,
+                &mut consumer,
+            );
+            let mut constraints_evals = consumer.accumulators();
+            constraints_evals
+        })
+        .collect::<Vec<_>>();
+
+    dbg!(constraint_values);
 }

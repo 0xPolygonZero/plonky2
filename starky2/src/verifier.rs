@@ -9,7 +9,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
-use crate::all_stark::{AllStark, KeccakStark, Table};
+use crate::all_stark::{AllStark, CpuStark, KeccakStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cross_table_lookup::{verify_cross_table_lookups, CTLCheckVars};
@@ -27,6 +27,8 @@ pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     config: &StarkConfig,
 ) -> Result<()>
 where
+    [(); CpuStark::<F, D>::COLUMNS]:,
+    [(); CpuStark::<F, D>::PUBLIC_INPUTS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
@@ -106,7 +108,8 @@ where
     [(); S::PUBLIC_INPUTS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
-    check_permutation_options(&stark, proof_with_pis, &challenges)?;
+    // TODO: Fix this to take CTLs into account
+    // check_permutation_options(&stark, proof_with_pis, &challenges)?;
     let StarkProofWithPublicInputs {
         proof,
         public_inputs,
