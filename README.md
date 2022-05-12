@@ -7,7 +7,7 @@ Plonky2 is built for speed, and features a highly efficient recursive circuit. O
 
 ## Documentation
 
-For more details about the Plonky2 argument system, see this [writeup](plonky2.pdf).
+For more details about the Plonky2 argument system, see this [writeup](plonky2/plonky2.pdf).
 
 
 ## Building
