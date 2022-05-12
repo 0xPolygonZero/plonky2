@@ -9,10 +9,10 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
-use crate::all_stark::{AllStark, KeccakStark};
+use crate::all_stark::{AllStark, KeccakStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::cross_table_lookup::verify_cross_table_lookups;
+use crate::cross_table_lookup::{verify_cross_table_lookups, CTLCheckVars};
 use crate::permutation::PermutationCheckVars;
 use crate::proof::{
     AllProof, AllProofChallenges, StarkOpeningSet, StarkProofChallenges, StarkProofWithPublicInputs,
@@ -42,18 +42,28 @@ where
         cross_table_lookups,
     } = all_stark;
 
+    let ctl_vars_per_table =
+        CTLCheckVars::from_proofs(&all_proof.proofs(), &cross_table_lookups, &ctl_challenges);
+
+    verify_stark_proof_with_challenges(
+        cpu_stark,
+        &all_proof.cpu_proof,
+        cpu_challenges,
+        &ctl_vars_per_table[Table::Cpu as usize],
+        config,
+    )?;
+    verify_stark_proof_with_challenges(
+        keccak_stark,
+        &all_proof.keccak_proof,
+        keccak_challenges,
+        &ctl_vars_per_table[Table::Keccak as usize],
+        config,
+    )?;
+
     verify_cross_table_lookups(
         cross_table_lookups,
         &all_proof.proofs(),
         ctl_challenges,
-        config,
-    )?;
-
-    verify_stark_proof_with_challenges(cpu_stark, all_proof.cpu_proof, cpu_challenges, config)?;
-    verify_stark_proof_with_challenges(
-        keccak_stark,
-        all_proof.keccak_proof,
-        keccak_challenges,
         config,
     )
 }
@@ -86,8 +96,9 @@ pub(crate) fn verify_stark_proof_with_challenges<
     const D: usize,
 >(
     stark: S,
-    proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
+    proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
     challenges: StarkProofChallenges<F, D>,
+    lookup_data: &[CTLCheckVars<F, F::Extension, F::Extension, D>],
     config: &StarkConfig,
 ) -> Result<()>
 where
@@ -112,7 +123,8 @@ where
         local_values,
         next_values,
         public_inputs: &public_inputs
-            .into_iter()
+            .iter()
+            .copied()
             .map(F::Extension::from_basefield)
             .collect::<Vec<_>>(),
     };
@@ -141,7 +153,7 @@ where
         config,
         vars,
         permutation_data,
-        &[/*TODO*/],
+        lookup_data,
         &mut consumer,
     );
     let vanishing_polys_zeta = consumer.accumulators();
@@ -164,9 +176,9 @@ where
         );
     }
 
-    let merkle_caps = once(proof.trace_cap)
-        .chain(proof.permutation_zs_cap)
-        .chain(once(proof.quotient_polys_cap))
+    let merkle_caps = once(proof.trace_cap.clone())
+        .chain(proof.permutation_zs_cap.clone())
+        .chain(once(proof.quotient_polys_cap.clone()))
         .collect_vec();
 
     verify_fri_proof::<F, C, D>(
@@ -174,7 +186,7 @@ where
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
             degree_bits,
-            todo!(),
+            lookup_zs_last.len(),
             config,
         ),
         &proof.openings.to_fri_openings(),

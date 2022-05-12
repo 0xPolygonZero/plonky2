@@ -12,11 +12,14 @@ use plonky2::util::reducing::ReducingFactor;
 use crate::all_stark::Table;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::permutation::PermutationChallenge;
+use crate::permutation::{
+    get_permutation_challenge_set, PermutationChallenge, PermutationChallengeSet,
+};
 use crate::proof::StarkProofWithPublicInputs;
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationVars;
 
+#[derive(Clone)]
 pub struct CrossTableLookup {
     pub looking_table: Table,
     pub looking_columns: Vec<usize>,
@@ -44,16 +47,14 @@ impl CrossTableLookup {
 /// Lookup data for one table.
 #[derive(Clone)]
 pub struct LookupData<F: Field> {
-    pub beta: F,
-    pub gamma: F,
+    pub(crate) challenges: PermutationChallengeSet<F>,
     pub zs_columns: Vec<(PolynomialValues<F>, Vec<usize>)>,
 }
 
 impl<F: Field> LookupData<F> {
-    pub fn new(beta: F, gamma: F) -> Self {
+    pub(crate) fn new(challenges: PermutationChallengeSet<F>) -> Self {
         Self {
-            beta,
-            gamma,
+            challenges,
             zs_columns: vec![],
         }
     }
@@ -77,10 +78,9 @@ pub fn cross_table_lookup_zs<F: RichField, C: GenericConfig<D, F = F>, const D: 
     cross_table_lookups: &[CrossTableLookup],
     challenger: &mut Challenger<F, C::Hasher>,
 ) -> Vec<LookupData<F>> {
-    let beta = challenger.get_challenge();
-    let gamma = challenger.get_challenge();
+    let challenges = get_permutation_challenge_set(challenger, config.num_challenges);
     cross_table_lookups.iter().fold(
-        vec![LookupData::new(beta, gamma); trace_poly_values.len()],
+        vec![LookupData::new(challenges.clone()); trace_poly_values.len()],
         |mut acc, cross_table_lookup| {
             let CrossTableLookup {
                 looking_table,
@@ -89,7 +89,7 @@ pub fn cross_table_lookup_zs<F: RichField, C: GenericConfig<D, F = F>, const D: 
                 looked_columns,
             } = cross_table_lookup;
 
-            for _ in 0..config.num_challenges {
+            for &PermutationChallenge { beta, gamma } in &challenges.challenges {
                 let z_looking = partial_products(
                     &trace_poly_values[*looking_table as usize],
                     looking_columns,
@@ -131,7 +131,8 @@ fn partial_products<F: Field>(
     res.into()
 }
 
-pub struct CTLCheckVars<F, FE, P, const D2: usize>
+#[derive(Clone)]
+pub struct CTLCheckVars<'a, F, FE, P, const D2: usize>
 where
     F: Field,
     FE: FieldExtension<D2, BaseField = F>,
@@ -140,7 +141,68 @@ where
     pub(crate) local_z: P,
     pub(crate) next_z: P,
     pub(crate) challenges: PermutationChallenge<F>,
-    pub(crate) columns: Vec<usize>,
+    pub(crate) columns: &'a [usize],
+}
+
+impl<'a, F: RichField + Extendable<D>, const D: usize>
+    CTLCheckVars<'a, F, F::Extension, F::Extension, D>
+{
+    pub(crate) fn from_proofs<C: GenericConfig<D, F = F>>(
+        proofs: &[&StarkProofWithPublicInputs<F, C, D>],
+        cross_table_lookups: &'a [CrossTableLookup],
+        ctl_challenges: &'a PermutationChallengeSet<F>,
+    ) -> Vec<Vec<Self>> {
+        let mut ctl_zs = proofs
+            .iter()
+            .map(|p| {
+                p.proof
+                    .openings
+                    .permutation_lookup_zs
+                    .as_ref()
+                    .unwrap() // TODO: fix unwrap
+                    .iter()
+                    .zip(
+                        p.proof
+                            .openings
+                            .permutation_lookup_zs_right
+                            .as_ref()
+                            .unwrap()
+                            .iter(),
+                    )
+            })
+            .collect::<Vec<_>>();
+
+        cross_table_lookups
+            .iter()
+            .fold(vec![vec![]; proofs.len()], |mut acc, ctl| {
+                let CrossTableLookup {
+                    looking_table,
+                    looking_columns,
+                    looked_table,
+                    looked_columns,
+                } = ctl;
+
+                for &challenges in &ctl_challenges.challenges {
+                    let (looking_z, looking_z_next) =
+                        ctl_zs[*looking_table as usize].next().unwrap();
+                    acc[*looking_table as usize].push(Self {
+                        local_z: *looking_z,
+                        next_z: *looking_z_next,
+                        challenges,
+                        columns: &looking_columns,
+                    });
+
+                    let (looked_z, looked_z_next) = ctl_zs[*looked_table as usize].next().unwrap();
+                    acc[*looked_table as usize].push(Self {
+                        local_z: *looked_z,
+                        next_z: *looked_z_next,
+                        challenges,
+                        columns: &looked_columns,
+                    });
+                }
+                acc
+            })
+    }
 }
 
 pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
@@ -180,7 +242,7 @@ pub(crate) fn verify_cross_table_lookups<
 >(
     cross_table_lookups: Vec<CrossTableLookup>,
     proofs: &[&StarkProofWithPublicInputs<F, C, D>],
-    challenges: PermutationChallenge<F>,
+    challenges: PermutationChallengeSet<F>,
     config: &StarkConfig,
 ) -> Result<()> {
     let degrees_bits = proofs
@@ -191,18 +253,25 @@ pub(crate) fn verify_cross_table_lookups<
         .iter()
         .map(|p| p.proof.openings.lookup_zs_last.iter())
         .collect::<Vec<_>>();
-    for CrossTableLookup {
-        looking_table,
-        looked_table,
-        ..
-    } in cross_table_lookups
+    for (
+        i,
+        CrossTableLookup {
+            looking_table,
+            looked_table,
+            ..
+        },
+    ) in cross_table_lookups.into_iter().enumerate()
     {
         let looking_degree = 1 << degrees_bits[looking_table as usize];
         let looked_degree = 1 << degrees_bits[looked_table as usize];
         let looking_z = *lookup_zs_openings[looking_table as usize].next().unwrap();
         let looked_z = *lookup_zs_openings[looked_table as usize].next().unwrap();
         ensure!(
-            looking_z == looked_z * challenges.gamma.exp_u64(looking_degree - looked_degree),
+            looking_z
+                == looked_z
+                    * challenges.challenges[i % config.num_challenges]
+                        .gamma
+                        .exp_u64(looking_degree - looked_degree),
             "Cross-table lookup verification failed."
         );
     }

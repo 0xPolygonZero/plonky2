@@ -155,7 +155,7 @@ fn get_permutation_challenge<F: RichField, H: Hasher<F>>(
     PermutationChallenge { beta, gamma }
 }
 
-fn get_permutation_challenge_set<F: RichField, H: Hasher<F>>(
+pub(crate) fn get_permutation_challenge_set<F: RichField, H: Hasher<F>>(
     challenger: &mut Challenger<F, H>,
     num_challenges: usize,
 ) -> PermutationChallengeSet<F> {

@@ -15,7 +15,7 @@ use plonky2::plonk::config::GenericConfig;
 use rayon::prelude::*;
 
 use crate::config::StarkConfig;
-use crate::permutation::{PermutationChallenge, PermutationChallengeSet};
+use crate::permutation::PermutationChallengeSet;
 
 #[derive(Debug, Clone)]
 pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
@@ -32,7 +32,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
 pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     pub cpu_challenges: StarkProofChallenges<F, D>,
     pub keccak_challenges: StarkProofChallenges<F, D>,
-    pub ctl_challenges: PermutationChallenge<F>,
+    pub ctl_challenges: PermutationChallengeSet<F>,
 }
 
 #[derive(Debug, Clone)]

@@ -22,10 +22,10 @@ use crate::all_stark::{AllStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cross_table_lookup::{cross_table_lookup_zs, CTLCheckVars, LookupData};
+use crate::permutation::PermutationCheckVars;
 use crate::permutation::{
     compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
 };
-use crate::permutation::{PermutationChallenge, PermutationCheckVars};
 use crate::proof::{AllProof, StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
@@ -387,11 +387,8 @@ where
                         .unwrap()
                         .0
                         .get_lde_values_packed(i_next_start, step)[num_permutation_zs + i],
-                    challenges: PermutationChallenge {
-                        beta: lookup_data.beta,
-                        gamma: lookup_data.gamma,
-                    },
-                    columns: columns.to_vec(),
+                    challenges: lookup_data.challenges.challenges[i % config.num_challenges],
+                    columns: &columns,
                 })
                 .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, P, C, S, D, 1>(
