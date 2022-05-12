@@ -17,7 +17,7 @@ impl StarkConfig {
     pub fn standard_fast_config() -> Self {
         Self {
             security_bits: 100,
-            num_challenges: 1,
+            num_challenges: 2,
             fri_config: FriConfig {
                 rate_bits: 1,
                 cap_height: 4,

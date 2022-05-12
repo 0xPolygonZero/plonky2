@@ -152,6 +152,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         proofs: &[&StarkProofWithPublicInputs<F, C, D>],
         cross_table_lookups: &'a [CrossTableLookup],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
+        num_permutation_zs: usize,
     ) -> Vec<Vec<Self>> {
         let mut ctl_zs = proofs
             .iter()
@@ -162,13 +163,15 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                     .as_ref()
                     .unwrap() // TODO: fix unwrap
                     .iter()
+                    .skip(num_permutation_zs)
                     .zip(
                         p.proof
                             .openings
                             .permutation_lookup_zs_right
                             .as_ref()
                             .unwrap()
-                            .iter(),
+                            .iter()
+                            .skip(num_permutation_zs),
                     )
             })
             .collect::<Vec<_>>();

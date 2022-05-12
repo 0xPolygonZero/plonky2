@@ -22,7 +22,7 @@ fn get_challenges<F, C, S, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     stark: &S,
     trace_cap: &MerkleCap<F, C::Hasher>,
-    permutation_zs_cap: Option<&MerkleCap<F, C::Hasher>>,
+    permutation_ctl_zs_cap: Option<&MerkleCap<F, C::Hasher>>,
     quotient_polys_cap: &MerkleCap<F, C::Hasher>,
     openings: &StarkOpeningSet<F, D>,
     commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
@@ -38,17 +38,17 @@ where
 {
     let num_challenges = config.num_challenges;
 
-    challenger.observe_cap(trace_cap);
-
-    let permutation_challenge_sets = permutation_zs_cap.map(|permutation_zs_cap| {
-        let tmp = get_n_grand_product_challenge_sets(
+    let permutation_challenge_sets = stark.uses_permutation_args().then(|| {
+        get_n_grand_product_challenge_sets(
             challenger,
             num_challenges,
             stark.permutation_batch_size(),
-        );
-        challenger.observe_cap(permutation_zs_cap);
-        tmp
+        )
     });
+
+    if let Some(cap) = permutation_ctl_zs_cap {
+        challenger.observe_cap(cap);
+    }
 
     let stark_alphas = challenger.get_n_challenges(num_challenges);
 
@@ -132,7 +132,7 @@ where
 
         let StarkProof {
             trace_cap,
-            permutation_zs_cap,
+            permutation_ctl_zs_cap,
             quotient_polys_cap,
             openings,
             opening_proof:
@@ -148,7 +148,7 @@ where
             challenger,
             stark,
             trace_cap,
-            permutation_zs_cap.as_ref(),
+            permutation_ctl_zs_cap.as_ref(),
             quotient_polys_cap,
             openings,
             commit_phase_merkle_caps,
