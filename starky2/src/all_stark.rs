@@ -92,7 +92,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
 mod tests {
     use anyhow::Result;
     use plonky2::field::field_types::Field;
-    use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
@@ -102,7 +101,6 @@ mod tests {
     use crate::config::StarkConfig;
     use crate::cross_table_lookup::CrossTableLookup;
     use crate::prover::prove;
-    use crate::stark::Stark;
     use crate::verifier::verify_proof;
 
     #[test]
@@ -135,7 +133,6 @@ mod tests {
             .map(F::from_canonical_usize)
             .collect::<Vec<_>>();
         let start = thread_rng().gen_range(0..cpu_stark.num_rows - keccak_stark.num_rows);
-        let start = 0;
 
         cpu_trace[2].values[start..start + keccak_stark.num_rows].copy_from_slice(&vs0);
         cpu_trace[4].values[start..start + keccak_stark.num_rows].copy_from_slice(&vs1);

@@ -21,7 +21,6 @@ use crate::stark::Stark;
 fn get_challenges<F, C, S, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     stark: &S,
-    trace_cap: &MerkleCap<F, C::Hasher>,
     permutation_ctl_zs_cap: Option<&MerkleCap<F, C::Hasher>>,
     quotient_polys_cap: &MerkleCap<F, C::Hasher>,
     openings: &StarkOpeningSet<F, D>,
@@ -131,7 +130,6 @@ where
         let degree_bits = self.proof.recover_degree_bits(config);
 
         let StarkProof {
-            trace_cap,
             permutation_ctl_zs_cap,
             quotient_polys_cap,
             openings,
@@ -142,12 +140,12 @@ where
                     pow_witness,
                     ..
                 },
+            ..
         } = &self.proof;
 
         get_challenges::<F, C, S, D>(
             challenger,
             stark,
-            trace_cap,
             permutation_ctl_zs_cap.as_ref(),
             quotient_polys_cap,
             openings,

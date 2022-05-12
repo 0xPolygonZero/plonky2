@@ -514,8 +514,7 @@ fn test_it<'a, F, C, S, const D: usize>(
                 &lookup_check_data,
                 &mut consumer,
             );
-            let mut constraints_evals = consumer.accumulators();
-            constraints_evals
+            consumer.accumulators()
         })
         .collect::<Vec<_>>();
 

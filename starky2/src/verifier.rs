@@ -220,6 +220,7 @@ fn eval_l_1_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
 
 /// Utility function to check that all permutation data wrapped in `Option`s are `Some` iff
 /// the Stark uses a permutation argument.
+#[allow(dead_code)]
 fn check_permutation_options<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
