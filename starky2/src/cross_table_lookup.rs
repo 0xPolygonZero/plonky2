@@ -189,7 +189,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                         local_z: *looking_z,
                         next_z: *looking_z_next,
                         challenges,
-                        columns: &looking_columns,
+                        columns: looking_columns,
                     });
 
                     let (looked_z, looked_z_next) = ctl_zs[*looked_table as usize].next().unwrap();
@@ -197,7 +197,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                         local_z: *looked_z,
                         next_z: *looked_z_next,
                         challenges,
-                        columns: &looked_columns,
+                        columns: looked_columns,
                     });
                 }
                 acc

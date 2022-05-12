@@ -106,7 +106,7 @@ where
     [(); S::PUBLIC_INPUTS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
-    check_permutation_options(&stark, &proof_with_pis, &challenges)?;
+    check_permutation_options(&stark, proof_with_pis, &challenges)?;
     let StarkProofWithPublicInputs {
         proof,
         public_inputs,

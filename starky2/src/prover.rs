@@ -388,7 +388,7 @@ where
                         .0
                         .get_lde_values_packed(i_next_start, step)[num_permutation_zs + i],
                     challenges: lookup_data.challenges.challenges[i % config.num_challenges],
-                    columns: &columns,
+                    columns,
                 })
                 .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, P, C, S, D, 1>(
