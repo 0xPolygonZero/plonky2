@@ -13,7 +13,7 @@ use crate::all_stark::Table;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::permutation::{
-    get_permutation_challenge_set, PermutationChallenge, PermutationChallengeSet,
+    get_grand_product_challenge_set, GrandProductChallenge, GrandProductChallengeSet,
 };
 use crate::proof::StarkProofWithPublicInputs;
 use crate::stark::Stark;
@@ -47,12 +47,12 @@ impl CrossTableLookup {
 /// Lookup data for one table.
 #[derive(Clone)]
 pub struct LookupData<F: Field> {
-    pub(crate) challenges: PermutationChallengeSet<F>,
+    pub(crate) challenges: GrandProductChallengeSet<F>,
     pub zs_columns: Vec<(PolynomialValues<F>, Vec<usize>)>,
 }
 
 impl<F: Field> LookupData<F> {
-    pub(crate) fn new(challenges: PermutationChallengeSet<F>) -> Self {
+    pub(crate) fn new(challenges: GrandProductChallengeSet<F>) -> Self {
         Self {
             challenges,
             zs_columns: vec![],
@@ -78,7 +78,7 @@ pub fn cross_table_lookup_zs<F: RichField, C: GenericConfig<D, F = F>, const D: 
     cross_table_lookups: &[CrossTableLookup],
     challenger: &mut Challenger<F, C::Hasher>,
 ) -> Vec<LookupData<F>> {
-    let challenges = get_permutation_challenge_set(challenger, config.num_challenges);
+    let challenges = get_grand_product_challenge_set(challenger, config.num_challenges);
     cross_table_lookups.iter().fold(
         vec![LookupData::new(challenges.clone()); trace_poly_values.len()],
         |mut acc, cross_table_lookup| {
@@ -89,7 +89,7 @@ pub fn cross_table_lookup_zs<F: RichField, C: GenericConfig<D, F = F>, const D: 
                 looked_columns,
             } = cross_table_lookup;
 
-            for &PermutationChallenge { beta, gamma } in &challenges.challenges {
+            for &GrandProductChallenge { beta, gamma } in &challenges.challenges {
                 let z_looking = partial_products(
                     &trace_poly_values[*looking_table as usize],
                     looking_columns,
@@ -140,7 +140,7 @@ where
 {
     pub(crate) local_z: P,
     pub(crate) next_z: P,
-    pub(crate) challenges: PermutationChallenge<F>,
+    pub(crate) challenges: GrandProductChallenge<F>,
     pub(crate) columns: &'a [usize],
 }
 
@@ -150,7 +150,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
     pub(crate) fn from_proofs<C: GenericConfig<D, F = F>>(
         proofs: &[&StarkProofWithPublicInputs<F, C, D>],
         cross_table_lookups: &'a [CrossTableLookup],
-        ctl_challenges: &'a PermutationChallengeSet<F>,
+        ctl_challenges: &'a GrandProductChallengeSet<F>,
     ) -> Vec<Vec<Self>> {
         let mut ctl_zs = proofs
             .iter()
@@ -242,7 +242,7 @@ pub(crate) fn verify_cross_table_lookups<
 >(
     cross_table_lookups: Vec<CrossTableLookup>,
     proofs: &[&StarkProofWithPublicInputs<F, C, D>],
-    challenges: PermutationChallengeSet<F>,
+    challenges: GrandProductChallengeSet<F>,
     config: &StarkConfig,
 ) -> Result<()> {
     let degrees_bits = proofs

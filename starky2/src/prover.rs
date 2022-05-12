@@ -24,7 +24,7 @@ use crate::constraint_consumer::ConstraintConsumer;
 use crate::cross_table_lookup::{cross_table_lookup_zs, CTLCheckVars, LookupData};
 use crate::permutation::PermutationCheckVars;
 use crate::permutation::{
-    compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
+    compute_permutation_z_polys, get_n_grand_product_challenge_sets, GrandProductChallengeSet,
 };
 use crate::proof::{AllProof, StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
@@ -148,7 +148,7 @@ where
 
     // Permutation arguments.
     let permutation_challenges = stark.uses_permutation_args().then(|| {
-        get_n_permutation_challenge_sets(
+        get_n_grand_product_challenge_sets(
             challenger,
             config.num_challenges,
             stark.permutation_batch_size(),
@@ -290,7 +290,7 @@ fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     trace_commitment: &'a PolynomialBatch<F, C, D>,
     permutation_zs_commitment_challenges: Option<(
         &'a PolynomialBatch<F, C, D>,
-        &'a Vec<PermutationChallengeSet<F>>,
+        &'a Vec<GrandProductChallengeSet<F>>,
     )>,
     lookup_data: &LookupData<F>,
     public_inputs: &[F],

@@ -15,7 +15,7 @@ use plonky2::plonk::config::GenericConfig;
 use rayon::prelude::*;
 
 use crate::config::StarkConfig;
-use crate::permutation::PermutationChallengeSet;
+use crate::permutation::GrandProductChallengeSet;
 
 #[derive(Debug, Clone)]
 pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
@@ -32,7 +32,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
 pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     pub cpu_challenges: StarkProofChallenges<F, D>,
     pub keccak_challenges: StarkProofChallenges<F, D>,
-    pub ctl_challenges: PermutationChallengeSet<F>,
+    pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 
 #[derive(Debug, Clone)]
@@ -121,7 +121,7 @@ pub struct CompressedStarkProofWithPublicInputs<
 
 pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     /// Randomness used in any permutation arguments.
-    pub permutation_challenge_sets: Option<Vec<PermutationChallengeSet<F>>>,
+    pub permutation_challenge_sets: Option<Vec<GrandProductChallengeSet<F>>>,
 
     /// Random values used to combine STARK constraints.
     pub stark_alphas: Vec<F>,
@@ -133,7 +133,7 @@ pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: us
 }
 
 pub(crate) struct StarkProofChallengesTarget<const D: usize> {
-    pub permutation_challenge_sets: Option<Vec<PermutationChallengeSet<Target>>>,
+    pub permutation_challenge_sets: Option<Vec<GrandProductChallengeSet<Target>>>,
     pub stark_alphas: Vec<Target>,
     pub stark_zeta: ExtensionTarget<D>,
     pub fri_challenges: FriChallengesTarget<D>,

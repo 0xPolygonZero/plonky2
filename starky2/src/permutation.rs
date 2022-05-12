@@ -41,12 +41,12 @@ impl PermutationPair {
 /// A single instance of a permutation check protocol.
 pub(crate) struct PermutationInstance<'a, T: Copy> {
     pub(crate) pair: &'a PermutationPair,
-    pub(crate) challenge: PermutationChallenge<T>,
+    pub(crate) challenge: GrandProductChallenge<T>,
 }
 
 /// Randomness for a single instance of a permutation check protocol.
 #[derive(Copy, Clone)]
-pub(crate) struct PermutationChallenge<T: Copy> {
+pub(crate) struct GrandProductChallenge<T: Copy> {
     /// Randomness used to combine multiple columns into one.
     pub(crate) beta: T,
     /// Random offset that's added to the beta-reduced column values.
@@ -55,8 +55,8 @@ pub(crate) struct PermutationChallenge<T: Copy> {
 
 /// Like `PermutationChallenge`, but with `num_challenges` copies to boost soundness.
 #[derive(Clone)]
-pub(crate) struct PermutationChallengeSet<T: Copy> {
-    pub(crate) challenges: Vec<PermutationChallenge<T>>,
+pub(crate) struct GrandProductChallengeSet<T: Copy> {
+    pub(crate) challenges: Vec<GrandProductChallenge<T>>,
 }
 
 /// Compute all Z polynomials (for permutation arguments).
@@ -64,7 +64,7 @@ pub(crate) fn compute_permutation_z_polys<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
     trace_poly_values: &[PolynomialValues<F>],
-    permutation_challenge_sets: &[PermutationChallengeSet<F>],
+    permutation_challenge_sets: &[GrandProductChallengeSet<F>],
 ) -> Vec<PolynomialValues<F>>
 where
     F: RichField + Extendable<D>,
@@ -123,7 +123,7 @@ fn permutation_reduced_polys<F: Field>(
 ) -> (PolynomialValues<F>, PolynomialValues<F>) {
     let PermutationInstance {
         pair: PermutationPair { column_pairs },
-        challenge: PermutationChallenge { beta, gamma },
+        challenge: GrandProductChallenge { beta, gamma },
     } = instance;
 
     let mut reduced_lhs = PolynomialValues::constant(*gamma, degree);
@@ -147,31 +147,31 @@ fn poly_product_elementwise<F: Field>(
     product
 }
 
-fn get_permutation_challenge<F: RichField, H: Hasher<F>>(
+fn get_grand_product_challenge<F: RichField, H: Hasher<F>>(
     challenger: &mut Challenger<F, H>,
-) -> PermutationChallenge<F> {
+) -> GrandProductChallenge<F> {
     let beta = challenger.get_challenge();
     let gamma = challenger.get_challenge();
-    PermutationChallenge { beta, gamma }
+    GrandProductChallenge { beta, gamma }
 }
 
-pub(crate) fn get_permutation_challenge_set<F: RichField, H: Hasher<F>>(
+pub(crate) fn get_grand_product_challenge_set<F: RichField, H: Hasher<F>>(
     challenger: &mut Challenger<F, H>,
     num_challenges: usize,
-) -> PermutationChallengeSet<F> {
+) -> GrandProductChallengeSet<F> {
     let challenges = (0..num_challenges)
-        .map(|_| get_permutation_challenge(challenger))
+        .map(|_| get_grand_product_challenge(challenger))
         .collect();
-    PermutationChallengeSet { challenges }
+    GrandProductChallengeSet { challenges }
 }
 
-pub(crate) fn get_n_permutation_challenge_sets<F: RichField, H: Hasher<F>>(
+pub(crate) fn get_n_grand_product_challenge_sets<F: RichField, H: Hasher<F>>(
     challenger: &mut Challenger<F, H>,
     num_challenges: usize,
     num_sets: usize,
-) -> Vec<PermutationChallengeSet<F>> {
+) -> Vec<GrandProductChallengeSet<F>> {
     (0..num_sets)
-        .map(|_| get_permutation_challenge_set(challenger, num_challenges))
+        .map(|_| get_grand_product_challenge_set(challenger, num_challenges))
         .collect()
 }
 
@@ -182,10 +182,10 @@ fn get_permutation_challenge_target<
 >(
     builder: &mut CircuitBuilder<F, D>,
     challenger: &mut RecursiveChallenger<F, H, D>,
-) -> PermutationChallenge<Target> {
+) -> GrandProductChallenge<Target> {
     let beta = challenger.get_challenge(builder);
     let gamma = challenger.get_challenge(builder);
-    PermutationChallenge { beta, gamma }
+    GrandProductChallenge { beta, gamma }
 }
 
 fn get_permutation_challenge_set_target<
@@ -196,11 +196,11 @@ fn get_permutation_challenge_set_target<
     builder: &mut CircuitBuilder<F, D>,
     challenger: &mut RecursiveChallenger<F, H, D>,
     num_challenges: usize,
-) -> PermutationChallengeSet<Target> {
+) -> GrandProductChallengeSet<Target> {
     let challenges = (0..num_challenges)
         .map(|_| get_permutation_challenge_target(builder, challenger))
         .collect();
-    PermutationChallengeSet { challenges }
+    GrandProductChallengeSet { challenges }
 }
 
 pub(crate) fn get_n_permutation_challenge_sets_target<
@@ -212,7 +212,7 @@ pub(crate) fn get_n_permutation_challenge_sets_target<
     challenger: &mut RecursiveChallenger<F, H, D>,
     num_challenges: usize,
     num_sets: usize,
-) -> Vec<PermutationChallengeSet<Target>> {
+) -> Vec<GrandProductChallengeSet<Target>> {
     (0..num_sets)
         .map(|_| get_permutation_challenge_set_target(builder, challenger, num_challenges))
         .collect()
@@ -225,7 +225,7 @@ pub(crate) fn get_n_permutation_challenge_sets_target<
 /// chunk these arguments based on our batch size.
 pub(crate) fn get_permutation_batches<'a, T: Copy>(
     permutation_pairs: &'a [PermutationPair],
-    permutation_challenge_sets: &[PermutationChallengeSet<T>],
+    permutation_challenge_sets: &[GrandProductChallengeSet<T>],
     num_challenges: usize,
     batch_size: usize,
 ) -> Vec<Vec<PermutationInstance<'a, T>>> {
@@ -254,7 +254,7 @@ where
 {
     pub(crate) local_zs: Vec<P>,
     pub(crate) next_zs: Vec<P>,
-    pub(crate) permutation_challenge_sets: Vec<PermutationChallengeSet<F>>,
+    pub(crate) permutation_challenge_sets: Vec<GrandProductChallengeSet<F>>,
 }
 
 pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
@@ -298,7 +298,7 @@ pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: 
             .map(|instance| {
                 let PermutationInstance {
                     pair: PermutationPair { column_pairs },
-                    challenge: PermutationChallenge { beta, gamma },
+                    challenge: GrandProductChallenge { beta, gamma },
                 } = instance;
                 let mut factor = ReducingFactor::new(*beta);
                 let (lhs, rhs): (Vec<_>, Vec<_>) = column_pairs
@@ -320,7 +320,7 @@ pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: 
 pub struct PermutationCheckDataTarget<const D: usize> {
     pub(crate) local_zs: Vec<ExtensionTarget<D>>,
     pub(crate) next_zs: Vec<ExtensionTarget<D>>,
-    pub(crate) permutation_challenge_sets: Vec<PermutationChallengeSet<Target>>,
+    pub(crate) permutation_challenge_sets: Vec<GrandProductChallengeSet<Target>>,
 }
 
 pub(crate) fn eval_permutation_checks_recursively<F, S, const D: usize>(
@@ -366,7 +366,7 @@ pub(crate) fn eval_permutation_checks_recursively<F, S, const D: usize>(
                 .map(|instance| {
                     let PermutationInstance {
                         pair: PermutationPair { column_pairs },
-                        challenge: PermutationChallenge { beta, gamma },
+                        challenge: GrandProductChallenge { beta, gamma },
                     } = instance;
                     let beta_ext = builder.convert_to_ext(*beta);
                     let gamma_ext = builder.convert_to_ext(*gamma);

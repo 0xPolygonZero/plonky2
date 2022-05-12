@@ -12,8 +12,8 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::all_stark::AllStark;
 use crate::config::StarkConfig;
 use crate::permutation::{
-    get_n_permutation_challenge_sets, get_n_permutation_challenge_sets_target,
-    get_permutation_challenge_set,
+    get_grand_product_challenge_set, get_n_grand_product_challenge_sets,
+    get_n_permutation_challenge_sets_target,
 };
 use crate::proof::*;
 use crate::stark::Stark;
@@ -41,7 +41,7 @@ where
     challenger.observe_cap(trace_cap);
 
     let permutation_challenge_sets = permutation_zs_cap.map(|permutation_zs_cap| {
-        let tmp = get_n_permutation_challenge_sets(
+        let tmp = get_n_grand_product_challenge_sets(
             challenger,
             num_challenges,
             stark.permutation_batch_size(),
@@ -84,7 +84,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
             challenger.observe_cap(&proof.proof.trace_cap);
         }
 
-        let ctl_challenges = get_permutation_challenge_set(&mut challenger, config.num_challenges);
+        let ctl_challenges =
+            get_grand_product_challenge_set(&mut challenger, config.num_challenges);
 
         AllProofChallenges {
             cpu_challenges: self.cpu_proof.get_challenges(
