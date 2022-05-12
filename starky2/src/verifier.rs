@@ -44,8 +44,12 @@ where
         cross_table_lookups,
     } = all_stark;
 
-    let ctl_vars_per_table =
-        CTLCheckVars::from_proofs(&all_proof.proofs(), &cross_table_lookups, &ctl_challenges);
+    let ctl_vars_per_table = CTLCheckVars::from_proofs(
+        &all_proof.proofs(),
+        &cross_table_lookups,
+        &ctl_challenges,
+        0, // TODO: Fix 0
+    );
 
     verify_stark_proof_with_challenges(
         cpu_stark,
@@ -180,7 +184,7 @@ where
     }
 
     let merkle_caps = once(proof.trace_cap.clone())
-        .chain(proof.permutation_zs_cap.clone())
+        .chain(proof.permutation_ctl_zs_cap.clone())
         .chain(once(proof.quotient_polys_cap.clone()))
         .collect_vec();
 
@@ -227,7 +231,7 @@ fn check_permutation_options<
     challenges: &StarkProofChallenges<F, D>,
 ) -> Result<()> {
     let options_is_some = [
-        proof_with_pis.proof.permutation_zs_cap.is_some(),
+        proof_with_pis.proof.permutation_ctl_zs_cap.is_some(),
         proof_with_pis
             .proof
             .openings

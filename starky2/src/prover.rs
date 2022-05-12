@@ -174,10 +174,10 @@ where
             None,
         )
     });
-    let permutation_zs_cap = permutation_ctl_zs_commitment
+    let permutation_ctl_zs_cap = permutation_ctl_zs_commitment
         .as_ref()
         .map(|commit| commit.merkle_tree.cap.clone());
-    if let Some(cap) = &permutation_zs_cap {
+    if let Some(cap) = &permutation_ctl_zs_cap {
         challenger.observe_cap(cap);
     }
 
@@ -271,7 +271,7 @@ where
     );
     let proof = StarkProof {
         trace_cap: trace_commitment.merkle_tree.cap.clone(),
-        permutation_zs_cap,
+        permutation_ctl_zs_cap,
         quotient_polys_cap,
         openings,
         opening_proof,
@@ -434,13 +434,17 @@ fn test_it<'a, F, C, S, const D: usize>(
     S: Stark<F, D>,
 {
     let degree = 1 << degree_bits;
+    let rate_bits = 0;
+
+    let size = degree << rate_bits;
+    let step = 1 << rate_bits;
 
     // Evaluation of the first Lagrange polynomial on the LDE domain.
-    let lagrange_first = PolynomialValues::selector(degree, 0);
+    let lagrange_first = PolynomialValues::selector(degree, 0).lde(rate_bits);
     // Evaluation of the last Lagrange polynomial on the LDE domain.
-    let lagrange_last = PolynomialValues::selector(degree, degree - 1);
+    let lagrange_last = PolynomialValues::selector(degree, degree - 1).lde(rate_bits);
 
-    let subgroup = F::two_adic_subgroup(degree_bits);
+    let subgroup = F::two_adic_subgroup(degree_bits + rate_bits);
 
     // Retrieve the LDE values at index `i`.
     let get_comm_values = |comm: &PolynomialBatch<F, C, D>, i| -> Vec<F> {
@@ -453,9 +457,9 @@ fn test_it<'a, F, C, S, const D: usize>(
     // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();
 
-    let constraint_values = (0..degree)
+    let constraint_values = (0..size)
         .map(|i| {
-            let i_next = (i + 1) % degree;
+            let i_next = (i + step) % size;
 
             let x = subgroup[i];
             let z_last = x - last;
@@ -515,5 +519,8 @@ fn test_it<'a, F, C, S, const D: usize>(
         })
         .collect::<Vec<_>>();
 
-    dbg!(constraint_values);
+    let values = transpose(&constraint_values);
+    for v in values {
+        assert!(v.iter().all(|x| x.is_zero()));
+    }
 }
