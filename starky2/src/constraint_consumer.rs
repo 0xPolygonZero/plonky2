@@ -9,7 +9,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 pub struct ConstraintConsumer<P: PackedField> {
     /// Random values used to combine multiple constraints into one.
-    alphas: Vec<P::Scalar>,
+    pub alphas: Vec<P::Scalar>,
 
     /// Running sums of constraints that have been emitted so far, scaled by powers of alpha.
     // TODO(JN): This is pub so it can be used in a test. Once we have an API for accessing this
