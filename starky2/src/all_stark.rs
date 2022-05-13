@@ -4,6 +4,7 @@ use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 
+use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::CrossTableLookup;
 use crate::stark::Stark;
@@ -14,6 +15,15 @@ pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
     pub cpu_stark: CpuStark<F, D>,
     pub keccak_stark: KeccakStark<F, D>,
     pub cross_table_lookups: Vec<CrossTableLookup>,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
+    pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> Vec<usize> {
+        vec![
+            self.cpu_stark.num_permutation_batches(config),
+            self.keccak_stark.num_permutation_batches(config),
+        ]
+    }
 }
 
 #[derive(Copy, Clone)]

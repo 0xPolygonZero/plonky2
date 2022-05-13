@@ -38,6 +38,8 @@ where
         ctl_challenges,
     } = all_proof.get_challenges(&all_stark, config);
 
+    let nums_permutation_zs = all_stark.nums_permutation_zs(config);
+
     let AllStark {
         cpu_stark,
         keccak_stark,
@@ -48,7 +50,7 @@ where
         &all_proof.proofs(),
         &cross_table_lookups,
         &ctl_challenges,
-        0, // TODO: Fix 0
+        &nums_permutation_zs,
     );
 
     verify_stark_proof_with_challenges(
@@ -150,9 +152,10 @@ where
         l_1,
         l_last,
     );
+    let num_permutation_zs = stark.num_permutation_batches(config);
     let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
-        local_zs: permutation_lookup_zs.as_ref().unwrap().clone(),
-        next_zs: permutation_lookup_zs_right.as_ref().unwrap().clone(),
+        local_zs: permutation_lookup_zs.as_ref().unwrap()[..num_permutation_zs].to_vec(),
+        next_zs: permutation_lookup_zs_right.as_ref().unwrap()[..num_permutation_zs].to_vec(),
         permutation_challenge_sets: challenges.permutation_challenge_sets.unwrap(),
     });
     eval_vanishing_poly::<F, F::Extension, F::Extension, C, S, D, D>(

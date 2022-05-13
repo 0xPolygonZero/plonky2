@@ -152,11 +152,13 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         proofs: &[&StarkProofWithPublicInputs<F, C, D>],
         cross_table_lookups: &'a [CrossTableLookup],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
-        num_permutation_zs: usize,
+        num_permutation_zs: &[usize],
     ) -> Vec<Vec<Self>> {
+        debug_assert_eq!(proofs.len(), num_permutation_zs.len());
         let mut ctl_zs = proofs
             .iter()
-            .map(|p| -> Box<dyn Iterator<Item = _>> {
+            .zip(num_permutation_zs)
+            .map(|(p, &num_permutation)| -> Box<dyn Iterator<Item = _>> {
                 if p.proof.openings.permutation_lookup_zs.is_some() {
                     Box::new(
                         p.proof
@@ -165,7 +167,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                             .as_ref()
                             .unwrap()
                             .iter()
-                            .skip(num_permutation_zs)
+                            .skip(num_permutation)
                             .zip(
                                 p.proof
                                     .openings
@@ -173,7 +175,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                                     .as_ref()
                                     .unwrap()
                                     .iter()
-                                    .skip(num_permutation_zs),
+                                    .skip(num_permutation),
                             ),
                     )
                 } else {
