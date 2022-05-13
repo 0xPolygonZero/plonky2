@@ -7,6 +7,7 @@ use plonky2::hash::hash_types::RichField;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::CrossTableLookup;
+use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
@@ -71,6 +72,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
     fn constraint_degree(&self) -> usize {
         3
     }
+
+    fn permutation_pairs(&self) -> Vec<PermutationPair> {
+        vec![PermutationPair::singletons(8, 9)]
+    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F, D> {
@@ -97,6 +102,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
 
     fn constraint_degree(&self) -> usize {
         3
+    }
+
+    fn permutation_pairs(&self) -> Vec<PermutationPair> {
+        vec![PermutationPair::singletons(0, 6)]
     }
 }
 
