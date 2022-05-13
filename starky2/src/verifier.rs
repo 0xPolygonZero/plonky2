@@ -108,13 +108,15 @@ where
         quotient_polys,
     } = &proof.openings;
     let vars = StarkEvaluationVars {
-        local_values,
-        next_values,
+        local_values: &local_values.to_vec().try_into().unwrap(),
+        next_values: &next_values.to_vec().try_into().unwrap(),
         public_inputs: &public_inputs
             .iter()
             .copied()
             .map(F::Extension::from_basefield)
-            .collect::<Vec<_>>(),
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap(),
     };
 
     let degree_bits = proof.recover_degree_bits(config);

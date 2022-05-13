@@ -220,7 +220,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 }
 
 pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
-    vars: StarkEvaluationVars<FE, P>,
+    vars: StarkEvaluationVars<FE, P, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
     ctl_vars: &[CTLCheckVars<F, FE, P, D2>],
     consumer: &mut ConstraintConsumer<P>,
 ) where

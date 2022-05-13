@@ -37,8 +37,11 @@ where
     let constraint_evals = (0..size)
         .map(|i| {
             let vars = StarkEvaluationVars {
-                local_values: &trace_ldes[i],
-                next_values: &trace_ldes[(i + (1 << rate_bits)) % size],
+                local_values: &trace_ldes[i].clone().try_into().unwrap(),
+                next_values: &trace_ldes[(i + (1 << rate_bits)) % size]
+                    .clone()
+                    .try_into()
+                    .unwrap(),
                 public_inputs: &public_inputs,
             };
 

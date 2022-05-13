@@ -3,14 +3,14 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 #[derive(Debug, Copy, Clone)]
-pub struct StarkEvaluationVars<'a, F, P>
+pub struct StarkEvaluationVars<'a, F, P, const COLUMNS: usize, const PUBLIC_INPUTS: usize>
 where
     F: Field,
     P: PackedField<Scalar = F>,
 {
-    pub local_values: &'a [P],
-    pub next_values: &'a [P],
-    pub public_inputs: &'a [P::Scalar],
+    pub local_values: &'a [P; COLUMNS],
+    pub next_values: &'a [P; COLUMNS],
+    pub public_inputs: &'a [P::Scalar; PUBLIC_INPUTS],
 }
 
 #[derive(Debug, Copy, Clone)]
