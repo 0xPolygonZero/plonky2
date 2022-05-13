@@ -18,8 +18,8 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, C, S, const D: usize, const D2: usiz
     stark: &S,
     config: &StarkConfig,
     vars: StarkEvaluationVars<FE, P>,
-    permutation_data: Option<PermutationCheckVars<F, FE, P, D2>>,
-    lookup_data: &[CTLCheckVars<F, FE, P, D2>],
+    permutation_vars: Option<PermutationCheckVars<F, FE, P, D2>>,
+    ctl_vars: &[CTLCheckVars<F, FE, P, D2>],
     consumer: &mut ConstraintConsumer<P>,
 ) where
     F: RichField + Extendable<D>,
@@ -29,16 +29,16 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, C, S, const D: usize, const D2: usiz
     S: Stark<F, D>,
 {
     stark.eval_packed_generic(vars, consumer);
-    if let Some(permutation_data) = permutation_data {
+    if let Some(permutation_vars) = permutation_vars {
         eval_permutation_checks::<F, FE, P, C, S, D, D2>(
             stark,
             config,
             vars,
-            permutation_data,
+            permutation_vars,
             consumer,
         );
     }
-    eval_cross_table_lookup_checks::<F, FE, P, C, S, D, D2>(vars, lookup_data, consumer);
+    eval_cross_table_lookup_checks::<F, FE, P, C, S, D, D2>(vars, ctl_vars, consumer);
 }
 
 pub(crate) fn eval_vanishing_poly_recursively<F, C, S, const D: usize>(

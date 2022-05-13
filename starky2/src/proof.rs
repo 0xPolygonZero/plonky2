@@ -144,9 +144,9 @@ pub(crate) struct StarkProofChallengesTarget<const D: usize> {
 pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub local_values: Vec<F::Extension>,
     pub next_values: Vec<F::Extension>,
-    pub permutation_lookup_zs: Option<Vec<F::Extension>>,
-    pub permutation_lookup_zs_right: Option<Vec<F::Extension>>,
-    pub lookup_zs_last: Vec<F>,
+    pub permutation_ctl_zs: Option<Vec<F::Extension>>,
+    pub permutation_ctl_zs_right: Option<Vec<F::Extension>>,
+    pub ctl_zs_last: Vec<F>,
     pub quotient_polys: Vec<F::Extension>,
 }
 
@@ -155,7 +155,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         zeta: F::Extension,
         g: F,
         trace_commitment: &PolynomialBatch<F, C, D>,
-        permutation_lookup_zs_commitment: Option<&PolynomialBatch<F, C, D>>,
+        permutation_ctl_zs_commitment: Option<&PolynomialBatch<F, C, D>>,
         quotient_commitment: &PolynomialBatch<F, C, D>,
         degree_bits: usize,
         num_permutation_zs: usize,
@@ -176,11 +176,10 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         Self {
             local_values: eval_commitment(zeta, trace_commitment),
             next_values: eval_commitment(zeta_right, trace_commitment),
-            permutation_lookup_zs: permutation_lookup_zs_commitment
-                .map(|c| eval_commitment(zeta, c)),
-            permutation_lookup_zs_right: permutation_lookup_zs_commitment
+            permutation_ctl_zs: permutation_ctl_zs_commitment.map(|c| eval_commitment(zeta, c)),
+            permutation_ctl_zs_right: permutation_ctl_zs_commitment
                 .map(|c| eval_commitment(zeta_right, c)),
-            lookup_zs_last: permutation_lookup_zs_commitment
+            ctl_zs_last: permutation_ctl_zs_commitment
                 .map(|c| {
                     eval_commitment_base(F::primitive_root_of_unity(degree_bits).inverse(), c)
                         [num_permutation_zs..]
@@ -196,7 +195,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             values: self
                 .local_values
                 .iter()
-                .chain(self.permutation_lookup_zs.iter().flatten())
+                .chain(self.permutation_ctl_zs.iter().flatten())
                 .chain(&self.quotient_polys)
                 .copied()
                 .collect_vec(),
@@ -205,16 +204,16 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             values: self
                 .next_values
                 .iter()
-                .chain(self.permutation_lookup_zs_right.iter().flatten())
+                .chain(self.permutation_ctl_zs_right.iter().flatten())
                 .copied()
                 .collect_vec(),
         };
         let mut batches = vec![zeta_batch, zeta_right_batch];
 
-        if !self.lookup_zs_last.is_empty() {
+        if !self.ctl_zs_last.is_empty() {
             batches.push(FriOpeningBatch {
                 values: self
-                    .lookup_zs_last
+                    .ctl_zs_last
                     .iter()
                     .copied()
                     .map(F::Extension::from_basefield)

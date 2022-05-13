@@ -21,7 +21,7 @@ use rayon::prelude::*;
 use crate::all_stark::{AllStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::cross_table_lookup::{cross_table_lookup_zs, CTLCheckVars, LookupData};
+use crate::cross_table_lookup::{cross_table_lookup_data, CTLCheckVars, CtlData};
 use crate::permutation::PermutationCheckVars;
 use crate::permutation::{
     compute_permutation_z_polys, get_n_grand_product_challenge_sets, GrandProductChallengeSet,
@@ -31,6 +31,7 @@ use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::vars::StarkEvaluationVars;
 
+/// Compute all STARK proofs.
 pub fn prove<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     config: &StarkConfig,
@@ -80,7 +81,7 @@ where
         challenger.observe_cap(cap);
     }
 
-    let lookup_zs = cross_table_lookup_zs::<F, C, D>(
+    let ctl_data_per_table = cross_table_lookup_data::<F, C, D>(
         config,
         &trace_poly_values,
         &all_stark.cross_table_lookups,
@@ -92,7 +93,7 @@ where
         config,
         &trace_poly_values[Table::Cpu as usize],
         &trace_commitments[Table::Cpu as usize],
-        &lookup_zs[Table::Cpu as usize],
+        &ctl_data_per_table[Table::Cpu as usize],
         &public_inputs[Table::Cpu as usize],
         &mut challenger,
         timing,
@@ -102,7 +103,7 @@ where
         config,
         &trace_poly_values[Table::Keccak as usize],
         &trace_commitments[Table::Keccak as usize],
-        &lookup_zs[Table::Keccak as usize],
+        &ctl_data_per_table[Table::Keccak as usize],
         &public_inputs[Table::Keccak as usize],
         &mut challenger,
         timing,
@@ -114,12 +115,13 @@ where
     })
 }
 
+/// Compute proof for a single STARK table.
 fn prove_single_table<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
     trace_poly_values: &[PolynomialValues<F>],
     trace_commitment: &PolynomialBatch<F, C, D>,
-    lookup_data: &LookupData<F>,
+    ctl_data: &CtlData<F>,
     public_inputs: &[F],
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
@@ -157,9 +159,9 @@ where
     let num_permutation_zs = permutation_zs.as_ref().map(|v| v.len()).unwrap_or(0);
 
     let z_polys = match permutation_zs {
-        None => lookup_data.z_polys(),
+        None => ctl_data.z_polys(),
         Some(mut permutation_zs) => {
-            permutation_zs.extend(lookup_data.z_polys());
+            permutation_zs.extend(ctl_data.z_polys());
             permutation_zs
         }
     };
@@ -182,24 +184,26 @@ where
     }
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
-    test_it(
-        stark,
-        trace_commitment,
-        permutation_ctl_zs_commitment.as_ref(),
-        permutation_challenges.as_ref(),
-        lookup_data,
-        public_inputs,
-        alphas.clone(),
-        degree_bits,
-        num_permutation_zs,
-        config,
-    );
+    if cfg!(test) {
+        check_constraints(
+            stark,
+            trace_commitment,
+            permutation_ctl_zs_commitment.as_ref(),
+            permutation_challenges.as_ref(),
+            ctl_data,
+            public_inputs,
+            alphas.clone(),
+            degree_bits,
+            num_permutation_zs,
+            config,
+        );
+    }
     let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
         stark,
         trace_commitment,
         permutation_ctl_zs_commitment.as_ref(),
         permutation_challenges.as_ref(),
-        lookup_data,
+        ctl_data,
         public_inputs,
         alphas,
         degree_bits,
@@ -241,7 +245,6 @@ where
         "Opening point is in the subgroup."
     );
 
-    // TODO: Add openings of lookup Z polynomials.
     let openings = StarkOpeningSet::new(
         zeta,
         g,
@@ -262,7 +265,7 @@ where
         timing,
         "compute openings proof",
         PolynomialBatch::prove_openings(
-            &stark.fri_instance(zeta, g, degree_bits, lookup_data.len(), config),
+            &stark.fri_instance(zeta, g, degree_bits, ctl_data.len(), config),
             &initial_merkle_trees,
             challenger,
             &fri_params,
@@ -290,7 +293,7 @@ fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     trace_commitment: &'a PolynomialBatch<F, C, D>,
     permutation_ctl_zs_commitment: Option<&'a PolynomialBatch<F, C, D>>,
     permutation_challenges: Option<&'a Vec<GrandProductChallengeSet<F>>>,
-    lookup_data: &LookupData<F>,
+    ctl_data: &CtlData<F>,
     public_inputs: &[F],
     alphas: Vec<F>,
     degree_bits: usize,
@@ -377,7 +380,7 @@ where
                 } else {
                     None
                 };
-            let lookup_check_data = lookup_data
+            let ctl_vars = ctl_data
                 .zs_columns
                 .iter()
                 .enumerate()
@@ -388,7 +391,7 @@ where
                     next_z: permutation_ctl_zs_commitment
                         .unwrap()
                         .get_lde_values_packed(i_next_start, step)[num_permutation_zs + i],
-                    challenges: lookup_data.challenges.challenges[i % config.num_challenges],
+                    challenges: ctl_data.challenges.challenges[i % config.num_challenges],
                     columns,
                 })
                 .collect::<Vec<_>>();
@@ -397,7 +400,7 @@ where
                 config,
                 vars,
                 permutation_check_data,
-                &lookup_check_data,
+                &ctl_vars,
                 &mut consumer,
             );
             let mut constraints_evals = consumer.accumulators();
@@ -417,12 +420,14 @@ where
         .collect()
 }
 
-fn test_it<'a, F, C, S, const D: usize>(
+/// Check that all constraints evaluate to zero on `H`.
+/// Can also be used to check the degree of the constraints by evaluating on a larger subgroup.
+fn check_constraints<'a, F, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &'a PolynomialBatch<F, C, D>,
     permutation_ctl_zs_commitment: Option<&'a PolynomialBatch<F, C, D>>,
     permutation_challenges: Option<&'a Vec<GrandProductChallengeSet<F>>>,
-    lookup_data: &LookupData<F>,
+    ctl_data: &CtlData<F>,
     public_inputs: &[F],
     alphas: Vec<F>,
     degree_bits: usize,
@@ -434,23 +439,23 @@ fn test_it<'a, F, C, S, const D: usize>(
     S: Stark<F, D>,
 {
     let degree = 1 << degree_bits;
-    let rate_bits = 0;
+    let rate_bits = 0; // Set this to higher value to check constraint degree.
 
     let size = degree << rate_bits;
     let step = 1 << rate_bits;
 
-    // Evaluation of the first Lagrange polynomial on the LDE domain.
+    // Evaluation of the first Lagrange polynomial.
     let lagrange_first = PolynomialValues::selector(degree, 0).lde(rate_bits);
-    // Evaluation of the last Lagrange polynomial on the LDE domain.
+    // Evaluation of the last Lagrange polynomial.
     let lagrange_last = PolynomialValues::selector(degree, degree - 1).lde(rate_bits);
 
     let subgroup = F::two_adic_subgroup(degree_bits + rate_bits);
 
-    // Retrieve the LDE values at index `i`.
+    // Retrieve the polynomials values at index `i`.
     let get_comm_values = |comm: &PolynomialBatch<F, C, D>, i| -> Vec<F> {
         comm.polynomials
             .iter()
-            .map(|poly| poly.eval(subgroup[i]))
+            .map(|poly| poly.eval(subgroup[i])) // O(n^2) FTW
             .collect()
     };
 
@@ -493,7 +498,7 @@ fn test_it<'a, F, C, S, const D: usize>(
                 } else {
                     None
                 };
-            let lookup_check_data = lookup_data
+            let ctl_vars = ctl_data
                 .zs_columns
                 .iter()
                 .enumerate()
@@ -502,7 +507,7 @@ fn test_it<'a, F, C, S, const D: usize>(
                         [num_permutation_zs + iii],
                     next_z: get_comm_values(permutation_ctl_zs_commitment.unwrap(), i_next)
                         [num_permutation_zs + iii],
-                    challenges: lookup_data.challenges.challenges[iii % config.num_challenges],
+                    challenges: ctl_data.challenges.challenges[iii % config.num_challenges],
                     columns,
                 })
                 .collect::<Vec<_>>();
@@ -511,7 +516,7 @@ fn test_it<'a, F, C, S, const D: usize>(
                 config,
                 vars,
                 permutation_check_data,
-                &lookup_check_data,
+                &ctl_vars,
                 &mut consumer,
             );
             consumer.accumulators()

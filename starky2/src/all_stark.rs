@@ -28,12 +28,14 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
 
 #[derive(Copy, Clone)]
 pub struct CpuStark<F, const D: usize> {
+    #[allow(dead_code)]
     num_rows: usize,
     f: PhantomData<F>,
 }
 
 #[derive(Copy, Clone)]
 pub struct KeccakStark<F, const D: usize> {
+    #[allow(dead_code)]
     num_rows: usize,
     f: PhantomData<F>,
 }

@@ -261,7 +261,7 @@ pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: 
     stark: &S,
     config: &StarkConfig,
     vars: StarkEvaluationVars<FE, P>,
-    permutation_data: PermutationCheckVars<F, FE, P, D2>,
+    permutation_vars: PermutationCheckVars<F, FE, P, D2>,
     consumer: &mut ConstraintConsumer<P>,
 ) where
     F: RichField + Extendable<D>,
@@ -274,7 +274,7 @@ pub(crate) fn eval_permutation_checks<F, FE, P, C, S, const D: usize, const D2: 
         local_zs,
         next_zs,
         permutation_challenge_sets,
-    } = permutation_data;
+    } = permutation_vars;
 
     // Check that Z(1) = 1;
     for &z in &local_zs {

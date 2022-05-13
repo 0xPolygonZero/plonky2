@@ -92,16 +92,16 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             FriPolynomialInfo::from_range(oracle_indices.next().unwrap(), 0..Self::COLUMNS);
 
         let num_permutation_batches = self.num_permutation_batches(config);
-        let permutation_lookup_zs_info = (num_permutation_batches + num_ctl_zs > 0).then(|| {
-            let permutation_lookup_index = oracle_indices.next().unwrap();
+        let permutation_ctl_zs_info = (num_permutation_batches + num_ctl_zs > 0).then(|| {
+            let permutation_ctl_index = oracle_indices.next().unwrap();
             FriPolynomialInfo::from_range(
-                permutation_lookup_index,
+                permutation_ctl_index,
                 0..num_permutation_batches + num_ctl_zs,
             )
         });
 
-        let lookup_zs_info = (num_ctl_zs > 0).then(|| {
-            let index = permutation_lookup_zs_info
+        let ctl_zs_info = (num_ctl_zs > 0).then(|| {
+            let index = permutation_ctl_zs_info
                 .as_ref()
                 .map(|info| info[0].oracle_index)
                 .unwrap_or_else(|| oracle_indices.next().unwrap());
@@ -119,19 +119,19 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         let zeta_batch = FriBatchInfo {
             point: zeta,
             polynomials: once(trace_info.clone())
-                .chain(permutation_lookup_zs_info.clone())
+                .chain(permutation_ctl_zs_info.clone())
                 .chain(once(quotient_info))
                 .collect::<Vec<_>>()
                 .concat(),
         };
         let zeta_right_batch = FriBatchInfo {
             point: zeta.scalar_mul(g),
-            polynomials: once(trace_info.clone())
-                .chain(permutation_lookup_zs_info.clone())
+            polynomials: once(trace_info)
+                .chain(permutation_ctl_zs_info)
                 .collect::<Vec<_>>()
                 .concat(),
         };
-        let lookup_batch = lookup_zs_info.map(|info| FriBatchInfo {
+        let ctl_last_batch = ctl_zs_info.map(|info| FriBatchInfo {
             point: F::Extension::primitive_root_of_unity(degree_bits).inverse(),
             polynomials: info,
         });
@@ -139,7 +139,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             oracles: vec![no_blinding_oracle; oracle_indices.next().unwrap()],
             batches: once(zeta_batch)
                 .chain(once(zeta_right_batch))
-                .chain(lookup_batch)
+                .chain(ctl_last_batch)
                 .collect::<Vec<_>>(),
         }
     }
