@@ -21,7 +21,7 @@ use rayon::prelude::*;
 use crate::all_stark::{AllStark, CpuStark, KeccakStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::cross_table_lookup::{cross_table_lookup_data, CTLCheckVars, CtlData};
+use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
 use crate::permutation::PermutationCheckVars;
 use crate::permutation::{
     compute_permutation_z_polys, get_n_grand_product_challenge_sets, GrandProductChallengeSet,
@@ -401,7 +401,7 @@ where
                 .zs_columns
                 .iter()
                 .enumerate()
-                .map(|(i, (_, columns))| CTLCheckVars::<F, F, P, 1> {
+                .map(|(i, (_, columns))| CtlCheckVars::<F, F, P, 1> {
                     local_z: permutation_ctl_zs_commitment
                         .unwrap()
                         .get_lde_values_packed(i_start, step)[num_permutation_zs + i],
@@ -523,7 +523,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 .zs_columns
                 .iter()
                 .enumerate()
-                .map(|(iii, (_, columns))| CTLCheckVars::<F, F, F, 1> {
+                .map(|(iii, (_, columns))| CtlCheckVars::<F, F, F, 1> {
                     local_z: get_comm_values(permutation_ctl_zs_commitment.unwrap(), i)
                         [num_permutation_zs + iii],
                     next_z: get_comm_values(permutation_ctl_zs_commitment.unwrap(), i_next)

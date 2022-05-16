@@ -44,10 +44,10 @@ impl CrossTableLookup {
     }
 }
 
-/// Lookup data for one table.
+/// Cross-table lookup data for one table.
 #[derive(Clone)]
 pub struct CtlData<F: Field> {
-    // Challenges used in the lookup argument.
+    // Challenges used in the argument.
     pub(crate) challenges: GrandProductChallengeSet<F>,
     // Vector of `(Z, columns)` where `Z` is a Z-polynomial for a lookup on columns `columns`.
     pub zs_columns: Vec<(PolynomialValues<F>, Vec<usize>)>,
@@ -135,7 +135,7 @@ fn partial_products<F: Field>(
 }
 
 #[derive(Clone)]
-pub struct CTLCheckVars<'a, F, FE, P, const D2: usize>
+pub struct CtlCheckVars<'a, F, FE, P, const D2: usize>
 where
     F: Field,
     FE: FieldExtension<D2, BaseField = F>,
@@ -148,7 +148,7 @@ where
 }
 
 impl<'a, F: RichField + Extendable<D>, const D: usize>
-    CTLCheckVars<'a, F, F::Extension, F::Extension, D>
+    CtlCheckVars<'a, F, F::Extension, F::Extension, D>
 {
     pub(crate) fn from_proofs<C: GenericConfig<D, F = F>>(
         proofs: &[&StarkProofWithPublicInputs<F, C, D>],
@@ -221,7 +221,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 
 pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, C, S, const D: usize, const D2: usize>(
     vars: StarkEvaluationVars<FE, P, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
-    ctl_vars: &[CTLCheckVars<F, FE, P, D2>],
+    ctl_vars: &[CtlCheckVars<F, FE, P, D2>],
     consumer: &mut ConstraintConsumer<P>,
 ) where
     F: RichField + Extendable<D>,
@@ -231,7 +231,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, C, S, const D: usize, con
     S: Stark<F, D>,
 {
     for lookup_vars in ctl_vars {
-        let CTLCheckVars {
+        let CtlCheckVars {
             local_z,
             next_z,
             challenges,

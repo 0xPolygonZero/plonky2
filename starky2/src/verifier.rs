@@ -12,7 +12,7 @@ use plonky2::plonk::plonk_common::reduce_with_powers;
 use crate::all_stark::{AllStark, CpuStark, KeccakStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::cross_table_lookup::{verify_cross_table_lookups, CTLCheckVars};
+use crate::cross_table_lookup::{verify_cross_table_lookups, CtlCheckVars};
 use crate::permutation::PermutationCheckVars;
 use crate::proof::{
     AllProof, AllProofChallenges, StarkOpeningSet, StarkProofChallenges, StarkProofWithPublicInputs,
@@ -46,7 +46,7 @@ where
         cross_table_lookups,
     } = all_stark;
 
-    let ctl_vars_per_table = CTLCheckVars::from_proofs(
+    let ctl_vars_per_table = CtlCheckVars::from_proofs(
         &all_proof.proofs(),
         &cross_table_lookups,
         &ctl_challenges,
@@ -85,7 +85,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
     stark: S,
     proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
     challenges: StarkProofChallenges<F, D>,
-    ctl_vars: &[CTLCheckVars<F, F::Extension, F::Extension, D>],
+    ctl_vars: &[CtlCheckVars<F, F::Extension, F::Extension, D>],
     config: &StarkConfig,
 ) -> Result<()>
 where

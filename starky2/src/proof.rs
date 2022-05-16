@@ -142,11 +142,17 @@ pub(crate) struct StarkProofChallengesTarget<const D: usize> {
 /// Purported values of each polynomial at the challenge point.
 #[derive(Debug, Clone)]
 pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
+    /// Openings of trace polynomials at `zeta`.
     pub local_values: Vec<F::Extension>,
+    /// Openings of trace polynomials at `g * zeta`.
     pub next_values: Vec<F::Extension>,
+    /// Openings of permutations and cross-table lookups `Z` polynomials at `zeta`.
     pub permutation_ctl_zs: Option<Vec<F::Extension>>,
+    /// Openings of permutations and cross-table lookups `Z` polynomials at `g * zeta`.
     pub permutation_ctl_zs_right: Option<Vec<F::Extension>>,
+    /// Openings of cross-table lookups `Z` polynomials at `g^-1`.
     pub ctl_zs_last: Vec<F>,
+    /// Openings of quotient polynomials at `zeta`.
     pub quotient_polys: Vec<F::Extension>,
 }
 
