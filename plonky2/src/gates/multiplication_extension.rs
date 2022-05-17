@@ -108,16 +108,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for MulExtensionGa
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         (0..self.num_ops)
             .map(|i| {
                 let g: Box<dyn WitnessGenerator<F>> = Box::new(
                     MulExtensionGenerator {
-                        gate_index,
+                        row,
                         const_0: local_constants[0],
                         i,
                     }
@@ -147,7 +143,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for MulExtensionGa
 
 #[derive(Clone, Debug)]
 struct MulExtensionGenerator<F: RichField + Extendable<D>, const D: usize> {
-    gate_index: usize,
+    row: usize,
     const_0: F,
     i: usize,
 }
@@ -158,13 +154,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         MulExtensionGate::<D>::wires_ith_multiplicand_0(self.i)
             .chain(MulExtensionGate::<D>::wires_ith_multiplicand_1(self.i))
-            .map(|i| Target::wire(self.gate_index, i))
+            .map(|i| Target::wire(self.row, i))
             .collect()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let extract_extension = |range: Range<usize>| -> F::Extension {
-            let t = ExtensionTarget::from_range(self.gate_index, range);
+            let t = ExtensionTarget::from_range(self.row, range);
             witness.get_extension_target(t)
         };
 
@@ -173,10 +169,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let multiplicand_1 =
             extract_extension(MulExtensionGate::<D>::wires_ith_multiplicand_1(self.i));
 
-        let output_target = ExtensionTarget::from_range(
-            self.gate_index,
-            MulExtensionGate::<D>::wires_ith_output(self.i),
-        );
+        let output_target =
+            ExtensionTarget::from_range(self.row, MulExtensionGate::<D>::wires_ith_output(self.i));
 
         let computed_output = (multiplicand_0 * multiplicand_1).scalar_mul(self.const_0);
 

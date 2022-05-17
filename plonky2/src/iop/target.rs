@@ -27,8 +27,8 @@ impl Target {
         }
     }
 
-    pub fn wires_from_range(gate: usize, range: Range<usize>) -> Vec<Self> {
-        range.map(|i| Self::wire(gate, i)).collect()
+    pub fn wires_from_range(row: usize, range: Range<usize>) -> Vec<Self> {
+        range.map(|i| Self::wire(row, i)).collect()
     }
 
     pub fn index(&self, num_wires: usize, degree: usize) -> usize {

@@ -54,29 +54,26 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "Not enough routed wires."
         );
         let gate_type = BaseSumGate::<2>::new_from_config::<F>(&self.config);
-        let gate_index = self.add_gate(gate_type, vec![]);
+        let row = self.add_gate(gate_type, vec![]);
         for (limb, wire) in bits
             .iter()
             .zip(BaseSumGate::<2>::START_LIMBS..BaseSumGate::<2>::START_LIMBS + num_bits)
         {
-            self.connect(limb.target, Target::wire(gate_index, wire));
+            self.connect(limb.target, Target::wire(row, wire));
         }
         for l in gate_type.limbs().skip(num_bits) {
-            self.assert_zero(Target::wire(gate_index, l));
+            self.assert_zero(Target::wire(row, l));
         }
 
-        self.add_simple_generator(BaseSumGenerator::<2> {
-            gate_index,
-            limbs: bits,
-        });
+        self.add_simple_generator(BaseSumGenerator::<2> { row, limbs: bits });
 
-        Target::wire(gate_index, BaseSumGate::<2>::WIRE_SUM)
+        Target::wire(row, BaseSumGate::<2>::WIRE_SUM)
     }
 }
 
 #[derive(Debug)]
 struct BaseSumGenerator<const B: usize> {
-    gate_index: usize,
+    row: usize,
     limbs: Vec<BoolTarget>,
 }
 
@@ -95,10 +92,7 @@ impl<F: Field, const B: usize> SimpleGenerator<F> for BaseSumGenerator<B> {
                 acc * F::from_canonical_usize(B) + F::from_bool(limb)
             });
 
-        out_buffer.set_target(
-            Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM),
-            sum,
-        );
+        out_buffer.set_target(Target::wire(self.row, BaseSumGate::<B>::WIRE_SUM), sum);
     }
 }
 

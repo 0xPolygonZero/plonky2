@@ -134,15 +134,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = U32RangeCheckGenerator {
-            gate: *self,
-            gate_index,
-        };
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
+        let gen = U32RangeCheckGenerator { gate: *self, row };
         vec![Box::new(gen.adapter())]
     }
 
@@ -168,7 +161,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
 #[derive(Debug)]
 pub struct U32RangeCheckGenerator<F: RichField + Extendable<D>, const D: usize> {
     gate: U32RangeCheckGate<F, D>,
-    gate_index: usize,
+    row: usize,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
@@ -177,7 +170,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         let num_input_limbs = self.gate.num_input_limbs;
         (0..num_input_limbs)
-            .map(|i| Target::wire(self.gate_index, self.gate.wire_ith_input_limb(i)))
+            .map(|i| Target::wire(self.row, self.gate.wire_ith_input_limb(i)))
             .collect()
     }
 
@@ -185,19 +178,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let num_input_limbs = self.gate.num_input_limbs;
         for i in 0..num_input_limbs {
             let sum_value = witness
-                .get_target(Target::wire(
-                    self.gate_index,
-                    self.gate.wire_ith_input_limb(i),
-                ))
+                .get_target(Target::wire(self.row, self.gate.wire_ith_input_limb(i)))
                 .to_canonical_u64() as u32;
 
             let base = U32RangeCheckGate::<F, D>::BASE as u32;
-            let limbs = (0..self.gate.aux_limbs_per_input_limb()).map(|j| {
-                Target::wire(
-                    self.gate_index,
-                    self.gate.wire_ith_input_limb_jth_aux_limb(i, j),
-                )
-            });
+            let limbs = (0..self.gate.aux_limbs_per_input_limb())
+                .map(|j| Target::wire(self.row, self.gate.wire_ith_input_limb_jth_aux_limb(i, j)));
             let limbs_value = (0..self.gate.aux_limbs_per_input_limb())
                 .scan(sum_value, |acc, _| {
                     let tmp = *acc % base;

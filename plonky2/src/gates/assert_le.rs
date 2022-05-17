@@ -251,13 +251,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = AssertLessThanGenerator::<F, D> {
-            gate_index,
+            row,
             gate: self.clone(),
         };
         vec![Box::new(gen.adapter())]
@@ -354,7 +350,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
 
 #[derive(Debug)]
 struct AssertLessThanGenerator<F: RichField + Extendable<D>, const D: usize> {
-    gate_index: usize,
+    row: usize,
     gate: AssertLessThanGate<F, D>,
 }
 
@@ -362,7 +358,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for AssertLessThanGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |column| Target::wire(self.gate_index, column);
+        let local_target = |column| Target::wire(self.row, column);
 
         vec![
             local_target(self.gate.wire_first_input()),
@@ -372,7 +368,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |column| Wire {
-            row: self.gate_index,
+            row: self.row,
             column,
         };
 

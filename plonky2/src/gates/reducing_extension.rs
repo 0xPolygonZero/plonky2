@@ -135,14 +135,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingExtens
             .collect()
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         vec![Box::new(
             ReducingGenerator {
-                gate_index,
+                row,
                 gate: self.clone(),
             }
             .adapter(),
@@ -168,7 +164,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingExtens
 
 #[derive(Debug)]
 struct ReducingGenerator<const D: usize> {
-    gate_index: usize,
+    row: usize,
     gate: ReducingExtensionGate<D>,
 }
 
@@ -177,13 +173,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Reduci
         ReducingExtensionGate::<D>::wires_alpha()
             .chain(ReducingExtensionGate::<D>::wires_old_acc())
             .chain((0..self.gate.num_coeffs).flat_map(ReducingExtensionGate::<D>::wires_coeff))
-            .map(|i| Target::wire(self.gate_index, i))
+            .map(|i| Target::wire(self.row, i))
             .collect()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_extension = |range: Range<usize>| -> F::Extension {
-            let t = ExtensionTarget::from_range(self.gate_index, range);
+            let t = ExtensionTarget::from_range(self.row, range);
             witness.get_extension_target(t)
         };
 
@@ -193,7 +189,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Reduci
             .map(|i| local_extension(ReducingExtensionGate::<D>::wires_coeff(i)))
             .collect::<Vec<_>>();
         let accs = (0..self.gate.num_coeffs)
-            .map(|i| ExtensionTarget::from_range(self.gate_index, self.gate.wires_accs(i)))
+            .map(|i| ExtensionTarget::from_range(self.row, self.gate.wires_accs(i)))
             .collect::<Vec<_>>();
 
         let mut acc = old_acc;

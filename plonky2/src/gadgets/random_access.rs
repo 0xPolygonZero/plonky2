@@ -20,21 +20,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let claimed_element = self.add_virtual_target();
 
         let dummy_gate = RandomAccessGate::<F, D>::new_from_config(&self.config, bits);
-        let (gate_index, copy) = self.find_slot(dummy_gate, &[], &[]);
+        let (row, copy) = self.find_slot(dummy_gate, &[], &[]);
 
         v.iter().enumerate().for_each(|(i, &val)| {
-            self.connect(
-                val,
-                Target::wire(gate_index, dummy_gate.wire_list_item(i, copy)),
-            );
+            self.connect(val, Target::wire(row, dummy_gate.wire_list_item(i, copy)));
         });
         self.connect(
             access_index,
-            Target::wire(gate_index, dummy_gate.wire_access_index(copy)),
+            Target::wire(row, dummy_gate.wire_access_index(copy)),
         );
         self.connect(
             claimed_element,
-            Target::wire(gate_index, dummy_gate.wire_claimed_element(copy)),
+            Target::wire(row, dummy_gate.wire_claimed_element(copy)),
         );
 
         claimed_element

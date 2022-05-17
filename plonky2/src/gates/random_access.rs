@@ -216,16 +216,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for RandomAccessGa
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         (0..self.num_copies)
             .map(|copy| {
                 let g: Box<dyn WitnessGenerator<F>> = Box::new(
                     RandomAccessGenerator {
-                        gate_index,
+                        row,
                         gate: *self,
                         copy,
                     }
@@ -309,7 +305,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
 
 #[derive(Debug)]
 struct RandomAccessGenerator<F: RichField + Extendable<D>, const D: usize> {
-    gate_index: usize,
+    row: usize,
     gate: RandomAccessGate<F, D>,
     copy: usize,
 }
@@ -318,7 +314,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for RandomAccessGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |column| Target::wire(self.gate_index, column);
+        let local_target = |column| Target::wire(self.row, column);
 
         let mut deps = vec![local_target(self.gate.wire_access_index(self.copy))];
         for i in 0..self.gate.vec_size() {
@@ -329,7 +325,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |column| Wire {
-            row: self.gate_index,
+            row: self.row,
             column,
         };
 

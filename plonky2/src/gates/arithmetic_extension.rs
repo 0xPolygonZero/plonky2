@@ -120,16 +120,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         (0..self.num_ops)
             .map(|i| {
                 let g: Box<dyn WitnessGenerator<F>> = Box::new(
                     ArithmeticExtensionGenerator {
-                        gate_index,
+                        row,
                         const_0: local_constants[0],
                         const_1: local_constants[1],
                         i,
@@ -160,7 +156,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
 
 #[derive(Clone, Debug)]
 struct ArithmeticExtensionGenerator<F: RichField + Extendable<D>, const D: usize> {
-    gate_index: usize,
+    row: usize,
     const_0: F,
     const_1: F,
     i: usize,
@@ -175,13 +171,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
                 self.i,
             ))
             .chain(ArithmeticExtensionGate::<D>::wires_ith_addend(self.i))
-            .map(|i| Target::wire(self.gate_index, i))
+            .map(|i| Target::wire(self.row, i))
             .collect()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let extract_extension = |range: Range<usize>| -> F::Extension {
-            let t = ExtensionTarget::from_range(self.gate_index, range);
+            let t = ExtensionTarget::from_range(self.row, range);
             witness.get_extension_target(t)
         };
 
@@ -194,7 +190,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let addend = extract_extension(ArithmeticExtensionGate::<D>::wires_ith_addend(self.i));
 
         let output_target = ExtensionTarget::from_range(
-            self.gate_index,
+            self.row,
             ArithmeticExtensionGate::<D>::wires_ith_output(self.i),
         );
 

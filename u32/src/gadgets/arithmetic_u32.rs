@@ -131,26 +131,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderU32<F, D>
         }
 
         let gate = U32ArithmeticGate::<F, D>::new_from_config(&self.config);
-        let (gate_index, copy) = self.find_slot(gate, &[], &[]);
+        let (row, copy) = self.find_slot(gate, &[], &[]);
 
-        self.connect(
-            Target::wire(gate_index, gate.wire_ith_multiplicand_0(copy)),
-            x.0,
-        );
-        self.connect(
-            Target::wire(gate_index, gate.wire_ith_multiplicand_1(copy)),
-            y.0,
-        );
-        self.connect(Target::wire(gate_index, gate.wire_ith_addend(copy)), z.0);
+        self.connect(Target::wire(row, gate.wire_ith_multiplicand_0(copy)), x.0);
+        self.connect(Target::wire(row, gate.wire_ith_multiplicand_1(copy)), y.0);
+        self.connect(Target::wire(row, gate.wire_ith_addend(copy)), z.0);
 
-        let output_low = U32Target(Target::wire(
-            gate_index,
-            gate.wire_ith_output_low_half(copy),
-        ));
-        let output_high = U32Target(Target::wire(
-            gate_index,
-            gate.wire_ith_output_high_half(copy),
-        ));
+        let output_low = U32Target(Target::wire(row, gate.wire_ith_output_low_half(copy)));
+        let output_high = U32Target(Target::wire(row, gate.wire_ith_output_high_half(copy)));
 
         (output_low, output_high)
     }
@@ -168,22 +156,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderU32<F, D>
             _ => {
                 let num_addends = to_add.len();
                 let gate = U32AddManyGate::<F, D>::new_from_config(&self.config, num_addends);
-                let (gate_index, copy) =
+                let (row, copy) =
                     self.find_slot(gate, &[F::from_canonical_usize(num_addends)], &[]);
 
                 for j in 0..num_addends {
                     self.connect(
-                        Target::wire(gate_index, gate.wire_ith_op_jth_addend(copy, j)),
+                        Target::wire(row, gate.wire_ith_op_jth_addend(copy, j)),
                         to_add[j].0,
                     );
                 }
                 let zero = self.zero();
-                self.connect(Target::wire(gate_index, gate.wire_ith_carry(copy)), zero);
+                self.connect(Target::wire(row, gate.wire_ith_carry(copy)), zero);
 
-                let output_low =
-                    U32Target(Target::wire(gate_index, gate.wire_ith_output_result(copy)));
-                let output_high =
-                    U32Target(Target::wire(gate_index, gate.wire_ith_output_carry(copy)));
+                let output_low = U32Target(Target::wire(row, gate.wire_ith_output_result(copy)));
+                let output_high = U32Target(Target::wire(row, gate.wire_ith_output_carry(copy)));
 
                 (output_low, output_high)
             }
@@ -202,18 +188,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderU32<F, D>
         let num_addends = to_add.len();
 
         let gate = U32AddManyGate::<F, D>::new_from_config(&self.config, num_addends);
-        let (gate_index, copy) = self.find_slot(gate, &[F::from_canonical_usize(num_addends)], &[]);
+        let (row, copy) = self.find_slot(gate, &[F::from_canonical_usize(num_addends)], &[]);
 
         for j in 0..num_addends {
             self.connect(
-                Target::wire(gate_index, gate.wire_ith_op_jth_addend(copy, j)),
+                Target::wire(row, gate.wire_ith_op_jth_addend(copy, j)),
                 to_add[j].0,
             );
         }
-        self.connect(Target::wire(gate_index, gate.wire_ith_carry(copy)), carry.0);
+        self.connect(Target::wire(row, gate.wire_ith_carry(copy)), carry.0);
 
-        let output = U32Target(Target::wire(gate_index, gate.wire_ith_output_result(copy)));
-        let output_carry = U32Target(Target::wire(gate_index, gate.wire_ith_output_carry(copy)));
+        let output = U32Target(Target::wire(row, gate.wire_ith_output_result(copy)));
+        let output_carry = U32Target(Target::wire(row, gate.wire_ith_output_carry(copy)));
 
         (output, output_carry)
     }
@@ -226,17 +212,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderU32<F, D>
     // Returns x - y - borrow, as a pair (result, borrow), where borrow is 0 or 1 depending on whether borrowing from the next digit is required (iff y + borrow > x).
     fn sub_u32(&mut self, x: U32Target, y: U32Target, borrow: U32Target) -> (U32Target, U32Target) {
         let gate = U32SubtractionGate::<F, D>::new_from_config(&self.config);
-        let (gate_index, copy) = self.find_slot(gate, &[], &[]);
+        let (row, copy) = self.find_slot(gate, &[], &[]);
 
-        self.connect(Target::wire(gate_index, gate.wire_ith_input_x(copy)), x.0);
-        self.connect(Target::wire(gate_index, gate.wire_ith_input_y(copy)), y.0);
+        self.connect(Target::wire(row, gate.wire_ith_input_x(copy)), x.0);
+        self.connect(Target::wire(row, gate.wire_ith_input_y(copy)), y.0);
         self.connect(
-            Target::wire(gate_index, gate.wire_ith_input_borrow(copy)),
+            Target::wire(row, gate.wire_ith_input_borrow(copy)),
             borrow.0,
         );
 
-        let output_result = U32Target(Target::wire(gate_index, gate.wire_ith_output_result(copy)));
-        let output_borrow = U32Target(Target::wire(gate_index, gate.wire_ith_output_borrow(copy)));
+        let output_result = U32Target(Target::wire(row, gate.wire_ith_output_result(copy)));
+        let output_borrow = U32Target(Target::wire(row, gate.wire_ith_output_borrow(copy)));
 
         (output_result, output_borrow)
     }

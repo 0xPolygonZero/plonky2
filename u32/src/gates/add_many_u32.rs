@@ -232,17 +232,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         (0..self.num_ops)
             .map(|i| {
                 let g: Box<dyn WitnessGenerator<F>> = Box::new(
                     U32AddManyGenerator {
                         gate: *self,
-                        gate_index,
+                        row,
                         i,
                         _phantom: PhantomData,
                     }
@@ -273,7 +269,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
 #[derive(Clone, Debug)]
 struct U32AddManyGenerator<F: RichField + Extendable<D>, const D: usize> {
     gate: U32AddManyGate<F, D>,
-    gate_index: usize,
+    row: usize,
     i: usize,
     _phantom: PhantomData<F>,
 }
@@ -282,7 +278,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for U32AddManyGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |column| Target::wire(self.gate_index, column);
+        let local_target = |column| Target::wire(self.row, column);
 
         (0..self.gate.num_addends)
             .map(|j| local_target(self.gate.wire_ith_op_jth_addend(self.i, j)))
@@ -292,7 +288,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |column| Wire {
-            row: self.gate_index,
+            row: self.row,
             column,
         };
 

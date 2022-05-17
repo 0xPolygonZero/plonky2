@@ -261,13 +261,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = InterpolationGenerator::<F, D> {
-            gate_index,
+            row,
             gate: *self,
             _phantom: PhantomData,
         };
@@ -296,7 +292,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for LowDegreeInter
 
 #[derive(Debug)]
 struct InterpolationGenerator<F: RichField + Extendable<D>, const D: usize> {
-    gate_index: usize,
+    row: usize,
     gate: LowDegreeInterpolationGate<F, D>,
     _phantom: PhantomData<F>,
 }
@@ -307,7 +303,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |column| {
             Target::Wire(Wire {
-                row: self.gate_index,
+                row: self.row,
                 column,
             })
         };
@@ -327,7 +323,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |column| Wire {
-            row: self.gate_index,
+            row: self.row,
             column,
         };
 
@@ -373,7 +369,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             .skip(2)
         {
             out_buffer.set_extension_target(
-                ExtensionTarget::from_range(self.gate_index, self.gate.powers_evaluation_point(i)),
+                ExtensionTarget::from_range(self.row, self.gate.powers_evaluation_point(i)),
                 power,
             );
         }

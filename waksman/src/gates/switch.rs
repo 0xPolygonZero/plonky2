@@ -154,15 +154,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for SwitchGate<F, 
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         (0..self.num_copies)
             .map(|c| {
                 let g: Box<dyn WitnessGenerator<F>> = Box::new(SwitchGenerator::<F, D> {
-                    gate_index,
+                    row,
                     gate: *self,
                     copy: c,
                 });
@@ -215,14 +211,14 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
 
 #[derive(Debug)]
 struct SwitchGenerator<F: RichField + Extendable<D>, const D: usize> {
-    gate_index: usize,
+    row: usize,
     gate: SwitchGate<F, D>,
     copy: usize,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
     fn in_out_dependencies(&self) -> Vec<Target> {
-        let local_target = |column| Target::wire(self.gate_index, column);
+        let local_target = |column| Target::wire(self.row, column);
 
         let mut deps = Vec::new();
         for e in 0..self.gate.chunk_size {
@@ -236,7 +232,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
     }
 
     fn in_switch_dependencies(&self) -> Vec<Target> {
-        let local_target = |column| Target::wire(self.gate_index, column);
+        let local_target = |column| Target::wire(self.row, column);
 
         let mut deps = Vec::new();
         for e in 0..self.gate.chunk_size {
@@ -250,7 +246,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
 
     fn run_in_out(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |column| Wire {
-            row: self.gate_index,
+            row: self.row,
             column,
         };
 
@@ -280,7 +276,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SwitchGenerator<F, D> {
 
     fn run_in_switch(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |column| Wire {
-            row: self.gate_index,
+            row: self.row,
             column,
         };
 

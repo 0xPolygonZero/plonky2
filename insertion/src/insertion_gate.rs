@@ -213,13 +213,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = InsertionGenerator::<F, D> {
-            gate_index,
+            row,
             gate: self.clone(),
         };
         vec![Box::new(gen.adapter())]
@@ -244,13 +240,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<
 
 #[derive(Debug)]
 struct InsertionGenerator<F: RichField + Extendable<D>, const D: usize> {
-    gate_index: usize,
+    row: usize,
     gate: InsertionGate<F, D>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |column| Target::wire(self.gate_index, column);
+        let local_target = |column| Target::wire(self.row, column);
 
         let local_targets = |columns: Range<usize>| columns.map(local_target);
 
@@ -264,7 +260,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Insert
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |column| Wire {
-            row: self.gate_index,
+            row: self.row,
             column,
         };
 

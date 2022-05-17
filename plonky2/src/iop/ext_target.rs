@@ -52,9 +52,9 @@ impl<const D: usize> ExtensionTarget<D> {
         res.try_into().unwrap()
     }
 
-    pub fn from_range(gate: usize, range: Range<usize>) -> Self {
+    pub fn from_range(row: usize, range: Range<usize>) -> Self {
         debug_assert_eq!(range.end - range.start, D);
-        Target::wires_from_range(gate, range).try_into().unwrap()
+        Target::wires_from_range(row, range).try_into().unwrap()
     }
 }
 

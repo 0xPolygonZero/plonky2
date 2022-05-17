@@ -29,28 +29,28 @@ pub fn list_le_circuit<F: RichField + Extendable<D>, const D: usize>(
     let mut result = one;
     for i in 0..n {
         let a_le_b_gate = ComparisonGate::new(num_bits, num_chunks);
-        let a_le_b_gate_index = builder.add_gate(a_le_b_gate.clone(), vec![]);
+        let a_le_b_row = builder.add_gate(a_le_b_gate.clone(), vec![]);
         builder.connect(
-            Target::wire(a_le_b_gate_index, a_le_b_gate.wire_first_input()),
+            Target::wire(a_le_b_row, a_le_b_gate.wire_first_input()),
             a[i],
         );
         builder.connect(
-            Target::wire(a_le_b_gate_index, a_le_b_gate.wire_second_input()),
+            Target::wire(a_le_b_row, a_le_b_gate.wire_second_input()),
             b[i],
         );
-        let a_le_b_result = Target::wire(a_le_b_gate_index, a_le_b_gate.wire_result_bool());
+        let a_le_b_result = Target::wire(a_le_b_row, a_le_b_gate.wire_result_bool());
 
         let b_le_a_gate = ComparisonGate::new(num_bits, num_chunks);
-        let b_le_a_gate_index = builder.add_gate(b_le_a_gate.clone(), vec![]);
+        let b_le_a_row = builder.add_gate(b_le_a_gate.clone(), vec![]);
         builder.connect(
-            Target::wire(b_le_a_gate_index, b_le_a_gate.wire_first_input()),
+            Target::wire(b_le_a_row, b_le_a_gate.wire_first_input()),
             b[i],
         );
         builder.connect(
-            Target::wire(b_le_a_gate_index, b_le_a_gate.wire_second_input()),
+            Target::wire(b_le_a_row, b_le_a_gate.wire_second_input()),
             a[i],
         );
-        let b_le_a_result = Target::wire(b_le_a_gate_index, b_le_a_gate.wire_result_bool());
+        let b_le_a_result = Target::wire(b_le_a_row, b_le_a_gate.wire_result_bool());
 
         let these_limbs_equal = builder.mul(a_le_b_result, b_le_a_result);
         let these_limbs_less_than = builder.sub(one, b_le_a_result);

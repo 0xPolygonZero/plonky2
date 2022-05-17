@@ -181,12 +181,8 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
             .collect()
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
-        let gen = PoseidonMdsGenerator::<D> { gate_index };
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
+        let gen = PoseidonMdsGenerator::<D> { row };
         vec![Box::new(gen.adapter())]
     }
 
@@ -209,7 +205,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
 
 #[derive(Clone, Debug)]
 struct PoseidonMdsGenerator<const D: usize> {
-    gate_index: usize,
+    row: usize,
 }
 
 impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
@@ -218,14 +214,13 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
     fn dependencies(&self) -> Vec<Target> {
         (0..SPONGE_WIDTH)
             .flat_map(|i| {
-                Target::wires_from_range(self.gate_index, PoseidonMdsGate::<F, D>::wires_input(i))
+                Target::wires_from_range(self.row, PoseidonMdsGate::<F, D>::wires_input(i))
             })
             .collect()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let get_local_get_target =
-            |wire_range| ExtensionTarget::from_range(self.gate_index, wire_range);
+        let get_local_get_target = |wire_range| ExtensionTarget::from_range(self.row, wire_range);
         let get_local_ext =
             |wire_range| witness.get_extension_target(get_local_get_target(wire_range));
 
