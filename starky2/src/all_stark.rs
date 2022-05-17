@@ -15,7 +15,7 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
     pub cpu_stark: CpuStark<F, D>,
     pub keccak_stark: KeccakStark<F, D>,
-    pub cross_table_lookups: Vec<CrossTableLookup>,
+    pub cross_table_lookups: Vec<CrossTableLookup<F>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
@@ -155,7 +155,11 @@ mod tests {
             .collect::<Vec<_>>();
         let start = thread_rng().gen_range(0..cpu_stark.num_rows - keccak_stark.num_rows);
 
+        let default = vec![F::ONE; 2];
+
+        cpu_trace[2].values = vec![default[0]; cpu_stark.num_rows];
         cpu_trace[2].values[start..start + keccak_stark.num_rows].copy_from_slice(&vs0);
+        cpu_trace[4].values = vec![default[1]; cpu_stark.num_rows];
         cpu_trace[4].values[start..start + keccak_stark.num_rows].copy_from_slice(&vs1);
 
         keccak_trace[3].values[..].copy_from_slice(&vs0);
@@ -166,6 +170,7 @@ mod tests {
             looking_columns: vec![2, 4],
             looked_table: Table::Keccak,
             looked_columns: vec![3, 5],
+            default: vec![F::ONE; 2],
         }];
 
         let all_stark = AllStark {
