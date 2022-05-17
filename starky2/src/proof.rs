@@ -40,7 +40,7 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     /// Merkle cap of LDEs of trace values.
     pub trace_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of permutation Z values.
-    pub permutation_ctl_zs_cap: Option<MerkleCap<F, C::Hasher>>,
+    pub permutation_ctl_zs_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of trace values.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
@@ -147,9 +147,9 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     /// Openings of trace polynomials at `g * zeta`.
     pub next_values: Vec<F::Extension>,
     /// Openings of permutations and cross-table lookups `Z` polynomials at `zeta`.
-    pub permutation_ctl_zs: Option<Vec<F::Extension>>,
+    pub permutation_ctl_zs: Vec<F::Extension>,
     /// Openings of permutations and cross-table lookups `Z` polynomials at `g * zeta`.
-    pub permutation_ctl_zs_right: Option<Vec<F::Extension>>,
+    pub permutation_ctl_zs_right: Vec<F::Extension>,
     /// Openings of cross-table lookups `Z` polynomials at `g^-1`.
     pub ctl_zs_last: Vec<F>,
     /// Openings of quotient polynomials at `zeta`.
@@ -161,7 +161,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         zeta: F::Extension,
         g: F,
         trace_commitment: &PolynomialBatch<F, C, D>,
-        permutation_ctl_zs_commitment: Option<&PolynomialBatch<F, C, D>>,
+        permutation_ctl_zs_commitment: &PolynomialBatch<F, C, D>,
         quotient_commitment: &PolynomialBatch<F, C, D>,
         degree_bits: usize,
         num_permutation_zs: usize,
@@ -182,16 +182,13 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         Self {
             local_values: eval_commitment(zeta, trace_commitment),
             next_values: eval_commitment(zeta_right, trace_commitment),
-            permutation_ctl_zs: permutation_ctl_zs_commitment.map(|c| eval_commitment(zeta, c)),
-            permutation_ctl_zs_right: permutation_ctl_zs_commitment
-                .map(|c| eval_commitment(zeta_right, c)),
-            ctl_zs_last: permutation_ctl_zs_commitment
-                .map(|c| {
-                    eval_commitment_base(F::primitive_root_of_unity(degree_bits).inverse(), c)
-                        [num_permutation_zs..]
-                        .to_vec()
-                })
-                .unwrap_or_default(),
+            permutation_ctl_zs: eval_commitment(zeta, permutation_ctl_zs_commitment),
+            permutation_ctl_zs_right: eval_commitment(zeta_right, permutation_ctl_zs_commitment),
+            ctl_zs_last: eval_commitment_base(
+                F::primitive_root_of_unity(degree_bits).inverse(),
+                permutation_ctl_zs_commitment,
+            )[num_permutation_zs..]
+                .to_vec(),
             quotient_polys: eval_commitment(zeta, quotient_commitment),
         }
     }
@@ -201,7 +198,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             values: self
                 .local_values
                 .iter()
-                .chain(self.permutation_ctl_zs.iter().flatten())
+                .chain(&self.permutation_ctl_zs)
                 .chain(&self.quotient_polys)
                 .copied()
                 .collect_vec(),
@@ -210,7 +207,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             values: self
                 .next_values
                 .iter()
-                .chain(self.permutation_ctl_zs_right.iter().flatten())
+                .chain(&self.permutation_ctl_zs_right)
                 .copied()
                 .collect_vec(),
         };

@@ -1,7 +1,4 @@
-use std::iter::once;
-
 use anyhow::{ensure, Result};
-use itertools::Itertools;
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
@@ -93,8 +90,6 @@ where
     [(); S::PUBLIC_INPUTS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
-    // TODO: Fix this to take CTLs into account
-    // check_permutation_options(&stark, proof_with_pis, &challenges)?;
     let StarkProofWithPublicInputs {
         proof,
         public_inputs,
@@ -135,8 +130,8 @@ where
     );
     let num_permutation_zs = stark.num_permutation_batches(config);
     let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
-        local_zs: permutation_ctl_zs.as_ref().unwrap()[..num_permutation_zs].to_vec(),
-        next_zs: permutation_ctl_zs_right.as_ref().unwrap()[..num_permutation_zs].to_vec(),
+        local_zs: permutation_ctl_zs[..num_permutation_zs].to_vec(),
+        next_zs: permutation_ctl_zs_right[..num_permutation_zs].to_vec(),
         permutation_challenge_sets: challenges.permutation_challenge_sets.unwrap(),
     });
     eval_vanishing_poly::<F, F::Extension, F::Extension, C, S, D, D>(
@@ -167,10 +162,11 @@ where
         );
     }
 
-    let merkle_caps = once(proof.trace_cap.clone())
-        .chain(proof.permutation_ctl_zs_cap.clone())
-        .chain(once(proof.quotient_polys_cap.clone()))
-        .collect_vec();
+    let merkle_caps = vec![
+        proof.trace_cap.clone(),
+        proof.permutation_ctl_zs_cap.clone(),
+        proof.quotient_polys_cap.clone(),
+    ];
 
     verify_fri_proof::<F, C, D>(
         &stark.fri_instance(
@@ -200,38 +196,6 @@ fn eval_l_1_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
     let invs = F::batch_multiplicative_inverse(&[n * (x - F::ONE), n * (g * x - F::ONE)]);
 
     (z_x * invs[0], z_x * invs[1])
-}
-
-/// Utility function to check that all permutation data wrapped in `Option`s are `Some` iff
-/// the Stark uses a permutation argument.
-#[allow(dead_code)]
-fn check_permutation_options<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
-    const D: usize,
->(
-    stark: &S,
-    proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
-    challenges: &StarkProofChallenges<F, D>,
-) -> Result<()> {
-    let options_is_some = [
-        proof_with_pis.proof.permutation_ctl_zs_cap.is_some(),
-        proof_with_pis.proof.openings.permutation_ctl_zs.is_some(),
-        proof_with_pis
-            .proof
-            .openings
-            .permutation_ctl_zs_right
-            .is_some(),
-        challenges.permutation_challenge_sets.is_some(),
-    ];
-    ensure!(
-        options_is_some
-            .into_iter()
-            .all(|b| b == stark.uses_permutation_args()),
-        "Permutation data doesn't match with Stark configuration."
-    );
-    Ok(())
 }
 
 #[cfg(test)]

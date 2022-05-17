@@ -301,11 +301,8 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
         &proof.openings.to_fri_openings(),
     );
 
-    if let (Some(permutation_zs_cap_target), Some(permutation_zs_cap)) = (
-        &proof_target.permutation_zs_cap,
-        &proof.permutation_ctl_zs_cap,
-    ) {
-        witness.set_cap_target(permutation_zs_cap_target, permutation_zs_cap);
+    if let Some(permutation_zs_cap_target) = &proof_target.permutation_zs_cap {
+        witness.set_cap_target(permutation_zs_cap_target, &proof.permutation_ctl_zs_cap);
     }
 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);

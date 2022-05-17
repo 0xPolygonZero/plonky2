@@ -1,7 +1,4 @@
-use std::iter::once;
-
 use anyhow::{ensure, Result};
-use itertools::Itertools;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::Field;
 use plonky2::field::packable::Packable;
@@ -175,30 +172,26 @@ where
             permutation_zs
         }
     };
+    assert!(!z_polys.is_empty(), "No CTL?");
 
-    let permutation_ctl_zs_commitment = (!z_polys.is_empty()).then(|| {
-        PolynomialBatch::from_values(
-            z_polys,
-            rate_bits,
-            false,
-            config.fri_config.cap_height,
-            timing,
-            None,
-        )
-    });
-    let permutation_ctl_zs_cap = permutation_ctl_zs_commitment
-        .as_ref()
-        .map(|commit| commit.merkle_tree.cap.clone());
-    if let Some(cap) = &permutation_ctl_zs_cap {
-        challenger.observe_cap(cap);
-    }
+    let permutation_ctl_zs_commitment = PolynomialBatch::from_values(
+        z_polys,
+        rate_bits,
+        false,
+        config.fri_config.cap_height,
+        timing,
+        None,
+    );
+
+    let permutation_ctl_zs_cap = permutation_ctl_zs_commitment.merkle_tree.cap.clone();
+    challenger.observe_cap(&permutation_ctl_zs_cap);
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
     if cfg!(test) {
         check_constraints(
             stark,
             trace_commitment,
-            permutation_ctl_zs_commitment.as_ref(),
+            &permutation_ctl_zs_commitment,
             permutation_challenges.as_ref(),
             ctl_data,
             public_inputs,
@@ -211,7 +204,7 @@ where
     let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
         stark,
         trace_commitment,
-        permutation_ctl_zs_commitment.as_ref(),
+        &permutation_ctl_zs_commitment,
         permutation_challenges.as_ref(),
         ctl_data,
         public_inputs,
@@ -259,17 +252,18 @@ where
         zeta,
         g,
         trace_commitment,
-        permutation_ctl_zs_commitment.as_ref(),
+        &permutation_ctl_zs_commitment,
         &quotient_commitment,
         degree_bits,
         stark.num_permutation_batches(config),
     );
     challenger.observe_openings(&openings.to_fri_openings());
 
-    let initial_merkle_trees = once(trace_commitment)
-        .chain(&permutation_ctl_zs_commitment)
-        .chain(once(&quotient_commitment))
-        .collect_vec();
+    let initial_merkle_trees = vec![
+        trace_commitment,
+        &permutation_ctl_zs_commitment,
+        &quotient_commitment,
+    ];
 
     let opening_proof = timed!(
         timing,
@@ -301,7 +295,7 @@ where
 fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &'a PolynomialBatch<F, C, D>,
-    permutation_ctl_zs_commitment: Option<&'a PolynomialBatch<F, C, D>>,
+    permutation_ctl_zs_commitment: &'a PolynomialBatch<F, C, D>,
     permutation_challenges: Option<&'a Vec<GrandProductChallengeSet<F>>>,
     ctl_data: &CtlData<F>,
     public_inputs: [F; S::PUBLIC_INPUTS],
@@ -381,33 +375,25 @@ where
                 next_values: &get_trace_values_packed(i_next_start),
                 public_inputs: &public_inputs,
             };
-            let permutation_check_data =
-                if let (Some(permutation_zs_commitment), Some(permutation_challenge_sets)) =
-                    (permutation_ctl_zs_commitment, permutation_challenges)
-                {
-                    Some(PermutationCheckVars {
-                        local_zs: permutation_zs_commitment.get_lde_values_packed(i_start, step)
-                            [..num_permutation_zs]
-                            .to_vec(),
-                        next_zs: permutation_zs_commitment
-                            .get_lde_values_packed(i_next_start, step)[..num_permutation_zs]
-                            .to_vec(),
-                        permutation_challenge_sets: permutation_challenge_sets.to_vec(),
-                    })
-                } else {
-                    None
-                };
+            let permutation_check_vars =
+                permutation_challenges.map(|permutation_challenge_sets| PermutationCheckVars {
+                    local_zs: permutation_ctl_zs_commitment.get_lde_values_packed(i_start, step)
+                        [..num_permutation_zs]
+                        .to_vec(),
+                    next_zs: permutation_ctl_zs_commitment
+                        .get_lde_values_packed(i_next_start, step)[..num_permutation_zs]
+                        .to_vec(),
+                    permutation_challenge_sets: permutation_challenge_sets.to_vec(),
+                });
             let ctl_vars = ctl_data
                 .zs_columns
                 .iter()
                 .enumerate()
                 .map(|(i, (_, columns))| CtlCheckVars::<F, F, P, 1> {
-                    local_z: permutation_ctl_zs_commitment
-                        .unwrap()
-                        .get_lde_values_packed(i_start, step)[num_permutation_zs + i],
-                    next_z: permutation_ctl_zs_commitment
-                        .unwrap()
-                        .get_lde_values_packed(i_next_start, step)[num_permutation_zs + i],
+                    local_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_start, step)
+                        [num_permutation_zs + i],
+                    next_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_next_start, step)
+                        [num_permutation_zs + i],
                     challenges: ctl_data.challenges.challenges[i % config.num_challenges],
                     columns,
                 })
@@ -416,7 +402,7 @@ where
                 stark,
                 config,
                 vars,
-                permutation_check_data,
+                permutation_check_vars,
                 &ctl_vars,
                 &mut consumer,
             );
@@ -442,7 +428,7 @@ where
 fn check_constraints<'a, F, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &'a PolynomialBatch<F, C, D>,
-    permutation_ctl_zs_commitment: Option<&'a PolynomialBatch<F, C, D>>,
+    permutation_ctl_zs_commitment: &'a PolynomialBatch<F, C, D>,
     permutation_challenges: Option<&'a Vec<GrandProductChallengeSet<F>>>,
     ctl_data: &CtlData<F>,
     public_inputs: [F; S::PUBLIC_INPUTS],
@@ -503,30 +489,25 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                     .unwrap(),
                 public_inputs: &public_inputs,
             };
-            let permutation_check_data =
-                if let (Some(permutation_zs_commitment), Some(permutation_challenge_sets)) =
-                    (permutation_ctl_zs_commitment, permutation_challenges)
-                {
-                    Some(PermutationCheckVars {
-                        local_zs: get_comm_values(permutation_zs_commitment, i)
-                            [..num_permutation_zs]
-                            .to_vec(),
-                        next_zs: get_comm_values(permutation_zs_commitment, i_next)
-                            [..num_permutation_zs]
-                            .to_vec(),
-                        permutation_challenge_sets: permutation_challenge_sets.to_vec(),
-                    })
-                } else {
-                    None
-                };
+            let permutation_check_vars =
+                permutation_challenges.map(|permutation_challenge_sets| PermutationCheckVars {
+                    local_zs: permutation_ctl_zs_commitment.get_lde_values_packed(i, step)
+                        [..num_permutation_zs]
+                        .to_vec(),
+                    next_zs: permutation_ctl_zs_commitment.get_lde_values_packed(i_next, step)
+                        [..num_permutation_zs]
+                        .to_vec(),
+                    permutation_challenge_sets: permutation_challenge_sets.to_vec(),
+                });
+
             let ctl_vars = ctl_data
                 .zs_columns
                 .iter()
                 .enumerate()
                 .map(|(iii, (_, columns))| CtlCheckVars::<F, F, F, 1> {
-                    local_z: get_comm_values(permutation_ctl_zs_commitment.unwrap(), i)
+                    local_z: get_comm_values(permutation_ctl_zs_commitment, i)
                         [num_permutation_zs + iii],
-                    next_z: get_comm_values(permutation_ctl_zs_commitment.unwrap(), i_next)
+                    next_z: get_comm_values(permutation_ctl_zs_commitment, i_next)
                         [num_permutation_zs + iii],
                     challenges: ctl_data.challenges.challenges[iii % config.num_challenges],
                     columns,
@@ -536,7 +517,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 stark,
                 config,
                 vars,
-                permutation_check_data,
+                permutation_check_vars,
                 &ctl_vars,
                 &mut consumer,
             );

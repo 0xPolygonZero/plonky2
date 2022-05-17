@@ -173,29 +173,19 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         let mut ctl_zs = proofs
             .iter()
             .zip(num_permutation_zs)
-            .map(|(p, &num_permutation)| -> Box<dyn Iterator<Item = _>> {
-                if p.proof.openings.permutation_ctl_zs.is_some() {
-                    Box::new(
+            .map(|(p, &num_permutation)| {
+                p.proof
+                    .openings
+                    .permutation_ctl_zs
+                    .iter()
+                    .skip(num_permutation)
+                    .zip(
                         p.proof
                             .openings
-                            .permutation_ctl_zs
-                            .as_ref()
-                            .unwrap()
+                            .permutation_ctl_zs_right
                             .iter()
-                            .skip(num_permutation)
-                            .zip(
-                                p.proof
-                                    .openings
-                                    .permutation_ctl_zs_right
-                                    .as_ref()
-                                    .unwrap()
-                                    .iter()
-                                    .skip(num_permutation),
-                            ),
+                            .skip(num_permutation),
                     )
-                } else {
-                    Box::new(std::iter::empty())
-                }
             })
             .collect::<Vec<_>>();
 

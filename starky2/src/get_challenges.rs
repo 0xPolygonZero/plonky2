@@ -21,7 +21,7 @@ use crate::stark::Stark;
 fn get_challenges<F, C, S, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     stark: &S,
-    permutation_ctl_zs_cap: Option<&MerkleCap<F, C::Hasher>>,
+    permutation_ctl_zs_cap: &MerkleCap<F, C::Hasher>,
     quotient_polys_cap: &MerkleCap<F, C::Hasher>,
     openings: &StarkOpeningSet<F, D>,
     commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
@@ -45,9 +45,7 @@ where
         )
     });
 
-    if let Some(cap) = permutation_ctl_zs_cap {
-        challenger.observe_cap(cap);
-    }
+    challenger.observe_cap(permutation_ctl_zs_cap);
 
     let stark_alphas = challenger.get_n_challenges(num_challenges);
 
@@ -146,7 +144,7 @@ where
         get_challenges::<F, C, S, D>(
             challenger,
             stark,
-            permutation_ctl_zs_cap.as_ref(),
+            permutation_ctl_zs_cap,
             quotient_polys_cap,
             openings,
             commit_phase_merkle_caps,
