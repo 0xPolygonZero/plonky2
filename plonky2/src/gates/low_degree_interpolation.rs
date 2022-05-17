@@ -305,14 +305,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for InterpolationGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| {
+        let local_target = |column| {
             Target::Wire(Wire {
                 row: self.gate_index,
-                column: input,
+                column,
             })
         };
 
-        let local_targets = |inputs: Range<usize>| inputs.map(local_target);
+        let local_targets = |columns: Range<usize>| columns.map(local_target);
 
         let num_points = self.gate.num_points();
         let mut deps = Vec::with_capacity(1 + D + num_points * D);
@@ -326,12 +326,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
+        let local_wire = |column| Wire {
             row: self.gate_index,
-            column: input,
+            column,
         };
 
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
+        let get_local_wire = |column| witness.get_wire(local_wire(column));
 
         let get_local_ext = |wire_range: Range<usize>| {
             debug_assert_eq!(wire_range.len(), D);

@@ -250,9 +250,9 @@ struct InsertionGenerator<F: RichField + Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| Target::wire(self.gate_index, input);
+        let local_target = |column| Target::wire(self.gate_index, column);
 
-        let local_targets = |inputs: Range<usize>| inputs.map(local_target);
+        let local_targets = |columns: Range<usize>| columns.map(local_target);
 
         let mut deps = vec![local_target(self.gate.wires_insertion_index())];
         deps.extend(local_targets(self.gate.wires_element_to_insert()));
@@ -263,12 +263,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Insert
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
+        let local_wire = |column| Wire {
             row: self.gate_index,
-            column: input,
+            column,
         };
 
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
+        let get_local_wire = |column| witness.get_wire(local_wire(column));
 
         let get_local_ext = |wire_range: Range<usize>| {
             debug_assert_eq!(wire_range.len(), D);

@@ -25,9 +25,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut bits = Vec::with_capacity(num_bits);
         for &gate in &gates {
-            for limb_input in gate_type.limbs() {
+            for limb_column in gate_type.limbs() {
                 // `new_unsafe` is safe here because BaseSumGate::<2> forces it to be in `{0, 1}`.
-                bits.push(BoolTarget::new_unsafe(Target::wire(gate, limb_input)));
+                bits.push(BoolTarget::new_unsafe(Target::wire(gate, limb_column)));
             }
         }
         for b in bits.drain(num_bits..) {

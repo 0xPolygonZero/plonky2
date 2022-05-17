@@ -318,7 +318,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for RandomAccessGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| Target::wire(self.gate_index, input);
+        let local_target = |column| Target::wire(self.gate_index, column);
 
         let mut deps = vec![local_target(self.gate.wire_access_index(self.copy))];
         for i in 0..self.gate.vec_size() {
@@ -328,13 +328,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
+        let local_wire = |column| Wire {
             row: self.gate_index,
-            column: input,
+            column,
         };
 
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
-        let mut set_local_wire = |input, value| out_buffer.set_wire(local_wire(input), value);
+        let get_local_wire = |column| witness.get_wire(local_wire(column));
+        let mut set_local_wire = |column, value| out_buffer.set_wire(local_wire(column), value);
 
         let copy = self.copy;
         let vec_size = self.gate.vec_size();

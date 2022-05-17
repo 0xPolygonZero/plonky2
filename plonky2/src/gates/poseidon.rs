@@ -420,14 +420,14 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
         (0..SPONGE_WIDTH)
             .map(|i| PoseidonGate::<F, D>::wire_input(i))
             .chain(Some(PoseidonGate::<F, D>::WIRE_SWAP))
-            .map(|input| Target::wire(self.gate_index, input))
+            .map(|column| Target::wire(self.gate_index, column))
             .collect()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
+        let local_wire = |column| Wire {
             row: self.gate_index,
-            column: input,
+            column,
         };
 
         let mut state = (0..SPONGE_WIDTH)

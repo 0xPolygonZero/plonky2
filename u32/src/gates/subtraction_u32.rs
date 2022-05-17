@@ -274,7 +274,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for U32SubtractionGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| Target::wire(self.gate_index, input);
+        let local_target = |column| Target::wire(self.gate_index, column);
 
         vec![
             local_target(self.gate.wire_ith_input_x(self.i)),
@@ -284,12 +284,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
+        let local_wire = |column| Wire {
             row: self.gate_index,
-            column: input,
+            column,
         };
 
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
+        let get_local_wire = |column| witness.get_wire(local_wire(column));
 
         let input_x = get_local_wire(self.gate.wire_ith_input_x(self.i));
         let input_y = get_local_wire(self.gate.wire_ith_input_y(self.i));

@@ -89,12 +89,9 @@ impl Forest {
         let mut partition = HashMap::<_, Vec<_>>::new();
 
         // Here we keep just the Wire targets, filtering out everything else.
-        for gate in 0..self.degree {
-            for input in 0..self.num_routed_wires {
-                let w = Wire {
-                    row: gate,
-                    column: input,
-                };
+        for row in 0..self.degree {
+            for column in 0..self.num_routed_wires {
+                let w = Wire { row, column };
                 let t = Target::Wire(w);
                 let x_parent = self.parents[self.target_index(t)];
                 partition.entry(x_parent).or_default().push(w);
@@ -147,12 +144,9 @@ impl WirePartition {
         }
 
         let mut sigma = Vec::new();
-        for input in 0..num_routed_wires {
-            for gate in 0..degree {
-                let wire = Wire {
-                    row: gate,
-                    column: input,
-                };
+        for column in 0..num_routed_wires {
+            for row in 0..degree {
+                let wire = Wire { row, column };
                 let neighbor = neighbors[&wire];
                 sigma.push(neighbor.column * degree + neighbor.row);
             }
