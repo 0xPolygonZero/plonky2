@@ -16,8 +16,27 @@ use crate::plonk::vars::{
     EvaluationVarsBasePacked,
 };
 
-/// A gate which can perform a weighted multiply-add, i.e. `result = c0 x y + c1 z`. If the config
+/// A gate which can perform a weighted multiply-add, i.e. `output = c0 x y + c1 z`. If the config
 /// supports enough routed wires, it can support several such operations in one gate.
+//
+// Layout:
+//
+// +-----------+
+// | Constants |
+// +-----+-----+
+// |  c0 | c1  |
+// +-----+-----+
+//
+// +-------+---------------------------+
+// |       |        Routed wires       |
+// +-------+----+------+------+--------+
+// | Wires |  x |   y  |   z  | output |
+// +-------+----+------+------+--------+
+// | Index | 4i | 4i+1 | 4i+2 |  4i+3  |
+// +-------+----+------+------+--------+
+//
+// Constraints:
+// - `output - (c0 * x * y + c1 * z)`
 #[derive(Debug, Clone)]
 pub struct ArithmeticGate {
     /// Number of arithmetic operations performed by an arithmetic gate.
