@@ -17,7 +17,10 @@ pub enum Target {
 
 impl Target {
     pub fn wire(gate: usize, input: usize) -> Self {
-        Self::Wire(Wire { gate, input })
+        Self::Wire(Wire {
+            row: gate,
+            column: input,
+        })
     }
 
     pub fn is_routable(&self, config: &CircuitConfig) -> bool {
@@ -33,7 +36,10 @@ impl Target {
 
     pub fn index(&self, num_wires: usize, degree: usize) -> usize {
         match self {
-            Target::Wire(Wire { gate, input }) => gate * num_wires + input,
+            Target::Wire(Wire {
+                row: gate,
+                column: input,
+            }) => gate * num_wires + input,
             Target::VirtualTarget { index } => degree * num_wires + index,
         }
     }

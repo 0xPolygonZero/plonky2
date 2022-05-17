@@ -527,7 +527,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let gate = self.add_gate(NoopGate, vec![]);
             for w in 0..num_wires {
                 self.add_simple_generator(RandomValueGenerator {
-                    target: Target::Wire(Wire { gate, input: w }),
+                    target: Target::Wire(Wire {
+                        row: gate,
+                        column: w,
+                    }),
                 });
             }
         }
@@ -542,18 +545,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             for w in 0..num_routed_wires {
                 self.add_simple_generator(RandomValueGenerator {
                     target: Target::Wire(Wire {
-                        gate: gate_1,
-                        input: w,
+                        row: gate_1,
+                        column: w,
                     }),
                 });
                 self.generate_copy(
                     Target::Wire(Wire {
-                        gate: gate_1,
-                        input: w,
+                        row: gate_1,
+                        column: w,
                     }),
                     Target::Wire(Wire {
-                        gate: gate_2,
-                        input: w,
+                        row: gate_2,
+                        column: w,
                     }),
                 );
             }
@@ -596,7 +599,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         for gate in 0..degree {
             for input in 0..config.num_wires {
-                forest.add(Target::Wire(Wire { gate, input }));
+                forest.add(Target::Wire(Wire {
+                    row: gate,
+                    column: input,
+                }));
             }
         }
 

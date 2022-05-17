@@ -426,8 +426,8 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
+            row: self.gate_index,
+            column: input,
         };
 
         let mut state = (0..SPONGE_WIDTH)
@@ -569,16 +569,16 @@ mod tests {
         let mut inputs = PartialWitness::new();
         inputs.set_wire(
             Wire {
-                gate: gate_index,
-                input: Gate::WIRE_SWAP,
+                row: gate_index,
+                column: Gate::WIRE_SWAP,
             },
             F::ZERO,
         );
         for i in 0..SPONGE_WIDTH {
             inputs.set_wire(
                 Wire {
-                    gate: gate_index,
-                    input: Gate::wire_input(i),
+                    row: gate_index,
+                    column: Gate::wire_input(i),
                 },
                 permutation_inputs[i],
             );
@@ -590,8 +590,8 @@ mod tests {
             F::poseidon(permutation_inputs.try_into().unwrap());
         for i in 0..SPONGE_WIDTH {
             let out = witness.get_wire(Wire {
-                gate: 0,
-                input: Gate::wire_output(i),
+                row: 0,
+                column: Gate::wire_output(i),
             });
             assert_eq!(out, expected_outputs[i]);
         }

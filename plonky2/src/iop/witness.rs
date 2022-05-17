@@ -315,7 +315,7 @@ impl<'a, F: Field> PartitionWitness<'a, F> {
         let mut wire_values = vec![vec![F::ZERO; self.degree]; self.num_wires];
         for i in 0..self.degree {
             for j in 0..self.num_wires {
-                let t = Target::Wire(Wire { gate: i, input: j });
+                let t = Target::Wire(Wire { row: i, column: j });
                 if let Some(x) = self.try_get_target(t) {
                     wire_values[j][i] = x;
                 }

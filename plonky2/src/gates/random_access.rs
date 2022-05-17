@@ -329,8 +329,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
+            row: self.gate_index,
+            column: input,
         };
 
         let get_local_wire = |input| witness.get_wire(local_wire(input));
