@@ -15,7 +15,7 @@ use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
+use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
@@ -168,7 +168,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
         self.eval_unfiltered_base_batch_packed(vars_base)
     }
 
-    fn eval_unfiltered_recursively(
+    fn eval_unfiltered_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
@@ -188,9 +188,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for AssertLessThan
 
         let chunk_base = builder.constant(F::from_canonical_usize(1 << self.chunk_bits()));
         let first_chunks_combined =
-            reduce_with_powers_ext_recursive(builder, &first_chunks, chunk_base);
+            reduce_with_powers_ext_circuit(builder, &first_chunks, chunk_base);
         let second_chunks_combined =
-            reduce_with_powers_ext_recursive(builder, &second_chunks, chunk_base);
+            reduce_with_powers_ext_circuit(builder, &second_chunks, chunk_base);
 
         constraints.push(builder.sub_extension(first_chunks_combined, first_input));
         constraints.push(builder.sub_extension(second_chunks_combined, second_input));

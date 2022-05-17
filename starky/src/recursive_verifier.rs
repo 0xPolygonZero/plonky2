@@ -21,10 +21,10 @@ use crate::proof::{
     StarkProofWithPublicInputs, StarkProofWithPublicInputsTarget,
 };
 use crate::stark::Stark;
-use crate::vanishing_poly::eval_vanishing_poly_recursively;
+use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
 
-pub fn recursively_verify_stark_proof<
+pub fn verify_stark_proof_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
@@ -47,7 +47,7 @@ pub fn recursively_verify_stark_proof<
         proof_with_pis.get_challenges::<F, C, S>(builder, &stark, inner_config)
     );
 
-    recursively_verify_stark_proof_with_challenges::<F, C, S, D>(
+    verify_stark_proof_with_challenges_circuit::<F, C, S, D>(
         builder,
         stark,
         proof_with_pis,
@@ -58,7 +58,7 @@ pub fn recursively_verify_stark_proof<
 }
 
 /// Recursively verifies an inner proof.
-fn recursively_verify_stark_proof_with_challenges<
+fn verify_stark_proof_with_challenges_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
@@ -103,7 +103,7 @@ fn recursively_verify_stark_proof_with_challenges<
     let zeta_pow_deg = builder.exp_power_of_2_extension(challenges.stark_zeta, degree_bits);
     let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
     let (l_1, l_last) =
-        eval_l_1_and_l_last_recursively(builder, degree_bits, challenges.stark_zeta, z_h_zeta);
+        eval_l_1_and_l_last_circuit(builder, degree_bits, challenges.stark_zeta, z_h_zeta);
     let last =
         builder.constant_extension(F::Extension::primitive_root_of_unity(degree_bits).inverse());
     let z_last = builder.sub_extension(challenges.stark_zeta, last);
@@ -127,7 +127,7 @@ fn recursively_verify_stark_proof_with_challenges<
     with_context!(
         builder,
         "evaluate vanishing polynomial",
-        eval_vanishing_poly_recursively::<F, C, S, D>(
+        eval_vanishing_poly_circuit::<F, C, S, D>(
             builder,
             &stark,
             inner_config,
@@ -170,7 +170,7 @@ fn recursively_verify_stark_proof_with_challenges<
     );
 }
 
-fn eval_l_1_and_l_last_recursively<F: RichField + Extendable<D>, const D: usize>(
+fn eval_l_1_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     log_n: usize,
     x: ExtensionTarget<D>,

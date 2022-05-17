@@ -83,7 +83,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
         );
     }
 
-    fn eval_ext_recursively(
+    fn eval_ext_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
@@ -138,8 +138,8 @@ mod tests {
     use crate::proof::StarkProofWithPublicInputs;
     use crate::prover::prove;
     use crate::recursive_verifier::{
-        add_virtual_stark_proof_with_pis, recursively_verify_stark_proof,
-        set_stark_proof_with_pis_target,
+        add_virtual_stark_proof_with_pis, set_stark_proof_with_pis_target,
+        verify_stark_proof_circuit,
     };
     use crate::stark::Stark;
     use crate::stark_testing::test_stark_low_degree;
@@ -234,7 +234,7 @@ mod tests {
         let pt = add_virtual_stark_proof_with_pis(&mut builder, stark, inner_config, degree_bits);
         set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof);
 
-        recursively_verify_stark_proof::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
+        verify_stark_proof_circuit::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
 
         if print_gate_counts {
             builder.print_gate_counts(0);

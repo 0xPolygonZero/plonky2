@@ -8,7 +8,7 @@ use plonky2::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGenerator
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartitionWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
+use plonky2::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
 use plonky2::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use plonky2_field::extension_field::Extendable;
 use plonky2_field::field_types::Field;
@@ -99,7 +99,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
         }
     }
 
-    fn eval_unfiltered_recursively(
+    fn eval_unfiltered_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
@@ -112,7 +112,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
             let aux_limbs: Vec<_> = (0..self.aux_limbs_per_input_limb())
                 .map(|j| vars.local_wires[self.wire_ith_input_limb_jth_aux_limb(i, j)])
                 .collect();
-            let computed_sum = reduce_with_powers_ext_recursive(builder, &aux_limbs, base);
+            let computed_sum = reduce_with_powers_ext_circuit(builder, &aux_limbs, base);
 
             constraints.push(builder.sub_extension(computed_sum, input_limb));
             for aux_limb in aux_limbs {

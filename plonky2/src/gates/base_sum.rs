@@ -14,7 +14,7 @@ use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
-use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_recursive};
+use crate::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
@@ -77,7 +77,7 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> fo
         self.eval_unfiltered_base_batch_packed(vars_base)
     }
 
-    fn eval_unfiltered_recursively(
+    fn eval_unfiltered_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
@@ -85,7 +85,7 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> fo
         let base = builder.constant(F::from_canonical_usize(B));
         let sum = vars.local_wires[Self::WIRE_SUM];
         let limbs = vars.local_wires[self.limbs()].to_vec();
-        let computed_sum = reduce_with_powers_ext_recursive(builder, &limbs, base);
+        let computed_sum = reduce_with_powers_ext_circuit(builder, &limbs, base);
         let mut constraints = vec![builder.sub_extension(computed_sum, sum)];
         for limb in limbs {
             constraints.push({

@@ -11,7 +11,7 @@ use plonky2::iop::witness::{PartitionWitness, Witness};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_util::ceil_div_usize;
 
-use crate::permutation::assert_permutation;
+use crate::permutation::assert_permutation_circuit;
 
 pub struct MemoryOp<F: Field> {
     is_write: bool,
@@ -28,7 +28,7 @@ pub struct MemoryOpTarget {
     value: Target,
 }
 
-pub fn assert_permutation_memory_ops<F: RichField + Extendable<D>, const D: usize>(
+pub fn assert_permutation_memory_ops_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     a: &[MemoryOpTarget],
     b: &[MemoryOpTarget],
@@ -42,11 +42,11 @@ pub fn assert_permutation_memory_ops<F: RichField + Extendable<D>, const D: usiz
         .map(|op| vec![op.address, op.timestamp, op.is_write.target, op.value])
         .collect();
 
-    assert_permutation(builder, a_chunks, b_chunks);
+    assert_permutation_circuit(builder, a_chunks, b_chunks);
 }
 
 /// Add an AssertLessThanGate to assert that `lhs` is less than `rhs`, where their values are at most `bits` bits.
-pub fn assert_le<F: RichField + Extendable<D>, const D: usize>(
+pub fn assert_le_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lhs: Target,
     rhs: Target,
@@ -62,7 +62,7 @@ pub fn assert_le<F: RichField + Extendable<D>, const D: usize>(
 
 /// Sort memory operations by address value, then by timestamp value.
 /// This is done by combining address and timestamp into one field element (using their given bit lengths).
-pub fn sort_memory_ops<F: RichField + Extendable<D>, const D: usize>(
+pub fn sort_memory_ops_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     ops: &[MemoryOpTarget],
     address_bits: usize,
@@ -106,7 +106,7 @@ pub fn sort_memory_ops<F: RichField + Extendable<D>, const D: usize>(
         .collect();
 
     for i in 1..n {
-        assert_le(
+        assert_le_circuit(
             builder,
             address_timestamp_combined[i - 1],
             address_timestamp_combined[i],
@@ -115,7 +115,7 @@ pub fn sort_memory_ops<F: RichField + Extendable<D>, const D: usize>(
         );
     }
 
-    assert_permutation_memory_ops(builder, ops, &output_targets);
+    assert_permutation_memory_ops_circuit(builder, ops, &output_targets);
 
     builder.add_simple_generator(MemoryOpSortGenerator::<F, D> {
         input_ops: ops.to_vec(),
@@ -237,7 +237,7 @@ mod tests {
         input_ops_and_keys.sort_by_key(|(_, val)| *val);
         let input_ops_sorted: Vec<_> = input_ops_and_keys.iter().map(|(x, _)| x).collect();
 
-        let output_ops = sort_memory_ops(
+        let output_ops = sort_memory_ops_circuit(
             &mut builder,
             input_ops.as_slice(),
             address_bits,

@@ -64,7 +64,7 @@ impl<F: RichField + Extendable<D>, const D: usize> HighDegreeInterpolationGate<F
     }
 
     /// The domain of the points we're interpolating.
-    fn coset_ext_recursive(
+    fn coset_ext_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         shift: ExtensionTarget<D>,
@@ -134,7 +134,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
         yield_constr.many((evaluation_value - computed_evaluation_value).to_basefield_array());
     }
 
-    fn eval_unfiltered_recursively(
+    fn eval_unfiltered_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
@@ -146,7 +146,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
             .collect();
         let interpolant = PolynomialCoeffsExtAlgebraTarget(coeffs);
 
-        let coset = self.coset_ext_recursive(builder, vars.local_wires[self.wire_shift()]);
+        let coset = self.coset_ext_circuit(builder, vars.local_wires[self.wire_shift()]);
         for (i, point) in coset.into_iter().enumerate() {
             let value = vars.get_local_ext_algebra(self.wires_value(i));
             let computed_value = interpolant.eval_scalar(builder, point);

@@ -4,7 +4,7 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::plonk_common::reduce_with_powers_ext_recursive;
+use plonky2::plonk::plonk_common::reduce_with_powers_ext_circuit;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 use crate::registers::alu::*;
@@ -171,12 +171,12 @@ fn eval_bitop_32_recursively<F: RichField + Extendable<D>, const D: usize>(
     let output = lv[output_reg];
 
     let limb_base = builder.constant(F::TWO);
-    let a = reduce_with_powers_ext_recursive(builder, &a_bits, limb_base);
-    let b = reduce_with_powers_ext_recursive(builder, &b_bits, limb_base);
+    let a = reduce_with_powers_ext_circuit(builder, &a_bits, limb_base);
+    let b = reduce_with_powers_ext_circuit(builder, &b_bits, limb_base);
     let a_and_b_bits = a_bits
         .zip(b_bits)
         .map(|(b0, b1)| builder.mul_extension(b0, b1));
-    let a_and_b = reduce_with_powers_ext_recursive(builder, &a_and_b_bits, limb_base);
+    let a_and_b = reduce_with_powers_ext_circuit(builder, &a_and_b_bits, limb_base);
 
     let and_constr = {
         let t = builder.sub_extension(a_and_b, output);

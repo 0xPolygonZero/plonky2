@@ -9,16 +9,14 @@ use starky::vars::StarkEvaluationVars;
 
 use crate::alu::addition::{eval_addition, eval_addition_recursively, generate_addition};
 use crate::alu::bitops::{eval_bitop, eval_bitop_recursively, generate_bitop};
-use crate::alu::division::{eval_division, eval_division_recursively, generate_division};
-use crate::alu::mul_add::{eval_mul_add, eval_mul_add_recursively, generate_mul_add};
+use crate::alu::division::{eval_division, eval_division_circuit, generate_division};
+use crate::alu::mul_add::{eval_mul_add, eval_mul_add_circuit, generate_mul_add};
 use crate::alu::rotate_shift::{
     eval_rotate_left, eval_rotate_left_recursively, eval_rotate_right,
     eval_rotate_right_recursively, eval_shift_left, eval_shift_left_recursively, eval_shift_right,
     eval_shift_right_recursively, generate_rotate_shift,
 };
-use crate::alu::subtraction::{
-    eval_subtraction, eval_subtraction_recursively, generate_subtraction,
-};
+use crate::alu::subtraction::{eval_subtraction, eval_subtraction_circuit, generate_subtraction};
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
 use crate::registers::alu::*;
 use crate::registers::NUM_COLUMNS;
@@ -84,7 +82,7 @@ pub(crate) fn eval_alu<F: Field, P: PackedField<Scalar = F>>(
     eval_shift_right(local_values, yield_constr);
 }
 
-pub(crate) fn eval_alu_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_alu_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     vars: StarkEvaluationTargets<D, NUM_COLUMNS, NUM_PUBLIC_INPUTS>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -99,9 +97,9 @@ pub(crate) fn eval_alu_recursively<F: RichField + Extendable<D>, const D: usize>
     }
 
     eval_addition_recursively(builder, local_values, yield_constr);
-    eval_subtraction_recursively(builder, local_values, yield_constr);
-    eval_mul_add_recursively(builder, local_values, yield_constr);
-    eval_division_recursively(builder, local_values, yield_constr);
+    eval_subtraction_circuit(builder, local_values, yield_constr);
+    eval_mul_add_circuit(builder, local_values, yield_constr);
+    eval_division_circuit(builder, local_values, yield_constr);
     eval_bitop_recursively(builder, local_values, yield_constr);
     eval_rotate_left_recursively(builder, local_values, yield_constr);
     eval_rotate_right_recursively(builder, local_values, yield_constr);

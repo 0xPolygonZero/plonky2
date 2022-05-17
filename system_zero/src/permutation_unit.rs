@@ -187,7 +187,7 @@ pub(crate) fn eval_permutation_unit_recursively<F: RichField + Extendable<D>, co
     }
 
     for r in 0..HALF_N_FULL_ROUNDS {
-        F::constant_layer_recursive(builder, &mut state, r);
+        F::constant_layer_circuit(builder, &mut state, r);
 
         for i in 0..SPONGE_WIDTH {
             let state_cubed = builder.cube_extension(state[i]);
@@ -199,7 +199,7 @@ pub(crate) fn eval_permutation_unit_recursively<F: RichField + Extendable<D>, co
             // Form state ** 7.
         }
 
-        state = F::mds_layer_recursive(builder, &state);
+        state = F::mds_layer_circuit(builder, &state);
 
         for i in 0..SPONGE_WIDTH {
             let diff =
@@ -210,7 +210,7 @@ pub(crate) fn eval_permutation_unit_recursively<F: RichField + Extendable<D>, co
     }
 
     for r in 0..N_PARTIAL_ROUNDS {
-        F::constant_layer_recursive(builder, &mut state, HALF_N_FULL_ROUNDS + r);
+        F::constant_layer_circuit(builder, &mut state, HALF_N_FULL_ROUNDS + r);
 
         let state0_cubed = builder.cube_extension(state[0]);
         let diff = builder.sub_extension(state0_cubed, local_values[col_partial_mid_sbox(r)]);
@@ -221,11 +221,11 @@ pub(crate) fn eval_permutation_unit_recursively<F: RichField + Extendable<D>, co
         yield_constr.constraint(builder, diff);
         state[0] = local_values[col_partial_after_sbox(r)];
 
-        state = F::mds_layer_recursive(builder, &state);
+        state = F::mds_layer_circuit(builder, &state);
     }
 
     for r in 0..HALF_N_FULL_ROUNDS {
-        F::constant_layer_recursive(
+        F::constant_layer_circuit(
             builder,
             &mut state,
             HALF_N_FULL_ROUNDS + N_PARTIAL_ROUNDS + r,
@@ -241,7 +241,7 @@ pub(crate) fn eval_permutation_unit_recursively<F: RichField + Extendable<D>, co
             // Form state ** 7.
         }
 
-        state = F::mds_layer_recursive(builder, &state);
+        state = F::mds_layer_circuit(builder, &state);
 
         for i in 0..SPONGE_WIDTH {
             let diff =

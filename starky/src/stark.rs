@@ -63,7 +63,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// `eval_ext`, except in the context of a recursive circuit.
     /// Note: constraints must be added through`yeld_constr.constraint(builder, constraint)` in the
     /// same order as they are given in `eval_packed_generic`.
-    fn eval_ext_recursively(
+    fn eval_ext_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,

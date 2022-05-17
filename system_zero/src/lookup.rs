@@ -121,7 +121,7 @@ pub(crate) fn eval_lookups<F: Field, P: PackedField<Scalar = F>>(
     }
 }
 
-pub(crate) fn eval_lookups_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_lookups_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     vars: StarkEvaluationTargets<D, NUM_COLUMNS, NUM_PUBLIC_INPUTS>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,

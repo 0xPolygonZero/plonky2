@@ -75,7 +75,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         res
     }
 
-    fn eval_unfiltered_recursively(
+    fn eval_unfiltered_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
@@ -132,7 +132,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     }
 
     /// Adds this gate's filtered constraints into the `combined_gate_constraints` buffer.
-    fn eval_filtered_recursively(
+    fn eval_filtered_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         mut vars: EvaluationTargets<D>,
@@ -142,7 +142,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         num_selectors: usize,
         combined_gate_constraints: &mut [ExtensionTarget<D>],
     ) {
-        let filter = compute_filter_recursively(
+        let filter = compute_filter_circuit(
             builder,
             gate_index,
             group_range,
@@ -150,7 +150,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             num_selectors > 1,
         );
         vars.remove_prefix(num_selectors);
-        let my_constraints = self.eval_unfiltered_recursively(builder, vars);
+        let my_constraints = self.eval_unfiltered_circuit(builder, vars);
         for (acc, c) in combined_gate_constraints.iter_mut().zip(my_constraints) {
             *acc = builder.mul_add_extension(filter, c, *acc);
         }
@@ -258,7 +258,7 @@ fn compute_filter<K: Field>(
         .product()
 }
 
-fn compute_filter_recursively<F: RichField + Extendable<D>, const D: usize>(
+fn compute_filter_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     gate_index: usize,
     group_range: Range<usize>,

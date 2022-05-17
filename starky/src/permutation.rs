@@ -325,7 +325,7 @@ pub struct PermutationCheckDataTarget<const D: usize> {
     pub(crate) permutation_challenge_sets: Vec<PermutationChallengeSet<Target>>,
 }
 
-pub(crate) fn eval_permutation_checks_recursively<F, S, const D: usize>(
+pub(crate) fn eval_permutation_checks_circuit<F, S, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
     config: &StarkConfig,

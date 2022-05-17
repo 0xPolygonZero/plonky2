@@ -12,7 +12,7 @@ use crate::bimap::bimap_from_lists;
 use crate::gates::switch::SwitchGate;
 
 /// Assert that two lists of expressions evaluate to permutations of one another.
-pub fn assert_permutation<F: RichField + Extendable<D>, const D: usize>(
+pub fn assert_permutation_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     a: Vec<Vec<Target>>,
     b: Vec<Vec<Target>>,
@@ -35,7 +35,7 @@ pub fn assert_permutation<F: RichField + Extendable<D>, const D: usize>(
                 builder.connect(a[0][e], b[0][e])
             }
         }
-        2 => assert_permutation_2x2(
+        2 => assert_permutation_2x2_circuit(
             builder,
             a[0].clone(),
             a[1].clone(),
@@ -43,12 +43,12 @@ pub fn assert_permutation<F: RichField + Extendable<D>, const D: usize>(
             b[1].clone(),
         ),
         // For larger lists, we recursively use two smaller permutation networks.
-        _ => assert_permutation_recursive(builder, a, b),
+        _ => assert_permutation_helper_circuit(builder, a, b),
     }
 }
 
 /// Assert that [a1, a2] is a permutation of [b1, b2].
-fn assert_permutation_2x2<F: RichField + Extendable<D>, const D: usize>(
+fn assert_permutation_2x2_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     a1: Vec<Target>,
     a2: Vec<Target>,
@@ -62,7 +62,7 @@ fn assert_permutation_2x2<F: RichField + Extendable<D>, const D: usize>(
 
     let chunk_size = a1.len();
 
-    let (_switch, gate_out1, gate_out2) = create_switch(builder, a1, a2);
+    let (_switch, gate_out1, gate_out2) = create_switch_circuit(builder, a1, a2);
     for e in 0..chunk_size {
         builder.connect(b1[e], gate_out1[e]);
         builder.connect(b2[e], gate_out2[e]);
@@ -71,7 +71,7 @@ fn assert_permutation_2x2<F: RichField + Extendable<D>, const D: usize>(
 
 /// Given two input wire chunks, add a new switch to the circuit (by adding one copy to a switch
 /// gate). Returns the wire for the switch boolean, and the two output wire chunks.
-fn create_switch<F: RichField + Extendable<D>, const D: usize>(
+fn create_switch_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     a1: Vec<Target>,
     a2: Vec<Target>,
@@ -110,7 +110,7 @@ fn create_switch<F: RichField + Extendable<D>, const D: usize>(
     (switch, c, d)
 }
 
-fn assert_permutation_recursive<F: RichField + Extendable<D>, const D: usize>(
+fn assert_permutation_helper_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     a: Vec<Vec<Target>>,
     b: Vec<Vec<Target>>,
@@ -141,13 +141,15 @@ fn assert_permutation_recursive<F: RichField + Extendable<D>, const D: usize>(
     let mut a_switches = Vec::new();
     let mut b_switches = Vec::new();
     for i in 0..a_num_switches {
-        let (switch, out_1, out_2) = create_switch(builder, a[i * 2].clone(), a[i * 2 + 1].clone());
+        let (switch, out_1, out_2) =
+            create_switch_circuit(builder, a[i * 2].clone(), a[i * 2 + 1].clone());
         a_switches.push(switch);
         child_1_a.push(out_1);
         child_2_a.push(out_2);
     }
     for i in 0..b_num_switches {
-        let (switch, out_1, out_2) = create_switch(builder, b[i * 2].clone(), b[i * 2 + 1].clone());
+        let (switch, out_1, out_2) =
+            create_switch_circuit(builder, b[i * 2].clone(), b[i * 2 + 1].clone());
         b_switches.push(switch);
         child_1_b.push(out_1);
         child_2_b.push(out_2);
@@ -162,8 +164,8 @@ fn assert_permutation_recursive<F: RichField + Extendable<D>, const D: usize>(
         child_2_b.push(b[n - 1].clone());
     }
 
-    assert_permutation(builder, child_1_a, child_1_b);
-    assert_permutation(builder, child_2_a, child_2_b);
+    assert_permutation_circuit(builder, child_1_a, child_1_b);
+    assert_permutation_circuit(builder, child_2_a, child_2_b);
 
     builder.add_simple_generator(PermutationGenerator::<F> {
         a,
@@ -400,7 +402,7 @@ mod tests {
         let mut b = a.clone();
         b.shuffle(&mut thread_rng());
 
-        assert_permutation(&mut builder, a, b);
+        assert_permutation_circuit(&mut builder, a, b);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
@@ -430,7 +432,7 @@ mod tests {
         let mut b = a.clone();
         b.shuffle(&mut thread_rng());
 
-        assert_permutation(&mut builder, a, b);
+        assert_permutation_circuit(&mut builder, a, b);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
@@ -459,7 +461,7 @@ mod tests {
             .map(|pair| vec![builder.constant(pair[0]), builder.constant(pair[1])])
             .collect();
 
-        assert_permutation(&mut builder, a, b);
+        assert_permutation_circuit(&mut builder, a, b);
 
         let data = builder.build::<C>();
         data.prove(pw)?;

@@ -4,7 +4,7 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::plonk_common::reduce_with_powers_ext_recursive;
+use plonky2::plonk::plonk_common::reduce_with_powers_ext_circuit;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 use crate::registers::alu::*;
@@ -60,7 +60,7 @@ pub(crate) fn eval_addition_recursively<F: RichField + Extendable<D>, const D: u
     let limb_base = builder.constant(F::from_canonical_u64(1 << 16));
     // Note that this can't overflow. Since each output limb has been range checked as 16-bits,
     // this sum can be around 48 bits at most.
-    let out = reduce_with_powers_ext_recursive(builder, &[out_1, out_2, out_3], limb_base);
+    let out = reduce_with_powers_ext_circuit(builder, &[out_1, out_2, out_3], limb_base);
 
     let computed_out = builder.add_many_extension(&[in_1, in_2, in_3]);
 

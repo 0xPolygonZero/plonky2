@@ -59,7 +59,7 @@ pub(crate) fn eval_mul_add<F: Field, P: PackedField<Scalar = F>>(
     yield_constr.constraint(is_mul * (computed_output - output));
 }
 
-pub(crate) fn eval_mul_add_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_mul_add_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     local_values: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,

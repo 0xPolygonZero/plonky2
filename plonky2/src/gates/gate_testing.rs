@@ -156,7 +156,7 @@ where
         local_wires: &wires_t,
         public_inputs_hash: &public_inputs_hash_t,
     };
-    let evals_t = gate.eval_unfiltered_recursively(&mut builder, vars_t);
+    let evals_t = gate.eval_unfiltered_circuit(&mut builder, vars_t);
     pw.set_extension_targets(&evals_t, &evals);
 
     let data = builder.build::<C>();

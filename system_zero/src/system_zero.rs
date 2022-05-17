@@ -14,12 +14,12 @@ use starky::stark::Stark;
 use starky::vars::StarkEvaluationTargets;
 use starky::vars::StarkEvaluationVars;
 
-use crate::alu::{eval_alu, eval_alu_recursively, generate_alu};
+use crate::alu::{eval_alu, eval_alu_circuit, generate_alu};
 use crate::core_registers::{
-    eval_core_registers, eval_core_registers_recursively, generate_first_row_core_registers,
+    eval_core_registers, eval_core_registers_circuit, generate_first_row_core_registers,
     generate_next_row_core_registers,
 };
-use crate::lookup::{eval_lookups, eval_lookups_recursively, generate_lookups};
+use crate::lookup::{eval_lookups, eval_lookups_circuit, generate_lookups};
 use crate::memory::TransactionMemory;
 use crate::permutation_unit::{
     eval_permutation_unit, eval_permutation_unit_recursively, generate_permutation_unit,
@@ -135,16 +135,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
         // TODO: Other units
     }
 
-    fn eval_ext_recursively(
+    fn eval_ext_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: StarkEvaluationTargets<D, NUM_COLUMNS, NUM_PUBLIC_INPUTS>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        eval_core_registers_recursively(builder, vars, yield_constr);
-        eval_alu_recursively(builder, vars, yield_constr);
+        eval_core_registers_circuit(builder, vars, yield_constr);
+        eval_alu_circuit(builder, vars, yield_constr);
         eval_permutation_unit_recursively(builder, vars, yield_constr);
-        eval_lookups_recursively(builder, vars, yield_constr);
+        eval_lookups_circuit(builder, vars, yield_constr);
         // TODO: Other units
     }
 
