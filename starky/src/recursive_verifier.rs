@@ -233,12 +233,12 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
         trace_cap: builder.add_virtual_cap(cap_height),
         permutation_zs_cap,
         quotient_polys_cap: builder.add_virtual_cap(cap_height),
-        openings: add_stark_opening_set::<F, S, D>(builder, stark, config),
+        openings: add_stark_opening_set_target::<F, S, D>(builder, stark, config),
         opening_proof: builder.add_virtual_fri_proof(&num_leaves_per_oracle, &fri_params),
     }
 }
 
-fn add_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
+fn add_stark_opening_set_target<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: S,
     config: &StarkConfig,

@@ -130,7 +130,7 @@ pub(crate) fn eval_bitop<F: Field, P: PackedField<Scalar = F>>(
     );
 }
 
-pub(crate) fn constrain_all_to_bits<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn constrain_all_to_bits_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     filter: ExtensionTarget<D>,
@@ -144,7 +144,7 @@ pub(crate) fn constrain_all_to_bits<F: RichField + Extendable<D>, const D: usize
 }
 
 /// As for `eval_bitop`, but build with `builder`.
-fn eval_bitop_32_recursively<F: RichField + Extendable<D>, const D: usize>(
+fn eval_bitop_32_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     input_a_regs: [usize; 32],
@@ -164,8 +164,8 @@ fn eval_bitop_32_recursively<F: RichField + Extendable<D>, const D: usize>(
 
     // Ensure that the inputs are bits
     let inst_constr = builder.add_many_extension(&[is_and, is_ior, is_xor, is_andnot]);
-    constrain_all_to_bits(builder, yield_constr, inst_constr, &a_bits);
-    constrain_all_to_bits(builder, yield_constr, inst_constr, &b_bits);
+    constrain_all_to_bits_circuit(builder, yield_constr, inst_constr, &a_bits);
+    constrain_all_to_bits_circuit(builder, yield_constr, inst_constr, &b_bits);
 
     // Output
     let output = lv[output_reg];
@@ -209,13 +209,13 @@ fn eval_bitop_32_recursively<F: RichField + Extendable<D>, const D: usize>(
 }
 
 /// As for `eval_bitop` but with a builder.
-pub(crate) fn eval_bitop_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_bitop_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     // Recursive constraint for lo half
-    eval_bitop_32_recursively(
+    eval_bitop_32_circuit(
         builder,
         lv,
         COL_BIT_DECOMP_INPUT_A_LO_BIN_REGS,
@@ -224,7 +224,7 @@ pub(crate) fn eval_bitop_recursively<F: RichField + Extendable<D>, const D: usiz
         yield_constr,
     );
     // Recursive constraint for hi half
-    eval_bitop_32_recursively(
+    eval_bitop_32_circuit(
         builder,
         lv,
         COL_BIT_DECOMP_INPUT_A_HI_BIN_REGS,

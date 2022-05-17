@@ -22,7 +22,7 @@ use crate::core_registers::{
 use crate::lookup::{eval_lookups, eval_lookups_circuit, generate_lookups};
 use crate::memory::TransactionMemory;
 use crate::permutation_unit::{
-    eval_permutation_unit, eval_permutation_unit_recursively, generate_permutation_unit,
+    eval_permutation_unit, eval_permutation_unit_circuit, generate_permutation_unit,
 };
 use crate::public_input_layout::NUM_PUBLIC_INPUTS;
 use crate::registers::{lookup, NUM_COLUMNS};
@@ -143,7 +143,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for SystemZero<F,
     ) {
         eval_core_registers_circuit(builder, vars, yield_constr);
         eval_alu_circuit(builder, vars, yield_constr);
-        eval_permutation_unit_recursively(builder, vars, yield_constr);
+        eval_permutation_unit_circuit(builder, vars, yield_constr);
         eval_lookups_circuit(builder, vars, yield_constr);
         // TODO: Other units
     }
