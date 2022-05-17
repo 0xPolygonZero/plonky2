@@ -12,12 +12,9 @@ pub fn range_check_u32_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     let num_input_limbs = vals.len();
     let gate = U32RangeCheckGate::<F, D>::new(num_input_limbs);
-    let gate_index = builder.add_gate(gate, vec![]);
+    let row = builder.add_gate(gate, vec![]);
 
     for i in 0..num_input_limbs {
-        builder.connect(
-            Target::wire(gate_index, gate.wire_ith_input_limb(i)),
-            vals[i].0,
-        );
+        builder.connect(Target::wire(row, gate.wire_ith_input_limb(i)), vals[i].0);
     }
 }

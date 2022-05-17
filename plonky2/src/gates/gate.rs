@@ -84,13 +84,13 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     fn eval_filtered(
         &self,
         mut vars: EvaluationVars<F, D>,
-        gate_index: usize,
+        row: usize,
         selector_index: usize,
         group_range: Range<usize>,
         num_selectors: usize,
     ) -> Vec<F::Extension> {
         let filter = compute_filter(
-            gate_index,
+            row,
             group_range,
             vars.local_constants[selector_index],
             num_selectors > 1,
@@ -107,7 +107,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     fn eval_filtered_base_batch(
         &self,
         mut vars_batch: EvaluationVarsBaseBatch<F>,
-        gate_index: usize,
+        row: usize,
         selector_index: usize,
         group_range: Range<usize>,
         num_selectors: usize,
@@ -116,7 +116,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             .iter()
             .map(|vars| {
                 compute_filter(
-                    gate_index,
+                    row,
                     group_range.clone(),
                     vars.local_constants[selector_index],
                     num_selectors > 1,
@@ -136,7 +136,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         &self,
         builder: &mut CircuitBuilder<F, D>,
         mut vars: EvaluationTargets<D>,
-        gate_index: usize,
+        row: usize,
         selector_index: usize,
         group_range: Range<usize>,
         num_selectors: usize,
@@ -144,7 +144,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     ) {
         let filter = compute_filter_recursively(
             builder,
-            gate_index,
+            row,
             group_range,
             vars.local_constants[selector_index],
             num_selectors > 1,
@@ -158,11 +158,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
 
     /// The generators used to populate the witness.
     /// Note: This should return exactly 1 generator per operation in the gate.
-    fn generators(
-        &self,
-        gate_index: usize,
-        local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>>;
+    fn generators(&self, row: usize, local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>>;
 
     /// The number of wires used by this gate.
     fn num_wires(&self) -> usize;
@@ -222,8 +218,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Debug for GateRef<F, D> {
 }
 
 /// Map between gate parameters and available slots.
-/// An available slot is of the form `(gate_index, op)`, meaning the current available slot
-/// is at gate index `gate_index` in the `op`-th operation.
+/// An available slot is of the form `(row, op)`, meaning the current available slot
+/// is at gate index `row` in the `op`-th operation.
 #[derive(Clone, Debug, Default)]
 pub struct CurrentSlot<F: RichField + Extendable<D>, const D: usize> {
     pub current_slot: HashMap<Vec<F>, (usize, usize)>,
@@ -243,16 +239,11 @@ pub struct PrefixedGate<F: RichField + Extendable<D>, const D: usize> {
     pub prefix: Vec<bool>,
 }
 
-/// A gate's filter designed so that it is non-zero if `s = gate_index`.
-fn compute_filter<K: Field>(
-    gate_index: usize,
-    group_range: Range<usize>,
-    s: K,
-    many_selector: bool,
-) -> K {
-    debug_assert!(group_range.contains(&gate_index));
+/// A gate's filter designed so that it is non-zero if `s = row`.
+fn compute_filter<K: Field>(row: usize, group_range: Range<usize>, s: K, many_selector: bool) -> K {
+    debug_assert!(group_range.contains(&row));
     group_range
-        .filter(|&i| i != gate_index)
+        .filter(|&i| i != row)
         .chain(many_selector.then(|| UNUSED_SELECTOR))
         .map(|i| K::from_canonical_usize(i) - s)
         .product()
@@ -260,14 +251,14 @@ fn compute_filter<K: Field>(
 
 fn compute_filter_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    gate_index: usize,
+    row: usize,
     group_range: Range<usize>,
     s: ExtensionTarget<D>,
     many_selectors: bool,
 ) -> ExtensionTarget<D> {
-    debug_assert!(group_range.contains(&gate_index));
+    debug_assert!(group_range.contains(&row));
     let v = group_range
-        .filter(|&i| i != gate_index)
+        .filter(|&i| i != row)
         .chain(many_selectors.then(|| UNUSED_SELECTOR))
         .map(|i| {
             let c = builder.constant_extension(F::Extension::from_canonical_usize(i));

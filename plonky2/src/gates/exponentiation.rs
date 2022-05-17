@@ -161,13 +161,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = ExponentiationGenerator::<F, D> {
-            gate_index,
+            row,
             gate: self.clone(),
         };
         vec![Box::new(gen.adapter())]
@@ -231,7 +227,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
 
 #[derive(Debug)]
 struct ExponentiationGenerator<F: RichField + Extendable<D>, const D: usize> {
-    gate_index: usize,
+    row: usize,
     gate: ExponentiationGate<F, D>,
 }
 
@@ -239,7 +235,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for ExponentiationGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| Target::wire(self.gate_index, input);
+        let local_target = |column| Target::wire(self.row, column);
 
         let mut deps = Vec::with_capacity(self.gate.num_power_bits + 1);
         deps.push(local_target(self.gate.wire_base()));
@@ -250,12 +246,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
+        let local_wire = |column| Wire {
+            row: self.row,
+            column,
         };
 
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
+        let get_local_wire = |column| witness.get_wire(local_wire(column));
 
         let num_power_bits = self.gate.num_power_bits;
         let base = get_local_wire(self.gate.wire_base());

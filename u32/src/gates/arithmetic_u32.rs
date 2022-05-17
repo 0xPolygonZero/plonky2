@@ -193,17 +193,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         (0..self.num_ops)
             .map(|i| {
                 let g: Box<dyn WitnessGenerator<F>> = Box::new(
                     U32ArithmeticGenerator {
                         gate: *self,
-                        gate_index,
+                        row,
                         i,
                         _phantom: PhantomData,
                     }
@@ -281,7 +277,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
 #[derive(Clone, Debug)]
 struct U32ArithmeticGenerator<F: RichField + Extendable<D>, const D: usize> {
     gate: U32ArithmeticGate<F, D>,
-    gate_index: usize,
+    row: usize,
     i: usize,
     _phantom: PhantomData<F>,
 }
@@ -290,7 +286,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for U32ArithmeticGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| Target::wire(self.gate_index, input);
+        let local_target = |column| Target::wire(self.row, column);
 
         vec![
             local_target(self.gate.wire_ith_multiplicand_0(self.i)),
@@ -300,12 +296,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
+        let local_wire = |column| Wire {
+            row: self.row,
+            column,
         };
 
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
+        let get_local_wire = |column| witness.get_wire(local_wire(column));
 
         let multiplicand_0 = get_local_wire(self.gate.wire_ith_multiplicand_0(self.i));
         let multiplicand_1 = get_local_wire(self.gate.wire_ith_multiplicand_1(self.i));

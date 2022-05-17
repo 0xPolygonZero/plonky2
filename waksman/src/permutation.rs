@@ -82,30 +82,24 @@ fn create_switch<F: RichField + Extendable<D>, const D: usize>(
 
     let gate = SwitchGate::new_from_config(&builder.config, chunk_size);
     let params = vec![F::from_canonical_usize(chunk_size)];
-    let (gate_index, next_copy) = builder.find_slot(gate, &params, &[]);
+    let (row, next_copy) = builder.find_slot(gate, &params, &[]);
 
     let mut c = Vec::new();
     let mut d = Vec::new();
     for e in 0..chunk_size {
         builder.connect(
             a1[e],
-            Target::wire(gate_index, gate.wire_first_input(next_copy, e)),
+            Target::wire(row, gate.wire_first_input(next_copy, e)),
         );
         builder.connect(
             a2[e],
-            Target::wire(gate_index, gate.wire_second_input(next_copy, e)),
+            Target::wire(row, gate.wire_second_input(next_copy, e)),
         );
-        c.push(Target::wire(
-            gate_index,
-            gate.wire_first_output(next_copy, e),
-        ));
-        d.push(Target::wire(
-            gate_index,
-            gate.wire_second_output(next_copy, e),
-        ));
+        c.push(Target::wire(row, gate.wire_first_output(next_copy, e)));
+        d.push(Target::wire(row, gate.wire_second_output(next_copy, e)));
     }
 
-    let switch = Target::wire(gate_index, gate.wire_switch_bool(next_copy));
+    let switch = Target::wire(row, gate.wire_switch_bool(next_copy));
 
     (switch, c, d)
 }

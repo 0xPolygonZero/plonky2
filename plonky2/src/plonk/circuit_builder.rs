@@ -218,12 +218,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         constants.resize(gate_type.num_constants(), F::ZERO);
 
-        let gate_index = self.gate_instances.len();
+        let row = self.gate_instances.len();
 
         self.constant_generators
             .extend(gate_type.extra_constant_wires().into_iter().map(
                 |(constant_index, wire_index)| ConstantGenerator {
-                    gate_index,
+                    row,
                     constant_index,
                     wire_index,
                     constant: F::ZERO, // Placeholder; will be replaced later.
@@ -243,7 +243,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             constants,
         });
 
-        gate_index
+        row
     }
 
     fn check_gate_compatibility<G: Gate<F, D>>(&self, gate: &G) {
@@ -400,7 +400,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         })
     }
 
-    /// Find an available slot, of the form `(gate_index, op)` for gate `G` using parameters `params`
+    /// Find an available slot, of the form `(row, op)` for gate `G` using parameters `params`
     /// and constants `constants`. Parameters are any data used to differentiate which gate should be
     /// used for the given operation.
     pub fn find_slot<G: Gate<F, D> + Clone>(
@@ -524,10 +524,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // For each "regular" blinding factor, we simply add a no-op gate, and insert a random value
         // for each wire.
         for _ in 0..regular_poly_openings {
-            let gate = self.add_gate(NoopGate, vec![]);
+            let row = self.add_gate(NoopGate, vec![]);
             for w in 0..num_wires {
                 self.add_simple_generator(RandomValueGenerator {
-                    target: Target::Wire(Wire { gate, input: w }),
+                    target: Target::Wire(Wire { row, column: w }),
                 });
             }
         }
@@ -542,18 +542,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             for w in 0..num_routed_wires {
                 self.add_simple_generator(RandomValueGenerator {
                     target: Target::Wire(Wire {
-                        gate: gate_1,
-                        input: w,
+                        row: gate_1,
+                        column: w,
                     }),
                 });
                 self.generate_copy(
                     Target::Wire(Wire {
-                        gate: gate_1,
-                        input: w,
+                        row: gate_1,
+                        column: w,
                     }),
                     Target::Wire(Wire {
-                        gate: gate_2,
-                        input: w,
+                        row: gate_2,
+                        column: w,
                     }),
                 );
             }
@@ -596,7 +596,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         for gate in 0..degree {
             for input in 0..config.num_wires {
-                forest.add(Target::Wire(Wire { gate, input }));
+                forest.add(Target::Wire(Wire {
+                    row: gate,
+                    column: input,
+                }));
             }
         }
 
@@ -677,9 +680,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .zip(self.constant_generators.clone())
         {
             // Set the constant in the constant polynomial.
-            self.gate_instances[const_gen.gate_index].constants[const_gen.constant_index] = c;
+            self.gate_instances[const_gen.row].constants[const_gen.constant_index] = c;
             // Generate a copy between the target and the routable wire.
-            self.connect(Target::wire(const_gen.gate_index, const_gen.wire_index), t);
+            self.connect(Target::wire(const_gen.row, const_gen.wire_index), t);
             // Set the constant in the generator (it's initially set with a dummy value).
             const_gen.set_constant(c);
             self.add_simple_generator(const_gen);

@@ -2,21 +2,26 @@ use std::ops::Range;
 
 use crate::plonk::circuit_data::CircuitConfig;
 
-/// Represents a wire in the circuit.
+/// Represents a wire in the circuit, seen as a `degree x num_wires` table.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Wire {
-    /// The index of the associated gate.
-    pub gate: usize,
-    /// The index of the gate input wherein this wire is inserted.
-    pub input: usize,
+    /// Row index of the wire.
+    pub row: usize,
+    /// Column index of the wire.
+    pub column: usize,
 }
 
 impl Wire {
     pub fn is_routable(&self, config: &CircuitConfig) -> bool {
-        self.input < config.num_routed_wires
+        self.column < config.num_routed_wires
     }
 
     pub fn from_range(gate: usize, range: Range<usize>) -> Vec<Self> {
-        range.map(|i| Wire { gate, input: i }).collect()
+        range
+            .map(|i| Wire {
+                row: gate,
+                column: i,
+            })
+            .collect()
     }
 }

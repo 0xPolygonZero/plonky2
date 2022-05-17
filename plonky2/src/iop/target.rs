@@ -16,8 +16,8 @@ pub enum Target {
 }
 
 impl Target {
-    pub fn wire(gate: usize, input: usize) -> Self {
-        Self::Wire(Wire { gate, input })
+    pub fn wire(row: usize, column: usize) -> Self {
+        Self::Wire(Wire { row, column })
     }
 
     pub fn is_routable(&self, config: &CircuitConfig) -> bool {
@@ -27,13 +27,13 @@ impl Target {
         }
     }
 
-    pub fn wires_from_range(gate: usize, range: Range<usize>) -> Vec<Self> {
-        range.map(|i| Self::wire(gate, i)).collect()
+    pub fn wires_from_range(row: usize, range: Range<usize>) -> Vec<Self> {
+        range.map(|i| Self::wire(row, i)).collect()
     }
 
     pub fn index(&self, num_wires: usize, degree: usize) -> usize {
         match self {
-            Target::Wire(Wire { gate, input }) => gate * num_wires + input,
+            Target::Wire(Wire { row, column }) => row * num_wires + column,
             Target::VirtualTarget { index } => degree * num_wires + index,
         }
     }

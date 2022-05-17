@@ -374,13 +374,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = PoseidonGenerator::<F, D> {
-            gate_index,
+            row,
             _phantom: PhantomData,
         };
         vec![Box::new(gen.adapter())]
@@ -409,7 +405,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
 
 #[derive(Debug)]
 struct PoseidonGenerator<F: RichField + Extendable<D> + Poseidon, const D: usize> {
-    gate_index: usize,
+    row: usize,
     _phantom: PhantomData<F>,
 }
 
@@ -420,14 +416,14 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F>
         (0..SPONGE_WIDTH)
             .map(|i| PoseidonGate::<F, D>::wire_input(i))
             .chain(Some(PoseidonGate::<F, D>::WIRE_SWAP))
-            .map(|input| Target::wire(self.gate_index, input))
+            .map(|column| Target::wire(self.row, column))
             .collect()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
+        let local_wire = |column| Wire {
+            row: self.row,
+            column,
         };
 
         let mut state = (0..SPONGE_WIDTH)
@@ -559,7 +555,7 @@ mod tests {
         let mut builder = CircuitBuilder::new(config);
         type Gate = PoseidonGate<F, D>;
         let gate = Gate::new();
-        let gate_index = builder.add_gate(gate, vec![]);
+        let row = builder.add_gate(gate, vec![]);
         let circuit = builder.build_prover::<C>();
 
         let permutation_inputs = (0..SPONGE_WIDTH)
@@ -569,16 +565,16 @@ mod tests {
         let mut inputs = PartialWitness::new();
         inputs.set_wire(
             Wire {
-                gate: gate_index,
-                input: Gate::WIRE_SWAP,
+                row,
+                column: Gate::WIRE_SWAP,
             },
             F::ZERO,
         );
         for i in 0..SPONGE_WIDTH {
             inputs.set_wire(
                 Wire {
-                    gate: gate_index,
-                    input: Gate::wire_input(i),
+                    row,
+                    column: Gate::wire_input(i),
                 },
                 permutation_inputs[i],
             );
@@ -590,8 +586,8 @@ mod tests {
             F::poseidon(permutation_inputs.try_into().unwrap());
         for i in 0..SPONGE_WIDTH {
             let out = witness.get_wire(Wire {
-                gate: 0,
-                input: Gate::wire_output(i),
+                row: 0,
+                column: Gate::wire_output(i),
             });
             assert_eq!(out, expected_outputs[i]);
         }

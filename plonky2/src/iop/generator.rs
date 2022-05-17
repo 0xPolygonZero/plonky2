@@ -306,7 +306,7 @@ impl<F: Field> SimpleGenerator<F> for NonzeroTestGenerator {
 /// Generator used to fill an extra constant.
 #[derive(Debug, Clone)]
 pub(crate) struct ConstantGenerator<F: Field> {
-    pub gate_index: usize,
+    pub row: usize,
     pub constant_index: usize,
     pub wire_index: usize,
     pub constant: F,
@@ -324,9 +324,6 @@ impl<F: Field> SimpleGenerator<F> for ConstantGenerator<F> {
     }
 
     fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        out_buffer.set_target(
-            Target::wire(self.gate_index, self.wire_index),
-            self.constant,
-        );
+        out_buffer.set_target(Target::wire(self.row, self.wire_index), self.constant);
     }
 }

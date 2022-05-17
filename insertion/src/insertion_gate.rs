@@ -213,13 +213,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = InsertionGenerator::<F, D> {
-            gate_index,
+            row,
             gate: self.clone(),
         };
         vec![Box::new(gen.adapter())]
@@ -244,15 +240,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for InsertionGate<
 
 #[derive(Debug)]
 struct InsertionGenerator<F: RichField + Extendable<D>, const D: usize> {
-    gate_index: usize,
+    row: usize,
     gate: InsertionGate<F, D>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for InsertionGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| Target::wire(self.gate_index, input);
+        let local_target = |column| Target::wire(self.row, column);
 
-        let local_targets = |inputs: Range<usize>| inputs.map(local_target);
+        let local_targets = |columns: Range<usize>| columns.map(local_target);
 
         let mut deps = vec![local_target(self.gate.wires_insertion_index())];
         deps.extend(local_targets(self.gate.wires_element_to_insert()));
@@ -263,12 +259,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Insert
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
+        let local_wire = |column| Wire {
+            row: self.row,
+            column,
         };
 
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
+        let get_local_wire = |column| witness.get_wire(local_wire(column));
 
         let get_local_ext = |wire_range: Range<usize>| {
             debug_assert_eq!(wire_range.len(), D);

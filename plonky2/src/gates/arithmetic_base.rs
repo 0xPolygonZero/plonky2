@@ -113,16 +113,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticGate
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         (0..self.num_ops)
             .map(|i| {
                 let g: Box<dyn WitnessGenerator<F>> = Box::new(
                     ArithmeticBaseGenerator {
-                        gate_index,
+                        row,
                         const_0: local_constants[0],
                         const_1: local_constants[1],
                         i,
@@ -174,7 +170,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
 
 #[derive(Clone, Debug)]
 struct ArithmeticBaseGenerator<F: RichField + Extendable<D>, const D: usize> {
-    gate_index: usize,
+    row: usize,
     const_0: F,
     const_1: F,
     i: usize,
@@ -190,19 +186,18 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
             ArithmeticGate::wire_ith_addend(self.i),
         ]
         .iter()
-        .map(|&i| Target::wire(self.gate_index, i))
+        .map(|&i| Target::wire(self.row, i))
         .collect()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let get_wire =
-            |wire: usize| -> F { witness.get_target(Target::wire(self.gate_index, wire)) };
+        let get_wire = |wire: usize| -> F { witness.get_target(Target::wire(self.row, wire)) };
 
         let multiplicand_0 = get_wire(ArithmeticGate::wire_ith_multiplicand_0(self.i));
         let multiplicand_1 = get_wire(ArithmeticGate::wire_ith_multiplicand_1(self.i));
         let addend = get_wire(ArithmeticGate::wire_ith_addend(self.i));
 
-        let output_target = Target::wire(self.gate_index, ArithmeticGate::wire_ith_output(self.i));
+        let output_target = Target::wire(self.row, ArithmeticGate::wire_ith_output(self.i));
 
         let computed_output =
             multiplicand_0 * multiplicand_1 * self.const_0 + addend * self.const_1;

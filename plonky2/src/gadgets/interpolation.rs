@@ -88,20 +88,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         evaluation_point: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
         let gate = G::new(subgroup_bits);
-        let gate_index = self.add_gate(gate, vec![]);
-        self.connect(coset_shift, Target::wire(gate_index, gate.wire_shift()));
+        let row = self.add_gate(gate, vec![]);
+        self.connect(coset_shift, Target::wire(row, gate.wire_shift()));
         for (i, &v) in values.iter().enumerate() {
-            self.connect_extension(
-                v,
-                ExtensionTarget::from_range(gate_index, gate.wires_value(i)),
-            );
+            self.connect_extension(v, ExtensionTarget::from_range(row, gate.wires_value(i)));
         }
         self.connect_extension(
             evaluation_point,
-            ExtensionTarget::from_range(gate_index, gate.wires_evaluation_point()),
+            ExtensionTarget::from_range(row, gate.wires_evaluation_point()),
         );
 
-        ExtensionTarget::from_range(gate_index, gate.wires_evaluation_value())
+        ExtensionTarget::from_range(row, gate.wires_evaluation_value())
     }
 }
 

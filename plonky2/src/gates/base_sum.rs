@@ -104,13 +104,9 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> Gate<F, D> fo
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = BaseSplitGenerator::<B> {
-            gate_index,
+            row,
             num_limbs: self.num_limbs,
         };
         vec![Box::new(gen.adapter())]
@@ -161,18 +157,18 @@ impl<F: RichField + Extendable<D>, const D: usize, const B: usize> PackedEvaluab
 
 #[derive(Debug)]
 pub struct BaseSplitGenerator<const B: usize> {
-    gate_index: usize,
+    row: usize,
     num_limbs: usize,
 }
 
 impl<F: RichField, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> {
     fn dependencies(&self) -> Vec<Target> {
-        vec![Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM)]
+        vec![Target::wire(self.row, BaseSumGate::<B>::WIRE_SUM)]
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let sum_value = witness
-            .get_target(Target::wire(self.gate_index, BaseSumGate::<B>::WIRE_SUM))
+            .get_target(Target::wire(self.row, BaseSumGate::<B>::WIRE_SUM))
             .to_canonical_u64() as usize;
         debug_assert_eq!(
             (0..self.num_limbs).fold(sum_value, |acc, _| acc / B),
@@ -181,7 +177,7 @@ impl<F: RichField, const B: usize> SimpleGenerator<F> for BaseSplitGenerator<B> 
         );
 
         let limbs = (BaseSumGate::<B>::START_LIMBS..BaseSumGate::<B>::START_LIMBS + self.num_limbs)
-            .map(|i| Target::wire(self.gate_index, i));
+            .map(|i| Target::wire(self.row, i));
         let limbs_value = (0..self.num_limbs)
             .scan(sum_value, |acc, _| {
                 let tmp = *acc % B;

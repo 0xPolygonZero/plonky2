@@ -27,25 +27,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderInsert<F, D>
         v: Vec<ExtensionTarget<D>>,
     ) -> Vec<ExtensionTarget<D>> {
         let gate = InsertionGate::new(v.len());
-        let gate_index = self.add_gate(gate.clone(), vec![]);
+        let row = self.add_gate(gate.clone(), vec![]);
 
         v.iter().enumerate().for_each(|(i, &val)| {
             self.connect_extension(
                 val,
-                ExtensionTarget::from_range(gate_index, gate.wires_original_list_item(i)),
+                ExtensionTarget::from_range(row, gate.wires_original_list_item(i)),
             );
         });
-        self.connect(
-            index,
-            Target::wire(gate_index, gate.wires_insertion_index()),
-        );
+        self.connect(index, Target::wire(row, gate.wires_insertion_index()));
         self.connect_extension(
             element,
-            ExtensionTarget::from_range(gate_index, gate.wires_element_to_insert()),
+            ExtensionTarget::from_range(row, gate.wires_element_to_insert()),
         );
 
         (0..=v.len())
-            .map(|i| ExtensionTarget::from_range(gate_index, gate.wires_output_list_item(i)))
+            .map(|i| ExtensionTarget::from_range(row, gate.wires_output_list_item(i)))
             .collect::<Vec<_>>()
     }
 }

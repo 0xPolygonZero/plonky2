@@ -135,14 +135,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D
             .collect()
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         vec![Box::new(
             ReducingGenerator {
-                gate_index,
+                row,
                 gate: self.clone(),
             }
             .adapter(),
@@ -168,7 +164,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ReducingGate<D
 
 #[derive(Debug)]
 struct ReducingGenerator<const D: usize> {
-    gate_index: usize,
+    row: usize,
     gate: ReducingGate<D>,
 }
 
@@ -177,13 +173,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Reduci
         ReducingGate::<D>::wires_alpha()
             .chain(ReducingGate::<D>::wires_old_acc())
             .chain(self.gate.wires_coeffs())
-            .map(|i| Target::wire(self.gate_index, i))
+            .map(|i| Target::wire(self.row, i))
             .collect()
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let extract_extension = |range: Range<usize>| -> F::Extension {
-            let t = ExtensionTarget::from_range(self.gate_index, range);
+            let t = ExtensionTarget::from_range(self.row, range);
             witness.get_extension_target(t)
         };
 
@@ -193,14 +189,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F> for Reduci
             &self
                 .gate
                 .wires_coeffs()
-                .map(|i| Target::wire(self.gate_index, i))
+                .map(|i| Target::wire(self.row, i))
                 .collect::<Vec<_>>(),
         );
         let accs = (0..self.gate.num_coeffs)
-            .map(|i| ExtensionTarget::from_range(self.gate_index, self.gate.wires_accs(i)))
+            .map(|i| ExtensionTarget::from_range(self.row, self.gate.wires_accs(i)))
             .collect::<Vec<_>>();
-        let output =
-            ExtensionTarget::from_range(self.gate_index, ReducingGate::<D>::wires_output());
+        let output = ExtensionTarget::from_range(self.row, ReducingGate::<D>::wires_output());
 
         let mut acc = old_acc;
         for i in 0..self.gate.num_coeffs {

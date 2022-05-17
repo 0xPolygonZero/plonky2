@@ -54,10 +54,10 @@ pub fn assert_le<F: RichField + Extendable<D>, const D: usize>(
     num_chunks: usize,
 ) {
     let gate = AssertLessThanGate::new(bits, num_chunks);
-    let gate_index = builder.add_gate(gate.clone(), vec![]);
+    let row = builder.add_gate(gate.clone(), vec![]);
 
-    builder.connect(Target::wire(gate_index, gate.wire_first_input()), lhs);
-    builder.connect(Target::wire(gate_index, gate.wire_second_input()), rhs);
+    builder.connect(Target::wire(row, gate.wire_first_input()), lhs);
+    builder.connect(Target::wire(row, gate.wire_second_input()), rhs);
 }
 
 /// Sort memory operations by address value, then by timestamp value.

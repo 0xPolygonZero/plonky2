@@ -169,13 +169,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
         constraints
     }
 
-    fn generators(
-        &self,
-        gate_index: usize,
-        _local_constants: &[F],
-    ) -> Vec<Box<dyn WitnessGenerator<F>>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<Box<dyn WitnessGenerator<F>>> {
         let gen = InterpolationGenerator::<F, D> {
-            gate_index,
+            row,
             gate: *self,
             _phantom: PhantomData,
         };
@@ -205,7 +201,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D>
 
 #[derive(Debug)]
 struct InterpolationGenerator<F: RichField + Extendable<D>, const D: usize> {
-    gate_index: usize,
+    row: usize,
     gate: HighDegreeInterpolationGate<F, D>,
     _phantom: PhantomData<F>,
 }
@@ -214,14 +210,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     for InterpolationGenerator<F, D>
 {
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |input| {
+        let local_target = |column| {
             Target::Wire(Wire {
-                gate: self.gate_index,
-                input,
+                row: self.row,
+                column,
             })
         };
 
-        let local_targets = |inputs: Range<usize>| inputs.map(local_target);
+        let local_targets = |columns: Range<usize>| columns.map(local_target);
 
         let num_points = self.gate.num_points();
         let mut deps = Vec::with_capacity(1 + D + num_points * D);
@@ -235,12 +231,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let local_wire = |input| Wire {
-            gate: self.gate_index,
-            input,
+        let local_wire = |column| Wire {
+            row: self.row,
+            column,
         };
 
-        let get_local_wire = |input| witness.get_wire(local_wire(input));
+        let get_local_wire = |column| witness.get_wire(local_wire(column));
 
         let get_local_ext = |wire_range: Range<usize>| {
             debug_assert_eq!(wire_range.len(), D);
