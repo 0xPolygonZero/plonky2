@@ -207,7 +207,7 @@ pub trait Poseidon: PrimeField64 {
     }
 
     /// Recursive version of `mds_row_shf`.
-    fn mds_row_shf_recursive<const D: usize>(
+    fn mds_row_shf_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
         r: usize,
         v: &[ExtensionTarget<D>; WIDTH],
@@ -267,7 +267,7 @@ pub trait Poseidon: PrimeField64 {
     }
 
     /// Recursive version of `mds_layer`.
-    fn mds_layer_recursive<const D: usize>(
+    fn mds_layer_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
         state: &[ExtensionTarget<D>; WIDTH],
     ) -> [ExtensionTarget<D>; WIDTH]
@@ -294,7 +294,7 @@ pub trait Poseidon: PrimeField64 {
             let mut result = [builder.zero_extension(); WIDTH];
 
             for r in 0..WIDTH {
-                result[r] = Self::mds_row_shf_recursive(builder, r, state);
+                result[r] = Self::mds_row_shf_circuit(builder, r, state);
             }
 
             result
@@ -314,7 +314,7 @@ pub trait Poseidon: PrimeField64 {
     }
 
     /// Recursive version of `partial_first_constant_layer`.
-    fn partial_first_constant_layer_recursive<const D: usize>(
+    fn partial_first_constant_layer_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
     ) where
@@ -359,7 +359,7 @@ pub trait Poseidon: PrimeField64 {
     }
 
     /// Recursive version of `mds_partial_layer_init`.
-    fn mds_partial_layer_init_recursive<const D: usize>(
+    fn mds_partial_layer_init_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
         state: &[ExtensionTarget<D>; WIDTH],
     ) -> [ExtensionTarget<D>; WIDTH]
@@ -443,7 +443,7 @@ pub trait Poseidon: PrimeField64 {
     }
 
     /// Recursive version of `mds_partial_layer_fast`.
-    fn mds_partial_layer_fast_recursive<const D: usize>(
+    fn mds_partial_layer_fast_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
         state: &[ExtensionTarget<D>; WIDTH],
         r: usize,
@@ -496,7 +496,7 @@ pub trait Poseidon: PrimeField64 {
     }
 
     /// Recursive version of `constant_layer`.
-    fn constant_layer_recursive<const D: usize>(
+    fn constant_layer_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
         round_ctr: usize,
@@ -521,7 +521,7 @@ pub trait Poseidon: PrimeField64 {
     }
 
     /// Recursive version of `sbox_monomial`.
-    fn sbox_monomial_recursive<const D: usize>(
+    fn sbox_monomial_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
         x: ExtensionTarget<D>,
     ) -> ExtensionTarget<D>
@@ -552,14 +552,14 @@ pub trait Poseidon: PrimeField64 {
     }
 
     /// Recursive version of `sbox_layer`.
-    fn sbox_layer_recursive<const D: usize>(
+    fn sbox_layer_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
         state: &mut [ExtensionTarget<D>; WIDTH],
     ) where
         Self: RichField + Extendable<D>,
     {
         for i in 0..WIDTH {
-            state[i] = <Self as Poseidon>::sbox_monomial_recursive(builder, state[i]);
+            state[i] = <Self as Poseidon>::sbox_monomial_circuit(builder, state[i]);
         }
     }
 

@@ -23,7 +23,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NoopGate {
         Vec::new()
     }
 
-    fn eval_unfiltered_recursively(
+    fn eval_unfiltered_circuit(
         &self,
         _builder: &mut CircuitBuilder<F, D>,
         _vars: EvaluationTargets<D>,

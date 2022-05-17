@@ -81,7 +81,7 @@ pub(crate) fn eval_l_1<F: Field>(n: usize, x: F) -> F {
 /// the order-`n` subgroup.
 ///
 /// Assumes `x != 1`; if `x` could be 1 then this is unsound.
-pub(crate) fn eval_l_1_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_l_1_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     n: usize,
     x: ExtensionTarget<D>,
@@ -138,7 +138,7 @@ where
     sum
 }
 
-pub fn reduce_with_powers_ext_recursive<F: RichField + Extendable<D>, const D: usize>(
+pub fn reduce_with_powers_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     terms: &[ExtensionTarget<D>],
     alpha: Target,

@@ -10,9 +10,9 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common;
-use crate::plonk::plonk_common::eval_l_1_recursively;
+use crate::plonk::plonk_common::eval_l_1_circuit;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBatch};
-use crate::util::partial_products::{check_partial_products, check_partial_products_recursively};
+use crate::util::partial_products::{check_partial_products, check_partial_products_circuit};
 use crate::util::reducing::ReducingFactorTarget;
 use crate::util::strided_view::PackedStridedView;
 use crate::with_context;
@@ -270,7 +270,7 @@ pub fn evaluate_gate_constraints_base_batch<
     constraints_batch
 }
 
-pub fn evaluate_gate_constraints_recursively<
+pub fn evaluate_gate_constraints_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
@@ -285,7 +285,7 @@ pub fn evaluate_gate_constraints_recursively<
         with_context!(
             builder,
             &format!("evaluate {} constraints", gate.0.id()),
-            gate.0.eval_filtered_recursively(
+            gate.0.eval_filtered_circuit(
                 builder,
                 vars,
                 i,
@@ -305,7 +305,7 @@ pub fn evaluate_gate_constraints_recursively<
 ///
 /// Assumes `x != 1`; if `x` could be 1 then this is unsound. This is fine if `x` is a random
 /// variable drawn from a sufficiently large domain.
-pub(crate) fn eval_vanishing_poly_recursively<
+pub(crate) fn eval_vanishing_poly_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
@@ -329,7 +329,7 @@ pub(crate) fn eval_vanishing_poly_recursively<
     let constraint_terms = with_context!(
         builder,
         "evaluate gate constraints",
-        evaluate_gate_constraints_recursively(builder, common_data, vars,)
+        evaluate_gate_constraints_circuit(builder, common_data, vars,)
     );
 
     // The L_1(x) (Z(x) - 1) vanishing terms.
@@ -337,7 +337,7 @@ pub(crate) fn eval_vanishing_poly_recursively<
     // The terms checking the partial products.
     let mut vanishing_partial_products_terms = Vec::new();
 
-    let l1_x = eval_l_1_recursively(builder, common_data.degree(), x, x_pow_deg);
+    let l1_x = eval_l_1_circuit(builder, common_data.degree(), x, x_pow_deg);
 
     // Holds `k[i] * x`.
     let mut s_ids = Vec::new();
@@ -374,7 +374,7 @@ pub(crate) fn eval_vanishing_poly_recursively<
         // The partial products considered for this iteration of `i`.
         let current_partial_products = &partial_products[i * num_prods..(i + 1) * num_prods];
         // Check the quotient partial products.
-        let partial_product_checks = check_partial_products_recursively(
+        let partial_product_checks = check_partial_products_circuit(
             builder,
             &numerator_values,
             &denominator_values,

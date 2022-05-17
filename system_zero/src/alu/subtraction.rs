@@ -45,7 +45,7 @@ pub(crate) fn eval_subtraction<F: Field, P: PackedField<Scalar = F>>(
     // checked by boolean::col_bit(0) in the ALU.
 }
 
-pub(crate) fn eval_subtraction_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_subtraction_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     local_values: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,

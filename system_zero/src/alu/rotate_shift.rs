@@ -6,7 +6,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-use crate::alu::bitops::constrain_all_to_bits;
+use crate::alu::bitops::constrain_all_to_bits_circuit;
 use crate::registers::alu::*;
 use crate::registers::NUM_COLUMNS;
 
@@ -343,7 +343,7 @@ pub(crate) fn eval_shift_right<F: Field, P: PackedField<Scalar = F>>(
     yield_constr.constraint(is_shl * hi_constr);
 }
 
-fn constrain_pow_exp_recursively<F: RichField + Extendable<D>, const D: usize>(
+fn constrain_pow_exp_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -358,8 +358,8 @@ fn constrain_pow_exp_recursively<F: RichField + Extendable<D>, const D: usize>(
     let pow_exp = lv[COL_ROTATE_SHIFT_POW_EXP];
 
     // Check that every "bit" of exp_bits and exp_ge32_bit is 0 or 1
-    constrain_all_to_bits(builder, yield_constr, filter, &exp_bits);
-    constrain_all_to_bits(builder, yield_constr, filter, &[exp_ge32_bit]);
+    constrain_all_to_bits_circuit(builder, yield_constr, filter, &exp_bits);
+    constrain_all_to_bits_circuit(builder, yield_constr, filter, &[exp_ge32_bit]);
 
     let one = builder.one_extension();
     // c[i-1] = 2^(2^i) - 1
@@ -392,7 +392,7 @@ fn constrain_pow_exp_recursively<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, constr4);
 }
 
-fn constrain_shifted_are_valid_recursively<F: RichField + Extendable<D>, const D: usize>(
+fn constrain_shifted_are_valid_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -438,7 +438,7 @@ fn constrain_shifted_are_valid_recursively<F: RichField + Extendable<D>, const D
     yield_constr.constraint(builder, hi_shifted_is_valid);
 }
 
-fn eval_rotate_shift_recursively<F: RichField + Extendable<D>, const D: usize>(
+fn eval_rotate_shift_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -468,8 +468,8 @@ fn eval_rotate_shift_recursively<F: RichField + Extendable<D>, const D: usize>(
     let output_lo = lv[COL_ROTATE_SHIFT_OUTPUT_0];
     let output_hi = lv[COL_ROTATE_SHIFT_OUTPUT_1];
 
-    constrain_pow_exp_recursively(builder, lv, yield_constr, filter);
-    constrain_shifted_are_valid_recursively(builder, lv, yield_constr, filter);
+    constrain_pow_exp_circuit(builder, lv, yield_constr, filter);
+    constrain_shifted_are_valid_circuit(builder, lv, yield_constr, filter);
 
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1u64 << 32));
     let lo_shifted = builder.mul_add_extension(lo_shifted_1, base, lo_shifted_0);
@@ -500,7 +500,7 @@ fn eval_rotate_shift_recursively<F: RichField + Extendable<D>, const D: usize>(
     )
 }
 
-pub(crate) fn eval_rotate_left_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_rotate_left_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -508,7 +508,7 @@ pub(crate) fn eval_rotate_left_recursively<F: RichField + Extendable<D>, const D
     let is_rol = lv[IS_ROTATE_LEFT];
 
     let (delta_ge32, lo_shifted_0, lo_shifted_1, hi_shifted_0, hi_shifted_1, output_lo, output_hi) =
-        eval_rotate_shift_recursively(builder, lv, yield_constr, is_rol);
+        eval_rotate_shift_circuit(builder, lv, yield_constr, is_rol);
 
     let one = builder.one_extension();
     let s0 = builder.add_extension(hi_shifted_1, lo_shifted_0);
@@ -537,7 +537,7 @@ pub(crate) fn eval_rotate_left_recursively<F: RichField + Extendable<D>, const D
     yield_constr.constraint(builder, hi_constr);
 }
 
-pub(crate) fn eval_rotate_right_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_rotate_right_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -545,7 +545,7 @@ pub(crate) fn eval_rotate_right_recursively<F: RichField + Extendable<D>, const 
     let is_ror = lv[IS_ROTATE_RIGHT];
 
     let (delta_ge32, lo_shifted_0, lo_shifted_1, hi_shifted_0, hi_shifted_1, output_lo, output_hi) =
-        eval_rotate_shift_recursively(builder, lv, yield_constr, is_ror);
+        eval_rotate_shift_circuit(builder, lv, yield_constr, is_ror);
 
     let one = builder.one_extension();
     let s0 = builder.add_extension(hi_shifted_1, lo_shifted_0);
@@ -574,7 +574,7 @@ pub(crate) fn eval_rotate_right_recursively<F: RichField + Extendable<D>, const 
     yield_constr.constraint(builder, hi_constr);
 }
 
-pub(crate) fn eval_shift_left_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_shift_left_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -582,7 +582,7 @@ pub(crate) fn eval_shift_left_recursively<F: RichField + Extendable<D>, const D:
     let is_shl = lv[IS_SHIFT_LEFT];
 
     let (delta_ge32, lo_shifted_0, lo_shifted_1, hi_shifted_0, _hi_shifted_1, output_lo, output_hi) =
-        eval_rotate_shift_recursively(builder, lv, yield_constr, is_shl);
+        eval_rotate_shift_circuit(builder, lv, yield_constr, is_shl);
 
     let one = builder.one_extension();
     let c = builder.sub_extension(one, delta_ge32);
@@ -609,7 +609,7 @@ pub(crate) fn eval_shift_left_recursively<F: RichField + Extendable<D>, const D:
     yield_constr.constraint(builder, hi_constr);
 }
 
-pub(crate) fn eval_shift_right_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_shift_right_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -617,7 +617,7 @@ pub(crate) fn eval_shift_right_recursively<F: RichField + Extendable<D>, const D
     let is_shr = lv[IS_SHIFT_RIGHT];
 
     let (delta_ge32, _lo_shifted_0, lo_shifted_1, hi_shifted_0, hi_shifted_1, output_lo, output_hi) =
-        eval_rotate_shift_recursively(builder, lv, yield_constr, is_shr);
+        eval_rotate_shift_circuit(builder, lv, yield_constr, is_shr);
 
     let one = builder.one_extension();
     let c = builder.sub_extension(one, delta_ge32);

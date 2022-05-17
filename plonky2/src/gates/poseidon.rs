@@ -265,7 +265,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
         }
     }
 
-    fn eval_unfiltered_recursively(
+    fn eval_unfiltered_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
@@ -306,7 +306,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
 
         // First set of full rounds.
         for r in 0..poseidon::HALF_N_FULL_ROUNDS {
-            <F as Poseidon>::constant_layer_recursive(builder, &mut state, round_ctr);
+            <F as Poseidon>::constant_layer_circuit(builder, &mut state, round_ctr);
             if r != 0 {
                 for i in 0..SPONGE_WIDTH {
                     let sbox_in = vars.local_wires[Self::wire_full_sbox_0(r, i)];
@@ -314,38 +314,38 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
                     state[i] = sbox_in;
                 }
             }
-            <F as Poseidon>::sbox_layer_recursive(builder, &mut state);
-            state = <F as Poseidon>::mds_layer_recursive(builder, &state);
+            <F as Poseidon>::sbox_layer_circuit(builder, &mut state);
+            state = <F as Poseidon>::mds_layer_circuit(builder, &state);
             round_ctr += 1;
         }
 
         // Partial rounds.
         if use_mds_gate {
             for r in 0..poseidon::N_PARTIAL_ROUNDS {
-                <F as Poseidon>::constant_layer_recursive(builder, &mut state, round_ctr);
+                <F as Poseidon>::constant_layer_circuit(builder, &mut state, round_ctr);
                 let sbox_in = vars.local_wires[Self::wire_partial_sbox(r)];
                 constraints.push(builder.sub_extension(state[0], sbox_in));
-                state[0] = <F as Poseidon>::sbox_monomial_recursive(builder, sbox_in);
-                state = <F as Poseidon>::mds_layer_recursive(builder, &state);
+                state[0] = <F as Poseidon>::sbox_monomial_circuit(builder, sbox_in);
+                state = <F as Poseidon>::mds_layer_circuit(builder, &state);
                 round_ctr += 1;
             }
         } else {
-            <F as Poseidon>::partial_first_constant_layer_recursive(builder, &mut state);
-            state = <F as Poseidon>::mds_partial_layer_init_recursive(builder, &state);
+            <F as Poseidon>::partial_first_constant_layer_circuit(builder, &mut state);
+            state = <F as Poseidon>::mds_partial_layer_init_circuit(builder, &state);
             for r in 0..(poseidon::N_PARTIAL_ROUNDS - 1) {
                 let sbox_in = vars.local_wires[Self::wire_partial_sbox(r)];
                 constraints.push(builder.sub_extension(state[0], sbox_in));
-                state[0] = <F as Poseidon>::sbox_monomial_recursive(builder, sbox_in);
+                state[0] = <F as Poseidon>::sbox_monomial_circuit(builder, sbox_in);
                 let c = <F as Poseidon>::FAST_PARTIAL_ROUND_CONSTANTS[r];
                 let c = F::Extension::from_canonical_u64(c);
                 let c = builder.constant_extension(c);
                 state[0] = builder.add_extension(state[0], c);
-                state = <F as Poseidon>::mds_partial_layer_fast_recursive(builder, &state, r);
+                state = <F as Poseidon>::mds_partial_layer_fast_circuit(builder, &state, r);
             }
             let sbox_in = vars.local_wires[Self::wire_partial_sbox(poseidon::N_PARTIAL_ROUNDS - 1)];
             constraints.push(builder.sub_extension(state[0], sbox_in));
-            state[0] = <F as Poseidon>::sbox_monomial_recursive(builder, sbox_in);
-            state = <F as Poseidon>::mds_partial_layer_fast_recursive(
+            state[0] = <F as Poseidon>::sbox_monomial_circuit(builder, sbox_in);
+            state = <F as Poseidon>::mds_partial_layer_fast_circuit(
                 builder,
                 &state,
                 poseidon::N_PARTIAL_ROUNDS - 1,
@@ -355,14 +355,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for PoseidonGate<F
 
         // Second set of full rounds.
         for r in 0..poseidon::HALF_N_FULL_ROUNDS {
-            <F as Poseidon>::constant_layer_recursive(builder, &mut state, round_ctr);
+            <F as Poseidon>::constant_layer_circuit(builder, &mut state, round_ctr);
             for i in 0..SPONGE_WIDTH {
                 let sbox_in = vars.local_wires[Self::wire_full_sbox_1(r, i)];
                 constraints.push(builder.sub_extension(state[i], sbox_in));
                 state[i] = sbox_in;
             }
-            <F as Poseidon>::sbox_layer_recursive(builder, &mut state);
-            state = <F as Poseidon>::mds_layer_recursive(builder, &state);
+            <F as Poseidon>::sbox_layer_circuit(builder, &mut state);
+            state = <F as Poseidon>::mds_layer_circuit(builder, &state);
             round_ctr += 1;
         }
 

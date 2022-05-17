@@ -90,7 +90,7 @@ pub(crate) fn eval_division<F: Field, P: PackedField<Scalar = F>>(
     yield_constr.constraint(is_div * divisor * (divisor - remainder - F::ONE - div_rem_diff_m1));
 }
 
-pub(crate) fn eval_division_recursively<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_division_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,

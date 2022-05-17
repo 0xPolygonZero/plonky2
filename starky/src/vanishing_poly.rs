@@ -7,7 +7,7 @@ use plonky2::plonk::config::GenericConfig;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::permutation::{
-    eval_permutation_checks, eval_permutation_checks_recursively, PermutationCheckDataTarget,
+    eval_permutation_checks, eval_permutation_checks_circuit, PermutationCheckDataTarget,
     PermutationCheckVars,
 };
 use crate::stark::Stark;
@@ -40,7 +40,7 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, C, S, const D: usize, const D2: usiz
     }
 }
 
-pub(crate) fn eval_vanishing_poly_recursively<F, C, S, const D: usize>(
+pub(crate) fn eval_vanishing_poly_circuit<F, C, S, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
     config: &StarkConfig,
@@ -54,9 +54,9 @@ pub(crate) fn eval_vanishing_poly_recursively<F, C, S, const D: usize>(
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
 {
-    stark.eval_ext_recursively(builder, vars, consumer);
+    stark.eval_ext_circuit(builder, vars, consumer);
     if let Some(permutation_data) = permutation_data {
-        eval_permutation_checks_recursively::<F, S, D>(
+        eval_permutation_checks_circuit::<F, S, D>(
             builder,
             stark,
             config,

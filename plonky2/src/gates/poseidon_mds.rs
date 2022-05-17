@@ -63,7 +63,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
     }
 
     /// Same as `mds_row_shf_recursive` for an extension algebra of `F`.
-    fn mds_row_shf_algebra_recursive(
+    fn mds_row_shf_algebra_circuit(
         builder: &mut CircuitBuilder<F, D>,
         r: usize,
         v: &[ExtensionAlgebraTarget<D>; SPONGE_WIDTH],
@@ -101,14 +101,14 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
     }
 
     /// Same as `mds_layer_recursive` for an extension algebra of `F`.
-    fn mds_layer_algebra_recursive(
+    fn mds_layer_algebra_circuit(
         builder: &mut CircuitBuilder<F, D>,
         state: &[ExtensionAlgebraTarget<D>; SPONGE_WIDTH],
     ) -> [ExtensionAlgebraTarget<D>; SPONGE_WIDTH] {
         let mut result = [builder.zero_ext_algebra(); SPONGE_WIDTH];
 
         for r in 0..SPONGE_WIDTH {
-            result[r] = Self::mds_row_shf_algebra_recursive(builder, r, state);
+            result[r] = Self::mds_row_shf_algebra_circuit(builder, r, state);
         }
 
         result
@@ -157,7 +157,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
         )
     }
 
-    fn eval_unfiltered_recursively(
+    fn eval_unfiltered_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
@@ -168,7 +168,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
             .try_into()
             .unwrap();
 
-        let computed_outputs = Self::mds_layer_algebra_recursive(builder, &inputs);
+        let computed_outputs = Self::mds_layer_algebra_circuit(builder, &inputs);
 
         (0..SPONGE_WIDTH)
             .map(|i| vars.get_local_ext_algebra(Self::wires_output(i)))

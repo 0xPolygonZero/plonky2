@@ -136,7 +136,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
         self.eval_unfiltered_base_batch_packed(vars_base)
     }
 
-    fn eval_unfiltered_recursively(
+    fn eval_unfiltered_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,

@@ -8,7 +8,7 @@ use crate::plonk::plonk_common::salt_size;
 use crate::plonk::proof::{
     OpeningSetTarget, ProofChallengesTarget, ProofTarget, ProofWithPublicInputsTarget,
 };
-use crate::plonk::vanishing_poly::eval_vanishing_poly_recursively;
+use crate::plonk::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::plonk::vars::EvaluationTargets;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
@@ -70,7 +70,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let vanishing_polys_zeta = with_context!(
             self,
             "evaluate the vanishing polynomial at our challenge point, zeta.",
-            eval_vanishing_poly_recursively(
+            eval_vanishing_poly_circuit(
                 self,
                 inner_common_data,
                 challenges.plonk_zeta,
