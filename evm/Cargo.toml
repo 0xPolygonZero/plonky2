@@ -1,6 +1,6 @@
 [package]
-name = "starky2"
-description = "Implementation of STARKs 2"
+name = "plonky2_evm"
+description = "Implementation of STARKs for the Ethereum Virtual Machine"
 version = "0.1.0"
 edition = "2021"
 
