@@ -1,15 +1,11 @@
-use std::marker::PhantomData;
-
-use plonky2::field::extension_field::{Extendable, FieldExtension};
-use plonky2::field::packed_field::PackedField;
+use plonky2::field::extension_field::Extendable;
 use plonky2::hash::hash_types::RichField;
 
 use crate::config::StarkConfig;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::CrossTableLookup;
-use crate::permutation::PermutationPair;
+use crate::keccak::keccak_stark::KeccakStark;
 use crate::stark::Stark;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 #[derive(Clone)]
 pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
@@ -28,85 +24,9 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
 }
 
 #[derive(Copy, Clone)]
-pub struct CpuStark<F, const D: usize> {
-    #[allow(dead_code)]
-    num_rows: usize,
-    f: PhantomData<F>,
-}
-
-#[derive(Copy, Clone)]
-pub struct KeccakStark<F, const D: usize> {
-    #[allow(dead_code)]
-    num_rows: usize,
-    f: PhantomData<F>,
-}
-
-#[derive(Copy, Clone)]
 pub enum Table {
     Cpu = 0,
     Keccak = 1,
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
-    const COLUMNS: usize = 10;
-    const PUBLIC_INPUTS: usize = 0;
-
-    fn eval_packed_generic<FE, P, const D2: usize>(
-        &self,
-        _vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
-        _yield_constr: &mut ConstraintConsumer<P>,
-    ) where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
-    {
-    }
-
-    fn eval_ext_recursively(
-        &self,
-        _builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        _vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
-        _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-    ) {
-    }
-
-    fn constraint_degree(&self) -> usize {
-        3
-    }
-
-    fn permutation_pairs(&self) -> Vec<PermutationPair> {
-        vec![PermutationPair::singletons(8, 9)]
-    }
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F, D> {
-    const COLUMNS: usize = 7;
-    const PUBLIC_INPUTS: usize = 0;
-
-    fn eval_packed_generic<FE, P, const D2: usize>(
-        &self,
-        _vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
-        _yield_constr: &mut ConstraintConsumer<P>,
-    ) where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
-    {
-    }
-
-    fn eval_ext_recursively(
-        &self,
-        _builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        _vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
-        _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-    ) {
-    }
-
-    fn constraint_degree(&self) -> usize {
-        3
-    }
-
-    fn permutation_pairs(&self) -> Vec<PermutationPair> {
-        vec![PermutationPair::singletons(0, 6)]
-    }
 }
 
 #[cfg(test)]
@@ -118,9 +38,11 @@ mod tests {
     use plonky2::util::timing::TimingTree;
     use rand::{thread_rng, Rng};
 
-    use crate::all_stark::{AllStark, CpuStark, KeccakStark, Table};
+    use crate::all_stark::{AllStark, Table};
     use crate::config::StarkConfig;
+    use crate::cpu::cpu_stark::CpuStark;
     use crate::cross_table_lookup::CrossTableLookup;
+    use crate::keccak::keccak_stark::KeccakStark;
     use crate::prover::prove;
     use crate::verifier::verify_proof;
 
@@ -133,34 +55,32 @@ mod tests {
         let config = StarkConfig::standard_fast_config();
 
         let cpu_stark = CpuStark::<F, D> {
-            num_rows: 1 << 4,
             f: Default::default(),
         };
+        let cpu_rows = 1 << 4;
+
         let keccak_stark = KeccakStark::<F, D> {
-            num_rows: 1 << 3,
             f: Default::default(),
         };
+        let keccak_rows = 1 << 3;
 
-        // let mut cpu_trace = vec![PolynomialValues::zero(cpu_stark.num_rows); CpuStark::COLUMNS];
-        let mut cpu_trace = vec![PolynomialValues::zero(cpu_stark.num_rows); 10];
-        // let mut keccak_trace =
-        //     vec![PolynomialValues::zero(keccak_stark.num_rows); KeccakStark::COLUMNS];
-        let mut keccak_trace = vec![PolynomialValues::zero(keccak_stark.num_rows); 7];
+        let mut cpu_trace = vec![PolynomialValues::zero(cpu_rows); 10];
+        let mut keccak_trace = vec![PolynomialValues::zero(keccak_rows); 7];
 
-        let vs0 = (0..keccak_stark.num_rows)
+        let vs0 = (0..keccak_rows)
             .map(F::from_canonical_usize)
             .collect::<Vec<_>>();
-        let vs1 = (1..=keccak_stark.num_rows)
+        let vs1 = (1..=keccak_rows)
             .map(F::from_canonical_usize)
             .collect::<Vec<_>>();
-        let start = thread_rng().gen_range(0..cpu_stark.num_rows - keccak_stark.num_rows);
+        let start = thread_rng().gen_range(0..cpu_rows - keccak_rows);
 
         let default = vec![F::ONE; 2];
 
-        cpu_trace[2].values = vec![default[0]; cpu_stark.num_rows];
-        cpu_trace[2].values[start..start + keccak_stark.num_rows].copy_from_slice(&vs0);
-        cpu_trace[4].values = vec![default[1]; cpu_stark.num_rows];
-        cpu_trace[4].values[start..start + keccak_stark.num_rows].copy_from_slice(&vs1);
+        cpu_trace[2].values = vec![default[0]; cpu_rows];
+        cpu_trace[2].values[start..start + keccak_rows].copy_from_slice(&vs0);
+        cpu_trace[4].values = vec![default[1]; cpu_rows];
+        cpu_trace[4].values[start..start + keccak_rows].copy_from_slice(&vs1);
 
         keccak_trace[3].values[..].copy_from_slice(&vs0);
         keccak_trace[5].values[..].copy_from_slice(&vs1);

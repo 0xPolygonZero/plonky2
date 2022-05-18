@@ -12,6 +12,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::plonk::plonk_common::reduce_with_powers;
 use plonky2::util::reducing::{ReducingFactor, ReducingFactorTarget};
 use rayon::prelude::*;
 
@@ -51,6 +52,20 @@ pub(crate) struct GrandProductChallenge<T: Copy> {
     pub(crate) beta: T,
     /// Random offset that's added to the beta-reduced column values.
     pub(crate) gamma: T,
+}
+
+impl<F: Field> GrandProductChallenge<F> {
+    pub(crate) fn combine<'a, FE, P, T: IntoIterator<Item = &'a P>, const D2: usize>(
+        &self,
+        terms: T,
+    ) -> P
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+        T::IntoIter: DoubleEndedIterator,
+    {
+        reduce_with_powers(terms, FE::from_basefield(self.beta)) + FE::from_basefield(self.gamma)
+    }
 }
 
 /// Like `PermutationChallenge`, but with `num_challenges` copies to boost soundness.
@@ -323,7 +338,7 @@ pub struct PermutationCheckDataTarget<const D: usize> {
     pub(crate) permutation_challenge_sets: Vec<GrandProductChallengeSet<Target>>,
 }
 
-pub(crate) fn eval_permutation_checks_recursively<F, S, const D: usize>(
+pub(crate) fn eval_permutation_checks_circuit<F, S, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
     config: &StarkConfig,

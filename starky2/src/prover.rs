@@ -15,10 +15,12 @@ use plonky2::util::transpose;
 use plonky2_util::{log2_ceil, log2_strict};
 use rayon::prelude::*;
 
-use crate::all_stark::{AllStark, CpuStark, KeccakStark, Table};
+use crate::all_stark::{AllStark, Table};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
+use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
+use crate::keccak::keccak_stark::KeccakStark;
 use crate::permutation::PermutationCheckVars;
 use crate::permutation::{
     compute_permutation_z_polys, get_n_grand_product_challenge_sets, GrandProductChallengeSet,
