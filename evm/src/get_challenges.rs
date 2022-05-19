@@ -1,3 +1,4 @@
+use itertools::izip;
 use plonky2::field::extension_field::Extendable;
 use plonky2::fri::proof::FriProof;
 use plonky2::hash::hash_types::RichField;
@@ -23,7 +24,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
     ) -> AllProofChallenges<F, D> {
         let mut challenger = Challenger::<F, C::Hasher>::new();
 
-        for proof in self.proofs() {
+        for proof in &self.stark_proofs {
             challenger.observe_cap(&proof.proof.trace_cap);
         }
 
@@ -31,16 +32,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
             get_grand_product_challenge_set(&mut challenger, config.num_challenges);
 
         AllProofChallenges {
-            cpu_challenges: self.cpu_proof.get_challenges(
-                &mut challenger,
-                &all_stark.cpu_stark,
-                config,
-            ),
-            keccak_challenges: self.keccak_proof.get_challenges(
-                &mut challenger,
-                &all_stark.keccak_stark,
-                config,
-            ),
+            stark_challenges: izip!(
+                &self.stark_proofs,
+                all_stark.nums_permutation_zs(config),
+                all_stark.permutation_batch_sizes()
+            )
+            .map(|(proof, num_perm, batch_size)| {
+                proof.get_challenges(&mut challenger, (num_perm > 0, batch_size), config)
+            })
+            .collect(),
             ctl_challenges,
         }
     }
@@ -52,10 +52,11 @@ where
     C: GenericConfig<D, F = F>,
 {
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
-    pub(crate) fn get_challenges<S: Stark<F, D>>(
+    pub(crate) fn get_challenges(
         &self,
         challenger: &mut Challenger<F, C::Hasher>,
-        stark: &S,
+        // Should correspond to `(stark.use_permutation_args(), stark.permutation_batch_size())`.
+        stark_permutation_info: (bool, usize),
         config: &StarkConfig,
     ) -> StarkProofChallenges<F, D> {
         let degree_bits = self.proof.recover_degree_bits(config);
@@ -76,12 +77,8 @@ where
 
         let num_challenges = config.num_challenges;
 
-        let permutation_challenge_sets = stark.uses_permutation_args().then(|| {
-            get_n_grand_product_challenge_sets(
-                challenger,
-                num_challenges,
-                stark.permutation_batch_size(),
-            )
+        let permutation_challenge_sets = stark_permutation_info.0.then(|| {
+            get_n_grand_product_challenge_sets(challenger, num_challenges, stark_permutation_info.1)
         });
 
         challenger.observe_cap(permutation_ctl_zs_cap);

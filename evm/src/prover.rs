@@ -48,7 +48,7 @@ where
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::PUBLIC_INPUTS]:,
 {
-    let num_starks = Table::Keccak as usize + 1;
+    let num_starks = Table::num_tables();
     debug_assert_eq!(num_starks, trace_poly_values.len());
     debug_assert_eq!(num_starks, public_inputs.len());
 
@@ -118,10 +118,10 @@ where
         timing,
     )?;
 
-    Ok(AllProof {
-        cpu_proof,
-        keccak_proof,
-    })
+    let stark_proofs = vec![cpu_proof, keccak_proof];
+    debug_assert_eq!(stark_proofs.len(), num_starks);
+
+    Ok(AllProof { stark_proofs })
 }
 
 /// Compute proof for a single STARK table.

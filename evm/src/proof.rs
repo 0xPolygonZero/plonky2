@@ -19,19 +19,11 @@ use crate::permutation::GrandProductChallengeSet;
 
 #[derive(Debug, Clone)]
 pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    pub cpu_proof: StarkProofWithPublicInputs<F, C, D>,
-    pub keccak_proof: StarkProofWithPublicInputs<F, C, D>,
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
-    pub fn proofs(&self) -> [&StarkProofWithPublicInputs<F, C, D>; 2] {
-        [&self.cpu_proof, &self.keccak_proof]
-    }
+    pub stark_proofs: Vec<StarkProofWithPublicInputs<F, C, D>>,
 }
 
 pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usize> {
-    pub cpu_challenges: StarkProofChallenges<F, D>,
-    pub keccak_challenges: StarkProofChallenges<F, D>,
+    pub stark_challenges: Vec<StarkProofChallenges<F, D>>,
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 

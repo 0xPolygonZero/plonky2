@@ -16,10 +16,21 @@ pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
 
 impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
     pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> Vec<usize> {
-        vec![
+        let ans = vec![
             self.cpu_stark.num_permutation_batches(config),
             self.keccak_stark.num_permutation_batches(config),
-        ]
+        ];
+        debug_assert_eq!(ans.len(), Table::num_tables());
+        ans
+    }
+
+    pub(crate) fn permutation_batch_sizes(&self) -> Vec<usize> {
+        let ans = vec![
+            self.cpu_stark.permutation_batch_size(),
+            self.keccak_stark.permutation_batch_size(),
+        ];
+        debug_assert_eq!(ans.len(), Table::num_tables());
+        ans
     }
 }
 
@@ -27,6 +38,12 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
 pub enum Table {
     Cpu = 0,
     Keccak = 1,
+}
+
+impl Table {
+    pub(crate) fn num_tables() -> usize {
+        Table::Keccak as usize + 1
+    }
 }
 
 #[cfg(test)]
