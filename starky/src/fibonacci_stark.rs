@@ -193,7 +193,7 @@ mod tests {
 
         let num_rows = 1 << 5;
         let stark = S::new(num_rows);
-        test_stark_circuit_constraints(stark)
+        test_stark_circuit_constraints::<F, C, S, D>(stark)
     }
 
     #[test]

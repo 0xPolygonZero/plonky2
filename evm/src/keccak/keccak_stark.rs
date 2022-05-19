@@ -44,3 +44,39 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         vec![PermutationPair::singletons(0, 6)]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+
+    use crate::keccak::keccak_stark::KeccakStark;
+    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+
+    #[test]
+    #[should_panic] // TODO: fix this when constraints are no longer all 0.
+    fn test_stark_degree() {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = KeccakStark<F, D>;
+
+        let stark = S {
+            f: Default::default(),
+        };
+        test_stark_low_degree(stark).unwrap()
+    }
+
+    #[test]
+    fn test_stark_circuit() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = KeccakStark<F, D>;
+
+        let stark = S {
+            f: Default::default(),
+        };
+        test_stark_circuit_constraints::<F, C, S, D>(stark)
+    }
+}
