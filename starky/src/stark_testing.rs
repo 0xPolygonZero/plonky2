@@ -3,12 +3,15 @@ use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::Field;
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::witness::{PartialWitness, Witness};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::util::transpose;
 use plonky2_util::{log2_ceil, log2_strict};
 
-use crate::constraint_consumer::ConstraintConsumer;
+use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::stark::Stark;
-use crate::vars::StarkEvaluationVars;
+use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 const WITNESS_SIZE: usize = 1 << 5;
 
@@ -66,6 +69,68 @@ where
         stark.constraint_degree(),
         maximum_degree,
         constraint_eval_degree
+    );
+
+    Ok(())
+}
+
+/// Tests that the circuit constraints imposed by the given STARK are coherent with the native constraints.
+pub fn test_stark_circuit_constraints<
+    F: RichField + Extendable<D>,
+    S: Stark<F, D>,
+    const D: usize,
+>(
+    stark: S,
+) -> Result<()>
+where
+    [(); S::COLUMNS]:,
+    [(); S::PUBLIC_INPUTS]:,
+{
+    let vars = StarkEvaluationVars {
+        local_values: &F::Extension::rand_arr::<{ S::COLUMNS }>(),
+        next_values: &F::Extension::rand_arr::<{ S::COLUMNS }>(),
+        public_inputs: &F::Extension::rand_arr::<{ S::PUBLIC_INPUTS }>(),
+    };
+    let alphas = F::Extension::rand_vec(1);
+    let z_last = F::Extension::rand();
+    let lagrange_first = F::Extension::rand();
+    let lagrange_last = F::Extension::rand();
+    let mut consumer =
+        ConstraintConsumer::<F::Extension>::new(alphas, z_last, lagrange_first, lagrange_last);
+    stark.eval_ext(vars, &mut consumer);
+    let native_eval = consumer.accumulators()[0];
+    dbg!(native_eval);
+
+    let circuit_config = CircuitConfig::standard_recursion_config();
+    let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
+    let mut pw = PartialWitness::<F>::new();
+
+    let locals_t = builder.add_virtual_extension_targets(S::COLUMNS);
+    pw.set_extension_targets(&locals_t, vars.local_values);
+    let nexts_t = builder.add_virtual_extension_targets(S::COLUMNS);
+    pw.set_extension_targets(&nexts_t, vars.next_values);
+    let pis_t = builder.add_virtual_extension_targets(S::PUBLIC_INPUTS);
+    pw.set_extension_targets(&pis_t, vars.public_inputs);
+    let alphas_t = builder.add_virtual_extension_targets(1);
+    pw.set_extension_targets(&alphas_t, &alphas);
+    let z_last_t = builder.add_virtual_extension_target();
+    pw.set_extension_target(z_last_t, z_last);
+    let lagrange_first_t = builder.add_virtual_extension_target();
+    pw.set_extension_target(lagrange_first_t, lagrange_first);
+    let lagrange_last_t = builder.add_virtual_extension_target();
+    pw.set_extension_target(lagrange_last_t, lagrange_last);
+
+    let circuit_vars = StarkEvaluationTargets {
+        local_values: &locals_t.try_into().unwrap(),
+        next_values: &nexts_t.try_into().unwrap(),
+        public_inputs: &pis_t.try_into().unwrap(),
+    };
+    let mut consumer = RecursiveConstraintConsumer::<F>::new(
+        builder.zero_extension(),
+        alphas_t,
+        z_last_t,
+        lagrange_first_t,
+        lagrange_last_t,
     );
 
     Ok(())
