@@ -49,13 +49,6 @@ where
     let public_inputs = partition_witness.get_targets(&prover_data.public_inputs);
     let public_inputs_hash = C::InnerHasher::hash_no_pad(&public_inputs);
 
-    if cfg!(debug_assertions) {
-        // Display the marked targets for debugging purposes.
-        for m in &prover_data.marked_targets {
-            m.display(&partition_witness);
-        }
-    }
-
     let witness = timed!(
         timing,
         "compute full witness",

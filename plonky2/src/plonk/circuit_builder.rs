@@ -40,7 +40,6 @@ use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkOracle;
 use crate::timed;
 use crate::util::context_tree::ContextTree;
-use crate::util::marking::{Markable, MarkedTargets};
 use crate::util::partial_products::num_partial_products;
 use crate::util::timing::TimingTree;
 use crate::util::{transpose, transpose_poly_values};
@@ -64,9 +63,6 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
 
     /// A tree of named scopes, used for debugging.
     context_log: ContextTree,
-
-    /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
-    marked_targets: Vec<MarkedTargets<D>>,
 
     /// Generators used to generate the witness.
     generators: Vec<Box<dyn WitnessGenerator<F>>>,
@@ -97,7 +93,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             virtual_target_index: 0,
             copy_constraints: Vec::new(),
             context_log: ContextTree::new(),
-            marked_targets: Vec::new(),
             generators: Vec::new(),
             constants_to_targets: HashMap::new(),
             base_arithmetic_results: HashMap::new(),
@@ -391,13 +386,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn pop_context(&mut self) {
         self.context_log.pop(self.num_gates());
-    }
-
-    pub fn add_marked(&mut self, targets: Markable<D>, name: &str) {
-        self.marked_targets.push(MarkedTargets {
-            targets,
-            name: name.to_string(),
-        })
     }
 
     /// Find an available slot, of the form `(row, op)` for gate `G` using parameters `params`
@@ -786,7 +774,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             sigmas: transpose_poly_values(sigma_vecs),
             subgroup,
             public_inputs: self.public_inputs,
-            marked_targets: self.marked_targets,
             representative_map: forest.parents,
             fft_root_table: Some(fft_root_table),
         };

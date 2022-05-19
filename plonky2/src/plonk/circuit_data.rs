@@ -26,7 +26,6 @@ use crate::plonk::plonk_common::{PlonkOracle, FRI_ORACLES};
 use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use crate::plonk::prover::prove;
 use crate::plonk::verifier::verify;
-use crate::util::marking::MarkedTargets;
 use crate::util::timing::TimingTree;
 
 #[derive(Clone, Debug)]
@@ -224,8 +223,6 @@ pub struct ProverOnlyCircuitData<
     pub subgroup: Vec<F>,
     /// Targets to be made public.
     pub public_inputs: Vec<Target>,
-    /// A vector of marked targets. The values assigned to these targets will be displayed by the prover.
-    pub marked_targets: Vec<MarkedTargets<D>>,
     /// A map from each `Target`'s index to the index of its representative in the disjoint-set
     /// forest.
     pub representative_map: Vec<usize>,
