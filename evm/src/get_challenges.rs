@@ -38,7 +38,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
                 all_stark.permutation_batch_sizes()
             )
             .map(|(proof, num_perm, batch_size)| {
-                proof.get_challenges(&mut challenger, (num_perm > 0, batch_size), config)
+                proof.get_challenges(&mut challenger, num_perm > 0, batch_size, config)
             })
             .collect(),
             ctl_challenges,
@@ -55,8 +55,8 @@ where
     pub(crate) fn get_challenges(
         &self,
         challenger: &mut Challenger<F, C::Hasher>,
-        // Should correspond to `(stark.use_permutation_args(), stark.permutation_batch_size())`.
-        stark_permutation_info: (bool, usize),
+        stark_use_permutation: bool,
+        stark_permutation_batch_size: usize,
         config: &StarkConfig,
     ) -> StarkProofChallenges<F, D> {
         let degree_bits = self.proof.recover_degree_bits(config);
@@ -77,8 +77,12 @@ where
 
         let num_challenges = config.num_challenges;
 
-        let permutation_challenge_sets = stark_permutation_info.0.then(|| {
-            get_n_grand_product_challenge_sets(challenger, num_challenges, stark_permutation_info.1)
+        let permutation_challenge_sets = stark_use_permutation.then(|| {
+            get_n_grand_product_challenge_sets(
+                challenger,
+                num_challenges,
+                stark_permutation_batch_size,
+            )
         });
 
         challenger.observe_cap(permutation_ctl_zs_cap);
