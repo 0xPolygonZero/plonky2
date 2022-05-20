@@ -95,6 +95,7 @@ where
         proof,
         public_inputs,
     } = proof_with_pis;
+    ensure!(public_inputs.len() == S::PUBLIC_INPUTS);
     let StarkOpeningSet {
         local_values,
         next_values,

@@ -190,7 +190,7 @@ pub(crate) fn get_n_grand_product_challenge_sets<F: RichField, H: Hasher<F>>(
         .collect()
 }
 
-fn get_permutation_challenge_target<
+fn get_grand_product_challenge_target<
     F: RichField + Extendable<D>,
     H: AlgebraicHasher<F>,
     const D: usize,
@@ -203,7 +203,7 @@ fn get_permutation_challenge_target<
     GrandProductChallenge { beta, gamma }
 }
 
-fn get_permutation_challenge_set_target<
+pub(crate) fn get_grand_product_challenge_set_target<
     F: RichField + Extendable<D>,
     H: AlgebraicHasher<F>,
     const D: usize,
@@ -213,12 +213,12 @@ fn get_permutation_challenge_set_target<
     num_challenges: usize,
 ) -> GrandProductChallengeSet<Target> {
     let challenges = (0..num_challenges)
-        .map(|_| get_permutation_challenge_target(builder, challenger))
+        .map(|_| get_grand_product_challenge_target(builder, challenger))
         .collect();
     GrandProductChallengeSet { challenges }
 }
 
-pub(crate) fn get_n_permutation_challenge_sets_target<
+pub(crate) fn get_n_grand_product_challenge_sets_target<
     F: RichField + Extendable<D>,
     H: AlgebraicHasher<F>,
     const D: usize,
@@ -229,7 +229,7 @@ pub(crate) fn get_n_permutation_challenge_sets_target<
     num_sets: usize,
 ) -> Vec<GrandProductChallengeSet<Target>> {
     (0..num_sets)
-        .map(|_| get_permutation_challenge_set_target(builder, challenger, num_challenges))
+        .map(|_| get_grand_product_challenge_set_target(builder, challenger, num_challenges))
         .collect()
 }
 

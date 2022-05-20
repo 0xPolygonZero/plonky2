@@ -27,6 +27,15 @@ pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usiz
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 
+pub struct AllProofTarget<const D: usize> {
+    pub stark_proofs: Vec<StarkProofWithPublicInputsTarget<D>>,
+}
+
+pub(crate) struct AllProofChallengesTarget<const D: usize> {
+    pub stark_challenges: Vec<StarkProofChallengesTarget<D>>,
+    pub ctl_challenges: GrandProductChallengeSet<Target>,
+}
+
 #[derive(Debug, Clone)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
@@ -55,7 +64,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
 
 pub struct StarkProofTarget<const D: usize> {
     pub trace_cap: MerkleCapTarget,
-    pub permutation_zs_cap: Option<MerkleCapTarget>,
+    pub permutation_ctl_zs_cap: MerkleCapTarget,
     pub quotient_polys_cap: MerkleCapTarget,
     pub openings: StarkOpeningSetTarget<D>,
     pub opening_proof: FriProofTarget<D>,
@@ -203,38 +212,38 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .copied()
                 .collect_vec(),
         };
-        let mut batches = vec![zeta_batch, zeta_right_batch];
+        debug_assert!(!self.ctl_zs_last.is_empty());
+        let ctl_last_batch = FriOpeningBatch {
+            values: self
+                .ctl_zs_last
+                .iter()
+                .copied()
+                .map(F::Extension::from_basefield)
+                .collect(),
+        };
 
-        if !self.ctl_zs_last.is_empty() {
-            batches.push(FriOpeningBatch {
-                values: self
-                    .ctl_zs_last
-                    .iter()
-                    .copied()
-                    .map(F::Extension::from_basefield)
-                    .collect(),
-            });
+        FriOpenings {
+            batches: vec![zeta_batch, zeta_right_batch, ctl_last_batch],
         }
-
-        FriOpenings { batches }
     }
 }
 
 pub struct StarkOpeningSetTarget<const D: usize> {
     pub local_values: Vec<ExtensionTarget<D>>,
     pub next_values: Vec<ExtensionTarget<D>>,
-    pub permutation_zs: Option<Vec<ExtensionTarget<D>>>,
-    pub permutation_zs_right: Option<Vec<ExtensionTarget<D>>>,
+    pub permutation_ctl_zs: Vec<ExtensionTarget<D>>,
+    pub permutation_ctl_zs_right: Vec<ExtensionTarget<D>>,
+    pub ctl_zs_last: Vec<Target>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
 
 impl<const D: usize> StarkOpeningSetTarget<D> {
-    pub(crate) fn to_fri_openings(&self) -> FriOpeningsTarget<D> {
+    pub(crate) fn to_fri_openings(&self, zero: Target) -> FriOpeningsTarget<D> {
         let zeta_batch = FriOpeningBatchTarget {
             values: self
                 .local_values
                 .iter()
-                .chain(self.permutation_zs.iter().flatten())
+                .chain(&self.permutation_ctl_zs)
                 .chain(&self.quotient_polys)
                 .copied()
                 .collect_vec(),
@@ -243,12 +252,22 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
             values: self
                 .next_values
                 .iter()
-                .chain(self.permutation_zs_right.iter().flatten())
+                .chain(&self.permutation_ctl_zs_right)
                 .copied()
                 .collect_vec(),
         };
+        debug_assert!(!self.ctl_zs_last.is_empty());
+        let ctl_last_batch = FriOpeningBatchTarget {
+            values: self
+                .ctl_zs_last
+                .iter()
+                .copied()
+                .map(|t| t.to_ext_target(zero))
+                .collect(),
+        };
+
         FriOpeningsTarget {
-            batches: vec![zeta_batch, zeta_right_batch],
+            batches: vec![zeta_batch, zeta_right_batch, ctl_last_batch],
         }
     }
 }

@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_data::CircuitConfig;
 
@@ -36,6 +37,13 @@ impl Target {
             Target::Wire(Wire { row, column }) => row * num_wires + column,
             Target::VirtualTarget { index } => degree * num_wires + index,
         }
+    }
+
+    /// Conversion to an `ExtensionTarget`.
+    pub fn to_ext_target<const D: usize>(self, zero: Self) -> ExtensionTarget<D> {
+        let mut arr = [zero; D];
+        arr[0] = self;
+        ExtensionTarget(arr)
     }
 }
 

@@ -13,48 +13,75 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::with_context;
 
+use crate::all_stark::AllStark;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::permutation::PermutationCheckDataTarget;
 use crate::proof::{
-    StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget, StarkProofTarget,
-    StarkProofWithPublicInputs, StarkProofWithPublicInputsTarget,
+    AllProof, AllProofChallengesTarget, AllProofTarget, StarkOpeningSetTarget, StarkProof,
+    StarkProofChallengesTarget, StarkProofTarget, StarkProofWithPublicInputs,
+    StarkProofWithPublicInputsTarget,
 };
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
 
-pub fn verify_stark_proof_circuit<
+pub fn verify_proof_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    stark: S,
-    proof_with_pis: StarkProofWithPublicInputsTarget<D>,
+    all_stark: AllStark<F, D>,
+    all_proof: AllProofTarget<D>,
     inner_config: &StarkConfig,
 ) where
     C::Hasher: AlgebraicHasher<F>,
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
 {
-    assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
-    let degree_bits = proof_with_pis.proof.recover_degree_bits(inner_config);
-    let challenges = with_context!(
-        builder,
-        "compute challenges",
-        proof_with_pis.get_challenges::<F, C, S>(builder, &stark, inner_config)
+    let AllProofChallengesTarget {
+        stark_challenges,
+        ctl_challenges,
+    } = all_proof.get_challenges(builder, &all_stark, inner_config);
+
+    let nums_permutation_zs = all_stark.nums_permutation_zs(inner_config);
+
+    let AllStark {
+        cpu_stark,
+        keccak_stark,
+        cross_table_lookups,
+    } = all_stark;
+
+    let ctl_vars_per_table = CtlCheckVars::from_proofs(
+        &all_proof.stark_proofs,
+        &cross_table_lookups,
+        &ctl_challenges,
+        &nums_permutation_zs,
     );
 
-    verify_stark_proof_with_challenges_circuit::<F, C, S, D>(
-        builder,
-        stark,
-        proof_with_pis,
-        challenges,
-        inner_config,
-        degree_bits,
-    );
+    verify_stark_proof_with_challenges(
+        cpu_stark,
+        &all_proof.stark_proofs[Table::Cpu as usize],
+        &stark_challenges[Table::Cpu as usize],
+        &ctl_vars_per_table[Table::Cpu as usize],
+        config,
+    )?;
+    verify_stark_proof_with_challenges(
+        keccak_stark,
+        &all_proof.stark_proofs[Table::Keccak as usize],
+        &stark_challenges[Table::Keccak as usize],
+        &ctl_vars_per_table[Table::Keccak as usize],
+        config,
+    )?;
+
+    verify_cross_table_lookups(
+        cross_table_lookups,
+        &all_proof.stark_proofs,
+        ctl_challenges,
+        config,
+    )
 }
 
 /// Recursively verifies an inner proof.
@@ -85,8 +112,8 @@ fn verify_stark_proof_with_challenges_circuit<
     let StarkOpeningSetTarget {
         local_values,
         next_values,
-        permutation_zs,
-        permutation_zs_right,
+        permutation_ctl_zs: permutation_zs,
+        permutation_ctl_zs_right: permutation_zs_right,
         quotient_polys,
     } = &proof.openings;
     let vars = StarkEvaluationTargets {
@@ -150,7 +177,7 @@ fn verify_stark_proof_with_challenges_circuit<
     }
 
     let merkle_caps = once(proof.trace_cap)
-        .chain(proof.permutation_zs_cap)
+        .chain(proof.permutation_ctl_zs_cap)
         .chain(once(proof.quotient_polys_cap))
         .collect_vec();
 
@@ -231,7 +258,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
 
     StarkProofTarget {
         trace_cap: builder.add_virtual_cap(cap_height),
-        permutation_zs_cap,
+        permutation_ctl_zs_cap: permutation_zs_cap,
         quotient_polys_cap: builder.add_virtual_cap(cap_height),
         openings: add_stark_opening_set::<F, S, D>(builder, stark, config),
         opening_proof: builder.add_virtual_fri_proof(&num_leaves_per_oracle, &fri_params),
@@ -247,10 +274,10 @@ fn add_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: 
     StarkOpeningSetTarget {
         local_values: builder.add_virtual_extension_targets(S::COLUMNS),
         next_values: builder.add_virtual_extension_targets(S::COLUMNS),
-        permutation_zs: stark
+        permutation_ctl_zs: stark
             .uses_permutation_args()
             .then(|| builder.add_virtual_extension_targets(stark.num_permutation_batches(config))),
-        permutation_zs_right: stark
+        permutation_ctl_zs_right: stark
             .uses_permutation_args()
             .then(|| builder.add_virtual_extension_targets(stark.num_permutation_batches(config))),
         quotient_polys: builder
@@ -301,7 +328,7 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
         &proof.openings.to_fri_openings(),
     );
 
-    if let Some(permutation_zs_cap_target) = &proof_target.permutation_zs_cap {
+    if let Some(permutation_zs_cap_target) = &proof_target.permutation_ctl_zs_cap {
         witness.set_cap_target(permutation_zs_cap_target, &proof.permutation_ctl_zs_cap);
     }
 
@@ -316,9 +343,13 @@ fn check_permutation_options<F: RichField + Extendable<D>, S: Stark<F, D>, const
     challenges: &StarkProofChallengesTarget<D>,
 ) -> Result<()> {
     let options_is_some = [
-        proof_with_pis.proof.permutation_zs_cap.is_some(),
-        proof_with_pis.proof.openings.permutation_zs.is_some(),
-        proof_with_pis.proof.openings.permutation_zs_right.is_some(),
+        proof_with_pis.proof.permutation_ctl_zs_cap.is_some(),
+        proof_with_pis.proof.openings.permutation_ctl_zs.is_some(),
+        proof_with_pis
+            .proof
+            .openings
+            .permutation_ctl_zs_right
+            .is_some(),
         challenges.permutation_challenge_sets.is_some(),
     ];
     ensure!(
