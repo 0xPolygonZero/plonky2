@@ -32,8 +32,7 @@ where
     [(); C::Hasher::HASH_SIZE]:,
 {
     let AllProofChallenges {
-        cpu_challenges,
-        keccak_challenges,
+        stark_challenges,
         ctl_challenges,
     } = all_proof.get_challenges(&all_stark, config);
 
@@ -46,7 +45,7 @@ where
     } = all_stark;
 
     let ctl_vars_per_table = CtlCheckVars::from_proofs(
-        &all_proof.proofs(),
+        &all_proof.stark_proofs,
         &cross_table_lookups,
         &ctl_challenges,
         &nums_permutation_zs,
@@ -54,22 +53,22 @@ where
 
     verify_stark_proof_with_challenges(
         cpu_stark,
-        &all_proof.cpu_proof,
-        cpu_challenges,
+        &all_proof.stark_proofs[Table::Cpu as usize],
+        &stark_challenges[Table::Cpu as usize],
         &ctl_vars_per_table[Table::Cpu as usize],
         config,
     )?;
     verify_stark_proof_with_challenges(
         keccak_stark,
-        &all_proof.keccak_proof,
-        keccak_challenges,
+        &all_proof.stark_proofs[Table::Keccak as usize],
+        &stark_challenges[Table::Keccak as usize],
         &ctl_vars_per_table[Table::Keccak as usize],
         config,
     )?;
 
     verify_cross_table_lookups(
         cross_table_lookups,
-        &all_proof.proofs(),
+        &all_proof.stark_proofs,
         ctl_challenges,
         config,
     )
@@ -83,7 +82,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
 >(
     stark: S,
     proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
-    challenges: StarkProofChallenges<F, D>,
+    challenges: &StarkProofChallenges<F, D>,
     ctl_vars: &[CtlCheckVars<F, F::Extension, F::Extension, D>],
     config: &StarkConfig,
 ) -> Result<()>
@@ -134,7 +133,7 @@ where
     let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
         local_zs: permutation_ctl_zs[..num_permutation_zs].to_vec(),
         next_zs: permutation_ctl_zs_right[..num_permutation_zs].to_vec(),
-        permutation_challenge_sets: challenges.permutation_challenge_sets.unwrap(),
+        permutation_challenge_sets: challenges.permutation_challenge_sets.clone().unwrap(),
     });
     eval_vanishing_poly::<F, F::Extension, F::Extension, C, S, D, D>(
         &stark,
