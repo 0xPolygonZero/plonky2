@@ -15,7 +15,7 @@ use crate::constraint_consumer::ConstraintConsumer;
 use crate::permutation::{
     get_grand_product_challenge_set, GrandProductChallenge, GrandProductChallengeSet,
 };
-use crate::proof::StarkProofWithPublicInputs;
+use crate::proof::{StarkProofWithPublicInputs, StarkProofWithPublicInputsTarget};
 use crate::stark::Stark;
 use crate::vars::StarkEvaluationVars;
 
@@ -229,6 +229,64 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, C, S, const D: usize, con
         consumer.constraint_first_row(*local_z - combine(vars.local_values));
         // Check `Z(gw) = combination * Z(w)`
         consumer.constraint_transition(*next_z - *local_z * combine(vars.next_values));
+    }
+}
+
+#[derive(Clone)]
+pub struct CtlCheckVarsTarget<'a, const D: usize> {
+    pub(crate) local_z: ExtensionTarget<D>,
+    pub(crate) next_z: ExtensionTarget<D>,
+    pub(crate) challenges: GrandProductChallenge<Target>,
+    pub(crate) columns: &'a [usize],
+}
+
+impl<'a, const D: usize> CtlCheckVarsTarget<'a, D> {
+    pub(crate) fn from_proofs<F: Field>(
+        proofs: &[StarkProofWithPublicInputsTarget<D>],
+        cross_table_lookups: &'a [CrossTableLookup<F>],
+        ctl_challenges: &'a GrandProductChallengeSet<Target>,
+        num_permutation_zs: &[usize],
+    ) -> Vec<Vec<Self>> {
+        debug_assert_eq!(proofs.len(), num_permutation_zs.len());
+        let mut ctl_zs = proofs
+            .iter()
+            .zip(num_permutation_zs)
+            .map(|(p, &num_perms)| {
+                let openings = &p.proof.openings;
+                let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_perms);
+                let ctl_zs_right = openings.permutation_ctl_zs_right.iter().skip(num_perms);
+                ctl_zs.zip(ctl_zs_right)
+            })
+            .collect::<Vec<_>>();
+
+        let mut ctl_vars_per_table = vec![vec![]; proofs.len()];
+        for CrossTableLookup {
+            looking_table,
+            looking_columns,
+            looked_table,
+            looked_columns,
+            ..
+        } in cross_table_lookups
+        {
+            for &challenges in &ctl_challenges.challenges {
+                let (looking_z, looking_z_next) = ctl_zs[*looking_table as usize].next().unwrap();
+                ctl_vars_per_table[*looking_table as usize].push(Self {
+                    local_z: *looking_z,
+                    next_z: *looking_z_next,
+                    challenges,
+                    columns: looking_columns,
+                });
+
+                let (looked_z, looked_z_next) = ctl_zs[*looked_table as usize].next().unwrap();
+                ctl_vars_per_table[*looked_table as usize].push(Self {
+                    local_z: *looked_z,
+                    next_z: *looked_z_next,
+                    challenges,
+                    columns: looked_columns,
+                });
+            }
+        }
+        ctl_vars_per_table
     }
 }
 
