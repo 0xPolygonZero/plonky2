@@ -51,6 +51,9 @@ mod tests {
     use anyhow::Result;
     use plonky2::field::field_types::Field;
     use plonky2::field::polynomial::PolynomialValues;
+    use plonky2::iop::witness::PartialWitness;
+    use plonky2::plonk::circuit_builder::CircuitBuilder;
+    use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
     use rand::{thread_rng, Rng};
@@ -60,17 +63,18 @@ mod tests {
     use crate::cpu::cpu_stark::CpuStark;
     use crate::cross_table_lookup::CrossTableLookup;
     use crate::keccak::keccak_stark::KeccakStark;
+    use crate::proof::AllProof;
     use crate::prover::prove;
+    use crate::recursive_verifier::{
+        add_virtual_all_proof, set_all_proof_target, verify_proof_circuit,
+    };
     use crate::verifier::verify_proof;
 
-    #[test]
-    fn test_all_stark() -> Result<()> {
-        const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
 
-        let config = StarkConfig::standard_fast_config();
-
+    fn get_proof(config: &StarkConfig) -> Result<(AllStark<F, D>, AllProof<F, C, D>)> {
         let cpu_stark = CpuStark::<F, D> {
             f: Default::default(),
         };
@@ -124,6 +128,56 @@ mod tests {
             &mut TimingTree::default(),
         )?;
 
+        Ok((all_stark, proof))
+    }
+
+    #[test]
+    fn test_all_stark() -> Result<()> {
+        let config = StarkConfig::standard_fast_config();
+        let (all_stark, proof) = get_proof(&config)?;
         verify_proof(all_stark, proof, &config)
+    }
+
+    #[test]
+    fn test_recursive_all_stark_verifier() -> Result<()> {
+        init_logger();
+
+        let config = StarkConfig::standard_fast_config();
+        let (all_stark, proof) = get_proof(&config)?;
+        verify_proof(all_stark.clone(), proof.clone(), &config)?;
+
+        recursive_proof(all_stark, proof, &config, true)
+    }
+
+    fn recursive_proof(
+        inner_all_stark: AllStark<F, D>,
+        inner_proof: AllProof<F, C, D>,
+        inner_config: &StarkConfig,
+        print_gate_counts: bool,
+    ) -> Result<()> {
+        let circuit_config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
+        let mut pw = PartialWitness::new();
+        let degree_bits = inner_proof
+            .stark_proofs
+            .iter()
+            .map(|proof| proof.proof.recover_degree_bits(inner_config))
+            .collect::<Vec<_>>();
+        let pt = add_virtual_all_proof(&mut builder, &inner_all_stark, inner_config, &degree_bits);
+        set_all_proof_target(&mut pw, &pt, &inner_proof, builder.zero());
+
+        verify_proof_circuit::<F, C, D>(&mut builder, inner_all_stark, pt, inner_config);
+
+        if print_gate_counts {
+            builder.print_gate_counts(0);
+        }
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw)?;
+        data.verify(proof)
+    }
+
+    fn init_logger() {
+        let _ = env_logger::builder().format_timestamp(None).try_init();
     }
 }

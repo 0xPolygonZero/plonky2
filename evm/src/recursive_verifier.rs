@@ -21,7 +21,7 @@ use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CtlCheckVars
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::permutation::PermutationCheckDataTarget;
 use crate::proof::{
-    AllProofChallengesTarget, AllProofTarget, StarkOpeningSetTarget, StarkProof,
+    AllProof, AllProofChallengesTarget, AllProofTarget, StarkOpeningSetTarget, StarkProof,
     StarkProofChallengesTarget, StarkProofTarget, StarkProofWithPublicInputs,
     StarkProofWithPublicInputsTarget,
 };
@@ -230,6 +230,45 @@ fn eval_l_1_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
     )
 }
 
+pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    all_stark: &AllStark<F, D>,
+    config: &StarkConfig,
+    degree_bits: &[usize],
+) -> AllProofTarget<D> {
+    let stark_proofs = vec![
+        {
+            let proof = add_virtual_stark_proof(
+                builder,
+                all_stark.cpu_stark,
+                config,
+                degree_bits[Table::Cpu as usize],
+            );
+            let public_inputs = builder.add_virtual_targets(CpuStark::<F, D>::PUBLIC_INPUTS);
+            StarkProofWithPublicInputsTarget {
+                proof,
+                public_inputs,
+            }
+        },
+        {
+            let proof = add_virtual_stark_proof(
+                builder,
+                all_stark.keccak_stark,
+                config,
+                degree_bits[Table::Keccak as usize],
+            );
+            let public_inputs = builder.add_virtual_targets(KeccakStark::<F, D>::PUBLIC_INPUTS);
+            StarkProofWithPublicInputsTarget {
+                proof,
+                public_inputs,
+            }
+        },
+    ];
+
+    assert_eq!(stark_proofs.len(), Table::num_tables());
+    AllProofTarget { stark_proofs }
+}
+
 pub fn add_virtual_stark_proof_with_pis<
     F: RichField + Extendable<D>,
     S: Stark<F, D>,
@@ -293,6 +332,25 @@ fn add_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: 
         ctl_zs_last: vec![],
         quotient_polys: builder
             .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),
+    }
+}
+
+pub fn set_all_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
+    witness: &mut W,
+    all_proof_target: &AllProofTarget<D>,
+    all_proof: &AllProof<F, C, D>,
+    zero: Target,
+) where
+    F: RichField + Extendable<D>,
+    C::Hasher: AlgebraicHasher<F>,
+    W: Witness<F>,
+{
+    for (pt, p) in all_proof_target
+        .stark_proofs
+        .iter()
+        .zip_eq(&all_proof.stark_proofs)
+    {
+        set_stark_proof_with_pis_target(witness, pt, p, zero);
     }
 }
 
