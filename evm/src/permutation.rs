@@ -68,6 +68,32 @@ impl<F: Field> GrandProductChallenge<F> {
     }
 }
 
+impl GrandProductChallenge<Target> {
+    pub(crate) fn combine_circuit<'a, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        terms: &[ExtensionTarget<D>],
+    ) -> ExtensionTarget<D> {
+        let zero = builder.zero();
+        let mut factor = ReducingFactorTarget::new(self.beta.to_ext_target(zero));
+        let reduced = factor.reduce(terms, builder);
+        builder.add_extension(reduced, self.gamma.to_ext_target(zero))
+    }
+
+    pub(crate) fn combine_base_circuit<'a, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        terms: &[Target],
+    ) -> Target {
+        let zero = builder.zero();
+        let combination = terms
+            .iter()
+            .rev()
+            .fold(zero, |acc, &t| builder.mul_add(self.beta, acc, t));
+        builder.add(combination, self.gamma)
+    }
+}
+
 /// Like `PermutationChallenge`, but with `num_challenges` copies to boost soundness.
 #[derive(Clone)]
 pub(crate) struct GrandProductChallengeSet<T: Copy> {

@@ -6,7 +6,10 @@ use plonky2::plonk::config::GenericConfig;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::{eval_cross_table_lookup_checks, CtlCheckVars};
+use crate::cross_table_lookup::{
+    eval_cross_table_lookup_checks, eval_cross_table_lookup_checks_circuit, CtlCheckVars,
+    CtlCheckVarsTarget,
+};
 use crate::permutation::{
     eval_permutation_checks, eval_permutation_checks_circuit, PermutationCheckDataTarget,
     PermutationCheckVars,
@@ -47,6 +50,7 @@ pub(crate) fn eval_vanishing_poly_circuit<F, C, S, const D: usize>(
     config: &StarkConfig,
     vars: StarkEvaluationTargets<D, { S::COLUMNS }, { S::PUBLIC_INPUTS }>,
     permutation_data: Option<PermutationCheckDataTarget<D>>,
+    ctl_vars: &[CtlCheckVarsTarget<D>],
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) where
     F: RichField + Extendable<D>,
@@ -66,4 +70,5 @@ pub(crate) fn eval_vanishing_poly_circuit<F, C, S, const D: usize>(
             consumer,
         );
     }
+    eval_cross_table_lookup_checks_circuit::<S, F, D>(builder, vars, ctl_vars, consumer);
 }

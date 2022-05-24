@@ -13,7 +13,6 @@ use crate::permutation::{
     get_n_grand_product_challenge_sets, get_n_grand_product_challenge_sets_target,
 };
 use crate::proof::*;
-use crate::stark::Stark;
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
@@ -47,11 +46,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
 }
 
 impl<const D: usize> AllProofTarget<D> {
-    pub(crate) fn get_challenges<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        S: Stark<F, D>,
-    >(
+    pub(crate) fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         all_stark: &AllStark<F, D>,
@@ -165,8 +160,6 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
     where
         C::Hasher: AlgebraicHasher<F>,
     {
-        let degree_bits = self.proof.recover_degree_bits(config);
-
         let StarkProofTarget {
             permutation_ctl_zs_cap,
             quotient_polys_cap,
