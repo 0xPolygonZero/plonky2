@@ -142,7 +142,7 @@ mod tests {
         verify_stark_proof_circuit,
     };
     use crate::stark::Stark;
-    use crate::stark_testing::test_stark_low_degree;
+    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
     use crate::verifier::verify_stark_proof;
 
     fn fibonacci<F: Field>(n: usize, x0: F, x1: F) -> F {
@@ -182,6 +182,18 @@ mod tests {
         let num_rows = 1 << 5;
         let stark = S::new(num_rows);
         test_stark_low_degree(stark)
+    }
+
+    #[test]
+    fn test_fibonacci_stark_circuit() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = FibonacciStark<F, D>;
+
+        let num_rows = 1 << 5;
+        let stark = S::new(num_rows);
+        test_stark_circuit_constraints::<F, C, S, D>(stark)
     }
 
     #[test]
