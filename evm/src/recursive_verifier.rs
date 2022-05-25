@@ -278,8 +278,9 @@ pub fn add_virtual_stark_proof_with_pis<
     stark: S,
     config: &StarkConfig,
     degree_bits: usize,
+    num_ctl_zs: usize,
 ) -> StarkProofWithPublicInputsTarget<D> {
-    let proof = add_virtual_stark_proof::<F, S, D>(builder, stark, config, degree_bits);
+    let proof = add_virtual_stark_proof::<F, S, D>(builder, stark, config, degree_bits, num_ctl_zs);
     let public_inputs = builder.add_virtual_targets(S::PUBLIC_INPUTS);
     StarkProofWithPublicInputsTarget {
         proof,
@@ -292,6 +293,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     stark: S,
     config: &StarkConfig,
     degree_bits: usize,
+    num_ctl_zs: usize,
 ) -> StarkProofTarget<D> {
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
@@ -319,6 +321,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
 fn add_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: S,
+    num_ctl_zs: usize,
     config: &StarkConfig,
 ) -> StarkOpeningSetTarget<D> {
     let num_challenges = config.num_challenges;
