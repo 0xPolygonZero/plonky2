@@ -118,8 +118,8 @@ fn verify_stark_proof_with_challenges_circuit<
     let StarkOpeningSetTarget {
         local_values,
         next_values,
-        permutation_ctl_zs: permutation_zs,
-        permutation_ctl_zs_right: permutation_zs_right,
+        permutation_ctl_zs,
+        permutation_ctl_zs_right,
         ctl_zs_last,
         quotient_polys,
     } = &proof.openings;
@@ -151,11 +151,12 @@ fn verify_stark_proof_with_challenges_circuit<
         l_last,
     );
 
+    let num_permutation_zs = stark.num_permutation_batches(inner_config);
     let permutation_data = stark
         .uses_permutation_args()
         .then(|| PermutationCheckDataTarget {
-            local_zs: permutation_zs.clone(),
-            next_zs: permutation_zs_right.clone(),
+            local_zs: permutation_ctl_zs[..num_permutation_zs].to_vec(),
+            next_zs: permutation_ctl_zs_right[..num_permutation_zs].to_vec(),
             permutation_challenge_sets: challenges.permutation_challenge_sets.clone().unwrap(),
         });
 
