@@ -22,6 +22,22 @@ pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     pub stark_proofs: Vec<StarkProofWithPublicInputs<F, C, D>>,
 }
 
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
+    pub fn degree_bits(&self, config: &StarkConfig) -> Vec<usize> {
+        self.stark_proofs
+            .iter()
+            .map(|proof| proof.proof.recover_degree_bits(config))
+            .collect()
+    }
+
+    pub fn nums_ctl_zs(&self) -> Vec<usize> {
+        self.stark_proofs
+            .iter()
+            .map(|proof| proof.proof.openings.ctl_zs_last.len())
+            .collect()
+    }
+}
+
 pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     pub stark_challenges: Vec<StarkProofChallenges<F, D>>,
     pub ctl_challenges: GrandProductChallengeSet<F>,

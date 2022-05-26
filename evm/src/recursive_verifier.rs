@@ -1,5 +1,3 @@
-use std::iter::once;
-
 use itertools::Itertools;
 use plonky2::field::extension_field::Extendable;
 use plonky2::field::field_types::Field;
@@ -235,6 +233,7 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
     config: &StarkConfig,
     degree_bits: &[usize],
+    nums_ctl_zs: &[usize],
 ) -> AllProofTarget<D> {
     let stark_proofs = vec![
         {
@@ -243,6 +242,7 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
                 all_stark.cpu_stark,
                 config,
                 degree_bits[Table::Cpu as usize],
+                nums_ctl_zs[Table::Cpu as usize],
             );
             let public_inputs = builder.add_virtual_targets(CpuStark::<F, D>::PUBLIC_INPUTS);
             StarkProofWithPublicInputsTarget {
@@ -256,6 +256,7 @@ pub fn add_virtual_all_proof<F: RichField + Extendable<D>, const D: usize>(
                 all_stark.keccak_stark,
                 config,
                 degree_bits[Table::Keccak as usize],
+                nums_ctl_zs[Table::Keccak as usize],
             );
             let public_inputs = builder.add_virtual_targets(KeccakStark::<F, D>::PUBLIC_INPUTS);
             StarkProofWithPublicInputsTarget {
@@ -298,14 +299,11 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
 
-    let num_leaves_per_oracle = once(S::COLUMNS)
-        .chain(
-            stark
-                .uses_permutation_args()
-                .then(|| stark.num_permutation_batches(config)),
-        )
-        .chain(once(stark.quotient_degree_factor() * config.num_challenges))
-        .collect_vec();
+    let num_leaves_per_oracle = vec![
+        S::COLUMNS,
+        stark.num_permutation_batches(config) + num_ctl_zs,
+        stark.quotient_degree_factor() * config.num_challenges,
+    ];
 
     let permutation_zs_cap = builder.add_virtual_cap(cap_height);
 
@@ -313,7 +311,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
         trace_cap: builder.add_virtual_cap(cap_height),
         permutation_ctl_zs_cap: permutation_zs_cap,
         quotient_polys_cap: builder.add_virtual_cap(cap_height),
-        openings: add_stark_opening_set::<F, S, D>(builder, stark, config),
+        openings: add_stark_opening_set::<F, S, D>(builder, stark, num_ctl_zs, config),
         opening_proof: builder.add_virtual_fri_proof(&num_leaves_per_oracle, &fri_params),
     }
 }
@@ -329,10 +327,10 @@ fn add_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: 
         local_values: builder.add_virtual_extension_targets(S::COLUMNS),
         next_values: builder.add_virtual_extension_targets(S::COLUMNS),
         permutation_ctl_zs: builder
-            .add_virtual_extension_targets(stark.num_permutation_batches(config)),
+            .add_virtual_extension_targets(stark.num_permutation_batches(config) + num_ctl_zs),
         permutation_ctl_zs_right: builder
-            .add_virtual_extension_targets(stark.num_permutation_batches(config)),
-        ctl_zs_last: vec![],
+            .add_virtual_extension_targets(stark.num_permutation_batches(config) + num_ctl_zs),
+        ctl_zs_last: builder.add_virtual_targets(num_ctl_zs),
         quotient_polys: builder
             .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),
     }

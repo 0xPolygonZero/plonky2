@@ -18,10 +18,6 @@ pub fn set_fri_proof_target<F, W, H, const D: usize>(
 {
     witness.set_target(fri_proof_target.pow_witness, fri_proof.pow_witness);
 
-    dbg!(
-        fri_proof_target.final_poly.0.len(),
-        fri_proof.final_poly.coeffs.len()
-    );
     for (&t, &x) in fri_proof_target
         .final_poly
         .0

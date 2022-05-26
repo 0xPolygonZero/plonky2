@@ -139,7 +139,7 @@ mod tests {
     }
 
     #[test]
-    fn test_recursive_all_stark_verifier() -> Result<()> {
+    fn test_all_stark_recursive_verifier() -> Result<()> {
         init_logger();
 
         let config = StarkConfig::standard_fast_config();
@@ -158,12 +158,15 @@ mod tests {
         let circuit_config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
         let mut pw = PartialWitness::new();
-        let degree_bits = inner_proof
-            .stark_proofs
-            .iter()
-            .map(|proof| proof.proof.recover_degree_bits(inner_config))
-            .collect::<Vec<_>>();
-        let pt = add_virtual_all_proof(&mut builder, &inner_all_stark, inner_config, &degree_bits);
+        let degree_bits = inner_proof.degree_bits(inner_config);
+        let nums_ctl_zs = inner_proof.nums_ctl_zs();
+        let pt = add_virtual_all_proof(
+            &mut builder,
+            &inner_all_stark,
+            inner_config,
+            &degree_bits,
+            &nums_ctl_zs,
+        );
         set_all_proof_target(&mut pw, &pt, &inner_proof, builder.zero());
 
         verify_proof_circuit::<F, C, D>(&mut builder, inner_all_stark, pt, inner_config);
