@@ -413,7 +413,7 @@ pub(crate) fn verify_cross_table_lookups_circuit<
         let challenge = challenges.challenges[i % inner_config.num_challenges];
         let default = default
             .into_iter()
-            .map(|x| builder.constant(x.into()))
+            .map(|x| builder.constant(x))
             .collect::<Vec<_>>();
         let combined_default = challenge.combine_base_circuit(builder, &default);
 

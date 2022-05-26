@@ -122,7 +122,7 @@ mod tests {
 
         let proof = prove::<F, C, D>(
             &all_stark,
-            &config,
+            config,
             vec![cpu_trace, keccak_trace],
             vec![vec![]; 2],
             &mut TimingTree::default(),

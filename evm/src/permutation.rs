@@ -69,7 +69,7 @@ impl<F: Field> GrandProductChallenge<F> {
 }
 
 impl GrandProductChallenge<Target> {
-    pub(crate) fn combine_circuit<'a, F: RichField + Extendable<D>, const D: usize>(
+    pub(crate) fn combine_circuit<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         terms: &[ExtensionTarget<D>],
@@ -80,7 +80,7 @@ impl GrandProductChallenge<Target> {
         builder.add_extension(reduced, self.gamma.to_ext_target(zero))
     }
 
-    pub(crate) fn combine_base_circuit<'a, F: RichField + Extendable<D>, const D: usize>(
+    pub(crate) fn combine_base_circuit<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         terms: &[Target],
