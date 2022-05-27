@@ -152,6 +152,21 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
             }
         }
 
+        // For the XOR, we split A''[0, 0] to bits.
+        let val_lo = row[reg_a_prime_prime(0, 0)].to_canonical_u64();
+        let val_hi = row[reg_a_prime_prime(0, 0) + 1].to_canonical_u64();
+        let val = val_lo + (1 << 32) * val_hi;
+        let bit_values: Vec<u64> = (0..64)
+            .scan(val, |acc, _| {
+                let tmp = *acc % 2;
+                *acc /= 2;
+                Some(tmp)
+            })
+            .collect();
+        for i in 0..64 {
+            row[reg_a_prime_prime_0_0_bit(i)] = F::from_canonical_u64(bit_values[i]);
+        }
+
         // A''[0, 0] is additionally xor'd with RC.
         let in_reg_lo = reg_a_prime_prime(0, 0);
         let in_reg_hi = in_reg_lo + 1;
@@ -280,8 +295,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
             .fold(P::ZEROS, |acc, z| acc.doubles() + a_prime_prime_0_0_bits[z]);
         let a_prime_prime_0_0_lo = vars.local_values[reg_a_prime_prime(0, 0)];
         let a_prime_prime_0_0_hi = vars.local_values[reg_a_prime_prime(0, 0) + 1];
-        // yield_constr.constraint(computed_a_prime_prime_0_0_lo - a_prime_prime_0_0_lo);
-        // yield_constr.constraint(computed_a_prime_prime_0_0_hi - a_prime_prime_0_0_hi);
+        yield_constr.constraint(computed_a_prime_prime_0_0_lo - a_prime_prime_0_0_lo);
+        yield_constr.constraint(computed_a_prime_prime_0_0_hi - a_prime_prime_0_0_hi);
 
         let get_xored_bit = |i| {
             let mut rc_bit_i = P::ZEROS;
