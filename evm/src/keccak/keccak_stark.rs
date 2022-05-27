@@ -91,7 +91,6 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
                     }
                 }
             }
-            rows[round] = rows[round - 1].clone();
             self.generate_trace_rows_for_round(&mut rows[round], round);
         }
 
@@ -318,8 +317,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         let computed_a_prime_prime_prime_0_0_hi = (32..64)
             .rev()
             .fold(P::ZEROS, |acc, z| acc.doubles() + get_xored_bit(z));
-        // yield_constr.constraint(computed_a_prime_prime_prime_0_0_lo - a_prime_prime_prime_0_0_lo);
-        // yield_constr.constraint(computed_a_prime_prime_prime_0_0_hi - a_prime_prime_prime_0_0_hi);
+        yield_constr.constraint(computed_a_prime_prime_prime_0_0_lo - a_prime_prime_prime_0_0_lo);
+        yield_constr.constraint(computed_a_prime_prime_prime_0_0_hi - a_prime_prime_prime_0_0_hi);
 
         // Enforce that this round's output equals the next round's input.
         for x in 0..5 {
