@@ -131,33 +131,36 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         // A''[x, y] = xor(B[x, y], andn(B[x + 1, y], B[x + 2, y])).
         for x in 0..5 {
             for y in 0..5 {
-                // let get_bit = |z| {
+                let get_bit = |z| {
+                    xor([
+                        row[reg_b(x, y, z)],
+                        andn(row[reg_b((x + 1) % 5, y, z)], row[reg_b((x + 2) % 5, y, z)]),
+                    ])
+                };
 
-                //     // xor([
-                //     //     row[reg_b(x, y, z)],
-                //     //     andn(row[reg_b((x + 1) % 5, y, z)], row[reg_b((x + 2) % 5, y, z)]),
-                //     // ])
-                // };
-
-                let lo = F::ZERO; //row[reg_b(x, y, 0)];
-                                  // let hi = (32..64)
-                                  //     .rev()
-                                  //     .fold(F::ZERO, |acc, z| acc.double() + get_bit(z));
+                let lo = (0..32)
+                    .rev()
+                    .fold(F::ZERO, |acc, z| acc.double() + get_bit(z));
+                let hi = (32..64)
+                    .rev()
+                    .fold(F::ZERO, |acc, z| acc.double() + get_bit(z));
 
                 let reg_lo = reg_a_prime_prime(x, y);
                 let reg_hi = reg_lo + 1;
                 row[reg_lo] = lo;
-                // row[reg_hi] = hi;
+                row[reg_hi] = hi;
             }
         }
 
         // A''[0, 0] is additionally xor'd with RC.
-        let reg_lo = reg_a_prime_prime(0, 0);
-        let reg_hi = reg_lo + 1;
+        let in_reg_lo = reg_a_prime_prime(0, 0);
+        let in_reg_hi = in_reg_lo + 1;
+        let out_reg_lo = reg_a_prime_prime_prime(0, 0);
+        let out_reg_hi = out_reg_lo + 1;
         let rc_lo = rc_value(round) % (1 << 32);
         let rc_hi = rc_value(round) >> 32;
-        row[reg_lo] = F::from_canonical_u64(row[reg_lo].to_canonical_u64() ^ rc_lo);
-        row[reg_hi] = F::from_canonical_u64(row[reg_hi].to_canonical_u64() ^ rc_hi);
+        row[out_reg_lo] = F::from_canonical_u64(row[in_reg_lo].to_canonical_u64() ^ rc_lo);
+        row[out_reg_hi] = F::from_canonical_u64(row[in_reg_hi].to_canonical_u64() ^ rc_hi);
     }
 
     pub fn generate_trace(&self, inputs: Vec<[u64; INPUT_LIMBS]>) -> Vec<PolynomialValues<F>> {
@@ -240,28 +243,28 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         for x in 0..5 {
             for y in 0..5 {
                 let get_bit = |z| {
-                    // xor_gen(
-                    vars.local_values[reg_b(x, y, z)]
-                    // andn_gen(
-                    //     vars.local_values[reg_b((x + 1) % 5, y, z)],
-                    //     vars.local_values[reg_b((x + 2) % 5, y, z)],
-                    // ),
-                    // )
+                    xor_gen(
+                        vars.local_values[reg_b(x, y, z)],
+                        andn_gen(
+                            vars.local_values[reg_b((x + 1) % 5, y, z)],
+                            vars.local_values[reg_b((x + 2) % 5, y, z)],
+                        ),
+                    )
                 };
 
                 let reg_lo = reg_a_prime_prime(x, y);
                 let reg_hi = reg_lo + 1;
                 let lo = vars.local_values[reg_lo];
-                // let hi = vars.local_values[reg_hi];
-                let computed_lo = P::ZEROS; // vars.local_values[reg_b(x, y, 0)];//(0..32)
-                                            // .rev()
-                                            // .fold(P::ZEROS, |acc, z| acc.doubles() + get_bit(z));
+                let hi = vars.local_values[reg_hi];
+                let computed_lo = (0..32)
+                    .rev()
+                    .fold(P::ZEROS, |acc, z| acc.doubles() + get_bit(z));
                 let computed_hi = (32..64)
                     .rev()
                     .fold(P::ZEROS, |acc, z| acc.doubles() + get_bit(z));
 
-                yield_constr.constraint_last_row(computed_lo - lo);
-                // yield_constr.constraint(computed_hi - hi);
+                yield_constr.constraint(computed_lo - lo);
+                yield_constr.constraint(computed_hi - hi);
             }
         }
 
