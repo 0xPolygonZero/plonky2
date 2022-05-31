@@ -120,9 +120,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     pub fn convert_to_ext(&mut self, t: Target) -> ExtensionTarget<D> {
         let zero = self.zero();
-        let mut arr = [zero; D];
-        arr[0] = t;
-        ExtensionTarget(arr)
+        t.to_ext_target(zero)
     }
 
     pub fn convert_to_ext_algebra(&mut self, et: ExtensionTarget<D>) -> ExtensionAlgebraTarget<D> {

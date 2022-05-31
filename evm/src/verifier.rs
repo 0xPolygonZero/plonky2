@@ -29,6 +29,7 @@ where
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::PUBLIC_INPUTS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
+    [(); KeccakStark::<F, D>::PUBLIC_INPUTS]:,
     [(); C::Hasher::HASH_SIZE]:,
 {
     let AllProofChallenges {
@@ -95,6 +96,7 @@ where
         proof,
         public_inputs,
     } = proof_with_pis;
+    ensure!(public_inputs.len() == S::PUBLIC_INPUTS);
     let StarkOpeningSet {
         local_values,
         next_values,

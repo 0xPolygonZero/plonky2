@@ -4,6 +4,7 @@ use plonky2_field::packed_field::PackedField;
 
 use crate::fri::oracle::SALT_SIZE;
 use crate::fri::structure::FriOracleInfo;
+use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::Target;
@@ -136,6 +137,23 @@ where
         sum = sum * alpha + term;
     }
     sum
+}
+
+pub fn reduce_with_powers_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    terms: &[Target],
+    alpha: Target,
+) -> Target {
+    if terms.len() <= ArithmeticGate::new_from_config(&builder.config).num_ops + 1 {
+        terms
+            .iter()
+            .rev()
+            .fold(builder.zero(), |acc, &t| builder.mul_add(alpha, acc, t))
+    } else {
+        let alpha = builder.convert_to_ext(alpha);
+        let mut alpha = ReducingFactorTarget::new(alpha);
+        alpha.reduce_base(terms, builder).0[0]
+    }
 }
 
 pub fn reduce_with_powers_ext_circuit<F: RichField + Extendable<D>, const D: usize>(

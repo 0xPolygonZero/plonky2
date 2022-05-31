@@ -12,7 +12,9 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
-use plonky2::plonk::plonk_common::reduce_with_powers;
+use plonky2::plonk::plonk_common::{
+    reduce_with_powers, reduce_with_powers_circuit, reduce_with_powers_ext_circuit,
+};
 use plonky2::util::reducing::{ReducingFactor, ReducingFactorTarget};
 use rayon::prelude::*;
 
@@ -65,6 +67,27 @@ impl<F: Field> GrandProductChallenge<F> {
         T::IntoIter: DoubleEndedIterator,
     {
         reduce_with_powers(terms, FE::from_basefield(self.beta)) + FE::from_basefield(self.gamma)
+    }
+}
+
+impl GrandProductChallenge<Target> {
+    pub(crate) fn combine_circuit<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        terms: &[ExtensionTarget<D>],
+    ) -> ExtensionTarget<D> {
+        let reduced = reduce_with_powers_ext_circuit(builder, terms, self.beta);
+        let gamma = builder.convert_to_ext(self.gamma);
+        builder.add_extension(reduced, gamma)
+    }
+
+    pub(crate) fn combine_base_circuit<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        terms: &[Target],
+    ) -> Target {
+        let reduced = reduce_with_powers_circuit(builder, terms, self.beta);
+        builder.add(reduced, self.gamma)
     }
 }
 
@@ -190,7 +213,7 @@ pub(crate) fn get_n_grand_product_challenge_sets<F: RichField, H: Hasher<F>>(
         .collect()
 }
 
-fn get_permutation_challenge_target<
+fn get_grand_product_challenge_target<
     F: RichField + Extendable<D>,
     H: AlgebraicHasher<F>,
     const D: usize,
@@ -203,7 +226,7 @@ fn get_permutation_challenge_target<
     GrandProductChallenge { beta, gamma }
 }
 
-fn get_permutation_challenge_set_target<
+pub(crate) fn get_grand_product_challenge_set_target<
     F: RichField + Extendable<D>,
     H: AlgebraicHasher<F>,
     const D: usize,
@@ -213,12 +236,12 @@ fn get_permutation_challenge_set_target<
     num_challenges: usize,
 ) -> GrandProductChallengeSet<Target> {
     let challenges = (0..num_challenges)
-        .map(|_| get_permutation_challenge_target(builder, challenger))
+        .map(|_| get_grand_product_challenge_target(builder, challenger))
         .collect();
     GrandProductChallengeSet { challenges }
 }
 
-pub(crate) fn get_n_permutation_challenge_sets_target<
+pub(crate) fn get_n_grand_product_challenge_sets_target<
     F: RichField + Extendable<D>,
     H: AlgebraicHasher<F>,
     const D: usize,
@@ -229,7 +252,7 @@ pub(crate) fn get_n_permutation_challenge_sets_target<
     num_sets: usize,
 ) -> Vec<GrandProductChallengeSet<Target>> {
     (0..num_sets)
-        .map(|_| get_permutation_challenge_set_target(builder, challenger, num_challenges))
+        .map(|_| get_grand_product_challenge_set_target(builder, challenger, num_challenges))
         .collect()
 }
 
