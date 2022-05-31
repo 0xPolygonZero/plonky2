@@ -150,11 +150,9 @@ pub fn reduce_with_powers_circuit<F: RichField + Extendable<D>, const D: usize>(
             .rev()
             .fold(builder.zero(), |acc, &t| builder.mul_add(alpha, acc, t))
     } else {
-        let terms_ext = terms
-            .iter()
-            .map(|&t| builder.convert_to_ext(t))
-            .collect::<Vec<_>>();
-        reduce_with_powers_ext_circuit(builder, &terms_ext, alpha).0[0]
+        let alpha = builder.convert_to_ext(alpha);
+        let mut alpha = ReducingFactorTarget::new(alpha);
+        alpha.reduce_base(terms, builder).0[0]
     }
 }
 
