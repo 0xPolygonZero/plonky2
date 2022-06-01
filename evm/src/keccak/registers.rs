@@ -6,6 +6,11 @@ pub(crate) const fn reg_step(i: usize) -> usize {
     i
 }
 
+/// A register which is set to 1 if we are in the `i`th round, otherwise 0.
+pub(crate) const fn reg_dummy() -> usize {
+    NUM_ROUNDS
+}
+
 const R: [[u8; 5]; 5] = [
     [0, 18, 41, 3, 36],
     [1, 2, 45, 10, 44],
@@ -172,7 +177,7 @@ pub(crate) const fn rc_value(round: usize) -> u64 {
     RC[round]
 }
 
-const START_A: usize = NUM_ROUNDS;
+const START_A: usize = NUM_ROUNDS + 1;
 pub(crate) const fn reg_a(x: usize, y: usize, z: usize) -> usize {
     debug_assert!(x < 5);
     debug_assert!(y < 5);
