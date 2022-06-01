@@ -107,8 +107,8 @@ mod tests {
         keccak_trace[5].values[..].copy_from_slice(&vs1);
 
         let cross_table_lookups = vec![CrossTableLookup {
-            looking_table: Table::Cpu,
-            looking_columns: vec![2, 4],
+            looking_tables: vec![Table::Cpu],
+            looking_columns: vec![vec![2, 4]],
             looked_table: Table::Keccak,
             looked_columns: vec![3, 5],
             default: vec![F::ONE; 2],
