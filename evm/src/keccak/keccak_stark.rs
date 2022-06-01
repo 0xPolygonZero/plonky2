@@ -39,7 +39,10 @@ pub struct KeccakStark<F, const D: usize> {
 impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
     /// Generate the rows of the trace. Note that this does not generate the permuted columns used
     /// in our lookup arguments, as those are computed after transposing to column-wise form.
-    pub(crate) fn generate_trace_rows(&self, inputs: Vec<[u64; INPUT_LIMBS]>) -> Vec<[F; NUM_REGISTERS]> {
+    pub(crate) fn generate_trace_rows(
+        &self,
+        inputs: Vec<[u64; INPUT_LIMBS]>,
+    ) -> Vec<[F; NUM_REGISTERS]> {
         let num_rows = (inputs.len() * NUM_ROUNDS).next_power_of_two();
         info!("{} rows", num_rows);
         let mut rows = Vec::with_capacity(num_rows);
@@ -57,10 +60,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         rows
     }
 
-    fn generate_trace_rows_for_perm(
-        &self,
-        input: [u64; INPUT_LIMBS],
-    ) -> Vec<[F; NUM_REGISTERS]> {
+    fn generate_trace_rows_for_perm(&self, input: [u64; INPUT_LIMBS]) -> Vec<[F; NUM_REGISTERS]> {
         let mut rows = vec![[F::ZERO; NUM_REGISTERS]; NUM_ROUNDS];
 
         for x in 0..5 {
@@ -132,17 +132,17 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         for x in 0..5 {
             for y in 0..5 {
                 // let get_bit = |z| {
-                    
+
                 //     // xor([
                 //     //     row[reg_b(x, y, z)],
                 //     //     andn(row[reg_b((x + 1) % 5, y, z)], row[reg_b((x + 2) % 5, y, z)]),
                 //     // ])
                 // };
 
-                let lo = F::ZERO;//row[reg_b(x, y, 0)];
-                // let hi = (32..64)
-                //     .rev()
-                //     .fold(F::ZERO, |acc, z| acc.double() + get_bit(z));
+                let lo = F::ZERO; //row[reg_b(x, y, 0)];
+                                  // let hi = (32..64)
+                                  //     .rev()
+                                  //     .fold(F::ZERO, |acc, z| acc.double() + get_bit(z));
 
                 let reg_lo = reg_a_prime_prime(x, y);
                 let reg_hi = reg_lo + 1;
@@ -241,11 +241,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
             for y in 0..5 {
                 let get_bit = |z| {
                     // xor_gen(
-                        vars.local_values[reg_b(x, y, z)]
-                        // andn_gen(
-                        //     vars.local_values[reg_b((x + 1) % 5, y, z)],
-                        //     vars.local_values[reg_b((x + 2) % 5, y, z)],
-                        // ),
+                    vars.local_values[reg_b(x, y, z)]
+                    // andn_gen(
+                    //     vars.local_values[reg_b((x + 1) % 5, y, z)],
+                    //     vars.local_values[reg_b((x + 2) % 5, y, z)],
+                    // ),
                     // )
                 };
 
@@ -253,9 +253,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                 let reg_hi = reg_lo + 1;
                 let lo = vars.local_values[reg_lo];
                 // let hi = vars.local_values[reg_hi];
-                let computed_lo = P::ZEROS;// vars.local_values[reg_b(x, y, 0)];//(0..32)
-                    // .rev()
-                    // .fold(P::ZEROS, |acc, z| acc.doubles() + get_bit(z));
+                let computed_lo = P::ZEROS; // vars.local_values[reg_b(x, y, 0)];//(0..32)
+                                            // .rev()
+                                            // .fold(P::ZEROS, |acc, z| acc.doubles() + get_bit(z));
                 let computed_hi = (32..64)
                     .rev()
                     .fold(P::ZEROS, |acc, z| acc.doubles() + get_bit(z));
