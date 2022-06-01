@@ -497,9 +497,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                 let input_bits_combined_hi =
                     reduce_with_powers_ext_circuit(builder, &input_bits[32..64], two);
                 let diff = builder.sub_extension(output_lo, input_bits_combined_lo);
-                yield_constr.constraint(builder, diff);
+                yield_constr.constraint_transition(builder, diff);
                 let diff = builder.sub_extension(output_hi, input_bits_combined_hi);
-                yield_constr.constraint(builder, diff);
+                yield_constr.constraint_transition(builder, diff);
             }
         }
     }
