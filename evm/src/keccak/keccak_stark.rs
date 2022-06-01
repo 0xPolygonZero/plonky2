@@ -16,7 +16,7 @@ use crate::keccak::logic::{
 };
 use crate::keccak::registers::{
     rc_value, rc_value_bit, reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit,
-    reg_a_prime_prime_prime, reg_b, reg_c, reg_c_partial, reg_dummy, reg_step, NUM_REGISTERS,
+    reg_a_prime_prime_prime, reg_b, reg_c, reg_c_partial, reg_step, NUM_REGISTERS,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
 use crate::stark::Stark;
@@ -53,8 +53,8 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         // Pad rows to power of two.
         for i in rows.len()..num_rows {
             let mut row = [F::ZERO; NUM_REGISTERS];
+            self.copy_output_to_input(rows[i - 1], &mut row);
             self.generate_trace_rows_for_round(&mut row, i % NUM_ROUNDS);
-            row[reg_dummy()] = F::ONE;
             rows.push(row);
         }
 
@@ -344,12 +344,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                 let input_bits_combined_hi = (32..64)
                     .rev()
                     .fold(P::ZEROS, |acc, z| acc.doubles() + input_bits[z]);
-                let dummy = vars.next_values[reg_dummy()];
                 yield_constr.constraint_transition(
-                    (P::ONES - dummy) * (output_lo - input_bits_combined_lo),
+                    output_lo - input_bits_combined_lo,
                 );
                 yield_constr.constraint_transition(
-                    (P::ONES - dummy) * (output_hi - input_bits_combined_hi),
+                    output_hi - input_bits_combined_hi,
                 );
             }
         }
@@ -363,7 +362,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
     ) {
         let two = builder.two();
 
+        dbg!(builder.num_gates());
+
         eval_round_flags_recursively(builder, vars, yield_constr);
+
+        dbg!(builder.num_gates());
 
         // C_partial[x] = xor(A[x, 0], A[x, 1], A[x, 2])
         for x in 0..5 {
@@ -379,6 +382,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
             }
         }
 
+        dbg!(builder.num_gates());
+
         // C[x] = xor(C_partial[x], A[x, 3], A[x, 4])
         for x in 0..5 {
             for z in 0..64 {
@@ -392,6 +397,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                 yield_constr.constraint(builder, diff);
             }
         }
+
+        dbg!(builder.num_gates());
 
         // A'[x, y] = xor(A[x, y], D[x])
         //          = xor(A[x, y], C[x - 1], ROT(C[x + 1], 1))
@@ -410,6 +417,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                 }
             }
         }
+
+        dbg!(builder.num_gates());
 
         // A''[x, y] = xor(B[x, y], andn(B[x + 1, y], B[x + 2, y])).
         for x in 0..5 {
@@ -438,6 +447,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
             }
         }
 
+        dbg!(builder.num_gates());
+
         // A'''[0, 0] = A''[0, 0] XOR RC
         let a_prime_prime_0_0_bits = (0..64)
             .map(|i| vars.local_values[reg_a_prime_prime_0_0_bit(i)])
@@ -452,6 +463,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         yield_constr.constraint(builder, diff);
         let diff = builder.sub_extension(computed_a_prime_prime_0_0_hi, a_prime_prime_0_0_hi);
         yield_constr.constraint(builder, diff);
+
+        dbg!(builder.num_gates());
 
         let mut get_xored_bit = |i| {
             let mut rc_bit_i = builder.zero_extension();
@@ -484,9 +497,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         );
         yield_constr.constraint(builder, diff);
 
+        dbg!(builder.num_gates());
+
         // Enforce that this round's output equals the next round's input.
         for x in 0..5 {
             for y in 0..5 {
+                dbg!(x);
+                dbg!(y);
+                dbg!(builder.num_gates());
                 let output_lo = vars.local_values[reg_a_prime_prime_prime(x, y)];
                 let output_hi = vars.local_values[reg_a_prime_prime_prime(x, y) + 1];
                 let input_bits = (0..64)
@@ -502,6 +520,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                 yield_constr.constraint_transition(builder, diff);
             }
         }
+
+        dbg!(builder.num_gates());
     }
 
     fn constraint_degree(&self) -> usize {
