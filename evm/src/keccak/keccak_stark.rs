@@ -344,12 +344,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                 let input_bits_combined_hi = (32..64)
                     .rev()
                     .fold(P::ZEROS, |acc, z| acc.doubles() + input_bits[z]);
-                yield_constr.constraint_transition(
-                    output_lo - input_bits_combined_lo,
-                );
-                yield_constr.constraint_transition(
-                    output_hi - input_bits_combined_hi,
-                );
+                yield_constr.constraint_transition(output_lo - input_bits_combined_lo);
+                yield_constr.constraint_transition(output_hi - input_bits_combined_hi);
             }
         }
     }
