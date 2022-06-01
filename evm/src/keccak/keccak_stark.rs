@@ -16,7 +16,7 @@ use crate::keccak::logic::{
 };
 use crate::keccak::registers::{
     rc_value, rc_value_bit, reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit,
-    reg_a_prime_prime_prime, reg_b, reg_c, reg_c_partial, reg_step, NUM_REGISTERS, reg_dummy,
+    reg_a_prime_prime_prime, reg_b, reg_c, reg_c_partial, reg_dummy, reg_step, NUM_REGISTERS,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
 use crate::stark::Stark;
@@ -82,7 +82,11 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         rows
     }
 
-    fn copy_output_to_input(&self, prev_row: [F; NUM_REGISTERS], next_row: &mut [F; NUM_REGISTERS]) {
+    fn copy_output_to_input(
+        &self,
+        prev_row: [F; NUM_REGISTERS],
+        next_row: &mut [F; NUM_REGISTERS],
+    ) {
         for x in 0..5 {
             for y in 0..5 {
                 let cur_lo = prev_row[reg_a_prime_prime_prime(x, y)];
@@ -341,8 +345,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                     .rev()
                     .fold(P::ZEROS, |acc, z| acc.doubles() + input_bits[z]);
                 let dummy = vars.next_values[reg_dummy()];
-                yield_constr.constraint_transition((P::ONES - dummy) * (output_lo - input_bits_combined_lo));
-                yield_constr.constraint_transition((P::ONES - dummy) * (output_hi - input_bits_combined_hi));
+                yield_constr.constraint_transition(
+                    (P::ONES - dummy) * (output_lo - input_bits_combined_lo),
+                );
+                yield_constr.constraint_transition(
+                    (P::ONES - dummy) * (output_hi - input_bits_combined_hi),
+                );
             }
         }
     }
@@ -484,8 +492,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                 let input_bits = (0..64)
                     .map(|z| vars.next_values[reg_a(x, y, z)])
                     .collect_vec();
-                let input_bits_combined_lo = reduce_with_powers_ext_circuit(builder, &input_bits[0..32], two);
-                let input_bits_combined_hi = reduce_with_powers_ext_circuit(builder, &input_bits[32..64], two);
+                let input_bits_combined_lo =
+                    reduce_with_powers_ext_circuit(builder, &input_bits[0..32], two);
+                let input_bits_combined_hi =
+                    reduce_with_powers_ext_circuit(builder, &input_bits[32..64], two);
                 let diff = builder.sub_extension(output_lo, input_bits_combined_lo);
                 yield_constr.constraint(builder, diff);
                 let diff = builder.sub_extension(output_hi, input_bits_combined_hi);
