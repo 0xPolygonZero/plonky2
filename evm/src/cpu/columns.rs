@@ -1,8 +1,14 @@
-pub const OPCODE: usize = 0;
+// Filter. 1 if the row corresponds to a cycle of execution and 0 otherwise.
+// Lets us re-use decode columns in non-cycle rows.
+pub const IS_CPU_CYCLE: usize = 0;
 
-pub const IS_CPU_CYCLE: usize = OPCODE + 1;
+// If CPU cycle: The opcode being decoded, in {0, ..., 255}.
+pub const OPCODE: usize = 1;
 
-pub const IS_STOP: usize = IS_CPU_CYCLE + 1;
+// If CPU cycle: flags for EVM instructions. PUSHn, DUPn, and SWAPn only get one flag each. Invalid
+// opcodes are split between a number of flags for practical reasons. Exactly one of these flags
+// must be 1.
+pub const IS_STOP: usize = OPCODE + 1;
 pub const IS_ADD: usize = IS_STOP + 1;
 pub const IS_MUL: usize = IS_ADD + 1;
 pub const IS_SUB: usize = IS_MUL + 1;
@@ -66,8 +72,11 @@ pub const IS_PC: usize = IS_JUMPI + 1;
 pub const IS_MSIZE: usize = IS_PC + 1;
 pub const IS_GAS: usize = IS_MSIZE + 1;
 pub const IS_JUMPDEST: usize = IS_GAS + 1;
+// Find the number of to push by reading the bottom 5 bits of the opcode.
 pub const IS_PUSH: usize = IS_JUMPDEST + 1;
+// Find the stack offset to duplicate by reading the bottom 4 bits of the opcode.
 pub const IS_DUP: usize = IS_PUSH + 1;
+// Find the stack offset to swap with by reading the bottom 4 bits of the opcode.
 pub const IS_SWAP: usize = IS_DUP + 1;
 pub const IS_LOG0: usize = IS_SWAP + 1;
 pub const IS_LOG1: usize = IS_LOG0 + 1;
@@ -105,10 +114,13 @@ pub const IS_INVALID_17: usize = IS_INVALID_16 + 1;
 pub const IS_INVALID_18: usize = IS_INVALID_17 + 1;
 pub const IS_INVALID_19: usize = IS_INVALID_18 + 1;
 pub const IS_INVALID_20: usize = IS_INVALID_19 + 1;
+// An instruction is invalid if _any_ of the above flags is 1.
 
 pub const START_INSTRUCTION_FLAGS: usize = IS_STOP;
 pub const END_INSTRUCTION_FLAGS: usize = IS_INVALID_20 + 1;
 
+// If CPU cycle: the opcode, broken up into bits.
+// **big-endian** order
 pub const OPCODE_BITS: [usize; 8] = [
     END_INSTRUCTION_FLAGS + 1,
     END_INSTRUCTION_FLAGS + 2,
