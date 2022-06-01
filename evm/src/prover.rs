@@ -527,8 +527,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
         })
         .collect::<Vec<_>>();
 
-    let values = transpose(&constraint_values);
-    for v in values {
+    for v in constraint_values {
         assert!(v.iter().all(|x| x.is_zero()));
     }
 }

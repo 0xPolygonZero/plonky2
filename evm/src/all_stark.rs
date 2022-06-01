@@ -111,7 +111,7 @@ mod tests {
             looking_columns: vec![vec![2, 4]],
             looked_table: Table::Keccak,
             looked_columns: vec![3, 5],
-            default: vec![F::ONE; 2],
+            default,
         }];
 
         let all_stark = AllStark {
