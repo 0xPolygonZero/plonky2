@@ -104,8 +104,7 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
                 .zip(looking_columns)
                 .map(|(table, columns)| {
                     partial_products(&trace_poly_values[*table as usize], columns, challenge)
-                })
-                .collect::<Vec<_>>();
+                });
             let z_looked = partial_products(
                 &trace_poly_values[*looked_table as usize],
                 looked_columns,
@@ -114,7 +113,7 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
 
             debug_assert_eq!(
                 zs_looking
-                    .iter()
+                    .clone()
                     .map(|z| *z.values.last().unwrap())
                     .product::<F>(),
                 *z_looked.values.last().unwrap()
