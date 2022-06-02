@@ -184,11 +184,7 @@ pub fn eval_packed_generic<P: PackedField>(
 
     // Check that the instruction flags are valid.
     // First, check that they are all either 0 or 1.
-    for &flag in lv
-        .iter()
-        .take(columns::END_INSTRUCTION_FLAGS)
-        .skip(columns::START_INSTRUCTION_FLAGS)
-    {
+    for &flag in &lv[columns::START_INSTRUCTION_FLAGS..columns::END_INSTRUCTION_FLAGS] {
         yield_constr.constraint(cycle_filter * flag * (flag - P::ONES));
     }
     // Now check that exactly one is 1.
@@ -251,11 +247,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Now check that they sum to 1.
     {
         let mut constr = builder.one_extension();
-        for &flag in lv
-            .iter()
-            .take(columns::END_INSTRUCTION_FLAGS)
-            .skip(columns::START_INSTRUCTION_FLAGS)
-        {
+        for &flag in &lv[columns::START_INSTRUCTION_FLAGS..columns::END_INSTRUCTION_FLAGS] {
             constr = builder.sub_extension(constr, flag);
         }
         constr = builder.mul_extension(cycle_filter, constr);
