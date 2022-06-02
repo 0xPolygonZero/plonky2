@@ -25,7 +25,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Computes `x^3`.
     pub fn cube(&mut self, x: Target) -> Target {
-        self.mul_many(&[x, x, x])
+        self.mul_many([x, x, x])
     }
 
     /// Computes `const_0 * multiplicand_0 * multiplicand_1 + const_1 * addend`.
@@ -206,12 +206,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Multiply `n` `Target`s.
-    pub fn mul_many(&mut self, terms: &[Target]) -> Target {
+    pub fn mul_many<T>(&mut self, terms: impl IntoIterator<Item = T>) -> Target
+    where
+        T: Borrow<Target>,
+    {
         terms
-            .iter()
-            .copied()
-            .reduce(|acc, t| self.mul(acc, t))
-            .unwrap_or_else(|| self.one())
+            .into_iter()
+            .fold(self.one(), |acc, t| self.mul(acc, *t.borrow()))
     }
 
     /// Exponentiate `base` to the power of `2^power_log`.
