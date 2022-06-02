@@ -210,12 +210,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     where
         T: Borrow<Target>,
     {
-        let mut iter = terms.into_iter();
-        if let Some(first) = iter.next() {
-            iter.fold(*first.borrow(), |acc, t| self.mul(acc, *t.borrow()))
-        } else {
-            self.one()
-        }
+        terms
+            .into_iter()
+            .fold(self.one(), |acc, t| self.mul(acc, *t.borrow()))
     }
 
     /// Exponentiate `base` to the power of `2^power_log`.
