@@ -122,6 +122,7 @@ pub const END_INSTRUCTION_FLAGS: usize = IS_INVALID_20 + 1;
 // If CPU cycle: the opcode, broken up into bits.
 // **big-endian** order
 pub const OPCODE_BITS: [usize; 8] = [
+    END_INSTRUCTION_FLAGS,
     END_INSTRUCTION_FLAGS + 1,
     END_INSTRUCTION_FLAGS + 2,
     END_INSTRUCTION_FLAGS + 3,
@@ -129,7 +130,6 @@ pub const OPCODE_BITS: [usize; 8] = [
     END_INSTRUCTION_FLAGS + 5,
     END_INSTRUCTION_FLAGS + 6,
     END_INSTRUCTION_FLAGS + 7,
-    END_INSTRUCTION_FLAGS + 8,
 ];
 
 pub const NUM_CPU_COLUMNS: usize = OPCODE_BITS[OPCODE_BITS.len() - 1] + 1;

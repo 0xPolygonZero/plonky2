@@ -243,11 +243,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     // Check that the instruction flags are valid.
     // First, check that they are all either 0 or 1.
-    for &flag in lv
-        .iter()
-        .take(columns::END_INSTRUCTION_FLAGS)
-        .skip(columns::START_INSTRUCTION_FLAGS)
-    {
+    for &flag in &lv[columns::START_INSTRUCTION_FLAGS..columns::END_INSTRUCTION_FLAGS] {
         let constr = builder.mul_sub_extension(flag, flag, flag);
         let constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
@@ -268,13 +264,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     for (oc, block_length, col) in OPCODES {
         let flag = lv[col];
-        let constr = builder.arithmetic_extension(
-            F::ONE,
-            -F::from_canonical_u64(oc),
-            flag,
-            top_bits[8 - block_length],
-            flag,
-        );
+        let constr = builder.constant_extension(F::from_canonical_u64(oc).into());
+        let constr = builder.sub_extension(top_bits[8 - block_length], constr);
+        let constr = builder.mul_extension(flag, constr);
         let constr = builder.mul_extension(cycle_filter, constr);
         yield_constr.constraint(builder, constr);
     }
