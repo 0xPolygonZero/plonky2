@@ -283,7 +283,7 @@ pub struct OpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub plonk_sigmas: Vec<F::Extension>,
     pub wires: Vec<F::Extension>,
     pub plonk_zs: Vec<F::Extension>,
-    pub plonk_zs_right: Vec<F::Extension>,
+    pub plonk_zs_next: Vec<F::Extension>,
     pub partial_products: Vec<F::Extension>,
     pub quotient_polys: Vec<F::Extension>,
 }
@@ -311,7 +311,7 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
             plonk_sigmas: constants_sigmas_eval[common_data.sigmas_range()].to_vec(),
             wires: eval_commitment(zeta, wires_commitment),
             plonk_zs: zs_partial_products_eval[common_data.zs_range()].to_vec(),
-            plonk_zs_right: eval_commitment(g * zeta, zs_partial_products_commitment)
+            plonk_zs_next: eval_commitment(g * zeta, zs_partial_products_commitment)
                 [common_data.zs_range()]
             .to_vec(),
             partial_products: zs_partial_products_eval[common_data.partial_products_range()]
@@ -332,11 +332,11 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
             ]
             .concat(),
         };
-        let zeta_right_batch = FriOpeningBatch {
-            values: self.plonk_zs_right.clone(),
+        let zeta_next_batch = FriOpeningBatch {
+            values: self.plonk_zs_next.clone(),
         };
         FriOpenings {
-            batches: vec![zeta_batch, zeta_right_batch],
+            batches: vec![zeta_batch, zeta_next_batch],
         }
     }
 }
@@ -348,7 +348,7 @@ pub struct OpeningSetTarget<const D: usize> {
     pub plonk_sigmas: Vec<ExtensionTarget<D>>,
     pub wires: Vec<ExtensionTarget<D>>,
     pub plonk_zs: Vec<ExtensionTarget<D>>,
-    pub plonk_zs_right: Vec<ExtensionTarget<D>>,
+    pub plonk_zs_next: Vec<ExtensionTarget<D>>,
     pub partial_products: Vec<ExtensionTarget<D>>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
@@ -366,11 +366,11 @@ impl<const D: usize> OpeningSetTarget<D> {
             ]
             .concat(),
         };
-        let zeta_right_batch = FriOpeningBatchTarget {
-            values: self.plonk_zs_right.clone(),
+        let zeta_next_batch = FriOpeningBatchTarget {
+            values: self.plonk_zs_next.clone(),
         };
         FriOpeningsTarget {
-            batches: vec![zeta_batch, zeta_right_batch],
+            batches: vec![zeta_batch, zeta_next_batch],
         }
     }
 }

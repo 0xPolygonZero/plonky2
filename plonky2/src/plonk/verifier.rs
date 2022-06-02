@@ -57,7 +57,7 @@ where
         public_inputs_hash: &public_inputs_hash,
     };
     let local_zs = &proof.openings.plonk_zs;
-    let next_zs = &proof.openings.plonk_zs_right;
+    let next_zs = &proof.openings.plonk_zs_next;
     let s_sigmas = &proof.openings.plonk_sigmas;
     let partial_products = &proof.openings.partial_products;
 

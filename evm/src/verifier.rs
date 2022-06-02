@@ -101,7 +101,7 @@ where
         local_values,
         next_values,
         permutation_ctl_zs,
-        permutation_ctl_zs_right,
+        permutation_ctl_zs_next,
         ctl_zs_last,
         quotient_polys,
     } = &proof.openings;
@@ -134,7 +134,7 @@ where
     let num_permutation_zs = stark.num_permutation_batches(config);
     let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
         local_zs: permutation_ctl_zs[..num_permutation_zs].to_vec(),
-        next_zs: permutation_ctl_zs_right[..num_permutation_zs].to_vec(),
+        next_zs: permutation_ctl_zs_next[..num_permutation_zs].to_vec(),
         permutation_challenge_sets: challenges.permutation_challenge_sets.clone().unwrap(),
     });
     eval_vanishing_poly::<F, F::Extension, F::Extension, C, S, D, D>(

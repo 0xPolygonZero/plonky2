@@ -114,13 +114,13 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             ]
             .concat(),
         };
-        let zeta_right_batch = FriBatchInfo {
+        let zeta_next_batch = FriBatchInfo {
             point: zeta.scalar_mul(g),
             polynomials: [trace_info, permutation_zs_info].concat(),
         };
         FriInstanceInfo {
             oracles: vec![no_blinding_oracle; oracle_indices.next().unwrap()],
-            batches: vec![zeta_batch, zeta_right_batch],
+            batches: vec![zeta_batch, zeta_next_batch],
         }
     }
 
@@ -161,14 +161,14 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             ]
             .concat(),
         };
-        let zeta_right = builder.mul_const_extension(g, zeta);
-        let zeta_right_batch = FriBatchInfoTarget {
-            point: zeta_right,
+        let zeta_next = builder.mul_const_extension(g, zeta);
+        let zeta_next_batch = FriBatchInfoTarget {
+            point: zeta_next,
             polynomials: [trace_info, permutation_zs_info].concat(),
         };
         FriInstanceInfoTarget {
             oracles: vec![no_blinding_oracle; oracle_indices.next().unwrap()],
-            batches: vec![zeta_batch, zeta_right_batch],
+            batches: vec![zeta_batch, zeta_next_batch],
         }
     }
 

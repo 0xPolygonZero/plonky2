@@ -119,7 +119,7 @@ fn verify_stark_proof_with_challenges_circuit<
         local_values,
         next_values,
         permutation_ctl_zs,
-        permutation_ctl_zs_right,
+        permutation_ctl_zs_next,
         ctl_zs_last,
         quotient_polys,
     } = &proof.openings;
@@ -156,7 +156,7 @@ fn verify_stark_proof_with_challenges_circuit<
         .uses_permutation_args()
         .then(|| PermutationCheckDataTarget {
             local_zs: permutation_ctl_zs[..num_permutation_zs].to_vec(),
-            next_zs: permutation_ctl_zs_right[..num_permutation_zs].to_vec(),
+            next_zs: permutation_ctl_zs_next[..num_permutation_zs].to_vec(),
             permutation_challenge_sets: challenges.permutation_challenge_sets.clone().unwrap(),
         });
 
@@ -329,7 +329,7 @@ fn add_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: 
         next_values: builder.add_virtual_extension_targets(S::COLUMNS),
         permutation_ctl_zs: builder
             .add_virtual_extension_targets(stark.num_permutation_batches(config) + num_ctl_zs),
-        permutation_ctl_zs_right: builder
+        permutation_ctl_zs_next: builder
             .add_virtual_extension_targets(stark.num_permutation_batches(config) + num_ctl_zs),
         ctl_zs_last: builder.add_virtual_targets(num_ctl_zs),
         quotient_polys: builder
