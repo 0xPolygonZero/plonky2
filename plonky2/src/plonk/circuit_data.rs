@@ -336,13 +336,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         // The Z polynomials are also opened at g * zeta.
         let g = F::Extension::primitive_root_of_unity(self.degree_bits);
-        let zeta_right = g * zeta;
-        let zeta_right_batch = FriBatchInfo {
-            point: zeta_right,
+        let zeta_next = g * zeta;
+        let zeta_next_batch = FriBatchInfo {
+            point: zeta_next,
             polynomials: self.fri_zs_polys(),
         };
 
-        let openings = vec![zeta_batch, zeta_right_batch];
+        let openings = vec![zeta_batch, zeta_next_batch];
         FriInstanceInfo {
             oracles: FRI_ORACLES.to_vec(),
             batches: openings,
@@ -362,13 +362,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         // The Z polynomials are also opened at g * zeta.
         let g = F::primitive_root_of_unity(self.degree_bits);
-        let zeta_right = builder.mul_const_extension(g, zeta);
-        let zeta_right_batch = FriBatchInfoTarget {
-            point: zeta_right,
+        let zeta_next = builder.mul_const_extension(g, zeta);
+        let zeta_next_batch = FriBatchInfoTarget {
+            point: zeta_next,
             polynomials: self.fri_zs_polys(),
         };
 
-        let openings = vec![zeta_batch, zeta_right_batch];
+        let openings = vec![zeta_batch, zeta_next_batch];
         FriInstanceInfoTarget {
             oracles: FRI_ORACLES.to_vec(),
             batches: openings,

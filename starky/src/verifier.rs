@@ -64,7 +64,7 @@ where
         local_values,
         next_values,
         permutation_zs,
-        permutation_zs_right,
+        permutation_zs_next,
         quotient_polys,
     } = &proof.openings;
     let vars = StarkEvaluationVars {
@@ -93,7 +93,7 @@ where
     );
     let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
         local_zs: permutation_zs.as_ref().unwrap().clone(),
-        next_zs: permutation_zs_right.as_ref().unwrap().clone(),
+        next_zs: permutation_zs_next.as_ref().unwrap().clone(),
         permutation_challenge_sets: challenges.permutation_challenge_sets.unwrap(),
     });
     eval_vanishing_poly::<F, F::Extension, F::Extension, C, S, D, D>(
@@ -171,7 +171,7 @@ fn check_permutation_options<
     let options_is_some = [
         proof_with_pis.proof.permutation_zs_cap.is_some(),
         proof_with_pis.proof.openings.permutation_zs.is_some(),
-        proof_with_pis.proof.openings.permutation_zs_right.is_some(),
+        proof_with_pis.proof.openings.permutation_zs_next.is_some(),
         challenges.permutation_challenge_sets.is_some(),
     ];
     ensure!(

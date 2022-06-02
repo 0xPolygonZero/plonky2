@@ -155,7 +155,7 @@ impl Buffer {
         self.write_field_ext_vec::<F, D>(&os.plonk_sigmas)?;
         self.write_field_ext_vec::<F, D>(&os.wires)?;
         self.write_field_ext_vec::<F, D>(&os.plonk_zs)?;
-        self.write_field_ext_vec::<F, D>(&os.plonk_zs_right)?;
+        self.write_field_ext_vec::<F, D>(&os.plonk_zs_next)?;
         self.write_field_ext_vec::<F, D>(&os.partial_products)?;
         self.write_field_ext_vec::<F, D>(&os.quotient_polys)
     }
@@ -172,7 +172,7 @@ impl Buffer {
         let plonk_sigmas = self.read_field_ext_vec::<F, D>(config.num_routed_wires)?;
         let wires = self.read_field_ext_vec::<F, D>(config.num_wires)?;
         let plonk_zs = self.read_field_ext_vec::<F, D>(config.num_challenges)?;
-        let plonk_zs_right = self.read_field_ext_vec::<F, D>(config.num_challenges)?;
+        let plonk_zs_next = self.read_field_ext_vec::<F, D>(config.num_challenges)?;
         let partial_products = self
             .read_field_ext_vec::<F, D>(common_data.num_partial_products * config.num_challenges)?;
         let quotient_polys = self.read_field_ext_vec::<F, D>(
@@ -183,7 +183,7 @@ impl Buffer {
             plonk_sigmas,
             wires,
             plonk_zs,
-            plonk_zs_right,
+            plonk_zs_next,
             partial_products,
             quotient_polys,
         })

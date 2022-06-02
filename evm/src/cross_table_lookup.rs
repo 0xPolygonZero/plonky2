@@ -183,8 +183,8 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
             .map(|(p, &num_perms)| {
                 let openings = &p.proof.openings;
                 let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_perms);
-                let ctl_zs_right = openings.permutation_ctl_zs_right.iter().skip(num_perms);
-                ctl_zs.zip(ctl_zs_right)
+                let ctl_zs_next = openings.permutation_ctl_zs_next.iter().skip(num_perms);
+                ctl_zs.zip(ctl_zs_next)
             })
             .collect::<Vec<_>>();
 
@@ -270,8 +270,8 @@ impl<'a, const D: usize> CtlCheckVarsTarget<'a, D> {
             .map(|(p, &num_perms)| {
                 let openings = &p.proof.openings;
                 let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_perms);
-                let ctl_zs_right = openings.permutation_ctl_zs_right.iter().skip(num_perms);
-                ctl_zs.zip(ctl_zs_right)
+                let ctl_zs_next = openings.permutation_ctl_zs_next.iter().skip(num_perms);
+                ctl_zs.zip(ctl_zs_next)
             })
             .collect::<Vec<_>>();
 

@@ -86,7 +86,7 @@ fn verify_stark_proof_with_challenges_circuit<
         local_values,
         next_values,
         permutation_zs,
-        permutation_zs_right,
+        permutation_zs_next,
         quotient_polys,
     } = &proof.openings;
     let vars = StarkEvaluationTargets {
@@ -120,7 +120,7 @@ fn verify_stark_proof_with_challenges_circuit<
         .uses_permutation_args()
         .then(|| PermutationCheckDataTarget {
             local_zs: permutation_zs.as_ref().unwrap().clone(),
-            next_zs: permutation_zs_right.as_ref().unwrap().clone(),
+            next_zs: permutation_zs_next.as_ref().unwrap().clone(),
             permutation_challenge_sets: challenges.permutation_challenge_sets.unwrap(),
         });
 
@@ -250,7 +250,7 @@ fn add_stark_opening_set_target<F: RichField + Extendable<D>, S: Stark<F, D>, co
         permutation_zs: stark
             .uses_permutation_args()
             .then(|| builder.add_virtual_extension_targets(stark.num_permutation_batches(config))),
-        permutation_zs_right: stark
+        permutation_zs_next: stark
             .uses_permutation_args()
             .then(|| builder.add_virtual_extension_targets(stark.num_permutation_batches(config))),
         quotient_polys: builder
@@ -320,7 +320,7 @@ fn check_permutation_options<F: RichField + Extendable<D>, S: Stark<F, D>, const
     let options_is_some = [
         proof_with_pis.proof.permutation_zs_cap.is_some(),
         proof_with_pis.proof.openings.permutation_zs.is_some(),
-        proof_with_pis.proof.openings.permutation_zs_right.is_some(),
+        proof_with_pis.proof.openings.permutation_zs_next.is_some(),
         challenges.permutation_challenge_sets.is_some(),
     ];
     ensure!(

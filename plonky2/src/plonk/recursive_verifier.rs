@@ -61,7 +61,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             public_inputs_hash: &public_inputs_hash,
         };
         let local_zs = &proof.openings.plonk_zs;
-        let next_zs = &proof.openings.plonk_zs_right;
+        let next_zs = &proof.openings.plonk_zs_next;
         let s_sigmas = &proof.openings.plonk_sigmas;
         let partial_products = &proof.openings.partial_products;
 
@@ -171,7 +171,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             plonk_sigmas: self.add_virtual_extension_targets(config.num_routed_wires),
             wires: self.add_virtual_extension_targets(config.num_wires),
             plonk_zs: self.add_virtual_extension_targets(num_challenges),
-            plonk_zs_right: self.add_virtual_extension_targets(num_challenges),
+            plonk_zs_next: self.add_virtual_extension_targets(num_challenges),
             partial_products: self.add_virtual_extension_targets(total_partial_products),
             quotient_polys: self.add_virtual_extension_targets(common_data.num_quotient_polys()),
         }
