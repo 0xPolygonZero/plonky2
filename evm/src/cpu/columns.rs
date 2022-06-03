@@ -72,7 +72,7 @@ pub const IS_PC: usize = IS_JUMPI + 1;
 pub const IS_MSIZE: usize = IS_PC + 1;
 pub const IS_GAS: usize = IS_MSIZE + 1;
 pub const IS_JUMPDEST: usize = IS_GAS + 1;
-// Find the number of to push by reading the bottom 5 bits of the opcode.
+// Find the number of bytes to push by reading the bottom 5 bits of the opcode.
 pub const IS_PUSH: usize = IS_JUMPDEST + 1;
 // Find the stack offset to duplicate by reading the bottom 4 bits of the opcode.
 pub const IS_DUP: usize = IS_PUSH + 1;
