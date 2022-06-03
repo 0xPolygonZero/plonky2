@@ -57,10 +57,11 @@ mod tests {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
 
-    use crate::all_stark::AllStark;
+    use crate::all_stark::{AllStark, Table};
     use crate::config::StarkConfig;
     use crate::cpu;
     use crate::cpu::cpu_stark::CpuStark;
+    use crate::cross_table_lookup::CrossTableLookup;
     use crate::keccak::keccak_stark::KeccakStark;
     use crate::proof::AllProof;
     use crate::prover::prove;
@@ -84,7 +85,8 @@ mod tests {
         let keccak_stark = KeccakStark::<F, D> {
             f: Default::default(),
         };
-        let keccak_rows = 16;
+        let keccak_rows = 256;
+        let keccak_looked_col = 3;
 
         let mut cpu_trace_rows = vec![];
         for i in 0..cpu_rows {
@@ -96,9 +98,24 @@ mod tests {
         }
         let cpu_trace = trace_rows_to_poly_values(cpu_trace_rows);
 
-        let keccak_trace = vec![PolynomialValues::zero(keccak_rows); KeccakStark::<F, D>::COLUMNS];
+        let mut keccak_trace =
+            vec![PolynomialValues::zero(keccak_rows); KeccakStark::<F, D>::COLUMNS];
+        for (i, trace_val) in keccak_trace[keccak_looked_col]
+            .values
+            .iter_mut()
+            .enumerate()
+        {
+            *trace_val = F::from_canonical_usize(i);
+        }
 
-        let cross_table_lookups = vec![];
+        let default = vec![F::ZERO; 2];
+        let cross_table_lookups = vec![CrossTableLookup {
+            looking_tables: vec![Table::Cpu],
+            looking_columns: vec![vec![cpu::columns::OPCODE]],
+            looked_table: Table::Keccak,
+            looked_columns: vec![keccak_looked_col],
+            default,
+        }];
 
         let all_stark = AllStark {
             cpu_stark,

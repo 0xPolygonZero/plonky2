@@ -45,7 +45,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
     }
 
     fn permutation_pairs(&self) -> Vec<PermutationPair> {
-        vec![PermutationPair::singletons(8, 9)]
+        vec![]
     }
 }
 
