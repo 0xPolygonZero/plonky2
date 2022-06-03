@@ -7,11 +7,11 @@ pub(crate) const fn reg_step(i: usize) -> usize {
 }
 
 const R: [[u8; 5]; 5] = [
-    [0, 18, 41, 3, 36],
-    [1, 2, 45, 10, 44],
-    [62, 61, 15, 43, 6],
-    [28, 56, 21, 25, 55],
-    [27, 14, 8, 39, 20],
+    [0, 36, 3, 41, 18],
+    [1, 44, 10, 45, 2],
+    [62, 6, 43, 15, 61],
+    [28, 55, 25, 21, 56],
+    [27, 20, 39, 8, 14],
 ];
 
 const RC: [u64; 24] = [
@@ -218,11 +218,10 @@ pub(crate) const fn reg_b(x: usize, y: usize, z: usize) -> usize {
     let a = (x + 3 * y) % 5;
     let b = x;
     let rot = R[a][b] as usize;
-    reg_a_prime(a, b, (z + rot) % 64)
+    reg_a_prime(a, b, (z + 64 - rot) % 64)
 }
 
 // A''[x, y] = xor(B[x, y], andn(B[x + 1, y], B[x + 2, y])).
-// A''[0, 0] is additionally xor'd with RC.
 const START_A_PRIME_PRIME: usize = START_A_PRIME + 5 * 5 * 64;
 pub(crate) const fn reg_a_prime_prime(x: usize, y: usize) -> usize {
     debug_assert!(x < 5);
@@ -239,6 +238,7 @@ pub(crate) const fn reg_a_prime_prime_0_0_bit(i: usize) -> usize {
 const REG_A_PRIME_PRIME_PRIME_0_0_LO: usize = START_A_PRIME_PRIME_0_0_BITS + 64;
 const REG_A_PRIME_PRIME_PRIME_0_0_HI: usize = REG_A_PRIME_PRIME_PRIME_0_0_LO + 1;
 
+// A'''[0, 0] is additionally xor'd with RC.
 pub(crate) const fn reg_a_prime_prime_prime(x: usize, y: usize) -> usize {
     debug_assert!(x < 5);
     debug_assert!(y < 5);
