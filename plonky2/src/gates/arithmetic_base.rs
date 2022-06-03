@@ -102,7 +102,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticGate
             let output = vars.local_wires[Self::wire_ith_output(i)];
             let computed_output = {
                 let scaled_mul =
-                    builder.mul_many_extension(&[const_0, multiplicand_0, multiplicand_1]);
+                    builder.mul_many_extension([const_0, multiplicand_0, multiplicand_1]);
                 builder.mul_add_extension(const_1, addend, scaled_mul)
             };
 

@@ -62,7 +62,7 @@ pub(crate) fn eval_addition_circuit<F: RichField + Extendable<D>, const D: usize
     // this sum can be around 48 bits at most.
     let out = reduce_with_powers_ext_circuit(builder, &[out_1, out_2, out_3], limb_base);
 
-    let computed_out = builder.add_many_extension(&[in_1, in_2, in_3]);
+    let computed_out = builder.add_many_extension([in_1, in_2, in_3]);
 
     let diff = builder.sub_extension(out, computed_out);
     let filtered_diff = builder.mul_extension(is_add, diff);
