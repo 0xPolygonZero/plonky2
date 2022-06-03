@@ -58,7 +58,6 @@ mod tests {
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
-    #[ignore] // TODO: remove this when constraints are no longer all 0.
     fn test_stark_degree() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;

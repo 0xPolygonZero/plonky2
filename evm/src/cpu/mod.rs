@@ -1,3 +1,3 @@
-mod columns;
+pub(crate) mod columns;
 pub mod cpu_stark;
-mod decode;
+pub(crate) mod decode;

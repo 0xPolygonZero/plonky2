@@ -56,18 +56,19 @@ mod tests {
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
-    use rand::{thread_rng, Rng};
 
-    use crate::all_stark::{AllStark, Table};
+    use crate::all_stark::AllStark;
     use crate::config::StarkConfig;
+    use crate::cpu;
     use crate::cpu::cpu_stark::CpuStark;
-    use crate::cross_table_lookup::CrossTableLookup;
     use crate::keccak::keccak_stark::KeccakStark;
     use crate::proof::AllProof;
     use crate::prover::prove;
     use crate::recursive_verifier::{
         add_virtual_all_proof, set_all_proof_target, verify_proof_circuit,
     };
+    use crate::stark::Stark;
+    use crate::util::trace_rows_to_poly_values;
     use crate::verifier::verify_proof;
 
     const D: usize = 2;
@@ -78,41 +79,26 @@ mod tests {
         let cpu_stark = CpuStark::<F, D> {
             f: Default::default(),
         };
-        let cpu_rows = 1 << 4;
+        let cpu_rows = 256;
 
         let keccak_stark = KeccakStark::<F, D> {
             f: Default::default(),
         };
-        let keccak_rows = 1 << 3;
+        let keccak_rows = 16;
 
-        let mut cpu_trace = vec![PolynomialValues::zero(cpu_rows); 10];
-        let mut keccak_trace = vec![PolynomialValues::zero(keccak_rows); 7];
+        let mut cpu_trace_rows = vec![];
+        for i in 0..cpu_rows {
+            let mut cpu_trace_row = [F::ZERO; CpuStark::<F, D>::COLUMNS];
+            cpu_trace_row[cpu::columns::IS_CPU_CYCLE] = F::ONE;
+            cpu_trace_row[cpu::columns::OPCODE] = F::from_canonical_usize(i);
+            cpu::decode::generate(&mut cpu_trace_row);
+            cpu_trace_rows.push(cpu_trace_row);
+        }
+        let cpu_trace = trace_rows_to_poly_values(cpu_trace_rows);
 
-        let vs0 = (0..keccak_rows)
-            .map(F::from_canonical_usize)
-            .collect::<Vec<_>>();
-        let vs1 = (1..=keccak_rows)
-            .map(F::from_canonical_usize)
-            .collect::<Vec<_>>();
-        let start = thread_rng().gen_range(0..cpu_rows - keccak_rows);
+        let keccak_trace = vec![PolynomialValues::zero(keccak_rows); KeccakStark::<F, D>::COLUMNS];
 
-        let default = vec![F::ONE; 2];
-
-        cpu_trace[2].values = vec![default[0]; cpu_rows];
-        cpu_trace[2].values[start..start + keccak_rows].copy_from_slice(&vs0);
-        cpu_trace[4].values = vec![default[1]; cpu_rows];
-        cpu_trace[4].values[start..start + keccak_rows].copy_from_slice(&vs1);
-
-        keccak_trace[3].values[..].copy_from_slice(&vs0);
-        keccak_trace[5].values[..].copy_from_slice(&vs1);
-
-        let cross_table_lookups = vec![CrossTableLookup {
-            looking_tables: vec![Table::Cpu],
-            looking_columns: vec![vec![2, 4]],
-            looked_table: Table::Keccak,
-            looked_columns: vec![3, 5],
-            default,
-        }];
+        let cross_table_lookups = vec![];
 
         let all_stark = AllStark {
             cpu_stark,

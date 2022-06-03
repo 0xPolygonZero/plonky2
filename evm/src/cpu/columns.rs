@@ -1,6 +1,6 @@
 // Filter. 1 if the row corresponds to a cycle of execution and 0 otherwise.
 // Lets us re-use decode columns in non-cycle rows.
-pub const IS_CPU_CYCLE: usize = 0;
+pub const IS_CPU_CYCLE: usize = 2;
 
 // If CPU cycle: The opcode being decoded, in {0, ..., 255}.
 pub const OPCODE: usize = 1;
@@ -132,4 +132,7 @@ pub const OPCODE_BITS: [usize; 8] = [
     END_INSTRUCTION_FLAGS + 7,
 ];
 
-pub const NUM_CPU_COLUMNS: usize = OPCODE_BITS[OPCODE_BITS.len() - 1] + 1;
+pub const LOOKUP_TEST_0: usize = OPCODE_BITS[OPCODE_BITS.len() - 1] + 1;
+pub const LOOKUP_TEST_1: usize = LOOKUP_TEST_0 + 1;
+
+pub const NUM_CPU_COLUMNS: usize = LOOKUP_TEST_1 + 1;
