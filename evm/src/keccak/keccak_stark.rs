@@ -508,8 +508,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
 mod tests {
     use anyhow::Result;
     use keccak_rust::{KeccakF, StateBitsWidth};
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::field::field_types::Field;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use rand::Rng;
 
     use crate::keccak::keccak_stark::{KeccakStark, INPUT_LIMBS};
@@ -566,19 +566,28 @@ mod tests {
         let base = F::from_canonical_u64(1 << 32);
         for x in 0..5 {
             for y in 0..5 {
-                output.push(last_row[reg_a_prime_prime_prime(x, y)] + base * last_row[reg_a_prime_prime_prime(x, y) + 1]);
+                output.push(
+                    last_row[reg_a_prime_prime_prime(x, y)]
+                        + base * last_row[reg_a_prime_prime_prime(x, y) + 1],
+                );
             }
         }
 
-        let mut expected: [[u64; 5]; 5] = [input[0..5].try_into().unwrap(),
-                                    input[5..10].try_into().unwrap(),
-                                    input[10..15].try_into().unwrap(),
-                                    input[15..20].try_into().unwrap(),
-                                    input[20..25].try_into().unwrap()];
+        let mut expected: [[u64; 5]; 5] = [
+            input[0..5].try_into().unwrap(),
+            input[5..10].try_into().unwrap(),
+            input[10..15].try_into().unwrap(),
+            input[15..20].try_into().unwrap(),
+            input[20..25].try_into().unwrap(),
+        ];
 
         let keccak = KeccakF::new(StateBitsWidth::F1600);
         keccak.permutations(&mut expected);
-        let expected_flattened: Vec<_> = expected.iter().flatten().map(|&x| F::from_canonical_u64(x)).collect();
+        let expected_flattened: Vec<_> = expected
+            .iter()
+            .flatten()
+            .map(|&x| F::from_canonical_u64(x))
+            .collect();
 
         assert_eq!(output, expected_flattened);
 
