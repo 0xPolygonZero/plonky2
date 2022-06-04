@@ -93,20 +93,14 @@ mod tests {
             let mut cpu_trace_row = [F::ZERO; CpuStark::<F, D>::COLUMNS];
             cpu_trace_row[cpu::columns::IS_CPU_CYCLE] = F::ONE;
             cpu_trace_row[cpu::columns::OPCODE] = F::from_canonical_usize(i);
-            cpu::decode::generate(&mut cpu_trace_row);
+            cpu_stark.generate(&mut cpu_trace_row);
             cpu_trace_rows.push(cpu_trace_row);
         }
         let cpu_trace = trace_rows_to_poly_values(cpu_trace_rows);
 
         let mut keccak_trace =
             vec![PolynomialValues::zero(keccak_rows); KeccakStark::<F, D>::COLUMNS];
-        for (i, trace_val) in keccak_trace[keccak_looked_col]
-            .values
-            .iter_mut()
-            .enumerate()
-        {
-            *trace_val = F::from_canonical_usize(i);
-        }
+        keccak_trace[keccak_looked_col] = cpu_trace[cpu::columns::OPCODE].clone();
 
         let default = vec![F::ZERO; 2];
         let cross_table_lookups = vec![CrossTableLookup {

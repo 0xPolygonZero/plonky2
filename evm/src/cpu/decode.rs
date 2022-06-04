@@ -121,7 +121,6 @@ const OPCODES: [(u64, usize, usize); 102] = [
     (0xff, 0, columns::IS_SELFDESTRUCT),
 ];
 
-#[allow(dead_code)]
 pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_CPU_COLUMNS]) {
     let cycle_filter = lv[columns::IS_CPU_CYCLE];
     if cycle_filter == F::ZERO {

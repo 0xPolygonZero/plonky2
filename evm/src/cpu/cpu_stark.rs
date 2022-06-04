@@ -16,6 +16,12 @@ pub struct CpuStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
 
+impl<F: RichField, const D: usize> CpuStark<F, D> {
+    pub fn generate(&self, local_values: &mut [F; columns::NUM_CPU_COLUMNS]) {
+        decode::generate(local_values);
+    }
+}
+
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
     const COLUMNS: usize = columns::NUM_CPU_COLUMNS;
     const PUBLIC_INPUTS: usize = 0;
