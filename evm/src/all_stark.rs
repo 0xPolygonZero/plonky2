@@ -61,7 +61,7 @@ mod tests {
     use crate::config::StarkConfig;
     use crate::cpu;
     use crate::cpu::cpu_stark::CpuStark;
-    use crate::cross_table_lookup::CrossTableLookup;
+    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
     use crate::keccak::keccak_stark::KeccakStark;
     use crate::proof::AllProof;
     use crate::prover::prove;
@@ -104,10 +104,12 @@ mod tests {
 
         let default = vec![F::ZERO; 2];
         let cross_table_lookups = vec![CrossTableLookup {
-            looking_tables: vec![Table::Cpu],
-            looking_columns: vec![vec![cpu::columns::OPCODE]],
-            looked_table: Table::Keccak,
-            looked_columns: vec![keccak_looked_col],
+            looking_tables: vec![TableWithColumns::new(
+                Table::Cpu,
+                vec![cpu::columns::OPCODE],
+                None,
+            )],
+            looked_table: TableWithColumns::new(Table::Keccak, vec![keccak_looked_col], None),
             default,
         }];
 
