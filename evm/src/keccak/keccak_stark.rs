@@ -512,12 +512,11 @@ mod tests {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use rand::Rng;
 
-    use crate::keccak::keccak_stark::{KeccakStark, INPUT_LIMBS};
+    use crate::keccak::keccak_stark::{KeccakStark, INPUT_LIMBS, NUM_ROUNDS};
     use crate::keccak::registers::reg_a_prime_prime_prime;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
-    #[ignore] // TODO: remove this when constraints are no longer all 0.
     fn test_stark_degree() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
@@ -545,11 +544,7 @@ mod tests {
 
     #[test]
     fn keccak_correctness_test() -> Result<()> {
-        let mut input: Vec<u64> = Vec::new();
-        let mut rng = rand::thread_rng();
-        for _ in 0..INPUT_LIMBS {
-            input.push(rng.gen());
-        }
+        let input: [u64; INPUT_LIMBS] = rand::random();
 
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
@@ -561,7 +556,7 @@ mod tests {
         };
 
         let rows = stark.generate_trace_rows(vec![input.clone().try_into().unwrap()]);
-        let last_row = rows[23];
+        let last_row = rows[NUM_ROUNDS - 1];
         let mut output = Vec::new();
         let base = F::from_canonical_u64(1 << 32);
         for x in 0..5 {
@@ -573,7 +568,7 @@ mod tests {
             }
         }
 
-        let mut expected: [[u64; 5]; 5] = [
+        let mut keccak_input: [[u64; 5]; 5] = [
             input[0..5].try_into().unwrap(),
             input[5..10].try_into().unwrap(),
             input[10..15].try_into().unwrap(),
@@ -582,14 +577,14 @@ mod tests {
         ];
 
         let keccak = KeccakF::new(StateBitsWidth::F1600);
-        keccak.permutations(&mut expected);
-        let expected_flattened: Vec<_> = expected
+        keccak.permutations(&mut keccak_input);
+        let expected: Vec<_> = keccak_input
             .iter()
             .flatten()
             .map(|&x| F::from_canonical_u64(x))
             .collect();
 
-        assert_eq!(output, expected_flattened);
+        assert_eq!(output, expected);
 
         Ok(())
     }
