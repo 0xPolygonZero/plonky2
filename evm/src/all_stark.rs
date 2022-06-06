@@ -56,7 +56,7 @@ mod tests {
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
-    use rand::{SeedableRng, Rng};
+    use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
 
     use crate::all_stark::{AllStark, Table};
