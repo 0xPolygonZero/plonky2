@@ -23,11 +23,11 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 #[derive(Clone)]
 pub struct CrossTableLookup<F: Field> {
-    pub looking_tables: Vec<Table>,
-    pub looking_columns: Vec<Vec<usize>>,
-    pub looked_table: Table,
-    pub looked_columns: Vec<usize>,
-    pub default: Vec<F>,
+    looking_tables: Vec<Table>,
+    looking_columns: Vec<Vec<usize>>,
+    looked_table: Table,
+    looked_columns: Vec<usize>,
+    default: Vec<F>,
 }
 
 impl<F: Field> CrossTableLookup<F> {
@@ -42,6 +42,7 @@ impl<F: Field> CrossTableLookup<F> {
         assert!(looking_columns
             .iter()
             .all(|cols| cols.len() == looked_columns.len()));
+        assert!(default.len() == looked_columns.len());
         Self {
             looking_tables,
             looking_columns,

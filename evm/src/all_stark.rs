@@ -114,13 +114,13 @@ mod tests {
         }
         let cpu_trace = trace_rows_to_poly_values(cpu_trace_rows);
 
-        let cross_table_lookups = vec![CrossTableLookup {
-            looking_tables: vec![Table::Cpu],
-            looking_columns: vec![vec![cpu::columns::OPCODE]],
-            looked_table: Table::Keccak,
-            looked_columns: vec![keccak_looked_col],
+        let cross_table_lookups = vec![CrossTableLookup::new(
+            vec![Table::Cpu],
+            vec![vec![cpu::columns::OPCODE]],
+            Table::Keccak,
+            vec![keccak_looked_col],
             default,
-        }];
+        )];
 
         let all_stark = AllStark {
             cpu_stark,
