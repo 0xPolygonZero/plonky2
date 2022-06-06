@@ -98,7 +98,7 @@ mod tests {
         let keccak_trace = keccak_stark.generate_trace(keccak_inputs);
         let column_to_copy: Vec<_> = keccak_trace[keccak_looked_col].values[..].into();
 
-        let default = vec![F::ONE; 2];
+        let default = vec![F::ONE; 1];
 
         let mut cpu_trace_rows = vec![];
         for i in 0..cpu_rows {
