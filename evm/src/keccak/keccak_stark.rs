@@ -47,7 +47,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         info!("{} rows", num_rows);
         let mut rows = Vec::with_capacity(num_rows);
         for input in inputs.iter().take(1) {
-            rows.extend(self.generate_trace_rows_for_perm(input.clone()));
+            rows.extend(self.generate_trace_rows_for_perm(*input));
         }
 
         // Pad rows to power of two.
@@ -422,8 +422,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                 let reg_hi = reg_lo + 1;
                 let lo = vars.local_values[reg_lo];
                 let hi = vars.local_values[reg_hi];
-                let bits_lo = (0..32).map(|z| get_bit(z)).collect_vec();
-                let bits_hi = (32..64).map(|z| get_bit(z)).collect_vec();
+                let bits_lo = (0..32).map(&mut get_bit).collect_vec();
+                let bits_hi = (32..64).map(get_bit).collect_vec();
                 let computed_lo = reduce_with_powers_ext_circuit(builder, &bits_lo, two);
                 let computed_hi = reduce_with_powers_ext_circuit(builder, &bits_hi, two);
                 let diff = builder.sub_extension(computed_lo, lo);
@@ -462,8 +462,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
 
         let a_prime_prime_prime_0_0_lo = vars.local_values[reg_a_prime_prime_prime(0, 0)];
         let a_prime_prime_prime_0_0_hi = vars.local_values[reg_a_prime_prime_prime(0, 0) + 1];
-        let bits_lo = (0..32).map(|z| get_xored_bit(z)).collect_vec();
-        let bits_hi = (32..64).map(|z| get_xored_bit(z)).collect_vec();
+        let bits_lo = (0..32).map(&mut get_xored_bit).collect_vec();
+        let bits_hi = (32..64).map(get_xored_bit).collect_vec();
         let computed_a_prime_prime_prime_0_0_lo =
             reduce_with_powers_ext_circuit(builder, &bits_lo, two);
         let computed_a_prime_prime_prime_0_0_hi =
@@ -554,7 +554,7 @@ mod tests {
             f: Default::default(),
         };
 
-        let rows = stark.generate_trace_rows(vec![input.clone().try_into().unwrap()]);
+        let rows = stark.generate_trace_rows(vec![input.try_into().unwrap()]);
         let last_row = rows[NUM_ROUNDS - 1];
         let mut output = Vec::new();
         let base = F::from_canonical_u64(1 << 32);
