@@ -251,7 +251,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         for x in 0..5 {
             for z in 0..64 {
                 let c_left = vars.local_values[reg_c((x + 4) % 5, z)];
-                let c_right = vars.local_values[reg_c((x + 1) % 5, (z + 1) % 64)];
+                let c_right = vars.local_values[reg_c((x + 1) % 5, (z + 64 - 1) % 64)];
                 let d = xor_gen(c_left, c_right);
 
                 for y in 0..5 {
@@ -393,7 +393,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         for x in 0..5 {
             for z in 0..64 {
                 let c_left = vars.local_values[reg_c((x + 4) % 5, z)];
-                let c_right = vars.local_values[reg_c((x + 1) % 5, (z + 1) % 64)];
+                let c_right = vars.local_values[reg_c((x + 1) % 5, (z + 64 - 1) % 64)];
                 let d = xor_gen_circuit(builder, c_left, c_right);
 
                 for y in 0..5 {
@@ -510,7 +510,6 @@ mod tests {
     use keccak_rust::{KeccakF, StateBitsWidth};
     use plonky2::field::field_types::Field;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use rand::Rng;
 
     use crate::keccak::keccak_stark::{KeccakStark, INPUT_LIMBS, NUM_ROUNDS};
     use crate::keccak::registers::reg_a_prime_prime_prime;
