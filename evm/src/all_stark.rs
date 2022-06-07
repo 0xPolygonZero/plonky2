@@ -100,6 +100,7 @@ mod tests {
 
         let default = vec![F::ONE; 1];
 
+        #[allow(clippy::needless_range_loop)]
         let mut cpu_trace_rows = vec![];
         for i in 0..cpu_rows {
             let mut cpu_trace_row = [F::ZERO; CpuStark::<F, D>::COLUMNS];
