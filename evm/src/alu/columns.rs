@@ -1,5 +1,9 @@
 //! Arithmetic and logic unit
 
+pub const LIMB_BITS: usize = 32;
+pub const EVM_REGISTER_BITS: usize = 256;
+pub const N_LIMBS: usize = EVM_REGISTER_BITS / LIMB_BITS;
+
 pub const IS_ADD: usize = 0;
 pub const IS_MUL: usize = IS_ADD + 1;
 pub const IS_SUB: usize = IS_MUL + 1;
@@ -68,9 +72,9 @@ const fn gen_rc_output_regs<const N: usize>(start: usize) -> [usize; N] {
     regs
 }
 
-pub(crate) const ADD_INPUT_0: [usize; 8] = gen_input_regs::<8>(0);
-pub(crate) const ADD_INPUT_1: [usize; 8] = gen_input_regs::<8>(8);
-pub(crate) const ADD_OUTPUT_LO: [usize; 8] = gen_rc_output_regs::<8>(0);
-pub(crate) const ADD_OUTPUT_HI: [usize; 8] = gen_rc_output_regs::<8>(8);
+pub(crate) const ADD_INPUT_0: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(0);
+pub(crate) const ADD_INPUT_1: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIMBS);
+pub(crate) const ADD_OUTPUT_LO: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0);
+pub(crate) const ADD_OUTPUT_HI: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(N_LIMBS);
 
 pub const NUM_ALU_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;

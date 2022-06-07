@@ -7,34 +7,37 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::alu::columns;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-// TODO: Give a name to the number of 32-bit and 16-bit limbs in a
-// 256-bit number and replace all the magic numbers.
-
 pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
     let input0_limbs = columns::ADD_INPUT_0.map(|c| lv[c].to_canonical_u64());
     let input1_limbs = columns::ADD_INPUT_1.map(|c| lv[c].to_canonical_u64());
+
+    // TODO: Hmm, if we really want to keep these two checks, they
+    // probably don't belong here. Consider putting them in the
+    // alu::decode() function?
     debug_assert_eq!(
         input0_limbs.len(),
         input1_limbs.len(),
         "internal error: inputs have different number of limbs"
     );
-    // Input given as 32-bit limbs, so need 8 of them to make a 256-bit value.
+    // Cross-file sanity check: Input given as 32-bit limbs, so need 8
+    // of them to make a 256-bit value; that should be the value in N_LIMBS.
     debug_assert_eq!(
         input0_limbs.len(),
-        8,
+        columns::N_LIMBS,
         "internal error: inputs have wrong number of limbs"
     );
 
     // Output has 16-bit limbs, so twice as many limbs as the input
-    let mut output_lo_limbs = [0u16; 8];
-    let mut output_hi_limbs = [0u16; 8];
+    let mut output_lo_limbs = [0u16; columns::N_LIMBS];
+    let mut output_hi_limbs = [0u16; columns::N_LIMBS];
 
     let cy = 0u64;
     for (i, &(a, b)) in input0_limbs.zip(input1_limbs).iter().enumerate() {
         let s = a + b + cy;
-        let cy = s >> 32;
+        let cy = s >> columns::LIMB_BITS;
         debug_assert!(cy <= 1u64, "input limbs were larger than 32 bits");
 
+        debug_assert_eq!(columns::LIMB_BITS, 32, "code assumption violated");
         output_lo_limbs[i] = s as u16;
         output_hi_limbs[i] = (s >> 16) as u16;
     }
