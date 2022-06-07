@@ -16,8 +16,8 @@ use crate::keccak::logic::{
     andn, andn_gen, andn_gen_circuit, xor, xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit,
 };
 use crate::keccak::registers::{
-    reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit,
-    reg_a_prime_prime_prime, reg_b, reg_c, reg_c_partial, reg_step, NUM_REGISTERS,
+    reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
+    reg_b, reg_c, reg_c_partial, reg_step, NUM_REGISTERS,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
 use crate::stark::Stark;
