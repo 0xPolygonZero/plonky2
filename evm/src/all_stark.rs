@@ -107,9 +107,9 @@ mod tests {
             looking_tables: vec![TableWithColumns::new(
                 Table::Cpu,
                 vec![cpu::columns::OPCODE],
-                None,
+                vec![],
             )],
-            looked_table: TableWithColumns::new(Table::Keccak, vec![keccak_looked_col], None),
+            looked_table: TableWithColumns::new(Table::Keccak, vec![keccak_looked_col], vec![]),
             default,
         }];
 

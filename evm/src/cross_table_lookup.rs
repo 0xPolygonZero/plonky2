@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::{ensure, Result};
 use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::field_types::Field;
@@ -22,17 +24,24 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 #[derive(Clone)]
 pub struct TableWithColumns {
-    pub table: Table,
-    pub columns: Vec<usize>,
-    pub filter_column: Option<usize>,
+    table: Table,
+    columns: Vec<usize>,
+    /// Vector of columns `{c_1,...,c_k}` used as a filter using the sum `c_1 + ... + c_k`.
+    /// An empty vector corresponds to no filter.
+    filter_columns: Vec<usize>,
 }
 
 impl TableWithColumns {
-    pub fn new(table: Table, columns: Vec<usize>, filter_column: Option<usize>) -> Self {
+    pub fn new(table: Table, columns: Vec<usize>, filter_columns: Vec<usize>) -> Self {
+        debug_assert_eq!(
+            filter_columns.iter().collect::<HashSet<_>>().len(),
+            filter_columns.len(),
+            "Duplicate filter columns."
+        );
         Self {
             table,
             columns,
-            filter_column,
+            filter_columns,
         }
     }
 }
