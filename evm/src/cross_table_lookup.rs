@@ -119,12 +119,14 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
                 partial_products(
                     &trace_poly_values[table.table as usize],
                     &table.columns,
+                    &table.filter_columns,
                     challenge,
                 )
             });
             let z_looked = partial_products(
                 &trace_poly_values[looked_table.table as usize],
                 &looked_table.columns,
+                &looked_table.filter_columns,
                 challenge,
             );
 
@@ -159,13 +161,23 @@ pub fn cross_table_lookup_data<F: RichField, C: GenericConfig<D, F = F>, const D
 fn partial_products<F: Field>(
     trace: &[PolynomialValues<F>],
     columns: &[usize],
+    filter_columns: &[usize],
     challenge: GrandProductChallenge<F>,
 ) -> PolynomialValues<F> {
     let mut partial_prod = F::ONE;
     let degree = trace[0].len();
     let mut res = Vec::with_capacity(degree);
     for i in 0..degree {
-        partial_prod *= challenge.combine(columns.iter().map(|&j| &trace[j].values[i]));
+        let filter = if filter_columns.is_empty() {
+            1
+        } else {
+            filter_columns.iter().sum()
+        };
+        partial_prod *= match filter {
+            0 => F::ONE,
+            1 => challenge.combine(columns.iter().map(|&j| &trace[j].values[i])),
+            _ => panic!("Non-binary filter?"),
+        };
         res.push(partial_prod);
     }
     res.into()
