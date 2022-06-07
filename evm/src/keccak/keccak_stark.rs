@@ -47,7 +47,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         let num_rows = (inputs.len() * NUM_ROUNDS).next_power_of_two();
         info!("{} rows", num_rows);
         let mut rows = Vec::with_capacity(num_rows);
-        for input in inputs.iter().take(1) {
+        for input in inputs.iter() {
             rows.extend(self.generate_trace_rows_for_perm(*input));
         }
 
