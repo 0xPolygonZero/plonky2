@@ -92,11 +92,11 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
             for y in 0..5 {
                 let cur_lo = prev_row[reg_a_prime_prime_prime(x, y)];
                 let cur_hi = prev_row[reg_a_prime_prime_prime(x, y) + 1];
-                let cur_u64 = cur_lo.to_canonical_u64() + (1 << 32) * cur_hi.to_canonical_u64();
+                let cur_u64 = cur_lo.to_canonical_u64() | (cur_hi.to_canonical_u64() << 32);
                 let bit_values: Vec<u64> = (0..64)
                     .scan(cur_u64, |acc, _| {
-                        let tmp = *acc % 2;
-                        *acc /= 2;
+                        let tmp = *acc & 1;
+                        *acc >>= 1;
                         Some(tmp)
                     })
                     .collect();
@@ -165,11 +165,11 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         // For the XOR, we split A''[0, 0] to bits.
         let val_lo = row[reg_a_prime_prime(0, 0)].to_canonical_u64();
         let val_hi = row[reg_a_prime_prime(0, 0) + 1].to_canonical_u64();
-        let val = val_lo + (1 << 32) * val_hi;
+        let val = val_lo | (val_hi << 32);
         let bit_values: Vec<u64> = (0..64)
             .scan(val, |acc, _| {
-                let tmp = *acc % 2;
-                *acc /= 2;
+                let tmp = *acc & 1;
+                *acc >>= 1;
                 Some(tmp)
             })
             .collect();
@@ -182,7 +182,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         let in_reg_hi = in_reg_lo + 1;
         let out_reg_lo = reg_a_prime_prime_prime(0, 0);
         let out_reg_hi = out_reg_lo + 1;
-        let rc_lo = rc_value(round) % (1 << 32);
+        let rc_lo = rc_value(round) & (1 << 32 - 1);
         let rc_hi = rc_value(round) >> 32;
         row[out_reg_lo] = F::from_canonical_u64(row[in_reg_lo].to_canonical_u64() ^ rc_lo);
         row[out_reg_hi] = F::from_canonical_u64(row[in_reg_hi].to_canonical_u64() ^ rc_hi);

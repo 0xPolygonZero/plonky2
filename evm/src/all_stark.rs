@@ -114,6 +114,7 @@ mod tests {
         }
         let cpu_trace = trace_rows_to_poly_values(cpu_trace_rows);
 
+        // TODO: temporary until cross-table-lookup filters are implemented
         let cross_table_lookups = vec![CrossTableLookup::new(
             vec![Table::Cpu],
             vec![vec![cpu::columns::OPCODE]],
