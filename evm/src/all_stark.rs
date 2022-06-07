@@ -91,7 +91,7 @@ mod tests {
         let mut cpu_trace_rows = vec![];
         for i in 0..cpu_rows {
             let mut cpu_trace_row = [F::ZERO; CpuStark::<F, D>::COLUMNS];
-            cpu_trace_row[cpu::columns::IS_CPU_CYCLE] = F::ONE;
+            cpu_trace_row[cpu::columns::IS_CPU_CYCLE] = F::ZERO;
             cpu_trace_row[cpu::columns::OPCODE] = F::from_canonical_usize(i);
             cpu_stark.generate(&mut cpu_trace_row);
             cpu_trace_rows.push(cpu_trace_row);
