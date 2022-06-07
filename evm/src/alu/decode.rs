@@ -7,8 +7,8 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::alu::columns;
 
-// TODO: Give a name to the number of limbs in a 256-bit number and
-// replace all the magic numbers.
+// TODO: Give a name to the number of 32-bit and 16-bit limbs in a
+// 256-bit number and replace all the magic numbers.
 
 pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
     let input0_limbs = columns::ADD_INPUT_0.map(|c| lv[c].to_canonical_u64());
