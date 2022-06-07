@@ -182,7 +182,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         let in_reg_hi = in_reg_lo + 1;
         let out_reg_lo = reg_a_prime_prime_prime(0, 0);
         let out_reg_hi = out_reg_lo + 1;
-        let rc_lo = rc_value(round) & (1 << 32 - 1);
+        let rc_lo = rc_value(round) & ((1 << 32) - 1);
         let rc_hi = rc_value(round) >> 32;
         row[out_reg_lo] = F::from_canonical_u64(row[in_reg_lo].to_canonical_u64() ^ rc_lo);
         row[out_reg_hi] = F::from_canonical_u64(row[in_reg_hi].to_canonical_u64() ^ rc_hi);
