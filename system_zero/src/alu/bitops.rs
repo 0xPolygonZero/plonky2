@@ -163,7 +163,7 @@ fn eval_bitop_32_circuit<F: RichField + Extendable<D>, const D: usize>(
     let b_bits = input_b_regs.map(|r| lv[r]);
 
     // Ensure that the inputs are bits
-    let inst_constr = builder.add_many_extension(&[is_and, is_ior, is_xor, is_andnot]);
+    let inst_constr = builder.add_many_extension([is_and, is_ior, is_xor, is_andnot]);
     constrain_all_to_bits_circuit(builder, yield_constr, inst_constr, &a_bits);
     constrain_all_to_bits_circuit(builder, yield_constr, inst_constr, &b_bits);
 
@@ -204,7 +204,7 @@ fn eval_bitop_32_circuit<F: RichField + Extendable<D>, const D: usize>(
         builder.mul_extension(t1, is_andnot)
     };
 
-    let constr = builder.add_many_extension(&[and_constr, ior_constr, xor_constr, andnot_constr]);
+    let constr = builder.add_many_extension([and_constr, ior_constr, xor_constr, andnot_constr]);
     yield_constr.constraint(builder, constr);
 }
 
