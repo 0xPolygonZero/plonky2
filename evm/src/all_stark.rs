@@ -110,7 +110,7 @@ mod tests {
                 vec![],
             )],
             looked_table: TableWithColumns::new(Table::Keccak, vec![keccak_looked_col], vec![]),
-            default,
+            default: Some(default),
         }];
 
         let all_stark = AllStark {
