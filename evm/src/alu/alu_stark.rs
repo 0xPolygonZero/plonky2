@@ -4,9 +4,9 @@ use plonky2::field::extension_field::{Extendable, FieldExtension};
 use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::alu::columns;
 use crate::alu::decode;
+use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
