@@ -74,10 +74,10 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
             }
         }
 
-        self.generate_trace_rows_for_round(&mut rows[0], 0);
+        self.generate_trace_row_for_round(&mut rows[0], 0);
         for round in 1..24 {
             self.copy_output_to_input(rows[round - 1], &mut rows[round]);
-            self.generate_trace_rows_for_round(&mut rows[round], round);
+            self.generate_trace_row_for_round(&mut rows[round], round);
         }
 
         rows
@@ -108,7 +108,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         }
     }
 
-    fn generate_trace_rows_for_round(&self, row: &mut [F; NUM_REGISTERS], round: usize) {
+    fn generate_trace_row_for_round(&self, row: &mut [F; NUM_REGISTERS], round: usize) {
         row[reg_step(round)] = F::ONE;
 
         // Populate C partial and C.
