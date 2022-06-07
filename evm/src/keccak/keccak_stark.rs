@@ -55,7 +55,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         for i in rows.len()..num_rows {
             let mut row = [F::ZERO; NUM_REGISTERS];
             self.copy_output_to_input(rows[i - 1], &mut row);
-            self.generate_trace_rows_for_round(&mut row, i % NUM_ROUNDS);
+            self.generate_trace_row_for_round(&mut row, i % NUM_ROUNDS);
             rows.push(row);
         }
 
