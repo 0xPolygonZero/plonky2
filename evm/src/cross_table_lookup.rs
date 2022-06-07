@@ -26,7 +26,7 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 pub struct TableWithColumns {
     table: Table,
     columns: Vec<usize>,
-    /// Vector of columns `{c_1,...,c_k}` used as a filter using the sum `c_1 + ... + c_k`.
+    /// Vector of columns `[c_1,...,c_k]` used as a filter using the sum `c_1 + ... + c_k`.
     /// An empty vector corresponds to no filter.
     filter_columns: Vec<usize>,
 }
@@ -63,6 +63,13 @@ impl<F: Field> CrossTableLookup<F> {
         assert!(looking_tables
             .iter()
             .all(|twc| twc.columns.len() == looked_table.columns.len()));
+        assert!(
+            looking_tables
+                .iter()
+                .all(|twc| twc.filter_columns.is_empty())
+                == default.is_some()
+                && default.is_some() == looked_table.filter_columns.is_empty()
+        );
         Self {
             looking_tables,
             looked_table,
