@@ -1,3 +1,5 @@
+use std::borrow::Borrow;
+
 use plonky2_field::extension_field::FieldExtension;
 use plonky2_field::extension_field::{Extendable, OEF};
 use plonky2_field::field_types::{Field, Field64};
@@ -204,12 +206,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Add `n` `ExtensionTarget`s.
-    pub fn add_many_extension(&mut self, terms: &[ExtensionTarget<D>]) -> ExtensionTarget<D> {
-        let mut sum = self.zero_extension();
-        for &term in terms {
-            sum = self.add_extension(sum, term);
-        }
-        sum
+    pub fn add_many_extension<T>(
+        &mut self,
+        terms: impl IntoIterator<Item = T>,
+    ) -> ExtensionTarget<D>
+    where
+        T: Borrow<ExtensionTarget<D>>,
+    {
+        terms.into_iter().fold(self.zero_extension(), |acc, t| {
+            self.add_extension(acc, *t.borrow())
+        })
     }
 
     pub fn sub_extension(
@@ -257,7 +263,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Computes `x^3`.
     pub fn cube_extension(&mut self, x: ExtensionTarget<D>) -> ExtensionTarget<D> {
-        self.mul_many_extension(&[x, x, x])
+        self.mul_many_extension([x, x, x])
     }
 
     /// Returns `a * b + c`.
@@ -301,12 +307,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Multiply `n` `ExtensionTarget`s.
-    pub fn mul_many_extension(&mut self, terms: &[ExtensionTarget<D>]) -> ExtensionTarget<D> {
-        terms
-            .iter()
-            .copied()
-            .reduce(|acc, t| self.mul_extension(acc, t))
-            .unwrap_or_else(|| self.one_extension())
+    pub fn mul_many_extension<T>(
+        &mut self,
+        terms: impl IntoIterator<Item = T>,
+    ) -> ExtensionTarget<D>
+    where
+        T: Borrow<ExtensionTarget<D>>,
+    {
+        terms.into_iter().fold(self.one_extension(), |acc, t| {
+            self.mul_extension(acc, *t.borrow())
+        })
     }
 
     /// Like `mul_add`, but for `ExtensionTarget`s.

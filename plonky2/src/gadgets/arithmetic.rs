@@ -188,8 +188,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Add `n` `Target`s.
-    pub fn add_many(&mut self, terms: &[Target]) -> Target {
-        terms.iter().fold(self.zero(), |acc, &t| self.add(acc, t))
+    pub fn add_many<T>(&mut self, terms: impl IntoIterator<Item = T>) -> Target
+    where
+        T: Borrow<Target>,
+    {
+        terms
+            .into_iter()
+            .fold(self.zero(), |acc, t| self.add(acc, *t.borrow()))
     }
 
     /// Computes `x - y`.

@@ -385,8 +385,8 @@ pub(crate) fn eval_permutation_checks_circuit<F, S, const D: usize>(
                     )
                 })
                 .unzip();
-        let reduced_lhs_product = builder.mul_many_extension(&reduced_lhs);
-        let reduced_rhs_product = builder.mul_many_extension(&reduced_rhs);
+        let reduced_lhs_product = builder.mul_many_extension(reduced_lhs);
+        let reduced_rhs_product = builder.mul_many_extension(reduced_rhs);
         // constraint = next_zs[i] * reduced_rhs_product - local_zs[i] * reduced_lhs_product
         let constraint = {
             let tmp = builder.mul_extension(local_zs[i], reduced_lhs_product);

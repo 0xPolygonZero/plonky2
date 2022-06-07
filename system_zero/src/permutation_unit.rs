@@ -195,7 +195,7 @@ pub(crate) fn eval_permutation_unit_circuit<F: RichField + Extendable<D>, const 
                 builder.sub_extension(state_cubed, local_values[col_full_first_mid_sbox(r, i)]);
             yield_constr.constraint(builder, diff);
             let state_cubed = local_values[col_full_first_mid_sbox(r, i)];
-            state[i] = builder.mul_many_extension(&[state[i], state_cubed, state_cubed]);
+            state[i] = builder.mul_many_extension([state[i], state_cubed, state_cubed]);
             // Form state ** 7.
         }
 
@@ -216,7 +216,7 @@ pub(crate) fn eval_permutation_unit_circuit<F: RichField + Extendable<D>, const 
         let diff = builder.sub_extension(state0_cubed, local_values[col_partial_mid_sbox(r)]);
         yield_constr.constraint(builder, diff);
         let state0_cubed = local_values[col_partial_mid_sbox(r)];
-        state[0] = builder.mul_many_extension(&[state[0], state0_cubed, state0_cubed]); // Form state ** 7.
+        state[0] = builder.mul_many_extension([state[0], state0_cubed, state0_cubed]); // Form state ** 7.
         let diff = builder.sub_extension(state[0], local_values[col_partial_after_sbox(r)]);
         yield_constr.constraint(builder, diff);
         state[0] = local_values[col_partial_after_sbox(r)];
@@ -237,7 +237,7 @@ pub(crate) fn eval_permutation_unit_circuit<F: RichField + Extendable<D>, const 
                 builder.sub_extension(state_cubed, local_values[col_full_second_mid_sbox(r, i)]);
             yield_constr.constraint(builder, diff);
             let state_cubed = local_values[col_full_second_mid_sbox(r, i)];
-            state[i] = builder.mul_many_extension(&[state[i], state_cubed, state_cubed]);
+            state[i] = builder.mul_many_extension([state[i], state_cubed, state_cubed]);
             // Form state ** 7.
         }
 
