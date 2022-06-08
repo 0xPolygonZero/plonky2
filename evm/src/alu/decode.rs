@@ -13,7 +13,10 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
         add::generate(lv);
     } else if lv[columns::IS_SUB].is_one() {
         sub::generate(lv);
+    } else {
+        todo!("the requested operation has not yet been implemented");
     }
+
     /*
     else if lv[IS_DIV].is_one() {
         generate_division(lv);
@@ -35,9 +38,6 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
         generate_rotate_shift(lv, IS_SHIFT_RIGHT);
     }
      */
-    else {
-        //todo!("the requested operation has not yet been implemented");
-    }
 }
 
 pub fn eval_packed_generic<P: PackedField>(
