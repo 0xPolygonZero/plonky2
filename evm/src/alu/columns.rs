@@ -74,14 +74,12 @@ const fn gen_rc_output_regs<const N: usize>(start: usize) -> [usize; N] {
 
 pub(crate) const ADD_INPUT_0: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(0);
 pub(crate) const ADD_INPUT_1: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIMBS);
-pub(crate) const ADD_OUTPUT_LO: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0);
-pub(crate) const ADD_OUTPUT_HI: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(N_LIMBS);
+pub(crate) const ADD_OUTPUT: [usize; 2 * N_LIMBS] = gen_rc_output_regs::<{ 2 * N_LIMBS }>(0);
 
 // TODO: Rather than repeating these for every binary operation,
 // perhaps we should just declare them once and reuse?
 pub(crate) const SUB_INPUT_0: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(0);
 pub(crate) const SUB_INPUT_1: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIMBS);
-pub(crate) const SUB_OUTPUT_LO: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0);
-pub(crate) const SUB_OUTPUT_HI: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(N_LIMBS);
+pub(crate) const SUB_OUTPUT: [usize; 2 * N_LIMBS] = gen_rc_output_regs::<{ 2 * N_LIMBS }>(0);
 
 pub const NUM_ALU_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;
