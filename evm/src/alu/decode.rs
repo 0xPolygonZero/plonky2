@@ -3,37 +3,36 @@ use plonky2::field::packed_field::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
-use crate::alu::addition;
+use crate::alu::add;
 use crate::alu::columns;
+use crate::alu::sub;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
     if lv[columns::IS_ADD].is_one() {
-        addition::generate(lv);
+        add::generate(lv);
+    } else if lv[columns::IS_SUB].is_one() {
+        sub::generate(lv);
     }
     /*
-    else if values[IS_SUB].is_one() {
-        generate_subtraction(values);
-    } else if values[IS_MUL_ADD].is_one() {
-        generate_mul_add(values);
-    } else if values[IS_DIV].is_one() {
-        generate_division(values);
-    } else if values[IS_AND].is_one() {
-        generate_bitop(values, IS_AND);
-    } else if values[IS_IOR].is_one() {
-        generate_bitop(values, IS_IOR);
-    } else if values[IS_XOR].is_one() {
-        generate_bitop(values, IS_XOR);
-    } else if values[IS_ANDNOT].is_one() {
-        generate_bitop(values, IS_ANDNOT);
-    } else if values[IS_ROTATE_LEFT].is_one() {
-        generate_rotate_shift(values, IS_ROTATE_LEFT);
-    } else if values[IS_ROTATE_RIGHT].is_one() {
-        generate_rotate_shift(values, IS_ROTATE_RIGHT);
-    } else if values[IS_SHIFT_LEFT].is_one() {
-        generate_rotate_shift(values, IS_SHIFT_LEFT);
-    } else if values[IS_SHIFT_RIGHT].is_one() {
-        generate_rotate_shift(values, IS_SHIFT_RIGHT);
+    else if lv[IS_DIV].is_one() {
+        generate_division(lv);
+    } else if lv[IS_AND].is_one() {
+        generate_bitop(lv, IS_AND);
+    } else if lv[IS_IOR].is_one() {
+        generate_bitop(lv, IS_IOR);
+    } else if lv[IS_XOR].is_one() {
+        generate_bitop(lv, IS_XOR);
+    } else if lv[IS_ANDNOT].is_one() {
+        generate_bitop(lv, IS_ANDNOT);
+    } else if lv[IS_ROTATE_LEFT].is_one() {
+        generate_rotate_shift(lv, IS_ROTATE_LEFT);
+    } else if lv[IS_ROTATE_RIGHT].is_one() {
+        generate_rotate_shift(lv, IS_ROTATE_RIGHT);
+    } else if lv[IS_SHIFT_LEFT].is_one() {
+        generate_rotate_shift(lv, IS_SHIFT_LEFT);
+    } else if lv[IS_SHIFT_RIGHT].is_one() {
+        generate_rotate_shift(lv, IS_SHIFT_RIGHT);
     }
      */
     else {
@@ -54,10 +53,9 @@ pub fn eval_packed_generic<P: PackedField>(
     }
      */
 
-    addition::eval_packed_generic(lv, yield_constr);
+    add::eval_packed_generic(lv, yield_constr);
+    sub::eval_packed_generic(lv, yield_constr);
     /*
-    eval_subtraction(lv, yield_constr);
-    eval_mul_add(lv, yield_constr);
     eval_division(lv, yield_constr);
     eval_bitop(lv, yield_constr);
     eval_rotate_left(lv, yield_constr);
@@ -82,10 +80,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
      */
 
-    addition::eval_ext_circuit(builder, lv, yield_constr);
+    add::eval_ext_circuit(builder, lv, yield_constr);
+    sub::eval_ext_circuit(builder, lv, yield_constr);
     /*
-    eval_subtraction_circuit(builder, lv, yield_constr);
-    eval_mul_add_circuit(builder, lv, yield_constr);
     eval_division_circuit(builder, lv, yield_constr);
     eval_bitop_circuit(builder, lv, yield_constr);
     eval_rotate_left_circuit(builder, lv, yield_constr);

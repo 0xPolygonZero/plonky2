@@ -77,4 +77,11 @@ pub(crate) const ADD_INPUT_1: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIM
 pub(crate) const ADD_OUTPUT_LO: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0);
 pub(crate) const ADD_OUTPUT_HI: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(N_LIMBS);
 
+// TODO: Rather than repeating these for every binary operation,
+// perhaps we should just declare them once and reuse?
+pub(crate) const SUB_INPUT_0: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(0);
+pub(crate) const SUB_INPUT_1: [usize; N_LIMBS] = gen_input_regs::<N_LIMBS>(N_LIMBS);
+pub(crate) const SUB_OUTPUT_LO: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(0);
+pub(crate) const SUB_OUTPUT_HI: [usize; N_LIMBS] = gen_rc_output_regs::<N_LIMBS>(N_LIMBS);
+
 pub const NUM_ALU_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS;

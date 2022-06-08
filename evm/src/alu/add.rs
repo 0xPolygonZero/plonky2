@@ -5,27 +5,12 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::alu::columns;
+use crate::alu::utils;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
     let input0_limbs = columns::ADD_INPUT_0.map(|c| lv[c].to_canonical_u64());
     let input1_limbs = columns::ADD_INPUT_1.map(|c| lv[c].to_canonical_u64());
-
-    // TODO: Hmm, if we really want to keep these two checks, they
-    // probably don't belong here. Consider putting them in the
-    // alu::decode() function?
-    debug_assert_eq!(
-        input0_limbs.len(),
-        input1_limbs.len(),
-        "internal error: inputs have different number of limbs"
-    );
-    // Cross-file sanity check: Input given as 32-bit limbs, so need 8
-    // of them to make a 256-bit value; that should be the value in N_LIMBS.
-    debug_assert_eq!(
-        input0_limbs.len(),
-        columns::N_LIMBS,
-        "internal error: inputs have wrong number of limbs"
-    );
 
     // Output has 16-bit limbs, so twice as many limbs as the input
     let mut output_lo_limbs = [0u16; columns::N_LIMBS];
@@ -67,11 +52,11 @@ pub fn eval_packed_generic<P: PackedField>(
     let output_received = output_lo_limbs
         .zip(output_hi_limbs)
         .map(|(lo, hi)| lo + hi * base);
+    // This computed output is not yet reduced; i.e. some limbs may be
+    // more than 32 bits.
     let output_computed = input0_limbs.zip(input1_limbs).map(|(a, b)| a + b);
 
-    for &(out_r, out_c) in output_received.zip(output_computed).iter() {
-        yield_constr.constraint(is_add * (out_r - out_c));
-    }
+    utils::eval_packed_generic_are_equal(yield_constr, is_add, &output_computed, &output_received);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -93,9 +78,11 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         .zip(input1_limbs)
         .map(|(a, b)| builder.add_extension(a, b));
 
-    for &(out_r, out_c) in output_received.zip(output_computed).iter() {
-        let diff = builder.sub_extension(out_r, out_c);
-        let filtered_diff = builder.mul_extension(is_add, diff);
-        yield_constr.constraint(builder, filtered_diff);
-    }
+    utils::eval_ext_circuit_are_equal(
+        builder,
+        yield_constr,
+        is_add,
+        &output_computed,
+        &output_received,
+    );
 }
