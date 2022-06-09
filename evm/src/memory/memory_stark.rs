@@ -564,7 +564,7 @@ mod tests {
             let timestamp = F::from_canonical_usize(cur_timestamp);
             cur_timestamp += 1;
 
-            memory_ops.push((context, segment, virt, is_read_F, vals, timestamp))
+            memory_ops.push((context, segment, virt, vals, is_read_F, timestamp))
         }
 
         let rows = stark.generate_trace_rows(memory_ops);
