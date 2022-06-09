@@ -68,9 +68,12 @@ impl<F: Field> CrossTableLookup<F> {
                 .iter()
                 .all(|twc| twc.filter_columns.is_empty())
                 == default.is_some()
-                && default.is_some() == looked_table.filter_columns.is_empty()
+                && default.is_some() == looked_table.filter_columns.is_empty(),
+            "Default values should be provided iff there are no filter columns."
         );
-        assert!(default.len() == looked_columns.len());
+        if let Some(default) = &default {
+            assert_eq!(default.len(), looked_table.columns.len());
+        }
         Self {
             looking_tables,
             looked_table,

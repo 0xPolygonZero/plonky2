@@ -63,7 +63,7 @@ mod tests {
     use crate::config::StarkConfig;
     use crate::cpu;
     use crate::cpu::cpu_stark::CpuStark;
-    use crate::cross_table_lookup::CrossTableLookup;
+    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
     use crate::keccak::keccak_stark::{KeccakStark, INPUT_LIMBS, NUM_ROUNDS};
     use crate::proof::AllProof;
     use crate::prover::prove;
@@ -116,11 +116,13 @@ mod tests {
 
         // TODO: temporary until cross-table-lookup filters are implemented
         let cross_table_lookups = vec![CrossTableLookup::new(
-            vec![Table::Cpu],
-            vec![vec![cpu::columns::OPCODE]],
-            Table::Keccak,
-            vec![keccak_looked_col],
-            default,
+            vec![TableWithColumns::new(
+                Table::Cpu,
+                vec![cpu::columns::OPCODE],
+                vec![],
+            )],
+            TableWithColumns::new(Table::Keccak, vec![keccak_looked_col], vec![]),
+            Some(default),
         )];
 
         let all_stark = AllStark {
