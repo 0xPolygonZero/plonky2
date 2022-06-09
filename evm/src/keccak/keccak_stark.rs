@@ -51,14 +51,11 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
             rows.extend(self.generate_trace_rows_for_perm(*input));
         }
 
-        // Pad rows to power of two.
-        for i in rows.len()..num_rows {
-            let mut row = [F::ZERO; NUM_REGISTERS];
-            self.copy_output_to_input(rows[i - 1], &mut row);
-            self.generate_trace_row_for_round(&mut row, i % NUM_ROUNDS);
-            rows.push(row);
+        let pad_rows = self.generate_trace_rows_for_perm([0; INPUT_LIMBS]);
+        while rows.len() < num_rows {
+            rows.extend(&pad_rows);
         }
-
+        rows.drain(num_rows..);
         rows
     }
 
@@ -400,6 +397,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
             let diff = builder.sub_extension(local_input_limb, next_input_limb);
             let constraint = builder.mul_sub_extension(is_last_round, diff, diff);
             yield_constr.constraint_transition(builder, constraint);
+
+            let range = if i % 2 == 0 { 0..32 } else { 32..64 };
+            let bits = range
+                .map(|j| vars.local_values[reg_a((i / 2) / 5, (i / 2) % 5, j)])
+                .collect::<Vec<_>>();
+            let expected_input_limb = reduce_with_powers_ext_circuit(builder, &bits, two);
+            let is_first_round = vars.local_values[reg_step(0)];
+            let diff = builder.sub_extension(local_input_limb, expected_input_limb);
+            let constraint = builder.mul_extension(is_first_round, diff);
+            yield_constr.constraint(builder, constraint);
         }
 
         // C_partial[x] = xor(A[x, 0], A[x, 1], A[x, 2])
