@@ -523,7 +523,13 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 &ctl_vars,
                 &mut consumer,
             );
-            consumer.accumulators()
+            let accs = consumer.accumulators();
+            for a in &accs {
+                if !a.is_zero() {
+                    dbg!(i);
+                }
+            }
+            accs
         })
         .collect::<Vec<_>>();
 

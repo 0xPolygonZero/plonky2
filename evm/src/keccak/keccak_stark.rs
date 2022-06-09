@@ -233,14 +233,21 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
     {
         eval_round_flags(vars, yield_constr);
 
-        // Constraint the input registers to be equal throughout the rounds of a permutation.
         for i in 0..2 * INPUT_LIMBS {
             let local_input_limb = vars.local_values[reg_input_limb(i)];
             let next_input_limb = vars.next_values[reg_input_limb(i)];
             let is_last_round = vars.local_values[reg_step(NUM_ROUNDS - 1)];
+            // Constrain the input registers to be equal throughout the rounds of a permutation.
             yield_constr.constraint_transition(
                 (P::ONES - is_last_round) * (next_input_limb - local_input_limb),
             );
+
+            // Verify that the bit decomposition is done correctly.
+            let range = if i % 2 == 0 { 0..32 } else { 32..64 };
+            let bits = range.map(|j| vars.local_values[reg_a((i / 2) / 5, (i / 2) % 5, j)]);
+            let expected_input_limb = bits.rev().fold(P::ZEROS, |acc, b| acc.doubles() + b);
+            let is_first_round = vars.local_values[reg_step(0)];
+            yield_constr.constraint(is_first_round * (local_input_limb - expected_input_limb));
         }
 
         // C_partial[x] = xor(A[x, 0], A[x, 1], A[x, 2])
