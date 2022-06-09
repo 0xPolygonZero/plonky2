@@ -438,3 +438,40 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         3
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+    use plonky2::field::field_types::Field;
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+
+    use crate::memory::memory_stark::MemoryStark;
+    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
+
+    #[test]
+    fn test_stark_degree() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = MemoryStark<F, D>;
+
+        let stark = S {
+            f: Default::default(),
+        };
+        test_stark_low_degree(stark)
+    }
+
+    #[test]
+    fn test_stark_circuit() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = MemoryStark<F, D>;
+
+        let stark = S {
+            f: Default::default(),
+        };
+        test_stark_circuit_constraints::<F, C, S, D>(stark)
+    }
+}
