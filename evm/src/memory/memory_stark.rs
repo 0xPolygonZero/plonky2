@@ -152,10 +152,15 @@ pub fn generate_range_check_value<F: RichField>(
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
-    fn generate_trace_rows(&self, memory_ops: Vec<(F, F, F, [F; 8], F, F)>) -> Vec<[F; NUM_REGISTERS]> {
+    fn generate_trace_rows(
+        &self,
+        memory_ops: Vec<(F, F, F, [F; 8], F, F)>,
+    ) -> Vec<[F; NUM_REGISTERS]> {
         let num_ops = memory_ops.len();
 
-        let mut trace_cols: [Vec<F>; NUM_REGISTERS] = vec![vec![F::ZERO; num_ops]; NUM_REGISTERS].try_into().unwrap();
+        let mut trace_cols: [Vec<F>; NUM_REGISTERS] = vec![vec![F::ZERO; num_ops]; NUM_REGISTERS]
+            .try_into()
+            .unwrap();
         for i in 0..num_ops {
             let (context, segment, virt, values, is_read, timestamp) = memory_ops[i];
             trace_cols[MEMORY_ADDR_CONTEXT][i] = context;
@@ -533,8 +538,10 @@ mod tests {
             let (context, segment, virt, vals) = if is_read {
                 let written: Vec<_> = current_memory_values.keys().collect();
                 let &(context, segment, virt) = written[rng.gen_range(0..written.len())];
-                let &vals = current_memory_values.get(&(context, segment, virt)).unwrap();
-                
+                let &vals = current_memory_values
+                    .get(&(context, segment, virt))
+                    .unwrap();
+
                 (context, segment, virt, vals)
             } else {
                 let context = F::from_canonical_usize(rng.gen_range(0..256));
@@ -542,7 +549,12 @@ mod tests {
                 let virt = F::from_canonical_usize(rng.gen_range(0..20));
 
                 let val: [u32; 8] = rng.gen();
-                let vals: [F; 8] = val.iter().map(|&x| F::from_canonical_u32(x)).collect::<Vec<_>>().try_into().unwrap();
+                let vals: [F; 8] = val
+                    .iter()
+                    .map(|&x| F::from_canonical_u32(x))
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap();
 
                 current_memory_values.insert((context, segment, virt), vals);
 
