@@ -13,15 +13,14 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
     let input1_limbs = columns::ADD_INPUT_1.map(|c| lv[c].to_canonical_u64());
 
     // Output has 16-bit limbs, so twice as many limbs as the input
-    let mut output_limbs = [0u16; 2 * columns::N_LIMBS];
+    let mut output_limbs = [0u16; columns::N_LIMBS_16];
 
     let cy = 0u64;
     for (i, &(a, b)) in input0_limbs.zip(input1_limbs).iter().enumerate() {
         let s = a + b + cy;
-        let cy = s >> columns::LIMB_BITS;
+        let cy = s >> 32;
         debug_assert!(cy <= 1u64, "input limbs were larger than 32 bits");
 
-        debug_assert_eq!(columns::LIMB_BITS, 32, "code assumption violated");
         output_limbs[2 * i] = s as u16;
         output_limbs[2 * i + 1] = (s >> 16) as u16;
     }
@@ -44,8 +43,8 @@ pub fn eval_packed_generic<P: PackedField>(
     // The sums can't overflow because the input limbs and output
     // limbs have been range-checked to be 32 and 16 bits respectively.
     let base = P::Scalar::from_canonical_u64(1 << 16);
-    let mut output_received = [P::ZEROS; columns::N_LIMBS]; // pointless init
-    for i in 0..columns::N_LIMBS {
+    let mut output_received = [P::ZEROS; columns::N_LIMBS_32]; // pointless init
+    for i in 0..columns::N_LIMBS_32 {
         let lo = output_limbs[2 * i];
         let hi = output_limbs[2 * i + 1];
         output_received[i] = lo + hi * base;
@@ -69,8 +68,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let base = F::from_canonical_u64(1 << 16);
     let zero = builder.zero_extension();
-    let mut output_received = [zero; columns::N_LIMBS]; // pointless init
-    for i in 0..columns::N_LIMBS {
+    let mut output_received = [zero; columns::N_LIMBS_32]; // pointless init
+    for i in 0..columns::N_LIMBS_32 {
         let lo = output_limbs[2 * i];
         let hi = output_limbs[2 * i + 1];
         output_received[i] = builder.mul_const_add_extension(base, hi, lo);

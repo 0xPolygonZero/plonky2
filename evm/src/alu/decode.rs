@@ -5,6 +5,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::alu::add;
 use crate::alu::columns;
+use crate::alu::mul;
 use crate::alu::sub;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
@@ -13,6 +14,8 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
         add::generate(lv);
     } else if lv[columns::IS_SUB].is_one() {
         sub::generate(lv);
+    } else if lv[columns::IS_MUL].is_one() {
+        mul::generate(lv);
     } else {
         todo!("the requested operation has not yet been implemented");
     }
@@ -55,6 +58,7 @@ pub fn eval_packed_generic<P: PackedField>(
 
     add::eval_packed_generic(lv, yield_constr);
     sub::eval_packed_generic(lv, yield_constr);
+    mul::eval_packed_generic(lv, yield_constr);
     /*
     eval_division(lv, yield_constr);
     eval_bitop(lv, yield_constr);
@@ -82,6 +86,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     add::eval_ext_circuit(builder, lv, yield_constr);
     sub::eval_ext_circuit(builder, lv, yield_constr);
+    mul::eval_ext_circuit(builder, lv, yield_constr);
     /*
     eval_division_circuit(builder, lv, yield_constr);
     eval_bitop_circuit(builder, lv, yield_constr);
