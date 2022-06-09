@@ -17,7 +17,7 @@ use crate::keccak::logic::{
 };
 use crate::keccak::registers::{
     reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
-    reg_b, reg_c, reg_c_partial, reg_step, NUM_REGISTERS,
+    reg_b, reg_c, reg_c_partial, reg_input_limb, reg_step, NUM_REGISTERS,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
 use crate::stark::Stark;
@@ -65,6 +65,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
     fn generate_trace_rows_for_perm(&self, input: [u64; INPUT_LIMBS]) -> Vec<[F; NUM_REGISTERS]> {
         let mut rows = vec![[F::ZERO; NUM_REGISTERS]; NUM_ROUNDS];
 
+        self.copy_input(input, &mut rows[0]);
         for x in 0..5 {
             for y in 0..5 {
                 let input_xy = input[x * 5 + y];
@@ -76,6 +77,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
 
         self.generate_trace_row_for_round(&mut rows[0], 0);
         for round in 1..24 {
+            self.copy_input(input, &mut rows[round]);
             self.copy_output_to_input(rows[round - 1], &mut rows[round]);
             self.generate_trace_row_for_round(&mut rows[round], round);
         }
@@ -188,6 +190,14 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         row[out_reg_hi] = F::from_canonical_u64(row[in_reg_hi].to_canonical_u64() ^ rc_hi);
     }
 
+    fn copy_input(&self, input: [u64; INPUT_LIMBS], row: &mut [F; NUM_REGISTERS]) {
+        for i in 0..INPUT_LIMBS {
+            let (low, high) = (input[i] as u32, input[i] >> 32);
+            row[reg_input_limb(2 * i)] = F::from_canonical_u32(low);
+            row[reg_input_limb(2 * i + 1)] = F::from_canonical_u64(high);
+        }
+    }
+
     pub fn generate_trace(&self, inputs: Vec<[u64; INPUT_LIMBS]>) -> Vec<PolynomialValues<F>> {
         let mut timing = TimingTree::new("generate trace", log::Level::Debug);
 
@@ -222,6 +232,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         P: PackedField<Scalar = FE>,
     {
         eval_round_flags(vars, yield_constr);
+
+        // Constraint the input registers to be equal throughout the rounds of a permutation.
+        for i in 0..2 * INPUT_LIMBS {
+            let local_input_limb = vars.local_values[reg_input_limb(i)];
+            let next_input_limb = vars.next_values[reg_input_limb(i)];
+            let is_last_round = vars.local_values[reg_step(NUM_ROUNDS - 1)];
+            yield_constr.constraint_transition(
+                (P::ONES - is_last_round) * (next_input_limb - local_input_limb),
+            );
+        }
 
         // C_partial[x] = xor(A[x, 0], A[x, 1], A[x, 2])
         for x in 0..5 {
@@ -360,6 +380,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         let two = builder.two();
 
         eval_round_flags_recursively(builder, vars, yield_constr);
+
+        for i in 0..2 * INPUT_LIMBS {
+            let local_input_limb = vars.local_values[reg_input_limb(i)];
+            let next_input_limb = vars.next_values[reg_input_limb(i)];
+            let is_last_round = vars.local_values[reg_step(NUM_ROUNDS - 1)];
+            let diff = builder.sub_extension(local_input_limb, next_input_limb);
+            let constraint = builder.mul_sub_extension(is_last_round, diff, diff);
+            yield_constr.constraint_transition(builder, constraint);
+        }
 
         // C_partial[x] = xor(A[x, 0], A[x, 1], A[x, 2])
         for x in 0..5 {
@@ -513,7 +542,7 @@ mod tests {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     use crate::keccak::keccak_stark::{KeccakStark, INPUT_LIMBS, NUM_ROUNDS};
-    use crate::keccak::registers::reg_a_prime_prime_prime;
+    use crate::keccak::registers::reg_output_limb;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
@@ -557,16 +586,10 @@ mod tests {
 
         let rows = stark.generate_trace_rows(vec![input.try_into().unwrap()]);
         let last_row = rows[NUM_ROUNDS - 1];
-        let mut output = Vec::new();
         let base = F::from_canonical_u64(1 << 32);
-        for x in 0..5 {
-            for y in 0..5 {
-                output.push(
-                    last_row[reg_a_prime_prime_prime(x, y)]
-                        + base * last_row[reg_a_prime_prime_prime(x, y) + 1],
-                );
-            }
-        }
+        let output = (0..INPUT_LIMBS)
+            .map(|i| last_row[reg_output_limb(2 * i)] + base * last_row[reg_output_limb(2 * i + 1)])
+            .collect::<Vec<_>>();
 
         let mut keccak_input: [[u64; 5]; 5] = [
             input[0..5].try_into().unwrap(),
