@@ -95,6 +95,10 @@ where
         let n = buf.len() / Self::WIDTH;
         unsafe { std::slice::from_raw_parts_mut(buf_ptr, n) }
     }
+
+    fn doubles(&self) -> Self {
+        *self * Self::Scalar::TWO
+    }
 }
 
 unsafe impl<F: Field> PackedField for F {

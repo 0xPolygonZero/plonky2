@@ -48,10 +48,10 @@ impl TableWithColumns {
 
 #[derive(Clone)]
 pub struct CrossTableLookup<F: Field> {
-    pub looking_tables: Vec<TableWithColumns>,
-    pub looked_table: TableWithColumns,
+    looking_tables: Vec<TableWithColumns>,
+    looked_table: TableWithColumns,
     /// Default value if filters are not used.
-    pub default: Option<Vec<F>>,
+    default: Option<Vec<F>>,
 }
 
 impl<F: Field> CrossTableLookup<F> {
@@ -70,6 +70,7 @@ impl<F: Field> CrossTableLookup<F> {
                 == default.is_some()
                 && default.is_some() == looked_table.filter_columns.is_empty()
         );
+        assert!(default.len() == looked_columns.len());
         Self {
             looking_tables,
             looked_table,
