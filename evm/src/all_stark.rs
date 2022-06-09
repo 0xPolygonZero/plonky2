@@ -96,7 +96,6 @@ mod tests {
             .map(|_| [0u64; INPUT_LIMBS].map(|_| rng.gen()))
             .collect_vec();
         let keccak_trace = keccak_stark.generate_trace(keccak_inputs);
-        dbg!(keccak_trace[0].len(), keccak_rows);
         let column_to_copy: Vec<_> = keccak_trace[keccak_looked_col].values[..].into();
 
         let default = vec![F::ONE; 1];
