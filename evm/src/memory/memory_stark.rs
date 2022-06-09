@@ -439,11 +439,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::field_types::Field;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     use crate::memory::memory_stark::MemoryStark;
