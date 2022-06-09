@@ -1,18 +1,20 @@
 use std::marker::PhantomData;
 
 use itertools::{izip, multiunzip};
-use plonky2::{field::{field_types::PrimeField64, extension_field::Extendable}, hash::hash_types::RichField, plonk::circuit_builder::CircuitBuilder};
+use plonky2::field::extension_field::{Extendable, FieldExtension};
+use plonky2::field::packed_field::PackedField;
+use plonky2::hash::hash_types::RichField;
 
+use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::memory::registers::{
     memory_value_limb, sorted_memory_value_limb, MEMORY_ADDR_CONTEXT, MEMORY_ADDR_SEGMENT,
-    MEMORY_ADDR_VIRTUAL, MEMORY_IS_READ, MEMORY_TIMESTAMP, SORTED_MEMORY_ADDR_CONTEXT,
-    SORTED_MEMORY_ADDR_SEGMENT, SORTED_MEMORY_ADDR_VIRTUAL, SORTED_MEMORY_TIMESTAMP, SORTED_MEMORY_IS_READ,
-    MEMORY_CONTEXT_FIRST_CHANGE, MEMORY_SEGMENT_FIRST_CHANGE, MEMORY_VIRTUAL_FIRST_CHANGE,
+    MEMORY_ADDR_VIRTUAL, MEMORY_CONTEXT_FIRST_CHANGE, MEMORY_COUNTER, MEMORY_IS_READ,
+    MEMORY_RANGE_CHECK, MEMORY_SEGMENT_FIRST_CHANGE, MEMORY_TIMESTAMP, MEMORY_VIRTUAL_FIRST_CHANGE,
+    NUM_REGISTERS, SORTED_MEMORY_ADDR_CONTEXT, SORTED_MEMORY_ADDR_SEGMENT,
+    SORTED_MEMORY_ADDR_VIRTUAL, SORTED_MEMORY_IS_READ, SORTED_MEMORY_TIMESTAMP,
 };
-
-use crate::vars::{StarkEvaluationVars, StarkEvaluationTargets};
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::stark::Stark;
+use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 #[derive(Default)]
 pub struct TransactionMemory {
@@ -31,6 +33,7 @@ pub struct MemorySegment {
     pub content: Vec<u8>,
 }
 
+pub(crate) const NUM_PUBLIC_INPUTS: usize = 0;
 
 #[derive(Copy, Clone)]
 pub struct MemoryStark<F, const D: usize> {
@@ -157,7 +160,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             .collect();
         let is_read = &trace_cols[MEMORY_IS_READ];
         let timestamp = &trace_cols[MEMORY_TIMESTAMP];
-    
+
         let (
             sorted_context,
             sorted_segment,
@@ -166,10 +169,10 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             sorted_is_read,
             sorted_timestamp,
         ) = sort_memory_ops(context, segment, virtuals, &values, is_read, timestamp);
-    
+
         let (context_first_change, segment_first_change, virtual_first_change) =
             generate_first_change_flags(&sorted_context, &sorted_segment, &sorted_virtual);
-    
+
         let range_check_value = generate_range_check_value(
             &sorted_context,
             &sorted_segment,
@@ -179,7 +182,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
             &segment_first_change,
             &virtual_first_change,
         );
-    
+
         trace_cols[SORTED_MEMORY_ADDR_CONTEXT] = sorted_context;
         trace_cols[SORTED_MEMORY_ADDR_SEGMENT] = sorted_segment;
         trace_cols[SORTED_MEMORY_ADDR_VIRTUAL] = sorted_virtual;
@@ -188,12 +191,13 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         }
         trace_cols[SORTED_MEMORY_IS_READ] = sorted_is_read;
         trace_cols[SORTED_MEMORY_TIMESTAMP] = sorted_timestamp;
-    
+
         trace_cols[MEMORY_CONTEXT_FIRST_CHANGE] = context_first_change;
         trace_cols[MEMORY_SEGMENT_FIRST_CHANGE] = segment_first_change;
         trace_cols[MEMORY_VIRTUAL_FIRST_CHANGE] = virtual_first_change;
-    
-        trace_cols[crate::registers::range_check_degree::col_rc_degree_input(0)] = range_check_value;
+
+        trace_cols[MEMORY_RANGE_CHECK] = range_check_value;
+        trace_cols[MEMORY_COUNTER] = (0..trace_cols.len()).map(|i| F::from_canonical_usize(i)).collect();
     }
 }
 
@@ -201,11 +205,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
     const COLUMNS: usize = NUM_REGISTERS;
     const PUBLIC_INPUTS: usize = NUM_PUBLIC_INPUTS;
 
-    fn eval_packed_generic(
-        vars: StarkEvaluationVars<F, P, NUM_COLUMNS, NUM_PUBLIC_INPUTS>,
+    fn eval_packed_generic<FE, P, const D2: usize>(
+        &self,
+        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
         yield_constr: &mut ConstraintConsumer<P>,
-    ) {
-        let one = P::from(F::ONE);
+    ) where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+        let one = P::from(FE::ONE);
 
         let addr_context = vars.local_values[SORTED_MEMORY_ADDR_CONTEXT];
         let addr_segment = vars.local_values[SORTED_MEMORY_ADDR_SEGMENT];
@@ -230,8 +238,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let timestamp_first_change =
             one - context_first_change - segment_first_change - virtual_first_change;
 
-        let range_check =
-            vars.local_values[crate::registers::range_check_degree::col_rc_degree_input(0)];
+        let range_check = vars.local_values[MEMORY_RANGE_CHECK];
 
         let not_context_first_change = one - context_first_change;
         let not_segment_first_change = one - segment_first_change;
@@ -266,9 +273,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         }
     }
 
-    fn eval_memory_recursively(
-        builder: &mut CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, NUM_COLUMNS, NUM_PUBLIC_INPUTS>,
+    fn eval_ext_circuit(
+        &self,
+        builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+        vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         let one = builder.one_extension();
@@ -299,8 +307,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             builder.sub_extension(cur, virtual_first_change)
         };
 
-        let range_check =
-            vars.local_values[crate::registers::range_check_degree::col_rc_degree_input(0)];
+        let range_check = vars.local_values[MEMORY_RANGE_CHECK];
 
         let not_context_first_change = builder.sub_extension(one, context_first_change);
         let not_segment_first_change = builder.sub_extension(one, segment_first_change);
@@ -325,7 +332,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         yield_constr.constraint(builder, timestamp_first_change_bool);
 
         // Second set of ordering constraints: no change before the column corresponding to the nonzero first_change flag.
-        let segment_first_change_check = builder.mul_extension(segment_first_change, addr_context_diff);
+        let segment_first_change_check =
+            builder.mul_extension(segment_first_change, addr_context_diff);
         yield_constr.constraint(builder, segment_first_change_check);
         let virtual_first_change_check_1 =
             builder.mul_extension(virtual_first_change, addr_context_diff);
@@ -380,5 +388,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);
             yield_constr.constraint(builder, read_constraint);
         }
+    }
+
+    fn constraint_degree(&self) -> usize {
+        3
     }
 }
