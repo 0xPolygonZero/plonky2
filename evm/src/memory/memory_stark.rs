@@ -8,12 +8,14 @@ use plonky2::hash::hash_types::RichField;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::memory::registers::{
     memory_value_limb, sorted_memory_value_limb, MEMORY_ADDR_CONTEXT, MEMORY_ADDR_SEGMENT,
-    MEMORY_ADDR_VIRTUAL, MEMORY_CONTEXT_FIRST_CHANGE, MEMORY_COUNTER, MEMORY_IS_READ,
-    MEMORY_RANGE_CHECK, MEMORY_SEGMENT_FIRST_CHANGE, MEMORY_TIMESTAMP, MEMORY_VIRTUAL_FIRST_CHANGE,
-    NUM_REGISTERS, SORTED_MEMORY_ADDR_CONTEXT, SORTED_MEMORY_ADDR_SEGMENT,
-    SORTED_MEMORY_ADDR_VIRTUAL, SORTED_MEMORY_IS_READ, SORTED_MEMORY_TIMESTAMP,
+    MEMORY_ADDR_VIRTUAL, MEMORY_CONTEXT_FIRST_CHANGE, MEMORY_COUNTER, MEMORY_COUNTER_PERMUTED,
+    MEMORY_IS_READ, MEMORY_RANGE_CHECK, MEMORY_RANGE_CHECK_PERMUTED, MEMORY_SEGMENT_FIRST_CHANGE,
+    MEMORY_TIMESTAMP, MEMORY_VIRTUAL_FIRST_CHANGE, NUM_REGISTERS, SORTED_MEMORY_ADDR_CONTEXT,
+    SORTED_MEMORY_ADDR_SEGMENT, SORTED_MEMORY_ADDR_VIRTUAL, SORTED_MEMORY_IS_READ,
+    SORTED_MEMORY_TIMESTAMP,
 };
 use crate::stark::Stark;
+use crate::util::permuted_cols;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 #[derive(Default)]
@@ -197,7 +199,14 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         trace_cols[MEMORY_VIRTUAL_FIRST_CHANGE] = virtual_first_change;
 
         trace_cols[MEMORY_RANGE_CHECK] = range_check_value;
-        trace_cols[MEMORY_COUNTER] = (0..trace_cols.len()).map(|i| F::from_canonical_usize(i)).collect();
+        trace_cols[MEMORY_COUNTER] = (0..trace_cols.len())
+            .map(|i| F::from_canonical_usize(i))
+            .collect();
+
+        let (permuted_inputs, permuted_table) =
+            permuted_cols(&trace_cols[MEMORY_RANGE_CHECK], &trace_cols[MEMORY_COUNTER]);
+        trace_cols[MEMORY_RANGE_CHECK_PERMUTED] = permuted_inputs;
+        trace_cols[MEMORY_COUNTER_PERMUTED] = permuted_table;
     }
 }
 
@@ -271,6 +280,23 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             yield_constr
                 .constraint(next_is_read * timestamp_first_change * (next_values[i] - values[i]));
         }
+
+        // Lookup argument for the range check.
+        let local_perm_input = vars.local_values[MEMORY_RANGE_CHECK_PERMUTED];
+        let next_perm_table = vars.next_values[MEMORY_COUNTER_PERMUTED];
+        let next_perm_input = vars.next_values[MEMORY_COUNTER_PERMUTED];
+
+        // A "vertical" diff between the local and next permuted inputs.
+        let diff_input_prev = next_perm_input - local_perm_input;
+        // A "horizontal" diff between the next permuted input and permuted table value.
+        let diff_input_table = next_perm_input - next_perm_table;
+
+        yield_constr.constraint(diff_input_prev * diff_input_table);
+
+        // This is actually constraining the first row, as per the spec, since `diff_input_table`
+        // is a diff of the next row's values. In the context of `constraint_last_row`, the next
+        // row is the first row.
+        yield_constr.constraint_last_row(diff_input_table);
     }
 
     fn eval_ext_circuit(
@@ -388,6 +414,24 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);
             yield_constr.constraint(builder, read_constraint);
         }
+
+        // Lookup argument for range check.
+        let local_perm_input = vars.local_values[MEMORY_RANGE_CHECK_PERMUTED];
+        let next_perm_table = vars.next_values[MEMORY_COUNTER_PERMUTED];
+        let next_perm_input = vars.next_values[MEMORY_COUNTER_PERMUTED];
+
+        // A "vertical" diff between the local and next permuted inputs.
+        let diff_input_prev = builder.sub_extension(next_perm_input, local_perm_input);
+        // A "horizontal" diff between the next permuted input and permuted table value.
+        let diff_input_table = builder.sub_extension(next_perm_input, next_perm_table);
+
+        let diff_product = builder.mul_extension(diff_input_prev, diff_input_table);
+        yield_constr.constraint(builder, diff_product);
+
+        // This is actually constraining the first row, as per the spec, since `diff_input_table`
+        // is a diff of the next row's values. In the context of `constraint_last_row`, the next
+        // row is the first row.
+        yield_constr.constraint_last_row(builder, diff_input_table);
     }
 
     fn constraint_degree(&self) -> usize {

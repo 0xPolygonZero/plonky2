@@ -30,5 +30,7 @@ pub(crate) const MEMORY_VIRTUAL_FIRST_CHANGE: usize = MEMORY_SEGMENT_FIRST_CHANG
 
 pub(crate) const MEMORY_RANGE_CHECK: usize = MEMORY_VIRTUAL_FIRST_CHANGE + 1;
 pub(crate) const MEMORY_COUNTER: usize = MEMORY_RANGE_CHECK + 1;
+pub(crate) const MEMORY_RANGE_CHECK_PERMUTED: usize = MEMORY_COUNTER + 1;
+pub(crate) const MEMORY_COUNTER_PERMUTED: usize = MEMORY_RANGE_CHECK_PERMUTED + 1;
 
-pub(crate) const NUM_REGISTERS: usize = MEMORY_COUNTER + 1;
+pub(crate) const NUM_REGISTERS: usize = MEMORY_COUNTER_PERMUTED + 1;
