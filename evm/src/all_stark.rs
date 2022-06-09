@@ -87,11 +87,11 @@ mod tests {
         let keccak_stark = KeccakStark::<F, D> {
             f: Default::default(),
         };
-        let keccak_rows = (NUM_ROUNDS + 1).next_power_of_two();
+        let keccak_rows = (2 * NUM_ROUNDS + 1).next_power_of_two();
         let keccak_looked_col = 3;
 
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
-        let num_inputs = 1;
+        let num_inputs = 2;
         let keccak_inputs = (0..num_inputs)
             .map(|_| [0u64; INPUT_LIMBS].map(|_| rng.gen()))
             .collect_vec();
