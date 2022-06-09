@@ -7,6 +7,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::alu::columns;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
+#[allow(clippy::needless_range_loop)]
 pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
     // NB: multiplication inputs are given as 16-bit limbs, not 32.
     let input0_limbs16 = columns::MUL_INPUT_0.map(|c| lv[c].to_canonical_u64());
@@ -51,6 +52,7 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
     }
 }
 
+#[allow(clippy::needless_range_loop)]
 pub fn eval_packed_generic<P: PackedField>(
     lv: &[P; columns::NUM_ALU_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
@@ -91,6 +93,7 @@ pub fn eval_packed_generic<P: PackedField>(
     }
 }
 
+#[allow(clippy::needless_range_loop)]
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; columns::NUM_ALU_COLUMNS],
