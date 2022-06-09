@@ -11,7 +11,8 @@ use plonky2::hash::poseidon::PoseidonHash;
 use plonky2::plonk::config::Hasher;
 use tynm::type_name;
 
-const ELEMS_PER_LEAF: usize = 135;
+const SIZE_LOG: usize = 23;
+const SIZE: usize = 1 << SIZE_LOG;
 
 pub(crate) fn bench_merkle_tree<F: RichField, H: Hasher<F>>(c: &mut Criterion)
 where
@@ -24,12 +25,15 @@ where
     ));
     group.sample_size(10);
 
-    for size_log in [13, 14, 15] {
-        let size = 1 << size_log;
-        group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
-            let leaves = vec![F::rand_vec(ELEMS_PER_LEAF); size];
-            b.iter(|| MerkleTree::<F, H>::new(leaves.clone(), 0));
-        });
+    for num_polys in [64, 100, 128, 255] {
+        group.bench_with_input(
+            BenchmarkId::from_parameter(num_polys),
+            &num_polys,
+            |b, _| {
+                let leaves = vec![F::rand_vec(num_polys); SIZE];
+                b.iter(|| MerkleTree::<F, H>::new(leaves.clone(), 0));
+            },
+        );
     }
 }
 
