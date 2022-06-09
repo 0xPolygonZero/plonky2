@@ -10,45 +10,47 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 #[allow(clippy::needless_range_loop)]
 pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
     // NB: multiplication inputs are given as 16-bit limbs, not 32.
-    let input0_limbs16 = columns::MUL_INPUT_0.map(|c| lv[c].to_canonical_u64());
-    let input1_limbs16 = columns::MUL_INPUT_1.map(|c| lv[c].to_canonical_u64());
-    debug_assert_eq!(input0_limbs16.len(), columns::N_LIMBS_16);
-
-    // Create the 32-bit limbed equivalent inputs
-    let mut input0_limbs = [0u64; columns::N_LIMBS_32];
-    let mut input1_limbs = [0u64; columns::N_LIMBS_32];
-    for i in 0..columns::N_LIMBS_32 {
-        input0_limbs[i] = input0_limbs16[2 * i] + (input0_limbs[2 * i + 1] << 16);
-        input1_limbs[i] = input1_limbs16[2 * i] + (input1_limbs[2 * i + 1] << 16);
-    }
+    let input0_limbs = columns::MUL_INPUT_0.map(|c| lv[c].to_canonical_u64());
+    let input1_limbs = columns::MUL_INPUT_1.map(|c| lv[c].to_canonical_u64());
+    debug_assert_eq!(input0_limbs.len(), columns::N_LIMBS_16);
 
     // Output has 16-bit limbs, same as the input
     let mut output_limbs = [0u16; columns::N_LIMBS_16];
+    let mut aux_in_limbs = [0u64; columns::N_LIMBS_16];
 
-    // Column-wise pen-and-paper long multiplication on 32-bit limbs.
+    // Column-wise pen-and-paper long multiplication on 16-bit limbs.
     // We have heaps of space at the top of each limb, so by
     // calculating column-wise (instead of the usual row-wise) we
     // avoid a bunch of carry propagation handling (at the expense of
     // slightly worse cache coherency).
-    let mut acc_col_hi = 0u64;
-    for col in 0..columns::N_LIMBS_32 {
-        let mut acc_col_lo = acc_col_hi;
-        acc_col_hi = 0u64;
+    let mut cy = 0u64;
+    for col in 0..columns::N_LIMBS_16 {
         for i in 0..col {
             // Invariant: i + j = col
             let j = col - i;
             let p = input0_limbs[i] * input1_limbs[j];
-            acc_col_lo += (p as u32) as u64;
-            acc_col_hi += (p >> 32) as u64;
+            aux_in_limbs[col] += p;
         }
-        acc_col_hi += acc_col_lo >> 32;
-        output_limbs[2 * col] = acc_col_lo as u16;
-        output_limbs[2 * col + 1] = (acc_col_lo >> 16) as u16;
+        let t = aux_in_limbs[col] + cy;
+        cy = t >> 16;
+        output_limbs[col] = t as u16;
     }
     // last acc_col_hi is dropped because this is multiplication modulo 2^256.
 
     for &(c, output_limb) in columns::MUL_OUTPUT.zip(output_limbs).iter() {
         lv[c] = F::from_canonical_u16(output_limb);
+    }
+    aux_in_limbs = aux_in_limbs.zip(output_limbs).map(|(ab, c)| ab - c as u64);
+    // FIXME: Check minus signs
+    aux_in_limbs[0] >>= 16;
+    for deg in 1..columns::N_LIMBS_16 - 1 {
+        aux_in_limbs[deg] = (aux_in_limbs[deg] - aux_in_limbs[deg - 1]) >> 16;
+    }
+    // Can ignore the last element of aux_in_limbs
+
+    for deg in 0..columns::N_LIMBS_16 - 1 {
+        let c = columns::MUL_AUX_INPUT[deg];
+        lv[c] = F::from_canonical_u64(aux_in_limbs[deg]);
     }
 }
 
