@@ -56,14 +56,12 @@ mod tests {
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
-    use rand::{Rng, SeedableRng};
-    use rand_chacha::ChaCha8Rng;
+    use rand::{thread_rng, Rng};
 
     use crate::all_stark::{AllStark, Table};
     use crate::config::StarkConfig;
-    use crate::cpu;
     use crate::cpu::cpu_stark::CpuStark;
-    use crate::cross_table_lookup::CrossTableLookup;
+    use crate::cross_table_lookup::{CrossTableLookup, TableWithColumns};
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::proof::AllProof;
     use crate::prover::prove;
@@ -73,6 +71,7 @@ mod tests {
     use crate::stark::Stark;
     use crate::util::trace_rows_to_poly_values;
     use crate::verifier::verify_proof;
+    use crate::{cpu, keccak};
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -87,42 +86,74 @@ mod tests {
         let keccak_stark = KeccakStark::<F, D> {
             f: Default::default(),
         };
-        let keccak_rows = (2 * NUM_ROUNDS + 1).next_power_of_two();
-        let keccak_looked_col = 3;
 
-        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+        let mut rng = thread_rng();
         let num_inputs = 2;
         let keccak_inputs = (0..num_inputs)
             .map(|_| [0u64; NUM_INPUTS].map(|_| rng.gen()))
             .collect_vec();
         let keccak_trace = keccak_stark.generate_trace(keccak_inputs);
-        let column_to_copy: Vec<_> = keccak_trace[keccak_looked_col].values[..].into();
-
-        let default = vec![F::ONE; 1];
+        let keccak_input_limbs: Vec<[F; 2 * NUM_INPUTS]> = (0..num_inputs)
+            .map(|i| {
+                (0..2 * NUM_INPUTS)
+                    .map(|j| {
+                        keccak_trace[keccak::registers::reg_input_limb(j)].values
+                            [(i + 1) * NUM_ROUNDS - 1]
+                    })
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap()
+            })
+            .collect();
+        let keccak_output_limbs: Vec<[F; 2 * NUM_INPUTS]> = (0..num_inputs)
+            .map(|i| {
+                (0..2 * NUM_INPUTS)
+                    .map(|j| {
+                        keccak_trace[keccak::registers::reg_output_limb(j)].values
+                            [(i + 1) * NUM_ROUNDS - 1]
+                    })
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap()
+            })
+            .collect();
 
         let mut cpu_trace_rows = vec![];
         for i in 0..cpu_rows {
             let mut cpu_trace_row = [F::ZERO; CpuStark::<F, D>::COLUMNS];
             cpu_trace_row[cpu::columns::IS_CPU_CYCLE] = F::ONE;
-            if i < keccak_rows {
-                cpu_trace_row[cpu::columns::OPCODE] = column_to_copy[i];
-            } else {
-                cpu_trace_row[cpu::columns::OPCODE] = default[0];
-            }
+            cpu_trace_row[cpu::columns::OPCODE] = F::from_canonical_usize(i);
             cpu_stark.generate(&mut cpu_trace_row);
             cpu_trace_rows.push(cpu_trace_row);
         }
+        for i in 0..num_inputs {
+            cpu_trace_rows[i][cpu::columns::IS_KECCAK] = F::ONE;
+            for j in 0..2 * NUM_INPUTS {
+                cpu_trace_rows[i][cpu::columns::KECCAK_INPUT_LIMBS[j]] = keccak_input_limbs[i][j];
+                cpu_trace_rows[i][cpu::columns::KECCAK_OUTPUT_LIMBS[j]] = keccak_output_limbs[i][j];
+            }
+        }
         let cpu_trace = trace_rows_to_poly_values(cpu_trace_rows);
 
-        // TODO: temporary until cross-table-lookup filters are implemented
+        let mut cpu_keccak_input_output = cpu::columns::KECCAK_INPUT_LIMBS.to_vec();
+        cpu_keccak_input_output.extend(cpu::columns::KECCAK_OUTPUT_LIMBS);
+        let mut keccak_keccak_input_output = (0..2 * NUM_INPUTS)
+            .map(keccak::registers::reg_input_limb)
+            .collect::<Vec<_>>();
+        keccak_keccak_input_output
+            .extend((0..2 * NUM_INPUTS).map(keccak::registers::reg_output_limb));
         let cross_table_lookups = vec![CrossTableLookup::new(
             vec![TableWithColumns::new(
                 Table::Cpu,
-                vec![cpu::columns::OPCODE],
-                vec![],
+                cpu_keccak_input_output,
+                vec![cpu::columns::IS_KECCAK],
             )],
-            TableWithColumns::new(Table::Keccak, vec![keccak_looked_col], vec![]),
-            Some(default),
+            TableWithColumns::new(
+                Table::Keccak,
+                keccak_keccak_input_output,
+                vec![keccak::registers::reg_step(NUM_ROUNDS - 1)],
+            ),
+            None,
         )];
 
         let all_stark = AllStark {
