@@ -1,9 +1,33 @@
-use crate::keccak::keccak_stark::NUM_ROUNDS;
+use crate::keccak::keccak_stark::{NUM_INPUTS, NUM_ROUNDS};
 
 /// A register which is set to 1 if we are in the `i`th round, otherwise 0.
 pub(crate) const fn reg_step(i: usize) -> usize {
     debug_assert!(i < NUM_ROUNDS);
     i
+}
+
+/// Registers to hold permutation inputs.
+/// `reg_input_limb(2*i) -> input[i] as u32`
+/// `reg_input_limb(2*i+1) -> input[i] >> 32`
+pub(crate) const fn reg_input_limb(i: usize) -> usize {
+    debug_assert!(i < 2 * NUM_INPUTS);
+    NUM_ROUNDS + i
+}
+
+/// Registers to hold permutation outputs.
+/// `reg_output_limb(2*i) -> output[i] as u32`
+/// `reg_output_limb(2*i+1) -> output[i] >> 32`
+#[allow(dead_code)] // TODO: Remove once it is used.
+pub(crate) const fn reg_output_limb(i: usize) -> usize {
+    debug_assert!(i < 2 * NUM_INPUTS);
+    let ii = i / 2;
+    let x = ii / 5;
+    let y = ii % 5;
+    if i % 2 == 0 {
+        reg_a_prime_prime_prime(x, y)
+    } else {
+        reg_a_prime_prime_prime(x, y) + 1
+    }
 }
 
 const R: [[u8; 5]; 5] = [
@@ -14,7 +38,7 @@ const R: [[u8; 5]; 5] = [
     [27, 20, 39, 8, 14],
 ];
 
-const START_A: usize = NUM_ROUNDS;
+const START_A: usize = NUM_ROUNDS + 2 * NUM_INPUTS;
 pub(crate) const fn reg_a(x: usize, y: usize, z: usize) -> usize {
     debug_assert!(x < 5);
     debug_assert!(y < 5);

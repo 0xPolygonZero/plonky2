@@ -64,7 +64,7 @@ mod tests {
     use crate::cpu;
     use crate::cpu::cpu_stark::CpuStark;
     use crate::cross_table_lookup::CrossTableLookup;
-    use crate::keccak::keccak_stark::{KeccakStark, INPUT_LIMBS, NUM_ROUNDS};
+    use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::proof::AllProof;
     use crate::prover::prove;
     use crate::recursive_verifier::{
@@ -93,7 +93,7 @@ mod tests {
         let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
         let num_inputs = 2;
         let keccak_inputs = (0..num_inputs)
-            .map(|_| [0u64; INPUT_LIMBS].map(|_| rng.gen()))
+            .map(|_| [0u64; NUM_INPUTS].map(|_| rng.gen()))
             .collect_vec();
         let keccak_trace = keccak_stark.generate_trace(keccak_inputs);
         let column_to_copy: Vec<_> = keccak_trace[keccak_looked_col].values[..].into();
