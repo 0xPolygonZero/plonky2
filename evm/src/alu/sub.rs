@@ -44,12 +44,14 @@ pub fn eval_packed_generic<P: PackedField>(
     let output_limbs = columns::SUB_OUTPUT.iter().map(|&c| lv[c]);
 
     let limb_boundary = P::Scalar::from_canonical_u64(1 << columns::LIMB_BITS);
-    let output_computed = input0_limbs.zip(input1_limbs).map(
-        |(a, b)| limb_boundary + a - b);
+    let output_computed = input0_limbs
+        .zip(input1_limbs)
+        .map(|(a, b)| limb_boundary + a - b);
 
     utils::eval_packed_generic_are_equal(yield_constr, is_sub, output_computed, output_limbs);
 }
 
+#[allow(clippy::needless_collect)]
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; columns::NUM_ALU_COLUMNS],
@@ -63,11 +65,13 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // 2^16 in the base field
     let limb_boundary = F::from_canonical_u64(1 << columns::LIMB_BITS);
 
-    let output_computed = input0_limbs.zip(input1_limbs).map(
-        |(a, b)| {
+    let output_computed = input0_limbs
+        .zip(input1_limbs)
+        .map(|(a, b)| {
             let t = builder.add_const_extension(a, limb_boundary);
             builder.sub_extension(t, b)
-        }).collect::<Vec<ExtensionTarget<D>>>();
+        })
+        .collect::<Vec<ExtensionTarget<D>>>();
 
     utils::eval_ext_circuit_are_equal(
         builder,

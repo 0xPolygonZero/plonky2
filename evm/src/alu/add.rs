@@ -45,6 +45,7 @@ pub fn eval_packed_generic<P: PackedField>(
     utils::eval_packed_generic_are_equal(yield_constr, is_add, output_computed, output_limbs);
 }
 
+#[allow(clippy::needless_collect)]
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; columns::NUM_ALU_COLUMNS],
@@ -55,9 +56,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let input1_limbs = columns::ADD_INPUT_1.iter().map(|&c| lv[c]);
     let output_limbs = columns::ADD_OUTPUT.iter().map(|&c| lv[c]);
 
-    let output_computed = input0_limbs.zip(input1_limbs).map(
-        |(a, b)| builder.add_extension(a, b)
-    ).collect::<Vec<ExtensionTarget<D>>>();
+    let output_computed = input0_limbs
+        .zip(input1_limbs)
+        .map(|(a, b)| builder.add_extension(a, b))
+        .collect::<Vec<ExtensionTarget<D>>>();
 
     utils::eval_ext_circuit_are_equal(
         builder,

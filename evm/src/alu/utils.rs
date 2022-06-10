@@ -15,8 +15,7 @@ pub fn eval_packed_generic_are_equal<P, I, J>(
     is_op: P,
     larger: I,
     smaller: J,
-)
-where
+) where
     P: PackedField,
     I: Iterator<Item = P>,
     J: Iterator<Item = P>,
@@ -42,8 +41,7 @@ pub fn eval_ext_circuit_are_equal<F, const D: usize, I, J>(
     is_op: ExtensionTarget<D>,
     larger: I,
     smaller: J,
-)
-where
+) where
     F: RichField + Extendable<D>,
     I: Iterator<Item = ExtensionTarget<D>>,
     J: Iterator<Item = ExtensionTarget<D>>,
