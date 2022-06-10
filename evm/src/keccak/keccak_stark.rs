@@ -27,8 +27,8 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 /// Number of rounds in a Keccak permutation.
 pub(crate) const NUM_ROUNDS: usize = 24;
 
-/// Number of 64-bit limbs in a preimage of the Keccak permutation.
-pub(crate) const INPUT_LIMBS: usize = 25;
+/// Number of 64-bit elements in the Keccak permutation input.
+pub(crate) const NUM_INPUTS: usize = 25;
 
 pub(crate) const NUM_PUBLIC_INPUTS: usize = 0;
 
@@ -42,7 +42,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
     /// in our lookup arguments, as those are computed after transposing to column-wise form.
     pub(crate) fn generate_trace_rows(
         &self,
-        inputs: Vec<[u64; INPUT_LIMBS]>,
+        inputs: Vec<[u64; NUM_INPUTS]>,
     ) -> Vec<[F; NUM_REGISTERS]> {
         let num_rows = (inputs.len() * NUM_ROUNDS).next_power_of_two();
         info!("{} rows", num_rows);
@@ -51,7 +51,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
             rows.extend(self.generate_trace_rows_for_perm(*input));
         }
 
-        let pad_rows = self.generate_trace_rows_for_perm([0; INPUT_LIMBS]);
+        let pad_rows = self.generate_trace_rows_for_perm([0; NUM_INPUTS]);
         while rows.len() < num_rows {
             rows.extend(&pad_rows);
         }
@@ -59,7 +59,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         rows
     }
 
-    fn generate_trace_rows_for_perm(&self, input: [u64; INPUT_LIMBS]) -> Vec<[F; NUM_REGISTERS]> {
+    fn generate_trace_rows_for_perm(&self, input: [u64; NUM_INPUTS]) -> Vec<[F; NUM_REGISTERS]> {
         let mut rows = vec![[F::ZERO; NUM_REGISTERS]; NUM_ROUNDS];
 
         self.copy_input(input, &mut rows[0]);
@@ -187,15 +187,15 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         row[out_reg_hi] = F::from_canonical_u64(row[in_reg_hi].to_canonical_u64() ^ rc_hi);
     }
 
-    fn copy_input(&self, input: [u64; INPUT_LIMBS], row: &mut [F; NUM_REGISTERS]) {
-        for i in 0..INPUT_LIMBS {
+    fn copy_input(&self, input: [u64; NUM_INPUTS], row: &mut [F; NUM_REGISTERS]) {
+        for i in 0..NUM_INPUTS {
             let (low, high) = (input[i] as u32, input[i] >> 32);
             row[reg_input_limb(2 * i)] = F::from_canonical_u32(low);
             row[reg_input_limb(2 * i + 1)] = F::from_canonical_u64(high);
         }
     }
 
-    pub fn generate_trace(&self, inputs: Vec<[u64; INPUT_LIMBS]>) -> Vec<PolynomialValues<F>> {
+    pub fn generate_trace(&self, inputs: Vec<[u64; NUM_INPUTS]>) -> Vec<PolynomialValues<F>> {
         let mut timing = TimingTree::new("generate trace", log::Level::Debug);
 
         // Generate the witness, except for permuted columns in the lookup argument.
@@ -230,7 +230,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
     {
         eval_round_flags(vars, yield_constr);
 
-        for i in 0..2 * INPUT_LIMBS {
+        for i in 0..2 * NUM_INPUTS {
             let local_input_limb = vars.local_values[reg_input_limb(i)];
             let next_input_limb = vars.next_values[reg_input_limb(i)];
             let is_last_round = vars.local_values[reg_step(NUM_ROUNDS - 1)];
@@ -390,7 +390,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
 
         eval_round_flags_recursively(builder, vars, yield_constr);
 
-        for i in 0..2 * INPUT_LIMBS {
+        for i in 0..2 * NUM_INPUTS {
             let local_input_limb = vars.local_values[reg_input_limb(i)];
             let next_input_limb = vars.next_values[reg_input_limb(i)];
             let is_last_round = vars.local_values[reg_step(NUM_ROUNDS - 1)];
@@ -563,7 +563,7 @@ mod tests {
     use plonky2::field::field_types::Field;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
-    use crate::keccak::keccak_stark::{KeccakStark, INPUT_LIMBS, NUM_ROUNDS};
+    use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
     use crate::keccak::registers::reg_output_limb;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
@@ -595,7 +595,7 @@ mod tests {
 
     #[test]
     fn keccak_correctness_test() -> Result<()> {
-        let input: [u64; INPUT_LIMBS] = rand::random();
+        let input: [u64; NUM_INPUTS] = rand::random();
 
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
@@ -609,7 +609,7 @@ mod tests {
         let rows = stark.generate_trace_rows(vec![input.try_into().unwrap()]);
         let last_row = rows[NUM_ROUNDS - 1];
         let base = F::from_canonical_u64(1 << 32);
-        let output = (0..INPUT_LIMBS)
+        let output = (0..NUM_INPUTS)
             .map(|i| last_row[reg_output_limb(2 * i)] + base * last_row[reg_output_limb(2 * i + 1)])
             .collect::<Vec<_>>();
 
