@@ -5,19 +5,23 @@ mod allocator;
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::hash::hash_types::RichField;
+use plonky2::hash::keccak::KeccakHash;
 use plonky2::hash::merkle_tree::MerkleTree;
+use plonky2::hash::poseidon::PoseidonHash;
 use plonky2::plonk::config::Hasher;
 use plonky2::util::transpose;
 use plonky2_field::polynomial::PolynomialValues;
 use rayon::prelude::*;
 use tynm::type_name;
-use plonky2::hash::hash_types::RichField;
-use plonky2::hash::poseidon::PoseidonHash;
 
 const SIZE_LOG: usize = 23;
 const SIZE: usize = 1 << SIZE_LOG;
 
-pub(crate) fn bench_lde_merkle_trees<F: RichField, H: Hasher<F>>(c: &mut Criterion) where [(); H::HASH_SIZE]: {
+pub(crate) fn bench_lde_merkle_trees<F: RichField, H: Hasher<F>>(c: &mut Criterion)
+where
+    [(); H::HASH_SIZE]:,
+{
     const RATE_BITS: usize = 2;
 
     let mut group = c.benchmark_group(&format!(
@@ -48,6 +52,7 @@ pub(crate) fn bench_lde_merkle_trees<F: RichField, H: Hasher<F>>(c: &mut Criteri
 
 fn criterion_benchmark(c: &mut Criterion) {
     bench_lde_merkle_trees::<GoldilocksField, PoseidonHash>(c);
+    bench_lde_merkle_trees::<GoldilocksField, KeccakHash<25>>(c);
 }
 
 criterion_group!(benches, criterion_benchmark);

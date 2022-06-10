@@ -3,7 +3,6 @@ mod allocator;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use plonky2::field::field_types::Field;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::field::polynomial::PolynomialCoeffs;
 use plonky2_field::polynomial::PolynomialValues;
 use rayon::prelude::*;
 use tynm::type_name;
@@ -12,7 +11,7 @@ const SIZE_LOG: usize = 23;
 const SIZE: usize = 1 << SIZE_LOG;
 
 pub(crate) fn bench_ffts<F: Field>(c: &mut Criterion) {
-    let mut group = c.benchmark_group(&format!("fft<{}>", type_name::<F>()));
+    let mut group = c.benchmark_group(&format!("intt<{}>", type_name::<F>()));
     group.sample_size(10);
 
     for num_polys in [64, 100, 128, 255] {
@@ -20,11 +19,11 @@ pub(crate) fn bench_ffts<F: Field>(c: &mut Criterion) {
             BenchmarkId::from_parameter(num_polys),
             &num_polys,
             |b, _| {
-                let coeffs = PolynomialCoeffs::new(F::rand_vec(SIZE));
+                let coeffs = PolynomialValues::new(F::rand_vec(SIZE));
                 b.iter(|| {
                     (0..num_polys)
                         .into_par_iter()
-                        .map(|_| coeffs.clone().fft_with_options(None, None))
+                        .map(|_| coeffs.clone().ifft())
                         .collect::<Vec<_>>()
                 });
             },
