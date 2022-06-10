@@ -37,7 +37,7 @@ pub fn generate<F: RichField>(lv: &mut [F; columns::NUM_ALU_COLUMNS]) {
     }
     // last cy is dropped because this is multiplication modulo 2^256.
 
-    for &(c, output_limb) in columns::MUL_OUTPUT.zip(output_limbs).iter() {
+    for (&c, &output_limb) in columns::MUL_OUTPUT.iter().zip(output_limbs.iter()) {
         lv[c] = F::from_canonical_u64(output_limb);
     }
     aux_in_limbs = aux_in_limbs.zip(output_limbs).map(|(ab, c)| ab - c as u64);
@@ -79,7 +79,16 @@ pub fn eval_packed_generic<P: PackedField>(
         }
     }
 
-    debug_assert_eq!(aux_in_limbs.len(), columns::N_LIMBS - 1);
+    // At this point constr_poly holds the coefficients of the
+    // polynomial A(x)B(x) - C(x), where A, B and C are the polynomials
+    //
+    //   A(x) = \sum_i input0_limbs[i] * 2^LIMB_BITS
+    //   B(x) = \sum_i input1_limbs[i] * 2^LIMB_BITS
+    //   C(x) = \sum_i output_limbs[i] * 2^LIMB_BITS
+    //
+    // This polynomial should equal (x - 2^LIMB_BITS) * Q(x) where Q is
+    //
+    //   Q(x) = \sum_i aux_in_limbs[i] * 2^LIMB_BITS
 
     // This subtracts (x - 2^16) * AUX_IN from constr_poly.
     let base = P::Scalar::from_canonical_u64(1 << columns::LIMB_BITS);
@@ -89,6 +98,10 @@ pub fn eval_packed_generic<P: PackedField>(
     }
     constr_poly[columns::N_LIMBS - 1] -= aux_in_limbs[columns::N_LIMBS - 2];
 
+    // At this point constr_poly holds the coefficients of the
+    // polynomial A(x)B(x) - C(x) - (x - 2^LIMB_BITS) Q(x). The
+    // multiplication is valid if and only if all of those
+    // coefficients are zero.
     for &c in &constr_poly {
         yield_constr.constraint(is_mul * c);
     }
